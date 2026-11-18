@@ -1217,11 +1217,13 @@ fn asset_ids_named(c: &Connection, exchange_id: i64, name: &str) -> Result<Vec<i
 }
 
 /// AccountTransactionSync.rows_naming as a WHERE clause over `transactions`: the user's submitted orders on this
-/// venue for the asset a symbol names (params: ?1 exchange, ?2 user, ?3 symbol).
+/// venue for the asset a symbol names (params: ?1 exchange, ?2 user, ?3 symbol). Only splits read it, and a split is a
+/// security's corporate action: an order that stored a coin is never named (#478), whichever arm matched it.
 fn rows_naming(c: &Connection, exchange_id: i64, symbol: &str) -> Result<String, SyncError> {
     let ids = asset_ids_named(c, exchange_id, symbol)?.iter().map(i64::to_string).collect::<Vec<_>>().join(", ");
     let by_asset = if ids.is_empty() { String::new() } else { format!(" OR base_asset_id IN ({ids})") };
-    Ok(format!("status = 0 AND exchange_id = ?1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2) AND (base = ?3{by_asset})"))
+    Ok(format!("status = 0 AND exchange_id = ?1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2) AND (base = ?3{by_asset}) \
+                AND NOT EXISTS (SELECT 1 FROM assets a WHERE a.id = transactions.base_asset_id AND a.category = 'Cryptocurrency')"))
 }
 
 /// The bots AccountTransactionSync.expire_restated_bots moves: every bot of the user that traded the symbol on this venue.

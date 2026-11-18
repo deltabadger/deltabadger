@@ -144,9 +144,14 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let eligible=format!("SELECT DISTINCT exchange_id FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE user_id=?1 AND status!={}) \
         AND status={} AND (trim(base)<>'' OR base_asset_id IS NOT NULL) ORDER BY exchange_id",crate::enums::BotStatus::Deleted as i64,crate::enums::TxStatus::Submitted as i64);
     let venues_traded=c.prepare(&eligible)?.query_map([user],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
-    let resolved:std::collections::BTreeMap<_,_>=computed(crate::figures::splits::lookups(c,user,&venues_traded),&mut hash)?.map(|(_,named)|named.into_iter().collect()).unwrap_or_default();
+    // And where a coin is listed under a split row's name (D-SPLIT-ASSETLESS-SHARED-NAME), per venue: each bot groups
+    // over its own venues, so a coin listed on one more venue moves a bot there though the account-wide union stays.
+    let (resolved,coin_named):(std::collections::BTreeMap<_,_>,_)=computed(crate::figures::splits::lookups(c,user,&venues_traded),&mut hash)?
+        .map(|(_,named,coin_named)|(named.into_iter().collect(),coin_named)).unwrap_or_default();
     "names".hash(&mut hash);
     for entry in &resolved { read+=1; entry.hash(&mut hash); }
+    "coin names".hash(&mut hash);
+    for entry in &coin_named { read+=1; entry.hash(&mut hash); }
     let resolved=ids_source(resolved.values().flatten().copied());
     let bots="SELECT id FROM bots WHERE user_id=?1";
     // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the

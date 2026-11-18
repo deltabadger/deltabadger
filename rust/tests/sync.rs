@@ -1392,6 +1392,52 @@ async fn a_split_named_like_a_working_bots_coin_is_stored_and_refuses_nothing() 
                "the interest and the merged split are stored; the bot stays scheduled");
 }
 
+/// #478: a security's split names only the bots whose orders bought the security or stored no asset. A coin bot that
+/// shares the name gets no `asset_split` line and keeps its counter, at import, at expiry and at the deferred date.
+#[tokio::test(flavor = "current_thread")]
+async fn a_securitys_split_never_names_a_coin_bot_that_shares_its_symbol() {
+    let (_dir, db, s) = install();
+    // coin: bought the coin. stock: bought the security. both: the coin and a security position since sold flat (left out
+    // of the holders: its coin rows do not count). mixed: the coin and the security still held.
+    let [coin, stock, both, mixed] = db.run(move |c, _| {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('BTC.US', 'BTC', 'BTC', 'Stock', '2026-01-01', '2026-01-01')", []).map_err(|e| e.to_string())?;
+        let security = c.last_insert_rowid();
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, minimum_base_size, \
+                   minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, 'BTC', 'BTC', 'USD', ?2, ?3, 9, 2, 2, '0.000000001', '1', 1, 1, '2026-01-01', '2026-01-01')",
+                  [s.exchange_id, security, s.quote]).map_err(|e| e.to_string())?;
+        let order = |bot: i64, asset: i64, side: i64, n: i64| c.execute(
+            "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base, quote, base_asset_id, quote_asset_id, \
+             amount, amount_exec, price, quote_amount_exec, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 2, ?4, 0, \
+             'BTC', 'USD', ?5, ?6, 1, 1, 60, 60, 'week', 60, 'REGULAR', '[]', '2026-09-02 14:30:00', '2026-09-02 14:30:00')",
+            rusqlite::params![bot, s.exchange_id, format!("o-{bot}-{n}"), side, asset, s.quote]).map_err(|e| e.to_string());
+        let mut bots = [0; 4];
+        for bot in &mut bots {
+            *bot = seed::insert_bot(c, &s.seeded(), &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+            c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [*bot]).map_err(|e| e.to_string())?;
+        }
+        let [coin, stock, both, mixed] = bots;
+        order(coin, s.btc, 0, 1)?;
+        order(stock, security, 0, 1)?;
+        order(both, s.btc, 0, 1)?; order(both, security, 0, 2)?; order(both, security, 1, 3)?;
+        order(mixed, s.btc, 0, 1)?; order(mixed, security, 0, 2)?;
+        Ok(bots)
+    }).await.unwrap();
+    let generations = "SELECT group_concat(id || ':' || coalesce(restatement_generation, 0), ' ') FROM (SELECT * FROM bots ORDER BY id)";
+    let lines = "SELECT coalesce(group_concat(bot_id, ' '), '') FROM (SELECT bot_id FROM bot_activity_logs WHERE event = 'asset_split' ORDER BY bot_id)";
+    let leg = |id: &str, qty: &str, date: &str| json!({ "id": id, "activity_type": "SPLIT", "symbol": "BTC", "asset_class": "us_equity", "qty": qty, "date": date });
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([leg("s-remove", "-1", "2026-09-15"), leg("s-add", "2", "2026-09-15")]))] }));
+    let out = ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert_eq!(out.splits[0].restated_bots, vec![stock, both, mixed], "named: every bot that bought the security, not the coin's");
+    assert_eq!(one::<String>(&db, lines).await, format!("{stock} {mixed}"), "a line for the holders only: the coin rows add nothing to a net position");
+    assert_eq!(one::<String>(&db, generations).await, format!("{coin}:0 {stock}:1 {both}:1 {mixed}:1"), "every bot whose orders bought the security moves; the coin bot does not");
+    assert_eq!(ledger::expire_restated(&db, s.user_id, s.exchange_id, "BTC").await.unwrap(), vec![stock, both, mixed]);
+    // Imported ahead of its date: the import's bump and the deferred one name the same bots.
+    let (_, v) = venue(json!({ ACTIVITIES: [ok(json!([leg("later", "5", "2026-10-05")]))] }));
+    assert!(ledger::sync(&db, &v, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap().splits[0].effective_later);
+    ledger::sync(&db, &venue(json!({ ACTIVITIES: [ok(json!([]))] })).1, s.api_key_id, &paper(), &FixedClock("2026-10-05T00:00:00Z".parse().unwrap())).await.unwrap().unwrap();
+    assert_eq!(one::<String>(&db, generations).await, format!("{coin}:0 {stock}:4 {both}:4 {mixed}:4"));
+}
+
 /// Wall time that follows tokio's clock, so a paused test runtime moves it (as in tests/jobs.rs).
 #[derive(Clone, Copy)]
 struct TokioClock { start: chrono::DateTime<chrono::Utc>, origin: tokio::time::Instant }
