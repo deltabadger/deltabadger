@@ -804,3 +804,57 @@ async fn a_persisted_deferral_blocks_an_existing_retry_timer_in_the_wake_calcula
     let wake = run::step(&mut e, &FixedClock(at("2026-09-08T09:59:30Z"))).await.unwrap();
     assert_eq!(wake, at("2026-09-08T10:00:00.001Z").timestamp_micros());
 }
+
+// ---- D-PRICE-READ-UNAUTHORIZED: a price read's 401 is a rejected key, as the clock, condition and index reads say it ----
+
+const QUOTES: &str = "GET /v1beta3/crypto/us/latest/quotes";
+fn transient(o: &store::Opened, id: i64) -> Value { model::load_bot(&o.primary, id).unwrap().transient }
+fn events(o: &store::Opened) -> Vec<String> {
+    o.primary.prepare("SELECT event FROM bot_activity_logs ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap()
+}
+
+/// The market-data host's bare 401 (an HTML body: our client's "HTTP 401") names no kind: one failed line per tick, naming
+/// the rejected key, the "unknown" budget's one mail a day, no retries, no stop — a restored key heals it on the next tick.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bare_401_on_the_price_read_fails_the_tick_once_as_a_rejected_key() {
+    let (_d, o, id, _) = setup(weekly());
+    let key_status = |o: &store::Opened| one::<i64>(o, "SELECT status FROM api_keys");
+    let before = key_status(&o);
+    let t = script(json!({ QUOTES: [{ "status": 401, "body": "<html>401 Authorization Required</html>" }] }));
+    let mut attempts = Attempts { transient: 2, ..Attempts::default() };
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &mut attempts).await.unwrap();
+    assert!(matches!(out, TickOutcome::Rescheduled), "no retry: {out:?}");
+    assert_eq!(attempts.transient, 0, "the retry chain ends");
+    assert_eq!(events(&o), ["execution_failed"]);
+    let details: Value = serde_json::from_str(&one::<String>(&o, "SELECT details FROM bot_activity_logs")).unwrap();
+    assert_eq!(details, json!({ "error": "Alpaca rejected the API key: HTTP 401", "kind": null }));
+    assert!(t.posted_orders().is_empty());
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "nothing placed, no failed row");
+    let b = model::load_bot(&o.primary, id).unwrap();
+    assert_eq!(b.status, BotStatus::Retrying);
+    assert_eq!(b.transient["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:00Z" }));
+    assert_eq!(b.transient[deltabadger::engine::notice::ERROR]["unknown"]["error"], "Alpaca rejected the API key: HTTP 401");
+    // The next tick, the same day: the same one line, no second mail, still not stopped, never a retry line.
+    let t = script(json!({ QUOTES: [{ "status": 401, "body": "<html>401 Authorization Required</html>" }] }));
+    let out = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-01T16:00:00Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
+    assert_eq!(events(&o), ["execution_failed", "execution_failed"]);
+    assert_eq!(transient(&o, id)["failure_notifications"], json!({ "unknown": "2026-09-01T10:00:00Z" }), "one mail a day");
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Retrying);
+    assert_eq!(key_status(&o), before, "a bare 401 never condemns the stored key");
+}
+
+/// Alpaca's own words ("unauthorized.") are its invalid_key text: the placement path's handling, the second one stops the bot.
+#[tokio::test(flavor = "current_thread")]
+async fn alpacas_own_unauthorized_on_the_price_read_stops_the_bot_on_the_second_tick() {
+    let (_d, o, id, _) = setup(weekly());
+    let refused = || script(json!({ QUOTES: [{ "status": 401, "body": { "code": 40110000, "message": "unauthorized." } }] }));
+    let out = tick::tick(&o.primary, &venue(&refused()), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
+    let details: Value = serde_json::from_str(&one::<String>(&o, "SELECT details FROM bot_activity_logs")).unwrap();
+    assert_eq!(details, json!({ "error": "Alpaca rejected the API key: unauthorized.", "kind": "invalid_key" }));
+    let out = tick::tick(&o.primary, &venue(&refused()), id, &FixedClock(at("2026-09-01T16:00:00Z")), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Stopped), "{out:?}");
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
+    assert!(!events(&o).iter().any(|e| e == "execution_retrying"), "{:?}", events(&o));
+}
