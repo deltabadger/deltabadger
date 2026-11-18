@@ -665,6 +665,7 @@ it:
         notes:
             left: '%{exchange} riporta %{held} %{symbol}; la cronologia ne spiega %{history}. La differenza è considerata uscita al costo (%{amount}).'
             arrived: '%{exchange} riporta %{held} %{symbol}; la cronologia ne spiega %{history}. La differenza è considerata entrata al suo prezzo (%{amount}).'
+            opened: 'La cronologia richiede %{history} %{symbol} di cui non mostra mai l''arrivo. Considerati detenuti dall''inizio, al prezzo di quel giorno (%{amount}).'
             since_sync: '%{symbol} acquistato dall''ultima sincronizzazione: valutato al costo (%{amount}) fino alla prossima.'
             cash_out: 'La cronologia detiene %{history} %{symbol}; %{exchange} riporta %{held}. La differenza (%{amount}) è considerata uscita.'
             cash_in: 'La cronologia detiene %{history} %{symbol}; %{exchange} riporta %{held}. La differenza (%{amount}) è considerata entrata.'

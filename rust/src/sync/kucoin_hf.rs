@@ -635,29 +635,37 @@ pub(super) fn subtract(from: Span, covered: &[Span]) -> Vec<Span> {
 /// What no certified unit or export covers within the horizon (the history's first row or unit to the last unit's end),
 /// with every ambiguous second.
 pub fn uncovered(c: &Connection, key: &Key) -> Result<Vec<Span>, SyncError> {
-    let mut attempts: Vec<Span> = vec![];
-    for source in [HF_ATTEMPT, HF_ATTEMPT_OPEN, UTA_ATTEMPT, UTA_ATTEMPT_OPEN] { attempts.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
     let mut gap: Vec<Span> = spans(c, key, AMBIGUOUS)?.into_iter().map(|(_, s)| s).collect();
-    if let Some(end) = attempts.iter().map(|s| s.1).max() {
-        let first = |sql: &str| -> Result<Option<DateTime<Utc>>, SyncError> {
-            let t: Option<String> = c.query_row(sql, params![key.user_id, key.exchange_id], |r| r.get(0))?;
-            t.map(|t| time(&t).map(second)).transpose()
-        };
-        let starts = [first("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?,
-                      first("SELECT MIN(transacted_at) FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2")?, attempts.iter().map(|s| s.0).min()];
-        if let Some(start) = starts.into_iter().flatten().min() {
-            let mut covered: Vec<Span> = vec![];
-            for source in [HF_API, UTA_API, EXPORT] { covered.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
-            gap.extend(subtract((start, end), &covered));
-        }
-    }
+    gap.extend(missing(c, key)?);
     Ok(merge(gap))
 }
 
+/// What no certified unit or export covers within the horizon, without the ambiguous seconds: the periods an export
+/// can close (D-GAP-EVIDENCE-ONLY), which the tracker's Import history line shows.
+pub fn missing(c: &Connection, key: &Key) -> Result<Vec<Span>, SyncError> {
+    let mut attempts: Vec<Span> = vec![];
+    for source in [HF_ATTEMPT, HF_ATTEMPT_OPEN, UTA_ATTEMPT, UTA_ATTEMPT_OPEN] { attempts.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
+    let Some(end) = attempts.iter().map(|s| s.1).max() else { return Ok(vec![]) };
+    let first = |sql: &str| -> Result<Option<DateTime<Utc>>, SyncError> {
+        let t: Option<String> = c.query_row(sql, params![key.user_id, key.exchange_id], |r| r.get(0))?;
+        t.map(|t| time(&t).map(second)).transpose()
+    };
+    let starts = [first("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?,
+                  first("SELECT MIN(transacted_at) FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2")?, attempts.iter().map(|s| s.0).min()];
+    let Some(start) = starts.into_iter().flatten().min() else { return Ok(vec![]) };
+    let mut covered: Vec<Span> = vec![];
+    for source in [HF_API, UTA_API, EXPORT] { covered.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
+    Ok(merge(subtract((start, end), &covered)))
+}
+
 /// The gap row's entry for this history, rebuilt from coverage: the reading key, the credential the writing sync is
-/// fenced on (a file import, fenced on none, keeps the one stored for that key), and the uncovered spans.
+/// fenced on (a file import, fenced on none, keeps the one stored for that key), the uncovered spans, and the missing
+/// ones (no ambiguous second: those an import cannot close), which the tracker reads.
 pub fn refresh_gap(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> Result<(), SyncError> {
-    let uncovered = uncovered(c, key)?;
+    let missing = missing(c, key)?;
+    let mut uncovered: Vec<Span> = spans(c, key, AMBIGUOUS)?.into_iter().map(|(_, s)| s).collect();
+    uncovered.extend(missing.iter().copied());
+    let uncovered = merge(uncovered);
     let reading = crate::tracker::import::run::reading(c, key.user_id)?.into_iter().find(|k| k.exchange_id == key.exchange_id);
     let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [gap_key(key.user_id)], |r| r.get(0)).optional()?.flatten();
     let mut row = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
@@ -669,8 +677,11 @@ pub fn refresh_gap(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> 
     };
     match (reading, credential) {
         // The row stays readable (gaps::MAX_ROW): the first spans, and how many there are.
-        (Some(k), Some(credential)) => row[&id] = json!({ "key": k.id, "credential": credential, "spans": uncovered.len(),
-                                                          "uncovered": uncovered.iter().take(MAX_SPANS).map(|(a, b)| json!([sql_time(*a), sql_time(*b)])).collect::<Vec<_>>() }),
+        (Some(k), Some(credential)) => {
+            let listed = |spans: &[Span]| spans.iter().take(MAX_SPANS).map(|(a, b)| json!([sql_time(*a), sql_time(*b)])).collect::<Vec<_>>();
+            row[&id] = json!({ "key": k.id, "credential": credential, "spans": uncovered.len(), "uncovered": listed(&uncovered),
+                               "missing_spans": missing.len(), "missing": listed(&missing) });
+        }
         (None, _) => { row.as_object_mut().expect("an object").remove(&id); }
         // A file import before any sync wrote the row: the next sync writes it.
         (Some(_), None) => return Ok(()),

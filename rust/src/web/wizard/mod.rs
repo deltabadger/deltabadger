@@ -340,6 +340,12 @@ struct Sheet<'a> { close_url: String, close_label: String, track: &'a str, conte
 /// `modal_content`, so every form, stream and transition that targets it is unchanged.
 pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> { sheet_to(ctx, "/bots", track, content) }
 
+/// The Assets step's sheet, whichever tab the switch shows (the Asset view, the Index view): its caption first in the pane,
+/// drawn here once so the switch leaves it where it is.
+pub fn assets_sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> {
+    sheet(ctx, track, &format!("<h3 class=\"label\">{}</h3>\n{content}", crate::web::i18n::escape(&ctx.t("bot.setup.pick_assets"))))
+}
+
 /// D-SHEET-EVERYWHERE: `sheet` closing to `close` (the tracker's, the rules' and the bots' page). An empty `track` leaves the
 /// side column empty, which the sheet does not draw.
 pub fn sheet_to(ctx: &Ctx, close: &str, track: &str, content: &str) -> Result<String, WebError> {

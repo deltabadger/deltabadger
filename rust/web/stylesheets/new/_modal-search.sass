@@ -255,7 +255,7 @@ html:has(#modal dialog[open])
         &:focus
             outline: none
         &::placeholder
-            color: var(--modal-search-placeholder)
+            color: var(--concrete)
     &__assets
         display: block
         scrollbar-width: none
@@ -286,14 +286,14 @@ html:has(#modal dialog[open])
     &__cell
         font-size: 1.75rem
         text-align: left
-        padding: 0.75rem 0.25rem 0.75rem 1rem
-        line-height: 3rem
+        padding: 1rem 0.25rem 1rem 1rem
+        line-height: 2.5rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
         text-wrap: nowrap
         &:first-child
-            padding-left: 2rem
+            padding-left: var(--sheet-side-padding)
         &--ticker
             font-weight: 600
             color: var(--ink)

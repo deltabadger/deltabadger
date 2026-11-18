@@ -29,13 +29,17 @@ bun run build:watch &
 pids+=($!)
 
 mkdir -p "$storage"
+# The binary served is this install's own copy, taken right after this worktree's build: a target shared with another
+# worktree (CARGO_TARGET_DIR) is overwritten by that one's builds, and its server would end up serving this one's code.
+keep() { cp "$target_dir/debug/deltabadger" "$storage/deltabadger.new" && mv "$storage/deltabadger.new" "$storage/deltabadger"; }
+keep
 # One secret per dev install, kept beside it: the install's encrypted columns need the same one on every start.
 [ -s "$storage/.dev-secret" ] || openssl rand -hex 64 > "$storage/.dev-secret"
 serve() {
   DELTABADGER_DEV_ASSETS="$root/rust/web/builds" \
     STORAGE_DIR="$storage" DATABASE_PATH="$storage/production.sqlite3" QUEUE_DATABASE_PATH="$storage/production_queue.sqlite3" \
     SECRET_KEY_BASE="$(cat "$storage/.dev-secret")" PORT="$port" APP_ROOT_URL="http://127.0.0.1:$port" \
-    "$target_dir/debug/deltabadger" serve &
+    "$storage/deltabadger" serve &
   server=$!
 }
 echo "rust-dev: http://127.0.0.1:$port (install in $storage)"
@@ -47,7 +51,7 @@ while sleep 1; do
   touch "$stamp" # before the build: a save during it starts another
   echo "rust-dev: rebuilding"
   # build.rs again: the target may be shared with another worktree (its embedded files are this one's)
-  if touch rust/build.rs && (cd rust && "$cargo" build --bin deltabadger); then
+  if touch rust/build.rs && (cd rust && "$cargo" build --bin deltabadger) && keep; then
     kill "$server"; wait "$server" || true
     serve
     echo "rust-dev: restarted"

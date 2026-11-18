@@ -721,7 +721,7 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
 struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool, sheet:bool, error:Option<&'a str>,
-    name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
+    name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String, back:Option<String> }
 
 /// The venues whose keys this build checks (the wizard's list): every other venue's key route is a named refusal.
 fn ported(class:&str)->bool{crate::web::wizard::keys::ported(class)}
@@ -741,25 +741,26 @@ fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venu
 /// Drawn in the bot page's modal.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,true,None,instructions)
+    card_in(ctx,csrf,action,form_data,name,class,live,true,None,instructions,None)
 }
 /// The card as the DCA wizard's sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`),
 /// the same fields and the same Connect, under the venue's name alone (the button says "Connect"); a refused key's reason
-/// (`error`) under the fields, which it marks invalid, where the other cards flash it.
+/// (`error`) under the fields, which it marks invalid, where the other cards flash it. The venue's logo is Back: a link to `back`,
+/// the wizard's venue step.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String,error:Option<&str>)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,false,Some(error),instructions)
+pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String,error:Option<&str>,back:String)->Result<String,WebError>{
+    card_in(ctx,csrf,action,form_data,name,class,live,false,Some(error),instructions,Some(back))
 }
 #[allow(clippy::too_many_arguments)]
 /// `sheet`: drawn in the DCA wizard's sheet, with the refusal to show under its fields if any.
-fn card_in(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,sheet:Option<Option<&str>>,instructions:String)->Result<String,WebError>{
+fn card_in(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,sheet:Option<Option<&str>>,instructions:String,back:Option<String>)->Result<String,WebError>{
     let name_id=crate::tracker::rows::name_id(class);
     // BotHelper#api_key_field_label: the venue's own word for a field, else the generic one.
     let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
     let connect_title=if sheet.is_some(){i18n::escape(name)}else{i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))])};
     Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title,
         instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,sheet:sheet.is_some(),error:sheet.flatten(),
-        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
+        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id,back}.render()?)
 }
 #[derive(Template)]
 #[template(path="settings/alpaca_modal.html")]
@@ -809,8 +810,8 @@ fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,class:&str,name:&st
     use crate::web::wizard::{self, Stop};
     let instructions=key_instructions(c,app,ctx,class,name,kind)?;
     let action=ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"}));
-    let card=sheet_card(ctx,&ctx.csrf_token(),action,"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",name,class,live,instructions,error)?;
-    let track=wizard::track(ctx,1,vec![Stop::new("exchange").name(Some(name.to_string())).back(ctx.path("/tracker/pick_exchange/new")),Stop::new("api")])?;
+    let card=sheet_card(ctx,&ctx.csrf_token(),action,"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",name,class,live,instructions,error,ctx.path("/tracker/pick_exchange/new"))?;
+    let track=wizard::track(ctx,1,vec![Stop::new("exchange").name(Some(name.to_string())).back(ctx.path("/tracker/pick_exchange/new")),Stop::new("connect")])?;
     Ok((track,wizard::keys::key_pane(&card)?))
 }
 
@@ -827,8 +828,8 @@ pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum:
     use crate::web::wizard::{self, exchanges, Stop};
     let csrf=ctx.csrf_token();
     let table=exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues:vec![],unavailable_note:String::new()};
-    let content=exchanges::venue_pane(&ctx,wizard::search_box("exchange-picker",&ctx.path("/tracker/pick_exchange/new"),"exchange")?,table,venues)?;
-    let body=wizard::sheet_to(&ctx,"/tracker",&wizard::track(&ctx,0,vec![Stop::new("exchange"),Stop::new("api")])?,&content)?;
+    let content=exchanges::venue_pane(&ctx,table,venues)?;
+    let body=wizard::sheet_to(&ctx,"/tracker",&wizard::track(&ctx,0,vec![Stop::new("exchange"),Stop::new("connect")])?,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 /// Tracker::PickExchangesController#create: `Exchange.find` (any row), the session keeps only its id.

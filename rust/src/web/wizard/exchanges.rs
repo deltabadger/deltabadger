@@ -98,7 +98,6 @@ fn prerequisite_path(c: &Connection, user_id: i64, config: Option<&Value>, names
 #[derive(Template)]
 #[template(path = "wizard/pick_exchange.html")]
 struct New {
-    search: String,
     table: Table,
     groups: Vec<Group>,
 }
@@ -126,18 +125,19 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None }, true)?;
     let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues: vec![],
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    super::sheet(ctx, &steered.track, &venue_pane(ctx, steered.search, table, venues)?)
+    super::sheet(ctx, &steered.track, &venue_pane(ctx, table, venues)?)
 }
 
 /// A venue step's pane (D-WIZARD-VENUE-GROUPS, D-SHEET-EVERYWHERE): `search` over the venues, searched by the request's `query`
 /// as `ordered` does, the stock brokers under "Brokers" and the rest under "Exchanges", each in that order; a group with no venue
 /// is not drawn. `table` says where a pick posts (its own `venues` unused).
-pub fn venue_pane(ctx: &Ctx, search: String, table: Table, venues: Vec<Exchange>) -> Result<String, WebError> {
-    let (brokers, exchanges): (Vec<_>, Vec<_>) = ordered(venues, ctx.params.query("query")).into_iter().partition(|venue| super::assets::broker(&venue.class));
+/// The exchange step never searches (D-EXCHANGE-NO-SEARCH): the venues are few enough to see at once.
+pub fn venue_pane(ctx: &Ctx, table: Table, venues: Vec<Exchange>) -> Result<String, WebError> {
+    let (brokers, exchanges): (Vec<_>, Vec<_>) = ordered(venues, None).into_iter().partition(|venue| super::assets::broker(&venue.class));
     let venue = |venue: Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false };
     let groups: Vec<Group> = [("brokers", brokers), ("exchanges", exchanges)].into_iter().filter(|(_, venues)| !venues.is_empty())
         .map(|(key, venues)| Group { title: ctx.t(&format!("bot.setup.venue_groups.{key}")), venues: venues.into_iter().map(venue).collect() }).collect();
-    Ok(New { search, table, groups }.render()?)
+    Ok(New { table, groups }.render()?)
 }
 
 async fn render(app: &App, ctx: &Ctx, namespace: Namespace, status: StatusCode) -> Result<Response, WebError> {

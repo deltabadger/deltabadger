@@ -665,6 +665,7 @@ nl:
         notes:
             left: '%{exchange} meldt %{held} %{symbol}; de geschiedenis verklaart %{history}. Het verschil geldt als vertrokken tegen kostprijs (%{amount}).'
             arrived: '%{exchange} meldt %{held} %{symbol}; de geschiedenis verklaart %{history}. Het verschil geldt als binnengekomen tegen zijn prijs (%{amount}).'
+            opened: 'De historie heeft %{history} %{symbol} nodig waarvan ze de binnenkomst nooit toont. Aangenomen als vanaf het begin aangehouden, tegen de prijs van die dag (%{amount}).'
             since_sync: '%{symbol} gekocht sinds de laatste synchronisatie: gewaardeerd tegen kostprijs (%{amount}) tot de volgende.'
             cash_out: 'De geschiedenis houdt %{history} %{symbol}; %{exchange} meldt %{held}. Het verschil (%{amount}) geldt als uitgegaan.'
             cash_in: 'De geschiedenis houdt %{history} %{symbol}; %{exchange} meldt %{held}. Het verschil (%{amount}) geldt als binnengekomen.'

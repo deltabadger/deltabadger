@@ -131,7 +131,7 @@ async fn exchange(app: &App, ctx: &Ctx) -> Result<Response, WebError> {
                 venues: vec![],
                 unavailable_note: v.t("bot.hyperliquid_trading_unavailable"),
             };
-            venue_pane(&v, search_box("exchange-picker", &v.path(&format!("{BASE}/pick_exchange/new")), "exchange")?, table, venues)
+            venue_pane(&v, table, venues)
         })
         .await?;
     full(app, ctx, 0, false, None, None, content).await
@@ -222,7 +222,7 @@ async fn key_card(
         let instructions=keys::key_instructions(c,&inner,&v,&e.class,&e.name,1)?;
         keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}",e.id)),
             "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",
-            &e.name,&e.class,false,instructions,error.as_deref())
+            &e.name,&e.class,false,instructions,error.as_deref(),v.path(&format!("{BASE}/pick_exchange/new")))
     }).await
 }
 async fn next(app: &App, ctx: &Ctx, via_address: bool) -> Result<Response, WebError> {

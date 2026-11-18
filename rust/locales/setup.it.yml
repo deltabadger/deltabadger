@@ -7,12 +7,21 @@ it:
             stocks_ask_admin: "Chiedi al tuo amministratore di attivare il trading di azioni."
             stocks_activate_cta: "Attiva il trading di azioni nelle impostazioni"
             add_more_assets: "Aggiungi altre attività"
+            pick_assets: "Scegli uno o più asset"
             venue_groups:
                 brokers: "Broker"
                 exchanges: "Exchange"
             market_data:
                 intro: "Gli indici richiedono dati di mercato in tempo reale. Usa l’API dati ufficiale di Deltabadger o un account CoinGecko gratuito."
                 providers: "Fornitori di dati di mercato"
+                subscription:
+                    lead_html: "Un abbonamento <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> include:"
+                    indexes_title: "Indici di azioni e cripto"
+                    indexes: "Gli indici si basano sulla capitalizzazione di mercato dei loro asset e richiedono aggiornamenti in tempo reale."
+                    history_title: "Prezzi storici"
+                    history: "Gli exchange offrono tramite API solo uno storico dei prezzi limitato. Per il monitoraggio del portafoglio e i report fiscali, l’API fornisce lo storico completo dei prezzi e dei tassi di cambio."
+                    ip_title: "IP fisso"
+                    ip: "La rete di casa di solito non ha un indirizzo IP fisso da inserire nella whitelist. Il proxy ti mantiene connesso quando cambia."
             kind:
                 asset: "Asset"
                 index: "Indice"
@@ -22,6 +31,7 @@ it:
                 exchange: "Exchange"
                 spendable: "Valuta"
                 api: "Connetti exchange"
+                connect: "Connetti"
                 coingecko: "Connetti CoinGecko"
                 index: "Scegli indice"
                 pick_asset: "Scegli asset"

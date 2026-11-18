@@ -1,14 +1,20 @@
 nl:
     tracker:
         history_gap:
-            button: "Historie importeren"
+            button: "Ontbrekende historie toevoegen"
             title: "Maak je %{exchange}-historie compleet"
             why_kucoin_reach: "De API van KuCoin geeft trades, stortingen en opnames maar van ongeveer de laatste 12 maanden."
             why_kucoin_hf_convert: "Convert-ruilen zijn helemaal niet uit te lezen, hoe recent ook."
             why_kucoin_transfers: "Oudere stortingen en opnames ontbreken ook."
             why_binance: "De API van Binance geeft trades alleen voor paren die nog genoteerd zijn, en Convert, dust-omzettingen en Simple Earn pas vanaf de data die Binance bewaart. Margin en futures worden niet gelezen."
-            why_other: "%{exchange} bevat meer dan de historie verklaart die Deltabadger daar kon lezen."
+            why_other: "Een deel van wat er op %{exchange} gebeurde, staat niet in de historie die Deltabadger daar kon lezen."
             evidence: "Wat de tracker vond"
+            row_coins: "Geen historie voor een deel van je %{symbols}"
+            row_more: " en andere"
+            row_unread: "Een deel van je %{exchange}-historie is onvolledig"
+            unread_span: "%{from} – %{to}: trades in deze periode konden niet worden gelezen."
+            unread_day: "%{from}: trades op deze dag konden niet worden gelezen."
+            unread_more: "Er volgen meer periodes."
             steps_binance_1: "Open op Binance Wallet → Transactiegeschiedenis → Exporteren. Exporteer één bestand per jaar, terug tot de opening van je account."
             steps_binance_2: "Geef de bestanden geen andere naam: de naam zegt welke tijdzone Binance gebruikte."
             steps_binance_3: "Klik op Bestand importeren, kies Binance CSV en upload één bestand tegelijk. Regels die al in je historie staan, worden overgeslagen."

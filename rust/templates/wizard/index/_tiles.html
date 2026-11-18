@@ -26,10 +26,10 @@
 {%- if tile.has_coins %}
           <div class="ticker-group ticker-group--many">
 {%- for pill in tile.pills %}
-                <span class="ticker" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>
+                <span class="ticker ticker--small" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>
 {%- endfor %}
 {%- if tile.more > 0 %}
-              <span class="ticker ticker--more">+{{ tile.more }}</span>
+              <span class="ticker ticker--small ticker--more">+{{ tile.more }}</span>
 {%- endif %}
           </div>
 {%- endif %}

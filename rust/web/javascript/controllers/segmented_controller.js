@@ -402,7 +402,9 @@ export default class extends Controller {
   #room() {
     const parent = this.element.parentElement;
     const gap = parseFloat(getComputedStyle(parent).columnGap) || 0;
-    return [...parent.children].reduce(
+    // Boxes only: a hidden field (the asset search's `kind`) takes no width and leaves no gap, and
+    // charging a gap for it folded the switch with the room to spare.
+    return [...parent.children].filter((child) => child.getClientRects().length > 0).reduce(
       (room, child) => (child === this.element ? room : room - child.getBoundingClientRect().width - gap),
       parent.clientWidth
     );

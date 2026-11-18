@@ -7,12 +7,21 @@ sv:
             stocks_ask_admin: "Be din administratör att aktivera aktiehandel."
             stocks_activate_cta: "Aktivera aktiehandel i inställningarna"
             add_more_assets: "Lägg till fler tillgångar"
+            pick_assets: "Välj en eller flera tillgångar"
             venue_groups:
                 brokers: "Mäklare"
                 exchanges: "Börser"
             market_data:
                 intro: "Index kräver marknadsdata i realtid. Använd Deltabadgers officiella data-API eller ett gratis CoinGecko-konto."
                 providers: "Leverantörer av marknadsdata"
+                subscription:
+                    lead_html: "En <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a>-prenumeration omfattar:"
+                    indexes_title: "Aktie- och kryptoindex"
+                    indexes: "Index bygger på tillgångarnas börsvärde och kräver liveuppdateringar."
+                    history_title: "Historiska priser"
+                    history: "Börser erbjuder bara en begränsad prishistorik via sina API:er. För portföljuppföljning och skatterapportering ger API:et hela historiken över priser och växelkurser."
+                    ip_title: "Fast IP"
+                    ip: "Ditt hemnätverk har oftast ingen fast IP-adress att vitlista. Proxyn håller dig ansluten när den ändras."
             kind:
                 asset: "Tillgång"
                 index: "Index"
@@ -22,6 +31,7 @@ sv:
                 exchange: "Börs"
                 spendable: "Valuta"
                 api: "Anslut börs"
+                connect: "Anslut"
                 coingecko: "Anslut CoinGecko"
                 index: "Välj index"
                 pick_asset: "Välj tillgång"

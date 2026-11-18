@@ -666,6 +666,7 @@ fr:
         notes:
             left: '%{exchange} déclare %{held} %{symbol} ; l''historique en explique %{history}. La différence est réputée sortie au coût (%{amount}).'
             arrived: '%{exchange} déclare %{held} %{symbol} ; l''historique en explique %{history}. La différence est réputée entrée à son prix (%{amount}).'
+            opened: 'L''historique a besoin de %{history} %{symbol} dont il ne montre jamais l''arrivée. Considérés comme détenus dès le départ, au prix de ce jour-là (%{amount}).'
             since_sync: '%{symbol} acheté depuis la dernière synchronisation : valorisé au coût (%{amount}) jusqu''à la prochaine.'
             cash_out: 'L''historique détient %{history} %{symbol} ; %{exchange} déclare %{held}. La différence (%{amount}) est réputée sortie.'
             cash_in: 'L''historique détient %{history} %{symbol} ; %{exchange} déclare %{held}. La différence (%{amount}) est réputée entrée.'

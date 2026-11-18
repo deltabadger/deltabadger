@@ -54,6 +54,12 @@
 [data-locale="el"]
   --font-family: 'Google Sans', sans-serif
 
+// Not a colour: in both schemes.
+\:root
+  --sheet-side-padding: 2rem
+  @media (min-width: 768px)
+    --sheet-side-padding: 2.5rem
+
 // D-SCHEME-SWITCH: the two palettes as mixins, so a scheme can take one whatever the OS says.
 @mixin palette-light
   --sky: color(display-p3 0 0 1)
@@ -111,7 +117,6 @@
   --sinput-background: #fff
   --sinput-text: #00f
 
-  --modal-search-placeholder: #8894B6
 
   --tooltip-background: #fff
   --tooltip-text: #061A4F
@@ -183,7 +188,6 @@
   --sinput-background: #0D223F
   --sinput-text: #fff
 
-  --modal-search-placeholder: #8894B6
 
   --tooltip-background: #00f
   --tooltip-text: #fff
@@ -238,7 +242,6 @@
   --input-text-inactive: #85858f
   --input-border: #85858f
   --sinput-background: #0f0f12
-  --modal-search-placeholder: #85858f
   --dropdown-bg: #141417
   --dropdown-border: #2c2c33
   --text-faded: #55555f
@@ -281,7 +284,6 @@
     --input-text-inactive: #9C9A92
     --input-border: #9C9A92
     --sinput-text: #AE5630
-    --modal-search-placeholder: #9C9A92
     --tooltip-text: #141413
     --dropdown-hover: #EDEAE066
     --text-faded: #9C9A92
@@ -321,7 +323,6 @@
     --input-text-inactive: #9C9A92
     --input-border: #9C9A92
     --sinput-background: #30302E
-    --modal-search-placeholder: #9C9A92
     --tooltip-background: #AE5630
     --dropdown-bg: #353531
     --dropdown-border: #4A4943
