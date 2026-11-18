@@ -15,7 +15,7 @@
 export function createTrackAnimation(canvas, opts = {}) {
   const W = 160, H = 64;
   const DECK = 28;                 // platform surface (hero's feet stand on DECK - 1)
-  const FADE_FROM = 43, FADE_TO = 60;   // tips stay crisp; stems and tower legs dissolve below
+  const FADE_FROM = 43, FADE_TO = 64;   // tips stay crisp; stems and tower legs dissolve below (Deltabadger: to the bottom edge)
   const SPEED = 18;
 
   const PALETTES = {
@@ -67,6 +67,8 @@ export function createTrackAnimation(canvas, opts = {}) {
     if (y > FADE_FROM) {
       const t = (y - FADE_FROM) / (FADE_TO - FADE_FROM);
       if ((BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 < t) return;
+      // Deltabadger: the colour fades into the page as well, not only the dither
+      if (/^#[0-9a-f]{6}$/i.test(c)) c = mix(c, C.bg, t * 0.85);
     }
     ctx.fillStyle = c;
     ctx.fillRect(x, y, 1, 1);
@@ -119,7 +121,7 @@ export function createTrackAnimation(canvas, opts = {}) {
   for (let x = 4; x < W - 2; x += 8) {                 // evenly spaced canopy
     for (let layer = 0; layer < 1; layer++) {
       const depth = Math.floor(rng() * DEPTHS) / (DEPTHS - 1);
-      let top = 36 + Math.floor(rng() * 6) - Math.round(depth * 2);
+      let top = 33 + Math.floor(rng() * 6) - Math.round(depth * 2); // Deltabadger: 3 px taller than the draft
       if (x > 54 && x < 106) top = Math.max(top, DECK + 12); // keep the platform clear
       const r = mulberry32(Math.floor(rng() * 1e9));
       const leaves = [];
