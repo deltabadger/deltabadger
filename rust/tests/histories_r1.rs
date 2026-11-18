@@ -43,7 +43,7 @@ fn r1_cap_float_bits_and_decimal_conversion_match_v2(){
 }
 #[test]
 fn r1_guard_limits_persisted_intents_and_alpaca_wire(){
-    use deltabadger::engine::venue_rules::{ALPACA,WireFormat};
+    use deltabadger::engine::venue_rules::ALPACA;
     for (limit,requested,expected) in [(false,"0.01000000000000511","0.01"),(false,"0.0150000000001","0.01"),(false,"0.02","0.01"),(true,"0.02","0.001")]{
         let (_d,o,s,id)=setup(json!(100),"99.99");
         o.primary.execute("UPDATE tickers SET minimum_quote_size=0.01",[]).unwrap();
@@ -52,7 +52,7 @@ fn r1_guard_limits_persisted_intents_and_alpaca_wire(){
         let ticker=model::ticker_by_id(&o.primary,bot.exchange_id,s.ticker_id).unwrap().unwrap();
         let amount::Sizing::Place(plan)=amount::size(&bot,&ticker,&bd(requested),&bd("10"),&ALPACA).unwrap() else {panic!("place")};
         let intent=placement::begin(&o.primary,&bot,&plan,&FixedClock(now())).unwrap();
-        let order=intent.plan.to_order(intent.cl_ord_id,intent.deadline,WireFormat::Alpaca).unwrap();
+        let order=intent.plan.to_order(intent.cl_ord_id,intent.deadline,&ALPACA).unwrap();
         assert_eq!(bd(&order.volume),bd(expected),"quantized wire must respect exact availability");
         let cost=if order.quote_volume {bd(&order.volume)}else{&bd(&order.volume)*&bd("10")};
         assert!(cost<=bd("0.01"));
@@ -218,7 +218,7 @@ async fn r2_reduced_below_minimum_records_v2_row_activity_and_notice(){
 }
 #[test]
 fn r2_guard_preserves_safe_plan_and_persists_reduced_quantity(){
-    use deltabadger::engine::venue_rules::{ALPACA,WireFormat};
+    use deltabadger::engine::venue_rules::ALPACA;
     let vectors=r2_vectors();
     // minimum_unchanged is D-ALPACA-BASE-FLOOR's serialized-order check (r2_unchanged_minimum_is_skipped_as_sent).
     for case in vectors["cases"].as_array().unwrap().iter().take(2).filter(|c|c["name"]!="minimum_unchanged") {
@@ -229,7 +229,7 @@ fn r2_guard_preserves_safe_plan_and_persists_reduced_quantity(){
         if case["steps"]==0 {
             assert_eq!(intent.plan.log_details(),plan.log_details());assert_eq!(intent.plan.volume,plan.volume);assert_eq!(intent.plan.quote_type,plan.quote_type);
         }
-        let wire=intent.plan.to_order(intent.cl_ord_id.clone(),intent.deadline,WireFormat::Alpaca).unwrap();
+        let wire=intent.plan.to_order(intent.cl_ord_id.clone(),intent.deadline,&ALPACA).unwrap();
         let stored=model::load_bot(&o.primary,id).unwrap().rust_placement().unwrap().clone();
         assert_eq!(bd(stored["volume"].as_str().unwrap()),intent.plan.volume);
         assert_eq!(stored["quote_type"],intent.plan.quote_type);

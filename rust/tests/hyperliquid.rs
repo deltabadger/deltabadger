@@ -243,7 +243,7 @@ async fn market_ioc_buy_and_sell_sign_the_v2_crossed_price() {
             assert_eq!(price, d(want));
             let (plan, _) = amount::size_order(&ticker, side, &price, &d("1"), &price, HYPERLIQUID.minimum_logic, amount::TxKind::Regular).unwrap();
             let plan = plan.with_wire_price(&HYPERLIQUID, &price, true).unwrap();
-            let order = plan.to_order(CLOID_OF.into(), t0() + Duration::seconds(10), HYPERLIQUID.wire).unwrap();
+            let order = plan.to_order(CLOID_OF.into(), t0() + Duration::seconds(10), &HYPERLIQUID).unwrap();
             let t = script(ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"filled":{"oid":5,"totalSz":"1","avgPx":touch}}]}}})));
             assert_eq!(venue(&t).add_order(&order).await, Ok("BTC-5".into()));
             let action = t.requests().last().unwrap().body.as_ref().unwrap()["action"].clone();
@@ -254,6 +254,41 @@ async fn market_ioc_buy_and_sell_sign_the_v2_crossed_price() {
             gtc["orders"][0]["t"]["limit"]["tif"] = json!("Gtc");
             let gtc: Value = serde_json::from_str(&signer::signed_body(&signer::signing_key(AGENT).unwrap(), &gtc, 1788000000000)).unwrap();
             assert_ne!(signed["signature"], gtc["signature"], "the signature commits to IOC");
+        }
+    }
+}
+
+/// #679 closing review: a limit order goes out at the price it was sized and minimum-checked at — Hyperliquid's five
+/// significant figures (`VenueRules::adjusted_price`), never floored again to five decimal places. Under 0.1 with few base
+/// decimals the rule allows more places: 0.001232 stays 0.001232 (worth 10.01, over the 10 USDC floor; floored to 0.00123
+/// it would be 9.99), and 0.00000123 is not sent as 0.
+#[tokio::test(flavor = "current_thread")]
+async fn a_limit_order_is_sent_at_the_significant_figures_price_it_was_sized_at() {
+    use deltabadger::engine::{amount, model};
+    use deltabadger::v2::BigDec;
+    let (_dir, o, s) = common::install_alpaca();
+    let spec = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("limit_ordered", json!(true));
+    let id = common::seed::insert_bot(&o.primary, &s, &spec);
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let mut ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let d = |s: &str| BigDec::parse(s).unwrap();
+    (ticker.ticker, ticker.price_decimals, ticker.minimum_base_size, ticker.minimum_quote_size) = ("@142".into(), 5, d("0"), d("10"));
+    for (reference, decimals, buy, sell) in [("0.001234", 2, "0.001232", "0.001235"), ("0.000001234", 0, "0.00000123", "0.00000123")] {
+        ticker.base_decimals = decimals;
+        let amount::Sizing::Place(bought) = amount::size(&bot, &ticker, &d("10.01"), &d(reference), &HYPERLIQUID).unwrap() else { panic!("{reference}: sized to place") };
+        let price = amount::side_price(&bot, &ticker, &d(reference), Side::Sell, &HYPERLIQUID).unwrap();
+        let amount::Sizing::Place(sold) = amount::size_sell(&bot, &ticker, &bought.volume, &price).unwrap() else { panic!("{reference}: sell sized to place") };
+        for (plan, want) in [(bought, buy), (sold, sell)] {
+            assert_eq!(plan.price, d(want), "{reference}: the sizing price");
+            let order = plan.to_order(CLOID_OF.into(), t0() + Duration::seconds(10), &HYPERLIQUID).unwrap();
+            let t = script(ok(json!({"status":"ok","response":{"type":"order","data":{"statuses":[{"resting":{"oid":5}}]}}})));
+            assert_eq!(venue(&t).add_order(&order).await, Ok("BTC-5".into()));
+            let sent = t.requests().last().unwrap().body.as_ref().unwrap()["action"]["orders"][0].clone();
+            assert_eq!(sent["p"], want, "{reference} {:?}: sent at the sizing price", plan.side);
+            if plan.side == Side::Buy {
+                let cost = &d(sent["p"].as_str().unwrap()) * &d(sent["s"].as_str().unwrap());
+                assert!(cost >= d("10"), "{reference}: {} is over the venue floor", cost.to_s_f());
+            }
         }
     }
 }

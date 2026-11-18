@@ -161,7 +161,7 @@ async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
         let refusal = plan.limit_refusal().unwrap();
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
         if refusal.is_some() { refused += 1; continue; }
-        let order = plan.to_order(CL.into(), deadline, BITRUE.wire).unwrap();
+        let order = plan.to_order(CL.into(), deadline, &BITRUE).unwrap();
         let (t, venue) = venue(json!({ "POST /api/v1/order": ok(json!({ "symbol": "BTCUSDT", "orderId": "1" })) }));
         assert_eq!(venue.add_order(&order).await, Ok("BTCUSDT-1".into()));
         let mut ours: serde_json::Map<String, Value> = sent(&t.requests()[0]).into_iter().map(|(k, v)| (k, json!(v))).collect();

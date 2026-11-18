@@ -700,6 +700,12 @@ async fn limit_order_sizes_as_place_limit_order() {
     // Hyperliquid: five significant figures, so a fractional price floors to a whole one.
     let hl = limit_order(&ticker, &HYPERLIQUID, buy, &d("100"), true, &d("64006.123")).unwrap();
     assert_eq!((hl.price.to_s_f(), hl.quote_type), ("64006.0".into(), false));
+    // #679: under 0.1 with base_decimals 2 the rule allows six places; the order is sent at that price, not floored to five.
+    let small = deltabadger::engine::model::Ticker { base_decimals: 2, price_decimals: 5, ..ticker.clone() };
+    let hl = limit_order(&small, &HYPERLIQUID, buy, &d("10.01"), true, &d("0.0012345")).unwrap();
+    assert_eq!(hl.price.to_s_f(), "0.001234");
+    let order = hl.to_order("cl".into(), chrono::Utc::now(), &HYPERLIQUID).unwrap();
+    assert_eq!(order.kind, deltabadger::venue::OrderKind::Limit { price: "0.001234".into() });
 }
 
 // ---- A20d, D-IDEMPOTENCY-DEAD-CLAIM: a key whose request died with the process is settled at the next start. ----

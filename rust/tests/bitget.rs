@@ -155,7 +155,7 @@ async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
         assert_eq!(refusal.as_deref(), c["refused"].as_str(), "refusal {c}");
         if refusal.is_some() { refused += 1; continue; }
         if !plan.limit && !plan.quote_type { converted += 1; }
-        let order = plan.to_order(CL.into(), deadline, BITGET.wire).unwrap();
+        let order = plan.to_order(CL.into(), deadline, &BITGET).unwrap();
         assert_eq!(sent_body(&order).await.unwrap(), want_body(&c["wire"]), "{c}");
     }
     assert!(converted > 100 && refused > 100, "the base market buy and the limit refusal are exercised: {converted}, {refused}");
@@ -181,11 +181,11 @@ async fn both_sides_of_every_recorded_v2_order_are_reproduced() {
         let plan = OrderPlan { ticker: t.clone(), side, limit, price, amount: raw.clone(), quote_amount: raw, quote_type: quote, volume, kind: TxKind::Regular,
                                origin: if side == Side::Buy { Origin::QuoteBudget } else { Origin::Base }, wire_price: None };
         if c["wire"]["size"] == "Infinity" {
-            assert!(plan.to_order(CL.into(), deadline, BITGET.wire).is_err(), "D-BITGET-ZERO-TOUCH {c}");
+            assert!(plan.to_order(CL.into(), deadline, &BITGET).is_err(), "D-BITGET-ZERO-TOUCH {c}");
             zero_touch += 1;
             continue;
         }
-        let order = plan.to_order(CL.into(), deadline, BITGET.wire).unwrap();
+        let order = plan.to_order(CL.into(), deadline, &BITGET).unwrap();
         match c["refused"].as_str() {
             Some(text) => {
                 assert_eq!(sent_body(&order).await, Err(VenueError::Rejected(vec![text.into()])), "{c}");
@@ -331,7 +331,7 @@ fn the_exact_cap_bounds_the_quote_a_base_market_buy_is_sent_for() {
     let bot = capped(1000.0);
     let Sizing::Place(plan) = amount::size(&bot, &t, &bd("60"), &bd("64001.37"), &BITGET).unwrap() else { panic!() };
     assert!(!plan.quote_type, "no quote minimum: the base wins");
-    let sent = |plan: &OrderPlan| plan.to_order(CL.into(), "2026-09-01T10:00:10Z".parse().unwrap(), BITGET.wire).unwrap();
+    let sent = |plan: &OrderPlan| plan.to_order(CL.into(), "2026-09-01T10:00:10Z".parse().unwrap(), &BITGET).unwrap();
     let amount::CapGuard::Place(same) = amount::guard_exact_cap(&o.primary, &bot, &plan).unwrap() else { panic!() };
     assert_eq!(sent(&same), sent(&plan), "under the cap: as sized");
     let whole = BigDec::parse(&sent(&plan).volume).unwrap();
