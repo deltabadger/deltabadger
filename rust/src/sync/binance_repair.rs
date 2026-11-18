@@ -462,7 +462,8 @@ impl<R:HistoryReader> HistoryRepair<R> {
             let owner=key.user_id;
             cx.db.run(move |c,cipher| {
                 session.finish(c,cipher,&key,|fenced| {
-                    // The diagnostic has no monetary estimate and uses the existing Import history UI.
+                    // A diagnostic no page reads (D-GAP-EVIDENCE-ONLY): its windows are open for every account and no import closes
+                    // them; what they cost shows through the tracker's balance checks.
                     let name=gap_key(key.user_id);
                     let mut stored:Value=app_config::get_plain(fenced,&name).map_err(SyncError)?
                         .and_then(|s|serde_json::from_str(&s).ok()).filter(Value::is_object).unwrap_or_else(||json!({}));

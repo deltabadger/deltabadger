@@ -137,13 +137,15 @@ pub struct Summary {
     pub unpriced_proceeds: Dec,
     /// Per asset, what must have been held before its history begins, in the order first opened.
     pub openings: Vec<(String, Dec)>,
+    /// Per asset of `openings`, same order: the dollars its opening carries at that day's price (zero when unpriced).
+    pub opening_values: Vec<(String, Dec)>,
 }
 
 impl Summary {
     /// `empty_summary`: a venue the walk has no rows of.
     pub fn empty() -> Summary { Summary { positions: vec![], total_invested: Dec::zero(), cash: vec![], cash_basis: vec![], incomplete: false, loss_sales: vec![],
                                         round_trips: vec![], received: Dec::zero(), realised: Dec::zero(), fees: Dec::zero(), cash_usd: Dec::zero(),
-                                        unpriced_proceeds: Dec::zero(), openings: vec![] } }
+                                        unpriced_proceeds: Dec::zero(), openings: vec![], opening_values: vec![] } }
 }
 
 /// Every scope from one walk (`Ledger.scopes`): each venue's summary by exchange id, in the order the walk met the
@@ -1535,8 +1537,12 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
     let book_realised = w.book.realised.get(venue).cloned().unwrap_or_else(Dec::zero);
     let costs = w.costs.get(venue).cloned().unwrap_or_else(Dec::zero);
     let mut openings: Vec<(String, Dec)> = vec![];
+    let mut opening_values: Vec<(String, Dec)> = vec![];
     for r in rows.iter().filter(|r| r.opening) {
-        match openings.iter_mut().find(|(k, _)| *k == r.base) { Some((_, v)) => *v = r.amount.clone(), None => openings.push((r.base.clone(), r.amount.clone())) }
+        match openings.iter().position(|(k, _)| *k == r.base) {
+            Some(i) => { openings[i].1 = r.amount.clone(); opening_values[i].1 = r.fiat_value.clone(); }
+            None => { openings.push((r.base.clone(), r.amount.clone())); opening_values.push((r.base.clone(), r.fiat_value.clone())); }
+        }
     }
     Ok(Summary {
         positions,
@@ -1552,6 +1558,7 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
         incomplete,
         loss_sales: vec![],
         openings,
+        opening_values,
     })
 }
 
@@ -1566,7 +1573,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
     };
     let mut held: Vec<(String, Vec<Position>)> = vec![];
     let (mut received, mut realised, mut fees, mut cash_usd, mut unpriced_proceeds) = (Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero());
-    let (mut round_trips, mut openings) = (vec![], vec![]);
+    let (mut round_trips, mut openings, mut opening_values) = (vec![], vec![], vec![]);
     for (_, s) in venues {
         total = (&total + &s.total_invested)?;
         received = (&received + &s.received)?;
@@ -1576,6 +1583,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         unpriced_proceeds = (&unpriced_proceeds + &s.unpriced_proceeds)?;
         round_trips.extend(s.round_trips.iter().cloned());
         for (symbol, quantity) in &s.openings { add_to(&mut openings, symbol, quantity)?; }
+        for (symbol, value) in &s.opening_values { add_to(&mut opening_values, symbol, value)?; }
         for (c, a) in &s.cash { add(&mut cash, c, a)?; }
         for (c, a) in &s.cash_basis { add(&mut basis, c, a)?; }
         for p in &s.positions {
@@ -1595,7 +1603,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         positions, total_invested: total, cash, cash_basis: basis.into_iter().filter(|(_, b)| !b.is_zero()).collect(),
         incomplete: venues.iter().any(|(_, s)| s.incomplete) || w.engine.uncovered || !ps.warnings.is_empty(),
         loss_sales: loss_sales(&w.global.disposals, ps.today)?,
-        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings,
+        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings, opening_values,
     })
 }
 

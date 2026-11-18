@@ -11,8 +11,9 @@ pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
 /// The calculation a stored summary was made by: a summary of another one is cold (4: a broker name that is both a
 /// security and a coin is priced by the asset its rows recorded; 5: coin-quoted rows are two legs, transfers wait for their
-/// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY).
-const SCHEMA: u64 = 6;
+/// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY;
+/// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS).
+const SCHEMA: u64 = 7;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
@@ -38,12 +39,12 @@ fn encode(s:&Summary)->Value {
     json!({"positions":s.positions.iter().map(|p|json!({"symbol":p.symbol,"quantity":p.quantity.to_s_f(),"cost":p.cost.to_s_f(),"avg_cost":p.avg_cost.to_s_f(),"opened_at":at(&p.opened_at),"estimated":p.estimated,"unpriced":p.unpriced.to_s_f()})).collect::<Vec<_>>(),
         "round_trips":s.round_trips.iter().map(|t|json!({"symbol":t.symbol,"opened_at":at(&t.opened_at),"closed_at":t.closed_at.0,"quantity":t.quantity.to_s_f(),"invested":t.invested.to_s_f(),"proceeds":t.proceeds.to_s_f(),"fees":t.fees.to_s_f(),"realised":t.realised.to_s_f(),"incomplete":t.incomplete})).collect::<Vec<_>>(),
         "total_invested":s.total_invested.to_s_f(),"received":s.received.to_s_f(),"realised":s.realised.to_s_f(),"fees":s.fees.to_s_f(),"cash_usd":s.cash_usd.to_s_f(),"unpriced_proceeds":s.unpriced_proceeds.to_s_f(),
-        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
+        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"opening_values":pairs(&s.opening_values),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
 }
 /// Every computed decimal a summary stores: the bound a reader applies is applied before publishing too.
 fn decimals(s:&Summary)->impl Iterator<Item=&Dec> {
     [&s.total_invested,&s.received,&s.realised,&s.fees,&s.cash_usd,&s.unpriced_proceeds].into_iter()
-        .chain(s.cash.iter().chain(&s.cash_basis).chain(&s.openings).map(|(_,v)|v))
+        .chain(s.cash.iter().chain(&s.cash_basis).chain(&s.openings).chain(&s.opening_values).map(|(_,v)|v))
         .chain(s.positions.iter().flat_map(|p|[&p.quantity,&p.cost,&p.avg_cost,&p.unpriced]))
         .chain(s.round_trips.iter().flat_map(|t|[&t.quantity,&t.invested,&t.proceeds,&t.fees,&t.realised]))
 }
@@ -72,7 +73,7 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
     Ok(Summary { positions:array(&v["positions"] )?.iter().map(|p|Ok(Position { symbol:text(&p["symbol"] )?.into(),quantity:decimal(&p["quantity"] )?,cost:decimal(&p["cost"] )?,avg_cost:decimal(&p["avg_cost"] )?,opened_at:optional_instant(&p["opened_at"])?,estimated:boolean(&p["estimated"] )?,unpriced:decimal(&p["unpriced"] )? })).collect::<Result<_,FiguresError>>()?,
         round_trips:array(&v["round_trips"])?.iter().map(|t|Ok(RoundTrip { symbol:text(&t["symbol"])?.into(),opened_at:optional_instant(&t["opened_at"])?,closed_at:instant(&t["closed_at"])?,quantity:decimal(&t["quantity"])?,invested:decimal(&t["invested"])?,proceeds:decimal(&t["proceeds"])?,fees:decimal(&t["fees"])?,realised:decimal(&t["realised"])?,incomplete:boolean(&t["incomplete"])? })).collect::<Result<_,FiguresError>>()?,
         total_invested:decimal(&v["total_invested"] )?,received:decimal(&v["received"])?,realised:decimal(&v["realised"])?,fees:decimal(&v["fees"])?,cash_usd:decimal(&v["cash_usd"])?,unpriced_proceeds:decimal(&v["unpriced_proceeds"])?,
-        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
+        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,opening_values:pairs(&v["opening_values"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
 }
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
 pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
@@ -181,7 +182,7 @@ mod tests {
         whole.positions.push(Position{symbol:"AAPL".into(),quantity:Dec::strict("2.5").unwrap(),cost:Dec::strict("123.4567890123456789").unwrap(),avg_cost:Dec::strict("49.38271560493827156").unwrap(),opened_at:Some(At(1_790_000_000_123_456_789)),estimated:true,unpriced:Dec::zero()});
         whole.round_trips.push(RoundTrip{symbol:"MSFT".into(),opened_at:None,closed_at:At(1_790_000_100_000_000_000),quantity:Dec::strict("1.5").unwrap(),invested:Dec::strict("300.01").unwrap(),proceeds:Dec::strict("280.5").unwrap(),fees:Dec::strict("0.25").unwrap(),realised:Dec::strict("-19.76").unwrap(),incomplete:true});
         whole.received=Dec::strict("3.3").unwrap();whole.realised=Dec::strict("-19.76").unwrap();whole.fees=Dec::strict("0.25").unwrap();whole.cash_usd=Dec::strict("7.125").unwrap();whole.unpriced_proceeds=Dec::strict("0.5").unwrap();
-        whole.openings=vec![("BTC".into(),Dec::strict("0.01").unwrap())];
+        whole.openings=vec![("BTC".into(),Dec::strict("0.01").unwrap())];whole.opening_values=vec![("BTC".into(),Dec::strict("600.123456789").unwrap())];
         whole.cash=vec![("USD".into(),Dec::strict("-0.0").unwrap())];whole.cash_basis=vec![("USD".into(),Dec::strict("1.01").unwrap())];whole.incomplete=true;whole.loss_sales=vec![("AAPL".into(),now().date_naive())];
         Walked{venues:vec![(7,whole.clone())],whole,terms:vec![]}
     }
@@ -197,7 +198,7 @@ mod tests {
         let changes=c.total_changes();
         // Exercise every decimal field and both scopes, below the payload limit.
         for scope in [false,true] {
-            for field in 0..20 {
+            for field in 0..21 {
                 let mut w=walked();
                 let s=if scope {&mut w.venues[0].1}else{&mut w.whole};
                 let huge=Dec::parse(&format!("0.{}1","0".repeat(MAX_COMPUTED_DECIMAL))).unwrap();
@@ -208,7 +209,7 @@ mod tests {
                     6=>s.cash_basis[0].1=huge,7=>s.positions[0].cost=huge.neg(),
                     8=>s.received=huge,9=>s.realised=huge,10=>s.fees=huge,11=>s.cash_usd=huge,12=>s.unpriced_proceeds=huge,13=>s.openings[0].1=huge,
                     14=>s.round_trips[0].quantity=huge,15=>s.round_trips[0].invested=huge,16=>s.round_trips[0].proceeds=huge,17=>s.round_trips[0].fees=huge,
-                    18=>s.round_trips[0].realised=huge,_=>s.realised=huge.neg(),
+                    18=>s.round_trips[0].realised=huge,19=>s.opening_values[0].1=huge,_=>s.realised=huge.neg(),
                 }
                 let result=publish(&c,1,&v,Some(&w),7,now());
                 assert!(result.is_err(),"publish must refuse oversize decimal in scope {scope} field {field}");
@@ -275,10 +276,10 @@ mod tests {
             app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
             assert!(matches!(read(&c,1,None,now()),Ok(State::Cold)),"oversized {path:?}");
         }
-        for (list,field) in [("round_trips","fees"),("round_trips","realised"),("openings","1")] {
+        for (list,field) in [("round_trips","fees"),("round_trips","realised"),("openings","1"),("opening_values","1")] {
             publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
             let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
-            if list=="openings" {raw["whole"][list][0][1]=huge.clone()} else {raw["whole"][list][0][field]=huge.clone()}
+            if field=="1" {raw["whole"][list][0][1]=huge.clone()} else {raw["whole"][list][0][field]=huge.clone()}
             app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
             assert!(matches!(read(&c,1,None,now()),Ok(State::Cold)),"oversized {list}.{field}");
         }

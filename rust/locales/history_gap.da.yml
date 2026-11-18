@@ -1,14 +1,20 @@
 da:
     tracker:
         history_gap:
-            button: "Importér historik"
+            button: "Tilføj manglende historik"
             title: "Gør din historik fra %{exchange} komplet"
             why_kucoin_reach: "KuCoins API returnerer handler, indbetalinger og udbetalinger kun for omtrent de seneste 12 måneder."
             why_kucoin_hf_convert: "Convert-byt kan slet ikke læses, uanset hvor nye de er."
             why_kucoin_transfers: "Ældre indbetalinger og udbetalinger mangler også."
             why_binance: "Binances API returnerer kun handler for par, der stadig er noteret, og Convert, støvkonverteringer og Simple Earn kun fra de datoer, Binance gemmer dem fra. Margin og futures læses ikke."
-            why_other: "%{exchange} indeholder mere, end den historik Deltabadger kunne læse derfra forklarer."
+            why_other: "En del af det, der skete på %{exchange}, er ikke i den historik, Deltabadger kunne læse derfra."
             evidence: "Det fandt trackeren"
+            row_coins: "Ingen historik for en del af dine %{symbols}"
+            row_more: " og andre"
+            row_unread: "En del af din historik fra %{exchange} er ufuldstændig"
+            unread_span: "%{from} – %{to}: handler i denne periode kunne ikke læses."
+            unread_day: "%{from}: handler på denne dag kunne ikke læses."
+            unread_more: "Der følger flere perioder."
             steps_binance_1: "Åbn Wallet → Transaktionshistorik → Eksportér på Binance. Eksportér én fil pr. år, helt tilbage til du oprettede kontoen."
             steps_binance_2: "Omdøb ikke filerne: navnet viser, hvilken tidszone Binance brugte."
             steps_binance_3: "Klik på Importér en fil, vælg Binance CSV, og upload én fil ad gangen. Rækker, der allerede er i din historik, springes over."

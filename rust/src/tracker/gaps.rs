@@ -9,9 +9,11 @@
 //! owner's history (`history_version`): that count is inside the cap, so a very large history can end the step before
 //! it judges a venue, which leaves no row and loses nothing else.
 //!
-//! Pages only read stored diagnostics (`read`): one query on a clean account. Balance-derived gaps
-//! require the same publication and balances; Binance repair gaps carry their credential fence and
-//! remain visible without a monetary estimate or a warm publication.
+//! Pages only read stored evidence (`read`): one query on a clean account. Balance-derived gaps require the same
+//! publication and balances. KuCoin HF periods no API unit or export covers (`kucoin_hf::refresh_gap`'s `missing`) carry
+//! their credential fence and show without a monetary estimate or a warm publication; an export that covers them closes
+//! them. The Binance repair's row is never read here (D-GAP-EVIDENCE-ONLY): its windows are open for every account and
+//! no import closes them.
 use super::cache::{self, Fingerprint, Published};
 use super::figures::{self, Balance, Note};
 use super::import::run::Reading;
@@ -27,7 +29,7 @@ use std::sync::atomic::Ordering::SeqCst;
 pub const GAPS: budget::Limits = budget::Limits { steps: 50_000_000, held: 4_000_000 };
 /// The step's SQL, all its statements together, in SQLite VM instructions.
 pub const SQL_INSTRUCTIONS: u64 = 2_000_000;
-/// The line shows from ten dollars of assets that arrived with no history behind them.
+/// The line shows from ten dollars of assets that arrived, or that the history needs, with no history behind them.
 const GAP_FLOOR: i64 = 10;
 const MAX_ROW: usize = 64 * 1024;
 const MAX_DECIMAL: usize = 64;
@@ -58,9 +60,15 @@ pub mod seam {
     pub static SKIP_READ: AtomicBool = AtomicBool::new(false);
 }
 
-/// A gap as a page shows it: the venue, its reading key, and the notes that are its evidence.
+/// The KuCoin periods a page lists at most.
+const MAX_UNREAD: usize = 20;
+
+/// A gap as a page shows it: the venue, its reading key, the notes that are its evidence, and the periods of the
+/// venue's history no API read or export covers (half-open, as stored; the first twenty, `more_unread` when there are
+/// more).
 #[derive(Clone, Debug, PartialEq)]
-pub struct StoredGap { pub exchange_id: i64, pub key: i64, pub name: String, pub kind: String, pub arrived: Dec, pub notes: Vec<Note> }
+pub struct StoredGap { pub exchange_id: i64, pub key: i64, pub name: String, pub kind: String, pub arrived: Dec, pub notes: Vec<Note>,
+                       pub unread: Vec<(DateTime<Utc>, DateTime<Utc>)>, pub more_unread: bool }
 
 /// `Figures#resolve` and `resolve_departed` for one venue whose pending moves are empty, without `compute_on`'s
 /// lookups: per non-cash symbol, what the venue holds against what the history holds. More held arrived at the
@@ -182,17 +190,26 @@ fn judged(c: &Connection, owner: i64, now: DateTime<Utc>) -> Result<Option<(Fing
 }
 
 /// The rules a venue passes before its gap is stated: its ledger really read by the scheduler's key, the balances that
-/// key produced and valued, nothing pending, and ten dollars or more arrived.
+/// key produced and valued, nothing pending, and ten dollars or more arrived or opened.
 fn venue(c: &Connection, owner: i64, origin: &crate::sync::cache::ReadOrigin, k: &Reading, summary: Option<&Summary>) -> Result<Option<Gap>, FiguresError> {
     if !origin.key_read_complete(c, k.id, k.exchange_id).map_err(|_| data("reading provenance unavailable"))? { return Ok(None); }
     if figures::page::cold(c, owner, Some(k.exchange_id), true)?.reason.is_some() { return Ok(None); }
     if pending(c, owner, k.exchange_id)? { return Ok(None); }
     let balances = figures::balances(c, owner, Some(k.exchange_id))?;
     let empty = Summary::empty();
-    let notes = resolve(summary.unwrap_or(&empty), &balances, &k.exchange_name)?;
-    let mut arrived = Dec::zero();
-    for n in notes.iter().filter(|n| n.kind == "arrived") { arrived = (&arrived + &n.amount)?; }
-    if arrived < Dec::from_i64(GAP_FLOOR) { return Ok(None); }
+    let summary = summary.unwrap_or(&empty);
+    let mut notes = resolve(summary, &balances, &k.exchange_name)?;
+    // D-GAP-OPENINGS: what the history needs but never shows arriving, at the opening's own price; unpriced, nothing.
+    for ((symbol, quantity), (_, value)) in summary.openings.iter().zip(&summary.opening_values) {
+        budget::charge(1, 0)?;
+        if figures::stated(value) { notes.push(Note { kind: "opened", symbol: symbol.clone(), exchange: Some(k.exchange_name.clone()), history: Some(quantity.clone()), held: None, amount: value.clone() }); }
+    }
+    let (mut arrived, mut evidence) = (Dec::zero(), Dec::zero());
+    for n in &notes {
+        if n.kind == "arrived" { arrived = (&arrived + &n.amount)?; }
+        if n.kind != "left" { evidence = (&evidence + &n.amount)?; }
+    }
+    if evidence < Dec::from_i64(GAP_FLOOR) { return Ok(None); }
     let Some(stamp) = self::origin(c, owner, k.exchange_id)? else { return Ok(None) };
     let (rows, newest) = revision(c, owner, k.exchange_id)?;
     Ok(Some(Gap { exchange: k.exchange_id, key: k.id, origin: stamp, rows, newest, arrived, notes }))
@@ -231,7 +248,8 @@ fn encode(from: &Fingerprint, gaps: &[Gap]) -> Result<String, FiguresError> {
     let mut out = vec![];
     for g in gaps {
         let mut notes: Vec<&Note> = g.notes.iter().collect();
-        notes.sort_by(|a, b| (a.kind != "arrived").cmp(&(b.kind != "arrived")).then_with(|| b.amount.cmp(&a.amount)));
+        // What opened the line (arrived, opened) first, so no number of `left` notes pushes it out of the twenty.
+        notes.sort_by(|a, b| (a.kind == "left").cmp(&(b.kind == "left")).then_with(|| b.amount.cmp(&a.amount)));
         notes.truncate(MAX_NOTES);
         let notes = notes.into_iter().map(|n| Ok(json!({"kind": n.kind, "symbol": n.symbol, "exchange": n.exchange, "history": optional(&n.history)?, "held": optional(&n.held)?, "amount": money(&n.amount)?})))
             .collect::<Result<Vec<_>, FiguresError>>()?;
@@ -256,7 +274,7 @@ fn decode(raw: &str, from: &Fingerprint, scope: Option<i64>) -> Option<Vec<Decod
     for g in v["gaps"].as_array()? {
         let exchange = g["exchange"].as_i64()?;
         let notes = g["notes"].as_array()?.iter().map(|n| Some(Note {
-            kind: match n["kind"].as_str()? { "arrived" => "arrived", "left" => "left", _ => return None },
+            kind: match n["kind"].as_str()? { "arrived" => "arrived", "opened" => "opened", "left" => "left", _ => return None },
             symbol: n["symbol"].as_str()?.into(),
             exchange: if n["exchange"].is_null() { None } else { Some(n["exchange"].as_str()?.into()) },
             history: optional(&n["history"])?, held: optional(&n["held"])?, amount: decimal(&n["amount"])?,
@@ -271,49 +289,57 @@ fn decode(raw: &str, from: &Fingerprint, scope: Option<i64>) -> Option<Vec<Decod
 
 /// The gaps a page shows for `scope`, read against the entry the page itself read (`published`: None unless it is
 /// warm, and then nothing is read). `reading` is the user's `ApiKey.reading`, when the caller holds it already.
-/// Queries: the row; with a gap stored, the reading keys once and two per gap venue (its balances' revision).
+/// Queries: the row; with an open gap stored, the reading keys once and two per derived gap venue (its balances'
+/// revision), and the credential check per open KuCoin entry.
 pub fn read(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&Fingerprint>, reading: Option<&[Reading]>) -> Result<Vec<StoredGap>, FiguresError> {
     if seam::SKIP_READ.load(SeqCst) { return Ok(vec![]); }
     // Both sources share one indexed lookup, retaining the clean page's one-query budget.
-    let mut statement = c.prepare("SELECT key,value FROM app_configs WHERE key IN (?1,?2,?3)")?;
-    let rows = statement.query_map([key(owner), crate::sync::binance_repair::gap_key(owner), crate::sync::kucoin_hf::gap_key(owner)],
-                                   |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?
+    let kucoin_key = crate::sync::kucoin_hf::gap_key(owner);
+    let mut statement = c.prepare("SELECT key,value FROM app_configs WHERE key IN (?1,?2)")?;
+    let rows = statement.query_map([key(owner), kucoin_key.clone()], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?
         .collect::<Result<HashMap<_, _>, _>>()?;
-    let mut out = read_derived(c, owner, scope, published, reading, rows.get(&key(owner)).and_then(Option::as_deref))?;
-    // The Binance repair gap (`unresolved`) and the KuCoin HF gap (`uncovered`): fenced on their credential, no estimate.
-    let fenced: Vec<Value> = [crate::sync::binance_repair::gap_key(owner), crate::sync::kucoin_hf::gap_key(owner)].iter()
-        .filter_map(|k| rows.get(k).and_then(Option::as_deref)).filter(|s| s.len() <= MAX_ROW).filter_map(|s| serde_json::from_str::<Value>(s).ok()).filter(Value::is_object).collect();
-    if fenced.is_empty() { return Ok(out) };
+    let derived = match (published, rows.get(&key(owner)).and_then(Option::as_deref)) {
+        (Some(from), Some(raw)) => decode(raw, from, scope).unwrap_or_default(),
+        _ => vec![],
+    };
+    // Which KuCoin entries are open, from the JSON alone: `missing` non-empty. An entry written before `missing` was
+    // stored is closed until the next sync rewrites it.
+    let kucoin: Vec<(i64, Value)> = rows.get(&kucoin_key).and_then(Option::as_deref).filter(|s| s.len() <= MAX_ROW)
+        .and_then(|s| serde_json::from_str::<Value>(s).ok()).and_then(|v| match v { Value::Object(m) => Some(m), _ => None }).into_iter().flatten()
+        .filter_map(|(id, entry)| Some((id.parse::<i64>().ok()?, entry)))
+        .filter(|(id, entry)| scope.is_none_or(|s| s == *id) && entry["missing"].as_array().is_some_and(|m| !m.is_empty()))
+        .collect();
+    if derived.is_empty() && kucoin.is_empty() { return Ok(vec![]); }
     let loaded;
     let reading = match reading { Some(r) => r, None => { loaded = super::import::run::reading(c, owner).map_err(|e| FiguresError::Data(e.0))?; &loaded } };
-    for stored in &fenced {
-        for k in reading {
-            if scope.is_some_and(|id| id != k.exchange_id) || out.iter().any(|g| g.exchange_id == k.exchange_id) { continue; }
-            let gap = &stored[k.exchange_id.to_string()];
-            let open = gap["unresolved"].as_u64().unwrap_or(0) > 0 || gap["uncovered"].as_array().is_some_and(|u| !u.is_empty());
-            if !open { continue; }
-            let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&gap["credential"]) else { continue };
-            if version.id != k.id || !crate::engine::model::credential_is_current(c, &version).map_err(|_| data("repair credential unavailable"))? { continue; }
-            out.push(StoredGap { exchange_id: k.exchange_id, key: k.id, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: Dec::zero(), notes: vec![] });
+    let mut out = read_derived(c, owner, derived, reading)?;
+    for (exchange, entry) in kucoin {
+        let Some(k) = reading.iter().find(|k| k.exchange_id == exchange) else { continue };
+        let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&entry["credential"]) else { continue };
+        if version.id != k.id || !crate::engine::model::credential_is_current(c, &version).map_err(|_| data("gap credential unavailable"))? { continue; }
+        let listed = entry["missing"].as_array().map_or(&[][..], Vec::as_slice);
+        let unread: Vec<(DateTime<Utc>, DateTime<Utc>)> = listed.iter().take(MAX_UNREAD).filter_map(|s| {
+            let at = |v: &Value| v.as_str().and_then(|t| crate::codec::parse_time(t).ok());
+            Some((at(&s[0])?, at(&s[1])?))
+        }).collect();
+        let total = entry["missing_spans"].as_u64().map_or(listed.len(), |n| n as usize).max(listed.len());
+        let more_unread = total > unread.len();
+        match out.iter_mut().find(|g| g.exchange_id == exchange) {
+            Some(g) => { g.unread = unread; g.more_unread = more_unread; }
+            None => out.push(StoredGap { exchange_id: k.exchange_id, key: k.id, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: Dec::zero(), notes: vec![], unread, more_unread }),
         }
     }
     Ok(out)
 }
 
-fn read_derived(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&Fingerprint>, reading: Option<&[Reading]>, raw: Option<&str>) -> Result<Vec<StoredGap>, FiguresError> {
-    let Some(from) = published else { return Ok(vec![]) };
-    let Some(raw) = raw else { return Ok(vec![]) };
-    let Some(stored) = decode(raw, from, scope) else { return Ok(vec![]) };
-    if stored.is_empty() { return Ok(vec![]); }
-    let loaded;
-    let reading = match reading { Some(r) => r, None => { loaded = super::import::run::reading(c, owner).map_err(|e| FiguresError::Data(e.0))?; &loaded } };
+fn read_derived(c: &Connection, owner: i64, stored: Vec<Decoded>, reading: &[Reading]) -> Result<Vec<StoredGap>, FiguresError> {
     let mut out = vec![];
     for g in stored {
         // The key the gap was judged with must still be the one the venue is read with.
         let Some(k) = reading.iter().find(|k| k.exchange_id == g.exchange && k.id == g.key) else { continue };
         if origin(c, owner, g.exchange)?.as_deref() != Some(g.origin.as_str()) { continue; }
         if revision(c, owner, g.exchange)? != (g.rows, g.newest) { continue; }
-        out.push(StoredGap { exchange_id: g.exchange, key: g.key, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: g.arrived, notes: g.notes });
+        out.push(StoredGap { exchange_id: g.exchange, key: g.key, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: g.arrived, notes: g.notes, unread: vec![], more_unread: false });
     }
     out.sort_by(|a, b| b.arrived.cmp(&a.arrived));
     Ok(out)
@@ -405,6 +431,12 @@ mod tests {
         let other = Fingerprint::from_json(&json!({"history":"1_2_y","prices":0,"expires":"2026-10-31T02:00:00+00:00","producers":[]}));
         assert!(decode(&raw, &other, None).is_none(), "another publication");
         assert!(encode(&from(), &[gap(vec![note("BTC", d(&format!("1{}", "0".repeat(70))))])]).is_err(), "a decimal over 64 characters");
+        // Twenty larger `left` notes never push out what opened the line.
+        let mut many: Vec<Note> = (0..20).map(|i| Note { kind: "left", amount: d("1000"), ..note(&format!("L{i:02}"), Dec::zero()) }).collect();
+        many.push(Note { kind: "opened", held: None, amount: d("15"), ..note("ETH", Dec::zero()) });
+        let raw = encode(&from(), &[gap(many)]).unwrap();
+        let decoded = decode(&raw, &from(), None).unwrap();
+        assert_eq!((decoded[0].notes.len(), decoded[0].notes[0].kind, decoded[0].notes[0].held.clone()), (20, "opened", None));
         let wide = vec![note(&"X".repeat(70 * 1024), d("20"))];
         assert!(encode(&from(), &[gap(wide)]).is_err(), "a row over 64 KiB");
     }
