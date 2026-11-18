@@ -218,6 +218,10 @@ impl Fx {
         let raw: Option<String> = self.c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::sync::kucoin_hf::gap_key(self.user)], |r| r.get(0)).ok();
         raw.map(|r| serde_json::from_str::<Value>(&r).unwrap()[self.exchange.to_string()]["uncovered"].clone()).unwrap_or(Value::Null)
     }
+    fn missing(&self) -> Value {
+        let raw: Option<String> = self.c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::sync::kucoin_hf::gap_key(self.user)], |r| r.get(0)).ok();
+        raw.map(|r| serde_json::from_str::<Value>(&r).unwrap()[self.exchange.to_string()]["missing"].clone()).unwrap_or(Value::Null)
+    }
     fn line(&self) -> bool { !deltabadger::tracker::gaps::read(&self.c, self.user, None, None, None).unwrap().is_empty() }
     fn error(&self) -> Option<String> { self.c.query_row("SELECT last_sync_error FROM api_keys WHERE id = ?1", [self.key], |r| r.get(0)).unwrap() }
 }
@@ -763,6 +767,36 @@ async fn l10_exports_close_the_gap_only_when_they_cover_trades() {
     assert_eq!(fx.uncovered(), json!([["2026-09-10 00:00:01", "2026-09-20 00:00:00"]]));
     fx.import(&file(&[buy_legs("1", "1", "0", "2026-09-09 00:00:00"), buy_legs("1", "1", "0", "2026-09-21 00:00:00")]));
     assert_eq!(fx.uncovered(), json!([]));
+    assert!(!fx.line());
+}
+
+/// An ambiguous second stays flagged whatever is imported, so it is not a missing period and opens no line
+/// (D-GAP-EVIDENCE-ONLY); `uncovered` keeps it.
+#[tokio::test(flavor = "current_thread")]
+async fn an_ambiguous_second_is_not_a_missing_period() {
+    let fx = Fx::new();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    api.hf(vec![hf_fill("BTC-USDT", "buy", "1", "100", "0", "2026-10-30T10:00:00Z")]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    fx.restore(&["2026-10-30T10:00:00Z,buy,BTC,1,USDT,200,,,kucoin,,,"]);
+    assert_eq!(fx.ambiguous(), vec!["2026-10-30 10:00:00".to_string()]);
+    assert!(fx.uncovered().as_array().unwrap().contains(&json!(["2026-10-30 10:00:00", "2026-10-30 10:00:01"])), "{}", fx.uncovered());
+    assert_eq!(fx.missing(), json!([]));
+    assert!(!fx.line());
+}
+
+/// A period no unit covers is missing and shows; the export covering it, imported through the reader, closes it.
+#[tokio::test(flavor = "current_thread")]
+async fn an_export_closes_a_missing_period() {
+    let fx = Fx::new();
+    fx.c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+                  VALUES (?1, ?2, ?3, 4, 'USDT', 10, '2026-09-01 00:00:00', '{}', '{}', 0, '2026-09-01', '2026-09-01')", rusqlite::params![fx.user, fx.key, fx.exchange]).unwrap();
+    assert_eq!(fx.sync(&Api::new("hf", &["BTC-USDT"])).await, Ok(true));
+    assert_eq!(fx.missing(), json!([["2026-09-01 00:00:00", "2026-10-23 18:00:00"]]));
+    let gaps = deltabadger::tracker::gaps::read(&fx.c, fx.user, None, None, None).unwrap();
+    assert_eq!((gaps.len(), gaps[0].unread.len(), gaps[0].more_unread), (1, 1, false));
+    fx.import(&file(&[buy_legs("1", "1", "0", "2026-09-01 00:00:00"), buy_legs("1", "1", "0", "2026-10-24 00:00:00")]));
+    assert_eq!(fx.missing(), json!([]));
     assert!(!fx.line());
 }
 

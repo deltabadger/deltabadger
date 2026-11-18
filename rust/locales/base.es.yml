@@ -662,6 +662,7 @@ es:
         notes:
             left: '%{exchange} informa %{held} %{symbol}; el historial explica %{history}. La diferencia se toma como salida al coste (%{amount}).'
             arrived: '%{exchange} informa %{held} %{symbol}; el historial explica %{history}. La diferencia se toma como entrada a su precio (%{amount}).'
+            opened: 'El historial necesita %{history} %{symbol} cuya llegada nunca muestra. Se toman como mantenidos desde el principio, al precio de ese día (%{amount}).'
             since_sync: '%{symbol} comprado desde la última sincronización: valorado al coste (%{amount}) hasta la siguiente.'
             cash_out: 'El historial tiene %{history} %{symbol}; %{exchange} informa %{held}. La diferencia (%{amount}) se toma como salida.'
             cash_in: 'El historial tiene %{history} %{symbol}; %{exchange} informa %{held}. La diferencia (%{amount}) se toma como entrada.'

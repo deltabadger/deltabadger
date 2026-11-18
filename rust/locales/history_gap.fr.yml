@@ -1,14 +1,20 @@
 fr:
     tracker:
         history_gap:
-            button: "Importer l'historique"
+            button: "Ajouter l'historique manquant"
             title: "Complète ton historique %{exchange}"
             why_kucoin_reach: "L'API de KuCoin ne renvoie qu'environ les 12 derniers mois de trades, de dépôts et de retraits."
             why_kucoin_hf_convert: "Les échanges Convert ne peuvent pas être lus du tout, même récents."
             why_kucoin_transfers: "Les dépôts et retraits plus anciens manquent aussi."
             why_binance: "L'API de Binance ne renvoie les trades que pour les paires encore listées, et Convert, les conversions de poussière et Simple Earn seulement à partir des dates que Binance conserve. Le margin et les futures ne sont pas lus."
-            why_other: "%{exchange} détient plus que ce qu'explique l'historique que Deltabadger a pu y lire."
+            why_other: "Une partie de ce qui s'est passé sur %{exchange} manque dans l'historique que Deltabadger a pu y lire."
             evidence: "Ce que le tracker a trouvé"
+            row_coins: "Pas d'historique pour une partie de tes %{symbols}"
+            row_more: " et d'autres"
+            row_unread: "Une partie de ton historique %{exchange} est incomplète"
+            unread_span: "%{from} – %{to} : les trades de cette période n'ont pas pu être lus."
+            unread_day: "%{from} : les trades de ce jour n'ont pas pu être lus."
+            unread_more: "D'autres périodes suivent."
             steps_binance_1: "Sur Binance, ouvre Portefeuille → Historique des transactions → Exporter. Exporte un fichier par année, jusqu'à l'ouverture de ton compte."
             steps_binance_2: "Ne renomme pas les fichiers : le nom indique le fuseau horaire utilisé par Binance."
             steps_binance_3: "Clique sur Importer un fichier, choisis Binance CSV et téléverse un fichier à la fois. Les lignes déjà présentes dans ton historique sont ignorées."

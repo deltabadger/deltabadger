@@ -1,14 +1,20 @@
 sv:
     tracker:
         history_gap:
-            button: "Importera historik"
+            button: "Lägg till saknad historik"
             title: "Komplettera din historik från %{exchange}"
             why_kucoin_reach: "KuCoins API returnerar affärer, insättningar och uttag bara för ungefär de senaste 12 månaderna."
             why_kucoin_hf_convert: "Convert-byten går inte att läsa alls, hur nya de än är."
             why_kucoin_transfers: "Äldre insättningar och uttag saknas också."
             why_binance: "Binances API returnerar affärer bara för par som fortfarande är listade, och Convert, dammomvandlingar och Simple Earn bara från de datum Binance sparar dem. Margin och terminer läses inte."
-            why_other: "%{exchange} innehåller mer än historiken Deltabadger kunde läsa därifrån förklarar."
+            why_other: "En del av det som hände på %{exchange} finns inte i historiken som Deltabadger kunde läsa därifrån."
             evidence: "Det här hittade trackern"
+            row_coins: "Ingen historik för en del av dina %{symbols}"
+            row_more: " och andra"
+            row_unread: "En del av din historik från %{exchange} är ofullständig"
+            unread_span: "%{from} – %{to}: affärer under den här perioden kunde inte läsas."
+            unread_day: "%{from}: affärer den här dagen kunde inte läsas."
+            unread_more: "Fler perioder följer."
             steps_binance_1: "Öppna Plånbok → Transaktionshistorik → Exportera på Binance. Exportera en fil per år, ända tillbaka till när du öppnade kontot."
             steps_binance_2: "Byt inte namn på filerna: namnet visar vilken tidszon Binance använde."
             steps_binance_3: "Klicka på Importera en fil, välj Binance CSV och ladda upp en fil i taget. Rader som redan finns i din historik hoppas över."

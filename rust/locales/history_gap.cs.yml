@@ -1,14 +1,20 @@
 cs:
     tracker:
         history_gap:
-            button: "Importovat historii"
+            button: "Doplnit chybějící historii"
             title: "Doplň svou historii z %{exchange}"
             why_kucoin_reach: "API KuCoinu vrací obchody, vklady a výběry jen zhruba za posledních 12 měsíců."
             why_kucoin_hf_convert: "Směny Convert nejdou přečíst vůbec, ani ty nejnovější."
             why_kucoin_transfers: "Chybí i starší vklady a výběry."
             why_binance: "API Binance vrací obchody jen pro páry, které jsou stále kótované, a Convert, převody prachu a Simple Earn jen od dat, od kterých je Binance uchovává. Margin a futures se nenačítají."
-            why_other: "Na %{exchange} je víc, než vysvětluje historie, kterou odtamtud Deltabadger dokázal načíst."
+            why_other: "Část toho, co se stalo na %{exchange}, chybí v historii, kterou odtamtud Deltabadger dokázal načíst."
             evidence: "Co tracker našel"
+            row_coins: "Chybí historie pro část tvých %{symbols}"
+            row_more: " a dalších"
+            row_unread: "Část tvé historie z %{exchange} je neúplná"
+            unread_span: "%{from} – %{to}: obchody z tohoto období se nepodařilo načíst."
+            unread_day: "%{from}: obchody z tohoto dne se nepodařilo načíst."
+            unread_more: "Následují další období."
             steps_binance_1: "Na Binance otevři Peněženka → Historie transakcí → Export. Exportuj jeden soubor za každý rok, až do založení účtu."
             steps_binance_2: "Soubory nepřejmenovávej: z názvu je vidět, jaké časové pásmo Binance použil."
             steps_binance_3: "Klikni na Importovat soubor, vyber Binance CSV a nahrávej soubory po jednom. Řádky, které už v historii máš, se přeskočí."

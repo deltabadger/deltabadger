@@ -671,6 +671,7 @@ da:
         notes:
             left: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være gået ud til kostpris (%{amount}).'
             arrived: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være kommet ind til sin pris (%{amount}).'
+            opened: 'Historikken kræver %{history} %{symbol}, som den aldrig viser komme ind. Antages holdt fra starten, til den dags pris (%{amount}).'
             since_sync: '%{symbol} købt siden sidste synkronisering: værdiansat til kostpris (%{amount}) indtil næste.'
             cash_out: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ud.'
             cash_in: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ind.'

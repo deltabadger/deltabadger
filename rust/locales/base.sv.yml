@@ -671,6 +671,7 @@ sv:
         notes:
             left: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha lämnat till anskaffningsvärde (%{amount}).'
             arrived: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha kommit in till sitt pris (%{amount}).'
+            opened: 'Historiken behöver %{history} %{symbol} som den aldrig visar komma in. Tas som innehavda från början, till den dagens pris (%{amount}).'
             since_sync: '%{symbol} köpt sedan senaste synkningen: värderat till anskaffningsvärde (%{amount}) tills nästa.'
             cash_out: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts ut.'
             cash_in: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts in.'

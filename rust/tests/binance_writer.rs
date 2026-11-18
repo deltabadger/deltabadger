@@ -891,7 +891,8 @@ async fn repair_update_runs_once_per_install_version_and_new_version_runs_again(
         let next=job.with_version(repair::REPAIR_VERSION+1);
         assert_eq!(run_repair(&next,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::Done);
         assert!(calls.borrow().len()>requests);assert_eq!(count(&c),1);
-        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().iter().any(|g|g.exchange_id==key.exchange_id),"retention/excluded windows reach the existing Import history line");
+        assert!(c.query_row("SELECT count(*) FROM app_configs WHERE key=?1",[repair::gap_key(key.user_id)],|r|r.get::<_,i64>(0)).unwrap()==1,"the repair keeps its diagnostic row");
+        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"the repair's diagnostics do not open the line");
     }
 }
 
@@ -923,7 +924,7 @@ async fn repair_update_crash_after_committed_bucket_resumes_on_restart() {
     assert_eq!(run_repair(&job,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::NothingNew);assert_eq!(count(&c),2);
 }
 #[tokio::test(flavor="current_thread")]
-async fn repair_update_unresolved_identity_is_visible_on_the_gap_line() {
+async fn repair_update_unresolved_identity_stays_off_the_gap_line() {
     let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
     let a=input(Source::Deposit,"d1","","BTC");write(&o.primary,&key,std::slice::from_ref(&a)).unwrap();
     o.primary.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'",[]).unwrap();
@@ -936,10 +937,9 @@ async fn repair_update_unresolved_identity_is_visible_on_the_gap_line() {
     }
     assert_eq!(run_repair(&repair::HistoryRepair::new(Ambiguous),o.primary).await,deltabadger::jobs::Outcome::Done);
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    let gaps=deltabadger::tracker::gaps::read(&c,key.user_id,Some(key.exchange_id),None,None).unwrap();assert_eq!(gaps.len(),1);
-    assert!(deltabadger::tracker::gaps::read(&c,key.user_id+1,None,None,None).unwrap().is_empty());
-    c.execute("UPDATE api_keys SET key='rotated' WHERE id=?1",[key.id]).unwrap();
-    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"the diagnostic is credential fenced");
+    let stored:serde_json::Value=serde_json::from_str(&c.query_row("SELECT value FROM app_configs WHERE key=?1",[repair::gap_key(key.user_id)],|r|r.get::<_,String>(0)).unwrap()).unwrap();
+    assert!(stored[key.exchange_id.to_string()]["unresolved"].as_u64().unwrap()>0,"the diagnostic is stored");
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,Some(key.exchange_id),None,None).unwrap().is_empty(),"no page reads it");
 }
 #[tokio::test(flavor="current_thread")]
 async fn repair_update_venue_failure_uses_scheduler_retry_without_blocking_start() {
@@ -984,11 +984,11 @@ fn repair_session_keeps_guards_between_batches_and_avoids_repeated_full_scans() 
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn repair_update_unavailable_windows_finish_without_claiming_recovery() {
+async fn repair_update_unavailable_windows_finish_without_claiming_recovery_or_opening_the_line() {
     let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
     assert_eq!(run_repair(&repair_job("unavailable"),o.primary).await,deltabadger::jobs::Outcome::Done);
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();assert_eq!(count(&c),0);
-    assert_eq!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().len(),1);
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"a failed window names nothing to import");
 }
 
 #[tokio::test(flavor="current_thread")]

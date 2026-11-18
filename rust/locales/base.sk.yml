@@ -679,6 +679,7 @@ sk:
         notes:
             left: '%{exchange} hlási %{held} %{symbol}; história vysvetľuje %{history}. Rozdiel sa považuje za odídený za obstarávaciu cenu (%{amount}).'
             arrived: '%{exchange} hlási %{held} %{symbol}; história vysvetľuje %{history}. Rozdiel sa považuje za prijatý za jeho cenu (%{amount}).'
+            opened: 'História potrebuje %{history} %{symbol}, ktorých príchod nikdy neukazuje. Berie sa, že boli držané od začiatku, za cenu toho dňa (%{amount}).'
             since_sync: '%{symbol} kúpené od poslednej synchronizácie: ocenené obstarávacou cenou (%{amount}) do tej ďalšej.'
             cash_out: 'História drží %{history} %{symbol}; %{exchange} hlási %{held}. Rozdiel (%{amount}) sa považuje za odvedený.'
             cash_in: 'História drží %{history} %{symbol}; %{exchange} hlási %{held}. Rozdiel (%{amount}) sa považuje za privedený.'

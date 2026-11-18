@@ -665,6 +665,7 @@ pl:
         notes:
             left: '%{exchange} raportuje %{held} %{symbol}; historia wyjaśnia %{history}. Różnicę przyjęto jako wyprowadzoną po koszcie (%{amount}).'
             arrived: '%{exchange} raportuje %{held} %{symbol}; historia wyjaśnia %{history}. Różnicę przyjęto jako nabytą po cenie (%{amount}).'
+            opened: 'Historia wymaga %{history} %{symbol}, których wpływu nigdy nie pokazuje. Przyjęto, że były posiadane od początku, po cenie z tamtego dnia (%{amount}).'
             since_sync: '%{symbol} kupione od ostatniej synchronizacji: wyceniane po koszcie (%{amount}) do następnej.'
             cash_out: 'Historia wykazuje %{history} %{symbol}; %{exchange} raportuje %{held}. Różnicę (%{amount}) przyjęto jako wyprowadzoną.'
             cash_in: 'Historia wykazuje %{history} %{symbol}; %{exchange} raportuje %{held}. Różnicę (%{amount}) przyjęto jako wprowadzoną.'

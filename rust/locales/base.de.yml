@@ -662,6 +662,7 @@ de:
         notes:
             left: '%{exchange} meldet %{held} %{symbol}; die Historie erklärt %{history}. Die Differenz gilt als zum Einstandswert abgegangen (%{amount}).'
             arrived: '%{exchange} meldet %{held} %{symbol}; die Historie erklärt %{history}. Die Differenz gilt als zum Kurs zugegangen (%{amount}).'
+            opened: 'Die Historie braucht %{history} %{symbol}, deren Eingang sie nie zeigt. Als von Anfang an gehalten angenommen, zum Preis jenes Tages (%{amount}).'
             since_sync: '%{symbol} seit der letzten Synchronisierung gekauft: bis zur nächsten zum Einstandswert bewertet (%{amount}).'
             cash_out: 'Die Historie hält %{history} %{symbol}; %{exchange} meldet %{held}. Die Differenz (%{amount}) gilt als abgeflossen.'
             cash_in: 'Die Historie hält %{history} %{symbol}; %{exchange} meldet %{held}. Die Differenz (%{amount}) gilt als zugeflossen.'

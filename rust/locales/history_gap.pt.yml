@@ -1,14 +1,20 @@
 pt:
     tracker:
         history_gap:
-            button: "Importar histórico"
+            button: "Adicionar o histórico em falta"
             title: "Completa o teu histórico da %{exchange}"
             why_kucoin_reach: "A API da KuCoin só devolve cerca dos últimos 12 meses de negociações, depósitos e levantamentos."
             why_kucoin_hf_convert: "As trocas Convert não podem ser lidas de todo, por mais recentes que sejam."
             why_kucoin_transfers: "Também faltam os depósitos e levantamentos mais antigos."
             why_binance: "A API da Binance só devolve negociações dos pares ainda listados, e Convert, conversões de poeira e Simple Earn apenas a partir das datas que a Binance guarda. Margem e futuros não são lidos."
-            why_other: "A %{exchange} detém mais do que explica o histórico que a Deltabadger conseguiu ler de lá."
+            why_other: "Parte do que aconteceu na %{exchange} não está no histórico que a Deltabadger conseguiu ler de lá."
             evidence: "O que o tracker encontrou"
+            row_coins: "Sem histórico para parte dos teus %{symbols}"
+            row_more: " e outros"
+            row_unread: "Parte do teu histórico da %{exchange} está incompleta"
+            unread_span: "%{from} – %{to}: não foi possível ler as transações deste período."
+            unread_day: "%{from}: não foi possível ler as transações deste dia."
+            unread_more: "Há mais períodos depois destes."
             steps_binance_1: "Na Binance, abre Carteira → Histórico de transações → Exportar. Exporta um ficheiro por ano, até à abertura da tua conta."
             steps_binance_2: "Não mudes o nome dos ficheiros: o nome indica o fuso horário que a Binance usou."
             steps_binance_3: "Clica em Importar um ficheiro, escolhe Binance CSV e carrega um ficheiro de cada vez. As linhas que já estão no teu histórico são ignoradas."
