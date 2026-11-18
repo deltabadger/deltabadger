@@ -908,7 +908,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
         if STALE_PAIRS.contains(&name) {
             // D3 (3.0, Rust only): a pair whose prices are stale states nothing priced, as a stale basket does: no tile figure,
             // no portfolio value, no row value or P/L, no chart and no headline. 2.x draws each from the last fill's price
-            // (its broadcast and chart frame draw the stale chart). The note says the venue did not answer.
+            // (its broadcast and chart frame draw the stale chart). The notice says the prices could not be read.
             for (id, parts) in expected["bots"].as_object().unwrap() {
                 assert!(parts["chart"].as_str().unwrap().contains("data-bot--chart-series"), "{name}: 2.x draws the stale chart");
                 let ours = &actual["bots"][id];
@@ -916,7 +916,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 no_widget(ours["tile"].as_str().unwrap(), Some("pnl_bots_"));
                 assert_eq!(ours["chart"].as_str().unwrap(), deltabadger::web::figure::NOT_CHARTED, "{name}: chart");
                 let metrics = ours["metrics"].as_str().unwrap();
-                assert!(metrics.contains("The exchange API does not respond"), "{name}: {metrics}");
+                assert!(metrics.contains("<div class=\"widget notice\" role=\"status\">\n    <p class=\"notice__line\">Prices could not be read from the exchange."), "{name}: {metrics}");
                 assert_eq!(metrics.matches("no-value").count(), 3, "{name}: the portfolio value, the row's value and its P/L: {metrics}");
                 let v2 = parts["metrics"].as_str().unwrap();
                 let table = |html: &str| { let doc = scraper::Html::parse_fragment(html); doc.select(&scraper::Selector::parse("tr[data-symbol] td:nth-child(3)").unwrap()).map(|e| e.text().collect::<String>()).collect::<Vec<_>>() };
@@ -1559,12 +1559,12 @@ async fn chronology_matches_v2_fresh_bytes() {
             // The market's prices fail; its candles answer. The failure stays with each bot (its prices stale), and the
             // fill is kept. 2.x shows its stale figures here. This build withholds every price-dependent value while a
             // bot's prices are stale (`figure::missing`), a difference older than kept figures: no chart is drawn, and
-            // each bot with orders says the exchange did not answer.
+            // each bot with orders says its prices could not be read.
             assert_eq!(ours.keys().collect::<Vec<_>>(), fresh.keys().collect::<Vec<_>>(), "{name}");
             for (key, html) in rendered["bots"].as_object().unwrap().iter().flat_map(|(id, parts)| ["tile", "metrics", "chart"].map(|part| (format!("{id} {part}"), parts[part].as_str().unwrap().to_string()))) {
                 if key.ends_with(" chart") { assert!(html.contains("hidden=\"hidden\"") && !html.contains("widget--chart"), "{name}: {key}: {html}"); }
                 let unpriced = rendered["bots"][key.split(' ').next().unwrap()]["missing"].as_array().is_some_and(|missing| !missing.is_empty());
-                if key.ends_with(" metrics") && unpriced { assert!(html.contains("The exchange API does not respond"), "{name}: {key}: {html}"); }
+                if key.ends_with(" metrics") && unpriced { assert!(html.contains("<div class=\"widget notice\" role=\"status\">\n    <p class=\"notice__line\">Prices could not be read from the exchange."), "{name}: {key}: {html}"); }
             }
         } else {
             for (key, want) in &fresh { assert_eq!(ours.get(key), Some(want), "{name}: {key}: this build against 2.x computed fresh at t_c"); }

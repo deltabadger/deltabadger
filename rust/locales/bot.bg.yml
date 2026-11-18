@@ -190,7 +190,7 @@ bg:
                 import_malformed_csv: 'CSV файлът е повреден и не може да бъде обработен.'
                 import_error: 'Импортът не успя: %{message}'
                 import_currency_mismatch: "Несъответствие на валутите: CSV съдържа ''%{csv_quote}'', но ботът използва ''%{bot_quote}''"
-                exchange_unavailable_html: 'API на борсата не отговаря в момента.<br>Изчисленията са на база последните налични данни.'
+                exchange_unavailable_html: "Цените не можаха да бъдат прочетени от борсата.<br>Стойностите са на база последните налични данни."
                 order: Поръчка
                 profit_loss: Печалба/Загуба
                 price: 'Цена(%{quote})'

@@ -183,7 +183,7 @@ nl:
                 download_csv: 'Exporteren'
                 generating_csv: 'Bestand genereren...'
                 import_csv: 'Importeren'
-                exchange_unavailable_html: 'De exchange API reageert momenteel niet.<br>De berekeningen zijn gebaseerd op de laatst beschikbare gegevens.'
+                exchange_unavailable_html: "De prijzen konden niet van de exchange worden gelezen.<br>De cijfers gebruiken de laatst beschikbare gegevens."
                 order: Order
                 profit_loss: Winst/verlies
                 price: 'Tarief(%{quote})'

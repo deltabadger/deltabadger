@@ -72,7 +72,7 @@ fn withheld(name: &str, tiles: String, holdings: String) -> (String, String) {
 /// PLAN-venue-prices S1, for a page with an unpriced holding: Rust's banner names it and its card lists it with no number;
 /// both are then cut, from Rust's page and 2.x's (whose card has no such row), so the rest compares byte for byte.
 fn unpriced_card(name: &str, ours: &str, theirs: &str) -> (String, String) {
-    assert!(ours.contains("<div class=\"widget tracker-notice\" role=\"status\">"), "{name}: the missing-prices banner");
+    assert!(ours.contains("<div class=\"widget notice\" role=\"status\">"), "{name}: the missing-prices banner");
     assert!(ours.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"), "{name}: the unpriced row");
     let cut = |page: &str, from: &str, to: &str| -> String {
         let Some(start) = page.find(from) else { return page.to_string() };
@@ -84,7 +84,7 @@ fn unpriced_card(name: &str, ours: &str, theirs: &str) -> (String, String) {
     let v2_cells = "    <td><small>$</small>30,030.00</td>\n    <td class=\"tracker-row__cash\">+<small>$</small>0.00</td>\n    <td class=\"text-success\">+0.0%</td>\n";
     let rust_cells = "    <td></td>\n    <td class=\"tracker-row__cash\"></td>\n    <td title=\"No cost basis for this holding, so no P/L is shown.\"><span class=\"no-value\">—</span></td>\n";
     assert_eq!(theirs.matches(v2_cells).count(), 1, "{name}: 2.x's cost-as-value cells");
-    (card(&cut(ours, "<div class=\"widget tracker-notice\"", "</div>\n")), card(&theirs.replacen(v2_cells, rust_cells, 1)))
+    (card(&cut(ours, "<div class=\"widget notice\"", "</div>\n")), card(&theirs.replacen(v2_cells, rust_cells, 1)))
 }
 
 /// 2.x's page with the listed divergences applied (`withheld`), and with no display rate each transaction row's money

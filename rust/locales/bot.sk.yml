@@ -190,7 +190,7 @@ sk:
                 import_malformed_csv: 'CSV súbor je poškodený a nedá sa spracovať.'
                 import_error: 'Import zlyhal: %{message}'
                 import_currency_mismatch: "Nesúlad mien: CSV obsahuje ''%{csv_quote}'', ale bot používa ''%{bot_quote}''"
-                exchange_unavailable_html: 'API burzy momentálne neodpovedá.<br>Výpočty vychádzajú z posledných dostupných dát.'
+                exchange_unavailable_html: "Ceny sa nepodarilo načítať z burzy.<br>Údaje vychádzajú z posledných dostupných dát."
                 order: Príkaz
                 profit_loss: Zisk/Strata
                 price: 'Cena(%{quote})'
