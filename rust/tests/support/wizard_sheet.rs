@@ -312,6 +312,8 @@ fn check_track(theirs: &[Value], step: usize, slots: Option<&Slots>, drawn: &[Dr
 /// D-WIZARD-VENUE-GROUPS: this crate's exchange step draws its venues in two grids under "Brokers" and "Exchanges" where
 /// 2.x draws one. Each group must keep 2.x's order and the two must hold exactly 2.x's tiles, under the locale's headings
 /// (a group with no venue is not drawn); then this crate's groups are put back as 2.x's grid.
+/// D-WIZARD-CONNECTED-GROUP: a first group "Connected" repeats venues of the groups below it (the ones the user holds a key
+/// on); it must be first, under the locale's heading, and hold only tiles the other groups draw. It is then set aside.
 fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usize, locale: &str, searched: bool) -> Result<(), String> {
     let Some(groups) = positions(ours, ours_step, subtree_end(ours, ours_step), |l| has_class(l, "div", "exchange-groups")).first().copied() else { return Ok(()) };
     let grid = positions(theirs, step, subtree_end(theirs, step), |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("venue groups where 2.x has no grid")?;
@@ -321,12 +323,23 @@ fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usiz
     let v2 = options(theirs, grid);
     let groups_end = subtree_end(ours, groups);
     let (mut drawn, mut titles) = (vec![], vec![]);
-    for group in children(ours, groups, groups_end, depth(&ours[groups])) {
+    let mut connected: Option<Vec<Vec<Value>>> = None;
+    for (index, group) in children(ours, groups, groups_end, depth(&ours[groups])).into_iter().enumerate() {
         let end = subtree_end(ours, group);
+        if has_class(&ours[group], "section", "exchange-group--connected") {
+            let heading = positions(ours, group, end, |l| has_class(l, "h3", "label")).first().and_then(|h| words(&ours[h + 1])).unwrap_or_default();
+            let grid = positions(ours, group, end, |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("the Connected group without its grid")?;
+            if index != 0 || heading != deltabadger::web::i18n::text(locale, "bot.setup.venue_groups.connected", &[]) { return Err(format!("the Connected group is not first under its heading: {heading:?} at {index}")) }
+            connected = Some(options(ours, grid));
+            continue;
+        }
         let heading = positions(ours, group, end, |l| has_class(l, "h3", "label")).first().and_then(|h| words(&ours[h + 1])).unwrap_or_default();
         let grid = positions(ours, group, end, |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("a venue group without its grid")?;
         titles.push(heading);
         drawn.push(options(ours, grid));
+    }
+    if let Some(connected) = connected {
+        if connected.is_empty() || connected.iter().any(|tile| !drawn.iter().flatten().any(|o| o == tile)) { return Err("the Connected group is empty or holds a venue the groups below it do not".into()) }
     }
     let title = |key: &str| deltabadger::web::i18n::text(locale, &format!("bot.setup.venue_groups.{key}"), &[]);
     // No venue at all (nothing the basket trades on): no group, where 2.x's grid is empty.
@@ -788,7 +801,13 @@ fn venues(route: &str, searched: bool, theirs: &[Value], ours: &[Value]) -> Resu
         expected.retain(|id| id != "5");
     }
     let groups = positions(ours, 0, ours.len(), |l| has_class(l, "section", "exchange-group"));
-    let drawn: Vec<Vec<String>> = if groups.is_empty() { vec![offered(ours)] } else { groups.iter().map(|g| offered(&ours[*g..subtree_end(ours, *g)])).collect() };
+    // D-WIZARD-CONNECTED-GROUP: the first group may repeat venues of the others; it is checked against them and set aside.
+    let is_connected = |g: &usize| has_class(&ours[*g], "section", "exchange-group--connected");
+    if groups.iter().skip(1).any(is_connected) { return Err(format!("{route}: the Connected group is not first")) }
+    let connected: Vec<String> = groups.iter().take(1).filter(|g| is_connected(g)).flat_map(|g| offered(&ours[*g..subtree_end(ours, *g)])).collect();
+    let groups: Vec<usize> = groups.into_iter().filter(|g| !is_connected(g)).collect();
+    let drawn: Vec<Vec<String>> = if groups.is_empty() && connected.is_empty() { vec![offered(ours)] } else { groups.iter().map(|g| offered(&ours[*g..subtree_end(ours, *g)])).collect() };
+    if let Some(id) = connected.iter().find(|id| !drawn.iter().flatten().any(|o| o == *id)) { return Err(format!("{route}: connected venue {id} is not among the venues below")) }
     let mut all: Vec<String> = drawn.concat();
     let mut sorted = expected.clone();
     sorted.sort(); all.sort();
@@ -1000,6 +1019,17 @@ mod tests {
         assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn));
         assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(groups(String::new(), String::new()))).is_err(), "2.x's tiles missing");
+        // D-WIZARD-CONNECTED-GROUP: a first "Connected" group repeating venues below it is set aside.
+        let connected = |ids: &[&str]| group("Connected", ids).replacen("class=\"exchange-group\"", "class=\"exchange-group exchange-group--connected\"", 1);
+        let with = |first: String, rest: String| format!("<div class=\"exchange-groups\">{first}{rest}</div>");
+        let rest = || format!("{}{}", group("Brokers", &["14"]), group("Exchanges", &["1", "3"]));
+        let (mut theirs, mut drawn) = (v2(), ours(with(connected(&["3", "14"]), rest())));
+        assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
+        assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
+        for wrong in [with(connected(&["9"]), rest()), with(connected(&[]), rest()), with(rest(), connected(&["3"])),
+                      with(connected(&["3"]).replace("Connected", "Linked"), rest()), with(connected(&["3"]), group("Exchanges", &["1", "3"]))] {
+            assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(wrong.clone())).is_err(), "{wrong}");
+        }
         for wrong in [groups(group("Brokers", &["14"]), group("Exchanges", &["3", "1"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1"])),
                       groups(group("Exchanges", &["14"]), group("Brokers", &["1", "3"])), groups(group("Brokers", &["14"]), group("Exchanges", &["1", "3", "9"]))] {
             assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(wrong.clone())).is_err(), "{wrong}");
@@ -1243,6 +1273,13 @@ mod tests {
             assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, "<p>no form</p>")), "a dropped POST action");
             assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, &groups(&["1"]))), "a venue missing besides Binance US");
             assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, &groups(&["2", "1"]))), "a venue group out of 2.x's order");
+            // D-WIZARD-CONNECTED-GROUP: a first Connected group repeats venues below it; one it alone holds, or one not first, fails.
+            let connected = |ids: &[&str]| format!("<section class=\"exchange-group exchange-group--connected\">{}</section>", ids.iter().map(|id| venue(id)).collect::<String>());
+            let rest = "<section class=\"exchange-group\"><button name=\"bots_dca_single_asset[exchange_id]\" type=\"submit\" value=\"1\">1</button><button name=\"bots_dca_single_asset[exchange_id]\" type=\"submit\" value=\"2\">2</button></section>";
+            let form = |inner: String| format!("<form action=\"/rules/withdrawals/pick_exchange\" method=\"post\">{inner}</form>");
+            assert_eq!(sheet_flows(RULES, "GET", &mut page(&dialog("/rules", &grid(&["1", "5", "2"]))), &mut page(&sheet("/rules", true, &form(format!("{}{rest}", connected(&["2"])))))), Ok(1));
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, &form(format!("{}{rest}", connected(&["5"]))))), "a connected venue not offered below");
+            assert!(fails(&dialog("/rules", &grid(&["1", "5", "2"])), &sheet("/rules", true, &form(format!("{rest}{}", connected(&["2"]))))), "the Connected group not first");
             assert!(fails(&dialog("/rules", &grid(&["1", "2"])), &sheet("/rules", true, &groups(&["1", "2"]))), "2.x no longer offers Binance US");
         }
 

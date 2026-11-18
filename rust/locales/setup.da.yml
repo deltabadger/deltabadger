@@ -9,6 +9,7 @@ da:
             add_more_assets: "Tilføj flere aktiver"
             pick_assets: "Vælg et eller flere aktiver"
             venue_groups:
+                connected: "Tilsluttede"
                 brokers: "Mæglere"
                 exchanges: "Børser"
             market_data:

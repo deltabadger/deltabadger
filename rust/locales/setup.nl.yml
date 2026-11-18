@@ -9,6 +9,7 @@ nl:
             add_more_assets: "Meer activa toevoegen"
             pick_assets: "Kies een of meer assets"
             venue_groups:
+                connected: "Verbonden"
                 brokers: "Brokers"
                 exchanges: "Exchanges"
             market_data:

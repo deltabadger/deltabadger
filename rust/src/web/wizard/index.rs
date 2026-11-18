@@ -297,7 +297,7 @@ fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) 
     }))?.collect::<Result<Vec<_>, _>>()?;
     let table = super::exchanges::Table { action: ctx.path(EXCHANGE), csrf: csrf.to_string(), param_name: EXCHANGE_FIELD.into(), venues: vec![],
                                           unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    let content = super::exchanges::venue_pane(ctx, table, venues)?;
+    let content = super::exchanges::venue_pane(ctx, table, venues, &super::exchanges::connected(c, ctx.user().map_or(0, |user| user.id), &[0])?)?;
     Ok((index_track(ctx, csrf, config, At::Exchange, &index_name(c, config, ctx.locale)?, None)?, content))
 }
 
