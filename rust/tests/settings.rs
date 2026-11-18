@@ -2352,7 +2352,9 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     let (ex,assets_new,advance,order)=("/bots/dca_single_assets/pick_exchange/new","/bots/dca_single_assets/pick_buyable_asset/new","/bots/dca_single_assets/pick_buyable_asset/advance","/bots/dca_single_assets/order");
 
     // Exchange first: the first screen has no search and offers the other order on Assets.
-    assert_eq!(h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await.status,200);
+    // D-CHOOSER-SKIPPED: no advanced bots, so New bot is the wizard's first step.
+    let skipped=h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await;
+    assert_eq!((skipped.status,skipped.header("location")),(302,Some("/bots/dca_single_assets/pick_exchange/new")));
     let step=h.browser.send(&h.app,"GET",ex,None,Csrf::None,&modal).await;
     assert_eq!(step.status,200);sheet(&step.body);
     assert_eq!(track(&step.body),["Exchange:current plain".to_string(),format!("Assets:upcoming POST {order} flow=asset_first"),"Currency:upcoming plain".into()]);

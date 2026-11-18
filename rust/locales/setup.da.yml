@@ -10,6 +10,12 @@ da:
             venue_groups:
                 brokers: "Mæglere"
                 exchanges: "Børser"
+            market_data:
+                intro: "Indeks kræver markedsdata i realtid. Brug Deltabadgers officielle data-API eller en gratis CoinGecko-konto."
+                providers: "Udbydere af markedsdata"
+            kind:
+                asset: "Aktiv"
+                index: "Indeks"
             progress_steps:
                 assets: "Aktiver"
                 currencies: "Vælg aktiv"

@@ -1,7 +1,5 @@
 <div class="bot-creation-layout">
-    {{ progress|safe }}
-
-{{ sentence|safe }}
+    {{ search|safe }}
 
     <turbo-frame data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-controller="arrow-keys-navigation" class="modal--search__assets selectable-options" id="asset-picker">
       <form action="{{ create_url }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />

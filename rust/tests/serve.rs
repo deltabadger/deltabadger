@@ -1454,7 +1454,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
                         { "bot": bot, "field": quote, "keys": ["1", "5", "ArrowLeft", "."], "saved": "1.5" },
                         { "bot": bot, "field": quote, "keys": ["1", "2", ".", "5"], "saved": "12.5" }]);
     c.execute("UPDATE bots SET label='Browser '||id", [])?;
-    for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test")] {
+    for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test"),("platform_connected_at","2026-01-01T00:00:00Z")] {
         c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,seed::cipher().encrypt(value)))?;
     }
     // Hold the engine: this browser proof exercises the real HTTP/CSRF/guard/cable path
@@ -1462,8 +1462,24 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     // A venue this build does not trade, for the index wizard's refusal inside its nested frame (plan CI T7).
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Ibkr', 'Interactive Brokers', '0.1', '0.1', 1, '2026-01-01', '2026-01-01')", [])?;
     let unported = c.last_insert_rowid();
+    // D-INDEX-IN-ASSETS: Kraken, whose key check answers here, and two indices on it for the index wizard in the sheet.
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', 1, '2026-01-01', '2026-01-01')", [])?;
+    let kraken = c.last_insert_rowid();
+    c.execute("DELETE FROM indices", [])?;
+    for (external, source, name, description) in [("top-coins", "internal", "Top Coins", "The largest coins by market cap."), ("layer-1", "coingecko", "Layer 1", "Base chains.")] {
+        c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weight, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, ?4, '[]', '{}', '{\"Exchanges::Kraken\":3}', 0, '2026-01-01', '2026-01-01')", (external, source, name, description))?;
+    }
+    let venue_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST")).and(wiremock::matchers::path("/api.kraken.com/0/private/GetApiKeyInfo"))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"error": [], "result": {"permissions": ["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "query-ledger"]}})))
+        .mount(&venue_server).await;
+    let index_wizard = json!({"venue": kraken, "key": "kraken-correct", "secret": "c2VjcmV0"});
     // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
-    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()));
+    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()))
+        .with_venue_key_urls(&format!("{}/api.kraken.com", venue_server.uri()), &format!("{}/api.binance.com", venue_server.uri()), &format!("{}/api.kucoin.com", venue_server.uri())).unwrap();
+    // A correct key wakes its syncs, as `serve`'s scheduler takes them.
+    app.attach_jobs(Default::default()).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     struct Server(tokio::task::JoinHandle<()>);
@@ -1472,7 +1488,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",unported.to_string()).env("TYPING",typing.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",unported.to_string()).env("TYPING",typing.to_string()).env("INDEX_WIZARD",index_wizard.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }

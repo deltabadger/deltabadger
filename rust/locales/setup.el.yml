@@ -10,6 +10,12 @@ el:
             venue_groups:
                 brokers: "Μεσίτες"
                 exchanges: "Ανταλλακτήρια"
+            market_data:
+                intro: "Οι δείκτες χρειάζονται ζωντανά δεδομένα αγοράς. Χρησιμοποιήστε το επίσημο API δεδομένων του Deltabadger ή έναν δωρεάν λογαριασμό CoinGecko."
+                providers: "Πάροχοι δεδομένων αγοράς"
+            kind:
+                asset: "Στοιχείο"
+                index: "Δείκτης"
             progress_steps:
                 assets: "Περιουσιακά στοιχεία"
                 currencies: "Επιλογή asset"

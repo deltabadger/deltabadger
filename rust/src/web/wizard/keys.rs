@@ -100,16 +100,17 @@ struct Form { search: String, card: String }
 /// A key step's pane in the sheet: the venue's card alone (D-SHEET-EVERYWHERE).
 pub fn key_pane(card: &str) -> Result<String, WebError> { Ok(Form { search: String::new(), card: card.to_string() }.render()?) }
 
-/// The step's `_form`: the venue's connect card, with the DCA or signal step's track (the index step's own form, with its
-/// progress bar and sentence, and no track). `live`: the Paper/Live switch on Live (Alpaca).
+/// The step's `_form`: the venue's connect card, with the DCA, signal or index step's track. `live`: the Paper/Live switch on
+/// Live (Alpaca).
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, Option<String>), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
     let form_data = "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
-    let sheet = namespace != Namespace::Index;
-    let card = if sheet { keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error)? }
-               else { keys::card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, false, instructions)? };
-    if namespace == Namespace::Index { return Ok((super::index::key_form(ctx, &venue.name, &venue.class, &card)?, None)) }
+    let card = keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error)?;
+    if namespace == Namespace::Index {
+        let track = super::index_track(ctx, csrf, config, super::At::Key, &super::index::index_name(c, config, ctx.locale)?, Some(venue.name.clone()))?;
+        return Ok((Form { search: String::new(), card }.render()?, Some(track)));
+    }
     if namespace == Namespace::Signal { return Ok((Form { search: String::new(), card }.render()?, Some(super::signals::key_track(c, ctx, config)?))) }
     let order = order(config, namespace);
     let multi = namespace == Namespace::Multi;
@@ -124,8 +125,8 @@ enum Route { To(&'static str), Retired(&'static str), Refused, Ready(Venue, Box<
 
 /// The checks `new` and `create` share, in 2.x's order: a retired venue, (on `new`) an earlier step not complete, no venue chosen.
 fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace: Namespace, on_new: bool) -> Result<Route, WebError> {
-    // The index step's before_action: no market data, no index wizard.
-    if namespace == Namespace::Index && !crate::web::bots::market_data(c, app)?.1 { return Ok(Route::To(super::index::SETUP_NEW)) }
+    // The index step's before_actions: market data and an index chosen, else the Index view.
+    if namespace == Namespace::Index { if let Some(path) = super::index::gate(c, app, config)? { return Ok(Route::To(path)) } }
     let venue = venue(c, exchange_id(config))?;
     if venue.as_ref().is_some_and(|venue| crate::web::bot::retired_type(&venue.class)) { return Ok(Route::Retired(missing_exchange_path(c, config, namespace)?)) }
     if on_new { if let Some(path) = prerequisite_path(c, user, config, namespace)? { return Ok(Route::To(path)) } }
@@ -211,9 +212,8 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     let (inner, view, reason) = (app.clone(), ctx.clone(), message.clone());
     let (content, sheet) = app.db(move |c| {
         let csrf = view.csrf_token();
-        // A step in the sheet says why under its fields (D-WIZARD-SHEET-KEY-FORM); the index step flashes it.
-        let sheet = namespace != Namespace::Index;
-        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, sheet.then_some(reason.as_str()))? {
+        // A step in the sheet says why under its fields (D-WIZARD-SHEET-KEY-FORM).
+        match form(c, &inner, &view, &csrf, config.as_ref(), namespace, &venue, live, Some(reason.as_str()))? {
             (content, Some(track)) => Ok((super::sheet_frame(&track, &content)?, true)),
             (content, None) => Ok((content, false)),
         }

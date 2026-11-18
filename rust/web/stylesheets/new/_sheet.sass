@@ -142,7 +142,7 @@
     display: flex
     flex-direction: column
     margin: 0
-    padding: 1.5rem
+    padding: 1rem 1.25rem
     list-style: none
     gap: 0
     @media (max-width: 767.9px)
@@ -820,3 +820,96 @@ turbo-frame.sitem
             padding-left: 2rem
     .wizard-assets__action
         padding-right: 2rem
+
+// D-INDEX-IN-ASSETS: the Asset / Index switch where the Assets step's zoom icon was, the input after it; at the basket's cap
+// the switch alone.
+.modal--search form:has(> .segmented--search), .modal--search__row
+    display: flex
+    align-items: center
+    .segmented--search
+        flex: none
+        margin-left: 1.5rem
+    .modal--search__input
+        flex: 1
+        min-width: 0
+        padding-left: 1.5rem
+.modal--search:has(> .segmented--search)
+    padding: 1.5rem
+.sheet__pane--flush .index-view > .modal--search
+    position: sticky
+    top: 0
+    z-index: 2
+    margin: 0
+    background: var(--washed)
+
+// The Index view's list: one row per index, the name and its members on the first line, the description under them.
+.index-rows
+    display: flex
+    flex-direction: column
+.index-row
+    display: flex
+    flex-direction: column
+    gap: 0.5rem
+    width: 100%
+    padding: 1.5rem 2rem
+    border: none
+    border-bottom: 1px solid var(--zinc)
+    background: none
+    text-align: left
+    color: var(--ink)
+    cursor: pointer
+    &:last-of-type
+        border-bottom: none
+    &:hover, &.modal--search__assets__item__highlight
+        background: var(--silver)
+    &__line
+        display: flex
+        align-items: center
+        justify-content: space-between
+        gap: 1.5rem
+        min-width: 0
+    &__name
+        font-size: 2rem
+        font-weight: 500
+        min-width: 0
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+    .ticker-group
+        display: flex
+        flex: none
+    &__description
+        display: -webkit-box
+        -webkit-box-orient: vertical
+        -webkit-line-clamp: 3
+        line-clamp: 3
+        overflow: hidden
+        font-size: 1.5rem
+        line-height: 1.4
+        color: var(--stone)
+.index-rows__empty
+    padding: 2rem
+    color: var(--stone)
+// D-INDEX-CONNECT-IN-VIEW: no market data, the providers as the exchange step's tiles under a short intro; a provider's
+// connect card is the key step's (.bot-creation-layout--api), under the switch.
+.index-view__providers
+    padding-top: 3rem
+.index-view__intro
+    margin: 0 0 3rem
+    padding: 0 2rem
+    @media (min-width: 768px)
+        padding: 0 3rem
+    font-size: 1.75rem
+    line-height: 1.5
+    color: var(--stone)
+.exchange-grid__item--provider
+    gap: 1.25rem
+    font-size: 2rem
+    font-weight: 600
+    color: var(--ash)
+    text-decoration: none
+    &:hover
+        color: var(--white)
+.sheet__pane .index-view__connect
+    flex: 1
+    min-height: 0
