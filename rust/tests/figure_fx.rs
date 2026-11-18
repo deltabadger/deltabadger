@@ -553,9 +553,11 @@ async fn an_unlinked_transfer_withdraws_the_kept_pnl() {
     let Snapshot::Ready(cache, at, revision, mark, until) = loading::prepare(&install.app, 1).await.unwrap() else { panic!("not ready") };
     // The user unlinks the transfer: the ledger moved, and no republish has happened yet (Review focus 2).
     c.execute("UPDATE account_transactions SET linked_transaction_id = NULL, updated_at = '2026-03-18 12:00:00' WHERE id = 2", []).unwrap();
-    for snapshot in [Snapshot::Ready(cache.clone(), at, revision, mark, until), Snapshot::Stale(cache, at, revision, until)] {
+    for (snapshot, stale) in [(Snapshot::Ready(cache.clone(), at, revision, mark, until), false), (Snapshot::Stale(cache, at, revision, until), true)] {
         let clock = install.clock.clone();
         let shown = install.app.db(move |c| loading::render(c, 1, &snapshot, "en", "token", "", &*clock)).await.unwrap();
+        // Ready: the revision moves first, so the kept figures are not served. Stale: the bot's kept figures are withheld.
+        if stale { assert!(shown.is_none(), "stale figures still served: {shown:?}"); }
         assert!(shown.as_ref().is_none_or(|v| !v.to_string().contains("Realised P/L")), "kept figures still state the P/L: {shown:?}");
     }
     // Republished: what the deposit cost is assumed, and the figures say so.

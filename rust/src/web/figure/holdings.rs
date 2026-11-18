@@ -74,12 +74,12 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
 /// writes its own token's field there and nowhere else (`with_token`), and a broadcast takes the fragment as it is.
 pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
 
-/// D-SELL-ONLY-*: the realised P/L box (bot.dca_index.realised_pnl), signed and coloured, with its note (a
+/// D-SELL-ONLY-*: the realised P/L box (bot.dca_index.realised_pnl), signed and coloured (a zero neither), with its note (a
 /// locale key). Only the currency is escaped.
 fn realised_box(locale: &str, pnl: &Num, quote: &str, note: &str) -> Result<String, FiguresError> {
     Ok(format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value {}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n",
-        t(locale, "bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), if pnl.is_negative() { "text-danger" } else { "text-success" },
-        if pnl.is_negative() { "" } else { "+" }, quoted(precision(pnl, 2, true)?, quote), t(locale, note)))
+        t(locale, "bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), colour(pnl),
+        if pnl.is_positive() { "+" } else { "" }, quoted(precision(pnl, 2, true)?, quote), t(locale, note)))
 }
 const BASIS_NOTE: &str = "bot.details.stats.realised_pnl_basis_note";
 
@@ -496,3 +496,18 @@ mod token_tests {
     }
 }
 
+
+#[cfg(test)]
+mod realised_tests {
+    use super::*;
+    /// A P/L of exactly nothing is neither a profit nor a loss: no sign, no colour.
+    #[test]
+    fn a_zero_realised_pnl_is_unsigned_and_uncoloured() {
+        let zero = realised_box("en", &Num::Dec(Dec::zero()), "USDC", BASIS_NOTE).unwrap();
+        assert!(zero.contains("0.00 <small>USDC</small>") && !zero.contains("+0.00") && !zero.contains("text-success") && !zero.contains("text-danger"), "{zero}");
+        let gain = realised_box("en", &Num::Dec(Dec::strict("1.6").unwrap()), "USDC", BASIS_NOTE).unwrap();
+        assert!(gain.contains("text-success") && gain.contains("+1.60"), "{gain}");
+        let loss = realised_box("en", &Num::Dec(Dec::strict("-1.6").unwrap()), "USDC", BASIS_NOTE).unwrap();
+        assert!(loss.contains("text-danger") && loss.contains("-1.60"), "{loss}");
+    }
+}

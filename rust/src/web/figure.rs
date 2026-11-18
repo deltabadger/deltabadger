@@ -55,6 +55,10 @@ const FX_UNAVAILABLE: &str = "Currency conversion unavailable";
 fn without_fx<T>(result: Result<Option<T>, FiguresError>) -> Result<Option<T>, FiguresError> {
     match result { Err(FiguresError::NotComputed(reason)) if reason == FX_UNAVAILABLE => Ok(None), other => other }
 }
+/// A tile's amount in USD: none without a rate, nor for a quote currency that cannot be read (as 2.x's tile).
+fn tile_usd(result: Result<Option<Num>, FiguresError>) -> Result<Option<Num>, FiguresError> {
+    match result { Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => Ok(None), other => without_fx(other) }
+}
 /// Denomination#format: a USD figure in the account's currency (`usd.to_d * rate`), the unit in <small> before the figure
 /// or after it, as number_to_currency lays it out: the negative layout only for a loss of at least half the last digit
 /// shown (NumberToCurrencyConverter: `abs * 10**precision >= 0.5`), so a loss that rounds to nothing is written as one.
@@ -202,10 +206,7 @@ fn sell_only_tile(c: &Connection, market: &dyn MarketData, rates: &mut totals::R
     let (Some(pnl), Some(cost)) = (sell.pnl()?, sell.cost.filter(crate::figures::dec::Dec::is_positive)) else { return Ok(Some((None, None))) };
     let percent = Num::Dec(pnl.div(&cost)?);
     let profit = if hidden { None } else {
-        match totals::quote_in_usd(c, market, rates, s.quote.as_deref(), pnl) {
-            Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
-            other => without_fx(other)?,
-        }
+        tile_usd(totals::quote_in_usd(c, market, rates, s.quote.as_deref(), pnl))?
     };
     Ok(Some((Some(percent), profit)))
 }
@@ -292,10 +293,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                 let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &live.subject, true, &sales, user.hide_balances)? {
                     Some(tile) => tile,
                     None => (live.metrics.pnl.clone().filter(|_| !live.metrics.prices_stale), if user.hide_balances { None } else {
-                        match totals::profit_in_usd(c, market, &mut rates, live.subject.quote.as_deref(), &live.metrics) {
-                            Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
-                            other => without_fx(other)?,
-                        }
+                        tile_usd(totals::profit_in_usd(c, market, &mut rates, live.subject.quote.as_deref(), &live.metrics))?
                     }),
                 };
                 // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: 2.x's broadcast draws it.
@@ -330,10 +328,7 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             let (pnl, profit) = match sell_only_tile(c, market, &mut rates, &subject, false, &sales, user.hide_balances)? {
                 Some(tile) => tile,
                 None => (marked_live.pnl.clone().filter(|_| !marked_live.prices_stale && missing.is_empty()), if user.hide_balances { None } else {
-                    match totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live) {
-                        Err(FiguresError::NotComputed(reason)) if reason == "quote currency unavailable" => None,
-                        other => without_fx(other)?,
-                    }
+                    tile_usd(totals::profit_in_usd(c, market, &mut rates, subject.quote.as_deref(), &marked_live))?
                 }),
             };
             bots.insert(id.to_string(), json!({ "tile": tile(id, kind, pnl.as_ref(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
