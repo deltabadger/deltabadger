@@ -297,7 +297,9 @@ fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) 
         id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: None,
     }))?.collect::<Result<Vec<_>, _>>()?;
     let search = search_box("exchange-picker", &ctx.path(EXCHANGE_NEW), "exchange")?;
-    let content = super::exchanges::grouped(ctx, search, &ctx.path(EXCHANGE), csrf.to_string(), EXCHANGE_FIELD, venues)?;
+    let table = super::exchanges::Table { action: ctx.path(EXCHANGE), csrf: csrf.to_string(), param_name: EXCHANGE_FIELD.into(), venues: vec![],
+                                          unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
+    let content = super::exchanges::venue_pane(ctx, search, table, venues)?;
     Ok((index_track(ctx, csrf, config, At::Exchange, &index_name(c, config, ctx.locale)?, None)?, content))
 }
 

@@ -129,7 +129,7 @@
     "label": "fixed-flash",
     "file": "web/settings/keys.rs",
     "anchor": "\"errors.api_key_permission_validation_failed\",",
-    "count": 1
+    "count": 2
   },
   {
     "label": "stale-job-log",

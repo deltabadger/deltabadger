@@ -10,10 +10,10 @@ export { application };
 
 // Custom Turbo Stream Actions
 Turbo.StreamActions.redirect = function () {
-  // A wizard step answering with the next step while the sheet is open (a correct key, a market-data connect): only the
-  // sheet's frame changes, as every other step change in it does, so the sheet does not zoom in again.
+  // A wizard step (DCA, index, signal, withdrawal rule) answering with the next step while the sheet is open (a correct key, a
+  // market-data connect): only the sheet's frame changes, as every other step change in it does, so the sheet does not zoom in again.
   const sheet = document.querySelector("turbo-frame.sheet__frame#modal_content");
-  if (sheet && /\/bots\/dca_(single_assets|multi_assets|indexes)\//.test(new URL(this.target, location.href).pathname)) {
+  if (sheet && /\/(bots\/(dca_(single_assets|multi_assets|indexes)|signals)|rules\/withdrawals)\//.test(new URL(this.target, location.href).pathname)) {
     sheet.src = this.target;
     return;
   }

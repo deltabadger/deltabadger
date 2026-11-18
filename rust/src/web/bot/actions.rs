@@ -189,7 +189,8 @@ pub async fn index_new(State(app): State<App>, Extension(ctx): Extension<Ctx>, P
         let Some(bot) = super::Bot::find(&tx,owner.id,id,super::For::Feed,view.locale)? else { return Ok(Err(false)) };
         let csrf = view.csrf_token();
         let content = super::index_switch::picker(&tx,&view,&bot,&csrf)?;
-        let body = askama::Template::render(&crate::web::wizard::keys::FullPage { close_url: view.path(&format!("/bots/{id}")), content: &content })?;
+        // D-SHEET-NO-DIALOG: the picker in the sheet, with no track.
+        let body = crate::web::wizard::sheet_to(&view, &format!("/bots/{id}"), "", &content)?;
         let shell = Shell::load(&tx,&inner,&owner)?;
         tx.commit()?;
         Ok(Ok((body,csrf,shell)))
