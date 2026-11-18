@@ -149,9 +149,16 @@ impl Summary {
 }
 
 /// Every scope from one walk (`Ledger.scopes`): each venue's summary by exchange id, in the order the walk met the
-/// venues, the whole account's, and the terms.
+/// venues, the whole account's, the terms, and what each bot order's sale cost.
 #[derive(Clone, Debug)]
-pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term> }
+pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term>, pub bot_sales: Vec<BotSale> }
+
+/// D-SELL-ONLY-QUOTE-RATE: one bot order's sale, its fill rows summed: the units the located walk disposed of and what
+/// their lots cost, in the rows' own quote, each row's dollar cost restated at that row's own rate
+/// (`cost_usd × quote_amount ÷ proceeds_usd`). `known` (D-SELL-ONLY-KNOWN-COST) only when every row is a complete
+/// sale for one fiat or stable quote with positive proceeds and no fee in the coin sold; `cost` is zero otherwise.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BotSale { pub order: i64, pub at: At, pub amount: Dec, pub quote: String, pub cost: Dec, pub known: bool }
 
 impl Walked {
     /// The venue's scope, or the empty ledger 2.x reads for a venue the walk has no rows of.
@@ -619,7 +626,9 @@ struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced
 #[derive(Clone, Debug)]
 pub struct Disposal { pub at: At, pub acquired: Option<At>, pub asset: String, pub exchange: String, pub amount: Dec, pub proceeds: Dec, pub cost_basis: Dec,
                       pub fee: Dec, pub gain_loss: Dec, pub data_incomplete: bool, pub unpriced_quantity: Dec, pub unpriced_proceeds: Dec,
-                      pub closes_position: bool, pub any_lot_lost: Option<bool> }
+                      pub closes_position: bool, pub any_lot_lost: Option<bool>,
+                      /// The uid of the row sold.
+                      pub source: usize }
 
 type GroupKey = (String, String);
 
@@ -811,7 +820,7 @@ impl Engine {
             // FIFO's `data_incomplete?`, and a sale only partly covered (which FIFO books at zero basis).
             data_incomplete: r.price_missing || tranches.iter().any(|t| t.basis_assumed) || !has_lots || !covered,
             unpriced_proceeds: if amount.is_positive() { (value * &unpriced_quantity)?.div(amount)? } else { Dec::zero() },
-            unpriced_quantity, closes_position, any_lot_lost: Engine::verdict(r, &tranches, amount, value)?,
+            unpriced_quantity, closes_position, any_lot_lost: Engine::verdict(r, &tranches, amount, value)?, source: r.uid,
         });
         if !covered { self.uncovered = true; self.uncovered_venues.insert(self.venue.clone()); }
         Ok(())
@@ -1479,7 +1488,34 @@ pub fn scopes(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceSer
         by_venue.push((id, summarise(&w, v, ps, now)?));
     }
     let whole = whole(&w, &by_venue, ps)?;
-    Ok(Walked { venues: by_venue, whole, terms: w.terms })
+    let bot_sales = bot_sales(&w, stored)?;
+    Ok(Walked { venues: by_venue, whole, terms: w.terms, bot_sales })
+}
+
+/// Each bot order's sale, by order id, from the located walk's disposals of stored rows carrying a `bot_order`.
+/// A row is known (D-SELL-ONLY-KNOWN-COST) read off the enriched row the engine walked, its fees attributed.
+fn bot_sales(w: &Walk, stored: &[Stored]) -> Result<Vec<BotSale>, FiguresError> {
+    let rows: HashMap<usize, &Row> = w.rows.iter().map(|r| (r.uid, r)).collect();
+    let mut out: BTreeMap<i64, BotSale> = BTreeMap::new();
+    for d in &w.engine.disposals {
+        crate::figures::budget::check()?;
+        // An opening (uid past the stored rows) is never a bot's fill.
+        let Some(t) = stored.get(d.source) else { continue };
+        let Some(order) = t.bot_order else { continue };
+        let quote = t.quote.clone().unwrap_or_default();
+        let s = out.entry(order).or_insert_with(|| BotSale { order, at: d.at, amount: Dec::zero(), quote: quote.clone(), cost: Dec::zero(), known: true });
+        let paid = rows.get(&d.source).filter(|r| {
+            !d.data_incomplete && r.kind == Kind::Sell && fiat_disposal(r) && r.quote == t.quote && quote == s.quote && d.proceeds.is_positive()
+                && !(r.fee_is(&r.base) && r.fee().is_positive())
+        }).and_then(|r| r.quote_amount.clone()).filter(Dec::is_positive);
+        s.amount = (&s.amount + &d.amount)?;
+        s.at = d.at;
+        match paid {
+            Some(paid) if s.known => s.cost = (&s.cost + &(&d.cost_basis * &paid)?.div(&d.proceeds)?)?,
+            _ => { s.known = false; s.cost = Dec::zero(); }
+        }
+    }
+    Ok(out.into_values().collect())
 }
 
 /// `round_trips`: one row per round trip, not per sell. What is still accumulating when the disposals run out is flushed
@@ -1721,5 +1757,104 @@ mod tests {
         let mut e = Engine::new(true);
         e.calculate(&rows).unwrap();
         assert_eq!(e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f(), "130.0", "2.x: 100");
+    }
+
+    // D-SELL-ONLY-*: the located walk's cost of each bot order's sale, read through `scopes` over stored rows.
+    const D1: &str = "2026-09-01 10:00:00";
+    const D2: &str = "2026-09-02 10:00:00";
+    const D3: &str = "2026-09-03 10:00:00";
+    fn st(id: i64, venue: &str, kind: Kind, base: &str, amount: &str, at: &str) -> Stored {
+        Stored { id, exchange_id: if venue == "a" { 1 } else { 2 }, venue: venue.into(), kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None,
+                 fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql(at).unwrap(), per_share: None, stated: None, linked_to: None,
+                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None }
+    }
+    fn trade(id: i64, venue: &str, kind: Kind, amount: &str, quote: &str, paid: &str, at: &str) -> Stored {
+        Stored { quote: Some(quote.into()), quote_amount: Some(d(paid)), ..st(id, venue, kind, "BTC", amount, at) }
+    }
+    fn sold(id: i64, order: i64, amount: &str, quote: &str, paid: &str, at: &str) -> Stored { Stored { bot_order: Some(order), ..trade(id, "a", Kind::Sell, amount, quote, paid, at) } }
+    fn deposit(id: i64, amount: &str, worth: &str, at: &str) -> Stored { Stored { stated: Some(d(worth).div(&d(amount)).unwrap()), ..st(id, "a", Kind::Deposit, "BTC", amount, at) } }
+    fn walked_with(rows: Vec<Stored>, deposits: &[(i64, &str)], fx: &crate::tracker::fx::FxTable) -> Walked {
+        let stored = crate::tracker::rows::walk_rows(&rows).unwrap();
+        let r = crate::tracker::prices::Reference::default();
+        let mut none = crate::tracker::prices::NoFetch;
+        let mut ps = PriceService::new(&r, fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut none);
+        let ids = HashMap::from([("a".to_string(), 1), ("b".to_string(), 2)]);
+        let deposits: HashMap<i64, Dec> = deposits.iter().map(|(i, a)| (*i, d(a))).collect();
+        scopes(&stored, &deposits, &mut ps, &ids, At::from_sql("2026-10-01 00:00:00").unwrap()).unwrap()
+    }
+    fn sales(rows: Vec<Stored>) -> Vec<BotSale> { walked_with(rows, &[], &Default::default()).bot_sales }
+    fn sale(order: i64, at: &str, amount: &str, quote: &str, cost: &str, known: bool) -> BotSale {
+        BotSale { order, at: At::from_sql(at).unwrap(), amount: d(amount), quote: quote.into(), cost: d(cost), known }
+    }
+
+    #[test]
+    fn a_bot_sale_of_bought_coins_has_its_lots_cost() {
+        let w = walked_with(vec![trade(1, "a", Kind::Buy, "1", "USD", "100", D1), sold(2, 7, "1", "USD", "150", D2)], &[], &Default::default());
+        assert_eq!(w.bot_sales, [sale(7, D2, "1", "USD", "100", true)]);
+        assert_eq!(w.whole.realised.to_s_f(), "50.0", "the summary is the walk's as before");
+    }
+
+    #[test]
+    fn a_bot_sale_of_an_unlinked_deposit_is_not_known() {
+        assert_eq!(sales(vec![deposit(1, "1", "120", D1), sold(2, 7, "1", "USD", "150", D2)]), [sale(7, D2, "1", "USD", "0", false)]);
+    }
+
+    #[test]
+    fn a_linked_deposit_brings_its_cost_to_the_bots_venue() {
+        let sent = Stored { linked_to: Some(3), to_venue: Some("a".into()), to_exchange_id: Some(1), ..st(2, "b", Kind::Withdrawal, "BTC", "1", D2) };
+        let rows = vec![trade(1, "b", Kind::Buy, "1", "USD", "100", D1), sent, st(3, "a", Kind::Deposit, "BTC", "1", D2), sold(4, 7, "1", "USD", "150", D3)];
+        assert_eq!(walked_with(rows, &[(3, "1")], &Default::default()).bot_sales, [sale(7, D3, "1", "USD", "100", true)]);
+    }
+
+    #[test]
+    fn one_unknown_lot_makes_the_whole_order_unknown() {
+        let rows = vec![trade(1, "a", Kind::Buy, "0.5", "USD", "50", D1), deposit(2, "0.5", "60", D1), sold(3, 7, "1", "USD", "150", D2)];
+        assert_eq!(sales(rows), [sale(7, D2, "1", "USD", "0", false)]);
+    }
+
+    #[test]
+    fn fills_of_one_order_are_one_sale() {
+        let rows = vec![trade(1, "a", Kind::Buy, "3", "USD", "300", D1), sold(2, 7, "0.5", "USD", "75", D2), sold(3, 7, "1.5", "USD", "225", D3),
+                        sold(4, 5, "1", "USD", "90", D3)];
+        assert_eq!(sales(rows), [sale(5, D3, "1", "USD", "100", true), sale(7, D3, "2", "USD", "200", true)]);
+    }
+
+    #[test]
+    fn a_fee_in_the_coin_sold_is_not_known() {
+        let fee = Stored { fee_currency: Some("BTC".into()), fee_amount: Some(d("0.01")), ..sold(2, 7, "1", "USD", "150", D2) };
+        assert_eq!(sales(vec![trade(1, "a", Kind::Buy, "2", "USD", "200", D1), fee]), [sale(7, D2, "1", "USD", "0", false)]);
+    }
+
+    #[test]
+    fn a_base_fee_moved_from_the_fiat_leg_is_not_known() {
+        let with_fee = |coin: &str, amount: &str| {
+            let g = Some("g".to_string());
+            let cash = Stored { group: g.clone(), fee_currency: Some(coin.into()), fee_amount: Some(d(amount)), ..st(3, "a", Kind::SwapIn, "USD", "150", D2) };
+            sales(vec![trade(1, "a", Kind::Buy, "2", "USD", "200", D1), Stored { group: g, ..sold(2, 7, "1", "USD", "150", D2) }, cash])
+        };
+        assert_eq!(with_fee("BTC", "0.01"), [sale(7, D2, "1", "USD", "0", false)]);
+        assert_eq!(with_fee("USD", "1"), [sale(7, D2, "1", "USD", "100", true)], "a quote fee moved the same way is known");
+    }
+
+    #[test]
+    fn a_sale_for_a_coin_makes_no_record() {
+        assert_eq!(sales(vec![trade(1, "a", Kind::Buy, "1", "USD", "100", D1), sold(2, 7, "1", "ETH", "30", D2)]), []);
+    }
+
+    #[test]
+    fn fills_at_two_rates_are_restated_one_by_one() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC); INSERT INTO fx_rates VALUES ('USD', '2026-09-02', '1'), ('USD', '2026-09-03', '2');").unwrap();
+        let fx = crate::tracker::fx::FxTable::load(&c).unwrap();
+        let rows = vec![trade(1, "a", Kind::Buy, "1", "USD", "60", D1), trade(2, "a", Kind::Buy, "1", "USD", "40", "2026-09-01 11:00:00"),
+                        sold(3, 7, "1", "EUR", "100", D2), sold(4, 7, "1", "EUR", "100", D3)];
+        assert_eq!(walked_with(rows, &[], &fx).bot_sales, [sale(7, D3, "2", "EUR", "80", true)], "not the 66.67 a blended rate gives");
+    }
+
+    #[test]
+    fn an_opening_is_never_indexed() {
+        let w = walked_with(vec![sold(1, 9, "1", "USD", "150", D2)], &[], &Default::default());
+        assert!(w.whole.openings.iter().any(|(s, _)| s == "BTC"), "the walk opened what the sale needed");
+        assert_eq!(w.bot_sales, [sale(9, D2, "1", "USD", "0", false)]);
     }
 }

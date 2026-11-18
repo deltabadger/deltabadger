@@ -184,7 +184,7 @@ mod tests {
         whole.received=Dec::strict("3.3").unwrap();whole.realised=Dec::strict("-19.76").unwrap();whole.fees=Dec::strict("0.25").unwrap();whole.cash_usd=Dec::strict("7.125").unwrap();whole.unpriced_proceeds=Dec::strict("0.5").unwrap();
         whole.openings=vec![("BTC".into(),Dec::strict("0.01").unwrap())];whole.opening_values=vec![("BTC".into(),Dec::strict("600.123456789").unwrap())];
         whole.cash=vec![("USD".into(),Dec::strict("-0.0").unwrap())];whole.cash_basis=vec![("USD".into(),Dec::strict("1.01").unwrap())];whole.incomplete=true;whole.loss_sales=vec![("AAPL".into(),now().date_naive())];
-        Walked{venues:vec![(7,whole.clone())],whole,terms:vec![]}
+        Walked{venues:vec![(7,whole.clone())],whole,terms:vec![],bot_sales:vec![]}
     }
     fn warm(c:&Connection,exchange:Option<i64>)->Summary {
         let State::Warm(s)=read(c,1,exchange,now()).unwrap() else { panic!("expected warm cache") };*s
@@ -315,7 +315,7 @@ mod tests {
         // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
         // and the 287-character decimal needs three successive restatements.
         let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default()};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None};
         let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;
