@@ -35,9 +35,12 @@ fn of(orders: &[Order], quote: Option<&str>, pair: bool, sales: &Sales) -> Resul
     let (mut amount, mut received, mut bases, mut out) = (Dec::zero(), Dec::zero(), HashSet::new(), vec![]);
     let (mut cost, mut known) = (Dec::zero(), by_order.is_some());
     for order in orders {
-        // Units that left with no fill (an executed sale without proceeds): their cost cannot be set against anything.
-        if fill::special_sell(order)?.is_some_and(|sale| sale.fill().is_none() && sale.executed.is_positive()) { known = false; }
-        let Some(filled) = (if pair { fill::pair_row(order)? } else { fill::parse(order)? }) else { continue };
+        let Some(filled) = (if pair { fill::pair_row(order)? } else { fill::parse(order)? }) else {
+            // Units that left with no fill, as the bot's own reader reads it (an executed sale without proceeds): their
+            // cost cannot be set against anything.
+            if fill::special_sell(order)?.is_some_and(|sale| sale.executed.is_positive()) { known = false; }
+            continue;
+        };
         // D-SELL-ONLY-KNOWN-COST 3–5: a known record of every unit of the fill, in the bot's quote.
         let sale = by_order.and_then(|by| by.get(&order.id))
             .filter(|sale| sale.known && sale.amount == filled.quantity && quote.is_some_and(|q| q == sale.quote))
@@ -148,6 +151,16 @@ mod tests {
         let sales = warm(vec![sale(1, "0.002", "USDC", "4", true)]);
         assert_eq!(cost(&orders, &sales), None);
         assert_eq!(cost(&orders[..1], &sales), Some(d("4")));
+    }
+
+    #[test]
+    fn a_pair_reads_a_special_sell_by_its_own_fill() {
+        // A pair values an unpriced liquidation from its proceeds (`pair_row`); the special-sell gate is not the pair's.
+        let mut liquidation = order(1, "1", "150", "LIQUIDATION");
+        liquidation.raw = fill::Raw::new(None, Some(d("1")), Some(d("1")), Some(d("150")));
+        let sales = warm(vec![sale(1, "1", "USDC", "100", true)]);
+        assert_eq!(of(std::slice::from_ref(&liquidation), Some("USDC"), true, &sales).unwrap().unwrap().cost, Some(d("100")));
+        assert_eq!(of(&[liquidation], Some("USDC"), false, &sales).unwrap().unwrap().cost, None);
     }
 
     #[test]
