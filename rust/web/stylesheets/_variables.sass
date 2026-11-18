@@ -54,150 +54,279 @@
 [data-locale="el"]
   --font-family: 'Google Sans', sans-serif
 
+// D-SCHEME-SWITCH: the two palettes as mixins, so a scheme can take one whatever the OS says.
+@mixin palette-light
+  --sky: color(display-p3 0 0 1)
+  --link: var(--sky)
+  --ink: #001933
+  --ash: #506181
+  --stone: #738197
+  --concrete: #9CA8B8
+  --steel: #C2CAD4
+  --silver: #E2E6EB
+  --zinc: #E2E6EB
+  --paper: #F8F9Fa
+  --washed: #FFFFFF
+  --paper-on-washed: #F5F6F8
+  --white: #FFFFFF
+  --grass: color(display-p3 0 0.65 0.425)
+  --berry: #db0049
+  --highlight: var(--sky)
+  --autocomplete: #cde
+  --inputTextFocus: #0D223F
+  --menulink: #789
+  --menulink-active: #00f
+  --menuLogo: #00f
+  --navbarLink: #00f
+  --pickExchangeItemBg: #dbe4f0
+
+  --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --shadow-widget: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
+  --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
+  --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
+  --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
+  --shadow-rbutton-outline: inset 0 0 0 0.125rem var(--zinc), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+
+  --rinput-bg: var(--washed)
+  --rinput-shadow: inset 0 0 0 0.125rem var(--zinc), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --rinput-focus: inset 0 0 0 0.125rem var(--sky), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+
+  --warning: color(display-p3 1 0.5 0)
+  --benchmark: #949db5
+  --insight-background: #8098dd77
+  --insight-warning-background: #ffd7ab
+  --slider-track: #3453B019
+  --slider-progress: color(display-p3 0 0 1)
+  --label: #061A4Fba
+  --label-select-inactive: #061a4f60
+  --close-hover: #ebeef2
+
+  --modal-backdrop: #78869f38
+  --pick-bot-item-bg: #fff
+  --big-header: var(--stone)
+
+  --input-text-inactive: #8894B6
+  --input-border: #8894B6
+  --sinput-background: #fff
+  --sinput-text: #00f
+
+  --modal-search-placeholder: #8894B6
+
+  --tooltip-background: #fff
+  --tooltip-text: #061A4F
+
+  --dropdown-bg: #FFF
+  --dropdown-border: var(--steel)
+  --dropdown-hover: #D9E0E766
+
+  --text-faded: #8b92a7
+  --widget-shadow-line: #0241
+
+  --ticker-tooltip-background: var(--washed)
+  --ticker-tooltip-border: var(--silver)
+  --ticker-tooltip-secondary: var(--stone)
+
+@mixin palette-dark
+  --sky: color(display-p3 0 0 1)
+  --link: #def
+  --ink: #def
+  --ash: #90aed7
+  --stone: #517095
+  --concrete: #4F6991
+  --steel: #163253
+  --silver: #010f1f
+  --zinc: #122944
+  --paper: #00152a
+  --washed: #0c1e37
+  --paper-on-washed: #122949
+  --white: #FFFFFF
+  --grass: color(display-p3 0 0.55 0.43)
+  --berry: #b1003b
+  --highlight: var(--white)
+  --autocomplete: #122b49
+  --inputTextFocus: #fff
+  --menulink: #3a5a81
+  --menulink-active: #def
+  --menuLogo: #def
+  --navbarLink: #fff
+  --pickExchangeItemBg: #122b49
+
+  --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --shadow-widget: inset 0.075rem 0.075rem #88f2, inset -0.075rem -0.075rem #0006
+  --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
+  --shadow-paper: inset 0.075rem 0.075rem #88f2
+  --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
+  --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
+  --shadow-rbutton-outline: inset 0 0 0 0.125rem var(--concrete), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+
+  --rinput-bg: var(--zinc)
+  --rinput-shadow: inset 0 0 0 0.125rem var(--concrete), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --rinput-focus: inset 0 0 0 0.125rem var(--sky), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+
+  --warning: color(display-p3 1 0.5 0)
+  --benchmark: #465f81
+  --insight-background: #00f77
+  --insight-warning-background: #884f00b0
+  --slider-track: #D4DAEC22
+  --slider-progress: color(display-p3 0 0 1)
+  --label: #B2D5FFc9
+  --label-select-inactive: #b2d5ff77
+  --close-hover: var(--zinc)
+
+  --modal-backdrop: #012b
+  --pick-bot-item-bg: #0D223F
+  --big-header: #61798d
+
+  --input-text-inactive: #8894B6
+  --input-border: #8894B6
+  --sinput-background: #0D223F
+  --sinput-text: #fff
+
+  --modal-search-placeholder: #8894B6
+
+  --tooltip-background: #00f
+  --tooltip-text: #fff
+
+  --dropdown-bg: #172a46
+  --dropdown-border: #313C59
+  --dropdown-hover: #00f
+
+  --text-faded: #44648d
+  --widget-shadow-line: #0128
+
+  --ticker-tooltip-background: var(--steel)
+  --ticker-tooltip-border: none
+  --ticker-tooltip-secondary: var(--ash)
+
 @media (prefers-color-scheme: light)
   \:root
-    --sky: color(display-p3 0 0 1)
-    --link: var(--sky)
-    --ink: #001933
-    --ash: #506181
-    --stone: #738197
-    --concrete: #9CA8B8
-    --steel: #C2CAD4
-    --silver: #E2E6EB
-    --zinc: #E2E6EB
-    --paper: #F8F9Fa
-    --washed: #FFFFFF
-    --paper-on-washed: #F5F6F8
-    --white: #FFFFFF
-    --grass: color(display-p3 0 0.65 0.425)
-    --berry: #db0049
-    --highlight: var(--sky)
-    --autocomplete: #cde
-    --inputTextFocus: #0D223F
-    --menulink: #789
-    --menulink-active: #00f
-    --menuLogo: #00f
-    --navbarLink: #00f
-    --pickExchangeItemBg: #dbe4f0
-
-    --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-    --shadow-widget: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-    --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
-    --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
-    --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
-    --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
-    --shadow-rbutton-outline: inset 0 0 0 0.125rem var(--zinc), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-
-    --rinput-bg: var(--washed)
-    --rinput-shadow: inset 0 0 0 0.125rem var(--zinc), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-    --rinput-focus: inset 0 0 0 0.125rem var(--sky), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-
-    --warning: color(display-p3 1 0.5 0)
-    --benchmark: #949db5
-    --insight-background: #8098dd77
-    --insight-warning-background: #ffd7ab
-    --slider-track: #3453B019
-    --slider-progress: color(display-p3 0 0 1)
-    --label: #061A4Fba
-    --label-select-inactive: #061a4f60
-    --close-hover: #ebeef2
-
-    --modal-backdrop: #78869f38
-    --pick-bot-item-bg: #fff
-    --big-header: var(--stone)
-
-    --input-text-inactive: #8894B6
-    --input-border: #8894B6
-    --sinput-background: #fff
-    --sinput-text: #00f
-
-    --modal-search-placeholder: #8894B6
-
-    --tooltip-background: #fff
-    --tooltip-text: #061A4F
-
-    --dropdown-bg: #FFF
-    --dropdown-border: var(--steel)
-    --dropdown-hover: #D9E0E766
-
-    --text-faded: #8b92a7
-    --widget-shadow-line: #0241
-
-    --ticker-tooltip-background: var(--washed)
-    --ticker-tooltip-border: var(--silver)
-    --ticker-tooltip-secondary: var(--stone)
+    +palette-light
 
 @media (prefers-color-scheme: dark)
   \:root
-    --sky: color(display-p3 0 0 1)
-    --link: #def
-    --ink: #def
-    --ash: #90aed7
-    --stone: #517095
-    --concrete: #4F6991
-    --steel: #163253
-    --silver: #010f1f
-    --zinc: #122944
-    --paper: #00152a
-    --washed: #0c1e37
-    --paper-on-washed: #122949
-    --white: #FFFFFF
-    --grass: color(display-p3 0 0.55 0.43)
-    --berry: #b1003b
+    +palette-dark
+
+// Space: dark only, neutral near-black greys instead of navy; the blue accent stays.
+\:root[data-scheme="space"]
+  +palette-dark
+  color-scheme: dark
+  --link: #e6e6ea
+  --ink: #e6e6ea
+  --ash: #a3a3ad
+  --stone: #6b6b76
+  --concrete: #4a4a53
+  --steel: #1f1f24
+  --silver: #000000
+  --zinc: #18181c
+  --paper: #050506
+  --washed: #0f0f12
+  --paper-on-washed: #18181c
+  --autocomplete: #18181c
+  --menulink: #4f4f5a
+  --menulink-active: #e6e6ea
+  --menuLogo: #e6e6ea
+  --pickExchangeItemBg: #18181c
+  --shadow-widget: inset 0.075rem 0.075rem #ffffff14, inset -0.075rem -0.075rem #0008
+  --shadow-paper: inset 0.075rem 0.075rem #ffffff14
+  --benchmark: #50505a
+  --label: #ffffffb8
+  --label-select-inactive: #ffffff66
+  --modal-backdrop: #000c
+  --pick-bot-item-bg: #0f0f12
+  --big-header: #707079
+  --input-text-inactive: #85858f
+  --input-border: #85858f
+  --sinput-background: #0f0f12
+  --modal-search-placeholder: #85858f
+  --dropdown-bg: #141417
+  --dropdown-border: #2c2c33
+  --text-faded: #55555f
+  --widget-shadow-line: #000a
+  --slider-track: #ffffff1a
+
+// Warm: cream and warm greys with a clay accent, in both modes. The clay under white text is #AE5630 (5:1 for a white
+// label), a lighter clay only where it is text or a line on the dark page.
+@media (prefers-color-scheme: light)
+  \:root[data-scheme="warm"]
+    --sky: #AE5630
+    --link: #AE5630
+    --ink: #141413
+    --ash: #5E5D59
+    --stone: #83827D
+    --concrete: #A9A79F
+    --steel: #D4D1C6
+    --silver: #E8E6DC
+    --zinc: #E8E6DC
+    --paper: #FAF9F5
+    --washed: #FFFFFF
+    --paper-on-washed: #F5F4EE
+    --autocomplete: #F0E6DC
+    --inputTextFocus: #141413
+    --menulink: #8A8780
+    --menulink-active: #AE5630
+    --menuLogo: #AE5630
+    --navbarLink: #AE5630
+    --pickExchangeItemBg: #EFEBE1
+    --benchmark: #A9A79F
+    --insight-background: #D9775744
+    --insight-warning-background: #F6D9B8
+    --slider-track: #3D3A3019
+    --slider-progress: #AE5630
+    --label: #141413ba
+    --label-select-inactive: #14141360
+    --close-hover: #F0EEE6
+    --modal-backdrop: #8A877F38
+    --big-header: var(--stone)
+    --input-text-inactive: #9C9A92
+    --input-border: #9C9A92
+    --sinput-text: #AE5630
+    --modal-search-placeholder: #9C9A92
+    --tooltip-text: #141413
+    --dropdown-hover: #EDEAE066
+    --text-faded: #9C9A92
+    --widget-shadow-line: #3D3A3011
+
+@media (prefers-color-scheme: dark)
+  \:root[data-scheme="warm"]
+    --sky: #AE5630
+    --link: var(--white)
+    --ink: #FAF9F5
+    --ash: #C2C0B6
+    --stone: #8D8B83
+    --concrete: #6B6A64
+    --steel: #3E3E38
+    --silver: #1F1E1D
+    --zinc: #353531
+    --paper: #262624
+    --washed: #30302E
+    --paper-on-washed: #3A3A37
     --highlight: var(--white)
-    --autocomplete: #122b49
-    --inputTextFocus: #fff
-    --menulink: #3a5a81
-    --menulink-active: #def
-    --menuLogo: #def
-    --navbarLink: #fff
-    --pickExchangeItemBg: #122b49
-
-    --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-    --shadow-widget: inset 0.075rem 0.075rem #88f2, inset -0.075rem -0.075rem #0006
-    --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
-    --shadow-paper: inset 0.075rem 0.075rem #88f2
-    --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
-    --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
-    --shadow-rbutton-outline: inset 0 0 0 0.125rem var(--concrete), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-
-    --rinput-bg: var(--zinc)
-    --rinput-shadow: inset 0 0 0 0.125rem var(--concrete), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-    --rinput-focus: inset 0 0 0 0.125rem var(--sky), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-
-    --warning: color(display-p3 1 0.5 0)
-    --benchmark: #465f81
-    --insight-background: #00f77
-    --insight-warning-background: #884f00b0
-    --slider-track: #D4DAEC22
-    --slider-progress: color(display-p3 0 0 1)
-    --label: #B2D5FFc9
-    --label-select-inactive: #b2d5ff77
-    --close-hover: var(--zinc)
-
-    --modal-backdrop: #012b
-    --pick-bot-item-bg: #0D223F
-    --big-header: #61798d
-
-    --input-text-inactive: #8894B6
-    --input-border: #8894B6
-    --sinput-background: #0D223F
-    --sinput-text: #fff
-
-    --modal-search-placeholder: #8894B6
-
-    --tooltip-background: #00f
-    --tooltip-text: #fff
-
-    --dropdown-bg: #172a46
-    --dropdown-border: #313C59
-    --dropdown-hover: #00f
-
-    --text-faded: #44648d
-    --widget-shadow-line: #0128
-
-    --ticker-tooltip-background: var(--steel)
-    --ticker-tooltip-border: none
-    --ticker-tooltip-secondary: var(--ash)
+    --autocomplete: #3A3A37
+    --menulink: #77756E
+    --menulink-active: #FAF9F5
+    --menuLogo: #FAF9F5
+    --pickExchangeItemBg: #3A3A37
+    --shadow-widget: inset 0.075rem 0.075rem #ffffff12, inset -0.075rem -0.075rem #0005
+    --shadow-paper: inset 0.075rem 0.075rem #ffffff12
+    --benchmark: #6B6A64
+    --insight-background: #D9775766
+    --slider-track: #FAF9F51f
+    --slider-progress: #D97757
+    --label: #FAF9F5c0
+    --label-select-inactive: #FAF9F570
+    --modal-backdrop: #1a1918c0
+    --pick-bot-item-bg: #30302E
+    --big-header: #8D8B83
+    --input-text-inactive: #9C9A92
+    --input-border: #9C9A92
+    --sinput-background: #30302E
+    --modal-search-placeholder: #9C9A92
+    --tooltip-background: #AE5630
+    --dropdown-bg: #353531
+    --dropdown-border: #4A4943
+    --dropdown-hover: #AE5630
+    --text-faded: #77756E
+    --widget-shadow-line: #0006
 
 $fontText: var(--font-family)

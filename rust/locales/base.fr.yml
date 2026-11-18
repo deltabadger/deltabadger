@@ -91,6 +91,10 @@ fr:
     links:
         hide_balances: 'Masquer les soldes'
         display_currency: "Devise d'affichage"
+        scheme: 'Thème de couleurs'
+        scheme_default: 'Par défaut'
+        scheme_space: 'Espace'
+        scheme_warm: 'Chaud'
         show_balances: 'Afficher les soldes'
         about: 'À propos'
         telegram: 'Telegram'

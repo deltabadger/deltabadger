@@ -92,6 +92,10 @@ cs:
     links:
         hide_balances: 'Skrýt zůstatky'
         display_currency: 'Zobrazovaná měna'
+        scheme: 'Barevné schéma'
+        scheme_default: 'Výchozí'
+        scheme_space: 'Vesmír'
+        scheme_warm: 'Teplé'
         show_balances: 'Zobrazit zůstatky'
         about: O nás
         telegram: 'Telegram'

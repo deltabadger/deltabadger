@@ -93,6 +93,10 @@ pl:
     links:
         hide_balances: 'Ukryj salda'
         display_currency: 'Waluta wyświetlania'
+        scheme: 'Motyw kolorów'
+        scheme_default: 'Domyślny'
+        scheme_space: 'Kosmos'
+        scheme_warm: 'Ciepły'
         show_balances: 'Pokaż salda'
         about: 'O nas'
         telegram: 'Telegram'

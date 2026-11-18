@@ -91,6 +91,10 @@ bg:
     links:
         hide_balances: 'Скрий балансите'
         display_currency: 'Валута за показване'
+        scheme: 'Цветова схема'
+        scheme_default: 'По подразбиране'
+        scheme_space: 'Космос'
+        scheme_warm: 'Топла'
         show_balances: 'Покажи балансите'
         about: За нас
         telegram: 'Telegram'

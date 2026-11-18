@@ -1,4 +1,5 @@
 @use "../variables" as *
+@use "../mixins" as *
 @use "dropdown"
 
 // Segmented control: a recessed track, a raised chip, one option selected.
@@ -42,7 +43,7 @@
         background: var(--sky)
     &--secondary
         box-shadow: var(--shadow-rbutton-outline)
-        @media (prefers-color-scheme: dark)
+        +dark
             box-shadow: none
             background: var(--steel)
     &--outline
@@ -363,7 +364,7 @@
     background: var(--washed)
     // The look of an .rbutton--secondary under .buttons-no-outline.
     box-shadow: var(--shadow-basic)
-    @media (prefers-color-scheme: dark)
+    +dark
         background: var(--steel)
     svg
         width: 1.75rem

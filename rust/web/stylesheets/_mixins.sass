@@ -75,3 +75,17 @@ $grid-breakpoints: ( xs: 0, sm: 576px, md: 768px, lg: 992px, xl: 1200px ) !defau
   @else if $min == null
     @include media-breakpoint-down($name, $breakpoints)
       @content
+
+// D-SCHEME-SWITCH: a rule for dark pages. The OS's dark mode, and the Space scheme whatever the OS says. `:where` keeps the
+// rule's specificity what it was under the bare media query.
+@mixin dark
+  @media (prefers-color-scheme: dark)
+    @content
+  :where(:root[data-scheme="space"]) &
+    @content
+
+// A rule for light pages: the OS's light mode, unless the Space scheme (dark only) is on.
+@mixin light
+  @media (prefers-color-scheme: light)
+    :where(:root:not([data-scheme="space"])) &
+      @content

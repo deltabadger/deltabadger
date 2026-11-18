@@ -84,6 +84,9 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
             let shown = if verbatim { text.to_string() } else { collapse(text) };
             if !shown.is_empty() { lines.push(format!("{indent}{shown:?}")); }
         }
+        // Named divergence D-SCHEME-SWITCH: the Settings menu's colour scheme row is this build's own; 2.x has none. The row
+        // is written with no whitespace around it, so the rest of the menu still compares line for line.
+        Node::Element(element) if element.attr("data-scheme-switch").is_some() => {}
         Node::Element(element) => {
             // D-LIQUIDATION-ONE-LINE: the bot--selling controller on the columns wrapper, each Sell link's target and its asset
             // id; 2.x has none of them.

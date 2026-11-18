@@ -91,6 +91,10 @@ el:
     links:
         hide_balances: 'Απόκρυψη υπολοίπων'
         display_currency: 'Νόμισμα εμφάνισης'
+        scheme: 'Χρωματικό θέμα'
+        scheme_default: 'Προεπιλογή'
+        scheme_space: 'Διάστημα'
+        scheme_warm: 'Ζεστό'
         show_balances: 'Εμφάνιση υπολοίπων'
         about: Σχετικά
         telegram: 'Telegram'

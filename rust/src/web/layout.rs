@@ -29,6 +29,19 @@ pub struct Ctx {
     pub turbo_frame: Option<String>,
     /// The request's Accept names `text/vnd.turbo-stream.html` (Turbo's fetch, and the redirect it follows).
     pub stream: bool,
+    /// D-SCHEME-SWITCH: the colour scheme the `scheme` cookie names ("space" or "warm"), "" for the default. The menu sets
+    /// the cookie in the browser; the layouts put it on `<html data-scheme>` so the page paints in it at once.
+    pub scheme: &'static str,
+}
+
+/// The `scheme` cookie's value when it is one this build draws; anything else is the default.
+pub fn scheme(headers: &HeaderMap) -> &'static str {
+    headers.get_all(header::COOKIE).iter()
+        .filter_map(|line| line.to_str().ok())
+        .flat_map(|line| line.split(';'))
+        .find_map(|pair| pair.trim().strip_prefix("scheme="))
+        .and_then(|value| ["space", "warm"].into_iter().find(|known| *known == value))
+        .unwrap_or("")
 }
 
 pub struct Language {
@@ -48,7 +61,8 @@ impl Ctx {
         let locale = locale::switch(params.locale(), current.user().and_then(|u| u.locale.as_deref()));
         let turbo_frame = turbo::frame(request.headers()).map(str::to_string);
         let stream = turbo::accepts_stream(request.headers());
-        Self { app, params, session, current, method: request.method().clone(), locale, nonce, now, turbo_frame, stream }
+        let scheme = scheme(request.headers());
+        Self { app, params, session, current, method: request.method().clone(), locale, nonce, now, turbo_frame, stream, scheme }
     }
 
     pub fn user(&self) -> Option<&User> {

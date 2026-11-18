@@ -91,6 +91,10 @@ sv:
     links:
         hide_balances: 'Dölj saldon'
         display_currency: 'Visningsvaluta'
+        scheme: 'Färgschema'
+        scheme_default: 'Standard'
+        scheme_space: 'Rymd'
+        scheme_warm: 'Varm'
         show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'

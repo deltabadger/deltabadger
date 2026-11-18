@@ -162,6 +162,9 @@ application.register("rule-toggle", RuleToggleController)
 import SegmentedController from "./segmented_controller"
 application.register("segmented", SegmentedController)
 
+import SchemeController from "./scheme_controller"
+application.register("scheme", SchemeController)
+
 import SheetController from "./sheet_controller"
 application.register("sheet", SheetController)
 

@@ -19,7 +19,7 @@ pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
     Ctx { app: app.clone(), params: Arc::new(crate::web::Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
             query: vec![], form: vec![], json: None, upload: None }),
           session: crate::web::session::Session::new(Default::default()), current: Current::SignedIn(Arc::new(owner)),
-          method: axum::http::Method::GET, locale, nonce: String::new(), now: app.now(), turbo_frame: None, stream: false }
+          method: axum::http::Method::GET, locale, nonce: String::new(), now: app.now(), turbo_frame: None, stream: false, scheme: "" }
 }
 
 /// The messages one event owes the bot's page, in 2.x's order.

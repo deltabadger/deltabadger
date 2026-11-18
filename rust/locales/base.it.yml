@@ -91,6 +91,10 @@ it:
     links:
         hide_balances: 'Nascondi saldi'
         display_currency: 'Valuta di visualizzazione'
+        scheme: 'Tema colori'
+        scheme_default: 'Predefinito'
+        scheme_space: 'Spazio'
+        scheme_warm: 'Caldo'
         show_balances: 'Mostra saldi'
         about: Chi siamo
         telegram: 'Telegram'
