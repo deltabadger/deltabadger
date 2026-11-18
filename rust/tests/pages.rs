@@ -2907,6 +2907,11 @@ async fn replay_page_shard(shard: usize) {
         for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
             let (Some(theirs), Some(ours)) = (v2["responses"].get_mut(index), rust["responses"].get_mut(index)) else { continue };
             let path = step["path"].as_str().unwrap_or_default();
+            // D-BOT-KEY-SHEET, D-TRACKER-COINGECKO-SHEET: the cards first, under the form the step posted.
+            match wizard_sheet::key_cards(path, step["method"].as_str().unwrap_or("GET"), &step["form"], &mut theirs["body"], &mut ours["body"]) {
+                Ok(adapted) => sheet_flows += adapted,
+                Err(e) => failures.push(format!("{name}/{scope} step {index}: D-BOT-KEY-SHEET: {e}")),
+            }
             match wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut theirs["body"], &mut ours["body"]) {
                 Ok(adapted) => sheet_flows += adapted,
                 Err(e) => failures.push(format!("{name}/{scope} step {index}: D-SHEET-EVERYWHERE: {e}")),
@@ -2920,7 +2925,8 @@ async fn replay_page_shard(shard: usize) {
             }
         }
         for (witness, count) in [("wizard_exchange_first_binance", sheet_answers), ("wizard_kucoin_key_stream", sheet_answers), ("wizard_chooser", chooser_tiles),
-                                 ("wizard_signal_kraken", sheet_flows), ("rules_wizard_exchange", sheet_flows), ("settings_pick_page_en", sheet_flows), ("settings_key_incorrect", sheet_flows)] {
+                                 ("wizard_signal_kraken", sheet_flows), ("rules_wizard_exchange", sheet_flows), ("settings_pick_page_en", sheet_flows), ("settings_key_incorrect", sheet_flows),
+                                 ("settings_bot_key_form_es", sheet_flows), ("settings_setup_coingecko_tracker_non_admin", sheet_flows)] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: D-WIZARD-SHEET: no rendered witness")); }
         }
         let expected_brokers = expected_broker_pages(&name, &scenario);
@@ -3550,6 +3556,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_split_item(&mut actual["body"]);
         without_small_tickers(&mut actual["body"]);
         let path = step["path"].as_str().unwrap_or_default();
+        wizard_sheet::key_cards(path, step["method"].as_str().unwrap_or("GET"), &step["form"], &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-BOT-KEY-SHEET: {e}"));
         wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-SHEET-EVERYWHERE: {e}"));
         wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser(path, &mut expected, &mut actual)).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
         let _ = index_rules(&mut actual["body"]);

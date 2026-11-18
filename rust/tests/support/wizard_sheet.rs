@@ -700,6 +700,79 @@ pub fn sheet_flows(path: &str, method: &str, v2: &mut Value, rust: &mut Value) -
     Ok(1)
 }
 
+/// D-BOT-KEY-SHEET, D-TRACKER-COINGECKO-SHEET (PLAN-key-cards-sheet): the bot page's key step and the tracker's CoinGecko
+/// step are the sheet's card with no track where 2.x draws its modal card (2.x's has no close URL; ours closes to the bot or the
+/// tracker). Exempted only under a form contract: each of 2.x's POST forms is in ours with the same action, `_method`, a CSRF
+/// field, the same named fields, and Alpaca's Paper/Live value. A refused key is one `update modal_content` stream whose form
+/// posts where the request posted, with a CSRF field, no `_method`, exactly the fields the request posted (`posted`, the step's
+/// form) and the Paper/Live value it posted; its reason's words those 2.x flashed. Returns how many answers it adapted.
+pub fn key_cards(path: &str, method: &str, posted: &Value, v2: &mut Value, rust: &mut Value) -> Result<usize, String> {
+    let route = route(path);
+    let bot = route.strip_prefix("/bots/").and_then(|rest| rest.split_once('/')).filter(|(id, step)| id.parse::<u64>().is_ok() && matches!(*step, "add_api_key" | "add_api_key/new"));
+    let coingecko = matches!(route, "/tracker/connect_market_data" | "/tracker/export_modal" | "/tracker/setup_coingecko");
+    if bot.is_none() && !coingecko { return Ok(0) }
+    let (Value::Array(theirs), Value::Array(ours)) = (v2, rust) else { return Ok(0) };
+    let marker = |lines: &[Value], at: usize, tag: &str| json!(format!("{}<{tag}></{tag}>", "  ".repeat(depth(&lines[at]))));
+    if method == "POST" {
+        let streams = positions(ours, 0, ours.len(), |l| opens(l, "turbo-stream"));
+        let [at] = streams[..] else { return if streams.is_empty() { Ok(0) } else { Err(format!("{route}: the refusal is {} streams", streams.len())) } };
+        if attr(text(&ours[at]), "action").as_deref() != Some("update") || attr(text(&ours[at]), "target").as_deref() != Some("modal_content") { return Ok(0) }
+        let end = subtree_end(ours, at);
+        if !positions(ours, at, end, |l| has_class(l, "ol", "sheet__track")).is_empty() { return Err(format!("{route}: the refused card has a track")) }
+        let mut fields: Vec<String> = posted.as_object().map(|form| form.keys().filter(|k| k.starts_with("api_key")).cloned().collect()).unwrap_or_default();
+        fields.sort();
+        let mode = posted.get("api_key[passphrase]").and_then(Value::as_str).filter(|v| matches!(*v, "paper" | "live")).map(str::to_string);
+        let forms = form_contracts(ours, at, end);
+        let [form] = &forms[..] else { return Err(format!("{route}: the refused card has {} forms", forms.len())) };
+        if route_of(&form.action) != route || !form.csrf || form.method.is_some() || form.fields != fields || form.mode != mode {
+            return Err(format!("{route}: the refused card's form {form:?} is not the one posted ({fields:?}, {mode:?})"))
+        }
+        let error = positions(ours, at, end, |l| has_class(l, "p", "sform__error")).first().copied().ok_or(format!("{route}: no reason under the fields"))?;
+        let reason = (error + 1..subtree_end(ours, error)).filter_map(|i| words(&ours[i])).collect::<Vec<_>>().join(" ");
+        let flashed = theirs.iter().filter_map(words).collect::<Vec<_>>().join(" ");
+        if reason.is_empty() || reason != flashed { return Err(format!("{route}: the sheet's reason \"{reason}\" is not 2.x's \"{flashed}\"")) }
+        *theirs = vec![json!("<x-key-refusal></x-key-refusal>")];
+        *ours = vec![json!("<x-key-refusal></x-key-refusal>")];
+        return Ok(1)
+    }
+    let modal = |l: &Value| opens(l, "turbo-frame") && attr(text(l), "id").as_deref() == Some("modal");
+    let (Some(their_frame), Some(our_frame)) = (positions(theirs, 0, theirs.len(), modal).first().copied(), positions(ours, 0, ours.len(), modal).first().copied()) else { return Ok(0) };
+    let (their_end, our_end) = (subtree_end(theirs, their_frame), subtree_end(ours, our_frame));
+    // The export modal with market data configured is not a card: compared as it is.
+    if positions(ours, our_frame, our_end, |l| has_class(l, "turbo-frame", "sheet__frame")).len() != 1 { return if route == "/tracker/export_modal" { Ok(0) } else { Err(format!("{route}: no sheet where 2.x draws its card")) } }
+    if !positions(ours, our_frame, our_end, |l| has_class(l, "ol", "sheet__track")).is_empty() { return Err(format!("{route}: the card's sheet has a track")) }
+    let close = positions(ours, our_frame, our_end, |l| opens(l, "dialog")).first().and_then(|d| attr(text(&ours[*d]), "data-modal--base-close-url-value")).ok_or("the sheet has no close URL")?;
+    let want = bot.map_or("/tracker".to_string(), |(id, _)| format!("/bots/{id}"));
+    if route_of(&close) != want { return Err(format!("{route}: the sheet closes to {close}, not {want}")) }
+    let ours_forms = form_contracts(ours, our_frame, our_end);
+    for form in form_contracts(theirs, their_frame, their_end) {
+        let Some(mine) = ours_forms.iter().find(|f| f.action == form.action) else { return Err(format!("{route}: 2.x's card posts to {}, the sheet does not", form.action)) };
+        if mine != &form { return Err(format!("{route}: the sheet's form {mine:?} is not 2.x's {form:?}")) }
+    }
+    let (theirs_marker, ours_marker) = (marker(theirs, their_frame, "x-key-card"), marker(ours, our_frame, "x-key-card"));
+    theirs.splice(their_frame..their_end, [theirs_marker]);
+    ours.splice(our_frame..our_end, [ours_marker]);
+    Ok(1)
+}
+
+/// What a POST form submits: its action, `_method`, whether it carries the CSRF field, its named fields (sorted) and the
+/// Paper/Live value it sends.
+#[derive(Debug, PartialEq)]
+struct FormContract { action: String, method: Option<String>, csrf: bool, fields: Vec<String>, mode: Option<String> }
+
+fn form_contracts(lines: &[Value], from: usize, to: usize) -> Vec<FormContract> {
+    positions(lines, from, to, |l| opens(l, "form") && attr(text(l), "method").as_deref() == Some("post")).into_iter().map(|f| {
+        let inputs = positions(lines, f, subtree_end(lines, f), |l| opens(l, "input"));
+        let value = |name: &str| inputs.iter().find(|i| attr(text(&lines[**i]), "name").as_deref() == Some(name)).and_then(|i| attr(text(&lines[*i]), "value"));
+        let mut fields: Vec<String> = inputs.iter().filter_map(|i| attr(text(&lines[*i]), "name")).filter(|n| !matches!(n.as_str(), "authenticity_token" | "_method" | "commit")).collect();
+        fields.sort();
+        fields.dedup();
+        FormContract { action: attr(text(&lines[f]), "action").unwrap_or_default(), method: value("_method"), csrf: value("authenticity_token").is_some(), fields, mode: value("api_key[passphrase]").filter(|v| matches!(v.as_str(), "paper" | "live")) }
+    }).collect()
+}
+
+fn route_of(path: &str) -> String { route(path).to_string() }
+
 /// The venues a venue step offers: each pick's button (`name` ending in `exchange_id` or `exchange_id]`) and its value.
 fn offered(lines: &[Value]) -> Vec<String> {
     lines.iter().filter(|l| opens(l, "button")).filter(|l| attr(text(l), "name").is_some_and(|n| n.ends_with("exchange_id") || n.ends_with("exchange_id]")))
@@ -1100,6 +1173,51 @@ mod tests {
         assert_eq!(chooser("/bots", &mut answer(200, None, &tiles(V2_DCA, true, false), None), &mut answer(200, None, "<p>x</p>", None)), Ok(0));
     }
     /// D-SHEET-EVERYWHERE's hook: a sheet step exempted only when its shell, close URL, POST actions and venues hold.
+    mod key_cards_hook {
+        use super::*;
+        const BOT: &str = "/es/bots/1/add_api_key/new";
+        fn v2_card(form: &str) -> String { format!("<turbo-frame id=\"modal\"><dialog class=\"dialog\"><div class=\"modal\">{form}</div></dialog></turbo-frame>") }
+        fn sheet(close: &str, pane: &str) -> String {
+            format!("<turbo-frame id=\"modal\"><dialog class=\"dialog sheet-dialog\" data-modal--base-close-url-value=\"{close}\"><div class=\"sheet\"><turbo-frame class=\"sheet__frame\" id=\"modal_content\"><div class=\"sheet__pane\">{pane}</div></turbo-frame></div></dialog></turbo-frame>")
+        }
+        fn form(action: &str, fields: &[&str]) -> String {
+            let fields: String = fields.iter().map(|f| format!("<input type=\"text\" name=\"{f}\">")).collect();
+            format!("<form action=\"{action}\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"t\">{fields}<input type=\"submit\" name=\"commit\" value=\"Connect\"></form>")
+        }
+        const FIELDS: [&str; 3] = ["api_key[key]", "api_key[secret]", "api_key[passphrase]"];
+
+        #[test]
+        fn the_bot_key_card_is_exempted_only_with_2xs_form_contract() {
+            let theirs = || page(&v2_card(&form("/es/bots/1/add_api_key", &FIELDS)));
+            let ok = page(&sheet("/es/bots/1", &form("/es/bots/1/add_api_key", &FIELDS)));
+            let (mut a, mut b) = (theirs(), ok);
+            assert_eq!(key_cards(BOT, "GET", &Value::Null, &mut a, &mut b), Ok(1));
+            assert_eq!(a, b, "both cards are one marker, the page around them compared");
+            let fails = |ours: String| key_cards(BOT, "GET", &Value::Null, &mut theirs(), &mut page(&ours)).is_err();
+            assert!(fails(sheet("/es/bots/1", &form("/es/bots/1/add_api_key", &FIELDS[..2]))), "a field missing");
+            assert!(fails(sheet("/es/bots/1", &form("/es/bots/2/add_api_key", &FIELDS))), "another action");
+            assert!(fails(sheet("/es/tracker", &form("/es/bots/1/add_api_key", &FIELDS))), "closing elsewhere");
+            assert!(fails(sheet("/es/bots/1", &format!("<ol class=\"sheet__track\"></ol>{}", form("/es/bots/1/add_api_key", &FIELDS)))), "a track");
+        }
+
+        #[test]
+        fn a_refused_card_is_one_stream_with_its_form_and_2xs_reason() {
+            const POST: &str = "/bots/1/add_api_key";
+            let theirs = || json!(html::normalize("<turbo-stream action=\"prepend\" target=\"flash\"><template><div class=\"salert\">The key is incorrect.</div></template></turbo-stream>"));
+            let ours = |action: &str, reason: &str, extra: &str| json!(html::normalize(&format!("<turbo-stream action=\"update\" target=\"modal_content\"><template><div class=\"sheet__pane\">{}<p class=\"sform__error\" role=\"alert\">{reason}</p></div></template></turbo-stream>{extra}", form(action, &FIELDS))));
+            // A passphrase that is no Paper/Live value (the stub form sends none either).
+            let posted = json!({"api_key[key]": "k", "api_key[secret]": "s", "api_key[passphrase]": "p"});
+            assert_eq!(key_cards(POST, "POST", &posted, &mut theirs(), &mut ours(POST, "The key is incorrect.", "")), Ok(1));
+            assert!(key_cards(POST, "POST", &json!({"api_key[key]": "k", "api_key[secret]": "s", "api_key[passphrase]": "p", "api_key[extra]": "x"}), &mut theirs(), &mut ours(POST, "The key is incorrect.", "")).is_err(), "a posted field missing from the redraw");
+            assert!(key_cards(POST, "POST", &posted, &mut theirs(), &mut ours(POST, "The key is", "")).is_err(), "a truncated reason");
+            assert!(key_cards(POST, "POST", &posted, &mut theirs(), &mut ours("/bots/2/add_api_key", "The key is incorrect.", "")).is_err(), "another action");
+            assert!(key_cards(POST, "POST", &posted, &mut theirs(), &mut ours(POST, "The key is incorrect.", "<turbo-stream action=\"prepend\" target=\"flash\"><template>x</template></turbo-stream>")).is_err(), "an extra stream");
+            let no_form = json!(html::normalize("<turbo-stream action=\"update\" target=\"modal_content\"><template><p class=\"sform__error\">The key is incorrect.</p></template></turbo-stream>"));
+            assert!(key_cards(POST, "POST", &posted, &mut theirs(), &mut no_form.clone()).is_err(), "no retry form");
+            assert!(key_cards(POST, "POST", &json!({"api_key[key]": "k", "api_key[secret]": "s", "api_key[passphrase]": "live"}), &mut theirs(), &mut ours(POST, "The key is incorrect.", "")).is_err(), "the Paper/Live value lost");
+        }
+    }
+
     mod sheet_flows_hook {
         use super::*;
         fn dialog(close: &str, inner: &str) -> String {

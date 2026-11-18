@@ -550,6 +550,23 @@ pub fn market_data_card(ctx: &Ctx, csrf: &str, provider: &str, m: &Market) -> St
         if deltabadger { " set-api__mark--deltabadger" } else { "" }, escape(&name), escape(&ctx.path(action)), ctx.t("bot.setup.validating"))
 }
 
+/// D-TRACKER-COINGECKO-SHEET: the tracker's CoinGecko card (its "Connect to CoinGecko" links, a report with no market data), as
+/// the wizard draws `market_data_card` but with no Back (no step before it): for an admin the key field posting to
+/// `/tracker/setup_coingecko`, `error` under it; for anyone else who to ask.
+pub fn tracker_coingecko_card(ctx: &Ctx, csrf: &str, admin: bool, error: Option<&str>) -> String {
+    let (name, mark) = ("CoinGecko", include_str!("../../../templates/svg/_coingecko.html"));
+    let header = format!("  <header class=\"set-api__brand\">\n  <span class=\"set-api__mark\" aria-hidden=\"true\">{mark}</span>\n  <h2 class=\"set-api__title\">{name}</h2>\n</header>");
+    if !admin { return format!("<div class=\"set-api set-api--connect\">\n{header}\n  <p class=\"set-api__note\">{}</p>\n</div>", ctx.t("setup.coingecko_admin_only")) }
+    let label = ctx.t("setup.coingecko_api_key");
+    let invalid = if error.is_some() { " rinput--invalid\" aria-invalid=\"true\" aria-describedby=\"api_key_error" } else { "" };
+    let error = error.map(|e| format!("\n    <p class=\"sform__error\" id=\"api_key_error\" role=\"alert\">{}</p>", escape(e))).unwrap_or_default();
+    let connect = ctx.t("button.connect");
+    let how = crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text(name))]);
+    format!(
+        "<div class=\"set-api set-api--connect\">\n{header}\n  <p class=\"set-api__note\">{}</p>\n  <form class=\"set-api__form form\" {} action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />\n    <input required=\"required\" autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text{invalid}\" placeholder=\"{label}\" aria-label=\"{label}\" type=\"text\" name=\"api_key\" id=\"api_key\" />{error}\n    <div class=\"set-api__actions\">\n      <input type=\"submit\" name=\"commit\" value=\"{connect}\" class=\"rbutton rbutton--secondary\" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\" data-disable-with=\"{connect}\" />\n    </div>\n</form>\n    <section class=\"set-api__instructions\">\n      <h3 class=\"set-api__eyebrow\">{how}</h3>\n      {}\n    </section>\n</div>",
+        ctx.t("tracker.setup_coingecko_html"), super::keys::SHEET_FORM, escape(&ctx.path("/tracker/setup_coingecko")), ctx.t("bot.setup.validating"), ctx.t("setup.coingecko_api_key_hint_html"))
+}
+
 /// One exchange key of settings/widgets/_api_keys.
 pub struct Key {
     pub id: i64,

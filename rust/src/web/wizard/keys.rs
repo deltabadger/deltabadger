@@ -101,9 +101,8 @@ pub fn key_pane(card: &str) -> Result<String, WebError> { Ok(Form { search: Stri
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, String), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
-    let form_data = "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
-    let card = keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), form_data, &venue.name, &venue.class, live, instructions, error,
-                               ctx.path(&namespace.action().replace("/add_api_key", "/pick_exchange/new")))?;
+    let card = keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), keys::SHEET_FORM, &venue.name, &venue.class, live, instructions, error,
+                               Some(ctx.path(&namespace.action().replace("/add_api_key", "/pick_exchange/new"))))?;
     if namespace == Namespace::Index {
         let track = super::index_track(ctx, csrf, config, super::At::Key, &super::index::index_name(c, config, ctx.locale)?, Some(venue.name.clone()))?;
         return Ok((Form { search: String::new(), card }.render()?, track));

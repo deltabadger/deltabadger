@@ -90,6 +90,8 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
         let answer=browser.send(&app,"GET",path,None,Csrf::None,&[("turbo-frame","modal")]).await;
         assert_eq!(answer.status,200,"{path}");
         assert!(answer.body.contains("action=\"/tracker/setup_coingecko\""),"{path}");
+        // D-TRACKER-COINGECKO-SHEET: the sheet closing to the tracker, no track, the card answering in its frame.
+        assert!(answer.body.contains("data-modal--base-close-url-value=\"/tracker\"")&&answer.body.contains("id=\"modal_content\"")&&!answer.body.contains("sheet__track")&&!answer.body.contains("modal__footer"),"{path}: {}",answer.body);
         assert_eq!(snapshot(&connection),before,"{path}");
     }
 }

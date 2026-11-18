@@ -221,8 +221,7 @@ async fn key_card(
     app.db(move|c|{
         let instructions=keys::key_instructions(c,&inner,&v,&e.class,&e.name,1)?;
         keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}",e.id)),
-            "data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"",
-            &e.name,&e.class,false,instructions,error.as_deref(),v.path(&format!("{BASE}/pick_exchange/new")))
+            keys::SHEET_FORM,&e.name,&e.class,false,instructions,error.as_deref(),Some(v.path(&format!("{BASE}/pick_exchange/new"))))
     }).await
 }
 async fn next(app: &App, ctx: &Ctx, via_address: bool) -> Result<Response, WebError> {

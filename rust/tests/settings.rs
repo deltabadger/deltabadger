@@ -2179,11 +2179,37 @@ async fn bot_credential_replacement_uses_the_owned_trading_slot_and_refreshes_th
     assert!(!form.body.contains("previous-secret"));
     let answer=h.browser.send(&h.app,"POST",&format!("/bots/{bot}/add_api_key"),Some(&[("api_key[key]","new-key"),("api_key[secret]","new-secret"),("api_key[passphrase]","paper")]),Csrf::Header,&[("accept",deltabadger::web::turbo::CONTENT_TYPE)]).await;
     assert_eq!(answer.status,200);assert!(answer.body.contains("action=\"refresh\""));
+    assert!(form.body.contains("turbo:submit-end-&gt;modal--base#submitEnd"),"D-BOT-KEY-SHEET: the card's form closes the sheet on success");
     let stored:String=h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"new-key");
     h.c.execute("INSERT INTO users(id,email,encrypted_password,created_at,updated_at)VALUES(999,'other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
     h.c.execute("UPDATE bots SET user_id=999 WHERE id=?1",[bot]).unwrap();
     let foreign=h.browser.send(&h.app,"GET",&format!("/bots/{bot}/add_api_key/new"),None,Csrf::None,&[]).await;assert_eq!(foreign.status,404);
     server.verify().await;
+}
+
+/// D-BOT-KEY-SHEET: the bot page's key step ("Add new keys", the status bar's Connect) is the sheet closing to the bot, no
+/// track, the venue's card with a plain header (no venue step to go back to); a refused key says why under its fields, in the
+/// sheet's frame, nothing flashed.
+#[tokio::test(flavor="current_thread")]
+async fn the_bot_key_step_is_the_sheet(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    let step=h.browser.send(&h.app,"GET",&format!("/bots/{bot}/add_api_key/new"),None,Csrf::None,&[("Turbo-Frame","modal")]).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    let page=scraper::Html::parse_document(&step.body);
+    assert_eq!(page.select(&select(&format!("dialog.sheet-dialog[data-modal--base-close-url-value=\"/bots/{bot}\"] turbo-frame.sheet__frame#modal_content"))).count(),1,"{}",step.body);
+    assert_eq!(page.select(&select("ol.sheet__track")).count(),0,"no track");
+    assert_eq!(page.select(&select(&format!("form[action=\"/bots/{bot}/add_api_key\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]"))).count(),1);
+    assert_eq!(page.select(&select("header.set-api__brand > .set-api__mark + h2.set-api__title")).count(),1,"a plain header");
+    assert_eq!(page.select(&select("a.set-api__back")).count(),0,"no Back");
+    for old in ["modal__footer","srow","set-api--modal"]{assert!(!step.body.contains(old),"{old}");}
+    let refused=h.submit("POST",&format!("/bots/{bot}/add_api_key"),&[("api_key[key]","bad-key"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(refused.status,422,"{}",refused.body);
+    assert!(refused.body.starts_with("<turbo-stream action=\"update\" target=\"modal_content\">"),"{}",refused.body);
+    assert!(refused.body.contains("class=\"sform__error\"")&&!refused.body.contains("sheet__track")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -2780,9 +2806,11 @@ async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_
     // Kraken, Binance, KuCoin and Gemini keys are checked (pages.rs settings_venue_key_*), and Binance.US, Bitvavo, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX keys (wizard_oracles.rs, hyperliquid.rs); every other venue refuses.
     for venue in ["Bitmart","Ibkr"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
-        // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
+        // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal. D-TRACKER-IBKR-SHEET:
+        // IBKR's link opens its own connection in the sheet for a user who has its key (the seeded one), never the generic form.
         let refused=if venue=="Bitmart"{302}else{501};
-        assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,refused);
+        let link=h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await;
+        if venue=="Ibkr"{assert!(link.status==200&&link.body.contains("ibkr-connect-wizard"),"{}",link.body);}else{assert_eq!(link.status,refused);}
         let modern=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret")],Csrf::Header).await;assert_eq!(modern.status,refused);assert_eq!(h.snapshot(),before);
         let key=format!("0x{}","a".repeat(40));let secret="b".repeat(64);
         let legacy=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]",&key),("api_key[secret]",&secret)],Csrf::Header).await;
