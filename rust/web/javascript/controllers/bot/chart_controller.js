@@ -1232,7 +1232,8 @@ export default class extends Controller {
         .map((amount, j) => ({ x: labels[j], y: amount === null ? null : Number(amount) + (i ? shift : 0) }))
         .filter((point) => point.y !== null)
     );
-    const span = this.#extremes(series.flatMap((serie) => serie.map((p) => p.y)));
+    // Received only: the cost series is all zeros and never drawn, so it never frames the window.
+    const span = this.#extremes((this.#receivedOnly ? series.slice(0, 1) : series).flatMap((serie) => serie.map((p) => p.y)));
     const maxValue = this.focused ? this.#assetBounds.value : span.high;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const up = this.#color("--grass");
