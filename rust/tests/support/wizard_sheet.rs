@@ -89,7 +89,7 @@ fn sheet_shell(close_url: &str, close_label: &str) -> Vec<Value> {
     body_of(&html::normalize(&page))
 }
 
-/// The full-page dialog 2.x draws a step in (`wizard/full_page.html` writes it as 2.x does, `complete` aside), the step as
+/// The full-page dialog 2.x draws a step in (the `v2_full_page.html` fixture, as 2.x writes it), the step as
 /// a placeholder.
 fn full_page_shell(close_url: &str) -> Vec<Value> {
     let page = include_str!("v2_full_page.html").replace("{{ close_url }}", &escape(close_url))

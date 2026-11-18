@@ -329,15 +329,6 @@ pub fn exchange_name(c: &Connection, id: Option<i64>) -> Result<Option<String>, 
 }
 
 #[derive(Template)]
-#[template(path = "wizard/_progress.html")]
-struct Progress { title: String, progress: i64 }
-
-/// bots/_new_step_progress_bar: a step's title and its share of the wizard.
-pub fn progress_bar(title: String, progress: i64) -> Result<String, WebError> {
-    Ok(Progress { title, progress }.render()?)
-}
-
-#[derive(Template)]
 #[template(path = "wizard/_sheet_frame.html")]
 struct SheetFrame<'a> { track: &'a str, content: &'a str }
 
