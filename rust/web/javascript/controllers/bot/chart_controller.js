@@ -618,8 +618,10 @@ export default class extends Controller {
       .filter(Boolean)
       .join(" · ");
     if (this.#receivedOnly) {
-      // What came in, as an amount: no sign, no percent, no profit or loss colour.
-      if (this.hasPnlTarget) this.pnlTarget.replaceChildren(...this.#headline(Number(at.value), { signed: false }));
+      // What came in, as an amount: no sign, no percent, no profit or loss colour. A narrowed window says what came in
+      // within it, read from its first point as the P/L's baseline is.
+      const start = this.from ? Number(value.find((amount) => amount !== null) ?? 0) : 0;
+      if (this.hasPnlTarget) this.pnlTarget.replaceChildren(...this.#headline(Number(at.value) - start, { signed: false }));
       this.percentTarget.textContent = "";
       this.summaryTarget.classList.remove("text-danger", "text-success");
       return;

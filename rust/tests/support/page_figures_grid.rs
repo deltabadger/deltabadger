@@ -1021,7 +1021,11 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 let payload=common::html::without_rebalance_attestation(&payload,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && target == "metrics" { assert_eq!(sell_only_table(&payload), sell_only_table(wanted[1].as_str().unwrap()), "{name} broadcast metrics"); continue; }
                 // D-SELL-ONLY-TILE: no percentage of nothing. D-SELL-ONLY-CHART: the series are this build's own.
-                if SELL_ONLY_PAIRS.contains(&name) && target.starts_with("pnl_bots_") { assert!(!payload.contains("pnl-percent"), "{name} broadcast tile: {payload}"); continue; }
+                if SELL_ONLY_PAIRS.contains(&name) && target.starts_with("pnl_bots_") {
+                    let tile = sell_only_tile(target.trim_start_matches("pnl_bots_signal_"));
+                    assert_eq!(payload, deltabadger::web::turbo::stream("replace", target, &tile), "{name} broadcast tile");
+                    continue;
+                }
                 if SELL_ONLY_PAIRS.contains(&name) && target == "chart" { assert_eq!(common::html::normalize(&sell_only_chart(&payload)), common::html::normalize(&sell_only_chart(wanted[1].as_str().unwrap())), "{name} broadcast chart"); continue; }
                 assert_eq!(common::html::normalize(&payload),common::html::normalize(wanted[1].as_str().unwrap()),"{name} broadcast {stream} {target}");
             }
@@ -1054,7 +1058,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
                     continue;
                 }
                 // D-SELL-ONLY-TILE: its tile states no percentage of nothing, where 2.x states 0.00%.
-                if SELL_ONLY_PAIRS.contains(&name) && part == "tile" { assert!(!got.contains("pnl-percent"), "{name}: {got}"); continue; }
+                if SELL_ONLY_PAIRS.contains(&name) && part == "tile" { assert_eq!(got, sell_only_tile(id), "{name} bot {id} tile"); continue; }
                 // D-SELL-ONLY-CHART: its chart draws what it received; the rest is 2.x's.
                 if SELL_ONLY_PAIRS.contains(&name) && part == "chart" {
                     assert!(got.contains("data-bot--chart-received-value=\"unknown\""), "{name}: {got}");
@@ -1090,6 +1094,10 @@ fn sell_only_chart(html: &str) -> String {
     let modes = regex::Regex::new(r#"bot--chart#mode">[\s\S]*?</div>\s*<div class="widget--chart__summary""#).unwrap();
     modes.replace_all(&attributes.replace_all(html, ""), r#"bot--chart#mode"></div><div class="widget--chart__summary""#).into_owned()
 }
+
+/// D-SELL-ONLY-TILE: the tile this build writes for a sell-only signal bot whose cost is not known, byte for byte: its
+/// target with no figure, where 2.x states 0.00% of nothing.
+fn sell_only_tile(id: &str) -> String { format!("<div id=\"pnl_bots_signal_{id}\">\n</div>\n") }
 
 fn sell_only_table(html: &str) -> Vec<String> {
     let doc = scraper::Html::parse_fragment(html);
@@ -1522,7 +1530,8 @@ async fn chronology_matches_v2_fresh_bytes() {
     let w1: Vec<&str> = chronology["w1"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
     // The scenario's bots: the one started later has no figures in 2.x's read, and is left out of the comparison.
     let ids: Vec<String> = sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()).collect();
-    let parts = |figures: &Value| -> BTreeMap<String, Vec<String>> {
+    // `ours`: this build's figures, whose sell-only tile is asserted exactly; 2.x's states 0.00% there (D-SELL-ONLY-TILE).
+    let parts = |figures: &Value, ours: bool| -> BTreeMap<String, Vec<String>> {
         let mut out = BTreeMap::new();
         for (id, bot) in figures["bots"].as_object().unwrap().iter().filter(|(id, _)| ids.contains(id)) {
             for part in ["tile", "metrics", "chart"] {
@@ -1532,8 +1541,10 @@ async fn chronology_matches_v2_fresh_bytes() {
                 out.insert(format!("{id} {part}"), match part {
                     "metrics" if SELL_ONLY_PAIRS.contains(&scenario) => sell_only_table(html),
                     "chart" if SELL_ONLY_PAIRS.contains(&scenario) => common::html::normalize(&sell_only_chart(html)),
-                    // D-SELL-ONLY-TILE: the tile is this build's own (no percentage of nothing), asserted on the fragments.
-                    "tile" if SELL_ONLY_PAIRS.contains(&scenario) => vec!["D-SELL-ONLY-TILE".into()],
+                    "tile" if SELL_ONLY_PAIRS.contains(&scenario) => {
+                        if ours { assert_eq!(html, sell_only_tile(id), "{scenario}: bot {id} tile"); }
+                        vec!["D-SELL-ONLY-TILE".into()]
+                    }
                     _ => common::html::normalize(html),
                 });
             }
@@ -1578,7 +1589,7 @@ async fn chronology_matches_v2_fresh_bytes() {
         let shown = snapshot.clone();
         let read_at = deltabadger::engine::FixedClock(common::web::at(step["t_r"].as_str().unwrap()));
         let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "", &read_at)).await.unwrap().expect("figures");
-        let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
+        let (ours, fresh, actual) = (parts(&rendered, true), parts(&step["fresh"], false), parts(&step["actual"], false));
         if matches!(snapshot, Snapshot::Failed(_)) {
             // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
             // page shows no figures at all, only their targets (2.x shows its stale figures there, a difference older than kept

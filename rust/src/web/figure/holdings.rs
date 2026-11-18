@@ -77,8 +77,8 @@ pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
 /// D-SELL-ONLY-*: the realised P/L box (bot.dca_index.realised_pnl), signed and coloured (a zero neither), with its note (a
 /// locale key). Only the currency is escaped.
 fn realised_box(locale: &str, pnl: &Num, quote: &str, note: &str) -> Result<String, FiguresError> {
-    Ok(format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value {}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n",
-        t(locale, "bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), colour(pnl),
+    Ok(format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value{}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n",
+        t(locale, "bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), match colour(pnl) { "" => String::new(), c => format!(" {c}") },
         if pnl.is_positive() { "+" } else { "" }, quoted(precision(pnl, 2, true)?, quote), t(locale, note)))
 }
 const BASIS_NOTE: &str = "bot.details.stats.realised_pnl_basis_note";
@@ -505,6 +505,7 @@ mod realised_tests {
     fn a_zero_realised_pnl_is_unsigned_and_uncoloured() {
         let zero = realised_box("en", &Num::Dec(Dec::zero()), "USDC", BASIS_NOTE).unwrap();
         assert!(zero.contains("0.00 <small>USDC</small>") && !zero.contains("+0.00") && !zero.contains("text-success") && !zero.contains("text-danger"), "{zero}");
+        assert!(zero.contains("<div class=\"data-grid__item__value\">"), "no trailing space in the class: {zero}");
         let gain = realised_box("en", &Num::Dec(Dec::strict("1.6").unwrap()), "USDC", BASIS_NOTE).unwrap();
         assert!(gain.contains("text-success") && gain.contains("+1.60"), "{gain}");
         let loss = realised_box("en", &Num::Dec(Dec::strict("-1.6").unwrap()), "USDC", BASIS_NOTE).unwrap();

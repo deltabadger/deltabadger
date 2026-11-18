@@ -198,13 +198,13 @@ pub(crate) fn missing(s: &Subject, m: &Metrics, market: &dyn MarketData) -> Resu
 }
 
 /// D-SELL-ONLY-TILE: a sell-only bot's tile states its realised P/L over what the sold coins cost, and the P/L in USD as
-/// `profit_in_usd` converts; no figure when the cost is not known (or nothing, for a percentage of nothing). None for a
+/// `profit_in_usd` converts; no figure when the cost is not known (`basis::of`: a cost of nothing is none). None for a
 /// bot that bought: its tile is the walk's.
 #[allow(clippy::type_complexity)]
 fn sell_only_tile(c: &Connection, market: &dyn MarketData, rates: &mut totals::Rates, s: &Subject, sell: Option<&basis::SellOnly>, hidden: bool) -> Result<Option<(Option<Num>, Option<Num>)>, FiguresError> {
     let Some(sell) = sell else { return Ok(None) };
-    let (Some(pnl), Some(cost)) = (sell.pnl()?, sell.cost.clone().filter(crate::figures::dec::Dec::is_positive)) else { return Ok(Some((None, None))) };
-    let percent = Num::Dec(pnl.div(&cost)?);
+    let (Some(pnl), Some(cost)) = (sell.pnl()?, sell.cost.as_ref()) else { return Ok(Some((None, None))) };
+    let percent = Num::Dec(pnl.div(cost)?);
     let profit = if hidden { None } else {
         tile_usd(totals::quote_in_usd(c, market, rates, s.quote.as_deref(), pnl))?
     };

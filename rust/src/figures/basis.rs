@@ -14,7 +14,7 @@ pub struct SellOnly {
     pub received: Dec,
     /// (at, received, cost in the quote) per order with a fill, in order.
     pub sales: Vec<(At, Dec, Option<Dec>)>,
-    /// Σ cost; None unless D-SELL-ONLY-KNOWN-COST holds for the whole bot.
+    /// Σ cost; None unless D-SELL-ONLY-KNOWN-COST holds for the whole bot and the cost is positive.
     pub cost: Option<Dec>,
 }
 impl SellOnly {
@@ -49,7 +49,8 @@ fn of(orders: &[Order], quote: Option<&str>, pair: bool, sales: &Sales) -> Resul
         out.push((order.at, filled.value, sale));
     }
     let sold = (bases.len() == 1).then(|| (amount, bases.into_iter().next().unwrap_or_default()));
-    let cost = (known && !out.is_empty()).then_some(cost);
+    // A cost of nothing is no cost to state a P/L against: decided here, for the box, the tile and the chart.
+    let cost = (known && !out.is_empty() && cost.is_positive()).then_some(cost);
     Ok(Some(SellOnly { sold, received, sales: out, cost }))
 }
 
@@ -135,6 +136,8 @@ mod tests {
         assert_eq!(cost(&orders, &warm(vec![sale(1, "0.002", "EUR", "4", true)])), None, "another quote");
         assert_eq!(cost(&orders, &warm(vec![sale(1, "0.002", "USDC", "4", true)])), Some(d("4")));
         assert_eq!(of(&orders, Some("USDC"), false, &warm(vec![])).unwrap().unwrap().pnl().unwrap(), None);
+        // Coins that cost nothing: no cost to state a P/L against, so none (box, tile and chart alike).
+        assert_eq!(cost(&orders, &warm(vec![sale(1, "0.002", "USDC", "0", true)])), None, "a known cost of zero");
     }
 
     #[test]

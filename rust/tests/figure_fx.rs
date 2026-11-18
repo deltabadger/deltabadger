@@ -614,6 +614,22 @@ async fn a_sell_only_chart_with_known_cost_draws_the_realised_pnl() {
 }
 
 #[tokio::test]
+async fn coins_that_cost_nothing_state_no_pnl() {
+    // The walk knows the sold coins cost nothing: no P/L is stated against nothing, in the box, the tile or the chart.
+    let install = gemini_seller(false);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    ledger(&c, 1, 2, 0, "0.003", Some(("USDC", "0")), None, "2026-03-01 10:00:00", None, None);
+    ledger(&c, 2, 2, 1, "0.002", Some(("USDC", "5")), None, "2026-03-02 14:30:00", Some(3), None);
+    ledger(&c, 3, 2, 1, "0.001", Some(("USDC", "2.6")), None, "2026-03-03 14:30:00", Some(4), None);
+    let walked = walk_and_publish(&install);
+    assert_eq!(walked.bot_sales.iter().map(|s| (s.cost.is_zero(), s.known)).collect::<Vec<_>>(), [(true, true), (true, true)], "{:?}", walked.bot_sales);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    no_pnl(&shown, 3);
+    assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("unknown"), "{}", shown["bots"]["3"]["chart"]);
+}
+
+#[tokio::test]
 async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headline() {
     // Exchanges::Kucoin#get_tickers_prices: the whole market from allTickers, through the KuCoin egress. The basket is valued
     // at its last price, and with every bot priced the account has its headline.

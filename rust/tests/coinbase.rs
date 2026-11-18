@@ -121,6 +121,7 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
     let now = "2026-10-21T00:00:00Z".parse().unwrap();
     for key in [
         deltabadger::tracker::cache::key(s.user_id),
+        deltabadger::tracker::cache::sales_key(s.user_id),
         deltabadger::tracker::backfill::history_key(s.user_id),
         deltabadger::tracker::backfill::price_key(s.user_id),
     ] {
@@ -207,6 +208,7 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
     assert_eq!(saved_raw, raw);
     for key in [
         deltabadger::tracker::cache::key(s.user_id),
+        deltabadger::tracker::cache::sales_key(s.user_id),
         deltabadger::tracker::backfill::history_key(s.user_id),
         deltabadger::tracker::backfill::price_key(s.user_id),
     ] {

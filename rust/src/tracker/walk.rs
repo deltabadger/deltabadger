@@ -1852,7 +1852,7 @@ mod tests {
     }
 
     #[test]
-    fn an_opening_is_never_indexed() {
+    fn a_sale_of_an_opened_coin_is_not_known() {
         let w = walked_with(vec![sold(1, 9, "1", "USD", "150", D2)], &[], &Default::default());
         assert!(w.whole.openings.iter().any(|(s, _)| s == "BTC"), "the walk opened what the sale needed");
         assert_eq!(w.bot_sales, [sale(9, D2, "1", "USD", "0", false)]);

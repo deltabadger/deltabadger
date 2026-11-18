@@ -95,12 +95,13 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     }
     // Schema 3: the page's figures too (round trips, received, realised, fees, cash at today's rates, unpriced proceeds,
     // openings, position dates). Schema 1 and 2 entries read cold and the next pass republishes.
-    let payload=json!({"schema":SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
+    let expires=(now+Duration::days(TTL_DAYS)).to_rfc3339();
+    let payload=json!({"schema":SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":expires,"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
     if payload.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache publish refused: payload exceeds 8388608-byte limit");return Err(FiguresError::NotComputed(PAYLOAD_TOO_LARGE.into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
     // The bot sales beside it, same fence, same inputs: what the figures read for a sell-only bot's P/L. A failed walk or an
     // oversized set publishes none (nobody's P/L shows); the ledger entry above is never refused for it.
-    let sales_row=|sales:Vec<Value>|json!({"schema":SALES_SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"sales":sales}).to_string();
+    let sales_row=|sales:Vec<Value>|json!({"schema":SALES_SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":expires,"sales":sales}).to_string();
     if walked.is_none() {crate::engine::log("[tracker] bot sales published empty: the walk failed");}
     let mut sales=sales_row(walked.map(|w|w.bot_sales.iter().map(|b|json!([b.order,b.at.0,b.amount.to_s_f(),b.quote,b.cost.to_s_f(),b.known])).collect()).unwrap_or_default());
     if sales.len()>MAX_SALES {crate::engine::log("[tracker] bot sales publish refused: payload exceeds 1048576-byte limit");sales=sales_row(vec![])}
@@ -203,6 +204,11 @@ pub fn bot_sales(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Sales,Figure
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=bot_sales(&tx,owner,now)?;tx.commit()?;return Ok(out)}
     let Some(v)=validated(c,&sales_key(owner),SALES_SCHEMA,owner,now,MAX_SALES)? else {return Ok(Sales::Cold)};
     let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(Sales::Cold)};
+    // Published beside the ledger entry with the same expiry: an invalidation that deletes that entry (a rewrite `history`
+    // may not see), or a ledger entry of another publish, leaves these sales cold too.
+    let ledger=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)?;
+    let ledger_expires=ledger.as_deref().and_then(|raw|serde_json::from_str::<Value>(raw).ok()).and_then(|l|l["expires"].as_str().map(str::to_string));
+    if ledger_expires.as_deref()!=v["expires"].as_str() {return Ok(Sales::Cold)}
     let decoded=(||->Result<HashMap<i64,BotSale>,FiguresError>{
         let mut by_order=HashMap::new();
         for row in array(&v["sales"])? {
@@ -278,6 +284,22 @@ mod tests {
         assert!(matches!(sales(&c),Sales::Cold));
         c.execute("DELETE FROM app_configs WHERE key=?1",[sales_key(1)]).unwrap();
         assert!(matches!(sales(&c),Sales::Cold));
+    }
+    #[test]
+    fn bot_sales_are_cold_without_the_ledger_entry_they_were_published_with() {
+        let c=db();let v=version(&c,1).unwrap();
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10")])),7,now()).unwrap();
+        let ledger=app_config::get_plain(&c,&key(1)).unwrap().unwrap();
+        // An invalidation that deletes the ledger entry (a rewrite `history` may not see) withdraws the sales with it.
+        c.execute("DELETE FROM app_configs WHERE key=?1",[key(1)]).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold),"the ledger entry is gone");
+        // A ledger entry of another publish (another expiry) is not the one these sales were published beside.
+        let other:Value=serde_json::from_str(&ledger).unwrap();
+        let mut other=other;other["expires"]=json!((now()+Duration::days(2)).to_rfc3339());
+        app_config::set_plain(&c,&key(1),&other.to_string(),now()).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold),"another publish's ledger entry");
+        app_config::set_plain(&c,&key(1),&ledger,now()).unwrap();
+        assert!(matches!(sales(&c),Sales::Warm{..}));
     }
     #[test]
     fn failed_walk_or_oversized_sales_publish_none_and_the_ledger_still_publishes() {
