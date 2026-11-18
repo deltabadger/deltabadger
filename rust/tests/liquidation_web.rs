@@ -526,3 +526,23 @@ async fn the_feed_names_each_redeploy_reason_and_keeps_legacy_lines() {
     assert!(de.contains("ETH wurde nicht gekauft — es konnte kein Preis gelesen werden"),"{de}");
     assert!(de.contains("Nichts wurde neu verteilt — der Markt ist geschlossen"),"{de}");
 }
+
+/// A retry line says what is known — the attempt failed and the bot tries again — and names the stored error as
+/// execution_failed names its own; a row without one keeps the bare line.
+#[tokio::test(flavor="current_thread")]
+async fn a_retry_line_names_its_error_as_a_failed_line_does() {
+    let (_d,c,s,id,app,mut b)=install();
+    log(&c,id,"execution_retrying",json!({"error":"No price for BTC: HTTP 401","transient_exhausted":true}));
+    log(&c,id,"execution_retrying",json!({"placement_transient":true}));
+    log(&c,id,"execution_failed",json!({"error":"No price for BTC: HTTP 401"}));
+    let feed=|locale:&str|{c.execute("UPDATE users SET locale=?2 WHERE id=?1",(s.user_id,locale)).unwrap();};
+    feed("en");
+    let en=b.send(&app,"GET",&format!("/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    assert!(en.contains("Order attempt failed: No price for BTC: HTTP 401 — the bot will try again"),"{en}");
+    assert!(en.contains("Order attempt failed — the bot will try again"),"{en}");
+    assert!(en.contains("Order attempt failed: No price for BTC: HTTP 401<"),"{en}");
+    assert!(!en.contains("Temporary"),"{en}");
+    feed("de");
+    let de=b.send(&app,"GET",&format!("/de/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    assert!(de.contains("Orderversuch fehlgeschlagen: No price for BTC: HTTP 401 — der Bot versucht es erneut"),"{de}");
+}

@@ -800,7 +800,8 @@ cs:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Dočasný problém s připojením — automatické opakování'
+            execution_retrying: "Pokus o objednávku selhal — bot to zkusí znovu"
+            execution_retrying_with_error: "Pokus o objednávku selhal: %{error} — bot to zkusí znovu"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Pokyn %{order_id} opuštěn (burza jej již nesleduje)"
             placement_ambiguous: "Stav pokynu nepotvrzen — bez opakování, aby nevznikl duplicitní pokyn"

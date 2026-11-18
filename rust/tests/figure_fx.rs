@@ -347,7 +347,7 @@ async fn a_sell_only_bot_says_what_it_sold_and_received() {
     let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
     assert!(metrics.contains(">Sold</div>") && metrics.contains("0.003 <small>BTC</small>"), "{metrics}");
     assert!(metrics.contains(">Received</div>") && metrics.contains("7.60 <small>USDC</small>"), "{metrics}");
-    assert!(!metrics.contains("Total invested") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(!metrics.contains("Total invested") && !metrics.contains("could not be read from the exchange"), "{metrics}");
     // A bot that bought keeps its investment.
     assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("Total invested"));
 }
@@ -376,7 +376,7 @@ async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headli
     let _stop = install.consume();
     let shown = install.shown("ready").await;
     let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
-    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("could not be read from the exchange"), "{metrics}");
     assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
     assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
 }
@@ -426,7 +426,7 @@ async fn an_account_without_an_alpaca_key_gets_its_kucoin_figures_and_keeps_them
     let _stop = install.consume();
     let shown = install.shown("ready").await;
     let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
-    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("could not be read from the exchange"), "{metrics}");
     assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
     assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
     // Warm reads within the price's minute stay ready on the same cache: nothing is asked again.
@@ -480,7 +480,7 @@ async fn an_undecryptable_alpaca_key_leaves_its_alpaca_bots_stale_and_the_rest_f
     ")).unwrap();
     let _stop = install.consume();
     let shown = install.shown("ready").await;
-    assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("does not respond"), "the Alpaca bot is stale: {}", shown["bots"]["1"]["metrics"]);
+    assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("could not be read from the exchange"), "the Alpaca bot is stale: {}", shown["bots"]["1"]["metrics"]);
     assert!(tile(&shown, 3).contains("30.00%"), "the KuCoin bot is priced: {}", tile(&shown, 3));
     // Removing the unreadable key changes the account's identity: the figures are filled again, never served blank.
     c.execute("DELETE FROM api_keys", []).unwrap();

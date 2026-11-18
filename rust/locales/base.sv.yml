@@ -792,7 +792,8 @@ sv:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Tillfälligt anslutningsproblem — försöker igen automatiskt'
+            execution_retrying: "Orderförsöket misslyckades — boten försöker igen"
+            execution_retrying_with_error: "Orderförsöket misslyckades: %{error} — boten försöker igen"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Order %{order_id} övergiven (börsen spårar den inte längre)"
             placement_ambiguous: "Orderstatus obekräftad — försöks inte igen, för att undvika en dubbel order"

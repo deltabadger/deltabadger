@@ -196,7 +196,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
             // checked here, then the card is cut from both pages (2.x's has no such row) and the rest compared.
             let unpriced=matches!(name.as_str(),"holdings_unpriced"|"holdings_zero_value");
             if unpriced {
-                assert!(actual.contains("<div class=\"widget tracker-notice\" role=\"status\">"),"{name}: the missing-prices banner");
+                assert!(actual.contains("<div class=\"widget notice\" role=\"status\">"),"{name}: the missing-prices banner");
                 assert!(actual.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"),"{name}: the unpriced row");
             }
             if let Some(reason)=reason {
@@ -244,7 +244,7 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
                 let end=head+page[head..].find("  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"").unwrap_or_else(||panic!("{name}: the next pane"));
                 page.replace_range(head..end,"");
             };
-            cut(&mut actual,"<div class=\"widget tracker-notice\"");cut(&mut oracle,"<div class=\"widget tracker-holdings");
+            cut(&mut actual,"<div class=\"widget notice\"");cut(&mut oracle,"<div class=\"widget tracker-holdings");
         }
         if actual!=oracle {std::fs::write(Path::new(&root).join("actual.html"),&actual).unwrap();std::fs::write(Path::new(&root).join("expected.html"),&oracle).unwrap();}
         assert!(actual==oracle,"{name}: byte equality; inspect actual.html and expected.html");

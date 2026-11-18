@@ -792,7 +792,8 @@ bg:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Временен проблем с връзката — автоматичен повторен опит'
+            execution_retrying: "Опитът за поръчка не успя — ботът ще опита отново"
+            execution_retrying_with_error: "Опитът за поръчка не успя: %{error} — ботът ще опита отново"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Поръчката %{order_id} е изоставена (борсата вече не я следи)"
             placement_ambiguous: "Статусът на поръчката е непотвърден — без повторен опит, за да не се дублира"

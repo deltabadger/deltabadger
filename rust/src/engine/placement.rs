@@ -807,7 +807,7 @@ pub(crate) async fn dispatch<V: Venue + Attributed>(venue: &V, plan: &OrderPlan,
     if rules.cross.is_some() && !plan.limit && plan.wire_price.is_none() {
         return Sent::NotSent("no crossed price prepared; not sent".into());
     }
-    let order = match plan.to_order(cl_ord_id, send_until, rules.wire) {
+    let order = match plan.to_order(cl_ord_id, send_until, rules) {
         Ok(o) => o,
         Err(e) => return Sent::NotSent(format!("{e}; not sent")),
     };
