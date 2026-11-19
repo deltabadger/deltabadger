@@ -27,7 +27,8 @@ impl Scope {
     }
     /// Account row `a`'s, on an install that has the membership tables.
     pub fn of_row(a: &crate::identity::AccountRow) -> Self {
-        Self { user_id: a.user_id, exchange_id: a.exchange_id, account: a.placed().then_some(a.id), member: (a.number != 1).then_some(a.id), ready: true }
+        // A stand-in (a number 1 with no row yet) owns every row of its exchange, with no account table named.
+        Self { user_id: a.user_id, exchange_id: a.exchange_id, account: a.placed().then_some(a.id), member: (a.number != 1).then_some(a.id), ready: a.placed() }
     }
     /// The number 1 of (user, exchange).
     pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Self> {

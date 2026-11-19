@@ -58,7 +58,6 @@ fn install_with(currency: &str, source: Source) -> Install {
     let file = dir.path().join("production.sqlite3");
     let c = rusqlite::Connection::open(&file).unwrap();
     c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
-    deltabadger::store::test_support::migrate(&c).unwrap(); // as run/serve take an install
     c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
     let t = "'2026-01-01'";
     c.execute_batch(&format!("

@@ -724,6 +724,7 @@ pub fn migrate_with(paths: &Paths, _lock: &EngineLock, registry: &Registry) -> R
 /// Applies every migration of `registry` that `c` has not recorded, each in its own BEGIN IMMEDIATE transaction with
 /// its record. A file that ends its transaction itself (COMMIT/END) is rolled back and refused.
 fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError> {
+    crate::sync::balance_store::drop_fallback(c)?;
     let done = recorded(c)?;
     let mut applied = Vec::new();
     for m in registry.migrations.iter().filter(|m| !done.contains(m.version)) {
@@ -1217,9 +1218,11 @@ pub fn apply_pending(c: &Connection) -> Result<Vec<String>, StoreError> {
 }
 
 /// Sets the connection timeout and foreign keys; 2.x owns the journal mode.
+/// An install a migration has not given the balance stores reads 2.x's tables through views (`balance_store::fallback`).
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
-    c.pragma_update(None, "foreign_keys", "ON")
+    c.pragma_update(None, "foreign_keys", "ON")?;
+    crate::sync::balance_store::fallback(c)
 }
 
 #[cfg(test)]

@@ -46,19 +46,14 @@ pub fn reading_key(c: &Connection, account: &AccountRow) -> Result<Option<i64>, 
 /// The scope's accounts with balances (`balances`) or a non-withdrawal key (`keys`), by id; a key's number 1 with no row
 /// yet as its stand-in (`AccountRow::unplaced`), after them.
 fn accounts(c: &Connection, user: i64, scope: &Scope, balances: bool, keys: bool) -> Result<Vec<AccountRow>, EngineError> {
+    // A key's account; a key of a number 1 with no row yet (none has a membership), its stand-in's id.
+    let key = if crate::identity::numbered(c)? {
+        format!("CASE WHEN EXISTS (SELECT 1 FROM exchange_account_keys m WHERE m.api_key_id = k.id) THEN {0} ELSE COALESCE({0}, -k.exchange_id) END", crate::identity::key_account_sql("k"))
+    } else { "-k.exchange_id".into() };
     let mut parts = vec![];
-    let owned = format!("SELECT {} FROM api_keys k WHERE k.user_id = ?1 AND k.key_type != 1 AND {}", crate::identity::key_account_sql("k"), scope.keys("k"));
     if balances { parts.push(format!("SELECT b.account_id FROM exchange_account_balances b WHERE b.user_id = ?1 AND {}", scope.store("b"))); }
-    if keys { parts.push(owned); }
-    let mut out = AccountRow::listed(c, user, &parts.join(" UNION "))?;
-    if keys {
-        let mut s = c.prepare(&format!("SELECT DISTINCT k.exchange_id FROM api_keys k WHERE k.user_id = ?1 AND k.key_type != 1 AND {} AND {} IS NULL \
-                                        AND NOT EXISTS (SELECT 1 FROM exchange_account_keys m WHERE m.api_key_id = k.id) ORDER BY k.exchange_id",
-                                       scope.keys("k"), crate::identity::key_account_sql("k")))?;
-        let unplaced = s.query_map([user], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-        out.extend(unplaced.into_iter().map(|e| AccountRow::unplaced(user, e)));
-    }
-    Ok(out)
+    if keys { parts.push(format!("SELECT {key} FROM api_keys k WHERE k.user_id = ?1 AND k.key_type != 1 AND {}", scope.keys("k"))); }
+    Ok(AccountRow::listed(c, user, &parts.join(" UNION "))?)
 }
 /// Missing, malformed, partial or differently credentialed cache origins are sync-pending.
 /// Select the same reading slot as the sync scheduler: trading before read-only, never withdrawal.

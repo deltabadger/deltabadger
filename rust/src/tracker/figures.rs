@@ -53,7 +53,7 @@ pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Ve
 /// `PortfolioSnapshot.watermarks`, by account (#710 slice 5, PLAN-710-5 §5.4): when each account's balances were last
 /// taken, over its own keys (a key whose number 1 has no row yet: minus its exchange id, as a row of that account reads).
 fn watermarks(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<HashMap<i64, At>, FiguresError> {
-    let key_account = if crate::venue_ids::ready(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+    let key_account = if crate::identity::numbered(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
     let account = format!("COALESCE({key_account}, -k.exchange_id)");
     let mut s = c.prepare(&format!("SELECT {account}, k.balances_synced_at FROM api_keys k WHERE k.user_id = ?1 AND {} ORDER BY k.id", scope.keys("k")))?;
     let rows: Vec<(i64, Option<String>)> = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;

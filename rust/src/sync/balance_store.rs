@@ -19,7 +19,7 @@ pub const V2_SNAPSHOTS: &str = "portfolio_venue_snapshots";
 
 /// Whether the install has the stores (an install a `run` has not migrated reads and writes 2.x's tables, as before).
 pub fn ready(c: &Connection) -> rusqlite::Result<bool> {
-    c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)", [SNAPSHOTS], |r| r.get(0))
+    c.query_row("SELECT EXISTS(SELECT 1 FROM main.sqlite_master WHERE type = 'table' AND name = ?1)", [SNAPSHOTS], |r| r.get(0))
 }
 
 /// SQL: what 2.x's table `v2` (`account_balances` or `portfolio_venue_snapshots`) would hold, read from its store with 2.x's
@@ -28,6 +28,32 @@ pub fn ready(c: &Connection) -> rusqlite::Result<bool> {
 pub fn v2_projection(c: &Connection, v2: &str) -> rusqlite::Result<Option<String>> {
     if !ready(c)? { return Ok(None); }
     Ok(STORES.iter().find(|(name, _, _)| *name == v2).map(|(name, store, columns)| format!("(SELECT {columns} FROM {store}) AS {name}")))
+}
+
+/// An install whose stores a migration has not made yet (every command but `run`/`serve` opens one as it is, `store::open`):
+/// each store, on this connection only, is a TEMP view over its 2.x table, every row on its exchange's number 1 (its row,
+/// else the stand-in `identity::AccountRow::unplaced` reads, minus the exchange id). On such an install every exchange has
+/// exactly one account, so every reader, account scopes included, reads what 2.x's table holds. A write to a view fails
+/// loudly; writers run under `run`/`serve`, which migrate first. Nothing touches the file. `store::apply` drops the views
+/// before it migrates.
+pub fn fallback(c: &Connection) -> rusqlite::Result<()> {
+    if ready(c)? { return Ok(()); }
+    let number_1 = if crate::identity::numbered(c)? {
+        "COALESCE((SELECT a.id FROM main.exchange_accounts a WHERE a.user_id = t.user_id AND a.exchange_id = t.exchange_id AND a.number = 1), -t.exchange_id)"
+    } else { "-t.exchange_id" };
+    for (v2, store, columns) in STORES {
+        let v2_exists: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM main.sqlite_master WHERE type = 'table' AND name = ?1)", [v2], |r| r.get(0))?;
+        if !v2_exists { continue; }
+        let of = columns.split(", ").map(|n| format!("t.{n}")).collect::<Vec<_>>().join(", ");
+        c.execute_batch(&format!("CREATE TEMP VIEW IF NOT EXISTS {store} AS SELECT {of}, {number_1} AS account_id FROM main.{v2} t"))?;
+    }
+    Ok(())
+}
+
+/// `fallback`'s views go (a migration about to make the stores on this connection).
+pub fn drop_fallback(c: &Connection) -> rusqlite::Result<()> {
+    for (_, store, _) in STORES { c.execute_batch(&format!("DROP VIEW IF EXISTS temp.{store}"))?; }
+    Ok(())
 }
 
 /// Every venue snapshot of `user` goes (a rewritten ledger invalidates them all; the sweep writes them again).

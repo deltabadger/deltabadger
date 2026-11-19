@@ -373,11 +373,13 @@ pub const SCOPE_FRAME: &str = "tracker_scope";
 struct Switched { account: i64, number: i64, venue: Venue }
 fn accounts(c: &Connection, owner: i64) -> Result<Vec<Switched>, WebError> {
     let any = crate::venue_ids::Scope::install(c)?;
-    let key = if crate::venue_ids::ready(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+    let numbered = crate::identity::numbered(c)?;
+    let key = if numbered { crate::identity::key_account_sql("k") } else { "NULL".into() };
+    let numbers = if numbered { "LEFT JOIN exchange_accounts a ON a.id = n.account" } else { "LEFT JOIN (SELECT NULL AS id, NULL AS number) a ON 0" };
     let mut s = c.prepare(&format!(
         "SELECT n.account, COALESCE(a.number, 1), e.id, e.name, e.type FROM (SELECT k.exchange_id AS exchange, COALESCE({key}, -k.exchange_id) AS account FROM api_keys k WHERE k.user_id=?1 \
          UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1) n JOIN exchanges e ON e.id = n.exchange \
-         LEFT JOIN exchange_accounts a ON a.id = n.account ORDER BY e.name, COALESCE(a.number, 1), n.account", any.row_account("t")))?;
+         {numbers} ORDER BY e.name, COALESCE(a.number, 1), n.account", any.row_account("t")))?;
     let rows = s.query_map([owner], |r| Ok(Switched { account: r.get(0)?, number: r.get(1)?, venue: Venue { id: r.get(2)?, name: r.get(3)?, kind: r.get(4)? } }))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
@@ -388,7 +390,7 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
     let (brokers, rest): (Vec<Venue>, Vec<Venue>) = connectable.into_iter().partition(|v| stock_venue(&v.kind));
     // The accounts with a correct reading key ("broken": none, as an exchange without a valid key was).
     let valid: Vec<i64> = {
-        let key = if crate::venue_ids::ready(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+        let key = if crate::identity::numbered(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
         let mut s = c.prepare(&format!("SELECT DISTINCT COALESCE({key}, -k.exchange_id) FROM api_keys k WHERE k.user_id=?1 AND k.status=1 AND k.key_type!=1"))?;
         let ids = s.query_map([owner], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids
     };

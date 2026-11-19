@@ -1041,7 +1041,7 @@ mod credential_cache_tests {
     #[tokio::test]
     async fn r_each_credential_column_starts_figures_with_an_empty_market_cache() {
         let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
-        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();
+        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
         c.execute("INSERT INTO exchanges(type,name,created_at,updated_at)VALUES('Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01')",[]).unwrap();
         let now="2026-09-10T12:00:00Z".parse().unwrap();
@@ -1070,7 +1070,7 @@ mod credential_cache_tests {
         // provenance as the Alpaca key's is, with an Alpaca key and without one.
         for alpaca in [false,true] {
             let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
-            let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();
+            let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
             c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
             c.execute_batch("INSERT INTO exchanges(id,type,name,created_at,updated_at)VALUES(1,'Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01'),(2,'Exchanges::Ibkr','Interactive Brokers','2026-01-01','2026-01-01')").unwrap();
             let now:chrono::DateTime<chrono::Utc>="2026-09-10T12:00:00Z".parse().unwrap();
@@ -1111,7 +1111,7 @@ mod credential_cache_tests {
         use crate::{engine::FixedClock,web::Config};
         use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
         let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
-        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
+        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
         c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
         c.execute("INSERT INTO exchanges(type,name,created_at,updated_at)VALUES('Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01')",[]).unwrap();
         let now="2026-09-10T12:00:00Z".parse().unwrap();let env=|name:&str|(name=="SECRET_KEY_BASE").then(||"settings-capture-test-secret".to_string());
@@ -1143,7 +1143,7 @@ mod tests {
     async fn a_venues_unusable_proxy_is_a_settled_failure_and_never_a_direct_read() {
         use crate::venue::http::{HttpRequest,Transport,TransportError};
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         let cipher=crate::crypto::Cipher::new(&crate::crypto::EncryptionKeys::resolve(&|_|None,"figures-egress-test-secret").unwrap());
         let now=chrono::Utc::now();
         crate::app_config::set(&c,&cipher,"proxy_binance","http://[unusable",now).unwrap();
@@ -1183,8 +1183,8 @@ mod tests {
     fn the_fingerprint_reads_no_whole_table_at_real_sizes() {
         use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();
-        let t="'2024-01-01'";
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
+        let (t, v2) = ("'2024-01-01'", crate::sync::balance_store::V2_BALANCES);
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
             INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t}),(2,'Exchanges::Kraken','Kraken',{t},{t}),
@@ -1213,7 +1213,7 @@ mod tests {
             WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3799)
             INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at)
                 SELECT 1,1,4,'USD',1,100,'{{}}',datetime('2024-01-01','+'||(i%700)||' days'),{t},{t} FROM n;
-            INSERT INTO exchange_account_balances(user_id,exchange_id,asset_id,free,synced_at,created_at,updated_at,account_id) SELECT DISTINCT 1,1,base_asset_id,1,{t},{t},{t},1 FROM transactions;
+            INSERT INTO {v2}(user_id,exchange_id,asset_id,free,synced_at,created_at,updated_at) SELECT DISTINCT 1,1,base_asset_id,1,{t},{t},{t} FROM transactions;
         ")).unwrap();
         assert_eq!(c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get::<_,i64>(0)).unwrap(),5792);
         let steps=Arc::new(AtomicU64::new(0));
@@ -1250,7 +1250,7 @@ mod tests {
     #[test]
     fn the_drift_readout_inputs_move_the_fingerprint_and_the_stale_shape() {
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         let t="'2024-01-01'";
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
@@ -1287,7 +1287,7 @@ mod tests {
     fn the_shape_reads_no_orders_per_listing_at_real_sizes() {
         use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(&c).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         let t="'2024-01-01'";
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
@@ -1322,7 +1322,7 @@ mod tests {
     /// An account with a sell-only basket (bot 3, Gemini, BTC for dollars: 0.002 for 5 and 0.001 for 2.6) and one ledger
     /// row, and none of its bot sales published yet.
     fn seller(c:&rusqlite::Connection) {
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::store::test_support::migrate(c).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(c).unwrap();
         let t="'2026-01-01 00:00:00'";
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,display_currency,created_at,updated_at) VALUES (1,'o@example.com','x','USD',{t},{t});

@@ -36,7 +36,8 @@ pub fn swept(c: &Connection, owner: i64) -> Result<ByVenue, FiguresError> {
     let Some((by_exchange, entries)) = parsed else { crate::engine::log(&format!("[tracker] unpriced record for user {owner} not read")); return Ok(ByVenue::new()) };
     let mut out = ByVenue::new();
     for (id, symbols) in entries {
-        let account = if by_exchange { crate::identity::AccountRow::first(c, owner, id)?.map(|a| a.id) } else { Some(id) };
+        // An install without numbered accounts reads its number 1 as the stand-in (minus the exchange id).
+        let account = if !by_exchange { Some(id) } else if crate::identity::numbered(c)? { crate::identity::AccountRow::first(c, owner, id)?.map(|a| a.id) } else { Some(-id) };
         if let Some(a) = account { out.entry(a).or_default().extend(symbols); }
     }
     Ok(out)
@@ -62,8 +63,12 @@ pub fn read(c: &Connection, owner: i64, scope: &super::Scope, arrived: &[String]
     let history: ByVenue = swept(c, owner)?.into_iter().filter(|(id, _)| wanted(*id)).collect();
     let mut gaps = vec![];
     for id in now.keys().chain(history.keys()).copied().collect::<BTreeSet<i64>>() {
-        let venue: Option<(i64, String)> = rusqlite::OptionalExtension::optional(c.query_row(
-            "SELECT e.id, e.name FROM exchange_accounts a JOIN exchanges e ON e.id = a.exchange_id WHERE a.id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))))?;
+        // A stand-in (minus its exchange id) is its exchange's number 1.
+        let venue: Option<(i64, String)> = rusqlite::OptionalExtension::optional(if id < 0 {
+            c.query_row("SELECT id, name FROM exchanges WHERE id = -?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
+        } else {
+            c.query_row("SELECT e.id, e.name FROM exchange_accounts a JOIN exchanges e ON e.id = a.exchange_id WHERE a.id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
+        })?;
         let list = |m: &ByVenue| m.get(&id).map(|s| s.iter().cloned().collect()).unwrap_or_default();
         gaps.push(VenueGap { exchange_id: venue.as_ref().map(|v| v.0), venue: venue.map(|v| v.1), now: list(&now), history: list(&history) });
     }

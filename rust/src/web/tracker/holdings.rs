@@ -12,7 +12,8 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
     AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?2)
     AND EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
-    AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND account_id NOT IN(SELECT {} FROM api_keys k WHERE k.user_id=?1 AND {0} IS NOT NULL))",crate::identity::key_account_sql("k")),rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
+    AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND account_id NOT IN(SELECT {} FROM api_keys k WHERE k.user_id=?1))",
+    if crate::identity::numbered(c)? {format!("COALESCE({}, -k.exchange_id)",crate::identity::key_account_sql("k"))} else {"-k.exchange_id".into()}),rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 pub struct Presentation {pub value:String,pub card:String,pub sync:String,pub classes:Vec<&'static str>}
 pub struct Arc {pub color:String,pub dash:String,pub offset:String,pub label:String}

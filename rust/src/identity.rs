@@ -270,6 +270,12 @@ pub const TEST_ACCOUNT_TABLES: &str = "CREATE TABLE exchange_accounts(id INTEGER
       INSERT INTO exchange_accounts(user_id, exchange_id, number) SELECT NEW.user_id, NEW.exchange_id, 1
       WHERE NOT EXISTS (SELECT 1 FROM exchange_accounts WHERE user_id = NEW.user_id AND exchange_id = NEW.exchange_id AND number = 1); END;";
 
+/// Whether accounts are numbered on this install (#710 slice 1 migrated): an install without it reads every exchange's one
+/// account as its number 1's stand-in (`AccountRow::unplaced`).
+pub fn numbered(c: &Connection) -> rusqlite::Result<bool> {
+    c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('exchange_accounts') WHERE name = 'number')", [], |r| r.get(0))
+}
+
 /// SQL: api key row `alias`'s account id (NULL as the resolver reads it: a foreign membership, a number 1 with no row).
 pub fn key_account_sql(alias: &str) -> String { account_sql("exchange_account_keys", "api_key_id", alias) }
 /// `read` given the SQL of api key row `alias`'s account (`account_of_key`, NULL as `account_sql`), run again with NULL for
@@ -385,14 +391,15 @@ impl AccountRow {
     fn read(r: &rusqlite::Row<'_>) -> rusqlite::Result<Self> { Ok(Self { id: r.get(0)?, user_id: r.get(1)?, exchange_id: r.get(2)?, number: r.get(3)? }) }
     /// Account row `id` (live or not).
     pub fn by_id(c: &Connection, id: i64) -> rusqlite::Result<Option<Self>> {
+        if !numbered(c)? { return Ok(None); }
         c.query_row(&format!("SELECT {} FROM exchange_accounts WHERE id = ?1", Self::COLUMNS), [id], Self::read).optional()
     }
     /// `account`'s row; a number 1 no write has made yet as its stand-in (none on an install without the account tables).
     pub fn of(c: &Connection, account: &Account) -> rusqlite::Result<Option<Self>> {
         match account.id {
             Some(id) => Self::by_id(c, id),
-            None if account.scoped => Ok(Some(Self::unplaced(account.user_id, account.exchange_id))),
-            None => Ok(None),
+            // Also on an install without the account tables (`scoped` false): every exchange's one account is its number 1.
+            None => Ok(Some(Self::unplaced(account.user_id, account.exchange_id))),
         }
     }
     /// The stand-in of (user, exchange)'s number 1 while it has no row.
@@ -410,11 +417,15 @@ impl AccountRow {
     }
     /// The number 1 of (user, exchange), when it has its row.
     pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Option<Self>> {
+        if !numbered(c)? { return Ok(None); }
         c.query_row(&format!("SELECT {} FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", Self::COLUMNS), [user_id, exchange_id], Self::read).optional()
     }
-    /// The user's accounts whose ids `sql` (a SELECT of account ids, `?1` the user) names, by id.
+    /// The user's accounts whose ids `sql` (a SELECT of account ids, `?1` the user) names, by id; a stand-in's id (minus
+    /// its exchange id) as that stand-in, after them. One statement.
     pub fn listed(c: &Connection, user_id: i64, sql: &str) -> rusqlite::Result<Vec<Self>> {
-        let mut s = c.prepare(&format!("SELECT {} FROM exchange_accounts WHERE user_id = ?1 AND id IN ({sql}) ORDER BY id", Self::COLUMNS))?;
+        let standins = "SELECT DISTINCT x.id, ?1 AS user_id, -x.id AS exchange_id, 1 AS number FROM x WHERE x.id < 0";
+        let rows = if numbered(c)? { format!("SELECT {} FROM exchange_accounts WHERE user_id = ?1 AND id IN (SELECT id FROM x) UNION ALL {standins}", Self::COLUMNS) } else { standins.to_string() };
+        let mut s = c.prepare(&format!("WITH x(id) AS ({sql}) SELECT * FROM ({rows}) ORDER BY id < 0, abs(id)"))?;
         let out = s.query_map([user_id], Self::read)?.collect::<Result<Vec<_>, _>>()?;
         Ok(out)
     }
@@ -422,8 +433,11 @@ impl AccountRow {
     pub fn account(&self) -> Account { Account { user_id: self.user_id, exchange_id: self.exchange_id, id: self.placed().then_some(self.id), scoped: true } }
     /// Its ledger rows' and bot orders' scope (venue_ids).
     pub fn venue_ids(&self) -> crate::venue_ids::Scope { crate::venue_ids::Scope::of_row(self) }
-    /// SQL condition: api key row `alias` is one of this account's keys.
-    pub fn keys(&self, alias: &str) -> String { self.account().keys(alias) }
+    /// SQL condition: api key row `alias` is one of this account's keys. A stand-in's are its exchange's (a number 1 with no
+    /// row has every key there; rows are eager), with no account table named, so it reads on an install without them.
+    pub fn keys(&self, alias: &str) -> String {
+        if self.placed() { self.account().keys(alias) } else { format!("({alias}.user_id = {} AND {alias}.exchange_id = {})", self.user_id, self.exchange_id) }
+    }
 }
 
 /// Bot `bot_id` of (`user_id`, `exchange_id`), just inserted or just moved to that exchange, belongs to `account` (None: the

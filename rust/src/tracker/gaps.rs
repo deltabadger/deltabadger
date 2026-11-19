@@ -237,7 +237,7 @@ pub fn pending(c: &Connection, account: &AccountRow) -> Result<bool, FiguresErro
     // To the second: a mark and a row of the same second compare in order whether or not either was written with its
     // microseconds (codec::format_time leaves whole seconds bare).
     let since: String = mark.chars().take(19).collect();
-    let sql = if account.number == 1 { pending_sql() } else { pending_sql_of(&account.venue_ids().rows("account_transactions")) };
+    let sql = if !account.placed() { pending_sql_of("1") } else if account.number == 1 { pending_sql() } else { pending_sql_of(&account.venue_ids().rows("account_transactions")) };
     Ok(c.query_row(&sql, rusqlite::params![since, account.user_id, account.exchange_id], |_| Ok(())).optional()?.is_some())
 }
 
@@ -249,11 +249,20 @@ fn origin(c: &Connection, account: &AccountRow) -> Result<Option<String>, Figure
 /// The account `account` (None: (owner, exchange)'s number 1) and its balance rows' revision, in one read; none when it has
 /// no row.
 fn revision_of(c: &Connection, owner: i64, exchange: i64, account: Option<i64>) -> Result<Option<(AccountRow, i64, Option<String>)>, FiguresError> {
-    Ok(c.query_row("SELECT a.id, a.number, (SELECT COUNT(*) FROM exchange_account_balances b WHERE b.account_id = a.id), \
+    let numbered = c.query_row("SELECT a.id, a.number, (SELECT COUNT(*) FROM exchange_account_balances b WHERE b.account_id = a.id), \
                     (SELECT MAX(b.updated_at) FROM exchange_account_balances b WHERE b.account_id = a.id) FROM exchange_accounts a \
                     WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND CASE WHEN ?3 IS NULL THEN a.number = 1 ELSE a.id = ?3 END",
                    rusqlite::params![owner, exchange, account],
-                   |r| Ok((AccountRow { id: r.get(0)?, user_id: owner, exchange_id: exchange, number: r.get(1)? }, r.get(2)?, r.get(3)?))).optional()?)
+                   |r| Ok((AccountRow { id: r.get(0)?, user_id: owner, exchange_id: exchange, number: r.get(1)? }, r.get(2)?, r.get(3)?))).optional();
+    match numbered {
+        // An install without numbered accounts (no table, or no `number`): the exchange's one, its stand-in.
+        Err(e) if e.to_string().contains("no such") => {
+            let a = AccountRow::unplaced(owner, exchange);
+            let (rows, newest) = c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1", [a.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            Ok(Some((a, rows, newest)))
+        }
+        other => Ok(other?),
+    }
 }
 
 /// The account's balance rows: a sync writes `updated_at` on every row it keeps and deletes the rest.

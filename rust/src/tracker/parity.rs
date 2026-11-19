@@ -144,8 +144,7 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     if scenario["parity_scratch"] != true { return Err(format!("{} is not a parity scratch copy (no parity_scratch marker)", dir.display())); }
     let user_id = scenario["user_id"].as_i64().ok_or("scenario.json: user_id")?;
     let at: DateTime<Utc> = scenario["at"].as_str().and_then(|s| s.parse().ok()).ok_or("scenario.json: at")?;
-    // As `run` takes an install: Rust's migrations first (#710 slice 5: 2.x's balances and venue snapshots move to the stores,
-    // ids kept, and are read back under 2.x's names).
+    // The scenario writes (the ledger job's snapshots and sweep), as `run` does on a migrated install (#710 slice 5's stores).
     let paths = Paths::from_env(&|_| None, dir);
     store::migrate(&paths, &crate::lease::lock(&paths, Utc::now()).map_err(|e| format!("{e:?}"))?).map_err(|e| format!("{e:?}"))?;
     let opened = store::open(&paths).map_err(|e| format!("{e:?}"))?;

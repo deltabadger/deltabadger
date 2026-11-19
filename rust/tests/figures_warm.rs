@@ -57,7 +57,7 @@ impl Install {
         let file = dir.path().join("production.sqlite3");
         let c = rusqlite::Connection::open(&file).unwrap();
         c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
-        deltabadger::store::test_support::migrate(&c).unwrap(); // as run/serve take an install
+        deltabadger::sync::balance_store::fallback(&c).unwrap();
         c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
         let t = "'2026-01-01'";
         c.execute_batch(&format!("
@@ -1073,7 +1073,7 @@ fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
     let dir = tempfile::tempdir().unwrap();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
-    deltabadger::store::test_support::migrate(&c).unwrap(); // as run/serve take an install
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     let t = "'2026-01-01'";
     c.execute_batch(&format!("
         INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t});
@@ -1109,7 +1109,7 @@ fn a_coin_listed_under_a_split_rows_name_is_in_the_fingerprint() {
     let dir = tempfile::tempdir().unwrap();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
-    deltabadger::store::test_support::migrate(&c).unwrap(); // as run/serve take an install
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     let t = "'2026-01-01'";
     c.execute_batch(&format!("
         INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t}),(2,'Exchanges::Kraken','Kraken',{t},{t});

@@ -331,3 +331,34 @@ fn kucoin_hf_coverage_is_each_accounts_own() {
     assert!(hf::missing(c, &b).unwrap().is_empty(), "no January-May gap for B");
     assert_eq!(hf::missing(c, &a).unwrap(), [span("2026-01-01", "2026-12-01")], "A's own months, A's own gap");
 }
+
+// ---- an install no migration has given the stores (store::open lets every command but run/serve open one) ----
+
+/// An unmigrated 2.x install reads its balances from 2.x's own table, through `balance_store::fallback`'s views: the whole
+/// portfolio, an old `exchange_id` link's scope and the served tracker page show what 2.x's rows hold, and nothing is
+/// written to the file; a write to a view refuses.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unmigrated_install_reads_its_balances_from_2xs_table() {
+    let dir = common::v2_install_unmigrated();
+    let path = dir.path().join("production.sqlite3");
+    let raw = Connection::open(&path).unwrap();
+    let s = seed::seed_kraken(&raw, &seed::cipher());
+    raw.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, 2, 0, 100, 200, '2026-09-20 10:00:00', '2026-09-20 10:00:00', 'c', 'u')", [s.user_id, s.exchange_id, s.btc]).unwrap();
+    drop(raw);
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let c = &o.primary;
+    assert!(!deltabadger::sync::balance_store::ready(c).unwrap(), "no store on the file");
+    let value = |scope: Scope| page::cold(c, s.user_id, &scope, true).unwrap().holdings.iter().map(|h| h.value.as_ref().unwrap().to_s_f()).collect::<Vec<_>>();
+    assert_eq!(value(Scope::All), ["200.0"]);
+    let old = Scope::of_exchange(c, s.user_id, Some(s.exchange_id)).unwrap();
+    assert_eq!(old, Scope::Account(AccountRow::unplaced(s.user_id, s.exchange_id)));
+    assert_eq!(value(old), ["200.0"], "an exchange's one account reads its rows");
+    assert_eq!(figures::balances(c, s.user_id, &old).unwrap().len(), 1);
+    assert!(c.execute("DELETE FROM exchange_account_balances", []).is_err(), "a view refuses a write");
+    let app = web_app(dir.path(), &Connection::open(&path).unwrap());
+    let page = get(&app, c, s.user_id, "/tracker").await;
+    assert_eq!(page.status, 200, "{}", &page.body[..page.body.len().min(400)]);
+    let tables: i64 = Connection::open(&path).unwrap().query_row("SELECT count(*) FROM sqlite_master WHERE name LIKE 'exchange_account_%'", [], |r| r.get(0)).unwrap();
+    assert_eq!(tables, 0, "nothing written to the file");
+}

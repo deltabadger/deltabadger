@@ -16,8 +16,6 @@ fn read(p: impl AsRef<Path>) -> Value { serde_json::from_slice(&std::fs::read(p)
 fn copy_install(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for f in ["production.sqlite3", "production_queue.sqlite3", "market.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
-    // As `run`/`serve` take the install (#710 slice 5: 2.x's balances and venue snapshots move to their stores).
-    deltabadger::store::test_support::migrate(&rusqlite::Connection::open(to.join("production.sqlite3")).unwrap()).unwrap();
 }
 async fn play(dir: &Path, steps: &[Value], mut session: Option<String>) -> Value {
     let app = web::app(dir, web::SECRET, TestClock::at(AT));
@@ -29,8 +27,6 @@ async fn play(dir: &Path, steps: &[Value], mut session: Option<String>) -> Value
         if let Some(sql) = step["sql"].as_array() {
             let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
             for s in sql { c.execute_batch(s.as_str().unwrap()).unwrap(); }
-            // The step writes as 2.x writes: its balances are the stores' number-1 rows again, as a takeover reads them.
-            deltabadger::sync::balance_store::refill_number_one(&c).unwrap();
         }
         // Capture every bot column after scenario setup, immediately before this read.
         let before_bots = snapshot(dir)["bots"].clone();

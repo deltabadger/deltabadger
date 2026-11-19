@@ -2049,9 +2049,9 @@ fn recorded_grid(scope: &str) -> (common::Recording, tempfile::TempDir, Vec<Path
     common::copy_tree(&recording.path.join("input"), rust_root.path());
     // Rust's side starts as `serve` does: with this build's Rust migrations applied.
     for scenario in std::fs::read_dir(rust_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
-        // A scenario's variant copies (`de/`, `crypto/`, …) are served too.
-        for variant in std::fs::read_dir(&scenario).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("production.sqlite3").exists()) {
-            deltabadger::store::test_support::migrate(&rusqlite::Connection::open(variant.join("production.sqlite3")).unwrap())
+        // A scenario's locale copy (`de/`) is served too.
+        if scenario.join("de").join("production.sqlite3").exists() {
+            deltabadger::store::test_support::migrate(&rusqlite::Connection::open(scenario.join("de").join("production.sqlite3")).unwrap())
                 .expect("this build's Rust migrations apply");
         }
         let c = rusqlite::Connection::open(scenario.join("production.sqlite3")).unwrap();
