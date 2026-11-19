@@ -101,6 +101,7 @@ pl:
                 external_sales: "%{label} sprzedał aktywa, których tu nie kupił, więc jego historii nie da się połączyć."
                 interleaved: "Wspólna historia tych botów zmieniłaby ich łączny wynik, więc nie da się ich połączyć."
                 quote: "Wszystkie boty muszą wydawać tę samą walutę."
+                accounts: "Te boty handlują na różnych kontach tej samej giełdy, więc nie można ich połączyć."
                 nothing_to_buy: "Żadne z tych aktywów nie jest już notowane na tej giełdzie."
             index_switch:
                 stop_first: "Najpierw zatrzymaj bota."

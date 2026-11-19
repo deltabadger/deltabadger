@@ -20,6 +20,8 @@ struct OtherExchange {
     svg: &'static str,
     /// The user has a working trading key there.
     connected: bool,
+    /// #710: (account id, number) when its exchange has 2+ live accounts: the item names that account.
+    account: Option<(i64, i64)>,
 }
 
 #[derive(Template)]
@@ -161,12 +163,25 @@ fn other_exchanges(c: &Connection, bot: &Bot, user_id: i64) -> Result<Vec<OtherE
             }
         }
     };
+    // #710: an exchange with 2+ live accounts lists each of them (the bot's own excepted), its own exchange included; one
+    // with fewer is one item, as before.
+    let own = crate::identity::Account::of_bot(c, bot.id)?;
     let mut others = vec![];
-    for id in ids.into_iter().filter(|id| *id != bot.exchange.id) {
+    for id in ids {
+        let accounts = crate::identity::accounts_of(c, user_id, id)?;
+        let listed: Vec<Option<(i64, i64)>> = if accounts.len() < 2 { if id == bot.exchange.id { vec![] } else { vec![None] } }
+            else { accounts.into_iter().filter(|(account, _)| own.and_then(|a| a.id) != Some(*account)).map(Some).collect() };
+        if listed.is_empty() { continue; }
         let (name, class): (Option<String>, Option<String>) = c.query_row("SELECT name, type FROM exchanges WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let exchange = super::Exchange { id, name: name.unwrap_or_default(), class: class.unwrap_or_default(), maker_fee: None };
-        let connected = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND status = 1)", [user_id, id], |r| r.get(0))?;
-        others.push(OtherExchange { id, name: capitalize(&exchange.name), svg: exchange_svg(&exchange.name_id()), connected });
+        for account in listed {
+            let keys = match account {
+                Some((account, _)) => crate::identity::Account::by_id(c, account)?.map_or_else(|| "0".into(), |a| a.keys("k")),
+                None => format!("k.user_id = {user_id} AND k.exchange_id = {id}"),
+            };
+            let connected = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {keys} AND k.status = 1)"), [], |r| r.get(0))?;
+            others.push(OtherExchange { id, name: capitalize(&exchange.name), svg: exchange_svg(&exchange.name_id()), connected, account });
+        }
     }
     Ok(others)
 }

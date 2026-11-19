@@ -94,6 +94,7 @@ sv:
                 external_sales: "%{label} sålde tillgångar som den aldrig köpte här, så dess historik kan inte slås ihop."
                 interleaved: "Tillsammans skulle dessa bottars historik ge ett annat totalresultat, så de kan inte slås ihop."
                 quote: "Alla bottar måste spendera samma valuta."
+                accounts: "De här bottarna handlar på olika konton på samma börs, så de kan inte slås ihop."
                 nothing_to_buy: "Ingen av dessa tillgångar handlas längre på den här börsen."
             index_switch:
                 stop_first: "Stoppa boten först."

@@ -2694,6 +2694,32 @@ mod merge {
         Ok(())
     }
 
+    /// #710: account 2 of the Alpaca install, with `bots` on it.
+    fn second_account(f: &Fixture, bots: &[i64]) -> Result<i64> {
+        f.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [f.s.user_id, f.s.exchange_id])?;
+        let second = f.c.last_insert_rowid();
+        for bot in bots { f.c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [*bot, second])?; }
+        Ok(second)
+    }
+
+    /// #710: two accounts of one exchange hold apart what each bot bought: their bots are never merged.
+    #[test]
+    fn bots_on_two_accounts_of_one_exchange_are_not_merged() -> Result {
+        let f = Fixture::new(1, 1)?;
+        second_account(&f, &f.bots[..1])?;
+        f.refused_unchanged("These bots trade on different accounts of one exchange, so they can't be merged.")
+    }
+
+    /// #710: bots that all trade on account 2 merge into a bot on account 2.
+    #[test]
+    fn bots_on_one_second_account_merge_onto_it() -> Result {
+        let f = Fixture::new(1, 1)?;
+        let second = second_account(&f, &f.bots)?;
+        let Merged::Done(id) = f.merge()? else { return Err("expected a merge".into()) };
+        assert_eq!(deltabadger::identity::account_of_bot(&f.c, id)?, Some(second));
+        Ok(())
+    }
+
     /// D-FENCE-PER-BOT: a source whose placement intent is still recorded is the engine's; nothing is written.
     #[test]
     fn a_placement_intent_refuses() -> Result {

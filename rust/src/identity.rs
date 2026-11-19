@@ -345,6 +345,24 @@ impl Account {
     }
 }
 
+/// Bot `bot_id` of (`user_id`, `exchange_id`), just inserted or just moved to that exchange, belongs to `account` (None: the
+/// exchange's number 1) from now on, in the write's own transaction: the account row exists afterwards (rows stay eager) and
+/// a membership row only for a number other than 1. An account of another user or exchange is refused. Nothing on an
+/// install without the account tables.
+pub fn place_bot(c: &Connection, bot_id: i64, user_id: i64, exchange_id: i64, account: Option<Account>, now: DateTime<Utc>) -> rusqlite::Result<()> {
+    if !ready(c)? { return Ok(()); }
+    let account = match account {
+        Some(a) if a.user_id == user_id && a.exchange_id == exchange_id => a,
+        Some(_) => return Err(rusqlite::Error::InvalidParameterName("an account of another user or exchange".into())),
+        None => Account::first(c, user_id, exchange_id)?,
+    }.ensure(c, now)?;
+    // The bot's former account's row goes: the bot moves, as a whole, to this account.
+    c.execute("DELETE FROM exchange_account_bots WHERE bot_id = ?1", [bot_id])?;
+    let Some(id) = account.id else { return Ok(()) };
+    if account.number(c)? != 1 { c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [bot_id, id])?; }
+    Ok(())
+}
+
 /// SQL condition: api key row `alias` belongs to bot `bot_id`'s account (false when it resolves to none).
 pub fn bot_keys(c: &Connection, bot_id: i64, alias: &str) -> rusqlite::Result<String> {
     Ok(Account::of_bot(c, bot_id)?.map_or_else(|| "0".to_string(), |account| account.keys(alias)))

@@ -347,11 +347,12 @@ impl Built {
 /// The before_save and before_create callbacks, the insert, and refresh_composition (after_save), on `c` inside the caller's
 /// write transaction. Returns the new bot's id.
 pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Result<i64, WebError> {
-    insert_as(c, user, bot, now, crate::enums::BotStatus::Created, 0)
+    insert_as(c, user, bot, now, crate::enums::BotStatus::Created, 0, None)
 }
 
 /// `insert` for a bot built with its status and position (`assign_position` keeps a positive one).
-pub fn insert_as(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, status: crate::enums::BotStatus, position: i64) -> Result<i64, WebError> {
+/// `account`: the account the bot trades on (#710), None for its exchange's number 1.
+pub fn insert_as(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, status: crate::enums::BotStatus, position: i64, account: Option<crate::identity::Account>) -> Result<i64, WebError> {
     // set_tickers, then each condition's set_*_in_ticker_id: buy and sell on the default member.
     let first = first_ticker(&tickers(c, bot.exchange_id, bot.quote, &bot.members)?);
     for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
@@ -367,7 +368,7 @@ pub fn insert_as(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, 
                VALUES (?1, ?2, 'Bots::DcaMultiAsset', ?8, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
               rusqlite::params![user, bot.exchange_id, bot.label, position, Value::Object(bot.settings).to_string(), transient.to_string(), at, status as i64])?;
     let id = c.last_insert_rowid();
-    if let Some(exchange) = bot.exchange_id { crate::identity::touch(c, user, exchange, now)?; }
+    if let Some(exchange) = bot.exchange_id { crate::identity::place_bot(c, id, user, exchange, account, now)?; }
     // D-IBKR-ACCOUNT: a bot created on a bound IBKR key belongs to its account from the start.
     crate::venue::ibkr_account::assign_bot_account(c, id, now)?;
     let loaded = crate::engine::model::load_bot(c, id)?;

@@ -102,6 +102,7 @@ en:
                 external_sales: "%{label} sold assets it never bought here, so its history can't be merged."
                 interleaved: "Combining these bots' histories would change their overall result, so they can't be merged."
                 quote: "All bots must spend the same currency."
+                accounts: "These bots trade on different accounts of one exchange, so they can't be merged."
                 nothing_to_buy: "None of these assets trade on this exchange anymore."
             index_switch:
                 stop_first: "Stop the bot first."

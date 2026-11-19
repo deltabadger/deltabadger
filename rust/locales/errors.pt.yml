@@ -101,6 +101,7 @@ pt:
                 external_sales: "%{label} vendeu ativos que nunca comprou aqui, por isso o seu histórico não pode ser juntado."
                 interleaved: "Combinar os históricos destes bots alteraria o seu resultado total, por isso não podem ser juntados."
                 quote: "Todos os bots têm de gastar a mesma moeda."
+                accounts: "Estes bots negoceiam em contas diferentes da mesma exchange, por isso não podem ser fundidos."
                 nothing_to_buy: "Nenhum destes ativos é negociado nesta exchange."
             index_switch:
                 stop_first: "Primeiro para o bot."

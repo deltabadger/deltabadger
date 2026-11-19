@@ -63,7 +63,8 @@ impl ActionParams {
         let fields = self.0.get(root).and_then(Value::as_object).filter(|v| !v.is_empty()).ok_or(ParamError::Root)?;
         let mut out = Map::new();
         let rules: &[&str] = if kind == Kind::Index { INDEX_RULE_SCALARS } else { &[] };
-        for key in allowed.iter().chain(rules) {
+        // #710: the exchange menu's account, beyond 2.x's allowlist (it lists accounts only where an exchange has 2+).
+        for key in allowed.iter().chain(rules).chain(&["account_id"]) {
             if let Some(value) = fields.get(*key).filter(|v| !v.is_array() && !v.is_object()) {
                 out.insert((*key).into(), value.clone());
             }
