@@ -124,6 +124,13 @@ jobs:
         working-directory: .
         run: bash script/rust/build_assets.sh
 
+      # The bot chart's reading of its data (rust/web/javascript/lib/chart_series.test.js): bun is the bundler above.
+      - if: matrix.part != '2/2'
+        name: Test the chart's JavaScript
+        shell: bash
+        working-directory: .
+        run: bun test rust/web/javascript/lib
+
       # Windows runs its tests in two halves (one took 50 of the 60 minutes, twice Linux's time); one half builds these.
       - if: matrix.part != '2/2'
         run: cargo build --release --locked

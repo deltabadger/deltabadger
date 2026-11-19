@@ -864,6 +864,7 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
         .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
+        .route("/bots/{id}/chart/data", only(get(bot::page::chart_data)))
         .route("/bots/{id}/bot_signals", only(post(bot::signal_write::create_rule)))
         .route("/bots/{id}/bot_signals/{rule}", only(patch(bot::signal_write::update_rule).delete(bot::signal_write::destroy_rule)))
         .route("/bots/{id}/signal_resolution", only(post(bot::signal_write::resolve)))
