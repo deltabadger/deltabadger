@@ -40,6 +40,14 @@ fn older() -> Registry<'static> {
     let t = REGISTRY.tables.iter().position(|(v, _)| *v >= V).unwrap();
     Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: &[] }
 }
+/// The registry of the build that brought V: every migration and contract up to V.
+fn through_v() -> Registry<'static> {
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version > V).unwrap_or(RUST_MIGRATIONS.len());
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v > V).unwrap_or(REGISTRY.tables.len());
+    Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }
+}
+/// What this build applies to a beta install: V and every migration after it.
+fn from_v() -> Vec<String> { RUST_MIGRATIONS.iter().filter(|m| m.version >= V).map(|m| m.version.to_string()).collect() }
 
 /// Every table's rows by rowid, each cell as SQLite holds it.
 type Rows = BTreeMap<String, (Vec<String>, Vec<(i64, Vec<Sql>)>)>;
@@ -150,7 +158,7 @@ fn the_frozen_beta_fixture_holds_every_stored_name_the_rename_moves() {
     let mut found = vec![0i64; items.len()];
     for (name, dir) in &installs {
         let p = paths(dir.path());
-        assert_eq!(store::check(&p).unwrap().pending_rust, [V], "{name}: V is pending");
+        assert_eq!(store::check(&p).unwrap().pending_rust, from_v(), "{name}: V is pending");
         let c = Connection::open(&p.primary).unwrap();
         for (n, (_, sql)) in found.iter_mut().zip(&items) { *n += c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap_or(0); }
     }
@@ -172,7 +180,7 @@ fn every_beta_install_upgrades_keeping_every_row_and_id() {
         let p = paths(dir.path());
         let before = rows(&Connection::open(&p.primary).unwrap());
         let queue_before = rows(&Connection::open(&p.queue).unwrap());
-        assert_eq!(migrate(&p), [V], "{name}");
+        assert_eq!(store::migrate_with(&p, &lock(&p), &through_v()).unwrap(), [V], "{name}");
         let c = Connection::open(&p.primary).unwrap();
         let after = rows(&c);
         let mut expected: Rows = BTreeMap::new();
@@ -210,7 +218,7 @@ fn every_beta_install_upgrades_keeping_every_row_and_id() {
         assert_eq!(rows(&Connection::open(&p.queue).unwrap()), queue_before, "{name}: the queue is untouched");
         for (old, _) in RENAMED_TABLES { assert!(!objects(&c).iter().any(|(_, n, _)| n == old), "{name}: {old} gone"); }
         assert!(!objects(&c).iter().any(|(_, n, _)| n == "index_rust_rails_unrecorded_on_source" || n == "rust_withdrawal_ids_b11_9"));
-        assert_eq!(store::check(&p).unwrap().pending_rust, Vec::<String>::new(), "{name}: check is clean");
+        assert_eq!(store::check_with(&p, &through_v()).unwrap().pending_rust, Vec::<String>::new(), "{name}: check is clean");
     }
 }
 
@@ -333,7 +341,7 @@ async fn a_takeover_stopped_mid_way_upgrades_and_finishes_once() {
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
     drop(c0);
     let l = lock(&p);
-    assert_eq!(store::migrate(&p, &l).unwrap(), [V]);
+    assert_eq!(store::migrate(&p, &l).unwrap(), from_v());
     let o = store::open(&p).unwrap();
     let calls = |o: &store::Opened| model::load_bot(&o.primary, 1).unwrap().signal_calls().unwrap();
     assert_eq!(calls(&o).iter().map(|c| c.source.clone()).collect::<Vec<_>>(), [format!("v2:{job}")]);
@@ -546,11 +554,11 @@ fn the_export_of_a_beta_copy_has_the_new_names() {
         assert_eq!(count(&c, &format!("SELECT count(*) FROM app_configs WHERE key = '{new}'")), had, "{new}");
     }
     assert!(count(&c, "SELECT count(*) FROM app_configs WHERE key = 'rust_v2_wakes'") == 1, "the takeover install has its wakes");
-    assert_eq!(c.query_row("SELECT max(version) FROM rust_schema_migrations", [], |r| r.get::<_, String>(0)).unwrap(), V);
+    assert_eq!(c.query_row("SELECT max(version) FROM rust_schema_migrations", [], |r| r.get::<_, String>(0)).unwrap(), RUST_MIGRATIONS.last().unwrap().version);
     drop(c);
     let restored = Paths { primary: out.join("production.sqlite3"), queue: out.join("production_queue.sqlite3") };
     assert_eq!(store::check(&restored).unwrap().pending_rust, Vec::<String>::new());
-    assert!(matches!(store::check_with(&restored, &older()), Err(StoreError::Unsupported { ref unknown }) if unknown == &vec![V.to_string()]));
+    assert!(matches!(store::check_with(&restored, &older()), Err(StoreError::Unsupported { ref unknown }) if *unknown == from_v()));
 }
 
 fn bare(dir: &Path, args: &[&str]) -> Command {
@@ -616,7 +624,7 @@ fn a_failed_rename_leaves_the_beta_install_as_it_was() {
         other => panic!("expected V's failure, got {other:?}"),
     }
     assert_eq!(everything(&p), before, "a failure on the last statement: nothing of V");
-    assert_eq!(migrate(&p), [V], "the next start applies it");
+    assert_eq!(migrate(&p), from_v(), "the next start applies it");
 }
 
 /// #12's timing: V on an install with 1,000,000 activity rows (10,000 of them A28 lines) stays well inside the start
@@ -633,7 +641,7 @@ fn the_rename_of_a_million_activity_rows_is_quick() {
                             CASE WHEN i % 100 = 1 THEN '{\"marker_id\":\"rails-job:' || i || '\"}' ELSE '{\"order\":' || i || '}' END, '2026-11-01 00:00:00' FROM n").unwrap();
     drop(c);
     let started = std::time::Instant::now();
-    assert_eq!(migrate(&p), [V]);
+    assert_eq!(migrate(&p), from_v());
     let took = started.elapsed();
     eprintln!("B11-9 V on 1,000,000 activity rows: {:.2} s", took.as_secs_f64());
     let c = Connection::open(&p.primary).unwrap();
@@ -695,7 +703,7 @@ fn the_previous_build_refuses_a_renamed_install() {
     assert_eq!(store::check_with(&p, &older()).unwrap().pending_rust, Vec::<String>::new(), "the previous build ran this install");
     migrate(&p);
     let before = everything(&p);
-    assert!(matches!(store::check_with(&p, &older()), Err(StoreError::Unsupported { ref unknown }) if unknown == &vec![V.to_string()]));
+    assert!(matches!(store::check_with(&p, &older()), Err(StoreError::Unsupported { ref unknown }) if *unknown == from_v()));
     assert!(matches!(store::open_with(&p, &older()), Err(StoreError::Unsupported { .. })));
     assert_eq!(everything(&p), before);
 }

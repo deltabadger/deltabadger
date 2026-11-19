@@ -76,7 +76,7 @@ pub(super) fn mark(c: &FencedTransaction<'_>, now: DateTime<Utc>) -> Result<(),S
     if !written(c)? {app_config::set_plain(c,MARKER,"1",now).map_err(SyncError)?;} Ok(())
 }
 fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
-    for key in [crate::tracker::cache::key(owner),crate::tracker::backfill::history_key(owner),crate::tracker::backfill::price_key(owner)] {
+    for key in [crate::tracker::cache::key(owner),crate::tracker::cache::sales_key(owner),crate::tracker::backfill::history_key(owner),crate::tracker::backfill::price_key(owner)] {
         c.execute("DELETE FROM app_configs WHERE key=?1",[key])?;
     }
     c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;

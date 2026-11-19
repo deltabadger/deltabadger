@@ -296,7 +296,7 @@ fn credentials(c: &Connection, cipher: &Cipher, s: &seed::Seeded) -> (Vec<String
     let identity_key = cipher.encrypt(IDENTITY_KEY);
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('rust_account_identity_key_v1', ?1, ?2, ?2)", (&identity_key, t)).unwrap();
     let id_enc = cipher.encrypt("PLANTED-account-id");
-    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, fingerprint, account_id_enc, created_at, updated_at) VALUES (?1, ?2, 'PLANTED-fingerprint', ?3, ?4, ?4)",
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, fingerprint, account_id_enc, created_at, updated_at) VALUES (?1, ?2, 1, 'PLANTED-fingerprint', ?3, ?4, ?4)",
               (s.user_id, s.exchange_id, &id_enc, t)).unwrap();
     c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, account_id_enc) VALUES (?1, ?2, 'PLANTED-material-digest', ?3)",
               (s.api_key_id, s.exchange_id, &id_enc)).unwrap();

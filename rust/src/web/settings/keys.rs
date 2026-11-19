@@ -331,6 +331,7 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
     None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,exchange,kind,key,secret,passphrase,&now,status])?;}
    }
   }
+  crate::identity::ensure_account(&tx,user_id,exchange,inner.now())?;
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
   if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
    tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
@@ -642,6 +643,7 @@ pub async fn legacy(
   }else{
    tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,0,?7,?7)",(user.id,exchange,kind,key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),&now))?;tx.last_insert_rowid()
   };
+  crate::identity::ensure_account(&tx,user.id,exchange,inner.now())?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;

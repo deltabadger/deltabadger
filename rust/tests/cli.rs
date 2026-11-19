@@ -825,7 +825,7 @@ fn run_with_a_wrong_secret_leaves_known_account_identities_untouched() {
     seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2099-01-01 00:00:00"));
     let now = chrono::Utc::now();
     deltabadger::app_config::set(&o.primary, &seed::cipher(), deltabadger::identity::KEY_CONFIG, &"ab".repeat(32), now).unwrap();
-    o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, fingerprint, account_id_enc, created_at, updated_at) VALUES (?1, ?2, 'fp', x'01', '2026-01-01', '2026-01-01')",
+    o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, fingerprint, account_id_enc, created_at, updated_at) VALUES (?1, ?2, 1, 'fp', x'01', '2026-01-01', '2026-01-01')",
                       [s.user_id, s.exchange_id]).unwrap();
     let paths = deltabadger::store::Paths::from_env(&|_| None, dir.path());
     let lock = deltabadger::lease::lock(&paths, now).unwrap();

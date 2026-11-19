@@ -377,6 +377,7 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Exact(crate::lease::TAKEN_OVER_AT), "when this engine took the install over"),
     (Key::Exact(crate::lease::HANDED_BACK_AT), "when this engine handed it back"),
     (Key::Prefix("rust_tracker_ledger."), "the tracker's cached ledger summary"),
+    (Key::Prefix("rust_tracker_bot_sales."), "what each bot order's sale cost, derived from the ledger and rebuilt"),
     (Key::Prefix("rust_tracker_gaps."), "the tracker's history gaps"),
     (Key::Prefix("rust_snapshot_unpriced."), "what the tracker's stored history could not price"),
     (Key::Prefix("rust_venue_history_cursor_"), "where the tracker's venue history reads resume"),

@@ -128,6 +128,9 @@ export default class extends Controller {
     buys: Array,
     prices: Object,
     buyLogos: Object,
+    // A bot that only sells: "known" when what the sold coins cost is known, "unknown" when it is not. Absent for any
+    // other bot. Its series are what it received and that cost; with the cost unknown there is no P/L at all.
+    received: String,
     // D-CHART-DATA-REQUEST: the bot chart's shell names where its series are asked for, and the revision of the record
     // it was rendered from. The tracker writes the attributes above instead, and has no `src`.
     src: String,
@@ -212,6 +215,8 @@ export default class extends Controller {
     const switched = (element) => !!element.querySelector(".widget--chart__modes [data-controller~='segmented']");
     return attribute(next, "data-controller") === attribute(this.element, "data-controller") &&
       attribute(next, "data-bot--chart-pnl-only-value") === attribute(this.element, "data-bot--chart-pnl-only-value") &&
+      // A morph copies attributes and never removes one: a chart whose sell-only marker changed is replaced whole.
+      attribute(next, "data-bot--chart-received-value") === attribute(this.element, "data-bot--chart-received-value") &&
       switched(next) === switched(this.element);
   }
 
@@ -614,12 +619,18 @@ export default class extends Controller {
 
   #rawPnl() {
     if (!this.focused) {
-      const portfolio = this.#data("pnl") || [];
+      // Received with its cost unknown is no profit: there is no P/L curve to draw (the server's `pnl` was empty).
+      const portfolio = this.#receivedOnly ? [] : this.#data("pnl") || [];
       return this.from ? portfolio.slice(this.from) : portfolio;
     }
 
     const [value, invested] = this.#series;
     return value.map((amount, i) => (amount === null ? null : amount - invested[i]));
+  }
+
+  // A sell-only bot whose cost is not known: the curve is money in, never a profit or a loss.
+  get #receivedOnly() {
+    return this.receivedValue === "unknown";
   }
 
   // Requires an actual curve: the plot falls back to VALUE when there is none.
@@ -672,12 +683,12 @@ export default class extends Controller {
   // currency is written that way. A bot's chart names its quote by its code, trailing: USDT is the
   // currency the money was actually in, and a code is how that is said; the symbol is the
   // tracker's, for the reader's own denomination.
-  #headline(value) {
+  #headline(value, { signed = true } = {}) {
     const unit = document.createElement("small");
     unit.textContent = this.hasUnitValue ? this.unitValue : this.quoteValue;
     const suffixed = this.hasUnitValue ? this.suffixedValue : true;
-    if (suffixed) return [`${this.#number(value)} `, unit];
-    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    if (suffixed) return [`${this.#number(value, { signed })} `, unit];
+    const sign = !signed ? "" : value > 0 ? "+" : value < 0 ? "-" : "";
     return [sign, unit, this.#number(Math.abs(value), { signed: false })];
   }
 
@@ -722,6 +733,15 @@ export default class extends Controller {
     this.dateTarget.textContent = [this.focused || priced, this.#priceAt(priced, at.x), range]
       .filter(Boolean)
       .join(" · ");
+    if (this.#receivedOnly) {
+      // What came in, as an amount: no sign, no percent, no profit or loss colour. A narrowed window says what came in
+      // within it, read from its first point as the P/L's baseline is.
+      const start = this.from ? Number(value.find((amount) => amount !== null) ?? 0) : 0;
+      if (this.hasPnlTarget) this.pnlTarget.replaceChildren(...this.#headline(Number(at.value) - start, { signed: false }));
+      this.percentTarget.textContent = "";
+      this.summaryTarget.classList.remove("text-danger", "text-success");
+      return;
+    }
     // Absent while balances are hidden: the view drops the element rather than hiding it, and
     // Stimulus raises on a missing target.
     if (this.hasPnlTarget) this.pnlTarget.replaceChildren(...this.#headline(pnl));
@@ -1321,7 +1341,8 @@ export default class extends Controller {
     // Nulls dropped, not zeroed: a focused holding has no market value at a point the portfolio
     // left on its fill mark. Every point carries its own timestamp, so a gap costs nothing.
     const series = this.#series.map((serie, i) => curve(labels, serie, i ? shift : 0));
-    const span = this.#extremes(series.flatMap((serie) => serie.map((p) => p.y)));
+    // Received only: the cost series is all zeros and never drawn, so it never frames the window.
+    const span = this.#extremes((this.#receivedOnly ? series.slice(0, 1) : series).flatMap((serie) => serie.map((p) => p.y)));
     const maxValue = this.focused ? this.#assetBounds.value : span.high;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const up = this.#color("--grass");
@@ -1339,6 +1360,10 @@ export default class extends Controller {
     const y = this.from && !this.focused
       ? { min: span.low - pad, max: span.high + pad }
       : { min: 0, suggestedMax: maxValue * 1.1 };
+    // One curve, money in, in the page's own ink: no cost to read it against, so no ribbon and no side.
+    if (this.#receivedOnly) {
+      return { points, y: { display: false, ...y }, datasets: [{ ...this.#lineDataset(this.#color("--ink"), series[0]), fill: false }] };
+    }
 
     return {
       points,

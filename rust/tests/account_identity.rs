@@ -295,7 +295,13 @@ fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise(
     fx.observe(binance_key, read(B));
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [binance_key]).unwrap();
     identity::forget(&fx.c, binance_key, fx.user, fx.exchange(BINANCE)).unwrap();
-    assert_eq!(fx.account(BINANCE), None, "no key and no history: the account goes");
+    // #710: numbers are never reused, so the row stays, its identity cleared (what delete-then-recreate left before).
+    let row: (i64, Option<String>, Option<Vec<u8>>, Option<String>) = fx.c.query_row("SELECT number, fingerprint, account_id_enc, removed_at FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
+        [fx.user, fx.exchange(BINANCE)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    assert_eq!(row, (1, None, None, None), "no key and no history: the account stays, unknown and not tombstoned");
+    let again = fx.key(BINANCE, 0, "bn-b");
+    fx.observe(again, read(A));
+    assert_eq!((fx.account(BINANCE), fx.count("exchange_accounts")), (Some(Some(fx.fingerprint_of(BINANCE, A))), 2), "a reconnect fills it: still one account");
 }
 
 #[test]
@@ -624,4 +630,168 @@ async fn an_unreadable_proxy_setting_sends_no_identity_read_and_records_a_failur
     let failed: Option<String> = fx.c.query_row("SELECT last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1", [key], |r| r.get(0)).unwrap();
     assert_eq!(failed.as_deref(), Some("proxy unreadable"));
     assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().is_empty(), "the failure backs off");
+}
+
+// ---- #710 slice 1: numbered accounts, eager rows, the resolver --------------------------------------------------------
+
+const V710: &str = "20261119000001";
+fn paths(dir: &std::path::Path) -> deltabadger::store::Paths { deltabadger::store::Paths::from_env(&|_| None, dir) }
+/// The registry of the build before #710 slice 1.
+fn before_710() -> deltabadger::store::Registry<'static> {
+    use deltabadger::store::{Registry, REGISTRY, RUST_MIGRATIONS};
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= V710).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= V710).unwrap();
+    Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }
+}
+type AccountRow = (i64, i64, i64, i64, Option<String>, Option<String>);
+fn accounts(c: &Connection) -> Vec<AccountRow> {
+    c.prepare("SELECT id, user_id, exchange_id, number, fingerprint, removed_at FROM exchange_accounts ORDER BY user_id, exchange_id, number").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap().collect::<Result<_, _>>().unwrap()
+}
+
+/// A 2.x install the build before #710 slice 1 migrated, with a row in every table that names a (user, exchange), then
+/// this build's start: each existing account keeps its id and fingerprint as number 1, every other (user, exchange)
+/// named anywhere gets number 1, once.
+#[test]
+fn the_upgrade_numbers_every_account_1_and_adds_number_1_wherever_an_exchange_is_named() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let lock = deltabadger::lease::lock(&p, Utc::now()).unwrap();
+    deltabadger::store::migrate_with(&p, &lock, &before_710()).unwrap();
+    let c = Connection::open(&p.primary).unwrap();
+    let t = "'2026-01-01'";
+    // Foreign keys off: only the (user, exchange) pairs matter here.
+    c.execute_batch(&format!("PRAGMA foreign_keys = OFF;
+        INSERT INTO exchange_accounts (id, user_id, exchange_id, fingerprint, account_id_enc, created_at, updated_at) VALUES (7, 1, 1, 'fp-1', x'01', {t}, {t});
+        INSERT INTO api_keys (user_id, exchange_id, created_at, updated_at) VALUES (1, 1, {t}, {t}), (1, 2, {t}, {t});
+        INSERT INTO bots (id, user_id, exchange_id, created_at, updated_at) VALUES (1, 1, 3, {t}, {t}), (2, 1, NULL, {t}, {t}), (3, NULL, 9, {t}, {t});
+        INSERT INTO transactions (bot_id, exchange_id, created_at, updated_at) VALUES (1, 4, {t}, {t}), (1, 3, {t}, {t});
+        INSERT INTO rules (user_id, exchange_id, type, created_at, updated_at) VALUES (1, 5, 'Rules::Withdrawal', {t}, {t}), (1, NULL, 'Rules::Other', {t}, {t});
+        INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, created_at, updated_at) VALUES (2, 1, 0, 'BTC', 1, {t}, {t}, {t}), (1, 2, 0, 'BTC', 1, {t}, {t}, {t});
+        INSERT INTO account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at) VALUES (2, 2, 1, {t}, {t}, {t});
+        INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, created_at, updated_at) VALUES (2, 3, {t}, {t}, {t});
+        INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at) VALUES (2, 4, 'fp-i', x'02', {t});
+        INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at)
+          VALUES (2, 5, 'r', 'a', 'BTC', 'in', '1', '0', {t}, '', 't', {t});
+        INSERT INTO import_cutoffs (user_id, exchange_id, class, cutoff_at, updated_at) VALUES (2, 6, 'c', {t}, {t});
+        INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (3, 1, 's', {t}, {t}, {t});
+        INSERT INTO kucoin_withheld_fills (user_id, exchange_id, tx_id, transacted_at, entry, created_at) VALUES (3, 2, 'x', {t}, '{{}}', {t});
+        INSERT INTO rust_api_orders (id, user_id, side, amount, amount_type, supplied, state, created_at, send_by) VALUES (5, 3, 'buy', '1', 'quote', '{{}}', 'queued', {t}, {t});
+        INSERT INTO rust_api_order_standalone (order_id, exchange_id, ticker_id, order_type, surface) VALUES (5, 3, 1, 'market', 'rest');")).unwrap();
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V710]);
+    let rows = accounts(&c);
+    assert_eq!(rows[0], (7, 1, 1, 1, Some("fp-1".into()), None), "the existing account keeps its id and fingerprint");
+    let named: Vec<(i64, i64, i64, Option<String>)> = rows.iter().map(|(_, u, e, n, f, _)| (*u, *e, *n, f.clone())).collect();
+    let want: Vec<(i64, i64, i64, Option<String>)> = [(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 1), (3, 2), (3, 3)]
+        .into_iter().map(|(u, e)| (u, e, 1, ((u, e) == (1, 1)).then(|| "fp-1".to_string()))).collect();
+    assert_eq!(named, want, "number 1 for each named (user, exchange), once; a NULL user or exchange names none");
+    assert_eq!((count(&c, "exchange_account_keys"), count(&c, "exchange_account_bots")), (0, 0), "no membership yet: every subject is its number 1's");
+    assert_eq!(deltabadger::store::check(&p).unwrap().pending_rust, Vec::<String>::new());
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), Vec::<String>::new(), "a restart applies nothing");
+    assert_eq!(identity::fill(&c, now()).unwrap(), 0, "FILL agrees with the migration");
+    assert_eq!(accounts(&c), rows);
+}
+fn count(c: &Connection, table: &str) -> i64 { c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0)).unwrap() }
+
+/// 2.x's rows after a handback: FILL gives each newly named (user, exchange) its number 1 and leaves the rest.
+#[test]
+fn fill_adds_number_1_for_what_2x_added() {
+    let fx = Fx::new();
+    let kucoin = fx.key(KUCOIN, 0, "kc-a");
+    let before = identity::ensure_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    fx.key(BINANCE, 0, "bn-a"); // as 2.x saves it: no account
+    assert_eq!(identity::fill(&fx.c, now()).unwrap(), 1);
+    assert_eq!(identity::account_of_key(&fx.c, kucoin).unwrap(), Some(before));
+    assert_eq!(identity::accounts_of(&fx.c, fx.user, fx.exchange(BINANCE)).unwrap().iter().map(|(_, n)| *n).collect::<Vec<_>>(), [1]);
+    assert_eq!(identity::fill(&fx.c, now()).unwrap(), 0);
+}
+
+/// Two accounts on one exchange, inserted directly (no path makes a second yet): number 1 with a key and a bot of its
+/// own (no membership row), number 2 with a key and a bot by membership, number 3 a tombstone, and another user's account.
+struct Two { fx: Fx, exchange: i64, first: i64, second: i64, third: i64, key1: i64, key2: i64, bot1: i64, bot2: i64, foreign: i64 }
+fn two() -> Two {
+    let fx = Fx::new();
+    let exchange = fx.exchange(KUCOIN);
+    let other = fx.exchange(BINANCE);
+    let account = |user: i64, exchange: i64, number: i64, removed: Option<&str>| {
+        fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, removed_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, '2026-01-01', '2026-01-01')",
+                     rusqlite::params![user, exchange, number, removed]).unwrap();
+        fx.c.last_insert_rowid()
+    };
+    let (first, second, third) = (account(fx.user, exchange, 1, None), account(fx.user, exchange, 2, None), account(fx.user, exchange, 3, Some("2026-02-01")));
+    fx.c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    let foreign = account(fx.c.last_insert_rowid(), exchange, 1, None);
+    account(fx.user, other, 1, None);
+    let (key1, key2) = (fx.key(KUCOIN, 0, "kc-1"), fx.key(KUCOIN, 0, "kc-2"));
+    let bot = |label: &str| {
+        fx.c.execute("INSERT INTO bots (user_id, exchange_id, type, label, created_at, updated_at) VALUES (?1, ?2, 'Bots::DcaSingleAsset', ?3, '2026-01-01', '2026-01-01')",
+                     rusqlite::params![fx.user, exchange, label]).unwrap();
+        fx.c.last_insert_rowid()
+    };
+    let (bot1, bot2) = (bot("one"), bot("two"));
+    fx.c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [key2, second]).unwrap();
+    fx.c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [bot2, second]).unwrap();
+    Two { fx, exchange, first, second, third, key1, key2, bot1, bot2, foreign }
+}
+
+#[test]
+fn the_resolver_takes_the_membership_row_and_falls_back_to_number_1() {
+    let t = two();
+    let c = &t.fx.c;
+    assert_eq!((identity::account_of_key(c, t.key1).unwrap(), identity::account_of_key(c, t.key2).unwrap()), (Some(t.first), Some(t.second)));
+    assert_eq!((identity::account_of_bot(c, t.bot1).unwrap(), identity::account_of_bot(c, t.bot2).unwrap()), (Some(t.first), Some(t.second)));
+    assert_eq!((identity::key_of(c, t.first, 0).unwrap(), identity::key_of(c, t.second, 0).unwrap()), (Some(t.key1), Some(t.key2)), "each account its own key");
+    assert_eq!((identity::key_of(c, t.first, 1).unwrap(), identity::key_of(c, t.third, 0).unwrap()), (None, None), "no withdrawal key; nothing on the tombstone");
+    assert_eq!(identity::key_of(c, t.foreign, 0).unwrap(), None, "another user's account holds none of this user's keys");
+    assert_eq!(identity::accounts_of(c, t.fx.user, t.exchange).unwrap(), [(t.first, 1), (t.second, 2)], "live ones, by number: the tombstone is left out");
+    assert_eq!((identity::account_of_key(c, 999_999).unwrap(), identity::account_of_bot(c, 999_999).unwrap()), (None, None));
+}
+
+#[test]
+fn a_membership_row_naming_another_users_or_exchanges_account_resolves_to_nothing() {
+    let t = two();
+    let c = &t.fx.c;
+    let binance: i64 = c.query_row("SELECT id FROM exchange_accounts WHERE exchange_id = ?1", [t.fx.exchange(BINANCE)], |r| r.get(0)).unwrap();
+    for account in [t.foreign, binance] {
+        c.execute("UPDATE exchange_account_keys SET account_id = ?1 WHERE api_key_id = ?2", [account, t.key2]).unwrap();
+        c.execute("UPDATE exchange_account_bots SET account_id = ?1 WHERE bot_id = ?2", [account, t.bot2]).unwrap();
+        assert_eq!((identity::account_of_key(c, t.key2).unwrap(), identity::account_of_bot(c, t.bot2).unwrap()), (None, None), "{account}");
+        assert_eq!(identity::key_of(c, account, 0).unwrap(), None, "{account}");
+    }
+}
+
+/// With 2+ accounts the readers of today keep the lowest live number; a tombstoned number 1 is skipped, and an exchange
+/// whose every account is a tombstone gets the next number, never a reused one.
+#[test]
+fn ensure_account_and_standing_read_the_lowest_live_number_and_never_reuse_one() {
+    let t = two();
+    let c = &t.fx.c;
+    assert_eq!(identity::ensure_account(c, t.fx.user, t.exchange, now()).unwrap(), t.first);
+    c.execute("UPDATE exchange_accounts SET removed_at = '2026-03-01' WHERE id = ?1", [t.first]).unwrap();
+    assert_eq!(identity::ensure_account(c, t.fx.user, t.exchange, now()).unwrap(), t.second);
+    c.execute("UPDATE exchange_accounts SET removed_at = '2026-03-01' WHERE id = ?1", [t.second]).unwrap();
+    let made = identity::ensure_account(c, t.fx.user, t.exchange, now()).unwrap();
+    let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [made], |r| r.get(0)).unwrap();
+    assert_eq!(number, 4, "after 1, 2 and the tombstone 3");
+    assert_eq!(identity::standing(c, t.fx.user, t.exchange).unwrap(), Standing::Unknown);
+}
+
+/// A deleted key's membership goes with it.
+#[test]
+fn forget_drops_the_keys_membership_and_keeps_every_account() {
+    let t = two();
+    let before = accounts(&t.fx.c);
+    t.fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [t.key2]).unwrap();
+    identity::forget(&t.fx.c, t.key2, t.fx.user, t.exchange).unwrap();
+    assert_eq!((count(&t.fx.c, "exchange_account_keys"), accounts(&t.fx.c)), (0, before));
+}
+
+/// Eager rows know no identity: a start without an identity key writes nothing for them (no reset, no key).
+#[test]
+fn unknown_eager_accounts_are_no_reset() {
+    let mut fx = Fx::new();
+    fx.key(KUCOIN, 0, "kc-a");
+    identity::fill(&fx.c, now()).unwrap();
+    fx.restart();
+    assert!(deltabadger::app_config::get_plain(&fx.c, identity::KEY_CONFIG).unwrap().is_none(), "nothing to clear, no key stored");
 }

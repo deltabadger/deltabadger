@@ -2146,7 +2146,7 @@ fn from_beta(name: &str) -> Fx {
     let mut f = fx(Kind::Binance);
     let (_, beta) = common::freeze::installs().into_iter().find(|(n, _)| n == name).unwrap();
     let p = deltabadger::store::Paths::from_env(&|_| None, beta.path());
-    assert_eq!(deltabadger::store::migrate(&p, &deltabadger::lease::lock(&p, Utc::now()).unwrap()).unwrap(), ["20261117000001"]);
+    assert_eq!(deltabadger::store::migrate(&p, &deltabadger::lease::lock(&p, Utc::now()).unwrap()).unwrap()[0], "20261117000001");
     f.c.restore(rusqlite::MAIN_DB, &p.primary, None::<fn(rusqlite::backup::Progress)>).unwrap();
     f
 }

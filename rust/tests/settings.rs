@@ -1813,6 +1813,8 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
+    let accounts=|c:&rusqlite::Connection,user:i64|->i64 {c.query_row("SELECT count(*) FROM exchange_accounts WHERE user_id=?1 AND exchange_id=1 AND number=1",[user],|r|r.get(0)).unwrap()};
+    assert_eq!(accounts(&h.c,h.seed.user_id),0,"the seeded key was stored as 2.x stores one");
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -1829,6 +1831,7 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let (run,(status,synced))=tokio::join!(scheduler.run(stopped,clock.as_ref()),control);run.unwrap();
     assert_eq!(status,200);
     assert!(synced,"successful new-key save must wake and register its real ledger sync in the already running scheduler");
+    assert_eq!(accounts(&h.c,h.seed.user_id),1,"#710: the save made its exchange's number 1");
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -2020,6 +2023,8 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
+    let accounts=|c:&rusqlite::Connection,user:i64|->i64 {c.query_row("SELECT count(*) FROM exchange_accounts WHERE user_id=?1 AND exchange_id=1 AND number=1",[user],|r|r.get(0)).unwrap()};
+    assert_eq!(accounts(&h.c,h.seed.user_id),0,"the seeded key was stored as 2.x stores one");
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -2039,6 +2044,7 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     let (run,(status,synced))=tokio::join!(scheduler.run(stopped,clock.as_ref()),control);run.unwrap();
     h.c.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
     assert_eq!(status,201);
+    assert_eq!(accounts(&h.c,h.seed.user_id),1,"#710: the legacy save made its exchange's number 1");
     assert!(synced,"legacy save must complete actual validation and the enqueued balance sync without restart");
     assert!(!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap(),"the completed legacy sync publishes B's producer digest under the retained identity");
     let requests=server.received_requests().await.unwrap();assert!(!requests.is_empty(),"the sync must exercise real HTTP");

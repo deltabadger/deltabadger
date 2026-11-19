@@ -69,6 +69,8 @@ pub struct Stored {
     pub base_asset: Option<super::prices::Asset>,
     /// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE, and what the fold made of a fill it was charged on.
     pub cfee: Cfee,
+    /// `transaction_id`: the bot order the row is a fill of.
+    pub bot_order: Option<i64>,
 }
 
 /// D-TAX-CFEE-PREVIOUS-DAY: Alpaca books its crypto fee as a `CFEE` activity of its own, a coin amount dated 00:00 UTC
@@ -215,7 +217,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
     let mut s = c.prepare(&format!(
         "SELECT t.id, t.exchange_id, e.type, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, \
                 t.fee_currency, t.fee_amount, t.tx_id, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
-                le.type, l.exchange_id, ba.id, ba.external_id, ba.category \
+                le.type, l.exchange_id, ba.id, ba.external_id, ba.category, t.transaction_id \
          FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id LEFT JOIN assets ba ON ba.id = t.base_asset_id \
          LEFT JOIN account_transactions l ON l.id = t.linked_transaction_id LEFT JOIN exchanges le ON le.id = l.exchange_id \
          WHERE {filter} ORDER BY t.id"))?;
@@ -241,6 +243,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
             linked_to: r.get(15)?, to_venue: to_type.as_deref().map(name_id), to_exchange_id: r.get(17)?,
             base_asset: r.get::<_, Option<i64>>(18)?.map(|id| -> rusqlite::Result<_> { Ok((id, r.get(19)?, r.get(20)?)) }).transpose()?,
             cfee: Cfee { fee: raw.get("activity_type").and_then(Value::as_str) == Some("CFEE"), ..Cfee::default() },
+            bot_order: r.get(21)?,
         });
     }
     Ok(rows)
@@ -346,7 +349,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default() }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.
@@ -435,7 +438,7 @@ mod tests {
                          CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, free NUMERIC, locked NUMERIC);
                          CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT,
                          base_amount NUMERIC, quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT,
-                         transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER, base_asset_id INTEGER);
+                         transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER, base_asset_id INTEGER, transaction_id INTEGER);
                          CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT);").unwrap();
         for values in rows {
             c.execute(&format!("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, \
@@ -453,6 +456,9 @@ mod tests {
         assert_eq!(all.iter().map(|r| r.id).collect::<Vec<_>>(), [1, 2, 3]);
         assert_eq!(walk_rows(&all).unwrap().iter().map(|r| r.id).collect::<Vec<_>>(), [1, 3]);
         assert_eq!((all[0].venue.as_str(), all[0].fee_currency.as_deref()), ("binance", Some("BNB")));
+        assert_eq!(all[0].bot_order, None);
+        c.execute("UPDATE account_transactions SET transaction_id = 7 WHERE id = 1", []).unwrap();
+        assert_eq!(load_all(&c, 1).unwrap()[0].bot_order, Some(7));
     }
 
     /// The backfill's domain is D4a's Alpaca account in dollars; anything else is named.

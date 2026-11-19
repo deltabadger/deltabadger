@@ -171,11 +171,11 @@ async fn clear_http_accounts_for_shown_rows_and_status_lasts_through_taken_reque
     let (_d,c,s,id,app,mut b)=install();
     let row=seed::insert_row(&c,&s,id,s.btc,&json!({"side":1,"external_status":4,"external_id":"lost","created_at":"2026-09-01 12:00:00"}));
     c.execute("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE id=?1",[row]).unwrap();
-    let revision=deltabadger::web::figure::loading::revision(&c,s.user_id).unwrap().0;
+    let revision=deltabadger::web::figure::loading::revision(&c,s.user_id,chrono::Utc::now()).unwrap().0;
     let answer=b.send(&app,"POST",&format!("/bots/{id}/liquidation_resolutions"),Some(&[("order_ids[]",&row.to_string())]),Csrf::Header,HEADERS).await;
     assert!(matches!(answer.status,302|303),"{}",answer.body);
     assert_eq!(model::load_bot(&c,id).unwrap().transient["liquidation_resolved_orders"],json!([row]));
-    assert_ne!(deltabadger::web::figure::loading::revision(&c,s.user_id).unwrap().0,revision,"Clear invalidates cached halt controls even without a pending marker");
+    assert_ne!(deltabadger::web::figure::loading::revision(&c,s.user_id,chrono::Utc::now()).unwrap().0,revision,"Clear invalidates cached halt controls even without a pending marker");
     for taken in [false,true] {
         let mut request=json!({"id":"request","at":1,"holdings":[["BTC",s.btc]]});
         if taken {request["taken_at"]=json!(2);}
