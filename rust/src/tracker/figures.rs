@@ -86,9 +86,11 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         }
     }
     let mut rows: Vec<super::rows::Stored> = vec![];
-    let mut s = c.prepare(
-        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, id, fee_currency, fee_amount, group_id \
-         FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
+    let any = crate::venue_ids::Scope::install(c)?;
+    let mut s = c.prepare(&format!(
+        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, {}, transacted_at, id, fee_currency, fee_amount, group_id, {} \
+         FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id",
+        any.row_id("account_transactions"), any.member_sql("account_transactions")))?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
         crate::figures::budget::charge(1, 0)?;
@@ -109,7 +111,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         rows.push(super::rows::Stored {
             id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
-            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
+            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::account_group(r.get(11)?, r.get(12)?),
             at,
             per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None,
         });

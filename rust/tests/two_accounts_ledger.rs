@@ -391,3 +391,46 @@ fn a_delayed_sync_links_each_fill_to_its_own_accounts_order() {
     let known = deltabadger::engine::reconcile::known_fills(c, &deltabadger::identity::Account::of_order(c, old).unwrap().unwrap(), "X", "Classic").unwrap();
     assert_eq!(known.size, BigDec::parse("3").unwrap());
 }
+
+// ---- commit 5: readers (§6 tests 5–7) ----
+
+/// §6 tests 5 and 6: the legs of one group id on both accounts are two groups to every reader, a leg is never priced by
+/// the other account's (`Row::counterpart`), and an account 2+'s futures row is borrowed by its relocated id.
+#[test]
+fn readers_keep_each_accounts_groups_and_ids() {
+    use common::two_accounts::SHARED_GROUP;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    // A coin leg and a cash leg of g1 on account 1; on account 2 only a coin leg, plus another account-2 cash leg there.
+    let a = two.row(c, 0, 0, "BTC", "1", Some("a-coin"), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+    two.row(c, 0, 1, "EUR", "100", Some("a-cash"), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+    let b = two.row(c, 1, 0, "BTC", "1", Some("b-coin"), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+    let lone = two.row(c, 1, 0, "ETH", "1", Some("b-eth"), Some("g2"), "2026-09-01 10:00:00");
+    two.row(c, 0, 1, "EUR", "7", Some("a-g2-cash"), Some("g2"), "2026-09-01 10:00:00");
+    let fut = two.row(c, 1, 4, "USDT", "1", Some("futures-1"), None, "2026-09-02 10:00:00");
+    let rows = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap();
+    let group = |id: i64| rows.iter().find(|r| r.id == id).unwrap().group.clone();
+    assert_eq!(group(a).as_deref(), Some(SHARED_GROUP), "number 1's group as before");
+    assert_ne!(group(a), group(b), "two accounts' legs of one group id are two groups");
+    assert!(rows.iter().find(|r| r.id == fut).unwrap().borrowed(), "account 2's futures row is read by its relocated id");
+    assert_eq!(rows.iter().find(|r| r.id == b).unwrap().tx_id.as_deref(), Some("b-coin"));
+    let price = |id: i64| deltabadger::web::tracker::row::Row::load(c, two.seeded.user_id, id).unwrap().unwrap().counterpart(c).unwrap();
+    assert!(price(a).is_some(), "account 1's pair prices its coin leg");
+    assert_eq!((price(b), price(lone)), (None, None), "no leg of the other account prices it");
+}
+
+/// §6 test 7: a transfer between the two accounts sharing one venue id: both rows stored and linked as any transfer.
+#[tokio::test(flavor = "current_thread")]
+async fn a_transfer_between_the_two_accounts_is_stored_on_both_and_linked() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let [k1, k2] = keys(c, &two, "Exchanges::Kraken");
+    assert_eq!(store(c, &k1, vec![entry(5, "BTC", "1", Some("hop-1"), None, "2026-09-01T10:00:00Z")]).imported, 1);
+    assert_eq!(store(c, &k2, vec![entry(4, "BTC", "1", Some("hop-1"), None, "2026-09-01T10:05:00Z")]).imported, 1);
+    let db = deltabadger::jobs::Db::new(store::open(&Paths::from_env(&|_| None, dir.path())).unwrap().primary, seed::cipher());
+    assert_eq!(sync::ledger::link_transfers(&db, two.seeded.user_id, now()).await.unwrap(), 1);
+    let linked: Option<i64> = c.query_row(&format!("SELECT a.linked_transaction_id FROM account_transactions a WHERE {}", two.scopes[0].rows("a")), [], |r| r.get(0)).unwrap();
+    assert_eq!(linked, Some(ids(c, &two.scopes[1])[0].0));
+}

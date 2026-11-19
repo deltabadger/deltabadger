@@ -66,6 +66,8 @@ impl Scope {
     pub fn member_sql(&self, a: &str) -> String {
         if self.ready { format!("(SELECT m.account_id FROM exchange_account_rows m WHERE m.account_transaction_id = {a}.id)") } else { "NULL".into() }
     }
+    /// SQL: ledger row `a`'s account (`row_account`; NULL on an install without the tables).
+    pub fn row_account(&self, a: &str) -> String { if self.ready { row_account(a) } else { "NULL".into() } }
     /// SQL: this account's row id, its number 1's looked up when it had no row when the scope was read (a write since may
     /// have made it).
     pub fn account_sql(&self) -> String {
