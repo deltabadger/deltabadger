@@ -263,20 +263,20 @@ pub fn ledger_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| 
 /// ApiKey.reading over `ledger_venues`.
 pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &ledger_venues()) }
 
-/// ApiKey.reading: per user and venue, the trading key that lacks no permission (`missing_permission?`), else the
-/// read-only one, else the first; status correct, never a withdrawal key.
+/// ApiKey.reading: per user and account (#710; an exchange while it has one), the trading key that lacks no permission
+/// (`missing_permission?`), else the read-only one, else the first; status correct, never a withdrawal key.
 fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
-    let mut s = c.prepare(
-        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id")?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                                      r.get::<_, Option<String>>(5)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
+    let rows = crate::identity::with_key_account("k", |account| c.prepare(&format!(
+        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id"))?
+        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                                      r.get::<_, Option<String>>(5)?, r.get::<_, Option<i64>>(6)?)))?
+        .collect::<Result<Vec<_>, _>>())?;
     let rows: Vec<_> = rows.into_iter().filter(|r| venues.contains(&r.4.as_str())).collect();
-    let mut groups: Vec<(i64, i64)> = vec![];
-    for r in &rows { if !groups.contains(&(r.1, r.2)) { groups.push((r.1, r.2)); } }
+    let mut groups: Vec<(i64, i64, Option<i64>)> = vec![];
+    for r in &rows { if !groups.contains(&(r.1, r.2, r.6)) { groups.push((r.1, r.2, r.6)); } }
     Ok(groups.into_iter().filter_map(|g| {
-        let group: Vec<_> = rows.iter().filter(|r| (r.1, r.2) == g).collect();
+        let group: Vec<_> = rows.iter().filter(|r| (r.1, r.2, r.6) == g).collect();
         group.iter().find(|r| r.3 == 0 && !crate::tracker::import::run::missing_permission(&r.4, r.5.as_deref()))
             .or_else(|| group.iter().find(|r| r.3 == 2)).or_else(|| group.first()).map(|r| r.0)
     }).collect())

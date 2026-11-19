@@ -90,8 +90,9 @@ fn exchange_not_found(c: &Connection, name: &Value) -> Result<Res, WebError> {
 
 /// CreateSupport#trading_key: a correct trading key of the user's on the venue.
 fn has_trading_key(c: &Connection, user: i64, venue: &Venue) -> Result<bool, WebError> {
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 AND status = ?3)",
-                   (user, venue.id, crate::enums::ApiKeyStatus::Correct as i64), |r| r.get(0))?)
+    let account = crate::identity::Account::first(c, user, venue.id)?;
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND key_type = 0 AND status = ?1)", account.keys("k")),
+                   [crate::enums::ApiKeyStatus::Correct as i64], |r| r.get(0))?)
 }
 
 fn api_key_missing(venue: &Venue) -> Res {

@@ -130,7 +130,7 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
     if namespace == Namespace::Index && super::index::refusal(c, app, &venue.class)?.is_some() { return Ok(Route::Refused) }
     if namespace == Namespace::Signal && crate::engine::eligibility::signal_admission(Some(&venue.class)).is_some() { return Ok(Route::Refused) }
-    let key = keys::Key::read(c, app, user, venue.id, 0)?;
+    let key = keys::Key::read(c, app, crate::identity::Account::first(c, user, venue.id)?, 0)?;
     Ok(Route::Ready(venue, Box::new(key)))
 }
 
@@ -191,7 +191,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     // `params.require(:api_key)`.
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) { return Ok(layout::bad_request()) }
     let live = ctx.params.form("api_key[passphrase]").map_or(key.passphrase.as_deref() == Some("live"), |mode| mode == "live");
-    let message = match keys::submit(&app, &ctx, user.id, venue.id, &venue.class, &venue.name, 0, *key).await? {
+    let message = match keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await? {
         keys::Submitted::Correct => {
             let path = app.db(move |c| after_api_key_path(c, user.id, config.as_ref(), namespace)).await?;
             return Ok(super::stream(StatusCode::OK, turbo::redirect(&ctx.path(path))));

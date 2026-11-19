@@ -256,7 +256,7 @@ async fn keys(
         ctx.user().expect("authenticated").id,
     );
     let key = app
-        .db(move |c| keys::Key::read(c, &inner, user, id, 1))
+        .db(move |c| keys::Key::read(c, &inner, crate::identity::Account::first(c, user, id)?, 1))
         .await?;
     if ctx.method == axum::http::Method::POST {
         if !ctx
@@ -270,8 +270,6 @@ async fn keys(
         let message = match keys::submit(
             app,
             ctx,
-            user,
-            id,
             &exchange.class,
             &exchange.name,
             1,
@@ -372,7 +370,7 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
     }
     let (inner, user, id) = (app.clone(), rule.user_id, rule.exchange.id);
     let correct = app
-        .db(move |c| Ok(keys::Key::read(c, &inner, user, id, 1)?.status == 1))
+        .db(move |c| Ok(keys::Key::read(c, &inner, crate::identity::Account::first(c, user, id)?, 1)?.status == 1))
         .await?;
     if !correct {
         return Ok(to(ctx, "add_api_key"));

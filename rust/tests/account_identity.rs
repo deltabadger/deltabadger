@@ -284,8 +284,10 @@ fn a_sole_key_with_history_replaced_by_another_accounts_key_is_accepted_and_obse
 fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise() {
     let (fx, key) = established();
     let kucoin = fx.exchange(KUCOIN);
+    let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap();
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
-    identity::forget(&fx.c, key, fx.user, kucoin).unwrap();
+    identity::forget(&fx.c, key, &account).unwrap();
+    assert_eq!(account.exchange_id, kucoin);
     assert_eq!((fx.count("exchange_account_credentials"), fx.account(KUCOIN).is_some()), (0, true), "history keeps the account");
     let again = fx.key(KUCOIN, 0, "kc-a");
     fx.observe(again, read(A));
@@ -293,8 +295,9 @@ fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise(
 
     let binance_key = fx.key(BINANCE, 0, "bn-a");
     fx.observe(binance_key, read(B));
+    let account = identity::Account::of_key(&fx.c, binance_key).unwrap().unwrap();
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [binance_key]).unwrap();
-    identity::forget(&fx.c, binance_key, fx.user, fx.exchange(BINANCE)).unwrap();
+    identity::forget(&fx.c, binance_key, &account).unwrap();
     // #710: numbers are never reused, so the row stays, its identity cleared (what delete-then-recreate left before).
     let row: (i64, Option<String>, Option<Vec<u8>>, Option<String>) = fx.c.query_row("SELECT number, fingerprint, account_id_enc, removed_at FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
         [fx.user, fx.exchange(BINANCE)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
@@ -781,9 +784,82 @@ fn ensure_account_and_standing_read_the_lowest_live_number_and_never_reuse_one()
 fn forget_drops_the_keys_membership_and_keeps_every_account() {
     let t = two();
     let before = accounts(&t.fx.c);
+    let account = identity::Account::of_key(&t.fx.c, t.key2).unwrap().unwrap();
     t.fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [t.key2]).unwrap();
-    identity::forget(&t.fx.c, t.key2, t.fx.user, t.exchange).unwrap();
+    identity::forget(&t.fx.c, t.key2, &account).unwrap();
     assert_eq!((count(&t.fx.c, "exchange_account_keys"), accounts(&t.fx.c)), (0, before));
+}
+
+// ---- #710 slice 2: keys by account, on the two-account fixture ---------------------------------------------------------
+
+fn fingerprints(t: &Two) -> (Option<String>, Option<String>) {
+    let fp = |id: i64| t.fx.c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    (fp(t.first), fp(t.second))
+}
+
+/// An account scopes keys and bots by membership; a (user, exchange) with no row yet is its number 1 to come.
+#[test]
+fn an_account_scopes_its_keys_and_bots_and_a_number_1_without_a_row_takes_what_has_no_membership() {
+    let t = two();
+    let c = &t.fx.c;
+    let (first, second) = (identity::Account::of_key(c, t.key1).unwrap().unwrap(), identity::Account::of_bot(c, t.bot2).unwrap().unwrap());
+    assert_eq!((first.id, second.id), (Some(t.first), Some(t.second)));
+    assert_eq!(identity::Account::first(c, t.fx.user, t.exchange).unwrap(), first, "the exchange reads as its number 1");
+    let ids = |table: &str, account: &identity::Account| -> Vec<i64> {
+        let condition = if table == "api_keys" { account.keys("s") } else { account.bots("s") };
+        let mut s = c.prepare(&format!("SELECT s.id FROM {table} s WHERE {condition} ORDER BY s.id")).unwrap();
+        s.query_map([], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap()
+    };
+    assert_eq!((ids("api_keys", &first), ids("api_keys", &second)), (vec![t.key1], vec![t.key2]));
+    assert_eq!((ids("bots", &first), ids("bots", &second)), (vec![t.bot1], vec![t.bot2]));
+    assert_eq!((first.number(c).unwrap(), second.number(c).unwrap()), (1, 2));
+
+    let fx = Fx::new();
+    let key = fx.key(BINANCE, 0, "bn-a"); // as 2.x saves it: no account row
+    let unknown = identity::Account::of_key(&fx.c, key).unwrap().unwrap();
+    assert_eq!((unknown, unknown.key(&fx.c, 0).unwrap()), (identity::Account::first(&fx.c, fx.user, fx.exchange(BINANCE)).unwrap(), Some(key)));
+    assert_eq!((unknown.id, unknown.number(&fx.c).unwrap()), (None, 1));
+    let made = unknown.ensure(&fx.c, now()).unwrap();
+    made.add_key(&fx.c, key).unwrap();
+    assert_eq!((made.key(&fx.c, 0).unwrap(), fx.count("exchange_account_keys")), (Some(key), 0), "number 1's keys need no membership row");
+}
+
+/// A deleted key clears the identity of its own account only, and only when that account has no other key.
+#[test]
+fn forgetting_a_key_clears_its_own_accounts_identity_only() {
+    let t = two();
+    let c = &t.fx.c;
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-' || number WHERE id IN (?1, ?2)", [t.first, t.second]).unwrap();
+    let delete = |key: i64| {
+        let account = identity::Account::of_key(c, key).unwrap().unwrap();
+        c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+        identity::forget(c, key, &account).unwrap();
+    };
+    delete(t.key2);
+    assert_eq!(fingerprints(&t), (Some("fp-1".into()), None), "account 2 had no other key; account 1 keeps its own");
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-2' WHERE id = ?1", [t.second]).unwrap();
+    let other = t.fx.key(KUCOIN, 2, "kc-1-read");
+    delete(t.key1);
+    assert_eq!(fingerprints(&t), (Some("fp-1".into()), Some("fp-2".into())), "account 1 still has its read-only key");
+    delete(other);
+    assert_eq!(fingerprints(&t), (None, Some("fp-2".into())));
+}
+
+/// Each account has its reading key, and only that key establishes it.
+#[test]
+fn each_account_is_read_with_its_own_key_and_establishes_from_it() {
+    let t = two();
+    let c = &t.fx.c;
+    let reading = run::reading(c, t.fx.user).unwrap();
+    assert_eq!(reading.iter().map(|k| (k.id, k.account_id)).collect::<Vec<_>>(), [(t.key1, Some(t.first)), (t.key2, Some(t.second))]);
+    for keys in [deltabadger::sync::ledger_reading_keys(c).unwrap(), deltabadger::sync::balance_reading_keys(c).unwrap()] {
+        assert_eq!(keys.iter().filter(|id| [t.key1, t.key2].contains(id)).count(), 2, "{keys:?}");
+    }
+    t.fx.observe(t.key2, read(B));
+    assert_eq!(fingerprints(&t), (None, Some(t.fx.fingerprint_of(KUCOIN, B))), "account 2's key fills account 2");
+    assert_eq!(identity::credential_standing(c, t.key2).unwrap(), CredentialStanding::Bound);
+    t.fx.observe(t.key1, read(A));
+    assert_eq!(fingerprints(&t), (Some(t.fx.fingerprint_of(KUCOIN, A)), Some(t.fx.fingerprint_of(KUCOIN, B))));
 }
 
 /// Eager rows know no identity: a start without an identity key writes nothing for them (no reset, no key).

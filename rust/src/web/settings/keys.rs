@@ -9,6 +9,7 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
+use crate::identity::Account;
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
 use std::sync::Arc;
 use subtle::ConstantTimeEq;
@@ -30,9 +31,10 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 }
 /// K: no new tracking. Read the intent and the engine's actual polling rows under the write lock.
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
-fn settling(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> {
-    let mut stmt = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 ORDER BY id")?;
-    let ids = stmt.query_map((user, exchange), |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+/// The account's bots only (#710 §4.2).
+fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> {
+    let mut stmt = c.prepare(&format!("SELECT b.id FROM bots b WHERE {} ORDER BY b.id", account.bots("b")))?;
+    let ids = stmt.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     for id in ids {
         let bot = crate::engine::model::load_bot(c, id)?;
         if bot.rust_placement().is_some() || !crate::engine::polling::waiting_ids(c, &bot)?.is_empty() {
@@ -57,17 +59,18 @@ pub(crate) struct Key {
     extras: [Option<String>;4],
     realm: Option<String>,
     version: Option<crate::engine::model::CredentialVersion>,
+    /// The account it was read from, where a save of it goes (#710).
+    pub(crate) account: Account,
 }
 impl Key {
     pub(crate) fn read(
         c: &Connection,
         app: &App,
-        user: i64,
-        exchange: i64,
+        account: Account,
         kind: i64,
     ) -> Result<Self, WebError> {
-        if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=Self::read(&tx,app,user,exchange,kind)?;tx.commit()?;return Ok(out)}
-        let row=c.query_row("SELECT id,key,secret,passphrase,status,last_sync_error,updated_at,access_token,rsa_signature_key,rsa_encryption_key,dh_param,ibkr_realm FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3 ORDER BY id LIMIT 1",(user,exchange,kind),|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?,[r.get::<_,Option<String>>(7)?,r.get(8)?,r.get(9)?,r.get(10)?],r.get::<_,Option<String>>(11)?))).optional()?;
+        if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=Self::read(&tx,app,account,kind)?;tx.commit()?;return Ok(out)}
+        let row=c.query_row(&format!("SELECT id,key,secret,passphrase,status,last_sync_error,updated_at,access_token,rsa_signature_key,rsa_encryption_key,dh_param,ibkr_realm FROM api_keys k WHERE {} AND key_type=?1 ORDER BY id LIMIT 1",account.keys("k")),[kind],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?,[r.get::<_,Option<String>>(7)?,r.get(8)?,r.get(9)?,r.get(10)?],r.get::<_,Option<String>>(11)?))).optional()?;
         let decrypt = |text: Option<String>| {
             text.map(|s| {
                 app.cipher
@@ -87,6 +90,7 @@ impl Key {
                 updated_at: Some(updated_at),
                 extras:[decrypt(a)?,decrypt(b)?,decrypt(extra_c)?,decrypt(d)?],realm,
                 version:crate::engine::model::credential_version_by_id(c,id)?,
+                account,
             }),
             None => Ok(Self {
                 id: None,
@@ -96,7 +100,7 @@ impl Key {
                 status: 0,
                 last_error: None,
                 updated_at: None,
-                extras: [None,None,None,None],realm:None,version:None,
+                extras: [None,None,None,None],realm:None,version:None,account,
             }),
         }
     }
@@ -179,9 +183,9 @@ pub async fn save(
         return Ok(auth::unauthenticated(&ctx));
     };
     let bot_request=ctx.params.route_path.starts_with("/bots/");
-    let bot_exchange=if bot_request {owned_bot_exchange(&app,&ctx).await?} else {None};
-    if bot_request && bot_exchange.is_none(){return Ok(crate::web::layout::missing())}
-    let exchange=if bot_request{bot_exchange}else{tracker_exchange(&app,&ctx).await?};
+    let bot_account=if bot_request {owned_bot_account(&app,&ctx).await?} else {None};
+    if bot_request && bot_account.is_none(){return Ok(crate::web::layout::missing())}
+    let exchange=if bot_request{bot_account.map(|a|a.exchange_id)}else{tracker_exchange(&app,&ctx).await?};
     let Some(exchange) = exchange else {
         return Ok(crate::web::layout::redirect(
             StatusCode::FOUND,
@@ -205,7 +209,9 @@ pub async fn save(
                     Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default()))
                 })
                 .optional()?;
-            Ok((venue, Key::read(c, &inner, id, exchange, kind)?))
+            // A bot's sheet saves into the bot's account; the tracker's into the exchange's (#710 slice 7: the one picked).
+            let account = match bot_account { Some(account) => account, None => Account::first(c, id, exchange)? };
+            Ok((venue, Key::read(c, &inner, account, kind)?))
         })
         .await?;
     let (venue, original) = found;
@@ -221,7 +227,7 @@ pub async fn save(
     };
     if !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
     let live = ctx.params.form("api_key[passphrase]").map_or(original.passphrase.as_deref() == Some("live"), |mode| mode == "live");
-    let outcome = submit(&app, &ctx, user.id, exchange, &class, &name, kind, original).await?;
+    let outcome = submit(&app, &ctx, &class, &name, kind, original).await?;
     // D-TRACKER-SHEET, D-BOT-KEY-SHEET: a refused key says why under the sheet's fields.
     let message = match &outcome {
         Submitted::Correct => None,
@@ -257,9 +263,9 @@ pub(crate) enum Submitted { Correct, Incorrect, Permissions(Vec<String>, Vec<Str
 
 /// The submitted `api_key[...]` fields over the stored key (`original`), validated on `venue` outside the write lock, and a
 /// correct one saved (status correct, sync error cleared) inside it: rechecked against what was validated, guarded, then the
-/// syncs a reading key has woken after the commit. An incorrect or unverified key is not saved.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue: &str, venue_name: &str, kind: i64, original: Key) -> Result<Submitted, WebError> {
+/// syncs a reading key has woken after the commit. An incorrect or unverified key is not saved. It is saved into the
+/// account `original` was read from.
+pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, kind: i64, original: Key) -> Result<Submitted, WebError> {
     let mut candidate = original.clone();
     if let Some(value) = ctx.params.form("api_key[key]") {
         candidate.key = Some(value.into());
@@ -274,12 +280,11 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
         if let Some(value)=ctx.params.form(&format!("api_key[{name}]")){candidate.extras[i]=Some(value.into());}
     }
     if let Some(value)=ctx.params.form("api_key[ibkr_realm]"){candidate.realm=Some(value.into());}
-    submit_candidate(app,user,exchange,venue,venue_name,kind,original,candidate).await
+    submit_candidate(app,venue,venue_name,kind,original,candidate).await
 }
 
 /// `submit` of a candidate made by the caller over the stored key (`original`): the IBKR connect page's activation.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
+pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     match &validated.result.value {
         Validity::Incorrect => return Ok(Submitted::Incorrect),
@@ -311,10 +316,12 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
     let account=match &validated.result.value {Validity::Account(account)=>Some(account.clone()),_=>None};
     let jobs=app.job_wakers()?;
     let inner = app.clone();
-    let user_id=user;
+    let user_id=original.account.user_id;
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-  let current=Key::read(&tx,&inner,user_id,exchange,kind)?;
+  // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
+  let target=original.account.ensure(&tx,inner.now())?;
+  let current=Key::read(&tx,&inner,target,kind)?;
   if !original.same(&current){return Ok(Some("credential changed during validation".into()));}
   if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
   let candidate=&validated.key;
@@ -322,24 +329,23 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
   let status=if pending {3} else {1};
   // A submission awaiting activation always moves updated_at (activation_stalled? reads it as the last submission).
   let changed=pending||!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
-  if current.id.is_some() && settling(&tx,user_id,exchange)? { return Ok(Some(SETTLING.into())); }
-  {
+  if current.id.is_some() && settling(&tx,&target)? { return Ok(Some(SETTLING.into())); }
+  let id={
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
    let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
    match current.id{
-    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=?7,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",rusqlite::params![key,secret,passphrase,&now,id,user_id,status])?;},
-    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,exchange,kind,key,secret,passphrase,&now,status])?;}
+    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=?7,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",rusqlite::params![key,secret,passphrase,&now,id,user_id,status])?;id},
+    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,kind,key,secret,passphrase,&now,status])?;
+     let id=tx.last_insert_rowid();target.add_key(&tx,id)?;id}
    }
-  }
-  crate::identity::touch(&tx,user_id,exchange,inner.now())?;
+  };
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
   if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
    tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
   }
-  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user_id,exchange,kind])?;
+  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE id=?6",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,id])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
-  let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
   // D-IBKR-ACCOUNT: the key binds to the account it names, or is refused (nothing saved) when bound to another.
   if let Some(account)=&account {
    if let Err(refusal)=crate::venue::ibkr_account::bind(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {return Ok(Some(refusal));}
@@ -367,7 +373,7 @@ struct Warnings{title:String,fixes:Vec<Fix>}
 struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,trading_label:String,add_label:String,replace_label:String}
 /// `unresolved`: the key's last balance sync held codes no asset is named by (`rust_sync.kraken_unresolved:<key_id>`, D-KR-6),
 /// a failure 2.x never records; it reads as the sync's own failure.
-struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
+struct WarningKey{exchange:i64,account:Option<i64>,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
 impl WarningKey{
     fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::v2::blank(e))}
     /// ApiKey#missing_permission?: the venue's own permission_denied texts (Exchange#permission_error?), one table for every venue.
@@ -375,12 +381,13 @@ impl WarningKey{
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
-    let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id) FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
-    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>()?;
+    let keys=crate::identity::with_key_account("k",|account|c.prepare(&format!("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id),{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id"))?
+    .query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,account:r.get(7)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>())?;
+    // Per account (#710).
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
     for key in &keys{
-        if !seen.insert(key.exchange){continue}
-        let group:Vec<_>=keys.iter().filter(|k|k.exchange==key.exchange).collect();
+        if !seen.insert((key.exchange,key.account)){continue}
+        let group:Vec<_>=keys.iter().filter(|k|(k.exchange,k.account)==(key.exchange,key.account)).collect();
         let reading=group.iter().copied().find(|k|k.status==1&&k.kind==0&&!k.permission()).or_else(||group.iter().copied().find(|k|k.status==1&&k.kind==2)).or_else(||group.iter().copied().find(|k|k.status==1));
         let chosen=if let Some(reading)=reading{reading.failed().then_some(reading)}else{group.iter().copied().find(|k|k.kind==2&&k.failed()).or_else(||group.iter().copied().find(|k|k.failed()))};
         if let Some(key)=chosen{failed.push(key)}
@@ -537,21 +544,24 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
 }
 
 /// A key's deletion (SettingsController#destroy_api_key, Settings::IbkrConnectionsController#destroy): its owner's working bots
-/// on its venue stopped first when it trades, its ledger rows kept (unlinked), its account identity and IBKR binding dropped.
-/// `then` runs inside the transaction after the delete, before the commit. None when the user has no such key; refused with
-/// nothing written while a bot of the venue settles an order, or when the eligibility guard objects.
+/// on its account stopped first when it trades, its ledger rows kept (unlinked), its account identity and IBKR binding dropped.
+/// `then` runs inside the transaction after the delete, before the commit. None when the user has no such key (or one whose
+/// account resolves to none); refused with nothing written while a bot of the account settles an order, or when the
+/// eligibility guard objects.
 pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: impl FnOnce(&Connection) -> Result<T, WebError>) -> Result<Option<Result<T, String>>, WebError> {
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-  let key:Option<(i64,i64)>=tx.query_row("SELECT exchange_id,key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;let Some((exchange,kind))=key else{return Ok(None);};
-  if settling(&tx,user,exchange)? { return Ok(Some(Err(SETTLING.into()))); }
+  let kind:Option<i64>=tx.query_row("SELECT key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|r.get(0)).optional()?;let Some(kind)=kind else{return Ok(None);};
+  // Before the delete: the key's account is read through its row.
+  let Some(account)=Account::of_key(&tx,id)? else{return Ok(None);};
+  if settling(&tx,&account)? { return Ok(Some(Err(SETTLING.into()))); }
   let now=format_time(inner.now());
   if kind==0{
-   let mut s=tx.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 AND status IN(1,4,5,6)")?;let ids=s.query_map((user,exchange),|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
+   let mut s=tx.prepare(&format!("SELECT b.id FROM bots b WHERE {} AND b.status IN(1,4,5,6) ORDER BY b.id",account.bots("b")))?;let ids=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
    for bot in ids{tx.execute("UPDATE bots SET status=2,stopped_at=?1,stop_message_key=NULL,updated_at=?1 WHERE id=?2",(&now,bot))?;tx.execute("INSERT INTO bot_activity_logs(bot_id,event,level,message,details,created_at)VALUES(?1,'stopped',0,NULL,'{}',?2)",(bot,&now))?;}
   }
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user))?;
-  crate::identity::forget(&tx,id,user,exchange)?;
+  crate::identity::forget(&tx,id,&account)?;
   crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
   let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
@@ -620,8 +630,10 @@ pub async fn legacy(
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
-  let current=Key::read(&tx,&inner,user.id,exchange,kind)?;
-  if current.id.is_some() && settling(&tx,user.id,exchange)? { return Ok(Err(Some(SETTLING.to_string()))); }
+  // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
+  let account=Account::first(&tx,user.id,exchange)?.ensure(&tx,inner.now())?;
+  let current=Key::read(&tx,&inner,account,kind)?;
+  if current.id.is_some() && settling(&tx,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
   if venue=="Exchanges::Hyperliquid"{
    let address=crate::v2::validation_regex(r"\A0x[0-9a-fA-F]{40}\z").map_err(|_|WebError::Config("invalid wallet pattern".into()))?;
@@ -641,9 +653,9 @@ pub async fn legacy(
    }
    id
   }else{
-   tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,0,?7,?7)",(user.id,exchange,kind,key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),&now))?;tx.last_insert_rowid()
+   tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,0,?7,?7)",(user.id,exchange,kind,key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),&now))?;
+   let id=tx.last_insert_rowid();account.add_key(&tx,id)?;id
   };
-  crate::identity::touch(&tx,user.id,exchange,inner.now())?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;
@@ -748,10 +760,11 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     let inner=app.clone();let owner=user.clone();
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
+        let account=Account::first(c,owner.id,exchange)?;
         // healthy_trading_key: a correct bot key that lacks no permission the sync needs.
-        let errors=c.prepare("SELECT last_sync_error FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 ORDER BY id LIMIT 1")?.query_map([owner.id,exchange],|r|r.get::<_,Option<String>>(0))?.collect::<Result<Vec<_>,_>>()?;
+        let errors=c.prepare(&format!("SELECT last_sync_error FROM api_keys k WHERE {} AND key_type=0 AND status=1 ORDER BY id LIMIT 1",account.keys("k")))?.query_map([],|r|r.get::<_,Option<String>>(0))?.collect::<Result<Vec<_>,_>>()?;
         let healthy=venue.as_ref().is_some_and(|(class,_)|errors.iter().any(|error|!crate::tracker::import::run::missing_permission(class,error.as_deref())));
-        Ok((venue,healthy,Key::read(c,&inner,owner.id,exchange,kind)?,crate::web::shell::Shell::load(c,&inner,&owner)?))
+        Ok((venue,healthy,Key::read(c,&inner,account,kind)?,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let (venue,healthy,mut key,shell)=found;
     let Some((class,name))=venue else {return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))};
@@ -764,8 +777,8 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
                 let body=turbo::prepend_flash(&flash::render(&flash::take(&ctx.session,&[(flash::ALERT,refusal_text(&ctx,&reason))]))?);
                 return Ok((StatusCode::UNPROCESSABLE_ENTITY,[(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],body).into_response())
             }
-            let inner=app.clone();let user_id=user.id;
-            key=app.db(move|c|Key::read(c,&inner,user_id,exchange,kind)).await?;
+            let (inner,account)=(app.clone(),key.account);
+            key=app.db(move|c|Key::read(c,&inner,account,kind)).await?;
         }
     }
     if requested.is_none()&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
@@ -817,11 +830,15 @@ pub async fn pick_save(axum::extract::State(app):axum::extract::State<App>,axum:
     Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/add_api_key/new")))
 }
 
-async fn owned_bot_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{
+/// The account of the user's bot this request names (#710: its sheet reads and saves that account's key).
+async fn owned_bot_account(app:&App,ctx:&Ctx)->Result<Option<Account>,WebError>{
     let Some(user)=ctx.user() else{return Ok(None)};let owner=user.id;
     let id=ctx.params.route_path.split('/').nth(2).and_then(|s|s.parse::<i64>().ok());
     let Some(id)=id else{return Ok(None)};
-    app.db(move|c|Ok(c.query_row("SELECT exchange_id FROM bots WHERE id=?1 AND user_id=?2",[id,owner],|r|r.get(0)).optional()?)).await
+    app.db(move|c|{
+        let exchange:Option<i64>=c.query_row("SELECT exchange_id FROM bots WHERE id=?1 AND user_id=?2",[id,owner],|r|r.get(0)).optional()?;
+        Ok(match exchange {Some(_)=>Account::of_bot(c,id)?,None=>None})
+    }).await
 }
 /// The form attributes of every card the sheet draws: answered in its frame (`modal_content`).
 pub(crate) const SHEET_FORM:&str="data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
@@ -837,13 +854,13 @@ fn bot_step(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&str,live:bool,error
 }
 pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else{return Ok(auth::unauthenticated(&ctx))};
-    let Some(exchange)=owned_bot_exchange(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
+    let Some(account)=owned_bot_account(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
     let inner=app.clone();let owner=user.clone();
     let v=ctx.clone();
     let (content,shell)=app.db(move|c|{
-        let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
+        let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[account.exchange_id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
         if !ported(&class){return Ok((None,crate::web::shell::Shell::load(c,&inner,&owner)?))}
-        let live=Key::read(c,&inner,owner.id,exchange,0)?.passphrase.as_deref()==Some("live");
+        let live=Key::read(c,&inner,account,0)?.passphrase.as_deref()==Some("live");
         Ok((Some(bot_step(c,&inner,&v,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let Some(content)=content else{return Ok(crate::web::layout::not_ported_for(&ctx))};

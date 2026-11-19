@@ -38,6 +38,9 @@ pub fn check(c:&Connection,user:i64)->Result<bool,WebError>{
     for (table_name,filter,cap) in [
         ("indices","?1 IS NOT NULL",CATALOG),("assets","?1 IS NOT NULL",CATALOG),("tickers","?1 IS NOT NULL",CATALOG),("exchange_assets","?1 IS NOT NULL",CATALOG),
         ("exchanges","?1 IS NOT NULL",100),("users","id=?1",1),("api_keys","user_id=?1",100),
+        // #710: the accounts a key's or a bot's lookup reads.
+        ("exchange_accounts","user_id=?1",100),("exchange_account_keys","api_key_id IN (SELECT id FROM api_keys WHERE user_id=?1)",100),
+        ("exchange_account_bots","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",BOTS),
         ("bots","user_id=?1",BOTS),("transactions","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
         ("bot_index_assets","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
         ("wash_sale_locks","user_id=?1",ORDERS),("account_transactions","user_id=?1",ORDERS),

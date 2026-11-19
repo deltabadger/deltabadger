@@ -1158,6 +1158,89 @@ async fn credential_fence_covers_every_writer_intents_and_tracked_open_orders() 
     assert!(tokio::time::timeout(std::time::Duration::ZERO,wake.notified()).await.is_ok());
 }
 
+/// #710 slice 2: a second account on the seeded exchange, inserted directly (no path makes one yet): number 1 holds the
+/// seeded key, number 2 a trading key and a working bot by membership; account 1 a working bot of its own. Returns
+/// (account 2's key, account 1's bot, account 2's bot).
+fn second_account(h:&Harness)->(i64,i64,i64){
+    let account=|number:i64|{h.c.execute("INSERT INTO exchange_accounts(user_id,exchange_id,number,fingerprint,created_at,updated_at)VALUES(?1,?2,?3,'fp-'||?3,'2026-01-01','2026-01-01')",(h.seed.user_id,h.seed.exchange_id,number)).unwrap();h.c.last_insert_rowid()};
+    let (_,second)=(account(1),account(2));
+    let e=|v:&str|h.app.cipher.encrypt(v);
+    h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,0,?3,?4,?5,1,'2026-01-01','2026-01-01')",(h.seed.user_id,h.seed.exchange_id,e("second-key"),e("second-secret"),e("paper"))).unwrap();
+    let key=h.c.last_insert_rowid();
+    h.c.execute("INSERT INTO exchange_account_keys(api_key_id,account_id)VALUES(?1,?2)",[key,second]).unwrap();
+    let bot=||common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let (first_bot,second_bot)=(bot(),bot());
+    h.c.execute("INSERT INTO exchange_account_bots(bot_id,account_id)VALUES(?1,?2)",[second_bot,second]).unwrap();
+    (key,first_bot,second_bot)
+}
+fn fingerprints(h:&Harness)->Vec<Option<String>>{
+    let mut s=h.c.prepare("SELECT fingerprint FROM exchange_accounts WHERE user_id=?1 AND exchange_id=?2 ORDER BY number").unwrap();
+    s.query_map((h.seed.user_id,h.seed.exchange_id),|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap()
+}
+
+/// A bot trades with its account's key; deleting account 2's key stops account 2's bots only, waits for none of account
+/// 1's orders, and clears account 2's identity only.
+#[tokio::test(flavor="current_thread")]
+async fn deleting_one_accounts_key_stops_and_waits_for_that_accounts_bots_only() {
+    let server=MockServer::start().await;
+    let mut h=Harness::new(server.uri()).await;
+    let (key,first_bot,second_bot)=second_account(&h);
+    let credentials=|bot:i64|deltabadger::engine::model::credentials_for(&h.c,&h.app.cipher,&deltabadger::engine::model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap().key;
+    assert_eq!((credentials(first_bot),credentials(second_bot)),("previous-key".to_string(),"second-key".to_string()));
+    // Account 1's bot settles an order.
+    common::seed::insert_tx(&h.c,&h.seed,first_bot,&common::seed::TxSpec{status:0,external_status:Some(1),external_id:Some("order-a".into()),order_type:1,amount:Some("0.001"),quote_amount:None,price:Some("50000"),
+        quote_amount_exec:Some("0"),amount_exec:Some("0"),created_at:"2026-09-10 00:00:00".into()});
+    let answer=h.submit("DELETE",&format!("/settings/destroy_api_key/{key}"),&[],Csrf::Header).await;
+    assert_eq!(answer.status,200,"{}",answer.body);
+    let status=|bot:i64|->i64{h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap()};
+    assert_eq!((status(first_bot),status(second_bot)),(1,2),"account 2's bot stopped, account 1's kept working");
+    assert_eq!(fingerprints(&h),[Some("fp-1".to_string()),None]);
+    assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_keys",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    let answer=h.submit("DELETE",&format!("/settings/destroy_api_key/{}",h.seed.api_key_id),&[],Csrf::Header).await;
+    assert_eq!(answer.status,422);
+    assert!(answer.body.contains("An order is still being settled. Please try again shortly."),"{}",answer.body);
+}
+
+/// #507's start validation reads the bot's account's trading key, not the exchange's first: account 1's incorrect key does
+/// not refuse account 2's bot, and account 1's correct key does not let account 2's bot start on an incorrect one.
+#[tokio::test(flavor="current_thread")]
+async fn starting_a_bot_asks_for_its_own_accounts_trading_key() {
+    for (first,second,starts) in [(2,1,true),(1,2,false)] {
+        let server=MockServer::start().await;
+        let mut h=Harness::new(server.uri()).await;
+        let (key,_,bot)=second_account(&h);
+        h.c.execute("UPDATE bots SET status=2",[]).unwrap();
+        h.c.execute("UPDATE api_keys SET status=?1 WHERE id=?2",[first,h.seed.api_key_id]).unwrap();
+        h.c.execute("UPDATE api_keys SET status=?1 WHERE id=?2",[second,key]).unwrap();
+        let answer=h.submit("PATCH",&format!("/bots/{bot}/start"),&[],Csrf::Header).await;
+        let refused=answer.body.contains("A valid trading API key is required to start this bot.");
+        let status:i64=h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap();
+        assert_eq!((refused,status==1),(!starts,starts),"account 1 {first}, account 2 {second}: {} {}",answer.status,answer.body);
+    }
+}
+
+/// A bot's key sheet reads and saves its account's key: a key saved for account 2 joins it and leaves account 1's.
+#[tokio::test(flavor="current_thread")]
+async fn a_bots_key_sheet_saves_into_the_bots_account() {
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let (key,_,second_bot)=second_account(&h);
+    h.c.execute("DELETE FROM api_keys WHERE id=?1",[key]).unwrap();
+    h.c.execute("DELETE FROM exchange_account_keys",[]).unwrap();
+    h.c.execute("UPDATE bots SET status=2",[]).unwrap();
+    let first:String=h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
+    assert_eq!(h.browser.send(&h.app,"GET",&format!("/bots/{second_bot}/add_api_key/new"),None,Csrf::None,&[]).await.status,200);
+    let answer=h.submit("POST",&format!("/bots/{second_bot}/add_api_key"),&[("api_key[key]","second-key"),("api_key[secret]","second-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(answer.status,200,"{}",answer.body);
+    let saved:(i64,i64,String)=h.c.query_row("SELECT k.id,m.account_id,k.key FROM api_keys k JOIN exchange_account_keys m ON m.api_key_id=k.id",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+    assert_eq!(h.app.cipher.decrypt(&saved.2).unwrap(),"second-key");
+    assert_eq!(Some(saved.1),deltabadger::identity::account_of_bot(&h.c,second_bot).unwrap(),"the key joined the bot's account");
+    assert_eq!(h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,String>(0)).unwrap(),first,"account 1's key unchanged");
+    assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys",[],|r|r.get::<_,i64>(0)).unwrap(),2);
+    server.verify().await;
+}
+
 #[tokio::test(flavor="current_thread")]
 async fn credential_fence_rereads_intents_created_during_network_validation() {
     use deltabadger::{engine::{amount::{self,Sizing},model,placement,FixedClock},v2::BigDec};

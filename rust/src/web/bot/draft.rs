@@ -520,9 +520,18 @@ impl Draft {
         if starting && self.original.status == BotStatus::Archived { self.add("status", i18n::text(locale, "errors.bots.archived", &[])); }
         // #507: Bot#trading_key_ready runs in the start validation context, before subclass fields.
         if starting {
-            let key: Option<i64> = c.query_row(
-                "SELECT k.status FROM api_keys k JOIN bots b ON b.user_id=k.user_id WHERE b.id=?1 AND k.exchange_id=?2 AND k.key_type=0 ORDER BY k.id LIMIT 1",
-                (self.candidate.id,self.candidate.exchange.id), |row| row.get(0)).optional()?;
+            // #710: the bot's account's key while it stays on its exchange; on another exchange, that exchange's account.
+            let user: Option<i64> = c.query_row("SELECT user_id FROM bots WHERE id=?1", [self.candidate.id], |row| row.get(0)).optional()?;
+            let key: Option<i64> = match user {
+                None => None,
+                Some(user) => {
+                    let account = match crate::identity::Account::of_bot(c, self.candidate.id)? {
+                        Some(account) if account.exchange_id == self.candidate.exchange.id => account,
+                        _ => crate::identity::Account::first(c, user, self.candidate.exchange.id)?,
+                    };
+                    c.query_row(&format!("SELECT k.status FROM api_keys k WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1", account.keys("k")), [], |row| row.get(0)).optional()?
+                }
+            };
             if key != Some(crate::enums::ApiKeyStatus::Correct as i64) {
                 self.add("base", i18n::text(locale, "engine.api_key_not_ready", &[]));
             }
