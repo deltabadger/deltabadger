@@ -811,7 +811,7 @@ fn undo_replacement(v: &str) -> String {
     let creates = |text: &str, t: &str| text.contains(&format!("CREATE TABLE {t} ")) || text.contains(&format!(" ON {t} ("));
     // Each table as the newest migration before `v` that creates it wrote it (an earlier rebuild's first shape is gone).
     for t in &back {
-        let Some(m) = deltabadger::store::RUST_MIGRATIONS.iter().filter(|m| m.version < v && statements(m).iter().any(|s| creates(s, t))).last() else { continue };
+        let Some(m) = deltabadger::store::RUST_MIGRATIONS.iter().rfind(|m| m.version < v && statements(m).iter().any(|s| creates(s, t))) else { continue };
         for text in statements(m).into_iter().filter(|s| creates(s, t)) { sql.push_str(&text); sql.push(';'); }
     }
     sql
