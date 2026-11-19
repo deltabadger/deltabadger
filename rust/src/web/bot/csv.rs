@@ -294,6 +294,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
                    params![id, bot.exchange_id, row.order_id, crate::codec::format_time(row.at), stamp, row.order_type, row.side, amount, value, price,
                            row.base, bot_quote, row.asset, quote_id])?;
         written.push(tx.last_insert_rowid());
+        crate::identity::place_order(&tx, tx.last_insert_rowid(), id)?;
     }
     // R-IMPORT-READABLE: each row as stored, read as every money reader reads it.
     for &tid in &written {

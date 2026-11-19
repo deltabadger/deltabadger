@@ -938,6 +938,53 @@ async fn rust_withdrawal_outcomes_and_consumed_evaluations_survive_handback_take
     assert_eq!(count(&o.primary,"SELECT count(*) FROM rule_logs"),1);
 }
 
+/// #710: a takeover after 2.x owned the install makes 2.x's withdrawal rules Rust's number-1 rules again, ids kept: one 2.x
+/// added is there, one it changed reads as changed, one it deleted is gone. A rule of account 2 stays as it was.
+#[tokio::test(flavor = "current_thread")]
+async fn a_takeover_refills_the_number_1_rules_from_2x_and_keeps_account_2s() {
+    let dir = common::v2_install(); let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, now()).unwrap(); let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let at = deltabadger::codec::format_time(now());
+    let insert = |asset: i64| { o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',2,?1,?2,?3,'{}',?4,?4)",
+        rusqlite::params![s.user_id, s.exchange_id, asset, at]).unwrap(); o.primary.last_insert_rowid() };
+    let (kept, deleted) = (insert(s.btc), insert(s.quote));
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    let second = second_account_rule(&o.primary, &s);
+    let store = |c: &rusqlite::Connection| -> Vec<(i64, i64, i64)> { c.prepare("SELECT r.id, r.status, a.number FROM exchange_account_rules r JOIN exchange_accounts a ON a.id = r.account_id ORDER BY r.id")
+        .unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect() };
+    assert_eq!(store(&o.primary), [(kept, 2, 1), (deleted, 2, 1), (second, 0, 2)]);
+    // What 2.x does while it owns the install (the handback is refused while account 2 has a rule, so it goes first).
+    o.primary.execute("DELETE FROM exchange_account_rules WHERE id = ?1", [second]).unwrap();
+    handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    o.primary.execute("UPDATE rules SET status = 1 WHERE id = ?1", [kept]).unwrap();
+    o.primary.execute("DELETE FROM rules WHERE id = ?1", [deleted]).unwrap();
+    let eth = o.primary.query_row("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('eth', 'ETH', 'Ethereum', 'Cryptocurrency', ?1, ?1) RETURNING id", [&at], |r| r.get(0)).unwrap();
+    let added = insert(eth);
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    assert_eq!(store(&o.primary), [(kept, 1, 1), (added, 2, 1)]);
+}
+
+/// #710: the handback writes Rust's number-1 rules into 2.x's `rules` by id, so a rule stopped or deleted in Rust never runs
+/// again on 2.x, even where its 2.x row had fallen behind.
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_writes_the_number_1_rules_back_into_2x() {
+    let dir = common::v2_install(); let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, now()).unwrap(); let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let at = deltabadger::codec::format_time(now());
+    o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES('Rules::Withdrawal',1,?1,?2,?3,'old','{}',?4,?4)",
+        rusqlite::params![s.user_id, s.exchange_id, s.btc, at]).unwrap();
+    let rule = o.primary.last_insert_rowid();
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    // Deleted in Rust, its 2.x row behind (as no Rust write leaves it: mirror keeps it equal).
+    o.primary.execute("UPDATE exchange_account_rules SET status = 3, address = 'new', settings = '{\"a\":1}', updated_at = 'later' WHERE id = ?1", [rule]).unwrap();
+    handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    let row: (i64, String, String, String) = o.primary.query_row("SELECT status, address, settings, updated_at FROM rules WHERE id = ?1", [rule], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    assert_eq!(row, (3, "new".into(), "{\"a\":1}".into(), "later".into()));
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM rules"), 1);
+}
+
 #[test]
 fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
     let dir=common::v2_install_unmigrated();let p=Paths::from_env(&|_|None,dir.path());
@@ -1471,7 +1518,8 @@ const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
 /// this list as well.
 const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
-    "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold"];
+    "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
+    "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1564,6 +1612,30 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
     let transient = |path: &str, value: &str| { o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{path}', json(?1)) WHERE id = ?2"), rusqlite::params![value, bot]).unwrap(); };
     match name {
         "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
+        // #710: a rule of the exchange's second account.
+        "exchange_account_rules" => { second_account_rule(&o.primary, s); }
+        // #710: a key, and a bot, of the exchange's second account.
+        "exchange_account_keys" | "exchange_account_bots" | "rust_api_order_standalone" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = deltabadger::identity::Account::by_id(&o.primary, o.primary.last_insert_rowid()).unwrap().unwrap();
+            if name == "exchange_account_keys" {
+                o.primary.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+                second.add_key(&o.primary, o.primary.last_insert_rowid()).unwrap();
+            } else if name == "exchange_account_bots" {
+                deltabadger::identity::place_bot(&o.primary, bot, s.user_id, s.exchange_id, Some(second), now()).unwrap();
+            } else {
+                let (amount, pair) = (deltabadger::v2::BigDec::parse("1").unwrap(), serde_json::Map::new());
+                deltabadger::engine::api_orders::insert(&o.primary, &deltabadger::engine::api_orders::New::Standalone { user_id: s.user_id, side: deltabadger::venue::Side::Buy,
+                    amount: &amount, in_base: false, supplied: &pair, standalone: deltabadger::engine::api_orders::Standalone { account: second, exchange_id: s.exchange_id,
+                    ticker_id: s.ticker_id, limit: true, price: Some(deltabadger::v2::BigDec::parse("1").unwrap()), mcp: false } }, now()).unwrap();
+            }
+        }
+        "exchange_account_transactions" => {
+            let account = deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_id": "A2", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
+            o.primary.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [row, account.id.unwrap() + 1000]).unwrap();
+        }
         "rust_withdrawal_intents" => { o.primary.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
                                                           VALUES ('rule:1', 'dispatched', 'c', '2026-09-30 12:00:00', 1, 'd', 'h', 'a', 'k', 'p', 'f', '1', '1')", []).unwrap(); }
         "rust_rule_evaluations" => { o.primary.execute("INSERT INTO rust_rule_evaluations (rule_id, source, created_at) VALUES (1, 'start', '2026-09-30 12:00:00')", []).unwrap(); }
@@ -1585,6 +1657,15 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
         "liquidation_selling_since.holdings" => transient("liquidation_selling_since", r#"{"holdings":{}}"#),
         other => panic!("{other}: no setup in the matrix run and not in PROVEN_ELSEWHERE"),
     }
+}
+
+/// #710: account 2 of the seeded exchange and its withdrawal rule for BTC (2.x's `rules` holds only its id). Returns the rule.
+fn second_account_rule(c: &rusqlite::Connection, s: &seed::Seeded) -> i64 {
+    let account = deltabadger::identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, '2026-09-30', '2026-09-30')", [s.user_id, s.exchange_id]).unwrap();
+    let second = deltabadger::identity::Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    assert_ne!(account, second);
+    deltabadger::engine::rules::create(c, &second, s.btc, "address", "{}", "2026-09-30 12:00:00").unwrap()
 }
 
 /// PLAN-B2 r1.10: on a 2.x-born install, each refusing state refuses the handback with its line, and each waiting state

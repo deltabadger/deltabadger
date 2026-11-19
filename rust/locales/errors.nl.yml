@@ -101,6 +101,7 @@ nl:
                 external_sales: "%{label} heeft assets verkocht die het hier nooit heeft gekocht, dus zijn geschiedenis kan niet worden samengevoegd."
                 interleaved: "Samen zouden de geschiedenissen van deze bots een ander totaalresultaat geven, dus ze kunnen niet worden samengevoegd."
                 quote: "Alle bots moeten dezelfde valuta uitgeven."
+                accounts: "Deze bots handelen op verschillende accounts van dezelfde exchange en kunnen daarom niet worden samengevoegd."
                 nothing_to_buy: "Geen van deze assets wordt nog op deze exchange verhandeld."
             index_switch:
                 stop_first: "Stop eerst de bot."

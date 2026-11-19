@@ -66,9 +66,13 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
         bots.push(Aside { id, name: name(tx, id)?, reasons });
     }
     for id in &first.rules {
-        let n = tx.execute("UPDATE rules SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5, ?6, ?7)",
-            params![RuleStatus::Stopped as i64, crate::codec::format_time(now), id, RuleStatus::Scheduled as i64, RuleStatus::Executing as i64,
-                    RuleStatus::Retrying as i64, RuleStatus::Waiting as i64])?;
+        // 2.x's row, and the Rust store's (#710: a number 1's is its mirror, refilled from 2.x's after a v2 window).
+        let mut n = 0;
+        for table in ["rules", "exchange_account_rules"] {
+            n += tx.execute(&format!("UPDATE {table} SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5, ?6, ?7)"),
+                params![RuleStatus::Stopped as i64, crate::codec::format_time(now), id, RuleStatus::Scheduled as i64, RuleStatus::Executing as i64,
+                        RuleStatus::Retrying as i64, RuleStatus::Waiting as i64])?;
+        }
         // RuleLog status failed (RuleLog's statuses: pending success failed transient), as 2.x's log_failed.
         if n > 0 { super::rules::log(tx, *id, None, 2, &rule_stopped(tx, *id)?, &json!({}), now)?; }
     }
@@ -177,7 +181,8 @@ fn no_key(exchange: &str) -> String { format!("There's no {exchange} API key. Ad
 
 /// C2r.
 fn rule_stopped(c: &Connection, rule: i64) -> Result<String, EngineError> {
-    let name: Option<String> = c.query_row("SELECT e.name FROM rules r JOIN exchanges e ON e.id = r.exchange_id WHERE r.id = ?1", [rule], |r| r.get(0)).optional()?.flatten();
+    let name: Option<String> = c.query_row("SELECT e.name FROM exchanges e WHERE e.id = coalesce((SELECT exchange_id FROM rules WHERE id = ?1),
+                                            (SELECT exchange_id FROM exchange_account_rules WHERE id = ?1))", [rule], |r| r.get(0)).optional()?.flatten();
     let name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| "this exchange".into());
     Ok(format!("Withdrawals from {name} aren't supported yet, so this rule was stopped while updating your data. Nothing was withdrawn."))
 }

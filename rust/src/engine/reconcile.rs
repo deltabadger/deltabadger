@@ -99,12 +99,13 @@ pub(crate) fn write_receipt(c: &Connection, tx_id: i64, facts: &Facts, source: &
 }
 
 /// What the ledger already holds of order `order_id`: its API fills of `family` (the record's: "ClassicHf" or "Uta"; visible,
-/// and withheld where HF-3's table exists), the owner's and the row's exchange's only, each id once. Σ size, Σ funds,
-/// Σ |fee| per currency.
+/// and withheld where HF-3's table exists), of `account` only (#710: its user's and exchange's rows until the ledger knows
+/// accounts, slice 4), each id once. Σ size, Σ funds, Σ |fee| per currency.
 #[derive(Debug, PartialEq)]
 pub struct Known { pub size: BigDec, pub funds: BigDec, pub fees: std::collections::BTreeMap<String, BigDec> }
 
-pub fn known_fills(c: &Connection, user_id: i64, exchange_id: i64, order_id: &str, family: &str) -> Result<Known, EngineError> {
+pub fn known_fills(c: &Connection, account: &crate::identity::Account, order_id: &str, family: &str) -> Result<Known, EngineError> {
+    let (user_id, exchange_id) = (account.user_id, account.exchange_id);
     let mut rows: Vec<(String, String)> = vec![];
     let mut s = c.prepare_cached("SELECT tx_id, raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NOT NULL \
                                   AND json_valid(raw_data) AND json_extract(raw_data, '$.orderId') = ?3 AND json_extract(raw_data, '$.createdAt') IS NOT NULL")?;
@@ -137,9 +138,9 @@ pub fn known_fills(c: &Connection, user_id: i64, exchange_id: i64, order_id: &st
     Ok(known)
 }
 
-/// The owner and exchange `known_fills` reads for row `tx_id`: the row's bot's user, the row's own exchange.
-pub(crate) fn owner(c: &Connection, tx_id: i64) -> Result<(i64, i64), EngineError> {
-    Ok(c.query_row("SELECT b.user_id, t.exchange_id FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE t.id = ?1", [tx_id], |r| Ok((r.get(0)?, r.get(1)?)))?)
+/// The account `known_fills` reads for row `tx_id`: the one the order was placed on (#710), whatever its bot's is now.
+pub(crate) fn owner(c: &Connection, tx_id: i64) -> Result<crate::identity::Account, EngineError> {
+    crate::identity::Account::of_order(c, tx_id)?.ok_or_else(|| data(format!("order {tx_id}: its account is another user's or exchange's, or it has none")))
 }
 
 /// What `admit` decided for one HF answer, in the caller's write transaction.
@@ -157,8 +158,7 @@ pub(crate) enum Admit {
 pub(crate) fn admit(c: &Connection, bot_id: i64, tx_id: i64, external_id: &str, record: &Value, s: &OrderState, now: DateTime<Utc>) -> Result<Admit, EngineError> {
     let facts = Facts::of(s);
     // The fills the ledger already holds bound every answer, a replay of a settlement included.
-    let (user, exchange) = owner(c, tx_id)?;
-    let known = known_fills(c, user, exchange, external_id, record["family"].as_str().unwrap_or_default())?;
+    let known = known_fills(c, &owner(c, tx_id)?, external_id, record["family"].as_str().unwrap_or_default())?;
     let funds = s.quote_amount_exec.clone().unwrap_or_else(BigDec::zero);
     if !matches!(s.status, OrderStatus::Unknown | OrderStatus::Failed) && (s.amount_exec < known.size || funds < known.funds) {
         mark(c, tx_id, "KuCoin answered less than the fills already recorded for it", now)?;
@@ -381,8 +381,7 @@ pub fn by_operator(c: &Connection, tx_id: i64, text: &str, now: DateTime<Utc>) -
         why.push("account is not the one the order was placed with".into());
     }
     if !why.is_empty() { return Err(refuse(why)); }
-    let (user, exchange_id) = owner(&tx, tx_id)?;
-    let known = known_fills(&tx, user, exchange_id, &b.order.id, &b.order.family)?;
+    let known = known_fills(&tx, &owner(&tx, tx_id)?, &b.order.id, &b.order.family)?;
     if facts.size < known.size || facts.funds < known.funds { return Err(refuse(vec!["executed is lower than the fills already recorded for it".into()])); }
     if known.fees.iter().any(|(currency, amount)| fees.get(currency).is_none_or(|f| f < amount)) { return Err(refuse(vec!["fees are lower than the fills already recorded for it".into()])); }
     let evidence = serde_json::to_value(&b).map_err(|e| data(e.to_string()))?;
@@ -493,8 +492,7 @@ pub(crate) fn prove(c: &Connection, bot_id: i64, tx_id: i64, origin: &crate::ven
             Origin::Hf(record) => {
                 let row = crate::figures::fill::stored_order(tx, tx_id)?;
                 let ext: String = tx.query_row("SELECT external_id FROM transactions WHERE id = ?1", [tx_id], |r| r.get(0))?;
-                let (user, exchange) = owner(tx, tx_id)?;
-                let known = known_fills(tx, user, exchange, &ext, "ClassicHf")?;
+                let known = known_fills(tx, &owner(tx, tx_id)?, &ext, "ClassicHf")?;
                 let floor = |a: Option<BigDec>, b: &BigDec| a.filter(|a| a > b).unwrap_or_else(|| b.clone());
                 let mut record = record.clone();
                 record["deal_size"] = json!(floor(row.amount_exec, &known.size).to_s_f());

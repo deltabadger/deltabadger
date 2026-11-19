@@ -311,6 +311,7 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("app_configs", "value"), Policy::FilterAppConfigs),
     (("users", "otp_secret_key"), Policy::Keep("sign in with two-factor after a restore (2.x keeps it; the keys ship)")),
     (("rules", "address"), Policy::Keep("the owner's own withdrawal addresses (2.x keeps them; the keys ship)")),
+    (("exchange_account_rules", "address"), Policy::Keep("the owner's own withdrawal addresses, by account (2.x's `rules` mirrors the first account's; the keys ship)")),
     (("exchange_accounts", "account_id_enc"), Policy::Keep("the account a venue key belongs to: a key on another account shows as a conflict (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("exchange_account_credentials", "account_id_enc"), Policy::DeleteRows),
     (("exchange_account_imports", "account_id_enc"), Policy::Keep("the account an imported history belongs to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
@@ -419,7 +420,8 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     tx.execute_batch("DELETE FROM fee_api_keys").map_err(&f)?;
     let keys = names(tx, "SELECT key FROM app_configs ORDER BY id", &[]).map_err(&f)?;
     for key in keys.iter().filter(|k| !app_config_kept(k)) { tx.execute("DELETE FROM app_configs WHERE key = ?1", [key]).map_err(&f)?; }
-    tx.execute_batch("UPDATE bots SET status = 2 WHERE status NOT IN (3, 7); UPDATE rules SET status = 2 WHERE status NOT IN (3, 7)").map_err(&f)?;
+    tx.execute_batch("UPDATE bots SET status = 2 WHERE status NOT IN (3, 7); UPDATE rules SET status = 2 WHERE status NOT IN (3, 7); \
+                      UPDATE exchange_account_rules SET status = 2 WHERE status NOT IN (3, 7)").map_err(&f)?;
     for id in tx.prepare("SELECT id FROM bot_signals ORDER BY id").and_then(|mut s| s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()).map_err(&f)? {
         tx.execute("UPDATE bot_signals SET token = ?1, enabled = 0 WHERE id = ?2", params![hex::encode(rand::random::<[u8; 32]>()), id]).map_err(&f)?;
     }

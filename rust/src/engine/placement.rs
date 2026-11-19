@@ -107,6 +107,18 @@ pub fn load_intent(c: &Connection, bot: &Bot, producer: Option<model::Credential
 /// composition too, and one rule is simpler and safe. The intent records what it was sent under (`exchange_id`,
 /// `quote_asset_id`, `allocations`, written by `begin`; one written by an earlier build gets them at takeover,
 /// `backfill_snapshots`). An intent without them counts as changed: fail closed.
+/// #710: the account unresolved intent `v` of `bot` was placed on: the one it names, or, for an intent of a build before
+/// accounts (every exchange then had one), its exchange's first.
+pub fn placed_account(c: &Connection, bot: &model::Bot, v: &Value) -> Result<Option<i64>, EngineError> {
+    if let Some(id) = v.get("account_id").and_then(Value::as_i64) { return Ok(Some(id)); }
+    Ok(crate::identity::Account::first(c, bot.user_id, v["exchange_id"].as_i64().unwrap_or(bot.exchange_id))?.id)
+}
+
+/// #710: whether key `v` belongs to bot `bot_id`'s account now.
+fn key_is_bots(c: &Connection, v: &model::CredentialVersion, bot_id: i64) -> Result<bool, EngineError> {
+    Ok(crate::identity::account_of_key(c, v.id)? == crate::identity::account_of_bot(c, bot_id)?)
+}
+
 pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
@@ -114,7 +126,10 @@ pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
     for id in ids {
         let bot = model::load_bot(c, id)?;
         let Some(v) = bot.rust_placement() else { continue };
-        let changed = match v.get("allocations") {
+        // #710: an intent naming its account (this build's) is stranded by a move to another one.
+        let account = crate::identity::account_of_bot(c, id)?;
+        let moved = placed_account(c, &bot, &v)? != account;
+        let changed = moved || match v.get("allocations") {
             Some(sent) => v["exchange_id"].as_i64() != Some(bot.exchange_id) || v["quote_asset_id"].as_i64() != bot.quote_asset_id()
                 || bot.settings.get("allocations").unwrap_or(&Value::Null) != sent
                 || v.get("composition").is_some_and(|sent| composition_snapshot(c, &bot).map_or(true, |current| *sent != current)),
@@ -300,6 +315,11 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
             super::log(&format!("[engine] bot {}: credentials changed; order not placed; retry with fresh credentials", bot.id));
             return Ok(Begun::CredentialsChanged);
         }
+        // #710: the key it was sized with is still the bot's account's (a move of the bot leaves the old key current).
+        if let Some(v) = version { if !key_is_bots(&tx, v, bot.id)? {
+            super::log(&format!("[engine] bot {}: its account changed; order not placed; retry with its account's key", bot.id));
+            return Ok(Begun::CredentialsChanged);
+        } }
     }
     if let Some((tickers, composition, reconciled)) = fence {
         let mut ticker_changed = false;
@@ -377,6 +397,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     }
     // What the order is sent under: `stranded` refuses any change to it until the order settles.
     v["exchange_id"] = json!(current.exchange_id);
+    // #710: the account it is placed on; the order is that account's when accepted, whatever the bot's is by then.
+    v["account_id"] = json!(crate::identity::account_of_bot(&tx, current.id)?);
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     v["composition"] = composition_snapshot(&tx, &current)?;
@@ -487,6 +509,10 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
         super::log(&format!("[engine] bot {}: credentials changed; order not placed; retry with fresh credentials", sized_from.id));
         return Ok(SignalClaim::CredentialsChanged);
     }
+    if let Some(v) = version { if !key_is_bots(&tx, v, current.id)? {
+        super::log(&format!("[engine] bot {}: its account changed; order not placed; retry with its account's key", sized_from.id));
+        return Ok(SignalClaim::CredentialsChanged);
+    } }
     // D-SIG-CAP: the exact cap bounds a buy under the intent lock, on the call and on the one more attempt alike. A reduction
     // under the venue's minimum is the skipped row 2.x writes for an order under it, with the call consumed.
     // An API buy names its amount: one the cap does not fully cover is refused, never clamped (Jan, 2026-10-31).
@@ -524,6 +550,8 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
     let mut v = intent.to_json()?;
     Intent::from_json(&tx, &current, &v, intent.credential_version.clone())?;
     v["exchange_id"] = json!(current.exchange_id);
+    // #710: the account it is placed on; the order is that account's when accepted, whatever the bot's is by then.
+    v["account_id"] = json!(crate::identity::account_of_bot(&tx, current.id)?);
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     v["composition"] = composition_snapshot(&tx, &current)?;

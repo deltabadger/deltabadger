@@ -2244,6 +2244,39 @@ async fn the_exchange_menu_of_a_large_catalogue_is_counted_by_the_database() {
     assert!(took < Duration::from_secs(5), "a page over 150,000 listings took {took:?}");
 }
 
+/// #710: with two live accounts on the bot's exchange, its exchange menu lists the other one (`Name<sup>n</sup>`, posting the
+/// account); picking it moves the bot to that account, and the menu then offers number 1. With one account the menu names
+/// no account at all.
+#[tokio::test(flavor = "current_thread")]
+async fn the_exchange_menu_lists_a_second_account_and_switches_the_bot_to_it() {
+    use deltabadger::identity::{self, Account};
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let mut stopped = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+    stopped.status = 2;
+    let bot = common::seed::insert_bot(c, &seeded, &stopped);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    assert!(!page.body.contains("[account_id]"), "one account: the menu names none");
+    let first = Account::first(c, seeded.user_id, seeded.exchange_id).unwrap().ensure(c, deltabadger::codec::parse_time("2026-09-10 12:00:00").unwrap()).unwrap().id.unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [seeded.user_id, seeded.exchange_id]).unwrap();
+    let second = c.last_insert_rowid();
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert!(page.body.contains(&format!("name=\"bots_dca_multi_asset[account_id]\" type=\"submit\" value=\"{second}\"")), "{}", page.body);
+    assert!(page.body.contains("<sup>2</sup>") && !page.body.contains("<sup>1</sup>"), "the bot's own account is not offered");
+    let switched = browser.post(&app, &format!("/bots/{bot}"), &[("_method", "patch"), ("bots_dca_multi_asset[account_id]", &second.to_string())]).await;
+    assert!(switched.status < 400, "{} {}", switched.status, switched.body);
+    assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(second), "{} {}", switched.status, &switched.body[..switched.body.len().min(3000)]);
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert!(page.body.contains(&format!("value=\"{first}\"")) && page.body.contains("<sup>1</sup>"), "{}", page.body);
+}
+
 /// The orders feed prints what the venue and the engine wrote: an order's symbols and its error, an
 /// event's message and its details. None of it is markup.
 #[tokio::test(flavor = "current_thread")]

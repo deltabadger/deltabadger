@@ -193,6 +193,23 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         unique_indexes: &[&["user_id", "exchange_id", "number"]] }),
     ("20261119000001", TableContract { name: "exchange_account_keys", columns: &[("api_key_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
     ("20261119000001", TableContract { name: "exchange_account_bots", columns: &[("bot_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
+    // #710 slice 3: withdrawal rules by account (2.x's `rules` mirrors the number-1 ones).
+    ("20261119000002", TableContract { name: "exchange_account_rules", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("user_id", "INTEGER", true), ("type", "TEXT", true), ("status", "INTEGER", true),
+        ("exchange_id", "INTEGER", true), ("asset_id", "INTEGER", false), ("address", "TEXT", false), ("settings", "TEXT", true),
+        ("settings_changed_at", "TEXT", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)],
+        unique_indexes: &[&["account_id", "type", "asset_id"]] }),
+    ("20261119000002", TableContract { name: "rust_api_order_standalone", columns: &[
+        ("order_id", "INTEGER", false), ("account_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("ticker_id", "INTEGER", true), ("order_type", "TEXT", true),
+        ("price", "TEXT", false), ("surface", "TEXT", true), ("identity", "TEXT", false), ("order_snapshot", "TEXT", false), ("external_id", "TEXT", false)],
+        unique_indexes: &[] }),
+    // Its unique index is on (coalesce(account_id, -exchange_id), venue_id): an expression the contract cannot name.
+    ("20261119000002", TableContract { name: "rust_withdrawal_ids", columns: &[("account_id", "INTEGER", false),
+        ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)],
+        unique_indexes: &[] }),
+    // #710 slice 3: a bot's order's account (PLAN-710-4 §2's shape; slice 3 writes account_id only).
+    ("20261119000002", TableContract { name: "exchange_account_transactions", columns: &[("transaction_id", "INTEGER", false), ("account_id", "INTEGER", true),
+        ("venue_external_id", "TEXT", false)], unique_indexes: &[&["account_id", "venue_external_id"]] }),
 ];
 
 /// What this build migrates.

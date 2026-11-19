@@ -77,7 +77,7 @@ async fn temporary(app: &App, ctx: &Ctx, config: Value) -> Result<Option<Rule>, 
         let Some(asset)=Asset::find(c,crate::web::wizard::to_i(&config["asset_id"]))?else{return Ok(None)};
         let (fee,chains):(Option<String>,Option<String>)=c.query_row("SELECT withdrawal_fee,withdrawal_chains FROM exchange_assets WHERE exchange_id=?1 AND asset_id=?2",
             (exchange.id,asset.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?.unwrap_or_default();
-        Ok(Some(Rule{id:0,user_id:user,status:0,exchange,asset,address:string(&config["address"]),settings:config,
+        Ok(Some(Rule{id:0,user_id:user,account:crate::identity::Account::first(c,user,exchange.id)?,status:0,exchange,asset,address:string(&config["address"]),settings:config,
             fee:fee.and_then(|f|BigDec::parse(&f).ok()),chains:chains.and_then(|s|serde_json::from_str(&s).ok()).unwrap_or_default(),balance:None,unconfirmed:None}))
     }).await
 }

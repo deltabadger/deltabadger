@@ -174,10 +174,61 @@ pub fn log(
     c.execute("INSERT INTO rust_rule_log_origins(rule_log_id,owner,client_id,created_at) VALUES(?1,?2,?3,?4)",params![id,format!("rule:{rule}"),client,format_time(now)])?;
     Ok(id)
 }
-pub fn seed_v2_ids(c: &Connection) -> Result<(), EngineError> {
-    c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) SELECT r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'v2' FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
+pub fn seed_v2_ids(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
+    // Each (user, exchange) of 2.x's successes has its number 1 (eager rows; 2.x may have added one since the migration).
+    let mut s = c.prepare("SELECT DISTINCT r.user_id,r.exchange_id FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND r.exchange_id IS NOT NULL")?;
+    let pairs = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for (user, exchange) in pairs { crate::identity::touch(c, user, exchange, now)?; }
+    // 2.x's successes: of 2.x's rules, each its (user, exchange)'s number 1 (#710; a second account's rule has no exchange there).
+    c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) SELECT a.id,r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'v2' FROM rule_logs l JOIN rules r ON r.id=l.rule_id JOIN exchange_accounts a ON a.user_id=r.user_id AND a.exchange_id=r.exchange_id AND a.number=1 WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
     Ok(())
 }
+
+// ---- #710: withdrawal rules live in exchange_account_rules (migration 20261119000002), each with its account. 2.x's
+// `rules` keeps a row for every id (rule_logs' foreign key, and the id itself comes from it) and, for a number-1 rule,
+// the same row: every write to the store mirrors it in its own transaction, so 2.x, an export and a handback read what
+// Rust runs. A rule of an account 2+ has only its id row there (deleted to 2.x, no exchange): 2.x could not hold it.
+
+const COLUMNS: &str = "id,user_id,type,status,exchange_id,asset_id,address,settings,settings_changed_at,created_at,updated_at";
+const UPDATED: &str = "user_id=excluded.user_id,type=excluded.type,status=excluded.status,exchange_id=excluded.exchange_id,asset_id=excluded.asset_id,\
+                       address=excluded.address,settings=excluded.settings,settings_changed_at=excluded.settings_changed_at,created_at=excluded.created_at,updated_at=excluded.updated_at";
+
+/// 2.x's `rules` row of the store's number-1 rule `id` (every one with None) made equal to it.
+pub fn mirror(c: &Connection, id: Option<i64>) -> rusqlite::Result<usize> {
+    c.execute(&format!("INSERT INTO rules({COLUMNS}) SELECT r.id,r.user_id,r.type,r.status,r.exchange_id,r.asset_id,r.address,r.settings,r.settings_changed_at,r.created_at,r.updated_at \
+                        FROM exchange_account_rules r JOIN exchange_accounts a ON a.id=r.account_id AND a.number=1 WHERE ?1 IS NULL OR r.id=?1 ON CONFLICT(id) DO UPDATE SET {UPDATED}"), [id])
+}
+
+/// A new withdrawal rule of `account` (with its row): its id from 2.x's `rules`, then the store's row, then the mirror.
+pub fn create(c: &Connection, account: &crate::identity::Account, asset_id: i64, address: &str, settings: &str, at: &str) -> rusqlite::Result<i64> {
+    let Some(account_id) = account.id else { return Err(rusqlite::Error::QueryReturnedNoRows) };
+    c.execute("INSERT INTO rules(user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,'Rules::Withdrawal',3,NULL,NULL,NULL,'{}',?2,?2)",
+              params![account.user_id, at])?;
+    let id = c.last_insert_rowid();
+    c.execute(&format!("INSERT INTO exchange_account_rules(account_id,{COLUMNS}) VALUES (?1,?2,?3,'Rules::Withdrawal',0,?4,?5,?6,?7,?8,?8,?8)"),
+              params![account_id, id, account.user_id, account.exchange_id, asset_id, address, settings, at])?;
+    mirror(c, Some(id))?;
+    Ok(id)
+}
+
+/// The takeover, after 2.x owned the install: the store's number-1 rules become 2.x's withdrawal rules again (ids kept;
+/// one 2.x deleted goes). Run after identity::fill, so every (user, exchange) a rule names has its number 1; one that has
+/// none fails the takeover (account_id NOT NULL) rather than losing the rule. A rule with no exchange stays 2.x's only, as
+/// the migration leaves it.
+pub fn refill(c: &Connection) -> rusqlite::Result<()> {
+    const V2: &str = "FROM rules r WHERE r.type='Rules::Withdrawal' AND r.exchange_id IS NOT NULL";
+    const NUMBER_1: &str = "(SELECT a.id FROM exchange_accounts a WHERE a.user_id=r.user_id AND a.exchange_id=r.exchange_id AND a.number=1)";
+    c.execute(&format!("DELETE FROM exchange_account_rules WHERE account_id IN (SELECT id FROM exchange_accounts WHERE number=1) AND id NOT IN (SELECT r.id {V2})"), [])?;
+    c.execute(&format!("INSERT INTO exchange_account_rules(account_id,{COLUMNS}) SELECT {NUMBER_1},r.id,r.user_id,r.type,r.status,r.exchange_id,r.asset_id,r.address,r.settings,r.settings_changed_at,r.created_at,r.updated_at \
+                        {V2} AND NOT EXISTS (SELECT 1 FROM exchange_account_rules s JOIN exchange_accounts b ON b.id=s.account_id WHERE s.id=r.id AND b.number<>1) \
+                        ON CONFLICT(id) DO UPDATE SET account_id=excluded.account_id,{UPDATED}"), [])?;
+    Ok(())
+}
+
+/// The handback's refusal (handback_problems): a rule of an account 2+ has no place in 2.x's `rules`.
+pub const HANDBACK_REFUSAL: &str = "a withdrawal rule of an exchange's second account is Rust-only";
+
 pub fn table_exists(c: &Connection, name: &str) -> rusqlite::Result<bool> {
     c.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)",
@@ -363,13 +414,13 @@ pub fn import(c: &Connection, jobs: &[Job], now: DateTime<Utc>) -> Result<usize,
         }
         let source = format!("v2:{}", job.id);
         added += if job.all {
-            c.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM rules WHERE type='Rules::Withdrawal' AND status=1",params![source,format_time(now)])?
+            c.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM exchange_account_rules WHERE type='Rules::Withdrawal' AND status=1",params![source,format_time(now)])?
         } else {
-            c.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM rules WHERE id=?3 AND type='Rules::Withdrawal'",params![source,format_time(now),job.rule])?
+            c.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM exchange_account_rules WHERE id=?3 AND type='Rules::Withdrawal'",params![source,format_time(now),job.rule])?
         };
         append_journal(c, IMPORT, &job.id, now)?;
     }
-    seed_v2_ids(c)?;
+    seed_v2_ids(c, now)?;
     Ok(added)
 }
 pub fn cleanup_queue(c: &Connection, q: &Connection) -> Result<usize, EngineError> {
@@ -413,7 +464,7 @@ pub fn finish_cleanup(
     Ok(n)
 }
 pub fn start_evaluations(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> {
-    Ok(c.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM rules WHERE type='Rules::Withdrawal' AND status=1",params![format!("start:{}",uuid::Uuid::new_v4()),format_time(now)])?)
+    Ok(c.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM exchange_account_rules WHERE type='Rules::Withdrawal' AND status=1",params![format!("start:{}",uuid::Uuid::new_v4()),format_time(now)])?)
 }
 pub fn fire(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> {
     let at = super::run::RULES_SCHEDULE.last_fire(now);
@@ -425,7 +476,7 @@ pub fn fire(c: &Connection, now: DateTime<Utc>) -> Result<usize, EngineError> {
         if at <= last {
             return Ok(0);
         }
-        n=tx.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM rules WHERE type='Rules::Withdrawal' AND status=1",params![format!("fire:{}",at.to_rfc3339()),format_time(now)])?;
+        n=tx.execute("INSERT OR IGNORE INTO rust_rule_evaluations(rule_id,source,created_at) SELECT id,?1,?2 FROM exchange_account_rules WHERE type='Rules::Withdrawal' AND status=1",params![format!("fire:{}",at.to_rfc3339()),format_time(now)])?;
     }
     app_config::set_plain(&tx, FIRED, &at.to_rfc3339(), now).map_err(EngineError::Data)?;
     tx.commit()?;
@@ -444,6 +495,10 @@ pub fn handback_problems(c: &Connection) -> Result<Vec<String>, EngineError> {
         .collect::<Vec<_>>();
     if journals_pending(c)? {
         problems.push("withdrawal job cleanup is pending".into());
+    }
+    if table_exists(c, "exchange_account_rules")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rules r JOIN exchange_accounts a ON a.id=r.account_id WHERE a.number<>1)", [], |r| r.get::<_, bool>(0))? {
+        problems.push(HANDBACK_REFUSAL.into());
     }
     Ok(problems)
 }

@@ -70,7 +70,7 @@ pub async fn index(
     let (inner, v) = (app.clone(), ctx.clone());
     let (rules,logs,empty_logs) = app.db(move |c| {
         let rules = service::visible_rules(c,&inner,user.id)?;
-        let logs = c.prepare("SELECT l.status,l.message,l.created_at FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE r.user_id=?1 AND l.status<>0 ORDER BY l.created_at DESC LIMIT 50")?
+        let logs = c.prepare("SELECT l.status,l.message,l.created_at FROM rule_logs l JOIN exchange_account_rules r ON r.id=l.rule_id WHERE r.user_id=?1 AND l.status<>0 ORDER BY l.created_at DESC LIMIT 50")?
             .query_map([user.id],|r| Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?)))?.collect::<Result<Vec<_>,_>>()?;
         let empty = logs.is_empty();
         let mut html = String::from("<div class=\"widget widget--table widget--table--rules\" data-controller=\"table-fit\">

@@ -1473,6 +1473,33 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
     assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)),"metadata-only changes must allow placement");
 }
 
+/// #710: a bot moved to another account after its key was captured places nothing with that key: the old key stays
+/// current, so the check is the key's account against the bot's, in the claim transaction.
+#[tokio::test(flavor="current_thread")]
+async fn a_key_captured_before_its_bot_moved_account_places_nothing() {
+    use deltabadger::engine::{model, placement, amount::{self, Sizing}, FixedClock};
+    use deltabadger::identity::Account;
+    let server=MockServer::start().await;
+    let h=Harness::new(server.uri()).await;
+    let at=h.app.now();
+    let id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
+    h.c.execute("UPDATE bots SET status=4 WHERE id=?1",[id]).unwrap();
+    let bot=model::load_bot(&h.c,id).unwrap();
+    let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
+    let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::v2::BigDec::from_i64(60),&deltabadger::v2::BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
+    let composition=placement::composition_snapshot(&h.c,&bot).unwrap();
+    let reconciled=deltabadger::engine::splits::snapshot(&h.c,&bot,"2026-09-10T12:00:00Z".parse().unwrap()).unwrap();
+    let captured=model::credential_version(&h.c,&bot).unwrap();
+    let first=Account::first(&h.c,bot.user_id,bot.exchange_id).unwrap().ensure(&h.c,at).unwrap();
+    h.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')",[bot.user_id,bot.exchange_id]).unwrap();
+    let second=Account::by_id(&h.c,h.c.last_insert_rowid()).unwrap().unwrap();
+    deltabadger::identity::place_bot(&h.c,id,bot.user_id,bot.exchange_id,Some(second),at).unwrap();
+    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::CredentialsChanged));
+    assert!(model::load_bot(&h.c,id).unwrap().rust_placement().is_none());
+    deltabadger::identity::place_bot(&h.c,id,bot.user_id,bot.exchange_id,Some(first),at).unwrap();
+    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)));
+}
+
 // A real sync starts with A while the actual tick is paused before intent. B is
 // committed with a new encrypted credential digest. Finishing A's sync must not restore A's version.
 #[tokio::test(flavor="current_thread")]

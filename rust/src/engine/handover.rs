@@ -204,8 +204,10 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     };
     if v2_window {
         super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?;
-        // #710: what 2.x added names exchanges with no account yet; rows stay eager.
+        // #710: what 2.x added names exchanges with no account yet; rows stay eager. Its withdrawal rules are the number-1
+        // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
+        super::rules::refill(&tx)?;
     }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
@@ -689,7 +691,12 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // ---- tables ----
         // The user's imported accounts and rows (tracker): 2.x never reads them.
         (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
-        (Table, "exchange_account_keys", Ignored), (Table, "exchange_account_bots", Ignored),
+        // #710: a key or a bot of an account 2+ refuses: 2.x would trade it with the first account's key.
+        (Table, "exchange_account_keys", Refuses(SECOND_ACCOUNT_KEY)), (Table, "exchange_account_bots", Refuses(SECOND_ACCOUNT_BOT)),
+        // #710: withdrawal rules by account. 2.x's `rules` mirrors the number-1 ones (written again in the handback); a rule
+        // of an account 2+ refuses (rules::handback_problems).
+        (Table, "exchange_account_rules", Refuses(super::rules::HANDBACK_REFUSAL)),
+        (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
@@ -700,7 +707,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
         // its stored route (a KuCoin HF or UTA family) is this engine's; 2.x's cancel sends on its own route.
-        (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
+        // #710: one placed on an exchange's second account refuses (2.x would cancel it with the first account's key).
+        (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Refuses(SECOND_ACCOUNT_STANDALONE)),
         // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
         (Table, "rust_idempotency_orders", Ignored),
         // A28-1: 2.x's unrecorded-order candidates and whether their line was written; 2.x never reads it.
@@ -850,6 +858,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_commands(&tx)?;
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
+    // #710: 2.x's withdrawal rules are Rust's number-1 rules (a rule Rust deleted or stopped never runs again on 2.x).
+    if super::rules::table_exists(&tx, "exchange_account_rules")? { super::rules::mirror(&tx, None)?; }
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: 2.x's adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
@@ -1082,7 +1092,25 @@ fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
         let this engine run the bot until the hold clears before handing back")).collect()))
 }
 
+/// #710: an order of an exchange's account 2+ (exchange_account_transactions holds nothing else): 2.x would follow it with
+/// the first account's key.
+pub const SECOND_ACCOUNT_ORDER: &str = "an order of an exchange's second account is Rust-only";
+/// #710: a key or a bot of an exchange's account 2+: 2.x knows one account per exchange, and would use the first's key.
+pub const SECOND_ACCOUNT_KEY: &str = "a key of an exchange's second account is Rust-only";
+pub const SECOND_ACCOUNT_BOT: &str = "a bot of an exchange's second account is Rust-only";
+pub const SECOND_ACCOUNT_STANDALONE: &str = "a standalone order of an exchange's second account is Rust-only";
+
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
+    if super::rules::table_exists(c, "exchange_account_transactions")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_transactions)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_ORDER.into()]));
+    }
+    for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE)] {
+        if super::rules::table_exists(c, table)?
+            && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table} m JOIN exchange_accounts a ON a.id = m.account_id WHERE a.number <> 1)"), [], |r| r.get::<_, bool>(0))? {
+            return Err(EngineError::Ineligible(vec![line.into()]));
+        }
+    }
     // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;

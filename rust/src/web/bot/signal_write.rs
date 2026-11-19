@@ -379,10 +379,19 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
     let id = bot.id;
     let text = |key: &str| fields.get(key).map(|v| match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() });
     let label = text("label").filter(|l| !l.trim().is_empty());
-    let exchange_id = match text("exchange_id") {
+    let mut exchange_id = match text("exchange_id") {
         None => None,
         Some(t) => match t.trim().parse::<i64>() { Ok(e) => Some(e), Err(_) => return Ok(Core::Answer(Answer::Unported("an exchange id this build does not read"))) },
     };
+    // #710: the switch menu's account (with 2+ accounts on an exchange); its exchange is the one switched to.
+    let account = match text("account_id") {
+        None => None,
+        Some(t) => match t.trim().parse::<i64>().ok().map(|a| crate::identity::Account::by_id(tx, a)).transpose()?.flatten().filter(|a| a.user_id == owner) {
+            Some(a) => { exchange_id = Some(a.exchange_id); Some(a) }
+            None => return Ok(Core::Answer(Answer::Unported("an exchange that does not exist"))),
+        },
+    };
+    let account_changed = match account { Some(a) => crate::identity::Account::of_bot(tx, id)? != Some(a), None => false };
     let mut assets = Map::new();
     for key in ["base_asset_id", "quote_asset_id"] {
         if let Some(value) = fields.get(key).filter(|v| crate::web::bot_api::present(v)) {
@@ -416,7 +425,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
     if assets_changed && bot.has_orders {
         for key in ["base_asset_id", "quote_asset_id"].into_iter().filter(|key| asset_changed(key)) { errors.push(error(key, model_message(ctx.locale, key, "unchangeable"))); }
     }
-    if new_exchange.is_some() && bot.has_waiting_orders {
+    if (new_exchange.is_some() || account_changed) && bot.has_waiting_orders {
         errors.push(error("exchange", i18n::text(ctx.locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", Arg::Text(&exchange.1))])));
     }
     // D-SIG-CONDITIONS / D-SIG-CAP: the rules, parsed, validated and called back as a basket's are.
@@ -437,8 +446,9 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
         if let Some(label) = label.as_ref().filter(|_| label_changed) { tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2", (label, id))?; }
         if let Some((e, _)) = &new_exchange {
             tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2", (e, id))?;
-            crate::identity::touch(tx, owner, *e, ctx.now)?;
         }
+        // #710: on the posted account, or its new exchange's number 1; what it placed keeps its own account.
+        if new_exchange.is_some() || account_changed { crate::identity::place_bot(tx, id, owner, exchange.0, account, ctx.now)?; }
         for (key, value) in assets.iter().filter(|(key, _)| asset_changed(key)) {
             tx.execute("UPDATE bots SET settings = json_set(settings, ?1, json(?2)) WHERE id = ?3", (format!("$.{key}"), value.to_string(), id))?;
         }
@@ -465,7 +475,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
             }
         }
         if settings_changed { tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2", (&now, id))?; }
-        if label_changed || new_exchange.is_some() || settings_changed || transient_changed { tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2", (&now, id))?; }
+        if label_changed || new_exchange.is_some() || account_changed || settings_changed || transient_changed { tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2", (&now, id))?; }
         Ok(())
     };
     let shown = |tx: &Connection| -> Result<Bot, WebError> {
@@ -480,7 +490,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
         return Ok(Core::Invalid { errors, shown });
     }
     write(tx)?;
-    let changed = label_changed || new_exchange.is_some() || settings_changed || transient_changed;
+    let changed = label_changed || new_exchange.is_some() || account_changed || settings_changed || transient_changed;
     if changed {
         if let Err(refusal) = eligibility::guard(tx, &ctx.app.cipher, Some(id)) { return Ok(Core::Refused { reason: refusal.reason(), shown: shown(tx)? }); }
         if let Some(reason) = refused_after(tx, &ctx.app, id)? { return Ok(Core::Answer(Answer::Unported(reason))); }
@@ -685,7 +695,8 @@ pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Valu
                VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, '{}', ?7, ?7, ?7)",
               rusqlite::params![owner, exchange, model::SIGNAL_TYPE, label, position, settings.to_string(), at])?;
     let id = c.last_insert_rowid();
-    crate::identity::touch(c, owner, exchange, now)?;
+    // #710: on its exchange's number 1 (the wizard, REST and MCP name no other account before slice 7).
+    crate::identity::place_bot(c, id, owner, exchange, None, now)?;
     for rule in rules {
         c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, last_triggered_at, created_at, updated_at) \
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?7)",

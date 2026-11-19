@@ -208,15 +208,15 @@ pub fn picker<'a>(list: &'a Listing, rule: &Rule) -> (Vec<&'a Entry>, Option<usi
 }
 
 pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Listing>, WebError> {
-    let (inner, user, exchange, asset) =
-        (app.clone(), rule.user_id, rule.exchange.id, rule.asset.id);
+    let (inner, account, exchange, asset) =
+        (app.clone(), rule.account, rule.exchange.id, rule.asset.id);
     let require_correct = networks;
     let captured = app
         .db(move |c| {
             let tx = c.unchecked_transaction()?;
             let c = &tx;
             let Some((key, captured_version)) =
-                crate::engine::model::withdrawal_credentials(c, &inner.cipher, user, exchange)?
+                crate::engine::model::withdrawal_credentials(c, &inner.cipher, &account)?
             else {
                 return Ok(None);
             };
@@ -403,9 +403,9 @@ pub async fn refresh_fee(
     let Some(kind) = Kind::of(&rule.exchange.class) else {
         return Ok(());
     };
-    let (inner, user, exchange, asset, now) = (
+    let (inner, account, exchange, asset, now) = (
         app.clone(),
-        rule.user_id,
+        rule.account,
         rule.exchange.id,
         rule.asset.id,
         app.now(),
@@ -416,8 +416,8 @@ pub async fn refresh_fee(
         let stamp: Option<String> = c.query_row("SELECT withdrawal_fee_updated_at FROM exchange_assets WHERE exchange_id=?1 AND asset_id=?2",
             (exchange, asset), |r| r.get(0)).optional()?.flatten();
         if stamp.and_then(|s| crate::codec::parse_time(&s).ok()).is_some_and(|at| at > now - chrono::Duration::hours(24)) { return Ok(None) }
-        let key = if matches!(kind, Kind::Binance | Kind::Mexc) { withdrawal::fee_key(c, &inner.cipher, user, exchange)? }
-            else { crate::engine::model::withdrawal_credentials(c, &inner.cipher, user, exchange)?.map(|(cr,id)| FeeKey::Withdrawal(cr,id.id)) };
+        let key = if matches!(kind, Kind::Binance | Kind::Mexc) { withdrawal::fee_key(c, &inner.cipher, &account)? }
+            else { crate::engine::model::withdrawal_credentials(c, &inner.cipher, &account)?.map(|(cr,id)| FeeKey::Withdrawal(cr,id.id)) };
         let Some(key) = key else { return Ok(None) };
         let version = if let FeeKey::Withdrawal(_, id) = &key {
             let Ok((_,version))=crate::sync::credentials_with_version(c,&inner.cipher,*id) else {return Ok(None)};
@@ -472,7 +472,7 @@ pub async fn refresh_fee(
                 }
             } else {
                 let Some(FeeKey::Fee(current)) =
-                    withdrawal::fee_key(&tx, &inner.cipher, user, exchange)?
+                    withdrawal::fee_key(&tx, &inner.cipher, &account)?
                 else {
                     return Ok(false);
                 };

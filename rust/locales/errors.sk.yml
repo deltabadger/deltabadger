@@ -94,6 +94,7 @@ sk:
                 external_sales: "%{label} predal aktíva, ktoré tu nikdy nekúpil, takže jeho históriu nemožno zlúčiť."
                 interleaved: "Spojením histórií týchto botov by sa zmenil ich celkový výsledok, preto ich nemožno zlúčiť."
                 quote: "Všetky boty musia míňať rovnakú menu."
+                accounts: "Tieto boty obchodujú na rôznych účtoch tej istej burzy, preto ich nemožno zlúčiť."
                 nothing_to_buy: "Žiadne z týchto aktív sa na tejto burze už neobchoduje."
             index_switch:
                 stop_first: "Najprv bota zastav."

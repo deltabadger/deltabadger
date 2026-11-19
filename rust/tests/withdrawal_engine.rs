@@ -23,7 +23,7 @@ struct Db {
 impl Db {
     fn new() -> Self {
         let c = Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE rules(id INTEGER PRIMARY KEY,user_id INTEGER,type TEXT,status INTEGER,exchange_id INTEGER,asset_id INTEGER,address TEXT,settings TEXT,updated_at TEXT); CREATE TABLE exchanges(id INTEGER PRIMARY KEY,type TEXT,name TEXT); CREATE TABLE assets(id INTEGER PRIMARY KEY,symbol TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,status INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE tickers(id INTEGER PRIMARY KEY,exchange_id INTEGER,base_asset_id INTEGER,quote_asset_id INTEGER,base TEXT,quote TEXT,available INTEGER); CREATE TABLE rule_logs(id INTEGER PRIMARY KEY,rule_id INTEGER,status INTEGER,message TEXT,details TEXT,created_at TEXT); CREATE TABLE app_configs(id INTEGER PRIMARY KEY,key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE exchange_assets(exchange_id INTEGER,asset_id INTEGER,withdrawal_fee TEXT,withdrawal_fee_updated_at TEXT,withdrawal_chains TEXT,updated_at TEXT); INSERT INTO exchanges VALUES(1,'Exchanges::Binance','Binance'); INSERT INTO assets VALUES(1,'BTC'); INSERT INTO tickers VALUES(1,1,1,2,'BTC','USD',1); INSERT INTO exchange_assets(exchange_id,asset_id) VALUES(1,1);").unwrap();
+        c.execute_batch("CREATE TABLE rules(id INTEGER PRIMARY KEY,user_id INTEGER,type TEXT,status INTEGER,exchange_id INTEGER,asset_id INTEGER,address TEXT,settings TEXT,updated_at TEXT); CREATE TABLE exchange_account_rules(id INTEGER PRIMARY KEY,user_id INTEGER,type TEXT,status INTEGER,exchange_id INTEGER,asset_id INTEGER,address TEXT,settings TEXT,updated_at TEXT,account_id INTEGER); CREATE TABLE exchange_accounts(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,number INTEGER,fingerprint TEXT,removed_at TEXT,created_at TEXT,updated_at TEXT); INSERT INTO exchange_accounts VALUES(1,1,1,1,NULL,NULL,NULL,NULL); CREATE TABLE exchange_account_keys(api_key_id INTEGER PRIMARY KEY,account_id INTEGER NOT NULL); CREATE TABLE exchanges(id INTEGER PRIMARY KEY,type TEXT,name TEXT); CREATE TABLE assets(id INTEGER PRIMARY KEY,symbol TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,status INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE tickers(id INTEGER PRIMARY KEY,exchange_id INTEGER,base_asset_id INTEGER,quote_asset_id INTEGER,base TEXT,quote TEXT,available INTEGER); CREATE TABLE rule_logs(id INTEGER PRIMARY KEY,rule_id INTEGER,status INTEGER,message TEXT,details TEXT,created_at TEXT); CREATE TABLE app_configs(id INTEGER PRIMARY KEY,key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE exchange_assets(exchange_id INTEGER,asset_id INTEGER,withdrawal_fee TEXT,withdrawal_fee_updated_at TEXT,withdrawal_chains TEXT,updated_at TEXT); INSERT INTO exchanges VALUES(1,'Exchanges::Binance','Binance'); INSERT INTO assets VALUES(1,'BTC'); INSERT INTO tickers VALUES(1,1,1,2,'BTC','USD',1); INSERT INTO exchange_assets(exchange_id,asset_id) VALUES(1,1);").unwrap();
         c.execute_batch(include_str!(
             "../migrations/20261026000001_withdrawal_rules.sql"
         ))
@@ -38,14 +38,21 @@ impl Db {
         for m in deltabadger::store::RUST_MIGRATIONS.iter().filter(|m| ["20261108000001", "20261109000001", "20261110000001", "20261117000001"].contains(&m.version)) {
             c.execute_batch(m.sql).unwrap();
         }
+        // #710: withdrawal ids by account, as 20261119000002 rebuilds them.
+        let accounts = deltabadger::store::RUST_MIGRATIONS.iter().find(|m| m.version == "20261119000002").unwrap();
+        c.execute_batch("DROP TABLE rust_withdrawal_ids").unwrap();
+        for text in accounts.sql.split(';').filter(|t| t.contains("CREATE TABLE rust_withdrawal_ids (") || t.contains("ON rust_withdrawal_ids (")) { c.execute_batch(text).unwrap(); }
         let cipher = Cipher::new(&EncryptionKeys::resolve(&|_| None, "withdrawal-test").unwrap());
         c.execute("INSERT INTO api_keys(id,user_id,exchange_id,key_type,status,key,secret) VALUES(1,1,1,1,1,?1,?2)",params![cipher.encrypt("key"),cipher.encrypt("secret")]).unwrap();
         let settings = json!({"network":"BTC","withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":"0.01"});
+        let address = cipher.encrypt("destination");
         c.execute(
             "INSERT INTO rules VALUES(1,1,'Rules::Withdrawal',1,1,1,?1,?2,'revision')",
-            params![cipher.encrypt("destination"), settings.to_string()],
+            params![address, settings.to_string()],
         )
         .unwrap();
+        // #710: Rust reads its store of rules (by account); 2.x's row stays for its logs.
+        c.execute("INSERT INTO exchange_account_rules SELECT *,1 FROM rules", []).unwrap();
         let q = Connection::open_in_memory().unwrap();
         q.execute_batch("CREATE TABLE solid_queue_jobs(id INTEGER PRIMARY KEY,active_job_id TEXT,class_name TEXT,arguments TEXT,finished_at TEXT); CREATE TABLE solid_queue_claimed_executions(job_id INTEGER); CREATE TABLE solid_queue_failed_executions(job_id INTEGER); CREATE TABLE solid_queue_ready_executions(job_id INTEGER); CREATE TABLE solid_queue_scheduled_executions(job_id INTEGER); CREATE TABLE solid_queue_blocked_executions(job_id INTEGER);").unwrap();
         Self { c, q, cipher }
@@ -436,7 +443,7 @@ async fn unreadable_and_unknown_rejections_remain_accounted_for() {
 async fn stopped_evaluation_and_fire_restart() {
     let d = Db::new();
     let f = Fake::new(&d);
-    d.c.execute("UPDATE rules SET status=2", []).unwrap();
+    d.c.execute("UPDATE exchange_account_rules SET status=2", []).unwrap();
     assert!(
         w::evaluate(&d.c, &d.cipher, &f, d.eval(), &FixedClock(now()))
             .await
@@ -445,7 +452,7 @@ async fn stopped_evaluation_and_fire_restart() {
     );
     assert_eq!(d.count("rule_logs"), 0);
     assert!(rules::handback_problems(&d.c).unwrap().is_empty());
-    d.c.execute("UPDATE rules SET status=1", []).unwrap();
+    d.c.execute("UPDATE exchange_account_rules SET status=1", []).unwrap();
     rules::fire(&d.c, now()).unwrap();
     assert_eq!(d.count("rust_rule_evaluations"), 1);
     rules::fire(&d.c, now() + chrono::Duration::hours(4)).unwrap();
@@ -779,7 +786,7 @@ async fn chain_fee_uses_one_basis_against_recorded_cell() {
     assert_eq!(cell["rule_logs"][0]["details"]["fee"], "0.0002");
     let d = Db::new();
     d.c.execute(
-        "UPDATE rules SET settings=json_set(settings,'$.network','LIGHTNING')",
+        "UPDATE exchange_account_rules SET settings=json_set(settings,'$.network','LIGHTNING')",
         [],
     )
     .unwrap();
@@ -870,7 +877,7 @@ fn concurrent_starts_each_keep_their_fanout() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("starts.sqlite");
     let c = Connection::open(&path).unwrap();
-    c.execute_batch("CREATE TABLE rules(id INTEGER PRIMARY KEY,type TEXT,status INTEGER); INSERT INTO rules VALUES(1,'Rules::Withdrawal',1),(2,'Rules::Withdrawal',1);").unwrap();
+    c.execute_batch("CREATE TABLE exchange_account_rules(id INTEGER PRIMARY KEY,type TEXT,status INTEGER); INSERT INTO exchange_account_rules VALUES(1,'Rules::Withdrawal',1),(2,'Rules::Withdrawal',1);").unwrap();
     c.execute_batch(include_str!(
         "../migrations/20261026000001_withdrawal_rules.sql"
     ))
@@ -984,7 +991,7 @@ async fn stopped_after_begin_drops_only_prepared_without_a_row() {
     let d = Db::new();
     let f = Fake::new(&d);
     let i = d.prepared(&f).await;
-    d.c.execute("UPDATE rules SET status=2", []).unwrap();
+    d.c.execute("UPDATE exchange_account_rules SET status=2", []).unwrap();
     w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now()))
         .await
         .unwrap();
@@ -1100,7 +1107,7 @@ async fn crash_worker() {
             tx.commit().unwrap();
             if boundary == "stop" {
                 let tx = deltabadger::engine::model::immediate(&d.c).unwrap();
-                tx.execute("UPDATE rules SET status=2", []).unwrap();
+                tx.execute("UPDATE exchange_account_rules SET status=2", []).unwrap();
                 tx.execute("UPDATE rust_rule_evaluations SET consumed_at='2026-10-28',outcome='skipped' WHERE consumed_at IS NULL",[]).unwrap();
                 tx.commit().unwrap();
             }
@@ -1349,7 +1356,7 @@ async fn inactive_unreadable_evaluation_skips_before_decryption() {
         let d = Db::new();
         let f = Fake::new(&d);
         d.c.execute(
-            "UPDATE rules SET status=?1,address=?2,settings='unreadable'",
+            "UPDATE exchange_account_rules SET status=?1,address=?2,settings='unreadable'",
             params![status, old_address()],
         )
         .unwrap();
@@ -1385,7 +1392,7 @@ async fn active_unreadable_evaluation_logs_once_without_venue_reads() {
     ] {
         let d = Db::new();
         let f = Fake::new(&d);
-        d.c.execute(&format!("UPDATE rules SET {column}=?1"), [value])
+        d.c.execute(&format!("UPDATE exchange_account_rules SET {column}=?1"), [value])
             .unwrap();
         let evaluation = d.eval();
         for _ in 0..2 {
@@ -1424,6 +1431,7 @@ async fn engine_steps_with_unreadable_rule(status: i64) {
     let cipher = common::seed::cipher();
     let seed = common::seed::seed_kraken(&opened.primary, &cipher);
     opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',?2,?3,?4,?5,'{}',?6,?6)", params![seed.user_id,status,seed.exchange_id,seed.btc,old_address(),now().to_rfc3339()]).unwrap();
+    common::seed::rules_as_v2_wrote(&opened.primary);
     // A ready 2.x ExecuteJob for the unreadable rule is imported before the first engine pass.
     let queue = Db::new();
     queue.job("old-key-job", false, false);
@@ -1435,6 +1443,7 @@ async fn engine_steps_with_unreadable_rule(status: i64) {
     for pass in 0..2 {
         // A later evaluation proves that the same phase keeps processing other rules on every pass.
         engine.primary.execute("INSERT OR IGNORE INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(?1,?2,'Rules::Withdrawal',2,?3,?4,?5,'{}',?6,?6)", params![2,seed.user_id,seed.exchange_id,seed.quote,engine.cipher.encrypt("other"),now().to_rfc3339()]).unwrap();
+        common::seed::rules_as_v2_wrote(&engine.primary);
         engine
             .primary
             .execute(
@@ -1518,7 +1527,7 @@ async fn mexc_network_alias_dispatches_normalized_destination() {
     )
     .unwrap();
     d.c.execute(
-        "UPDATE rules SET settings=json_set(settings,'$.network','BTC-CODE')",
+        "UPDATE exchange_account_rules SET settings=json_set(settings,'$.network','BTC-CODE')",
         [],
     )
     .unwrap();
@@ -1544,9 +1553,9 @@ async fn destination_changes_before_or_during_dispatch_delete_unsent() {
             let mut f = Fake::new(&d);
             let i = d.prepared(&f).await;
             let change = if field == "address" {
-                format!("UPDATE rules SET address='{}'", d.cipher.encrypt("changed"))
+                format!("UPDATE exchange_account_rules SET address='{}'", d.cipher.encrypt("changed"))
             } else {
-                format!("UPDATE rules SET settings=json_set(settings,'$.{field}','changed')")
+                format!("UPDATE exchange_account_rules SET settings=json_set(settings,'$.{field}','changed')")
             };
             if during_read {
                 f.change = change;
@@ -1571,14 +1580,14 @@ const K_SEND: &str = "POST /0/private/Withdraw";
 const K_STATUS: &str = "POST /0/private/WithdrawStatus";
 fn kraken_db() -> Db {
     let d = Db::new();
-    d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken'; UPDATE tickers SET base='XBT'; UPDATE rules SET settings=json_set(settings,'$.address_name','cold');").unwrap();
+    d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Kraken',name='Kraken'; UPDATE tickers SET base='XBT'; UPDATE exchange_account_rules SET settings=json_set(settings,'$.address_name','cold');").unwrap();
     d
 }
 fn kraken_adapter(
     d: &Db,
     t: &ScriptedTransport,
 ) -> w::VenueAdapter<KrakenVenue<ScriptedTransport>> {
-    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, &deltabadger::identity::Account::first(&d.c, 1, 1).unwrap())
         .unwrap()
         .unwrap();
     w::VenueAdapter::new(
@@ -1916,7 +1925,7 @@ async fn kraken_quote_over_budget_or_threshold_refuses_before_send() {
         let d = kraken_db();
         let t = kraken_reads();
         if threshold {
-            d.c.execute("UPDATE rules SET settings=json_set(settings,'$.threshold_type','fee_percentage','$.max_fee_percentage','0.1','$.max_interval',NULL)",[]).unwrap();
+            d.c.execute("UPDATE exchange_account_rules SET settings=json_set(settings,'$.threshold_type','fee_percentage','$.max_fee_percentage','0.1','$.max_interval',NULL)",[]).unwrap();
         } else {
             // First quote consumes .01 of the budget; a .02 re-quote exceeds the remainder.
             // Replace the script to supply the two precise answers.
@@ -1987,6 +1996,7 @@ async fn kraken_engine_threshold(below: bool) {
     opened.primary.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,?3,?3)", params![seed.exchange_id,seed.btc,now().to_rfc3339()]).unwrap();
     let settings = json!({"address_name":"cold","withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":if below {"0.1"} else {"0.01"}});
     opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',1,?2,?3,?4,?5,?6,?6)", params![seed.user_id,seed.exchange_id,seed.btc,cipher.encrypt("destination"),settings.to_string(),now().to_rfc3339()]).unwrap();
+    common::seed::rules_as_v2_wrote(&opened.primary);
     opened.primary.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES(1,'start:l-kraken',?1)", [now().to_rfc3339()]).unwrap();
     let t = if below {
         ScriptedTransport::from_script(&json!({
@@ -2036,6 +2046,64 @@ async fn kraken_engine_threshold(below: bool) {
     }
 }
 
+/// #710: Kraken with the credentials it was built with checked: only account 2's withdrawal key may reach it.
+struct AccountKeyFactory(ScriptedTransport, &'static str);
+impl deltabadger::venue::VenueFactory for AccountKeyFactory {
+    type V = KrakenVenue<ScriptedTransport>;
+    fn for_bot(&self, exchange: &str, credentials: Option<deltabadger::crypto::Credentials>) -> Self::V {
+        assert_eq!(exchange, "Exchanges::Kraken");
+        let credentials = credentials.unwrap();
+        assert_eq!(credentials.key, self.1, "the rule's own account's withdrawal key");
+        KrakenVenue::new(self.0.clone()).with_identity(&credentials)
+    }
+}
+
+/// #710: two accounts of one exchange each hold a rule for BTC. Account 2's rule withdraws with account 2's withdrawal key,
+/// and its venue id is recorded for account 2: the same id already recorded for account 1 is another withdrawal.
+#[tokio::test]
+async fn a_second_accounts_rule_withdraws_with_its_own_key_and_records_its_id_for_its_account() {
+    use deltabadger::{engine::run, identity::Account, lease, store::{self, Paths}};
+    let dir = common::baseline_install();
+    let paths = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&paths, now()).unwrap();
+    let opened = store::open(&paths).unwrap();
+    let cipher = common::seed::cipher();
+    let seed = common::seed::seed_kraken(&opened.primary, &cipher);
+    let c = &opened.primary;
+    c.execute("UPDATE api_keys SET key_type=1 WHERE id=?1", [seed.api_key_id]).unwrap();
+    c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,?3,?3)", params![seed.exchange_id,seed.btc,now().to_rfc3339()]).unwrap();
+    let settings = json!({"address_name":"cold","withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":"0.01"}).to_string();
+    // Account 1's rule for BTC, stopped; account 2 with its own withdrawal key and its own rule for BTC.
+    c.execute("INSERT INTO rules(user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(?1,'Rules::Withdrawal',2,?2,?3,?4,?5,?6,?6)", params![seed.user_id,seed.exchange_id,seed.btc,cipher.encrypt("destination"),settings,now().to_rfc3339()]).unwrap();
+    common::seed::rules_as_v2_wrote(c);
+    let first = Account::first(c, seed.user_id, seed.exchange_id).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [seed.user_id, seed.exchange_id]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 1, 'now', 'now')",
+              params![seed.user_id, seed.exchange_id, cipher.encrypt("account-2-key"), cipher.encrypt("account-2-secret")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    let rule = rules::create(c, &second, seed.btc, &cipher.encrypt("destination"), &settings, "2026-01-01 00:00:00").unwrap();
+    c.execute("UPDATE exchange_account_rules SET status=1 WHERE id=?1", [rule]).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM exchange_account_rules WHERE asset_id=?1", [seed.btc], |r| r.get::<_, i64>(0)).unwrap(), 2, "a rule for BTC on each account");
+    assert_eq!(c.query_row("SELECT status, exchange_id IS NULL FROM rules WHERE id=?1", [rule], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?))).unwrap(), (3, true),
+               "2.x's table holds only the second account's rule's id");
+    c.execute("INSERT INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,'K-live-gate','rule:0','2026-01-01','rust')",
+              params![first.id, seed.exchange_id]).unwrap();
+    c.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES(?1,'start:account-2',?2)", params![rule, now().to_rfc3339()]).unwrap();
+    let t = kraken_reads();
+    t.set_now(now());
+    t.reply(K_SEND, 200, json!({"error":[],"result":{"refid":"K-live-gate"}}));
+    let mut engine = run::Engine::new(opened.primary, AccountKeyFactory(t.clone(), "account-2-key"), cipher, lock);
+    for _ in 0..2 { run::step(&mut engine, &FixedClock(now())).await.unwrap(); }
+    let c = &engine.primary;
+    assert_eq!(kraken_sends(&t), 1);
+    let (status, details): (i64, String) = c.query_row("SELECT status,details FROM rule_logs WHERE rule_id=?1", [rule], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, serde_json::from_str::<Value>(&details).unwrap()["withdrawal_id"].clone()), (1, json!("K-live-gate")));
+    let ids: Vec<(Option<i64>, String)> = c.prepare("SELECT account_id, owner FROM rust_withdrawal_ids ORDER BY rowid").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(ids, [(first.id, "rule:0".to_string()), (second.id, format!("rule:{rule}"))]);
+}
+
 #[tokio::test]
 async fn l_kraken_engine_above_threshold_sends_once_and_reserves_fee() {
     kraken_engine_threshold(false).await;
@@ -2083,6 +2151,7 @@ async fn l_engine_threshold<V: Venue>(class: &'static str, below: bool, factory:
     opened.primary.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,?3,?3)", params![seed.exchange_id,seed.btc,now().to_rfc3339()]).unwrap();
     let settings = json!({"network":network,"withdrawal_percentage":"100","threshold_type":"min_amount","min_amount":if below {"0.1"} else {"0.01"}});
     opened.primary.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES(1,?1,'Rules::Withdrawal',1,?2,?3,?4,?5,?6,?6)", params![seed.user_id,seed.exchange_id,seed.btc,cipher.encrypt("destination"),settings.to_string(),now().to_rfc3339()]).unwrap();
+    common::seed::rules_as_v2_wrote(&opened.primary);
     opened.primary.execute("INSERT INTO rust_rule_evaluations(rule_id,source,created_at) VALUES(1,'start:l-venue',?1)", [now().to_rfc3339()]).unwrap();
     let free = if below { "0.05" } else { "1" };
     let t = ScriptedTransport::default();
@@ -3286,7 +3355,7 @@ async fn e1_x0_classifier_cells_through_real_adapters() {
 fn e1_db(mexc: bool) -> Db {
     let d = Db::new();
     if mexc {
-        d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Mexc',name='MEXC'; UPDATE rules SET settings=json_set(settings,'$.network','Bitcoin');").unwrap();
+        d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Mexc',name='MEXC'; UPDATE exchange_account_rules SET settings=json_set(settings,'$.network','Bitcoin');").unwrap();
     }
     d
 }
@@ -3311,7 +3380,7 @@ fn e1_binance_adapter(
     d: &Db,
     t: &ScriptedTransport,
 ) -> w::VenueAdapter<BinanceVenue<ScriptedTransport>> {
-    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, &deltabadger::identity::Account::first(&d.c, 1, 1).unwrap())
         .unwrap()
         .unwrap();
     w::VenueAdapter::new(
@@ -3326,7 +3395,7 @@ fn e1_binance_adapter(
     )
 }
 fn e1_mexc_adapter(d: &Db, t: &ScriptedTransport) -> w::VenueAdapter<MexcVenue<ScriptedTransport>> {
-    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, &deltabadger::identity::Account::first(&d.c, 1, 1).unwrap())
         .unwrap()
         .unwrap();
     w::VenueAdapter::new(
@@ -3618,14 +3687,14 @@ const G_SEND: &str = "POST /v2/withdraw/bitcoin/btc";
 const G_STATUS: &str = "POST /v2/transfers";
 fn gemini_db() -> Db {
     let d = Db::new();
-    d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Gemini',name='Gemini'; UPDATE rules SET settings=json_set(settings,'$.network','bitcoin');").unwrap();
+    d.c.execute_batch("UPDATE exchanges SET type='Exchanges::Gemini',name='Gemini'; UPDATE exchange_account_rules SET settings=json_set(settings,'$.network','bitcoin');").unwrap();
     d
 }
 fn gemini_adapter(
     d: &Db,
     t: &ScriptedTransport,
 ) -> w::VenueAdapter<GeminiVenue<ScriptedTransport>> {
-    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+    let (cr, version) = deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, &deltabadger::identity::Account::first(&d.c, 1, 1).unwrap())
         .unwrap()
         .unwrap();
     w::VenueAdapter::new(
@@ -4105,7 +4174,7 @@ async fn kraken_not_sent_dispatch_settles_without_operator_ack() {
         let i = kraken_prepared(&d, &t).await;
         let attempts = std::rc::Rc::new(Cell::new(0));
         let (cr, version) =
-            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, &deltabadger::identity::Account::first(&d.c, 1, 1).unwrap())
                 .unwrap()
                 .unwrap();
         let a = w::VenueAdapter::new(
@@ -4131,7 +4200,7 @@ async fn gemini_not_sent_dispatch_settles_without_operator_ack() {
         let i = gemini_prepared(&d, &t).await;
         let attempts = std::rc::Rc::new(Cell::new(0));
         let (cr, version) =
-            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, 1, 1)
+            deltabadger::engine::model::withdrawal_credentials(&d.c, &d.cipher, &deltabadger::identity::Account::first(&d.c, 1, 1).unwrap())
                 .unwrap()
                 .unwrap();
         let a = w::VenueAdapter::new(
@@ -4348,7 +4417,7 @@ fn dust(balance: &'static str) -> Dust {
 }
 async fn run_dust(case: Dust) -> (i64, String) {
     let d = kraken_db();
-    d.c.execute("UPDATE rules SET settings=?1", [case.settings.to_string()]).unwrap();
+    d.c.execute("UPDATE exchange_account_rules SET settings=?1", [case.settings.to_string()]).unwrap();
     d.c.execute("UPDATE exchange_assets SET exchange_id=1,asset_id=1,withdrawal_fee=?1,withdrawal_fee_updated_at='stamped',updated_at='touched'", [case.stored.flatten()]).unwrap();
     if case.stored.is_none() {
         d.c.execute("DELETE FROM exchange_assets", []).unwrap();
@@ -4423,4 +4492,19 @@ async fn kraken_dust_refusal_with_stored_fee_logs_below_minimum() {
         assert_eq!(status, 2, "{reply:?}");
         assert!(message.starts_with("Failed to refresh withdrawal fees: "), "{message}");
     }
+}
+
+/// #710: a withdrawal id whose account could not be told (a recorder's from before accounts: NULL, scoped by its exchange)
+/// blocks that venue id for every account of its exchange: the rule's acceptance of the same id is a duplicate, never a
+/// second record.
+#[tokio::test]
+async fn an_exchange_scoped_withdrawal_id_blocks_it_for_every_account() {
+    let d = Db::new();
+    d.c.execute("INSERT INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(NULL,1,'X','recorder:old','2026-01-01','rust')", []).unwrap();
+    let f = Fake::new(&d);
+    let i = d.prepared(&f).await;
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now())).await.unwrap();
+    w::settle(&d.c, &d.cipher, &i, "dispatched", w::SendResult::Accepted { id: "X".into() }, now()).unwrap();
+    assert_eq!(w::load(&d.c, &d.cipher, &i.owner).unwrap().unwrap().reason.as_deref(), Some("duplicate venue id"));
+    assert_eq!(d.count("rust_withdrawal_ids"), 1);
 }

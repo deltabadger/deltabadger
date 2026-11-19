@@ -174,7 +174,9 @@ fn expected_positions(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<R
     let s = splits(c, bot, now)?;
     let assets: std::collections::BTreeSet<i64> = s.events.iter().map(|e| e.asset_id).collect();
     let mut expected: HashMap<String, BigDec> = HashMap::new();
-    let mut stmt = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 ORDER BY id")?;
+    // #710: the bots of this bot's account, whose holdings are the venue account's positions.
+    let mine = crate::identity::sibling_bots(c, bot.id)?;
+    let mut stmt = c.prepare(&format!("SELECT b.id FROM bots b WHERE b.user_id=?1 AND b.exchange_id=?2 AND {mine} ORDER BY b.id"))?;
     let mut ids = stmt.query(params![bot.user_id,bot.exchange_id])?;
     while let Some(row) = ids.next()? {
         figures::budget::charge(1, 0).map_err(data)?;

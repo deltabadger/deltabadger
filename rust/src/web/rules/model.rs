@@ -10,6 +10,8 @@ use serde_json::{json, Value};
 pub struct Rule {
     pub id: i64,
     pub user_id: i64,
+    /// The account the rule withdraws from (#710); a new rule's is its exchange's number 1.
+    pub account: crate::identity::Account,
     pub status: i64,
     pub exchange: Venue,
     pub asset: Asset,
@@ -95,9 +97,12 @@ impl Rule {
 
 pub fn load(c: &Connection, app: &App, user: i64, id: i64) -> Result<Option<Rule>, WebError> {
     type Row = (i64, i64, i64, Option<String>, String);
-    let row: Option<Row> = c.query_row("SELECT status, exchange_id, asset_id, address, settings FROM rules WHERE id=?1 AND user_id=?2 AND type='Rules::Withdrawal'",
+    let row: Option<Row> = c.query_row("SELECT status, exchange_id, asset_id, address, settings FROM exchange_account_rules WHERE id=?1 AND user_id=?2 AND type='Rules::Withdrawal'",
         params![id,user], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?;
     let Some((status, exchange, asset, address, settings)) = row else {
+        return Ok(None);
+    };
+    let Some(account) = crate::identity::Account::of_rule(c, id)? else {
         return Ok(None);
     };
     let Some(exchange) = crate::web::wizard::keys::venue(c, Some(exchange))? else {
@@ -136,6 +141,7 @@ pub fn load(c: &Connection, app: &App, user: i64, id: i64) -> Result<Option<Rule
     Ok(Some(Rule {
         id,
         user_id: user,
+        account,
         status,
         exchange,
         asset,

@@ -168,6 +168,11 @@ impl Merge {
         }
         let quote = |source: &Source| source.bot.setting("quote_asset_id").map_or(0, wizard::to_i);
         if !self.bots.iter().all(|source| quote(source) == quote(self.anchor())) { return Ok(Some(Reason::Plain("quote"))); }
+        // #710: two accounts of one exchange hold apart what each bot bought; their bots are never one.
+        let accounts = self.bots.iter().map(|source| crate::identity::Account::of_bot(c, source.bot.id)).collect::<Result<Vec<_>, _>>()?;
+        if accounts.iter().flatten().any(|a| accounts.iter().flatten().any(|b| a.exchange_id == b.exchange_id && a.id != b.id)) {
+            return Ok(Some(Reason::Plain("accounts")));
+        }
         if self.weights.is_empty() { return Ok(Some(Reason::Plain("nothing_to_buy"))); }
         let Some((exchange, _)) = self.exchange.clone() else { return Ok(Some(Reason::Plain("no_common_exchange"))) };
         if let Some(why) = unrun(c, exchange)? { return Ok(Some(Reason::Unrun(why))); }
@@ -363,7 +368,10 @@ fn write_merged(tx: &Connection, ctx: &Ctx, owner: i64, merge: &Merge, now: Date
     let errors = wizard::create::validate(tx, &built, ctx.locale)?;
     // `save!`: a merged bot 2.x cannot save raises.
     if !errors.is_empty() { return Err(super::data(format!("merged bot invalid: {}", errors.join(", ")))); }
-    let id = wizard::create::insert_as(tx, owner, built, now, BotStatus::Stopped, anchor.position)?;
+    // #710: on the account its sources trade on there (one: `reason` refuses two), else on that exchange's number 1.
+    let mut account = None;
+    for source in merge.bots.iter().filter(|s| s.bot.exchange.id == exchange) { account = crate::identity::Account::of_bot(tx, source.bot.id)?; }
+    let id = wizard::create::insert_as(tx, owner, built, now, BotStatus::Stopped, anchor.position, account)?;
 
     let sources: Vec<i64> = merge.bots.iter().map(|s| s.bot.id).collect();
     let list = json!(sources).to_string();

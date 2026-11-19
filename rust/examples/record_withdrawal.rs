@@ -510,11 +510,12 @@ async fn run() -> Result<(), String> {
         .map_err(|_| "unknown exchange")?;
     require_g0(&class)?;
     let row = venue::registry::row(&class).ok_or("unknown exchange")?;
+    let account = deltabadger::identity::Account::first(&opened.primary, options.spec.user_id, options.spec.exchange_id)
+        .map_err(|_| "cannot read the exchange's account")?;
     let (mut credentials, version) = model::withdrawal_credentials(
         &opened.primary,
         &cipher,
-        options.spec.user_id,
-        options.spec.exchange_id,
+        &account,
     )
     .map_err(|_| "cannot read withdrawal credentials")?
     .ok_or("no valid withdrawal API key")?;

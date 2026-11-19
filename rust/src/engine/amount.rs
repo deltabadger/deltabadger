@@ -348,13 +348,15 @@ pub enum RowKind { Submitted { external_id: String }, Failed { errors: Vec<Strin
 
 /// Bot::OrderCreator: create_submitted_order! / create_failed_order! / create_skipped_order!.
 pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>) -> Result<i64, EngineError> {
-    write_order_row_in(c, bot, plan, kind, created_at)
+    write_order_row_in(c, bot, plan, kind, created_at, None)
 }
 
 /// Accepted orders are ledger facts, not a cache of the current credential's account state.
 /// The intent already authorized dispatch; never discard the acknowledgement on a later fence.
 pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &OrderPlan, external_id: &str, created_at: DateTime<Utc>, run: Option<&super::model::RunIdentity>) -> Result<i64, EngineError> {
-    let id = write_order_row_in(c, bot, plan, RowKind::Submitted { external_id: external_id.to_owned() }, created_at)?;
+    // #710: on the account its intent was placed on (`begin` records it), never the bot's current one.
+    let placed_on = match super::model::load_bot(c, bot.id)?.rust_placement() { Some(v) => super::placement::placed_account(c, bot, &v)?, None => None };
+    let id = write_order_row_in(c, bot, plan, RowKind::Submitted { external_id: external_id.to_owned() }, created_at, placed_on)?;
     c.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1 AND run_identity IS NULL", params![id, run.map(|r| r.order_json().to_string())])?;
     // Every caller writes the row of the bot's unresolved intent before removing it: its IBKR reservation names the row.
     if super::model::exchange_type(c, bot)? == crate::venue::ibkr::IBKR { crate::venue::ibkr_reservations::link(c, bot.id, id)?; }
@@ -365,7 +367,8 @@ pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &Ord
     Ok(id)
 }
 
-fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>) -> Result<i64, EngineError> {
+/// `account`: the account the order was placed on, None for the bot's.
+fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>, account: Option<i64>) -> Result<i64, EngineError> {
     let zero = Some(0.0f64);
     let (status, external_status, external_id, errors, exec) = match kind {
         RowKind::Submitted { external_id } => (TxStatus::Submitted, Some(TxExternalStatus::Unknown as i64), Some(external_id), vec![], None),
@@ -400,7 +403,9 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
             bot_interval.map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
             serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(), plan.kind.as_str(),
         ])?;
-    Ok(c.last_insert_rowid())
+    let id = c.last_insert_rowid();
+    match account { Some(account) => crate::identity::place_order_on(c, id, account)?, None => crate::identity::place_order(c, id, bot.id)? }
+    Ok(id)
 }
 
 /// Bots::Signal::OrderSetter#record_signal_failure before anything was sized (a price or balance read that failed, a check
@@ -412,7 +417,9 @@ pub fn write_unsized_failure(c: &Connection, bot: &Bot, ticker: &Ticker, side: S
          bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5, ?6, ?7, ?8, ?9, '', ?10, 'REGULAR', ?11, ?12, ?12)",
         params![bot.id, bot.exchange_id, TxStatus::Failed as i64, side.code(), 0.0f64, ticker.base_symbol, ticker.quote_symbol, ticker.base_asset_id, ticker.quote_asset_id,
                 to_sql(&BigDec::zero()), serde_json::to_string(errors).unwrap(), format_time(created_at)])?;
-    Ok(c.last_insert_rowid())
+    let id = c.last_insert_rowid();
+    crate::identity::place_order(c, id, bot.id)?;
+    Ok(id)
 }
 
 /// Bot::Startable#disable_starting_time!, which Bot::ActionJob runs after a clean run of a bot whose starting time is on
