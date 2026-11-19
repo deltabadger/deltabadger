@@ -73,21 +73,25 @@ fn figures_json(f: &figures::Figures) -> Result<Value, FiguresError> {
 
 /// The scopes the walk stated and the figures each of today's rows was made from, as the recording harness dumps them.
 fn report(c: &Connection, user_id: i64, walked: &Walked, today: chrono::NaiveDate) -> Result<Value, FiguresError> {
+    // 2.x keys each scope by its exchange: here each is an account (#710 slice 5), and the grid has one per exchange.
+    let exchange_of = |account: i64| -> Result<i64, FiguresError> {
+        Ok(if account > 0 { crate::identity::AccountRow::by_id(c, account)?.map_or(account, |a| a.exchange_id) } else { -account })
+    };
     let mut venues = Map::new();
-    let mut listed = walked.venues.clone();
+    let mut listed = walked.venues.iter().map(|(id, v)| Ok((exchange_of(*id)?, v))).collect::<Result<Vec<_>, FiguresError>>()?;
     listed.sort_by_key(|(id, _)| *id);
     for (id, v) in &listed { venues.insert(id.to_string(), summary_json(v)); }
     let fx = super::fx::FxTable::load(c)?;
     let mut figs = Map::new();
     let empty = Summary::empty();
-    let mut scopes: Vec<(Option<i64>, &Summary)> = vec![(None, &walked.whole)];
-    for id in super::snapshot::venues(c, user_id)? { scopes.push((Some(id), walked.venue(id).unwrap_or(&empty))); }
+    let mut scopes: Vec<(super::Scope, &Summary)> = vec![(super::Scope::All, &walked.whole)];
+    for a in super::snapshot::venues(c, user_id)? { scopes.push((super::Scope::Account(a), walked.venue(a.id).unwrap_or(&empty))); }
     for (scope, ledger) in scopes {
-        let balances = figures::balances(c, user_id, scope)?;
-        let rows: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2))", rusqlite::params![user_id, scope], |r| r.get(0))?;
+        let balances = figures::balances(c, user_id, &scope)?;
+        let rows: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND {})", scope.rows("a")), [user_id], |r| r.get(0))?;
         if balances.is_empty() && !rows { continue; }
-        let f = figures::compute_on(c, user_id, ledger, &balances, &figures::pending(c, user_id, scope)?, &fx, today)?;
-        figs.insert(scope.map_or("whole".into(), |id| id.to_string()), figures_json(&f)?);
+        let f = figures::compute_on(c, user_id, ledger, &balances, &figures::pending(c, user_id, &scope)?, &fx, today)?;
+        figs.insert(scope.exchange().map_or("whole".into(), |id| id.to_string()), figures_json(&f)?);
     }
     Ok(json!({ "whole": summary_json(&walked.whole), "venues": venues, "figures": figs }))
 }

@@ -252,7 +252,7 @@ async fn a_failing_step_writes_nothing_and_loses_nothing() {
         assert_eq!(fx.cache(), cache_of(&twin, fx.owner()), "{failure}: the cache as the producer alone leaves it");
         let c = fx.c();
         let cache::Published::Warm { from, .. } = cache::read_published(&c, fx.owner(), at()).unwrap() else { panic!("{failure}: warm") };
-        assert_eq!(gaps::read(&c, fx.owner(), None, Some(&from), None).unwrap(), vec![], "{failure}: the earlier row is not this publication's");
+        assert_eq!(gaps::read(&c, fx.owner(), &deltabadger::tracker::Scope::All, Some(&from), None).unwrap(), vec![], "{failure}: the earlier row is not this publication's");
     }
 }
 
@@ -332,7 +332,9 @@ async fn the_pending_probe_is_bounded_by_the_time_index_and_the_cap() {
     let fx = alpaca_synced("0.02").await;
     let c = fx.c();
     let plan: Vec<String> = c.prepare(&format!("EXPLAIN QUERY PLAN {}", gaps::pending_sql())).unwrap().query_map(rusqlite::params!["2026-10-01 02:00:00", 1, 1], |r| r.get(3)).unwrap().collect::<Result<_, _>>().unwrap();
-    assert_eq!(plan, ["SEARCH account_transactions USING INDEX index_account_transactions_on_transacted_at (transacted_at>?)"]);
+    // #710 slice 5: a number 1's rows only, each a primary-key lookup of its membership.
+    assert_eq!(plan, ["SEARCH account_transactions USING INDEX index_account_transactions_on_transacted_at (transacted_at>?)", "CORRELATED SCALAR SUBQUERY 1",
+                      "SEARCH m USING INTEGER PRIMARY KEY (rowid=?)"]);
     history(&c, fx.owner(), fx.s.exchange_id, 50_000, "2026-09-05 00:00:00");
     let (found, cost) = instructions(&c, |c| c.query_row(&gaps::pending_sql(), rusqlite::params!["2026-10-01 02:00:00", fx.owner(), fx.s.exchange_id], |_| Ok(())).optional().unwrap());
     assert!(found.is_none() && cost < 1000, "the probe took {cost} instructions past 50,000 earlier rows");
@@ -612,7 +614,9 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, (SELECT a.id FROM exchange_accounts a")
         && s.contains(") FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
-    let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE user_id = {owner} AND exchange_id = {id}");
+    // #710 slice 5: the line's account (its number 1, none stored) and its balances' revision, in the one read.
+    let revision = format!("SELECT a.id, a.number, (SELECT COUNT(*) FROM exchange_account_balances b WHERE b.account_id = a.id), (SELECT MAX(b.updated_at) FROM exchange_account_balances b \
+                            WHERE b.account_id = a.id) FROM exchange_accounts a WHERE a.user_id = {owner} AND a.exchange_id = {id} AND CASE WHEN NULL IS NULL THEN a.number = 1 ELSE a.id = NULL END");
     for path in ["/tracker".to_string(), format!("/tracker?exchange_id={id}")] {
         let extra = added(&statements(&fx, &app, &path, true).await, &statements(&fx, &app, &path, false).await);
         assert_eq!(extra.len(), 4, "{path}: {extra:#?}");
@@ -889,7 +893,7 @@ async fn a_binance_repair_row_opens_no_line_and_costs_no_query() {
     c.execute("UPDATE exchanges SET type='Exchanges::Binance',name='Binance' WHERE id=?1", [fx.s.exchange_id]).unwrap();
     let stored = json!({fx.s.exchange_id.to_string(): {"credential": stamp(&fx, fx.s.exchange_id), "unresolved": 12, "version": deltabadger::sync::binance_repair::REPAIR_VERSION}});
     deltabadger::app_config::set_plain(&c, &deltabadger::sync::binance_repair::gap_key(fx.owner()), &stored.to_string(), at()).unwrap();
-    assert!(gaps::read(&c, fx.owner(), None, Some(&published(&fx)), None).unwrap().is_empty());
+    assert!(gaps::read(&c, fx.owner(), &deltabadger::tracker::Scope::All, Some(&published(&fx)), None).unwrap().is_empty());
     let app = app(&fx);
     assert!(line(&get(&fx, &app, "/tracker").await.body, fx.s.exchange_id).is_none());
     let extra = added(&statements(&fx, &app, "/tracker", true).await, &statements(&fx, &app, "/tracker", false).await);
@@ -906,7 +910,7 @@ async fn a_closed_kucoin_row_costs_one_query() {
     let app = app(&fx);
     for entry in [json!({"key": key, "spans": 0, "uncovered": [], "missing_spans": 0, "missing": []}), json!({"key": key, "spans": 2, "uncovered": spans(2)})] {
         kucoin_row(&fx, kucoin, entry.clone());
-        assert!(gaps::read(&fx.c(), fx.owner(), None, None, None).unwrap().is_empty(), "{entry}");
+        assert!(gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, None, None).unwrap().is_empty(), "{entry}");
         assert!(line(&get(&fx, &app, "/tracker").await.body, kucoin).is_none(), "{entry}");
         let extra = added(&statements(&fx, &app, "/tracker", true).await, &statements(&fx, &app, "/tracker", false).await);
         assert_eq!(extra, vec![gaps_read(fx.owner())], "{entry}");
@@ -921,7 +925,7 @@ async fn kucoin_spans_join_the_coin_gap() {
     kucoin_balances(&fx, kucoin, key, &[("ETH", "7.4", "2000")]);
     assert_eq!(run(&fx).await, Outcome::Done);
     kucoin_row(&fx, kucoin, json!({"key": key, "spans": 2, "uncovered": spans(2), "missing_spans": 2, "missing": spans(2)}));
-    let found = gaps::read(&fx.c(), fx.owner(), None, Some(&published(&fx)), None).unwrap();
+    let found = gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, Some(&published(&fx)), None).unwrap();
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!((found[0].exchange_id, found[0].notes.len(), found[0].unread.len(), found[0].more_unread), (kucoin, 1, 2, false));
     assert_eq!(found[0].unread[0].0, "2026-09-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().unwrap());
@@ -934,12 +938,12 @@ async fn kucoin_spans_alone_are_a_gap() {
     assert_eq!(run(&fx).await, Outcome::Done);
     let (kucoin, key) = add_kucoin(&fx);
     kucoin_row(&fx, kucoin, json!({"key": key, "spans": 25, "uncovered": spans(25), "missing_spans": 25, "missing": spans(25)}));
-    let found = gaps::read(&fx.c(), fx.owner(), None, Some(&published(&fx)), None).unwrap();
+    let found = gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, Some(&published(&fx)), None).unwrap();
     assert_eq!(found.len(), 1);
     assert_eq!((found[0].exchange_id, found[0].notes.len(), found[0].unread.len(), found[0].more_unread), (kucoin, 0, 20, true));
     // Another credential (the key rotated since the row was written): nothing.
     fx.c().execute("UPDATE api_keys SET key='rotated' WHERE id=?1", [key]).unwrap();
-    assert!(gaps::read(&fx.c(), fx.owner(), None, None, None).unwrap().is_empty());
+    assert!(gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, None, None).unwrap().is_empty());
 }
 
 // ---- the row and the modal state the evidence (D-GAP-STATES-EVIDENCE) -------------------------------------------------

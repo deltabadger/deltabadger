@@ -4,6 +4,7 @@ use super::{Ctx, WebError};
 use crate::figures::{at::At, dec::Dec, json::J, num::oj_float, totals::Denomination};
 use crate::tracker::figures::{page, Figures};
 use crate::tracker::walk::Summary;
+use crate::tracker::Scope;
 use crate::web::bots::{Segmented, SegmentedOption};
 use crate::web::figure::NO_VALUE;
 use crate::web::i18n::{self, escape};
@@ -26,11 +27,13 @@ pub fn option(value: &'static str, label: String, active: bool) -> SegmentedOpti
 struct Day { date: NaiveDate, value: Dec, invested: Dec, held_value: Option<Dec>, held_cost: Option<Dec> }
 
 /// `PortfolioSnapshot.series`: the whole portfolio's days, or the switched venue's, by date.
-fn series(c: &Connection, owner: i64, scope: Option<i64>) -> Result<Vec<Day>, WebError> {
-    let sql = if scope.is_some() { "SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM exchange_account_snapshots WHERE user_id=?1 AND exchange_id=?2 ORDER BY date" }
-              else { "SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM portfolio_snapshots WHERE user_id=?1 AND ?2 IS NULL ORDER BY date" };
-    let mut s = c.prepare(sql)?;
-    let mut q = s.query(rusqlite::params![owner, scope])?;
+fn series(c: &Connection, owner: i64, scope: &Scope) -> Result<Vec<Day>, WebError> {
+    let sql = match scope {
+        Scope::All => "SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM portfolio_snapshots WHERE user_id=?1 ORDER BY date".to_string(),
+        scope => format!("SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM exchange_account_snapshots s WHERE user_id=?1 AND {} ORDER BY date", scope.store("s")),
+    };
+    let mut s = c.prepare(&sql)?;
+    let mut q = s.query([owner])?;
     let mut out = vec![];
     let column = |v: rusqlite::types::ValueRef<'_>| crate::tracker::figures::scaled(v, 8).map_err(|_| invalid());
     while let Some(r) = q.next()? {
@@ -47,10 +50,10 @@ fn float_dec(f: f64) -> Result<Dec, WebError> { num(Dec::parse(&oj_float(f))) }
 fn to_f(d: &Dec) -> Result<f64, WebError> { d.to_s_f().parse().map_err(|_| invalid()) }
 
 /// tracker/_chart: nothing for a portfolio with no history, a spinner while one is swept, else the bot chart's widget.
-pub fn chart(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash: bool, den: &Denomination) -> Result<String, WebError> {
+pub fn chart(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool, den: &Denomination) -> Result<String, WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     let mut history = series(c, owner, scope)?;
-    let first: Option<String> = c.query_row("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2)", rusqlite::params![owner, scope], |r| r.get(0))?;
+    let first: Option<String> = c.query_row(&format!("SELECT MIN(a.transacted_at) FROM account_transactions a WHERE a.user_id=?1 AND {}", scope.rows("a")), [owner], |r| r.get(0))?;
     let first = first.map(|t| crate::codec::parse_time(&t).map(|t| t.date_naive()).map_err(|_| invalid())).transpose()?;
     let today = ctx.app.now().date_naive();
     let yesterday = today.pred_opt().ok_or_else(invalid)?;
@@ -129,9 +132,9 @@ fn symbol_asset(c: &Connection, owner: i64, symbol: &str) -> Result<Option<i64>,
 
 /// `Ledger.trip_assets`: the asset a trip's own rows recorded between its opening and its close; none recorded, the
 /// symbol's (`asset_index`); two, neither.
-fn trip_asset(c: &Connection, owner: i64, scope: Option<i64>, symbol: &str, opened: Option<At>, closed: At) -> Result<Option<i64>, WebError> {
-    let mut s = c.prepare("SELECT base_asset_id,transacted_at FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) AND base_currency=?3 AND base_asset_id IS NOT NULL")?;
-    let rows = s.query_map(rusqlite::params![owner, scope, symbol], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+fn trip_asset(c: &Connection, owner: i64, scope: &Scope, symbol: &str, opened: Option<At>, closed: At) -> Result<Option<i64>, WebError> {
+    let mut s = c.prepare(&format!("SELECT a.base_asset_id,a.transacted_at FROM account_transactions a WHERE a.user_id=?1 AND {} AND a.base_currency=?2 AND a.base_asset_id IS NOT NULL", scope.rows("a")))?;
+    let rows = s.query_map(rusqlite::params![owner, symbol], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     let from = opened.unwrap_or(closed);
     let mut own: Vec<i64> = vec![];
     let mut all: Vec<i64> = vec![];
@@ -148,7 +151,7 @@ fn trip_asset(c: &Connection, owner: i64, scope: Option<i64>, symbol: &str, open
     }
 }
 
-fn positions(c: &Connection, owner: i64, scope: Option<i64>, figures: &Figures, ledger: &Summary) -> Result<Vec<Position>, WebError> {
+fn positions(c: &Connection, owner: i64, scope: &Scope, figures: &Figures, ledger: &Summary) -> Result<Vec<Position>, WebError> {
     let mut rows = vec![];
     for h in &figures.holdings {
         let symbol = h.symbol.clone();
@@ -247,14 +250,14 @@ pub(super) fn switch(ctx: &Ctx) -> Result<String, WebError> {
 /// tracker/_record. `warm` is the scoped ledger and its figures (none while it warms: the positions pane spins);
 /// `holdings` is the Holdings pane the record opens on (3.0, Rust only).
 #[allow(clippy::too_many_arguments)] // tracker/_record's locals, the history-gap lines above its newest row, and the holdings pane
-pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap], holdings: &str) -> Result<String, WebError> {
+pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap], holdings: &str) -> Result<String, WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     let all = super::window::present(ctx, "all").is_some();
     // `filtered_transactions.by_date`: the window narrows this table (and its Type filter) only, before the limit.
     let zone = super::window::zone(ctx);
     let window = super::window::read(ctx, zone).map_err(|_| invalid())?;
-    let mut sql = "SELECT id FROM account_transactions WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2)".to_string();
-    let mut binds = vec![rusqlite::types::Value::Integer(owner), scope.map_or(rusqlite::types::Value::Null, rusqlite::types::Value::Integer)];
+    let mut sql = format!("SELECT id FROM account_transactions WHERE user_id=?1 AND {}", scope.rows("account_transactions"));
+    let mut binds = vec![rusqlite::types::Value::Integer(owner)];
     window.push(&mut sql, &mut binds);
     sql.push_str(&format!(" ORDER BY transacted_at DESC{}", if all { String::new() } else { format!(" LIMIT {ROW_LIMIT}") }));
     let ids: Vec<i64> = { let mut s = c.prepare(&sql)?; let ids = s.query_map(rusqlite::params_from_iter(binds), |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids };
@@ -295,7 +298,7 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, warm: O
     let first: Option<String> = c.query_row("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id=?1", [owner], |r| r.get(0))?;
     let first = first.map(|t| crate::codec::parse_time(&t).map_err(|_| invalid())).transpose()?;
     let (from, to) = super::window::defaults(ctx, zone, first);
-    let hidden_scope = ctx.params.query("exchange_id").filter(|s| !s.trim().is_empty()).map(|s| format!("        <input type=\"hidden\" name=\"exchange_id\" id=\"exchange_id\" value=\"{}\" />\n", escape(s))).unwrap_or_default();
+    let hidden_scope = super::scope::hidden(ctx).map(|(name, value)| format!("        <input type=\"hidden\" name=\"{name}\" id=\"{name}\" value=\"{value}\" />\n")).unwrap_or_default();
     let filters_action = FILTERS_ACTION;
     Ok(format!("<div class=\"tracker-record\" data-controller=\"tracker--record\">\n  <div class=\"tracker-record__switch filters\" data-action=\"segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold\">\n    {switch}\n  </div>\n\n{holdings}  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"tx\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table\" data-controller=\"table-fit\">\n{tx_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__pane tracker-record__pane--off\" data-pane=\"pos\"\n       data-controller=\"order-filter\" data-tracker--record-target=\"pane\">\n    <div class=\"tracker-record__filters filters\" data-action=\"{filters_action}\">\n{}    </div>\n    <div class=\"tracker-record__table widget widget--table tracker-positions\" data-controller=\"table-fit\">\n{positions_table}    </div>\n  </div>\n\n  <div class=\"tracker-record__actions\">\n    <form class=\"tracker-date-range\" data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"get\">\n{hidden_scope}      <input type=\"date\" name=\"from\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n      <input type=\"date\" name=\"to\" value=\"{}\" class=\"rinput\" data-action=\"change->form--submit#submit\">\n</form>  </div>\n</div>\n",
         filter(ctx.t("tracker.columns.type"), types)?, filter(ctx.t("tracker.columns.status"), statuses)?, escape(&ctx.path("/tracker")), escape(&from), escape(&to)))

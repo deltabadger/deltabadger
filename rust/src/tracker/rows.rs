@@ -65,6 +65,11 @@ pub struct Stored {
     pub linked_to: Option<i64>,
     pub to_venue: Option<String>,
     pub to_exchange_id: Option<i64>,
+    /// #710 slice 5 (PLAN-710-5 §5.2): where the row sits, its account (`venue_ids::row_account`; on an install without the
+    /// account tables, or a number 1 with no row yet, the negated exchange id), and the linked deposit's. The walk locates
+    /// lots, cash and transfer ends by it; `venue` stays the exchange's identity (pricing, the cash rule).
+    pub account: i64,
+    pub to_account: Option<i64>,
     /// `base_asset`: the asset the row recorded, as (id, external id, category).
     pub base_asset: Option<super::prices::Asset>,
     /// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE, and what the fold made of a fill it was charged on.
@@ -98,7 +103,7 @@ pub struct Expense { pub of: std::sync::Arc<Attribution>, pub index: usize }
 pub struct Attribution { pub fee: Stored, pub weights: Vec<Dec>, pub total: Dec }
 
 fn charged_on(fee: &Stored, r: &Stored) -> bool {
-    matches!(r.kind, Kind::Buy | Kind::Sell) && r.venue == fee.venue && r.base == fee.base && r.amount.is_positive() && !r.borrowed()
+    matches!(r.kind, Kind::Buy | Kind::Sell) && r.account == fee.account && r.base == fee.base && r.amount.is_positive() && !r.borrowed()
         && fee.date().pred_opt() == Some(r.date())
 }
 
@@ -124,11 +129,11 @@ pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresErr
 
 /// Each CFEE of `rows` (time-ordered) with the places of its fills (`cfee_fills`), through one index of the trades.
 pub fn cfee_places(rows: &[Stored]) -> Vec<(usize, Vec<usize>)> {
-    let mut trades: std::collections::HashMap<(&str, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
-    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((&r.venue, &r.base, r.date())).or_default().push(i); } }
+    let mut trades: std::collections::HashMap<(i64, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
+    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((r.account, &r.base, r.date())).or_default().push(i); } }
     let place: std::collections::HashMap<i64, usize> = trades.values().flatten().map(|&i| (rows[i].id, i)).collect();
     rows.iter().enumerate().filter(|(_, r)| r.cfee.fee && r.kind == Kind::Fee).filter_map(|(i, fee)| {
-        let pool = trades.get(&(fee.venue.as_str(), fee.base.as_str(), fee.date().pred_opt()?))?;
+        let pool = trades.get(&(fee.account, fee.base.as_str(), fee.date().pred_opt()?))?;
         Some((i, cfee_fills(fee, pool.iter().map(|&j| &rows[j])).into_iter().map(|r| place[&r.id]).collect()))
     }).collect()
 }
@@ -225,10 +230,11 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
     let mut s = c.prepare(&format!(
         "SELECT t.id, t.exchange_id, e.type, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, \
                 t.fee_currency, t.fee_amount, {}, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
-                le.type, l.exchange_id, ba.id, ba.external_id, ba.category, t.transaction_id, {} \
+                le.type, l.exchange_id, ba.id, ba.external_id, ba.category, t.transaction_id, {}, COALESCE({}, -t.exchange_id), \
+                CASE WHEN l.id IS NULL THEN NULL ELSE COALESCE({}, -l.exchange_id) END \
          FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id LEFT JOIN assets ba ON ba.id = t.base_asset_id \
          LEFT JOIN account_transactions l ON l.id = t.linked_transaction_id LEFT JOIN exchanges le ON le.id = l.exchange_id \
-         WHERE {filter} ORDER BY t.id", any.row_id("t"), any.member_sql("t")))?;
+         WHERE {filter} ORDER BY t.id", any.row_id("t"), any.member_sql("t"), any.row_account("t"), any.row_account("l")))?;
     let mut q = s.query(params)?;
     let mut rows = vec![];
     while let Some(r) = q.next()? {
@@ -252,6 +258,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
             base_asset: r.get::<_, Option<i64>>(18)?.map(|id| -> rusqlite::Result<_> { Ok((id, r.get(19)?, r.get(20)?)) }).transpose()?,
             cfee: Cfee { fee: raw.get("activity_type").and_then(Value::as_str) == Some("CFEE"), ..Cfee::default() },
             bot_order: r.get(21)?,
+            account: r.get(23)?, to_account: r.get(24)?,
         });
     }
     Ok(rows)
@@ -357,7 +364,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.

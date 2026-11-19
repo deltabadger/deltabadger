@@ -193,8 +193,15 @@ fn venue(class: &str) -> String {
 /// The history-gap line (Rust only): the venue's button to the import steps, then what was found
 /// (D-GAP-STATES-EVIDENCE) across the header's other columns (`gap::gap_summary`; no money).
 pub fn gap_row(ctx:&Ctx,gap:&crate::tracker::gaps::StoredGap,hidden:bool)->String {
+    let (id,query)=gap_anchor(gap);
     format!("<tr id=\"history_gap_{id}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all\">\n  <td class=\"text-left tracker-row__when table__when\">\n    <a class=\"rbutton rbutton--small\" data-turbo-frame=\"modal\" href=\"{}\">{}</a>\n  </td>\n  <td class=\"tracker-exchange-icon\">{}</td>\n  <td class=\"text-left\" colspan=\"{}\">{}</td>\n</tr>\n",
-        escape(&ctx.path(&format!("/tracker/history_gap?exchange_id={}",gap.exchange_id))),ctx.t("tracker.history_gap.button"),crate::web::bot::exchange_svg(&crate::tracker::rows::name_id(&gap.kind)),if hidden{4}else{7},super::gap::gap_summary(ctx,gap),id=gap.exchange_id)
+        escape(&ctx.path(&format!("/tracker/history_gap?{query}"))),ctx.t("tracker.history_gap.button"),crate::web::bot::exchange_svg(&crate::tracker::rows::name_id(&gap.kind)),if hidden{4}else{7},super::gap::gap_summary(ctx,gap))
+}
+
+/// #710 slice 5: a line's row id suffix and the modal's scope. A number 1's keep its exchange's (the markup as it always
+/// was); an account 2+'s name the account, so "All" with two accounts of one exchange has two distinct lines.
+pub fn gap_anchor(gap:&crate::tracker::gaps::StoredGap)->(String,String) {
+    if gap.account.number==1 {(gap.exchange_id.to_string(),format!("exchange_id={}",gap.exchange_id))} else {(format!("a{}",gap.account.id),format!("account_id={}",gap.account.id))}
 }
 
 /// FX refusal replaces every monetary cell; never a zero or a mislabeled dollar figure.

@@ -222,7 +222,7 @@ impl Fx {
         let raw: Option<String> = self.c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::sync::kucoin_hf::gap_key(self.user)], |r| r.get(0)).ok();
         raw.map(|r| serde_json::from_str::<Value>(&r).unwrap()[self.exchange.to_string()]["missing"].clone()).unwrap_or(Value::Null)
     }
-    fn line(&self) -> bool { !deltabadger::tracker::gaps::read(&self.c, self.user, None, None, None).unwrap().is_empty() }
+    fn line(&self) -> bool { !deltabadger::tracker::gaps::read(&self.c, self.user, &deltabadger::tracker::Scope::All, None, None).unwrap().is_empty() }
     fn error(&self) -> Option<String> { self.c.query_row("SELECT last_sync_error FROM api_keys WHERE id = ?1", [self.key], |r| r.get(0)).unwrap() }
 }
 
@@ -793,7 +793,7 @@ async fn an_export_closes_a_missing_period() {
                   VALUES (?1, ?2, ?3, 4, 'USDT', 10, '2026-09-01 00:00:00', '{}', '{}', 0, '2026-09-01', '2026-09-01')", rusqlite::params![fx.user, fx.key, fx.exchange]).unwrap();
     assert_eq!(fx.sync(&Api::new("hf", &["BTC-USDT"])).await, Ok(true));
     assert_eq!(fx.missing(), json!([["2026-09-01 00:00:00", "2026-10-23 18:00:00"]]));
-    let gaps = deltabadger::tracker::gaps::read(&fx.c, fx.user, None, None, None).unwrap();
+    let gaps = deltabadger::tracker::gaps::read(&fx.c, fx.user, &deltabadger::tracker::Scope::All, None, None).unwrap();
     assert_eq!((gaps.len(), gaps[0].unread.len(), gaps[0].more_unread), (1, 1, false));
     fx.import(&file(&[buy_legs("1", "1", "0", "2026-09-01 00:00:00"), buy_legs("1", "1", "0", "2026-10-24 00:00:00")]));
     assert_eq!(fx.missing(), json!([]));

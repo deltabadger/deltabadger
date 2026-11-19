@@ -58,6 +58,7 @@ fn install_with(currency: &str, source: Source) -> Install {
     let file = dir.path().join("production.sqlite3");
     let c = rusqlite::Connection::open(&file).unwrap();
     c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
+    deltabadger::store::test_support::migrate(&c).unwrap(); // as run/serve take an install
     c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
     let t = "'2026-01-01'";
     c.execute_batch(&format!("
@@ -357,7 +358,7 @@ fn walk_and_publish(install: &Install) -> deltabadger::tracker::walk::Walked {
     let inputs = jobs::load_inputs(&c, 1).unwrap();
     let mut none = Unfetched;
     let mut prices = PriceService::new(&inputs.reference, &inputs.fx, common::web::at(AT).date_naive(), &mut none);
-    let walked = walk::scopes(&inputs.rows, &inputs.deposits, &mut prices, &inputs.ids, deltabadger::figures::at::At::from_utc(common::web::at(AT)).unwrap()).unwrap();
+    let walked = walk::scopes(&inputs.rows, &inputs.deposits, &mut prices, deltabadger::figures::at::At::from_utc(common::web::at(AT)).unwrap()).unwrap();
     let tx = deltabadger::engine::model::immediate(&c).unwrap();
     let fenced = deltabadger::engine::model::fence_versions(&tx, &[]).unwrap();
     // The account's Alpaca key made its venue's ledger import, as a sync records it: the ledger is current.

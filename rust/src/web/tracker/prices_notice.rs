@@ -14,7 +14,7 @@ fn line(ctx: &Ctx, key: &str, assets: &[String], venue: Option<&str>) -> String 
 
 /// The banner for the scope; empty when every holding and every drawn day is priced. `arrived`: symbols held since the
 /// last sync with no price (no balance row yet).
-pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, arrived: &[String]) -> Result<String, WebError> {
+pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Scope, arrived: &[String]) -> Result<String, WebError> {
     let gaps: Vec<VenueGap> = unpriced::read(c, owner, scope, arrived).map_err(|_| super::row::invalid())?;
     let chart = unpriced::chart_incomplete(c, owner, scope).map_err(|_| super::row::invalid())?;
     let mut lines = String::new();

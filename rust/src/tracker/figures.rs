@@ -33,13 +33,13 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
     text.map(|t| At::from_sql(&t).map_err(|e| FiguresError::Data(format!("{e:?}")))).transpose()
 }
 
-/// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.
-pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<Balance>, FiguresError> {
-    let mut s = c.prepare(
+/// `AccountBalance.for_user(user).nonzero` (and, #710 slice 5, one account's), with each row's asset symbol.
+pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<Balance>, FiguresError> {
+    let mut s = c.prepare(&format!(
         "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
-         WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 ORDER BY b.id")?;
-    let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
+         WHERE b.user_id = ?1 AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b")))?;
+    let mut q = s.query([user_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
         out.push(Balance {
@@ -50,25 +50,28 @@ pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Resul
     Ok(out)
 }
 
-/// `PortfolioSnapshot.watermarks`: per venue, when its balances were last taken, over every key of the user.
-fn watermarks(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<HashMap<i64, At>, FiguresError> {
-    let mut s = c.prepare("SELECT exchange_id, balances_synced_at FROM api_keys WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
-    let rows: Vec<(i64, Option<String>)> = s.query_map(rusqlite::params![user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+/// `PortfolioSnapshot.watermarks`, by account (#710 slice 5, PLAN-710-5 §5.4): when each account's balances were last
+/// taken, over its own keys (a key whose number 1 has no row yet: minus its exchange id, as a row of that account reads).
+fn watermarks(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<HashMap<i64, At>, FiguresError> {
+    let key_account = if crate::venue_ids::ready(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+    let account = format!("COALESCE({key_account}, -k.exchange_id)");
+    let mut s = c.prepare(&format!("SELECT {account}, k.balances_synced_at FROM api_keys k WHERE k.user_id = ?1 AND {} ORDER BY k.id", scope.keys("k")))?;
+    let rows: Vec<(i64, Option<String>)> = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     let mut marks: HashMap<i64, At> = HashMap::new();
-    for (exchange, at) in rows {
+    for (account, at) in rows {
         crate::figures::budget::charge(1, 0)?;
         let Some(at) = instant(at)? else { continue };
-        let m = marks.entry(exchange).or_insert(at);
+        let m = marks.entry(account).or_insert(at);
         if at > *m { *m = at }
     }
     Ok(marks)
 }
 
-/// `Figures.moved_since(pending_scope, watermarks)`: what the ledger has moved since each venue's balances were taken,
-/// by symbol, the cash it spent or returned included. A venue with no watermark is not brought forward. A transfer is
+/// `Figures.moved_since(pending_scope, watermarks)`: what the ledger has moved since each account's balances were taken,
+/// by symbol, the cash it spent or returned included. An account with no watermark is not brought forward. A transfer is
 /// linked here only when its partner moved since too (`quantity_row`).
-pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<(String, Dec)>, FiguresError> {
-    let marks = watermarks(c, user_id, exchange_id)?;
+pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<(String, Dec)>, FiguresError> {
+    let marks = watermarks(c, user_id, scope)?;
     let mut moved: Vec<(String, Dec)> = vec![];
     let mut index: HashMap<String, usize> = HashMap::new();
     let Some(since) = marks.values().copied().min() else { return Ok(moved) };
@@ -88,10 +91,10 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
     let mut rows: Vec<super::rows::Stored> = vec![];
     let any = crate::venue_ids::Scope::install(c)?;
     let mut s = c.prepare(&format!(
-        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, {}, transacted_at, id, fee_currency, fee_amount, group_id, {} \
-         FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id",
-        any.row_id("account_transactions"), any.member_sql("account_transactions")))?;
-    let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
+        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, {}, transacted_at, id, fee_currency, fee_amount, group_id, {}, \
+         COALESCE({}, -exchange_id) FROM account_transactions WHERE user_id = ?1 AND {} ORDER BY id",
+        any.row_id("account_transactions"), any.member_sql("account_transactions"), any.row_account("account_transactions"), scope.rows("account_transactions")))?;
+    let mut q = s.query([user_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
         crate::figures::budget::charge(1, 0)?;
         match index.get(&symbol) {
@@ -105,7 +108,8 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         let (exchange, tx_id, at): (i64, Option<String>, String) = (r.get(0)?, r.get(6)?, r.get(7)?);
         let Some(at) = instant(Some(at))? else { continue };
         if at < since || borrowed(tx_id.as_deref()) { continue; }
-        let Some(&taken) = marks.get(&exchange) else { continue };
+        let account: i64 = r.get(13)?;
+        let Some(&taken) = marks.get(&account) else { continue };
         if at < taken { continue; }
         let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type 2.x does not have".into()))?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
@@ -114,6 +118,7 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
             fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::account_group(r.get(11)?, r.get(12)?),
             at,
             per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None,
+            account, to_account: None,
         });
     }
     let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();

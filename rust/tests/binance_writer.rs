@@ -426,7 +426,7 @@ async fn rebuild_from_cold(c:&Connection,path:&std::path::Path,owner:i64) {
     for job in [jobs::TRACKER_LEDGER,jobs::PORTFOLIO_BACKFILL] {assert!(wakes.contains(&(job.into(),Some(owner.to_string()))),"{job}: {wakes:?}");}
     let inputs=jobs::load_inputs(c,owner).unwrap();let mut no_prices=Unfetched;
     let mut prices=PriceService::new(&inputs.reference,&inputs.fx,now().date_naive(),&mut no_prices);
-    let rebuilt=walk::scopes(&inputs.rows,&inputs.deposits,&mut prices,&inputs.ids,deltabadger::figures::at::At::from_utc(now()).unwrap()).unwrap();
+    let rebuilt=walk::scopes(&inputs.rows,&inputs.deposits,&mut prices,deltabadger::figures::at::At::from_utc(now()).unwrap()).unwrap();
     let tx=model::immediate(c).unwrap();assert!(cache::publish(&model::fence_versions(&tx,&[]).unwrap(),owner,&inputs.cache,Some(&rebuilt),now()).unwrap());tx.commit().unwrap();
     let cache::State::Warm(read)=cache::read(c,owner,None,now()).unwrap() else {panic!("the read must use the rebuilt cache")};
     assert_eq!(read.realised,rebuilt.whole.realised);assert_eq!(read.positions.len(),rebuilt.whole.positions.len());
@@ -894,7 +894,7 @@ async fn repair_update_runs_once_per_install_version_and_new_version_runs_again(
         assert_eq!(run_repair(&next,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::Done);
         assert!(calls.borrow().len()>requests);assert_eq!(count(&c),1);
         assert!(c.query_row("SELECT count(*) FROM app_configs WHERE key=?1",[repair::gap_key(key.user_id)],|r|r.get::<_,i64>(0)).unwrap()==1,"the repair keeps its diagnostic row");
-        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"the repair's diagnostics do not open the line");
+        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,&deltabadger::tracker::Scope::All,None,None).unwrap().is_empty(),"the repair's diagnostics do not open the line");
     }
 }
 
@@ -941,7 +941,7 @@ async fn repair_update_unresolved_identity_stays_off_the_gap_line() {
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
     let stored:serde_json::Value=serde_json::from_str(&c.query_row("SELECT value FROM app_configs WHERE key=?1",[repair::gap_key(key.user_id)],|r|r.get::<_,String>(0)).unwrap()).unwrap();
     assert!(stored[key.exchange_id.to_string()]["unresolved"].as_u64().unwrap()>0,"the diagnostic is stored");
-    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,Some(key.exchange_id),None,None).unwrap().is_empty(),"no page reads it");
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,&deltabadger::tracker::Scope::of_exchange(&c,key.user_id,Some(key.exchange_id)).unwrap(),None,None).unwrap().is_empty(),"no page reads it");
 }
 #[tokio::test(flavor="current_thread")]
 async fn repair_update_venue_failure_uses_scheduler_retry_without_blocking_start() {
@@ -990,7 +990,7 @@ async fn repair_update_unavailable_windows_finish_without_claiming_recovery_or_o
     let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
     assert_eq!(run_repair(&repair_job("unavailable"),o.primary).await,deltabadger::jobs::Outcome::Done);
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();assert_eq!(count(&c),0);
-    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"a failed window names nothing to import");
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,&deltabadger::tracker::Scope::All,None,None).unwrap().is_empty(),"a failed window names nothing to import");
 }
 
 #[tokio::test(flavor="current_thread")]

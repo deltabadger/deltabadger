@@ -58,9 +58,9 @@ pub fn synced_label(ctx:&Ctx,synced:Option<chrono::DateTime<chrono::Utc>>,stale:
     format!("        <span class=\"label tracker-sync {}\">\n          <i class=\"tracker-sync__dot\"></i>{text}\n        </span>\n",if stale{"tracker-sync--stale"}else{""})
 }
 pub fn prepare(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Presentation,WebError>{
-    let scope=ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(|s|crate::web::bot::id_from_path(s).ok_or_else(invalid)).transpose()?;
+    let scope=super::scope::read(c,ctx,owner)?.map_err(|_|invalid())?;
     let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-    let data=crate::figures::budget::within(||crate::tracker::figures::page::cold(c,owner,scope,crate::web::bots::show_cash(settings.as_deref()))).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
+    let data=crate::figures::budget::within(||crate::tracker::figures::page::cold(c,owner,&scope,crate::web::bots::show_cash(settings.as_deref()))).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
     let d=fx.denomination(c,owner,ctx.app.now().timestamp())?;
     let reason=data.reason.or(if d.is_none(){Some("Currency conversion unavailable")}else{None});
     let (value,(card,classes))=if let Some(reason)=reason{
@@ -72,6 +72,6 @@ pub fn prepare(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result
         };(value,card)
     }else{let d=d.ok_or_else(invalid)?;(money(data.value.as_ref().ok_or_else(invalid)?,&d)?,card(ctx,&data,&d)?)};
     let sync=synced_label(ctx,data.synced,data.stale);
-    let card=format!("{}{card}",super::prices_notice::banner(c,ctx,owner,scope,&[])?);
+    let card=format!("{}{card}",super::prices_notice::banner(c,ctx,owner,&scope,&[])?);
     Ok(Presentation{value,card,sync,classes})
 }

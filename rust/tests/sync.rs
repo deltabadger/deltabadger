@@ -1728,7 +1728,7 @@ async fn collision_tracker_treats_both_cash_categories_as_one_class() {
             let asset=c.last_insert_rowid();
             c.execute("INSERT INTO exchange_account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at,account_id) VALUES (?1,?2,?3,10,0,1,10,'2026-01-01 00:00:00','2026-01-01','2026-01-01',?4)",rusqlite::params![s.user_id,s.exchange_id,asset,common::number_one(c,s.user_id,s.exchange_id)]).unwrap();
         }
-        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,&deltabadger::tracker::Scope::of_exchange(c,s.user_id,Some(s.exchange_id)).unwrap()).unwrap();
         let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
         let figures=result.unwrap_or_else(|e| panic!("USD as Fiat and as Currency is one class: {e:?}"));
         assert_eq!(figures.value.to_s_f(),"20.0","both USD rows are counted as one cash holding");
@@ -1745,7 +1745,7 @@ async fn collision_tracker_treats_a_stock_and_its_tokenized_share_as_one_class()
             let asset=c.last_insert_rowid();
             c.execute("INSERT INTO exchange_account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at,account_id) VALUES (?1,?2,?3,2,0,200,400,'2026-01-01 00:00:00','2026-01-01','2026-01-01',?4)",rusqlite::params![s.user_id,s.exchange_id,asset,common::number_one(c,s.user_id,s.exchange_id)]).unwrap();
         }
-        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,&deltabadger::tracker::Scope::of_exchange(c,s.user_id,Some(s.exchange_id)).unwrap()).unwrap();
         let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
         let figures=result.unwrap_or_else(|e| panic!("a stock and its tokenized share are one class: {e:?}"));
         assert_eq!(figures.value.to_s_f(),"800.0","both AMZN rows are counted");
@@ -1762,7 +1762,7 @@ async fn collision_tracker_refuses_to_merge_stock_and_crypto_quantities() {
         for (asset,qty,price) in [(s.btc,2,60000),(stock,10,30)] {
             c.execute("INSERT INTO exchange_account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at,account_id) VALUES (?1,?2,?3,?4,0,?5,?4*?5,'2026-01-01 00:00:00','2026-01-01','2026-01-01',?6)",rusqlite::params![s.user_id,s.exchange_id,asset,qty,price,common::number_one(c,s.user_id,s.exchange_id)]).unwrap();
         }
-        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,&deltabadger::tracker::Scope::of_exchange(c,s.user_id,Some(s.exchange_id)).unwrap()).unwrap();
         let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&[]);
         assert!(result.is_err(),"a tracker must not publish 12 BTC by adding ten stock shares to two bitcoins");
         Ok(())
@@ -1776,7 +1776,7 @@ async fn collision_tracker_ignores_a_same_symbol_class_the_user_never_touched() 
         c.execute("INSERT INTO assets (external_id,symbol,name,category,created_at,updated_at) VALUES ('BTC.US','BTC','Trust','Stock','2026-01-01','2026-01-01')",[]).unwrap();
         c.execute("INSERT INTO exchange_account_balances (user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,synced_at,created_at,updated_at,account_id) VALUES (?1,?2,?3,2,0,60000,120000,'2026-01-01 00:00:00','2026-01-01','2026-01-01',?4)",rusqlite::params![s.user_id,s.exchange_id,s.btc,common::number_one(c,s.user_id,s.exchange_id)]).unwrap();
         c.execute("INSERT INTO account_transactions (user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,transacted_at,created_at,updated_at) VALUES (?1,?2,0,'BTC',?3,1,'2026-01-02 00:00:00','2026-01-02','2026-01-02')",rusqlite::params![s.user_id,s.exchange_id,s.btc]).unwrap();
-        let balances=deltabadger::tracker::figures::balances(c,s.user_id,Some(s.exchange_id)).unwrap();
+        let balances=deltabadger::tracker::figures::balances(c,s.user_id,&deltabadger::tracker::Scope::of_exchange(c,s.user_id,Some(s.exchange_id)).unwrap()).unwrap();
         let pending=vec![("BTC".to_string(),deltabadger::figures::dec::Dec::one())];
         let result=deltabadger::tracker::figures::compute(c,s.user_id,&deltabadger::tracker::walk::Summary::empty(),&balances,&pending);
         assert!(!matches!(result,Err(ref e) if format!("{e:?}").contains("ambiguous")),"a catalogue BTC stock the user never touched is not ambiguity: {result:?}");
@@ -2019,7 +2019,7 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
     let mut ps = PriceService::new(&reference, &fx, acquired.utc().date_naive(), &mut fetcher);
     for located in [false, true] {
         let mut next_uid = rows.len();
-        let opened = walk::open_with_held(rows.clone(), &mut ps, located, &mut next_uid).unwrap();
+        let opened = walk::open_with_held(rows.clone(), &mut ps, located, &mut next_uid, &Default::default()).unwrap();
         assert!(!opened.iter().any(|row| row.opening), "split ordering must not invent an opening balance");
         let mut engine = Engine::new(located);
         engine.calculate(&opened).unwrap();

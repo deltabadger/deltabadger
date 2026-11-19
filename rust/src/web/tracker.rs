@@ -19,6 +19,7 @@ pub mod classifications;
 pub mod import;
 pub mod gap;
 pub mod prices_notice;
+pub mod scope;
 pub mod api;
 pub mod report;
 pub mod window;
@@ -206,15 +207,14 @@ pub const CSV_HEADERS: [&str; 13] = ["date","type","base_currency","base_amount"
 /// `filtered_transactions` (exchange, then the window `from`..`to`, `window::read`) through `AccountTransaction.to_csv`.
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     use rusqlite::types::Value as Sql;
-    let present = |key: &str| ctx.params.query(key).filter(|v| !crate::v2::blank(v));
     // 2.x's own query, so that rows at the same instant come out in the same order.
     let mut sql = format!("SELECT {} FROM account_transactions WHERE user_id=?1", csv_columns(c)?);
     let mut binds = vec![Sql::Integer(owner)];
-    if let Some(raw) = present("exchange_id") {
-        let Some(id) = super::bot::id_from_path(raw) else { return Ok(layout::missing()) };
-        if !c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)", [id], |r| r.get::<_, bool>(0))? { return Ok(layout::missing()); }
-        binds.push(Sql::Integer(id));
-        sql.push_str(&format!(" AND exchange_id=?{}", binds.len()));
+    // #710 slice 5: the page's scope (an account; an old `exchange_id` link, its number 1): that account's rows.
+    match scope::read(c, ctx, owner)? {
+        Err(missing) => return Ok(missing),
+        Ok(crate::tracker::Scope::All) => {}
+        Ok(scope) => sql.push_str(&format!(" AND {}", scope.rows("account_transactions"))),
     }
     if let Some(answer) = window::structured_exchange(c, ctx)? { return Ok(answer); }
     // The page's window, read the same way (PLAN-A19: the user's days, ISO only, 400 otherwise).

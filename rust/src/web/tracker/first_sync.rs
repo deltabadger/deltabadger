@@ -25,7 +25,7 @@ use askama::Template;
 use axum::{http::StatusCode,response::Response};
 #[derive(Template)]
 #[template(path="tracker/first_sync.html")]
-struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>,holdings:String}
+struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<(&'static str,String)>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>,holdings:String}
 
 /// `Date.parse` of what an HTML date control submits, an ISO day: `None` for any other grammar, which stays refused, and an
 /// error for an impossible day, which 2.x raises on.
@@ -62,10 +62,10 @@ pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::ho
     // No balance sync has happened. An empty table cannot prove a zero account value.
     let reason=ctx.t("tracker.portfolio.never_synced");
     let unavailable=format!("<span class=\"no-value\" title=\"{reason}\">—</span>");
-    let pairs=ctx.params.query.iter().filter(|(key,_)|matches!(key.as_str(),"exchange_id"|"from"|"to")).cloned().collect::<Vec<_>>();
+    let pairs=super::scope::passed(ctx);
     let query=crate::web::locale::switch_query(&pairs);
     let export_path=i18n::escape(&ctx.path(&format!("/tracker/export{}",if query.is_empty(){String::new()}else{format!("?{query}")})));
-    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable,cold,holdings}.render()?;
+    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:super::scope::hidden(ctx),export_path,from,to,record_switch,hint,unavailable,cold,holdings}.render()?;
     let page=layout::Page{status:StatusCode::OK,body,flash_now:vec![]};
     if ctx.turbo_frame.is_some(){return layout::frame(&ctx.csrf_token(),&page);}
     let shell=Shell::load(c,&ctx.app,user)?;

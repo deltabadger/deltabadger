@@ -1,6 +1,7 @@
 //! The populated index's regions (TrackerController#index): the pending report, the venue filters, the six tiles, the
 //! holdings card and the sync warnings. The chart and the record are not ported yet, so no GET serves a page with these
 //! regions (`index` keeps the 501); `regions` is what that page will place, and what the grid compares with 2.x.
+use crate::tracker::Scope;
 use super::{fx::Prepared, Ctx, WebError};
 use crate::figures::{dec::Dec, totals::Denomination};
 use crate::tracker::figures::{page, Figures, Note};
@@ -94,7 +95,7 @@ struct Portfolio {
     never_synced: bool,
 }
 
-fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash: bool) -> Result<Result<Portfolio, String>, WebError> {
+fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool) -> Result<Result<Portfolio, String>, WebError> {
     let figures_error = |e: crate::figures::FiguresError| match e { crate::figures::FiguresError::Sqlite(e) => WebError::from(e), _ => invalid() };
     let cold = crate::figures::budget::within(|| page::cold(c, owner, scope, show_cash)).map_err(figures_error)?;
     let now = ctx.app.now();
@@ -114,7 +115,7 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
         crate::tracker::cache::State::Cold | crate::tracker::cache::State::Failed(_) => None,
     };
     let has_keys: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [owner], |r| r.get(0))?;
-    let balances: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) AND free+locked>0)", rusqlite::params![owner, scope], |r| r.get(0))?;
+    let balances: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b WHERE b.user_id=?1 AND {} AND b.free+b.locked>0)", scope.store("b")), [owner], |r| r.get(0))?;
     let marked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND balances_synced_at IS NOT NULL)", [owner], |r| r.get(0))?;
     Ok(Ok(Portfolio { warm, ledger, published, cold, has_keys, never_synced: has_keys && !balances && !marked }))
 }
@@ -367,33 +368,54 @@ struct BarEnd<'a> { v: &'a Ctx, csrf: String, sync: String, syncable: bool, repo
 pub const SCOPE_FRAME: &str = "tracker_scope";
 
 /// The bar (venue switch and far end) and its far end alone.
-fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cash: bool, sync: String) -> Result<(String, String), WebError> {
-    let exchanges = venues(c, "SELECT id,name,type FROM exchanges WHERE id IN (SELECT exchange_id FROM api_keys WHERE user_id=?1 UNION SELECT exchange_id FROM account_transactions WHERE user_id=?1) ORDER BY name", owner)?;
+/// One chip of the switch (#710 slice 5, §8 Q7): an account with a key or ledger rows; a number 1 with no row yet as its
+/// stand-in (minus its exchange id).
+struct Switched { account: i64, number: i64, venue: Venue }
+fn accounts(c: &Connection, owner: i64) -> Result<Vec<Switched>, WebError> {
+    let any = crate::venue_ids::Scope::install(c)?;
+    let key = if crate::venue_ids::ready(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+    let mut s = c.prepare(&format!(
+        "SELECT n.account, COALESCE(a.number, 1), e.id, e.name, e.type FROM (SELECT k.exchange_id AS exchange, COALESCE({key}, -k.exchange_id) AS account FROM api_keys k WHERE k.user_id=?1 \
+         UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1) n JOIN exchanges e ON e.id = n.exchange \
+         LEFT JOIN exchange_accounts a ON a.id = n.account ORDER BY e.name, COALESCE(a.number, 1), n.account", any.row_account("t")))?;
+    let rows = s.query_map([owner], |r| Ok(Switched { account: r.get(0)?, number: r.get(1)?, venue: Venue { id: r.get(2)?, name: r.get(3)?, kind: r.get(4)? } }))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool, sync: String) -> Result<(String, String), WebError> {
+    let accounts = accounts(c, owner)?;
     let connectable = venues(c, "SELECT id,name,type FROM exchanges WHERE available=1 AND type!='Exchanges::Bitmart' AND id NOT IN (SELECT exchange_id FROM api_keys WHERE user_id=?1 UNION SELECT exchange_id FROM account_transactions WHERE user_id=?1) ORDER BY name", owner)?;
     let (brokers, rest): (Vec<Venue>, Vec<Venue>) = connectable.into_iter().partition(|v| stock_venue(&v.kind));
-    let valid: Vec<i64> = { let mut s = c.prepare("SELECT DISTINCT exchange_id FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1")?; let ids = s.query_map([owner], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids };
+    // The accounts with a correct reading key ("broken": none, as an exchange without a valid key was).
+    let valid: Vec<i64> = {
+        let key = if crate::venue_ids::ready(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+        let mut s = c.prepare(&format!("SELECT DISTINCT COALESCE({key}, -k.exchange_id) FROM api_keys k WHERE k.user_id=?1 AND k.status=1 AND k.key_type!=1"))?;
+        let ids = s.query_map([owner], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids
+    };
     let retired = |v: &Venue| crate::web::bot::retired_type(&v.kind);
-    let broken = exchanges.iter().any(|v| !valid.contains(&v.id) && !retired(v));
+    let broken = accounts.iter().any(|a| !valid.contains(&a.account) && !retired(&a.venue));
     let mut chips = vec![];
     // `tracker_path(…, from: params[:from], to: params[:to])`: a switch keeps the window (nil left out, blank kept).
     let window = [("from", ctx.params.query("from")), ("to", ctx.params.query("to"))];
-    if exchanges.len() > 1 || broken {
-        chips.push(Chip { value: "all".into(), label: escape(&i18n::text(ctx.locale, "tracker.filters.all", &[])), active: scope.is_none(), href: escape(&with_query(ctx, "/tracker", &window)), broken: false });
-        for v in &exchanges {
-            let id = v.id.to_string();
-            let ok = valid.contains(&v.id) || retired(v);
+    if accounts.len() > 1 || broken {
+        chips.push(Chip { value: "all".into(), label: escape(&i18n::text(ctx.locale, "tracker.filters.all", &[])), active: *scope == Scope::All, href: escape(&with_query(ctx, "/tracker", &window)), broken: false });
+        for a in &accounts {
+            let v = &a.venue;
+            let ok = valid.contains(&a.account) || retired(v);
+            // A number 1 is named by its exchange, as every chip and link was; an account 2+ by its own id.
+            let (key, value, id) = if a.number == 1 { ("exchange_id", v.id.to_string(), v.id.to_string()) } else { ("account_id", format!("a{}", a.account), a.account.to_string()) };
             chips.push(Chip {
-                value: v.id.to_string(), label: escape(&v.name), active: ok && scope == Some(v.id),
-                href: escape(&if ok { with_query(ctx, "/tracker", &[("exchange_id", Some(&id)), window[0], window[1]]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
+                value, label: escape(&v.name), active: ok && scope.account().is_some_and(|s| s.id == a.account),
+                href: escape(&if ok { with_query(ctx, "/tracker", &[(key, Some(&id)), window[0], window[1]]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
                 broken: !ok,
             });
         }
     }
     let menu = brokers.iter().chain(rest.iter()).map(|v| MenuItem { label: escape(&v.name), icon: crate::web::bot::exchange_svg(&name_id(&v.kind)), href: escape(&with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))])) }).collect();
-    let pairs = ctx.params.query.iter().filter(|(key, _)| matches!(key.as_str(), "exchange_id" | "from" | "to")).cloned().collect::<Vec<_>>();
+    let pairs = super::scope::passed(ctx);
     let query = crate::web::locale::switch_query(&pairs);
     let export_path = escape(&ctx.path(&format!("/tracker/export{}", if query.is_empty() { String::new() } else { format!("?{query}") })));
-    let end = BarEnd { v: ctx, csrf: ctx.csrf_token(), sync, syncable: !valid.is_empty(), report: !exchanges.is_empty(), show_cash, export_path }.render()? + "\n";
+    let end = BarEnd { v: ctx, csrf: ctx.csrf_token(), sync, syncable: !valid.is_empty(), report: !accounts.is_empty(), show_cash, export_path }.render()? + "\n";
     let bar = Filters { v: ctx, all_label: escape(&i18n::text(ctx.locale, "tracker.columns.exchange", &[])), chips, connect_href: ctx.path("/tracker/pick_exchange/new"), menu, end: end.clone() }.render()?;
     Ok((bar, end))
 }
@@ -404,7 +426,8 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     // One snapshot for every input: the balances `cold` approves, the cached ledger and the balances `warm` computes
     // from are the same rows, whatever a sync commits meanwhile.
     if c.is_autocommit() { let tx = c.unchecked_transaction()?; let out = regions(&tx, ctx, owner, fx)?; tx.commit()?; return Ok(out); }
-    let scope = ctx.params.query("exchange_id").filter(|s| !s.trim().is_empty()).map(|s| crate::web::bot::id_from_path(s).ok_or_else(invalid)).transpose()?;
+    let scope = super::scope::read(c, ctx, owner)?.map_err(|_| invalid())?;
+    let scope = &scope;
     let raw: Option<String> = c.query_row("SELECT tracker_settings FROM users WHERE id=?1", [owner], |r| r.get(0))?;
     let settings: serde_json::Value = match raw.as_deref() { Some(text) => serde_json::from_str(text).map_err(|_| invalid())?, None => serde_json::Value::Null };
     let show_cash = crate::web::bots::show_cash(raw.as_deref());

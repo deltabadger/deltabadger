@@ -62,7 +62,9 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
 #[doc(hidden)]
 pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     if c.is_autocommit() { let tx = c.unchecked_transaction()?; let out = render(&tx, ctx, owner)?; tx.commit()?; return Ok(out); }
-    let Some(exchange) = ctx.params.query("exchange_id").and_then(crate::web::bot::id_from_path) else { return Ok(layout::missing()) };
+    // #710 slice 5: the line's account (`account_id`), or its exchange's number 1 (`exchange_id`, every number-1 line's link).
+    let scope = match super::scope::read(c, ctx, owner)? { Ok(crate::tracker::Scope::All) | Err(_) => return Ok(layout::missing()), Ok(scope) => scope };
+    let Some(exchange) = scope.exchange() else { return Ok(layout::missing()) };
     // The venue, whether it has a trading key of the user's (the key-fix links), and whether the user has it at all.
     let venue: Option<(String, String, Option<bool>, bool)> = c.query_row(
         "SELECT e.name, e.type, (SELECT MAX(key_type = 0) FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id AND key_type != 1), \
@@ -72,7 +74,7 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
     let reading = run::reading(c, owner).map_err(|e| WebError::Config(e.0))?;
     let entry = crate::figures::budget::within(|| cache::read_published(c, owner, ctx.app.now())).map_err(|_| super::row::invalid())?;
     let from = match &entry { cache::Published::Warm { from, .. } => Some(from.clone()), _ => None };
-    let found = gaps::read(c, owner, Some(exchange), from.as_ref(), Some(&reading)).unwrap_or_else(|e| {
+    let found = gaps::read(c, owner, &scope, from.as_ref(), Some(&reading)).unwrap_or_else(|e| {
         crate::engine::log(&format!("[tracker] history gap for user {owner} not read: {}", crate::tracker::jobs::message(e))); vec![]
     });
     let user = ctx.user().ok_or_else(super::row::invalid)?;

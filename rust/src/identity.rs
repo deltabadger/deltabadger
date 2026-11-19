@@ -571,8 +571,8 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
 }
 
 /// A deleted key of `account` (resolved before the delete): its observation and membership go, and the account's identity
-/// too when it has no other key and the user no history on its exchange (ledger rows carry no account before #710 slice
-/// 4, so every one counts). The account row stays (numbers are never reused); it is tombstoned only from #710 slice 7 on,
+/// too when it has no other key, the user no history on its exchange (ledger rows carry no account before #710 slice
+/// 4, so every one counts), and the account no stored balance or venue snapshot of its own (#710 slice 5). The account row stays (numbers are never reused); it is tombstoned only from #710 slice 7 on,
 /// since a tombstone followed by a reconnect would make number 2 before the slices that carry one.
 pub fn forget(c: &Connection, api_key_id: i64, account: &Account) -> rusqlite::Result<()> {
     if !ready(c)? { return Ok(()); }
@@ -582,7 +582,9 @@ pub fn forget(c: &Connection, api_key_id: i64, account: &Account) -> rusqlite::R
     c.execute(&format!("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1
                AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
                AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE {})
-               AND NOT EXISTS (SELECT 1 FROM account_transactions WHERE user_id = ?2 AND exchange_id = ?3)", account.keys("k")),
+               AND NOT EXISTS (SELECT 1 FROM account_transactions WHERE user_id = ?2 AND exchange_id = ?3)
+               AND NOT EXISTS (SELECT 1 FROM exchange_account_balances WHERE account_id = ?1)
+               AND NOT EXISTS (SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)", account.keys("k")),
               [id, account.user_id, account.exchange_id])?;
     Ok(())
 }

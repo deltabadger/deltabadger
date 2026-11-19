@@ -246,12 +246,15 @@ fn history_gap_absent(c: &Connection, name: &str, owner: i64, at: chrono::DateTi
     let cache::Published::Warm { venues, .. } = cache::read_published(c, owner, at).unwrap() else { return };
     let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
     for (venue, summary) in &venues {
-        let venue_name: String = c.query_row("SELECT name FROM exchanges WHERE id=?1", [venue], |r| r.get(0)).unwrap();
-        let balances = figures::balances(c, owner, Some(*venue)).unwrap();
+        // Each summary is an account's (#710 slice 5).
+        let account = if *venue > 0 { deltabadger::identity::AccountRow::by_id(c, *venue).unwrap().unwrap() } else { deltabadger::identity::AccountRow::unplaced(owner, -venue) };
+        let scope = deltabadger::tracker::Scope::Account(account);
+        let venue_name: String = c.query_row("SELECT name FROM exchanges WHERE id=?1", [account.exchange_id], |r| r.get(0)).unwrap();
+        let balances = figures::balances(c, owner, &scope).unwrap();
         let notes = gaps::resolve(summary, &balances, &venue_name).unwrap();
         let arrived = notes.iter().filter(|n| n.kind == "arrived").fold(deltabadger::figures::dec::Dec::zero(), |sum, n| (&sum + &n.amount).unwrap());
         assert!(arrived < deltabadger::figures::dec::Dec::from_i64(10), "{name}: venue {venue} would show a line ({arrived:?}): stop and report, never edit a fixture");
-        if !figures::pending(c, owner, Some(*venue)).unwrap().is_empty() { continue; }
+        if !figures::pending(c, owner, &scope).unwrap().is_empty() { continue; }
         let Ok(computed) = figures::compute_on(c, owner, summary, &balances, &[], &fx, at.date_naive()) else { continue };
         let key = |n: &figures::Note| (n.kind, n.symbol.clone(), n.history.clone(), n.held.clone(), n.amount.clone());
         let theirs: Vec<_> = computed.notes.iter().filter(|n| matches!(n.kind, "arrived" | "left")).collect();
