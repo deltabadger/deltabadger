@@ -241,6 +241,9 @@ pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balan
     compute_on(c, user_id, ledger, balances, pending, &FxTable::load(c)?, chrono::Utc::now().date_naive())
 }
 
+/// The refusal when one symbol names two asset classes and nothing says which a row is.
+pub const AMBIGUOUS_CLASS: &str = "Tracker figures unavailable: ambiguous asset class for a shared symbol";
+
 /// `compute` with the ECB table read and today's date.
 pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)], fx: &FxTable, today: NaiveDate) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
@@ -257,7 +260,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         }
     }
     if classes.values().any(|categories| categories.len() > 1) {
-        return Err(FiguresError::NotComputed("Tracker figures unavailable: ambiguous asset class for a shared symbol".into()));
+        return Err(FiguresError::NotComputed(AMBIGUOUS_CLASS.into()));
     }
     let zero = Dec::zero();
     let mut moved = Dec::zero();

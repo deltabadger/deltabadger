@@ -27,8 +27,9 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// 2: coin-quoted single rows are two legs (D-TRACKER-COIN-QUOTE), transfers wait for their funds (D-TRACKER-TRANSFER-ORDER),
 /// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE). 3: the sweep records what it could not price
 /// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
-/// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK).
-pub const CALCULATION: &str = "4";
+/// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK). 5: a security's corporate action
+/// never restates a coin's lots under the symbol they share (#1061).
+pub const CALCULATION: &str = "5";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
 pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
@@ -602,6 +603,9 @@ mod tests {
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "no calculation stamp");
         crate::app_config::set(&c, &cipher, &calculation_key(1), "1", "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "an older calculation");
+        // #1061: a history swept before a security's corporate action stopped restating a coin's lots is swept again.
+        crate::app_config::set(&c, &cipher, &calculation_key(1), "4", "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
+        assert!(wanted(&c, &cipher, 1, today).unwrap(), "the calculation before #1061");
         mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),
