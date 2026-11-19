@@ -35,11 +35,12 @@ fn decimal(v: &Value) -> Option<String> {
     (!s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) && (s == "0" || !s.starts_with('0'))).then_some(s)
 }
 
-/// The submitted order of the owner's bots on this exchange with that external id (unique per exchange), or no link.
-pub fn order(c: &Connection, owner: i64, exchange_id: i64, external_id: &str) -> rusqlite::Result<Option<i64>> {
-    c.prepare_cached("SELECT id FROM transactions WHERE external_id = ?1 AND exchange_id = ?2 AND status = 0 \
-                      AND bot_id IN (SELECT id FROM bots WHERE user_id = ?3)")?
-        .query_row(params![external_id, exchange_id, owner], |r| r.get(0)).optional()
+/// The submitted order of the owner's bots with that external id on the account `scope` names (#710: a fill links only to
+/// an order of its own account), or no link.
+pub fn order(c: &Connection, scope: &crate::venue_ids::Scope, external_id: &str) -> rusqlite::Result<Option<i64>> {
+    let Some(id) = crate::venue_ids::order_by_id(c, scope, external_id)? else { return Ok(None) };
+    c.prepare_cached("SELECT id FROM transactions WHERE id = ?1 AND status = 0 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2)")?
+        .query_row(params![id, scope.user_id], |r| r.get(0)).optional()
 }
 
 /// One pass over every stored Binance/Binance.US trade row with no link, by id. The cursor moves past every row it
@@ -57,21 +58,24 @@ pub fn link_batch(c: &Connection, cipher: &crate::crypto::Cipher, cursor: i64, n
     let tx = crate::engine::model::immediate_retry_busy(c).map_err(|e| format!("{e:?}"))?;
     // The job runs only while Rust holds the instance; a handback mid-pass stops it before the next write.
     if !crate::lease::read(&tx, cipher).map_err(|_| "unreadable ownership".to_string())?.is_some_and(|v| v["engine"] == "rust") { return Ok(None) }
-    let rows: Vec<(i64, i64, i64, Option<String>, String)> = {
-        let mut s = tx.prepare_cached("SELECT t.id, t.user_id, t.exchange_id, t.tx_id, t.raw_data FROM account_transactions t \
+    // #710: each row's venue id and account, wherever its account keeps them.
+    let any = crate::venue_ids::Scope::install(&tx).map_err(|e| e.to_string())?;
+    let rows: Vec<(i64, i64, i64, Option<String>, String, Option<i64>)> = {
+        let mut s = tx.prepare_cached(&format!("SELECT t.id, t.user_id, t.exchange_id, {}, t.raw_data, {} FROM account_transactions t \
             JOIN exchanges e ON e.id = t.exchange_id WHERE t.id > ?1 AND t.transaction_id IS NULL AND e.type IN (?2, ?3) \
-            AND t.entry_type IN (?4, ?5, ?6, ?7) ORDER BY t.id LIMIT ?8").map_err(|e| e.to_string())?;
+            AND t.entry_type IN (?4, ?5, ?6, ?7) ORDER BY t.id LIMIT ?8", any.row_id("t"), any.member_sql("t"))).map_err(|e| e.to_string())?;
         let rows = s.query_map(params![cursor, BINANCE, BINANCE_US, BUY, SELL, SWAP_IN, SWAP_OUT, BATCH],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default())))
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(), r.get(5)?)))
             .map_err(|e| e.to_string())?;
         rows.collect::<Result<_, _>>().map_err(|e| e.to_string())?
     };
     let Some(&(last, ..)) = rows.last() else { return Ok(None) };
     let mut linked = 0;
-    for (id, owner, exchange, tx_id, raw) in rows {
+    for (id, owner, exchange, tx_id, raw, member) in rows {
         let Ok(raw) = serde_json::from_str::<Value>(&raw) else { continue };
         let Some(Some(external)) = fill_order(tx_id.as_deref(), &raw) else { continue };
-        let Some(order) = order(&tx, owner, exchange, &external).map_err(|e| e.to_string())? else { continue };
+        let scope = crate::venue_ids::Scope::of_member(&tx, owner, exchange, member).map_err(|e| e.to_string())?;
+        let Some(order) = order(&tx, &scope, &external).map_err(|e| e.to_string())? else { continue };
         linked += tx.execute("UPDATE account_transactions SET transaction_id = ?1, updated_at = ?2 WHERE id = ?3 AND transaction_id IS NULL",
                              params![order, super::sql_time(now), id]).map_err(|e| e.to_string())?;
     }

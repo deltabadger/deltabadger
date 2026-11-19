@@ -298,7 +298,7 @@ fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linke
         if now < o.collected + Duration::days(GIVE_UP_DAYS) { return Ok(None); }
         return Ok(Some((unchecked(&when, &venue, "unread"), basis(vec![], scope))));
     }
-    let trades = match trades(c, user, scope.exchange, &venue_type, &scope, search_from, search_to, linked)? {
+    let trades = match trades(c, &account_of(c, o.bot, user, scope.exchange)?, &venue_type, &scope, search_from, search_to, linked)? {
         Ok(t) => t,
         Err(()) => return Ok(Some((unchecked(&when, &venue, "unreadable"), basis(vec![], scope)))),
     };
@@ -390,14 +390,26 @@ impl Trade {
 
 /// The trades on the scope's pairs and side inside the window whose order no bot holds and none of whose fills is linked
 /// to a bot's order (r2.1, r3.6). Err(()) when a ledger row inside the window can't be read (r3.6, r4.3).
-/// (user, exchange) → the order keys of its linked fills, or Err(()) when one can't be read.
-type Linked = std::collections::HashMap<(i64, i64), Result<std::collections::HashSet<String>, ()>>;
+/// (user, exchange, account 2+) → the order keys of its linked fills, or Err(()) when one can't be read (#710: per account,
+/// so one pass never lends one account's linked ids, or its unreadable result, to another).
+type Linked = std::collections::HashMap<(i64, i64, Option<i64>), Result<std::collections::HashSet<String>, ()>>;
+
+/// #710: the account an obligation of bot `bot` on `exchange` reads its ledger on: the bot's while it trades there, else
+/// the exchange's number 1.
+fn account_of(c: &Connection, bot: i64, user: i64, exchange: i64) -> Result<crate::venue_ids::Scope, EngineError> {
+    let scope = crate::identity::order_scope(c, bot)?;
+    Ok(if (scope.user_id, scope.exchange_id) == (user, exchange) { scope } else { crate::venue_ids::Scope::first(c, user, exchange)? })
+}
+/// SQL: `account`'s rows of `account_transactions` and the venue id column as it reads them.
+fn ledger_sql(account: &crate::venue_ids::Scope) -> (String, String) { (account.rows("account_transactions"), account.row_id("account_transactions")) }
 
 #[allow(clippy::too_many_arguments)]
-fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, from: DateTime<Utc>, to: DateTime<Utc>, cache: &mut Linked) -> Result<Result<Vec<Trade>, ()>, EngineError> {
+fn trades(c: &Connection, account: &crate::venue_ids::Scope, venue: &str, scope: &Scope, from: DateTime<Utc>, to: DateTime<Utc>, cache: &mut Linked) -> Result<Result<Vec<Trade>, ()>, EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
-    let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at, transaction_id FROM account_transactions \
-                           WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 AND transacted_at <= ?4 ORDER BY transacted_at, id")?;
+    let (user, exchange) = (account.user_id, account.exchange_id);
+    let (mine, rid) = ledger_sql(account);
+    let mut s = c.prepare(&format!("SELECT id, {rid}, entry_type, raw_data, transacted_at, transaction_id FROM account_transactions \
+                           WHERE user_id = ?1 AND exchange_id = ?2 AND {mine} AND transacted_at >= ?3 AND transacted_at <= ?4 ORDER BY transacted_at, id"))?;
     let rows = s.query_map(params![user, exchange, format_time(from), format_time(to)], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
                                                                                        r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?, r.get::<_, Option<i64>>(5)?)))?
         .collect::<Result<Vec<_>, _>>()?;
@@ -429,7 +441,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
     }
     // A fill of the order linked to a bot's order anywhere in the history, not only in the window, excludes it.
     if !orders.is_empty() {
-        match linked_keys(c, user, exchange, venue, cache)? {
+        match linked_keys(c, account, venue, cache)? {
             Ok(keys) => linked.extend(keys.iter().cloned()),
             Err(()) => return Ok(Err(())),
         }
@@ -453,12 +465,14 @@ fn held(c: &Connection, exchange: i64, venue_type: &str, external_id: &str) -> R
 
 /// The order keys of every fill of the account linked to a bot's order, read once per pass (Codex r5), or Err(()) when a
 /// linked row can't be read: it may be a fill of a listed order, so then no list can be trusted (unchecked).
-fn linked_keys<'a>(c: &Connection, user: i64, exchange: i64, venue: &str, cache: &'a mut Linked) -> Result<&'a Result<std::collections::HashSet<String>, ()>, EngineError> {
+fn linked_keys<'a>(c: &Connection, account: &crate::venue_ids::Scope, venue: &str, cache: &'a mut Linked) -> Result<&'a Result<std::collections::HashSet<String>, ()>, EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
-    if let std::collections::hash_map::Entry::Vacant(slot) = cache.entry((user, exchange)) {
+    let (user, exchange) = (account.user_id, account.exchange_id);
+    if let std::collections::hash_map::Entry::Vacant(slot) = cache.entry((user, exchange, account.member)) {
         let mut all: Result<std::collections::HashSet<String>, ()> = Ok(Default::default());
-        let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions \
-                               WHERE user_id = ?1 AND exchange_id = ?2 AND transaction_id IS NOT NULL")?;
+        let (mine, rid) = ledger_sql(account);
+        let mut s = c.prepare(&format!("SELECT id, {rid}, entry_type, raw_data, transacted_at FROM account_transactions \
+                               WHERE user_id = ?1 AND exchange_id = ?2 AND {mine} AND transaction_id IS NOT NULL"))?;
         let rows = s.query_map(params![user, exchange], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
                                                                  r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?)))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
@@ -473,7 +487,7 @@ fn linked_keys<'a>(c: &Connection, user: i64, exchange: i64, venue: &str, cache:
         }
         slot.insert(all);
     }
-    Ok(cache.get(&(user, exchange)).expect("inserted above"))
+    Ok(cache.get(&(user, exchange, account.member)).expect("inserted above"))
 }
 
 /// The report as a scheduler job: hourly, and at the first run after a start (r5.2). Its state is the table. A28-3: its
@@ -721,10 +735,10 @@ fn merged(c: &Connection, p: &Prepared, created: &Created, linked: &mut Linked) 
     // claimed from a ledger that doesn't exist (clean = false), and the venue's own figures are shown.
     let ledger = !no_ledger(&p.venue_type);
     if !live.is_empty() && ledger {
-        if let Ok(keys) = linked_keys(c, p.user, p.exchange, &p.venue_type, linked)? { live.retain(|o| !keys.contains(&o.external_id)); }
+        if let Ok(keys) = linked_keys(c, &account_of(c, p.bot, p.user, p.exchange)?, &p.venue_type, linked)? { live.retain(|o| !keys.contains(&o.external_id)); }
     }
     let Some(since) = live.iter().map(|o| o.created_at).min() else { return Ok(None) };
-    let (sums, clean) = if ledger { ledger_sums(c, p.user, p.exchange, &p.venue_type, since - Duration::seconds(60))? } else { (Sums::new(), false) };
+    let (sums, clean) = if ledger { ledger_sums(c, &account_of(c, p.bot, p.user, p.exchange)?, &p.venue_type, since - Duration::seconds(60))? } else { (Sums::new(), false) };
     let mut items: Vec<(bool, DateTime<Utc>, String)> = vec![];
     let mut conflict = false;
     for o in &live {
@@ -750,9 +764,11 @@ type Sums = std::collections::HashMap<String, (BigDec, BigDec)>;
 
 /// r4.1: per order key, the base and quote of every imported fill from `since` on (each fill once), and whether every row
 /// in that range read cleanly.
-fn ledger_sums(c: &Connection, user: i64, exchange: i64, venue: &str, since: DateTime<Utc>) -> Result<(Sums, bool), EngineError> {
+fn ledger_sums(c: &Connection, account: &crate::venue_ids::Scope, venue: &str, since: DateTime<Utc>) -> Result<(Sums, bool), EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
-    let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3")?;
+    let (user, exchange) = (account.user_id, account.exchange_id);
+    let (mine, rid) = ledger_sql(account);
+    let mut s = c.prepare(&format!("SELECT id, {rid}, entry_type, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {mine} AND transacted_at >= ?3"))?;
     let rows = s.query_map(params![user, exchange, format_time(since)], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
                                                                                  r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?)))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
@@ -1306,14 +1322,15 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     if let Some(b) = bot.settings.get("base_asset_id").and_then(Value::as_i64) { now_bases.push(b); }
     if !now_bases.contains(&base) || bot.quote_asset_id() != Some(quote) { return Ok(Err("settings_changed")); }
     if held(c, exchange, venue_type, &fresh.external_id)? { return Ok(Err("held")); }
-    match linked_keys(c, bot.user_id, exchange, venue_type, &mut Linked::new())? {
+    let account = account_of(c, bot.id, bot.user_id, exchange)?;
+    match linked_keys(c, &account, venue_type, &mut Linked::new())? {
         Err(()) => return Ok(Err("unreadable")),
         Ok(keys) if keys.contains(&fresh.external_id) => return Ok(Err("linked")),
         Ok(_) => {}
     }
     // r2.3: never less than the ledger proves, on both totals.
     let since = fresh.created_at - Duration::seconds(60);
-    let (sums, clean) = ledger_sums(c, bot.user_id, exchange, venue_type, since)?;
+    let (sums, clean) = ledger_sums(c, &account, venue_type, since)?;
     if !clean { return Ok(Err("ledger")); }
     let zero = BigDec::zero();
     if let Some((lb, lq)) = sums.get(&fresh.external_id) {
@@ -1340,7 +1357,7 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
     };
     c.execute("UPDATE transactions SET amount = ?2, quote_amount = ?3, price = ?4, bot_interval = ?5, bot_quote_amount = ?6 WHERE id = ?1",
               params![row, amount.as_ref().map(crate::v2::to_sql), quote_amount.as_ref().map(crate::v2::to_sql), crate::v2::to_sql(&price), interval.unwrap_or_default(), stamped])?;
-    link_fills(c, bot.user_id, exchange, venue_type, &fresh.external_id, since, row)?;
+    link_fills(c, &account, venue_type, &fresh.external_id, since, row)?;
     for id in &ids {
         c.execute("INSERT INTO rust_v2_unrecorded_resolutions (obligation_id, resolution, offer_id, transaction_id, resolved_at, confirmed_base, confirmed_quote) \
                    VALUES (?1, 'booked', ?2, ?3, ?4, ?5, ?6)",
@@ -1361,10 +1378,13 @@ fn write_booking(f: &model::FencedTransaction<'_>, cipher: &crate::crypto::Ciphe
 }
 
 /// Every unlinked imported fill of the order from `since` on, linked to the booked row (§3).
-fn link_fills(c: &Connection, user: i64, exchange: i64, venue: &str, key: &str, since: DateTime<Utc>, row: i64) -> Result<(), EngineError> {
+/// #710: only rows of the booked order's account.
+fn link_fills(c: &Connection, account: &crate::venue_ids::Scope, venue: &str, key: &str, since: DateTime<Utc>, row: i64) -> Result<(), EngineError> {
     use crate::sync::fills::{self, LedgerRow, Read};
-    let mut s = c.prepare("SELECT id, tx_id, entry_type, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 \
-                           AND transaction_id IS NULL")?;
+    let (user, exchange) = (account.user_id, account.exchange_id);
+    let (mine, rid) = ledger_sql(account);
+    let mut s = c.prepare(&format!("SELECT id, {rid}, entry_type, raw_data, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {mine} \
+                           AND transacted_at >= ?3 AND transaction_id IS NULL"))?;
     let rows = s.query_map(params![user, exchange, format_time(since)], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?,
                                                                                  r.get::<_, Option<String>>(3)?, r.get::<_, String>(4)?)))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);

@@ -29,6 +29,12 @@ impl Scope {
     pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Self> {
         Self::of(c, &Account::first(c, user_id, exchange_id)?)
     }
+    /// No account: only for its install-aware SQL over every account's rows (`row_id`, `member_sql`).
+    pub fn install(c: &Connection) -> rusqlite::Result<Self> { Ok(Self { user_id: 0, exchange_id: 0, account: None, member: None, ready: ready(c)? }) }
+    /// The account of a ledger row of (user, exchange) whose membership names `member` (None: number 1).
+    pub fn of_member(c: &Connection, user_id: i64, exchange_id: i64, member: Option<i64>) -> rusqlite::Result<Self> {
+        match member { Some(id) => Ok(Self { user_id, exchange_id, account: Some(id), member: Some(id), ready: true }), None => Self::first(c, user_id, exchange_id) }
+    }
     /// Api key `api_key_id`'s account's. None: no such key, or its account resolves to none.
     pub fn of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<Self>> {
         Account::of_key(c, api_key_id)?.map(|a| Self::of(c, &a)).transpose()

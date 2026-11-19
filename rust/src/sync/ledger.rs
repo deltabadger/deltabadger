@@ -1198,13 +1198,15 @@ fn legacy_token_swap(c: &Connection, key: &Key, p: &Progress, index: usize, repe
 fn bot_order(c: &Connection, key: &Key, tx_id: Option<&str>, raw: &Value) -> Result<Option<i64>, SyncError> {
     if super::binance_order_links::venue(&key.exchange_type) {
         if let Some(fill) = super::binance_order_links::fill_order(tx_id, raw) {
-            return Ok(match fill { Some(external) => super::binance_order_links::order(c, key.user_id, key.exchange_id, &external)?, None => None });
+            return Ok(match fill { Some(external) => super::binance_order_links::order(c, &key.scope, &external)?, None => None });
         }
     }
+    // #710: an order of the key's own account (a row is never another account's order's fill).
     for id in [tx_id, raw["order_id"].as_str().filter(|s| !blank(s))].into_iter().flatten() {
-        let found: Option<i64> = c.query_row("SELECT id FROM transactions WHERE external_id = ?1 AND exchange_id = ?2 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?3) LIMIT 1",
-                                             params![id, key.exchange_id, key.user_id], |r| r.get(0)).optional()?;
-        if found.is_some() { return Ok(found); }
+        let Some(found) = venue_ids::order_by_id(c, &key.scope, id)? else { continue };
+        let owned: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE id = ?1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2))",
+                                      params![found, key.user_id], |r| r.get(0))?;
+        if owned { return Ok(Some(found)); }
     }
     Ok(None)
 }

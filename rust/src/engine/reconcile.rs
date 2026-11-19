@@ -99,21 +99,22 @@ pub(crate) fn write_receipt(c: &Connection, tx_id: i64, facts: &Facts, source: &
 }
 
 /// What the ledger already holds of order `order_id`: its API fills of `family` (the record's: "ClassicHf" or "Uta"; visible,
-/// and withheld where HF-3's table exists), of `account` only (#710: its user's and exchange's rows until the ledger knows
-/// accounts, slice 4), each id once. Σ size, Σ funds, Σ |fee| per currency.
+/// and withheld where HF-3's table exists), of `account` only (#710: the account the order was placed on), each id once. Σ size, Σ funds, Σ |fee| per currency.
 #[derive(Debug, PartialEq)]
 pub struct Known { pub size: BigDec, pub funds: BigDec, pub fees: std::collections::BTreeMap<String, BigDec> }
 
 pub fn known_fills(c: &Connection, account: &crate::identity::Account, order_id: &str, family: &str) -> Result<Known, EngineError> {
     let (user_id, exchange_id) = (account.user_id, account.exchange_id);
+    let scope = crate::venue_ids::Scope::of(c, account)?;
     let mut rows: Vec<(String, String)> = vec![];
-    let mut s = c.prepare_cached("SELECT tx_id, raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NOT NULL \
-                                  AND json_valid(raw_data) AND json_extract(raw_data, '$.orderId') = ?3 AND json_extract(raw_data, '$.createdAt') IS NOT NULL")?;
+    let mut s = c.prepare_cached(&format!("SELECT {rid}, raw_data FROM account_transactions a WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {rid} IS NOT NULL \
+                                  AND json_valid(raw_data) AND json_extract(raw_data, '$.orderId') = ?3 AND json_extract(raw_data, '$.createdAt') IS NOT NULL",
+                                          scope.rows("a"), rid = scope.row_id("a")))?;
     rows.extend(s.query_map(params![user_id, exchange_id, order_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?);
     let withheld: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kucoin_withheld_fills')", [], |r| r.get(0))?;
     if withheld {
         let mut s = c.prepare_cached(&format!("SELECT tx_id, entry FROM kucoin_withheld_fills WHERE account_id = {} \
-                                      AND json_valid(entry) AND json_extract(entry, '$.orderId') = ?1", crate::venue_ids::Scope::of(c, account)?.account_sql()))?;
+                                      AND json_valid(entry) AND json_extract(entry, '$.orderId') = ?1", scope.account_sql()))?;
         rows.extend(s.query_map(params![order_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?);
     }
     let mut seen = std::collections::BTreeSet::new();

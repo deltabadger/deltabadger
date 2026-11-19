@@ -326,3 +326,68 @@ async fn two_accounts_hold_one_order_id_and_a_bot_lists_its_orders_from_both() {
     let csv = deltabadger::web::bot::csv::export_csv(c, two.bots[0]).unwrap().unwrap();
     assert!(csv.contains(SHARED_ORDER) && csv.contains("after-move"), "{csv}");
 }
+
+// ---- commit 4: links between orders and the ledger (§6 tests 9, 10) ----
+
+/// A bot order of account `n` with venue id `id`, written as placement writes one (its venue id where its account keeps it).
+fn order_row(c: &Connection, two: &Two, n: usize, id: &str) -> i64 {
+    let scope = &two.scopes[n];
+    let row = seed::insert_row(c, &two.seeded, two.bots[n], two.seeded.btc, &json!({"external_status": 2, "status": 0, "amount": "0.001", "created_at": "2026-09-01 10:00:00"}));
+    c.execute("UPDATE transactions SET external_id = ?2 WHERE id = ?1", params![row, scope.stored(Some(id))]).unwrap();
+    venue_ids::after_order_insert(c, scope, row, Some(id)).unwrap();
+    row
+}
+
+/// §6 test 10: a Binance fill links to the order of its own account, both as it is stored (`bot_order`) and from stored
+/// history (`link_batch`), when both accounts hold one order id.
+#[test]
+fn binance_fills_link_to_their_own_accounts_order() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let _lock = claim(c, dir.path());
+    let orders = [order_row(c, &two, 0, "BTCEUR-77"), order_row(c, &two, 1, "BTCEUR-77")];
+    let fill = |id: &str| Entry { quote_currency: Some("EUR".into()), quote_amount: Some(BigDec::parse("50").unwrap()),
+        raw: Raw::from_value(json!({"orderId": 77, "id": id.rsplit('-').next().unwrap().parse::<i64>().unwrap()})), ..entry(0, "BTC", "0.001", Some(id), None, "2026-09-01T10:00:05Z") };
+    let ks = keys(c, &two, "Exchanges::Binance");
+    for (n, key) in ks.iter().enumerate() {
+        assert_eq!(store(c, key, vec![fill("BTCEUR-77-1")]).imported, 1);
+        let linked: Option<i64> = c.query_row(&format!("SELECT a.transaction_id FROM account_transactions a WHERE {} AND {} = 'BTCEUR-77-1'",
+                                                       two.scopes[n].rows("a"), venue_ids::row_id("a")), [], |r| r.get(0)).unwrap();
+        assert_eq!(linked, Some(orders[n]), "account {}'s new fill", n + 1);
+    }
+    // Stored history: two unlinked fills, one per account, linked by the pass.
+    for n in 0..2 {
+        let row = two.row(c, n, 0, "BTC", "0.002", Some("BTCEUR-77-2"), None, "2026-09-01 10:00:06");
+        c.execute("UPDATE account_transactions SET raw_data = ?2 WHERE id = ?1", params![row, json!({"orderId": 77, "id": 2}).to_string()]).unwrap();
+    }
+    sync::binance_order_links::link_stored(c, &seed::cipher(), now()).unwrap();
+    for n in 0..2 {
+        let linked: Option<i64> = c.query_row(&format!("SELECT a.transaction_id FROM account_transactions a WHERE {} AND {} = 'BTCEUR-77-2'",
+                                                       two.scopes[n].rows("a"), venue_ids::row_id("a")), [], |r| r.get(0)).unwrap();
+        assert_eq!(linked, Some(orders[n]), "account {}'s stored fill", n + 1);
+    }
+}
+
+/// §6 test 9: bot 1 fills order X on account 1, moves to account 2, and account 2 places X too; each account's late fill
+/// links to its own order, and what the ledger holds of the old order is read from account 1 only.
+#[test]
+fn a_delayed_sync_links_each_fill_to_its_own_accounts_order() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let old = order_row(c, &two, 0, "X");
+    deltabadger::identity::place_bot(c, two.bots[0], two.seeded.user_id, two.seeded.exchange_id, Some(two.accounts[1]), now()).unwrap();
+    let new = order_row(c, &two, 1, "X");
+    let ks = keys(c, &two, "Exchanges::Kraken");
+    let fill = |size: &str| Entry { raw: Raw::from_value(json!({"orderId": "X", "createdAt": 1, "size": size, "funds": "1", "fee": "0", "feeCurrency": "EUR"})),
+                                    ..entry(0, "BTC", size, Some(&format!("fill-{size}")), None, "2026-09-01T10:00:05Z") };
+    for (n, size) in [(0, "1"), (1, "2")] { assert_eq!(store(c, &ks[n], vec![Entry { raw: Raw::from_value(json!({"order_id": "X"})), ..fill(size) }]).imported, 1); }
+    let link = |n: usize| -> Option<i64> { c.query_row(&format!("SELECT a.transaction_id FROM account_transactions a WHERE {}", two.scopes[n].rows("a")), [], |r| r.get(0)).unwrap() };
+    assert_eq!((link(0), link(1)), (Some(old), Some(new)));
+    // known_fills of the old order: account 1's fill alone.
+    for (n, size) in [(0, "3"), (1, "4")] { assert_eq!(store(c, &ks[n], vec![fill(size)]).imported, 1); }
+    let known = deltabadger::engine::reconcile::known_fills(c, &deltabadger::identity::Account::of_order(c, old).unwrap().unwrap(), "X", "Classic").unwrap();
+    assert_eq!(known.size, BigDec::parse("3").unwrap());
+}
