@@ -1063,7 +1063,7 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
+    o.primary.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
     let refused = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
     assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF history is Rust-only".to_string()]), "{refused:?}");
     o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
@@ -1655,7 +1655,7 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
     let set = |key: &str, value: &str| deltabadger::app_config::set_plain(&o.primary, key, value, now()).unwrap();
     let transient = |path: &str, value: &str| { o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{path}', json(?1)) WHERE id = ?2"), rusqlite::params![value, bot]).unwrap(); };
     match name {
-        "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
+        "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
         // #710: a rule of the exchange's second account.
         "exchange_account_rules" => { second_account_rule(&o.primary, s); }
         // #710: a key, and a bot, of the exchange's second account.

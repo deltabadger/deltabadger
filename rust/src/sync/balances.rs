@@ -429,7 +429,7 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
         let now = clock.now();
         super::commit_for(db, version, move |c| {
             let key = super::load_key_of(c, key_id, &[KUCOIN])?;
-            if mode != crate::venue::kucoin_account::AccountMode::ClassicLf || super::kucoin_hf::enabled(c, key.user_id, key.exchange_id)? { super::kucoin_hf::observe_mode(c, &key, mode, now)?; }
+            if mode != crate::venue::kucoin_account::AccountMode::ClassicLf || super::kucoin_hf::enabled(c, &key.scope)? { super::kucoin_hf::observe_mode(c, &key, mode, now)?; }
             Ok(())
         }).await?;
     }

@@ -55,10 +55,10 @@ pub type Span = (DateTime<Utc>, DateTime<Utc>);
 pub fn second(t: DateTime<Utc>) -> DateTime<Utc> { t.with_nanosecond(0).unwrap_or(t) }
 fn time(s: &str) -> Result<DateTime<Utc>, SyncError> { parse_time(s).map_err(|e| SyncError(format!("kucoin_coverage time {s}: {e:?}"))) }
 
-/// Whether (user, exchange) is an HF-enabled KuCoin history.
+/// Whether the account (#710 slice 5: coverage is its account's) is an HF-enabled KuCoin history.
 /// An install Rust never migrated has no table, so no history is enabled (a pure classic account reads as before).
-pub fn enabled(c: &Connection, user_id: i64, exchange_id: i64) -> Result<bool, SyncError> {
-    Ok(migrated(c)? && c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3)", params![user_id, exchange_id, ENABLED], |r| r.get(0))?)
+pub fn enabled(c: &Connection, account: &venue_ids::Scope) -> Result<bool, SyncError> {
+    Ok(migrated(c)? && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE account_id = {} AND source = ?1)", account.account_sql()), [ENABLED], |r| r.get(0))?)
 }
 
 /// Whether any history is HF-enabled (the handback refuses then). An install Rust never migrated has no table, so none.
@@ -92,8 +92,8 @@ pub fn observe_mode(c: &Connection, key: &Key, mode: AccountMode, now: DateTime<
     }
     match current_episode(c, key)? {
         Some((source, (a, b))) if source == mode_source(mode) => {
-            c.execute("UPDATE kucoin_coverage SET end_at = ?1, updated_at = ?1 WHERE user_id = ?2 AND exchange_id = ?3 AND source = ?4 AND start_at = ?5 AND end_at = ?6",
-                      params![sql_time(now.max(b)), key.user_id, key.exchange_id, source, sql_time(a), sql_time(b)])?;
+            c.execute(&format!("UPDATE kucoin_coverage SET end_at = ?1, updated_at = ?1 WHERE account_id = {} AND source = ?2 AND start_at = ?3 AND end_at = ?4", key.scope.account_sql()),
+                      params![sql_time(now.max(b)), source, sql_time(a), sql_time(b)])?;
         }
         Some(_) => {
             add(c, key, mode_source(mode), (now, now), now)?;
@@ -160,25 +160,27 @@ pub fn certifiable(c: &Connection, key: &Key, mode: AccountMode, (s, e): Span) -
 /// The spans of `source` (a `missing:` or `mode:` prefix matches every one), oldest first.
 pub fn spans(c: &Connection, key: &Key, source: &str) -> Result<Vec<(String, Span)>, SyncError> {
     let (op, pattern) = if source == MISSING || source == MODE { ("LIKE", format!("{source}%")) } else { ("=", source.to_string()) };
-    let mut s = c.prepare_cached(&format!("SELECT source, start_at, end_at FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source {op} ?3 ORDER BY start_at, end_at"))?;
-    let rows: Vec<(String, String, String)> = s.query_map(params![key.user_id, key.exchange_id, pattern], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    let mut s = c.prepare_cached(&format!("SELECT source, start_at, end_at FROM kucoin_coverage WHERE account_id = {} AND source {op} ?1 ORDER BY start_at, end_at", key.scope.account_sql()))?;
+    let rows: Vec<(String, String, String)> = s.query_map(params![pattern], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
     rows.into_iter().map(|(source, a, b)| Ok((source, (time(&a)?, time(&b)?)))).collect()
 }
 
-/// One coverage row, unless the same one is held.
+/// One coverage row of the key's account, unless the same one is held (its number 1's row made first where it has none).
 pub fn add(c: &Connection, key: &Key, source: &str, (start, end): Span, now: DateTime<Utc>) -> Result<(), SyncError> {
     let (start, end) = (sql_time(start), sql_time(end));
-    let held: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3 AND start_at = ?4 AND end_at = ?5)",
-                                 params![key.user_id, key.exchange_id, source, start, end], |r| r.get(0))?;
+    let account = key.scope.account_sql();
+    let held: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM kucoin_coverage WHERE account_id = {account} AND source = ?1 AND start_at = ?2 AND end_at = ?3)"),
+                                 params![source, start, end], |r| r.get(0))?;
     if !held {
-        c.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                  params![key.user_id, key.exchange_id, source, start, end, sql_time(now)])?;
+        if key.scope.account.is_none() { crate::identity::touch(c, key.user_id, key.exchange_id, now)?; }
+        c.execute(&format!("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES ({account}, ?1, ?2, ?3, ?4)"),
+                  params![source, start, end, sql_time(now)])?;
     }
     Ok(())
 }
 
 pub fn remove(c: &Connection, key: &Key, source: &str) -> Result<(), SyncError> {
-    c.execute("DELETE FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3", params![key.user_id, key.exchange_id, source])?;
+    c.execute(&format!("DELETE FROM kucoin_coverage WHERE account_id = {} AND source = ?1", key.scope.account_sql()), params![source])?;
     Ok(())
 }
 
@@ -372,7 +374,7 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
             let s = file::rewrite_second(c, key, *t, derived, &mut writer, now)?;
             (out.imported, out.duplicates, out.skipped, out.generic) = (out.imported + s.imported, out.duplicates + s.duplicates, out.skipped + s.skipped, out.generic + s.generic);
         }
-        c.execute("DELETE FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3 AND start_at = ?4", params![key.user_id, key.exchange_id, AMBIGUOUS, sql_time(*t)])?;
+        c.execute(&format!("DELETE FROM kucoin_coverage WHERE account_id = {} AND source = ?1 AND start_at = ?2", key.scope.account_sql()), params![AMBIGUOUS, sql_time(*t)])?;
         if ambiguous { add(c, key, AMBIGUOUS, (*t, *t + Duration::seconds(1)), now)?; }
     }
     Ok(out)
@@ -381,7 +383,7 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
 /// What every writer of an HF-enabled history calls before its transaction commits (r11): the rule over the seconds it
 /// touched, then the gap row. A classic-only history is left as it is.
 pub fn flush(c: &FencedTransaction<'_>, key: &Key, seconds: BTreeSet<DateTime<Utc>>, now: DateTime<Utc>) -> Result<Stored, SyncError> {
-    if key.exchange_type != crate::venue::kucoin::KUCOIN || !enabled(c, key.user_id, key.exchange_id)? { return Ok(Stored::default()); }
+    if key.exchange_type != crate::venue::kucoin::KUCOIN || !enabled(c, &key.scope)? { return Ok(Stored::default()); }
     let seconds = seconds.into_iter().map(second).collect();
     let out = rederive(c, key, &seconds, now)?;
     refresh_gap(c, key, now)?;
@@ -417,7 +419,7 @@ pub fn export_period(c: &Connection, key: &Key, rows: &[SourceRow], now: DateTim
 /// file, so the gap shows more, never less); every import_rows second and every restored second judged by the rule, which
 /// rebuilds what the classic cutoff hid (L08) and withholds API fills at restored seconds.
 pub fn migrate(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> Result<bool, SyncError> {
-    if enabled(c, key.user_id, key.exchange_id)? { return Ok(false); }
+    if enabled(c, &key.scope)? { return Ok(false); }
     add(c, key, ENABLED, (second(now), second(now)), now)?;
     let catalogue = Catalogue::load(c, key.exchange_id)?;
     let mut s = c.prepare("SELECT DISTINCT created_at FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY created_at")?;
@@ -515,7 +517,7 @@ impl Allocation {
     /// stored) for every source; for the provenance-less class (restores, the user's rows) phases 2 and 3, each exact
     /// first and then legacy (r13), sharing one set of reserved rows. Adoptions and enrichments are written here.
     pub(crate) fn new(c: &Connection, key: &Key, batch: &[Entry], range: std::ops::Range<usize>, now: DateTime<Utc>) -> Result<Option<Self>, SyncError> {
-        if key.exchange_type != crate::venue::kucoin::KUCOIN || !enabled(c, key.user_id, key.exchange_id)? { return Ok(None); }
+        if key.exchange_type != crate::venue::kucoin::KUCOIN || !enabled(c, &key.scope)? { return Ok(None); }
         let mut out = HashMap::new();
         let mut seen: HashMap<String, usize> = HashMap::new();
         let mut restores: BTreeMap<DateTime<Utc>, Vec<usize>> = BTreeMap::new();
@@ -662,8 +664,11 @@ pub fn missing(c: &Connection, key: &Key) -> Result<Vec<Span>, SyncError> {
         let t: Option<String> = c.query_row(sql, params![key.user_id, key.exchange_id], |r| r.get(0))?;
         t.map(|t| time(&t).map(second)).transpose()
     };
-    let starts = [first("SELECT MIN(transacted_at) FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?,
-                  first("SELECT MIN(transacted_at) FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2")?, attempts.iter().map(|s| s.0).min()];
+    // #710 slice 5: the account's own history. Imports land on the exchange's number 1 until they route by account
+    // (#710 slice 7), so an account 2+ has none.
+    let imported = if key.scope.member.is_none() { first("SELECT MIN(transacted_at) FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2")? } else { None };
+    let starts = [first(&format!("SELECT MIN(a.transacted_at) FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {}", key.scope.rows("a")))?,
+                  imported, attempts.iter().map(|s| s.0).min()];
     let Some(start) = starts.into_iter().flatten().min() else { return Ok(vec![]) };
     let mut covered: Vec<Span> = vec![];
     for source in [HF_API, UTA_API, EXPORT] { covered.extend(spans(c, key, source)?.into_iter().map(|(_, s)| s)); }
@@ -682,7 +687,8 @@ pub fn refresh_gap(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> 
     let reading = crate::tracker::import::run::reading(c, key.user_id)?.into_iter().find(|k| k.exchange_id == key.exchange_id && k.account_id == account);
     let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [gap_key(key.user_id)], |r| r.get(0)).optional()?.flatten();
     let mut row = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
-    let id = key.exchange_id.to_string();
+    // An account 2+'s entry names its account; a number 1's keeps its exchange's key.
+    let id = match key.scope.member { None => key.exchange_id.to_string(), Some(n) => format!("{}:{n}", key.exchange_id) };
     let credential = match (&reading, c.producer_version()) {
         (Some(k), Some(v)) if v.id == k.id => Some(v.cache_stamp()),
         (Some(k), _) if row[&id]["key"] == k.id => Some(row[&id]["credential"].clone()),

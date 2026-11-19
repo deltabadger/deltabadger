@@ -296,3 +296,38 @@ fn each_accounts_history_gap_retires_on_its_own_balances() {
     c.execute("UPDATE exchange_account_balances SET updated_at = '2026-09-20 11:00:00' WHERE account_id = ?1", [a.id]).unwrap();
     assert_eq!(read().iter().map(|g| g.account.id).collect::<Vec<_>>(), [b.id]);
 }
+
+// ---- commit 5: KuCoin HF coverage by account (§6 test 11) ----
+
+/// §6 test 11: KuCoin HF coverage is each account's. A's `hf_enabled` does not enable B; A's export certifies A's history
+/// only, so B's own unread months stay a gap; B, whose history starts in June and is certified from June, has no gap for
+/// the months A's history covers before it.
+#[test]
+fn kucoin_hf_coverage_is_each_accounts_own() {
+    use deltabadger::sync::kucoin_hf::{self as hf, Span};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let kucoin = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    let [a, b] = [0, 1].map(|n| deltabadger::sync::load_key_of(c, kucoin.keys[n], &[deltabadger::venue::kucoin::KUCOIN]).unwrap());
+    let t = |s: &str| -> chrono::DateTime<chrono::Utc> { format!("{s}T00:00:00Z").parse().unwrap() };
+    let now = t("2026-12-01");
+    let span = |x: &str, y: &str| -> Span { (t(x), t(y)) };
+    hf::add(c, &a, hf::ENABLED, span("2026-01-01", "2026-01-01"), now).unwrap();
+    assert!(hf::enabled(c, &a.scope).unwrap() && !hf::enabled(c, &b.scope).unwrap(), "A's marker is A's");
+    // Both read HF units from January; B's are certified from June only; A exported January to June.
+    for key in [&a, &b] { hf::add(c, key, hf::HF_ATTEMPT, span("2026-01-01", "2026-12-01"), now).unwrap(); }
+    hf::add(c, &b, hf::HF_API, span("2026-06-01", "2026-12-01"), now).unwrap();
+    hf::add(c, &a, hf::EXPORT, span("2026-01-01", "2026-12-01"), now).unwrap();
+    kucoin.row(c, 0, DEPOSIT, "BTC", "1", Some("k-a"), None, "2026-01-05 00:00:00");
+    kucoin.row(c, 1, DEPOSIT, "BTC", "1", Some("k-b"), None, "2026-01-06 00:00:00");
+    assert!(hf::missing(c, &a).unwrap().is_empty(), "A's export covers A");
+    assert_eq!(hf::missing(c, &b).unwrap(), [span("2026-01-01", "2026-06-01")], "A's export certifies nothing of B's");
+    // B's history starts in June: nothing before it is B's to read, though A's starts in January.
+    c.execute("UPDATE account_transactions SET transacted_at = '2026-06-02 00:00:00' WHERE id IN (SELECT account_transaction_id FROM exchange_account_rows)", []).unwrap();
+    c.execute(&format!("DELETE FROM kucoin_coverage WHERE account_id = {} AND source = ?1", b.scope.account_sql()), [hf::HF_ATTEMPT]).unwrap();
+    hf::add(c, &b, hf::HF_ATTEMPT, span("2026-06-01", "2026-12-01"), now).unwrap();
+    hf::remove(c, &a, hf::EXPORT).unwrap();
+    assert!(hf::missing(c, &b).unwrap().is_empty(), "no January-May gap for B");
+    assert_eq!(hf::missing(c, &a).unwrap(), [span("2026-01-01", "2026-12-01")], "A's own months, A's own gap");
+}

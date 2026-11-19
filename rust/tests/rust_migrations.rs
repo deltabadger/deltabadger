@@ -706,3 +706,27 @@ fn only_the_store_module_names_the_2x_balance_and_snapshot_tables() {
     }
     assert!(found.is_empty(), "read balances and venue snapshots from the stores (sync::balance_store): {found:?}");
 }
+
+/// §6 test 1: KuCoin HF coverage keeps its rows, ids and content through the hop, each on its (user, exchange)'s number 1
+/// (made where none was there).
+#[test]
+fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
+    const V: &str = "20261121000002";
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= V).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= V).unwrap_or(REGISTRY.tables.len());
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }).unwrap();
+    exec(&p.primary, "PRAGMA foreign_keys = OFF; DELETE FROM exchange_accounts;
+        INSERT INTO exchange_accounts (id, user_id, exchange_id, number, created_at, updated_at) VALUES (30, 1, 2, 1, 'now', 'now');
+        INSERT INTO kucoin_coverage (id, user_id, exchange_id, source, start_at, end_at, updated_at) VALUES
+          (4, 1, 2, 'hf_enabled', '2026-01-01', '2026-01-01', 'u1'), (9, 3, 2, 'export', '2026-01-01', '2026-02-01', 'u2');");
+    assert_eq!(store::migrate(&p, &lock(&p)).unwrap()[0], V);
+    use rusqlite::types::Value::{Integer, Text};
+    let s = |x: &str| Text(x.into());
+    assert_eq!(rows(&p, "SELECT k.id, a.user_id, a.exchange_id, a.number, k.source, k.start_at, k.end_at, k.updated_at FROM kucoin_coverage k JOIN exchange_accounts a ON a.id = k.account_id ORDER BY k.id"),
+               [vec![Integer(4), Integer(1), Integer(2), Integer(1), s("hf_enabled"), s("2026-01-01"), s("2026-01-01"), s("u1")],
+                vec![Integer(9), Integer(3), Integer(2), Integer(1), s("export"), s("2026-01-01"), s("2026-02-01"), s("u2")]]);
+    assert_eq!(rows(&p, "SELECT account_id FROM kucoin_coverage WHERE id = 4"), [[Integer(30)]], "the existing number 1");
+    assert!(store::check(&p).unwrap().pending_rust.is_empty());
+}

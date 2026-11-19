@@ -228,6 +228,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("invested_usd", "decimal(20,8)", true), ("held_value_usd", "decimal(20,8)", false), ("held_cost_usd", "decimal(20,8)", false),
         ("partial", "boolean", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true), ("account_id", "INTEGER", true)],
         unique_indexes: &[&["account_id", "date"]] }),
+    // #710 slice 5: KuCoin HF coverage by account.
+    ("20261121000002", TableContract { name: "kucoin_coverage", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true), ("end_at", "TEXT", true),
+        ("updated_at", "TEXT", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

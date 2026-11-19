@@ -343,19 +343,28 @@ pub fn read(c: &Connection, owner: i64, scope: &super::Scope, published: Option<
     };
     // Which KuCoin entries are open, from the JSON alone: `missing` non-empty. An entry written before `missing` was
     // stored is closed until the next sync rewrites it.
-    let kucoin: Vec<(i64, Value)> = rows.get(&kucoin_key).and_then(Option::as_deref).filter(|s| s.len() <= MAX_ROW)
+    // #710 slice 5: an entry is keyed `<exchange>` for a number 1 and `<exchange>:<account>` for an account 2+.
+    let kucoin: Vec<(i64, Option<i64>, Value)> = rows.get(&kucoin_key).and_then(Option::as_deref).filter(|s| s.len() <= MAX_ROW)
         .and_then(|s| serde_json::from_str::<Value>(s).ok()).and_then(|v| match v { Value::Object(m) => Some(m), _ => None }).into_iter().flatten()
-        .filter_map(|(id, entry)| Some((id.parse::<i64>().ok()?, entry)))
-        .filter(|(id, entry)| in_scope(scope, *id, None) && entry["missing"].as_array().is_some_and(|m| !m.is_empty()))
+        .filter_map(|(id, entry)| match id.split_once(':') {
+            None => Some((id.parse::<i64>().ok()?, None, entry)),
+            Some((e, a)) => Some((e.parse::<i64>().ok()?, Some(a.parse::<i64>().ok()?), entry)),
+        })
+        .filter(|(id, account, entry)| in_scope(scope, *id, *account) && entry["missing"].as_array().is_some_and(|m| !m.is_empty()))
         .collect();
     if derived.is_empty() && kucoin.is_empty() { return Ok(vec![]); }
     let loaded;
     let reading = match reading { Some(r) => r, None => { loaded = super::import::run::reading(c, owner).map_err(|e| FiguresError::Data(e.0))?; &loaded } };
     let mut out = read_derived(c, owner, derived, reading)?;
-    for (exchange, entry) in kucoin {
-        // An entry keyed by exchange is its number 1's, written by that account's reading key.
-        let Some(k) = reading.iter().find(|k| k.exchange_id == exchange && entry["key"].as_i64().is_none_or(|key| key == k.id)) else { continue };
-        let first = AccountRow { number: 1, ..k.account_id.map_or_else(|| AccountRow::unplaced(owner, exchange), |id| AccountRow { id, user_id: owner, exchange_id: exchange, number: 1 }) };
+    for (exchange, account, entry) in kucoin {
+        // The entry's account, as its reading key reads it (a stored account is an account 2+'s).
+        let Some(k) = reading.iter().find(|k| k.exchange_id == exchange && entry["key"].as_i64().is_none_or(|key| key == k.id)
+                                             && account.is_none_or(|a| k.account_id == Some(a))) else { continue };
+        let first = match (account, k.account_id) {
+            (Some(id), _) => AccountRow { id, user_id: owner, exchange_id: exchange, number: 2 },
+            (None, Some(id)) => AccountRow { id, user_id: owner, exchange_id: exchange, number: 1 },
+            (None, None) => AccountRow::unplaced(owner, exchange),
+        };
         let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&entry["credential"]) else { continue };
         if version.id != k.id || !crate::engine::model::credential_is_current(c, &version).map_err(|_| data("gap credential unavailable"))? { continue; }
         let listed = entry["missing"].as_array().map_or(&[][..], Vec::as_slice);
@@ -365,7 +374,7 @@ pub fn read(c: &Connection, owner: i64, scope: &super::Scope, published: Option<
         }).collect();
         let total = entry["missing_spans"].as_u64().map_or(listed.len(), |n| n as usize).max(listed.len());
         let more_unread = total > unread.len();
-        match out.iter_mut().find(|g| g.account == first) {
+        match out.iter_mut().find(|g| g.account.id == first.id) {
             Some(g) => { g.unread = unread; g.more_unread = more_unread; }
             None => out.push(StoredGap { exchange_id: k.exchange_id, account: first, key: k.id, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: Dec::zero(), notes: vec![], unread, more_unread }),
         }

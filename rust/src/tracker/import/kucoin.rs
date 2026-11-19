@@ -329,7 +329,7 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         }
     }
     crate::sync::kucoin_hf::export_period(c, key, rows, now)?;
-    let hf = crate::sync::kucoin_hf::enabled(c, key.user_id, key.exchange_id)?;
+    let hf = crate::sync::kucoin_hf::enabled(c, &key.scope)?;
     // A file of rows all held may still bridge two exports: the gap follows its period.
     if touched.is_empty() { if hf { crate::sync::kucoin_hf::refresh_gap(c, key, now)?; } return Ok(out); }
     if hf {
@@ -426,7 +426,7 @@ pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], n
     if classes.is_empty() { return Ok(()); }
     let cut = cutoffs(c, key)?;
     // D-KUCOIN-HF-LEDGER: on an HF-enabled history the fills are the one-trade rule's; the cutoff row stays as provenance.
-    let hf = crate::sync::kucoin_hf::enabled(c, key.user_id, key.exchange_id)?;
+    let hf = crate::sync::kucoin_hf::enabled(c, &key.scope)?;
     for class in classes.iter().filter(|class| !(hf && **class == "fills")) {
         let types = match *class { "fills" => format!("{BUY}, {SELL}"), "deposits" => DEPOSIT.to_string(), "withdrawals" => WITHDRAWAL.to_string(), _ => continue };
         let at_ = "account_transactions";

@@ -210,7 +210,7 @@ impl Fx {
         s.query_map([self.user], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
     fn coverage(&self, source: &str) -> Vec<(String, String)> {
-        let mut s = self.c.prepare("SELECT start_at, end_at FROM kucoin_coverage WHERE user_id = ?1 AND source = ?2 ORDER BY 1").unwrap();
+        let mut s = self.c.prepare("SELECT start_at, end_at FROM kucoin_coverage WHERE account_id IN (SELECT id FROM exchange_accounts WHERE user_id = ?1) AND source = ?2 ORDER BY 1").unwrap();
         s.query_map(rusqlite::params![self.user, source], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
     fn ambiguous(&self) -> Vec<String> { self.coverage("ambiguous").into_iter().map(|(a, _)| a).collect() }

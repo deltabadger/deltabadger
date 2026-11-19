@@ -163,8 +163,8 @@ fn episodes(c: &Connection, key: &Key, symbols: &[String], start: DateTime<Utc>,
 /// The attempt closed (`hf_attempt`), what it certifies (`hf_api`, r2.1's clip of `span`) when `certify`, the progress
 /// record gone and the gap refreshed: completion, failure and abandonment alike.
 fn close(c: &crate::engine::model::FencedTransaction<'_>, route: &Route, key: &Key, span: Span, certify: bool, now: DateTime<Utc>) -> Result<(), SyncError> {
-    c.execute("DELETE FROM kucoin_coverage WHERE user_id = ?1 AND exchange_id = ?2 AND source = ?3 AND start_at = ?4 AND end_at = ?5",
-              params![key.user_id, key.exchange_id, route.open, sql_time(span.0), sql_time(span.1)])?;
+    c.execute(&format!("DELETE FROM kucoin_coverage WHERE account_id = {} AND source = ?1 AND start_at = ?2 AND end_at = ?3", key.scope.account_sql()),
+              params![route.open, sql_time(span.0), sql_time(span.1)])?;
     hf::add(c, key, route.attempt, span, now)?;
     if certify { if let Some(certified) = hf::certifiable(c, key, route.mode, span)? { hf::add(c, key, route.api, certified, now)?; } }
     c.execute("DELETE FROM app_configs WHERE key = ?1", [route.progress_key(key.id)])?;
