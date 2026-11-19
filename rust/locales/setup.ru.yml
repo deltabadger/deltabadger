@@ -9,6 +9,7 @@ ru:
             add_more_assets: "Добавить ещё активы"
             pick_assets: "Выберите один или несколько активов"
             venue_groups:
+                connected: "Подключённые"
                 brokers: "Брокеры"
                 exchanges: "Биржи"
             market_data:

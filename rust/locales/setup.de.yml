@@ -9,6 +9,7 @@ de:
             add_more_assets: "Weitere Anlagewerte hinzufügen"
             pick_assets: "Wähle ein oder mehrere Assets"
             venue_groups:
+                connected: "Verbunden"
                 brokers: "Broker"
                 exchanges: "Börsen"
             market_data:

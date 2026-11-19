@@ -9,6 +9,7 @@ bg:
             add_more_assets: "Добави още активи"
             pick_assets: "Изберете един или повече активи"
             venue_groups:
+                connected: "Свързани"
                 brokers: "Брокери"
                 exchanges: "Борси"
             market_data:

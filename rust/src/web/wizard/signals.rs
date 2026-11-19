@@ -160,7 +160,7 @@ fn exchange_page(c: &Connection, ctx: &Ctx, config: Option<&Value>) -> Result<(S
     let venues = search::available_exchanges(c, &scope, Some(base_id(config)))?.into_iter()
         .filter(|venue| eligibility::signal_admission(Some(&venue.class)).is_none()).collect();
     let table = Table { action: ctx.path(EXCHANGE), csrf: ctx.csrf_token(), param_name: EXCHANGE_FIELD.into(), venues: vec![], unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    let content = venue_pane(ctx, table, venues)?;
+    let content = venue_pane(ctx, table, venues, &super::exchanges::connected(c, ctx.user().map_or(0, |user| user.id), &[0])?)?;
     Ok((super::sheet(ctx, &track(c, ctx, config, Stage::Exchange)?, &content)?, false))
 }
 

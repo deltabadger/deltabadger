@@ -9,6 +9,7 @@ pl:
             add_more_assets: "Dodaj więcej aktywów"
             pick_assets: "Wybierz jedno lub więcej aktywów"
             venue_groups:
+                connected: "Połączone"
                 brokers: "Brokerzy"
                 exchanges: "Giełdy"
             market_data:

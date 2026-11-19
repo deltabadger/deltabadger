@@ -9,6 +9,7 @@ fr:
             add_more_assets: "Ajouter d'autres actifs"
             pick_assets: "Choisissez un ou plusieurs actifs"
             venue_groups:
+                connected: "Connectés"
                 brokers: "Courtiers"
                 exchanges: "Exchanges"
             market_data:

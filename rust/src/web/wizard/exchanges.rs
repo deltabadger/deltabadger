@@ -104,7 +104,14 @@ struct New {
 
 /// D-WIZARD-VENUE-GROUPS: the DCA exchange step lists the stock brokers under "Brokers" and the rest under "Exchanges", each
 /// in the order the table had them; a group with no venue is not drawn.
-pub struct Group { title: String, venues: Vec<Venue> }
+pub struct Group { title: String, venues: Vec<Venue>, connected: bool }
+
+/// The venues `user` holds a correct key of one of `kinds` on (`api_keys.key_type`: 0 trading, 1 withdrawal, 2 read-only).
+pub fn connected(c: &Connection, user: i64, kinds: &[i64]) -> rusqlite::Result<Vec<i64>> {
+    let mut statement = c.prepare("SELECT DISTINCT exchange_id FROM api_keys WHERE user_id = ?1 AND status = 1 AND key_type IN (SELECT value FROM json_each(?2))")?;
+    let ids = statement.query_map(rusqlite::params![user, json!(kinds).to_string()], |r| r.get(0))?.collect();
+    ids
+}
 
 /// `prepare_step` and the page: the venues the bot built from the session could trade on, its own venue set aside.
 fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace) -> Result<String, WebError> {
@@ -125,18 +132,23 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None }, true)?;
     let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues: vec![],
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    super::sheet(ctx, &steered.track, &venue_pane(ctx, table, venues)?)
+    let connected = connected(c, ctx.user().map_or(0, |user| user.id), &[0])?;
+    super::sheet(ctx, &steered.track, &venue_pane(ctx, table, venues, &connected)?)
 }
 
 /// A venue step's pane (D-WIZARD-VENUE-GROUPS, D-SHEET-EVERYWHERE): `search` over the venues, searched by the request's `query`
 /// as `ordered` does, the stock brokers under "Brokers" and the rest under "Exchanges", each in that order; a group with no venue
 /// is not drawn. `table` says where a pick posts (its own `venues` unused).
+/// D-WIZARD-CONNECTED-GROUP (#710): the venues among them the user is `connected` to come first under "Connected", in that
+/// order too, and stay in their own group below: either tile picks the venue.
 /// The exchange step never searches (D-EXCHANGE-NO-SEARCH): the venues are few enough to see at once.
-pub fn venue_pane(ctx: &Ctx, table: Table, venues: Vec<Exchange>) -> Result<String, WebError> {
-    let (brokers, exchanges): (Vec<_>, Vec<_>) = ordered(venues, None).into_iter().partition(|venue| super::assets::broker(&venue.class));
-    let venue = |venue: Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false };
-    let groups: Vec<Group> = [("brokers", brokers), ("exchanges", exchanges)].into_iter().filter(|(_, venues)| !venues.is_empty())
-        .map(|(key, venues)| Group { title: ctx.t(&format!("bot.setup.venue_groups.{key}")), venues: venues.into_iter().map(venue).collect() }).collect();
+pub fn venue_pane(ctx: &Ctx, table: Table, venues: Vec<Exchange>, connected: &[i64]) -> Result<String, WebError> {
+    let venues = ordered(venues, None);
+    let venue = |venue: &Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false };
+    let group = |key: &str, keep: &dyn Fn(&Exchange) -> bool| Group { title: ctx.t(&format!("bot.setup.venue_groups.{key}")), connected: key == "connected",
+                                                                     venues: venues.iter().filter(|v| keep(v)).map(venue).collect() };
+    let groups: Vec<Group> = [group("connected", &|v| connected.contains(&v.id)), group("brokers", &|v| super::assets::broker(&v.class)),
+                              group("exchanges", &|v| !super::assets::broker(&v.class))].into_iter().filter(|group| !group.venues.is_empty()).collect();
     Ok(New { table, groups }.render()?)
 }
 

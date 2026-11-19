@@ -9,6 +9,7 @@ pt:
             add_more_assets: "Adicionar mais ativos"
             pick_assets: "Escolha um ou mais ativos"
             venue_groups:
+                connected: "Ligadas"
                 brokers: "Corretoras"
                 exchanges: "Exchanges"
             market_data:

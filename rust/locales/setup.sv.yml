@@ -9,6 +9,7 @@ sv:
             add_more_assets: "Lägg till fler tillgångar"
             pick_assets: "Välj en eller flera tillgångar"
             venue_groups:
+                connected: "Anslutna"
                 brokers: "Mäklare"
                 exchanges: "Börser"
             market_data:

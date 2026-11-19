@@ -9,6 +9,7 @@ el:
             add_more_assets: "Προσθήκη περισσότερων περιουσιακών στοιχείων"
             pick_assets: "Επιλέξτε ένα ή περισσότερα στοιχεία"
             venue_groups:
+                connected: "Συνδεδεμένα"
                 brokers: "Μεσίτες"
                 exchanges: "Ανταλλακτήρια"
             market_data:

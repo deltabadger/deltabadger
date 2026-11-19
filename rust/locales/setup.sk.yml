@@ -9,6 +9,7 @@ sk:
             add_more_assets: "Pridať ďalšie aktíva"
             pick_assets: "Vyberte jedno alebo viac aktív"
             venue_groups:
+                connected: "Pripojené"
                 brokers: "Brokeri"
                 exchanges: "Burzy"
             market_data:

@@ -2389,7 +2389,7 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     let groups:Vec<(String,Vec<String>)>={let page=scraper::Html::parse_document(&step.body);page.select(&select("section.exchange-group")).map(|g|(
         g.select(&select("h3")).next().unwrap().text().collect::<String>(),
         g.select(&select("button.exchange-grid__item")).map(|b|b.value().attr("value").unwrap().to_string()).collect())).collect()};
-    assert_eq!(groups,[("Brokers".to_string(),vec![exchange.clone()])],"the one venue, a broker: {groups:?}");
+    assert_eq!(groups,[("Connected".to_string(),vec![exchange.clone()]),("Brokers".to_string(),vec![exchange.clone()])],"the one venue, a broker the user holds a key on (D-WIZARD-CONNECTED-GROUP): {groups:?}");
     // The key step, not skipped (no key yet): the current venue goes back, Assets still switches the order.
     h.c.execute("UPDATE api_keys SET status=2 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     h.c.execute("UPDATE api_keys SET key=NULL, secret=NULL WHERE id=?1",[h.seed.api_key_id]).unwrap();
@@ -3879,6 +3879,26 @@ fn d5b_connect(h:&Harness)->Option<i64>{
     let cookie=h.browser.cookie.as_deref().unwrap();
     deltabadger::web::session::open(&h.app.keys.session,cookie,h.app.now()).unwrap().tracker_connect
 }
+// D-WIZARD-CONNECTED-GROUP (#710): the venues the user holds a correct trading or read-only key on come first under
+// "Connected" (stable venues first, as below), and stay in their own group below. The seeded user holds Alpaca's (id 1).
+#[tokio::test(flavor="current_thread")]
+async fn d5b_pick_exchange_draws_the_connected_venues_first(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
+    let (kraken,bitmart,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Binance"));
+    let other:i64={h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();h.c.last_insert_rowid()};
+    // Kraken: a correct read-only key. Binance: only a withdrawal key. BitMart: an incorrect key, and another user's correct one.
+    for (user,exchange,kind,status) in [(h.seed.user_id,&kraken,2,1),(h.seed.user_id,&binance,1,1),(h.seed.user_id,&bitmart,0,2),(other,&bitmart,0,1)]{
+        h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,status,created_at,updated_at)VALUES(?1,?2,?3,?4,'2026-01-01','2026-01-01')",(user,exchange,kind,status)).unwrap();
+    }
+    let page=h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+    assert_eq!(page.status,200,"{}",page.body);
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    let groups:Vec<(String,Vec<String>)>={let page=scraper::Html::parse_document(&page.body);page.select(&select("section.exchange-group")).map(|g|(
+        g.select(&select("h3.label")).next().unwrap().text().collect::<String>().trim().to_string(),
+        g.select(&select("button[name=\"exchange_id\"]")).map(|b|b.value().attr("value").unwrap().to_string()).collect())).collect()};
+    assert_eq!(groups,[("Connected".to_string(),vec![kraken.clone(),"1".to_string()]),("Brokers".to_string(),vec!["1".to_string()]),("Exchanges".to_string(),vec![binance,kraken,bitmart])],"{groups:?}");
+    assert_eq!(page.body.matches("exchange-group--connected").count(),1);
+}
 #[tokio::test(flavor="current_thread")]
 async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_id(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
@@ -3889,7 +3909,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
     assert!(page.body.contains("action=\"/tracker/pick_exchange\""));
     let buttons:Vec<&str>=page.body.split("name=\"exchange_id\" type=\"submit\" value=\"").skip(1).map(|s|s.split('"').next().unwrap()).collect();
     let (kraken,bitmart,gemini,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Binance"));
-    assert_eq!(buttons,["1",binance.as_str(),kraken.as_str(),bitmart.as_str()],"the broker under Brokers (D-TRACKER-SHEET, D-WIZARD-VENUE-GROUPS), then stable venues first, then by name; available only, retired included");
+    assert_eq!(buttons,["1","1",binance.as_str(),kraken.as_str(),bitmart.as_str()],"the seeded Alpaca key's venue under Connected (D-WIZARD-CONNECTED-GROUP), the broker under Brokers (D-TRACKER-SHEET, D-WIZARD-VENUE-GROUPS), then stable venues first, then by name; available only, retired included");
     assert!(!buttons.contains(&gemini.as_str()));
     assert!(!page.body.contains("disabled"),"the tracker's picker disables nothing");
     let localized=h.browser.send(&h.app,"GET","/de/tracker/pick_exchange/new",None,Csrf::None,&[("turbo-frame","modal")]).await;

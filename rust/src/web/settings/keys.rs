@@ -792,15 +792,15 @@ fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,class:&str,name:&st
 pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let inner=app.clone();let owner=user.clone();
-    let (venues,shell)=app.db(move|c|{
+    let (venues,connected,shell)=app.db(move|c|{
         let mut s=c.prepare("SELECT id,name,type FROM exchanges WHERE available=1")?;
         let venues=s.query_map([],|r|Ok(crate::web::bot::Exchange{id:r.get(0)?,name:r.get::<_,Option<String>>(1)?.unwrap_or_default(),class:r.get(2)?,maker_fee:None}))?.collect::<Result<Vec<_>,_>>()?;
-        Ok((venues,crate::web::shell::Shell::load(c,&inner,&owner)?))
+        Ok((venues,crate::web::wizard::exchanges::connected(c,owner.id,&[0,2])?,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     use crate::web::wizard::{self, exchanges, Stop};
     let csrf=ctx.csrf_token();
     let table=exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues:vec![],unavailable_note:String::new()};
-    let content=exchanges::venue_pane(&ctx,table,venues)?;
+    let content=exchanges::venue_pane(&ctx,table,venues,&connected)?;
     let body=wizard::sheet_to(&ctx,"/tracker",&wizard::track(&ctx,0,vec![Stop::new("exchange"),Stop::new("connect")])?,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }

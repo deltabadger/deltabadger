@@ -11,7 +11,7 @@ use crate::{
         i18n::{escape, Arg},
         settings::{key_check, keys},
         wizard::{
-            exchanges::{venue_pane, Table},
+            exchanges::{connected, venue_pane, Table},
             keys::{key_pane, venue},
             search_box, Stop,
         },
@@ -131,7 +131,8 @@ async fn exchange(app: &App, ctx: &Ctx) -> Result<Response, WebError> {
                 venues: vec![],
                 unavailable_note: v.t("bot.hyperliquid_trading_unavailable"),
             };
-            venue_pane(&v, table, venues)
+            let connected = connected(c, v.user().map_or(0, |user| user.id), &[1])?;
+            venue_pane(&v, table, venues, &connected)
         })
         .await?;
     full(app, ctx, 0, false, None, None, content).await

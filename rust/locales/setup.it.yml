@@ -9,6 +9,7 @@ it:
             add_more_assets: "Aggiungi altre attività"
             pick_assets: "Scegli uno o più asset"
             venue_groups:
+                connected: "Collegati"
                 brokers: "Broker"
                 exchanges: "Exchange"
             market_data:
