@@ -2055,10 +2055,12 @@ async fn rules_wizard_steps_are_drawn_in_the_sheet() {
     assert_eq!(status, 200);
     let doc = rules_sheet(&body, &[("Exchange", "current", None), ("Assets", "upcoming", None), ("Address", "upcoming", None), ("Settings", "upcoming", None)]);
     assert_eq!(count(&doc, ".sheet__pane input[name=\"query\"]"), 0);
-    assert_eq!(count(&doc, "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the one withdrawing venue");
+    assert_eq!(count(&doc, ".exchange-group:not(.exchange-group--connected) button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the one withdrawing venue");
+    // D-WIZARD-CONNECTED-GROUP: the user holds its withdrawal key, so it is drawn under Connected too.
+    assert_eq!(count(&doc, ".exchange-group--connected button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the venue under Connected");
     // D-EXCHANGE-NO-SEARCH: a query (a 2.x link's) filters nothing; the venues are all offered.
     let (_, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new?query=zzzz", "", None, true, false).await;
-    assert_eq!(count(&scraper::Html::parse_document(&body), "button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1);
+    assert_eq!(count(&scraper::Html::parse_document(&body), ".exchange-group:not(.exchange-group--connected) button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1);
     // The asset step: the venue done, its link back.
     let config = json!({"exchange_id": i.s.exchange_id.to_string()});
     let (status, body) = i.send("GET", "/rules/withdrawals/pick_asset/new", "", Some(config), true, false).await;
