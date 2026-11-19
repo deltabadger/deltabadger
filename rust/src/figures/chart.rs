@@ -940,7 +940,7 @@ mod series_tests {
         Page { bot: 1, quote: "USD".into(), decimals: 2, labels: labels.iter().map(|&ms| at(ms)).collect(),
             series: [labels.iter().enumerate().map(|(i, _)| Num::Float(i as f64 * 1.5)).collect(), labels.iter().map(|_| Num::Float(1.0)).collect()],
             pnl: vec![], assets: vec![("BTC".into(), labels.iter().enumerate().map(|(i, _)| (i % 3 != 0).then_some(i as f64)).collect(), vec![2.0; labels.len()])],
-            pnl_only: false, buys, prices: vec![("BTC".into(), labels.iter().map(|&ms| Some(ms as f64 / 7.0)).collect())], logo_assets: vec![] }
+            pnl_only: false, buys, prices: vec![("BTC".into(), labels.iter().map(|&ms| Some(ms as f64 / 7.0)).collect())], logo_assets: vec![], received: None }
     }
 
     #[test]
