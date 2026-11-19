@@ -218,6 +218,13 @@ pub fn ensure_account(c: &Connection, user_id: i64, exchange_id: i64, now: DateT
     first_account(c, user_id, exchange_id)?.map(|(id, _)| id).ok_or(rusqlite::Error::QueryReturnedNoRows)
 }
 
+/// A write that first names (user, exchange): its number-1 account exists afterwards. Nothing on an install whose
+/// identity tables are absent (a 2.x install Rust has not migrated), as the rest of this module.
+pub fn touch(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
+    if ready(c)? { ensure_account(c, user_id, exchange_id, now)?; }
+    Ok(())
+}
+
 /// The migration's eager rows (20261119000001), again: number 1 for every (user, exchange) a table names and no account
 /// has. Run in the takeover's claim after 2.x owned the install (its keys, bots and rules name exchanges Rust never saw).
 pub const FILL: &str = "INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)

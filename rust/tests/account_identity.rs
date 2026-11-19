@@ -795,3 +795,12 @@ fn unknown_eager_accounts_are_no_reset() {
     fx.restart();
     assert!(deltabadger::app_config::get_plain(&fx.c, identity::KEY_CONFIG).unwrap().is_none(), "nothing to clear, no key stored");
 }
+
+/// A write on a 2.x install Rust has not migrated (no identity tables) goes on: touching its account does nothing.
+#[test]
+fn touching_an_account_on_an_install_without_identity_tables_writes_nothing() {
+    let c = rusqlite::Connection::open_in_memory().unwrap();
+    identity::touch(&c, 1, 1, now()).unwrap();
+    let tables: i64 = c.query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get(0)).unwrap();
+    assert_eq!(tables, 0);
+}

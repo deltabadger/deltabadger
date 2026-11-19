@@ -190,7 +190,7 @@ pub async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
             let [signing, encryption, dh] = material.map(|pem| inner.cipher.encrypt(&pem));
             tx.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, rsa_signature_key, rsa_encryption_key, dh_param, created_at, updated_at) VALUES(?1, ?2, 0, 0, ?3, ?4, ?5, ?6, ?6)",
                        rusqlite::params![user.id, exchange, signing, encryption, dh, now])?;
-            crate::identity::ensure_account(&tx, user.id, exchange, inner.now())?;
+            crate::identity::touch(&tx, user.id, exchange, inner.now())?;
         }
         tx.commit()?;
         Ok(())

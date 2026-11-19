@@ -258,7 +258,7 @@ pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Resu
               // The settings column as ActiveRecord's JSON coder writes it (ActiveSupport escapes <, > and &: an index's name may hold them).
               rusqlite::params![user, bot.exchange_id, bot.label, position, crate::web::bots::json(&Value::Object(bot.settings)), transient.to_string(), at])?;
     let id = c.last_insert_rowid();
-    if let Some(exchange) = bot.exchange_id { crate::identity::ensure_account(c, user, exchange, now)?; }
+    if let Some(exchange) = bot.exchange_id { crate::identity::touch(c, user, exchange, now)?; }
     Ok(id)
 }
 

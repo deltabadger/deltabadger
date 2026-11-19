@@ -110,7 +110,7 @@ pub fn insert(c: &Connection, new: &New<'_>, now: DateTime<Utc>) -> Result<i64, 
     if let Some(s) = standalone {
         c.execute("INSERT INTO rust_api_order_standalone (order_id, exchange_id, ticker_id, order_type, price, surface) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                   params![id, s.exchange_id, s.ticker_id, if s.limit { "limit" } else { "market" }, s.price.as_ref().map(persisted).transpose()?, if s.mcp { "mcp" } else { "rest" }])?;
-        crate::identity::ensure_account(c, user_id, s.exchange_id, now)?;
+        crate::identity::touch(c, user_id, s.exchange_id, now)?;
     }
     Ok(id)
     })
