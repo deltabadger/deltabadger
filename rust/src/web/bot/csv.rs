@@ -243,9 +243,9 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     // #710: the rows land on the bot's current account, its venue ids where that account keeps them; what the bot already
     // holds is read there only (an order of the account it traded on before is another venue order).
     let scope = crate::identity::order_scope(&tx, id)?;
-    let held: HashSet<String> = tx.prepare(&format!("SELECT {o} FROM transactions WHERE bot_id = ?1 AND {o} IS NOT NULL AND {mine}",
+    let held: HashSet<String> = tx.prepare(&format!("SELECT {o} FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND {o} IS NOT NULL AND {mine}",
                                                     o = crate::venue_ids::order_id(&tx, "transactions")?, mine = scope.orders("transactions")))?
-        .query_map([id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        .query_map([id, scope.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let own = format!("imported_{id}_");
     let (mut skipped, mut mismatched_quote, mut seen, mut candidates) = (0usize, None::<String>, HashSet::new(), vec![]);
     for row in &table.rows {
