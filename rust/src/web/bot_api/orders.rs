@@ -60,8 +60,9 @@ fn exchange_not_found(c: &Connection, name: &Value) -> Result<Res, WebError> {
     Ok(failure(Domain::NotFound, "exchange_not_found", format!("Exchange '{}' not found. Available: {}", to_s(name), crate::web::mcp::tradeable(c)?.join(", "))))
 }
 /// Lookup.find_api_key: the user's correct trading key.
-fn has_correct_key(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> {
-    Ok(c.query_row("SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 LIMIT 1", [user, exchange], |_| Ok(())).optional()?.is_some())
+/// Whether `account` has a correct trading key (#710: the account an order is placed on or cancelled through).
+fn has_correct_key(c: &Connection, account: &crate::identity::Account) -> Result<bool, WebError> {
+    Ok(c.query_row(&format!("SELECT 1 FROM api_keys k WHERE {} AND k.key_type=0 AND k.status=1 LIMIT 1", account.keys("k")), [], |_| Ok(())).optional()?.is_some())
 }
 fn api_key_missing(exchange: &str) -> Res {
     failure(Domain::PermissionDenied, "api_key_missing", format!("No valid API key found for {exchange}. Please add an API key in Settings."))
@@ -138,7 +139,9 @@ fn standalone_checked(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: C
         return done(failure(Domain::ValidationFailed, "missing_required_parameter", format!("Missing required parameter(s): {}.", missing.join(", "))));
     }
     let Some((exchange, name, venue)) = find_exchange(c, arg(args, "exchange_name"))? else { return exchange_not_found(c, arg(args, "exchange_name")).map(Placed::Done) };
-    if !has_correct_key(c, who.user, exchange)? { return done(api_key_missing(&name)) }
+    // #710: the exchange's number 1 (REST and MCP name no other account before slice 6).
+    let account = crate::identity::Account::first(c, who.user, exchange)?;
+    if !has_correct_key(c, &account)? { return done(api_key_missing(&name)) }
     let (base, quote) = (to_s(arg(args, "base_asset")).to_uppercase(), to_s(arg(args, "quote_asset")).to_uppercase());
     let Some(ticker) = find_ticker(c, exchange, &base, &quote)? else {
         return done(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {name}.")));
@@ -158,7 +161,7 @@ fn standalone_checked(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: C
     let (Some(amount), price) = (number(arg(args, "amount")), if kind.limit() { number(arg(args, "price")) } else { None }) else { return done(invalid_number("amount")) };
     let supplied: Map<String, Value> = [("base_asset", json!(base)), ("quote_asset", json!(quote))].into_iter().map(|(k, v)| (k.to_string(), v)).collect();
     let side = if kind.buy() { crate::venue::Side::Buy } else { crate::venue::Side::Sell };
-    let standalone = crate::engine::api_orders::Standalone { exchange_id: exchange, ticker_id: ticker.id, limit: kind.limit(), price, mcp: who.mcp };
+    let standalone = crate::engine::api_orders::Standalone { account, exchange_id: exchange, ticker_id: ticker.id, limit: kind.limit(), price, mcp: who.mcp };
     let new = crate::engine::api_orders::New::Standalone { user_id: who.user, side, amount: &amount, in_base: queued.amount_type == "base", supplied: &supplied, standalone };
     let id = crate::engine::api_orders::insert(c, &new, now).map_err(|e| WebError::Config(format!("{e:?}")))?;
     Ok(Placed::Queued(Queued { id, ..queued }))
@@ -186,7 +189,7 @@ fn placed(q: &Queued, dry_run: bool, order_id: &str) -> Res {
 pub fn standalone_late_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
     let Some(s) = &request.standalone else { return Err(WebError::Config("a bot request has no standalone refusal".into())) };
     let name: String = c.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id=?1", [s.exchange_id], |r| r.get(0)).optional()?.unwrap_or_default();
-    if !has_correct_key(c, request.user_id, s.exchange_id)? { return Ok(Some(api_key_missing(&name))) }
+    if !has_correct_key(c, &s.account)? { return Ok(Some(api_key_missing(&name))) }
     let Some(ticker) = model::ticker_by_id(c, s.exchange_id, s.ticker_id).map_err(|e| WebError::Config(format!("{e:?}")))? else {
         let named = |k: &str| request.supplied.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
         return Ok(Some(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {}/{} not found on {name}.", named("base_asset"), named("quote_asset")))));
@@ -408,10 +411,10 @@ enum Target {
     Row { bot: i64, tx: i64, external: String },
     /// `exchange.cancel_order(order_id:)` on the user's key; `row`: the user's bot row with that order id (bot, tx), whose
     /// stored order (OrderRef::load) is cancelled and re-read (r3).
-    Key { user: i64, exchange: i64, external: String, row: Option<(i64, i64)> },
+    Key { account: crate::identity::Account, external: String, row: Option<(i64, i64)> },
     /// A standalone order this build placed (the retained log, D-ORDER-STANDALONE-LOG): sent on its stored route, any
     /// KuCoin family (`record`), with no re-read (there is no row).
-    Log { user: i64, exchange: i64, order: crate::venue::OrderRef },
+    Log { account: crate::identity::Account, order: crate::venue::OrderRef },
 }
 
 fn cancel_failed(why: &str) -> Res { failure(Domain::UpstreamFailed, "cancel_failed", format!("Cancel failed: {why}")) }
@@ -448,23 +451,26 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
         return Ok(Cancel::Done(failure(Domain::ValidationFailed, "exchange_name_required", "Exchange name is required when cancelling by exchange order ID.")));
     }
     let Some((exchange, name, venue)) = find_exchange(c, exchange_name)? else { return exchange_not_found(c, exchange_name).map(Cancel::Done) };
-    if !has_correct_key(c, who.user, exchange)? { return Ok(Cancel::Done(api_key_missing(&name))) }
-    if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
-    let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
-    if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
     // r3: a stored order beats a bare id. The user's bot rows first (the latest with this venue and order id); then the
-    // retained standalone order log (PLAN-A9 O4); then the bare id.
+    // retained standalone order log (PLAN-A9 O4); then the bare id. #710: each is cancelled through the account it was
+    // placed on (a bare id through the exchange's number 1), whose key is the one checked.
     let row: Option<(i64, i64)> = c.query_row("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
                                                WHERE b.user_id=?1 AND t.exchange_id=?2 AND t.external_id=?3 AND substr(t.external_id, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1",
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    if row.is_none() {
-        if let Some((identity, snapshot)) = crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? {
-            // r1 §4: the route from what was stored at the claim, never from the ticker row (it may be gone or renamed since).
-            let mut intent = identity.unwrap_or_else(|| json!({}));
-            for key in ["symbol", "side", "limit"] { intent[key] = snapshot[key].clone(); }
-            let order = crate::venue::OrderRef { external_id: text, record: crate::venue::kucoin::record_of(&intent) };
-            return Ok(Cancel::Send(CancelJob { target: Target::Log { user: who.user, exchange, order }, answer }));
-        }
+    let account = match &row { Some((_, tx)) => crate::identity::Account::of_order(c, *tx)?, None => Some(crate::identity::Account::first(c, who.user, exchange)?) };
+    let Some(account) = account else { return Ok(Cancel::Done(api_key_missing(&name))) };
+    if !has_correct_key(c, &account)? { return Ok(Cancel::Done(api_key_missing(&name))) }
+    if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
+    let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
+    if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
+    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
+    if let Some((account, identity, snapshot)) = log {
+        if !has_correct_key(c, &account)? { return Ok(Cancel::Done(api_key_missing(&name))) }
+        // r1 §4: the route from what was stored at the claim, never from the ticker row (it may be gone or renamed since).
+        let mut intent = identity.unwrap_or_else(|| json!({}));
+        for key in ["symbol", "side", "limit"] { intent[key] = snapshot[key].clone(); }
+        let order = crate::venue::OrderRef { external_id: text, record: crate::venue::kucoin::record_of(&intent) };
+        return Ok(Cancel::Send(CancelJob { target: Target::Log { account, order }, answer }));
     }
     // D-ORDER-ID-SAFE: a bare id becomes a path segment on the venue (`DELETE /v2/orders/<id>`), so one that could leave it
     // (`../positions/X` would be Alpaca's position liquidation) is refused and nothing is sent. Every venue's order ids are
@@ -472,7 +478,7 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     if row.is_none() && !(text.len() <= 128 && text.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')) {
         return Ok(Cancel::Done(failure(Domain::ValidationFailed, "invalid_order_id", "order_id must be an exchange order id: letters, digits, '-' and '_'.")));
     }
-    Ok(Cancel::Send(CancelJob { target: Target::Key { user: who.user, exchange, external: text, row }, answer }))
+    Ok(Cancel::Send(CancelJob { target: Target::Key { account, external: text, row }, answer }))
 }
 
 /// The one bounded cancel a `CancelJob` names, on a connection of its own (no lock held while the venue answers), and its
@@ -484,12 +490,12 @@ pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
         let factory = page::live_factory(c, app);
         let sent = match job.target {
             Target::Row { bot, tx, external } => page::send_for_row(c, app, &factory, runtime, &model::load_bot(c, bot)?, tx, &external)?,
-            Target::Log { user, exchange, order } => {
-                let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, user, exchange)?;
+            Target::Log { account, order } => {
+                let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
                 page::send(runtime, &venue, &order)
             }
-            Target::Key { user, exchange, external, row } => {
-                let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, user, exchange)?;
+            Target::Key { account, external, row } => {
+                let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
                 match row {
                     Some((bot, tx)) => {
                         let order = crate::venue::OrderRef::load(c, tx, &external)?;

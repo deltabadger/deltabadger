@@ -17,6 +17,8 @@ pub struct Bot {
     started_at: Option<String>, settings_changed_at: Option<String>, pub restatement_generation: i64,
     /// Bot::LimitOrderable#limit_orders_locked?: a bot on Hyperliquid (spot has no market order) places limits only.
     limit_locked: bool,
+    /// A key holder's account (`key_holder`, #710); None on a bot row (its account is its membership's).
+    holder: Option<crate::identity::Account>,
 }
 
 /// Captured before any intervening tick work, never from the row at claim time. The counters also
@@ -52,9 +54,9 @@ impl RunIdentity {
 impl Bot {
     /// No bot: the user's trading key on `exchange_id`, for what reads a key as a bot on that venue would (the venue
     /// `engine::run::venue_for_key` builds for an API cancel by exchange order id). Never stored, never ticked.
-    pub(crate) fn key_holder(user_id: i64, exchange_id: i64) -> Self {
-        Self { id: 0, user_id, exchange_id, status: BotStatus::Stopped, bot_type: String::new(), settings: Value::Null, transient: Value::Null,
-               started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false }
+    pub(crate) fn key_holder(account: crate::identity::Account) -> Self {
+        Self { id: 0, user_id: account.user_id, exchange_id: account.exchange_id, status: BotStatus::Stopped, bot_type: String::new(), settings: Value::Null, transient: Value::Null,
+               started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false, holder: Some(account) }
     }
     pub fn run_generation(&self) -> i64 { self.transient["run_generation"].as_i64().unwrap_or(0) }
     /// Bumped by a web write that adds to the bot's order history (web::bot::csv's import), never by a stop or a start: an
@@ -115,7 +117,7 @@ pub fn load_bot(c: &Connection, id: i64) -> Result<Bot, EngineError> {
         id, user_id: user.unwrap_or(0), exchange_id: exchange.unwrap_or(0),
         status: BotStatus::from_i64(status).ok_or_else(|| EngineError::Data(format!("bot {id}: status {status}")))?,
         bot_type: ty.unwrap_or_default(), settings, transient,
-        started_at: started, settings_changed_at: changed, restatement_generation: restated, limit_locked,
+        started_at: started, settings_changed_at: changed, restatement_generation: restated, limit_locked, holder: None,
     })
 }
 
@@ -811,9 +813,9 @@ pub fn credential_write<T>(c: &Connection, version: &Option<CredentialVersion>, 
     tx.commit()?;Ok(out)
 }
 /// SQL condition on api key row `k`: a key of `bot`'s account (#710). A key holder (`Bot::key_holder`, id 0: a standalone
-/// order's or a recovery's account on an exchange) names no bot row; its account is its (user, exchange)'s.
+/// order's or a recovery's account on an exchange) names no bot row; its account is the one it holds.
 pub(crate) fn bot_keys(c: &Connection, bot: &Bot) -> rusqlite::Result<String> {
-    if bot.id == 0 { return Ok(crate::identity::Account::first(c, bot.user_id, bot.exchange_id)?.keys("k")); }
+    if bot.id == 0 { return Ok(match bot.holder { Some(account) => account.keys("k"), None => crate::identity::Account::first(c, bot.user_id, bot.exchange_id)?.keys("k") }); }
     crate::identity::bot_keys(c, bot.id, "k")
 }
 /// `bot.api_key&.pending_activation?`: the bot's trading key, registered but not yet activated (IBKR's). Every job that

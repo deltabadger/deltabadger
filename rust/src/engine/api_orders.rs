@@ -78,9 +78,10 @@ pub struct Request {
     pub send_by: DateTime<Utc>,
 }
 
-/// A standalone order's account venue and pair as validation found them (PLAN-A9 O4).
+/// A standalone order's account venue and pair as validation found them (PLAN-A9 O4); `account`: the account it is placed
+/// on (#710), on `exchange_id`.
 #[derive(Debug, Clone)]
-pub struct Standalone { pub exchange_id: i64, pub ticker_id: i64, pub limit: bool, pub price: Option<BigDec>, pub mcp: bool }
+pub struct Standalone { pub account: crate::identity::Account, pub exchange_id: i64, pub ticker_id: i64, pub limit: bool, pub price: Option<BigDec>, pub mcp: bool }
 
 /// What the web writes: the order as the caller sized it and what validation saw; through a bot, or on the account.
 pub enum New<'a> {
@@ -99,7 +100,7 @@ pub fn insert(c: &Connection, new: &New<'_>, now: DateTime<Utc>) -> Result<i64, 
     };
     let (bot_id, version, standalone) = match new {
         New::Bot { bot, .. } => (Some(bot.id), model::credential_version(c, bot)?, None),
-        New::Standalone { user_id, standalone, .. } => (None, model::credential_version(c, &model::Bot::key_holder(*user_id, standalone.exchange_id))?, Some(standalone)),
+        New::Standalone { standalone, .. } => (None, model::credential_version(c, &model::Bot::key_holder(standalone.account))?, Some(standalone)),
     };
     atomically(c, || {
     c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, credential_version, state, created_at, send_by) \
@@ -108,9 +109,10 @@ pub fn insert(c: &Connection, new: &New<'_>, now: DateTime<Utc>) -> Result<i64, 
                       version.map(|v| v.cache_stamp().to_string()), format_time(now), format_time(send_by)])?;
     let id = c.last_insert_rowid();
     if let Some(s) = standalone {
-        c.execute("INSERT INTO rust_api_order_standalone (order_id, exchange_id, ticker_id, order_type, price, surface) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                  params![id, s.exchange_id, s.ticker_id, if s.limit { "limit" } else { "market" }, s.price.as_ref().map(persisted).transpose()?, if s.mcp { "mcp" } else { "rest" }])?;
-        crate::identity::touch(c, user_id, s.exchange_id, now)?;
+        if s.account.user_id != user_id || s.account.exchange_id != s.exchange_id { return Err(EngineError::Data("a standalone order on another user's or exchange's account".into())); }
+        let account = s.account.ensure(c, now)?;
+        c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, price, surface) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                  params![id, account.id.unwrap_or(0), s.exchange_id, s.ticker_id, if s.limit { "limit" } else { "market" }, s.price.as_ref().map(persisted).transpose()?, if s.mcp { "mcp" } else { "rest" }])?;
     }
     Ok(id)
     })
@@ -157,15 +159,17 @@ pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
 }
 
 /// The retained standalone order a user placed on `exchange_id` with the venue's id `external_id` (the latest): the
-/// venue's placement identity at its claim and its wire order (`claim`).
-pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str) -> Result<Option<(Option<Value>, Value)>, EngineError> {
-    let row: Option<(Option<String>, Option<String>)> = c.query_row(&format!(
-        "SELECT s.identity, s.order_snapshot FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
+/// account it was placed on, the venue's placement identity at its claim and its wire order (`claim`). None also for one
+/// whose account is another user's or exchange's.
+pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str) -> Result<Option<(crate::identity::Account, Option<Value>, Value)>, EngineError> {
+    let row: Option<(i64, Option<String>, Option<String>)> = c.query_row(&format!(
+        "SELECT s.account_id, s.identity, s.order_snapshot FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
          WHERE o.user_id = ?1 AND s.exchange_id = ?2 AND s.external_id = ?3 AND {RETAINED} ORDER BY o.id DESC LIMIT 1"),
-        params![user_id, exchange_id, external_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    let Some((identity, snapshot)) = row else { return Ok(None) };
+        params![user_id, exchange_id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let Some((account, identity, snapshot)) = row else { return Ok(None) };
+    let Some(account) = crate::identity::Account::by_id(c, account)?.filter(|a| a.user_id == user_id && a.exchange_id == exchange_id) else { return Ok(None) };
     let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| EngineError::Data(format!("api order log: {e}")));
-    Ok(Some((identity.as_deref().map(parse).transpose()?, parse(snapshot.as_deref().unwrap_or("null"))?)))
+    Ok(Some((account, identity.as_deref().map(parse).transpose()?, parse(snapshot.as_deref().unwrap_or("null"))?)))
 }
 
 /// Every queued request, oldest first.
@@ -185,11 +189,14 @@ pub fn take(c: &Connection, id: i64, now: DateTime<Utc>) -> Result<Option<Reques
     let bad = |what: &str| EngineError::Data(format!("api order {id}: {what}"));
     let time = |t: &str| parse_time(t).map_err(|_| bad("time"));
     let standalone = if bot_id.is_some() { None } else {
-        type Own = (Option<i64>, Option<i64>, String, Option<String>, Option<String>);
-        let (exchange_id, ticker_id, order_type, price, surface): Own = c.query_row(
-            "SELECT exchange_id, ticker_id, order_type, price, surface FROM rust_api_order_standalone WHERE order_id = ?1", [id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).optional()?.ok_or_else(|| bad("no bot and no standalone row"))?;
-        Some(Standalone { exchange_id: exchange_id.ok_or_else(|| bad("no bot and no exchange"))?, ticker_id: ticker_id.ok_or_else(|| bad("no ticker"))?,
+        type Own = (Option<i64>, Option<i64>, String, Option<String>, Option<String>, i64);
+        let (exchange_id, ticker_id, order_type, price, surface, account): Own = c.query_row(
+            "SELECT exchange_id, ticker_id, order_type, price, surface, account_id FROM rust_api_order_standalone WHERE order_id = ?1", [id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).optional()?.ok_or_else(|| bad("no bot and no standalone row"))?;
+        let exchange_id = exchange_id.ok_or_else(|| bad("no bot and no exchange"))?;
+        // #710: its own account, never another one's key.
+        let account = crate::identity::Account::by_id(c, account)?.filter(|a| a.user_id == user_id && a.exchange_id == exchange_id).ok_or_else(|| bad("its account is another user's or exchange's"))?;
+        Some(Standalone { account, exchange_id, ticker_id: ticker_id.ok_or_else(|| bad("no ticker"))?,
                           limit: order_type == "limit", price: price.map(|p| BigDec::parse(&p).map_err(|_| bad("price"))).transpose()?,
                           mcp: surface.as_deref() == Some("mcp") })
     };
@@ -317,7 +324,7 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
             MarketWire::Refused(text) => return failed(text.into()),
             MarketWire::Direct => None,
             MarketWire::Priced => {
-                let holder = model::Bot::key_holder(request.user_id, s.exchange_id);
+                let holder = model::Bot::key_holder(s.account);
                 match super::signal::retrying(venue, || super::tick::market_price_read(venue, &holder, &ticker, request.side, clock, cx)).await? {
                     Ok(p) if p.is_positive() => Some(p),
                     Ok(_) => return failed("divided by 0".into()),

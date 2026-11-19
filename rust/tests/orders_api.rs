@@ -610,7 +610,7 @@ async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validatio
     let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair: serde_json::Map<String, Value> = [("base_asset".to_string(), json!("BTC")), ("quote_asset".to_string(), json!("EUR"))].into_iter().collect();
     let id = api_orders::insert(k.c(), &api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
-        standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
+        standalone: api_orders::Standalone { account: deltabadger::identity::Account::first(k.c(), k.user, exchange).unwrap(), exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
     k.c().execute_batch(&lock).unwrap();
     let request = api_orders::take(k.c(), id, kt(0).0).unwrap().unwrap();
     let refused = deltabadger::web::bot_api::orders::standalone_late_refusal(k.c(), kt(0).0, &request).unwrap().unwrap();
@@ -653,7 +653,7 @@ async fn a_restart_answers_a_standalone_sending_order_unknown_and_never_sends_it
     let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair = serde_json::Map::new();
     let new = || api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
-        standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
+        standalone: api_orders::Standalone { account: deltabadger::identity::Account::first(k.c(), k.user, exchange).unwrap(), exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
     let (t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
     api_orders::take(k.c(), t, kt(0).0).unwrap();
     api_orders::take(k.c(), s, kt(0).0).unwrap();

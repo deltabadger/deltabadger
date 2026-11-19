@@ -606,7 +606,7 @@ fn prepare(c: &Connection, cipher: &crate::crypto::Cipher, id: i64, now: DateTim
     let Some(Judged { line, basis }) = judge(c, &o, now, linked)? else { return Ok(Prep::Wait) };
     let Some(b) = basis.filter(|b| SERVED.contains(&b.venue_type.as_str())) else { return Ok(Prep::Write(o.bot, line)) };
     let exchange = b.scope.exchange;
-    let (credentials, version, sensitive) = match model::credentials_with_redaction(c, cipher, &model::Bot::key_holder(b.user, exchange)) {
+    let (credentials, version, sensitive) = match model::credentials_with_redaction(c, cipher, &model::Bot::key_holder(crate::identity::Account::first(c, b.user, exchange)?)) {
         Ok((Some(credentials), Some(version), sensitive)) => (credentials, version, sensitive),
         Ok(_) | Err(EngineError::Data(_)) => return Ok(Prep::Write(o.bot, line)),
         Err(e) => return Err(e),

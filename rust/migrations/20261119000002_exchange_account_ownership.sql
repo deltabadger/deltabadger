@@ -56,3 +56,29 @@ CREATE UNIQUE INDEX index_rust_withdrawal_ids_identity ON rust_withdrawal_ids (a
 INSERT INTO rust_withdrawal_ids (rowid, account_id, exchange_id, venue_id, owner, settled_at, source)
   SELECT r, account_id, exchange_id, venue_id, owner, settled_at, source FROM rust_withdrawal_ids_710;
 DROP TABLE rust_withdrawal_ids_710;
+
+-- A standalone order's account (its key, its cancel by venue id), rebuilt through a hop table, every row keeping its order
+-- id: each existing one is its (user, exchange)'s number 1. `exchange_id` stays (identity::FILL and the log read it).
+CREATE TABLE rust_api_order_standalone_710 (order_id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL, exchange_id INTEGER NOT NULL, ticker_id INTEGER NOT NULL,
+  order_type TEXT NOT NULL, price TEXT, surface TEXT NOT NULL, identity TEXT, order_snapshot TEXT, external_id TEXT);
+INSERT INTO rust_api_order_standalone_710 (order_id, account_id, exchange_id, ticker_id, order_type, price, surface, identity, order_snapshot, external_id)
+  SELECT s.order_id, coalesce((SELECT a.id FROM rust_api_orders o JOIN exchange_accounts a ON a.user_id = o.user_id AND a.exchange_id = s.exchange_id AND a.number = 1
+                               WHERE o.id = s.order_id), 0),
+         s.exchange_id, s.ticker_id, s.order_type, s.price, s.surface, s.identity, s.order_snapshot, s.external_id FROM rust_api_order_standalone s;
+DROP TABLE rust_api_order_standalone;
+CREATE TABLE rust_api_order_standalone (
+  order_id INTEGER PRIMARY KEY,
+  account_id INTEGER NOT NULL,
+  exchange_id INTEGER NOT NULL,
+  ticker_id INTEGER NOT NULL,
+  order_type TEXT NOT NULL,
+  price TEXT,
+  surface TEXT NOT NULL,
+  identity TEXT,
+  order_snapshot TEXT,
+  external_id TEXT
+);
+CREATE INDEX index_rust_api_order_standalone_on_log ON rust_api_order_standalone (account_id, external_id);
+INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, price, surface, identity, order_snapshot, external_id)
+  SELECT order_id, account_id, exchange_id, ticker_id, order_type, price, surface, identity, order_snapshot, external_id FROM rust_api_order_standalone_710;
+DROP TABLE rust_api_order_standalone_710;
