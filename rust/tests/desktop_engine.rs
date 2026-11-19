@@ -461,9 +461,9 @@ fn rows(base: &Data) -> Vec<(Data, Row)> {
         bought or sold.{phase} Quit Deltabadger and open it again. If this keeps happening, contact support and send them the files in {}.", log(d));
     let failed_check = |_: &Data| "Sqlite(InvalidColumnType(0, \"label\", Blob))".to_string();
     row("set-aside failure", &|d| d.sql(MALFORMED_BOT), vec![], &failed_check, &aside(" Nothing was changed."));
-    // PLAN-B6 r3.7: an account with no identity key is an encryption reset, committed before the set-aside check.
+    // PLAN-B6 r3.7: a known account identity with no identity key is an encryption reset, committed before the set-aside check.
     row("identity reset, then a set-aside failure", &|d| d.sql(&format!("{MALFORMED_BOT};
-            INSERT INTO exchange_accounts (user_id, exchange_id, created_at, updated_at) VALUES (1, (SELECT min(id) FROM exchanges), '2026-01-01', '2026-01-01')")),
+            INSERT INTO exchange_accounts (user_id, exchange_id, number, fingerprint, created_at, updated_at) VALUES (1, (SELECT min(id) FROM exchanges), 1, 'fp', '2026-01-01', '2026-01-01')")),
         vec![], &failed_check, &aside(""));
     out
 }
@@ -794,13 +794,12 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// testing "an update brings a migration" the day one is added.
 type Undo = (&'static str, fn() -> String);
 const UNDO: [Undo; 2] = [
-    ("20261112000001", || "DROP TABLE rust_index_retired".into()),
-    ("20261117000001", undo_v2_stored_names)];
+    ("20261117000001", || undo_replacement("20261117000001")),
+    ("20261119000001", || undo_replacement("20261119000001"))];
 
-/// B11-9's migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each table
-/// it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).
-fn undo_v2_stored_names() -> String {
-    let v = UNDO[1].0;
+/// A replacing migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each
+/// table it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).
+fn undo_replacement(v: &str) -> String {
     let reg = deltabadger::store::REGISTRY;
     let made: Vec<&str> = reg.tables.iter().filter(|(at, _)| *at == v).map(|(_, t)| t.name).collect();
     let back: Vec<&str> = reg.retired.iter().filter(|(at, _)| *at == v).map(|(_, t)| *t).chain(made.iter().copied().filter(|t| reg.tables.iter().any(|(at, c)| c.name == *t && *at < v))).collect();
