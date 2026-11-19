@@ -577,7 +577,19 @@ fn chart_value(v: &Value, bot: i64, name: &str) -> Option<String> {
     let raw = &chart[start..start + chart[start..].find('"').unwrap()];
     Some(raw.replace("&quot;", "\"").replace("&#39;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
 }
-fn chart_numbers(v: &Value, bot: i64, name: &str) -> Value { serde_json::from_str(&chart_value(v, bot, name).unwrap()).unwrap() }
+/// The chart's series as its data request answers from them (D-CHART-DATA-REQUEST: they are kept with the record, not in
+/// the shell): `series` is [value, invested]; `pnl` their difference, none while Received's cost is unknown, as the
+/// controller draws it.
+fn chart_numbers(v: &Value, bot: i64, name: &str) -> Value {
+    let kept: Value = serde_json::from_str(v["bots"][bot.to_string()]["series"].as_str().unwrap()).unwrap();
+    let (value, invested) = (kept["value"].as_array().unwrap(), kept["invested"].as_array().unwrap());
+    match name {
+        "series" => json!([value, invested]),
+        "pnl" if chart_value(v, bot, "received").as_deref() == Some("unknown") => json!([]),
+        "pnl" => json!(value.iter().zip(invested).map(|(v, i)| float(v) - float(i)).collect::<Vec<f64>>()),
+        other => panic!("no kept series {other}"),
+    }
+}
 fn float(n: &Value) -> f64 { n.as_f64().or_else(|| n.as_str().and_then(|s| s.parse().ok())).unwrap_or_else(|| panic!("not a number: {n}")) }
 
 #[tokio::test]
@@ -608,7 +620,8 @@ async fn a_sell_only_chart_with_known_cost_draws_the_realised_pnl() {
     let series = chart_numbers(&shown, 3, "series");
     assert_eq!(float(series[0].as_array().unwrap().last().unwrap()), 7.6, "{chart}");
     assert_eq!(float(series[1].as_array().unwrap().last().unwrap()), 6.0, "{chart}");
-    assert_eq!(float(chart_numbers(&shown, 3, "pnl").as_array().unwrap().last().unwrap()), 1.6, "{chart}");
+    // The controller subtracts the two rounded series, as the attribute's P/L was their difference.
+    assert!((float(chart_numbers(&shown, 3, "pnl").as_array().unwrap().last().unwrap()) - 1.6).abs() < 1e-9, "{chart}");
     assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("known"), "{chart}");
     assert!(chart.contains("chart-mode") && chart.contains(">Received<"), "the mode switch, its value mode named Received: {chart}");
 }
