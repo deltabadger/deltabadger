@@ -370,7 +370,7 @@ async fn a_takeover_stopped_mid_way_upgrades_and_finishes_once() {
     // r1.4 (d): a withdrawal id the beta seeded from 2.x stays one row, now 'v2', and seeding again adds none.
     let ids = count(&o.primary, "SELECT count(*) FROM rust_withdrawal_ids");
     assert!(count(&o.primary, "SELECT count(*) FROM rust_withdrawal_ids WHERE source = 'v2'") > 0);
-    deltabadger::engine::rules::seed_v2_ids(&o.primary).unwrap();
+    deltabadger::engine::rules::seed_v2_ids(&o.primary, chrono::Utc::now()).unwrap();
     assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_withdrawal_ids"), ids);
     // The claimed job's marker blocks the bot until its owner resolves it (#8). The frozen 2.x install had no Kraken key,
     // so the beta's takeover set the bot aside: the owner adds the key and starts it. Inside the call's window the one

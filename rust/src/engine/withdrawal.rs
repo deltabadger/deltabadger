@@ -1299,8 +1299,9 @@ fn settle_result(
     };
     match result {
         SendResult::Accepted { id } if !id.trim().is_empty() => {
-            rules::seed_v2_ids(&tx)?;
-            let inserted=tx.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,'rust')",params![request.exchange_id,id,current.owner,crate::codec::format_time(now)])?;
+            rules::seed_v2_ids(&tx, now)?;
+            let account=intent_account(&tx,&current.owner,request.user_id,request.exchange_id)?.ensure(&tx,now)?;
+            let inserted=tx.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,?5,'rust')",params![account.id,request.exchange_id,id,current.owner,crate::codec::format_time(now)])?;
             if inserted == 0 {
                 uncertain(&tx, &current, state, "duplicate venue id")?;
             } else {
@@ -1548,17 +1549,19 @@ pub fn resolve(
     now: DateTime<Utc>,
 ) -> Result<(), EngineError> {
     let tx = model::immediate(c)?;
-    rules::seed_v2_ids(&tx)?;
+    rules::seed_v2_ids(&tx, now)?;
     if let Resolution::Sent { id, .. } = &resolution {
-        let exchange=match &target{
-   Target::Recorder(scenario)=>load(&tx,cipher,&format!("recorder:{scenario}"))?.ok_or_else(||data("no recorder intent"))?.request.exchange_id,
-   Target::Rule(id)=>load(&tx,cipher,&format!("rule:{id}"))?.ok_or_else(||data("no withdrawal intent"))?.request.exchange_id,
-   Target::V2(id)=>tx.query_row("SELECT r.exchange_id FROM rules r JOIN rule_logs l ON l.rule_id=r.id WHERE l.id=?1",[id],|r|r.get(0))?,
-   Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such 2.x job"))?;let rule=j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?;tx.query_row("SELECT exchange_id FROM rules WHERE id=?1",[rule],|r|r.get(0))?},
+        let intent=|owner:String|->Result<crate::identity::Account,EngineError>{let i=load(&tx,cipher,&owner)?.ok_or_else(||data("no withdrawal intent"))?;intent_account(&tx,&i.owner,i.request.user_id,i.request.exchange_id)};
+        let account=match &target{
+   Target::Recorder(scenario)=>intent(format!("recorder:{scenario}"))?,
+   Target::Rule(id)=>intent(format!("rule:{id}"))?,
+   Target::V2(id)=>v2_rule_account(&tx,tx.query_row("SELECT rule_id FROM rule_logs WHERE id=?1",[id],|r|r.get(0))?)?,
+   Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such 2.x job"))?;v2_rule_account(&tx,j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?)?},
    Target::V2List(_)=>return Err(data("list accepts no resolution")),};
+        // #710: a venue id is one withdrawal per account (two accounts of one exchange may each have made it).
         let exists: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE exchange_id=?1 AND venue_id=?2)",
-            params![exchange, id],
+            "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE account_id IS ?1 AND venue_id=?2)",
+            params![account.ensure(&tx, now)?.id, id],
             |r| r.get(0),
         )?;
         if exists {
@@ -1595,7 +1598,7 @@ fn resolve_in(
             }
             match resolution {
                 Resolution::Sent { id, amount: _ } => {
-                    insert_operator_id(c, i.request.exchange_id, &id, &i.owner, now)?;
+                    insert_operator_id(c, &intent_account(c, &i.owner, i.request.user_id, i.request.exchange_id)?, &id, &i.owner, now)?;
                     intent_log(
                         c,
                         &i,
@@ -1694,7 +1697,7 @@ fn resolve_in(
 }
 fn insert_operator_id(
     c: &Connection,
-    exchange: i64,
+    account: &crate::identity::Account,
     id: &str,
     owner: &str,
     now: DateTime<Utc>,
@@ -1702,9 +1705,15 @@ fn insert_operator_id(
     if id.trim().is_empty() {
         return Err(data("withdrawal id must not be empty"));
     }
-    rules::seed_v2_ids(c)?;
-    c.execute("INSERT INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,'operator')",params![exchange,id,owner,crate::codec::format_time(now)])?;
+    rules::seed_v2_ids(c, now)?;
+    let account = account.ensure(c, now)?;
+    c.execute("INSERT INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,?5,'operator')",params![account.id,account.exchange_id,id,owner,crate::codec::format_time(now)])?;
     Ok(())
+}
+/// A 2.x rule's account: its (user, exchange)'s number 1, as every rule 2.x held.
+fn v2_rule_account(c: &Connection, rule: i64) -> Result<crate::identity::Account, EngineError> {
+    let (user, exchange): (i64, i64) = c.query_row("SELECT user_id,exchange_id FROM rules WHERE id=?1", [rule], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    Ok(crate::identity::Account::first(c, user, exchange)?)
 }
 fn resolve_log(
     c: &Connection,
@@ -1722,8 +1731,8 @@ fn resolve_log(
             if !decimal(&amount)?.is_positive() {
                 return Err(data("amount must be positive"));
             }
-            let (exchange,symbol):(i64,String)=c.query_row("SELECT r.exchange_id,a.symbol FROM rules r JOIN assets a ON a.id=r.asset_id WHERE r.id=?1",[rule],|r|Ok((r.get(0)?,r.get(1)?)))?;
-            insert_operator_id(c, exchange, id, &format!("rule:{rule}"), now)?;
+            let symbol:String=c.query_row("SELECT a.symbol FROM rules r JOIN assets a ON a.id=r.asset_id WHERE r.id=?1",[rule],|r|r.get(0))?;
+            insert_operator_id(c, &v2_rule_account(c, rule)?, id, &format!("rule:{rule}"), now)?;
             details["amount"] = json!(amount);
             details["withdrawal_id"] = json!(id);
             rules::log(

@@ -132,7 +132,7 @@ fn main() {
             let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             if let Target::V2List(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
-                deltabadger::engine::rules::seed_v2_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                deltabadger::engine::rules::seed_v2_ids(&tx, chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 tx.commit().unwrap_or_else(|e|fail(&format!("{e:?}")));
                 for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: 2.x attempt {attempt}");}
             } else {

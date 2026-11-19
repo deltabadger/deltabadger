@@ -174,8 +174,14 @@ pub fn log(
     c.execute("INSERT INTO rust_rule_log_origins(rule_log_id,owner,client_id,created_at) VALUES(?1,?2,?3,?4)",params![id,format!("rule:{rule}"),client,format_time(now)])?;
     Ok(id)
 }
-pub fn seed_v2_ids(c: &Connection) -> Result<(), EngineError> {
-    c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(exchange_id,venue_id,owner,settled_at,source) SELECT r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'v2' FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
+pub fn seed_v2_ids(c: &Connection, now: DateTime<Utc>) -> Result<(), EngineError> {
+    // Each (user, exchange) of 2.x's successes has its number 1 (eager rows; 2.x may have added one since the migration).
+    let mut s = c.prepare("SELECT DISTINCT r.user_id,r.exchange_id FROM rule_logs l JOIN rules r ON r.id=l.rule_id WHERE l.status=1 AND r.exchange_id IS NOT NULL")?;
+    let pairs = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    drop(s);
+    for (user, exchange) in pairs { crate::identity::touch(c, user, exchange, now)?; }
+    // 2.x's successes: of 2.x's rules, each its (user, exchange)'s number 1 (#710; a second account's rule has no exchange there).
+    c.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) SELECT a.id,r.exchange_id,CAST(json_extract(l.details,'$.withdrawal_id') AS TEXT),'rule:'||r.id,l.created_at,'v2' FROM rule_logs l JOIN rules r ON r.id=l.rule_id JOIN exchange_accounts a ON a.user_id=r.user_id AND a.exchange_id=r.exchange_id AND a.number=1 WHERE l.status=1 AND json_valid(l.details) AND json_extract(l.details,'$.withdrawal_id') IS NOT NULL",[])?;
     Ok(())
 }
 
@@ -411,7 +417,7 @@ pub fn import(c: &Connection, jobs: &[Job], now: DateTime<Utc>) -> Result<usize,
         };
         append_journal(c, IMPORT, &job.id, now)?;
     }
-    seed_v2_ids(c)?;
+    seed_v2_ids(c, now)?;
     Ok(added)
 }
 pub fn cleanup_queue(c: &Connection, q: &Connection) -> Result<usize, EngineError> {

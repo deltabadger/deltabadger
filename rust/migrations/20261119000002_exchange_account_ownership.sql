@@ -23,3 +23,28 @@ INSERT INTO exchange_account_rules (id, account_id, user_id, type, status, excha
   SELECT r.id, a.id, r.user_id, r.type, r.status, r.exchange_id, r.asset_id, r.address, r.settings, r.settings_changed_at, r.created_at, r.updated_at
   FROM rules r JOIN exchange_accounts a ON a.user_id = r.user_id AND a.exchange_id = r.exchange_id AND a.number = 1
   WHERE r.type = 'Rules::Withdrawal' ORDER BY r.id;
+
+-- rust_withdrawal_ids by account (a venue id is one withdrawal per account: two accounts of one exchange may each have
+-- made it), rebuilt through a hop table, every row keeping its rowid. A rule's id is its rule's account's; one of a rule
+-- 2.x deleted, its (user, exchange)'s number 1; a recorder's, its exchange's first number 1.
+CREATE TABLE rust_withdrawal_ids_710 (r INTEGER PRIMARY KEY, account_id INTEGER NOT NULL, exchange_id INTEGER NOT NULL, venue_id TEXT NOT NULL,
+  owner TEXT NOT NULL, settled_at TEXT NOT NULL, source TEXT NOT NULL);
+INSERT INTO rust_withdrawal_ids_710 (r, account_id, exchange_id, venue_id, owner, settled_at, source)
+  SELECT w.rowid, coalesce(
+      (SELECT s.account_id FROM exchange_account_rules s WHERE 'rule:' || s.id = w.owner),
+      (SELECT a.id FROM rules x JOIN exchange_accounts a ON a.user_id = x.user_id AND a.exchange_id = w.exchange_id AND a.number = 1 WHERE 'rule:' || x.id = w.owner),
+      (SELECT min(a.id) FROM exchange_accounts a WHERE a.exchange_id = w.exchange_id AND a.number = 1), 0),
+    w.exchange_id, w.venue_id, w.owner, w.settled_at, w.source FROM rust_withdrawal_ids w;
+DROP TABLE rust_withdrawal_ids;
+CREATE TABLE rust_withdrawal_ids (
+  account_id INTEGER NOT NULL,
+  exchange_id INTEGER NOT NULL,
+  venue_id TEXT NOT NULL,
+  owner TEXT NOT NULL,
+  settled_at TEXT NOT NULL,
+  source TEXT NOT NULL CHECK(source IN ('rust','v2','operator'))
+);
+CREATE UNIQUE INDEX index_rust_withdrawal_ids_identity ON rust_withdrawal_ids (account_id, venue_id);
+INSERT INTO rust_withdrawal_ids (rowid, account_id, exchange_id, venue_id, owner, settled_at, source)
+  SELECT r, account_id, exchange_id, venue_id, owner, settled_at, source FROM rust_withdrawal_ids_710;
+DROP TABLE rust_withdrawal_ids_710;
