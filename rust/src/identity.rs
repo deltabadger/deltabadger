@@ -393,6 +393,11 @@ pub fn place_order(c: &Connection, transaction_id: i64, bot_id: i64) -> rusqlite
     Ok(())
 }
 
+/// SQL condition: bot row `b` trades on bot `bot_id`'s account (false when that resolves to none).
+pub fn sibling_bots(c: &Connection, bot_id: i64) -> rusqlite::Result<String> {
+    Ok(Account::of_bot(c, bot_id)?.map_or_else(|| "0".to_string(), |account| account.bots("b")))
+}
+
 /// SQL condition: api key row `alias` belongs to bot `bot_id`'s account (false when it resolves to none).
 pub fn bot_keys(c: &Connection, bot_id: i64, alias: &str) -> rusqlite::Result<String> {
     Ok(Account::of_bot(c, bot_id)?.map_or_else(|| "0".to_string(), |account| account.keys(alias)))

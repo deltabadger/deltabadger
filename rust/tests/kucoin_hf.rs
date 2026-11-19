@@ -1184,7 +1184,7 @@ async fn r1_known_fills_bound_a_settlement() {
     known_fill(&o.primary, 1, bot.exchange_id, "2", &ext, "0.0002", "12", "0.012");
     o.primary.execute_batch("CREATE TEMP TABLE u AS SELECT * FROM users WHERE id = 1; UPDATE u SET id = 2, email = 'two@example.test'; INSERT INTO users SELECT * FROM u;").unwrap();
     known_fill(&o.primary, 2, bot.exchange_id, "3", &ext, "0.9", "9000", "9");
-    let k = reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "ClassicHf").unwrap();
+    let k = reconcile::known_fills(&o.primary, &deltabadger::identity::Account::first(&o.primary, 1, bot.exchange_id).unwrap(), &ext, "ClassicHf").unwrap();
     assert_eq!((k.size.to_s_f(), k.funds.to_s_f(), k.fees["EUR"].to_s_f()), ("0.0005".into(), "30.0".into(), "0.03".into()));
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0004", "24"));
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0005", "30"));
@@ -1799,7 +1799,7 @@ async fn unmigrated_install_reads_stand() {
     let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
     o.primary.execute_batch("DROP TABLE IF EXISTS kucoin_withheld_fills; DROP TABLE IF EXISTS kucoin_coverage;").unwrap();
     known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0002", "12", "0.02");
-    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "ClassicHf").unwrap().size.to_s_f(), "0.0002");
+    assert_eq!(reconcile::known_fills(&o.primary, &deltabadger::identity::Account::first(&o.primary, 1, bot.exchange_id).unwrap(), &ext, "ClassicHf").unwrap().size.to_s_f(), "0.0002");
     assert!(reconcile::barrier(&o.primary, bot.id).unwrap().is_none());
     assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.001", "60", eur("0.06"), attested("x"))).unwrap(), reconcile::Operator::Reconciled);
 }
@@ -2539,7 +2539,7 @@ async fn u3a_known_fills_of_a_uta_row_are_the_uta_familys() {
     let (_dir, o, bot, t, v, id, ext) = uta_placed(true).await;
     uta_known_fill(&o.primary, bot.exchange_id, "1", &ext, "0.002", "Uta");
     uta_known_fill(&o.primary, bot.exchange_id, "2", &ext, "0.9", "ClassicHf");
-    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "Uta").unwrap().size.to_s_f(), "0.002");
+    assert_eq!(reconcile::known_fills(&o.primary, &deltabadger::identity::Account::first(&o.primary, 1, bot.exchange_id).unwrap(), &ext, "Uta").unwrap().size.to_s_f(), "0.002");
     t.reply(&detail_key(&ext), 200, uta_detail(&ext, 6, "0.001", "LIMIT"));
     executions(&t, &ext, &[("T1", "0.001", "50")], 7);
     let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;
