@@ -655,9 +655,9 @@ pub struct Series {
 }
 
 /// The query of a data request: the view (Unix ms; None: the history's own end), the points the plot has room for, the
-/// focused holding, and the extras that are on.
+/// focused holding, the extras that are on, and (D-CHART-LIVE) the `closed` and `sum` of the answer in hand.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Query { pub from: Option<i64>, pub to: Option<i64>, pub points: usize, pub asset: Option<String>, pub prices: bool, pub buys: bool }
+pub struct Query { pub from: Option<i64>, pub to: Option<i64>, pub points: usize, pub asset: Option<String>, pub prices: bool, pub buys: bool, pub after: Option<(i64, String)> }
 /// `points` when the query names none, and the range it may name.
 pub const POINTS: usize = 300;
 pub const POINTS_RANGE: std::ops::RangeInclusive<usize> = 2..=2000;
@@ -672,6 +672,8 @@ fn rung(i: usize) -> i64 {
     seconds.saturating_mul(1000)
 }
 fn ceil_div(a: i64, b: i64) -> i64 { (a + b - 1).div_euclid(b) }
+/// FNV-1a, 64 bits: `sum` only has to be the same for the same readings on every server, and not guessable is no need.
+fn fnv(hash: &mut u64, bytes: &[u8]) { for byte in bytes { *hash = (*hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3); } }
 /// The step a view `width` ms wide takes at `points`: the smallest rung whose aligned buckets the view can touch number at
 /// most `points` (`ceil(width / step) + 1`), and the widths that take it, both ends included.
 pub fn step(width: i64, points: usize) -> (i64, [i64; 2]) {
@@ -748,11 +750,33 @@ impl Series {
         if end < n { picked.push(end); }
         picked.sort_unstable();
         picked.dedup();
-        let at = |serie: &[f64]| picked.iter().map(|&i| serie[i]).collect::<Vec<f64>>();
-        let at_opt = |serie: &[Option<f64>]| picked.iter().map(|&i| serie[i]).collect::<Vec<Option<f64>>>();
+        // D-CHART-LIVE: `sum` hashes every selected point before `closed` (the start of the latest selected point's bucket),
+        // its time and each series' reading in this answer; an ask repeating it with `after` gets only the points from
+        // `after` on when its own selection before `after` hashes the same. Returns how many points precede `upto`.
+        let prices: &[(String, Vec<Option<f64>>)] = if query.prices { &self.prices } else { &[] };
+        let sum = |upto: i64| -> (usize, String) {
+            let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+            let reading = |hash: &mut u64, amount: Option<f64>| match amount { None => fnv(hash, &[0]), Some(amount) => { fnv(hash, &[1]); fnv(hash, &amount.to_bits().to_le_bytes()) } };
+            let before = picked.partition_point(|&i| self.t[i] < upto);
+            for &i in &picked[..before] {
+                fnv(&mut hash, &self.t[i].to_le_bytes());
+                for amount in [self.value[i], self.invested[i]] { reading(&mut hash, Some(amount)); }
+                if let Some((_, value, invested)) = asset { reading(&mut hash, value[i]); reading(&mut hash, Some(invested[i])); }
+                for (_, serie) in prices { reading(&mut hash, serie[i]); }
+            }
+            (before, format!("{hash:016x}"))
+        };
+        let closed = picked.last().map(|&i| self.t[i].div_euclid(step).saturating_mul(step)).filter(|&closed| picked.first().is_some_and(|&i| self.t[i] < closed));
+        let skip = query.after.as_ref().and_then(|(after, asked)| { let (before, hash) = sum(*after); (&hash == asked).then_some(before) });
+        let shown = &picked[skip.unwrap_or(0)..];
+        let at = |serie: &[f64]| shown.iter().map(|&i| serie[i]).collect::<Vec<f64>>();
+        let at_opt = |serie: &[Option<f64>]| shown.iter().map(|&i| serie[i]).collect::<Vec<Option<f64>>>();
+        let (since, until) = (lo.saturating_mul(step), hi.saturating_add(1).saturating_mul(step));
         let mut out = json!({
             "rev": self.rev, "quote": self.quote, "decimals": self.decimals, "step": step / 1000, "spans": spans,
-            "extent": [first, last], "t": picked.iter().map(|&i| self.t[i]).collect::<Vec<i64>>(),
+            // The padded view the selection covers, [since, until): the data in hand reach this far, and no further.
+            "padded": [since, until], "closed": closed, "append": skip.is_some(),
+            "extent": [first, last], "t": shown.iter().map(|&i| self.t[i]).collect::<Vec<i64>>(),
             "value": at(&self.value), "invested": at(&self.invested),
             "holdings": self.assets.iter().filter(|(_, value, _)| value.iter().any(Option::is_some)).map(|(key, ..)| key).collect::<Vec<_>>(),
             "priced": self.prices.iter().map(|(key, _)| key).collect::<Vec<_>>(),
@@ -773,8 +797,9 @@ impl Series {
         }
         if let Some((key, value, invested)) = asset { out["asset"] = json!({ "key": key, "value": at_opt(value), "invested": at(invested) }); }
         if query.prices { out["prices"] = Value::Object(self.prices.iter().map(|(key, serie)| (key.clone(), json!(at_opt(serie)))).collect()); }
+        if let Some(closed) = closed { out["sum"] = json!(sum(closed).1); }
         if query.buys {
-            let (since, until) = (lo.saturating_mul(step), hi.saturating_add(1).saturating_mul(step));
+            // Always whole for the padded view, appended or not.
             out["buys"] = Value::Array(self.buys.iter().filter(|mark| since <= mark.0 && mark.0 < until).map(|(at, key, amount, quote, fills)| json!([at, key, amount, quote, fills])).collect());
         }
         out
@@ -933,6 +958,84 @@ mod series_tests {
             assert!((3 + 2 + 70) * n <= NUMBERS, "points {points}: {n} points");
             assert!(n >= 2);
         }
+    }
+
+    /// D-CHART-LIVE: the next ask of an answer in hand, and the client's merge of what it gets.
+    fn next(asked: &Query, held: &Value) -> Query { Query { after: Some((held["closed"].as_i64().unwrap(), held["sum"].as_str().unwrap().into())), ..asked.clone() } }
+    fn merged(held: &Value, answer: &Value, after: i64) -> (Vec<i64>, Vec<f64>) {
+        let keep = times(held).iter().filter(|&&t| t < after).count();
+        let value = |answer: &Value| answer["value"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect::<Vec<f64>>();
+        ([&times(held)[..keep], &times(answer)[..]].concat(), [&value(held)[..keep], &value(answer)[..]].concat())
+    }
+
+    #[test]
+    fn a_publication_that_only_added_points_is_answered_by_them() {
+        let asked = whole(300);
+        let held = series(&(0..=10).map(|i| i * 1000).collect::<Vec<_>>()).window(&asked);
+        assert_eq!((held["closed"].as_i64(), held["append"].as_bool()), (Some(10_000), Some(false)));
+        let grown = series(&(0..=12).map(|i| i * 1000).collect::<Vec<_>>());
+        let answer = grown.window(&next(&asked, &held));
+        assert_eq!(answer["append"], true);
+        assert_eq!(times(&answer), [10_000, 11_000, 12_000], "from `after` on");
+        let whole = grown.window(&asked);
+        assert_eq!(merged(&held, &answer, 10_000), (times(&whole), whole["value"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect()));
+        assert_eq!((answer["closed"].clone(), answer["sum"].clone()), (whole["closed"].clone(), whole["sum"].clone()), "the next ask's");
+    }
+
+    #[test]
+    fn the_latest_point_updated_in_place_is_appended() {
+        let asked = whole(300);
+        let s = series(&[0, 1000, 2000]);
+        let held = s.window(&asked);
+        let mut moved = s.clone();
+        moved.value[2] = 99.0;
+        let answer = moved.window(&next(&asked, &held));
+        assert_eq!((answer["append"].as_bool(), times(&answer)), (Some(true), vec![2000]));
+        assert_eq!(answer["value"], serde_json::json!([99.0]));
+    }
+
+    #[test]
+    fn anything_else_is_the_whole_answer() {
+        let asked = whole(300);
+        let mut s = series(&[0, 2000, 5000]);
+        s.prices = vec![("BTC".into(), vec![Some(1.0), Some(2.0), Some(3.0)])];
+        let held = s.window(&asked);
+        let whole_answer = |answer: &Value, n: usize| { assert_eq!(answer["append"], false); assert_eq!(times(answer).len(), n); };
+        let mut restated = s.clone();
+        restated.value[1] = 7.0;
+        whole_answer(&restated.window(&next(&asked, &held)), 3);
+        // Past 299 s at 300 points the step moves from 1 s to 10 s.
+        let mut longer = series(&[0, 2000, 5000, 400_000]);
+        longer.prices = vec![("BTC".into(), vec![Some(1.0), Some(2.0), Some(3.0), Some(4.0)])];
+        let answer = longer.window(&next(&asked, &held));
+        assert_eq!(answer["step"], 10);
+        whole_answer(&answer, 3);
+        whole_answer(&s.window(&next(&Query { prices: true, ..asked.clone() }, &held)), 3);
+        // 2000 was its bucket's last point; 2700 now is, before `closed`.
+        let mut later = series(&[0, 2000, 2700, 5000]);
+        later.prices = vec![("BTC".into(), vec![Some(1.0), Some(2.0), Some(2.0), Some(3.0)])];
+        let answer = later.window(&next(&asked, &held));
+        whole_answer(&answer, 3);
+        assert_eq!(times(&answer), [0, 2700, 5000]);
+        let wrong = s.window(&Query { after: Some((5000, "0".into())), ..asked.clone() });
+        whole_answer(&wrong, 3);
+    }
+
+    #[test]
+    fn no_selected_point_before_closed_has_no_closed_and_no_sum() {
+        for t in [&[5000][..], &[0, 100, 200]] {
+            let answer = series(t).window(&whole(300));
+            assert!(answer["closed"].is_null(), "{t:?}");
+            assert!(answer.get("sum").is_none(), "{t:?}");
+        }
+        let empty = series(&[]).window(&whole(300));
+        assert!(empty["closed"].is_null());
+    }
+
+    #[test]
+    fn padded_is_the_view_the_selection_covers() {
+        // points 2: 1 s buckets padded by one either side.
+        assert_eq!(series(&[0, 100_500]).window(&view(100_000, 101_000, 2))["padded"], serde_json::json!([99_000, 103_000]));
     }
 
     fn page(labels: &[i64], buys: Vec<(At, Option<String>, f64, f64, i64)>) -> Page {

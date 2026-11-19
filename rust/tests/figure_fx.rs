@@ -1066,9 +1066,14 @@ async fn the_chart_shell_carries_no_series_and_its_data_request_answers_them_fro
     assert_eq!(asked["asset"]["value"].as_array().unwrap().len(), asked["t"].as_array().unwrap().len());
     assert_eq!(asked["prices"]["AAA"].as_array().unwrap().len(), asked["t"].as_array().unwrap().len());
     assert_eq!(asked["buys"].as_array().unwrap().len(), 1);
+    // D-CHART-LIVE: the same query with the answer's `closed` and `sum`, nothing published since: the points from `closed` on.
+    let (closed, sum) = (answer["closed"].as_i64().expect("closed"), answer["sum"].as_str().expect("sum"));
+    let (status, again) = data(&install, &mut owner, &format!("/bots/1/chart/data?after={closed}&sum={sum}")).await;
+    assert_eq!((status, &again["append"]), (200, &json!(true)), "{again}");
+    assert!(again["t"].as_array().unwrap().iter().all(|t| t.as_i64().unwrap() >= closed), "{again}");
     let (status, unknown) = data(&install, &mut owner, "/bots/1/chart/data?asset=ZZZ").await;
     assert!(status == 200 && unknown.get("asset").is_none(), "an unknown holding is answered without it");
-    for bad in ["points=1", "points=2001", "points=x", "from=x", "from=5&to=4", "prices=yes", "buys=2"] {
+    for bad in ["points=1", "points=2001", "points=x", "from=x", "from=5&to=4", "prices=yes", "buys=2", "after=5", "sum=ab", "after=x&sum=ab", "after=5&sum="] {
         assert_eq!(data(&install, &mut owner, &format!("/bots/1/chart/data?{bad}")).await.0, 400, "{bad}");
     }
     // Not this account's bot, and signed out.
