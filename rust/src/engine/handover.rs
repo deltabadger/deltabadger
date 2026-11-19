@@ -697,6 +697,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // of an account 2+ refuses (rules::handback_problems).
         (Table, "exchange_account_rules", Refuses(super::rules::HANDBACK_REFUSAL)),
         (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
+        // #710 slice 4: a ledger row of an account 2+ (its venue id is here; 2.x would read NULL).
+        (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
@@ -1099,11 +1101,17 @@ pub const SECOND_ACCOUNT_ORDER: &str = "an order of an exchange's second account
 pub const SECOND_ACCOUNT_KEY: &str = "a key of an exchange's second account is Rust-only";
 pub const SECOND_ACCOUNT_BOT: &str = "a bot of an exchange's second account is Rust-only";
 pub const SECOND_ACCOUNT_STANDALONE: &str = "a standalone order of an exchange's second account is Rust-only";
+/// #710 slice 4: a ledger row of an account 2+ (exchange_account_rows holds nothing else): 2.x would read its id as NULL.
+pub const SECOND_ACCOUNT_HISTORY: &str = "history of a second account is Rust-only";
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if super::rules::table_exists(c, "exchange_account_transactions")?
         && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_transactions)", [], |r| r.get::<_, bool>(0))? {
         return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_ORDER.into()]));
+    }
+    if super::rules::table_exists(c, "exchange_account_rows")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rows)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_HISTORY.into()]));
     }
     for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE)] {
         if super::rules::table_exists(c, table)?

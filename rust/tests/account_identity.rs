@@ -1017,7 +1017,7 @@ fn the_ownership_migration_keeps_every_rule_and_scopes_ids_it_cannot_place_by_ex
         DELETE FROM exchange_accounts;
         INSERT INTO rust_withdrawal_ids (exchange_id, venue_id, owner, settled_at, source) VALUES
           (5, 'R', 'rule:1', {t}, 'rust'), (7, 'V', 'recorder:a', {t}, 'rust'), (8, 'V', 'recorder:b', {t}, 'rust');")).unwrap();
-    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V710_3]);
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap().first().map(String::as_str), Some(V710_3), "the ownership migration, then any later one");
     let number_1: i64 = c.query_row("SELECT id FROM exchange_accounts WHERE user_id = 1 AND exchange_id = 5 AND number = 1", [], |r| r.get(0)).unwrap();
     let store: Vec<(i64, i64)> = c.prepare("SELECT id, account_id FROM exchange_account_rules ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(store, [(1, number_1)], "the withdrawal rule with an exchange, on its new number 1");

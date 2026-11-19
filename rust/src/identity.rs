@@ -20,9 +20,9 @@ use serde_json::Value;
 /// The app_configs key of the install's identity key (32 random bytes, hex, in the credential envelope).
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql,
-/// 20261119000002_exchange_account_ownership.sql).
-pub const TABLES: [&str; 7] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
-                               "exchange_account_rules", "exchange_account_transactions"];
+/// 20261119000002_exchange_account_ownership.sql, 20261120000001_exchange_account_ids.sql).
+pub const TABLES: [&str; 8] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
+                               "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.

@@ -1519,7 +1519,8 @@ const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
 const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
     "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
-    "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone"];
+    "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone",
+    "exchange_account_rows"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1635,6 +1636,16 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
             let account = deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
             let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_id": "A2", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
             o.primary.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [row, account.id.unwrap() + 1000]).unwrap();
+        }
+        // #710 slice 4: a ledger row of the exchange's second account (its venue id is in the membership).
+        "exchange_account_rows" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = deltabadger::identity::Account::by_id(&o.primary, o.primary.last_insert_rowid()).unwrap().unwrap();
+            let scope = deltabadger::venue_ids::Scope::of(&o.primary, &second).unwrap();
+            o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+                               VALUES (?1, ?2, 4, 'BTC', 1, ?3, '2026-09-01 10:00:00', '{}', '{}', 0, 'now', 'now')", rusqlite::params![s.user_id, s.exchange_id, scope.stored(Some("T2"))]).unwrap();
+            deltabadger::venue_ids::after_insert(&o.primary, &scope, o.primary.last_insert_rowid(), Some("T2")).unwrap();
         }
         "rust_withdrawal_intents" => { o.primary.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
                                                           VALUES ('rule:1', 'dispatched', 'c', '2026-09-30 12:00:00', 1, 'd', 'h', 'a', 'k', 'p', 'f', '1', '1')", []).unwrap(); }

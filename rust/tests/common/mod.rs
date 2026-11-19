@@ -12,6 +12,7 @@ pub mod seed;
 pub mod schema;
 pub mod scripted;
 pub mod smtp;
+pub mod two_accounts;
 pub mod web;
 pub mod v2;
 
