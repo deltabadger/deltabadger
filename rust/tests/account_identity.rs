@@ -880,3 +880,110 @@ fn touching_an_account_on_an_install_without_identity_tables_writes_nothing() {
     let tables: i64 = c.query_row("SELECT count(*) FROM sqlite_master", [], |r| r.get(0)).unwrap();
     assert_eq!(tables, 0);
 }
+
+// ---- #710 slice 3: the gate (PLAN-710 §3) ---------------------------------------------------------------------------
+
+/// Every statement in src/ that deletes a membership, or a subject that has one, and why it is allowed: the subject itself
+/// goes (or moves, as a whole), never another's membership. A new one must be added here, with its reason.
+const MEMBERSHIP_DELETES: &[(&str, &str, &str)] = &[
+    ("src/identity.rs", "DELETE FROM exchange_account_keys", "forget: the deleted key's own row"),
+    ("src/identity.rs", "DELETE FROM exchange_account_bots", "place_bot: the moved bot's own row, written again for its new account"),
+    ("src/rotation.rs", "DELETE FROM exchange_account_keys", "clear: every key is deleted with it"),
+    ("src/rotation.rs", "DELETE FROM api_keys", "clear: every key"),
+    ("src/web/settings/keys.rs", "DELETE FROM api_keys", "delete: one key, then forget"),
+    ("src/engine/rules.rs", "DELETE FROM exchange_account_rules", "refill: number-1 rules 2.x deleted; accounts 2+ are never touched"),
+    ("src/engine/api_orders.rs", "DELETE FROM rust_api_order_standalone", "forget, orphans: the order's own row, its account inside it"),
+];
+
+#[test]
+fn only_the_listed_statements_delete_a_membership_or_its_subject() {
+    let pattern = regex::Regex::new(r"DELETE FROM (exchange_account_(?:keys|bots|transactions|rules)|api_keys|bots|transactions|rules|rust_api_order_standalone)\b").unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut found = std::collections::BTreeSet::new();
+    let mut stack = vec![root.join("src")];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { stack.push(path); continue; }
+            if path.extension().is_none_or(|e| e != "rs") { continue; }
+            let text = std::fs::read_to_string(&path).unwrap();
+            let file = path.strip_prefix(root).unwrap().to_string_lossy().replace('\\', "/");
+            for m in pattern.find_iter(&text) { found.insert((file.clone(), m.as_str().to_string())); }
+        }
+    }
+    let allowed: std::collections::BTreeSet<(String, String)> = MEMBERSHIP_DELETES.iter().map(|(f, s, _)| (f.to_string(), s.to_string())).collect();
+    assert_eq!(found, allowed);
+}
+
+/// The gate: account 1 and account 2 of one exchange each hold a key, a bot, a bot's order, a withdrawal rule and a standalone
+/// order. Every way account 1's can go (a key deleted, the bot deleted and its order gone, the rule deleted in Rust and then
+/// in 2.x and refilled, the standalone order forgotten, an encryption reset) leaves account 2's resolving to account 2,
+/// never to number 1.
+#[test]
+fn deleting_one_accounts_subjects_leaves_the_other_accounts_memberships() {
+    use deltabadger::engine::{api_orders, rules};
+    use deltabadger::identity::Account;
+    let dir = common::baseline_install();
+    let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
+    let c = &o.primary;
+    let cipher = common::seed::cipher();
+    let s = common::seed::seed_kraken(c, &cipher);
+    let first = Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+    let key = c.last_insert_rowid();
+    second.add_key(c, key).unwrap();
+    let (mut bots, mut orders, mut rule_ids, mut standalone) = (vec![], vec![], vec![], vec![]);
+    let (amount, pair) = (deltabadger::v2::BigDec::parse("1").unwrap(), serde_json::Map::new());
+    for (n, account) in [first, second].into_iter().enumerate() {
+        let bot = common::seed::insert_bot(c, &s, &common::seed::BotSpec { status: 2, ..common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+        identity::place_bot(c, bot, s.user_id, s.exchange_id, Some(account), now()).unwrap();
+        // Two venue ids: one shared by both accounts needs the relocated id of slice 4 (the 2.x index is (exchange, id)).
+        let order = common::seed::insert_row(c, &s, bot, s.btc, &json!({"external_id": format!("O-{n}"), "external_status": 2, "created_at": "2026-09-02 10:00:00"}));
+        if n == 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [order, second.id.unwrap()]).unwrap(); }
+        bots.push(bot);
+        orders.push(order);
+        rule_ids.push(rules::create(c, &account, s.btc, "address", "{}", "2026-09-02 10:00:00").unwrap());
+        let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: s.user_id, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
+            standalone: api_orders::Standalone { account, exchange_id: s.exchange_id, ticker_id: s.ticker_id, limit: false, price: None, mcp: false } }, now()).unwrap();
+        standalone.push(id);
+    }
+    let check = |why: &str| {
+        assert_eq!(Account::of_bot(c, bots[1]).unwrap(), Some(second), "{why}: the bot");
+        assert_eq!(Account::of_order(c, orders[1]).unwrap(), Some(second), "{why}: the order");
+        assert_eq!(Account::of_rule(c, rule_ids[1]).unwrap(), Some(second), "{why}: the rule");
+        let account: i64 = c.query_row("SELECT account_id FROM rust_api_order_standalone WHERE order_id = ?1", [standalone[1]], |r| r.get(0)).unwrap();
+        assert_eq!(Some(account), second.id, "{why}: the standalone order");
+        let siblings: Vec<i64> = c.prepare(&format!("SELECT b.id FROM bots b WHERE {} ORDER BY b.id", identity::sibling_bots(c, bots[1]).unwrap())).unwrap()
+            .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+        assert_eq!(siblings, [bots[1]], "{why}: account 2's bots are its own");
+    };
+    check("as made");
+    assert_eq!(Account::of_key(c, key).unwrap(), Some(second));
+    assert_eq!(Account::of_order(c, orders[0]).unwrap(), Some(first), "no membership row: number 1");
+    // Account 1's key deleted, as the settings delete does it.
+    c.execute("DELETE FROM api_keys WHERE id = ?1", [s.api_key_id]).unwrap();
+    identity::forget(c, s.api_key_id, &first).unwrap();
+    check("account 1's key deleted");
+    assert_eq!(Account::of_key(c, key).unwrap(), Some(second), "account 2's key");
+    // Account 1's bot deleted (bots are kept as deleted) and its order gone (an order's membership cascades with it).
+    c.execute("UPDATE bots SET status = 3 WHERE id = ?1", [bots[0]]).unwrap();
+    c.execute("DELETE FROM transactions WHERE id = ?1", [orders[0]]).unwrap();
+    check("account 1's bot and order gone");
+    // Account 1's rule deleted in Rust, then by 2.x and refilled at a takeover.
+    c.execute("UPDATE exchange_account_rules SET status = 3 WHERE id = ?1", [rule_ids[0]]).unwrap();
+    rules::mirror(c, Some(rule_ids[0])).unwrap();
+    c.execute("DELETE FROM rules WHERE id = ?1", [rule_ids[0]]).unwrap();
+    rules::refill(c).unwrap();
+    assert_eq!(Account::of_rule(c, rule_ids[0]).unwrap(), None, "2.x's delete reaches the number-1 rule");
+    check("account 1's rule deleted");
+    // Account 1's standalone order answered and forgotten.
+    c.execute("UPDATE rust_api_orders SET state = 'withdrawn' WHERE id = ?1", [standalone[0]]).unwrap();
+    api_orders::forget(c, standalone[0]).unwrap();
+    check("account 1's standalone order forgotten");
+    // An encryption reset: every key goes, with its membership; nothing else moves.
+    deltabadger::rotation::clear(c, now()).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM exchange_account_keys", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    check("a reset");
+}
