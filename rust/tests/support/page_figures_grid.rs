@@ -111,13 +111,22 @@ fn delivered(name: &str, when: &str, got: &BTreeMap<(String, String), String>, v
     let missing: Vec<_> = v2.keys().filter(|key| !got.contains_key(*key)).collect();
     assert!(missing.is_empty(), "{name}: {when}: these broadcasts never arrived: {missing:?}");
     for (key, payload) in v2 {
-        assert_eq!(common::html::normalize(&got[key]), common::html::normalize(payload), "{name}: {when}: {key:?}");
+        assert_eq!(common::html::normalize(&shell(&got[key])), common::html::normalize(&shell(payload)), "{name}: {when}: {key:?}");
     }
+}
+
+/// D-CHART-DATA-REQUEST (3.0, Rust only): the bot chart's shell carries no series, which its controller asks for apart
+/// (`GET /bots/{id}/chart/data`), and a publication morphs it. Left out of every comparison that sees the bot chart, on
+/// both sides: 2.x's seven series attributes, this build's `src` and `rev`, and the chart stream's `method="morph"`.
+/// Everything else, the rest of the shell included, is compared as it is.
+fn shell(html: &str) -> String {
+    static SERIES: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(r#" data-bot--chart-(?:labels|series|pnl|assets|buys|prices|buy-logos|src|rev)-value="[^"]*""#).unwrap());
+    SERIES.replace_all(html, "").replace(" target=\"chart\" method=\"morph\">", " target=\"chart\">")
 }
 
 /// The bot page's chart frame: (its `src`, the frame itself).
 fn bot_chart(body: &str) -> (Option<String>, Vec<String>) {
-    let doc = scraper::Html::parse_document(body);
+    let doc = scraper::Html::parse_document(&shell(body));
     let frame = doc.select(&scraper::Selector::parse("turbo-frame#bot_chart").unwrap()).next().expect("no bot_chart frame");
     (frame.value().attr("src").map(str::to_string), common::html::normalize(&frame.html()))
 }
@@ -144,7 +153,7 @@ async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::w
     let ours = bot_chart(&page.body);
     assert_eq!(ours, v2_page, "{name} {state}: the page's chart frame");
     let Some(src) = ours.0 else {
-        assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(&v2_body), "{name} {state}: the inline chart, byte for byte");
+        assert_eq!(shell(raw_bot_chart(&page.body)), shell(raw_bot_chart(&v2_body)), "{name} {state}: the inline chart, byte for byte");
         assert!(v2["chart"].is_null(), "{name} {state}: 2.x loaded a frame for an inline chart");
         return page.body;
     };
@@ -940,7 +949,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
             for parts in actual["bots"].as_object().unwrap().values() {
                 for part in ["tile", "metrics", "chart"] {
                     let html = parts[part].as_str().unwrap();
-                    assert!(!html.contains("data-bot--chart-series"));
+                    assert!(!html.contains("data-bot--chart-series") && !html.contains("data-bot--chart-src"));
                     assert!(!html.contains("rbutton--success"));
                 }
                 // The tile and the chart cannot be stated: neither is shown, and their targets stay.
@@ -999,7 +1008,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
             assert_eq!(row.select(&scraper::Selector::parse(".rbutton--success").unwrap()).count(),0);
             assert!(row.text().collect::<String>().contains("1.464973"));
             assert!(!row.text().collect::<String>().contains("-100"));
-            assert!(!actual["bots"]["1"]["chart"].as_str().unwrap().contains("data-bot--chart-series"));
+            assert!(!actual["bots"]["1"]["chart"].as_str().unwrap().contains("data-bot--chart-src"));
         }
         if std::env::var("FIGURE_BROADCASTS").as_deref() != Ok("0") {
             let streams=deltabadger::web::figure::streams(&c,sc["user_id"].as_i64().unwrap(),&actual).unwrap();
@@ -1026,8 +1035,8 @@ async fn figures_fragments_match_the_v2_page_partials() {
                     assert_eq!(payload, deltabadger::web::turbo::stream("replace", target, &tile), "{name} broadcast tile");
                     continue;
                 }
-                if SELL_ONLY_PAIRS.contains(&name) && target == "chart" { assert_eq!(common::html::normalize(&sell_only_chart(&payload)), common::html::normalize(&sell_only_chart(wanted[1].as_str().unwrap())), "{name} broadcast chart"); continue; }
-                assert_eq!(common::html::normalize(&payload),common::html::normalize(wanted[1].as_str().unwrap()),"{name} broadcast {stream} {target}");
+                if SELL_ONLY_PAIRS.contains(&name) && target == "chart" { assert_eq!(common::html::normalize(&sell_only_chart(&shell(&payload))), common::html::normalize(&sell_only_chart(&shell(wanted[1].as_str().unwrap()))), "{name} broadcast chart"); continue; }
+                assert_eq!(common::html::normalize(&shell(&payload)),common::html::normalize(&shell(wanted[1].as_str().unwrap())),"{name} broadcast {stream} {target}");
             }
         }
         let components = std::env::var("FIGURE_PARTS").unwrap_or_else(|_| "tile,metrics,chart,account".into());
@@ -1062,14 +1071,14 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 // D-SELL-ONLY-CHART: its chart draws what it received; the rest is 2.x's.
                 if SELL_ONLY_PAIRS.contains(&name) && part == "chart" {
                     assert!(got.contains("data-bot--chart-received-value=\"unknown\""), "{name}: {got}");
-                    assert_eq!(common::html::normalize(&sell_only_chart(&got)), common::html::normalize(&sell_only_chart(parts[part].as_str().unwrap())), "{name} bot {id} chart");
+                    assert_eq!(common::html::normalize(&sell_only_chart(&shell(&got))), common::html::normalize(&sell_only_chart(&shell(parts[part].as_str().unwrap()))), "{name} bot {id} chart");
                     continue;
                 }
                 if name == "stranded_offset" && part == "metrics" {
                     // D-6C-9: 2.x's clamp to zero, and a read never rewrites the saved decline.
                     assert_eq!(expected["offset"][0], expected["offset"][1], "{name}: a 2.x read keeps the saved decline");
                 }
-                assert_eq!(common::html::normalize(&got), common::html::normalize(parts[part].as_str().unwrap()), "{name} bot {id} {part}");
+                assert_eq!(common::html::normalize(&shell(&got)), common::html::normalize(&shell(parts[part].as_str().unwrap())), "{name} bot {id} {part}");
             }
         }
     }
@@ -1393,7 +1402,7 @@ async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) 
     for (id, figures) in ours {
         for part in parts {
             let v2 = expected["bots"][id][*part].as_str().unwrap_or_else(|| panic!("{name}: 2.x has no {part} for bot {id}"));
-            assert_eq!(common::html::normalize(figures[*part].as_str().unwrap()), common::html::normalize(v2), "{name} bot {id} {part}");
+            assert_eq!(common::html::normalize(&shell(figures[*part].as_str().unwrap())), common::html::normalize(&shell(v2)), "{name} bot {id} {part}");
         }
     }
     assert_eq!(common::html::normalize(actual["account"].as_str().unwrap()), common::html::normalize(expected["account"].as_str().unwrap()), "{name} account");
@@ -1461,7 +1470,7 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
     let unavailable = |html: &str| {
         no_widget(html, None);
         assert!(!html.contains("data-symbol="), "{name}: a partial share count escaped");
-        assert!(!html.contains("data-bot--chart-series"), "{name}: a partial chart escaped");
+        assert!(!html.contains("data-bot--chart-series") && !html.contains("data-bot--chart-src"), "{name}: a partial chart escaped");
     };
     let mut got = BTreeSet::new();
     tokio::time::timeout(Duration::from_secs(10), async {
@@ -1540,12 +1549,12 @@ async fn chronology_matches_v2_fresh_bytes() {
                 // D-SELL-ONLY-CHART: and its chart's series are this build's own.
                 out.insert(format!("{id} {part}"), match part {
                     "metrics" if SELL_ONLY_PAIRS.contains(&scenario) => sell_only_table(html),
-                    "chart" if SELL_ONLY_PAIRS.contains(&scenario) => common::html::normalize(&sell_only_chart(html)),
+                    "chart" if SELL_ONLY_PAIRS.contains(&scenario) => common::html::normalize(&sell_only_chart(&shell(html))),
                     "tile" if SELL_ONLY_PAIRS.contains(&scenario) => {
                         if ours { assert_eq!(html, sell_only_tile(id), "{scenario}: bot {id} tile"); }
                         vec!["D-SELL-ONLY-TILE".into()]
                     }
-                    _ => common::html::normalize(html),
+                    _ => common::html::normalize(&shell(html)),
                 });
             }
         }

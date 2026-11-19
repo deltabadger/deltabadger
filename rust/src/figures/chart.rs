@@ -630,3 +630,354 @@ impl Page {
         out
     }
 }
+
+/// D-CHART-DATA-REQUEST: what the bot chart's data request (`GET /bots/{id}/chart/data`) answers from. A decimal-free
+/// copy of a `Page`, made by the background render beside the chart's shell (`figure::plot::render`) and kept with the
+/// rendered figures of the same record as its JSON text, so the account's 8 MiB admission counts it (`figure::computed`)
+/// and it lives and dies with that record. `rev` is the record's: the fill's time, which its shell carries too.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Series {
+    pub rev: i64,
+    pub quote: String,
+    pub decimals: i64,
+    /// Unix milliseconds, ascending, one point per millisecond: of two in one millisecond the later stands.
+    pub t: Vec<i64>,
+    pub value: Vec<f64>,
+    pub invested: Vec<f64>,
+    /// Per holding: its value at each point (None where the point kept its fill mark) and what it had cost.
+    pub assets: Vec<(String, Vec<Option<f64>>, Vec<f64>)>,
+    pub prices: Vec<(String, Vec<Option<f64>>)>,
+    /// (ms, key, amount, quote, fills). Marks of one holding at one instant are one mark: the controller sums a holding's
+    /// marks under one stack anyway, so the sum draws the same, and it bounds them at `MARK_BUCKETS + 1` per holding.
+    pub buys: Vec<(i64, Option<String>, f64, f64, i64)>,
+    /// key -> (image, colour).
+    pub logos: Vec<(String, Option<String>, String)>,
+}
+
+/// The query of a data request: the view (Unix ms; None: the history's own end), the points the plot has room for, the
+/// focused holding, and the extras that are on.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Query { pub from: Option<i64>, pub to: Option<i64>, pub points: usize, pub asset: Option<String>, pub prices: bool, pub buys: bool }
+/// `points` when the query names none, and the range it may name.
+pub const POINTS: usize = 300;
+pub const POINTS_RANGE: std::ops::RangeInclusive<usize> = 2..=2000;
+/// The numbers one answer's series carry at most: `points` is lowered to keep `series * (2 * points + 4)` under it.
+pub const NUMBERS: usize = 100_000;
+
+/// Rung `i` of the bucket ladder, in ms: 1 s, 10 s, 1 min, 5 min, 15 min, 30 min, 1 h, 4 h, 1 day, 1 week, then 2, 4, 8…
+/// weeks.
+fn rung(i: usize) -> i64 {
+    const LADDER: [i64; 10] = [1, 10, 60, 300, 900, 1800, 3600, 14_400, 86_400, 604_800];
+    let seconds = LADDER.get(i).copied().unwrap_or_else(|| 604_800_i64.saturating_mul(1_i64.checked_shl((i - 9) as u32).unwrap_or(i64::MAX)));
+    seconds.saturating_mul(1000)
+}
+fn ceil_div(a: i64, b: i64) -> i64 { (a + b - 1).div_euclid(b) }
+/// The step a view `width` ms wide takes at `points`: the smallest rung whose aligned buckets the view can touch number at
+/// most `points` (`ceil(width / step) + 1`), and the widths that take it, both ends included.
+pub fn step(width: i64, points: usize) -> (i64, [i64; 2]) {
+    let p = points as i64;
+    let mut i = 0;
+    loop {
+        let step = rung(i);
+        if ceil_div(width.max(0), step).saturating_add(1) <= p || step == i64::MAX {
+            let lo = if i == 0 { 0 } else { (p - 1).saturating_mul(rung(i - 1)).saturating_add(1) };
+            return (step, [lo, (p - 1).saturating_mul(step)]);
+        }
+        i += 1;
+    }
+}
+
+impl Series {
+    /// A `Page` as the data request reads it, with its logos, under the record's `rev`.
+    pub fn of(page: &Page, logos: Vec<(String, Option<String>, String)>, rev: i64) -> Series {
+        let ms = |at: &At| at.0.div_euclid(1_000_000);
+        // The indices that stand: the last of each millisecond.
+        let kept: Vec<usize> = (0..page.labels.len()).filter(|&i| page.labels.get(i + 1).is_none_or(|next| ms(next) != ms(&page.labels[i]))).collect();
+        let pick = |serie: &[f64]| kept.iter().map(|&i| serie.get(i).copied().unwrap_or_default()).collect::<Vec<f64>>();
+        let pick_opt = |serie: &[Option<f64>]| kept.iter().map(|&i| serie.get(i).copied().flatten()).collect::<Vec<Option<f64>>>();
+        let [value, invested] = &page.series;
+        let floats = |serie: &Vec<Num>| serie.iter().map(Num::to_f).collect::<Vec<f64>>();
+        let mut buys: Vec<(i64, Option<String>, f64, f64, i64)> = vec![];
+        let mut place: HashMap<(i64, Option<String>), usize> = HashMap::new();
+        for (at, key, amount, quote, fills) in &page.buys {
+            match place.get(&(ms(at), key.clone())) {
+                Some(&i) => { let mark = &mut buys[i]; mark.2 += amount; mark.3 += quote; mark.4 += fills; }
+                None => { place.insert((ms(at), key.clone()), buys.len()); buys.push((ms(at), key.clone(), *amount, *quote, *fills)); }
+            }
+        }
+        Series {
+            rev, quote: page.quote.clone(), decimals: page.decimals,
+            t: kept.iter().map(|&i| ms(&page.labels[i])).collect(),
+            value: pick(&floats(value)), invested: pick(&floats(invested)),
+            assets: page.assets.iter().map(|(key, value, invested)| (key.clone(), pick_opt(value), pick(invested))).collect(),
+            prices: page.prices.iter().map(|(key, serie)| (key.clone(), pick_opt(serie))).collect(),
+            buys, logos,
+        }
+    }
+
+    /// The answer to `query`: ONE selection of indices, every series read at it (D-CHART-THIN).
+    pub fn window(&self, query: &Query) -> serde_json::Value {
+        use serde_json::{json, Map, Value};
+        let n = self.t.len();
+        let asset = query.asset.as_ref().and_then(|key| self.assets.iter().find(|(k, ..)| k == key));
+        let series = 3 + if asset.is_some() { 2 } else { 0 } + if query.prices { self.prices.len() } else { 0 };
+        let points = query.points.min((NUMBERS / series).saturating_sub(4) / 2).max(*POINTS_RANGE.start());
+        let (first, last) = (self.t.first().copied().unwrap_or_default(), self.t.last().copied().unwrap_or_default());
+        let (from, to) = (query.from.unwrap_or(first), query.to.unwrap_or(last));
+        let (step, spans) = step(to - from, points);
+        let pad = (points / 2) as i64;
+        let (lo, hi) = (from.div_euclid(step) - pad, to.div_euclid(step) + pad);
+        // [start, end): the points in the padded view.
+        let start = self.t.partition_point(|&t| t.div_euclid(step) < lo);
+        let end = self.t.partition_point(|&t| t.div_euclid(step) <= hi);
+        let marked = |i: usize| asset.is_none_or(|(_, value, _)| value[i].is_some());
+        let asset_first = asset.and_then(|(_, value, _)| value.iter().position(Option::is_some));
+        let mut picked: Vec<usize> = vec![];
+        if start > 0 { picked.push(start - 1); }
+        let mut i = start;
+        while i < end {
+            let bucket = self.t[i].div_euclid(step);
+            let group_end = i + self.t[i..end].partition_point(|&t| t.div_euclid(step) == bucket);
+            let chosen = (i..group_end).rev().find(|&j| marked(j)).unwrap_or(group_end - 1);
+            picked.push(chosen);
+            // The curve starts where the history starts, and ends where it ends, whatever the bucket prefers; a focused
+            // holding's curve starts at its own first marked point.
+            for edge in [Some(0), Some(n - 1), asset_first].into_iter().flatten() { if (i..group_end).contains(&edge) { picked.push(edge); } }
+            i = group_end;
+        }
+        if end < n { picked.push(end); }
+        picked.sort_unstable();
+        picked.dedup();
+        let at = |serie: &[f64]| picked.iter().map(|&i| serie[i]).collect::<Vec<f64>>();
+        let at_opt = |serie: &[Option<f64>]| picked.iter().map(|&i| serie[i]).collect::<Vec<Option<f64>>>();
+        let mut out = json!({
+            "rev": self.rev, "quote": self.quote, "decimals": self.decimals, "step": step / 1000, "spans": spans,
+            "extent": [first, last], "t": picked.iter().map(|&i| self.t[i]).collect::<Vec<i64>>(),
+            "value": at(&self.value), "invested": at(&self.invested),
+            "holdings": self.assets.iter().filter(|(_, value, _)| value.iter().any(Option::is_some)).map(|(key, ..)| key).collect::<Vec<_>>(),
+            "priced": self.prices.iter().map(|(key, _)| key).collect::<Vec<_>>(),
+            "logos": Value::Object(self.logos.iter().map(|(key, image, color)| (key.clone(), json!({ "image": image, "color": color }))).collect::<Map<_, _>>()),
+        });
+        if !self.assets.is_empty() {
+            // One ruler across the holdings, over the whole history (the controller's `#assetBounds`).
+            let (mut value, mut low, mut high) = (0.0_f64, 0.0_f64, 0.0_f64);
+            for (_, values, invested) in &self.assets {
+                for (amount, cost) in values.iter().zip(invested) {
+                    value = value.max(*cost);
+                    let Some(amount) = amount else { continue };
+                    value = value.max(*amount);
+                    (low, high) = (low.min(amount - cost), high.max(amount - cost));
+                }
+            }
+            out["bounds"] = json!({ "value": value, "low": low, "high": high });
+        }
+        if let Some((key, value, invested)) = asset { out["asset"] = json!({ "key": key, "value": at_opt(value), "invested": at(invested) }); }
+        if query.prices { out["prices"] = Value::Object(self.prices.iter().map(|(key, serie)| (key.clone(), json!(at_opt(serie)))).collect()); }
+        if query.buys {
+            let (since, until) = (lo.saturating_mul(step), hi.saturating_add(1).saturating_mul(step));
+            out["buys"] = Value::Array(self.buys.iter().filter(|mark| since <= mark.0 && mark.0 < until).map(|(at, key, amount, quote, fills)| json!([at, key, amount, quote, fills])).collect());
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod series_tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn series(t: &[i64]) -> Series {
+        Series { rev: 7, quote: "USD".into(), decimals: 2, t: t.to_vec(), value: t.iter().map(|&t| t as f64).collect(), invested: vec![1.0; t.len()],
+            assets: vec![], prices: vec![], buys: vec![], logos: vec![] }
+    }
+    fn view(from: i64, to: i64, points: usize) -> Query { Query { from: Some(from), to: Some(to), points, ..Query::default() } }
+    fn whole(points: usize) -> Query { Query { points, ..Query::default() } }
+    fn times(answer: &Value) -> Vec<i64> { answer["t"].as_array().unwrap().iter().map(|t| t.as_i64().unwrap()).collect() }
+
+    #[test]
+    fn of_each_bucket_its_last_point_at_its_own_time_and_the_first_point_of_history() {
+        // 1 s buckets: {0, 999}, {1000, 1999}, {2000}.
+        let answer = series(&[0, 999, 1000, 1999, 2000]).window(&whole(300));
+        assert_eq!(answer["step"], 1);
+        assert_eq!(times(&answer), [0, 999, 1999, 2000]);
+        assert_eq!(answer["value"], serde_json::json!([0.0, 999.0, 1999.0, 2000.0]), "each point's own reading");
+    }
+
+    #[test]
+    fn an_empty_bucket_selects_nothing() {
+        assert_eq!(times(&series(&[0, 5000]).window(&whole(300))), [0, 5000]);
+    }
+
+    #[test]
+    fn the_neighbour_before_and_after_the_padded_view() {
+        // points 2: buckets of 1 s, padded by one either side: [99 s, 103 s).
+        let answer = series(&[0, 50_000, 98_999, 100_500, 103_000, 150_000]).window(&view(100_000, 101_000, 2));
+        assert_eq!(answer["step"], 1);
+        assert_eq!(times(&answer), [98_999, 100_500, 103_000]);
+    }
+
+    #[test]
+    fn a_view_inside_a_gap_answers_the_two_points_around_it() {
+        assert_eq!(times(&series(&[0, 100_000]).window(&view(40_000, 41_000, 2))), [0, 100_000]);
+    }
+
+    #[test]
+    fn a_view_before_after_or_across_the_history() {
+        let s = series(&[100_000, 200_000]);
+        assert_eq!(times(&s.window(&view(0, 1000, 2))), [100_000], "before: the first point");
+        assert_eq!(times(&s.window(&view(300_000, 301_000, 2))), [200_000], "after: the last point");
+        assert_eq!(times(&s.window(&view(0, 300_000, 300))), [100_000, 200_000], "across");
+        assert_eq!(s.window(&whole(300))["extent"], serde_json::json!([100_000, 200_000]));
+    }
+
+    #[test]
+    fn one_point() {
+        let answer = series(&[5000]).window(&whole(300));
+        assert_eq!((times(&answer), &answer["value"]), (vec![5000], &serde_json::json!([5000.0])));
+    }
+
+    #[test]
+    fn two_fills_200_ms_apart_are_one_point_at_any_step_the_finest_bucket_being_a_second() {
+        for points in [2, 300, 2000] {
+            assert_eq!(times(&series(&[0, 10_000, 10_200]).window(&whole(points))), [0, 10_200], "points {points}");
+        }
+    }
+
+    #[test]
+    fn a_focused_holding_prefers_its_own_marked_point_and_every_series_shares_the_indices() {
+        let mut s = series(&[0, 200, 400, 600, 1500]);
+        s.assets = vec![("BTC".into(), vec![None, Some(2.0), Some(4.0), None, None], vec![0.0, 1.0, 1.0, 1.0, 1.0])];
+        s.prices = vec![("BTC".into(), vec![Some(10.0), Some(20.0), Some(40.0), Some(60.0), Some(15.0)])];
+        let asked = Query { asset: Some("BTC".into()), prices: true, ..whole(300) };
+        let answer = s.window(&asked);
+        // Bucket 0 holds 0..600: its last marked point (400), the history's first (0); bucket 1 its last (1500), which is
+        // the history's last. The holding's curve starts at its own first marked point (200).
+        assert_eq!(times(&answer), [0, 200, 400, 1500]);
+        assert_eq!(answer["asset"]["value"], serde_json::json!([null, 2.0, 4.0, null]));
+        assert_eq!(answer["asset"]["invested"], serde_json::json!([0.0, 1.0, 1.0, 1.0]));
+        assert_eq!(answer["prices"]["BTC"], serde_json::json!([10.0, 20.0, 40.0, 15.0]));
+        assert_eq!(answer["value"], serde_json::json!([0.0, 200.0, 400.0, 1500.0]));
+        assert_eq!(times(&s.window(&whole(300))), [0, 600, 1500], "without it, the bucket's last");
+        assert_eq!(answer["holdings"], serde_json::json!(["BTC"]));
+        assert_eq!(answer["bounds"], serde_json::json!({ "value": 4.0, "low": 0.0, "high": 3.0 }));
+        let unknown = s.window(&Query { asset: Some("ETH".into()), ..whole(300) });
+        assert!(unknown.get("asset").is_none(), "an unknown holding is answered without it");
+    }
+
+    #[test]
+    fn a_price_spike_on_a_point_its_bucket_does_not_select_is_absent() {
+        // Named (D-CHART-THIN): of the bucket only its last point is drawn.
+        let mut s = series(&[0, 300, 600, 900]);
+        s.prices = vec![("BTC".into(), vec![Some(10.0), Some(10.0), Some(99.0), Some(11.0)])];
+        let answer = s.window(&Query { prices: true, ..whole(300) });
+        assert_eq!(answer["prices"]["BTC"], serde_json::json!([10.0, 11.0]));
+    }
+
+    #[test]
+    fn marks_inside_the_padded_view_each_as_it_is() {
+        let mut s = series(&[0, 50_000, 100_500, 150_000]);
+        // The padded view is [99 s, 103 s); the view [100 s, 101 s]. Two of BTC either side of each edge of the view.
+        s.buys = [98_999, 99_000, 99_999, 100_000, 101_000, 101_001, 102_999, 103_000].iter().map(|&at| (at, Some("BTC".into()), 1.0, 10.0, 1)).collect();
+        let answer = s.window(&Query { buys: true, ..view(100_000, 101_000, 2) });
+        let at: Vec<i64> = answer["buys"].as_array().unwrap().iter().map(|mark| mark[0].as_i64().unwrap()).collect();
+        assert_eq!(at, [99_000, 99_999, 100_000, 101_000, 101_001, 102_999]);
+        assert!(answer["buys"].as_array().unwrap().iter().all(|mark| mark[2] == 1.0 && mark[4] == 1), "unsummed");
+        assert!(s.window(&whole(300)).get("buys").is_none(), "only when asked");
+    }
+
+    #[test]
+    fn several_buys_and_points_inside_the_first_bucket_keep_the_first_point_and_every_buy() {
+        let mut s = series(&[0, 100, 200]);
+        s.buys = [0, 100, 200].iter().map(|&at| (at, Some("BTC".into()), 1.0, 10.0, 1)).collect();
+        let answer = s.window(&Query { buys: true, ..whole(300) });
+        assert_eq!(times(&answer), [0, 200]);
+        assert_eq!(answer["buys"].as_array().unwrap().len(), 3);
+    }
+
+    #[test]
+    fn views_of_one_width_take_one_step_and_answer_at_most_2_points_plus_2() {
+        let s = series(&(0..18_200).map(|i| i * 1000).collect::<Vec<_>>());
+        let (a, b) = (s.window(&view(0, 17_999_000, 300)), s.window(&view(59_000, 18_058_000, 300)));
+        assert_eq!(a["step"], b["step"]);
+        assert_eq!(a["step"], 300, "ceil(17999 / 60) + 1 = 301 buckets of a minute: five minutes");
+        for answer in [a, b] { assert!(times(&answer).len() <= 602, "{}", times(&answer).len()); }
+    }
+
+    #[test]
+    fn a_ten_year_view_at_300_points_takes_two_week_buckets() {
+        assert_eq!(step(3_650 * 86_400_000, 300).0, 2 * 604_800_000);
+    }
+
+    #[test]
+    fn spans_are_exact_at_both_ends_wherever_the_view_is() {
+        for points in [2, 7, 300, 2000] {
+            for width in [0, 1, 999, 1000, 59_999, 600_000, 86_400_000, 3_650 * 86_400_000_i64] {
+                let (at, [lo, hi]) = step(width, points);
+                assert!(lo <= width && width <= hi, "{points} {width}: {lo}..{hi}");
+                assert_eq!(step(lo, points).0, at);
+                assert_eq!(step(hi, points).0, at);
+                assert_ne!(step(hi + 1, points).0, at, "{points} {width}: past the top");
+                if lo > 0 { assert_ne!(step(lo - 1, points).0, at, "{points} {width}: under the bottom"); }
+            }
+        }
+    }
+
+    #[test]
+    fn the_number_budget_is_never_passed() {
+        let mut s = series(&(0..20_000).map(|i| i * 1000).collect::<Vec<_>>());
+        s.assets = vec![("A".into(), vec![Some(1.0); 20_000], vec![1.0; 20_000])];
+        s.prices = (0..70).map(|k| (format!("P{k}"), vec![Some(1.0); 20_000])).collect();
+        for points in [2, 300, 2000] {
+            let answer = s.window(&Query { asset: Some("A".into()), prices: true, ..whole(points) });
+            let n = times(&answer).len();
+            assert!((3 + 2 + 70) * n <= NUMBERS, "points {points}: {n} points");
+            assert!(n >= 2);
+        }
+    }
+
+    fn page(labels: &[i64], buys: Vec<(At, Option<String>, f64, f64, i64)>) -> Page {
+        let at = |ms: i64| At(ms * 1_000_000);
+        Page { bot: 1, quote: "USD".into(), decimals: 2, labels: labels.iter().map(|&ms| at(ms)).collect(),
+            series: [labels.iter().enumerate().map(|(i, _)| Num::Float(i as f64 * 1.5)).collect(), labels.iter().map(|_| Num::Float(1.0)).collect()],
+            pnl: vec![], assets: vec![("BTC".into(), labels.iter().enumerate().map(|(i, _)| (i % 3 != 0).then_some(i as f64)).collect(), vec![2.0; labels.len()])],
+            pnl_only: false, buys, prices: vec![("BTC".into(), labels.iter().map(|&ms| Some(ms as f64 / 7.0)).collect())], logo_assets: vec![] }
+    }
+
+    #[test]
+    fn of_two_points_of_one_millisecond_the_later_stands() {
+        let at = |nanos: i64| At(nanos);
+        let mut p = page(&[0, 0, 5], vec![]);
+        p.labels = vec![at(1_000_000), at(1_400_000), at(5_000_000)];
+        let s = Series::of(&p, vec![], 1);
+        assert_eq!(s.t, [1, 5]);
+        assert_eq!(s.value, [1.5, 3.0]);
+    }
+
+    #[test]
+    fn a_whole_history_answer_is_the_pages_own_points_with_its_readings() {
+        let labels: Vec<i64> = (0..5_000).map(|i| i * 37_000 + i % 11).collect();
+        let p = page(&labels, vec![]);
+        let s = Series::of(&p, vec![], 1);
+        let answer = s.window(&Query { asset: Some("BTC".into()), prices: true, ..whole(300) });
+        let t = times(&answer);
+        assert!(t.len() > 100 && t.len() < 600, "{}", t.len());
+        for (k, ms) in t.iter().enumerate() {
+            let i = labels.iter().position(|l| l == ms).expect("a Page point");
+            assert_eq!(answer["value"][k], p.series[0][i].to_f());
+            assert_eq!(answer["invested"][k], p.series[1][i].to_f());
+            assert_eq!(answer["asset"]["value"][k], serde_json::json!(p.assets[0].1[i]));
+            assert_eq!(answer["prices"]["BTC"][k], serde_json::json!(p.prices[0].1[i]));
+        }
+        assert_eq!((t[0], *t.last().unwrap()), (labels[0], *labels.last().unwrap()), "both ends of the history");
+    }
+
+    #[test]
+    fn marks_of_one_instant_past_501_are_one_mark_inside_the_budget() {
+        let at = At(9_000 * 1_000_000);
+        let buys = (0..2_000).map(|_| (at, Some("BTC".into()), 0.5, 10.0, 1)).chain([(at, Some("ETH".into()), 1.0, 3.0, 2)]).collect();
+        let s = Series::of(&page(&[0, 9_000], buys), vec![], 1);
+        assert_eq!(s.buys, vec![(9_000, Some("BTC".into()), 1000.0, 20_000.0, 2_000), (9_000, Some("ETH".into()), 1.0, 3.0, 2)]);
+        let answer = s.window(&Query { buys: true, ..whole(300) });
+        assert!(5 * answer["buys"].as_array().unwrap().len() + 3 * times(&answer).len() <= NUMBERS);
+    }
+}

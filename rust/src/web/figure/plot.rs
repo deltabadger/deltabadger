@@ -1,5 +1,4 @@
 use super::*;
-use crate::figures::json::J;
 use crate::web::{colors, i18n::{self, escape}, bots::{Segmented, SegmentedOption}};
 use askama::Template;
 use rusqlite::OptionalExtension;
@@ -24,34 +23,41 @@ pub const NOT_CHARTED: &str = "<div id=\"chart\" hidden=\"hidden\">\n</div>\n";
 #[allow(clippy::too_many_arguments)]
 /// `pair`: a pair bot's chart (`chart::pair_page`). `received`: a sell-only bot's, Some(whether its cost is known), its
 /// series already Received and that cost (`basis::series`).
-pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, zone: &str, pair: bool, received: Option<bool>) -> Result<String, FiguresError> {
+/// `prefix`: the paths the shell's data request is under; `rev`: the record's revision (the fill's time, Unix ms).
+/// With the widget, the chart's data as the request answers from them (`chart::Series`, as JSON text); None for a record
+/// whose chart is not a drawn widget, whose shell never asks.
+pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, zone: &str, pair: bool, received: Option<bool>, prefix: &str, rev: i64) -> Result<(String, Option<String>), FiguresError> {
     let charted:bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id=?1)",[s.bot.id],|r|r.get(0))?;
     // Not charted, or a chart that cannot be stated: no widget, no dash. The target stays for the next replace.
-    if !charted || m.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() { return Ok(NOT_CHARTED.into()); }
+    if !charted || m.prices_stale || !missing.is_empty() || !m.chart_omitted.is_empty() { return Ok((NOT_CHARTED.into(), None)); }
     let page = if pair { chart::pair_page(c,s,m,hidden)? } else { chart::page(c,s,m,hidden)? };
     let Some(mut page) = page else {
         let pnl = if hidden { "" } else { "<div class=\"widget--chart__pnl\">&nbsp;<small>&nbsp;</small></div>" };
         let percent = if hidden { "widget--chart__pnl" } else { "widget--chart__percent" };
-        return Ok(format!("<div id=\"chart\" class=\"widget widget--chart\">\n<div>\n<div class=\"widget--chart__head\">\n<div class=\"widget--chart__summary\">\n<div class=\"widget--chart__date\">&nbsp;</div>\n{pnl}\n<div class=\"{percent}\">&nbsp;</div>\n</div>\n</div>\n<div class=\"widget--chart__plot\">\n{}\n</div>\n</div>\n</div>\n",include_str!("../../../templates/svg/_landscape_empty.html")));
+        return Ok((format!("<div id=\"chart\" class=\"widget widget--chart\">\n<div>\n<div class=\"widget--chart__head\">\n<div class=\"widget--chart__summary\">\n<div class=\"widget--chart__date\">&nbsp;</div>\n{pnl}\n<div class=\"{percent}\">&nbsp;</div>\n</div>\n</div>\n<div class=\"widget--chart__plot\">\n{}\n</div>\n</div>\n</div>\n",include_str!("../../../templates/svg/_landscape_empty.html")), None));
     };
     page.received = received;
     let zone = crate::web::timezone::strict(zone).unwrap_or(chrono_tz::UTC);
     let mut attributes = "data-controller=\"bot--chart\" data-action=\"mouseover@document-&gt;bot--chart#focus mouseleave@document-&gt;bot--chart#blur click@document-&gt;bot--chart#select turbo:before-stream-render@document-&gt;bot--chart#restore\"".to_string();
+    // D-CHART-DATA-REQUEST: the shell carries no series; the controller asks `src` for them.
     for (key,value) in page.attributes(&zone,3) {
-        if key != "logo-assets" { attributes.push_str(&format!(" data-bot--chart-{key}-value=\"{}\"",escape(&value))); }
+        if SHELL.contains(&key) { attributes.push_str(&format!(" data-bot--chart-{key}-value=\"{}\"",escape(&value))); }
     }
+    attributes.push_str(&format!(" data-bot--chart-src-value=\"{}\" data-bot--chart-rev-value=\"{rev}\"",escape(&format!("{prefix}/bots/{}/chart/data",s.bot.id))));
     let mut logos = vec![];
     for (key,id) in &page.logo_assets {
         let logo = c.query_row("SELECT image_url,color FROM assets WHERE id=?1",[id],|r|Ok((r.get::<_,Option<String>>(0)?,r.get::<_,Option<String>>(1)?))).optional()?;
         if let Some((image,colour)) = logo {
             let colour = colors::ensure_contrast(colour.as_deref().unwrap_or(colors::NEUTRAL)).ok_or_else(|| FiguresError::Data("Invalid asset colour".into()))?;
-            logos.push((key.clone(), J::Obj(vec![("image".into(),image.map_or(J::Null,J::Str)),("color".into(),J::Str(colour))])));
+            logos.push((key.clone(), image, colour));
         }
     }
-    attributes.push_str(&format!(" data-bot--chart-buy-logos-value=\"{}\"",escape(&J::Obj(logos).write())));
+    let series = serde_json::to_string(&chart::Series::of(&page, logos, rev)).map_err(|e| FiguresError::Data(format!("chart series: {e}")))?;
     // Laid out as the ERB writes it (tag.div escapes `>` in its attributes), whitespace and all.
     let mode = if !hidden && m.chart.invested.iter().any(|n|n.to_f()>0.0) { format!("            \n{}\n", modes(locale, received.is_some())?.trim()) } else { String::new() };
     let money = if hidden { "" } else { "              <div class=\"widget--chart__pnl\" data-bot--chart-target=\"pnl\">&nbsp;</div>\n" };
     let percent = if hidden { "widget--chart__pnl" } else { "widget--chart__percent" };
-    Ok(format!("<div id=\"chart\" class=\"widget widget--chart\">\n      <div {attributes}>\n        <div class=\"widget--chart__head\">\n          <div class=\"widget--chart__modes\" data-action=\"segmented:change->bot--chart#mode\">\n{mode}          </div>\n          <div class=\"widget--chart__summary\" data-bot--chart-target=\"summary\">\n            <div class=\"widget--chart__date\" data-bot--chart-target=\"date\">&nbsp;</div>\n{money}            <div class=\"{percent}\"\n                 data-bot--chart-target=\"percent\">&nbsp;</div>\n          </div>\n        </div>\n        <div class=\"widget--chart__plot\">\n          <canvas data-bot--chart-target=\"analyzerChart\" width=\"10\" height=\"2\"></canvas>\n          <div class=\"widget--chart__buys\" data-bot--chart-target=\"buys\"></div>\n        </div>\n        <div class=\"widget--chart__axis\" data-bot--chart-target=\"axis\"></div>\n        {}\n\n</div></div>\n",toggles(locale)))
+    Ok((format!("<div id=\"chart\" class=\"widget widget--chart\">\n      <div {attributes}>\n        <div class=\"widget--chart__head\">\n          <div class=\"widget--chart__modes\" data-action=\"segmented:change->bot--chart#mode\">\n{mode}          </div>\n          <div class=\"widget--chart__summary\" data-bot--chart-target=\"summary\">\n            <div class=\"widget--chart__date\" data-bot--chart-target=\"date\">&nbsp;</div>\n{money}            <div class=\"{percent}\"\n                 data-bot--chart-target=\"percent\">&nbsp;</div>\n          </div>\n        </div>\n        <div class=\"widget--chart__plot\">\n          <canvas data-bot--chart-target=\"analyzerChart\" width=\"10\" height=\"2\"></canvas>\n          <div class=\"widget--chart__buys\" data-bot--chart-target=\"buys\"></div>\n        </div>\n        <div class=\"widget--chart__axis\" data-bot--chart-target=\"axis\"></div>\n        {}\n\n</div></div>\n",toggles(locale)), Some(series)))
 }
+/// The attributes the shell keeps of `Page::attributes`: the seven series attributes are the data request's.
+const SHELL: [&str; 5] = ["bot", "quote", "decimals", "pnl-only", "received"];

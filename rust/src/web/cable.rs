@@ -80,7 +80,9 @@ const EVICTION_WAIT: Duration = Duration::from_secs(1);
 /// Payloads a connection's mailbox holds before that connection is closed. One per target of a page (a newer
 /// `replace` of a target supersedes the pending one), so a page with 500 bots fits.
 pub const MAILBOX_ENTRIES: usize = 1536;
-/// Bytes a connection's mailbox holds before that connection is closed: room for every chart of a large account twice.
+/// Bytes a connection's mailbox holds before that connection is closed. A publication is at most the account's rendered
+/// figures (8 MiB, `figure::computed`), and since D-CHART-DATA-REQUEST a chart is a shell of a few hundred bytes, its
+/// series fetched apart: room for four whole publications.
 pub const MAILBOX_BYTES: usize = 32 * 1024 * 1024;
 
 /// Every broadcast goes into the mailbox of every connection subscribed to its stream.

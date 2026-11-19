@@ -69,8 +69,8 @@ fn install_with(currency: &str, source: Source) -> Install {
         INSERT INTO app_configs(key,value,created_at,updated_at) VALUES ('market_data_provider','deltabadger',{t},{t}),('market_data_url','http://data-api:3000',{t},{t}),('market_data_token','token',{t},{t});
         INSERT INTO users(id,email,encrypted_password,setup_completed,admin,confirmed_at,display_currency,created_at,updated_at) VALUES (1,'u1@example.com','x',1,1,{t},'{currency}',{t},{t});
         INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
-            (1,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"allocations\":{{\"2\":1.0}}}}','{{}}',{t},{t}),
-            (2,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":3,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+            (1,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"interval\":\"day\",\"quote_amount\":100,\"allocations\":{{\"2\":1.0}}}}','{{}}',{t},{t}),
+            (2,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":3,\"interval\":\"day\",\"quote_amount\":100,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
             (1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'o1','REGULAR','2026-03-02 14:30:00',{t}),
             (2,1,'BTC',4,'USDT',3,1,1,100,100,0,0,2,'o2','REGULAR','2026-03-02 14:30:00',{t});
@@ -814,10 +814,11 @@ async fn a_kucoin_bots_chart_is_marked_at_the_venues_candles() {
     let install = kucoin_basket(json!({"body": {"code": "200000", "data": rows}}));
     let _stop = install.consume();
     let shown = install.shown("ready").await;
-    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    // The chart's series are its data request's (D-CHART-DATA-REQUEST), kept with the record.
+    let chart = shown["bots"]["3"]["series"].as_str().unwrap();
     // Marked at each closed candle's open from the first after the order (03-03, 102.5) to yesterday's (03-17, 116.5), then
     // at the live price.
-    assert!(chart.contains("&quot;102.5&quot;,&quot;103.5&quot;") && chart.contains("&quot;116.5&quot;,&quot;130.0&quot;"), "{chart}");
+    assert!(chart.contains("102.5,103.5") && chart.contains("116.5,130.0"), "{chart}");
     assert!(!chart.contains("117.5"), "today's candle is still open: {chart}");
     // The Alpaca bots beside it keep their figures.
     assert!(tile(&shown, 1).contains("10.00%"), "{}", tile(&shown, 1));
@@ -1000,4 +1001,114 @@ async fn a_failed_coingecko_pair_is_held_five_minutes_and_a_cold_one_asks_again(
         install.fill(&[("USD", "EUR")]).await;
         assert_eq!(count(&log, &rates), 3, "{status}: asked again after five minutes");
     }
+}
+
+// ---- D-CHART-DATA-REQUEST: GET /bots/{id}/chart/data
+
+const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+/// A browser signed in as `user` (whose stored password is set to `HASH`, which the session is tied to).
+fn browser(install: &Install, user: i64) -> common::web::Browser {
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    c.execute("UPDATE users SET encrypted_password=?1 WHERE id=?2", rusqlite::params![HASH, user]).unwrap();
+    // The bot page's lookup reads full timestamps; the fixture's are dates.
+    c.execute_batch("UPDATE bots SET created_at='2026-01-01 00:00:00', updated_at='2026-01-01 00:00:00'; UPDATE users SET created_at='2026-01-01 00:00:00', updated_at='2026-01-01 00:00:00', confirmed_at='2026-01-01 00:00:00'; UPDATE transactions SET updated_at=created_at").unwrap();
+    let data = deltabadger::web::session::SessionData { user: Some((user, HASH[..29].to_string())), ..Default::default() };
+    common::web::Browser { cookie: Some(deltabadger::web::session::seal(&install.app.keys.session, &data, install.app.now())), page: None }
+}
+fn rev_of(shell: &str) -> i64 {
+    shell.split("data-bot--chart-rev-value=\"").nth(1).and_then(|rest| rest.split('"').next()).unwrap().parse().unwrap()
+}
+async fn data(install: &Install, browser: &mut common::web::Browser, path: &str) -> (u16, Value) {
+    let answer = browser.send(&install.app, "GET", path, None, common::web::Csrf::None, &[("accept", "application/json")]).await;
+    let body = if answer.status == 200 {
+        assert_eq!((answer.header("content-type"), answer.header("cache-control")), (Some("application/json"), Some("private, no-store")));
+        serde_json::from_str(&answer.body).unwrap()
+    } else { Value::String(answer.body.clone()) };
+    (answer.status, body)
+}
+
+#[tokio::test]
+async fn the_chart_shell_carries_no_series_and_its_data_request_answers_them_from_the_same_record() {
+    let install = install("USD", script(true, json!(1.0)));
+    let mut owner = browser(&install, 1);
+    // Cold: no record kept. Nothing is computed in the request; the work is queued.
+    assert_eq!(data(&install, &mut owner, "/bots/1/chart/data").await.0, 204);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let shell = shown["bots"]["1"]["chart"].as_str().unwrap();
+    assert!(shell.contains("data-bot--chart-src-value=\"/bots/1/chart/data\""), "{shell}");
+    for series in ["labels", "series", "pnl", "assets", "buys", "prices", "buy-logos"] {
+        assert!(!shell.contains(&format!("data-bot--chart-{series}-value")), "{series}: {shell}");
+    }
+    let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+    assert_eq!(status, 200);
+    assert_eq!(answer["rev"], rev_of(shell), "the revision its shell carries");
+    assert_eq!(answer["quote"], "USD");
+    let t = answer["t"].as_array().unwrap();
+    assert!(t.len() > 2 && t.len() == answer["value"].as_array().unwrap().len() && t.len() == answer["invested"].as_array().unwrap().len(), "{answer}");
+    assert_eq!(answer["holdings"], json!(["AAA"]));
+    assert!(answer.get("asset").is_none() && answer.get("prices").is_none() && answer.get("buys").is_none(), "the portfolio only: {answer}");
+    let (_, asked) = data(&install, &mut owner, "/bots/1/chart/data?asset=AAA&prices=1&buys=1&points=2").await;
+    assert_eq!(asked["asset"]["key"], "AAA");
+    assert_eq!(asked["asset"]["value"].as_array().unwrap().len(), asked["t"].as_array().unwrap().len());
+    assert_eq!(asked["prices"]["AAA"].as_array().unwrap().len(), asked["t"].as_array().unwrap().len());
+    assert_eq!(asked["buys"].as_array().unwrap().len(), 1);
+    let (status, unknown) = data(&install, &mut owner, "/bots/1/chart/data?asset=ZZZ").await;
+    assert!(status == 200 && unknown.get("asset").is_none(), "an unknown holding is answered without it");
+    for bad in ["points=1", "points=2001", "points=x", "from=x", "from=5&to=4", "prices=yes", "buys=2"] {
+        assert_eq!(data(&install, &mut owner, &format!("/bots/1/chart/data?{bad}")).await.0, 400, "{bad}");
+    }
+    // Not this account's bot, and signed out.
+    rusqlite::Connection::open(&install.file).unwrap().execute("INSERT INTO users(id,email,encrypted_password,setup_completed,confirmed_at,created_at,updated_at) VALUES (2,'u2@example.com','x',1,'2026-01-01','2026-01-01','2026-01-01')", []).unwrap();
+    assert_eq!(data(&install, &mut browser(&install, 2), "/bots/1/chart/data").await.0, 404);
+    assert_eq!(data(&install, &mut common::web::Browser::default(), "/bots/1/chart/data").await.0, 401);
+}
+
+#[tokio::test]
+async fn a_stale_record_answers_with_the_rev_its_shell_carries() {
+    let install = install("USD", script(true, json!(1.0)));
+    let mut owner = browser(&install, 1);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let rev = rev_of(shown["bots"]["1"]["chart"].as_str().unwrap());
+    // A write moves the revision; the fill it starts cannot run while the figures' one permit is held, so the page reads
+    // the stale record meanwhile.
+    // The refill's revision is its fill's time: the fill begins with the request below, a minute on.
+    install.set("2026-03-18T12:04:30Z");
+    let permit = install.app.figure_service.compute().acquire_owned().await.unwrap();
+    rusqlite::Connection::open(&install.file).unwrap().execute("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES (2,1,'BTC',4,'USDT',3,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-03 14:30:00','2026-01-01')", []).unwrap();
+    let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+    assert_eq!((status, &answer["rev"]), (200, &json!(rev)), "{answer}");
+    drop(permit);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+        if status == 200 && answer["rev"].as_i64().unwrap() > rev { break; }
+        assert!(Instant::now() < deadline, "the refill never answered: {status} {answer}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test]
+async fn a_chart_without_a_candle_grid_is_published_and_its_shell_finds_its_data() {
+    // No bars at all: no holding is marked on candles, so 2.x would not cache the marked chart (`chart_cached` false) and
+    // the page loads its frame; the publication still carries the shell, and the shell its fill-marked points.
+    let mut script = script(true, json!(1.0));
+    for key in ["GET data.alpaca.markets/v2/stocks/AAA/bars", "GET data.alpaca.markets/v2/stocks/AAA/bars?adjustment=split", "GET data.alpaca.markets/v1beta3/crypto/us/bars?symbols=BTC/USDT"] {
+        script[key] = json!({"body": {"bars": []}});
+    }
+    let install = install("USD", script);
+    let mut owner = browser(&install, 1);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert_eq!((shown["bots"]["1"]["cached"].as_bool(), shown["bots"]["1"]["chart_cached"].as_bool()), (Some(true), Some(false)));
+    let streams = install.app.db(move |c| Ok(deltabadger::web::figure::streams(c, 1, &shown).unwrap())).await.unwrap();
+    let chart = streams.iter().map(|(_, html)| html).find(|html| html.contains("target=\"chart\"") && html.contains("/bots/1/chart/data")).expect("the chart's shell is published");
+    assert!(chart.starts_with("<turbo-stream action=\"replace\" target=\"chart\" method=\"morph\">"), "{chart}");
+    let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["rev"], rev_of(chart));
+    // The fill's own mark, then the live price on the last label: no candle between.
+    assert_eq!(answer["t"].as_array().unwrap().len(), 2, "{answer}");
+    assert_eq!((&answer["value"], &answer["holdings"]), (&json!([100.0, 110.0]), &json!([])), "{answer}");
 }
