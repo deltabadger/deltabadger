@@ -483,6 +483,9 @@ export default class extends Controller {
 
     this.wanted = next;
     clearTimeout(this.focusTimer);
+    // Only an answer that holds every extra that is on draws the new focus from hand.
+    const complete = (!this.showPrices || this.answer.prices) && (!this.showOrders || this.answer.buys);
+    if (!complete) return this.#ask();
     if (!next || this.answer.asset === next) {
       // In hand: drawn now, and an ask still on its way for something else is not drawn over it.
       this.#asked += 1;
@@ -547,6 +550,8 @@ export default class extends Controller {
     // Stimulus reports the value before connect, too.
     if (!this.loader && !this.answer) return;
     if (this.answer && this.revValue <= this.answer.rev) return;
+    // Every kept answer is of an older record now.
+    this.#answers.clear();
     this.#ask();
   }
 
