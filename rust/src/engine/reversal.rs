@@ -80,7 +80,7 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
     let kucoin = model::exchange_type(c, &bot)? == crate::venue::kucoin::KUCOIN;
     for entry in entries(&bot) {
         let Some(id) = entry["id"].as_i64() else { return Err(EngineError::Data(format!("bot {bot_id}: unreadable {CANCELS} entry {entry}"))) };
-        let external: Option<String> = c.query_row("SELECT external_id FROM transactions WHERE id = ?1", [id], |r| r.get(0)).unwrap_or(None);
+        let external: Option<String> = c.query_row(&format!("SELECT {} FROM transactions WHERE id = ?1", crate::venue_ids::order_id(&c, "transactions")?), [id], |r| r.get(0)).unwrap_or(None);
         let was_sent = entry["sent"] == true;
         let outcome = match external {
             None => Outcome::Failed, // no order to cancel: nothing is restored for it
@@ -111,7 +111,7 @@ pub async fn cancel_captured<V: Venue + Attributed>(c: &Connection, venue: &V, b
                 }
             }
         };
-        let ext: String = c.query_row("SELECT coalesce(external_id, '') FROM transactions WHERE id = ?1", [id], |r| r.get(0)).unwrap_or_default();
+        let ext: String = c.query_row(&format!("SELECT coalesce({}, '') FROM transactions WHERE id = ?1", crate::venue_ids::order_id(&c, "transactions")?), [id], |r| r.get(0)).unwrap_or_default();
         model::credential_write(c, &venue.producer(), |tx| {
             let bot = model::load_bot(tx, bot_id)?;
             let mut cancels = entries(&bot);

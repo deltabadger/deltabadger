@@ -119,11 +119,13 @@ pub fn observe_mode(c: &Connection, key: &Key, mode: AccountMode, now: DateTime<
 fn hold_switched(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), SyncError> {
     let record = crate::venue::kucoin::ORDER_RECORD;
     let origin = crate::engine::reconcile::ORIGIN;
+    // #710: this history's account's orders, their venue ids wherever it keeps them.
+    let (o, mine) = (venue_ids::order_id(&c, "t")?, key.scope.orders("t"));
     let mut s = c.prepare(&format!(
         "SELECT t.id, (SELECT CASE WHEN count(*) = 1 THEN max(k.ticker) END FROM tickers k WHERE k.exchange_id = t.exchange_id AND k.base_asset_id = t.base_asset_id \
          AND k.quote_asset_id = t.quote_asset_id), coalesce(t.side, 0) = 1, coalesce(t.order_type, 0) = 1 \
          FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE b.user_id = ?1 AND t.exchange_id = ?2 AND t.status = 0 AND t.external_status IN (0, 1) \
-         AND t.external_id IS NOT NULL AND t.external_id NOT LIKE 'imported_%' AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{record}' || t.id) \
+         AND {o} IS NOT NULL AND {o} NOT LIKE 'imported_%' AND {mine} AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{record}' || t.id) \
          AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{origin}' || t.id AND json_extract(k.value, '$.origin') = 'unproven') ORDER BY t.id"))?;
     let rows: Vec<(i64, Option<String>, bool, bool)> =
         s.query_map(params![key.user_id, key.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;

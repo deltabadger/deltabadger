@@ -102,8 +102,9 @@ impl<T: Transport> BybitVenue<T> {
         // SQLite's open, query and timestamp parsing all stay off the async thread; no connection survives the read.
         tokio::task::spawn_blocking(move || {
             let c = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|_| unreadable())?;
-            let at: Option<String> = c.query_row(
-                "SELECT created_at FROM transactions WHERE exchange_id = (SELECT id FROM exchanges WHERE type = ?1) AND external_id = ?2",
+            // #710: an id either account of the venue keeps (two of a user's Bybit accounts sharing one order id: inferred never).
+            let at: Option<String> = c.query_row(&format!(
+                "SELECT created_at FROM transactions WHERE exchange_id = (SELECT id FROM exchanges WHERE type = ?1) AND {} = ?2", crate::venue_ids::order_id(&c, "transactions").map_err(|_| unreadable())?),
                 rusqlite::params![BYBIT, id], |r| r.get(0)).optional().map_err(|_| unreadable())?;
             at.map(|at| crate::codec::parse_time(&at).map_err(|_| unreadable())).transpose()
         }).await.map_err(|_| unreadable())?

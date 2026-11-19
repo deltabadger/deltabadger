@@ -368,7 +368,7 @@ pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto
         if let Err(e) = super::polling::refresh(c, venue, id, row, now).await {
             super::log(&format!("[engine] rebalance resolution refresh bot={id}: {e:?}"));
         }
-        let waiting: Option<Option<String>> = c.query_row("SELECT external_id FROM transactions WHERE id=?1 AND bot_id=?2 AND status=0 AND external_status IN (0,1)",
+        let waiting: Option<Option<String>> = c.query_row(&format!("SELECT {} FROM transactions WHERE id=?1 AND bot_id=?2 AND status=0 AND external_status IN (0,1)", crate::venue_ids::order_id(&c, "transactions")?),
             (row,id), |r| r.get(0)).optional()?;
         if let Some(order) = waiting { return Ok(Some(order.unwrap_or_default())); }
     }
@@ -376,7 +376,7 @@ pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto
     let current = super::model::load_bot(&tx, id)?;
     if current.user_id != user || resolution_token(&current) != token { return Ok(None); }
     // Also catch a row persisted by recovery while the refresh was in flight.
-    let waiting: Option<Option<String>> = tx.query_row("SELECT external_id FROM transactions WHERE bot_id=?1 AND ((transaction_type='REBALANCE') OR id IN (?2,?3)) AND status=0 AND external_status IN (0,1) ORDER BY id LIMIT 1",
+    let waiting: Option<Option<String>> = tx.query_row(&format!("SELECT {} FROM transactions WHERE bot_id=?1 AND ((transaction_type='REBALANCE') OR id IN (?2,?3)) AND status=0 AND external_status IN (0,1) ORDER BY id LIMIT 1", crate::venue_ids::order_id(&tx, "transactions")?),
         params![id,p.sell_transaction_id,p.buy_transaction_id], |r| r.get(0)).optional()?;
     if let Some(order) = waiting { return Ok(Some(order.unwrap_or_default())); }
     if let Some(intent) = super::placement::load_intent(&tx, &current, None)? {
@@ -854,7 +854,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
         }
     };
     Ok(match super::placement::send_recorded(c, venue, bot, &intent, clock).await? {
-        Sent::Accepted(txid) => Outcome::Placed(c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, txid], |r| r.get(0))?),
+        Sent::Accepted(txid) => Outcome::Placed(crate::venue_ids::order_by_id(c, &crate::identity::order_scope(c, bot.id)?, &txid)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?),
         Sent::Rejected(errors) if super::placement::safe_rejection(&errors) => Outcome::Failed(crate::v2::to_sentence(&errors)),
         // A REBALANCE leg is outside D-BELOW-MIN-REJECTION (placement::skips_below_minimum): never BelowMinimum.
         Sent::Rejected(_) | Sent::BelowMinimum(_) => Outcome::Skipped("ambiguous"),

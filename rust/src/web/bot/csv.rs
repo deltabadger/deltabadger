@@ -62,8 +62,9 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     let mut out = String::new();
     line(&mut out, &HEADERS.map(|h| Cell::Text(h.into())));
-    let mut s = c.prepare("SELECT created_at, external_id, order_type, side, amount, amount_exec, quote_amount, quote_amount_exec, price, base, quote, exchange_id \
-                           FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2 ORDER BY created_at, id")?;
+    // #710: each order's venue id wherever the account it was placed on keeps it.
+    let mut s = c.prepare(&format!("SELECT created_at, {}, order_type, side, amount, amount_exec, quote_amount, quote_amount_exec, price, base, quote, exchange_id \
+                           FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2 ORDER BY created_at, id", crate::venue_ids::order_id(&c, "transactions")?))?;
     let mut rows = s.query([id])?;
     let dec = |r: &rusqlite::Row, i: usize| -> Result<Option<BigDec>, WebError> {
         v2::from_sql(r.get_ref(i)?).map_err(|e| WebError::Config(format!("transaction decimal: {e:?}")))
@@ -239,8 +240,10 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         }
     };
     let mut venue_names = None;
-    let held: HashSet<String> = tx.prepare("SELECT external_id FROM transactions WHERE bot_id = ?1 AND external_id IS NOT NULL")?
+    let held: HashSet<String> = tx.prepare(&format!("SELECT {o} FROM transactions WHERE bot_id = ?1 AND {o} IS NOT NULL", o = crate::venue_ids::order_id(&tx, "transactions")?))?
         .query_map([id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    // #710: the rows land on the bot's account, its venue ids where that account keeps them.
+    let scope = crate::identity::order_scope(&tx, id)?;
     let own = format!("imported_{id}_");
     let (mut skipped, mut mismatched_quote, mut seen, mut candidates) = (0usize, None::<String>, HashSet::new(), vec![]);
     for row in &table.rows {
@@ -272,8 +275,7 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         if status.as_deref() != Some("closed") { skipped += 1; continue; }
         // D-IMPORT-DUP: the same id twice in the file, or one another bot holds on this venue.
         if !seen.insert(order_id.clone()) { continue; }
-        let elsewhere: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE exchange_id = ?1 AND external_id = ?2)", params![bot.exchange_id, order_id], |r| r.get(0))?;
-        if elsewhere { continue; }
+        if crate::venue_ids::order_by_id(&tx, &scope, &order_id)?.is_some() { continue; }
         let order_type = match get("Type").map(|t| unescape(t).to_lowercase()).as_deref() { Some("market") => 0, Some("limit") => 1, _ => return Ok(Imported::Malformed) };
         let side = match get("Side").map(|t| unescape(t).to_lowercase()).as_deref() { Some("buy") => 0, Some("sell") => 1, _ => return Ok(Imported::Malformed) };
         let (Some(at), Some(amount), Some(value), Some(price)) = (read_time(get("Timestamp")), read_number(get("Amount")), read_number(get("Value")), read_number(get("Price"))) else {
@@ -291,10 +293,10 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         tx.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, created_at, updated_at, order_type, side, amount, amount_exec, quote_amount, \
                     quote_amount_exec, price, base, quote, base_asset_id, quote_asset_id, status, external_status) \
                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?9, ?9, ?10, ?11, ?12, ?13, ?14, 0, 2)",
-                   params![id, bot.exchange_id, row.order_id, crate::codec::format_time(row.at), stamp, row.order_type, row.side, amount, value, price,
+                   params![id, bot.exchange_id, scope.stored(Some(&row.order_id)), crate::codec::format_time(row.at), stamp, row.order_type, row.side, amount, value, price,
                            row.base, bot_quote, row.asset, quote_id])?;
         written.push(tx.last_insert_rowid());
-        crate::identity::place_order(&tx, tx.last_insert_rowid(), id)?;
+        crate::venue_ids::after_order_insert(&tx, &scope, tx.last_insert_rowid(), Some(&row.order_id))?;
     }
     // R-IMPORT-READABLE: each row as stored, read as every money reader reads it.
     for &tid in &written {

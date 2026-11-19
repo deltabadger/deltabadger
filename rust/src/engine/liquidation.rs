@@ -149,7 +149,7 @@ pub fn resolve(c: &Connection, id: i64, user: i64, nonce: &str, shown: &[i64], n
     let tx=model::immediate(c)?;
     let bot=model::load_bot(&tx,id)?;
     if bot.user_id!=user { return Err(data("liquidation owner changed")); }
-    let waiting:Option<Option<String>>=tx.query_row("SELECT external_id FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND status=0 AND external_status IN (0,1) ORDER BY id LIMIT 1",[id],|r|r.get(0)).optional()?;
+    let waiting:Option<Option<String>>=tx.query_row(&format!("SELECT {} FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND status=0 AND external_status IN (0,1) ORDER BY id LIMIT 1",crate::venue_ids::order_id(&tx, "transactions")?),[id],|r|r.get(0)).optional()?;
     if let Some(order)=waiting { return Ok(Some(order.unwrap_or_default())); }
     let mut resolved:Vec<i64>=bot.transient["liquidation_resolved_orders"].as_array().into_iter().flatten().filter_map(|v|v.as_i64().or_else(||v.as_str()?.parse().ok())).collect();
     let rows=tx.prepare("SELECT id,base FROM transactions WHERE bot_id=?1 AND transaction_type='LIQUIDATION' AND external_status=4 ORDER BY id")?

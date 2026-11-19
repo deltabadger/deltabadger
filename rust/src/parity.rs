@@ -577,7 +577,7 @@ async fn play<V: Venue>(o: &Opened, venue: &V, scenario: &Value, bot_id: i64, st
     // ponytail: the poll's retries are not replayed; no grid scenario fails a poll with a retryable error.
     let mut poll = None;
     if let Some(ext) = scenario["poll"].as_str() {
-        let tx: i64 = o.primary.query_row("SELECT id FROM transactions WHERE bot_id = ?1 AND external_id = ?2", rusqlite::params![bot_id, ext], |r| r.get(0))?;
+        let tx: i64 = o.primary.query_row(&format!("SELECT id FROM transactions WHERE bot_id = ?1 AND {} = ?2", crate::venue_ids::order_id(&o.primary, "transactions")?), rusqlite::params![bot_id, ext], |r| r.get(0))?;
         poll = polling::follow_up(&o.primary, venue, bot_id, tx, start + chrono::Duration::seconds(5)).await.err();
     }
     // What changes between the first tick and the next, outside both engines; the same SQL runs on 2.x's copy.
@@ -857,8 +857,8 @@ fn alpaca_copy_script(c: &Connection, bot: &crate::engine::model::Bot, recorded:
         "GET /v2/positions": ok(json!([])),
         "GET /v2/clock": ok(json!({ "is_open": true, "next_open": "2026-01-05T09:30:00-05:00", "next_close": "2026-01-05T16:00:00-05:00" })),
     });
-    let mut s = c.prepare("SELECT external_id, order_type, base_asset_id FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 \
-                           AND external_status IN (0, 1) AND external_id IS NOT NULL")?;
+    let mut s = c.prepare(&format!("SELECT {o}, order_type, base_asset_id FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 \
+                           AND external_status IN (0, 1) AND {o} IS NOT NULL", o = crate::venue_ids::order_id(&c, "transactions")?))?;
     let waiting = s.query_map(rusqlite::params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?;
     for (ext, order_type, asset) in waiting {

@@ -1074,8 +1074,9 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
     let raw = bot.rust_placement().ok_or_else(|| EngineError::Data(format!("bot {bot_id} has no unresolved order")))?;
     let intent = Intent::from_json(&tx, &bot, &raw,None)?;
     if let OperatorResolution::Placed(t) = &resolution {
-        let dup: i64 = tx.query_row("SELECT count(*) FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, t], |r| r.get(0))?;
-        if dup > 0 { return Err(EngineError::Data(format!("order {t} is already recorded"))); }
+        // #710: where the account the intent was placed on keeps its venue ids.
+        let scope = match placed_account(&tx, &bot, &raw)? { Some(a) => crate::identity::order_scope_on(&tx, bot.id, a)?, None => crate::identity::order_scope(&tx, bot.id)? };
+        if crate::venue_ids::order_by_id(&tx, &scope, t)?.is_some() { return Err(EngineError::Data(format!("order {t} is already recorded"))); }
     }
     let (label, txid, settlement) = match resolution {
         OperatorResolution::Placed(txid) => { let id = write_accepted_order(&tx, &bot, &intent.plan, &txid, intent.at, intent.run.as_ref())?; ("placed", Some(txid), Settlement::Accepted(id)) }

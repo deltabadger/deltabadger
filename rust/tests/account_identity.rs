@@ -939,9 +939,12 @@ fn deleting_one_accounts_subjects_leaves_the_other_accounts_memberships() {
     for (n, account) in [first, second].into_iter().enumerate() {
         let bot = common::seed::insert_bot(c, &s, &common::seed::BotSpec { status: 2, ..common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
         identity::place_bot(c, bot, s.user_id, s.exchange_id, Some(account), now()).unwrap();
-        // Two venue ids: one shared by both accounts needs the relocated id of slice 4 (the 2.x index is (exchange, id)).
         let order = common::seed::insert_row(c, &s, bot, s.btc, &json!({"external_id": format!("O-{n}"), "external_status": 2, "created_at": "2026-09-02 10:00:00"}));
-        if n == 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [order, second.id.unwrap()]).unwrap(); }
+        if n == 1 {
+            // Relocated as a placement writes it (slice 4): the venue id in the membership, 2.x's column NULL.
+            c.execute("UPDATE transactions SET external_id = NULL WHERE id = ?1", [order]).unwrap();
+            c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, 'O-1')", [order, second.id.unwrap()]).unwrap();
+        }
         bots.push(bot);
         orders.push(order);
         rule_ids.push(rules::create(c, &account, s.btc, "address", "{}", "2026-09-02 10:00:00").unwrap());

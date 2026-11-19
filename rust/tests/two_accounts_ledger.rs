@@ -274,3 +274,55 @@ fn withheld_kucoin_fills_move_to_their_number_one_through_the_hop() {
                       (9, 3, 1, "f1".into(), "2026-01-03".into(), "{}".into(), "2026-01-04".into())]);
     assert!(store::check(&p).unwrap().pending_rust.is_empty());
 }
+
+// ---- commit 3: bot orders (§6 test 8) ----
+
+/// Places one order of bot `bot` with venue id `id` (accepted, then recorded as recovery records it); its row.
+async fn place(c: &Connection, bot: i64, id: &str, at: chrono::DateTime<chrono::Utc>) -> i64 {
+    use deltabadger::engine::{amount::{self, Sizing}, placement::{self, Recovery}, FixedClock};
+    use deltabadger::venue::fake::{AddOutcome, FakeVenue};
+    let bot = model::load_bot(c, bot).unwrap();
+    let ticker = model::ticker_for(c, &bot).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+    let venue = FakeVenue::new().next_add(AddOutcome::Accept(id.into())).order(id, json!({
+        "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0" } }));
+    let intent = placement::begin(c, &bot, &plan, &FixedClock(at)).unwrap();
+    placement::send(c, &venue, &intent, &FixedClock(at)).await.unwrap();
+    assert!(matches!(placement::recover(c, &venue, &model::load_bot(c, bot.id).unwrap(), &FixedClock(at + chrono::Duration::hours(2))).await.unwrap(), Recovery::Recorded(_)));
+    c.query_row(&format!("SELECT id FROM transactions WHERE bot_id = ?1 AND {} = ?2", venue_ids::order_id(c, "transactions").unwrap()), params![bot.id, id], |r| r.get(0)).unwrap()
+}
+
+/// §6 test 8: account 2 places an order whose venue id account 1's bot already holds: both recorded, each found where its
+/// account keeps it (placement's own lookup, a repeat write); a bot that moves accounts lists both of its orders' ids in its
+/// order CSV (the web download's and the portable export's one writer).
+#[tokio::test(flavor = "current_thread")]
+async fn two_accounts_hold_one_order_id_and_a_bot_lists_its_orders_from_both() {
+    use common::two_accounts::SHARED_ORDER;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let t0: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
+    let rows = [place(c, two.bots[0], SHARED_ORDER, t0).await, place(c, two.bots[1], SHARED_ORDER, t0).await];
+    assert_ne!(rows[0], rows[1]);
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT external_id FROM transactions WHERE id = {}", rows[1])), None, "account 2's 2.x id is NULL");
+    for (n, scope) in two.scopes.iter().enumerate() {
+        assert_eq!(venue_ids::order_by_id(c, scope, SHARED_ORDER).unwrap(), Some(rows[n]));
+        assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM transactions t WHERE t.exchange_id = {} AND {}", two.seeded.exchange_id, scope.orders("t"))), 1);
+    }
+    // The same acceptance written again is the row it already has, on either account.
+    for (n, bot) in two.bots.iter().enumerate() {
+        let bot = model::load_bot(c, *bot).unwrap();
+        let ticker = model::ticker_for(c, &bot).unwrap().unwrap();
+        let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000),
+            &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+        let tx = c.unchecked_transaction().unwrap();
+        assert_eq!(deltabadger::engine::amount::write_accepted_order(&tx, &bot, &plan, SHARED_ORDER, t0, None).unwrap(), rows[n]);
+    }
+    // Bot 1 moves to account 2 and places again: its CSV lists both venue ids.
+    deltabadger::identity::place_bot(c, two.bots[0], two.seeded.user_id, two.seeded.exchange_id, Some(two.accounts[1]), t0).unwrap();
+    let moved = place(c, two.bots[0], "after-move", t0 + chrono::Duration::days(1)).await;
+    assert_eq!(deltabadger::identity::Account::of_order(c, moved).unwrap(), Some(two.accounts[1]));
+    assert_eq!(deltabadger::identity::Account::of_order(c, rows[0]).unwrap(), Some(two.accounts[0]), "the old order stays where it was placed");
+    let csv = deltabadger::web::bot::csv::export_csv(c, two.bots[0]).unwrap().unwrap();
+    assert!(csv.contains(SHARED_ORDER) && csv.contains("after-move"), "{csv}");
+}

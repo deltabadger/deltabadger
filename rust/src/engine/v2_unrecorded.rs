@@ -78,10 +78,10 @@ pub fn collect(tx: &Connection, queue: &Connection, since: Option<DateTime<Utc>>
     }
     drop(s);
     // (c) failed REGULAR rows with no external id whose saved error is an ambiguous placement (D-V2-UNRECORDED-FAILED-ROWS).
-    let mut s = tx.prepare("SELECT t.id, t.bot_id, t.created_at, t.error_messages, t.exchange_id, t.base_asset_id, t.quote_asset_id, t.side, e.type \
+    let mut s = tx.prepare(&format!("SELECT t.id, t.bot_id, t.created_at, t.error_messages, t.exchange_id, t.base_asset_id, t.quote_asset_id, t.side, e.type \
                             FROM transactions t JOIN bots b ON b.id = t.bot_id JOIN exchanges e ON e.id = t.exchange_id \
-                            WHERE t.status = 1 AND t.transaction_type = 'REGULAR' AND t.external_id IS NULL AND t.run_identity IS NULL \
-                            AND b.type <> ?1 AND b.status <> ?2 ORDER BY t.id")?;
+                            WHERE t.status = 1 AND t.transaction_type = 'REGULAR' AND {} IS NULL AND t.run_identity IS NULL \
+                            AND b.type <> ?1 AND b.status <> ?2 ORDER BY t.id", crate::venue_ids::order_id(&tx, "t")?))?;
     let rows = s.query_map(params![model::SIGNAL_TYPE, BotStatus::Deleted as i64], |r| Ok((
         r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<String>>(3)?, r.get::<_, i64>(4)?,
         r.get::<_, Option<i64>>(5)?, r.get::<_, Option<i64>>(6)?, r.get::<_, Option<i64>>(7)?, r.get::<_, Option<String>>(8)?)))?
@@ -447,7 +447,7 @@ fn trades(c: &Connection, user: i64, exchange: i64, venue: &str, scope: &Scope, 
 /// candidates, the live line (`merged`) and a booking (`write_booking`) all make.
 fn held(c: &Connection, exchange: i64, venue_type: &str, external_id: &str) -> Result<bool, EngineError> {
     let bare = if venue_type == BITGET { external_id.rsplit_once('-').map(|(_, id)| id) } else { None };
-    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND (external_id = ?2 OR external_id = ?3))",
+    Ok(c.query_row(&format!("SELECT EXISTS (SELECT 1 FROM transactions WHERE exchange_id = ?1 AND ({o} = ?2 OR {o} = ?3))", o = crate::venue_ids::order_id(&c, "transactions")?),
                    params![exchange, external_id, bare.unwrap_or(external_id)], |r| r.get(0))?)
 }
 

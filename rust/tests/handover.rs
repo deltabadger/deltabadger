@@ -1632,10 +1632,13 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
                     ticker_id: s.ticker_id, limit: true, price: Some(deltabadger::v2::BigDec::parse("1").unwrap()), mcp: false } }, now()).unwrap();
             }
         }
+        // An order of the exchange's second account (its venue id relocated, slice 4).
         "exchange_account_transactions" => {
-            let account = deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
-            let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_id": "A2", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
-            o.primary.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [row, account.id.unwrap() + 1000]).unwrap();
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = o.primary.last_insert_rowid();
+            let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_status": 2, "created_at": "2026-09-01 10:00:00"}));
+            o.primary.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, 'A2')", [row, second]).unwrap();
         }
         // #710 slice 4: a ledger row of the exchange's second account (its venue id is in the membership).
         "exchange_account_rows" => {

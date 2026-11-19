@@ -155,9 +155,10 @@ pub fn adopt_pair(c: &Connection, scope: &Scope, legs: [(i64, &str); 2]) -> rusq
     }
 }
 
-/// SQL: bot order `t`'s venue id.
-pub fn order_id(t: &str) -> String {
-    format!("COALESCE({t}.external_id, (SELECT m.venue_external_id FROM exchange_account_transactions m WHERE m.transaction_id = {t}.id))")
+/// SQL: bot order `t`'s venue id (2.x's column alone on an install without the membership tables).
+pub fn order_id(c: &Connection, t: &str) -> rusqlite::Result<String> {
+    Ok(if ready(c)? { format!("COALESCE({t}.external_id, (SELECT m.venue_external_id FROM exchange_account_transactions m WHERE m.transaction_id = {t}.id))") }
+       else { format!("{t}.external_id") })
 }
 /// SQL: the account bot order `t` was placed on: its membership's, else the number 1 of its bot's user and its exchange.
 pub fn order_account(t: &str) -> String {
@@ -174,12 +175,13 @@ pub fn after_order_insert(c: &Connection, scope: &Scope, row: i64, external: Opt
     Ok(())
 }
 
-/// The bot order of `scope`'s account with venue id `external`, of one of its user's bots. Number 1: 2.x's unique
-/// (exchange_id, external_id); an account 2+: its UNIQUE (account_id, venue_external_id).
+/// The bot order with venue id `external` where `scope`'s account keeps it. Number 1: 2.x's unique (exchange_id,
+/// external_id), whoever's bot holds it (the index a number-1 insert meets); an account 2+: its UNIQUE (account_id,
+/// venue_external_id).
 pub fn order_by_id(c: &Connection, scope: &Scope, external: &str) -> rusqlite::Result<Option<i64>> {
     match scope.member {
-        None => c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?3)",
-                            params![scope.exchange_id, external, scope.user_id], |r| r.get(0)).optional(),
+        None => c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2",
+                            params![scope.exchange_id, external], |r| r.get(0)).optional(),
         Some(n) => c.query_row("SELECT transaction_id FROM exchange_account_transactions WHERE account_id = ?1 AND venue_external_id = ?2",
                                params![n, external], |r| r.get(0)).optional(),
     }
