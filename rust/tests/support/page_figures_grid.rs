@@ -144,7 +144,7 @@ fn raw_bot_chart(body: &str) -> &str {
 async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, v2: &Value) -> String {
     let mut page = browser.get(app, &format!("/bots/{id}")).await;
     let mut v2_body = v2["page"].as_str().unwrap().to_string();
-    if SELL_ONLY_PAIRS.contains(&name) && page.body.contains("data-bot--chart-series-value") {
+    if SELL_ONLY_PAIRS.contains(&name) && page.body.contains("data-bot--chart-src-value") {
         assert!(page.body.contains("data-bot--chart-received-value=\"unknown\""), "{name} {state}: D-SELL-ONLY-CHART: {}", page.body);
         (page.body, v2_body) = (sell_only_chart(&page.body), sell_only_chart(&v2_body));
     }
