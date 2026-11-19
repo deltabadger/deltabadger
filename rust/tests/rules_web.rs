@@ -356,6 +356,7 @@ async fn select_each_identity(venue: &str) {
         }
         // Changing the selection on a stopped tile uses the same identity contract.
         i.c.execute("UPDATE rules SET status=2", []).unwrap();
+        common::seed::rules_as_v2_wrote(&i.c);
         let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
         let (name, options) = picker(&body);
         assert_eq!(options.iter().filter(|o| o.2).count(), 1);
@@ -437,6 +438,7 @@ async fn tile_settings_keep_network_tag_and_key() {
     let (i, _server) = identity_listing("Kraken", &["first", "second"]).await;
     let id = i.rule(2);
     i.c.execute("UPDATE rules SET settings=json_set(settings,'$.network','legacy network','$.address_tag','legacy tag','$.address_name','second')", []).unwrap();
+    common::seed::rules_as_v2_wrote(&i.c);
     for submit_picker in [false, true] {
         let mut fields = vec![
             (
@@ -708,6 +710,7 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
                 .extend_pairs([(&name[..], &value)])
                 .finish();
             i.c.execute("UPDATE rules SET status=3", []).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
             assert_eq!(
                 i.send(
                     "POST",
@@ -723,6 +726,7 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
                 "{venue} {field}"
             );
             i.c.execute("UPDATE rules SET status=2", []).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
             let form = form_urlencoded::Serializer::new(String::new())
                 .extend_pairs([("rules_withdrawal[destination]", &value)])
                 .finish();
@@ -803,6 +807,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
             200
         );
         i.c.execute("UPDATE rules SET status=2", []).unwrap();
+        common::seed::rules_as_v2_wrote(&i.c);
         let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
         let (_, options) = picker(&body);
         assert_eq!(options.len(), 2);
@@ -863,6 +868,7 @@ async fn mexc_picker_deduplicates_network_aliases_before_selecting_saving_and_st
                 .mount(&server).await;
             let id = i.rule(2);
             i.c.execute("UPDATE rules SET settings=json_set(settings,'$.network',?1,'$.address_tag','memo')", [stored]).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
             let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
             let (name, options) = picker(&body);
             assert_eq!(options.len(), 1, "{networks:?}, stored {stored}");
@@ -947,6 +953,7 @@ async fn unresolved_picker_has_no_successful_value_and_refuses_edits_and_start()
                     [i.app.cipher.encrypt("removed-wallet")],
                 )
                 .unwrap();
+                common::seed::rules_as_v2_wrote(&i.c);
             }
             let before = i.rows();
             let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
@@ -1171,7 +1178,9 @@ impl Install {
     fn rule(&self, status: i64) -> i64 {
         self.c.execute("INSERT INTO rules(user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,'Rules::Withdrawal',?2,?3,?4,?5,?6,'2026-01-01','2026-01-01')",
             params![self.s.user_id,status,self.s.exchange_id,self.s.btc,self.app.cipher.encrypt(ADDRESS),json!({"threshold_type":"min_amount","min_amount":"0.1","withdrawal_percentage":"100"}).to_string()]).unwrap();
-        self.c.last_insert_rowid()
+        let id = self.c.last_insert_rowid();
+        common::seed::rules_as_v2_wrote(&self.c);
+        id
     }
     async fn send(
         &self,
@@ -1290,6 +1299,7 @@ async fn auth_csrf_and_owner_scope_refuse_without_writing() {
     i.c.execute("INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (?1,'other@example.com','x','2026-01-01 00:00:00','2026-01-01 00:00:00')",[i.s.user_id+100]).unwrap();
     i.c.execute("UPDATE rules SET user_id=user_id+100 WHERE id=?1", [id])
         .unwrap();
+    common::seed::rules_as_v2_wrote(&i.c);
     let before = i.rows();
     for method in ["PATCH", "DELETE"] {
         assert_eq!(
@@ -1763,6 +1773,7 @@ fn x0_seed(i: &Install, case: &str, vector: &Value) -> i64 {
             }
             i.c.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,?2,'Rules::Withdrawal',?3,?1,?4,?5,?6,?7,?7)",
                 params![exchange,i.s.user_id,n as i64,i.s.btc,i.app.cipher.encrypt(X0_ADDRESS),vector["rules"][n]["settings"].to_string(),AT]).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
         }
         return 1;
     }
@@ -1793,6 +1804,7 @@ fn x0_seed(i: &Install, case: &str, vector: &Value) -> i64 {
             (i.app.cipher.encrypt(X0_ADDRESS), settings.to_string()),
         )
         .unwrap();
+        common::seed::rules_as_v2_wrote(&i.c);
         id
     } else {
         999

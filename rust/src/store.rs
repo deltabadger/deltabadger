@@ -193,6 +193,12 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         unique_indexes: &[&["user_id", "exchange_id", "number"]] }),
     ("20261119000001", TableContract { name: "exchange_account_keys", columns: &[("api_key_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
     ("20261119000001", TableContract { name: "exchange_account_bots", columns: &[("bot_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
+    // #710 slice 3: withdrawal rules by account (2.x's `rules` mirrors the number-1 ones).
+    ("20261119000002", TableContract { name: "exchange_account_rules", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("user_id", "INTEGER", true), ("type", "TEXT", true), ("status", "INTEGER", true),
+        ("exchange_id", "INTEGER", true), ("asset_id", "INTEGER", false), ("address", "TEXT", false), ("settings", "TEXT", true),
+        ("settings_changed_at", "TEXT", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)],
+        unique_indexes: &[&["account_id", "type", "asset_id"]] }),
 ];
 
 /// What this build migrates.

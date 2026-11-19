@@ -794,8 +794,8 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// testing "an update brings a migration" the day one is added.
 type Undo = (&'static str, fn() -> String);
 const UNDO: [Undo; 2] = [
-    ("20261117000001", || undo_replacement("20261117000001")),
-    ("20261119000001", || undo_replacement("20261119000001"))];
+    ("20261119000001", || undo_replacement("20261119000001")),
+    ("20261119000002", || undo_replacement("20261119000002"))];
 
 /// A replacing migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each
 /// table it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).
@@ -804,12 +804,15 @@ fn undo_replacement(v: &str) -> String {
     let made: Vec<&str> = reg.tables.iter().filter(|(at, _)| *at == v).map(|(_, t)| t.name).collect();
     let back: Vec<&str> = reg.retired.iter().filter(|(at, _)| *at == v).map(|(_, t)| *t).chain(made.iter().copied().filter(|t| reg.tables.iter().any(|(at, c)| c.name == *t && *at < v))).collect();
     let mut sql: String = made.iter().map(|t| format!("DROP TABLE {t};")).collect();
-    for m in deltabadger::store::RUST_MIGRATIONS.iter().filter(|m| m.version < v) {
+    let statements = |m: &deltabadger::store::Migration| -> Vec<String> {
         let code: String = m.sql.lines().map(|l| l.split("--").next().unwrap()).collect::<Vec<_>>().join("\n");
-        for text in code.split(';') {
-            let creates = |t: &str| text.contains(&format!("CREATE TABLE {t} ")) || text.contains(&format!(" ON {t} ("));
-            if back.iter().any(|t| creates(t)) { sql.push_str(text.trim()); sql.push(';'); }
-        }
+        code.split(';').map(|text| text.trim().to_string()).collect()
+    };
+    let creates = |text: &str, t: &str| text.contains(&format!("CREATE TABLE {t} ")) || text.contains(&format!(" ON {t} ("));
+    // Each table as the newest migration before `v` that creates it wrote it (an earlier rebuild's first shape is gone).
+    for t in &back {
+        let Some(m) = deltabadger::store::RUST_MIGRATIONS.iter().filter(|m| m.version < v && statements(m).iter().any(|s| creates(s, t))).last() else { continue };
+        for text in statements(m).into_iter().filter(|s| creates(s, t)) { sql.push_str(&text); sql.push(';'); }
     }
     sql
 }

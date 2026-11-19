@@ -19,8 +19,10 @@ use serde_json::Value;
 
 /// The app_configs key of the install's identity key (32 random bytes, hex, in the credential envelope).
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
-/// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql).
-pub const TABLES: [&str; 5] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots"];
+/// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql,
+/// 20261119000002_exchange_account_ownership.sql).
+pub const TABLES: [&str; 6] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
+                               "exchange_account_rules"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
@@ -301,6 +303,12 @@ impl Account {
         unscoped_or(scoped, || c.query_row(&format!("SELECT user_id, exchange_id FROM {subject} WHERE id = ?1 AND exchange_id IS NOT NULL"), [id],
                                            |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: None, scoped: false })).optional())
     }
+    /// Withdrawal rule `rule_id`'s (exchange_account_rules). None: no such rule, or its account is another user's or exchange's.
+    pub fn of_rule(c: &Connection, rule_id: i64) -> rusqlite::Result<Option<Self>> {
+        c.query_row("SELECT r.user_id, r.exchange_id, r.account_id FROM exchange_account_rules r JOIN exchange_accounts a ON a.id = r.account_id
+                     AND a.user_id = r.user_id AND a.exchange_id = r.exchange_id WHERE r.id = ?1", [rule_id],
+                    |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: Some(r.get(2)?), scoped: true })).optional()
+    }
     /// Account row `id` (live or not). None: no such row.
     pub fn by_id(c: &Connection, id: i64) -> rusqlite::Result<Option<Self>> {
         if !ready(c)? { return Ok(None); }
@@ -346,6 +354,9 @@ pub fn bot_keys(c: &Connection, bot_id: i64, alias: &str) -> rusqlite::Result<St
 pub fn account_of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<i64>> { Ok(Account::of_key(c, api_key_id)?.and_then(|a| a.id)) }
 /// The account of bot `bot_id`.
 pub fn account_of_bot(c: &Connection, bot_id: i64) -> rusqlite::Result<Option<i64>> { Ok(Account::of_bot(c, bot_id)?.and_then(|a| a.id)) }
+
+/// The account of withdrawal rule `rule_id`.
+pub fn account_of_rule(c: &Connection, rule_id: i64) -> rusqlite::Result<Option<i64>> { Ok(Account::of_rule(c, rule_id)?.and_then(|a| a.id)) }
 
 /// The key of `key_type` that belongs to account `account_id` (the lowest id, as `Key::read`'s LIMIT 1).
 pub fn key_of(c: &Connection, account_id: i64, key_type: i64) -> rusqlite::Result<Option<i64>> {

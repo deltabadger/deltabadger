@@ -681,7 +681,7 @@ fn the_upgrade_numbers_every_account_1_and_adds_number_1_wherever_an_exchange_is
         INSERT INTO kucoin_withheld_fills (user_id, exchange_id, tx_id, transacted_at, entry, created_at) VALUES (3, 2, 'x', {t}, '{{}}', {t});
         INSERT INTO rust_api_orders (id, user_id, side, amount, amount_type, supplied, state, created_at, send_by) VALUES (5, 3, 'buy', '1', 'quote', '{{}}', 'queued', {t}, {t});
         INSERT INTO rust_api_order_standalone (order_id, exchange_id, ticker_id, order_type, surface) VALUES (5, 3, 1, 'market', 'rest');")).unwrap();
-    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V710]);
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap()[0], V710);
     let rows = accounts(&c);
     assert_eq!(rows[0], (7, 1, 1, 1, Some("fp-1".into()), None), "the existing account keeps its id and fingerprint");
     let named: Vec<(i64, i64, i64, Option<String>)> = rows.iter().map(|(_, u, e, n, f, _)| (*u, *e, *n, f.clone())).collect();

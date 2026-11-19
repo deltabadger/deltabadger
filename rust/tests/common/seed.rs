@@ -9,6 +9,13 @@ pub fn cipher() -> Cipher { Cipher::new(&EncryptionKeys::resolve(&|_| None, "eng
 /// What a seed created. `exchange_id`/`quote` are the seeded venue and quote asset (Kraken + EUR, or Alpaca + USD).
 pub struct Seeded { pub user_id: i64, pub exchange_id: i64, pub btc: i64, pub quote: i64, pub ticker_id: i64, pub api_key_id: i64 }
 
+/// #710: the withdrawal rules a test wrote into 2.x's `rules` become Rust's store's (each its exchange's number 1), as a
+/// takeover's refill makes them.
+pub fn rules_as_v2_wrote(c: &Connection) {
+    deltabadger::identity::fill(c, chrono::Utc::now()).unwrap();
+    deltabadger::engine::rules::refill(c).unwrap();
+}
+
 const T: &str = "2026-01-01 00:00:00";
 /// When the seeded Alpaca tickers were last synced: after every test clock, so no test but staleness's own reads them as
 /// stale (a negative age is fresh). Kraken has no staleness bound and keeps T.

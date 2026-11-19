@@ -204,8 +204,10 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     };
     if v2_window {
         super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?;
-        // #710: what 2.x added names exchanges with no account yet; rows stay eager.
+        // #710: what 2.x added names exchanges with no account yet; rows stay eager. Its withdrawal rules are the number-1
+        // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
+        super::rules::refill(&tx)?;
     }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
@@ -690,6 +692,9 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // The user's imported accounts and rows (tracker): 2.x never reads them.
         (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
         (Table, "exchange_account_keys", Ignored), (Table, "exchange_account_bots", Ignored),
+        // #710: withdrawal rules by account. 2.x's `rules` mirrors the number-1 ones (written again in the handback); a rule
+        // of an account 2+ refuses (rules::handback_problems).
+        (Table, "exchange_account_rules", Refuses(super::rules::HANDBACK_REFUSAL)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
@@ -850,6 +855,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_commands(&tx)?;
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
+    // #710: 2.x's withdrawal rules are Rust's number-1 rules (a rule Rust deleted or stopped never runs again on 2.x).
+    if super::rules::table_exists(&tx, "exchange_account_rules")? { super::rules::mirror(&tx, None)?; }
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: 2.x's adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.

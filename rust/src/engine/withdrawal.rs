@@ -91,7 +91,7 @@ pub async fn begin_recorder<A: Adapter>(
     }
     let version = a.version();
     let check = || -> Result<(), EngineError> {
-        if key_current(c, &version, spec.user_id, spec.exchange_id)? {
+        if key_current(c, &version, &crate::identity::Account::first(c, spec.user_id, spec.exchange_id)?)? {
             Ok(())
         } else {
             Err(EngineError::CredentialsChanged)
@@ -522,9 +522,12 @@ struct Rule {
     settings: Value,
     revision: String,
     status: i64,
+    /// Its account (#710): it withdraws with that account's key.
+    account: crate::identity::Account,
 }
 fn rule(c: &Connection, cipher: &Cipher, id: i64) -> Result<Rule, EngineError> {
-    let mut r=c.query_row("SELECT r.user_id,r.exchange_id,r.asset_id,e.type,e.name,a.symbol,r.address,r.settings,r.updated_at,r.status FROM rules r JOIN exchanges e ON e.id=r.exchange_id JOIN assets a ON a.id=r.asset_id WHERE r.id=?1 AND r.type='Rules::Withdrawal'",[id],|r|Ok(Rule{id,user:r.get(0)?,exchange:r.get(1)?,asset:r.get(2)?,class:r.get(3)?,name:r.get(4)?,symbol:r.get(5)?,address:r.get::<_,Option<String>>(6)?.unwrap_or_default(),settings:json!(r.get::<_,String>(7)?),revision:r.get(8)?,status:r.get(9)?}))?;
+    let account = crate::identity::Account::of_rule(c, id)?.ok_or_else(|| data("the withdrawal rule's account is another user's or exchange's"))?;
+    let mut r=c.query_row("SELECT r.user_id,r.exchange_id,r.asset_id,e.type,e.name,a.symbol,r.address,r.settings,r.updated_at,r.status FROM exchange_account_rules r JOIN exchanges e ON e.id=r.exchange_id JOIN assets a ON a.id=r.asset_id WHERE r.id=?1 AND r.type='Rules::Withdrawal'",[id],|r|Ok(Rule{id,user:r.get(0)?,exchange:r.get(1)?,asset:r.get(2)?,class:r.get(3)?,name:r.get(4)?,symbol:r.get(5)?,address:r.get::<_,Option<String>>(6)?.unwrap_or_default(),settings:json!(r.get::<_,String>(7)?),revision:r.get(8)?,status:r.get(9)?,account}))?;
     r.address = cipher
         .decrypt(&r.address)
         .map_err(|_| data("withdrawal address cannot be decrypted"))?;
@@ -541,7 +544,7 @@ fn evaluation_rule(
     evaluation: i64,
     now: DateTime<Utc>,
 ) -> Result<Option<Rule>, EngineError> {
-    let status: i64 = c.query_row("SELECT status FROM rules WHERE id=?1", [id], |r| r.get(0))?;
+    let status: i64 = c.query_row("SELECT status FROM exchange_account_rules WHERE id=?1", [id], |r| r.get(0))?;
     if status != 1 {
         consume(c, evaluation, "skipped", now)?;
         return Ok(None);
@@ -565,17 +568,25 @@ fn evaluation_rule(
         Err(error) => Err(error),
     }
 }
+/// Whether `version` is still `account`'s correct withdrawal key.
 fn key_current(
     c: &Connection,
     version: &CredentialVersion,
-    user: i64,
-    exchange: i64,
+    account: &crate::identity::Account,
 ) -> Result<bool, EngineError> {
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE id=?1 AND user_id=?2 AND exchange_id=?3 AND key_type=1 AND status=1)",params![version.id,user,exchange],|r|r.get::<_,bool>(0))?&&model::credential_is_current(c,version)?)
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.id=?1 AND {} AND k.key_type=1 AND k.status=1)",account.keys("k")),[version.id],|r|r.get::<_,bool>(0))?&&model::credential_is_current(c,version)?)
+}
+/// The account an intent withdraws from: its rule's (#710). A recorder's, and a rule's 2.x deleted (a number 1's, as
+/// every rule 2.x held), is its (user, exchange)'s number 1.
+fn intent_account(c: &Connection, owner: &str, user: i64, exchange: i64) -> Result<crate::identity::Account, EngineError> {
+    if let Some(rule) = owner.strip_prefix("rule:").and_then(|id| id.parse::<i64>().ok()) {
+        if let Some(account) = crate::identity::Account::of_rule(c, rule)? { return Ok(account); }
+    }
+    Ok(crate::identity::Account::first(c, user, exchange)?)
 }
 fn fence(c: &Connection, version: &CredentialVersion, r: &Rule) -> Result<(), EngineError> {
     model::locked(c, |tx| {
-        if key_current(tx, version, r.user, r.exchange)? {
+        if key_current(tx, version, &r.account)? {
             Ok(())
         } else {
             Err(EngineError::CredentialsChanged)
@@ -583,7 +594,7 @@ fn fence(c: &Connection, version: &CredentialVersion, r: &Rule) -> Result<(), En
     })
 }
 fn same_key(c: &Connection, i: &Intent) -> Result<bool, EngineError> {
-    key_current(c, &i.version, i.request.user_id, i.request.exchange_id)
+    key_current(c, &i.version, &intent_account(c, &i.owner, i.request.user_id, i.request.exchange_id)?)
 }
 fn matched(
     c: &Connection,
@@ -695,7 +706,7 @@ pub async fn evaluate<A: Adapter>(
         )? {
             return Ok(None);
         }
-        let credentials = model::withdrawal_credentials(&tx, cipher, r.user, r.exchange)?;
+        let credentials = model::withdrawal_credentials(&tx, cipher, &r.account)?;
         tx.commit()?;
         (r, credentials)
     };
@@ -1098,7 +1109,7 @@ fn guard(
 ) -> Result<bool, EngineError> {
     let status: Option<(i64, i64, i64, i64)> = c
         .query_row(
-            "SELECT status,user_id,exchange_id,asset_id FROM rules WHERE id=?1",
+            "SELECT status,user_id,exchange_id,asset_id FROM exchange_account_rules WHERE id=?1",
             [i.request.rule_id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
@@ -1769,7 +1780,7 @@ pub async fn phase<F: crate::venue::VenueFactory>(
             continue;
         }
         let credentials =
-            model::withdrawal_credentials(c, cipher, i.request.user_id, i.request.exchange_id)?;
+            model::withdrawal_credentials(c, cipher, &intent_account(c, &i.owner, i.request.user_id, i.request.exchange_id)?)?;
         let Some((cr, version)) = credentials else {
             let tx = model::immediate(c)?;
             uncertain(&tx, &i, &i.state, "the withdrawal key changed")?;
@@ -1801,7 +1812,7 @@ pub async fn phase<F: crate::venue::VenueFactory>(
         if !crate::venue::registry::row(&r.class).is_some_and(|v| v.withdraws) {
             continue;
         }
-        let Some((cr, version)) = model::withdrawal_credentials(c, cipher, r.user, r.exchange)?
+        let Some((cr, version)) = model::withdrawal_credentials(c, cipher, &r.account)?
         else {
             outcome(c,cipher,&r,evaluation,None,2,&format!("Failed to fetch balance: No valid withdrawal API key for {}. Add one in Settings.",r.name),json!({}),clock.now())?;
             continue;

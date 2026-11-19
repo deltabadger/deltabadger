@@ -219,22 +219,22 @@ fn q1_the_fee_list_is_read_with_the_withdrawal_key_when_there_is_no_fee_key() {
     }
     let cipher = common::seed::cipher();
     let db = db();
-    assert!(withdrawal::fee_key(&db, &cipher, 1, 1).unwrap().is_none());
+    assert!(withdrawal::fee_key(&db, &cipher, &deltabadger::identity::Account::first(&db, 1, 1).unwrap()).unwrap().is_none());
     db.execute("INSERT INTO api_keys (id, user_id, exchange_id, key_type, key, secret) VALUES (7, 1, 1, 1, ?1, ?2)", [cipher.encrypt("wk"), cipher.encrypt("ws")]).unwrap();
     db.execute("INSERT INTO api_keys (id, user_id, exchange_id, key_type, key, secret) VALUES (8, 1, 1, 0, ?1, ?2)", [cipher.encrypt("tk"), cipher.encrypt("ts")]).unwrap();
-    match withdrawal::fee_key(&db, &cipher, 1, 1).unwrap() {
+    match withdrawal::fee_key(&db, &cipher, &deltabadger::identity::Account::first(&db, 1, 1).unwrap()).unwrap() {
         Some(withdrawal::FeeKey::Withdrawal(c, id)) => assert_eq!((c.key.as_str(), c.secret.as_str(), id), ("wk", "ws", 7), "the withdrawal key, never the trading key"),
         other => panic!("{other:?}"),
     }
     // An unreadable FeeApiKey is no FeeApiKey; a readable one wins.
     let bad = r#"{"p":"AAAA","h":{"iv":"AAAAAAAAAAAAAAAA","at":"AAAAAAAAAAAAAAAAAAAAAA=="}}"#;
     db.execute("INSERT INTO fee_api_keys (id, exchange_id, key, secret) VALUES (1, 1, ?1, ?1)", [bad]).unwrap();
-    assert!(matches!(withdrawal::fee_key(&db, &cipher, 1, 1).unwrap(), Some(withdrawal::FeeKey::Withdrawal(..))));
+    assert!(matches!(withdrawal::fee_key(&db, &cipher, &deltabadger::identity::Account::first(&db, 1, 1).unwrap()).unwrap(), Some(withdrawal::FeeKey::Withdrawal(..))));
     db.execute("UPDATE fee_api_keys SET key = ?1, secret = ?2", [cipher.encrypt("fk"), cipher.encrypt("fs")]).unwrap();
-    assert!(matches!(withdrawal::fee_key(&db, &cipher, 1, 1).unwrap(), Some(withdrawal::FeeKey::Fee(Credentials { key, .. })) if key == "fk"));
+    assert!(matches!(withdrawal::fee_key(&db, &cipher, &deltabadger::identity::Account::first(&db, 1, 1).unwrap()).unwrap(), Some(withdrawal::FeeKey::Fee(Credentials { key, .. })) if key == "fk"));
     // An undecryptable withdrawal key is refused before any request.
     db.execute("UPDATE api_keys SET secret = ?1 WHERE id = 7", [bad]).unwrap();
-    assert!(deltabadger::engine::model::withdrawal_credentials(&db, &cipher, 1, 1).unwrap().is_none());
+    assert!(deltabadger::engine::model::withdrawal_credentials(&db, &cipher, &deltabadger::identity::Account::first(&db, 1, 1).unwrap()).unwrap().is_none());
 }
 
 #[test]

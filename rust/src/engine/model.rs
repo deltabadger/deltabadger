@@ -874,11 +874,12 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
 
 /// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,
 /// an absent, invalid or undecryptable key is never replaced by an empty signing key.
-pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,user_id:i64,exchange_id:i64)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
-    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,user_id,exchange_id)?;tx.commit()?;return Ok(result);}
+/// `account`'s correct withdrawal key (#710: a rule withdraws with its own account's).
+pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::identity::Account)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,account)?;tx.commit()?;return Ok(result);}
     let row:Option<([Option<String>;7],i64)>=c.query_row(
-        "SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=1 AND status=1 ORDER BY id LIMIT 1",
-        params![user_id,exchange_id],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),
+        [],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
     let Some((columns,id))=row else{return Ok(None)};
     let open=|v:&Option<String>|v.as_ref().and_then(|v|cipher.decrypt(v).ok());
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};

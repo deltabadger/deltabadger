@@ -195,7 +195,7 @@ pub fn mask(address: &str) -> String {
     }
 }
 pub(super) fn visible_rules(c: &Connection, app: &App, user: i64) -> Result<Vec<Rule>, WebError> {
-    let ids = c.prepare("SELECT id FROM rules WHERE user_id=?1 AND type='Rules::Withdrawal' AND status<>3 ORDER BY id")?
+    let ids = c.prepare("SELECT id FROM exchange_account_rules WHERE user_id=?1 AND type='Rules::Withdrawal' AND status<>3 ORDER BY id")?
         .query_map([user], |r| r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
     let mut rules = Vec::new();
     for id in ids {
@@ -370,8 +370,8 @@ fn guard(
             )));
         }
         let key =
-            crate::engine::model::withdrawal_credentials(c, &app.cipher, r.user_id, r.exchange.id)?;
-        if key.is_none() || !c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=1 AND status=1)",(r.user_id,r.exchange.id),|r|r.get::<_,bool>(0))? {
+            crate::engine::model::withdrawal_credentials(c, &app.cipher, &r.account)?;
+        if key.is_none() || !c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1)",r.account.keys("k")),[],|r|r.get::<_,bool>(0))? {
             return Ok(Err(refuse(Status::PermissionDenied,"withdrawal_key_missing",format!("No valid withdrawal API key for {}. Add one in Settings.",r.exchange.name))));
         }
         if matches!(cmd, Command::Start(..)) && !capability.is_some_and(|v| v.withdraws) {
@@ -423,7 +423,7 @@ fn start_evaluations(c: &Connection, at: &str) -> Result<usize, crate::engine::E
 
 fn save(c: &Connection, app: &App, r: &Rule, at: &str) -> Result<(), WebError> {
     let old: (String, Option<String>, i64) = c.query_row(
-        "SELECT settings,address,status FROM rules WHERE id=?1",
+        "SELECT settings,address,status FROM exchange_account_rules WHERE id=?1",
         [r.id],
         |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
     )?;
@@ -442,8 +442,9 @@ fn save(c: &Connection, app: &App, r: &Rule, at: &str) -> Result<(), WebError> {
     } else {
         Some(app.cipher.encrypt(&r.address))
     };
-    c.execute("UPDATE rules SET status=?1,settings=?2,address=?3,updated_at=?4,settings_changed_at=CASE WHEN settings<>?2 THEN ?4 ELSE settings_changed_at END WHERE id=?5 AND user_id=?6",
+    c.execute("UPDATE exchange_account_rules SET status=?1,settings=?2,address=?3,updated_at=?4,settings_changed_at=CASE WHEN settings<>?2 THEN ?4 ELSE settings_changed_at END WHERE id=?5 AND user_id=?6",
         params![r.status,settings,address,at,r.id,r.user_id])?;
+    crate::engine::rules::mirror(c,Some(r.id))?;
     Ok(())
 }
 
@@ -468,9 +469,10 @@ pub async fn call(
                 };
                 let listed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM tickers WHERE exchange_id=?1 AND available=1 AND trading_enabled=1 AND (base_asset_id=?2 OR quote_asset_id=?2))",(*exchange_id,*asset_id),|r|r.get(0))?;
                 if !listed { return Ok(Err(refuse(Status::NotFound,"asset_not_found","Asset is not listed on this exchange."))) }
-                let id:Option<i64>=tx.query_row("SELECT id FROM rules WHERE user_id=?1 AND type='Rules::Withdrawal' AND exchange_id=?2 AND asset_id=?3",(user,exchange_id,asset_id),|r|r.get(0)).optional()?;
+                let account=crate::identity::Account::first(&tx,user,*exchange_id)?;
+                let id:Option<i64>=tx.query_row("SELECT id FROM exchange_account_rules WHERE account_id IS ?1 AND type='Rules::Withdrawal' AND asset_id=?2",(account.id,asset_id),|r|r.get(0)).optional()?;
                 if let Some(id)=id { model::load(&tx,&inner,user,id)?.ok_or_else(||WebError::Config("rule disappeared".into()))? }
-                else { Rule {id:0,user_id:user,status:0,exchange,asset,address:String::new(),settings:json!({}),fee:None,chains:vec![],balance:None,unconfirmed:None} }
+                else { Rule {id:0,user_id:user,account,status:0,exchange,asset,address:String::new(),settings:json!({}),fee:None,chains:vec![],balance:None,unconfirmed:None} }
             },
             Command::Update(id,_)|Command::Start(id,_)|Command::Stop(id)|Command::Delete(id) => {
                 let Some(rule)=model::load(&tx,&inner,user,*id)? else { return Ok(Err(missing())) };
@@ -478,7 +480,7 @@ pub async fn call(
             }
         };
         if let Err(e)=guard(&tx,&inner,&r,&command)? { return Ok(Err(e)) }
-        let revision=if r.id==0 {None} else {Some(tx.query_row("SELECT updated_at FROM rules WHERE id=?1",[r.id],|r|r.get::<_,String>(0))?)};
+        let revision=if r.id==0 {None} else {Some(tx.query_row("SELECT updated_at FROM exchange_account_rules WHERE id=?1",[r.id],|r|r.get::<_,String>(0))?)};
         Ok(Ok((r,revision)))
     }).await?;
     let (mut r, revision) = match loaded {
@@ -532,29 +534,27 @@ pub async fn call(
     app.db(move|c| {
         let tx=crate::engine::model::immediate(c)?;
         if let Some(version)=version {
-            let eligible:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE id=?1 AND user_id=?2 AND exchange_id=?3 AND key_type=1 AND status=1)",(version.id,user,r.exchange.id),|r|r.get(0))?;
+            let eligible:bool=tx.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.id=?1 AND {} AND k.key_type=1 AND k.status=1)",r.account.keys("k")),[version.id],|r|r.get(0))?;
             if !eligible || !crate::engine::model::credential_is_current(&tx,&version)? {return Ok(Err(refuse(Status::Conflict,"credential_changed","The withdrawal key changed. Try again.")))}
         }
         if original.id!=0 {
             let Some(current)=model::load(&tx,&inner,user,original.id)? else {return Ok(Err(missing()))};
             if let Err(e)=guard(&tx,&inner,&current,&cmd)? {return Ok(Err(e))}
-            let current_revision:String=tx.query_row("SELECT updated_at FROM rules WHERE id=?1",[r.id],|r|r.get(0))?;
+            let current_revision:String=tx.query_row("SELECT updated_at FROM exchange_account_rules WHERE id=?1",[r.id],|r|r.get(0))?;
             if Some(current_revision)!=revision || current.exchange.id!=original.exchange.id || current.asset.id!=original.asset.id || current.status!=original.status || current.settings!=original.settings || current.address!=original.address || current.exchange.class!=original.exchange.class {
                 return Ok(Err(refuse(Status::Conflict,"rule_changed","The rule changed. Reload it and try again.")));
             }
         } else {
-            if tx.query_row("SELECT EXISTS(SELECT 1 FROM rules WHERE user_id=?1 AND type='Rules::Withdrawal' AND exchange_id=?2 AND asset_id=?3)",(user,r.exchange.id,r.asset.id),|r|r.get::<_,bool>(0))? {
+            r.account=r.account.ensure(&tx,inner.now())?;
+            if tx.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rules WHERE account_id=?1 AND type='Rules::Withdrawal' AND asset_id=?2)",(r.account.id,r.asset.id),|r|r.get::<_,bool>(0))? {
                 return Ok(Err(refuse(Status::Conflict,"rule_exists","A withdrawal rule for this asset and exchange already exists.")));
             }
             if let Err(e)=guard(&tx,&inner,&r,&cmd)? {return Ok(Err(e))}
         }
         r.status=match cmd {Command::Create{..}=>0,Command::Start(..)=>1,Command::Stop(_)=>2,Command::Delete(_)=>3,Command::Update(..)=>r.status};
         if r.id==0 {
-            tx.execute("INSERT INTO rules(user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at,settings_changed_at) VALUES (?1,'Rules::Withdrawal',0,?2,?3,?4,?5,?6,?6,?6)",
-                params![user,r.exchange.id,r.asset.id,inner.cipher.encrypt(&r.address),r.settings.to_string(),at])?;
-            r.id=tx.last_insert_rowid();
+            r.id=crate::engine::rules::create(&tx,&r.account,r.asset.id,&inner.cipher.encrypt(&r.address),&r.settings.to_string(),&at)?;
         } else { save(&tx,&inner,&r,&at)?; }
-        crate::identity::touch(&tx,user,r.exchange.id,inner.now())?;
         match cmd {
             Command::Start(..)=>{start_evaluations(&tx,&at)?;},
             Command::Stop(_)|Command::Delete(_)|Command::Create{..}=>{consume(&tx,r.id,&at)?;},
@@ -571,14 +571,14 @@ mod tests {
     #[test]
     fn starts_fan_out_once_per_start_in_the_status_transaction() {
         let c = Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE rules(id INTEGER PRIMARY KEY,type TEXT,status INTEGER); INSERT INTO rules VALUES (1,'Rules::Withdrawal',0),(2,'Rules::Withdrawal',1),(3,'Rules::Withdrawal',2),(4,'Other',1);").unwrap();
+        c.execute_batch("CREATE TABLE exchange_account_rules(id INTEGER PRIMARY KEY,type TEXT,status INTEGER); INSERT INTO exchange_account_rules VALUES (1,'Rules::Withdrawal',0),(2,'Rules::Withdrawal',1),(3,'Rules::Withdrawal',2),(4,'Other',1);").unwrap();
         c.execute_batch(include_str!(
             "../../../migrations/20261026000001_withdrawal_rules.sql"
         ))
         .unwrap();
         for _ in 0..2 {
             let tx = crate::engine::model::immediate(&c).unwrap();
-            tx.execute("UPDATE rules SET status=1 WHERE id=1", [])
+            tx.execute("UPDATE exchange_account_rules SET status=1 WHERE id=1", [])
                 .unwrap();
             assert_eq!(start_evaluations(&tx, "2026-10-26 00:00:00").unwrap(), 2);
             tx.commit().unwrap();
@@ -602,13 +602,13 @@ mod tests {
         }
         {
             let tx = crate::engine::model::immediate(&c).unwrap();
-            tx.execute("UPDATE rules SET status=1 WHERE id=3", [])
+            tx.execute("UPDATE exchange_account_rules SET status=1 WHERE id=3", [])
                 .unwrap();
             assert_eq!(start_evaluations(&tx, "2026-10-27 00:00:00").unwrap(), 3);
             // A failed commit must roll back both the status and its evaluations.
         }
         assert_eq!(
-            c.query_row("SELECT status FROM rules WHERE id=3", [], |r| r
+            c.query_row("SELECT status FROM exchange_account_rules WHERE id=3", [], |r| r
                 .get::<_, i64>(0))
                 .unwrap(),
             2
