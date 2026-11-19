@@ -418,6 +418,7 @@ pub fn key_of(c: &Connection, account_id: i64, key_type: i64) -> rusqlite::Resul
 
 /// The live accounts of (user, exchange): (id, number), by number.
 pub fn accounts_of(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    if !ready(c)? { return Ok(vec![]); }
     let mut s = c.prepare("SELECT id, number FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number")?;
     let out = s.query_map([user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(out)
