@@ -2194,3 +2194,44 @@ async fn a_hold_the_beta_froze_is_not_noted_twice_after_the_rename() {
     assert_eq!(f.row(tx), row, "still held");
     assert_eq!((held(), lines(&f.c, f.b, ru::SETTLED_LOWER).len()), (1, 1));
 }
+
+/// #710 (Codex r1 P2): a 2.x order is its exchange's first account's (2.x knew one account per exchange). The bot now trades
+/// on account 2, which holds an order and a fill under the same venue ids: the obligation is read and booked on account 1
+/// alone (its key, its fills, its row's account), and account 2's rows are untouched.
+#[tokio::test]
+async fn a_v2_order_is_recovered_on_the_first_account_whatever_the_bots_account_is_now() {
+    let f = fx(Kind::Binance);
+    let c = &f.c;
+    deltabadger::identity::Account::first(c, f.s.user_id, f.s.exchange_id).unwrap().ensure(c, now()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [f.s.user_id, f.s.exchange_id]).unwrap();
+    let second = deltabadger::identity::Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    // Account 2's own trading key (the bot trades there now); the obligation is read with account 1's.
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01', '2026-01-01')",
+              params![f.s.user_id, f.s.exchange_id, seed::cipher().encrypt("account-2-key"), seed::cipher().encrypt("account-2-secret")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    deltabadger::identity::place_bot(c, f.b, f.s.user_id, f.s.exchange_id, Some(second), now()).unwrap();
+    // Account 2's own order and fill under the shared ids (its venue ids relocated).
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, base_asset_id, quote_asset_id, transaction_type, amount, amount_exec, \
+               quote_amount, quote_amount_exec, price, error_messages, created_at, updated_at) VALUES (?1, ?2, 0, 2, 0, ?3, ?4, 'REGULAR', 0.0009, 0.0009, 45, 45, 50000, '[]', ?5, ?5)",
+              params![f.b, f.s.exchange_id, f.s.btc, f.s.quote, "2026-09-29 15:00:00"]).unwrap();
+    let theirs_order = c.last_insert_rowid();
+    c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, 'BTCEUR-7')", params![theirs_order, second.id]).unwrap();
+    let theirs_fill = fill(c, &f.s, 50, 7, "0.0009", "45", "2026-09-29T15:00:06Z");
+    let venue_id: String = c.query_row("SELECT tx_id FROM account_transactions WHERE id = ?1", [theirs_fill], |r| r.get(0)).unwrap();
+    c.execute("UPDATE account_transactions SET tx_id = NULL, transaction_id = ?2 WHERE id = ?1", [theirs_fill, theirs_order]).unwrap();
+    c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id, venue_tx_id) VALUES (?1, ?2, ?3)", params![theirs_fill, second.id, venue_id]).unwrap();
+    let mine = fill(c, &f.s, 50, 7, "0.0004", "20", "2026-09-29T14:03:06Z");
+    let before = dump(c, &format!("SELECT * FROM account_transactions WHERE id = {theirs_fill}")) + &dump(c, &format!("SELECT * FROM transactions WHERE id = {theirs_order}"));
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    assert_eq!(offers.iter().map(|o| o.1.as_str()).collect::<Vec<_>>(), ["BTCEUR-7"], "account 2's order of the id is no record of account 1's");
+    assert_eq!(f.request(obligation, offers[0].0), Ok(()));
+    let served = f.serve().await;
+    let tx = served.booked[0].1;
+    assert_eq!(deltabadger::identity::Account::of_order(c, tx).unwrap().map(|a| a.number(c).unwrap()), Some(1), "booked on account 1");
+    assert_eq!(f.row(tx)["external_id"], "BTCEUR-7");
+    assert_eq!(c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [mine], |r| r.get::<_, Option<i64>>(0)).unwrap(), Some(tx), "account 1's fill linked");
+    let after = dump(c, &format!("SELECT * FROM account_transactions WHERE id = {theirs_fill}")) + &dump(c, &format!("SELECT * FROM transactions WHERE id = {theirs_order}"));
+    assert_eq!(after, before, "account 2's rows untouched");
+}

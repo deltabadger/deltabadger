@@ -351,6 +351,11 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
     write_order_row_in(c, bot, plan, kind, created_at, None)
 }
 
+/// `write_order_row` on account `account` (#710: a 2.x order's, its exchange's number 1), not the bot's current one.
+pub fn write_order_row_on(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>, account: Option<i64>) -> Result<i64, EngineError> {
+    write_order_row_in(c, bot, plan, kind, created_at, account)
+}
+
 /// Accepted orders are ledger facts, not a cache of the current credential's account state.
 /// The intent already authorized dispatch; never discard the acknowledgement on a later fence.
 pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &OrderPlan, external_id: &str, created_at: DateTime<Utc>, run: Option<&super::model::RunIdentity>) -> Result<i64, EngineError> {
