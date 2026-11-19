@@ -247,6 +247,8 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
         // A pair bot's marked chart that raised (2.x: its live figures cached and broadcast, the chart retried): the
         // headline is shown without history.
         let mut marked_raised = false;
+        // D-CHART-REV: the revision of this record's charts, which their shells carry and their data requests answer with.
+        let rev = now.0.div_euclid(1_000_000);
         for (id, class) in db::account_bots(c, user_id)? {
             let (_, kind) = kind_of(class.as_deref());
             if class.as_deref().is_some_and(pair::is_pair) {
@@ -271,8 +273,8 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                     }
                 };
                 // D3 (3.0, Rust only): a stale pair's chart is not drawn, as a basket's is not: 2.x's broadcast draws it.
-                let chart = match &marked { Some((m, _)) => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true)?, None => plot::NOT_CHARTED.into() };
-                bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &live.metrics, live.metrics.prices_stale, profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "missing": [],
+                let (chart, series) = match &marked { Some((m, _)) => plot::render(c, &live.subject, &m.metrics, &[], user.hide_balances, locale, &user.time_zone, true, prefix, rev)?, None => (plot::NOT_CHARTED.into(), None) };
+                bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &live.metrics, live.metrics.prices_stale, profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "series": series, "missing": [],
                     "cached": cached,
                     // The page draws a chart only beside cached figures (@chart_metrics is read only unless @metrics_loading).
                     "chart_cached": cached && chart_cache }));
@@ -305,7 +307,8 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
                     other => without_fx(other)?,
                 }
             };
-            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false)?, "missing": missing,
+            let (chart, series) = plot::render(c, &subject, &marked, &missing, user.hide_balances, locale, &user.time_zone, false, prefix, rev)?;
+            bots.insert(id.to_string(), json!({ "tile": tile(id, kind, &marked_live, marked_live.prices_stale || !missing.is_empty(), profit.as_ref(), &shown_in)?, "metrics": metrics, "chart": chart, "series": series, "missing": missing,
                 // What 2.x would find in its cache (Measurable#metrics_with_current_prices): stale figures, or ones with no
                 // chart point yet, are never written, so its bot page reads them as still loading.
                 "cached": !marked_live.prices_stale && !marked_live.chart.labels.is_empty(),
@@ -347,12 +350,18 @@ fn computed(c: &Connection, user_id: i64, market: &dyn MarketData, now: At, loca
             // A track the page's read does not have (a pair with nothing cached): its history is the others'.
             else if let Some(page) = page_history.filter(|page| *page != history) { out["account_page"] = Value::String(headline::render(pnl.as_ref(),page.as_ref(),unavailable,user.hide_balances,&shown_in)?); }
         }
-        let bytes = out.to_string().len();
-        if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
-        budget::charge(bytes as u64,0)?;
+        budget::charge(admitted(&out)? as u64,0)?;
         budget::check()?;
         Ok((out, slots))
     })
+}
+
+/// The rendered account's size, refused past 8 MiB as too large to keep. The charts' series are part of it (`"series"`),
+/// so they are counted as their attributes were, and a history too large to keep cannot get in behind a small shell.
+fn admitted(out: &Value) -> Result<usize, FiguresError> {
+    let bytes = out.to_string().len();
+    if bytes > 8 * 1024 * 1024 { return Err(FiguresError::NotComputed(crate::figures::OVER_BUDGET.into())); }
+    Ok(bytes)
 }
 
 /// The payload boundary for 3b-2b-2: same targets and unsigned stream names as the model broadcasts.
@@ -366,9 +375,22 @@ pub fn streams(c:&Connection,user:i64,rendered:&Value)->Result<Vec<(String,Strin
         for (part,target,stream) in [("tile",format!("pnl_bots_{kind}_{id}"),format!("user_{user}:bot_updates")),("metrics","metrics".into(),page.clone()),("chart","chart".into(),page.clone()),
                                      // D-REB-DRIFT-LATE: 2.x renders the drift with the page; here it follows on the bot's page stream.
                                      ("rebalance_info","settings-rebalance-info".into(),page)]{
-            if let Some(html)=rendered["bots"][id.to_string()][part].as_str(){out.push((stream,crate::web::turbo::stream("replace",&target,html)));}
+            // D-CHART-LIVE: the chart's shell is morphed, so its controller stays and only asks again (its `rev`).
+            if let Some(html)=rendered["bots"][id.to_string()][part].as_str(){out.push((stream,if part=="chart" { crate::web::turbo::morph(&target,html) } else { crate::web::turbo::stream("replace",&target,html) }));}
         }
     }
     if let Some(html)=rendered["account"].as_str(){out.push((format!("user_{user}:bot_updates"),crate::web::turbo::stream("replace","global-pnl",html)));}
     Ok(out)
+}
+
+#[cfg(test)]
+mod admission_tests {
+    #[test]
+    fn an_account_whose_chart_series_pass_the_cap_is_refused() {
+        let series = "1,".repeat(4 * 1024 * 1024 + 1);
+        let out = serde_json::json!({ "bots": { "1": { "chart": "<div id=\"chart\"></div>", "series": series } } });
+        assert!(matches!(super::admitted(&out), Err(super::FiguresError::NotComputed(reason)) if reason == crate::figures::OVER_BUDGET));
+        let out = serde_json::json!({ "bots": { "1": { "chart": "<div id=\"chart\"></div>", "series": "1,".repeat(1024) } } });
+        assert!(super::admitted(&out).is_ok());
+    }
 }

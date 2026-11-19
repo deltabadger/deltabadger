@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import Chart, { Interaction } from "chart.js/auto";
 import { getRelativePosition } from "chart.js/helpers";
 import "chartjs-adapter-date-fns";
+import { fromAnswer, fromAttributes, keeps, query, endRadius, buysIn, curve } from "../../lib/chart_series";
 
 // The rows of both holdings tables — the index's constituents and the coins that left it.
 const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_table tr[data-symbol]";
@@ -127,15 +128,32 @@ export default class extends Controller {
     buys: Array,
     prices: Object,
     buyLogos: Object,
+    // D-CHART-DATA-REQUEST: the bot chart's shell names where its series are asked for, and the revision of the record
+    // it was rendered from. The tracker writes the attributes above instead, and has no `src`.
+    src: String,
+    rev: Number,
   };
 
   // Stimulus parses a value's JSON again on every read. On a bot with many assets these attributes
   // run to megabytes, and one click reads them many times, so a filter that only picks a subset
   // froze the page for seconds. Each is parsed once, and again only when its attribute changes.
   #parsed = {};
-  #data(name) {
+  #attribute(name) {
     if (!(name in this.#parsed)) this.#parsed[name] = this[`${name}Value`];
     return this.#parsed[name];
+  }
+
+  // What the chart draws from, in one shape (lib/chart_series.js): the answer in hand, or the attributes read once.
+  get #model() {
+    if (this.hasSrcValue) return this.answer;
+    this.attributes ||= fromAttributes(Object.fromEntries(
+      ["labels", "series", "pnl", "assets", "buys", "prices", "buyLogos"].map((name) => [name, this.#attribute(name)])
+    ));
+    return this.attributes;
+  }
+
+  #data(name) {
+    return this.#model?.[name];
   }
   seriesValueChanged() { this.#changed("series"); }
   labelsValueChanged() { this.#changed("labels"); }
@@ -148,6 +166,7 @@ export default class extends Controller {
   // A morph copies the attributes one at a time: one redraw for all of them, once they are all in.
   #changed(name) {
     delete this.#parsed[name];
+    this.attributes = null;
     if (!this.chart || this.refreshQueued) return; // Stimulus reports every value before connect, too
     this.refreshQueued = true;
     queueMicrotask(() => {
@@ -159,7 +178,6 @@ export default class extends Controller {
   // New figures on the chart in hand: same canvas, same mode, window, holding and toggles.
   #refresh() {
     this.stamps = null;
-    this.bounds = null;
     if (this.days !== undefined) this.#window(this.days);
     this.focused = this.#chartable(this.focused) || this.#chartable(this.#pinned);
     this.pnlSeries = this.#derivePnl();
@@ -216,9 +234,25 @@ export default class extends Controller {
     // the first build, and it reads this to decide whether it has a price to print.
     this.showPrices = this.#storedPrices;
     if (this.hasPricesTarget) this.pricesTarget.checked = this.showPrices;
+    // Restored before the first build, so the marks are either there from the start or never
+    // drawn at all. Like the mode switch, this outlives the page's revisits, which morph the
+    // chart but leave its checkbox to the browser.
+    this.showOrders = this.#storedOrders;
+    if (this.hasOrdersTarget) this.ordersTarget.checked = this.showOrders;
     // Not null: a pin survives this controller, so a broadcast landing mid-read has to come back
     // on the asset the user chose rather than snapping to the portfolio while they look at it.
     this.focused = this.#chartable(this.#pinned);
+    // A shell with `src` asks for its series and draws when they arrive: the plot holds the loader the chart's frame
+    // shows meanwhile, and the pin is asked for with them (it is checked against the answer's holdings).
+    if (this.hasSrcValue) {
+      this.wanted = this.#pinned;
+      this.loader = document.createElement("div");
+      this.loader.className = "loader";
+      this.loader.style.cssText = "position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);";
+      this.analyzerChartTarget.style.display = "none";
+      this.analyzerChartTarget.before(this.loader);
+      this.#ask();
+    }
     this.pnlSeries = this.#derivePnl();
     this.#markPinnedRow();
     this.#renderSummary();
@@ -229,11 +263,6 @@ export default class extends Controller {
     // wide in the plot's top-left corner. Seeding previousWidth keeps that first delivery from
     // drawing it a second time; the observer's job is REDRAWING at a new width.
     this.previousWidth = this.element.offsetWidth;
-    // Restored before the first build, so the marks are either there from the start or never
-    // drawn at all. Like the mode switch, this outlives the ~5-minute broadcast that destroys
-    // this controller and re-renders the checkbox on its default.
-    this.showOrders = this.#storedOrders;
-    if (this.hasOrdersTarget) this.ordersTarget.checked = this.showOrders;
     this.#buildChart();
     this.resizeObserver = new ResizeObserver(() => {
       // Cancel any pending resize handlers
@@ -248,6 +277,8 @@ export default class extends Controller {
           this.maxPointsToDraw = Math.floor(width / 3.5);
           this.previousWidth = width;
           this.#buildChart();
+          // Thinned for the old width: asked again for this one.
+          if (this.answer) this.#ask();
         }
       }, 100); // 100ms delay
     });
@@ -263,6 +294,9 @@ export default class extends Controller {
   }
 
   disconnect() {
+    // An answer still on its way answers no ask of this controller's.
+    this.#asked += 1;
+    clearTimeout(this.focusTimer);
     this.element.removeEventListener("turbo:before-morph-element", this.#morph);
     this.schemes.disconnect();
     this.dark.removeEventListener("change", this.repaint);
@@ -304,6 +338,8 @@ export default class extends Controller {
     } catch {
       // Not being able to remember a choice is not a reason to fail making it.
     }
+    // The marks are asked for the first time they are shown.
+    if (this.hasSrcValue && (!this.answer || (this.showOrders && !this.answer.buys))) return this.#ask();
     this.#renderBuys();
   }
 
@@ -327,6 +363,8 @@ export default class extends Controller {
     } catch {
       // Not being able to remember a choice is not a reason to fail making it.
     }
+    // The lines are asked for the first time they are shown.
+    if (this.hasSrcValue && (!this.answer || (this.showPrices && !this.answer.prices))) return this.#ask();
     this.#buildChart();
     this.#renderSummary();
   }
@@ -410,10 +448,15 @@ export default class extends Controller {
   #focusOn(symbol) {
     // Falls back to the pin, not to the portfolio: moving onto the chart must not undo the choice.
     const next = this.#chartable(symbol) || this.#chartable(this.#pinned);
+    if (this.hasSrcValue) return this.#want(next);
     // mouseover fires again on every cell of the row being tracked along; only a change redraws.
     if (next === this.focused) return;
 
     this.focused = next;
+    this.#redraw();
+  }
+
+  #redraw() {
     this.pnlSeries = this.#derivePnl();
     this.#buildChart();
     this.#renderSummary();
@@ -422,8 +465,89 @@ export default class extends Controller {
   // A holding with no marked point anywhere — every one of its points kept a fill mark — has no
   // curve to draw, so it is neither hoverable nor pinnable rather than blanking the chart.
   #chartable(symbol) {
-    const asset = symbol ? this.#data("assets")?.[symbol] : null;
-    return asset?.value?.some((amount) => amount !== null) ? symbol : null;
+    return symbol && this.#data("holdings")?.includes(symbol) ? symbol : null;
+  }
+
+  // --- the series, asked for (D-CHART-DATA-REQUEST) ---------------------------------
+  //
+  // The answer in hand holds everything drawn: the portfolio, the one holding in view, and the
+  // lines and marks while they are on. Anything else is asked for, and the answer replaces the
+  // one in hand. Answers of the same `rev` are kept by their query, so a holding already looked
+  // at is drawn again at once; a holding not yet seen is asked for once the pointer has stayed
+  // on its row for 80 ms, so running down the table asks only for the row it stops on.
+  #asked = 0;
+  #answers = new Map();
+
+  #want(next) {
+    if (!this.answer || next === this.wanted) return;
+
+    this.wanted = next;
+    clearTimeout(this.focusTimer);
+    if (!next || this.answer.asset === next) {
+      // In hand: drawn now, and an ask still on its way for something else is not drawn over it.
+      this.#asked += 1;
+      this.focused = next;
+      return this.#redraw();
+    }
+    if (this.#answers.has(this.#query())) return this.#ask();
+    // An ask on its way for another row is not drawn while this one waits its 80 ms.
+    this.#asked += 1;
+    this.focusTimer = setTimeout(() => this.#ask(), 80);
+  }
+
+  #query() {
+    return query({ points: this.maxPointsToDraw, asset: this.wanted, prices: this.showPrices, buys: this.showOrders });
+  }
+
+  async #ask() {
+    clearTimeout(this.focusTimer);
+    const key = this.#query();
+    const ask = ++this.#asked;
+    let answer = this.#answers.get(key);
+    if (!answer) {
+      try {
+        const response = await fetch(`${this.srcValue}?${key}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+        // 204: no figures kept yet. They are made now, and their publication's `rev` asks again.
+        if (response.status !== 200) return;
+        answer = await response.json();
+      } catch {
+        return; // the next publication's `rev` asks again
+      }
+      // Kept per revision: a newer one makes the kept answers old.
+      if (!(answer.rev <= this.answersRev)) {
+        this.#answers.clear();
+        this.answersRev = answer.rev;
+      }
+      if (answer.rev === this.answersRev) this.#answers.set(key, answer);
+    }
+    this.#take(answer, ask);
+  }
+
+  // D-CHART-REV: only the latest ask is drawn, and never one older than the data in hand.
+  #take(answer, ask) {
+    if (!keeps({ ask, latest: this.#asked, rev: answer.rev, held: this.answer?.rev })) return;
+
+    this.answer = fromAnswer(answer);
+    this.stamps = null;
+    this.focused = this.answer.asset === this.wanted ? this.#chartable(this.wanted) : null;
+    this.wanted = this.focused;
+    if (this.loader) {
+      this.loader.remove();
+      this.loader = null;
+      this.analyzerChartTarget.style.display = "";
+    }
+    this.pnlSeries = this.#derivePnl();
+    this.#buildChart();
+    // From whatever the update left hovered: a pointer held over the plot keeps its point.
+    this.#updateSummary(this.chart.tooltip);
+  }
+
+  // A publication morphed the shell (D-CHART-LIVE): a newer record asks again for what is drawn.
+  revValueChanged() {
+    // Stimulus reports the value before connect, too.
+    if (!this.loader && !this.answer) return;
+    if (this.answer && this.revValue <= this.answer.rev) return;
+    this.#ask();
   }
 
   // On the body, not on this element or in sessionStorage: it has to outlive the ~5-minute
@@ -464,25 +588,10 @@ export default class extends Controller {
   // Spanned over the assets ALONE, not the portfolio line: in VALUE that line is their sum, so
   // including it would cost every asset the same margin of empty frame for nothing. The portfolio
   // keeps its own scale, so the axis moves only when the pointer enters or leaves the tables.
+  // Measured over every point of the history (`chart_series.js#assetBounds`), by the server for
+  // fetched data: an answer carries one holding, not all of them.
   get #assetBounds() {
-    this.bounds ||= Object.values(this.#data("assets")).reduce(
-      (span, asset) => {
-        asset.value.forEach((amount, i) => {
-          const cost = asset.invested[i];
-          // The invested line is drawn at every point, including ones where value is unmarked.
-          span.value = Math.max(span.value, cost);
-          if (amount === null) return;
-
-          span.value = Math.max(span.value, amount);
-          span.low = Math.min(span.low, amount - cost);
-          span.high = Math.max(span.high, amount - cost);
-        });
-        return span;
-      },
-      // Seeded at zero, which is where both modes read from: VALUE's floor and PnL's baseline.
-      { value: 0, low: 0, high: 0 }
-    );
-    return this.bounds;
+    return this.#data("bounds");
   }
 
   // Derived, not shipped: a holding's PnL is its value minus what it cost, the same subtraction
@@ -520,7 +629,7 @@ export default class extends Controller {
   }
 
   #allTimestamps() {
-    this.stamps ||= this.#data("labels").map((date) => new Date(date).getTime());
+    this.stamps ||= this.#data("labels") || [];
     return this.stamps;
   }
 
@@ -583,6 +692,7 @@ export default class extends Controller {
   // bot made. That is what lets the switch go uncaptioned — the reader sees one headline and
   // two ways of drawing the history behind it.
   #renderSummary(point = null) {
+    if (!this.#model) return;
     const [value, invested] = this.#series;
     if (!value?.length) return;
 
@@ -681,6 +791,7 @@ export default class extends Controller {
   }
 
   #buildChart() {
+    if (!this.#model) return;
     const labels = this.#timestamps();
     // Held, not closed over: the plugins below belong to the chart for its whole life, and every
     // build after the first updates that chart in place.
@@ -777,6 +888,8 @@ export default class extends Controller {
           algorithm: "lttb",
           samples: maxPointsToDraw,
           threshold: maxPointsToDraw - 1,
+          // Fetched series are thinned by the server already, alike across datasets.
+          enabled: !this.#data("fetched"),
         },
       },
       parsing: false,
@@ -804,25 +917,19 @@ export default class extends Controller {
     const scale = this.chart.scales.x;
     const size = LOGO_SIZE;
     const timestamps = this.#timestamps();
-    const from = timestamps[0];
     // BOTH ends, not just the near one. The chart's metrics are cached for minutes while the
     // transactions are read live, so a buy that landed since the last metrics pass is newer than
     // the last label — and the clamp below would then park its logo on the final point, dating a
     // purchase to a day it did not happen on. A mark the curve cannot place is not drawn.
-    const to = timestamps.at(-1);
+    // The history's own ends, not the first and last points in hand: a fetched series is
+    // thinned, and a buy is placed by its own time.
+    const [from, to] = this.from ? [timestamps[0], timestamps.at(-1)] : this.#data("extent");
     const stacks = [];
 
-    this.#data("buys")
-      // Outside the window in view, or on an asset the reader is not looking at, there is nothing
-      // to mark: the curve above does not go there either.
-      .filter(([at, symbol]) => {
-        if (this.focused && symbol !== this.focused) return false;
-
-        const time = new Date(at).getTime();
-        return time >= from && time <= to;
-      })
-      .forEach(([at, symbol, amount, quote, fills]) => {
-        const time = new Date(at).getTime();
+    // Outside the window in view, or on an asset the reader is not looking at, there is nothing
+    // to mark: the curve above does not go there either.
+    buysIn(this.#data("buys"), { from, to, focused: this.focused })
+      .forEach(([time, symbol, amount, quote, fills]) => {
         const x = scale.getPixelForValue(time);
         // Chained against the LAST mark, not the stack's first: a run of buys a few pixels apart
         // is one crowd, and measuring from the stack's origin would let it drift apart again.
@@ -942,7 +1049,7 @@ export default class extends Controller {
   // over it, so a symbol the venue has no ticker for still gets a disc — in the grey the holdings
   // tables fall back to — rather than the purchase silently going unmarked.
   #disc(symbol, className) {
-    const asset = this.#data("buyLogos")[symbol] || {};
+    const asset = this.#data("logos")[symbol] || {};
     const disc = document.createElement("span");
     disc.className = className;
     disc.style.background = asset.color || "#8A9BA8";
@@ -1125,14 +1232,14 @@ export default class extends Controller {
   // The assets whose prices are worth drawing: the focused holding alone, or all of them. A
   // focused symbol the chart could not price draws nothing rather than falling back to the rest.
   get #pricedSymbols() {
-    const symbols = Object.keys(this.#data("prices") || {});
+    const symbols = this.#data("priced") || [];
     if (!this.focused) return symbols;
 
     return symbols.includes(this.focused) ? [this.focused] : [];
   }
 
   #priceSeries(symbol) {
-    const serie = this.#data("prices")[symbol] || [];
+    const serie = this.#data("prices")?.[symbol] || [];
     return this.from ? serie.slice(this.from) : serie;
   }
 
@@ -1182,7 +1289,7 @@ export default class extends Controller {
   // the venue has no ticker for, the same fallback the marks and the tables use.
   #priceDataset(symbol, points, base, scale) {
     const color = this.#setTransparency(
-      this.#safeColor(this.#data("buyLogos")[symbol]?.color || "#8A9BA8"), 0.65
+      this.#safeColor(this.#data("logos")[symbol]?.color || "#8A9BA8"), 0.65
     );
     return {
       label: symbol,
@@ -1208,11 +1315,7 @@ export default class extends Controller {
     const shift = this.from ? this.baseline : 0;
     // Nulls dropped, not zeroed: a focused holding has no market value at a point the portfolio
     // left on its fill mark. Every point carries its own timestamp, so a gap costs nothing.
-    const series = this.#series.map((serie, i) =>
-      serie
-        .map((amount, j) => ({ x: labels[j], y: amount === null ? null : Number(amount) + (i ? shift : 0) }))
-        .filter((point) => point.y !== null)
-    );
+    const series = this.#series.map((serie, i) => curve(labels, serie, i ? shift : 0));
     const span = this.#extremes(series.flatMap((serie) => serie.map((p) => p.y)));
     const maxValue = this.focused ? this.#assetBounds.value : span.high;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
@@ -1237,7 +1340,8 @@ export default class extends Controller {
       y: { display: false, ...y },
       datasets: [
         {
-          ...this.#lineDataset(series[0].at(-1).y >= series[1].at(-1).y ? up : down, series[0], points),
+          // A holding with no marked point here has an empty curve: drawn as nothing, not as a crash.
+          ...this.#lineDataset((series[0].at(-1)?.y ?? 0) >= (series[1].at(-1)?.y ?? 0) ? up : down, series[0]),
           pointHoverBorderColor: (ctx) => (ctx.parsed && ctx.parsed.y >= invested(ctx.parsed.x) ? up : down),
           segment: { borderColor: (ctx) => (above(ctx.p0.parsed, ctx.p1.parsed) ? up : down) },
           fill: {
@@ -1250,7 +1354,7 @@ export default class extends Controller {
         // actually is: the ribbon is the area between the two lines, and a step under a curve
         // paints a wedge of profit at every buy — value climbs across the day, invested lands
         // at its end — where the PnL did not move at all.
-        this.#lineDataset(this.#color("--benchmark"), series[1], points),
+        this.#lineDataset(this.#color("--benchmark"), series[1]),
       ],
     };
   }
@@ -1276,7 +1380,7 @@ export default class extends Controller {
         // The dot and the hover ring take the end state; the LINE changes colour where it
         // crosses zero, or a curve that spent months in profit would be drawn red because it
         // happens to end a hair under water — with a green ribbon underneath it.
-        ...this.#lineDataset(curve.at(-1).y >= 0 ? up : down, curve, points),
+        ...this.#lineDataset(curve.at(-1).y >= 0 ? up : down, curve),
         // The ring follows the HOVERED point, not the end state, or hovering a loss on a chart
         // that ends in profit would draw a green ring around a red section.
         pointHoverBorderColor: (ctx) => ((ctx.parsed?.y ?? 0) >= 0 ? up : down),
@@ -1297,20 +1401,19 @@ export default class extends Controller {
   // with the labels. They are dropped here — every point carries its own timestamp, and
   // decimation cannot sample around a hole.
   #pnlPoints(labels) {
-    return this.pnlSeries
-      .map((point, i) => ({ x: labels[i], y: point === null ? null : Number(point) }))
-      .filter((point) => point.y !== null);
+    return curve(labels, this.pnlSeries);
   }
 
   // Shared shape of every line here: the curve, and a permanent dot on its last point that
-  // swaps fill on hover instead of resizing. Decimation samples down to `points` and always
-  // keeps the last one, so the radius array is sized to match.
-  #lineDataset(color, data, points) {
+  // swaps fill on hover instead of resizing. Scriptable, so the dot lands on the dataset's own
+  // last point whatever its length: decimation's (which always keeps the last), or a fetched
+  // series' after its nulls were dropped.
+  #lineDataset(color, data) {
     return {
       cubicInterpolationMode: "monotone",
       borderWidth: 2,
       borderColor: color,
-      pointRadius: Array(points - 1).fill(0).concat([3]),
+      pointRadius: (ctx) => endRadius(ctx.dataIndex, ctx.dataset.data.length),
       pointHitRadius: 0,
       pointBackgroundColor: color,
       pointBorderColor: color,
