@@ -356,6 +356,8 @@ pub trait Venue {
     /// Refresh expired evidence before the dispatch credential fence; never change the intent's family.
     async fn validate_preparation(&self,_identity:Option<&serde_json::Value>)->Result<(),VenueError>{Ok(())}
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{None}
+    /// #710: the account this venue trades for, where a venue reads its own orders' rows (Bybit's placement times).
+    fn for_account(self,_scope:crate::venue_ids::Scope)->Self where Self:Sized{self}
     /// The key an order is sent under, as an intent records it and recovery compares it (`alpaca::placement_identity`,
     /// `key_identity`): an object of fields merged into the intent. None where a venue has nothing to tell (no key, a
     /// scripted venue).

@@ -40,6 +40,7 @@ live_venues!($ Alpaca(AlpacaVenue<ReqwestTransport>), Kraken(KrakenVenue<Reqwest
 
 impl Venue for LiveVenue {
     fn producer(&self) -> Option<crate::engine::model::CredentialVersion> { each!(self, v => v.producer()) }
+    fn for_account(self, scope: crate::venue_ids::Scope) -> Self { match self { LiveVenue::Bybit(v) => LiveVenue::Bybit(v.with_order_scope(scope)), other => other } }
     async fn prepare(&self) -> Result<Option<crate::engine::model::CredentialVersion>, VenueError> { each!(self, v => v.prepare().await) }
     async fn validate_preparation(&self, identity: Option<&serde_json::Value>) -> Result<(), VenueError> { each!(self, v => v.validate_preparation(identity).await) }
     async fn withdraw(&self, r: &crate::engine::withdrawal::Request) -> crate::engine::withdrawal::SendResult { each!(self, v => v.withdraw(r).await) }

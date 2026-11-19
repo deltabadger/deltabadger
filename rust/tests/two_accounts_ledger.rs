@@ -514,3 +514,172 @@ fn the_portable_export_keeps_every_membership_and_its_triggers() {
     assert!(venue_ids::order_by_id(&c, &scopes[1], common::two_accounts::SHARED_ORDER).unwrap().is_some());
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'exchange_account_%_member'"), 2);
 }
+
+// ---- §6 test 4's remaining venues, Bybit's placement time, and the group column (lead's follow-up) ----
+
+/// §6 test 4 (Coinbase): both accounts hold an adjusted fill under one venue id; account 1's sync of the original FILL
+/// re-keys account 1's row only, and stores the FILL under the freed id.
+#[test]
+fn a_coinbase_rekey_on_one_account_leaves_the_others_rows() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Coinbase", "Coinbase");
+    let adjusted = json!({"trade_id": "T1", "trade_type": "ADVANCED_TRADE_FILL", "entry_id": "E1"}).to_string();
+    for n in 0..2 {
+        let row = two.row(c, n, 0, "BTC", "1", Some("T1"), None, "2026-09-01 10:00:00");
+        c.execute("UPDATE account_transactions SET raw_data = ?2 WHERE id = ?1", params![row, adjusted]).unwrap();
+    }
+    let [k1, _] = keys(c, &two, "Exchanges::Coinbase");
+    let fill = Entry { raw: Raw::from_value(json!({"trade_id": "T1", "trade_type": "FILL"})), ..entry(0, "BTC", "2", Some("T1"), None, "2026-09-02T10:00:00Z") };
+    assert_eq!(store(c, &k1, vec![fill]).imported, 1);
+    let mut first: Vec<String> = ids(c, &two.scopes[0]).into_iter().filter_map(|r| r.1).collect();
+    first.sort();
+    assert_eq!(first, ["E1", "T1"], "account 1's adjusted row re-keyed, its FILL under the freed id");
+    assert_eq!(ids(c, &two.scopes[1]).into_iter().map(|r| r.1).collect::<Vec<_>>(), [Some("T1".to_string())], "account 2's row untouched");
+}
+
+/// §6 test 4 (Kraken): both accounts hold an internal pair under one refid; each pairs within its own account.
+#[tokio::test(flavor = "current_thread")]
+async fn kraken_internal_pairs_link_within_each_account() {
+    use common::two_accounts::SHARED_GROUP;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let raw = json!({"type": "earn", "subtype": "allocation"}).to_string();
+    let mut legs = vec![];
+    for n in 0..2 {
+        let wd = two.row(c, n, 5, "BTC", "1", Some(&format!("w{n}")), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+        let dep = two.row(c, n, 4, "BTC", "1", Some(&format!("d{n}")), Some(SHARED_GROUP), "2026-09-01 10:01:00");
+        for row in [wd, dep] { c.execute("UPDATE account_transactions SET raw_data = ?2 WHERE id = ?1", params![row, raw]).unwrap(); }
+        legs.push((wd, dep));
+    }
+    let db = deltabadger::jobs::Db::new(store::open(&Paths::from_env(&|_| None, dir.path())).unwrap().primary, seed::cipher());
+    assert_eq!(sync::ledger::link_transfers(&db, two.seeded.user_id, now()).await.unwrap(), 2);
+    for (wd, dep) in legs {
+        assert_eq!(one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {wd}")), Some(dep));
+    }
+}
+
+/// §6 test 4 (Binance trades): account 1 holds trade ids up to 900 on BTCUSDT, account 2 up to 400, and both hold 400:
+/// each account's trade read starts after its own highest id.
+#[tokio::test(flavor = "current_thread")]
+async fn binance_trade_cursors_are_each_accounts() {
+    use deltabadger::venue::http::ScriptedTransport;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    for (n, id) in [(0, "BTCUSDT-1-900"), (0, "BTCUSDT-1-400"), (1, "BTCUSDT-1-400")] { two.row(c, n, 0, "BTC", "1", Some(id), None, "2026-09-01 10:00:00"); }
+    let db = deltabadger::jobs::Db::new(store::open(&Paths::from_env(&|_| None, dir.path())).unwrap().primary, seed::cipher());
+    let r = |body: serde_json::Value| json!([{ "status": 200, "body": body }]);
+    for (n, want) in [(0, "901"), (1, "401")] {
+        let t = ScriptedTransport::from_script(&json!({
+            "GET /sapi/v1/capital/deposit/hisrec": r(json!([])), "GET /sapi/v1/capital/withdraw/history": r(json!([])),
+            "GET /api/v3/exchangeInfo": r(json!({"symbols": [{"symbol": "BTCUSDT", "baseAsset": "BTC", "quoteAsset": "USDT", "status": "TRADING"}]})),
+            "GET /api/v3/account": r(json!({"balances": []})),
+            // The test stops at the first trade read: what it asked for is the point.
+            "GET /api/v3/myTrades": [{ "status": 400, "body": {"code": -1100, "msg": "stop"} }] }));
+        let (credentials, _) = sync::credentials_with_version(c, &seed::cipher(), two.keys[n]).unwrap();
+        let _ = sync::binance_ledger::sync(&db, t.clone(), two.keys[n], &credentials, &deltabadger::engine::FixedClock(now()), sync::binance_ledger::Pacing::NONE).await.unwrap();
+        let from: Vec<String> = t.requests().iter().filter(|q| q.path == "/api/v3/myTrades")
+            .map(|q| q.query.iter().find(|(k, _)| *k == "fromId").unwrap().1.clone()).collect();
+        assert_eq!(from, [want], "account {}", n + 1);
+    }
+}
+
+fn deposit_tx(id: &str, tx: &str) -> writer::Input {
+    let mut i = deposit(id);
+    let mut raw = i.entry.raw.value.clone();
+    raw["txId"] = json!(tx);
+    i.event = Event::read(Source::Deposit, &raw, Context { parent: Some(""), occurred_ms: Some(1786960800000), ..Context::default() }).unwrap();
+    i.entry.tx_id = Some(tx.into());
+    i.entry.raw = Raw::from_value(raw);
+    i
+}
+
+/// §6 test 4 (A12 repair): both accounts share a legacy bucket id, each repaired into its own buckets. A repair of account 2
+/// stopped after its first batch, then resumed from a version-1 manifest: refused, nothing written, the committed batch's
+/// rows and journal kept; a fresh preview then applies the rest.
+#[test]
+fn a_repair_resumed_from_a_manifest_before_accounts_is_refused_and_a_fresh_preview_finishes_it() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let _lock = claim(c, dir.path());
+    let ks = keys(c, &two, "Exchanges::Binance");
+    let fetched = repair::Evidence { inputs: vec![deposit_tx("d1", "h1"), deposit_tx("d2", "h2")], coverage: vec![] };
+    let plan = |key: &sync::Key| { let version = model::credential_version_by_id(c, key.id).unwrap().unwrap();
+                                   repair::dry_run(c, &seed::cipher(), key, &version, now(), &fetched).unwrap() };
+    let m = plan(&ks[1]);
+    assert_eq!(m.batches.len(), 2);
+    repair::ApplySession::new(&m, &m.digest(), &fetched).unwrap().apply_batch(c, &seed::cipher(), &ks[1], 0).unwrap();
+    let journal = |c: &Connection| one::<i64>(c, "SELECT count(*) FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:repair:%'");
+    let (rows, journaled) = (ids(c, &two.scopes[1]), journal(c));
+    assert_eq!((rows.len(), journaled), (1, 1));
+    let mut old = m.clone();
+    old.version = 1;
+    let digest = old.digest();
+    assert_eq!(repair::ApplySession::new(&old, &digest, &fetched).err().unwrap().0, repair::OLD_MANIFEST);
+    assert_eq!((ids(c, &two.scopes[1]), journal(c)), (rows, journaled), "nothing written; the committed batch stays");
+    let fresh = plan(&ks[1]);
+    let mut session = repair::ApplySession::new(&fresh, &fresh.digest(), &fetched).unwrap();
+    for n in 0..fresh.batches.len() { session.apply_batch(c, &seed::cipher(), &ks[1], n).unwrap(); }
+    session.verify(c, &seed::cipher(), &ks[1]).unwrap();
+    assert_eq!(ids(c, &two.scopes[1]).len(), 2);
+    // Account 1 repairs the same legacy buckets into its own names.
+    let first = plan(&ks[0]);
+    let mut session = repair::ApplySession::new(&first, &first.digest(), &fetched).unwrap();
+    for n in 0..first.batches.len() { session.apply_batch(c, &seed::cipher(), &ks[0], n).unwrap(); }
+    session.verify(c, &seed::cipher(), &ks[0]).unwrap();
+    assert_eq!(ids(c, &two.scopes[0]).len(), 2);
+    let (u, e, a) = (two.seeded.user_id, two.seeded.exchange_id, two.accounts[1].id.unwrap());
+    let names: Vec<String> = c.prepare("SELECT key FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(names.iter().filter(|k| k.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}:"))).count(), 2);
+    assert_eq!(names.iter().filter(|k| k.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}@{a}:"))).count(), 2);
+}
+
+/// Bybit's history fallback reads an order's placement time from the account the venue trades for: both accounts hold
+/// one order id, placed a month apart, and each venue walks from its own account's placement.
+#[tokio::test(flavor = "current_thread")]
+async fn bybit_reads_the_placement_time_of_its_own_accounts_order() {
+    use deltabadger::venue::{bybit, http::ScriptedTransport, Venue};
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Bybit", "Bybit");
+    let placed = ["2026-09-01 00:00:00", "2026-08-01 00:00:00"];
+    for (n, at) in placed.iter().enumerate() {
+        let row = order_row(c, &two, n, "old-id");
+        c.execute("UPDATE transactions SET created_at = ?2 WHERE id = ?1", params![row, at]).unwrap();
+    }
+    let raw = json!({"orderId": "old-id", "orderLinkId": "x", "symbol": "BTCUSDT", "orderType": "Market", "side": "Buy", "qty": "0.001", "avgPrice": "60000",
+                     "price": "0", "cumExecQty": "0.001", "cumExecValue": "60", "orderStatus": "Filled"});
+    let reply = |rows: serde_json::Value| json!({"status": 200, "body": {"retCode": 0, "result": {"list": rows}}});
+    for (n, at) in placed.iter().enumerate() {
+        let t = ScriptedTransport::from_script(&json!({"GET /v5/order/realtime": [reply(json!([]))], "GET /v5/order/history": [reply(json!([raw.clone()]))]}));
+        let v = bybit::BybitVenue::new(t.clone(), bybit::URL).with_history_db(dir.path().join("production.sqlite3"), "2026-10-15T00:00:00Z".parse().unwrap())
+            .with_order_scope(two.scopes[n]);
+        assert_eq!(v.orders(&["old-id".into()]).await.unwrap()[0].txid, "old-id");
+        let history = t.requests().into_iter().find(|r| r.path == bybit::HISTORY_PATH).unwrap();
+        let start = history.query.iter().find(|(k, _)| *k == "startTime").unwrap().1.clone();
+        let placed_at: chrono::DateTime<chrono::Utc> = deltabadger::codec::parse_time(at).unwrap();
+        assert_eq!(start, (placed_at - chrono::Duration::hours(1)).timestamp_millis().to_string(), "account {}", n + 1);
+    }
+}
+
+/// The group text `<group>@<account>` is the readers' in-memory key only: the CSV (web, API, portable) writes an account-2
+/// row's group as the venue gave it.
+#[test]
+fn an_account_2_rows_group_is_exported_as_the_venue_group() {
+    use common::two_accounts::SHARED_GROUP;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    two.row(c, 1, 0, "BTC", "1", Some("b-coin"), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+    let csv = deltabadger::web::tracker::csv_rows(c, &format!("SELECT {} FROM account_transactions ORDER BY transacted_at ASC",
+                                                              deltabadger::web::tracker::csv_columns(c).unwrap()), vec![]).unwrap();
+    assert!(csv.lines().nth(1).unwrap().ends_with(&format!(",b-coin,{SHARED_GROUP},,2")), "{csv}");
+    assert!(!csv.contains('@'), "{csv}");
+}
