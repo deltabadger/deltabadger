@@ -208,6 +208,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
         super::rules::refill(&tx)?;
+        // #710 slice 5: 2.x's balances and venue snapshots are the number-1 rows of Rust's stores again.
+        crate::sync::balance_store::refill_number_one(&tx)?;
     }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
@@ -700,6 +702,9 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // #710 slice 4: a ledger row of an account 2+ (its venue id is here; 2.x would read NULL).
         (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
+        // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
+        // writes them back in as the number-1 rows (balance_store::refill_number_one).
+        (Table, "exchange_account_balances", Cache), (Table, "exchange_account_snapshots", Cache),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),

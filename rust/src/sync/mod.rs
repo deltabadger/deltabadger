@@ -18,6 +18,7 @@
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
 pub mod balances;
+pub mod balance_store;
 pub mod binance_ledger;
 pub mod binance_order_links;
 pub mod binance_identity;

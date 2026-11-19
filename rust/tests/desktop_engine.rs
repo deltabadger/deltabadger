@@ -795,8 +795,8 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 type Undo = (&'static str, fn() -> String);
 const UNDO: [Undo; 2] = [
     // Its trigger on slice 3's table goes with it.
-    ("20261120000001", || format!("{}DROP TRIGGER exchange_account_transactions_member;", undo_replacement("20261120000001"))),
-    ("20261120000002", || undo_replacement("20261120000002"))];
+    ("20261120000002", || undo_replacement("20261120000002")),
+    ("20261121000001", || undo_replacement("20261121000001"))];
 
 /// A replacing migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each
 /// table it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).

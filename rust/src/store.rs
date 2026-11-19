@@ -217,6 +217,17 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261120000002", TableContract { name: "kucoin_withheld_fills", columns: &[
         ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("tx_id", "TEXT", true), ("transacted_at", "TEXT", true), ("entry", "TEXT", true),
         ("created_at", "TEXT", true)], unique_indexes: &[&["account_id", "tx_id"]] }),
+    // #710 slice 5: balances and venue snapshots by account (sync::balance_store): 2.x's columns and types, account_id last.
+    ("20261121000001", TableContract { name: "exchange_account_balances", columns: &[
+        ("id", "integer", true), ("asset_id", "integer", true), ("created_at", "datetime(6)", true), ("exchange_id", "integer", true),
+        ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true),
+        ("updated_at", "datetime(6)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false), ("user_id", "integer", true),
+        ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "asset_id"]] }),
+    ("20261121000001", TableContract { name: "exchange_account_snapshots", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("exchange_id", "integer", true), ("date", "date", true), ("value_usd", "decimal(20,8)", true),
+        ("invested_usd", "decimal(20,8)", true), ("held_value_usd", "decimal(20,8)", false), ("held_cost_usd", "decimal(20,8)", false),
+        ("partial", "boolean", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true), ("account_id", "INTEGER", true)],
+        unique_indexes: &[&["account_id", "date"]] }),
 ];
 
 /// What this build migrates.

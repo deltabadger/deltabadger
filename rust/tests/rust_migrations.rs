@@ -643,3 +643,44 @@ fn a_migration_that_drops_or_rebuilds_a_v2_table_is_rolled_back() {
         assert_eq!(contents(&p), before, "{sql}: rolled back");
     }
 }
+
+// ---- #710 slice 5 (PLAN-710-5 §4): balances and venue snapshots move to stores keyed by account ----
+
+const STORES: &str = "20261121000001";
+
+/// §6 test 1: 2.x's balances and venue snapshots, with gappy ids and a sequence above the largest, are in the stores with
+/// their ids and content, each on its (user, exchange)'s number 1 (made where none was there), and each store's sequence
+/// is its 2.x table's. 2.x's tables keep their rows.
+#[test]
+fn the_balances_and_venue_snapshots_move_to_stores_keyed_by_account_keeping_ids_and_sequences() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= STORES).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= STORES).unwrap_or(REGISTRY.tables.len());
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }).unwrap();
+    exec(&p.primary, "PRAGMA foreign_keys = OFF; DELETE FROM exchange_accounts;
+        INSERT INTO exchange_accounts (id, user_id, exchange_id, number, created_at, updated_at) VALUES (40, 1, 2, 1, 'now', 'now');
+        INSERT INTO account_balances (id, user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at) VALUES
+          (3, 1, 2, 7, 1.5, 0, 100.25, 150.375, 'p', 's', 'c', 'u'), (8, 1, 3, 7, '0.1', 2, NULL, NULL, NULL, 's2', 'c2', 'u2');
+        UPDATE sqlite_sequence SET seq = 20 WHERE name = 'account_balances';
+        INSERT INTO portfolio_venue_snapshots (id, user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at) VALUES
+          (5, 1, 2, '2026-01-01', 10.5, 9, NULL, 1.25, 1, 'c', 'u'), (6, 1, 2, '2026-01-02', 11, 9, 2, 1, 0, 'c', 'u');
+        UPDATE sqlite_sequence SET seq = 30 WHERE name = 'portfolio_venue_snapshots';");
+    assert_eq!(store::migrate(&p, &lock(&p)).unwrap()[0], STORES);
+    let rows = |sql: &str| rows(&p, sql);
+    let same = |v2: &str, store: &str, columns: &str| {
+        assert_eq!(rows(&format!("SELECT {columns} FROM {store} ORDER BY id")), rows(&format!("SELECT {columns} FROM {v2} ORDER BY id")), "{store}: ids and content are 2.x's");
+        assert_eq!(rows(&format!("SELECT seq FROM sqlite_sequence WHERE name = '{store}'")), rows(&format!("SELECT seq FROM sqlite_sequence WHERE name = '{v2}'")));
+    };
+    same("account_balances", "exchange_account_balances", "id, asset_id, created_at, exchange_id, free, typeof(free), locked, priced_at, synced_at, updated_at, usd_price, typeof(usd_price), usd_value, user_id");
+    same("portfolio_venue_snapshots", "exchange_account_snapshots", "id, user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at");
+    use rusqlite::types::Value::Integer;
+    assert_eq!(rows("SELECT b.id, a.user_id, a.exchange_id, a.number FROM exchange_account_balances b JOIN exchange_accounts a ON a.id = b.account_id ORDER BY b.id"),
+               [[Integer(3), Integer(1), Integer(2), Integer(1)], [Integer(8), Integer(1), Integer(3), Integer(1)]], "each on its number 1, made where missing");
+    assert_eq!(rows("SELECT DISTINCT account_id FROM exchange_account_snapshots"), [[Integer(40)]]);
+    assert_eq!(rows("SELECT count(*) FROM account_balances"), [[Integer(2)]], "2.x's rows stay");
+    // A new row takes the id 2.x would have given it.
+    exec(&p.primary, "INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at, account_id) VALUES (1, 2, 9, 's', 'c', 'u', 40)");
+    assert_eq!(rows("SELECT max(id) FROM exchange_account_balances"), [[Integer(21)]]);
+    assert!(store::check(&p).unwrap().pending_rust.is_empty());
+}

@@ -965,6 +965,49 @@ async fn a_takeover_refills_the_number_1_rules_from_2x_and_keeps_account_2s() {
     assert_eq!(store(&o.primary), [(kept, 1, 1), (added, 2, 1)]);
 }
 
+/// #710 slice 5 §6 test 12: a takeover after 2.x owned the install writes 2.x's balances and venue snapshots into the stores
+/// again as the number-1 rows, after giving an exchange 2.x first connected its number 1. A 2.x id that an account-2 row
+/// holds is refilled under a fresh id above both ranges (account 2's row stays); every other id is 2.x's, and each store's
+/// sequence is at least 2.x's. Outside 2.x's window nothing changes.
+#[tokio::test(flavor = "current_thread")]
+async fn a_takeover_refills_the_number_1_balances_and_snapshots_from_2x_without_id_collisions() {
+    use rusqlite::params;
+    let dir = common::v2_install(); let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, now()).unwrap(); let o = store::open(&p).unwrap();
+    let c = &o.primary;
+    let two = common::two_accounts::Two::kraken(c, &seed::cipher());
+    let (user, kraken, second) = (two.seeded.user_id, two.seeded.exchange_id, two.accounts[1].id.unwrap());
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Coinbase', 'Coinbase', '0.1', '0.1', 'now', 'now')", []).unwrap();
+    let coinbase = c.last_insert_rowid();
+    // Account 2's rows hold id 1 in each store (Rust wrote them while it owned the install).
+    c.execute("INSERT INTO exchange_account_balances (id, user_id, exchange_id, asset_id, free, synced_at, created_at, updated_at, account_id) VALUES (1, ?1, ?2, ?3, '9', 's', 'c', 'u', ?4)",
+              params![user, kraken, two.seeded.btc, second]).unwrap();
+    c.execute("INSERT INTO exchange_account_snapshots (id, user_id, exchange_id, date, value_usd, created_at, updated_at, account_id) VALUES (1, ?1, ?2, '2026-09-01', 9, 'c', 'u', ?3)",
+              params![user, kraken, second]).unwrap();
+    // 2.x's rows: ids 1 and 2 on Kraken, 3 on an exchange it connected itself.
+    for (id, exchange, asset) in [(1, kraken, two.seeded.btc), (2, kraken, two.seeded.quote), (3, coinbase, two.seeded.btc)] {
+        c.execute("INSERT INTO account_balances (id, user_id, exchange_id, asset_id, free, synced_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?1, 's', 'c', 'u')",
+                  params![id, user, exchange, asset]).unwrap();
+        c.execute("INSERT INTO portfolio_venue_snapshots (id, user_id, exchange_id, date, value_usd, created_at, updated_at) VALUES (?1, ?2, ?3, '2026-09-0' || ?1, ?1, 'c', 'u')",
+                  params![id, user, exchange]).unwrap();
+    }
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    let coinbase_first = deltabadger::identity::Account::first(c, user, coinbase).unwrap().id.expect("2.x's new exchange has its number 1");
+    let kraken_first = two.accounts[0].id.unwrap();
+    for (store, value) in [("exchange_account_balances", "free"), ("exchange_account_snapshots", "value_usd")] {
+        let rows: Vec<(i64, i64, i64)> = c.prepare(&format!("SELECT id, CAST({value} AS INTEGER), account_id FROM {store} ORDER BY id")).unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+        assert_eq!(rows, [(1, 9, second), (2, 2, kraken_first), (3, 3, coinbase_first), (4, 1, kraken_first)], "{store}");
+        let seq: i64 = c.query_row(&format!("SELECT seq FROM sqlite_sequence WHERE name = '{store}'"), [], |r| r.get(0)).unwrap();
+        assert!(seq >= 3, "{store}: {seq}");
+    }
+    // Rust owns the install now: a row 2.x's table gets is not read into the stores at a restart.
+    c.execute("INSERT INTO account_balances (id, user_id, exchange_id, asset_id, free, synced_at, created_at, updated_at) VALUES (9, ?1, ?2, ?3, 1, 's', 'c', 'u')",
+              params![user, coinbase, two.seeded.quote]).unwrap();
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    assert_eq!(count(c, "SELECT count(*) FROM exchange_account_balances"), 4);
+}
+
 /// #710: the handback writes Rust's number-1 rules into 2.x's `rules` by id, so a rule stopped or deleted in Rust never runs
 /// again on 2.x, even where its 2.x row had fallen behind.
 #[tokio::test(flavor = "current_thread")]
