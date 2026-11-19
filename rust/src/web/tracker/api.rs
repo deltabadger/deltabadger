@@ -2,7 +2,7 @@
 //! BotApi::Tracker::{SetTransferLink, SetTransactionPrice, Sync}, one service each for both surfaces, on the web's own
 //! pieces: its CSV writer, candidate query, link and price stores, sync plan and guarded write (`super::guarded`).
 //! The tools' texts are the 2.x tools'. Named divergences: specs/PLAN-A11-tracker-api.md.
-use super::{csv_rows, first_sync, guarded, read, row::Row, sync_plan, transaction, Guarded, Step, SyncPlan, CSV_COLUMNS};
+use super::{csv_rows, first_sync, guarded, read, row::Row, sync_plan, transaction, Guarded, Step, SyncPlan, csv_columns};
 use crate::{codec, v2::{self, BigDec}, web::{bot_api::{self, Domain, Res}, bot::mcp_input, mcp::{protocol::tool_text, read_limits, tools::str_value}, timezone, App, WebError}};
 use chrono::{DateTime, NaiveDate};
 use chrono_tz::Tz;
@@ -158,7 +158,7 @@ fn export(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
         let total: i64 = c.query_row(&format!("SELECT count(*) FROM account_transactions WHERE user_id=?1{}", f.sql), rusqlite::params_from_iter(f.binds.iter()), |r| r.get(0))?;
         if total == 0 { return Ok(Err(failure(Domain::NotFound, "no_transactions", "No account transactions found matching the filters."))); }
         f.binds.push(Sql::Integer(MAX_ROWS));
-        let sql = format!("SELECT {CSV_COLUMNS} FROM account_transactions WHERE user_id=?1{} ORDER BY transacted_at DESC, transacted_at ASC LIMIT ?{}", f.sql, f.binds.len());
+        let sql = format!("SELECT {} FROM account_transactions WHERE user_id=?1{} ORDER BY transacted_at DESC, transacted_at ASC LIMIT ?{}", csv_columns(c)?, f.sql, f.binds.len());
         let csv = csv_rows(c, &sql, f.binds)?;
         if csv.len() > read_limits::STORED_BYTES { return Ok(Err(failure(Domain::ValidationFailed, "export_too_large", EXPORT_TOO_LARGE))); }
         Ok(Ok(Csv { csv, total, returned: total.min(MAX_ROWS), truncated: total > MAX_ROWS }))

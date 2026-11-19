@@ -434,3 +434,83 @@ async fn a_transfer_between_the_two_accounts_is_stored_on_both_and_linked() {
     let linked: Option<i64> = c.query_row(&format!("SELECT a.linked_transaction_id FROM account_transactions a WHERE {}", two.scopes[0].rows("a")), [], |r| r.get(0)).unwrap();
     assert_eq!(linked, Some(ids(c, &two.scopes[1])[0].0));
 }
+
+// ---- commit 6: export and re-import (§6 test 11) ----
+
+fn import(c: &Connection, user: i64, text: &str) -> deltabadger::tracker::import::run::Answer {
+    deltabadger::tracker::import::run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, None, now()).unwrap()
+}
+
+/// §6 test 11 (CSV): the export carries `account` 1/2 and account 2's venue ids; read back into another install with two
+/// accounts each row goes to its own; a file without the column goes to number 1; `3` is unrouted as `kraken 3`; `0` or
+/// `x` is malformed.
+#[test]
+fn the_csv_names_each_rows_account_and_a_reimport_routes_by_it() {
+    use deltabadger::tracker::import::run::Answer;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    two.row(c, 0, 4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01 10:00:00");
+    two.row(c, 1, 4, "BTC", "2", Some(SHARED_TX), None, "2026-09-01 11:00:00");
+    let csv = deltabadger::web::tracker::csv_rows(c, &format!("SELECT {} FROM account_transactions ORDER BY transacted_at ASC",
+                                                              deltabadger::web::tracker::csv_columns(c).unwrap()), vec![]).unwrap();
+    let lines: Vec<&str> = csv.lines().collect();
+    assert!(lines[0].ends_with(",description,account"), "{csv}");
+    assert!(lines[1].ends_with(&format!(",kraken,{SHARED_TX},,,1")) && lines[2].ends_with(&format!(",kraken,{SHARED_TX},,,2")), "{csv}");
+    // Another install, two accounts.
+    let (_d2, o2) = install();
+    let c2 = &o2.primary;
+    let other = Two::kraken(c2, &seed::cipher());
+    assert!(matches!(import(c2, other.seeded.user_id, &csv), Answer::Written { imported: 2, .. }));
+    for (n, amount) in [(0, 1.0), (1, 2.0)] {
+        let rows: Vec<(Option<String>, f64)> = c2.prepare(&format!("SELECT {}, a.base_amount FROM account_transactions a WHERE {}", venue_ids::row_id("a"), other.scopes[n].rows("a"))).unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+        assert_eq!(rows, [(Some(SHARED_TX.to_string()), amount)], "account {}", n + 1);
+    }
+    let header = "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description";
+    assert!(matches!(import(c2, other.seeded.user_id, &format!("{header}\n2026-09-02T10:00:00Z,deposit,BTC,5,,,,,kraken,old-file,,\n")), Answer::Written { imported: 1, .. }));
+    assert!(venue_ids::known(c2, &other.scopes[0], "old-file").unwrap(), "a 12-column file is number 1's");
+    match import(c2, other.seeded.user_id, &format!("{header},account\n2026-09-03T10:00:00Z,deposit,BTC,5,,,,,kraken,third,,,3\n")) {
+        Answer::Written { unrouted, .. } => assert_eq!(unrouted, ["kraken 3"]),
+        other => panic!("{other:?}"),
+    }
+    for bad in ["0", "x"] {
+        assert!(matches!(import(c2, other.seeded.user_id, &format!("{header},account\n2026-09-03T10:00:00Z,deposit,BTC,5,,,,,kraken,bad,,,{bad}\n")), Answer::Error("malformed")), "{bad}");
+    }
+}
+
+/// §6 test 11 (portable database): `deltabadger export` of an install with account-2 rows and orders opens as an install
+/// with every membership 1:1, both accounts' ids read back through the accessor, and the triggers present.
+#[cfg(unix)]
+#[test]
+fn the_portable_export_keeps_every_membership_and_its_triggers() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = std::fs::canonicalize(dir.path()).unwrap();
+    std::fs::create_dir(root.join("storage")).unwrap();
+    std::fs::write(root.join(".dockerenv"), "").unwrap();
+    let source = common::baseline_install();
+    for f in common::INSTALL_FILES { std::fs::copy(source.path().join(f), root.join("storage").join(f)).unwrap(); }
+    let members = |c: &Connection| -> Vec<(i64, i64, Option<String>)> {
+        c.prepare("SELECT account_transaction_id, account_id, venue_tx_id FROM exchange_account_rows UNION ALL \
+                   SELECT transaction_id, account_id, venue_external_id FROM exchange_account_transactions ORDER BY 1, 3").unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+    };
+    let (want, scopes) = {
+        let c = store::open(&Paths::from_env(&|_| None, &root.join("storage"))).unwrap().primary;
+        let two = Two::kraken(&c, &seed::cipher());
+        two.row(&c, 0, 4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01 10:00:00");
+        two.row(&c, 1, 4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01 10:00:00");
+        order_row(&c, &two, 1, common::two_accounts::SHARED_ORDER);
+        (members(&c), two.scopes)
+    };
+    assert_eq!(want.len(), 2);
+    let scratch = deltabadger::export::Scratch { storage: root.join("storage"), output: root.join("export"), marker: root.join(".dockerenv") };
+    deltabadger::export::run(&scratch, &|k| (k == "EXPORT_SCRATCH").then(|| "1".into()), now()).unwrap_or_else(|e| panic!("{}", e.message()));
+    let portable = Paths { primary: root.join("export/portable/production.sqlite3"), queue: root.join("export/portable/production_queue.sqlite3") };
+    store::check(&portable).unwrap();
+    let c = store::open(&portable).unwrap().primary;
+    assert_eq!(members(&c), want);
+    for scope in scopes { assert!(venue_ids::known(&c, &scope, SHARED_TX).unwrap()); }
+    assert!(venue_ids::order_by_id(&c, &scopes[1], common::two_accounts::SHARED_ORDER).unwrap().is_some());
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'exchange_account_%_member'"), 2);
+}
