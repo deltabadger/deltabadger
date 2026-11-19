@@ -355,7 +355,7 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
 /// The intent already authorized dispatch; never discard the acknowledgement on a later fence.
 pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &OrderPlan, external_id: &str, created_at: DateTime<Utc>, run: Option<&super::model::RunIdentity>) -> Result<i64, EngineError> {
     // #710: on the account its intent was placed on (`begin` records it), never the bot's current one.
-    let placed_on = super::model::load_bot(c, bot.id)?.rust_placement().and_then(|v| v.get("account_id").and_then(serde_json::Value::as_i64));
+    let placed_on = match super::model::load_bot(c, bot.id)?.rust_placement() { Some(v) => super::placement::placed_account(c, bot, &v)?, None => None };
     let id = write_order_row_in(c, bot, plan, RowKind::Submitted { external_id: external_id.to_owned() }, created_at, placed_on)?;
     c.execute("UPDATE transactions SET run_identity=?2 WHERE id=?1 AND run_identity IS NULL", params![id, run.map(|r| r.order_json().to_string())])?;
     // Every caller writes the row of the bot's unresolved intent before removing it: its IBKR reservation names the row.
