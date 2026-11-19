@@ -417,6 +417,12 @@ export default class extends Controller {
     const least = this.#data("fetched") ? LEAST_VIEW : ((high - low) / Math.max(labels.length - 1, 1)) * 3;
     this.view = clampView(min, max, [low, high], least);
     this.days = undefined;
+    // An answer on its way was asked for another view: it is not drawn over this one (`#settle` asks again for it).
+    if (this.inFlight) {
+      this.#asked += 1;
+      this.inFlight = null;
+      this.dropped = true;
+    }
     this.#viewChanged();
     const range = this.#rangeControl;
     if (range && this.view) range.clear();
@@ -436,7 +442,9 @@ export default class extends Controller {
   // when the answer lands.
   #settle() {
     if (!this.hasSrcValue || !this.answer) return;
-    if (this.#dataKey !== this.#query() && (!this.view || asks({ view: this.#shown, ...this.answer }))) this.#ask();
+    const dropped = this.dropped;
+    this.dropped = false;
+    if (this.#dataKey !== this.#query() && (dropped || !this.view || asks({ view: this.#shown, ...this.answer }))) this.#ask();
   }
 
   // --- the gestures (as on the mock Jan approved, 2026-11-19) -------------------------
@@ -665,6 +673,7 @@ export default class extends Controller {
     let answer = held ? null : this.#kept.answers.get(key);
     if (!answer) {
       const asked = held ? `${key}&after=${held.closed}&sum=${encodeURIComponent(held.sum)}` : key;
+      this.inFlight = ask;
       try {
         const response = await fetch(`${this.srcValue}?${asked}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
         // 204: no figures kept yet. They are made now, and their publication's `rev` asks again.
@@ -672,6 +681,8 @@ export default class extends Controller {
         answer = await response.json();
       } catch {
         return; // the next publication's `rev` asks again
+      } finally {
+        if (this.inFlight === ask) this.inFlight = null;
       }
       // Kept up to the ASK's `after`, the answer's points from there on.
       if (answer.append) {
