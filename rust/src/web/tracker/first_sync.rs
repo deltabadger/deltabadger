@@ -13,9 +13,9 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
       AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?4)
       AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
+      AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
+      AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 
 
@@ -77,7 +77,7 @@ mod tests {
     use super::*;
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE exchanges(id INTEGER,type TEXT); CREATE TABLE app_configs(key TEXT,value TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_synced_at TEXT,balances_synced_at TEXT,last_sync_error TEXT); CREATE TABLE account_transactions(user_id INTEGER); CREATE TABLE account_balances(user_id INTEGER); CREATE TABLE portfolio_snapshots(user_id INTEGER); CREATE TABLE portfolio_venue_snapshots(user_id INTEGER); INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca'),(2,'Exchanges::Kraken'); INSERT INTO api_keys VALUES(11,7,1,1,0,NULL,NULL,NULL);").unwrap();
+        c.execute_batch("CREATE TABLE exchanges(id INTEGER,type TEXT); CREATE TABLE app_configs(key TEXT,value TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_synced_at TEXT,balances_synced_at TEXT,last_sync_error TEXT); CREATE TABLE account_transactions(user_id INTEGER); CREATE TABLE exchange_account_balances(user_id INTEGER); CREATE TABLE portfolio_snapshots(user_id INTEGER); CREATE TABLE exchange_account_snapshots(user_id INTEGER); INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca'),(2,'Exchanges::Kraken'); INSERT INTO api_keys VALUES(11,7,1,1,0,NULL,NULL,NULL);").unwrap();
         c
     }
     #[test]
@@ -85,7 +85,7 @@ mod tests {
         let c=db();
         assert!(super::super::read::only(&c,|c|supported(c,7)).unwrap());
         assert!(!supported(&c,8).unwrap());
-        for table in ["account_transactions","account_balances","portfolio_snapshots","portfolio_venue_snapshots"] {
+        for table in ["account_transactions","exchange_account_balances","portfolio_snapshots","exchange_account_snapshots"] {
             c.execute(&format!("INSERT INTO {table} VALUES(8)"),[]).unwrap();
             assert!(supported(&c,7).unwrap(),"foreign {table}");
             c.execute(&format!("INSERT INTO {table} VALUES(7)"),[]).unwrap();
@@ -135,7 +135,7 @@ mod tests {
     }
     #[test]
     fn first_sync_database_errors_are_propagated() {
-        let c=db();c.execute("DROP TABLE account_balances",[]).unwrap();
+        let c=db();c.execute("DROP TABLE exchange_account_balances",[]).unwrap();
         assert!(supported(&c,7).is_err());
     }
 }

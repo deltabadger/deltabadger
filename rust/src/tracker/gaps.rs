@@ -178,7 +178,7 @@ fn judged(c: &Connection, owner: i64, now: DateTime<Utc>) -> Result<Option<(Fing
     let tx = c.unchecked_transaction()?;
     let Published::Warm { venues, from, .. } = cache::read_published(&tx, owner, now)? else { return Ok(None) };
     let readings = super::import::run::reading(&tx, owner).map_err(|e| FiguresError::Data(e.0))?;
-    let origin = crate::sync::cache::capture_read(&tx, owner, None).map_err(|_| data("reading provenance unavailable"))?;
+    let origin = crate::sync::cache::capture_read(&tx, owner,&crate::tracker::Scope::All).map_err(|_| data("reading provenance unavailable"))?;
     let mut gaps = vec![];
     let read = crate::sync::ledger_venues();
     for k in readings.iter().filter(|k| read.contains(&k.exchange_type.as_str())) {
@@ -192,7 +192,9 @@ fn judged(c: &Connection, owner: i64, now: DateTime<Utc>) -> Result<Option<(Fing
 /// The rules a venue passes before its gap is stated: its ledger really read by the scheduler's key, the balances that
 /// key produced and valued, nothing pending, and ten dollars or more arrived or opened.
 fn venue(c: &Connection, owner: i64, origin: &crate::sync::cache::ReadOrigin, k: &Reading, summary: Option<&Summary>) -> Result<Option<Gap>, FiguresError> {
-    if !origin.key_read_complete(c, k.id, k.exchange_id).map_err(|_| data("reading provenance unavailable"))? { return Ok(None); }
+    let account = match k.account_id { Some(id) => crate::identity::AccountRow::by_id(c, id)?, None => crate::identity::AccountRow::first(c, owner, k.exchange_id)? };
+    let Some(account) = account else { return Ok(None) };
+    if !origin.key_read_complete(c, k.id, &account).map_err(|_| data("reading provenance unavailable"))? { return Ok(None); }
     if figures::page::cold(c, owner, Some(k.exchange_id), true)?.reason.is_some() { return Ok(None); }
     if pending(c, owner, k.exchange_id)? { return Ok(None); }
     let balances = figures::balances(c, owner, Some(k.exchange_id))?;
@@ -232,7 +234,7 @@ fn origin(c: &Connection, owner: i64, exchange: i64) -> Result<Option<String>, F
 
 /// The venue's balance rows: a sync writes `updated_at` on every row it keeps and deletes the rest.
 fn revision(c: &Connection, owner: i64, exchange: i64) -> Result<(i64, Option<String>), FiguresError> {
-    Ok(c.query_row("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2", [owner, exchange], |r| Ok((r.get(0)?, r.get(1)?)))?)
+    Ok(c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE user_id = ?1 AND exchange_id = ?2", [owner, exchange], |r| Ok((r.get(0)?, r.get(1)?)))?)
 }
 
 fn encode(from: &Fingerprint, gaps: &[Gap]) -> Result<String, FiguresError> {

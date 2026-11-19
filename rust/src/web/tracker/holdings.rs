@@ -3,15 +3,16 @@ use super::{Ctx,WebError};
 use crate::{figures::{dec::Dec,totals::Denomination},tracker::figures::page::Cold,web::{i18n::{self,Arg},format::{float_round,float_to_s},colors}};
 use rusqlite::Connection;
 pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
+    // #710 slice 5: no balances of an account without a key.
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM api_keys k LEFT JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND (e.type IS NULL OR e.type!='Exchanges::Alpaca' OR COALESCE(k.status,-1)!=1 OR COALESCE(k.key_type,-1) NOT IN(0,2) OR COALESCE(k.last_sync_error,'')!=''))
     AND (SELECT COUNT(DISTINCT exchange_id) FROM api_keys WHERE user_id=?1)=1
     AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-    AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)
+    AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?2)
-    AND EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
-    AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND exchange_id NOT IN(SELECT exchange_id FROM api_keys WHERE user_id=?1))",rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
+    AND EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
+    AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND account_id NOT IN(SELECT {} FROM api_keys k WHERE k.user_id=?1 AND {0} IS NOT NULL))",crate::identity::key_account_sql("k")),rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 pub struct Presentation {pub value:String,pub card:String,pub sync:String,pub classes:Vec<&'static str>}
 pub struct Arc {pub color:String,pub dash:String,pub offset:String,pub label:String}

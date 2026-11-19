@@ -120,7 +120,7 @@ pub(super) fn plain(value:&Dec,d:&Denomination)->Result<String,WebError>{
 pub(super) fn amount_text(value:&Dec,currency:&str)->Result<String,WebError>{amount(value,currency)}
 fn logo(c:&Connection,row:&Row)->Result<String,WebError>{
     // Recorded asset, then the owner's balances, then the ranked crypto catalogue.
-    let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};
+    let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM exchange_account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};
     let Some(id)=id else{return Ok(String::new())};
     let (image,color,symbol,category):(Option<String>,Option<String>,String,Option<String>)=c.query_row("SELECT image_url,color,symbol,category FROM assets WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
     asset_logo(image,color,symbol,category)

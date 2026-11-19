@@ -310,6 +310,17 @@ impl Transport for Wire {
 /// The recording harness's answer to `<command> <scratch>`, frozen (common::freeze::step).
 fn record(scratch: &tempfile::TempDir, command: &str) {
     common::freeze::step(&[command, scratch.path().to_str().unwrap()]);
+    // Rust's side starts as `run`/`serve` take an install: with this build's Rust migrations applied (#710 slice 5's
+    // balance and venue snapshot stores among them).
+    let mut dirs = vec![scratch.path().to_path_buf()];
+    while let Some(dir) = dirs.pop() {
+        for path in std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().path()) {
+            if path.is_dir() { dirs.push(path); continue; }
+            if path.file_name().is_some_and(|n| n == "production.sqlite3" || n == "initial.sqlite3") {
+                deltabadger::store::test_support::migrate(&rusqlite::Connection::open(&path).unwrap()).expect("this build's Rust migrations apply");
+            }
+        }
+    }
 }
 #[tokio::test]
 async fn figures_fragments_match_the_v2_page_partials() {

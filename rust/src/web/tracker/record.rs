@@ -27,7 +27,7 @@ struct Day { date: NaiveDate, value: Dec, invested: Dec, held_value: Option<Dec>
 
 /// `PortfolioSnapshot.series`: the whole portfolio's days, or the switched venue's, by date.
 fn series(c: &Connection, owner: i64, scope: Option<i64>) -> Result<Vec<Day>, WebError> {
-    let sql = if scope.is_some() { "SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM portfolio_venue_snapshots WHERE user_id=?1 AND exchange_id=?2 ORDER BY date" }
+    let sql = if scope.is_some() { "SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM exchange_account_snapshots WHERE user_id=?1 AND exchange_id=?2 ORDER BY date" }
               else { "SELECT date,value_usd,invested_usd,held_value_usd,held_cost_usd FROM portfolio_snapshots WHERE user_id=?1 AND ?2 IS NULL ORDER BY date" };
     let mut s = c.prepare(sql)?;
     let mut q = s.query(rusqlite::params![owner, scope])?;
@@ -122,7 +122,7 @@ struct Position { status: &'static str, symbol: String, asset: Option<i64>, open
 /// `Ledger.symbol_index`: the user's own balance row of the symbol, else the catalogue's coin, then its currency.
 fn symbol_asset(c: &Connection, owner: i64, symbol: &str) -> Result<Option<i64>, WebError> {
     use rusqlite::OptionalExtension;
-    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1", rusqlite::params![owner, symbol], |r| r.get(0)).optional()?;
+    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM exchange_account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1", rusqlite::params![owner, symbol], |r| r.get(0)).optional()?;
     if held.is_some() { return Ok(held); }
     Ok(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1", [symbol], |r| r.get(0)).optional()?)
 }

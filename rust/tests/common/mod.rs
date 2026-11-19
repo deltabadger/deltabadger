@@ -262,3 +262,9 @@ pub fn recorded_rule_kinds(body: &str) -> String {
 pub async fn drop_mock_server(server: wiremock::MockServer) {
     tokio::task::unconstrained(async move { drop(server) }).await
 }
+
+/// #710 slice 5: the id of (user, exchange)'s number-1 account, made where it has none (a fixture's key was inserted
+/// directly, as no Rust write leaves one): the account a balance or venue snapshot row is stored on.
+pub fn number_one(c: &rusqlite::Connection, user_id: i64, exchange_id: i64) -> i64 {
+    deltabadger::identity::Account::first(c, user_id, exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap().id.unwrap()
+}

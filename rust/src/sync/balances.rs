@@ -1,5 +1,5 @@
 //! AccountBalance::SyncJob for an Alpaca key: Exchanges::Alpaca#get_balances (GET /v2/account, GET /v2/positions),
-//! then AccountBalance::Sync#sync! (USD prices, the `account_balances` rows, removal of what is gone, the key's
+//! then AccountBalance::Sync#sync! (USD prices, the account's `exchange_account_balances` rows, removal of what is gone, the key's
 //! `balances_synced_at`). 2.x is the oracle (rust/tests/sync_parity.rs).
 //!
 //! Where a USD price comes from, as on a hosted instance:
@@ -200,7 +200,7 @@ pub struct Summary {
 }
 
 pub struct Catalog {
-    user_id: i64, exchange_id: i64,
+    exchange_id: i64,
     /// `exchange.assets.pluck(:id)`: the assets the venue lists, in the order the rows are written.
     asset_ids: Vec<i64>,
     /// Venue asset class + native symbol, including unavailable listings; ambiguity stays unresolved.
@@ -1120,11 +1120,12 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     // number's caps before the first write. 2.x has no such check: a price of 1e300 on a billion coins would be
     // stored as an infinite value and reported as a success. Here the sync fails and writes no balance.
     if !fresh.values().all(|p| within(price_f(p))) { return Ok(Err(PRICE_OUT_OF_RANGE.into())); }
-    let (user_id, exchange_id) = (catalog.user_id, catalog.exchange_id);
+    // #710 slice 5: the key's account's rows and provenance; its number 1's row is made at the first write where it has none.
     let origin = version.clone();
     let (last, allow_old) = phase(db, move |c| {
-        let allowed = super::cache::produced_by(c, user_id, exchange_id, &origin).map_err(|_| SyncError("cannot read balance cache origin".into()))?;
-        Ok((if allowed {last_prices(c, user_id, exchange_id)?} else {HashMap::new()}, allowed))
+        let Some(account) = crate::identity::AccountRow::of_key(c, key_id)? else { return Ok((HashMap::new(), false)) };
+        let allowed = super::cache::produced_by(c, &account, &origin).map_err(|_| SyncError("cannot read balance cache origin".into()))?;
+        Ok((if allowed {last_prices(c, account.id)?} else {HashMap::new()}, allowed))
     }).await?;
     for (asset_id, free, locked) in &held {
         let total = &(free + locked);
@@ -1141,27 +1142,29 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     let now = clock.now();
     let (held, fresh) = (Arc::new(held), Arc::new(fresh));
     let origin = version.clone();
-    super::commit_for(db, version, move |c| {
-        super::cache::record(c, user_id, exchange_id, &origin, false, now).map_err(|_| SyncError("cannot record balance cache origin".into()))
+    let account = super::commit_for(db, version, move |c| {
+        let account = crate::identity::AccountRow::ensure_of_key(c, key_id, now)?.ok_or_else(|| SyncError(format!("api key {key_id} has no account")))?;
+        super::cache::record_account(c, &account, &origin, false, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
+        Ok(account)
     }).await?;
     if let Some(step)=step {step(0).await;}
     let mut summary = Summary::default();
     for from in (0..held.len()).step_by(BATCH) {
         let (held, assets, fresh) = (held.clone(), assets.clone(), fresh.clone());
-        summary = super::commit_for(db, version, move |c| upsert(c, user_id, exchange_id, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
+        summary = super::commit_for(db, version, move |c| upsert(c, &account, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
         if let Some(step)=step {step(from/BATCH+1).await;}
     }
     let kept: HashSet<i64> = held.iter().map(|(id, _, _)| *id).chain(kept.iter().copied()).collect();
-    let mut gone = phase(db, move |c| gone(c, user_id, exchange_id, &kept)).await?;
+    let mut gone = phase(db, move |c| gone(c, account.id, &kept)).await?;
     loop {
         let rest = gone.split_off(gone.len().min(BATCH));
         let last = rest.is_empty();
         let (origin, record) = (version.clone(), record.clone());
         super::commit_for(db, version, move |c| {
-            for id in &gone { c.execute("DELETE FROM account_balances WHERE id = ?1", [id])?; }
+            for id in &gone { c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id])?; }
             if last {
                 c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
-                super::cache::record(c, user_id, exchange_id, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
+                super::cache::record_account(c, &account, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
                 match &record {
                     Some((key, Some(value))) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
                                                              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
@@ -1206,14 +1209,14 @@ fn catalog(c: &Connection, key_id: i64) -> Result<Catalog, SyncError> {
 }
 
 /// What #get_balances reads about the venue: the assets it lists and how a position's symbol names one.
-pub(crate) fn catalog_for(c: &Connection, user_id: i64, exchange_id: i64) -> Result<Catalog, SyncError> {
+pub(crate) fn catalog_for(c: &Connection, _user_id: i64, exchange_id: i64) -> Result<Catalog, SyncError> {
     let mut s = c.prepare("SELECT assets.id FROM assets INNER JOIN exchange_assets ON assets.id = exchange_assets.asset_id WHERE exchange_assets.exchange_id = ?1 ORDER BY exchange_assets.id")?;
     let asset_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     let mut s = c.prepare("SELECT t.ticker, a.category, t.base_asset_id FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id = ?1 ORDER BY t.id")?;
     let tickers = s.query_map([exchange_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?, r.get::<_, i64>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     let mut s = c.prepare("SELECT DISTINCT a.id FROM assets a JOIN exchange_assets ea ON ea.asset_id=a.id WHERE ea.exchange_id=?1 AND a.category IN ('Fiat','Currency') AND a.symbol='USD'")?;
     let cash_ids = s.query_map([exchange_id], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
-    Ok(Catalog { user_id, exchange_id, ..Catalog::new(asset_ids, &tickers, cash_ids) })
+    Ok(Catalog { exchange_id, ..Catalog::new(asset_ids, &tickers, cash_ids) })
 }
 
 impl Catalog {
@@ -1231,7 +1234,7 @@ impl Catalog {
             if category == "Cryptocurrency" { names.push(native.replace('/', "")); }
             for name in names { by_symbol.entry((category.clone(), name)).or_default().insert(*asset); }
         }
-        Catalog { user_id: 0, exchange_id: 0, asset_ids, by_symbol, cash_ids }
+        Catalog { exchange_id: 0, asset_ids, by_symbol, cash_ids }
     }
 
     /// The distinct assets a position of this class and symbol could be (2.x's `candidates`, uniq by id).
@@ -1321,10 +1324,10 @@ pub fn float_round(number: f64, ndigits: i32) -> f64 {
     f / s
 }
 
-/// The user's balance rows on this venue for assets no longer held: AccountBalance::Sync#sync! deletes them.
-fn gone(c: &Connection, user_id: i64, exchange_id: i64, kept: &HashSet<i64>) -> Result<Vec<i64>, SyncError> {
-    let mut s = c.prepare("SELECT id, asset_id FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id")?;
-    let rows = s.query_map([user_id, exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+/// The account's balance rows for assets no longer held: AccountBalance::Sync#sync! deletes them.
+fn gone(c: &Connection, account: i64, kept: &HashSet<i64>) -> Result<Vec<i64>, SyncError> {
+    let mut s = c.prepare("SELECT id, asset_id FROM exchange_account_balances WHERE account_id = ?1 ORDER BY id")?;
+    let rows = s.query_map([account], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().filter(|(_, asset)| !kept.contains(asset)).map(|(id, _)| id).collect())
 }
 
@@ -1341,10 +1344,10 @@ fn value_of(total: &BigDec, price: &BigDec) -> f64 { cast_decimal(&(total * pric
 /// first write), so a fallback price can never make the sync refuse.
 pub(crate) fn fits(total: &BigDec, price: &BigDec) -> bool { within(price.to_f()) && within(value_of(total, price)) }
 
-/// The last stored price of each of the user's balances on this venue (the first row of an asset, as `upsert` reads it).
-fn last_prices(c: &Connection, user_id: i64, exchange_id: i64) -> Result<HashMap<i64, Option<BigDec>>, SyncError> {
-    let mut s = c.prepare("SELECT asset_id, usd_price FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id")?;
-    let mut rows = s.query([user_id, exchange_id])?;
+/// The last stored price of each of the account's balances (the first row of an asset, as `upsert` reads it).
+fn last_prices(c: &Connection, account: i64) -> Result<HashMap<i64, Option<BigDec>>, SyncError> {
+    let mut s = c.prepare("SELECT asset_id, usd_price FROM exchange_account_balances WHERE account_id = ?1 ORDER BY id")?;
+    let mut rows = s.query([account])?;
     let mut last = HashMap::new();
     while let Some(r) = rows.next()? {
         let asset: i64 = r.get(0)?;
@@ -1353,16 +1356,16 @@ fn last_prices(c: &Connection, user_id: i64, exchange_id: i64) -> Result<HashMap
     Ok(last)
 }
 
-/// AccountBalance::Sync#sync!'s write for at most `BATCH` holdings: each upserted on (user, exchange, asset).
+/// AccountBalance::Sync#sync!'s write for at most `BATCH` holdings: each upserted on (account, asset).
 #[allow(clippy::too_many_arguments)]
-fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchange_id: i64, held: &[(i64, BigDec, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
+fn upsert(c: &crate::engine::model::FencedTransaction<'_>, account: &crate::identity::AccountRow, held: &[(i64, BigDec, BigDec)], assets: &[Asset], fresh: &HashMap<String, Price>, mut summary: Summary,
           now: DateTime<Utc>, allow_old: bool) -> Result<Summary, SyncError> {
     let at = sql_time(now);
     for (asset_id, free, locked) in held {
         let total = &(free + locked);
         let Some(asset) = assets.iter().find(|a| a.id == *asset_id) else { continue };
-        let existing = c.query_row("SELECT id, usd_price FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3 LIMIT 1",
-                                   params![user_id, exchange_id, asset_id], |r| Ok((r.get::<_, i64>(0)?, stored_decimal(r.get_ref(1)?, 8)))).optional()?;
+        let existing = c.query_row("SELECT id, usd_price FROM exchange_account_balances WHERE account_id = ?1 AND asset_id = ?2 LIMIT 1",
+                                   params![account.id, asset_id], |r| Ok((r.get::<_, i64>(0)?, stored_decimal(r.get_ref(1)?, 8)))).optional()?;
         let (id, old_price) = match existing { Some((id, price)) => (Some(id), if allow_old {price?} else {None}), None => (None, None) };
         let (free, locked) = (cast_decimal(free, 16).to_f(), cast_decimal(locked, 16).to_f());
         // Checked before the first unit; checked again here, so no unit ever writes a value that is no number.
@@ -1376,24 +1379,24 @@ fn upsert(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchang
                 };
                 let (Some(stored), Some(exact)) = (stored, exact) else { return Err(SyncError(format!("a price for {} that is not a number", asset.external_id))) };
                 match id {
-                    Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = ?6, usd_price = ?2, priced_at = ?3, usd_value = ?4, synced_at = ?3, updated_at = ?3 WHERE id = ?5",
+                    Some(id) => c.execute("UPDATE exchange_account_balances SET free = ?1, locked = ?6, usd_price = ?2, priced_at = ?3, usd_value = ?4, synced_at = ?3, updated_at = ?3 WHERE id = ?5",
                                           params![free, stored.to_f(), at, value(&exact)?, id, locked])?,
-                    None => c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, priced_at, usd_value, synced_at, created_at, updated_at) \
-                                       VALUES (?1, ?2, ?3, ?4, ?8, ?5, ?6, ?7, ?6, ?6, ?6)", params![user_id, exchange_id, asset_id, free, stored.to_f(), at, value(&exact)?, locked])?,
+                    None => c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, priced_at, usd_value, synced_at, created_at, updated_at, account_id) \
+                                       VALUES (?1, ?2, ?3, ?4, ?8, ?5, ?6, ?7, ?6, ?6, ?6, ?9)", params![account.user_id, account.exchange_id, asset_id, free, stored.to_f(), at, value(&exact)?, locked, account.id])?,
                 };
             }
             // Stale: the last price and its time stay as they are; the value follows the new quantity.
             (None, Some(price)) => {
                 summary.priced_stale += 1;
-                c.execute("UPDATE account_balances SET free = ?1, locked = ?5, usd_value = ?2, synced_at = ?3, updated_at = ?3 WHERE id = ?4", params![free, value(&price)?, at, id, locked])?;
+                c.execute("UPDATE exchange_account_balances SET free = ?1, locked = ?5, usd_value = ?2, synced_at = ?3, updated_at = ?3 WHERE id = ?4", params![free, value(&price)?, at, id, locked])?;
             }
             (None, None) => {
                 summary.unpriced += 1;
                 match id {
-                    Some(id) => c.execute("UPDATE account_balances SET free = ?1, locked = ?4, usd_price = NULL, priced_at = NULL, usd_value = NULL, synced_at = ?2, updated_at = ?2 WHERE id = ?3",
+                    Some(id) => c.execute("UPDATE exchange_account_balances SET free = ?1, locked = ?4, usd_price = NULL, priced_at = NULL, usd_value = NULL, synced_at = ?2, updated_at = ?2 WHERE id = ?3",
                                           params![free, at, id, locked])?,
-                    None => c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, synced_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?6, ?5, ?5, ?5)",
-                                      params![user_id, exchange_id, asset_id, free, at, locked])?,
+                    None => c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, synced_at, created_at, updated_at, account_id) VALUES (?1, ?2, ?3, ?4, ?6, ?5, ?5, ?5, ?7)",
+                                      params![account.user_id, account.exchange_id, asset_id, free, at, locked, account.id])?,
                 };
             }
         }

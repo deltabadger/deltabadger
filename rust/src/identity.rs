@@ -228,7 +228,7 @@ pub fn touch(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>)
 }
 
 /// The migration's eager rows (20261119000001), again: number 1 for every (user, exchange) a table names and no account
-/// has. Run in the takeover's claim after 2.x owned the install (its keys, bots and rules name exchanges Rust never saw).
+/// has (2.x's balances and venue snapshots: `sync::balance_store::refill_number_one`, which reads them). Run in the takeover's claim after 2.x owned the install (its keys, bots and rules name exchanges Rust never saw).
 pub const FILL: &str = "INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)
   SELECT user_id, exchange_id, 1, ?1, ?1 FROM (
     SELECT user_id, exchange_id FROM api_keys
@@ -236,8 +236,6 @@ pub const FILL: &str = "INSERT INTO exchange_accounts (user_id, exchange_id, num
     UNION SELECT b.user_id, t.exchange_id FROM transactions t JOIN bots b ON b.id = t.bot_id
     UNION SELECT user_id, exchange_id FROM rules
     UNION SELECT user_id, exchange_id FROM account_transactions
-    UNION SELECT user_id, exchange_id FROM account_balances
-    UNION SELECT user_id, exchange_id FROM portfolio_venue_snapshots
     UNION SELECT user_id, exchange_id FROM exchange_account_imports
     UNION SELECT user_id, exchange_id FROM import_rows
     UNION SELECT user_id, exchange_id FROM import_cutoffs
@@ -262,6 +260,19 @@ fn account_sql(membership: &str, column: &str, alias: &str) -> String {
               WHERE a.user_id = {alias}.user_id AND a.exchange_id = {alias}.exchange_id
               AND CASE WHEN m.account_id IS NULL THEN a.number = 1 ELSE a.id = m.account_id END)")
 }
+/// A unit test's in-memory install: the account tables, each key's number 1 made as it is inserted (rows are eager), and
+/// the balance and venue snapshot stores' `account_id`, the columns the readers name.
+#[doc(hidden)]
+pub const TEST_ACCOUNT_TABLES: &str = "CREATE TABLE exchange_accounts(id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, number INTEGER,
+      fingerprint TEXT, account_id_enc BLOB, removed_at TEXT, created_at TEXT, updated_at TEXT);
+    CREATE TABLE exchange_account_keys(api_key_id INTEGER PRIMARY KEY, account_id INTEGER);
+    CREATE TABLE exchange_account_rows(account_transaction_id INTEGER PRIMARY KEY, account_id INTEGER, venue_tx_id TEXT);
+    CREATE TRIGGER test_eager_accounts AFTER INSERT ON api_keys BEGIN
+      INSERT INTO exchange_accounts(user_id, exchange_id, number) SELECT NEW.user_id, NEW.exchange_id, 1
+      WHERE NOT EXISTS (SELECT 1 FROM exchange_accounts WHERE user_id = NEW.user_id AND exchange_id = NEW.exchange_id AND number = 1); END;";
+
+/// SQL: api key row `alias`'s account id (NULL as the resolver reads it: a foreign membership, a number 1 with no row).
+pub fn key_account_sql(alias: &str) -> String { account_sql("exchange_account_keys", "api_key_id", alias) }
 /// `read` given the SQL of api key row `alias`'s account (`account_of_key`, NULL as `account_sql`), run again with NULL for
 /// every key on an install without the account tables. One statement on a migrated install (page read budgets count them).
 pub fn with_key_account<T>(alias: &str, read: impl Fn(&str) -> rusqlite::Result<T>) -> rusqlite::Result<T> {
@@ -361,6 +372,59 @@ impl Account {
         if self.number(c)? != 1 { c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [api_key_id, id])?; }
         Ok(())
     }
+}
+
+/// #710 slice 5 (PLAN-710-5 §5): an account as the tracker and the balance stores read it: the unit of balances, venue
+/// snapshots, freshness and provenance. A number 1 with no row yet (`Account::id` None: a key 2.x saved, before the
+/// takeover's FILL) reads as `id` = minus its exchange id: its keys and ledger rows are the number-1 ones, it holds no
+/// stored row (every store write makes the row first), and its provenance key is number 1's.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct AccountRow { pub id: i64, pub user_id: i64, pub exchange_id: i64, pub number: i64 }
+
+impl AccountRow {
+    const COLUMNS: &'static str = "id, user_id, exchange_id, number";
+    fn read(r: &rusqlite::Row<'_>) -> rusqlite::Result<Self> { Ok(Self { id: r.get(0)?, user_id: r.get(1)?, exchange_id: r.get(2)?, number: r.get(3)? }) }
+    /// Account row `id` (live or not).
+    pub fn by_id(c: &Connection, id: i64) -> rusqlite::Result<Option<Self>> {
+        c.query_row(&format!("SELECT {} FROM exchange_accounts WHERE id = ?1", Self::COLUMNS), [id], Self::read).optional()
+    }
+    /// `account`'s row; a number 1 no write has made yet as its stand-in (none on an install without the account tables).
+    pub fn of(c: &Connection, account: &Account) -> rusqlite::Result<Option<Self>> {
+        match account.id {
+            Some(id) => Self::by_id(c, id),
+            None if account.scoped => Ok(Some(Self::unplaced(account.user_id, account.exchange_id))),
+            None => Ok(None),
+        }
+    }
+    /// The stand-in of (user, exchange)'s number 1 while it has no row.
+    pub fn unplaced(user_id: i64, exchange_id: i64) -> Self { Self { id: -exchange_id, user_id, exchange_id, number: 1 } }
+    /// Whether this is a stand-in (`unplaced`), which no store row names.
+    pub fn placed(&self) -> bool { self.id > 0 }
+    /// Api key `api_key_id`'s account's row.
+    pub fn of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<Self>> {
+        match Account::of_key(c, api_key_id)? { Some(a) => Self::of(c, &a), None => Ok(None) }
+    }
+    /// Api key `api_key_id`'s account's row, made (as `Account::ensure`) where its number 1 has none. Call in the write's
+    /// own transaction.
+    pub fn ensure_of_key(c: &Connection, api_key_id: i64, now: DateTime<Utc>) -> rusqlite::Result<Option<Self>> {
+        match Account::of_key(c, api_key_id)? { Some(a) => Self::of(c, &a.ensure(c, now)?), None => Ok(None) }
+    }
+    /// The number 1 of (user, exchange), when it has its row.
+    pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Option<Self>> {
+        c.query_row(&format!("SELECT {} FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", Self::COLUMNS), [user_id, exchange_id], Self::read).optional()
+    }
+    /// The user's accounts whose ids `sql` (a SELECT of account ids, `?1` the user) names, by id.
+    pub fn listed(c: &Connection, user_id: i64, sql: &str) -> rusqlite::Result<Vec<Self>> {
+        let mut s = c.prepare(&format!("SELECT {} FROM exchange_accounts WHERE user_id = ?1 AND id IN ({sql}) ORDER BY id", Self::COLUMNS))?;
+        let out = s.query_map([user_id], Self::read)?.collect::<Result<Vec<_>, _>>()?;
+        Ok(out)
+    }
+    /// The resolver's form of this account (key and bot conditions).
+    pub fn account(&self) -> Account { Account { user_id: self.user_id, exchange_id: self.exchange_id, id: self.placed().then_some(self.id), scoped: true } }
+    /// Its ledger rows' and bot orders' scope (venue_ids).
+    pub fn venue_ids(&self) -> crate::venue_ids::Scope { crate::venue_ids::Scope::of_row(self) }
+    /// SQL condition: api key row `alias` is one of this account's keys.
+    pub fn keys(&self, alias: &str) -> String { self.account().keys(alias) }
 }
 
 /// Bot `bot_id` of (`user_id`, `exchange_id`), just inserted or just moved to that exchange, belongs to `account` (None: the

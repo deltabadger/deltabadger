@@ -32,7 +32,7 @@ fn write(c: &Connection, key: &sync::Key, rows: &[writer::Input]) -> Result<sync
     tx.commit()?;Ok(out)
 }
 fn state(c: &Connection) -> Value {
-    let tables=["account_transactions","app_configs","portfolio_snapshots","portfolio_venue_snapshots","api_keys","transactions"];
+    let tables=["account_transactions","app_configs","portfolio_snapshots","exchange_account_snapshots","api_keys","transactions"];
     json!(tables.map(|table| { let mut s=c.prepare(&format!("SELECT * FROM {table} ORDER BY id")).unwrap(); let n=s.column_count();
         s.query_map([],|r|Ok((0..n).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap() }))
 }
@@ -113,7 +113,7 @@ fn suppress(c: &Connection, coin: &str) {
     } app_config::set_plain(&tx,&key,&v.to_string(),now()).unwrap();}
     for owner in owners {
         for key in [deltabadger::tracker::cache::key(owner),deltabadger::tracker::backfill::history_key(owner),deltabadger::tracker::backfill::price_key(owner)] {tx.execute("DELETE FROM app_configs WHERE key=?1",[key]).unwrap();}
-        for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {tx.execute(&format!("DELETE FROM {table} WHERE user_id=?1"),[owner]).unwrap();}
+        for table in ["portfolio_snapshots","exchange_account_snapshots"] {tx.execute(&format!("DELETE FROM {table} WHERE user_id=?1"),[owner]).unwrap();}
     }tx.commit().unwrap();
 }
 
@@ -134,13 +134,14 @@ fn invalidation_and_marker_roll_back_with_failed_insert_and_zero_insert_retry_is
     let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());let rows=pair("p1","BTC");
     for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::cache::sales_key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
     c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES (?1,'2099-01-01','2099-01-01','2099-01-01')",[key.user_id]).unwrap();
-    c.execute("INSERT INTO portfolio_venue_snapshots(user_id,exchange_id,date,created_at,updated_at) VALUES (?1,?2,'2099-01-01','2099-01-01','2099-01-01')",params![key.user_id,key.exchange_id]).unwrap();
+    common::number_one(c, key.user_id, key.exchange_id);
+    c.execute("INSERT INTO exchange_account_snapshots(user_id,exchange_id,date,created_at,updated_at,account_id) VALUES (?1,?2,'2099-01-01','2099-01-01','2099-01-01',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",params![key.user_id,key.exchange_id]).unwrap();
     let before=state(c);
     c.execute_batch("CREATE TEMP TRIGGER fail_invalidation BEFORE DELETE ON app_configs BEGIN SELECT RAISE(ABORT,'simulated crash'); END").unwrap();
     assert!(write(c,&key,&rows).is_err());assert_eq!(state(c),before);c.execute_batch("DROP TRIGGER fail_invalidation").unwrap();
     assert_eq!(write(c,&key,&rows).unwrap().imported,2);assert!(app_config::get_plain(c,&deltabadger::tracker::cache::key(key.user_id)).unwrap().is_none());
     assert!(app_config::get_plain(c,&deltabadger::tracker::cache::sales_key(key.user_id)).unwrap().is_none(),"the bot sales go with the ledger entry");
-    for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {assert_eq!(c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);}
+    for table in ["portfolio_snapshots","exchange_account_snapshots"] {assert_eq!(c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);}
     let after=state(c);assert_eq!(write(c,&key,&rows).unwrap().imported,0);assert_eq!(state(c),after);
 }
 

@@ -114,7 +114,7 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: Option<i64>, show_cas
         crate::tracker::cache::State::Cold | crate::tracker::cache::State::Failed(_) => None,
     };
     let has_keys: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [owner], |r| r.get(0))?;
-    let balances: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) AND free+locked>0)", rusqlite::params![owner, scope], |r| r.get(0))?;
+    let balances: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND (?2 IS NULL OR exchange_id=?2) AND free+locked>0)", rusqlite::params![owner, scope], |r| r.get(0))?;
     let marked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND balances_synced_at IS NOT NULL)", [owner], |r| r.get(0))?;
     Ok(Ok(Portfolio { warm, ledger, published, cold, has_keys, never_synced: has_keys && !balances && !marked }))
 }

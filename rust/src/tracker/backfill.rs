@@ -78,7 +78,7 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
         let Some(first) = first.filter(|f| *f <= yesterday) else { continue };
         let days = match scope {
             None => days("SELECT date, held_cost_usd IS NULL, partial FROM portfolio_snapshots WHERE user_id = ?1 AND ?2 IS NULL ORDER BY date", None)?,
-            Some(id) => days("SELECT date, held_cost_usd IS NULL, partial FROM portfolio_venue_snapshots WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY date", Some(id))?,
+            Some(id) => days("SELECT date, held_cost_usd IS NULL, partial FROM exchange_account_snapshots WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY date", Some(id))?,
         };
         let window: Vec<&(NaiveDate, bool, bool)> = days.iter().filter(|(d, _, _)| first <= *d && *d <= yesterday).collect();
         crate::figures::budget::charge(days.len() as u64, 0)?;
@@ -450,12 +450,14 @@ fn apply(held: &mut Held, t: &Stored, linked: &dyn Fn(&Stored) -> bool, by_id: &
 pub fn store(c: &crate::engine::model::FencedTransaction<'_>, cipher: &Cipher, user_id: i64, swept: &Swept, last: NaiveDate, version: &str, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
     for (date, day) in &swept.whole { crate::figures::budget::charge(1, 0)?; upsert_whole(c, user_id, *date, day)?; }
     // Rewritten whole, not merged: a day a venue no longer has must not stay behind. Today is `record!`'s.
-    c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
+    c.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
     let mut s = c.prepare_cached(
-        "INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) ON CONFLICT DO NOTHING")?;
+        "INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at, account_id) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), \
+         (SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1)) ON CONFLICT DO NOTHING")?;
     for (exchange_id, date, day) in &swept.venue {
         crate::figures::budget::charge(1, 0)?;
+        crate::identity::touch(c, user_id, *exchange_id, now)?;
         let col = |d: &Option<Dec>| d.as_ref().map(super::snapshot::column).transpose();
         s.execute(rusqlite::params![user_id, exchange_id, date.to_string(), super::snapshot::column(&day.value)?, super::snapshot::column(&day.invested)?,
                                     col(&day.held_value)?, col(&day.held_cost)?, day.partial])?;
@@ -487,7 +489,7 @@ mod tests {
             CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, transacted_at TEXT, updated_at TEXT, base_currency TEXT, base_asset_id INTEGER);
             INSERT INTO account_transactions VALUES (1, 1, 1, '2026-09-01 14:00:00', '2026-09-01 15:00:00', 'USD', NULL);
             CREATE TABLE portfolio_snapshots (id INTEGER PRIMARY KEY, user_id INTEGER, date TEXT, held_cost_usd NUMERIC, partial BOOLEAN);
-            CREATE TABLE portfolio_venue_snapshots (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, date TEXT, held_cost_usd NUMERIC, partial BOOLEAN);
+            CREATE TABLE exchange_account_snapshots (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, date TEXT, held_cost_usd NUMERIC, partial BOOLEAN);
             CREATE TABLE app_configs (id INTEGER PRIMARY KEY, key TEXT UNIQUE, value TEXT, created_at TEXT, updated_at TEXT);").unwrap();
         c
     }
@@ -578,7 +580,7 @@ mod tests {
         let mut d = day("2026-09-01");
         while d <= day("2026-10-01") {
             c.execute("INSERT INTO portfolio_snapshots (user_id, date, held_cost_usd, partial) VALUES (1, ?1, 400, 0)", [d.to_string()]).unwrap();
-            c.execute("INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, held_cost_usd, partial) VALUES (1, 1, ?1, 400, 0)", [d.to_string()]).unwrap();
+            c.execute("INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, held_cost_usd, partial) VALUES (1, 1, ?1, 400, 0)", [d.to_string()]).unwrap();
             d = d.succ_opt().unwrap();
         }
         cipher
@@ -596,7 +598,7 @@ mod tests {
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "every day stored, nothing moved");
         // Unswept and partial before the first transaction, the prices' generation never stamped: still nothing a sweep can reach.
         c.execute("INSERT INTO portfolio_snapshots (user_id, date, held_cost_usd, partial) VALUES (1, '2026-08-20', NULL, 1)", []).unwrap();
-        c.execute("INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, held_cost_usd, partial) VALUES (1, 1, '2026-08-25', 400, 0)", []).unwrap();
+        c.execute("INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, held_cost_usd, partial) VALUES (1, 1, '2026-08-25', 400, 0)", []).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "rows before the first transaction");
         // A history another calculation swept (a 2.x install's, or this build's before D-TRACKER-COIN-QUOTE) is swept again.
         c.execute("DELETE FROM app_configs WHERE key = ?1", [calculation_key(1)]).unwrap();
@@ -609,9 +611,9 @@ mod tests {
         mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),
-                              ("a venue's row missing", "DELETE FROM portfolio_venue_snapshots WHERE date = '2026-09-15'"),
-                              ("a venue's history starting late", "DELETE FROM portfolio_venue_snapshots WHERE date BETWEEN '2026-09-01' AND '2026-09-03'"),
-                              ("a venue day never swept", "UPDATE portfolio_venue_snapshots SET held_cost_usd = NULL WHERE date = '2026-09-10'"),
+                              ("a venue's row missing", "DELETE FROM exchange_account_snapshots WHERE date = '2026-09-15'"),
+                              ("a venue's history starting late", "DELETE FROM exchange_account_snapshots WHERE date BETWEEN '2026-09-01' AND '2026-09-03'"),
+                              ("a venue day never swept", "UPDATE exchange_account_snapshots SET held_cost_usd = NULL WHERE date = '2026-09-10'"),
                               ("a partial day in the window, with prices since", "UPDATE portfolio_snapshots SET partial = 1 WHERE date = '2026-09-10'")] {
             let c = install();
             let cipher = swept(&c);

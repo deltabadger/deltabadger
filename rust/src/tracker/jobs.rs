@@ -113,7 +113,7 @@ pub struct Inputs {
 /// `Inputs` for the user, in one read transaction.
 pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError> {
     let tx = c.unchecked_transaction()?;
-    let origin = crate::sync::cache::capture_read(&tx, user_id, None).map_err(|_| FiguresError::Data("snapshot provenance unavailable".into()))?;
+    let origin = crate::sync::cache::capture_read(&tx, user_id, &crate::tracker::Scope::All).map_err(|_| FiguresError::Data("snapshot provenance unavailable".into()))?;
     let cache = super::cache::version(&tx, user_id)?;
     let history = backfill::history_version(&tx, user_id)?;
     let generation = backfill::generation(&tx)?;
@@ -511,7 +511,7 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&Feed<T>>,ecb:Opti
             cx.db.run(move|c,_|{
                 let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
                 let before=super::cache::version(&tx,owner).map_err(message)?;
-                let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
+                let origin=crate::sync::cache::capture_read(&tx,owner,&crate::tracker::Scope::All).map_err(|_|"ledger cache provenance unavailable")?;
                 tx.commit().map_err(|e|e.to_string())?;
                 written_for(c,&origin,&*clock,|c,now|{
                     super::cache::publish(c,owner,&before,None,now)
@@ -618,7 +618,7 @@ mod tests {
             INSERT INTO assets VALUES (1, 'AAPL.US', 'Stock', 'AAPL', NULL), (2, 'bitcoin', 'Cryptocurrency', 'BTC', 1);
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'AAPL', 1), (2, 1, 'BTC', 2);
             CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
-            CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
+            CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
             CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC, UNIQUE (currency, date));
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
             CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_asset_id INTEGER, base_amount NUMERIC,

@@ -123,7 +123,7 @@ async fn a_balance_sync_on_a_coingecko_install_asks_simple_price() {
     let clock = FixedClock(at());
     assert_eq!(job.run(Cx { db: fx.db(), clock: &clock, wakers: Wakers::default() }, vec![]).await, Outcome::Done);
     assert_eq!(t.requests().iter().map(|r| r.path.as_str()).collect::<Vec<_>>(), ["/api/v3/simple/price"]);
-    let price: f64 = fx.c().query_row("SELECT usd_price FROM account_balances WHERE asset_id = ?1", [fx.s.btc], |r| r.get(0)).unwrap();
+    let price: f64 = fx.c().query_row("SELECT usd_price FROM exchange_account_balances WHERE asset_id = ?1", [fx.s.btc], |r| r.get(0)).unwrap();
     assert_eq!(price, 61000.0);
 }
 

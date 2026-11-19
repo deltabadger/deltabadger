@@ -41,7 +41,7 @@ pub struct VenueGap { pub exchange_id: Option<i64>, pub venue: Option<String>, p
 /// by venue name; `arrived` (symbols held since the sync, with no balance row and no price) as a venue-less entry.
 pub fn read(c: &Connection, owner: i64, scope: Option<i64>, arrived: &[String]) -> Result<Vec<VenueGap>, FiguresError> {
     let mut now = ByVenue::new();
-    let mut s = c.prepare("SELECT b.exchange_id, a.symbol FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+    let mut s = c.prepare("SELECT b.exchange_id, a.symbol FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
                            WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 AND (b.usd_value IS NULL OR b.usd_value <= 0)")?;
     let mut q = s.query(rusqlite::params![owner, scope])?;
     while let Some(r) = q.next()? {
@@ -66,7 +66,7 @@ pub fn read(c: &Connection, owner: i64, scope: Option<i64>, arrived: &[String]) 
 pub fn chart_incomplete(c: &Connection, owner: i64, scope: Option<i64>) -> Result<bool, FiguresError> {
     Ok(match scope {
         None => c.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id = ?1 AND partial)", [owner], |r| r.get(0))?,
-        Some(id) => c.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id = ?1 AND exchange_id = ?2 AND partial)", rusqlite::params![owner, id], |r| r.get(0))?,
+        Some(id) => c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id = ?1 AND exchange_id = ?2 AND partial)", rusqlite::params![owner, id], |r| r.get(0))?,
     })
 }
 
@@ -79,12 +79,12 @@ mod tests {
         c.execute_batch("CREATE TABLE app_configs (id INTEGER PRIMARY KEY, key TEXT UNIQUE, value TEXT, created_at TEXT, updated_at TEXT);
             CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
             CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT);
-            CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, asset_id INTEGER, free REAL, locked REAL, usd_value REAL);
+            CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, asset_id INTEGER, free REAL, locked REAL, usd_value REAL);
             CREATE TABLE portfolio_snapshots (user_id INTEGER, date TEXT, partial BOOLEAN);
-            CREATE TABLE portfolio_venue_snapshots (user_id INTEGER, exchange_id INTEGER, date TEXT, partial BOOLEAN);
+            CREATE TABLE exchange_account_snapshots (user_id INTEGER, exchange_id INTEGER, date TEXT, partial BOOLEAN);
             INSERT INTO exchanges VALUES (1, 'Alpaca'), (2, 'Kraken');
             INSERT INTO assets VALUES (1, 'BTC'), (2, 'AAPL'), (3, 'ETH');
-            INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value) VALUES
+            INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_value) VALUES
               (1, 1, 1, 0.1, 0, NULL), (1, 1, 2, 2, 0, 400), (1, 2, 1, 0.2, 0, 12000), (1, 2, 3, 1, 0, 0), (1, 2, 2, 0, 0, NULL), (2, 1, 1, 1, 0, NULL);").unwrap();
         c
     }
@@ -121,7 +121,7 @@ mod tests {
     fn the_chart_is_incomplete_when_a_drawn_day_is_partial() {
         let c = install();
         assert!(!chart_incomplete(&c, 1, None).unwrap());
-        c.execute_batch("INSERT INTO portfolio_snapshots VALUES (1, '2026-11-01', 0); INSERT INTO portfolio_venue_snapshots VALUES (1, 2, '2026-11-01', 1);").unwrap();
+        c.execute_batch("INSERT INTO portfolio_snapshots VALUES (1, '2026-11-01', 0); INSERT INTO exchange_account_snapshots VALUES (1, 2, '2026-11-01', 1);").unwrap();
         assert!(!chart_incomplete(&c, 1, None).unwrap());
         assert!(chart_incomplete(&c, 1, Some(2)).unwrap());
         assert!(!chart_incomplete(&c, 1, Some(1)).unwrap());

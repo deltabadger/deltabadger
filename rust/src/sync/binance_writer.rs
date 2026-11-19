@@ -86,7 +86,7 @@ fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
         c.execute("DELETE FROM app_configs WHERE key=?1",[key])?;
     }
     c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;
-    c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",[owner])?; Ok(())
+    super::balance_store::forget_snapshots(c,owner)?; Ok(())
 }
 /// A row as the writer and the repair compare it: its columns, `tx_id` its venue id wherever its account keeps it, and
 /// for an account 2+'s row `account_id` its account (#710).

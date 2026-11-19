@@ -128,7 +128,8 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
         deltabadger::app_config::set_plain(c, &key, "old", now).unwrap();
     }
     c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES(?1,'2026-09-20','2026-09-20','2026-09-20')",[s.user_id]).unwrap();
-    c.execute("INSERT INTO portfolio_venue_snapshots(user_id,exchange_id,date,created_at,updated_at) VALUES(?1,?2,'2026-09-20','2026-09-20','2026-09-20')",rusqlite::params![s.user_id,s.exchange_id]).unwrap();
+    common::number_one(c, s.user_id, s.exchange_id);
+    c.execute("INSERT INTO exchange_account_snapshots(user_id,exchange_id,date,created_at,updated_at,account_id) VALUES(?1,?2,'2026-09-20','2026-09-20','2026-09-20',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",rusqlite::params![s.user_id,s.exchange_id]).unwrap();
     // A cancelled startup rolls back the amounts, derived invalidation and marker together.
     {
         let tx = c.unchecked_transaction().unwrap();
@@ -216,7 +217,7 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
             .unwrap()
             .is_none());
     }
-    for table in ["portfolio_snapshots", "portfolio_venue_snapshots"] {
+    for table in ["portfolio_snapshots", "exchange_account_snapshots"] {
         assert_eq!(
             c.query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r
                 .get::<_, i64>(0))

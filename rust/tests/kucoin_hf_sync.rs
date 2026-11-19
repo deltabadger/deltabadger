@@ -877,7 +877,7 @@ impl Fx {
     fn reopened(&self) -> Connection { Connection::open(self.dir.path().join("production.sqlite3")).unwrap() }
     fn holdings(&self) -> std::collections::BTreeMap<String, f64> {
         let c = self.reopened();
-        let mut s = c.prepare("SELECT a.symbol, b.free + b.locked FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1").unwrap();
+        let mut s = c.prepare("SELECT a.symbol, b.free + b.locked FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1").unwrap();
         s.query_map([self.user], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
     fn uta_rows(&self, entry_type: Option<i64>) -> i64 {
@@ -897,8 +897,9 @@ async fn u1a_unified_balances_store_balance_and_a_debt_currency_keeps_its_row() 
         for symbol in ["BTC", "USDT"] {
             fx.c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, created_at, updated_at) SELECT ?1, id, '2026-01-01', '2026-01-01' FROM assets WHERE symbol = ?2",
                          rusqlite::params![fx.exchange, symbol]).unwrap();
-            fx.c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
-                          SELECT ?1, ?2, id, 9, 0, 0, '2026-10-01', '2026-10-01', '2026-10-01' FROM assets WHERE symbol = ?3", rusqlite::params![fx.user, fx.exchange, symbol]).unwrap();
+            common::number_one(&fx.c, fx.user, fx.exchange);
+            fx.c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at, account_id) \
+                          SELECT ?1, ?2, id, 9, 0, 0, '2026-10-01', '2026-10-01', '2026-10-01', (SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1) FROM assets WHERE symbol = ?3", rusqlite::params![fx.user, fx.exchange, symbol]).unwrap();
         }
         let api = Api::new("uta", &[]);
         *api.0.uta_balance.borrow_mut() = Some(c["response"].clone());

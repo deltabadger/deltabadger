@@ -36,7 +36,7 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
 /// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.
 pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<Balance>, FiguresError> {
     let mut s = c.prepare(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
          WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 ORDER BY b.id")?;
     let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
@@ -204,7 +204,7 @@ impl Figures {
 /// asset of that symbol.
 fn asset_for(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<i64>, FiguresError> {
     use rusqlite::OptionalExtension;
-    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND a.symbol = ?2 ORDER BY b.id LIMIT 1",
+    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND a.symbol = ?2 ORDER BY b.id LIMIT 1",
         rusqlite::params![user_id, symbol], |r| r.get(0)).optional()?;
     if held.is_some() { return Ok(held); }
     let catalog: Option<i64> = c.query_row("SELECT id FROM assets WHERE symbol = ?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category = 'Cryptocurrency' DESC, id LIMIT 1",
@@ -434,7 +434,7 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT, category TEXT);
                          CREATE TABLE account_transactions (user_id INTEGER, base_currency TEXT, base_asset_id INTEGER, exchange_id INTEGER);
-                         CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
+                         CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
                          CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
                          INSERT INTO assets VALUES (1, 'BTC', 'Cryptocurrency'), (2, 'SOL', 'Cryptocurrency'), (3, 'EUR', 'Fiat');").unwrap();
         let f = crate::figures::budget::within(|| compute_on(&c, 1, &Summary::empty(), balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();

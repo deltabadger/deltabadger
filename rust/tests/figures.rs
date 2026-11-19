@@ -68,6 +68,11 @@ fn grid() -> &'static Grid {
         let v2_root = recorded.join("expected");
         let rust_root = tempfile::tempdir().unwrap();
         common::copy_tree(&recorded.join("input"), rust_root.path());
+        // Rust's side starts as `run`/`serve` take an install: this build's Rust migrations applied.
+        for e in std::fs::read_dir(rust_root.path()).unwrap() {
+            let database = e.unwrap().path().join("production.sqlite3");
+            if database.is_file() { deltabadger::store::test_support::migrate(&rusqlite::Connection::open(&database).unwrap()).unwrap(); }
+        }
         let mut dirs: Vec<PathBuf> = std::fs::read_dir(&v2_root).unwrap().map(|e| e.unwrap().path()).filter(|p| p.join("scenario.json").exists()).collect();
         dirs.sort();
         let scenarios = dirs.iter().map(|dir| {
@@ -638,6 +643,7 @@ async fn coingecko_accounts_convert() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("production.sqlite3");
         std::fs::copy(recorded.join("input").join(name).join("production.sqlite3"), &file).unwrap();
+        deltabadger::store::test_support::migrate(&rusqlite::Connection::open(&file).unwrap()).unwrap();
         let sc: Value = serde_json::from_str(&std::fs::read_to_string(recorded.join("input").join(name).join("scenario.json")).unwrap()).unwrap();
         // The recording harness keys a price by its ids and currency; the wire keys a request by its whole sorted query.
         let mut script = serde_json::Map::new();

@@ -315,8 +315,9 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     assert_eq!(browser.get(&app, "/bots").await.status, 200, "no bots, no balances: the empty page");
 
     // Ruling R: a legacy balance with no credential producer remains unavailable.
-    opened.primary.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
-                            VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4)", (seeded.user_id, seeded.exchange_id, seeded.btc, "2026-01-01 00:00:00")).unwrap();
+    common::number_one(&opened.primary, seeded.user_id, seeded.exchange_id);
+    opened.primary.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at, account_id) \
+                            VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4, (SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))", (seeded.user_id, seeded.exchange_id, seeded.btc, "2026-01-01 00:00:00")).unwrap();
     let with_holdings = browser.get(&app, "/bots").await;
     assert!(with_holdings.status == 200 && with_holdings.body.contains("class=\"stroke--icon\"") && !with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "unknown credential provenance must not draw a current holding");
 
@@ -2183,13 +2184,14 @@ async fn holdings_that_add_up_to_no_number_refuse_the_pages_that_draw_the_ring()
     let c = &opened.primary;
     let paths = ["/bots".to_string(), format!("/bots/{working}"), format!("/bots/{stopped}"), format!("/bots/{stopped}/chart")];
     for value in [f64::INFINITY, 12.5] {
-        c.execute("INSERT INTO account_balances (asset_id, exchange_id, user_id, free, locked, usd_price, usd_value, synced_at, created_at, updated_at) \
-                   VALUES (?1, ?2, ?3, '1', '0', '100', ?4, '2026-09-10 12:00:00', '2026-09-10 12:00:00', '2026-09-10 12:00:00')",
+        common::number_one(c, seeded.user_id, seeded.exchange_id);
+        c.execute("INSERT INTO exchange_account_balances (asset_id, exchange_id, user_id, free, locked, usd_price, usd_value, synced_at, created_at, updated_at, account_id) \
+                   VALUES (?1, ?2, ?3, '1', '0', '100', ?4, '2026-09-10 12:00:00', '2026-09-10 12:00:00', '2026-09-10 12:00:00', (SELECT id FROM exchange_accounts WHERE user_id = ?3 AND exchange_id = ?2 AND number = 1))",
                   rusqlite::params![seeded.btc, seeded.exchange_id, seeded.user_id, value]).unwrap();
         let mut statuses = vec![];
         for path in &paths { statuses.push(browser.get(&app, path).await.status); }
         assert_eq!(statuses, if value.is_finite() { [200; 4] } else { [501; 4] }, "{value}");
-        c.execute("DELETE FROM account_balances", []).unwrap();
+        c.execute("DELETE FROM exchange_account_balances", []).unwrap();
     }
 }
 

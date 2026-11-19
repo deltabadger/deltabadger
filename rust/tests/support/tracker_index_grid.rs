@@ -11,8 +11,10 @@ use std::path::Path;
 #[derive(Clone,Copy)]
 pub enum Mode { Exact, BadRequest, FirstSync, Holdings, Served, ServerError }
 pub fn snapshot(c: &Connection) -> Value {
+    // 2.x's tables: Rust's own (`REGISTRY.owned_tables()`, the migration the harness applies made them) are not 2.x's rows.
+    let owned = deltabadger::store::REGISTRY.owned_tables();
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
-        .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+        .query_map([],|r|r.get(0)).unwrap().collect::<Result<Vec<String>,_>>().unwrap().into_iter().filter(|n| !owned.contains(&n.as_str())).collect();
     let mut tables = Map::new();
     for name in names {
         let mut statement = c.prepare(&format!("SELECT * FROM {name} ORDER BY 1")).unwrap();
@@ -106,6 +108,8 @@ pub async fn check_grid(script:&str,variable:&str,count:usize,selected:&[&str],m
         for file in ["production.sqlite3","production_queue.sqlite3"]{std::fs::copy(source.join(file),dir.path().join(file)).unwrap();}
         let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let before=restore(&c,expected);
+        // As `run`/`serve` take the install (#710 slice 5: 2.x's balances and venue snapshots move to their stores).
+        deltabadger::store::test_support::migrate(&c).unwrap();
         // 2.x keeps no credential provenance. A Rust sync stamps which key produced the balances; seed that
         // completed stamp for the holdings cases (not for `holdings_unsynced`), then remove it before the row check.
         let seeded=if matches!(mode(&name),Mode::Holdings) && name!="holdings_unsynced" {

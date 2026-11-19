@@ -112,12 +112,12 @@ async fn no_gap_unless_the_venue_passes_every_rule() {
         Case { name: "ledger stamp of another credential", cold: true, setup: |fx, _, key| { fx.c().execute("UPDATE app_configs SET value='{}' WHERE key=?1", [format!("rust_job.ledger_origin:{key}")]).unwrap(); } },
         Case { name: "ledger run left incomplete", cold: true, setup: |fx, _, key| { deltabadger::jobs::state::mark_incomplete(&fx.c(), deltabadger::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), at()).unwrap(); } },
         Case { name: "balance stamp incomplete", cold: false, setup: |fx, exchange, key| { let c = fx.c(); let v = deltabadger::engine::model::credential_version_by_id(&c, key).unwrap().unwrap(); deltabadger::engine::model::credential_write(&c, &Some(v.clone()), |f| deltabadger::sync::cache::record(f, fx.owner(), exchange, &v, false, at())).unwrap(); } },
-        Case { name: "unpriced holding", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE account_balances SET usd_value=NULL, usd_price=NULL WHERE exchange_id=?1", [exchange]).unwrap(); } },
-        Case { name: "stale price", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE account_balances SET priced_at='2026-09-30 00:00:00' WHERE exchange_id=?1", [exchange]).unwrap(); } },
+        Case { name: "unpriced holding", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE exchange_account_balances SET usd_value=NULL, usd_price=NULL WHERE exchange_id=?1", [exchange]).unwrap(); } },
+        Case { name: "stale price", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE exchange_account_balances SET priced_at='2026-09-30 00:00:00' WHERE exchange_id=?1", [exchange]).unwrap(); } },
         Case { name: "a row since the watermark", cold: false, setup: |fx, exchange, _| { insert_row(&fx.c(), fx.owner(), exchange, 0, "SOL", "1", Some(("USD", "100")), "2026-10-01 02:00:00"); } },
-        Case { name: "cash only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("USDT", "5000", "1")]); } },
-        Case { name: "a $6 gap", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE account_balances SET free=0.003, usd_value=6 WHERE exchange_id=?1", [exchange]).unwrap(); } },
-        Case { name: "left only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("SOL", "0.001", "100")]); insert_row(&fx.c(), fx.owner(), exchange, 0, "BTC", "0.5", Some(("USDT", "20000")), "2022-01-10 09:00:00"); } },
+        Case { name: "cash only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM exchange_account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("USDT", "5000", "1")]); } },
+        Case { name: "a $6 gap", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE exchange_account_balances SET free=0.003, usd_value=6 WHERE exchange_id=?1", [exchange]).unwrap(); } },
+        Case { name: "left only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM exchange_account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("SOL", "0.001", "100")]); insert_row(&fx.c(), fx.owner(), exchange, 0, "BTC", "0.5", Some(("USDT", "20000")), "2022-01-10 09:00:00"); } },
     ];
     for case in cases {
         let fx = alpaca_synced("0.01").await;
@@ -287,7 +287,7 @@ async fn the_step_runs_on_its_own_budget_after_the_tightest_publish() {
     assert!(!gaps::derive_logged(&db, fx.owner(), Arc::new(at)).await, "the starved step writes nothing");
     assert_eq!(left.steps, 0);
     assert_eq!(cache_of(&copies[2].1, fx.owner()), cache_of(&copies[0].1, fx.owner()), "the cache as the producer alone left it");
-    let snapshots = |file: &PathBuf| Connection::open(file).unwrap().query_row("SELECT (SELECT count(*) FROM portfolio_snapshots) || '/' || (SELECT count(*) FROM portfolio_venue_snapshots)", [], |r| r.get::<_, String>(0)).unwrap();
+    let snapshots = |file: &PathBuf| Connection::open(file).unwrap().query_row("SELECT (SELECT count(*) FROM portfolio_snapshots) || '/' || (SELECT count(*) FROM exchange_account_snapshots)", [], |r| r.get::<_, String>(0)).unwrap();
     assert_eq!(snapshots(&copies[2].1), snapshots(&copies[0].1));
     assert_ne!(snapshots(&copies[2].1), "0/0");
     assert!(Connection::open(&copies[2].1).unwrap().query_row("SELECT 1 FROM app_configs WHERE key=?1", [gaps::key(fx.owner())], |_| Ok(())).optional().unwrap().is_none());
@@ -297,7 +297,7 @@ async fn the_step_runs_on_its_own_budget_after_the_tightest_publish() {
     assert_eq!((jobbed.refreshes(), jobbed.row()), (1, None));
     assert_eq!(jobbed.cache(), cache_of(&copies[0].1, fx.owner()));
     gaps::seam::STEPS.store(gaps::GAPS.steps, SeqCst);
-    jobbed.exec("DELETE FROM portfolio_venue_snapshots");
+    jobbed.exec("DELETE FROM exchange_account_snapshots");
     assert_eq!(run(&jobbed).await, Outcome::Done);
     assert_eq!(jobbed.refreshes(), 3);
     assert_eq!(gaps_of(&jobbed.row().unwrap()).len(), 1);
@@ -427,7 +427,7 @@ async fn a_deadline_during_the_step_loses_only_its_second_refresh() {
         result.unwrap();
         assert_eq!(fx.refreshes(), 1, "{superseded}: {:?}", fx.sent.lock().unwrap());
         assert!(matches!(cache::read(&fx.c(), owner, None, at()).unwrap(), cache::State::Warm(_)), "the figures stay readable");
-        assert_ne!(fx.c().query_row("SELECT count(*) FROM portfolio_venue_snapshots WHERE user_id=?1", [owner], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_ne!(fx.c().query_row("SELECT count(*) FROM exchange_account_snapshots WHERE user_id=?1", [owner], |r| r.get::<_, i64>(0)).unwrap(), 0);
         if superseded {
             assert!(fx.row().is_none(), "the late write found another publication and wrote nothing");
         } else {
@@ -566,7 +566,7 @@ async fn a_row_that_cannot_be_trusted_leaves_the_page_as_it_was() {
     deltabadger::app_config::set_plain(&fx.c(), &gaps::key(fx.owner()), &good.to_string(), at()).unwrap();
     assert!(line(&get(&fx, &app, "/tracker").await.body, fx.s.exchange_id).is_some());
     app.db(|c| { c.authorizer(Some(|a: rusqlite::hooks::AuthContext<'_>| match a.action {
-        rusqlite::hooks::AuthAction::Read { table_name: "account_balances", column_name: "updated_at" } => rusqlite::hooks::Authorization::Deny,
+        rusqlite::hooks::AuthAction::Read { table_name: "exchange_account_balances", column_name: "updated_at" } => rusqlite::hooks::Authorization::Deny,
         _ => rusqlite::hooks::Authorization::Allow,
     })); Ok(()) }).await.unwrap();
     assert_eq!(stable(&get(&fx, &app, "/tracker").await.body), without, "an Err from gaps::read");
@@ -612,7 +612,7 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, (SELECT a.id FROM exchange_accounts a")
         && s.contains(") FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
-    let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = {owner} AND exchange_id = {id}");
+    let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE user_id = {owner} AND exchange_id = {id}");
     for path in ["/tracker".to_string(), format!("/tracker?exchange_id={id}")] {
         let extra = added(&statements(&fx, &app, &path, true).await, &statements(&fx, &app, &path, false).await);
         assert_eq!(extra.len(), 4, "{path}: {extra:#?}");
@@ -870,7 +870,7 @@ process.exit(failed ? 1 : 0);
 
 fn gaps_read(owner: i64) -> String { format!("SELECT key,value FROM app_configs WHERE key IN ('rust_tracker_gaps.{owner}','rust_kucoin_hf_gap.{owner}')") }
 /// The credential stamp the venue's reading key is current with.
-fn stamp(fx: &Fx, exchange: i64) -> Value { deltabadger::sync::cache::capture_read(&fx.c(), fx.owner(), Some(exchange)).unwrap().producer_stamps()[0].clone() }
+fn stamp(fx: &Fx, exchange: i64) -> Value { { let c = fx.c(); deltabadger::sync::cache::capture_read(&c, fx.owner(), &deltabadger::tracker::Scope::of_exchange(&c, fx.owner(), Some(exchange)).unwrap()) }.unwrap().producer_stamps()[0].clone() }
 /// The KuCoin HF row with `entry` for `exchange`, fenced on its current credential.
 fn kucoin_row(fx: &Fx, exchange: i64, mut entry: Value) {
     entry["credential"] = stamp(fx, exchange);

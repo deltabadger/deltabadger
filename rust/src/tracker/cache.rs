@@ -33,7 +33,7 @@ impl PartialEq for Version {
     fn eq(&self,other:&Self)->bool {self.history==other.history && self.prices==other.prices && crate::engine::model::stamp_set_current_for(&self.producers,&other.producers)}
 }
 pub fn version(c:&Connection,owner:i64)->Result<Version,FiguresError> {
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     Ok(Version { history:backfill::history_version(c,owner)?, prices:backfill::generation(c)?,producers:origin.producer_stamps() })
 }
 pub fn key(owner:i64)->String { format!("rust_tracker_ledger.{owner}") }
@@ -83,7 +83,7 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
 pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
     if &version(c,owner)? != before { return Ok(false); }
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
     // The read bound applies at publish too: an entry the reader would refuse is never written.
     for summary in walked.into_iter().flat_map(|w|std::iter::once(&w.whole).chain(w.venues.iter().map(|(_,s)|s))) {
@@ -157,7 +157,7 @@ fn validated(c:&Connection,key:&str,schema:u64,owner:i64,now:DateTime<Utc>,limit
     let current=version(c,owner)?;
     if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(None)}
     if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(None)}
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(None)}
     Ok(Some(v))
 }
@@ -232,7 +232,7 @@ mod tests {
     }
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE exchange_account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c.execute_batch(crate::identity::TEST_ACCOUNT_TABLES).unwrap(); c
     }
     fn now()->DateTime<Utc> {"2026-10-08T12:00:00Z".parse().unwrap()}
     fn walked()->Walked {
@@ -368,7 +368,7 @@ mod tests {
             assert!(!publish(&c,1,&v,Some(&walked()),7,now()).unwrap(),"must reject a mid-walk change");
         }
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
-        c.execute_batch("INSERT INTO account_transactions VALUES(2,42,'2026-10-09'); INSERT INTO account_balances VALUES(1,100000)").unwrap();warm(&c,None);
+        c.execute_batch("INSERT INTO account_transactions VALUES(2,42,'2026-10-09'); INSERT INTO exchange_account_balances VALUES(1,100000)").unwrap();warm(&c,None);
         assert!(matches!(read(&c,1,None,now()+Duration::days(30)-Duration::microseconds(1)).unwrap(),State::Warm(_)));
         assert!(matches!(read(&c,1,None,now()+Duration::days(30)).unwrap(),State::Cold));
     }

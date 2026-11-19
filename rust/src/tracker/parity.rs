@@ -106,7 +106,7 @@ pub fn raw(v: ValueRef<'_>) -> Value {
 /// decrypted.
 pub fn tables(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Value, String> {
     let mut out = Map::new();
-    for (table, order) in [("portfolio_snapshots", "date"), ("portfolio_venue_snapshots", "exchange_id, date"), ("wash_sale_locks", "id"), ("historical_prices", "id")] {
+    for (table, order) in [("portfolio_snapshots", "date"), (crate::sync::balance_store::V2_SNAPSHOTS, "exchange_id, date"), ("wash_sale_locks", "id"), ("historical_prices", "id")] {
         let (names,snapshot) = crate::figures::fill::parity_rows(c,table,order).map_err(|e| e.to_string())?;
         let mut rows = vec![];
         for r in snapshot {
@@ -140,7 +140,11 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, String> {
     if scenario["parity_scratch"] != true { return Err(format!("{} is not a parity scratch copy (no parity_scratch marker)", dir.display())); }
     let user_id = scenario["user_id"].as_i64().ok_or("scenario.json: user_id")?;
     let at: DateTime<Utc> = scenario["at"].as_str().and_then(|s| s.parse().ok()).ok_or("scenario.json: at")?;
-    let opened = store::open(&Paths::from_env(&|_| None, dir)).map_err(|e| format!("{e:?}"))?;
+    // As `run` takes an install: Rust's migrations first (#710 slice 5: 2.x's balances and venue snapshots move to the stores,
+    // ids kept, and are read back under 2.x's names).
+    let paths = Paths::from_env(&|_| None, dir);
+    store::migrate(&paths, &crate::lease::lock(&paths, Utc::now()).map_err(|e| format!("{e:?}"))?).map_err(|e| format!("{e:?}"))?;
+    let opened = store::open(&paths).map_err(|e| format!("{e:?}"))?;
     let db = Db::new(opened.primary, (*cipher).clone());
     let market = ScriptedTransport::from_script(&scenario["market"]);
     let alpaca = ScriptedTransport::from_script(&scenario["alpaca"]);

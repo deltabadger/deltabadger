@@ -162,6 +162,8 @@ async fn populated_regions_match_v2() {
         for file in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(source.join(file), dir.path().join(file)).unwrap(); }
         let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
         grid::restore(&c, expected);
+        // As `run`/`serve` take the install (#710 slice 5: 2.x's balances and venue snapshots move to their stores).
+        deltabadger::store::test_support::migrate(&c).unwrap();
         let at: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
         stamp(&c, at);
         let owner: i64 = c.query_row("SELECT id FROM users ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
@@ -175,13 +177,13 @@ async fn populated_regions_match_v2() {
         // The ledger the scheduler would have cached by now (none where 2.x has none cached either).
         // The pass writes today's snapshot as 2.x's job does; the recorded page read none (2.x's fixture computed the
         // ledger alone), so the history the page draws is put back as it was.
-        c.execute_batch("CREATE TEMP TABLE kept_whole AS SELECT * FROM portfolio_snapshots; CREATE TEMP TABLE kept_venues AS SELECT * FROM portfolio_venue_snapshots;").unwrap();
+        c.execute_batch("CREATE TEMP TABLE kept_whole AS SELECT * FROM portfolio_snapshots; CREATE TEMP TABLE kept_venues AS SELECT * FROM exchange_account_snapshots;").unwrap();
         if !matches!(name.as_str(), "populated_cold" | "populated_cold_hidden" | "populated_cold_scope" | "populated_window_cold" | "populated_dead") {
             let db = deltabadger::jobs::Db::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, scenario["secret_key_base"].as_str().unwrap()).unwrap()));
             deltabadger::tracker::jobs::ledger_run(&db, None::<&deltabadger::jobs::market::Feed<deltabadger::venue::http::ScriptedTransport>>, None, owner, &deltabadger::engine::FixedClock(at), Arc::new(move || at), &mut deltabadger::tracker::jobs::Allowance::run()).await.unwrap_or_else(|e| panic!("{name}: ledger pass: {e}"));
             history_gap_absent(&c, &name, owner, at);
         }
-        c.execute_batch("DELETE FROM portfolio_snapshots; INSERT INTO portfolio_snapshots SELECT * FROM kept_whole; DELETE FROM portfolio_venue_snapshots; INSERT INTO portfolio_venue_snapshots SELECT * FROM kept_venues; DROP TABLE kept_whole; DROP TABLE kept_venues;").unwrap();
+        c.execute_batch("DELETE FROM portfolio_snapshots; INSERT INTO portfolio_snapshots SELECT * FROM kept_whole; DELETE FROM exchange_account_snapshots; INSERT INTO exchange_account_snapshots SELECT * FROM kept_venues; DROP TABLE kept_whole; DROP TABLE kept_venues;").unwrap();
         let env = { let secret = scenario["secret_key_base"].as_str().unwrap().to_string(); let tmp = tmp.display().to_string(); move |n: &str| match n { "SECRET_KEY_BASE" => Some(secret.clone()), "APP_TMP_DIR" => Some(tmp.clone()), _ => None } };
         let opened = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
         let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, opened.primary, TestClock::at(scenario["at"].as_str().unwrap())).unwrap();
@@ -282,7 +284,8 @@ async fn warm_install(synced: bool) -> (tempfile::TempDir, deltabadger::web::App
     if synced {
         let usd: i64 = c.query_row("SELECT id FROM assets WHERE symbol='USD' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap_or_else(|_| { c.execute("INSERT INTO assets(external_id,symbol,name,category,created_at,updated_at) VALUES('usd','USD','US Dollar','Currency',?1,?1)", [AT]).unwrap(); c.last_insert_rowid() });
         for (asset, free, price) in [(usd, "400", "1"), (s.btc, "0.01", "60000")] {
-            c.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at) VALUES(?1,?2,?3,?4,0,?5,?4*?5,'2026-09-20 02:00:00','2026-09-20 02:00:00','2026-09-20 02:00:00','2026-09-20 02:00:00')",
+            common::number_one(c, s.user_id, s.exchange_id);
+            c.execute("INSERT INTO exchange_account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at,account_id) VALUES(?1,?2,?3,?4,0,?5,?4*?5,'2026-09-20 02:00:00','2026-09-20 02:00:00','2026-09-20 02:00:00','2026-09-20 02:00:00',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",
                       rusqlite::params![s.user_id, s.exchange_id, asset, free, price]).unwrap();
         }
         c.execute("UPDATE api_keys SET balances_synced_at='2026-09-20 02:00:00' WHERE id=?1", [s.api_key_id]).unwrap();
@@ -318,7 +321,7 @@ async fn a_sync_landing_mid_read_cannot_split_the_page() {
     let mid = regions_of(&app, owner, move |c| c.authorizer(Some(move |ctx: rusqlite::hooks::AuthContext<'_>| {
         if matches!(ctx.action, rusqlite::hooks::AuthAction::Read { table_name: "fx_rates", .. }) && !hook.swap(true, std::sync::atomic::Ordering::SeqCst) {
             let w = Connection::open(&file).unwrap();
-            w.execute("UPDATE account_balances SET usd_price=90000, usd_value=900 WHERE usd_price=60000", []).unwrap();
+            w.execute("UPDATE exchange_account_balances SET usd_price=90000, usd_value=900 WHERE usd_price=60000", []).unwrap();
             let (key, user, exchange): (i64, i64, i64) = w.query_row("SELECT id,user_id,exchange_id FROM api_keys LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
             let v = deltabadger::engine::model::credential_version_by_id(&w, key).unwrap().unwrap();
             deltabadger::engine::model::credential_write(&w, &Some(v.clone()), |f| deltabadger::sync::cache::record(f, user, exchange, &v, false, AT.parse().unwrap())).unwrap();
@@ -459,7 +462,7 @@ async fn the_export_modal_offers_the_days_the_export_reads() {
 #[tokio::test(flavor = "current_thread")]
 async fn an_unpriced_holding_is_listed_and_named_in_the_banner() {
     let (_dir, app, owner, _) = warm_install(true).await;
-    let unprice = |c: &Connection| { c.execute("UPDATE account_balances SET usd_price=NULL,usd_value=NULL WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); };
+    let unprice = |c: &Connection| { c.execute("UPDATE exchange_account_balances SET usd_price=NULL,usd_value=NULL WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); };
     let r = regions_of(&app, owner, unprice).await;
     let venue: String = Connection::open(_dir.path().join("production.sqlite3")).unwrap().query_row("SELECT e.name FROM exchanges e JOIN api_keys k ON k.exchange_id=e.id WHERE k.user_id=?1", [owner], |q| q.get(0)).unwrap();
     assert!(r.notice.contains(&format!("No market price for BTC on {venue}.")), "{}", r.notice);
@@ -475,6 +478,6 @@ async fn an_unpriced_holding_is_listed_and_named_in_the_banner() {
     }).await;
     assert!(r.notice.contains("No market price for BTC on") && !r.notice.contains("/tracker/connect_market_data"), "{}", r.notice);
     // Priced again: no banner at all.
-    let r = regions_of(&app, owner, |c| { c.execute("UPDATE account_balances SET usd_price=60000,usd_value=600 WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); }).await;
+    let r = regions_of(&app, owner, |c| { c.execute("UPDATE exchange_account_balances SET usd_price=60000,usd_value=600 WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); }).await;
     assert_eq!(r.notice, "", "nothing unpriced");
 }

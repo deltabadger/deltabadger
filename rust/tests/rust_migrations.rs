@@ -684,3 +684,25 @@ fn the_balances_and_venue_snapshots_move_to_stores_keyed_by_account_keeping_ids_
     assert_eq!(rows("SELECT max(id) FROM exchange_account_balances"), [[Integer(21)]]);
     assert!(store::check(&p).unwrap().pending_rust.is_empty());
 }
+/// §6 test 14: outside the stores' own module and the 2.x schema contract, no Rust code names 2.x's balance and venue
+/// snapshot tables (comments aside).
+#[test]
+fn only_the_store_module_names_the_2x_balance_and_snapshot_tables() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut found = vec![];
+    let mut dirs = vec![root.join("src"), root.join("examples")];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { dirs.push(path); continue; }
+            if path.extension().is_none_or(|e| e != "rs") || path.ends_with("src/store.rs") || path.ends_with("src/sync/balance_store.rs") { continue; }
+            for (n, line) in std::fs::read_to_string(&path).unwrap().lines().enumerate() {
+                let code = line.split("//").next().unwrap();
+                if ["account_balances", "portfolio_venue_snapshots"].iter().any(|t| code.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).any(|w| w == *t)) {
+                    found.push(format!("{}:{}", path.strip_prefix(root).unwrap().display(), n + 1));
+                }
+            }
+        }
+    }
+    assert!(found.is_empty(), "read balances and venue snapshots from the stores (sync::balance_store): {found:?}");
+}

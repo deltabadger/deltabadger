@@ -49,3 +49,48 @@ pub fn refused(why: &str) -> crate::figures::FiguresError {
 }
 
 pub mod cache;
+
+/// #710 slice 5 (PLAN-710-5 §5.1, §8 Q7): what a tracker figure reads. The account is the unit: the whole portfolio, or
+/// one account; no figure combines an exchange's accounts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scope {
+    /// The whole portfolio.
+    All,
+    /// One account.
+    Account(crate::identity::AccountRow),
+    /// A known exchange an old `exchange_id` link names where the user has no account: it reads nothing (never `All`).
+    EmptyLegacyExchange(i64),
+}
+
+impl Scope {
+    /// The scope an `exchange_id` names (None: the whole portfolio): its number-1 account; while that has no row, its
+    /// stand-in when the user has a key or a ledger row there (`AccountRow::unplaced`), else nothing.
+    pub fn of_exchange(c: &rusqlite::Connection, user_id: i64, exchange_id: Option<i64>) -> rusqlite::Result<Self> {
+        let Some(e) = exchange_id else { return Ok(Self::All) };
+        if let Some(a) = crate::identity::AccountRow::first(c, user_id, e)? { return Ok(Self::Account(a)); }
+        let named: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2)",
+                                      [user_id, e], |r| r.get(0))?;
+        Ok(if named { Self::Account(crate::identity::AccountRow::unplaced(user_id, e)) } else { Self::EmptyLegacyExchange(e) })
+    }
+    /// The exchange the scope is on (None: the whole portfolio).
+    pub fn exchange(&self) -> Option<i64> {
+        match self { Self::All => None, Self::Account(a) => Some(a.exchange_id), Self::EmptyLegacyExchange(e) => Some(*e) }
+    }
+    pub fn account(&self) -> Option<&crate::identity::AccountRow> { match self { Self::Account(a) => Some(a), _ => None } }
+    /// SQL condition: store row `alias` (exchange_account_balances, exchange_account_snapshots) is in the scope.
+    pub fn store(&self, alias: &str) -> String {
+        match self { Self::All => "1".into(), Self::Account(a) => format!("{alias}.account_id = {}", a.id), Self::EmptyLegacyExchange(_) => "0".into() }
+    }
+    /// SQL condition: ledger row `alias` (account_transactions) is in the scope.
+    pub fn rows(&self, alias: &str) -> String {
+        match self {
+            Self::All => "1".into(),
+            Self::Account(a) => format!("({alias}.exchange_id = {} AND {})", a.exchange_id, a.venue_ids().rows(alias)),
+            Self::EmptyLegacyExchange(_) => "0".into(),
+        }
+    }
+    /// SQL condition: api key row `alias` is in the scope.
+    pub fn keys(&self, alias: &str) -> String {
+        match self { Self::All => "1".into(), Self::Account(a) => a.keys(alias), Self::EmptyLegacyExchange(_) => "0".into() }
+    }
+}

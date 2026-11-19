@@ -2,6 +2,7 @@
 //! the account has rows or balances on, each the figures the tiles state, written as 2.x writes them.
 use super::figures::{self, Balance};
 use super::walk::{Summary, Walked};
+use crate::identity::AccountRow;
 use crate::figures::{dec::Dec, FiguresError};
 use chrono::NaiveDate;
 use rusqlite::Connection;
@@ -36,7 +37,7 @@ pub fn today_row(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger:
 pub fn today_row_on(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledger: &Summary, fx: &super::fx::FxTable, today: NaiveDate) -> Result<Option<Day>, FiguresError> {
     if c.is_autocommit(){
         let tx=c.unchecked_transaction()?;
-        let origin=crate::sync::cache::capture_read(&tx,user_id,exchange_id).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?;
+        let origin=crate::sync::cache::capture_read(&tx,user_id,&super::Scope::of_exchange(&tx,user_id,exchange_id)?).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?;
         let mut day=today_row_on(&tx,user_id,exchange_id,ledger,fx,today)?;tx.commit()?;
         if !crate::sync::cache::read_is_current(c,&origin).map_err(|_|FiguresError::Data("balance cache provenance unavailable".into()))?{if let Some(day)=&mut day{day.partial=true;}}
         return Ok(day)
@@ -52,13 +53,13 @@ pub fn today_row_on(c: &Connection, user_id: i64, exchange_id: Option<i64>, ledg
     // the chart says so for as long as this point is stored.
     let unpriced = !f.all_priced();
     Ok(Some(Day { value: f.value, invested: f.invested, held_value: Some(held_value), held_cost: Some(held_cost),
-                  partial: crate::sync::cache::stale(c, user_id, exchange_id).map_err(|_| FiguresError::Data("balance cache provenance unavailable".into()))? || partial(c, user_id, &balances)? || ledger.incomplete || unpriced }))
+                  partial: crate::sync::cache::stale(c, user_id, &super::Scope::of_exchange(c, user_id, exchange_id)?).map_err(|_| FiguresError::Data("balance cache provenance unavailable".into()))? || partial(c, user_id, &balances)? || ledger.incomplete || unpriced }))
 }
 
 /// `venues`: the exchanges the account has rows or balances on, by id.
 pub fn venues(c: &Connection, user_id: i64) -> Result<Vec<i64>, FiguresError> {
     let mut s = c.prepare("SELECT id FROM exchanges WHERE id IN (SELECT exchange_id FROM account_transactions WHERE user_id = ?1 \
-                           UNION SELECT exchange_id FROM account_balances WHERE user_id = ?1 AND free + locked > 0) ORDER BY id")?;
+                           UNION SELECT exchange_id FROM exchange_account_balances WHERE user_id = ?1 AND free + locked > 0) ORDER BY id")?;
     let ids = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     Ok(ids)
 }
@@ -82,18 +83,19 @@ pub fn upsert_whole(c: &crate::engine::model::FencedTransaction<'_>, user_id: i6
     Ok(())
 }
 
-/// `PortfolioVenueSnapshot.upsert_all(rows, unique_by: %i[user_id exchange_id date], record_timestamps: true)`.
-pub fn upsert_venue(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, exchange_id: i64, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
+/// `PortfolioVenueSnapshot.upsert_all(rows, unique_by: %i[user_id exchange_id date], record_timestamps: true)`, by account
+/// (#710 slice 5: `exchange_account_snapshots`, unique by account and date).
+pub fn upsert_account(c: &crate::engine::model::FencedTransaction<'_>, account: &AccountRow, date: NaiveDate, day: &Day) -> Result<(), FiguresError> {
     let [value, invested, held_value, held_cost] = values(day)?;
     c.prepare_cached(
-        "INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) \
-         ON CONFLICT (user_id, exchange_id, date) DO UPDATE SET updated_at = (CASE WHEN (value_usd IS excluded.value_usd AND invested_usd IS excluded.invested_usd \
+        "INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at, account_id) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), ?9) \
+         ON CONFLICT (account_id, date) DO UPDATE SET updated_at = (CASE WHEN (value_usd IS excluded.value_usd AND invested_usd IS excluded.invested_usd \
          AND held_value_usd IS excluded.held_value_usd AND held_cost_usd IS excluded.held_cost_usd AND partial IS excluded.partial) \
-         THEN portfolio_venue_snapshots.updated_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW') END), value_usd = excluded.value_usd, invested_usd = excluded.invested_usd, \
+         THEN exchange_account_snapshots.updated_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW') END), value_usd = excluded.value_usd, invested_usd = excluded.invested_usd, \
          held_value_usd = excluded.held_value_usd, held_cost_usd = excluded.held_cost_usd, partial = excluded.partial")?
-        .execute(rusqlite::params![user_id, exchange_id, date.to_string(), value, invested, held_value, held_cost, day.partial])?;
-    record_origin(c,user_id,Some(exchange_id),date)?;
+        .execute(rusqlite::params![account.user_id, account.exchange_id, date.to_string(), value, invested, held_value, held_cost, day.partial, account.id])?;
+    record_origin(c,account.user_id,Some(account),date)?;
     Ok(())
 }
 
@@ -101,28 +103,31 @@ pub fn upsert_venue(c: &crate::engine::model::FencedTransaction<'_>, user_id: i6
 /// each venue's, not yet dated. A venue the walk has no rows of reads as an empty ledger, as 2.x reads one. Computed
 /// before the write unit, so the write lock is held for the writes alone.
 /// Each of them is reconciled with its own balances: the whole account's row is not the sum of the venues'.
-pub fn today_rows(c: &Connection, user_id: i64, walked: &Walked, fx: &super::fx::FxTable, today: NaiveDate) -> Result<Vec<(Option<i64>, Day)>, FiguresError> {
+pub fn today_rows(c: &Connection, user_id: i64, walked: &Walked, fx: &super::fx::FxTable, today: NaiveDate) -> Result<Vec<(Option<AccountRow>, Day)>, FiguresError> {
     let mut rows = vec![];
     if let Some(day) = today_row_on(c, user_id, None, &walked.whole, fx, today)? { rows.push((None, day)); }
     let empty = Summary::empty();
     for exchange_id in venues(c, user_id)? {
+        let Some(account) = AccountRow::first(c, user_id, exchange_id)? else { continue };
         let ledger = walked.venue(exchange_id).unwrap_or(&empty);
-        if let Some(day) = today_row_on(c, user_id, Some(exchange_id), ledger, fx, today)? { rows.push((Some(exchange_id), day)); }
+        if let Some(day) = today_row_on(c, user_id, Some(exchange_id), ledger, fx, today)? { rows.push((Some(account), day)); }
     }
     Ok(rows)
 }
 
 /// `record!`'s upserts: today's rows, dated `today`.
-pub fn write(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, rows: &[(Option<i64>, Day)], today: NaiveDate) -> Result<(), FiguresError> {
+pub fn write(c: &crate::engine::model::FencedTransaction<'_>, user_id: i64, rows: &[(Option<AccountRow>, Day)], today: NaiveDate) -> Result<(), FiguresError> {
     for (scope, day) in rows {
         crate::figures::budget::charge(1, 0)?;
-        match scope { None => upsert_whole(c, user_id, today, day)?, Some(id) => upsert_venue(c, user_id, *id, today, day)? }
+        match scope { None => upsert_whole(c, user_id, today, day)?, Some(account) => upsert_account(c, account, today, day)? }
     }
     Ok(())
 }
 
-fn record_origin(c:&crate::engine::model::FencedTransaction<'_>,user:i64,scope:Option<i64>,date:NaiveDate)->Result<(),FiguresError>{
-    let key=crate::jobs::state::key("snapshot_origin",Some(&format!("{user}:{}:{date}",match scope{Some(v)=>v.to_string(),None=>"all".into()})));
+/// `<user>:<exchange>:<date>` for a number 1 (2.x's form, kept), `<user>:<exchange>:<account>:<date>` for an account 2+.
+fn record_origin(c:&crate::engine::model::FencedTransaction<'_>,user:i64,scope:Option<&AccountRow>,date:NaiveDate)->Result<(),FiguresError>{
+    let scope=match scope{None=>"all".into(),Some(a) if a.number==1=>a.exchange_id.to_string(),Some(a)=>format!("{}:{}",a.exchange_id,a.id)};
+    let key=crate::jobs::state::key("snapshot_origin",Some(&format!("{user}:{scope}:{date}")));
     crate::app_config::set_plain(c,&key,&c.producer_stamp().to_string(),chrono::Utc::now()).map_err(FiguresError::Data)
 }
 

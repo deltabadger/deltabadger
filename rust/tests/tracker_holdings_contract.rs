@@ -4,13 +4,15 @@ use rusqlite::Connection;
 fn db()->Connection {
     let c=Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE assets(id INTEGER,symbol TEXT,name TEXT,category TEXT,color TEXT,image_url TEXT);
-    CREATE TABLE account_balances(user_id INTEGER,exchange_id INTEGER,asset_id INTEGER,id INTEGER,free NUMERIC,locked NUMERIC,usd_value NUMERIC,priced_at TEXT,synced_at TEXT);
+    CREATE TABLE exchange_account_balances(user_id INTEGER,exchange_id INTEGER,asset_id INTEGER,id INTEGER,free NUMERIC,locked NUMERIC,usd_value NUMERIC,priced_at TEXT,synced_at TEXT,account_id INTEGER);
     CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_sync_error TEXT,balances_synced_at TEXT,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
     CREATE TABLE exchanges(id INTEGER,type TEXT);CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT);
-    CREATE TABLE account_transactions(user_id INTEGER);CREATE TABLE portfolio_snapshots(user_id INTEGER);CREATE TABLE portfolio_venue_snapshots(user_id INTEGER);
-    INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca');INSERT INTO api_keys(id,user_id,exchange_id,status,key_type,balances_synced_at,key,secret) VALUES(1,7,1,1,0,'2026-10-08 12:00:00','ciphertext-key','ciphertext-secret');
+    CREATE TABLE account_transactions(user_id INTEGER,exchange_id INTEGER);CREATE TABLE portfolio_snapshots(user_id INTEGER);CREATE TABLE exchange_account_snapshots(user_id INTEGER);
+    INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca');").unwrap();
+    c.execute_batch(deltabadger::identity::TEST_ACCOUNT_TABLES).unwrap();
+    c.execute_batch("INSERT INTO api_keys(id,user_id,exchange_id,status,key_type,balances_synced_at,key,secret) VALUES(1,7,1,1,0,'2026-10-08 12:00:00','ciphertext-key','ciphertext-secret');
     INSERT INTO assets VALUES(1,'AAPL','Apple','Stock','#112233',NULL),(2,'USD','Dollar','Currency',NULL,NULL),(3,'AAPL','Other class','Cryptocurrency',NULL,NULL);
-    INSERT INTO account_balances VALUES(7,1,1,1,2,0,200,'2026-10-08 12:00:00','2026-10-08 12:00:00'),(7,1,2,2,50,0,50,'2026-10-08 12:00:00','2026-10-08 12:00:00'),(8,1,1,3,1,0,99999,'2026-10-08 12:00:00','2026-10-08 12:00:00');").unwrap();
+    INSERT INTO exchange_account_balances VALUES(7,1,1,1,2,0,200,'2026-10-08 12:00:00','2026-10-08 12:00:00',1),(7,1,2,2,50,0,50,'2026-10-08 12:00:00','2026-10-08 12:00:00',1),(8,1,1,3,1,0,99999,'2026-10-08 12:00:00','2026-10-08 12:00:00',99);").unwrap();
     stamp(&c,true);c
 }
 /// A completed balance sync by the current key, as the sync job records it.
@@ -25,13 +27,13 @@ fn cold_figures_owner_scope_cash_and_asset_identity_are_exact(){
         let result=holdings::cold(&c,7,scope,cash).unwrap();assert_eq!(result.value.unwrap().to_s_f(),expected);assert_eq!(result.holdings.len(),count);
     }
     assert_eq!(before,c.total_changes());c.pragma_update(None,"query_only",false).unwrap();
-    c.execute_batch("INSERT INTO account_balances VALUES(7,2,1,4,1,0,100,'2026-10-08 12:00:00','2026-10-08 12:00:00'),(7,1,3,5,1,0,20,'2026-10-08 12:00:00','2026-10-08 12:00:00')").unwrap();
+    c.execute_batch("INSERT INTO exchange_account_balances VALUES(7,2,1,4,1,0,100,'2026-10-08 12:00:00','2026-10-08 12:00:00',3),(7,1,3,5,1,0,20,'2026-10-08 12:00:00','2026-10-08 12:00:00',1)").unwrap();
     let result=holdings::cold(&c,7,None,false).unwrap();assert_eq!(result.holdings.len(),2,"cold 2.x groups by asset identity");assert_eq!(result.holdings[0].value.as_ref().unwrap().to_s_f(),"300.0");
 }
 /// PLAN-venue-prices S1: an unpriced holding is kept and listed after the priced ones, with no value.
 #[test]
 fn cold_unpriced_holdings_are_listed_without_a_value(){
-    let c=db();c.execute_batch("INSERT INTO assets VALUES(4,'BTC','Bitcoin','Cryptocurrency',NULL,NULL);INSERT INTO account_balances VALUES(7,1,4,4,1,0,NULL,NULL,'2026-10-08 12:00:00')").unwrap();
+    let c=db();c.execute_batch("INSERT INTO assets VALUES(4,'BTC','Bitcoin','Cryptocurrency',NULL,NULL);INSERT INTO exchange_account_balances VALUES(7,1,4,4,1,0,NULL,NULL,'2026-10-08 12:00:00',1)").unwrap();
     let result=holdings::cold(&c,7,None,true).unwrap();
     assert_eq!(result.reason,Some(holdings::UNPRICED));assert!(result.value.is_none());
     assert_eq!(result.holdings.iter().map(|h|(h.symbol.as_str(),h.value.as_ref().map(|v|v.to_s_f()))).collect::<Vec<_>>(),vec![("AAPL",Some("200.0".to_string())),("USD",Some("50.0".to_string())),("BTC",None)]);
@@ -40,22 +42,22 @@ fn cold_unpriced_holdings_are_listed_without_a_value(){
 #[test]
 fn cold_missing_or_stale_values_never_become_money(){
     for change in ["usd_value=NULL","usd_value=0","usd_value=-10","priced_at=NULL","priced_at='2026-10-08 11:54:59'"]{
-        let c=db();c.execute(&format!("UPDATE account_balances SET {change} WHERE user_id=7 AND asset_id=1"),[]).unwrap();
+        let c=db();c.execute(&format!("UPDATE exchange_account_balances SET {change} WHERE user_id=7 AND asset_id=1"),[]).unwrap();
         let result=holdings::cold(&c,7,None,true).unwrap();assert!(result.value.is_none(),"{change}: cannot show numeric aggregate");assert!(result.reason.is_some());
     }
-    let c=db();c.execute("UPDATE account_balances SET priced_at='2026-10-08 11:55:00' WHERE user_id=7",[]).unwrap();assert!(holdings::cold(&c,7,None,true).unwrap().value.is_some(),"five minutes exactly is not stale");
+    let c=db();c.execute("UPDATE exchange_account_balances SET priced_at='2026-10-08 11:55:00' WHERE user_id=7",[]).unwrap();assert!(holdings::cold(&c,7,None,true).unwrap().value.is_some(),"five minutes exactly is not stale");
     c.execute("UPDATE api_keys SET balances_synced_at='2026-10-08 12:00:01'",[]).unwrap();assert!(holdings::cold(&c,7,None,true).unwrap().stale,"watermark without balance row participates");
 }
 #[test]
 fn cold_sql_predicate_empty_cash_and_database_errors(){
-    let c=db();c.execute("UPDATE account_balances SET free=0,locked=0 WHERE asset_id=1",[]).unwrap();let result=holdings::cold(&c,7,None,false).unwrap();assert!(result.only_cash);assert_eq!(result.value.unwrap().to_s_f(),"0.0");
-    c.execute("DROP TABLE account_balances",[]).unwrap();assert!(holdings::cold(&c,7,None,false).is_err());
+    let c=db();c.execute("UPDATE exchange_account_balances SET free=0,locked=0 WHERE asset_id=1",[]).unwrap();let result=holdings::cold(&c,7,None,false).unwrap();assert!(result.only_cash);assert_eq!(result.value.unwrap().to_s_f(),"0.0");
+    c.execute("DROP TABLE exchange_account_balances",[]).unwrap();assert!(holdings::cold(&c,7,None,false).is_err());
 }
 #[test]
 fn cold_page_boundary_refuses_every_unfinished_region(){
     let c=db();assert!(read::only(&c,|c|page::supported(c,7)).unwrap());assert!(!page::supported(&c,8).unwrap());
-    for table in ["account_transactions","portfolio_snapshots","portfolio_venue_snapshots"]{
-        let c=db();c.execute(&format!("INSERT INTO {table} VALUES(8)"),[]).unwrap();assert!(page::supported(&c,7).unwrap());c.execute(&format!("INSERT INTO {table} VALUES(7)"),[]).unwrap();assert!(!page::supported(&c,7).unwrap(),"{table}");
+    for table in ["account_transactions","portfolio_snapshots","exchange_account_snapshots"]{
+        let c=db();c.execute(&format!("INSERT INTO {table}(user_id) VALUES(8)"),[]).unwrap();assert!(page::supported(&c,7).unwrap());c.execute(&format!("INSERT INTO {table}(user_id) VALUES(7)"),[]).unwrap();assert!(!page::supported(&c,7).unwrap(),"{table}");
     }
     for change in ["status=0","key_type=1","last_sync_error='failed'","exchange_id=2"]{let c=db();c.execute(&format!("UPDATE api_keys SET {change}"),[]).unwrap();assert!(!page::supported(&c,7).unwrap(),"{change}");}
     let c=db();c.execute("INSERT INTO app_configs(key,value) VALUES('rust_tracker_ledger.8','{}')",[]).unwrap();assert!(page::supported(&c,7).unwrap());c.execute("INSERT INTO app_configs(key,value) VALUES('rust_tracker_ledger.7','{}')",[]).unwrap();assert!(!page::supported(&c,7).unwrap());

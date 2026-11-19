@@ -333,7 +333,7 @@ pub fn ordered(mut rows: Vec<Stored>) -> Vec<Stored> {
 /// borrowed wallets' included, and every balance, before any row is filtered or anything written; `Err` names what
 /// falls outside it.
 pub fn alpaca_sweep_domain(c: &Connection, user_id: i64, all: &[Stored]) -> Result<(), String> {
-    let elsewhere: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN exchanges e ON e.id = b.exchange_id \
+    let elsewhere: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b JOIN exchanges e ON e.id = b.exchange_id \
                                        WHERE b.user_id = ?1 AND e.type IS NOT ?2)", rusqlite::params![user_id, super::VENUE_TYPE], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     if elsewhere { return Err("balances on a venue other than Alpaca".into()); }
@@ -443,7 +443,7 @@ mod tests {
     fn db(rows: &[&str]) -> Connection {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT); INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca'), (2, 'Exchanges::Binance');
-                         CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, free NUMERIC, locked NUMERIC);
+                         CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, free NUMERIC, locked NUMERIC);
                          CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT,
                          base_amount NUMERIC, quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT,
                          transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER, base_asset_id INTEGER, transaction_id INTEGER);
@@ -485,7 +485,7 @@ mod tests {
         }
         let c = db(&[ok]);
         assert_eq!(alpaca_sweep_domain(&c, 1, &load_all(&c, 1).unwrap()), Ok(()));
-        c.execute("INSERT INTO account_balances (user_id, exchange_id, free, locked) VALUES (1, 2, 0.5, 0)", []).unwrap();
+        c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, free, locked) VALUES (1, 2, 0.5, 0)", []).unwrap();
         assert_eq!(alpaca_sweep_domain(&c, 1, &load_all(&c, 1).unwrap()), Err("balances on a venue other than Alpaca".to_string()));
     }
 

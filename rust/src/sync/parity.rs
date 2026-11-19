@@ -16,7 +16,7 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::sync::Arc;
 
-const TABLES: [&str; 5] = ["account_transactions", "account_balances", "api_keys", "bots", "bot_activity_logs"];
+const TABLES: [&str; 5] = ["account_transactions", super::balance_store::V2_BALANCES, "api_keys", "bots", "bot_activity_logs"];
 const JSON_COLUMNS: [&str; 5] = ["raw_data", "manual_values", "settings", "transient_data", "details"];
 /// Ciphertext, and nothing a sync touches.
 const SECRET_COLUMNS: [&str; 7] = ["key", "secret", "passphrase", "access_token", "rsa_signature_key", "rsa_encryption_key", "dh_param"];

@@ -25,6 +25,10 @@ impl Scope {
         let member = match account.id { Some(id) if ready && account.number(c)? != 1 => Some(id), _ => None };
         Ok(Self { user_id: account.user_id, exchange_id: account.exchange_id, account: account.id, member, ready })
     }
+    /// Account row `a`'s, on an install that has the membership tables.
+    pub fn of_row(a: &crate::identity::AccountRow) -> Self {
+        Self { user_id: a.user_id, exchange_id: a.exchange_id, account: a.placed().then_some(a.id), member: (a.number != 1).then_some(a.id), ready: true }
+    }
     /// The number 1 of (user, exchange).
     pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Self> {
         Self::of(c, &Account::first(c, user_id, exchange_id)?)

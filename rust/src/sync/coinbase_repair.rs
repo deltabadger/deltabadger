@@ -86,10 +86,7 @@ pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineErro
             tx.execute("DELETE FROM app_configs WHERE key=?1", [key])?;
         }
         tx.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1", [owner])?;
-        tx.execute(
-            "DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",
-            [owner],
-        )?;
+        super::balance_store::forget_snapshots(tx, owner)?;
     }
     if count > 0 { app_config::set_plain(tx, FLAG, &now.to_rfc3339(), now).map_err(EngineError::Data)?; }
     Ok(count)
