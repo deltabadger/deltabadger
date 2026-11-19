@@ -554,6 +554,7 @@ pub async fn call(
                 params![user,r.exchange.id,r.asset.id,inner.cipher.encrypt(&r.address),r.settings.to_string(),at])?;
             r.id=tx.last_insert_rowid();
         } else { save(&tx,&inner,&r,&at)?; }
+        crate::identity::ensure_account(&tx,user,r.exchange.id,inner.now())?;
         match cmd {
             Command::Start(..)=>{start_evaluations(&tx,&at)?;},
             Command::Stop(_)|Command::Delete(_)|Command::Create{..}=>{consume(&tx,r.id,&at)?;},

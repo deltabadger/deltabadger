@@ -493,6 +493,8 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
         tx.execute("DELETE FROM exchange_account_credentials", [])?;
         tx.execute("DELETE FROM exchange_account_imports", [])?;
     }
+    // Every key is gone, and its membership with it (#710).
+    if table(tx, "exchange_account_keys")? { tx.execute("DELETE FROM exchange_account_keys", [])?; }
     if table(tx, "ibkr_bindings")? { tx.execute("DELETE FROM ibkr_bindings", [])?; tx.execute("DELETE FROM ibkr_bot_accounts", [])?; }
     // Never sent (dispatched is written before the request): the engine drops these itself. The rest are owed.
     if table(tx, "rust_withdrawal_intents")? { tx.execute("DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'", [])?; }

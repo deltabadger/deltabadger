@@ -221,7 +221,10 @@ fn settings_inner<T>(
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
-    if exchange_changed { one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?; }
+    if exchange_changed {
+        one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?;
+        crate::identity::ensure_account(&tx, owner, draft.candidate.exchange.id, ctx.now)?;
+    }
     // Bot::PriceLimitable#reset_price_limit_info_cache (before_save, when the settings are written): a price-rule field changed
     // on either side drops the status line's info of the side the bot is saved on, as 2.x does; D-INFO-SIDE: and the info of
     // the side whose rule changed (each side has its own line).

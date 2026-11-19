@@ -109,6 +109,11 @@ async fn service_delete_revive_and_update_relist() {
     .unwrap()
     .unwrap();
     assert_eq!(revived.id, id);
+    assert_eq!(
+        i.c.query_row("SELECT count(*) FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", (i.s.user_id, i.s.exchange_id), |r| r.get::<_, i64>(0)).unwrap(),
+        1,
+        "#710: writing the rule made its exchange's number 1"
+    );
     assert_eq!(revived.status, "created");
     assert_eq!(
         i.c.query_row(

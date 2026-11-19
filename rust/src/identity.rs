@@ -19,8 +19,8 @@ use serde_json::Value;
 
 /// The app_configs key of the install's identity key (32 random bytes, hex, in the credential envelope).
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
-/// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql).
-pub const TABLES: [&str; 3] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports"];
+/// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql).
+pub const TABLES: [&str; 5] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
@@ -170,7 +170,7 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     if let Some(key) = existing_key(c, cipher) { return Ok(key); }
     let db = |e: rusqlite::Error| format!("account identity: {e}");
     let stored = crate::app_config::exists(c, KEY_CONFIG)?;
-    let accounts: i64 = c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get(0)).map_err(db)?;
+    let accounts: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(db)?;
     if stored || accounts > 0 {
         crate::engine::log(if stored { "account identity: the identity key cannot be read; known account identities are cleared" }
                            else { "account identity: the identity key is gone (an encryption reset); known account identities are cleared" });
@@ -183,12 +183,18 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     Ok(IdentityKey(bytes))
 }
 
+/// How many accounts hold an identity, and identity observations there are: what a reset has to clear. An eager account
+/// row (#710) that never saw one is not counted.
+const KNOWN: &str = "SELECT (SELECT count(*) FROM exchange_accounts WHERE fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
+                          + (SELECT count(*) FROM exchange_account_credentials WHERE material_digest IS NOT NULL OR fingerprint IS NOT NULL)
+                          + (SELECT count(*) FROM exchange_account_imports)";
+
 /// At startup: a reset 2.x made while Rust was stopped is handled before anything is recorded. Writes nothing on an
-/// install with a readable key or with no accounts.
+/// install with a readable key or with nothing known.
 pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), String> {
     if !ready(c).map_err(|e| e.to_string())? || existing_key(c, cipher).is_some() { return Ok(()); }
-    let accounts: i64 = c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get(0)).map_err(|e| e.to_string())?;
-    if accounts == 0 { return Ok(()); }
+    let known: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(|e| e.to_string())?;
+    if known == 0 { return Ok(()); }
     let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
     key(&tx, cipher, now)?;
     tx.commit().map_err(|e| e.to_string())?;
@@ -196,11 +202,76 @@ pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result
     Ok(())
 }
 
-/// The account row of (user, exchange), created unknown when there is none.
-fn ensure_account(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<i64> {
-    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) ON CONFLICT (user_id, exchange_id) DO NOTHING",
-              params![user_id, exchange_id, format_time(now)])?;
-    c.query_row("SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [user_id, exchange_id], |r| r.get(0))
+/// The account (user, exchange) is read as while it has one (#710 slices 1-6): its lowest live number.
+fn first_account(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Option<(i64, Option<String>)>> {
+    c.query_row("SELECT id, fingerprint FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number LIMIT 1",
+                [user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()
+}
+
+/// `first_account`'s id, created unknown when there is none (the next number, tombstones included: numbers are never
+/// reused). Every write that first names a (user, exchange) calls it in its own transaction, so rows stay eager.
+pub fn ensure_account(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<i64> {
+    if let Some((id, _)) = first_account(c, user_id, exchange_id)? { return Ok(id); }
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)
+               SELECT ?1, ?2, coalesce(max(number), 0) + 1, ?3, ?3 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2
+               ON CONFLICT (user_id, exchange_id, number) DO NOTHING", params![user_id, exchange_id, format_time(now)])?;
+    first_account(c, user_id, exchange_id)?.map(|(id, _)| id).ok_or(rusqlite::Error::QueryReturnedNoRows)
+}
+
+/// The migration's eager rows (20261119000001), again: number 1 for every (user, exchange) a table names and no account
+/// has. Run in the takeover's claim after 2.x owned the install (its keys, bots and rules name exchanges Rust never saw).
+pub const FILL: &str = "INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)
+  SELECT user_id, exchange_id, 1, ?1, ?1 FROM (
+    SELECT user_id, exchange_id FROM api_keys
+    UNION SELECT user_id, exchange_id FROM bots
+    UNION SELECT b.user_id, t.exchange_id FROM transactions t JOIN bots b ON b.id = t.bot_id
+    UNION SELECT user_id, exchange_id FROM rules
+    UNION SELECT user_id, exchange_id FROM account_transactions
+    UNION SELECT user_id, exchange_id FROM account_balances
+    UNION SELECT user_id, exchange_id FROM portfolio_venue_snapshots
+    UNION SELECT user_id, exchange_id FROM exchange_account_imports
+    UNION SELECT user_id, exchange_id FROM import_rows
+    UNION SELECT user_id, exchange_id FROM import_cutoffs
+    UNION SELECT user_id, exchange_id FROM kucoin_coverage
+    UNION SELECT user_id, exchange_id FROM kucoin_withheld_fills
+    UNION SELECT o.user_id, s.exchange_id FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id
+  ) n WHERE user_id IS NOT NULL AND exchange_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM exchange_accounts a WHERE a.user_id = n.user_id AND a.exchange_id = n.exchange_id)
+  ORDER BY user_id, exchange_id";
+/// `FILL`: the number of accounts it made.
+pub fn fill(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<usize> {
+    if !ready(c)? { return Ok(0); }
+    c.execute(FILL, [format_time(now)])
+}
+
+// ---- The resolver (#710 §3): membership row if present, else the number-1 account of the subject's (user, exchange).
+// A membership row naming another user's or exchange's account resolves to nothing.
+
+/// The account of api key `api_key_id`.
+pub fn account_of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<i64>> { member(c, "api_keys", "exchange_account_keys", "api_key_id", api_key_id) }
+/// The account of bot `bot_id`.
+pub fn account_of_bot(c: &Connection, bot_id: i64) -> rusqlite::Result<Option<i64>> { member(c, "bots", "exchange_account_bots", "bot_id", bot_id) }
+
+fn member(c: &Connection, subject: &str, membership: &str, column: &str, id: i64) -> rusqlite::Result<Option<i64>> {
+    c.query_row(&format!("SELECT a.id FROM {subject} s LEFT JOIN {membership} m ON m.{column} = s.id
+                          JOIN exchange_accounts a ON a.user_id = s.user_id AND a.exchange_id = s.exchange_id
+                           AND CASE WHEN m.account_id IS NULL THEN a.number = 1 ELSE a.id = m.account_id END
+                          WHERE s.id = ?1"), [id], |r| r.get(0)).optional()
+}
+
+/// The key of `key_type` that belongs to account `account_id` (the lowest id, as `Key::read`'s LIMIT 1).
+pub fn key_of(c: &Connection, account_id: i64, key_type: i64) -> rusqlite::Result<Option<i64>> {
+    c.query_row("SELECT k.id FROM exchange_accounts a JOIN api_keys k ON k.user_id = a.user_id AND k.exchange_id = a.exchange_id AND k.key_type = ?2
+                 LEFT JOIN exchange_account_keys m ON m.api_key_id = k.id
+                 WHERE a.id = ?1 AND CASE WHEN m.account_id IS NULL THEN a.number = 1 ELSE m.account_id = a.id END ORDER BY k.id LIMIT 1",
+                [account_id, key_type], |r| r.get(0)).optional()
+}
+
+/// The live accounts of (user, exchange): (id, number), by number.
+pub fn accounts_of(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    let mut s = c.prepare("SELECT id, number FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number")?;
+    let out = s.query_map([user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
+    Ok(out)
 }
 
 /// Fills an unknown account's fingerprint. A known one is never overwritten.
@@ -276,11 +347,15 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
     Ok(())
 }
 
-/// A deleted key: its observation goes, and its account too when the user has no other key and no history there.
+/// A deleted key: its observation and membership go, and its account's identity too when the user has no other key and no
+/// history there. The account row stays (numbers are never reused); it is tombstoned only from #710 slice 7 on, since a
+/// tombstone followed by a reconnect would make number 2 before the slices that carry one.
 pub fn forget(c: &Connection, api_key_id: i64, user_id: i64, exchange_id: i64) -> rusqlite::Result<()> {
     if !ready(c)? { return Ok(()); }
     c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [api_key_id])?;
-    c.execute("DELETE FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2
+    c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [api_key_id])?;
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE user_id = ?1 AND exchange_id = ?2
+               AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
                AND NOT EXISTS (SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2)
                AND NOT EXISTS (SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2)", [user_id, exchange_id])?;
     Ok(())
@@ -336,7 +411,7 @@ pub enum Standing {
 /// The distinct fingerprints of (user, exchange)'s current credentials (keys still stored) and of its imported exports,
 /// and the account's own.
 fn seen(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<(Option<String>, Vec<String>)> {
-    let account = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [user_id, exchange_id], |r| r.get(0)).optional()?.flatten();
+    let account = first_account(c, user_id, exchange_id)?.and_then(|(_, fingerprint)| fingerprint);
     let mut s = c.prepare("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
                            WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL
                            UNION SELECT fingerprint FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY 1")?;
@@ -370,10 +445,10 @@ pub enum CredentialStanding {
 
 pub fn credential_standing(c: &Connection, api_key_id: i64) -> rusqlite::Result<CredentialStanding> {
     if !ready(c)? { return Ok(CredentialStanding::Unobserved); }
-    let row: Option<(Option<String>, Option<String>)> = c.query_row(
-        "SELECT o.fingerprint, a.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
-         LEFT JOIN exchange_accounts a ON a.user_id = k.user_id AND a.exchange_id = k.exchange_id WHERE o.api_key_id = ?1", [api_key_id],
-        |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    let row: Option<(Option<String>, i64, i64)> = c.query_row(
+        "SELECT o.fingerprint, k.user_id, k.exchange_id FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE o.api_key_id = ?1",
+        [api_key_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let row = match row { Some((own, user, exchange)) => Some((own, first_account(c, user, exchange)?.and_then(|(_, f)| f))), None => None };
     Ok(match row {
         None | Some((None, _)) => CredentialStanding::Unobserved,
         Some((Some(_), None)) => CredentialStanding::Seen,

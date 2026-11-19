@@ -202,7 +202,11 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         Claim::FromV2 | Claim::AfterHandback => true,
         Claim::AfterCrash => handed_back.is_some_and(|back| taken_before.is_none_or(|taken| taken < back)),
     };
-    if v2_window { super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?; }
+    if v2_window {
+        super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?;
+        // #710: what 2.x added names exchanges with no account yet; rows stay eager.
+        crate::identity::fill(&tx, now)?;
+    }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
     super::rules::acknowledge_fanouts(&tx, &mut rule_jobs, now)?;
@@ -685,6 +689,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // ---- tables ----
         // The user's imported accounts and rows (tracker): 2.x never reads them.
         (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
+        (Table, "exchange_account_keys", Ignored), (Table, "exchange_account_bots", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),

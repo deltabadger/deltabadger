@@ -186,6 +186,13 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("requested_at", "TEXT", true), ("attempts", "INTEGER", true), ("last_at", "TEXT", false)], unique_indexes: &[] }),
     ("20261117000001", TableContract { name: "rust_v2_unrecorded_notices", columns: &[("transaction_id", "INTEGER", true), ("kind", "TEXT", true),
         ("at", "TEXT", true)], unique_indexes: &[&["transaction_id", "kind"]] }),
+    // #710 slice 1: exchange_accounts rebuilt (number, removed_at; one row per number), and key and bot membership.
+    ("20261119000001", TableContract { name: "exchange_accounts", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("number", "INTEGER", true), ("fingerprint", "TEXT", false),
+        ("account_id_enc", "BLOB", false), ("removed_at", "TEXT", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)],
+        unique_indexes: &[&["user_id", "exchange_id", "number"]] }),
+    ("20261119000001", TableContract { name: "exchange_account_keys", columns: &[("api_key_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
+    ("20261119000001", TableContract { name: "exchange_account_bots", columns: &[("bot_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

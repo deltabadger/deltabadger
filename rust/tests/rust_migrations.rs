@@ -337,8 +337,9 @@ fn before_stray() -> (tempfile::TempDir, Paths, store::Opened, common::seed::See
     let p = paths(dir.path());
     let n = RUST_MIGRATIONS.iter().position(|m| m.version == STRAY).unwrap();
     let k = REGISTRY.tables.iter().position(|(v, _)| *v >= STRAY).unwrap_or(REGISTRY.tables.len());
-    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..n], tables: &REGISTRY.tables[..k], retired: &[] }).unwrap();
-    let o = store::open(&p).unwrap();
+    let before = Registry { migrations: &RUST_MIGRATIONS[..n], tables: &REGISTRY.tables[..k], retired: &[] };
+    store::migrate_with(&p, &lock(&p), &before).unwrap();
+    let o = store::open_with(&p, &before).unwrap();
     let s = common::seed::seed_kraken(&o.primary, &common::seed::cipher());
     (dir, p, o, s)
 }

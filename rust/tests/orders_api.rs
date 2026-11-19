@@ -524,8 +524,11 @@ fn retained(k: &Kraken) -> Vec<(String, Option<String>)> {
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn a_standalone_order_is_placed_in_one_pass_answers_v2_bytes_replays_and_is_kept_for_cancel() {
     let mut k = kraken(priced());
+    let accounts = |k: &Kraken| k.count(&format!("SELECT count(*) FROM exchange_accounts WHERE user_id = {} AND number = 1", k.user));
+    assert_eq!(accounts(&k), 0, "the seeded key and bot were stored as 2.x stores them");
     let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "one");
     queued(&k, 1).await;
+    assert_eq!(accounts(&k), 1, "#710: queueing the order made its exchange's number 1");
     run::step(&mut k.e, &kt(0)).await.unwrap();
     let (status, body) = request.await.unwrap();
     assert_eq!((status, body.clone()), (201, json!({"data": {"dry_run": false, "exchange": "Kraken", "pair": "BTC/EUR", "side": "buy", "order_type": "market",

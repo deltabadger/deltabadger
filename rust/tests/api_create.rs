@@ -52,6 +52,9 @@ async fn concurrent_creates_for_one_pair_both_land() {
     assert_eq!((a.status, b.status), (Domain::Created, Domain::Created), "{} / {}", a.message, b.message);
     let after = bots(&o.primary);
     assert_eq!(after.len(), before + 2);
+    let accounts: Vec<(i64, i64)> = o.primary.prepare("SELECT exchange_id, number FROM exchange_accounts WHERE user_id = ?1").unwrap()
+        .query_map([s.user_id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(accounts, [(s.exchange_id, 1)], "#710: the first create made the exchange's number 1, the second found it");
     let positions: std::collections::BTreeSet<i64> = after.iter().map(|(_, p)| *p).collect();
     assert_eq!(positions.len(), after.len(), "distinct positions: {after:?}");
 }
