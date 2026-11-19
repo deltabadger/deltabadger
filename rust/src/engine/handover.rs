@@ -691,7 +691,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // ---- tables ----
         // The user's imported accounts and rows (tracker): 2.x never reads them.
         (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
-        (Table, "exchange_account_keys", Ignored), (Table, "exchange_account_bots", Ignored),
+        // #710: a key or a bot of an account 2+ refuses: 2.x would trade it with the first account's key.
+        (Table, "exchange_account_keys", Refuses(SECOND_ACCOUNT_KEY)), (Table, "exchange_account_bots", Refuses(SECOND_ACCOUNT_BOT)),
         // #710: withdrawal rules by account. 2.x's `rules` mirrors the number-1 ones (written again in the handback); a rule
         // of an account 2+ refuses (rules::handback_problems).
         (Table, "exchange_account_rules", Refuses(super::rules::HANDBACK_REFUSAL)),
@@ -1093,11 +1094,20 @@ fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
 /// #710: an order of an exchange's account 2+ (exchange_account_transactions holds nothing else): 2.x would follow it with
 /// the first account's key.
 pub const SECOND_ACCOUNT_ORDER: &str = "an order of an exchange's second account is Rust-only";
+/// #710: a key or a bot of an exchange's account 2+: 2.x knows one account per exchange, and would use the first's key.
+pub const SECOND_ACCOUNT_KEY: &str = "a key of an exchange's second account is Rust-only";
+pub const SECOND_ACCOUNT_BOT: &str = "a bot of an exchange's second account is Rust-only";
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if super::rules::table_exists(c, "exchange_account_transactions")?
         && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_transactions)", [], |r| r.get::<_, bool>(0))? {
         return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_ORDER.into()]));
+    }
+    for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT)] {
+        if super::rules::table_exists(c, table)?
+            && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table} m JOIN exchange_accounts a ON a.id = m.account_id WHERE a.number <> 1)"), [], |r| r.get::<_, bool>(0))? {
+            return Err(EngineError::Ineligible(vec![line.into()]));
+        }
     }
     // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }

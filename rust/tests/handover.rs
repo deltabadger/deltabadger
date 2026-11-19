@@ -1519,7 +1519,7 @@ const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
 const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
     "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
-    "exchange_account_rules", "exchange_account_transactions"];
+    "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1614,6 +1614,18 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
         "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
         // #710: a rule of the exchange's second account.
         "exchange_account_rules" => { second_account_rule(&o.primary, s); }
+        // #710: a key, and a bot, of the exchange's second account.
+        "exchange_account_keys" | "exchange_account_bots" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = deltabadger::identity::Account::by_id(&o.primary, o.primary.last_insert_rowid()).unwrap().unwrap();
+            if name == "exchange_account_keys" {
+                o.primary.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+                second.add_key(&o.primary, o.primary.last_insert_rowid()).unwrap();
+            } else {
+                deltabadger::identity::place_bot(&o.primary, bot, s.user_id, s.exchange_id, Some(second), now()).unwrap();
+            }
+        }
         "exchange_account_transactions" => {
             let account = deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
             let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_id": "A2", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
