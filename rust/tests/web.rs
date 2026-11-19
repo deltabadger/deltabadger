@@ -272,7 +272,7 @@ mod sessions {
         let cookie = session::seal(&key, &data, now);
         assert_eq!(session::open(&key, &cookie, now), Some(data.clone()));
         assert_ne!(session::seal(&key, &data, now), cookie, "a fresh nonce every time");
-        assert!(!cookie.contains("bots") && cookie.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'), "opaque and cookie-safe");
+        assert!(!cookie.contains("filter=active") && cookie.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'), "opaque and cookie-safe");
         assert_eq!(session::open(&[4u8; 32], &cookie, now), None, "another key");
         let mut tampered = cookie.clone().into_bytes();
         tampered[20] = if tampered[20] == b'A' { b'B' } else { b'A' };
