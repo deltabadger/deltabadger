@@ -1201,6 +1201,24 @@ async fn deleting_one_accounts_key_stops_and_waits_for_that_accounts_bots_only()
     assert!(answer.body.contains("An order is still being settled. Please try again shortly."),"{}",answer.body);
 }
 
+/// #507's start validation reads the bot's account's trading key, not the exchange's first: account 1's incorrect key does
+/// not refuse account 2's bot, and account 1's correct key does not let account 2's bot start on an incorrect one.
+#[tokio::test(flavor="current_thread")]
+async fn starting_a_bot_asks_for_its_own_accounts_trading_key() {
+    for (first,second,starts) in [(2,1,true),(1,2,false)] {
+        let server=MockServer::start().await;
+        let mut h=Harness::new(server.uri()).await;
+        let (key,_,bot)=second_account(&h);
+        h.c.execute("UPDATE bots SET status=2",[]).unwrap();
+        h.c.execute("UPDATE api_keys SET status=?1 WHERE id=?2",[first,h.seed.api_key_id]).unwrap();
+        h.c.execute("UPDATE api_keys SET status=?1 WHERE id=?2",[second,key]).unwrap();
+        let answer=h.submit("PATCH",&format!("/bots/{bot}/start"),&[],Csrf::Header).await;
+        let refused=answer.body.contains("A valid trading API key is required to start this bot.");
+        let status:i64=h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap();
+        assert_eq!((refused,status==1),(!starts,starts),"account 1 {first}, account 2 {second}: {} {}",answer.status,answer.body);
+    }
+}
+
 /// A bot's key sheet reads and saves its account's key: a key saved for account 2 joins it and leaves account 1's.
 #[tokio::test(flavor="current_thread")]
 async fn a_bots_key_sheet_saves_into_the_bots_account() {
