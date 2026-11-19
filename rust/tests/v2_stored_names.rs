@@ -295,7 +295,8 @@ fn shape(c: &Connection) -> Shape {
         let indexes: Vec<(String, i64)> = c.prepare("SELECT name, \"unique\" FROM pragma_index_list(?1) ORDER BY name").unwrap()
             .query_map([t], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
         let indexes = indexes.into_iter().map(|(n, u)| {
-            let on: Vec<String> = c.prepare("SELECT name FROM pragma_index_info(?1) ORDER BY seqno").unwrap().query_map([&n], |r| r.get(0)).unwrap()
+            // An expression column has no name (#710's rust_withdrawal_ids index).
+            let on: Vec<String> = c.prepare("SELECT coalesce(name, '<expression>') FROM pragma_index_info(?1) ORDER BY seqno").unwrap().query_map([&n], |r| r.get(0)).unwrap()
                 .collect::<Result<_, _>>().unwrap();
             (n, u, on)
         }).collect();

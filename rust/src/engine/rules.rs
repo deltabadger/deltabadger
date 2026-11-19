@@ -213,11 +213,14 @@ pub fn create(c: &Connection, account: &crate::identity::Account, asset_id: i64,
 }
 
 /// The takeover, after 2.x owned the install: the store's number-1 rules become 2.x's withdrawal rules again (ids kept;
-/// one 2.x deleted goes). Run after identity::fill, so every (user, exchange) a rule names has its number 1.
+/// one 2.x deleted goes). Run after identity::fill, so every (user, exchange) a rule names has its number 1; one that has
+/// none fails the takeover (account_id NOT NULL) rather than losing the rule. A rule with no exchange stays 2.x's only, as
+/// the migration leaves it.
 pub fn refill(c: &Connection) -> rusqlite::Result<()> {
-    const V2: &str = "FROM rules r JOIN exchange_accounts a ON a.user_id=r.user_id AND a.exchange_id=r.exchange_id AND a.number=1 WHERE r.type='Rules::Withdrawal'";
+    const V2: &str = "FROM rules r WHERE r.type='Rules::Withdrawal' AND r.exchange_id IS NOT NULL";
+    const NUMBER_1: &str = "(SELECT a.id FROM exchange_accounts a WHERE a.user_id=r.user_id AND a.exchange_id=r.exchange_id AND a.number=1)";
     c.execute(&format!("DELETE FROM exchange_account_rules WHERE account_id IN (SELECT id FROM exchange_accounts WHERE number=1) AND id NOT IN (SELECT r.id {V2})"), [])?;
-    c.execute(&format!("INSERT INTO exchange_account_rules(account_id,{COLUMNS}) SELECT a.id,r.id,r.user_id,r.type,r.status,r.exchange_id,r.asset_id,r.address,r.settings,r.settings_changed_at,r.created_at,r.updated_at \
+    c.execute(&format!("INSERT INTO exchange_account_rules(account_id,{COLUMNS}) SELECT {NUMBER_1},r.id,r.user_id,r.type,r.status,r.exchange_id,r.asset_id,r.address,r.settings,r.settings_changed_at,r.created_at,r.updated_at \
                         {V2} AND NOT EXISTS (SELECT 1 FROM exchange_account_rules s JOIN exchange_accounts b ON b.id=s.account_id WHERE s.id=r.id AND b.number<>1) \
                         ON CONFLICT(id) DO UPDATE SET account_id=excluded.account_id,{UPDATED}"), [])?;
     Ok(())

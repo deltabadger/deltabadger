@@ -4493,3 +4493,18 @@ async fn kraken_dust_refusal_with_stored_fee_logs_below_minimum() {
         assert!(message.starts_with("Failed to refresh withdrawal fees: "), "{message}");
     }
 }
+
+/// #710: a withdrawal id whose account could not be told (a recorder's from before accounts: NULL, scoped by its exchange)
+/// blocks that venue id for every account of its exchange: the rule's acceptance of the same id is a duplicate, never a
+/// second record.
+#[tokio::test]
+async fn an_exchange_scoped_withdrawal_id_blocks_it_for_every_account() {
+    let d = Db::new();
+    d.c.execute("INSERT INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(NULL,1,'X','recorder:old','2026-01-01','rust')", []).unwrap();
+    let f = Fake::new(&d);
+    let i = d.prepared(&f).await;
+    w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now())).await.unwrap();
+    w::settle(&d.c, &d.cipher, &i, "dispatched", w::SendResult::Accepted { id: "X".into() }, now()).unwrap();
+    assert_eq!(w::load(&d.c, &d.cipher, &i.owner).unwrap().unwrap().reason.as_deref(), Some("duplicate venue id"));
+    assert_eq!(d.count("rust_withdrawal_ids"), 1);
+}

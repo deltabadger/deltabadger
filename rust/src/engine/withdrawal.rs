@@ -1301,7 +1301,7 @@ fn settle_result(
         SendResult::Accepted { id } if !id.trim().is_empty() => {
             rules::seed_v2_ids(&tx, now)?;
             let account=intent_account(&tx,&current.owner,request.user_id,request.exchange_id)?.ensure(&tx,now)?;
-            let inserted=tx.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,?5,'rust')",params![account.id,request.exchange_id,id,current.owner,crate::codec::format_time(now)])?;
+            let inserted=if id_taken(&tx,&account,&id)? {0} else {tx.execute("INSERT OR IGNORE INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,?5,'rust')",params![account.id,request.exchange_id,id,current.owner,crate::codec::format_time(now)])?};
             if inserted == 0 {
                 uncertain(&tx, &current, state, "duplicate venue id")?;
             } else {
@@ -1558,12 +1558,7 @@ pub fn resolve(
    Target::V2(id)=>v2_rule_account(&tx,tx.query_row("SELECT rule_id FROM rule_logs WHERE id=?1",[id],|r|r.get(0))?)?,
    Target::V2Job(id)=>{let j=rules::jobs(&tx,q)?.into_iter().find(|j|j.id==*id).ok_or_else(||data("no such 2.x job"))?;v2_rule_account(&tx,j.rule.ok_or_else(||data("EvaluateAllJob accepts --skip only"))?)?},
    Target::V2List(_)=>return Err(data("list accepts no resolution")),};
-        // #710: a venue id is one withdrawal per account (two accounts of one exchange may each have made it).
-        let exists: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE account_id IS ?1 AND venue_id=?2)",
-            params![account.ensure(&tx, now)?.id, id],
-            |r| r.get(0),
-        )?;
+        let exists = id_taken(&tx, &account.ensure(&tx, now)?, id)?;
         if exists {
             tx.commit()?;
             return Err(data("withdrawal id already recorded for this exchange"));
@@ -1707,8 +1702,16 @@ fn insert_operator_id(
     }
     rules::seed_v2_ids(c, now)?;
     let account = account.ensure(c, now)?;
+    if id_taken(c, &account, id)? { return Err(data("withdrawal id already recorded for this exchange")); }
     c.execute("INSERT INTO rust_withdrawal_ids(account_id,exchange_id,venue_id,owner,settled_at,source) VALUES(?1,?2,?3,?4,?5,'operator')",params![account.id,account.exchange_id,id,owner,crate::codec::format_time(now)])?;
     Ok(())
+}
+/// #710: whether venue withdrawal id `id` is already recorded for `account`: by the account itself, or by a row whose account
+/// could not be told (a recorder's from before accounts), which blocks it for every account of its exchange. A withdrawal
+/// is never run, or recorded, twice.
+fn id_taken(c: &Connection, account: &crate::identity::Account, id: &str) -> Result<bool, EngineError> {
+    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM rust_withdrawal_ids WHERE venue_id=?3 AND (account_id IS ?1 OR (account_id IS NULL AND exchange_id=?2)))",
+                   params![account.id, account.exchange_id, id], |r| r.get(0))?)
 }
 /// A 2.x rule's account: its (user, exchange)'s number 1, as every rule 2.x held.
 fn v2_rule_account(c: &Connection, rule: i64) -> Result<crate::identity::Account, EngineError> {

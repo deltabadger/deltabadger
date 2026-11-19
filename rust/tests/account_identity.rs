@@ -987,3 +987,44 @@ fn deleting_one_accounts_subjects_leaves_the_other_accounts_memberships() {
     assert_eq!(c.query_row("SELECT count(*) FROM exchange_account_keys", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     check("a reset");
 }
+
+// ---- #710 slice 3: the ownership migration (20261119000002) ------------------------------------------------------------
+
+const V710_3: &str = "20261119000002";
+fn before_710_3() -> deltabadger::store::Registry<'static> {
+    use deltabadger::store::{Registry, REGISTRY, RUST_MIGRATIONS};
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= V710_3).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= V710_3).unwrap();
+    Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }
+}
+
+/// The ownership migration over what the build before it left:
+/// - every withdrawal rule naming an exchange reaches the store, one whose (user, exchange) had no account getting its
+///   number 1 first; one with no exchange stays 2.x's only, its row untouched;
+/// - withdrawal ids: a rule's on its rule's account; recorder ids, which name no user, stay exchange-scoped (NULL), so one
+///   venue id on two exchanges with no account at all migrates instead of colliding.
+#[test]
+fn the_ownership_migration_keeps_every_rule_and_scopes_ids_it_cannot_place_by_exchange() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let lock = deltabadger::lease::lock(&p, Utc::now()).unwrap();
+    deltabadger::store::migrate_with(&p, &lock, &before_710_3()).unwrap();
+    let c = Connection::open(&p.primary).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("PRAGMA foreign_keys = OFF;
+        INSERT INTO rules (id, user_id, exchange_id, asset_id, type, status, settings, created_at, updated_at) VALUES
+          (1, 1, 5, 1, 'Rules::Withdrawal', 1, '{{}}', {t}, {t}), (2, 1, NULL, 1, 'Rules::Withdrawal', 1, '{{}}', {t}, {t}), (3, 1, 6, NULL, 'Rules::Other', 1, '{{}}', {t}, {t});
+        DELETE FROM exchange_accounts;
+        INSERT INTO rust_withdrawal_ids (exchange_id, venue_id, owner, settled_at, source) VALUES
+          (5, 'R', 'rule:1', {t}, 'rust'), (7, 'V', 'recorder:a', {t}, 'rust'), (8, 'V', 'recorder:b', {t}, 'rust');")).unwrap();
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V710_3]);
+    let number_1: i64 = c.query_row("SELECT id FROM exchange_accounts WHERE user_id = 1 AND exchange_id = 5 AND number = 1", [], |r| r.get(0)).unwrap();
+    let store: Vec<(i64, i64)> = c.prepare("SELECT id, account_id FROM exchange_account_rules ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(store, [(1, number_1)], "the withdrawal rule with an exchange, on its new number 1");
+    assert_eq!(c.query_row("SELECT count(*) FROM rules", [], |r| r.get::<_, i64>(0)).unwrap(), 3, "2.x's rules untouched");
+    let ids: Vec<(Option<i64>, i64, String)> = c.prepare("SELECT account_id, exchange_id, venue_id FROM rust_withdrawal_ids ORDER BY rowid").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(ids, [(Some(number_1), 5, "R".into()), (None, 7, "V".into()), (None, 8, "V".into())]);
+    // Still unique per exchange where the account is unknown.
+    assert!(c.execute("INSERT INTO rust_withdrawal_ids (account_id, exchange_id, venue_id, owner, settled_at, source) VALUES (NULL, 7, 'V', 'x', 'now', 'rust')", []).is_err());
+}

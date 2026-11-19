@@ -203,9 +203,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("order_id", "INTEGER", false), ("account_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("ticker_id", "INTEGER", true), ("order_type", "TEXT", true),
         ("price", "TEXT", false), ("surface", "TEXT", true), ("identity", "TEXT", false), ("order_snapshot", "TEXT", false), ("external_id", "TEXT", false)],
         unique_indexes: &[] }),
-    ("20261119000002", TableContract { name: "rust_withdrawal_ids", columns: &[("account_id", "INTEGER", true),
+    // Its unique index is on (coalesce(account_id, -exchange_id), venue_id): an expression the contract cannot name.
+    ("20261119000002", TableContract { name: "rust_withdrawal_ids", columns: &[("account_id", "INTEGER", false),
         ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)],
-        unique_indexes: &[&["account_id", "venue_id"]] }),
+        unique_indexes: &[] }),
     // #710 slice 3: a bot's order's account (PLAN-710-4 §2's shape; slice 3 writes account_id only).
     ("20261119000002", TableContract { name: "exchange_account_transactions", columns: &[("transaction_id", "INTEGER", false), ("account_id", "INTEGER", true),
         ("venue_external_id", "TEXT", false)], unique_indexes: &[&["account_id", "venue_external_id"]] }),
