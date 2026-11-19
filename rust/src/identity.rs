@@ -261,15 +261,18 @@ fn account_sql(membership: &str, column: &str, alias: &str) -> String {
               WHERE a.user_id = {alias}.user_id AND a.exchange_id = {alias}.exchange_id
               AND CASE WHEN m.account_id IS NULL THEN a.number = 1 ELSE a.id = m.account_id END)")
 }
-/// SQL: the account of api key row `alias` (`account_of_key`), NULL as `account_sql`, and NULL for every key on an install
-/// without the membership tables.
-pub fn key_account_sql(c: &Connection, alias: &str) -> rusqlite::Result<String> {
-    Ok(if scoped(c)? { account_sql("exchange_account_keys", "api_key_id", alias) } else { "NULL".into() })
+/// `read` given the SQL of api key row `alias`'s account (`account_of_key`, NULL as `account_sql`), run again with NULL for
+/// every key on an install without the account tables. One statement on a migrated install (page read budgets count them).
+pub fn with_key_account<T>(alias: &str, read: impl Fn(&str) -> rusqlite::Result<T>) -> rusqlite::Result<T> {
+    unscoped_or(read(&account_sql("exchange_account_keys", "api_key_id", alias)), || read("NULL"))
 }
-/// Whether this install has the key and bot membership tables (20261119000001). One `run`/`serve` has not migrated (a 2.x
-/// install) has no accounts: its key and bot lookups are by (user, exchange), as before #710.
-fn scoped(c: &Connection) -> rusqlite::Result<bool> {
-    c.query_row("SELECT count(*) = 1 FROM sqlite_master WHERE type = 'table' AND name = 'exchange_account_keys'", [], |r| r.get(0))
+/// `scoped`'s answer to a read that named the account tables: on an install without them (one `run`/`serve` has not
+/// migrated, a 2.x install) the read again by (user, exchange), as before #710.
+fn unscoped_or<T>(scoped: rusqlite::Result<T>, unscoped: impl FnOnce() -> rusqlite::Result<T>) -> rusqlite::Result<T> {
+    match scoped {
+        Err(e) if e.to_string().contains("no such table: exchange_account") => unscoped(),
+        out => out,
+    }
 }
 
 /// An account as key and bot lookups scope by it: its row's `id`, None for the number 1 of (user, exchange) while no row
@@ -281,28 +284,26 @@ pub struct Account { pub user_id: i64, pub exchange_id: i64, pub id: Option<i64>
 impl Account {
     /// The account (user, exchange) means while it has one (`first_account`).
     pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Self> {
-        if !scoped(c)? { return Ok(Self { user_id, exchange_id, id: None, scoped: false }); }
-        Ok(Self { user_id, exchange_id, id: first_account(c, user_id, exchange_id)?.map(|(id, _)| id), scoped: true })
+        unscoped_or(first_account(c, user_id, exchange_id).map(|row| Self { user_id, exchange_id, id: row.map(|(id, _)| id), scoped: true }),
+                    || Ok(Self { user_id, exchange_id, id: None, scoped: false }))
     }
     /// Api key `api_key_id`'s. None: no such key, or its membership row names another user's or exchange's account.
     pub fn of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<Self>> { Self::of(c, "api_keys", "exchange_account_keys", "api_key_id", api_key_id) }
     /// Bot `bot_id`'s. None also for a bot with no exchange.
     pub fn of_bot(c: &Connection, bot_id: i64) -> rusqlite::Result<Option<Self>> { Self::of(c, "bots", "exchange_account_bots", "bot_id", bot_id) }
     fn of(c: &Connection, subject: &str, membership: &str, column: &str, id: i64) -> rusqlite::Result<Option<Self>> {
-        if !scoped(c)? {
-            return c.query_row(&format!("SELECT user_id, exchange_id FROM {subject} WHERE id = ?1 AND exchange_id IS NOT NULL"), [id],
-                               |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: None, scoped: false })).optional();
-        }
         let account = account_sql(membership, column, "s");
-        c.query_row(&format!("SELECT s.user_id, s.exchange_id, {account},
+        let scoped = c.query_row(&format!("SELECT s.user_id, s.exchange_id, {account},
                               s.exchange_id IS NOT NULL AND (NOT EXISTS (SELECT 1 FROM {membership} WHERE {column} = s.id) OR {account} IS NOT NULL)
                               FROM {subject} s WHERE s.id = ?1"),
                     [id], |r| r.get::<_, bool>(3)?.then(|| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: r.get(2)?, scoped: true })).transpose())
-            .optional().map(Option::flatten)
+            .optional().map(Option::flatten);
+        unscoped_or(scoped, || c.query_row(&format!("SELECT user_id, exchange_id FROM {subject} WHERE id = ?1 AND exchange_id IS NOT NULL"), [id],
+                                           |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: None, scoped: false })).optional())
     }
     /// Account row `id` (live or not). None: no such row.
     pub fn by_id(c: &Connection, id: i64) -> rusqlite::Result<Option<Self>> {
-        if !scoped(c)? { return Ok(None); }
+        if !ready(c)? { return Ok(None); }
         c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1", [id], |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: Some(id), scoped: true })).optional()
     }
     /// This account with its row: `ensure_account`'s when it has none yet. Call in the write's own transaction.
@@ -534,10 +535,10 @@ pub enum CredentialStanding {
 
 pub fn credential_standing(c: &Connection, api_key_id: i64) -> rusqlite::Result<CredentialStanding> {
     if !ready(c)? { return Ok(CredentialStanding::Unobserved); }
-    let row: Option<(Option<String>, Option<String>)> = c.query_row(
-        &format!("SELECT o.fingerprint, (SELECT fingerprint FROM exchange_accounts WHERE id = {}) FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
-                  WHERE o.api_key_id = ?1", key_account_sql(c, "k")?),
-        [api_key_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    let row: Option<(Option<String>, Option<String>)> = with_key_account("k", |account| c.query_row(
+        &format!("SELECT o.fingerprint, (SELECT fingerprint FROM exchange_accounts WHERE id = {account}) FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                  WHERE o.api_key_id = ?1"),
+        [api_key_id], |r| Ok((r.get(0)?, r.get(1)?))).optional())?;
     Ok(match row {
         None | Some((None, _)) => CredentialStanding::Unobserved,
         Some((Some(_), None)) => CredentialStanding::Seen,

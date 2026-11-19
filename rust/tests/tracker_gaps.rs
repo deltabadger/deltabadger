@@ -608,7 +608,9 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     let (owner, id) = (fx.owner(), fx.s.exchange_id);
     let app = app(&fx);
     let gaps_read = gaps_read(owner);
-    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name FROM api_keys k");
+    // #710: with each key's account (run::reading groups by it) in the same statement.
+    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, (SELECT a.id FROM exchange_accounts a")
+        && s.contains(") FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
     let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = {owner} AND exchange_id = {id}");
     for path in ["/tracker".to_string(), format!("/tracker?exchange_id={id}")] {

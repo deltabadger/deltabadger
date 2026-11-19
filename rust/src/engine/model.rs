@@ -810,15 +810,21 @@ pub fn credential_write<T>(c: &Connection, version: &Option<CredentialVersion>, 
     let out=work(&check_credential_result(&tx,version)?)?;
     tx.commit()?;Ok(out)
 }
+/// SQL condition on api key row `k`: a key of `bot`'s account (#710). A key holder (`Bot::key_holder`, id 0: a standalone
+/// order's or a recovery's account on an exchange) names no bot row; its account is its (user, exchange)'s.
+pub(crate) fn bot_keys(c: &Connection, bot: &Bot) -> rusqlite::Result<String> {
+    if bot.id == 0 { return Ok(crate::identity::Account::first(c, bot.user_id, bot.exchange_id)?.keys("k")); }
+    crate::identity::bot_keys(c, bot.id, "k")
+}
 /// `bot.api_key&.pending_activation?`: the bot's trading key, registered but not yet activated (IBKR's). Every job that
 /// would reach the venue for the bot asks first (Bot::ActionJob, SignalJob, RebalanceJob, BotApi orders).
 pub fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, bot.id, "k")?),
+    let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", bot_keys(c, bot)?),
                                           [], |r| r.get(0)).optional()?;
     Ok(status == Some(crate::enums::ApiKeyStatus::PendingActivation as i64))
 }
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
-    Ok(c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1",crate::identity::bot_keys(c,bot.id,"k")?),
+    Ok(c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1",bot_keys(c,bot)?),
         [], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)
 }
 pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
@@ -835,7 +841,7 @@ pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>
 pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
     type KeyRow = ([Option<String>;7], Option<String>, i64);
     let row: Option<KeyRow> = c.query_row(
-        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1",crate::identity::bot_keys(c,bot.id,"k")?),
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1",bot_keys(c,bot)?),
         [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
     let Some((columns,exchange_type,id)) = row else { return Ok((None,None,Vec::new())) };
     let version = ciphertext_version(id,&columns);

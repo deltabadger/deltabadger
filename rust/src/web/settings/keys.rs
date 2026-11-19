@@ -381,8 +381,8 @@ impl WarningKey{
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
-    let mut statement=c.prepare(&format!("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id),{} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id",crate::identity::key_account_sql(c,"k")?))?;
-    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,account:r.get(7)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>()?;
+    let keys=crate::identity::with_key_account("k",|account|c.prepare(&format!("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id),{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id"))?
+    .query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,account:r.get(7)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>())?;
     // Per account (#710).
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
     for key in &keys{
