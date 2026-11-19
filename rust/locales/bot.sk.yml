@@ -174,6 +174,7 @@ sk:
                     prices: 'Zobraziť ceny'
                     modes: 'Režim grafu'
                     pnl: 'P/L'
+                    received: 'Prijaté'
                     total_invested: 'Celkom investované'
                     value: Hodnota
                 csv_download_html: 'Tabuľka vyššie zobrazuje iba posledných desať transakcií. Celý prehľad si môžete stiahnuť vo formáte CSV nižšie.'
@@ -196,6 +197,7 @@ sk:
                 price: 'Cena(%{quote})'
                 sold: Predané
                 received: 'Prijaté'
+                realised_pnl_basis_note: "Prijatá suma mínus to, koľko predané mince stáli, podľa histórie vášho účtu."
                 title: Štatistiky
                 total_invested: 'Celkom investované'
                 portfolio_value: 'Hodnota portfólia'

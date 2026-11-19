@@ -132,13 +132,14 @@ fn suppression_precedes_sync_csv_and_equal_bnb_stamped_anchor_after_restart() {
 #[test]
 fn invalidation_and_marker_roll_back_with_failed_insert_and_zero_insert_retry_is_fresh() {
     let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());let rows=pair("p1","BTC");
-    for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
+    for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::cache::sales_key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
     c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES (?1,'2099-01-01','2099-01-01','2099-01-01')",[key.user_id]).unwrap();
     c.execute("INSERT INTO portfolio_venue_snapshots(user_id,exchange_id,date,created_at,updated_at) VALUES (?1,?2,'2099-01-01','2099-01-01','2099-01-01')",params![key.user_id,key.exchange_id]).unwrap();
     let before=state(c);
     c.execute_batch("CREATE TEMP TRIGGER fail_invalidation BEFORE DELETE ON app_configs BEGIN SELECT RAISE(ABORT,'simulated crash'); END").unwrap();
     assert!(write(c,&key,&rows).is_err());assert_eq!(state(c),before);c.execute_batch("DROP TRIGGER fail_invalidation").unwrap();
     assert_eq!(write(c,&key,&rows).unwrap().imported,2);assert!(app_config::get_plain(c,&deltabadger::tracker::cache::key(key.user_id)).unwrap().is_none());
+    assert!(app_config::get_plain(c,&deltabadger::tracker::cache::sales_key(key.user_id)).unwrap().is_none(),"the bot sales go with the ledger entry");
     for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {assert_eq!(c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);}
     let after=state(c);assert_eq!(write(c,&key,&rows).unwrap().imported,0);assert_eq!(state(c),after);
 }

@@ -133,12 +133,18 @@ fn raw_bot_chart(body: &str) -> &str {
 /// same `state` (the recorded figures' `pages`). A page whose chart is ready draws it inline, byte for byte
 /// as 2.x wrote it, and has no frame to load. Returns the body that holds the chart.
 async fn chart_frames(name: &str, state: &str, id: &str, browser: &mut common::web::Browser, app: &deltabadger::web::App, v2: &Value) -> String {
-    let (page, v2_page) = (browser.get(app, &format!("/bots/{id}")).await, bot_chart(v2["page"].as_str().unwrap()));
+    let mut page = browser.get(app, &format!("/bots/{id}")).await;
+    let mut v2_body = v2["page"].as_str().unwrap().to_string();
+    if SELL_ONLY_PAIRS.contains(&name) && page.body.contains("data-bot--chart-series-value") {
+        assert!(page.body.contains("data-bot--chart-received-value=\"unknown\""), "{name} {state}: D-SELL-ONLY-CHART: {}", page.body);
+        (page.body, v2_body) = (sell_only_chart(&page.body), sell_only_chart(&v2_body));
+    }
+    let v2_page = bot_chart(&v2_body);
     assert_eq!(page.status, 200, "{name} {state}: {}", page.body);
     let ours = bot_chart(&page.body);
     assert_eq!(ours, v2_page, "{name} {state}: the page's chart frame");
     let Some(src) = ours.0 else {
-        assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(v2["page"].as_str().unwrap()), "{name} {state}: the inline chart, byte for byte");
+        assert_eq!(raw_bot_chart(&page.body), raw_bot_chart(&v2_body), "{name} {state}: the inline chart, byte for byte");
         assert!(v2["chart"].is_null(), "{name} {state}: 2.x loaded a frame for an inline chart");
         return page.body;
     };
@@ -267,7 +273,7 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
     let c = rusqlite::Connection::open(&file).unwrap();
     c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
                SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
-    let read = |c: &rusqlite::Connection| { let started = std::time::Instant::now(); let (_, rows) = loading::revision(c, user).unwrap(); (rows, started.elapsed()) };
+    let read = |c: &rusqlite::Connection| { let started = std::time::Instant::now(); let (_, rows) = loading::revision(c, user, chrono::Utc::now()).unwrap(); (rows, started.elapsed()) };
     let (alone, _) = read(&c);
     c.execute_batch("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<10000) \
         INSERT INTO assets(id,category,created_at,external_id,name,symbol,updated_at) SELECT 200000+i,'Stock','2020-01-01','U'||i,'U'||i||' Inc','U'||i,'2020-01-01' FROM n; \
@@ -1014,6 +1020,13 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 let payload = if name == "redeploy_halt" || name.starts_with("framed_rebalance_halt") { payload.replace(GRID_TOKEN_FIELD, "") } else { payload };
                 let payload=common::html::without_rebalance_attestation(&payload,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && target == "metrics" { assert_eq!(sell_only_table(&payload), sell_only_table(wanted[1].as_str().unwrap()), "{name} broadcast metrics"); continue; }
+                // D-SELL-ONLY-TILE: no percentage of nothing. D-SELL-ONLY-CHART: the series are this build's own.
+                if SELL_ONLY_PAIRS.contains(&name) && target.starts_with("pnl_bots_") {
+                    let tile = sell_only_tile(target.trim_start_matches("pnl_bots_signal_"));
+                    assert_eq!(payload, deltabadger::web::turbo::stream("replace", target, &tile), "{name} broadcast tile");
+                    continue;
+                }
+                if SELL_ONLY_PAIRS.contains(&name) && target == "chart" { assert_eq!(common::html::normalize(&sell_only_chart(&payload)), common::html::normalize(&sell_only_chart(wanted[1].as_str().unwrap())), "{name} broadcast chart"); continue; }
                 assert_eq!(common::html::normalize(&payload),common::html::normalize(wanted[1].as_str().unwrap()),"{name} broadcast {stream} {target}");
             }
         }
@@ -1038,10 +1051,18 @@ async fn figures_fragments_match_the_v2_page_partials() {
                 let got=common::html::without_rebalance_attestation(&got,&c);
                 if SELL_ONLY_PAIRS.contains(&name) && part == "metrics" {
                     // D4 (3.0, Rust only): a pair that only sells states what it sold and what that brought in, where 2.x states an
-                    // investment; its row, chart, tile and totals are 2.x's.
+                    // investment; its row and totals are 2.x's.
                     assert!(got.contains("Sold") && got.contains("Received") && !got.contains("Invested"), "{name}: {got}");
                     assert!(parts[part].as_str().unwrap().contains("Invested"), "{name}: 2.x states an investment");
                     assert_eq!(sell_only_table(&got), sell_only_table(parts[part].as_str().unwrap()), "{name} bot {id} metrics");
+                    continue;
+                }
+                // D-SELL-ONLY-TILE: its tile states no percentage of nothing, where 2.x states 0.00%.
+                if SELL_ONLY_PAIRS.contains(&name) && part == "tile" { assert_eq!(got, sell_only_tile(id), "{name} bot {id} tile"); continue; }
+                // D-SELL-ONLY-CHART: its chart draws what it received; the rest is 2.x's.
+                if SELL_ONLY_PAIRS.contains(&name) && part == "chart" {
+                    assert!(got.contains("data-bot--chart-received-value=\"unknown\""), "{name}: {got}");
+                    assert_eq!(common::html::normalize(&sell_only_chart(&got)), common::html::normalize(&sell_only_chart(parts[part].as_str().unwrap())), "{name} bot {id} chart");
                     continue;
                 }
                 if name == "stranded_offset" && part == "metrics" {
@@ -1064,6 +1085,19 @@ const FRAMED_SIGNALS: [&str; 4] = ["signal_sell_only", "framed_signal_buys", "fr
 
 /// A pair panel's holdings table, which D4 leaves as 2.x renders it.
 const GRID_TOKEN_FIELD: &str = "<input type=\"hidden\" name=\"authenticity_token\" value=\"token\" autocomplete=\"off\" />";
+
+/// D-SELL-ONLY-CHART: a sell-only pair's chart draws what it received (and that cost, when known), not 2.x's investment,
+/// and its value mode is named for it: the series, the P/L curve, the marker and the mode switch are this build's own; the
+/// rest of the chart (labels, marks, logos, layout) is compared as 2.x wrote it.
+fn sell_only_chart(html: &str) -> String {
+    let attributes = regex::Regex::new(r#" data-bot--chart-(series|pnl|received)-value="[^"]*""#).unwrap();
+    let modes = regex::Regex::new(r#"bot--chart#mode">[\s\S]*?</div>\s*<div class="widget--chart__summary""#).unwrap();
+    modes.replace_all(&attributes.replace_all(html, ""), r#"bot--chart#mode"></div><div class="widget--chart__summary""#).into_owned()
+}
+
+/// D-SELL-ONLY-TILE: the tile this build writes for a sell-only signal bot whose cost is not known, byte for byte: its
+/// target with no figure, where 2.x states 0.00% of nothing.
+fn sell_only_tile(id: &str) -> String { format!("<div id=\"pnl_bots_signal_{id}\">\n</div>\n") }
 
 fn sell_only_table(html: &str) -> Vec<String> {
     let doc = scraper::Html::parse_fragment(html);
@@ -1496,13 +1530,23 @@ async fn chronology_matches_v2_fresh_bytes() {
     let w1: Vec<&str> = chronology["w1"].as_array().unwrap().iter().map(|n| n.as_str().unwrap()).collect();
     // The scenario's bots: the one started later has no figures in 2.x's read, and is left out of the comparison.
     let ids: Vec<String> = sc["bot_ids"].as_array().unwrap().iter().map(|id| id.to_string()).collect();
-    let parts = |figures: &Value| -> BTreeMap<String, Vec<String>> {
+    // `ours`: this build's figures, whose sell-only tile is asserted exactly; 2.x's states 0.00% there (D-SELL-ONLY-TILE).
+    let parts = |figures: &Value, ours: bool| -> BTreeMap<String, Vec<String>> {
         let mut out = BTreeMap::new();
         for (id, bot) in figures["bots"].as_object().unwrap().iter().filter(|(id, _)| ids.contains(id)) {
             for part in ["tile", "metrics", "chart"] {
                 let html = bot[part].as_str().unwrap();
                 // D4: a sell-only pair's grid is this build's own; its holdings are compared.
-                out.insert(format!("{id} {part}"), if part == "metrics" && SELL_ONLY_PAIRS.contains(&scenario) { sell_only_table(html) } else { common::html::normalize(html) });
+                // D-SELL-ONLY-CHART: and its chart's series are this build's own.
+                out.insert(format!("{id} {part}"), match part {
+                    "metrics" if SELL_ONLY_PAIRS.contains(&scenario) => sell_only_table(html),
+                    "chart" if SELL_ONLY_PAIRS.contains(&scenario) => common::html::normalize(&sell_only_chart(html)),
+                    "tile" if SELL_ONLY_PAIRS.contains(&scenario) => {
+                        if ours { assert_eq!(html, sell_only_tile(id), "{scenario}: bot {id} tile"); }
+                        vec!["D-SELL-ONLY-TILE".into()]
+                    }
+                    _ => common::html::normalize(html),
+                });
             }
         }
         out.insert("account".into(), common::html::normalize(figures["account"].as_str().unwrap()));
@@ -1545,7 +1589,7 @@ async fn chronology_matches_v2_fresh_bytes() {
         let shown = snapshot.clone();
         let read_at = deltabadger::engine::FixedClock(common::web::at(step["t_r"].as_str().unwrap()));
         let rendered = app.db(move |c| loading::render(c, user, &shown, "en", "", "", &read_at)).await.unwrap().expect("figures");
-        let (ours, fresh, actual) = (parts(&rendered), parts(&step["fresh"]), parts(&step["actual"]));
+        let (ours, fresh, actual) = (parts(&rendered, true), parts(&step["fresh"], false), parts(&step["actual"], false));
         if matches!(snapshot, Snapshot::Failed(_)) {
             // Nothing was kept: the market refused this fill. What was kept before it is never shown past its cut; the
             // page shows no figures at all, only their targets (2.x shows its stale figures there, a difference older than kept

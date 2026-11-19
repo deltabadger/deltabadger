@@ -623,7 +623,7 @@ mod tests {
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
             CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_asset_id INTEGER, base_amount NUMERIC,
                 quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT, transacted_at TEXT, raw_data TEXT,
-                manual_values TEXT, linked_transaction_id INTEGER, updated_at TEXT);").unwrap();
+                manual_values TEXT, linked_transaction_id INTEGER, updated_at TEXT, transaction_id INTEGER);").unwrap();
         for (kind, base, amount, usd, when) in rows {
             c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values, updated_at) \
                        VALUES (1, 1, ?1, ?2, ?3, CASE WHEN ?4 IS NULL THEN NULL ELSE 'USD' END, ?4, ?5, '{}', '{}', ?5)", rusqlite::params![kind, base, amount, usd, when]).unwrap();

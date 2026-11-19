@@ -79,7 +79,7 @@ pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineErro
     for owner in owners {
         // Explicit invalidation also handles a future-dated row masking max(updated_at). The usual jobs rebuild both.
         for key in [
-            crate::tracker::cache::key(owner),
+            crate::tracker::cache::key(owner),crate::tracker::cache::sales_key(owner),
             crate::tracker::backfill::history_key(owner),
             crate::tracker::backfill::price_key(owner),
         ] {

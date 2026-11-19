@@ -2,6 +2,7 @@ use super::*;
 use crate::figures::dec::Dec;
 use crate::web::{colors, i18n::{self, escape, Arg}};
 use rusqlite::OptionalExtension;
+use crate::tracker::cache::Sales;
 use std::collections::HashSet;
 
 fn t(locale: &str, key: &str) -> String { i18n::t(locale, key, &[]) }
@@ -73,24 +74,14 @@ fn table(c: &Connection, s: &Subject, rows: &[&Holding], body: &str, actions: bo
 /// writes its own token's field there and nowhere else (`with_token`), and a broadcast takes the fragment as it is.
 pub(crate) enum Token<'a> { Value(&'a str), Slots(&'a mut Vec<usize>) }
 
-/// A bot whose every order is a sell (it holds what it sells from outside): what it sold, when that is one asset (its
-/// amount and symbol), and the proceeds. None for any bot that bought.
-/// (amount and symbol when one asset, proceeds)
-type SellOnly = (Option<(crate::figures::dec::Dec, String)>, crate::figures::dec::Dec);
-/// `pair`: read as the pair's walk reads its rows (`fill::pair_row`).
-fn sell_only(s: &Subject, pair: bool) -> Result<Option<SellOnly>, FiguresError> {
-    use crate::figures::{dec::Dec, fill};
-    if s.orders.is_empty() || s.orders.iter().any(|order| !order.sell) { return Ok(None); }
-    let (mut amount, mut received, mut bases) = (Dec::zero(), Dec::zero(), HashSet::new());
-    for order in &s.orders {
-        let Some(filled) = (if pair { fill::pair_row(order)? } else { fill::parse(order)? }) else { continue };
-        amount = (&amount + &filled.quantity)?;
-        received = (&received + &filled.value)?;
-        if let Some(base) = &order.base { bases.insert(base.clone()); }
-    }
-    let sold = (bases.len() == 1).then(|| (amount, bases.into_iter().next().unwrap_or_default()));
-    Ok(Some((sold, received)))
+/// D-SELL-ONLY-*: the realised P/L box (bot.dca_index.realised_pnl), signed and coloured (a zero neither), with its note (a
+/// locale key). Only the currency is escaped.
+fn realised_box(locale: &str, pnl: &Num, quote: &str, note: &str) -> Result<String, FiguresError> {
+    Ok(format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value{}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n",
+        t(locale, "bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), match colour(pnl) { "" => String::new(), c => format!(" {c}") },
+        if pnl.is_positive() { "+" } else { "" }, quoted(precision(pnl, 2, true)?, quote), t(locale, note)))
 }
+const BASIS_NOTE: &str = "bot.details.stats.realised_pnl_basis_note";
 
 fn token_field(csrf: &str) -> String { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" autocomplete=\"off\" />", escape(csrf)) }
 /// Kept metrics with the request's token field written at each recorded offset (`Token::Slots`), and nowhere else:
@@ -174,7 +165,7 @@ pub(super) fn loading_locked_table(c: &Connection, bot_id: i64, signal: bool, hi
 /// bots/dca_single_assets/_metrics, from a pair bot's live figures (`pair::live`). Rust only (3.0): stale figures state
 /// nothing priced (D3, as a basket's), the note only for a venue the figures read; a pair that only sells states what it
 /// sold and what that brought in (D4).
-pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden: bool, locale: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
+pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, sales: &Sales, hidden: bool, locale: &str, prefix: &str, now: At) -> Result<String, FiguresError> {
     let (s, m) = (&p.subject, &p.metrics);
     let quote = s.quote.as_deref().unwrap_or("");
     let quoted = |figure: &str| if figure.trim().is_empty() || quote.trim().is_empty() { escape(figure) } else { format!("{} <small>{}</small>", escape(figure), escape(quote)) };
@@ -193,8 +184,10 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
     if !hidden {
         let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n  <div class=\"label\">\n    {}\n  </div>\n  \
             <div class=\"data-grid__item__value \">\n      {value}\n  </div>\n</div>\n\n", t(locale, label));
-        out.push_str("    <div class=\"widget data-grid data-grid--two-columns\">\n");
-        if let Some((sold, received)) = sell_only(s, true)? {
+        let sell = crate::figures::basis::sell_only(s, true, sales)?;
+        let pnl = sell.as_ref().map(crate::figures::basis::SellOnly::pnl).transpose()?.flatten();
+        out.push_str(&format!("    <div class=\"widget data-grid {}\">\n", if pnl.is_none() { "data-grid--two-columns" } else { "" }));
+        if let Some(crate::figures::basis::SellOnly { sold, received, .. }) = sell {
             // D4 (3.0, Rust only): a bot that only sells has no investment to state: what it sold, and what that brought in.
             if let Some((amount, base)) = sold {
                 let amount = precision(&Num::Dec(amount), 6, false)?;
@@ -202,6 +195,7 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
             }
             // money() returns trusted markup (the is-zero span); only the currency is escaped.
             out.push_str(&item("bot.details.stats.received", self::quoted(money(&Num::Dec(received))?, quote.trim())));
+            if let Some(pnl) = pnl { out.push_str(&realised_box(locale, &Num::Dec(pnl), quote.trim(), BASIS_NOTE)?); }
         } else {
             out.push_str(&item("data_labels.invested", quoted(&format_value(&m.total_quote_amount_invested, max(quote_decimals))?)));
             let value = if stale { NO_VALUE.to_string() } else { quoted(&format_value(&m.total_amount_value_in_quote, max(quote_decimals))?) };
@@ -250,7 +244,7 @@ pub(super) fn render_pair(c: &Connection, p: &crate::figures::pair::Pair, hidden
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], hidden: bool, locale: &str, csrf: &mut Token<'_>, prefix: &str, now: At) -> Result<String, FiguresError> {
+pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String], sales: &Sales, hidden: bool, locale: &str, csrf: &mut Token<'_>, prefix: &str, now: At) -> Result<String, FiguresError> {
     let quote = s.quote.as_deref().unwrap_or("");
     let (status, settings): (i64, String) = c.query_row("SELECT status, settings FROM bots WHERE id=?1", [s.bot.id], |r| Ok((r.get(0)?,r.get(1)?)))?;
     let settings: Value = serde_json::from_str(&settings).map_err(|_| FiguresError::Data("Invalid settings".into()))?;
@@ -288,9 +282,15 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     // 3.0 (Rust only): a venue the figures do not read yet (or an IBKR login without the subscription) did not fail to answer.
     if m.prices_stale && crate::figures::page_market::notes(&crate::figures::live::venue(s)?, s.bot.user_id, &s.tickers) { out.push_str(&prices_unread(locale)); }
     if !hidden {
-        out.push_str(&format!("    <div class=\"widget data-grid {}\">\n", if m.realised_pnl.is_zero() { "data-grid--two-columns" } else { "" }));
+        let sell = crate::figures::basis::sell_only(s, false, sales)?;
+        // The realised box: a sell-only bot's P/L when its cost is known (D-SELL-ONLY-KNOWN-COST), else the walk's.
+        let realised = match sell.as_ref().map(crate::figures::basis::SellOnly::pnl).transpose()?.flatten() {
+            Some(pnl) => Some((Num::Dec(pnl), BASIS_NOTE)),
+            None => (!m.realised_pnl.is_zero()).then(|| (m.realised_pnl.clone(), "bot.dca_index.realised_pnl_note")),
+        };
+        out.push_str(&format!("    <div class=\"widget data-grid {}\">\n", if realised.is_none() { "data-grid--two-columns" } else { "" }));
         let item = |label: &str, value: String| format!("      <div class=\"data-grid__item\" data-controller=\"tooltip\">\n        <div class=\"label\">{}</div>\n        <div class=\"data-grid__item__value\">\n            {value}\n        </div>\n      </div>\n", t(locale, &format!("bot.details.stats.{label}")));
-        if let Some((sold, received)) = sell_only(s, false)? {
+        if let Some(crate::figures::basis::SellOnly { sold, received, .. }) = sell {
             // 3.0 (Rust only): a bot that only sells has no investment to state: what it sold, and what that brought in.
             if let Some((amount, base)) = sold {
                 let amount = precision(&Num::Dec(amount), 6, false)?;
@@ -302,9 +302,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
                 out.push_str(&item(label, value.map(|n| money(n).map(|v| quoted(v, quote))).transpose()?.unwrap_or(NO_VALUE.into())));
             }
         }
-        if !m.realised_pnl.is_zero() {
-            out.push_str(&format!("<div class=\"data-grid__item\" data-controller=\"tooltip\">\n<div class=\"label label--info\">\n{}\n<span class=\"tooltip-info-icon\" data-action=\"mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle\">\n{}\n</span>\n</div>\n<div class=\"data-grid__item__value {}\">\n{}{}\n</div>\n<div class=\"tooltip tooltip--note\">{}</div>\n</div>\n", t(locale,"bot.dca_index.realised_pnl"), include_str!("../../../templates/svg/_24x24_info.html"), if m.realised_pnl.is_negative() { "text-danger" } else { "text-success" }, if m.realised_pnl.is_negative() { "" } else { "+" }, quoted(precision(&m.realised_pnl,2,true)?,quote), t(locale,"bot.dca_index.realised_pnl_note")));
-        }
+        if let Some((pnl, note)) = realised { out.push_str(&realised_box(locale, &pnl, quote, note)?); }
         out.push_str("    </div>\n");
     }
     out.push('\n');
@@ -482,7 +480,7 @@ mod token_tests {
         m.key_assets = vec![(hostile.into(), Some(2))];
         m.walked = Some(walk::Walked { shadowed_by: vec![], external_sales: false, restated_at: None, restated_before_external_sales: false, realised_cash: Num::Int(110), asset_lots: vec![], tax_pnl_by_transaction: vec![], loss_lot_by_transaction: vec![] });
         let now = At::from_sql("2026-03-10 00:00:00").unwrap();
-        let rendered = |token: &mut Token<'_>| render(&c, &s, &m, &[], false, "en", token, "", now).unwrap();
+        let rendered = |token: &mut Token<'_>| render(&c, &s, &m, &[], &Sales::Cold, false, "en", token, "", now).unwrap();
         let token = "a\"&<>'b";
         let page = rendered(&mut Token::Value(token));
         let broadcast = rendered(&mut Token::Value(""));
@@ -498,3 +496,19 @@ mod token_tests {
     }
 }
 
+
+#[cfg(test)]
+mod realised_tests {
+    use super::*;
+    /// A P/L of exactly nothing is neither a profit nor a loss: no sign, no colour.
+    #[test]
+    fn a_zero_realised_pnl_is_unsigned_and_uncoloured() {
+        let zero = realised_box("en", &Num::Dec(Dec::zero()), "USDC", BASIS_NOTE).unwrap();
+        assert!(zero.contains("0.00 <small>USDC</small>") && !zero.contains("+0.00") && !zero.contains("text-success") && !zero.contains("text-danger"), "{zero}");
+        assert!(zero.contains("<div class=\"data-grid__item__value\">"), "no trailing space in the class: {zero}");
+        let gain = realised_box("en", &Num::Dec(Dec::strict("1.6").unwrap()), "USDC", BASIS_NOTE).unwrap();
+        assert!(gain.contains("text-success") && gain.contains("+1.60"), "{gain}");
+        let loss = realised_box("en", &Num::Dec(Dec::strict("-1.6").unwrap()), "USDC", BASIS_NOTE).unwrap();
+        assert!(loss.contains("text-danger") && loss.contains("-1.60"), "{loss}");
+    }
+}

@@ -174,6 +174,7 @@ sv:
                     prices: 'Visa priser'
                     modes: 'Diagramläge'
                     pnl: 'P/L'
+                    received: 'Mottaget'
                     total_invested: 'Totalt investerat'
                     value: Värde
                 csv_download_html: 'Tabellen ovan visar bara de senaste tio transaktionerna. Den fullständiga rapporten kan laddas ner i CSV-format nedan.'
@@ -196,6 +197,7 @@ sv:
                 price: 'Kurs(%{quote})'
                 sold: Sålt
                 received: 'Mottaget'
+                realised_pnl_basis_note: "Mottaget belopp minus vad de sålda mynten kostade, enligt historiken på ditt konto."
                 title: Statistik
                 total_invested: 'Totalt investerat'
                 portfolio_value: 'Portföljvärde'

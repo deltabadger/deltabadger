@@ -174,6 +174,7 @@ en:
                     prices: 'Show prices'
                     modes: 'Chart mode'
                     pnl: 'P/L'
+                    received: 'Received'
                     total_invested: 'Total invested'
                     value: Value
                 csv_download_html: 'The table above shows only the last ten transactions. The full report is available to download in CSV format below.'
@@ -196,6 +197,7 @@ en:
                 price: 'Rate(%{quote})'
                 sold: Sold
                 received: 'Received'
+                realised_pnl_basis_note: "Received minus what the sold coins cost, from your account's history."
                 title: Statistics
                 total_invested: 'Total invested'
                 portfolio_value: 'Portfolio Value'
