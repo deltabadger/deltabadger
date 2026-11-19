@@ -695,6 +695,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // #710: withdrawal rules by account. 2.x's `rules` mirrors the number-1 ones (written again in the handback); a rule
         // of an account 2+ refuses (rules::handback_problems).
         (Table, "exchange_account_rules", Refuses(super::rules::HANDBACK_REFUSAL)),
+        (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
@@ -1089,7 +1090,15 @@ fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
         let this engine run the bot until the hold clears before handing back")).collect()))
 }
 
+/// #710: an order of an exchange's account 2+ (exchange_account_transactions holds nothing else): 2.x would follow it with
+/// the first account's key.
+pub const SECOND_ACCOUNT_ORDER: &str = "an order of an exchange's second account is Rust-only";
+
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
+    if super::rules::table_exists(c, "exchange_account_transactions")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_transactions)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_ORDER.into()]));
+    }
     // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;

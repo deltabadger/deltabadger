@@ -24,6 +24,14 @@ INSERT INTO exchange_account_rules (id, account_id, user_id, type, status, excha
   FROM rules r JOIN exchange_accounts a ON a.user_id = r.user_id AND a.exchange_id = r.exchange_id AND a.number = 1
   WHERE r.type = 'Rules::Withdrawal' ORDER BY r.id;
 
+-- Which account a bot's order belongs to (PLAN-710-4 §2's shape: slice 4 adds its trigger and the relocated venue id).
+-- No row: the number-1 account of the order's (user, exchange). Written at placement, in the order row's transaction.
+CREATE TABLE exchange_account_transactions (
+  transaction_id INTEGER PRIMARY KEY REFERENCES transactions(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL,
+  venue_external_id TEXT,
+  UNIQUE (account_id, venue_external_id));
+
 -- rust_withdrawal_ids by account (a venue id is one withdrawal per account: two accounts of one exchange may each have
 -- made it), rebuilt through a hop table, every row keeping its rowid. A rule's id is its rule's account's; one of a rule
 -- 2.x deleted, its (user, exchange)'s number 1; a recorder's, its exchange's first number 1.

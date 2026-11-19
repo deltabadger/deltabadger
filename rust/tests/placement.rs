@@ -504,3 +504,43 @@ async fn an_intent_from_before_selling_names_no_side_and_is_a_buy() {
     o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.side') WHERE id = ?1", [bot.id]).unwrap();
     assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Pending));
 }
+
+/// #710: a bot of account 2 trades with account 2's key, and its order is account 2's, in the order row's transaction; an
+/// order of account 1 has no membership row (a missing one is number 1).
+#[tokio::test(flavor = "current_thread")]
+async fn a_second_accounts_bot_places_with_its_key_and_its_order_is_that_accounts() {
+    use deltabadger::identity::Account;
+    let dir = common::baseline_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let cipher = seed::cipher();
+    let s = seed::seed_kraken(&o.primary, &cipher);
+    let c = &o.primary;
+    let first = Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, t0()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, 'now', 'now')",
+              rusqlite::params![s.user_id, s.exchange_id, cipher.encrypt("account-2-key"), cipher.encrypt("account-2-secret")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    let mut ids = vec![];
+    for (n, account) in [first, second].into_iter().enumerate() {
+        let bot = seed::insert_bot(c, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        deltabadger::identity::place_bot(c, bot, s.user_id, s.exchange_id, Some(account), t0()).unwrap();
+        let bot = model::load_bot(c, bot).unwrap();
+        let key = model::credentials_for(c, &cipher, &bot).unwrap().unwrap().key;
+        assert_eq!(key == "account-2-key", n == 1, "each bot its own account's key");
+        let ticker = model::ticker_for(c, &bot).unwrap().unwrap();
+        let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+        let venue = FakeVenue::new().next_add(AddOutcome::Accept(format!("OTX-{n}"))).order(&format!("OTX-{n}"), json!({
+            "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0" } }));
+        let intent = placement::begin(c, &bot, &plan, &FixedClock(t0())).unwrap();
+        placement::send(c, &venue, &intent, &FixedClock(t0())).await.unwrap();
+        // The order recorded as recovery records it (the path that writes the row of an accepted send).
+        assert!(matches!(placement::recover(c, &venue, &model::load_bot(c, bot.id).unwrap(), &FixedClock(t0() + Duration::hours(2))).await.unwrap(), Recovery::Recorded(_)));
+        ids.push(c.query_row("SELECT id FROM transactions WHERE bot_id = ?1", [bot.id], |r| r.get::<_, i64>(0)).unwrap());
+    }
+    let members: Vec<(i64, i64)> = c.prepare("SELECT transaction_id, account_id FROM exchange_account_transactions").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(members, [(ids[1], second.id.unwrap())]);
+    assert_eq!(Account::of_order(c, ids[0]).unwrap(), Some(first));
+    assert_eq!(Account::of_order(c, ids[1]).unwrap(), Some(second));
+}

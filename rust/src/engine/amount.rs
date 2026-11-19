@@ -400,7 +400,9 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
             bot_interval.map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
             serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(), plan.kind.as_str(),
         ])?;
-    Ok(c.last_insert_rowid())
+    let id = c.last_insert_rowid();
+    crate::identity::place_order(c, id, bot.id)?;
+    Ok(id)
 }
 
 /// Bots::Signal::OrderSetter#record_signal_failure before anything was sized (a price or balance read that failed, a check
@@ -412,7 +414,9 @@ pub fn write_unsized_failure(c: &Connection, bot: &Bot, ticker: &Ticker, side: S
          bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5, ?6, ?7, ?8, ?9, '', ?10, 'REGULAR', ?11, ?12, ?12)",
         params![bot.id, bot.exchange_id, TxStatus::Failed as i64, side.code(), 0.0f64, ticker.base_symbol, ticker.quote_symbol, ticker.base_asset_id, ticker.quote_asset_id,
                 to_sql(&BigDec::zero()), serde_json::to_string(errors).unwrap(), format_time(created_at)])?;
-    Ok(c.last_insert_rowid())
+    let id = c.last_insert_rowid();
+    crate::identity::place_order(c, id, bot.id)?;
+    Ok(id)
 }
 
 /// Bot::Startable#disable_starting_time!, which Bot::ActionJob runs after a clean run of a bot whose starting time is on

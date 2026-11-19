@@ -21,8 +21,8 @@ use serde_json::Value;
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql,
 /// 20261119000002_exchange_account_ownership.sql).
-pub const TABLES: [&str; 6] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
-                               "exchange_account_rules"];
+pub const TABLES: [&str; 7] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
+                               "exchange_account_rules", "exchange_account_transactions"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
@@ -309,6 +309,25 @@ impl Account {
                      AND a.user_id = r.user_id AND a.exchange_id = r.exchange_id WHERE r.id = ?1", [rule_id],
                     |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: Some(r.get(2)?), scoped: true })).optional()
     }
+    /// Bot order `transaction_id`'s (exchange_account_transactions, else the number 1 of its bot's user and its own exchange):
+    /// the account it was placed on, whatever its bot trades on now. None: no such order, or its membership names another
+    /// user's or exchange's account.
+    pub fn of_order(c: &Connection, transaction_id: i64) -> rusqlite::Result<Option<Self>> {
+        let scoped = c.query_row("SELECT b.user_id, t.exchange_id, m.account_id, (SELECT a.id FROM exchange_accounts a WHERE a.user_id = b.user_id AND a.exchange_id = t.exchange_id
+                                    AND CASE WHEN m.account_id IS NULL THEN a.number = 1 ELSE a.id = m.account_id END)
+                                  FROM transactions t JOIN bots b ON b.id = t.bot_id LEFT JOIN exchange_account_transactions m ON m.transaction_id = t.id
+                                  WHERE t.id = ?1 AND t.exchange_id IS NOT NULL", [transaction_id],
+                                 |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<i64>>(2)?, r.get::<_, Option<i64>>(3)?))).optional()
+            .map(|row| row.and_then(|(user_id, exchange_id, member, id)| (member.is_none() || id.is_some()).then_some(Self { user_id, exchange_id, id, scoped: true })));
+        unscoped_or(scoped, || c.query_row("SELECT b.user_id, t.exchange_id FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE t.id = ?1 AND t.exchange_id IS NOT NULL",
+                                           [transaction_id], |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: None, scoped: false })).optional())
+    }
+    /// SQL condition: order row `alias` of `transactions` (of one of this user's bots) was placed on this account.
+    pub fn orders(&self, c: &Connection, alias: &str) -> rusqlite::Result<String> {
+        if !self.scoped { return Ok(format!("({alias}.exchange_id = {})", self.exchange_id)); }
+        let member = match self.id { Some(id) if self.number(c)? != 1 => id.to_string(), _ => "NULL".into() };
+        Ok(format!("({alias}.exchange_id = {} AND (SELECT m.account_id FROM exchange_account_transactions m WHERE m.transaction_id = {alias}.id) IS {member})", self.exchange_id))
+    }
     /// Account row `id` (live or not). None: no such row.
     pub fn by_id(c: &Connection, id: i64) -> rusqlite::Result<Option<Self>> {
         if !ready(c)? { return Ok(None); }
@@ -360,6 +379,17 @@ pub fn place_bot(c: &Connection, bot_id: i64, user_id: i64, exchange_id: i64, ac
     c.execute("DELETE FROM exchange_account_bots WHERE bot_id = ?1", [bot_id])?;
     let Some(id) = account.id else { return Ok(()) };
     if account.number(c)? != 1 { c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [bot_id, id])?; }
+    Ok(())
+}
+
+/// Order `transaction_id` of bot `bot_id`, just written in this transaction, belongs to the bot's account for good (a bot
+/// that changes account later leaves its orders where they were placed): a membership row only for a number other than
+/// 1. A bot whose account resolves to none has no key either (`bot_keys`), so nothing of it is placed.
+pub fn place_order(c: &Connection, transaction_id: i64, bot_id: i64) -> rusqlite::Result<()> {
+    if !ready(c)? { return Ok(()); }
+    let Some(account) = Account::of_bot(c, bot_id)? else { return Ok(()) };
+    let Some(id) = account.id else { return Ok(()) };
+    if account.number(c)? != 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [transaction_id, id])?; }
     Ok(())
 }
 

@@ -202,6 +202,9 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261119000002", TableContract { name: "rust_withdrawal_ids", columns: &[("account_id", "INTEGER", true),
         ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)],
         unique_indexes: &[&["account_id", "venue_id"]] }),
+    // #710 slice 3: a bot's order's account (PLAN-710-4 §2's shape; slice 3 writes account_id only).
+    ("20261119000002", TableContract { name: "exchange_account_transactions", columns: &[("transaction_id", "INTEGER", false), ("account_id", "INTEGER", true),
+        ("venue_external_id", "TEXT", false)], unique_indexes: &[&["account_id", "venue_external_id"]] }),
 ];
 
 /// What this build migrates.

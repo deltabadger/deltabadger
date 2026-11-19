@@ -1519,7 +1519,7 @@ const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
 const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
     "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
-    "exchange_account_rules"];
+    "exchange_account_rules", "exchange_account_transactions"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1614,6 +1614,11 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
         "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
         // #710: a rule of the exchange's second account.
         "exchange_account_rules" => { second_account_rule(&o.primary, s); }
+        "exchange_account_transactions" => {
+            let account = deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_id": "A2", "external_status": 2, "created_at": "2026-09-01 10:00:00"}));
+            o.primary.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [row, account.id.unwrap() + 1000]).unwrap();
+        }
         "rust_withdrawal_intents" => { o.primary.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
                                                           VALUES ('rule:1', 'dispatched', 'c', '2026-09-30 12:00:00', 1, 'd', 'h', 'a', 'k', 'p', 'f', '1', '1')", []).unwrap(); }
         "rust_rule_evaluations" => { o.primary.execute("INSERT INTO rust_rule_evaluations (rule_id, source, created_at) VALUES (1, 'start', '2026-09-30 12:00:00')", []).unwrap(); }
