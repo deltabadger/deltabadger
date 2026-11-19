@@ -523,3 +523,60 @@ async fn a_second_accounts_standalone_order_is_cancelled_with_that_accounts_key(
     let (status, body) = rest_cancel(&app, "SCL-2?exchange_name=kucoin").await;
     assert_eq!((status, body["error"]["code"].as_str()), (403, Some("api_key_missing")), "{body}");
 }
+
+/// #710: a bot's order is cancelled with the key of the account it was placed on, by database id or by exchange id, even
+/// after the bot itself moved to another account: never that account's key, which could reach another order of that id.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bots_order_is_cancelled_on_the_account_it_was_placed_on() {
+    use deltabadger::identity::Account;
+    let server = MockServer::start().await;
+    let (d, o, bot, rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM bots WHERE id = ?1", [bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [user, exchange]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("account-2-key"), cipher.encrypt("dGVzdC1zZWNyZXQ="), cipher.encrypt("pass")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    // The bot moved after placing its orders (account 1's: no membership row).
+    deltabadger::identity::place_bot(c, bot, user, exchange, Some(second), at(T0)).unwrap();
+    kucoin_mode(&server, &o, "classic").await;
+    let app = kucoin_app(&d, &server);
+    for path in [rows[2].to_string(), "CL-1?exchange_name=kucoin".to_string()] {
+        let (status, body) = rest_cancel(&app, &path).await;
+        assert_eq!(status, 200, "{path}: {body}");
+    }
+    let keys: Vec<String> = server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "DELETE")
+        .map(|r| r.headers.get("KC-API-KEY").unwrap().to_str().unwrap().to_string()).collect();
+    assert_eq!(keys, ["test-key", "test-key"], "account 1's key, the orders'");
+}
+
+/// #710: a standalone order logged on account 2 is cancelled when account 2's key is correct, account 1's broken: the
+/// logged order's account is found before any key is checked.
+#[tokio::test(flavor = "current_thread")]
+async fn a_second_accounts_standalone_order_needs_only_its_own_accounts_key() {
+    use deltabadger::{engine::api_orders, identity::Account};
+    let server = MockServer::start().await;
+    let (d, o, _bot, _rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange, ticker, first_key): (i64, i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id, k.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [user, exchange]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("account-2-key"), cipher.encrypt("dGVzdC1zZWNyZXQ="), cipher.encrypt("pass")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    let (amount, pair) = (deltabadger::v2::BigDec::parse("0.001").unwrap(), serde_json::Map::new());
+    let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
+        standalone: api_orders::Standalone { account: second, exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::v2::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+    api_orders::take(c, id, at(T0)).unwrap().unwrap();
+    assert!(api_orders::claim(c, id, "cl", None, &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());
+    api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: "SCL-3".into() }).unwrap();
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [first_key]).unwrap();
+    kucoin_mode(&server, &o, "classic").await;
+    let (status, body) = rest_cancel(&kucoin_app(&d, &server), "SCL-3?exchange_name=kucoin").await;
+    assert_eq!((status, &body["data"]["cancelled"]), (200, &json!(true)), "{body}");
+}

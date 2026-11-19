@@ -457,15 +457,18 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     let row: Option<(i64, i64)> = c.query_row("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
                                                WHERE b.user_id=?1 AND t.exchange_id=?2 AND t.external_id=?3 AND substr(t.external_id, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1",
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    let account = match &row { Some((_, tx)) => crate::identity::Account::of_order(c, *tx)?, None => Some(crate::identity::Account::first(c, who.user, exchange)?) };
+    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
+    let account = match (&row, &log) {
+        (Some((_, tx)), _) => crate::identity::Account::of_order(c, *tx)?,
+        (None, Some((account, _, _))) => Some(*account),
+        (None, None) => Some(crate::identity::Account::first(c, who.user, exchange)?),
+    };
     let Some(account) = account else { return Ok(Cancel::Done(api_key_missing(&name))) };
     if !has_correct_key(c, &account)? { return Ok(Cancel::Done(api_key_missing(&name))) }
     if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
     let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
     if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
-    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
-    if let Some((account, identity, snapshot)) = log {
-        if !has_correct_key(c, &account)? { return Ok(Cancel::Done(api_key_missing(&name))) }
+    if let Some((_, identity, snapshot)) = log {
         // r1 §4: the route from what was stored at the claim, never from the ticker row (it may be gone or renamed since).
         let mut intent = identity.unwrap_or_else(|| json!({}));
         for key in ["symbol", "side", "limit"] { intent[key] = snapshot[key].clone(); }

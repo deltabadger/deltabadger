@@ -162,6 +162,8 @@ pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
 /// account it was placed on, the venue's placement identity at its claim and its wire order (`claim`). None also for one
 /// whose account is another user's or exchange's.
 pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str) -> Result<Option<(crate::identity::Account, Option<Value>, Value)>, EngineError> {
+    // An install Rust has not migrated (a 2.x one served read-only) has no log: nothing this build placed.
+    if !super::rules::table_exists(c, "rust_api_order_standalone")? { return Ok(None); }
     let row: Option<(i64, Option<String>, Option<String>)> = c.query_row(&format!(
         "SELECT s.account_id, s.identity, s.order_snapshot FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
          WHERE o.user_id = ?1 AND s.exchange_id = ?2 AND s.external_id = ?3 AND {RETAINED} ORDER BY o.id DESC LIMIT 1"),

@@ -47,9 +47,15 @@ pub(crate) fn leave_reread(c: &rusqlite::Connection, app: &App, bot: i64, tx: i6
 pub(crate) fn send_for_row<F: VenueFactory>(c: &rusqlite::Connection, app: &App, factory: &F, runtime: &tokio::runtime::Handle,
     bot: &crate::engine::model::Bot, tx: i64, external: &str) -> Result<Sent, WebError> {
     let order = crate::venue::OrderRef::load(c, tx, external)?;
+    // #710: on the account the order was placed on, which the bot may have left since: never another account's order of
+    // the same venue id.
+    let Some(account) = crate::identity::Account::of_order(c, tx)? else { return Ok(Sent::Unanswered("the order's account is another user's or exchange's".into())) };
     // Every credential, proxy and account rule is the engine's: the venue is built as the engine builds it.
-    let (venue, _) = crate::engine::run::venue_for(c, factory, &app.cipher, bot)?;
-    let sent = send(runtime, &venue, &order);
+    let sent = if crate::identity::Account::of_bot(c, bot.id)? == Some(account) {
+        send(runtime, &crate::engine::run::venue_for(c, factory, &app.cipher, bot)?.0, &order)
+    } else {
+        send(runtime, &crate::engine::run::venue_for_key(c, factory, &app.cipher, account)?, &order)
+    };
     leave_reread(c, app, bot.id, tx)?;
     Ok(sent)
 }
