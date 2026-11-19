@@ -437,7 +437,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
         if let Some(label) = label.as_ref().filter(|_| label_changed) { tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2", (label, id))?; }
         if let Some((e, _)) = &new_exchange {
             tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2", (e, id))?;
-            crate::identity::ensure_account(tx, owner, *e, ctx.now)?;
+            crate::identity::touch(tx, owner, *e, ctx.now)?;
         }
         for (key, value) in assets.iter().filter(|(key, _)| asset_changed(key)) {
             tx.execute("UPDATE bots SET settings = json_set(settings, ?1, json(?2)) WHERE id = ?3", (format!("$.{key}"), value.to_string(), id))?;
@@ -685,7 +685,7 @@ pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Valu
                VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, '{}', ?7, ?7, ?7)",
               rusqlite::params![owner, exchange, model::SIGNAL_TYPE, label, position, settings.to_string(), at])?;
     let id = c.last_insert_rowid();
-    crate::identity::ensure_account(c, owner, exchange, now)?;
+    crate::identity::touch(c, owner, exchange, now)?;
     for rule in rules {
         c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, last_triggered_at, created_at, updated_at) \
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?7)",
