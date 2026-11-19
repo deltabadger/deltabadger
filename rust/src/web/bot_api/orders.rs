@@ -391,7 +391,7 @@ fn placement_unresolved(id: i64, exchange: &str) -> Res {
 /// BotOrder#venue_refusal: a buy's wash-sale lock, then the stored key (pending is asked first).
 fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller, kind: Kind, t: &Through) -> Result<Option<Res>, WebError> {
     if kind.buy() { if let Some(ticker) = &t.ticker { if let Some(refusal) = wash_refusal(c, now, who, ticker)? { return Ok(Some(refusal)) } } }
-    let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1", [who.user, t.bot.exchange_id], |r| r.get(0)).optional()?;
+    let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, t.bot.id, "k")?), [], |r| r.get(0)).optional()?;
     Ok(match status {
         Some(s) if s == crate::enums::ApiKeyStatus::PendingActivation as i64 => Some(failure(Domain::Conflict, "api_key_pending", format!("The API key for {} is still pending activation.", t.exchange))),
         Some(s) if s == crate::enums::ApiKeyStatus::Correct as i64 => None,

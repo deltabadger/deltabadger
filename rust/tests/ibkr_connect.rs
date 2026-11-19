@@ -318,3 +318,43 @@ async fn an_activation_from_the_sheet_that_connects_finishes_on_the_tracker() {
     let (_, body) = fx.chip("").await;
     assert!(in_sheet(&body) && body.contains(">Disconnect</button>"), "the sheet shows it connected: {body}");
 }
+
+/// #710 slice 2: the connect page activates its exchange's account's key (number 1, inserted directly beside a number 2 whose
+/// key is older), and no other account's key takes its credentials.
+#[tokio::test(flavor = "current_thread")]
+async fn an_activation_targets_the_exchanges_account_and_leaves_another_accounts_key() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    deltabadger::venue::ibkr::fix_dh_random(Some(verdicts["ibkr"]["dh_random"].as_str().unwrap().into()));
+    let one = verdicts["ibkr"]["cases"].as_array().unwrap().iter().find(|c| c["case"] == "one_account").unwrap().clone();
+    let server = MockServer::start().await;
+    let answer = |a: &serde_json::Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path("/v1/api/oauth/live_session_token")).respond_with(answer(&one["responses"][0])).mount(&server).await;
+    Mock::given(method("POST")).and(path("/v1/api/iserver/auth/ssodh/init")).respond_with(answer(&one["responses"][1])).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v1/api/iserver/accounts")).respond_with(answer(&one["responses"][2])).mount(&server).await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let e = |v: &str| fx.app.cipher.encrypt(v);
+    let k = fixture("ibkr_test_keys.json");
+    let t = |n: &str| k[n].as_str().unwrap().to_string();
+    let account = |number: i64| {
+        fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, ?3, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange, number)).unwrap();
+        fx.c.last_insert_rowid()
+    };
+    let (_, second) = (account(1), account(2));
+    let insert = |token: Option<String>, status: i64| {
+        fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, access_token, rsa_signature_key, rsa_encryption_key, dh_param, ibkr_realm, created_at, updated_at) VALUES(?1, ?2, 0, ?3, ?4, ?5, ?6, ?7, ?8, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
+                     rusqlite::params![fx.user, fx.exchange, status, token, e(&t("signature_key")), e(&t("encryption_key")), e(verdicts["ibkr"]["dh_param"].as_str().unwrap()), t("realm")]).unwrap();
+        fx.c.last_insert_rowid()
+    };
+    let other = insert(Some(e("account-2-token")), 2);
+    fx.c.execute("INSERT INTO exchange_account_keys(api_key_id, account_id) VALUES(?1, ?2)", [other, second]).unwrap();
+    let own = insert(None, 0);
+    let row = |c: &rusqlite::Connection, id: i64| -> (i64, Option<String>) { c.query_row("SELECT status, access_token FROM api_keys WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap() };
+    let before = row(&fx.c, other);
+    let answer = fx.sheet_post("/settings/ibkr_connect/activate", &[("api_key[key]", &t("consumer_key")), ("api_key[access_token]", &t("access_token")), ("api_key[secret]", &t("access_token_secret"))]).await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    let (status, token) = row(&fx.c, own);
+    assert_eq!((status, fx.app.cipher.decrypt(&token.unwrap()).unwrap()), (1, t("access_token")), "account 1's key connected");
+    assert_eq!(row(&fx.c, other), before, "account 2's key untouched");
+}

@@ -618,7 +618,7 @@ impl Bot {
                 if known.is_empty() { vec![] } else { Ticker::all(c, &format!("{tradable} AND t.quote_asset_id IS ?2 AND t.base_asset_id IN ({known})"), &[&exchange.id, &quote_asset_id])? }
             }
         };
-        let api_key = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 ORDER BY id LIMIT 1", [user_id, exchange.id], |r| r.get(0)).optional()?;
+        let api_key = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, id, "k")?), [], |r| r.get(0)).optional()?;
         let index = if kind == Kind::Index { index_row(c, &settings)? } else { None };
         let last_order = c.query_row("SELECT status, error_messages FROM transactions WHERE bot_id = ?1 ORDER BY id DESC LIMIT 1", [id], |r| {
             Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, Option<String>>(1)?))

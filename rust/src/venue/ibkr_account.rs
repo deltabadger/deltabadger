@@ -77,12 +77,12 @@ pub fn forget(c: &Connection, api_key_id: i64) -> rusqlite::Result<()> {
     c.execute("DELETE FROM ibkr_bindings WHERE api_key_id = ?1", [api_key_id]).map(|_| ())
 }
 
-/// The trading key of IBKR bot `bot_id`; None for a bot on any other venue.
+/// The trading key of IBKR bot `bot_id` (its account's, #710); None for a bot on any other venue.
 pub(crate) fn ibkr_key(c: &Connection, bot_id: i64) -> rusqlite::Result<Option<Option<i64>>> {
-    c.query_row("SELECT e.type = ?2, (SELECT k.id FROM api_keys k WHERE k.user_id = b.user_id AND k.exchange_id = b.exchange_id AND k.key_type = 0 ORDER BY k.id LIMIT 1)
-                 FROM bots b JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", params![bot_id, super::ibkr::IBKR],
-                |r| Ok((r.get::<_, bool>(0)?, r.get::<_, Option<i64>>(1)?))).optional()
-        .map(|row| row.and_then(|(ibkr, key)| ibkr.then_some(key)))
+    let ibkr: Option<bool> = c.query_row("SELECT e.type = ?2 FROM bots b JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", params![bot_id, super::ibkr::IBKR],
+                                         |r| r.get(0)).optional()?;
+    if ibkr != Some(true) { return Ok(None); }
+    Ok(Some(match crate::identity::Account::of_bot(c, bot_id)? { Some(account) => account.key(c, 0)?, None => None }))
 }
 
 /// Bot `bot_id` belongs to the account its key is bound to, unless it already belongs to one. Nothing for a bot on another

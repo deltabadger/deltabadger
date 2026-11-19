@@ -666,7 +666,8 @@ pub fn refresh_gap(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> 
     let mut uncovered: Vec<Span> = spans(c, key, AMBIGUOUS)?.into_iter().map(|(_, s)| s).collect();
     uncovered.extend(missing.iter().copied());
     let uncovered = merge(uncovered);
-    let reading = crate::tracker::import::run::reading(c, key.user_id)?.into_iter().find(|k| k.exchange_id == key.exchange_id);
+    let account = crate::identity::account_of_key(c, key.id)?;
+    let reading = crate::tracker::import::run::reading(c, key.user_id)?.into_iter().find(|k| k.exchange_id == key.exchange_id && k.account_id == account);
     let raw: Option<String> = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [gap_key(key.user_id)], |r| r.get(0)).optional()?.flatten();
     let mut row = raw.and_then(|r| serde_json::from_str::<Value>(&r).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}));
     let id = key.exchange_id.to_string();

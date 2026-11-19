@@ -9,6 +9,7 @@
 //!   cannot read) offers Disconnect only, then a fresh connect. Nothing completes or converts it.
 //! - D-IBKR-NOECHO: the credentials form is always empty. 2.x's `form_with scope: :api_key` fills it from `@api_key`,
 //!   writing the stored consumer key, access token and its secret into the page.
+use crate::identity::Account;
 use super::keys::{self, Key, Submitted};
 use crate::venue::signers::ibkr as signer;
 use crate::web::{auth, flash, i18n, layout::{self, Ctx, Page}, shell, App, WebError};
@@ -42,11 +43,12 @@ fn exchange(c: &Connection) -> Result<Option<i64>, WebError> {
     Ok(c.query_row("SELECT id FROM exchanges WHERE type = ?1 ORDER BY id LIMIT 1", [crate::venue::ibkr::IBKR], |r| r.get(0)).optional()?)
 }
 
-/// `current_ibkr_key`: the user's trading key on the first IBKR exchange.
+/// `current_ibkr_key`: the user's trading key on the first IBKR exchange (its account, #710: the exchange's while it has one).
 pub fn stored(c: &Connection, app: &App, user: i64) -> Result<Option<Stored>, WebError> {
     let Some(exchange) = exchange(c)? else { return Ok(None) };
-    let row = c.query_row("SELECT id, status, updated_at, rsa_signature_key, rsa_encryption_key, dh_param FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 ORDER BY id LIMIT 1",
-                          (user, exchange), |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, [r.get::<_, Option<String>>(3)?, r.get(4)?, r.get(5)?]))).optional()?;
+    let account = Account::first(c, user, exchange)?;
+    let row = c.query_row(&format!("SELECT id, status, updated_at, rsa_signature_key, rsa_encryption_key, dh_param FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", account.keys("k")),
+                          [], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, String>(2)?, [r.get::<_, Option<String>>(3)?, r.get(4)?, r.get(5)?]))).optional()?;
     let Some((id, status, updated_at, encrypted)) = row else { return Ok(None) };
     let mut material = [None, None, None];
     for (slot, value) in material.iter_mut().zip(encrypted) {
@@ -183,14 +185,14 @@ pub async fn create(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     app.db(move |c| {
         let tx = rusqlite::Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
-        // find_or_create_by!: a key made meanwhile is the one kept.
-        let exists: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0)", (user.id, exchange), |r| r.get(0))?;
-        if !exists {
+        // The account's row first, then find_or_create_by! on it: a key made meanwhile is the one kept.
+        let account = Account::first(&tx, user.id, exchange)?.ensure(&tx, inner.now())?;
+        if account.key(&tx, 0)?.is_none() {
             let now = crate::codec::format_time(inner.now());
             let [signing, encryption, dh] = material.map(|pem| inner.cipher.encrypt(&pem));
             tx.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, rsa_signature_key, rsa_encryption_key, dh_param, created_at, updated_at) VALUES(?1, ?2, 0, 0, ?3, ?4, ?5, ?6, ?6)",
                        rusqlite::params![user.id, exchange, signing, encryption, dh, now])?;
-            crate::identity::touch(&tx, user.id, exchange, inner.now())?;
+            account.add_key(&tx, tx.last_insert_rowid())?;
         }
         tx.commit()?;
         Ok(())
@@ -205,7 +207,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     let found = app.db(move |c| {
         let Some(key) = stored(c, &inner, user.id)? else { return Ok(None) };
-        let original = Key::read(c, &inner, user.id, key.exchange, 0)?;
+        let original = Key::read(c, &inner, Account::first(c, user.id, key.exchange)?, 0)?;
         Ok(Some((key, original)))
     }).await?;
     if gated(&app, found.as_ref().map(|(key, _)| key)) { return Ok(gate(&ctx)); }
@@ -219,7 +221,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
         (flash::ALERT, i18n::text(ctx.locale, "settings.ibkr.missing_fields", &[]))
     } else {
         let candidate = original.with_ibkr_credentials(consumer, token, secret);
-        match keys::submit_candidate(&app, user.id, key.exchange, crate::venue::ibkr::IBKR, "Interactive Brokers", 0, original, candidate).await? {
+        match keys::submit_candidate(&app, crate::venue::ibkr::IBKR, "Interactive Brokers", 0, original, candidate).await? {
             Submitted::Correct => {
                 let id = key.id;
                 let status: i64 = app.db(move |c| Ok(c.query_row("SELECT status FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?)).await?;

@@ -17,7 +17,8 @@ pub const DEFAULT_FORMAT: &str = "deltabadger";
 
 /// A key ApiKey.reading answers: the one a venue of the user's is read with.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Reading { pub id: i64, pub exchange_id: i64, pub exchange_type: String, pub exchange_name: String, pub key_type: i64 }
+/// `account_id`: its account (crate::identity::account_of_key; None for a number 1 with no row yet).
+pub struct Reading { pub id: i64, pub exchange_id: i64, pub account_id: Option<i64>, pub exchange_type: String, pub exchange_name: String, pub key_type: i64 }
 
 /// What Import::Run#import! answers.
 #[derive(Debug, Clone, PartialEq)]
@@ -61,15 +62,16 @@ pub(crate) fn missing_permission(exchange_type: &str, error: Option<&str>) -> bo
 /// ApiKey.reading over the user's keys: status correct, never a withdrawal key; per venue the trading key that lacks no
 /// permission, else the read-only one, else the first.
 pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> {
-    let mut s = c.prepare("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-                           WHERE k.user_id = ?1 AND k.status = 1 AND k.key_type != 1 ORDER BY k.id")?;
-    let keys = s.query_map([user_id], |r| Ok((Reading { id: r.get(0)?, exchange_id: r.get(1)?, key_type: r.get(2)?, exchange_type: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+    let mut s = c.prepare(&format!("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, {} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+                           WHERE k.user_id = ?1 AND k.status = 1 AND k.key_type != 1 ORDER BY k.id", crate::identity::key_account_sql(c,"k")?))?;
+    let keys = s.query_map([user_id], |r| Ok((Reading { id: r.get(0)?, exchange_id: r.get(1)?, account_id: r.get(6)?, key_type: r.get(2)?, exchange_type: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
                                                          exchange_name: r.get::<_, Option<String>>(5)?.unwrap_or_default() }, r.get::<_, Option<String>>(3)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    let mut venues: Vec<i64> = vec![];
-    for (k, _) in &keys { if !venues.contains(&k.exchange_id) { venues.push(k.exchange_id); } }
-    Ok(venues.into_iter().filter_map(|venue| {
-        let group: Vec<&(Reading, Option<String>)> = keys.iter().filter(|(k, _)| k.exchange_id == venue).collect();
+    // Per account (#710), in the order its first key was made.
+    let mut accounts: Vec<(i64, Option<i64>)> = vec![];
+    for (k, _) in &keys { if !accounts.contains(&(k.exchange_id, k.account_id)) { accounts.push((k.exchange_id, k.account_id)); } }
+    Ok(accounts.into_iter().filter_map(|account| {
+        let group: Vec<&(Reading, Option<String>)> = keys.iter().filter(|(k, _)| (k.exchange_id, k.account_id) == account).collect();
         group.iter().find(|(k, error)| k.key_type == 0 && !missing_permission(&k.exchange_type, error.as_deref()))
             .or_else(|| group.iter().find(|(k, _)| k.key_type == 2)).or_else(|| group.first()).map(|(k, _)| k.clone())
     }).collect())

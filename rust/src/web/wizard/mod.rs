@@ -180,9 +180,12 @@ pub fn step_complete(c: &Connection, user_id: i64, config: Option<&Value>, step:
     match step {
         Step::Api => {
             let exchange = dig(config, EXCHANGE_KEY).and_then(|id| id.as_i64().or_else(|| id.as_str().and_then(|text| text.trim().parse().ok())));
-            // `user.api_keys.find_by(exchange_id:, key_type: :trading)`, then `correct?`.
-            let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id IS ?2 AND key_type = 0 ORDER BY id LIMIT 1",
-                                                  rusqlite::params![user_id, exchange], |r| r.get(0)).optional()?;
+            // `user.api_keys.find_by(exchange_id:, key_type: :trading)`, then `correct?`: the exchange's account's (#710 slice 7:
+            // the one picked).
+            let Some(exchange) = exchange else { return Ok(false) };
+            let account = crate::identity::Account::first(c, user_id, exchange)?;
+            let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", account.keys("k")),
+                                                  [], |r| r.get(0)).optional()?;
             Ok(status == Some(1))
         }
         // `Array(...).any?`: one asset is a basket too; only an empty list leaves the step incomplete.

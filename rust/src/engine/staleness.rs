@@ -366,7 +366,7 @@ pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Opt
         return Ok(stale);
     }
     if model::exchange_type(c, bot)? != "Exchanges::Alpaca" || model::all_crypto(c, bot)? { return Ok(None); }
-    let key: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1", rusqlite::params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
+    let key: Option<i64> = c.query_row(&format!("SELECT id FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, bot.id, "k")?), [], |r| r.get(0)).optional()?;
     let state = match key {
         Some(key) => crate::jobs::state::read(c, "ledger_sync", Some(&key.to_string())).map_err(EngineError::Data)?,
         None => crate::jobs::state::JobState::default(),
