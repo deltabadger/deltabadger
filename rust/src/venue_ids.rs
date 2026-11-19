@@ -8,9 +8,10 @@ use crate::identity::Account;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// Whose rows a query reads and a write writes: (user, exchange) and, for an account 2+, its id (`member`). None is the
-/// exchange's number 1, whose rows are the ones without a membership.
+/// exchange's number 1, whose rows are the ones without a membership. `account`: the account's row id (any number; None
+/// for a number 1 with no row yet), for the Rust tables keyed by account.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Scope { pub user_id: i64, pub exchange_id: i64, pub member: Option<i64>, ready: bool }
+pub struct Scope { pub user_id: i64, pub exchange_id: i64, pub account: Option<i64>, pub member: Option<i64>, ready: bool }
 
 /// Whether the install has the membership tables (one `run`/`serve` has not migrated reads as before #710).
 pub fn ready(c: &Connection) -> rusqlite::Result<bool> {
@@ -22,11 +23,11 @@ impl Scope {
     pub fn of(c: &Connection, account: &Account) -> rusqlite::Result<Self> {
         let ready = ready(c)?;
         let member = match account.id { Some(id) if ready && account.number(c)? != 1 => Some(id), _ => None };
-        Ok(Self { user_id: account.user_id, exchange_id: account.exchange_id, member, ready })
+        Ok(Self { user_id: account.user_id, exchange_id: account.exchange_id, account: account.id, member, ready })
     }
     /// The number 1 of (user, exchange).
     pub fn first(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Self> {
-        Ok(Self { user_id, exchange_id, member: None, ready: ready(c)? })
+        Self::of(c, &Account::first(c, user_id, exchange_id)?)
     }
     /// Api key `api_key_id`'s account's. None: no such key, or its account resolves to none.
     pub fn of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<Self>> {
@@ -49,6 +50,30 @@ impl Scope {
         match self.member {
             None => format!("NOT EXISTS (SELECT 1 FROM {table} m WHERE m.{column} = {a}.id)"),
             Some(n) => format!("{a}.id IN (SELECT {column} FROM {table} WHERE account_id = {n})"),
+        }
+    }
+    /// `row_id`, `id_less` and `has_id` on this install: 2.x's column alone where the membership tables are absent.
+    pub fn row_id(&self, a: &str) -> String { if self.ready { row_id(a) } else { format!("{a}.tx_id") } }
+    pub fn id_less(&self, a: &str) -> String { format!("{} IS NULL", self.row_id(a)) }
+    pub fn has_id(&self, a: &str) -> String { format!("{} IS NOT NULL", self.row_id(a)) }
+    /// SQL: ledger row `a`'s membership account (NULL for a number-1 row, and on an install without the tables).
+    pub fn member_sql(&self, a: &str) -> String {
+        if self.ready { format!("(SELECT m.account_id FROM exchange_account_rows m WHERE m.account_transaction_id = {a}.id)") } else { "NULL".into() }
+    }
+    /// SQL: this account's row id, its number 1's looked up when it had no row when the scope was read (a write since may
+    /// have made it).
+    pub fn account_sql(&self) -> String {
+        match self.account {
+            Some(id) => id.to_string(),
+            None => format!("(SELECT id FROM exchange_accounts WHERE user_id = {} AND exchange_id = {} AND number = 1)", self.user_id, self.exchange_id),
+        }
+    }
+    /// SQL predicate: ledger row `a` is this account's and its venue id is `param` (a bind parameter), on 2.x's index for
+    /// number 1 and the membership's for 2+.
+    pub fn id_is(&self, a: &str, param: &str) -> String {
+        match self.member {
+            None => format!("{a}.tx_id = {param}"),
+            Some(n) => format!("{a}.id IN (SELECT account_transaction_id FROM exchange_account_rows WHERE account_id = {n} AND venue_tx_id = {param})"),
         }
     }
     /// What the 2.x column gets on INSERT: the id for number 1, NULL for an account 2+ (its id goes to `after_insert`).

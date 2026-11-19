@@ -175,7 +175,7 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     let (mut imported, mut duplicates, mut skipped, mut generic) = (0, 0, 0, 0);
     for (reading, rows) in routed {
         let key = Key { id: reading.id, user_id, exchange_id: reading.exchange_id, status: 1, key_type: reading.key_type, last_synced_at: None,
-                        last_sync_error: None, exchange_type: reading.exchange_type };
+                        last_sync_error: None, exchange_type: reading.exchange_type, scope: crate::sync::key_scope(&tx, reading.id)? };
         if format == "kucoin" {
             let out = kucoin::store(&fenced, &key, &kucoin_rows, now)?;
             (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);

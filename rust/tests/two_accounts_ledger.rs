@@ -120,3 +120,157 @@ async fn the_web_and_jobs_connections_enforce_foreign_keys_and_a_delete_cascades
     let left: Vec<i64> = c.prepare("SELECT account_transaction_id FROM exchange_account_rows").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert_eq!(left, [kept]);
 }
+
+// ---- commit 2: ledger writes and dedup (§6 tests 2–4, 13) ----
+
+use deltabadger::engine::model;
+use deltabadger::sync::{self, activities::{Entry, Raw}, binance_identity::{Context, Event, Source}, binance_writer as writer, binance_repair as repair};
+use deltabadger::v2::BigDec;
+use serde_json::json;
+
+fn now() -> chrono::DateTime<chrono::Utc> { "2026-09-10T00:00:00Z".parse().unwrap() }
+
+fn entry(kind: i64, coin: &str, amount: &str, id: Option<&str>, group: Option<&str>, at: &str) -> Entry {
+    Entry { entry_type: kind, base_currency: Some(coin.into()), base_amount: BigDec::parse(amount).unwrap(), quote_currency: None, quote_amount: None,
+            fee_currency: None, fee_amount: None, tx_id: id.map(str::to_string), group_id: group.map(str::to_string), description: None,
+            transacted_at: Some(at.parse().unwrap()), raw: Raw::from_value(json!({})) }
+}
+
+fn store(c: &Connection, key: &sync::Key, entries: Vec<Entry>) -> sync::ledger::Outcome {
+    let tx = model::immediate(c).unwrap();
+    let out = sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), key, entries, now()).unwrap();
+    tx.commit().unwrap();
+    out
+}
+
+fn keys(c: &Connection, two: &Two, venue: &str) -> [sync::Key; 2] { two.keys.map(|id| sync::load_key_of(c, id, &[venue]).unwrap()) }
+
+/// §6 tests 2 and 3: the same entries synced for account 1 then 2 are stored twice and re-synced as duplicates, account 2's
+/// 2.x id NULL; an id-less row of one account is never the other's id'd row's twin, either way round.
+#[test]
+fn each_account_stores_and_dedups_its_own_rows_and_id_less_rows_pair_only_within_an_account() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let [k1, k2] = keys(c, &two, "Exchanges::Kraken");
+    assert_eq!((k1.scope, k2.scope), (two.scopes[0], two.scopes[1]));
+    let shared = || vec![entry(4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01T10:00:00Z")];
+    for key in [&k1, &k2] { assert_eq!(store(c, key, shared()).imported, 1); }
+    for key in [&k1, &k2] { assert_eq!((store(c, key, shared()).imported, store(c, key, shared()).duplicates), (0, 1)); }
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions WHERE tx_id IS NULL"), 1, "account 2's 2.x id stays NULL");
+    for scope in two.scopes { assert_eq!(ids(c, &scope).iter().map(|r| r.1.clone()).collect::<Vec<_>>(), [Some(SHARED_TX.to_string())]); }
+    // Account 1 holds an id-less file row; account 2's API row of the same type, amount and second is its own.
+    assert_eq!(store(c, &k1, vec![entry(4, "BTC", "5", None, None, "2026-09-02T10:00:00Z")]).imported, 1);
+    assert_eq!(store(c, &k2, vec![entry(4, "BTC", "5", Some("api-5"), None, "2026-09-02T10:00:00Z")]).imported, 1, "nothing adopted, nothing skipped");
+    assert_eq!(store(c, &k1, vec![entry(4, "BTC", "5", Some("api-5"), None, "2026-09-02T10:00:00Z")]).duplicates, 1, "number 1 pairs its own as before");
+    // And the reverse.
+    assert_eq!(store(c, &k2, vec![entry(4, "BTC", "7", None, None, "2026-09-03T10:00:00Z")]).imported, 1);
+    assert_eq!(store(c, &k1, vec![entry(4, "BTC", "7", Some("api-7"), None, "2026-09-03T10:00:00Z")]).imported, 1);
+    assert_eq!(store(c, &k2, vec![entry(4, "BTC", "7", Some("api-7"), None, "2026-09-03T10:00:00Z")]).duplicates, 1);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), 6);
+}
+
+fn claim(c: &Connection, dir: &std::path::Path) -> deltabadger::lease::EngineLock {
+    let lock = deltabadger::lease::lock(&Paths::from_env(&|_| None, dir), now()).unwrap();
+    deltabadger::lease::claim(&lock, c, &seed::cipher(), "test", now()).unwrap();
+    lock
+}
+
+fn deposit(id: &str) -> writer::Input {
+    let raw = json!({"id": id, "txId": "hash", "coin": "BTC", "network": "BTC", "address": "addr", "addressTag": "", "amount": "1",
+                     "insertTime": 1786960800000_i64, "applyTime": "2026-08-17 10:00:00", "transactionFee": "0.01"});
+    writer::Input { event: Event::read(Source::Deposit, &raw, Context { parent: Some(""), occurred_ms: Some(1786960800000), ..Context::default() }).unwrap(),
+        entry: Entry { entry_type: 4, base_currency: Some("BTC".into()), base_amount: BigDec::parse("1").unwrap(), quote_currency: None, quote_amount: None,
+                       fee_currency: None, fee_amount: None, tx_id: Some("hash".into()), group_id: None, description: None,
+                       transacted_at: Some("2026-08-17T10:00:00Z".parse().unwrap()), raw: Raw::from_value(raw) } }
+}
+
+fn dust_csv(coin: &str, amount: &str, at: &str) -> Vec<Entry> {
+    let group = Some(format!("dustcsv_{coin}"));
+    vec![Entry { group_id: group.clone(), ..entry(3, coin, amount, None, None, at) }, Entry { group_id: group, ..entry(2, "BNB", "0.1", None, None, at) }]
+}
+
+/// §6 test 4 (Binance): the writer keeps each account's buckets (number 1's names unchanged), one deposit stored once per
+/// account; one CSV's dust pairs import into both accounts and twice; an incomplete pair on one account blocks only its own.
+#[test]
+fn the_binance_writer_keeps_buckets_and_dust_pairs_per_account() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let _lock = claim(c, dir.path());
+    let [k1, k2] = keys(c, &two, "Exchanges::Binance");
+    let write = |key: &sync::Key, rows: &[writer::Input]| { let tx = model::immediate(c).unwrap();
+        let out = writer::store(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, rows, now()).unwrap(); tx.commit().unwrap(); out };
+    for key in [&k1, &k2] { assert_eq!(write(key, &[deposit("d1")]).imported, 1); }
+    for key in [&k1, &k2] { assert_eq!(write(key, &[deposit("d1")]).duplicates, 1); }
+    let buckets: Vec<String> = c.prepare("SELECT key FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%' ORDER BY key").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let (u, e, n) = (two.seeded.user_id, two.seeded.exchange_id, two.accounts[1].id.unwrap());
+    assert_eq!(buckets.len(), 2);
+    assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}:"))), "number 1's name as before: {buckets:?}");
+    assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}@{n}:"))), "{buckets:?}");
+    let csv = |key: &sync::Key, rows: Vec<Entry>| { let tx = model::immediate(c).unwrap();
+        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, now()); if out.is_ok() { tx.commit().unwrap(); } out };
+    for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().imported, 2); }
+    for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().duplicates, 2); }
+    // A lone dust leg on account 1 near a second CSV pair's time.
+    two.row(c, 0, 3, "SOL", "9", None, Some("dust_lone"), "2026-08-21 10:00:00");
+    assert_eq!(csv(&k2, dust_csv("ADA", "2", "2026-08-21T10:00:00Z")).unwrap().imported, 2, "account 1's incomplete pair blocks nothing of account 2");
+    assert!(csv(&k1, dust_csv("ADA", "2", "2026-08-21T10:00:00Z")).unwrap_err().0.contains("partial existing CSV dust pair"));
+}
+
+/// §6 test 4 (A12 repair): a preview names its account (version 2), and a version-1 manifest is refused with the fresh-preview
+/// line, nothing written.
+#[test]
+fn a_repair_manifest_from_before_accounts_is_refused_and_writes_nothing() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let _lock = claim(c, dir.path());
+    let [_, k2] = keys(c, &two, "Exchanges::Binance");
+    let fetched = repair::Evidence { inputs: vec![deposit("d9")], coverage: vec![] };
+    let version = model::credential_version_by_id(c, k2.id).unwrap().unwrap();
+    let mut m = repair::dry_run(c, &seed::cipher(), &k2, &version, now(), &fetched).unwrap();
+    assert_eq!((m.version, m.account_id), (repair::MANIFEST_VERSION, two.accounts[1].id));
+    let rows = one::<i64>(c, "SELECT count(*) FROM account_transactions");
+    m.version = 1;
+    let digest = m.digest();
+    assert_eq!(repair::ApplySession::new(&m, &digest, &fetched).err().unwrap().0, repair::OLD_MANIFEST);
+    assert_eq!(repair::validate(c, &seed::cipher(), &k2, &m, &digest, &fetched).unwrap_err().0, repair::OLD_MANIFEST);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), rows);
+    // The version-2 preview applies on account 2, its row relocated.
+    m.version = repair::MANIFEST_VERSION;
+    let digest = m.digest();
+    let mut session = repair::ApplySession::new(&m, &digest, &fetched).unwrap();
+    for n in 0..m.batches.len() { session.apply_batch(c, &seed::cipher(), &k2, n).unwrap(); }
+    session.verify(c, &seed::cipher(), &k2).unwrap();
+    assert_eq!(ids(c, &two.scopes[1]).len(), 1);
+    assert!(ids(c, &two.scopes[0]).is_empty());
+}
+
+/// §6 test 13: the withheld KuCoin fills keep their rows and content through the hop, each on its (user, exchange)'s
+/// number 1 (made where there was none).
+#[test]
+fn withheld_kucoin_fills_move_to_their_number_one_through_the_hop() {
+    use deltabadger::store::{Registry, REGISTRY, RUST_MIGRATIONS};
+    const V: &str = "20261120000002";
+    let dir = common::v2_install_unmigrated();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let lock = deltabadger::lease::lock(&p, now()).unwrap();
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= V).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= V).unwrap();
+    store::migrate_with(&p, &lock, &Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }).unwrap();
+    let c = Connection::open(&p.primary).unwrap();
+    c.execute_batch("PRAGMA foreign_keys = OFF; DELETE FROM exchange_accounts;
+        INSERT INTO kucoin_withheld_fills (id, user_id, exchange_id, tx_id, transacted_at, entry, created_at) VALUES
+          (4, 1, 2, 'f1', '2026-01-01', '{\"orderId\":\"o\"}', '2026-01-02'), (9, 3, 2, 'f1', '2026-01-03', '{}', '2026-01-04');").unwrap();
+    assert_eq!(store::migrate(&p, &lock).unwrap(), [V]);
+    let rows: Vec<(i64, i64, i64, String, String, String, String)> = c.prepare(
+        "SELECT w.id, a.user_id, a.number, w.tx_id, w.transacted_at, w.entry, w.created_at FROM kucoin_withheld_fills w JOIN exchange_accounts a ON a.id = w.account_id ORDER BY w.id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(rows, [(4, 1, 1, "f1".into(), "2026-01-01".into(), "{\"orderId\":\"o\"}".into(), "2026-01-02".into()),
+                      (9, 3, 1, "f1".into(), "2026-01-03".into(), "{}".into(), "2026-01-04".into())]);
+    assert!(store::check(&p).unwrap().pending_rust.is_empty());
+}

@@ -213,6 +213,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // #710 slice 4: a ledger row's account 2+ and its venue id (venue_ids); its trigger keeps a member's 2.x tx_id NULL.
     ("20261120000001", TableContract { name: "exchange_account_rows", columns: &[("account_transaction_id", "INTEGER", false), ("account_id", "INTEGER", true),
         ("venue_tx_id", "TEXT", false)], unique_indexes: &[&["account_id", "venue_tx_id"]] }),
+    // #710 slice 4: a withheld KuCoin HF fill is its account's.
+    ("20261120000002", TableContract { name: "kucoin_withheld_fills", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("tx_id", "TEXT", true), ("transacted_at", "TEXT", true), ("entry", "TEXT", true),
+        ("created_at", "TEXT", true)], unique_indexes: &[&["account_id", "tx_id"]] }),
 ];
 
 /// What this build migrates.

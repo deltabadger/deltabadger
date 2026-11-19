@@ -112,9 +112,9 @@ pub fn known_fills(c: &Connection, account: &crate::identity::Account, order_id:
     rows.extend(s.query_map(params![user_id, exchange_id, order_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?);
     let withheld: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kucoin_withheld_fills')", [], |r| r.get(0))?;
     if withheld {
-        let mut s = c.prepare_cached("SELECT tx_id, entry FROM kucoin_withheld_fills WHERE user_id = ?1 AND exchange_id = ?2 \
-                                      AND json_valid(entry) AND json_extract(entry, '$.orderId') = ?3")?;
-        rows.extend(s.query_map(params![user_id, exchange_id, order_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?);
+        let mut s = c.prepare_cached(&format!("SELECT tx_id, entry FROM kucoin_withheld_fills WHERE account_id = {} \
+                                      AND json_valid(entry) AND json_extract(entry, '$.orderId') = ?1", crate::venue_ids::Scope::of(c, account)?.account_sql()))?;
+        rows.extend(s.query_map(params![order_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?);
     }
     let mut seen = std::collections::BTreeSet::new();
     let mut known = Known { size: BigDec::zero(), funds: BigDec::zero(), fees: Default::default() };

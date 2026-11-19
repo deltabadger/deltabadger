@@ -242,7 +242,6 @@ pub const FILL: &str = "INSERT INTO exchange_accounts (user_id, exchange_id, num
     UNION SELECT user_id, exchange_id FROM import_rows
     UNION SELECT user_id, exchange_id FROM import_cutoffs
     UNION SELECT user_id, exchange_id FROM kucoin_coverage
-    UNION SELECT user_id, exchange_id FROM kucoin_withheld_fills
     UNION SELECT o.user_id, s.exchange_id FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id
   ) n WHERE user_id IS NOT NULL AND exchange_id IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM exchange_accounts a WHERE a.user_id = n.user_id AND a.exchange_id = n.exchange_id)

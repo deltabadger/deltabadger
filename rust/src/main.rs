@@ -912,6 +912,7 @@ fn repair_binance_history(env:&dyn Fn(&str)->Option<String>)->i32 {
     let approved:Option<repair::Manifest>=if mode=="--apply" {
         let bytes=std::fs::read(options["--manifest"]).unwrap_or_else(|_|fail("cannot read repair manifest"));
         let m:repair::Manifest=serde_json::from_slice(&bytes).unwrap_or_else(|_|fail("invalid repair manifest"));
+        if m.version!=repair::MANIFEST_VERSION {fail(repair::OLD_MANIFEST)}
         if m.digest()!=options["--approve"] {fail("approved digest does not match manifest")};Some(m)
     }else{None};
     let key_id=approved.as_ref().map(|m|m.key_id).unwrap_or_else(||options["--key"].parse().unwrap_or_else(|_|fail(USAGE)));

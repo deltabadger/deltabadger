@@ -28,6 +28,7 @@ use crate::jobs::Db;
 use crate::v2::BigDec;
 use crate::venue::http::Transport;
 use crate::venue::kraken::{KrakenVenue, LEDGERS};
+use crate::venue_ids;
 use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -371,20 +372,23 @@ impl Target {
 }
 
 /// A stored row as the repair reads it.
-struct Row { id: i64, user_id: i64, exchange_id: i64, entry_type: i64, base_currency: Option<String>, base_amount: BigDec, base_asset_id: Option<i64>, tx_id: Option<String>, linked: Option<i64> }
+/// `member`: its account's membership (#710; None for number 1's), so a repair pairs only rows of one account.
+struct Row { id: i64, user_id: i64, exchange_id: i64, member: Option<i64>, entry_type: i64, base_currency: Option<String>, base_amount: BigDec, base_asset_id: Option<i64>, tx_id: Option<String>, linked: Option<i64> }
 
-fn row(c: &Connection, sql_where: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Option<Row>, SyncError> {
-    let found = c.query_row(&format!("SELECT id, entry_type, base_currency, base_amount, base_asset_id, tx_id, linked_transaction_id, user_id, exchange_id FROM account_transactions WHERE {sql_where}"), p, |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?, super::number::stored(r.get_ref(3)?), r.get::<_, Option<i64>>(4)?, r.get::<_, Option<String>>(5)?, r.get::<_, Option<i64>>(6)?, r.get::<_, i64>(7)?, r.get::<_, i64>(8)?))
+fn row(c: &Connection, scope: &venue_ids::Scope, sql_where: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Option<Row>, SyncError> {
+    let at = "account_transactions";
+    let found = c.query_row(&format!("SELECT id, entry_type, base_currency, base_amount, base_asset_id, {}, linked_transaction_id, user_id, exchange_id, \
+                                      {} FROM {at} WHERE {sql_where}", scope.row_id(at), scope.member_sql(at)), p, |r| {
+        Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?, super::number::stored(r.get_ref(3)?), r.get::<_, Option<i64>>(4)?, r.get::<_, Option<String>>(5)?, r.get::<_, Option<i64>>(6)?, r.get::<_, i64>(7)?, r.get::<_, i64>(8)?, r.get::<_, Option<i64>>(9)?))
     }).optional()?;
-    let Some((id, entry_type, base_currency, amount, base_asset_id, tx_id, linked, user_id, exchange_id)) = found else { return Ok(None) };
-    Ok(Some(Row { id, user_id, exchange_id, entry_type, base_currency, base_amount: amount.map_err(SyncError)?.unwrap_or_else(BigDec::zero), base_asset_id, tx_id, linked }))
+    let Some((id, entry_type, base_currency, amount, base_asset_id, tx_id, linked, user_id, exchange_id, member)) = found else { return Ok(None) };
+    Ok(Some(Row { id, user_id, exchange_id, member, entry_type, base_currency, base_amount: amount.map_err(SyncError)?.unwrap_or_else(BigDec::zero), base_asset_id, tx_id, linked }))
 }
 
 /// The other end of a linked row: (this row is the withdrawal, the other end's stored row).
-fn counterpart(c: &Connection, r: &Row) -> Result<Option<(bool, Row)>, SyncError> {
-    if let Some(dep) = r.linked { return Ok(row(c, "id = ?1", params![dep])?.map(|d| (true, d))); }
-    Ok(row(c, "linked_transaction_id = ?1 LIMIT 1", params![r.id])?.map(|w| (false, w)))
+fn counterpart(c: &Connection, scope: &venue_ids::Scope, r: &Row) -> Result<Option<(bool, Row)>, SyncError> {
+    if let Some(dep) = r.linked { return Ok(row(c, scope, "id = ?1", params![dep])?.map(|d| (true, d))); }
+    Ok(row(c, scope, "linked_transaction_id = ?1 LIMIT 1", params![r.id])?.map(|w| (false, w)))
 }
 
 /// AccountTransaction#linked_transaction_is_valid on the columns a repair may change: withdrawal → deposit, one currency,
@@ -442,7 +446,7 @@ fn meta_of(raw: &Value) -> Value {
 /// 4. its manual values, link, rejection, description and order are never touched.
 pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, stamp: &Value, now: DateTime<Utc>) -> Result<(), SyncError> {
     let Some(tx_id) = e.tx_id.as_deref() else { return Ok(()) };
-    let Some(stored) = row(c, "user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3", params![key.user_id, key.exchange_id, tx_id])? else { return Ok(()) };
+    let Some(stored) = row(c, &key.scope, &format!("user_id = ?1 AND exchange_id = ?2 AND {}", key.scope.id_is("account_transactions", "?3")), params![key.user_id, key.exchange_id, tx_id])? else { return Ok(()) };
     let resolved = assets.asset_id(c, e.base_currency.as_deref(), &e.raw.value, e.transacted_at)?;
     let mut t = Target { entry_type: e.entry_type, base_currency: e.base_currency.clone().unwrap_or_default(), base_amount: e.base_amount.clone(),
                          fee_currency: e.fee_currency.clone(), fee_amount: e.fee_amount.clone(), base_asset_id: resolved, meta: meta_of(&e.raw.value) };
@@ -451,7 +455,7 @@ pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, s
         t.base_currency = stored.base_currency.clone().unwrap_or_default();
         if t.fee_currency.is_some() { t.fee_currency = Some(t.base_currency.clone()); }
     }
-    if let Some((withdrawal, other)) = counterpart(c, &stored)? {
+    if let Some((withdrawal, other)) = counterpart(c, &key.scope, &stored)? {
         let mine = (t.entry_type, Some(t.base_currency.as_str()), &t.base_amount);
         let theirs = (other.entry_type, other.base_currency.as_deref(), &other.base_amount);
         let ok = if withdrawal { valid_pair(mine, theirs) } else { valid_pair(theirs, mine) };
@@ -477,9 +481,9 @@ fn converge(c: &Connection, key: &Key, stamp: &Value, now: DateTime<Utc>) -> Res
     let (mut done, mut left) = (HashSet::new(), 0usize);
     for (tx_id, t) in &deferred {
         if done.contains(tx_id.as_str()) { continue; }
-        let Some(stored) = row(c, "user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3", params![key.user_id, key.exchange_id, tx_id])? else { continue };
-        let Some((withdrawal, other)) = counterpart(c, &stored)? else { write(c, stored.id, t, now)?; continue };
-        let joint = other.tx_id.as_deref().filter(|_| other.user_id == key.user_id && other.exchange_id == key.exchange_id)
+        let Some(stored) = row(c, &key.scope, &format!("user_id = ?1 AND exchange_id = ?2 AND {}", key.scope.id_is("account_transactions", "?3")), params![key.user_id, key.exchange_id, tx_id])? else { continue };
+        let Some((withdrawal, other)) = counterpart(c, &key.scope, &stored)? else { write(c, stored.id, t, now)?; continue };
+        let joint = other.tx_id.as_deref().filter(|_| other.user_id == key.user_id && other.exchange_id == key.exchange_id && other.member == key.scope.member)
             .and_then(|tx| targets.get(tx).map(|ot| (tx.to_string(), *ot)));
         let theirs = match &joint { Some((_, ot)) => (ot.entry_type, Some(ot.base_currency.as_str()), &ot.base_amount), None => (other.entry_type, other.base_currency.as_deref(), &other.base_amount) };
         let mine = (t.entry_type, Some(t.base_currency.as_str()), &t.base_amount);
@@ -497,13 +501,15 @@ fn converge(c: &Connection, key: &Key, stamp: &Value, now: DateTime<Utc>) -> Res
 
 // ---- internal pairs (D-KR-4) -----------------------------------------------------------------------------------------
 
-/// The user's internal Kraken pairs to link: per (venue, refid), exactly one unlinked, unrejected internal withdrawal and
+/// The user's internal Kraken pairs to link: per (account, refid) (#710: a number 1 without its row yet, per venue), exactly one unlinked, unrejected internal withdrawal and
 /// one unclaimed internal deposit of one currency, the deposit no larger and no earlier. As (deposit, withdrawal).
 pub(super) fn internal_pairs(c: &Connection, user_id: i64) -> Result<Vec<(i64, i64)>, SyncError> {
+    let account = if venue_ids::ready(c)? { venue_ids::row_account("account_transactions") } else { "NULL".into() };
     let mut s = c.prepare(&format!(
-        "SELECT id, exchange_id, group_id, entry_type, base_currency, base_amount, transacted_at, linked_transaction_id IS NOT NULL OR transfer_link_rejected = 1 \
+        "SELECT id, COALESCE({}, -exchange_id), group_id, entry_type, base_currency, base_amount, transacted_at, linked_transaction_id IS NOT NULL OR transfer_link_rejected = 1 \
          OR EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = account_transactions.id) \
-         FROM account_transactions WHERE user_id = ?1 AND entry_type IN ({DEPOSIT}, {WITHDRAWAL}) AND group_id IS NOT NULL AND {} ORDER BY id", internal_leg_sql("")))?;
+         FROM account_transactions WHERE user_id = ?1 AND entry_type IN ({DEPOSIT}, {WITHDRAWAL}) AND group_id IS NOT NULL AND {} ORDER BY id",
+         account, internal_leg_sql("")))?;
     type Leg = (i64, i64, String, i64, Option<String>, BigDec, String, bool);
     let mut legs: Vec<Leg> = vec![];
     let mut q = s.query([user_id])?;
