@@ -2,7 +2,10 @@ import { Controller } from "@hotwired/stimulus";
 import Chart, { Interaction } from "chart.js/auto";
 import { getRelativePosition } from "chart.js/helpers";
 import "chartjs-adapter-date-fns";
-import { fromAnswer, fromAttributes, keeps, query, endRadius, buysIn, curve } from "../../lib/chart_series";
+import {
+  fromAnswer, fromAttributes, keeps, query, endRadius, buysIn, curve, append, remember, inView, reading, asks, clampView,
+  nearest, axisMarks, measured,
+} from "../../lib/chart_series";
 
 // The rows of both holdings tables — the index's constituents and the coins that left it.
 const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_table tr[data-symbol]";
@@ -23,48 +26,13 @@ const PRICES_KEY = "bot-chart:prices";
 // at `LOGO_SIZE`, and everything between is spread across the difference — see `#sizing`.
 const MARK_MAX_HEIGHT = 40;
 
-// --- the dates under the plot -------------------------------------------------------
-//
-// The only axis this chart has: a handful of round dates under the curve, at the coarsest unit
-// the window in view holds `AXIS_MIN` boundaries of, thinned by the first step that leaves each
-// label `AXIS_ROOM` px to print in. A boundary that OPENS the unit above is written as that unit
-// instead — January says "2026", midnight says the date — so a row of months carries its year
-// without spending a label on it.
-//
-// Coarsest first. The steps are the ones that keep the run aligned to the bigger unit: months
-// step by a divisor of 12 so a January is always among them, hours likewise by a divisor of 24.
-// Days cannot be — a month is not a round number of them — which is why a day reads as "14 Jul"
-// and carries its own month.
-const AXIS_MIN = 4;
-const AXIS_ROOM = 80;
-const AXIS_UNITS = [
-  {
-    size: 31536e6, steps: [1, 2, 5, 10, 25],
-    label: { year: "numeric" },
-    start: (at, step) => new Date(at.getFullYear() - (at.getFullYear() % step), 0),
-    next: (at, step) => at.setFullYear(at.getFullYear() + step),
-  },
-  {
-    size: 2592e6, steps: [1, 2, 3, 4, 6, 12],
-    label: { month: "short" }, opens: (at) => at.getMonth() === 0, above: { year: "numeric" },
-    start: (at, step) => new Date(at.getFullYear(), at.getMonth() - (at.getMonth() % step)),
-    next: (at, step) => at.setMonth(at.getMonth() + step),
-  },
-  {
-    size: 864e5, steps: [1, 2, 5, 10, 15],
-    label: { day: "numeric", month: "short" },
-    start: (at) => new Date(at.getFullYear(), at.getMonth(), at.getDate()),
-    next: (at, step) => at.setDate(at.getDate() + step),
-  },
-  {
-    size: 36e5, steps: [1, 2, 3, 4, 6, 12],
-    label: { hour: "numeric", minute: "2-digit" }, opens: (at) => at.getHours() === 0,
-    above: { day: "numeric", month: "short" },
-    start: (at, step) => new Date(at.getFullYear(), at.getMonth(), at.getDate(),
-                                 at.getHours() - (at.getHours() % step)),
-    next: (at, step) => at.setHours(at.getHours() + step),
-  },
-];
+// The dates under the plot: `axisMarks` in lib/chart_series.js, beside the units it walks.
+
+// 548-2: the narrowest view a gesture opens on fetched data, which can bring points down to a second apart. Data that
+// are all in the page (the tracker's days) stop at about three of their points instead.
+const LEAST_VIEW = 10_000;
+// How long a view rests before the data in hand are checked against it.
+const SETTLE = 150;
 
 // --- who decides the hovered point --------------------------------------------------
 //
@@ -88,16 +56,9 @@ const AXIS_UNITS = [
 Interaction.modes.curveIndex = (chart, event, options, useFinalPosition) => {
   const { x } = getRelativePosition(event, chart);
   const curve = chart.getDatasetMeta(0)?.data || [];
-  let index = -1;
-  let nearest = Infinity;
-
-  curve.forEach((element, i) => {
-    const distance = Math.abs(element.getProps(["x"], useFinalPosition).x - x);
-    if (distance < nearest) {
-      nearest = distance;
-      index = i;
-    }
-  });
+  // Only a point inside the plot: the padding loaded either side of a narrowed view is drawn under the clip, never read.
+  const index = nearest(curve.map((element) => element.getProps(["x"], useFinalPosition).x), x,
+                        chart.chartArea.left, chart.chartArea.right);
   if (index < 0) return [];
 
   return chart.getSortedVisibleDatasetMetas().flatMap((meta) => {
@@ -181,7 +142,7 @@ export default class extends Controller {
   // New figures on the chart in hand: same canvas, same mode, window, holding and toggles.
   #refresh() {
     this.stamps = null;
-    if (this.days !== undefined) this.#window(this.days);
+    if (this.days !== undefined) this.#presetView(this.days);
     this.focused = this.#chartable(this.focused) || this.#chartable(this.#pinned);
     this.pnlSeries = this.#derivePnl();
     this.#buildChart();
@@ -233,8 +194,8 @@ export default class extends Controller {
     // inside that window would otherwise rebuild with an undefined budget (Array(NaN) throws,
     // leaving the buttons in one mode and the summary in the other).
     this.maxPointsToDraw = Math.max(1, Math.floor(this.element.offsetWidth / 3.5));
-    // The whole history until the reader narrows it; every read of the series slices from here.
-    this.from = 0;
+    // The view in time: null for the whole history until the reader narrows it (548-2).
+    this.view = null;
     // Restored HERE rather than beside the orders switch below: the summary is rendered before
     // the first build, and it reads this to decide whether it has a price to print.
     this.showPrices = this.#storedPrices;
@@ -288,6 +249,7 @@ export default class extends Controller {
       }, 100); // 100ms delay
     });
     this.resizeObserver.observe(this.element);
+    this.#gestures();
     this.element.addEventListener("turbo:before-morph-element", this.#morph);
     // D-SCHEME-SWITCH: the chart's colours are read from the page's variables when it is built, so a scheme picked in the
     // menu, or the OS turning light or dark, builds it again in the new colours.
@@ -302,6 +264,7 @@ export default class extends Controller {
     // An answer still on its way answers no ask of this controller's.
     this.#asked += 1;
     clearTimeout(this.focusTimer);
+    clearTimeout(this.settleTimer);
     this.element.removeEventListener("turbo:before-morph-element", this.#morph);
     this.schemes.disconnect();
     this.dark.removeEventListener("change", this.repaint);
@@ -382,34 +345,213 @@ export default class extends Controller {
     }
   }
 
-  // --- the window in view -----------------------------------------------------------
+  // --- the view ---------------------------------------------------------------------
   //
-  // CONTRACT (this repo has no JS test harness; the bot chart's own behaviour has the same
-  // coverage, so this is checked by hand in the browser): `from` is the index of the first point
-  // at or after the cutoff, measured back from the LAST point rather than from now — a history
-  // that stops updating must not silently empty the chart. Everything downstream slices from it,
-  // and both the RETURN curve and the headline are read RELATIVE to that first point, so "30D"
-  // says what the last thirty days did instead of where the whole history happens to stand today.
-  // ALL is the initial state, so a chart nobody touches renders exactly as it did before.
+  // `view` is a time range, null for the whole history. The x scale is set to it; the series in hand reach past it
+  // (the server pads a narrowed view, the tracker has every day), drawn under the plot's clip so the line enters and
+  // leaves the plot as it would with every point loaded, and never read: the hover, the y range, the price rebasing
+  // and the headline take only the points inside it. D-CHART-VIEW A: a narrowed view reads its own period — its P/L
+  // runs from its first point to its last and the curve starts at zero there — which is what the tracker's 30D and 1Y
+  // presets always did.
+  //
+  // A preset is a view from the first point at or after its cutoff to the last point, measured back from the LAST
+  // point rather than from now: a history that stops updating must not silently empty the chart. ALL is the whole
+  // history, the initial state, so a chart nobody touches renders exactly as it did before.
   range(event) {
     // Held, so new figures can be windowed the same way.
     this.days = Number(event.detail.value);
-    this.#window(this.days);
-    this.pnlSeries = this.#derivePnl();
-    this.#buildChart();
-    this.#renderSummary();
+    this.#presetView(this.days);
+    this.#viewChanged();
   }
 
-  #window(days) {
-    const stamps = this.#allTimestamps();
-    if (!Number.isFinite(days) || !stamps.length) {
-      this.from = 0;
-    } else {
-      const cutoff = stamps.at(-1) - days * 86400000;
-      const first = stamps.findIndex((stamp) => stamp >= cutoff);
-      // Two points still make a line: a window narrower than the sampling would leave none.
-      this.from = Math.min(Math.max(first, 0), Math.max(stamps.length - 2, 0));
+  #presetView(days) {
+    const stamps = this.#timestamps();
+    if (!Number.isFinite(days) || !stamps.length) return (this.view = null);
+    const cutoff = stamps.at(-1) - days * 86400000;
+    const first = stamps.findIndex((stamp) => stamp >= cutoff);
+    // Two points still make a line: a window narrower than the sampling would leave none.
+    const from = Math.min(Math.max(first, 0), Math.max(stamps.length - 2, 0));
+    this.view = from > 0 ? { min: stamps[from], max: stamps.at(-1) } : null;
+  }
+
+  // The whole history: the answer's (every point of it, not only the ones in hand), or the attributes' ends.
+  get #extent() {
+    const extent = this.#data("extent");
+    return extent && Number.isFinite(extent[0]) ? extent : [0, 0];
+  }
+
+  // The time range on the x scale.
+  get #shown() {
+    const [min, max] = this.#extent;
+    return this.view || { min, max };
+  }
+
+  get #narrowed() {
+    return !!this.view;
+  }
+
+  // The indices of the points inside the view, [first, end).
+  get #span() {
+    return inView(this.#timestamps(), this.#shown);
+  }
+
+  // The points of a dataset the y range and the price lines are measured on (`measured`).
+  #inMeasure(points) {
+    const { min, max } = measured(this.#timestamps(), this.#shown);
+    return points.filter((point) => point.x >= min && point.x <= max);
+  }
+
+  #viewChanged() {
+    this.pnlSeries = this.#derivePnl();
+    this.#buildChart();
+    if (this.chart) this.#updateSummary(this.chart.tooltip);
+    this.analyzerChartTarget.style.cursor = this.view ? (this.#dragging ? "grabbing" : "grab") : "";
+  }
+
+  // A gesture's view: kept inside the history (`clampView`), drawn now from the data in hand, and checked against them
+  // once it has rested (`#settle`). It is no preset any more: the range control's chip goes out, and comes back on ALL
+  // when the gesture reaches the whole history.
+  #setView(min, max) {
+    const labels = this.#timestamps();
+    const [low, high] = this.#extent;
+    const least = this.#data("fetched") ? LEAST_VIEW : ((high - low) / Math.max(labels.length - 1, 1)) * 3;
+    this.view = clampView(min, max, [low, high], least);
+    this.days = undefined;
+    this.#viewChanged();
+    const range = this.#rangeControl;
+    if (range && this.view) range.clear();
+    else range?.element.querySelector("[data-segmented-target='option'][data-value='all']:not(.is-on)")?.click();
+    clearTimeout(this.settleTimer);
+    // "Everything" at once: it is in hand while its answer is kept (`remember`).
+    if (!this.view) this.#settle();
+    else this.settleTimer = setTimeout(() => this.#settle(), SETTLE);
+  }
+
+  get #rangeControl() {
+    const element = this.element.querySelector("[data-action*='bot--chart#range'] [data-controller~='segmented']");
+    return element && this.application.getControllerForElementAndIdentifier(element, "segmented");
+  }
+
+  // 548-2: asked for the view when the data in hand no longer fit it (`asks`). The server pads; the view does not move
+  // when the answer lands.
+  #settle() {
+    if (!this.hasSrcValue || !this.answer) return;
+    if (this.#dataKey !== this.#query() && (!this.view || asks({ view: this.#shown, ...this.answer }))) this.#ask();
+  }
+
+  // --- the gestures (as on the mock Jan approved, 2026-11-19) -------------------------
+  //
+  // Pinch, or ctrl/⌘ + wheel, zooms about the pointer; a mouse drag or a sideways scroll pans; a double-click returns
+  // to the whole history. A plain vertical scroll is the page's. On a touch screen one finger still reads along the
+  // curve, and two zoom and pan. Written by hand: no plugin.
+  //
+  // While a drag or a pinch moves the view, the headline holds what it said when it began. Under A the reading of a
+  // point depends on the view's first point, so the figure under a pointer that has not moved off its point would
+  // otherwise change on every frame of the drag.
+  get #dragging() {
+    return !!(this.drag?.moved && this.drag.view) || !!this.pinch;
+  }
+
+  #zoom(at, factor) {
+    const { min, max } = this.#shown;
+    const span = (max - min) * factor;
+    const left = at - ((at - min) * span) / (max - min);
+    this.#setView(left, left + span);
+  }
+
+  #pan(by) {
+    if (this.view) this.#setView(this.view.min + by, this.view.max + by);
+  }
+
+  #gestures() {
+    const canvas = this.analyzerChartTarget;
+    // The page keeps the vertical scroll; sideways and pinch are this chart's.
+    canvas.style.touchAction = "pan-y";
+    const px = (event) => event.clientX - canvas.getBoundingClientRect().left;
+    const perPixel = () => {
+      const { min, max } = this.#shown;
+      return (max - min) / this.chart.scales.x.width;
+    };
+    const timeAt = (x) => this.#shown.min + (x - this.chart.scales.x.left) * perPixel();
+
+    canvas.addEventListener("wheel", (event) => {
+      if (!this.chart) return;
+      const lines = event.deltaMode === 1 ? 16 : 1;
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        const delta = Math.max(Math.min(event.deltaY * lines, 50), -50);
+        this.#zoom(timeAt(px(event)), Math.exp(delta * 0.01));
+      } else if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        // Also keeps the browser's back-swipe off the chart.
+        event.preventDefault();
+        this.#pan(event.deltaX * lines * perPixel());
+      }
+      // A plain vertical scroll is the page's.
+    }, { passive: false });
+
+    canvas.addEventListener("dblclick", () => {
+      if (this.chart) this.#setView(-Infinity, Infinity);
+    });
+
+    this.touches = new Map();
+    canvas.addEventListener("pointerdown", (event) => {
+      if (!this.chart) return;
+      if (event.pointerType === "mouse") {
+        if (event.button === 0) this.drag = { x: event.clientX, view: this.view, perPixel: perPixel(), moved: false, id: event.pointerId };
+        return;
+      }
+      this.touches.set(event.pointerId, px(event));
+      if (this.touches.size === 2) {
+        const [a, b] = [...this.touches.values()];
+        this.pinch = { mid: (a + b) / 2, distance: Math.max(Math.abs(a - b), 1), shown: this.#shown, perPixel: perPixel() };
+      }
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (event.pointerType === "mouse") {
+        const drag = this.drag;
+        if (!drag || !(event.buttons & 1)) return this.#endDrag();
+        const dx = event.clientX - drag.x;
+        if (!drag.moved && Math.abs(dx) < 4) return;
+        if (!drag.moved) {
+          drag.moved = true;
+          try { canvas.setPointerCapture(drag.id); } catch {}
+        }
+        if (drag.view) this.#setView(drag.view.min - dx * drag.perPixel, drag.view.max - dx * drag.perPixel);
+        return;
+      }
+      if (!this.touches.has(event.pointerId)) return;
+      this.touches.set(event.pointerId, px(event));
+      if (this.touches.size !== 2 || !this.pinch) return;
+      const [a, b] = [...this.touches.values()];
+      const { mid, distance, shown, perPixel: was } = this.pinch;
+      // The moment under the fingers' midpoint stays under it: zoom and pan in one.
+      const at = shown.min + (mid - this.chart.scales.x.left) * was;
+      const scale = distance / Math.max(Math.abs(a - b), 1);
+      const left = at - ((a + b) / 2 - this.chart.scales.x.left) * was * scale;
+      this.#setView(left, left + (shown.max - shown.min) * scale);
+    });
+    const up = (event) => {
+      if (event.pointerType === "mouse") return this.#endDrag();
+      this.touches.delete(event.pointerId);
+      if (this.touches.size < 2 && this.pinch) {
+        this.pinch = null;
+        this.#updateSummary(this.chart.tooltip);
+      }
+    };
+    canvas.addEventListener("pointerup", up);
+    canvas.addEventListener("pointercancel", up);
+  }
+
+  // The drag is over: the headline reads the pointer again.
+  #endDrag() {
+    const drag = this.drag;
+    if (!drag) return;
+    this.drag = null;
+    if (drag.moved) {
+      try { this.analyzerChartTarget.releasePointerCapture(drag.id); } catch {}
     }
+    this.analyzerChartTarget.style.cursor = this.view ? "grab" : "";
+    if (drag.moved && drag.view && this.chart) this.#updateSummary(this.chart.tooltip);
   }
 
   // --- one holding at a time --------------------------------------------------------
@@ -481,7 +623,8 @@ export default class extends Controller {
   // at is drawn again at once; a holding not yet seen is asked for once the pointer has stayed
   // on its row for 80 ms, so running down the table asks only for the row it stops on.
   #asked = 0;
-  #answers = new Map();
+  // The whole-history answers of the current revision, by query (`remember`).
+  #kept = { rev: undefined, answers: new Map() };
 
   #want(next) {
     if (!this.answer || next === this.wanted) return;
@@ -497,44 +640,54 @@ export default class extends Controller {
       this.focused = next;
       return this.#redraw();
     }
-    if (this.#answers.has(this.#query())) return this.#ask();
+    if (this.#kept.answers.has(this.#query())) return this.#ask();
     // An ask on its way for another row is not drawn while this one waits its 80 ms.
     this.#asked += 1;
     this.focusTimer = setTimeout(() => this.#ask(), 80);
   }
 
   #query() {
-    return query({ points: this.maxPointsToDraw, asset: this.wanted, prices: this.showPrices, buys: this.showOrders });
+    return query({ points: this.maxPointsToDraw, asset: this.wanted, prices: this.showPrices, buys: this.showOrders, view: this.view });
   }
 
-  async #ask() {
+  // The query the data in hand answered.
+  get #dataKey() {
+    return this.held?.key;
+  }
+
+  // `live`: a publication's new `rev` asks again for what is drawn, and when the data in hand answer that same query it
+  // repeats their `closed` and `sum` (D-CHART-LIVE), so a publication that only added points sends only those.
+  async #ask({ live = false } = {}) {
     clearTimeout(this.focusTimer);
     const key = this.#query();
     const ask = ++this.#asked;
-    let answer = this.#answers.get(key);
+    const held = live && this.held?.key === key && this.held.answer.closed != null ? this.held.answer : null;
+    let answer = held ? null : this.#kept.answers.get(key);
     if (!answer) {
+      const asked = held ? `${key}&after=${held.closed}&sum=${encodeURIComponent(held.sum)}` : key;
       try {
-        const response = await fetch(`${this.srcValue}?${key}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+        const response = await fetch(`${this.srcValue}?${asked}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
         // 204: no figures kept yet. They are made now, and their publication's `rev` asks again.
         if (response.status !== 200) return;
         answer = await response.json();
       } catch {
         return; // the next publication's `rev` asks again
       }
-      // Kept per revision: a newer one makes the kept answers old.
-      if (!(answer.rev <= this.answersRev)) {
-        this.#answers.clear();
-        this.answersRev = answer.rev;
+      // Kept up to the ASK's `after`, the answer's points from there on.
+      if (answer.append) {
+        if (!held) return;
+        answer = append(held, answer, held.closed);
       }
-      if (answer.rev === this.answersRev) this.#answers.set(key, answer);
+      remember(this.#kept, key, answer);
     }
-    this.#take(answer, ask);
+    this.#take(answer, ask, key);
   }
 
   // D-CHART-REV: only the latest ask is drawn, and never one older than the data in hand.
-  #take(answer, ask) {
+  #take(answer, ask, key) {
     if (!keeps({ ask, latest: this.#asked, rev: answer.rev, held: this.answer?.rev })) return;
 
+    this.held = { key, answer };
     this.answer = fromAnswer(answer);
     this.stamps = null;
     this.focused = this.answer.asset === this.wanted ? this.#chartable(this.wanted) : null;
@@ -556,8 +709,8 @@ export default class extends Controller {
     if (!this.loader && !this.answer) return;
     if (this.answer && this.revValue <= this.answer.rev) return;
     // Every kept answer is of an older record now.
-    this.#answers.clear();
-    this.#ask();
+    this.#kept.answers.clear();
+    this.#ask({ live: true });
   }
 
   // On the body, not on this element or in sessionStorage: it has to outlive the ~5-minute
@@ -586,8 +739,7 @@ export default class extends Controller {
   // The value and invested curves in force: the focused holding's own, or the whole bot's.
   get #series() {
     const asset = this.focused && this.#data("assets")[this.focused];
-    const series = asset ? [asset.value, asset.invested] : this.#data("series");
-    return this.from ? series.map((serie) => serie.slice(this.from)) : series;
+    return asset ? [asset.value, asset.invested] : this.#data("series");
   }
 
   // ONE ruler across the holdings: moving from one row to the next has to move the curve, not the
@@ -609,9 +761,9 @@ export default class extends Controller {
   // every pointer move.
   #derivePnl() {
     const curve = this.#rawPnl();
-    // What the position had already made when the window opened. Held, because the headline
+    // What the position had already made at the view's first point (A). Held, because the headline
     // subtracts the same figure — the curve and the number over it have to agree.
-    this.baseline = this.from ? curve.find((point) => point !== null) ?? 0 : 0;
+    this.baseline = reading(this.#timestamps(), curve, this.#shown, this.#narrowed).baseline;
     if (!this.baseline) return curve;
 
     return curve.map((point) => (point === null ? null : point - this.baseline));
@@ -620,8 +772,7 @@ export default class extends Controller {
   #rawPnl() {
     if (!this.focused) {
       // Received with its cost unknown is no profit: there is no P/L curve to draw (the server's `pnl` was empty).
-      const portfolio = this.#receivedOnly ? [] : this.#data("pnl") || [];
-      return this.from ? portfolio.slice(this.from) : portfolio;
+      return this.#receivedOnly ? [] : this.#data("pnl") || [];
     }
 
     const [value, invested] = this.#series;
@@ -644,20 +795,22 @@ export default class extends Controller {
     return document.documentElement.lang || "en";
   }
 
-  #allTimestamps() {
+  // Every point in hand, the padding either side of a narrowed view included.
+  #timestamps() {
     this.stamps ||= this.#data("labels") || [];
     return this.stamps;
   }
 
-  #timestamps() {
-    return this.from ? this.#allTimestamps().slice(this.from) : this.#allTimestamps();
-  }
-
+  // A day, and the time of day once the view is narrower than two days (its points are then hours or minutes apart and
+  // a date alone would name them all alike); the seconds below ten minutes.
   #date(timestamp) {
-    return new Date(timestamp).toLocaleDateString(this.#locale, {
+    const width = this.#shown.max - this.#shown.min;
+    return new Date(timestamp).toLocaleString(this.#locale, {
       year: "numeric",
       month: "short",
       day: "numeric",
+      ...(width < 2 * 864e5 && { hour: "numeric", minute: "2-digit" }),
+      ...(width < 6e5 && { second: "2-digit" }),
     });
   }
 
@@ -713,16 +866,16 @@ export default class extends Controller {
     if (!value?.length) return;
 
     const timestamps = this.#timestamps();
-    // The last point that HAS a value: a focused holding's tail is null wherever the portfolio
-    // point there kept its fill mark, and reading the headline off it would print NaN.
-    let last = value.length - 1;
-    while (last >= 0 && value[last] === null) last -= 1;
-    if (last < 0) return;
+    // The last point IN VIEW that HAS a value: a focused holding's tail is null wherever the portfolio
+    // point there kept its fill mark, and reading the headline off it would print NaN. A view with no
+    // point in it reads nothing: its dates, and a dash where the figures go.
+    const { first: opening, last } = reading(timestamps, value, this.#shown, this.#narrowed);
+    if (last < 0) return this.#renderEmpty();
 
     const at = point || { x: timestamps[last], value: value[last], invested: invested[last] };
     const spent = Number(at.invested);
     const pnl = Number(at.value) - spent - this.baseline;
-    const first = this.#date(timestamps[0]);
+    const first = this.#date(timestamps[opening]);
     const on = this.#date(at.x);
 
     // SYMBOL · price · when, each part earning its own place. The name is there whenever one
@@ -736,7 +889,7 @@ export default class extends Controller {
     if (this.#receivedOnly) {
       // What came in, as an amount: no sign, no percent, no profit or loss colour. A narrowed window says what came in
       // within it, read from its first point as the P/L's baseline is.
-      const start = this.from ? Number(value.find((amount) => amount !== null) ?? 0) : 0;
+      const start = reading(timestamps, value, this.#shown, this.#narrowed).baseline;
       if (this.hasPnlTarget) this.pnlTarget.replaceChildren(...this.#headline(Number(at.value) - start, { signed: false }));
       this.percentTarget.textContent = "";
       this.summaryTarget.classList.remove("text-danger", "text-success");
@@ -750,6 +903,14 @@ export default class extends Controller {
     this.percentTarget.textContent = spent > 0 ? this.#percent(pnl / spent) : "—";
     this.summaryTarget.classList.toggle("text-danger", pnl < 0);
     this.summaryTarget.classList.toggle("text-success", pnl >= 0);
+  }
+
+  #renderEmpty() {
+    const { min, max } = this.#shown;
+    this.dateTarget.textContent = [this.focused, `${this.#date(min)} – ${this.#date(max)}`].filter(Boolean).join(" · ");
+    if (this.hasPnlTarget) this.pnlTarget.textContent = "—";
+    this.percentTarget.textContent = "";
+    this.summaryTarget.classList.remove("text-danger", "text-success");
   }
 
   // The asset whose price the headline can state: one, and only while the overlay is on. Across
@@ -767,6 +928,8 @@ export default class extends Controller {
   }
 
   #updateSummary(tooltip) {
+    // Held while a drag or a pinch moves the view (see the gestures).
+    if (this.#dragging) return;
     if (!tooltip.getActiveElements().length) return this.#renderSummary();
 
     const points = tooltip.dataPoints;
@@ -850,6 +1013,7 @@ export default class extends Controller {
           if (!plot.baseline) return;
 
           const y = chart.scales.y.getPixelForValue(plot.baseline.value);
+          if (y < chart.chartArea.top || y > chart.chartArea.bottom) return;
           const ctx = chart.ctx;
           ctx.save();
           ctx.beginPath();
@@ -895,7 +1059,8 @@ export default class extends Controller {
       },
       scales: {
         // No axes: the summary carries the numbers and the shape carries the rest.
-        x: { type: "time", display: false },
+        // The view, or the whole history: set, not left to the datasets, which reach past a narrowed view.
+        x: { type: "time", display: false, min: this.#shown.min, max: this.#shown.max },
         y: this.plot.y,
       },
       plugins: {
@@ -941,14 +1106,13 @@ export default class extends Controller {
 
     const scale = this.chart.scales.x;
     const size = LOGO_SIZE;
-    const timestamps = this.#timestamps();
     // BOTH ends, not just the near one. The chart's metrics are cached for minutes while the
     // transactions are read live, so a buy that landed since the last metrics pass is newer than
     // the last label — and the clamp below would then park its logo on the final point, dating a
     // purchase to a day it did not happen on. A mark the curve cannot place is not drawn.
-    // The history's own ends, not the first and last points in hand: a fetched series is
-    // thinned, and a buy is placed by its own time.
-    const [from, to] = this.from ? [timestamps[0], timestamps.at(-1)] : this.#data("extent");
+    // The scale's bounds (the view, or the history's own ends), not the points in hand: those reach
+    // into the padding, and a buy is placed by its own time.
+    const [from, to] = [scale.min, scale.max];
     const stacks = [];
 
     // Outside the window in view, or on an asset the reader is not looking at, there is nothing
@@ -1140,26 +1304,12 @@ export default class extends Controller {
     if (!this.hasAxisTarget) return;
 
     const scale = this.chart.scales.x;
-    const span = scale.max - scale.min;
-    const unit = AXIS_UNITS.find(({ size }) => span / size >= AXIS_MIN) || AXIS_UNITS.at(-1);
-    const room = Math.max(2, Math.floor(scale.width / AXIS_ROOM));
-    const step = unit.steps.find((jump) => span / unit.size / jump <= room) || unit.steps.at(-1);
-
-    const marks = [];
-    // Walked with the calendar's own arithmetic in the reader's zone, not by adding a nominal
-    // length: a month is not 30 days and a DST day is not 24 hours, and either would drift the
-    // boundaries off the dates they are named after.
-    const at = unit.start(new Date(scale.min), step);
-    while (+at <= scale.max) {
-      if (+at >= scale.min) {
-        const mark = document.createElement("span");
-        mark.textContent = at.toLocaleString(this.#locale,
-                                             unit.opens?.(at) ? unit.above : unit.label);
-        mark.style.left = `${scale.getPixelForValue(+at)}px`;
-        marks.push(mark);
-      }
-      unit.next(at, step);
-    }
+    const marks = axisMarks(scale.min, scale.max, scale.width).map(({ at, format }) => {
+      const mark = document.createElement("span");
+      mark.textContent = new Date(at).toLocaleString(this.#locale, format);
+      mark.style.left = `${scale.getPixelForValue(at)}px`;
+      return mark;
+    });
     this.axisTarget.replaceChildren(...marks);
 
     // Clamped only once they are in the DOM, because it takes their measured widths: a label
@@ -1222,13 +1372,13 @@ export default class extends Controller {
     const lines = symbols
       .map((symbol) => [symbol, this.#rebased(symbol, labels)])
       .filter(([, points]) => points.length > 1);
-    // Where the curve starts, which is where every price line has to start with it.
-    const anchor = plot.datasets[0].data[0]?.y;
+    // Where the curve starts in view, which is where every price line has to start with it.
+    const anchor = plot.datasets[0].data.find((point) => point.x >= this.#shown.min)?.y;
     if (!lines.length || anchor === undefined) return plot;
 
-    // Seeded at zero because every line's own first point IS zero: the rebase makes it so.
+    // Seeded at zero because every line's own first point in view IS zero: the rebase makes it so.
     const { low, high } = this.#extremes(
-      lines.flatMap(([, points]) => points.map((point) => point.y)), 0, 0
+      lines.flatMap(([, points]) => this.#inMeasure(points).map((point) => point.y)), 0, 0
     );
     const scale = this.#priceScale(plot.y, anchor, low, high);
 
@@ -1264,15 +1414,15 @@ export default class extends Controller {
   }
 
   #priceSeries(symbol) {
-    const serie = this.#data("prices")?.[symbol] || [];
-    return this.from ? serie.slice(this.from) : serie;
+    return this.#data("prices")?.[symbol] || [];
   }
 
   // A price series as its distance from its own first price in view, nulls dropped — every point
   // carries its own timestamp, so a gap in the grid costs nothing.
   #rebased(symbol, labels) {
     const serie = this.#priceSeries(symbol);
-    const base = serie.find((price) => price != null);
+    const [first, end] = this.#span;
+    const base = serie.slice(first, end).find((price) => price != null);
     if (!base) return [];
 
     return serie
@@ -1337,12 +1487,13 @@ export default class extends Controller {
   // what the headline over them says. The hover keeps reading the source series, so the money
   // printed is still what was actually invested.
   #valuePlot(labels) {
-    const shift = this.from ? this.baseline : 0;
+    // The baseline is 0 for the whole history (A: only a narrowed view lifts the invested line).
+    const shift = this.baseline;
     // Nulls dropped, not zeroed: a focused holding has no market value at a point the portfolio
     // left on its fill mark. Every point carries its own timestamp, so a gap costs nothing.
     const series = this.#series.map((serie, i) => curve(labels, serie, i ? shift : 0));
     // Received only: the cost series is all zeros and never drawn, so it never frames the window.
-    const span = this.#extremes((this.#receivedOnly ? series.slice(0, 1) : series).flatMap((serie) => serie.map((p) => p.y)));
+    const span = this.#extremes((this.#receivedOnly ? series.slice(0, 1) : series).flatMap((serie) => this.#inMeasure(serie).map((p) => p.y)));
     const maxValue = this.focused ? this.#assetBounds.value : span.high;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const up = this.#color("--grass");
@@ -1357,7 +1508,8 @@ export default class extends Controller {
     // window is read from its own floor: both lines sit far above zero by then, and a frame
     // kept at zero flattens what these weeks did into a line along the middle of it.
     const pad = (span.high - span.low) * 0.1 || 0.01;
-    const y = this.from && !this.focused
+    // A focused holding too, as on the mock: the ruler across holdings is the whole history's.
+    const y = this.#narrowed && Number.isFinite(span.low)
       ? { min: span.low - pad, max: span.high + pad }
       : { min: 0, suggestedMax: maxValue * 1.1 };
     // One curve, money in, in the page's own ink: no cost to read it against, so no ribbon and no side.
@@ -1394,9 +1546,10 @@ export default class extends Controller {
   #pnlPlot(curve) {
     // Zero stays in frame whether or not the curve reaches it: the line is what the curve means,
     // which is what the 0 seeds say.
-    const curveSpan = this.#extremes(curve.map((point) => point.y), 0, 0);
-    const low = this.focused ? this.#assetBounds.low : curveSpan.low;
-    const high = this.focused ? this.#assetBounds.high : curveSpan.high;
+    const curveSpan = this.#extremes(this.#inMeasure(curve).map((point) => point.y), 0, 0);
+    const ruler = this.focused && !this.#narrowed;
+    const low = ruler ? this.#assetBounds.low : curveSpan.low;
+    const high = ruler ? this.#assetBounds.high : curveSpan.high;
     const pad = (high - low) * 0.1 || 0.01;
     const up = this.#color("--grass");
     const down = this.#color("--berry");
@@ -1443,7 +1596,8 @@ export default class extends Controller {
       cubicInterpolationMode: "monotone",
       borderWidth: 2,
       borderColor: color,
-      pointRadius: (ctx) => endRadius(ctx.dataIndex, ctx.dataset.data.length),
+      // Only while that point is in view: a narrowed view ending before it has no "now" to mark.
+      pointRadius: (ctx) => endRadius(ctx.dataIndex, ctx.dataset.data.length, ctx.raw?.x, this.#shown),
       pointHitRadius: 0,
       pointBackgroundColor: color,
       pointBorderColor: color,
@@ -1453,7 +1607,9 @@ export default class extends Controller {
       pointHoverBorderColor: color,
       pointHoverBorderWidth: 2,
       data,
-      clip: false,
+      // Clipped at the plot's left and right, where a narrowed view's padding runs on; the 4 px right of the plot are the
+      // end dot's, as the layout's padding has them. Top and bottom unclipped, as before.
+      clip: { left: 0, top: false, right: 4, bottom: false },
     };
   }
 

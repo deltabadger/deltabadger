@@ -421,7 +421,9 @@ fn chart_query(ctx: &Ctx) -> Option<crate::figures::chart::Query> {
     let points = match ctx.params.query("points") { None => POINTS, Some(v) => v.parse::<usize>().ok().filter(|p| POINTS_RANGE.contains(p))? };
     let (from, to) = (number("from")?, number("to")?);
     if from.zip(to).is_some_and(|(from, to)| from > to) { return None; }
-    Some(Query { from, to, points, asset: ctx.params.query("asset").filter(|key| !key.is_empty()).map(str::to_string), prices: flag("prices")?, buys: flag("buys")? })
+    // D-CHART-LIVE: `after` and `sum` come together or not at all.
+    let after = match (number("after")?, ctx.params.query("sum")) { (None, None) => None, (Some(after), Some(sum)) if !sum.is_empty() => Some((after, sum.to_string())), _ => return None };
+    Some(Query { from, to, points, asset: ctx.params.query("asset").filter(|key| !key.is_empty()).map(str::to_string), prices: flag("prices")?, buys: flag("buys")?, after })
 }
 
 #[derive(Template)]
