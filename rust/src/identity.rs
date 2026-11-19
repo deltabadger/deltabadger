@@ -393,6 +393,17 @@ pub fn place_order(c: &Connection, transaction_id: i64, bot_id: i64) -> rusqlite
     Ok(())
 }
 
+/// Order `transaction_id`, just written in this transaction, belongs to account `account_id` (the one its intent was placed
+/// on): a membership row only for a number other than 1. An account of another user or exchange than the order's is refused.
+pub fn place_order_on(c: &Connection, transaction_id: i64, account_id: i64) -> rusqlite::Result<()> {
+    if !ready(c)? { return Ok(()); }
+    let (number, matches): (i64, bool) = c.query_row("SELECT a.number, a.user_id = b.user_id AND a.exchange_id = t.exchange_id FROM exchange_accounts a, transactions t
+                                                      JOIN bots b ON b.id = t.bot_id WHERE a.id = ?1 AND t.id = ?2", [account_id, transaction_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    if !matches { return Err(rusqlite::Error::InvalidParameterName("an account of another user or exchange than the order's".into())); }
+    if number != 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [transaction_id, account_id])?; }
+    Ok(())
+}
+
 /// SQL condition: bot row `b` trades on bot `bot_id`'s account (false when that resolves to none).
 pub fn sibling_bots(c: &Connection, bot_id: i64) -> rusqlite::Result<String> {
     Ok(Account::of_bot(c, bot_id)?.map_or_else(|| "0".to_string(), |account| account.bots("b")))

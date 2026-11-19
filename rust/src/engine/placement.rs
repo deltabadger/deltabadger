@@ -114,7 +114,10 @@ pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
     for id in ids {
         let bot = model::load_bot(c, id)?;
         let Some(v) = bot.rust_placement() else { continue };
-        let changed = match v.get("allocations") {
+        // #710: an intent naming its account (this build's) is stranded by a move to another one.
+        let account = crate::identity::account_of_bot(c, id)?;
+        let moved = v.get("account_id").is_some_and(|sent| sent.as_i64() != account);
+        let changed = moved || match v.get("allocations") {
             Some(sent) => v["exchange_id"].as_i64() != Some(bot.exchange_id) || v["quote_asset_id"].as_i64() != bot.quote_asset_id()
                 || bot.settings.get("allocations").unwrap_or(&Value::Null) != sent
                 || v.get("composition").is_some_and(|sent| composition_snapshot(c, &bot).map_or(true, |current| *sent != current)),
@@ -377,6 +380,8 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     }
     // What the order is sent under: `stranded` refuses any change to it until the order settles.
     v["exchange_id"] = json!(current.exchange_id);
+    // #710: the account it is placed on; the order is that account's when accepted, whatever the bot's is by then.
+    v["account_id"] = json!(crate::identity::account_of_bot(&tx, current.id)?);
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     v["composition"] = composition_snapshot(&tx, &current)?;
@@ -524,6 +529,8 @@ pub fn begin_signal(c: &Connection, sized_from: &Bot, plan: &OrderPlan, claim: C
     let mut v = intent.to_json()?;
     Intent::from_json(&tx, &current, &v, intent.credential_version.clone())?;
     v["exchange_id"] = json!(current.exchange_id);
+    // #710: the account it is placed on; the order is that account's when accepted, whatever the bot's is by then.
+    v["account_id"] = json!(crate::identity::account_of_bot(&tx, current.id)?);
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
     v["composition"] = composition_snapshot(&tx, &current)?;

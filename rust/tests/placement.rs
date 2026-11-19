@@ -544,3 +544,28 @@ async fn a_second_accounts_bot_places_with_its_key_and_its_order_is_that_account
     assert_eq!(Account::of_order(c, ids[0]).unwrap(), Some(first));
     assert_eq!(Account::of_order(c, ids[1]).unwrap(), Some(second));
 }
+
+/// #710: an order in flight keeps the account it was placed on. A move of its bot to another account meanwhile strands
+/// the intent (the web's guard refuses the move), and the order accepted after it is still the placing account's.
+#[tokio::test(flavor = "current_thread")]
+async fn an_order_in_flight_stays_on_the_account_it_was_placed_on() {
+    use deltabadger::identity::Account;
+    let (_d, o, bot, plan) = setup();
+    let c = &o.primary;
+    let first = Account::first(c, bot.user_id, bot.exchange_id).unwrap().ensure(c, t0()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [bot.user_id, bot.exchange_id]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    deltabadger::identity::place_bot(c, bot.id, bot.user_id, bot.exchange_id, Some(second), t0()).unwrap();
+    let bot = reload(&o, &bot);
+    let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-9".into())).order("OTX-9", json!({
+        "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0" } }));
+    let intent = placement::begin(c, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert_eq!(reload(&o, &bot).rust_placement().unwrap()["account_id"], json!(second.id));
+    placement::send(c, &venue, &intent, &FixedClock(t0())).await.unwrap();
+    assert!(placement::stranded(c).unwrap().is_empty());
+    deltabadger::identity::place_bot(c, bot.id, bot.user_id, bot.exchange_id, Some(first), t0()).unwrap();
+    assert_eq!(placement::stranded(c).unwrap(), [bot.id], "a move while the order is unresolved strands it");
+    assert!(matches!(placement::recover(c, &venue, &reload(&o, &bot), &FixedClock(t0() + Duration::hours(2))).await.unwrap(), Recovery::Recorded(_)));
+    let order: i64 = c.query_row("SELECT id FROM transactions WHERE bot_id = ?1", [bot.id], |r| r.get(0)).unwrap();
+    assert_eq!(Account::of_order(c, order).unwrap(), Some(second));
+}
