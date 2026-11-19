@@ -263,3 +263,24 @@ async fn the_export_reads_the_rows_as_they_stand() {
     let after: Vec<(i64, String)> = i.o.primary.prepare("SELECT external_status, updated_at FROM transactions ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(before, after);
 }
+
+/// #710 (Codex r1 P2): an import reads what the bot already holds on its current account only. Order X imported on
+/// account 1, the bot moved to account 2, account 2's own X imports as its own order; again, it is a duplicate.
+#[tokio::test(flavor = "current_thread")]
+async fn an_import_dedups_against_the_bots_current_account_only() {
+    let i = install();
+    let c = &i.o.primary;
+    let now: chrono::DateTime<chrono::Utc> = T0.parse().unwrap();
+    deltabadger::identity::Account::first(c, i.s.user_id, i.s.exchange_id).unwrap().ensure(c, now).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [i.s.user_id, i.s.exchange_id]).unwrap();
+    let second = deltabadger::identity::Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    let (app, mut browser) = signed_in(&i).await;
+    let file = |amount: &str| csv(&[&format!("2026-08-01 10:00:00 UTC,X,Market,Buy,{amount},60,60000,BTC,USD,Closed")]);
+    assert_eq!(import(&app, &mut browser, i.a, &file("0.001")).await, "Successfully imported 1 order(s).");
+    deltabadger::identity::place_bot(c, i.a, i.s.user_id, i.s.exchange_id, Some(second), now).unwrap();
+    assert_eq!(import(&app, &mut browser, i.a, &file("0.002")).await, "Successfully imported 1 order(s).", "account 2's X is its own order");
+    assert_eq!(import(&app, &mut browser, i.a, &file("0.002")).await, "No new orders to import (all orders already exist or currencies do not match).");
+    let accounts: Vec<Option<i64>> = c.prepare("SELECT (SELECT m.account_id FROM exchange_account_transactions m WHERE m.transaction_id = t.id) FROM transactions t WHERE bot_id = ?1 ORDER BY id").unwrap()
+        .query_map([i.a], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(accounts, [None, second.id]);
+}
