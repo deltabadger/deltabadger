@@ -492,7 +492,7 @@ pub(crate) fn prove(c: &Connection, bot_id: i64, tx_id: i64, origin: &crate::ven
             }
             Origin::Hf(record) => {
                 let row = crate::figures::fill::stored_order(tx, tx_id)?;
-                let ext: String = tx.query_row(&format!("SELECT {} FROM transactions WHERE id = ?1", crate::venue_ids::order_id(&tx, "transactions")?), [tx_id], |r| r.get(0))?;
+                let ext: String = tx.query_row(&format!("SELECT {} FROM transactions WHERE id = ?1", crate::venue_ids::order_id(tx, "transactions")?), [tx_id], |r| r.get(0))?;
                 let known = known_fills(tx, &owner(tx, tx_id)?, &ext, "ClassicHf")?;
                 let floor = |a: Option<BigDec>, b: &BigDec| a.filter(|a| a > b).unwrap_or_else(|| b.clone());
                 let mut record = record.clone();
@@ -525,7 +525,7 @@ pub(crate) fn mark_adopted(c: &Connection, cipher: &crate::crypto::Cipher, now: 
     let mut s = c.prepare(&format!(
         "SELECT t.id, t.created_at FROM transactions t JOIN exchanges e ON e.id = t.exchange_id WHERE e.type = 'Exchanges::Kucoin' AND t.status = 0 \
          AND t.external_status IN (0, 1) AND {o} IS NOT NULL AND {o} NOT LIKE 'imported_%' \
-         AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key IN ('{}' || t.id, '{ORIGIN}' || t.id)) ORDER BY t.id", crate::venue::kucoin::ORDER_RECORD, o = crate::venue_ids::order_id(&c, "t")?))?;
+         AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key IN ('{}' || t.id, '{ORIGIN}' || t.id)) ORDER BY t.id", crate::venue::kucoin::ORDER_RECORD, o = crate::venue_ids::order_id(c, "t")?))?;
     let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     drop(s);
     for (id, created) in &rows {

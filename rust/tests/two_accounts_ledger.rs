@@ -363,10 +363,10 @@ fn binance_fills_link_to_their_own_accounts_order() {
         c.execute("UPDATE account_transactions SET raw_data = ?2 WHERE id = ?1", params![row, json!({"orderId": 77, "id": 2}).to_string()]).unwrap();
     }
     sync::binance_order_links::link_stored(c, &seed::cipher(), now()).unwrap();
-    for n in 0..2 {
+    for (n, (scope, order)) in two.scopes.iter().zip(orders).enumerate() {
         let linked: Option<i64> = c.query_row(&format!("SELECT a.transaction_id FROM account_transactions a WHERE {} AND {} = 'BTCEUR-77-2'",
-                                                       two.scopes[n].rows("a"), venue_ids::row_id("a")), [], |r| r.get(0)).unwrap();
-        assert_eq!(linked, Some(orders[n]), "account {}'s stored fill", n + 1);
+                                                       scope.rows("a"), venue_ids::row_id("a")), [], |r| r.get(0)).unwrap();
+        assert_eq!(linked, Some(order), "account {}'s stored fill", n + 1);
     }
 }
 

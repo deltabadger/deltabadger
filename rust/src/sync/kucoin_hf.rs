@@ -120,7 +120,7 @@ fn hold_switched(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), Sy
     let record = crate::venue::kucoin::ORDER_RECORD;
     let origin = crate::engine::reconcile::ORIGIN;
     // #710: this history's account's orders, their venue ids wherever it keeps them.
-    let (o, mine) = (venue_ids::order_id(&c, "t")?, key.scope.orders("t"));
+    let (o, mine) = (venue_ids::order_id(c, "t")?, key.scope.orders("t"));
     let mut s = c.prepare(&format!(
         "SELECT t.id, (SELECT CASE WHEN count(*) = 1 THEN max(k.ticker) END FROM tickers k WHERE k.exchange_id = t.exchange_id AND k.base_asset_id = t.base_asset_id \
          AND k.quote_asset_id = t.quote_asset_id), coalesce(t.side, 0) = 1, coalesce(t.order_type, 0) = 1 \

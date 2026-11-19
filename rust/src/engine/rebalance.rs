@@ -368,7 +368,7 @@ pub async fn resolve<V: Venue>(c: &Connection, venue: &V, cipher: &crate::crypto
         if let Err(e) = super::polling::refresh(c, venue, id, row, now).await {
             super::log(&format!("[engine] rebalance resolution refresh bot={id}: {e:?}"));
         }
-        let waiting: Option<Option<String>> = c.query_row(&format!("SELECT {} FROM transactions WHERE id=?1 AND bot_id=?2 AND status=0 AND external_status IN (0,1)", crate::venue_ids::order_id(&c, "transactions")?),
+        let waiting: Option<Option<String>> = c.query_row(&format!("SELECT {} FROM transactions WHERE id=?1 AND bot_id=?2 AND status=0 AND external_status IN (0,1)", crate::venue_ids::order_id(c, "transactions")?),
             (row,id), |r| r.get(0)).optional()?;
         if let Some(order) = waiting { return Ok(Some(order.unwrap_or_default())); }
     }

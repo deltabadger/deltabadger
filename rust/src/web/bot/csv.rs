@@ -64,7 +64,7 @@ fn orders_csv(c: &Connection, id: i64, bot_exchange: Option<i64>, zone: &str) ->
     line(&mut out, &HEADERS.map(|h| Cell::Text(h.into())));
     // #710: each order's venue id wherever the account it was placed on keeps it.
     let mut s = c.prepare(&format!("SELECT created_at, {}, order_type, side, amount, amount_exec, quote_amount, quote_amount_exec, price, base, quote, exchange_id \
-                           FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2 ORDER BY created_at, id", crate::venue_ids::order_id(&c, "transactions")?))?;
+                           FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status = 2 ORDER BY created_at, id", crate::venue_ids::order_id(c, "transactions")?))?;
     let mut rows = s.query([id])?;
     let dec = |r: &rusqlite::Row, i: usize| -> Result<Option<BigDec>, WebError> {
         v2::from_sql(r.get_ref(i)?).map_err(|e| WebError::Config(format!("transaction decimal: {e:?}")))

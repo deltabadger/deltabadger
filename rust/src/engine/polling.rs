@@ -263,7 +263,7 @@ pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, 
     let mine = orders_of_bot(c, bot.id, "transactions")?;
     let mut s = c.prepare(&format!(
         "SELECT id, {o}, created_at FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 AND external_status IN (0, 1) \
-         AND ({o} IS NULL OR {o} NOT LIKE 'imported_%') AND {mine} ORDER BY id", o = crate::venue_ids::order_id(&c, "transactions")?))?;
+         AND ({o} IS NULL OR {o} NOT LIKE 'imported_%') AND {mine} ORDER BY id", o = crate::venue_ids::order_id(c, "transactions")?))?;
     let rows = s.query_map(params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, String>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?;
     rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect()

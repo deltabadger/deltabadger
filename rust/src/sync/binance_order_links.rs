@@ -60,7 +60,9 @@ pub fn link_batch(c: &Connection, cipher: &crate::crypto::Cipher, cursor: i64, n
     if !crate::lease::read(&tx, cipher).map_err(|_| "unreadable ownership".to_string())?.is_some_and(|v| v["engine"] == "rust") { return Ok(None) }
     // #710: each row's venue id and account, wherever its account keeps them.
     let any = crate::venue_ids::Scope::install(&tx).map_err(|e| e.to_string())?;
-    let rows: Vec<(i64, i64, i64, Option<String>, String, Option<i64>)> = {
+    // (row, owner, exchange, venue id, raw, its account 2+)
+    type Unlinked = (i64, i64, i64, Option<String>, String, Option<i64>);
+    let rows: Vec<Unlinked> = {
         let mut s = tx.prepare_cached(&format!("SELECT t.id, t.user_id, t.exchange_id, {}, t.raw_data, {} FROM account_transactions t \
             JOIN exchanges e ON e.id = t.exchange_id WHERE t.id > ?1 AND t.transaction_id IS NULL AND e.type IN (?2, ?3) \
             AND t.entry_type IN (?4, ?5, ?6, ?7) ORDER BY t.id LIMIT ?8", any.row_id("t"), any.member_sql("t"))).map_err(|e| e.to_string())?;

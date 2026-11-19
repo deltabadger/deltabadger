@@ -63,6 +63,7 @@ impl Two {
 
     /// A ledger row of account `n` (0: number 1, 1: number 2) written as every writer writes one: `stored` into 2.x's
     /// column, then `after_insert`. Returns its id.
+    #[allow(clippy::too_many_arguments)]
     pub fn row(&self, c: &Connection, n: usize, entry_type: i64, currency: &str, amount: &str, id: Option<&str>, group: Option<&str>, at: &str) -> i64 {
         let scope = &self.scopes[n];
         c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, group_id, transacted_at, \

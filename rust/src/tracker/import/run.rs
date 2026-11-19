@@ -79,8 +79,9 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
 /// A file as read, before any database is touched: each entry with the venue it names (None: the format's own venue),
 /// the operations the reader did not recognise, a KuCoin export's rows (stored as rows, `kucoin::store`), and a
 /// venue-native export's account id (crate::identity).
-/// `entries`: each with the venue and account number (#710) its row names, where the format names one.
-pub struct Read { entries: Vec<(Option<(String, u32)>, Entry)>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
+/// An entry with the venue and account number (#710) its row names, where the format names one.
+type Named = (Option<(String, u32)>, Entry);
+pub struct Read { entries: Vec<Named>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
 
 /// What a column holds of an amount: its nearest double, which must be finite (2.x stores 1e309 as Infinity, which
 /// no later read takes; this refuses the file instead).
@@ -94,7 +95,7 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
     let text = csv::as_text(bytes);
     let mut account_id = None;
     let mut rows = vec![];
-    let (entries, unrecognised): (Vec<(Option<(String, u32)>, Entry)>, Vec<String>) = match format {
+    let (entries, unrecognised): (Vec<Named>, Vec<String>) = match format {
         // D-IMPORT-UID: Binance's own export names its account (`User ID`, or `User_ID`) on every record. It is read
         // over every record before the reader skips any; a missing, blank, masked or mixed id is a malformed export.
         "binance" => match csv::Table::parse(&text).and_then(|table| crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS))

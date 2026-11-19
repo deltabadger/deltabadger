@@ -452,7 +452,7 @@ fn history_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(),
 fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let (imported, no_asset): (i64, i64) = c.query_row(&format!(
         "SELECT coalesce(sum({} LIKE 'imported_%' AND (external_status IS NULL OR external_status NOT IN (2, 3, 4))), 0), \
-                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1", crate::venue_ids::order_id(&c, "transactions")?),
+                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1", crate::venue_ids::order_id(c, "transactions")?),
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
     // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
@@ -616,7 +616,7 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         // Imported rows are never polled, by 2.x or here (polling.rs): no work.
         let outstanding: i64 = c.query_row(&format!("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
                                             AND ({o} IS NULL OR {o} NOT LIKE 'imported_%') \
-                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", o = crate::venue_ids::order_id(&c, "transactions")?), params![id, composition_only], |r| r.get(0))?;
+                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", o = crate::venue_ids::order_id(c, "transactions")?), params![id, composition_only], |r| r.get(0))?;
         let mut work = v2_work(c, &bot)?;
         // bot_reasons admitted this halt with only the stopped-basket allocation exception left.
         if composition_only { work.retain(|reason| !halt_reason(reason)); }
