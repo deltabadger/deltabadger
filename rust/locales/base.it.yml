@@ -74,10 +74,8 @@ it:
                 enter_two_fa_code: 'Inserisci codice 2FA'
                 scan_code_info: 'Scansiona il codice QR o copia il codice qui sotto:'
             user:
-                name: Nome
                 current_password: 'Password attuale'
                 email: Email
-                new_name: 'Nuovo nome'
                 new_email: 'Nuova email'
                 new_password: 'Nuova password'
                 new_password_confirmation: 'Conferma nuova password'
@@ -154,6 +152,11 @@ it:
             check_now: 'Cerca aggiornamenti'
             checking: 'Ricerca…'
             check_failed: 'Impossibile cercare aggiornamenti.'
+        email_alerts:
+            title: 'Avvisi dei bot via e-mail'
+            low_funds: 'Fondi in esaurimento'
+            bot_errors: 'Errori del bot'
+            bot_stopped: 'Bot fermato'
         advanced_bots:
             title: Bot avanzati
             toggle_label: Mostra bot avanzati
@@ -164,8 +167,6 @@ it:
             current_time_is: 'Questo fuso orario sarà usato nei log del bot. Secondo esso, l''orario attuale è'
             currency_updated: "La tua valuta di visualizzazione è stata aggiornata."
             currency_is_used_for: "I profitti e i totali del portafoglio sono mostrati in questa valuta. I bot continuano a operare nel proprio asset di quotazione."
-        name:
-            updated: "Il tuo nome è stato aggiornato."
         two_fa:
             disabled: 'L''autenticazione a due fattori è stata disabilitata.'
             enabled: 'L''autenticazione a due fattori è stata abilitata.'
@@ -177,7 +178,6 @@ it:
             trading_keys_section: 'Chiavi Trading'
             withdrawal_keys_section: 'Chiavi Prelievo'
             email_section: Email
-            name_section: Nome
             password_section: Password
             free_plan_reset_date_html: 'Il tuo limite si resetta il <b>%{end_time}</b>.'
             title: Impostazioni
@@ -196,6 +196,10 @@ it:
             confirm_delete: 'Vuoi rimuovere questa chiave API di CoinGecko?'
         market_data:
             none: 'Nessuno'
+            intro: "I dati di mercato in tempo reale alimentano gli indici e lo storico dei prezzi per il monitoraggio del portafoglio. Usa un account CoinGecko gratuito, oppure l'API Deltabadger per avere lo stesso anche con le azioni, più un IP fisso da inserire nella whitelist degli exchange."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Anche le azioni, e un IP fisso da inserire in whitelist sugli exchange."
+            upgrade_button: "Passa all'API"
             disabled: 'Sincronizzazione dei dati di mercato disabilitata.'
             updated: 'Impostazioni dei dati di mercato aggiornate.'
             coingecko_configured: 'Connesso a CoinGecko per i dati di mercato in tempo reale.'

@@ -1,7 +1,6 @@
 sk:
     mailer:
         greeting: 'Ahoj legenda,'
-        greeting_name: 'Ahoj %{name},'
         best_html: '<p>S pozdravom,<br>Jan</p>'
         unsubscribe: 'Odhlasit sa'
     test_mailer:

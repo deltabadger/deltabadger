@@ -38,6 +38,8 @@ fn snapshot(c: &Connection) -> Value {
 fn combined(answer: &Value, phase: &str) -> Value {
     let mut tables = answer[format!("rows_{phase}")].as_object().unwrap().clone();
     tables.extend(answer[format!("other_rows_{phase}")].as_object().unwrap().clone());
+    // D-NO-USER-NAME: this build has no users.name; 2.x's users rows are read without it.
+    for row in tables.get_mut("users").and_then(Value::as_array_mut).into_iter().flatten() { row.as_object_mut().map(|r| r.shift_remove("name")); }
     Value::Object(tables)
 }
 fn flat(prefix: &str, value: &Value, out: &mut Vec<(String,String)>) {

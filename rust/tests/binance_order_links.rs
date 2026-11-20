@@ -80,7 +80,7 @@ fn stored_fills_link_once_and_nothing_else_changes() {
     let b = bot(c, &s); let id = order(c, &s, b, "BTCUSDT-12", 0); let swap = order(c, &s, b, "ETHBTC-3", 0);
     order(c, &s, b, "BTCUSDT-40", 1); // not submitted
     // Another user's order: (exchange_id, external_id) is unique, so the id a fill names may be theirs alone.
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('x@example.com','x','X',0,'2026-01-01','2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('x@example.com','x',0,'2026-01-01','2026-01-01')", []).unwrap();
     let other = common::seed::Seeded { user_id: c.last_insert_rowid(), ..s };
     let theirs = bot(c, &other); order(c, &other, theirs, "BTCUSDT-60", 0);
     let plain = row(c, &s, 0, Some("BTCUSDT-12-101"), &fill(json!(12), json!(101)));
@@ -121,7 +121,7 @@ fn rows_that_never_link_do_not_hold_the_pass() {
 fn another_users_order_never_links_on_any_venue() {
     let (dir, o, s) = common::install(); let c = &o.primary; let _lock = claim(c, dir.path()); // Kraken: the generic matcher
     let key = sync::load_key_of(c, s.api_key_id, &["Exchanges::Kraken"]).unwrap();
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('x@example.com','x','X',0,'2026-01-01','2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('x@example.com','x',0,'2026-01-01','2026-01-01')", []).unwrap();
     let other = common::seed::Seeded { user_id: c.last_insert_rowid(), ..s };
     let theirs = bot(c, &other); order(c, &other, theirs, "OXYZ-1", 0);
     let e = Entry { entry_type: 0, base_currency: Some("BTC".into()), base_amount: deltabadger::v2::BigDec::parse("0.001").unwrap(), quote_currency: None, quote_amount: None,

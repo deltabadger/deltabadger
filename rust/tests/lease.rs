@@ -219,7 +219,7 @@ fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
     let o = store::open(&p).unwrap();
-    o.primary.execute("INSERT INTO users (id, email, encrypted_password, name, created_at, updated_at) VALUES (1, 'o@example.com', 'x', 'O', '2026-01-01', '2026-01-01')", []).unwrap();
+    o.primary.execute("INSERT INTO users (id, email, encrypted_password, created_at, updated_at) VALUES (1, 'o@example.com', 'x', '2026-01-01', '2026-01-01')", []).unwrap();
     o.primary.execute("INSERT INTO bots (type, status, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::DcaIndex', 2, 1, '{}', '{\"rust_composed_index\":\"layer-1\",\"n\":1}', '2026-01-01', '2026-01-01')", []).unwrap();
     o.primary.execute("INSERT INTO rust_index_retired VALUES ('layer-1', 'coingecko', '2026-09-01T00:00:00Z')", []).unwrap();
     let marker = || o.primary.query_row("SELECT json_extract(transient_data, '$.rust_composed_index') FROM bots", [], |r| r.get::<_, Option<String>>(0)).unwrap();

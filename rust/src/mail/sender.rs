@@ -307,6 +307,12 @@ fn configuration(c: &Connection, cipher: &Cipher, env: &smtp::Env, trust_root: O
 
 /// Everything a delivery needs, from the database, in one visit to the blocking pool.
 fn prepare(c: &Connection, cipher: &Cipher, marker: &Pending, env: &smtp::Env, urls: &render::Urls, trust_root: Option<Vec<u8>>, now: chrono::DateTime<chrono::Utc>) -> Prepared {
+    // D-ALERT-AT-SEND: a switched-off alert is cleared unsent, mail configured or not; an unreadable switch waits.
+    match alert_on(c, marker.bot_id, marker.notice.alert()) {
+        Ok(true) => {}
+        Ok(false) => return Prepared::Unsendable("switched off in its owner's settings".into()),
+        Err(e) => return Prepared::Later(format!("its owner's alert settings could not be read ({e})")),
+    }
     let (from, settings) = match configuration(c, cipher, env, trust_root) {
         Ok(found) => found,
         Err(reason) => return Prepared::NotConfigured(reason),
@@ -322,6 +328,12 @@ fn prepare(c: &Connection, cipher: &Cipher, marker: &Pending, env: &smtp::Env, u
         // Never repaired or cut short: a header that would carry a line break is not sent at all.
         Err(why) => Prepared::Unsendable(why.to_string()),
     }
+}
+
+/// #878: whether the owner of `bot_id` has `alert` on (no opt-out row). A bot with no owner is on: the render says it is gone.
+pub fn alert_on(c: &Connection, bot_id: i64, alert: &str) -> rusqlite::Result<bool> {
+    c.prepare_cached("SELECT NOT EXISTS (SELECT 1 FROM bots b JOIN rust_email_alert_opt_outs o ON o.user_id = b.user_id WHERE b.id = ?1 AND o.alert = ?2)")?
+        .query_row(rusqlite::params![bot_id, alert], |r| r.get(0))
 }
 
 /// D-DESKTOP-NOTIFY: the launcher's notice for `marker`, if its bot is the desktop `account`'s.

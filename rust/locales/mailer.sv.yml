@@ -1,7 +1,6 @@
 sv:
     mailer:
         greeting: 'Hej legend,'
-        greeting_name: 'Hej %{name},'
         best_html: '<p>Bästa hälsningar,<br>Jan</p>'
         unsubscribe: 'Avsluta prenumeration'
     test_mailer:

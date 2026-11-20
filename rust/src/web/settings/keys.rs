@@ -450,8 +450,10 @@ pub(crate) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko
     let market_note=hosted_note("settings.market_data.deltabadger_configured");
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
-    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors};
-    Ok(match wizard { Some(provider) => super::sections::market_data_card(v,csrf,provider,&m), None => super::sections::market_data(v,csrf,&m) })
+    // D-MARKET-DATA-PICK: Settings' card: a claim refused or a CoinGecko switch with no key needs its form again; else the tile picked.
+    let card=if platform_errors.is_some(){Some("deltabadger")}else if show_coingecko_form{Some("coingecko")}else{v.params.query("provider").filter(|p|matches!(*p,"coingecko"|"deltabadger"))};
+    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors,card};
+    Ok(match wizard { Some(provider) => super::sections::market_data_card(v,csrf,provider,&m,true), None => super::sections::market_data(v,csrf,&m) })
 }
 /// GET /settings/api_keys: the exchange keys.
 pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {

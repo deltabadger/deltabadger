@@ -26,6 +26,8 @@ fn install(sc: &Value) -> (tempfile::TempDir, store::Opened) {
     for table in TABLES {
         for row in sc["before"][table].as_array().into_iter().flatten() {
             let mut row = row.as_object().unwrap().clone();
+            // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+            if table == "users" { row.shift_remove("name"); }
             if table == "api_keys" {
                 row.insert("key".into(), json!(seed::cipher().encrypt("test-key")));
                 row.insert("secret".into(), json!(seed::cipher().encrypt("dGVzdC1zZWNyZXQ=")));
@@ -497,7 +499,7 @@ mod web {
             assert!(start.body.contains(&sentence), "{name}: {:.2000}", start.body);
             assert_eq!(model::load_bot(c, 1).unwrap().status, deltabadger::enums::BotStatus::Stopped);
             // Another user's bot.
-            c.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES ('x@example.com', ?1, 'X', 0, '2026-01-01', '2026-01-01', '2026-01-01')", [HASH]).unwrap();
+            c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('x@example.com', ?1, 0, '2026-01-01', '2026-01-01', '2026-01-01')", [HASH]).unwrap();
             let mut other = browser(&app, c.last_insert_rowid(), &token);
             let page = other.get(&app, "/bots/1").await;
             assert!(!page.body.contains(&sentence) && page.status != 501, "{name}: {} {:.600}", page.status, page.body);

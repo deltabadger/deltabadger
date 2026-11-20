@@ -162,7 +162,7 @@ fn v2_answer(recorded: &Value, step: &Value) -> Value {
         (name.clone(), values)
     }).collect();
     let status = recorded["status"].as_u64().unwrap_or_else(|| panic!("recorded response has no status"));
-    let body = recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body"));
+    let body = &without_name_fields(recorded["body"].as_str().unwrap_or_else(|| panic!("recorded response has no body")));
     // The listed 3.0 bot-list frame (tabs_3_0), applied before the page is normalised.
     let safe_body=full_page_dialog_backdrop_closes(&no_wizard_auto_open(&empty_dashboard_button(&tabs::bots_page(body).unwrap_or_else(|e| panic!("{e}"))), step));
     // #498 and locale filtering are now the oracle: compare the rendered bytes directly.
@@ -174,6 +174,11 @@ fn v2_answer(recorded: &Value, step: &Value) -> Value {
     for key in ["action_snapshot", "rows_before", "rows_after", "other_rows_before", "other_rows_after", "exception", "settings_rows", "broadcasts",
                 "venue_requests", "may_mutate", "raw_rows", "job_classes", "tax_files", "mails", "account_rows"] {
         if let Some(value) = recorded.get(key) { answer[key] = value.clone(); }
+    }
+    // D-NO-USER-NAME: this build has no users.name; 2.x's user rows are compared without it (no other field normalised).
+    without_user_name(answer.get_mut("account_rows"));
+    for key in ["settings_rows", "rows_before", "rows_after", "other_rows_before", "other_rows_after"] {
+        without_user_name(answer.get_mut(key).and_then(|rows| rows.get_mut("users")));
     }
     if let Some(value) = recorded.get("session").filter(|_| session_compared(step)) { answer["session"] = value.clone(); }
     if let Some(keys) = recorded.get("jobs").and_then(v2_sync_keys) { answer["sync_keys"] = keys; }
@@ -339,6 +344,8 @@ fn action_rows(dir: &Path, cipher: &deltabadger::crypto::Cipher) -> Result<(Valu
     let (mut actions, mut others) = (serde_json::Map::new(), serde_json::Map::new());
     for table in tables {
         let mut value = read_rows(&c, &table, &[], true)?;
+        // D-NO-USER-NAME: an install whose drop is still pending keeps the column; rows are compared without it.
+        if table == "users" { without_user_name(Some(&mut value)); }
         if ACTION_TABLES.contains(&table.as_str()) {
             for row in value.as_array_mut().into_iter().flatten().filter_map(Value::as_object_mut) {
                 for (name, column) in row.iter_mut() { *column = settings_snapshot::decrypted(&table, name, column.take(), cipher); }
@@ -494,6 +501,21 @@ impl deltabadger::web::settings::mail::Mailer for TestMail{
     }
 }
 
+/// D-NO-USER-NAME: 2.x's page without its name: Settings' name row, the sign-up form's name field (with its error).
+fn without_name_fields(body: &str) -> String {
+    static PATTERNS: std::sync::OnceLock<[regex::Regex; 2]> = std::sync::OnceLock::new();
+    let [row, field] = PATTERNS.get_or_init(|| [
+        regex::Regex::new(r#"(?s)<turbo-frame class="sitem" id="update_name_form">.*?</turbo-frame>\n?"#).unwrap(),
+        regex::Regex::new(r#"(?s)\n *<div class="form__row form__row--input">\s*<input [^>]*id="user_name"[^>]*>.*?for="user_name">.*?</label>\s*</div>\n"#).unwrap(),
+    ]);
+    field.replace_all(&row.replace_all(body, ""), "\n").into_owned()
+}
+
+/// D-NO-USER-NAME: user rows without their `name`.
+fn without_user_name(rows: Option<&mut Value>) {
+    for row in rows.and_then(Value::as_array_mut).into_iter().flatten() { row.as_object_mut().map(|r| r.shift_remove("name")); }
+}
+
 /// The recorded `account_rows`: the step's SQL (the same text 2.x ran), the password hash read as the candidate it
 /// verifies.
 fn account_rows(dir: &Path, sql: &str) -> Value {
@@ -632,6 +654,9 @@ async fn run(dir: &Path) -> Value {
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
         if step["resync"] == true { rank_fixture(dir, &app.cipher, now); }
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
+        // D-NO-USER-NAME (no_user_name_divergences): the rows before an unrouted name write, to hold it wrote nothing.
+        let name_write = dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_write_name_")) && step["settings_snapshot"] == true;
+        let rows_before_name_write = name_write.then(|| settings_snapshot::rows(dir, &app.cipher));
         let woken = app.job_wakers().map_or(0, |jobs| jobs.pending().len());
         // `raw_body`: a body sent as it is, whatever the method (the recording harness hands it to 2.x unparsed).
         // `rack_input`: the body Rack reads, with the Content-Length a step may declare apart from it.
@@ -676,10 +701,12 @@ async fn run(dir: &Path) -> Value {
             if let Some(keys) = rust_sync_keys(&wakes[woken..]) { response["sync_keys"] = keys; }
         }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
+        if let Some(rows) = rows_before_name_write { response["settings_rows_before"] = rows; }
         let delivered: Vec<deltabadger::mail::Message> = std::mem::take(&mut *mail.0.lock().unwrap());
         for message in &delivered { if let Some(token) = mailed_token(&message.html) { mailed = Some(token); } }
         if step["mails"] == true { response["mails"] = json!(delivered.iter().map(|m| json!({ "to": m.to, "subject": m.subject })).collect::<Vec<_>>()); }
-        if let Some(sql) = step["account_rows"].as_str() { response["account_rows"] = account_rows(dir, sql); }
+        // D-NO-USER-NAME: 2.x's recorded query, without the column this build dropped.
+        if let Some(sql) = step["account_rows"].as_str() { response["account_rows"] = account_rows(dir, &sql.replacen("SELECT id, name, ", "SELECT id, ", 1)); }
         if step["tax_files"] == true { response["tax_files"] = tax_files(dir); }
         let requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
@@ -980,6 +1007,30 @@ fn without_jobs_row(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-ALERT-SETTINGS-ROW (#878): the account page has a "Bot alert emails" section, its heading and its
+/// three switch frames (`email_alert_*`); 2.x has none. Each frame and the heading right before the first, with the
+/// whitespace before each, are taken out of this crate's page; returns how many sections.
+fn without_email_alerts(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    let frame = |l: &Value| l.as_str().is_some_and(|l| l.trim_start().starts_with("<turbo-frame ") && attr(l, "id").is_some_and(|id| id.starts_with("email_alert_")));
+    while i < lines.len() {
+        if !frame(&lines[i]) { i += 1; continue; }
+        let mut start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        // The heading closes just before the first frame: from its `<h3 class="sheet__heading">` to its `</h3>`.
+        if let Some(h3) = (0..start).rev().find(|&j| lines[j].as_str().is_some_and(|l| l.trim_start().starts_with("<h3 ") && attr(l, "class").as_deref() == Some("sheet__heading"))) {
+            if subtree_end(lines, h3) == start { start = if h3 > 0 && is_space(&lines[h3 - 1]) { h3 - 1 } else { h3 }; taken += 1; }
+        }
+        let mut end = subtree_end(lines, i);
+        while end < lines.len() && (frame(&lines[end]) || (is_space(&lines[end]) && lines.get(end + 1).is_some_and(frame))) {
+            end = if is_space(&lines[end]) { end + 1 } else { subtree_end(lines, end) };
+        }
+        lines.drain(start..end);
+        i = start;
+    }
+    taken
+}
+
 /// Named divergence D-MARKET-DATA-NO-SWITCH: the Market Data widget has no on/off switch (market data is on once a provider
 /// is connected), so its frame's contents are this build's own, pinned in tests/settings.rs; the frame itself, and every
 /// other line of the page, is still compared. Applied to both sides; returns how many frames were emptied.
@@ -997,6 +1048,32 @@ fn without_market_data_contents(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-LOCALE-SELECT-SHOWS-PAGE: the language select marks the page's language (a `/de` page reads Deutsch),
+/// where 2.x marked the saved one, so picking the saved language from a prefixed page was a no-op. Which option is selected
+/// is this build's own, pinned in tests/settings.rs; the options themselves are still compared. Applied to both sides;
+/// returns how many selects were read.
+fn without_locale_selection(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let mut taken = 0;
+    for i in 0..lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        if !(line.trim_start().starts_with("<select ") && attr(line, "id").as_deref() == Some("user_locale")) { continue; }
+        let end = subtree_end(lines, i);
+        for option in &mut lines[i + 1..end] {
+            if let Some(text) = option.as_str() { *option = json!(text.replace(" selected=\"selected\"", "")); }
+        }
+        taken += 1;
+    }
+    taken
+}
+
+#[test]
+fn only_which_language_is_selected_is_left_out() {
+    let mut page = json!(["  <select id=\"user_locale\" name=\"user[locale]\">", "    <option selected=\"selected\" value=\"en\">", "    </option>", "  </select>", "  <select id=\"user_time_zone\">", "    <option selected=\"selected\" value=\"UTC\">", "    </option>", "  </select>"]);
+    assert_eq!(without_locale_selection(&mut page), 1);
+    assert_eq!(page, json!(["  <select id=\"user_locale\" name=\"user[locale]\">", "    <option value=\"en\">", "    </option>", "  </select>", "  <select id=\"user_time_zone\">", "    <option selected=\"selected\" value=\"UTC\">", "    </option>", "  </select>"]));
+}
+
 #[test]
 fn only_the_market_data_frames_contents_are_left_out() {
     let mut page = json!(["    <div>", "      <turbo-frame id=\"market_data_settings\">", "        <form class=\"sswitch\">", "        </form>", "      </turbo-frame>", "      <div id=\"other\">", "      </div>", "    </div>"]);
@@ -1005,6 +1082,21 @@ fn only_the_market_data_frames_contents_are_left_out() {
     let mut other = json!(["      <turbo-frame id=\"api_keys\">", "        <div>", "        </div>", "      </turbo-frame>"]);
     let before = other.clone();
     assert_eq!((without_market_data_contents(&mut other), &other), (0, &before));
+}
+
+#[test]
+fn only_the_email_alert_section_is_left_out() {
+    let frame = |a: &str| [format!("  <turbo-frame class=\"sitem\" id=\"email_alert_{a}\">"), "    \"Low funds\"".into(), "  </turbo-frame>".into()];
+    let mut ours = vec![json!("  </turbo-frame>"), json!("  \" \""), json!("  <h3 class=\"sheet__heading\">"), json!("    \"Bot alert emails\""), json!("  </h3>")];
+    for a in ["low_funds", "bot_errors", "bot_stopped"] { ours.push(json!("  \" \"")); ours.extend(frame(a).map(Value::from)); }
+    ours.extend([json!("  \" \""), json!("  <h3 class=\"sheet__heading\">"), json!("    \"Instance\""), json!("  </h3>")]);
+    let mut ours = Value::Array(ours);
+    let v2 = json!(["  </turbo-frame>", "  \" \"", "  <h3 class=\"sheet__heading\">", "    \"Instance\"", "  </h3>"]);
+    assert_eq!((without_email_alerts(&mut ours), &ours), (1, &v2));
+    // Another frame, and a heading not followed by an alert frame, are still compared.
+    let mut other = json!(["  <h3 class=\"sheet__heading\">", "    \"Bots\"", "  </h3>", "  <turbo-frame class=\"sitem\" id=\"advanced_bots\">", "  </turbo-frame>"]);
+    let before = other.clone();
+    assert_eq!((without_email_alerts(&mut other), &other), (0, &before));
 }
 
 #[test]
@@ -2785,7 +2877,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers) = (0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers, mut locale_selects, mut alert_sections) = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2812,13 +2904,15 @@ async fn replay_page_shard(shard: usize) {
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}/{scope}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
-        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); }
+        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); without_locale_selection(&mut answer["body"]); }
         for answer in rust["responses"].as_array_mut().unwrap() {
             market_data_frames += without_market_data_contents(&mut answer["body"]);
+            locale_selects += without_locale_selection(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
             small_tickers += without_small_tickers(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
+            alert_sections += without_email_alerts(&mut answer["body"]);
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
@@ -2826,7 +2920,9 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
+                                             ("settings_page_account_pt", alert_sections, "D-ALERT-SETTINGS-ROW"),
                                              ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
+                                             ("settings_error_edge_blank_current_de", locale_selects, "D-LOCALE-SELECT-SHOWS-PAGE"),
                                              ("asset_search_kraken", small_tickers, "D-LIST-TICKER-SMALL")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
@@ -2947,7 +3043,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&v2,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut v2)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut v2)).and_then(|()|tax_api_difference(&name,&mut v2)).and_then(|()|account_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|market_data_divergences(&name,&mut v2,&mut rust)).and_then(|()|a18_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20c_divergences(&name,&mut v2,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut v2,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&v2,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut v2)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut v2)).and_then(|()|tax_api_difference(&name,&mut v2)).and_then(|()|no_user_name_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|account_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|market_data_divergences(&name,&mut v2,&mut rust)).and_then(|()|a18_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20c_divergences(&name,&mut v2,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut v2,&mut rust)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &v2, &rust).or_else(||desktop_divergence(&name, &scenario, &v2, &rust)).or_else(||action_divergence(&name, &scenario, &v2, &rust)).or_else(||liquidation_gone_divergence(&name, &v2, &rust)).or_else(||listed_divergence(&name, &scenario, &v2, &rust)) {
@@ -3225,6 +3321,73 @@ fn a20c_divergences(name: &str, v2: &mut Value, rust: &Value) -> Result<(), Stri
     if !unpinned.is_empty() { return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: steps that name exchanges not pinned: {}", unpinned.join(", "))); }
     if let Some((_, step, _)) = UNREAD_STEPS.iter().find(|(n, step, _)| *n == name && !seen.contains(step)) {
         return Err(format!("D-OPEN-ORDERS-UNREAD-NAMED: {name} step {step} no longer differs (2.x names it now, or this build does not)"));
+    }
+    Ok(())
+}
+
+/// D-NO-USER-NAME (PLAN-NO-USER-NAME §2), past the name rows and fields v2_answer already drops: the name write is
+/// unrouted, and a sign-up 2.x refused only for its name is accepted. Each with a witness that 2.x still does as described.
+fn no_user_name_divergences(name: &str, scenario: &Value, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
+    let last = |v: &Value| v["responses"].as_array().and_then(|r| r.last()).cloned().ok_or_else(|| format!("{name}: no responses"));
+    let (theirs, ours) = (last(v2)?, last(rust)?);
+    let without_stamp = |rows: &Value| -> Value {
+        let mut rows = rows.clone();
+        for row in rows.as_array_mut().into_iter().flatten() { row.as_object_mut().map(|r| r.shift_remove("updated_at")); }
+        rows
+    };
+    if name.starts_with("settings_write_name_") {
+        // PATCH /settings/update_name answers as any unknown route: the 501 page naming it, with the refusal headers of a
+        // signed-in request (refusal_headers), and nothing written: every snapshot row, users' updated_at included, as it
+        // was right before the request. 2.x's rows differ from those only by the name and the stamp its save moved.
+        if theirs["status"] != 200 && theirs["status"] != 422 { return Err(format!("D-NO-USER-NAME: 2.x no longer answers the name write: {theirs}")) }
+        let mut ours = ours.clone();
+        let before = ours.as_object_mut().unwrap().shift_remove("settings_rows_before").ok_or("D-NO-USER-NAME: no rows before the write")?;
+        if ours["settings_rows"] != before { return Err(format!("D-NO-USER-NAME: the unrouted write changed rows:\n  before: {before}\n  after: {}", ours["settings_rows"])) }
+        let expected_head = json!({ "status": 501, "headers": refusal_headers(true) });
+        if json!({ "status": ours["status"], "headers": ours["headers"] }) != expected_head || !ours["body"].to_string().contains("PATCH /settings/update_name") {
+            return Err(format!("D-NO-USER-NAME: expected the unknown route's 501:\n  expected: {expected_head}\n  rust: {ours}"));
+        }
+        let rows = |answer: &Value| { let mut rows = answer["settings_rows"].clone(); if let Some(users) = rows.get_mut("users") { *users = without_stamp(users); } rows };
+        if rows(&theirs) != rows(&ours) { return Err(format!("D-NO-USER-NAME: 2.x's rows differ past the name and its stamp:\n  2.x: {}\n  rust: {}", rows(&theirs), rows(&ours))) }
+        // The users rows the scenario compares at its end: 2.x's past the stamp its save moved, and this build's unchanged.
+        if without_stamp(&v2["users"]) != without_stamp(&rust["users"]) { return Err(format!("D-NO-USER-NAME: users differ past the stamp: {} vs {}", v2["users"], rust["users"])) }
+        if theirs["status"] == 422 && v2["users"] != rust["users"] { return Err(format!("D-NO-USER-NAME: users differ after a write 2.x refused: {} vs {}", v2["users"], rust["users"])) }
+        // The expected answer, written out: the unknown route's (the 501 page as this build renders it), with the rows above.
+        let mut expected = expected_head;
+        expected["body"] = ours["body"].clone();
+        expected["settings_rows"] = before;
+        v2["users"] = rust["users"].clone();
+        let at = v2["responses"].as_array().unwrap().len() - 1;
+        v2["responses"][at] = expected;
+        rust["responses"][at] = ours;
+    }
+    if name == "signup_bad_name" {
+        // 2.x refused only the name; this build asks none, so the sign-up is 2.x's own signup_success, whose form differs
+        // only by the name: 2.x's answer, account rows, mails and users from that recording (under the name adapter) are
+        // the expectation, and D-SIGNUP-NO-THANK-YOU (account_divergences) and the whole comparison run on them as on it.
+        if theirs["status"] != 422 || theirs["mails"] != json!([]) { return Err(format!("D-NO-USER-NAME: 2.x no longer refuses {name}: {theirs}")) }
+        let twin_name = "signup_success";
+        let dir = (0..5).map(|k| grid_recording(&format!("shard-{k}")).path.join("expected").join(twin_name)).find(|d| d.join("expected.json").is_file())
+            .ok_or("D-NO-USER-NAME: no signup_success recording")?;
+        let twin_scenario = self::scenario(&dir);
+        // The two differ by the name and by the status each recording expects of the submit (2.x's 422 and 303), nothing else.
+        let expects = |steps: &Value| steps.as_array().and_then(|s| s.last()).map(|s| s["expect"].clone());
+        if expects(&scenario["steps"]) != Some(json!(422)) || expects(&twin_scenario["steps"]) != Some(json!(303)) { return Err(format!("D-NO-USER-NAME: {name} and {twin_name} no longer expect 422 and 303")) }
+        let without_name = |steps: &Value| {
+            let mut steps = steps.clone();
+            for step in steps.as_array_mut().into_iter().flatten() {
+                if let Some(f) = step["form"].as_object_mut() { f.shift_remove("user[name]"); }
+                step.as_object_mut().map(|s| s.shift_remove("expect"));
+            }
+            steps
+        };
+        if without_name(&scenario["steps"]) != without_name(&twin_scenario["steps"]) { return Err(format!("D-NO-USER-NAME: {name} and {twin_name} differ past the name and the expected status")) }
+        let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
+        let answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(twin_scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
+        let at = v2["responses"].as_array().unwrap().len() - 1;
+        if answers.len() != at + 1 { return Err(format!("D-NO-USER-NAME: {twin_name} has {} steps", answers.len())) }
+        v2["responses"][at] = answers[at].clone();
+        v2["users"] = recorded["users"].clone();
     }
     Ok(())
 }

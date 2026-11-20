@@ -74,10 +74,8 @@ fr:
                 enter_two_fa_code: 'Entrer le code A2F'
                 scan_code_info: 'Scannez le code QR ou copiez le code ci-dessous :'
             user:
-                name: Nom
                 current_password: 'Mot de passe actuel'
                 email: 'E-mail'
-                new_name: 'Nouveau nom'
                 new_email: 'Nouvel e-mail'
                 new_password: 'Nouveau mot de passe'
                 new_password_confirmation: 'Confirmer le nouveau mot de passe'
@@ -154,6 +152,11 @@ fr:
             check_now: 'Rechercher des mises à jour'
             checking: 'Recherche…'
             check_failed: 'Impossible de rechercher les mises à jour.'
+        email_alerts:
+            title: 'Alertes des bots par e-mail'
+            low_funds: 'Fonds insuffisants'
+            bot_errors: 'Erreurs du bot'
+            bot_stopped: 'Bot arrêté'
         advanced_bots:
             title: Bots avancés
             toggle_label: Afficher les bots avancés
@@ -164,8 +167,6 @@ fr:
             current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'
             currency_updated: "Votre devise d'affichage a été mise à jour."
             currency_is_used_for: "Les gains et les totaux du portefeuille sont affichés dans cette devise. Les bots continuent de trader dans leur propre actif de cotation."
-        name:
-            updated: "Votre nom a été mis à jour."
         two_fa:
             disabled: "L'authentification à deux facteurs a été désactivée."
             enabled: "L'authentification à deux facteurs a été activée."
@@ -178,7 +179,6 @@ fr:
             withdrawal_keys_section: 'Clés de retrait'
             current_password: 'Mot de passe actuel (pour confirmation)'
             email_section: 'E-mail'
-            name_section: 'Nom'
             password_section: 'Mot de passe'
             free_plan_reset_date_html: 'Votre limite sera réinitialisée le <b>%{end_time}</b>.'
             title: 'Paramètres'
@@ -197,6 +197,10 @@ fr:
             confirm_delete: 'Voulez-vous supprimer cette clé API CoinGecko ?'
         market_data:
             none: 'Aucun'
+            intro: "Les données de marché en direct alimentent les indices et l'historique des prix du suivi de portefeuille. Utilisez un compte CoinGecko gratuit, ou l'API Deltabadger pour obtenir la même chose avec les actions, plus une IP fixe à mettre en liste blanche sur les plateformes."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Les actions aussi, et une IP fixe à mettre en liste blanche sur les plateformes."
+            upgrade_button: "Passer à l'API"
             disabled: 'Synchronisation des données de marché désactivée.'
             updated: 'Paramètres des données de marché mis à jour.'
             coingecko_configured: 'Connecté à CoinGecko pour les données de marché en direct.'

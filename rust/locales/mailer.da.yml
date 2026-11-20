@@ -1,7 +1,6 @@
 da:
     mailer:
         greeting: 'Hej,'
-        greeting_name: 'Hej %{name},'
         best_html: '<p>Bedste hilsner,<br>Jan</p>'
         unsubscribe: 'Afmeld'
     test_mailer:

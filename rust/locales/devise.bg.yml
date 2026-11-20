@@ -33,7 +33,6 @@ bg:
             new:
                 email_invalid: 'Невалиден имейл!'
                 email_suggestion_html: 'Невалиден имейл! Може би имахте предвид: <b>%{suggestion}</b>'
-                name_invalid: 'Не е нужно да е истинско 👻'
                 submit: 'Регистрация'
                 title: 'Нов акаунт'
             signed_up: 'Добре дошли! Регистрацията е успешна.'

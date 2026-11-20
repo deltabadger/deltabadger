@@ -147,7 +147,6 @@ pub async fn write(
     }
     if ctx.method == Method::PATCH
         && [
-            "update_name",
             "update_email",
             "update_password",
             "update_time_zone",

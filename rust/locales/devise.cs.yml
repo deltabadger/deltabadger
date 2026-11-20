@@ -33,7 +33,6 @@ cs:
             new:
                 email_invalid: 'Neplatný e-mail!'
                 email_suggestion_html: 'Neplatný e-mail! Nemysleli jste: <b>%{suggestion}</b>'
-                name_invalid: 'Nemusí být skutečné 👻'
                 submit: 'Registrovat'
                 title: 'Nový účet'
             signed_up: 'Vítejte! Registrace proběhla úspěšně.'

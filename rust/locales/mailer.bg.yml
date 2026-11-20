@@ -1,7 +1,6 @@
 bg:
     mailer:
         greeting: 'Здравей, легендарен инвеститоре,'
-        greeting_name: 'Здравей %{name},'
         best_html: '<p>С поздрави,<br>Ян</p>'
         unsubscribe: 'Отписване'
     test_mailer:

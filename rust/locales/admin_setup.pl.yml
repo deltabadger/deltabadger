@@ -12,7 +12,6 @@ pl:
       title: "Konfiguracja jest zablokowana"
       text: "Aby utworzyć konto administratora, otwórz ten serwer z panelu usługi, która go hostuje."
     validations:
-      name_required: "Imię jest wymagane"
       email_required: "E-mail jest wymagany"
       password_required: "Hasło jest wymagane"
     api_configuration: "Bot używa danych rynkowych dostarczanych przez CoinGecko. Dostęp do API CoinGecko jest darmowy, ale musisz się zarejestrować i utworzyć klucz API. Instrukcje poniżej."

@@ -50,8 +50,8 @@ async fn settings_model_validation_keeps_invalid_users_unchanged_and_answers_422
 #[tokio::test(flavor="current_thread")]
 async fn settings_model_validation_obeys_update_context_and_optional_preferences() {
     let (_dir,c,owner,app,mut b) = install();
-    // Unchanged email format/name and absent password are not validated on this save.
-    c.execute("UPDATE users SET name='',email='legacy-format',locale=NULL,wash_sale_jurisdiction=' ' WHERE id=?1",[owner]).unwrap();
+    // Unchanged email format and absent password are not validated on this save.
+    c.execute("UPDATE users SET email='legacy-format',locale=NULL,wash_sale_jurisdiction=' ' WHERE id=?1",[owner]).unwrap();
     let response = b.send(&app,"PATCH",SETTINGS,Some(&[("country","US")]),Csrf::Header,HEADERS).await;
     assert_eq!(response.status,200);
     assert_eq!(settings(&c,owner)["country"],"US");

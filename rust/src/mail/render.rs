@@ -31,7 +31,7 @@ impl Urls {
 }
 
 /// Whom a mail greets and where it goes.
-pub struct Recipient { pub email: String, pub name: String, pub locale: &'static str }
+pub struct Recipient { pub email: String, pub locale: &'static str }
 
 /// `users.locale` as ApplicationMailer#set_locale reads it: NULL, or a value 2.x does not know, is the default.
 pub fn user_locale(stored: Option<&str>) -> &'static str { stored.and_then(locale::known).unwrap_or(locale::DEFAULT) }
@@ -71,20 +71,28 @@ fn layout(urls: &Urls, body: &str) -> String {
 }
 
 /// `<h1>` with the subject, a blank line, the greeting: how every view of these mailers begins.
-fn opening(locale: &str, subject: &str, name: &str) -> String {
-    format!("<h1>{}</h1>\n\n<p>{}</p>\n", escape(subject), i18n::t(locale, "mailer.greeting_name", &[("name", Arg::Text(name))]))
+fn opening(locale: &str, subject: &str) -> String {
+    format!("<h1>{}</h1>\n\n<p>{}</p>\n", escape(subject), i18n::t(locale, "mailer.greeting", &[]))
 }
 
 fn message(from: &str, reply_to: bool, to: &str, subject: String, urls: &Urls, body: &str) -> Message {
     Message { from: from.to_string(), reply_to: reply_to.then(|| from.to_string()), to: to.to_string(), subject, html: layout(urls, body) }
 }
 
+/// D-ALERT-UNSUBSCRIBE-LINK (#878): every bot alert ends with a link to the account settings, where its switch is.
+pub fn unsubscribe(urls: &Urls, locale: &str) -> String { link(&urls.url(locale, "/settings/account"), &escape(&i18n::text(locale, "mailer.unsubscribe", &[]))) }
+
+/// A bot alert: `message` with the unsubscribe link after the view.
+fn alert(from: &str, to: &Recipient, subject: String, urls: &Urls, body: &str) -> Message {
+    message(from, false, &to.email, subject, urls, &format!("{body}{}", unsubscribe(urls, to.locale)))
+}
+
 /// BotAlertsMailer#end_of_funds. `exchange_name` as stored, `quote` the quote asset's symbol.
 pub fn end_of_funds(from: &str, urls: &Urls, to: &Recipient, exchange_name: &str, quote: &str) -> Message {
     let args = [("exchange_name", Arg::Text(exchange_name)), ("quote", Arg::Text(quote))];
     let subject = i18n::text(to.locale, "bot_alerts_mailer.end_of_funds.subject", &args);
-    let body = format!("{}{}\n", opening(to.locale, &subject, &to.name), i18n::t(to.locale, "bot_alerts_mailer.end_of_funds.template_html", &args));
-    message(from, false, &to.email, subject, urls, &body)
+    let body = format!("{}{}\n", opening(to.locale, &subject), i18n::t(to.locale, "bot_alerts_mailer.end_of_funds.template_html", &args));
+    alert(from, to, subject, urls, &body)
 }
 
 /// BotAlertsMailer#notify_about_error (`stopped` false) and #stopped_by_error (`stopped` true). `error` is the sentence
@@ -96,16 +104,16 @@ pub fn failure(from: &str, urls: &Urls, to: &Recipient, stopped: bool, label: &s
     let html = i18n::t(to.locale, &format!("bot_alerts_mailer.{mail}.template_html"),
                        &[("label", Arg::Text(label)), ("exchange_name", Arg::Text(&upcased)), ("errors", Arg::Text(error))]);
     // stopped_by_error.html.erb has no line feed at its end; notify_about_error.html.erb has one.
-    let body = format!("{}{html}{}", opening(to.locale, &subject, &to.name), if stopped { "" } else { "\n" });
-    message(from, false, &to.email, subject, urls, &body)
+    let body = format!("{}{html}{}", opening(to.locale, &subject), if stopped { "" } else { "\n" });
+    alert(from, to, subject, urls, &body)
 }
 
 /// D-UPGRADE-SET-ASIDE: a takeover stopped the bot, with the reasons in the owner's words (Rust-only text, web::i18n).
 pub fn set_aside(from: &str, urls: &Urls, to: &Recipient, label: &str, reasons: &str) -> Message {
     let subject = i18n::text(to.locale, "bot_alerts_mailer.set_aside.subject", &[("label", Arg::Text(label))]);
     let html = i18n::t(to.locale, "bot_alerts_mailer.set_aside.template_html", &[("label", Arg::Text(label)), ("reasons", Arg::Text(reasons))]);
-    let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
-    message(from, false, &to.email, subject, urls, &body)
+    let body = format!("{}{html}", opening(to.locale, &subject));
+    alert(from, to, subject, urls, &body)
 }
 
 /// BotAlertsMailer#stopped_by_amount_limit. `amount` is `quote_amount_limit.to_s`.
@@ -113,8 +121,8 @@ pub fn stopped_by_amount_limit(from: &str, urls: &Urls, to: &Recipient, label: &
     let subject = i18n::text(to.locale, "bot_alerts_mailer.stopped_by_amount_limit.subject", &[("label", Arg::Text(label))]);
     let html = i18n::t(to.locale, "bot_alerts_mailer.stopped_by_amount_limit.template_html",
                        &[("label", Arg::Text(label)), ("amount", Arg::Text(amount)), ("quote", Arg::Text(quote))]);
-    let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
-    message(from, false, &to.email, subject, urls, &body)
+    let body = format!("{}{html}", opening(to.locale, &subject));
+    alert(from, to, subject, urls, &body)
 }
 
 /// BotAlertsMailer#stopped_by_base_amount_limit. `amount` is D-6D-1's (`base_cap_amount`), `base` the one asset's symbol.
@@ -122,8 +130,8 @@ pub fn stopped_by_base_amount_limit(from: &str, urls: &Urls, to: &Recipient, lab
     let subject = i18n::text(to.locale, "bot_alerts_mailer.stopped_by_base_amount_limit.subject", &[("label", Arg::Text(label))]);
     let html = i18n::t(to.locale, "bot_alerts_mailer.stopped_by_base_amount_limit.template_html",
                        &[("label", Arg::Text(label)), ("amount", Arg::Text(amount)), ("base", Arg::Text(base))]);
-    let body = format!("{}{html}", opening(to.locale, &subject, &to.name));
-    message(from, false, &to.email, subject, urls, &body)
+    let body = format!("{}{html}", opening(to.locale, &subject));
+    alert(from, to, subject, urls, &body)
 }
 
 /// D-6D-1: the base cap in the mail at the base's precision (`decimals[:base]`, 8 without one), zeros trimmed. 2.x hands
@@ -156,7 +164,7 @@ pub(crate) fn base_mail_values(c: &Connection, bot_id: i64, settings: &Value, ma
 /// TestMailer#test_email (Settings: send a test email).
 pub fn test_email(from: &str, urls: &Urls, to: &Recipient) -> Message {
     let subject = i18n::text(to.locale, "test_mailer.test_email.subject", &[]);
-    let body = format!("{}<p>{}</p>\n", opening(to.locale, &subject, &to.name), i18n::t(to.locale, "test_mailer.test_email.body", &[]));
+    let body = format!("{}<p>{}</p>\n", opening(to.locale, &subject), i18n::t(to.locale, "test_mailer.test_email.body", &[]));
     message(from, false, &to.email, subject, urls, &body)
 }
 
@@ -167,7 +175,7 @@ pub fn reset_password_instructions(from: &str, urls: &Urls, to: &Recipient, toke
     let key = |name: &str| format!("devise.mailer.reset_password_instructions.{name}");
     let subject = i18n::text(to.locale, &key("subject"), &[]);
     let query: String = form_urlencoded::Serializer::new(String::new()).append_pair("reset_password_token", token).finish();
-    let body = format!("{}{}\n\n{}\n{}\n{}\n", opening(to.locale, &subject, &to.name), i18n::t(to.locale, &key("template_html"), &[]),
+    let body = format!("{}{}\n\n{}\n{}\n{}\n", opening(to.locale, &subject), i18n::t(to.locale, &key("template_html"), &[]),
                        link(&urls.url(to.locale, &format!("/password/edit?{query}")), &i18n::t(to.locale, &key("change_password_button"), &[])),
                        i18n::t(to.locale, &key("ignore_mail_html"), &[]), i18n::t(to.locale, &key("wont_change_html"), &[]));
     message(from, true, &to.email, subject, urls, &body)
@@ -179,7 +187,7 @@ pub fn confirmation_instructions(from: &str, urls: &Urls, to: &Recipient, token:
     let key = |name: &str| format!("devise.mailer.confirmation_instructions.{name}");
     let subject = i18n::text(to.locale, &key("subject"), &[]);
     let query: String = form_urlencoded::Serializer::new(String::new()).append_pair("confirmation_token", token).finish();
-    let body = format!("{}{}\n\n{}", opening(to.locale, &subject, &to.name), i18n::t(to.locale, &key("template_html"), &[]),
+    let body = format!("{}{}\n\n{}", opening(to.locale, &subject), i18n::t(to.locale, &key("template_html"), &[]),
                        link(&urls.url(to.locale, &format!("/confirmation?{query}")), &i18n::t(to.locale, &key("confirm_button"), &[])));
     message(from, true, &to.email, subject, urls, &body)
 }
@@ -190,7 +198,7 @@ pub fn email_already_taken(from: &str, urls: &Urls, to: &Recipient) -> Message {
     let subject = i18n::text(to.locale, &key("subject"), &[]);
     // `new_password_url(@resource, locale: I18n.locale)`: the locale is always in the path here, the default too.
     let url = format!("{}{}/password/new", urls.root, to.locale);
-    let body = format!("{}<p>{}</p>\n<p>{}</p>\n\n{}", opening(to.locale, &subject, &to.name), i18n::t(to.locale, &key("message"), &[]),
+    let body = format!("{}<p>{}</p>\n<p>{}</p>\n\n{}", opening(to.locale, &subject), i18n::t(to.locale, &key("message"), &[]),
                        i18n::t(to.locale, &key("reset_password_message"), &[]), link(&url, &i18n::t(to.locale, &key("reset_password_button"), &[])));
     message(from, false, &to.email, subject, urls, &body)
 }
@@ -322,7 +330,7 @@ fn too_large(exchange_type: &str, message: &str) -> Option<Option<String>> {
     Some(message.rsplit_once(ALPACA_LIMIT_PREFIX).map(|(_, limit)| limit).filter(|l| exchange_type == "Exchanges::Alpaca" && plain(l)).map(str::to_string))
 }
 
-/// The most a label or a name may be in a mail; longer ones are cut, with an ellipsis (a listed divergence: 2.x has
+/// The most a label may be in a mail; longer ones are cut, with an ellipsis (a listed divergence: 2.x has
 /// no bound). Errors are bounded when their marker is written (`notice::ERROR_LIMIT`) and again here.
 pub const NAME_LIMIT: usize = 200;
 
@@ -339,7 +347,7 @@ fn v2_to_s(v: Option<&Value>) -> String {
 }
 
 /// What a marker's notice says, from the rows as they are now: the part the mail and the desktop notice share.
-pub struct Facts { pub email: Option<String>, pub name: String, pub locale: &'static str, pub label: String, pub what: What }
+pub struct Facts { pub email: Option<String>, pub locale: &'static str, pub label: String, pub what: What }
 
 pub enum What {
     EndOfFunds { exchange_name: String, quote: String },
@@ -355,13 +363,13 @@ pub enum What {
 /// A bot whose label is blank is named by 2.x the first time it loads the row; here the label is used as stored
 /// (a listed divergence that needs a bot 2.x never loaded).
 pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Facts>, EngineError> {
-    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+    type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     // The venue named by the bot's account (#710 slice 6: `Kraken 2`).
     let row: Option<Row> = crate::identity::with_bot_account("b", |account| c.query_row(&format!(
-        "SELECT b.label, b.settings, u.email, u.name, u.locale, {}, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
+        "SELECT b.label, b.settings, u.email, u.locale, {}, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
          LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", crate::identity::plain_label_sql("e.name", account)),
-        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?))).optional())?;
-    let Some((label, settings, email, name, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
+        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional())?;
+    let Some((label, settings, email, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
     let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {bot_id}: settings: {e}")))?;
     let locale = user_locale(stored_locale.as_deref());
     let label = bounded(&label.unwrap_or_default(), NAME_LIMIT);
@@ -385,13 +393,13 @@ pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Fact
         Notice::StoppedByBaseAmountLimit => base_mail_values(c, bot_id, &settings, base_marker.as_deref())?
             .map(|(amount, base)| What::BaseLimit { amount, base }),
     };
-    Ok(what.map(|what| Facts { email, name: bounded(&name.unwrap_or_default(), NAME_LIMIT), locale, label, what }))
+    Ok(what.map(|what| Facts { email, locale, label, what }))
 }
 
 /// The mail a marker on bot `bot_id` asks for (`facts`), for a user with an address.
 pub fn for_notice(c: &Connection, bot_id: i64, notice: &Notice, from: &str, urls: &Urls) -> Result<Option<Message>, EngineError> {
-    let Some(Facts { email: Some(email), name, locale, label, what, .. }) = facts(c, bot_id, notice)? else { return Ok(None) };
-    let to = Recipient { email, name, locale };
+    let Some(Facts { email: Some(email), locale, label, what, .. }) = facts(c, bot_id, notice)? else { return Ok(None) };
+    let to = Recipient { email, locale };
     Ok(Some(match what {
         What::EndOfFunds { exchange_name, quote } => end_of_funds(from, urls, &to, &exchange_name, &quote),
         What::Failure { stopped, exchange_name, sentence } => failure(from, urls, &to, stopped, &label, &exchange_name, &sentence),

@@ -107,7 +107,7 @@ fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
     let headers = recorded["headers"].as_object().unwrap().iter()
         .filter(|(name, _)| changed || name.as_str() != "set-cookie")
         .map(|(name, value)| (name.clone(), value.as_str().unwrap().to_string())).collect();
-    let mut body = masked_launchpad(recorded["body"].as_str().unwrap(), launchpad);
+    let mut body = without_name(&masked_launchpad(recorded["body"].as_str().unwrap(), launchpad));
     if recorded["status"] == 422 {
         // Named security divergence: retain 2.x's recorded answers, but require a fixed message
         // in place of the upstream error text/URL. All surrounding markup and effects still match.
@@ -123,6 +123,34 @@ fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
         }
     }
     comparable(recorded["status"].as_u64().unwrap(), &headers, &body)
+}
+
+/// 2.x's name errors in every locale, from the validation vectors: a blank name's presence error and the pattern error.
+fn name_messages() -> &'static std::collections::BTreeSet<String> {
+    static M: std::sync::OnceLock<std::collections::BTreeSet<String>> = std::sync::OnceLock::new();
+    M.get_or_init(|| {
+        let cases = vectors()["validations"].as_array().unwrap();
+        let mut out = std::collections::BTreeSet::new();
+        for case in cases.iter().filter(|c| c["name"] == "" && c["email"] == "" && c["password"] == "") {
+            let messages: Vec<&str> = case["messages"].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect();
+            let invalid = cases.iter().find(|c| c["locale"] == case["locale"] && c["name"] == "Owner1").unwrap()["messages"][0].as_str().unwrap();
+            let at = messages.iter().position(|m| *m == invalid).unwrap();
+            out.extend([messages[at - 1].to_string(), invalid.to_string()]);
+        }
+        assert_eq!(out.len(), 30, "two name errors in each of 15 locales");
+        out
+    })
+}
+
+/// D-NO-USER-NAME: 2.x's page without its name row and its name errors (an error list left empty goes too).
+fn without_name(body: &str) -> String {
+    let row = regex::Regex::new(r#"(?s)\n *<div class="form__row form__row--input">\s*<input [^>]*id="user_name"[^>]*/>.*?for="user_name">.*?</label>\s*</div>\n\n?"#).unwrap();
+    let mut body = row.replace_all(body, "\n").into_owned();
+    for message in name_messages() {
+        let escaped = message.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;");
+        for text in [message.as_str(), escaped.as_str()] { body = body.replace(&format!("          <li>{text}</li>\n"), ""); }
+    }
+    regex::Regex::new(r#"\n    <div class="form__errors">\n      <ul>\n      </ul>\n    </div>\n"#).unwrap().replace_all(&body, "\n").into_owned()
 }
 
 fn rust_answer(answer: &Answer, launchpad: Option<&str>) -> Value {
@@ -190,7 +218,17 @@ fn assert_genuine(app: &App, browser: &Browser, answer: &Answer, now: chrono::Da
     for rendered in &masked.tokens { assert!(csrf::valid(&token, rendered), "{step}: a rendered CSRF token does not verify"); }
 }
 
-struct Played { responses: Vec<Value>, dir: tempfile::TempDir, app: App, requests: Vec<Value>, woken: usize }
+struct Played { responses: Vec<Value>, dir: tempfile::TempDir, app: App, requests: Vec<Value>, woken: usize, browsers: BTreeMap<String, Browser>, mails: Arc<Mails> }
+
+/// Every mail the app hands its sender (D-NO-USER-NAME's setups: none).
+#[derive(Default)]
+struct Mails(std::sync::Mutex<Vec<deltabadger::mail::Message>>);
+impl web::settings::mail::Mailer for Mails {
+    fn deliver(&self, message: deltabadger::mail::Message, _: Option<deltabadger::mail::smtp::Settings>, _: chrono::DateTime<chrono::Utc>) -> web::settings::mail::Delivery {
+        self.0.lock().unwrap().push(message);
+        Box::pin(async { Ok(()) })
+    }
+}
 
 async fn play(name: &str, scenario: &Value) -> Played {
     let dir = install();
@@ -204,13 +242,23 @@ async fn play(name: &str, scenario: &Value) -> Played {
     };
     apply(&mut env, &scenario["env"]);
     let (mut launchpad, mut requests) = (None, Arc::new(std::sync::Mutex::new(Vec::new())));
-    if let Some(answer) = scenario["launchpad"].as_str() {
+    // D-NO-USER-NAME's setups record no claim; the recording listener stands in for the launchpad so a request setup
+    // made anyway would be recorded (and refused: "close" answers nothing).
+    let no_name = matches!(name, "invalid_name" | "followup_json_locale");
+    if let Some(answer) = scenario["launchpad"].as_str().or(no_name.then_some("close")) {
         let (url, seen) = fake_launchpad(answer).await;
         env.insert("LAUNCHPAD_URL".into(), url.clone());
         (launchpad, requests) = (Some(url), seen);
     }
     let wakers = deltabadger::jobs::Wakers::default();
-    let start = |env: &HashMap<String, String>| { let app = app(dir.path(), env, clock.clone()); app.attach_jobs(wakers.clone()).unwrap(); app };
+    let mails = Arc::new(Mails::default());
+    let start = |env: &HashMap<String, String>| {
+        let app = app(dir.path(), env, clock.clone()).with_settings_mailer(mails.clone()).unwrap();
+        // D-NO-USER-NAME's setups run with mail that can be sent, so "no mail" is a finding, not a missing server.
+        let app = if matches!(name, "invalid_name" | "followup_json_locale") { app.with_mail_set_up(true).unwrap() } else { app };
+        app.attach_jobs(wakers.clone()).unwrap();
+        app
+    };
     let mut app = start(&env);
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
     let mut responses = vec![];
@@ -243,7 +291,7 @@ async fn play(name: &str, scenario: &Value) -> Played {
     }
     let woken = wakers.pending().iter().filter(|(job, _)| job == deltabadger::jobs::setup_sync::NAME).count();
     let requests = requests.lock().unwrap().clone();
-    Played { responses, dir, app, requests, woken }
+    Played { responses, dir, app, requests, woken, browsers, mails }
 }
 
 fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
@@ -272,6 +320,8 @@ fn users_difference(app: &App, scenario: &Value, v2: &[Value], rust: &[serde_jso
                     shape(envelope) == shape(theirs) && seed.len() == 32 && v2_seed.len() == 32
                         && seed.bytes().all(|b| b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".contains(&b)) && seed != v2_seed
                 }
+                // D-NO-USER-NAME: this build writes no name.
+                "name" => mine.is_null() || !created,
                 _ => value == mine,
             };
             if !same { return Some(format!("users[{index}].{column}: 2.x {value}, Rust {mine}")); }
@@ -324,12 +374,41 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
             let page = html::normalize(&String::from_utf8_lossy(web::assets::find("/400.html").unwrap().body));
             if theirs["status"] != 400 || ours["status"] != 400 || ours["body"] != json!(page) { failures.push(format!("{name}: expected 400 with public/400.html, got {ours}")); }
         }
-        if name == "create_name_newline" {
-            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): 2.x's `^…$` accepts "Evil\nOwner" and creates the admin; this build refuses
-            // the name with 2.x's own name_invalid message and creates nothing.
-            let (Some(theirs), Some(ours)) = (v2.last(), played.responses.last()) else { panic!("{name}: no responses") };
-            let refused = ours["status"] == 422 && ours["body"].to_string().contains(&web::i18n::text("en", "devise.registrations.new.name_invalid", &[]));
-            if theirs["status"] != 302 || !refused || !table(played.dir.path(), "users").is_empty() { failures.push(format!("{name}: expected 2.x 302 and this build's 422 name refusal with no user, got {ours}")); }
+        if name == "claim_no_identity" {
+            // D-NO-USER-NAME: 2.x keeps a claim's empty identity ([nil, nil]) in the session and writes its cookie; this build
+            // keeps only an identity's email, so a claim without one leaves the session as it was.
+            v2[1]["headers"].as_object_mut().unwrap().remove("set-cookie");
+        }
+        if name == "invalid_name" || name == "followup_json_locale" {
+            // D-NO-USER-NAME: 2.x refused only the name ("Owner1", blank). This build asks none: setup succeeds as it
+            // always does. Every step before the submit is compared whole; the submit makes the submitted account (a
+            // confirmed admin in the submitted language, its password verifying), signs that account in, redirects to
+            // /bots and sends no mail; launchpad requests, the setup sync and app configuration are 2.x's (none).
+            let last = played.responses.len() - 1;
+            if v2.len() != played.responses.len() || v2[last]["status"] != 422 { failures.push(format!("{name}: 2.x no longer refuses only the name")); continue; }
+            if let Some(message) = first_difference(name, &v2[..last], &played.responses[..last]) { failures.push(message); continue; }
+            let step = &scenario["steps"][last];
+            let field = |key: &str| step["form"][format!("user[{key}]")].as_str().or_else(|| step["json"]["user"][key].as_str()).unwrap_or_default().to_string();
+            let locale = step["form"]["locale"].as_str().or_else(|| step["json"]["locale"].as_str()).unwrap_or_default().to_string();
+            let (email, password) = (field("email"), field("password"));
+            let ours = &played.responses[last];
+            let users = table(played.dir.path(), "users");
+            let account = users.len() == 1 && users[0]["email"] == json!(email) && users[0]["admin"] == json!(1) && !users[0]["confirmed_at"].is_null()
+                && users[0]["locale"] == json!(locale) && users[0].get("name").is_none_or(Value::is_null)
+                && users[0]["encrypted_password"].as_str().is_some_and(|h| deltabadger::crypto::verify_password(&password, h));
+            let home = if locale == "en" { "/bots".to_string() } else { format!("/{locale}/bots") };
+            if ours["status"] != 302 || ours["headers"]["location"] != json!(home) || !account { failures.push(format!("{name}: expected {email} made and a redirect to /bots, got {ours} with {users:?}")); }
+            // Signed in as that account: the session the browser holds names it, and the dashboard answers.
+            let browser = played.browsers.get_mut("main").unwrap();
+            let user = browser.cookie.as_deref().and_then(|cookie| session::open(&played.app.keys.session, cookie, played.app.now())).and_then(|s| s.user).map(|(id, _)| id);
+            let bots = browser.get(&played.app, "/bots").await;
+            if user.is_none() || users.first().map(|u| u["id"].clone()) != user.map(|id| json!(id)) || bots.status != 200 {
+                failures.push(format!("{name}: not signed in as {email}: session user {user:?}, /bots {}", bots.status));
+            }
+            if !played.mails.0.lock().unwrap().is_empty() { failures.push(format!("{name}: a mail was sent")); }
+            if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: 2.x {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
+            if played.woken != 0 { failures.push(format!("{name}: the setup sync was woken")); }
+            if let Some(message) = app_configs_difference(&played.app, scenario["app_configs"].as_array().unwrap(), &table(played.dir.path(), "app_configs")) { failures.push(format!("{name}: {message}")); }
             continue;
         }
         if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }
@@ -356,7 +435,7 @@ fn admins(dir: &Path) -> i64 {
 }
 
 fn account(email: &str) -> Vec<(&str, &str)> {
-    vec![("locale", "en"), ("user[name]", "Owner"), ("user[email]", email), ("user[password]", "Correct-horse-9")]
+    vec![("locale", "en"), ("user[email]", email), ("user[password]", "Correct-horse-9")]
 }
 
 async fn submit(browser: &mut Browser, app: &App, path: &str, mut form: Vec<(&str, &str)>) -> Answer {
@@ -475,7 +554,7 @@ async fn the_gate_covers_the_app_zone_and_nothing_else() {
         assert_ne!(answer.header("location"), Some("/setup"), "{path}");
     }
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute("INSERT INTO users (name, email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('O', 'o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
     assert_eq!(browser.get(&app, "/bots").await.header("location"), Some("/login"));
 }
 
@@ -487,31 +566,36 @@ async fn serve_binds_an_install_without_an_admin() {
     drop(listener);
 }
 
-/// User#valid? on the setup form's fields, in all 15 locales: the full messages, in 2.x's order, for names,
-/// emails and passwords around every rule, beside an existing member and a Gmail account.
+/// User#valid? on the setup form's fields, in all 15 locales: the full messages, in 2.x's order, for emails and
+/// passwords around every rule (D-NO-USER-NAME: 2.x's name errors set aside), beside an existing member and a Gmail account.
 #[test]
 fn validation_messages_match_v2_in_every_locale() {
     let dir = install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute_batch("INSERT INTO users (name, email, created_at, updated_at) VALUES ('Member', 'member@example.com', '2026-01-01', '2026-01-01'), ('Gmail', 'jan.doe@gmail.com', '2026-01-01', '2026-01-01')").unwrap();
+    c.execute_batch("INSERT INTO users (email, created_at, updated_at) VALUES ('member@example.com', '2026-01-01', '2026-01-01'), ('jan.doe@gmail.com', '2026-01-01', '2026-01-01')").unwrap();
     let cases = vectors()["validations"].as_array().unwrap();
     assert_eq!(cases.len(), 15 * 47);
+    let name_invalid: HashMap<&str, &str> = cases.iter().filter(|c| c["name"] == "Owner1" && c["email"] == "owner@example.com" && c["password"] == "Correct-horse-9")
+        .map(|c| (c["locale"].as_str().unwrap(), c["messages"][0].as_str().unwrap())).collect();
+    assert_eq!(name_invalid.len(), 15);
     let mut failures = vec![];
     for case in cases {
         let text = |key: &str| case[key].as_str().unwrap();
         let email = web::setup::normalized_email(text("email"));
         assert_eq!(email, text("normalized_email"), "{case}");
-        let errors = web::setup::validate(&c, text("locale"), Some(text("name")), &email, Some(text("password"))).unwrap();
+        let errors = web::setup::validate(&c, text("locale"), &email, Some(text("password"))).unwrap();
         let full: Vec<&str> = errors.iter().map(|e| e.full.as_str()).collect();
         let password: Vec<&str> = errors.iter().filter(|e| e.attribute == "password").map(|e| e.message.as_str()).collect();
         let strings = |key: &str| case[key].as_array().unwrap().iter().map(|m| m.as_str().unwrap()).collect::<Vec<_>>();
-        if text("name").contains(['\n', '\r']) {
-            // D-SIGNUP-NAME-ONE-LINE (PLAN-A16): 2.x takes a name with a line break; this build adds name_invalid to its errors.
-            let invalid = web::i18n::text(text("locale"), "devise.registrations.new.name_invalid", &[]);
-            if !errors.iter().any(|e| e.attribute == "name" && e.message == invalid) { failures.push(format!("{case}\n  rust: {full:?}: expected the name refused")); }
-            continue;
+        // D-NO-USER-NAME: 2.x's name errors are not this build's. Its name pattern error is the "Owner1" case's only
+        // message; a blank name's presence error comes right before it (2.x's order: email, password, name, …).
+        let invalid = name_invalid[text("locale")];
+        let mut expected = strings("messages");
+        if let Some(at) = expected.iter().position(|m| *m == invalid) {
+            expected.remove(at);
+            if text("name").is_empty() { expected.remove(at - 1); }
         }
-        if full != strings("messages") || password != strings("password_messages") || full.is_empty() != case["valid"].as_bool().unwrap() {
+        if full != expected || password != strings("password_messages") {
             failures.push(format!("{case}\n  rust: {full:?} / {password:?}"));
         }
     }
@@ -635,12 +719,12 @@ async fn regression_setup_query_user_replaces_body_shallowly() {
     let (dir, app) = fresh(&[]).await;
     let mut browser = Browser::default();
     browser.get(&app, "/setup").await;
-    let answer = browser.send_body(&app, "POST", "/setup?user%5Bname%5D=Query&locale=de", Some(json!({
-        "locale": "en", "user": {"name": "Body", "email": "body@example.com", "password": "Correct-horse-9"}
+    let answer = browser.send_body(&app, "POST", "/setup?user%5Bemail%5D=query%40example.com&locale=de", Some(json!({
+        "locale": "en", "user": {"email": "body@example.com", "password": "Correct-horse-9"}
     }).to_string()), Csrf::Header, JSON_HEADERS).await;
     assert_eq!(answer.status, 422, "query user replaces the entire body user, including email and password");
     assert_eq!(admins(dir.path()), 0);
-    assert!(answer.body.contains("value=\"Query\""));
+    assert!(answer.body.contains("value=\"query@example.com\""));
     assert!(!answer.body.contains("body@example.com"));
     assert!(answer.body.contains("lang=\"de\""));
 }

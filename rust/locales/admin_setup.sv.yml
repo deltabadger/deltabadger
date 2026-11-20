@@ -12,7 +12,6 @@ sv:
       title: "Installationen är låst"
       text: "Öppna den här servern från kontrollpanelen hos tjänsten som hostar den för att skapa administratörskontot."
     validations:
-      name_required: "Namn krävs"
       email_required: "E-post krävs"
       password_required: "Lösenord krävs"
     api_configuration: "Boten använder marknadsdata från CoinGecko. CoinGecko API är gratis att använda, men du behöver skapa ett konto och en API-nyckel. Se instruktionerna nedan."

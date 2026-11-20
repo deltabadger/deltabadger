@@ -74,10 +74,8 @@ bg:
                 enter_two_fa_code: 'Въведете 2FA код'
                 scan_code_info: 'Сканирайте QR кода или копирайте кода по-долу:'
             user:
-                name: Име
                 current_password: 'Текуща парола'
                 email: Имейл
-                new_name: 'Ново име'
                 new_email: 'Нов имейл'
                 new_password: 'Нова парола'
                 new_password_confirmation: 'Потвърждение на новата парола'
@@ -154,6 +152,11 @@ bg:
             check_now: "Проверка за обновления"
             checking: "Проверява се…"
             check_failed: "Проверката за обновления е неуспешна."
+        email_alerts:
+            title: 'Предупреждения за ботове по имейл'
+            low_funds: 'Малко средства'
+            bot_errors: 'Грешки на бота'
+            bot_stopped: 'Ботът е спрян'
         advanced_bots:
             title: Разширени ботове
             toggle_label: Показване на разширени ботове
@@ -164,8 +167,6 @@ bg:
             current_time_is: "Тази часова зона ще се използва в логовете на бота. Текущото време в нея е"
             currency_updated: "Валутата за показване е обновена."
             currency_is_used_for: "Печалбите и общите суми на портфейла се показват в тази валута. Ботовете продължават да търгуват в собствения си котиран актив."
-        name:
-            updated: "Името е обновено."
         two_fa:
             disabled: 'Двуфакторната проверка е изключена.'
             enabled: 'Двуфакторната проверка е включена.'
@@ -177,7 +178,6 @@ bg:
             trading_keys_section: 'Ключове за търговия'
             withdrawal_keys_section: 'Ключове за теглене'
             email_section: Имейл
-            name_section: Име
             password_section: Парола
             free_plan_reset_date_html: 'Лимитът ви ще се обнови на <b>%{end_time}</b>.'
             title: Настройки
@@ -196,6 +196,10 @@ bg:
             confirm_delete: 'Искате ли да премахнете този CoinGecko API ключ?'
         market_data:
             none: 'Няма'
+            intro: "Пазарните данни в реално време захранват индексите и историята на цените за проследяване на портфейла. Използвайте безплатен акаунт в CoinGecko или API на Deltabadger — същото и за акции, плюс постоянен IP адрес за белия списък на борсите."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Също и акции, плюс стабилен IP адрес за бял списък на борсите."
+            upgrade_button: "Надгради"
             disabled: 'Синхронизацията на пазарни данни е изключена.'
             updated: 'Настройките за пазарни данни са обновени.'
             coingecko_configured: 'Свързано с CoinGecko за актуални пазарни данни.'

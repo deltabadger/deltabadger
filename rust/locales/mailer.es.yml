@@ -1,7 +1,6 @@
 es:
     mailer:
         greeting: '¡Hola campeón!'
-        greeting_name: '¡Hola %{name}!'
         best_html: '<p>Saludos,<br>Jan</p>'
         unsubscribe: 'Cancelar suscripción'
     test_mailer:

@@ -74,10 +74,8 @@ sv:
                 enter_two_fa_code: 'Ange 2FA-kod'
                 scan_code_info: 'Skanna QR-koden eller kopiera koden nedan:'
             user:
-                name: Namn
                 current_password: 'Nuvarande lösenord'
                 email: E-post
-                new_name: 'Nytt namn'
                 new_email: 'Ny e-post'
                 new_password: 'Nytt lösenord'
                 new_password_confirmation: 'Bekräfta nytt lösenord'
@@ -154,6 +152,11 @@ sv:
             check_now: "Sök efter uppdateringar"
             checking: "Söker…"
             check_failed: "Det gick inte att söka efter uppdateringar."
+        email_alerts:
+            title: 'Botvarningar via e-post'
+            low_funds: 'Lågt saldo'
+            bot_errors: 'Botfel'
+            bot_stopped: 'Boten stoppad'
         advanced_bots:
             title: Avancerade bots
             toggle_label: Visa avancerade bots
@@ -164,8 +167,6 @@ sv:
             current_time_is: "Denna tidszon används i botloggen. Enligt den är klockan nu"
             currency_updated: "Din visningsvaluta har uppdaterats."
             currency_is_used_for: "Vinster och portföljsummor visas i denna valuta. Botarna handlar fortfarande i sin egen noteringstillgång."
-        name:
-            updated: "Ditt namn har uppdaterats."
         two_fa:
             disabled: 'Tvåfaktorsautentisering har inaktiverats.'
             enabled: 'Tvåfaktorsautentisering har aktiverats.'
@@ -177,7 +178,6 @@ sv:
             trading_keys_section: 'Handelsnycklar'
             withdrawal_keys_section: 'Uttagsnycklar'
             email_section: E-post
-            name_section: Namn
             password_section: Lösenord
             free_plan_reset_date_html: 'Din gräns återställs <b>%{end_time}</b>.'
             title: Inställningar
@@ -196,6 +196,10 @@ sv:
             confirm_delete: 'Vill du ta bort denna CoinGecko API-nyckel?'
         market_data:
             none: 'Ingen'
+            intro: "Marknadsdata i realtid driver index och prishistoriken för portföljspårning. Använd ett gratis CoinGecko-konto, eller Deltabadgers API för samma sak med aktier, plus en fast IP-adress att vitlista hos börserna."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Även aktier, och en fast IP-adress att vitlista på börserna."
+            upgrade_button: "Uppgradera"
             disabled: 'Synkronisering av marknadsdata inaktiverad.'
             updated: 'Marknadsdatainställningar uppdaterade.'
             coingecko_configured: 'Ansluten till CoinGecko för marknadsdata i realtid.'

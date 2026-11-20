@@ -34,7 +34,6 @@ pl:
             new:
                 email_invalid: 'Nieprawidłowy email!'
                 email_suggestion_html: 'Nieprawidłowy email! Czy chodziło ci o: <b>%{suggestion}</b>'
-                name_invalid: 'Nie musi być prawdziwe 👻'
                 submit: 'Zarejestruj się'
                 title: 'Utwórz konto'
             signed_up: 'Witaj! Rejestracja przebiegła pomyślnie.'

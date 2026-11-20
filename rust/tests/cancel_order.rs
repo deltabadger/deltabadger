@@ -318,7 +318,7 @@ async fn an_api_cancel_by_exchange_id_uses_a_bot_rows_stored_order_and_sends_a_f
     let (status, body) = rest_cancel(&app, &format!("{}?exchange_name=alpaca", i.open)).await;
     assert_eq!((status, &body["data"]["id"]), (200, &json!(i.open)), "{body}");
     // Another user's row is no DB id of this user's: the exchange path, which needs the exchange.
-    i.o.primary.execute("INSERT INTO users (email, encrypted_password, name, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', ?1, ?1)", [T0]).unwrap();
+    i.o.primary.execute("INSERT INTO users (email, encrypted_password, created_at, updated_at) VALUES ('x@example.com', 'x', ?1, ?1)", [T0]).unwrap();
     i.o.primary.execute("UPDATE bots SET user_id = ?1 WHERE id = ?2", (i.o.primary.last_insert_rowid(), i.bot)).unwrap();
     assert_eq!(rest_cancel(&app, &i.open.to_string()).await.1["error"]["code"], "exchange_name_required");
     // D-ORDER-ID-SAFE: an id that would leave /v2/orders/ (here: a position's liquidation) is refused, nothing sent.

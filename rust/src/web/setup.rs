@@ -144,7 +144,6 @@ struct NewView<'a> {
     password_error: Option<String>,
     claim_action: String,
     claim_error: Option<String>,
-    name: Option<&'a str>,
     email: &'a str,
     platform: &'a Platform,
 }
@@ -164,7 +163,6 @@ struct FrameView<'a> {
 #[template(path = "setup/identity.html")]
 struct IdentityView<'a> {
     v: &'a Ctx,
-    name: Option<&'a str>,
     email: &'a str,
 }
 
@@ -181,7 +179,6 @@ async fn read_platform(app: &App) -> Result<Platform, WebError> {
 struct Form<'a> {
     status: StatusCode,
     errors: &'a [FieldError],
-    name: Option<&'a str>,
     email: &'a str,
     flash_now: Vec<(&'a str, String)>,
 }
@@ -192,14 +189,14 @@ async fn form(app: &App, ctx: &Ctx, form: Form<'_>) -> Result<Response, WebError
     let password: Vec<&str> = form.errors.iter().filter(|e| e.attribute == "password").map(|e| e.message.as_str()).collect();
     let password_error = (!password.is_empty()).then(|| upcase_first(&password.join(", ")));
     let body = NewView { v: ctx, csrf: &csrf, languages: languages(ctx), errors: form.errors, password_error, claim_action: claim_action(ctx), claim_error: None,
-                         name: form.name, email: form.email, platform: &platform }.render()?;
+                         email: form.email, platform: &platform }.render()?;
     page(ctx, form.status, body, form.flash_now)
 }
 
 /// Platform::RedeemClaim: the claim, then in one transaction the market-data configuration, the proxies, the
 /// connection time and a pending sync, then Setup::SeedAndSyncJob. `Ok(Err(sentence))` is a failed claim. `setup`: setup's
 /// claim, refused at commit once an admin exists; the admin's own claim in settings is not.
-pub(crate) async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono::Utc>, setup: bool) -> Result<Result<(Option<String>, Option<String>), String>, WebError> {
+pub(crate) async fn redeem(app: &App, code: serde_json::Value, now: chrono::DateTime<chrono::Utc>, setup: bool) -> Result<Result<Option<String>, String>, WebError> {
     let claim = match launchpad::claim(&app.config.launchpad_url, code).await {
         Ok(claim) => claim,
         Err(launchpad::Failure::Message(sentence)) => return Ok(Err(sentence)),
@@ -254,26 +251,25 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
     if let Some(answer) = filters(&app, &ctx).await? {
         return Ok(answer);
     }
-    let (mut name, mut email) = ctx.session.lock().platform_identity.clone().unwrap_or_default();
+    let mut email = ctx.session.lock().platform_identity.clone();
     let mut flash_now = Vec::new();
     if let Some(code) = app.config.claim_token.as_deref() {
         if !read_platform(&app).await?.connected {
             match redeem(&app, serde_json::Value::String(code.to_string()), ctx.now, true).await? {
                 Ok(identity) => {
-                    ctx.session.lock().platform_identity = Some(identity.clone());
-                    (name, email) = (identity.0.or(name), identity.1.or(email));
+                    ctx.session.lock().platform_identity = identity.clone();
+                    email = identity.or(email);
                 }
                 Err(sentence) => flash_now.push((super::flash::ALERT, sentence)),
             }
         }
     }
-    form(&app, &ctx, Form { status: StatusCode::OK, errors: &[], name: name.as_deref(), email: email.as_deref().unwrap_or(""), flash_now }).await
+    form(&app, &ctx, Form { status: StatusCode::OK, errors: &[], email: email.as_deref().unwrap_or(""), flash_now }).await
 }
 
-/// What the account form submitted: `params.require(:user).permit(:name, :email, :password)`. `None` when the
+/// What the account form submitted: `params.require(:user).permit(:email, :password)` (D-NO-USER-NAME: no name). `None` when the
 /// form has no `user` at all (ActionController::ParameterMissing).
 struct Submitted {
-    name: Option<String>,
     email: Option<String>,
     password: Option<String>,
 }
@@ -288,7 +284,7 @@ fn submitted(params: &Params) -> Option<Submitted> {
         serde_json::Value::Bool(b) => Some(if *b { "t" } else { "f" }.into()),
         _ => None,
     };
-    Some(Submitted { name: field("name"), email: field("email"), password: field("password") })
+    Some(Submitted { email: field("email"), password: field("password") })
 }
 
 /// One error of the new user: its attribute and either an ActiveModel message type (with `count`) or a message
@@ -361,10 +357,10 @@ pub struct FieldError {
 }
 
 /// User#valid? for a new admin from the setup form, in 2.x's order: Devise's validatable
-/// (email presence, uniqueness, format; password presence, length), then the model's own (name presence and
-/// pattern, email pattern and Google alias, password complexity). The preference inclusions always hold here.
+/// (email presence, uniqueness, format; password presence, length), then the model's own (email pattern and Google
+/// alias, password complexity; D-NO-USER-NAME: no name). The preference inclusions always hold here.
 /// `email` is already normalised.
-pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, password: Option<&str>) -> Result<Vec<FieldError>, WebError> {
+pub fn validate(c: &Connection, locale: &str, email: &str, password: Option<&str>) -> Result<Vec<FieldError>, WebError> {
     let mut errors: Vec<(&str, Message)> = Vec::new();
     let blank = crate::v2::blank;
     let pattern = |pattern: &str, value: &str| crate::v2::validation_regex(pattern).map(|re| re.is_match(value)).map_err(|_| WebError::Config("invalid user validation pattern".into()));
@@ -386,14 +382,6 @@ pub fn validate(c: &Connection, locale: &str, name: Option<&str>, email: &str, p
         let length = password.chars().count() as i64;
         if length < 8 { errors.push(("password", Message::Kind("too_short", Some(8)))); }
         if length > 128 { errors.push(("password", Message::Kind("too_long", Some(128)))); }
-    }
-    if name.is_none_or(blank) {
-        errors.push(("name", Message::Kind("blank", None)));
-    }
-    // 2.x's `=~` with `^…$`: a match on any line passes, so 2.x accepts "Ann\nanything". D-SIGNUP-NAME-ONE-LINE: a
-    // name with a line break is refused here, with the same message.
-    if !name.is_some_and(|name| !name.contains(['\n', '\r']) && pattern(r"(?m)^\p{L}+(\s+\p{L}+)*$", name).unwrap_or(false)) {
-        errors.push(("name", Message::Text(i18n::text(locale, "devise.registrations.new.name_invalid", &[]))));
     }
     if !pattern(r"(?m)^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", email)? {
         errors.push(("email", Message::Text(i18n::text(locale, "devise.registrations.new.email_invalid", &[]))));
@@ -448,7 +436,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         None => None,
     };
     let (locale, now, inner) = (ctx.locale, ctx.now, app.clone());
-    let (name, password) = (fields.name.clone(), fields.password.clone());
+    let password = fields.password.clone();
     let outcome = {
         let email = email.clone();
         app.db(move |c| {
@@ -457,13 +445,13 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             if admin_exists(&tx)? {
                 return Ok(Created::AdminExists);
             }
-            let errors = validate(&tx, locale, name.as_deref(), &email, password.as_deref())?;
+            let errors = validate(&tx, locale, &email, password.as_deref())?;
             let Some(hash) = hash.filter(|_| errors.is_empty()) else { return Ok(Created::Invalid(errors)) };
             let at = format_time(now);
             tx.execute(
-                "INSERT INTO users (name, email, encrypted_password, admin, confirmed_at, setup_completed, locale, time_zone, display_currency, \
-                 otp_secret_key, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, 1, ?5, 'UTC', 'USD', ?6, ?4, ?4)",
-                (&name, &email, &hash, &at, locale, inner.cipher.encrypt_binary(&super::settings::two_fa::new_seed())),
+                "INSERT INTO users (email, encrypted_password, admin, confirmed_at, setup_completed, locale, time_zone, display_currency, \
+                 otp_secret_key, created_at, updated_at) VALUES (?1, ?2, 1, ?3, 1, ?4, 'UTC', 'USD', ?5, ?3, ?3)",
+                (&email, &hash, &at, locale, inner.cipher.encrypt_binary(&super::settings::two_fa::new_seed())),
             )?;
             let id = tx.last_insert_rowid();
             tx.commit()?;
@@ -472,7 +460,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     };
     match outcome {
         Created::AdminExists => Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/"))),
-        Created::Invalid(errors) => form(&app, &ctx, Form { status: StatusCode::UNPROCESSABLE_ENTITY, errors: &errors, name: fields.name.as_deref(), email: &email, flash_now: Vec::new() }).await,
+        Created::Invalid(errors) => form(&app, &ctx, Form { status: StatusCode::UNPROCESSABLE_ENTITY, errors: &errors, email: &email, flash_now: Vec::new() }).await,
         Created::Admin(id, hash) => {
             let mut session = ctx.session.lock();
             session.setup_token = None;
@@ -501,8 +489,8 @@ pub async fn connect_platform(State(app): State<App>, Extension(ctx): Extension<
     let frame = |claim_error: Option<String>| FrameView { v: &ctx, claim_action: claim_action(&ctx), claim_error, platform: &platform }.render();
     let (status, body) = match outcome {
         Ok(identity) => {
-            ctx.session.lock().platform_identity = Some(identity.clone());
-            let fields = IdentityView { v: &ctx, name: identity.0.as_deref(), email: identity.1.as_deref().unwrap_or("") }.render()?;
+            ctx.session.lock().platform_identity = identity.clone();
+            let fields = IdentityView { v: &ctx, email: identity.as_deref().unwrap_or("") }.render()?;
             (StatusCode::OK, format!("{}{}", turbo::stream("replace", "setup_platform_connection", &frame(None)?), turbo::stream("replace", "setup_identity_fields", &format!("{fields}\n"))))
         }
         Err(sentence) => (StatusCode::UNPROCESSABLE_ENTITY, turbo::stream("replace", "setup_platform_connection", &frame(Some(sentence))?)),

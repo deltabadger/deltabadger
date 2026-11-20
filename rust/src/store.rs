@@ -232,9 +232,15 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261121000002", TableContract { name: "kucoin_coverage", columns: &[
         ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true), ("end_at", "TEXT", true),
         ("updated_at", "TEXT", true)], unique_indexes: &[] }),
+    // #878: the bot alert emails a user switched off.
+    ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
+        unique_indexes: &[&["user_id", "alert"]] }),
 ];
 
 /// What this build migrates.
+/// The 2.x-born columns Rust's migrations drop (D-DROP-USERS-NAME): (version, table, column).
+pub const DROPPED_COLUMNS: &[(&str, &str, &str)] = migration_registry::DROPPED_COLUMNS;
+
 pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, tables: RUST_TABLES, retired: RUST_RETIRED };
 
 // (version, table): migration `version` removes `table` (D-B11-9-RETIRED-CONTRACT). Its contracts above stay, for the
@@ -462,7 +468,7 @@ const PRIMARY: &[TableContract] = &[
     ], unique_indexes: &[&["linked_transaction_id"]] },
     // The web UI's sign-in (src/web/auth.rs) reads and writes the Devise columns; its layouts read the preferences.
     TableContract { name: "users", columns: &[
-        ("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true), ("email", "varchar", true), ("name", "varchar", false),
+        ("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true), ("email", "varchar", true),
         ("encrypted_password", "varchar", true), ("locale", "varchar", false), ("time_zone", "varchar", true),
         ("display_currency", "varchar", true), ("hide_balances", "boolean", true), ("confirmed_at", "datetime", false),
         ("failed_attempts", "integer", true), ("locked_at", "datetime(6)", false), ("otp_module", "integer", false),
@@ -704,6 +710,18 @@ pub fn migrate(paths: &Paths, lock: &EngineLock) -> Result<Vec<String>, StoreErr
     migrate_with(paths, lock, &REGISTRY)
 }
 
+/// D-DROP-USERS-NAME timing: `migrate` for an install this engine may not own yet (`owned` false: the lease is not
+/// Rust's). A pending column drop (DROPPED_COLUMNS) is left pending, so a takeover that is refused, or a start that stops
+/// before its claim, leaves 2.x every column it reads; the claim's start applies it right after the claim
+/// (`migrate`). Every other migration, later-numbered ones included, applies as usual.
+pub fn migrate_unowned(paths: &Paths, lock: &EngineLock, owned: bool) -> Result<Vec<String>, StoreError> {
+    if owned { return migrate(paths, lock) }
+    let pending = check(paths)?.pending_rust;
+    let deferred = |v: &str| DROPPED_COLUMNS.iter().any(|(d, _, _)| *d == v) && pending.iter().any(|p| p == v);
+    let now: Vec<Migration> = REGISTRY.migrations.iter().copied().filter(|m| !deferred(m.version)).collect();
+    migrate_with(paths, lock, &Registry { migrations: &now, tables: REGISTRY.tables, retired: REGISTRY.retired })
+}
+
 /// `migrate` with `registry`'s migrations (see `check_with`). Each migration commits on its own; a failure stops here
 /// with nothing of it left, and the next start resumes at it.
 pub fn migrate_with(paths: &Paths, _lock: &EngineLock, registry: &Registry) -> Result<Vec<String>, StoreError> {
@@ -740,6 +758,11 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
             // D-B11-9-DROP-OWN-TABLE at run time, whatever the build's scan read: every table no Rust contract names
             // (2.x-born) is still there as it was.
             let after = others()?;
+            // D-DROP-USERS-NAME: a listed column drop changes its table's SQL exactly as that statement does on a copy.
+            let before = match migration_registry::column_drop(m.version, m.sql) {
+                Some(listed) => { let (table, column) = listed?; expected_after_drop(before, table, column).map_err(|e| e.to_string())? }
+                None => before,
+            };
             if let Some((name, _)) = before.iter().find(|t| !after.contains(t)) {
                 return Err(format!("it dropped or rebuilt {name}, which is not a Rust table; it was rolled back"));
             }
@@ -762,6 +785,17 @@ fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError>
         if applied.len() == 1 { abort_point("mid-migrate"); }
     }
     Ok(applied)
+}
+
+/// `before` with `table`'s SQL as `ALTER TABLE <table> DROP COLUMN <column>` leaves it, run on an in-memory copy of
+/// that table alone: what a listed column drop (migration_registry::DROPPED_COLUMNS) must leave and nothing else.
+fn expected_after_drop(mut before: Vec<(String, String)>, table: &str, column: &str) -> rusqlite::Result<Vec<(String, String)>> {
+    let Some(entry) = before.iter_mut().find(|(name, _)| name == table) else { return Ok(before) }; // the run fails on its own
+    let m = Connection::open_in_memory()?;
+    m.execute_batch(&entry.1)?;
+    m.execute_batch(&format!("ALTER TABLE \"{table}\" DROP COLUMN \"{column}\""))?;
+    entry.1 = m.query_row("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?1", [table], |r| r.get(0))?;
+    Ok(before)
 }
 
 /// (name, sql) of every table in `c` that `registry` does not own.
@@ -794,6 +828,7 @@ pub mod test_support {
         let mut created = BTreeSet::new();
         let mut out = Vec::new();
         for m in migrations {
+            if let Some(listed) = migration_registry::column_drop(m.version, m.sql) { listed.map_err(|e| format!("{}: {e}", m.version))?; continue; }
             for (table, hop) in migration_registry::check_tables(m.sql, &mut created).map_err(|e| format!("{}: {e}", m.version))? {
                 out.push((m.version.to_string(), table, hop));
             }

@@ -1,7 +1,6 @@
 nl:
     mailer:
         greeting: 'Hoi kampioen,'
-        greeting_name: 'Hoi %{name},'
         best_html: '<p>Groeten,<br>Jan</p>'
         unsubscribe: 'Uitschrijven'
     test_mailer:

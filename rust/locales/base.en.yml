@@ -74,10 +74,8 @@ en:
                 enter_two_fa_code: 'Enter 2FA code'
                 scan_code_info: 'Scan QR code or copy the code below:'
             user:
-                name: Name
                 current_password: 'Current password'
                 email: Email
-                new_name: 'New name'
                 new_email: 'New email'
                 new_password: 'New password'
                 new_password_confirmation: 'Confirm new password'
@@ -154,6 +152,11 @@ en:
             check_now: 'Check for updates'
             checking: 'Checking…'
             check_failed: 'Could not check for updates.'
+        email_alerts:
+            title: 'Bot alert emails'
+            low_funds: 'Low funds'
+            bot_errors: 'Bot errors'
+            bot_stopped: 'Bot stopped'
         advanced_bots:
             title: Advanced Bots
             toggle_label: Show advanced bots
@@ -164,8 +167,6 @@ en:
             current_time_is: "This timezone will be used in the bot logs. According to it, the current time is"
             currency_updated: "Your display currency has been updated."
             currency_is_used_for: "Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset."
-        name:
-            updated: "Your name has been updated."
         two_fa:
             disabled: 'Two-factor authentication has been disabled.'
             enabled: 'Two-factor authentication has been enabled.'
@@ -177,7 +178,6 @@ en:
             trading_keys_section: 'Trading keys'
             withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email
-            name_section: Name
             password_section: Password
             free_plan_reset_date_html: 'Your limit resets on <b>%{end_time}</b>.'
             title: Settings
@@ -196,6 +196,10 @@ en:
             confirm_delete: 'Do you want to remove this CoinGecko API key?'
         market_data:
             none: 'None'
+            intro: "Live market data powers indexes and the price history behind portfolio tracking. Use a free CoinGecko account, or the Deltabadger API for the same with stocks, plus a stable IP to whitelist on exchanges."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Stocks too, and a stable IP to whitelist on exchanges."
+            upgrade_button: "Upgrade"
             disabled: 'Market data sync disabled.'
             updated: 'Market data settings updated.'
             coingecko_configured: 'Connected to CoinGecko for live market data.'

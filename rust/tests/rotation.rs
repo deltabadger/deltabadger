@@ -402,7 +402,11 @@ fn mask(mut row: BTreeMap<String, String>) -> BTreeMap<String, String> {
 
 #[test]
 fn v2_and_rust_clear_the_same_rows_and_differ_only_by_the_listed_rewrites() {
-    let v: serde_json::Value = serde_json::from_str(include_str!("fixtures/encryption_vectors.json")).unwrap();
+    let mut v: serde_json::Value = serde_json::from_str(include_str!("fixtures/encryption_vectors.json")).unwrap();
+    // D-NO-USER-NAME: this build has no users.name; 2.x's users rows, before and after, are read without it.
+    for phase in ["before", "after"] {
+        for row in v[phase]["users"].as_array_mut().into_iter().flatten() { row.as_object_mut().map(|r| r.shift_remove("name")); }
+    }
     let secret = v["secret_key_base"].as_str().unwrap();
     assert_eq!(v["independent"], false, "the vectors are of an install deriving its keys");
     let dir = common::v2_install();
