@@ -142,7 +142,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 match exchange(c,&name)?{Some(ex)=>Some(ex),None=>return Ok(Planned::Done(failed(Domain::NotFound,"exchange_not_found",format!("Exchange '{name}' not found. Available: {}",super::tradeable(c)?.join(", ")))))}
             }else if crate::web::bot_api::present(&account){
                 // `account_id` alone reads that account's exchange; one not the user's live account is a 404.
-                let id=crate::web::bot_api::to_i(&account);
+                let id=crate::web::bot_api::orders::account_id(&account);
                 let owned:Option<i64>=match id {Some(id) if crate::identity::ready(c)?=>c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id=?1 AND user_id=?2 AND removed_at IS NULL",[id,user],|r|r.get(0)).optional()?,_=>None};
                 let Some(owned)=owned else {let res=crate::web::bot_api::orders::account_not_found();return Ok(Planned::Done(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)))};
                 // An account of an exchange this build does not serve (Bitmart) is not found either, never "every account".
@@ -163,6 +163,20 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 let account=match account {Some(a)=>crate::identity::Account::by_id(c,a)?.ok_or_else(error)?,None=>crate::identity::Account::first(c,user,id)?};
                 if picked.is_some_and(|p|p.id!=account.id) {continue}
                 exchanges.push((id,name,kind,account));
+            }
+            // #710: an Alpaca account of an exchange with 2+ live accounts that has no correct key is named as unchecked, never
+            // silently left out beside a sibling that was read.
+            let mut seen:Vec<(i64,i64)>=vec![];
+            for (id,_,kind,_) in exchanges.iter() { if kind=="Exchanges::Alpaca" && !seen.iter().any(|(e,_)|e==id) { seen.push((*id,0)); } }
+            for (exchange_id,_) in seen {
+                let live=crate::identity::accounts_of(c,user,exchange_id)?;
+                if live.len()<2 {continue}
+                for (account_id,_) in live {
+                    if picked.is_some_and(|p|p.id!=Some(account_id)) || exchanges.iter().any(|(_,_,_,a)|a.id==Some(account_id)) {continue}
+                    let Some(account)=crate::identity::Account::by_id(c,account_id)? else {continue};
+                    let (name,kind)=exchanges.iter().find(|(e,_,_,_)|*e==exchange_id).map(|(_,n,k,_)|(n.clone(),k.clone())).ok_or_else(error)?;
+                    exchanges.push((exchange_id,name,kind,account));
+                }
             }
             // An exchange asked about with no correct key there is still named (as before: one entry).
             if let (Some((id,name,kind)),true)=(filter,exchanges.is_empty()) {exchanges.push((id,name,kind,picked.unwrap_or(crate::identity::Account::first(c,user,id)?)));}

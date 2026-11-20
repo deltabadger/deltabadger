@@ -185,7 +185,7 @@ impl Draft {
             None => None,
             Some(exchange) => { self.submitted_exchange_id = Some(exchange.clone()); Some(match exchange { Value::Bool(b) => i64::from(*b), _ => numeric(exchange, true)?.as_i64().unwrap_or(0) }) }
         };
-        let posted_account = fields.get("account_id").filter(|v| !v.is_null()).map(|v| numeric(v, true).map(|n| n.as_i64().unwrap_or(0))).transpose()?;
+        let posted_account = fields.get("account_id").filter(|v| !v.is_null()).map(|v| crate::web::bot_api::orders::account_id(v).unwrap_or(0));
         if posted_exchange.is_some() || posted_account.is_some() {
             let owner: Option<i64> = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [self.candidate.id], |r| r.get(0)).optional()?;
             let switch = match owner { Some(owner) => crate::identity::pick_switch(c, owner, self.candidate.id, posted_exchange, posted_account)?, None => crate::identity::Switch::NotFound };

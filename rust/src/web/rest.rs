@@ -463,7 +463,9 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                     let args: Map<String, Value> = ["exchange_name", "base_asset", "quote_asset", "amount", "price", "amount_type", "account_id"].into_iter()
                         .filter_map(|k| p.get(k).filter(|v| !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
                     let bot_id = p.get("bot_id").filter(|v| !v.is_null()).map(|v| json!(bot_api::orders::to_s(v)));
-                    let payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
+                    let mut payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
+                    // #710: the account may come from the query; the replay fingerprint carries it so another account is another order.
+                    if let Some(account) = args.get("account_id") { payload.insert("account_id".into(), account.clone()); }
                     Answer::Order(Box::new(OrderJob { user, key: input.idempotency.map(str::to_string), payload, kind, args, bot_id,
                                                       unported: format!("{method} {path} is not served by this build yet.") }))
                 }

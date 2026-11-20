@@ -62,6 +62,7 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
     let none = Value::Null;
     let arg = |name: &str| args.get(name).unwrap_or(&none);
     let mut out = Filter { sql: String::new(), binds: vec![Sql::Integer(user)] };
+    let mut posted_exchange = None;
     if bot_api::present(arg("exchange_id")) {
         let found = match bot_api::to_i(arg("exchange_id")) {
             Some(id) => c.query_row("SELECT id FROM exchanges WHERE id=?1", [id], |r| r.get::<_, i64>(0)).optional()?,
@@ -69,11 +70,14 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
         };
         let Some(id) = found else { return Ok(Err(failure(Domain::NotFound, "exchange_not_found", "Exchange not found. Use 'list_exchanges' to see available exchanges."))) };
         out.push("exchange_id=", Sql::Integer(id));
+        posted_exchange = Some(id);
     }
     // #710 (PLAN-710-6 §4.4): `account_id` reads one account's rows; `exchange_id` alone still reads all of its accounts.
     if bot_api::present(arg("account_id")) {
-        let found = match bot_api::to_i(arg("account_id")) { Some(id) => crate::identity::AccountRow::by_id(c, id)?.filter(|a| a.user_id == user), None => None };
+        let found = match bot_api::orders::account_id(arg("account_id")) { Some(id) => crate::identity::AccountRow::by_id(c, id)?.filter(|a| a.user_id == user), None => None };
         let live = match found { Some(a) => c.query_row("SELECT removed_at IS NULL FROM exchange_accounts WHERE id = ?1", [a.id], |r| r.get::<_, bool>(0))?.then_some(a), None => None };
+        // An account of another exchange than the one posted is not found either.
+        let live = live.filter(|a| posted_exchange.is_none_or(|e| e == a.exchange_id));
         let Some(account) = live else { return Ok(Err(failure(Domain::NotFound, "account_not_found", "Account not found. Use 'list_exchanges' to see your accounts."))) };
         out.push("exchange_id=", Sql::Integer(account.exchange_id));
         out.sql.push_str(&format!(" AND {}", crate::tracker::Scope::Account(account).rows("account_transactions")));

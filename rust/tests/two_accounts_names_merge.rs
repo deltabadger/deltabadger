@@ -286,14 +286,16 @@ async fn rest(app: &deltabadger::web::App, c: &Connection, owner: i64, method: &
         let on: serde_json::Map<String, serde_json::Value> = deltabadger::web::mcp::tools::NAMES.iter().map(|t| (t.to_string(), serde_json::json!(true))).collect();
         c.execute("UPDATE users SET mcp_settings=?1,rest_settings=?1", [serde_json::json!({"tool_permissions": on}).to_string()]).unwrap();
     }
+    let key = KEY.with(|k| k.borrow().clone()).unwrap_or_else(|| format!("k-{}", rand_key()));
     let mut request = Request::builder().method(method).uri(path).header("host", "localhost:3000").header("authorization", "Bearer slice6-api").header("accept", "application/json")
-        .header("idempotency-key", format!("k-{}", rand_key()));
+        .header("idempotency-key", key);
     if body.is_some() { request = request.header("content-type", "application/json"); }
     let response = deltabadger::web::router(app.clone()).oneshot(request.body(Body::from(body.map(|b| b.to_string()).unwrap_or_default())).unwrap()).await.unwrap();
     let status = response.status().as_u16();
     let text = String::from_utf8(to_bytes(response.into_body(), 64_000_000).await.unwrap().to_vec()).unwrap();
     (status, serde_json::from_str(&text).unwrap_or(serde_json::json!(text)))
 }
+thread_local! { static KEY: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) }; }
 fn rand_key() -> u64 { use std::sync::atomic::{AtomicU64, Ordering}; static N: AtomicU64 = AtomicU64::new(0); N.fetch_add(1, Ordering::Relaxed) }
 fn mcp_text(v: &serde_json::Value) -> String { v["content"][0]["text"].as_str().unwrap_or_default().to_string() }
 fn counts(c: &Connection) -> (i64, i64, i64) {
@@ -598,4 +600,25 @@ async fn a_null_account_id_on_a_signal_update_is_no_account() {
     assert!(answer["isError"] != true, "{answer}");
     assert_eq!(one::<String>(c, &format!("SELECT label FROM bots WHERE id = {bot}")), "renamed");
     assert_eq!(deltabadger::identity::account_of_bot(c, bot).unwrap(), Some(two.id(1)));
+}
+
+/// Codex 6a r3: `account_id` posted strictly (`"12oops"` names no account), and an Idempotency-Key reused with another
+/// account in the query is another request, never a replay of the first account's answer.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_id_is_whole_and_part_of_the_requests_fingerprint() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [two.bots[0]]).unwrap();
+    let moved = mcp(c, &app, user, "update_bot_settings", serde_json::json!({"bot_id": two.bots[0], "account_id": format!("{}oops", two.id(1))}));
+    assert!(moved["isError"] == true, "{moved}");
+    assert_eq!(deltabadger::identity::account_of_bot(c, two.bots[0]).unwrap(), Some(two.id(0)));
+    KEY.with(|k| *k.borrow_mut() = Some("one-key".into()));
+    let body = serde_json::json!({"type": "market_buy", "exchange_name": "Kraken", "base_asset": "BTC", "quote_asset": "EUR", "amount": 0.001});
+    let first = rest(&app, c, user, "POST", &format!("/api/v1/orders?account_id={}", two.id(0)), Some(body.clone())).await;
+    let second = rest(&app, c, user, "POST", &format!("/api/v1/orders?account_id={}", two.id(1)), Some(body)).await;
+    KEY.with(|k| *k.borrow_mut() = None);
+    assert_eq!((second.0, second.1["error"]["code"].as_str()), (409, Some("idempotency_key_reused")), "first {first:?}, second {second:?}");
 }

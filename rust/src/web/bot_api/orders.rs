@@ -62,12 +62,16 @@ fn exchange_not_found(c: &Connection, name: &Value) -> Result<Res, WebError> {
 /// #710 (PLAN-710-6 §4.2): the account a write naming `exchange` acts on, by its posted `account_id`: Err is the answer
 /// (a 404 for an account not the user's live one there, the 422 naming them when 2+ are live and none is named).
 pub(crate) fn picked(c: &Connection, user: i64, exchange: i64, name: &str, posted: &Value) -> Result<Result<crate::identity::Account, Res>, WebError> {
-    let posted = if present(posted) { match integer(posted) { Some(id) => Some(id), None => return Ok(Err(account_not_found())) } } else { None };
+    let posted = if present(posted) { match account_id(posted) { Some(id) => Some(id), None => return Ok(Err(account_not_found())) } } else { None };
     Ok(match crate::identity::pick(c, user, exchange, posted)? {
         crate::identity::Pick::One(account) => Ok(account),
         crate::identity::Pick::NotFound => Err(account_not_found()),
         crate::identity::Pick::Ambiguous(list) => Err(failure(Domain::ValidationFailed, "account_required", crate::identity::Pick::required(name, &list))),
     })
+}
+/// A posted `account_id` (#710): a whole integer, or a string of digits; anything else (`"12oops"`, `1.5`) names no account.
+pub(crate) fn account_id(v: &Value) -> Option<i64> {
+    match v { Value::Number(n) => n.as_i64(), Value::String(s) => { let t = s.trim(); if !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()) { t.parse().ok() } else { None } }, _ => None }
 }
 pub(crate) fn account_not_found() -> Res { failure(Domain::NotFound, "account_not_found", "Account not found.") }
 /// Lookup.find_api_key: the user's correct trading key.
