@@ -453,9 +453,8 @@ export default class extends Controller {
   // to the whole history. A plain vertical scroll is the page's. On a touch screen one finger still reads along the
   // curve, and two zoom and pan. Written by hand: no plugin.
   //
-  // While a drag or a pinch moves the view, the headline holds what it said when it began. Under A the reading of a
-  // point depends on the view's first point, so the figure under a pointer that has not moved off its point would
-  // otherwise change on every frame of the drag.
+  // The headline follows a drag or a pinch frame by frame: under A the figure under a pointer that stays on its point
+  // changes as the view's first point moves, and it is shown changing (Jan 2026-11-19).
   get #dragging() {
     return !!(this.drag?.moved && this.drag.view) || !!this.pinch;
   }
@@ -541,16 +540,12 @@ export default class extends Controller {
     const up = (event) => {
       if (event.pointerType === "mouse") return this.#endDrag();
       this.touches.delete(event.pointerId);
-      if (this.touches.size < 2 && this.pinch) {
-        this.pinch = null;
-        this.#updateSummary(this.chart.tooltip);
-      }
+      if (this.touches.size < 2) this.pinch = null;
     };
     canvas.addEventListener("pointerup", up);
     canvas.addEventListener("pointercancel", up);
   }
 
-  // The drag is over: the headline reads the pointer again.
   #endDrag() {
     const drag = this.drag;
     if (!drag) return;
@@ -559,7 +554,6 @@ export default class extends Controller {
       try { this.analyzerChartTarget.releasePointerCapture(drag.id); } catch {}
     }
     this.analyzerChartTarget.style.cursor = this.view ? "grab" : "";
-    if (drag.moved && drag.view && this.chart) this.#updateSummary(this.chart.tooltip);
   }
 
   // --- one holding at a time --------------------------------------------------------
@@ -939,8 +933,6 @@ export default class extends Controller {
   }
 
   #updateSummary(tooltip) {
-    // Held while a drag or a pinch moves the view (see the gestures).
-    if (this.#dragging) return;
     if (!tooltip.getActiveElements().length) return this.#renderSummary();
 
     const points = tooltip.dataPoints;
