@@ -1,26 +1,24 @@
 # First run
 
-On the [desktop app](04-desktop-app.md) there is no setup page: it opens signed in, and this page doesn't apply.
+On the [desktop app](04-desktop-app.md) there is no setup page: it opens signed in, and this page doesn't apply. Its first start asks for the language before anything else when the computer's language is English or one Deltabadger doesn't have; otherwise it starts in the computer's language.
 
-The setup page creates the admin account and, if you have one, connects a Deltabadger.com subscription. The first time you open Deltabadger it shows this page, titled **Welcome to Deltabadger**, and every other page redirects there until the admin account exists.
+The setup page creates the admin account. Until the admin account exists, every page leads to it. If your browser's language is one of Deltabadger's other than English, you land straight on the account form in that language; otherwise a language step comes first: pick a language and press **Continue**.
 
 If the page says **Setup is locked** instead, the server was started with `SETUP_TOKEN` (see [Configuration](29-configuration.md)). Open it from the dashboard of the service that hosts it, which links to the setup page with the token; the token is then dropped from the address.
 
 ## Admin Account
 
-Pick the interface language from the dropdown at the top; it is saved with the account and can be changed later under [Account settings](24-account-settings.md).
+The form is in the language you picked; it is saved with the account and can be changed later under [Account settings](24-account-settings.md). To pick another one, click the logo at the top of the form: it leads back to the language step.
 
-Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, an uppercase and a lowercase letter, a digit and a symbol; the checklist under the field turns green as you type. Press **Continue**.
+Fill in **Email** and **Password**. The password needs at least 8 characters, an uppercase and a lowercase letter, a digit and a symbol; the checklist under the field turns green as you type. Press **Create**.
 
-This account is the admin: confirmed immediately, no email sent, and the only account that can set up market data, email notifications, the stock catalog and sign-up for other people (see [Multiple users](27-multiple-users.md)). After **Continue** you are signed in and land on the **Bots** page. **New bot** opens the new-bot wizard when you're ready.
+This account is the admin: confirmed immediately, no email sent, and the only account that can set up market data, email notifications, the stock catalog and sign-up for other people (see [Multiple users](27-multiple-users.md)). After **Create** you are signed in and land on the **Bots** page. **New bot** opens the new-bot wizard when you're ready.
 
 ## Have a Deltabadger.com subscription?
 
-Below the form, **Have a Deltabadger.com subscription?** unfolds a single field. Paste the **Connect code** from Deltabadger.com and press **Connect**. On success the field is replaced by **Connected ✓ — market data and exchange proxies active** (or **Connected ✓ — market data active; exchange proxies unavailable**) and **Name** and **Email** are prefilled from your subscription; both stay editable. An invalid or expired code shows an alert.
+If you started the container with `CLAIM_TOKEN` (see [Quick start](02-quick-start.md)), the code is redeemed on its own when the setup page opens: **Connected ✓ — market data and exchange proxies active** (or **Connected ✓ — market data active; exchange proxies unavailable**) shows under the form, and **Email** is prefilled from your subscription.
 
-If you started the container with `CLAIM_TOKEN` (see [Quick start](02-quick-start.md)), the code is redeemed on its own when the page opens and you see the connected message straight away.
-
-This step is optional. Without a subscription, create the account and use a free CoinGecko key later, or paste a connect code later, under **Settings → Connect → Market Data** (see [Market data](26-market-data.md)).
+Otherwise, create the account first and paste the connect code afterwards, under **Settings → Connect → Market Data** (see [Market data](26-market-data.md)); the bot wizard offers it too where market data is needed.
 
 ## Syncing assets
 
