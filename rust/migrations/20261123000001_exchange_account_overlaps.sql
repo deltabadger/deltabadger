@@ -5,5 +5,7 @@ CREATE TABLE exchange_account_overlaps (
   account_id INTEGER PRIMARY KEY,
   other_account_id INTEGER NOT NULL,
   matches INTEGER NOT NULL,
-  observed_at TEXT NOT NULL
+  observed_at TEXT NOT NULL,
+  -- [[account, key, stamp], …]: each account's keys and the credential version that imported its rows (ledger_origin).
+  evidence TEXT
 );

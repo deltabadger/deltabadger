@@ -927,7 +927,8 @@ async fn merge_preflight(app: &App, d: i64, s: i64) -> Result<bool, WebError> {
             let Some(version) = venue.producer() else { return Ok(false) };
             let version = Some(version);
             let read = runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.order_with(&order, |_, _, _| Ok(true))));
-            let status = match read { Ok(Ok((states, _))) => states.first().map(|o| o.status), _ => None };
+            // The poll's reading (`OrderState::settled`): a KuCoin zero-fill answer old enough is final.
+            let status = match read { Ok(Ok((states, _))) => states.first().map(|o| o.clone().settled(app.now()).status), _ => None };
             let terminal = match status { Some(OrderStatus::Closed) => "filled", Some(OrderStatus::Cancelled) => "cancelled", Some(OrderStatus::Failed) => "rejected", _ => return Ok(false) };
             match crate::engine::model::credential_write(c, &version, |tx| Ok(crate::merge::record_terminal(tx, id, terminal)?)) {
                 Ok(_) => {}
@@ -963,7 +964,7 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     let v = ctx.clone();
     let csrf = ctx.csrf_token();
-    enum Done { Missing, Merged(crate::merge::Merged, String), InFlight, Conflict(Vec<String>), Refused(String) }
+    enum Done { Missing, Merged(crate::merge::Merged, String, Vec<(i64, bool, bool)>), InFlight, Conflict(Vec<String>), Refused(String) }
     let done = app.db(move |c| {
         let tx = crate::engine::model::immediate(c)?;
         let merged = match crate::merge::run(&tx, &inner.cipher, user_id, id, inner.now()) {
@@ -975,21 +976,26 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
         };
         if let Err(refusal) = eligibility::guard(&tx, &inner.cipher, None) { return Ok(Done::Refused(refusal.reason())); }
         let body = list(&tx, &v, &csrf, user_id)?;
+        // Only the keys the scheduler reads with (a trading key before a read-only one): a sync of another key would stamp
+        // the account's balances as a producer the freshness check does not expect.
+        let ledger = crate::sync::ledger_reading_keys(&tx).map_err(|e| WebError::Config(e.0))?;
+        let balances = crate::sync::balance_reading_keys(&tx).map_err(|e| WebError::Config(e.0))?;
+        let wakes: Vec<(i64, bool, bool)> = merged.kept_keys.iter().map(|k| (*k, ledger.contains(k), balances.contains(k))).collect();
         tx.commit()?;
-        Ok(Done::Merged(merged, body))
+        Ok(Done::Merged(merged, body, wakes))
     }).await?;
     match done {
         Done::Missing => Ok(crate::web::layout::missing()),
         Done::InFlight => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_in_flight_html", &args(&duplicate, &survivor, None))),
         Done::Conflict(rows) => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_conflict_html", &args(&duplicate, &survivor, Some(&rows.join("; "))))),
         Done::Refused(reason) => refused(&ctx, refusal_text(&ctx, &reason)),
-        Done::Merged(merged, body) => {
+        Done::Merged(merged, body, wakes) => {
             for key in &merged.deleted_keys { crate::venue::ibkr::forget(*key); }
             app.wake_engine();
             let jobs = app.job_wakers()?;
-            for key in &merged.kept_keys {
-                jobs.wake(crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), None);
-                jobs.wake(crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string()), None);
+            for (key, ledger, balances) in wakes {
+                if ledger { jobs.wake(crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), None); }
+                if balances { jobs.wake(crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string()), None); }
             }
             for job in [crate::tracker::jobs::TRACKER_LEDGER, crate::tracker::jobs::PORTFOLIO_BACKFILL] { jobs.wake(job, Some(&user_id.to_string()), None); }
             let text = i18n::t(ctx.locale, "settings.accounts.merged_html", &args(&duplicate, &survivor, None));

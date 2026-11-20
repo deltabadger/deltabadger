@@ -686,7 +686,14 @@ async fn an_alpaca_read_with_no_correct_key_names_both_accounts() {
 
 // ---- commit 4: duplicate standing (§5, T11-T14) ----
 
+/// A trading key of account `account` (a third one has none).
+fn add_key(c: &Connection, two: &Two, account: i64) {
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, 's', 1, 0, 'now', 'now')",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, format!("key-of-{account}")]).unwrap();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, c.last_insert_rowid()).unwrap();
+}
 fn observe(c: &Connection, two: &Two, n: usize) -> bool {
+    common::two_accounts::stamp_ledgers(c, two.seeded.user_id);
     identity::observe_overlap(c, &identity::AccountRow::of(c, &two.accounts[n]).unwrap().unwrap(), chrono::Utc::now()).unwrap()
 }
 /// `n` buys of account `k` under the shared trade ids `trade-0…`: the first `base_amount` given, the rest 1, one a day.
@@ -781,9 +788,10 @@ fn t13_chains_resolve_to_the_lowest_live_end() {
     let c = &o.primary;
     let two = Two::kraken(c, &seed::cipher());
     let third = two.third(c).id.unwrap();
+    add_key(c, &two, third);
+    common::two_accounts::overlap(c, two.seeded.user_id, third, two.id(1));
     two.fingerprint(c, 0, Some("fp"));
     two.fingerprint(c, 1, Some("fp"));
-    c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, 3, 'now')", [third, two.id(1)]).unwrap();
     assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0)), (third, two.id(0))]);
 }
 
@@ -1016,6 +1024,7 @@ fn dump(c: &Connection) -> Vec<String> {
 fn duplicate() -> (tempfile::TempDir, store::Opened, Two) {
     let (d, o) = install();
     let two = Two::kraken(&o.primary, &seed::cipher());
+    common::two_accounts::stamp_ledgers(&o.primary, two.seeded.user_id);
     two.fingerprint(&o.primary, 0, Some("fp"));
     two.fingerprint(&o.primary, 1, Some("fp"));
     (d, o, two)
@@ -1198,6 +1207,8 @@ fn t21_ledger_rows_dedup_by_venue_id_and_keep_their_metadata() {
     two.row(c, 1, 4, "BTC", "1", Some(SHARED_TX), Some(SHARED_GROUP), "2026-09-01 10:00:00");
     let moved = two.row(c, 1, 4, "BTC", "2", Some("only-2"), Some(SHARED_GROUP), "2026-09-02 10:00:00");
     let idless = two.row(c, 1, 10, "BTC", "0.1", None, None, "2026-09-03 10:00:00");
+    // Rows a venue sync wrote (a row no sync wrote, unique to D, refuses: r4_a).
+    for row in [s_twin, moved, idless] { synced(c, row); }
     c.execute("UPDATE account_transactions SET manual_values = '{\"price\":\"5\"}' WHERE tx_id IS NULL AND id = (SELECT max(id) - 2 FROM account_transactions)", []).unwrap();
     let all_before = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap().len();
     merge_now(c, &two, two.id(1)).unwrap().unwrap();
@@ -1252,6 +1263,7 @@ fn t21_ledger_rows_dedup_by_venue_id_and_keep_their_metadata() {
         link(c, dw, sd);
         let out = two.row(c, 1, 5, "BTC", "1", Some("out-2"), None, "2026-09-05 10:00:00");
         let ext = two.row(c, 0, 4, "BTC", "1", Some("in-1"), None, "2026-09-05 10:00:00");
+        for row in [out, ext] { synced(c, row); }
         link(c, out, ext);
         merge_now(c, &two, two.id(1)).unwrap().unwrap();
         assert_eq!(links(c), [(Some("wd".into()), Some("dep".into())), (Some("out-2".into()), Some("in-1".into()))], "deposits first: {deposits_first}");
@@ -1311,7 +1323,8 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     let c = &o.primary;
     let cipher = seed::cipher();
     let third = two.third(c).id.unwrap();
-    c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, 3, 'now')", [third, two.id(1)]).unwrap();
+    add_key(c, &two, third);
+    common::two_accounts::overlap(c, two.seeded.user_id, third, two.id(1));
     two.rule(c, &cipher, 1, two.seeded.btc, 3);
     merge_now(c, &two, two.id(1)).unwrap().unwrap();
     let (removed, fingerprint): (Option<String>, Option<String>) = c.query_row("SELECT removed_at, fingerprint FROM exchange_accounts WHERE id = ?1", [two.id(1)], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
@@ -1340,7 +1353,7 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     let _ = row;
     let s3 = deltabadger::venue_ids::Scope::of(c, &third).unwrap();
     c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
-               VALUES (?1, ?2, 4, 'BTC', 1, NULL, '2026-09-02 10:00:00', '{}', '{}', 0, '2026-09-02 10:00:00', '2026-09-02 10:00:00')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+               VALUES (?1, ?2, 4, 'BTC', 1, NULL, '2026-09-02 10:00:00', '{\"venue\":\"answer\"}', '{}', 0, '2026-09-02 10:00:00', '2026-09-02 10:00:00')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
     deltabadger::venue_ids::after_insert(c, &s3, c.last_insert_rowid(), Some("t3")).unwrap();
     let tx = c.unchecked_transaction().unwrap();
     merge::run(&tx, &seed::cipher(), two.seeded.user_id, third.id.unwrap(), chrono::Utc::now()).unwrap().unwrap();
@@ -1500,9 +1513,8 @@ fn r4_a_chain_with_conflicting_fingerprints_is_no_duplicate() {
     let third = two.third(c).id.unwrap();
     two.fingerprint(c, 0, Some("A"));
     c.execute("UPDATE exchange_accounts SET fingerprint = 'B' WHERE id = ?1", [third]).unwrap();
-    for (d, s) in [(two.id(1), two.id(0)), (third, two.id(1))] {
-        c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, 3, 'now')", [d, s]).unwrap();
-    }
+    add_key(c, &two, third);
+    for (d, s) in [(two.id(1), two.id(0)), (third, two.id(1))] { common::two_accounts::overlap(c, two.seeded.user_id, d, s); }
     assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
 }
 
@@ -1829,4 +1841,135 @@ async fn r3_10_a_standing_change_with_nothing_to_sweep_wakes_todays_writer() {
     assert_eq!(sweep().await, Ok(true));
     for n in 0..2 { common::two_accounts::confirm(&c, two.id(n), Some("fp")); }
     assert_eq!(sweep().await, Ok(true), "the history changed: the job wakes the ledger walk that records today");
+}
+
+// ---- review round 4 ----
+
+/// A venue's answer, as a sync stores it with the row.
+fn synced(c: &Connection, row: i64) { c.execute("UPDATE account_transactions SET raw_data = json_object('id', ?1, 'venue', 'answer') WHERE id = ?1", [row]).unwrap(); }
+/// A venue's own CSV export's row (Binance's), as its import stores it.
+fn from_csv(c: &Connection, row: i64, operation: &str) { c.execute("UPDATE account_transactions SET raw_data = json_object('operation', ?2) WHERE id = ?1", rusqlite::params![row, operation]).unwrap(); }
+/// A duplicate on Binance.
+fn binance() -> (tempfile::TempDir, store::Opened, Two) {
+    let (d, o) = install();
+    let kraken = Two::kraken(&o.primary, &seed::cipher());
+    let two = Two::venue(&o.primary, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    two.fingerprint(&o.primary, 0, Some("fp"));
+    two.fingerprint(&o.primary, 1, Some("fp"));
+    (d, o, two)
+}
+fn refuses(c: &Connection, two: &Two, what: &str) {
+    let before = dump(c);
+    assert!(matches!(merge_now(c, two, two.id(1)), Err(Refusal::Conflict(_))), "{what}");
+    assert_eq!(dump(c), before, "{what}");
+}
+
+/// (a) A row of the duplicate no venue sync wrote, with no exact-id twin, refuses.
+#[test]
+fn r4_a_a_csv_row_unique_to_the_duplicate_refuses() {
+    let (_d, o, two) = binance();
+    let c = &o.primary;
+    let row = two.row(c, 1, 4, "BTC", "1", None, None, "2026-09-01 10:00:00");
+    from_csv(c, row, "Deposit");
+    refuses(c, &two, "a CSV deposit only the duplicate holds");
+}
+
+/// (a) A row of the duplicate a venue sync wrote, unique to it and with no non-API neighbour, moves: the main case, the
+/// duplicate synced after the survivor lost its key.
+#[test]
+fn r4_a_an_api_row_unique_to_the_duplicate_moves() {
+    let (_d, o, two) = binance();
+    let c = &o.primary;
+    let row = two.row(c, 1, 0, "BTC", "1", Some("trade-only-2"), None, "2026-09-01 10:00:00");
+    synced(c, row);
+    let s = two.row(c, 0, 0, "BTC", "1", Some("trade-on-1"), None, "2026-09-01 11:00:00");
+    synced(c, s);
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert!(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE id = ?1 AND tx_id = 'trade-only-2')", [row], |r| r.get::<_, bool>(0)).unwrap(), "moved to account 1");
+}
+
+/// (b) An API row of the duplicate beside a survivor row no venue sync wrote, of its asset within 24 hours, of any type,
+/// refuses: a Binance withdrawal requested at 13:08:10 and completed at 13:20:44; an Earn staking reward against the CSV's
+/// lending interest.
+#[test]
+fn r4_b_a_survivor_csv_row_of_the_asset_within_a_day_refuses() {
+    let (_d, o, two) = binance();
+    let c = &o.primary;
+    let api = two.row(c, 1, 5, "BTC", "1", Some("wd-api"), None, "2026-09-01 13:08:10");
+    synced(c, api);
+    let csv = two.row(c, 0, 5, "BTC", "1", None, None, "2026-09-01 13:20:44");
+    from_csv(c, csv, "Withdraw");
+    refuses(c, &two, "the withdrawal at request and at completion");
+    let (_d, o, two) = binance();
+    let c = &o.primary;
+    let api = two.row(c, 1, 11, "USDT", "0.5", Some("earn-1"), None, "2026-09-01 00:00:00");
+    synced(c, api);
+    let csv = two.row(c, 0, 8, "USDT", "0.5", None, None, "2026-09-01 02:00:00");
+    from_csv(c, csv, "Simple Earn Flexible Interest");
+    refuses(c, &two, "a staking reward against the CSV's lending interest");
+}
+
+/// (c) Two API rows of one type and asset are compared in whole seconds: exactly ten minutes apart refuses.
+#[test]
+fn r4_c_the_api_window_is_exact_in_seconds() {
+    let (_d, o, two) = binance();
+    let c = &o.primary;
+    let d = two.row(c, 1, 4, "BTC", "1", Some("dep-1"), None, "2026-09-01 00:00:00");
+    let s = two.row(c, 0, 4, "BTC", "1", Some("dep-0"), None, "2026-09-01 00:10:00");
+    synced(c, d);
+    synced(c, s);
+    refuses(c, &two, "600 seconds apart");
+}
+
+/// 1: overlap evidence holds only while the keys that produced it are the accounts' keys at the same versions: account 1's
+/// trading key replaced, the pair is no duplicate and Merge is a 404.
+#[test]
+fn r4_1_overlap_evidence_dies_with_its_keys() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    assert!(observe(c, &two, 1));
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[0], seed::cipher().encrypt("another-kraken-account")]).unwrap();
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(merge_now(c, &two, two.id(1)).unwrap().is_none());
+}
+
+/// 4: the kept twin takes the duplicate's asset when it has none, and its group when it has none and no survivor row uses
+/// it; a group a survivor row already uses refuses.
+#[test]
+fn r4_4_the_kept_twin_takes_the_duplicates_asset_and_group() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let kept = two.row(c, 0, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+    let d = two.row(c, 1, 0, "BTC", "1", Some("t-1"), Some("usdt-leg"), "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [d, two.seeded.btc]).unwrap();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let (asset, group): (Option<i64>, Option<String>) = c.query_row("SELECT base_asset_id, group_id FROM account_transactions WHERE id = ?1", [kept], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((asset, group.as_deref()), (Some(two.seeded.btc), Some("usdt-leg")));
+
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    two.row(c, 0, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+    two.row(c, 0, 1, "ETH", "1", Some("other"), Some("usdt-leg"), "2026-08-01 10:00:00");
+    two.row(c, 1, 0, "BTC", "1", Some("t-1"), Some("usdt-leg"), "2026-09-01 10:00:00");
+    refuses(c, &two, "a group a survivor row already uses");
+}
+
+/// 5: a duplicate's rows decide no asset class: the survivor's BTC crypto beside the duplicate's BTC equity is no ambiguity.
+#[test]
+fn r4_5_a_duplicates_rows_decide_no_asset_class() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('BTC.US', 'BTC', 'BTC equity', 'Stock', 'now', 'now')", []).unwrap();
+    let equity = c.last_insert_rowid();
+    let s = two.row(c, 0, 4, "BTC", "1", Some("s-1"), None, "2026-09-01 10:00:00");
+    let d = two.row(c, 1, 4, "BTC", "1", Some("d-1"), None, "2026-09-02 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = CASE id WHEN ?1 THEN ?3 ELSE ?4 END WHERE id IN (?1, ?2)", [s, d, two.seeded.btc, equity]).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
+    let pending = [("BTC".to_string(), deltabadger::figures::dec::Dec::one())];
+    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::walk::Summary::empty(), &[], &pending, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
+    assert!(out.is_ok(), "{:?}", out.err());
 }

@@ -140,8 +140,10 @@ fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Res
         }
         Ok(out)
     };
-    let mut candidates = read("SELECT a.id, a.category, a.external_id FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
-                               WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.base_currency = ?3 ORDER BY t.id", rusqlite::params![user_id, venue.id, symbol])?;
+    // A duplicate account's rows (#710, PLAN-710-6 §5.2) record no class of the figures'.
+    let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
+    let mut candidates = read(&format!("SELECT a.id, a.category, a.external_id FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                               WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.base_currency = ?3 AND {counted} ORDER BY t.id"), rusqlite::params![user_id, venue.id, symbol])?;
     if candidates.is_empty() {
         candidates = read("SELECT a.id, a.category, a.external_id FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
                            WHERE t.exchange_id = ?1 AND t.base = ?2 ORDER BY t.id", rusqlite::params![venue.id, symbol])?;

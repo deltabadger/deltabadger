@@ -677,15 +677,22 @@ fn overlaps_ready(c: &Connection) -> rusqlite::Result<bool> {
 /// to its lowest live end. One statement; none on an install without the observation table.
 pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
     if !overlaps_ready(c)? { return Ok(vec![]); }
-    let mut s = c.prepare(&format!("SELECT d.id, s.id, d.fingerprint, s.fingerprint FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
+    let mut s = c.prepare(&format!("SELECT d.id, s.id, d.fingerprint, s.fingerprint, d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint,
+                             (SELECT o.evidence FROM exchange_account_overlaps o WHERE o.account_id = d.id AND o.other_account_id = s.id) FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
                              AND s.number < d.number AND s.removed_at IS NULL
                            WHERE d.user_id = ?1 AND d.removed_at IS NULL AND {} AND {} AND (
                              (d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint)
                              OR (EXISTS (SELECT 1 FROM exchange_account_overlaps o WHERE o.account_id = d.id AND o.other_account_id = s.id)
                                  AND NOT (d.fingerprint IS NOT NULL AND s.fingerprint IS NOT NULL AND d.fingerprint <> s.fingerprint)))
                            ORDER BY d.id, s.number", confirmed("d"), confirmed("s")))?;
-    type Link = (i64, i64, Option<String>, Option<String>);
-    let links = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<rusqlite::Result<Vec<Link>>>()?;
+    type Link = (i64, i64, Option<String>, Option<String>, bool, Option<String>);
+    let links = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?.collect::<rusqlite::Result<Vec<Link>>>()?;
+    // An observation stands only while its keys are the accounts' keys at the versions that imported the rows compared.
+    let mut kept = vec![];
+    for (d, s, fd, fs, by_print, evidence) in links {
+        if by_print || evidence.as_deref().map(|e| evidence_holds(c, e)).transpose()?.unwrap_or(false) { kept.push((d, s, fd, fs)); }
+    }
+    let links = kept;
     let mut prints: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for (d, s, fd, fs) in &links {
         if let Some(f) = fd { prints.insert(*d, f.clone()); }
@@ -752,12 +759,47 @@ pub fn observe_overlap(c: &Connection, account: &AccountRow, now: DateTime<Utc>)
             }
         }
         if !conflict && strong >= MATCHES {
-            c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, ?3, ?4)",
-                      params![account.id, id, strong as i64, format_time(now)])?;
+            // What it stands on: the keys whose imports were compared, at the versions that imported them.
+            let Some(evidence) = overlap_evidence(c, &[account.id, id])? else { continue };
+            c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at, evidence) VALUES (?1, ?2, ?3, ?4, ?5)",
+                      params![account.id, id, strong as i64, format_time(now), evidence])?;
             return Ok(true);
         }
     }
     Ok(false)
+}
+
+/// Whether an observation's evidence (`overlap_evidence`) still holds: every key named is still its account's, at the
+/// credential version that imported its rows. A replaced or moved key ends it.
+fn evidence_holds(c: &Connection, evidence: &str) -> rusqlite::Result<bool> {
+    let Some(entries) = serde_json::from_str::<Value>(evidence).ok().and_then(|v| v.as_array().cloned()) else { return Ok(false) };
+    if entries.is_empty() { return Ok(false); }
+    for e in entries {
+        let (Some(account), Some(key)) = (e[0].as_i64(), e[1].as_i64()) else { return Ok(false) };
+        if account_of_key(c, key)? != Some(account) { return Ok(false); }
+        let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&e[2]) else { return Ok(false) };
+        if version.id != key || !crate::engine::model::credential_is_current(c, &version).map_err(|e| rusqlite::Error::InvalidParameterName(format!("{e:?}")))? { return Ok(false); }
+    }
+    Ok(true)
+}
+
+/// The evidence an observation of `accounts` stands on: each account's non-withdrawal keys whose ledger import names the
+/// credential version that produced it (`sync::cache::record_ledger`'s stamp), as `[[account, key, stamp], …]`. None when
+/// an account has no such key.
+pub fn overlap_evidence(c: &Connection, accounts: &[i64]) -> rusqlite::Result<Option<String>> {
+    let mut out = vec![];
+    for &account in accounts {
+        let mut s = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} = ?1 AND k.key_type != 1 ORDER BY k.id", key_account_sql("k")))?;
+        let keys: Vec<i64> = s.query_map([account], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+        let mut any = false;
+        for key in keys {
+            let stamp = crate::app_config::get_plain(c, &crate::jobs::state::key("ledger_origin", Some(&key.to_string()))).map_err(rusqlite::Error::InvalidParameterName)?
+                .and_then(|s| serde_json::from_str::<Value>(&s).ok());
+            if let Some(stamp) = stamp { out.push(serde_json::json!([account, key, stamp])); any = true; }
+        }
+        if !any { return Ok(None); }
+    }
+    Ok(Some(Value::Array(out).to_string()))
 }
 
 /// `observe_overlap` for api key `api_key_id`'s account, after its complete ledger sync, in its own transaction.

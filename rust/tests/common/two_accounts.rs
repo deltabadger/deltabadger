@@ -29,6 +29,22 @@ pub fn confirm(c: &Connection, account: i64, fingerprint: Option<&str>) {
                         ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint", deltabadger::identity::key_account_sql("k")), params![account, fingerprint]).unwrap();
 }
 
+/// Each of `user`'s keys whose ledger import has no producer yet: stamped as imported by its current version (the stamp a
+/// complete ledger sync records, `sync::cache::record_ledger`), as after a sync.
+pub fn stamp_ledgers(c: &Connection, user: i64) {
+    let stamps = deltabadger::sync::cache::capture_read(c, user, &deltabadger::tracker::Scope::All).unwrap().producer_stamps();
+    for stamp in stamps.as_array().unwrap() {
+        let key = deltabadger::jobs::state::key("ledger_origin", Some(&stamp["key_id"].to_string()));
+        if !deltabadger::app_config::exists(c, &key).unwrap() { deltabadger::app_config::set_plain(c, &key, &stamp.to_string(), chrono::Utc::now()).unwrap(); }
+    }
+}
+/// An overlap observation of account `d` against `s` with the evidence `identity::observe_overlap` records.
+pub fn overlap(c: &Connection, user: i64, d: i64, s: i64) {
+    stamp_ledgers(c, user);
+    let evidence = deltabadger::identity::overlap_evidence(c, &[d, s]).unwrap().expect("both accounts have a stamped key");
+    c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at, evidence) VALUES (?1, ?2, 3, 'now', ?3)", params![d, s, evidence]).unwrap();
+}
+
 impl Two {
     /// The seeded install's Kraken (seed::seed_kraken) with a second account.
     pub fn kraken(c: &Connection, cipher: &Cipher) -> Self {

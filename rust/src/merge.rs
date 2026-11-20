@@ -66,17 +66,24 @@ fn kind(entry_type: i64) -> &'static str {
 /// One ledger row of D, or its twin in S: the fields the merge keeps.
 #[derive(Clone, Debug)]
 /// `raw`: the venue's answer, when only the duplicate's twin has one (a restored row has none): the row kept carries it.
-struct Meta { manual: serde_json::Map<String, serde_json::Value>, order: Option<i64>, rejected: bool, raw: Option<String> }
+/// `asset`, `group`: the duplicate's, written where the kept twin has none.
+struct Meta { manual: serde_json::Map<String, serde_json::Value>, order: Option<i64>, rejected: bool, raw: Option<String>, asset: Option<i64>, group: Option<String> }
 fn meta(c: &Connection, row: i64) -> rusqlite::Result<Meta> {
-    c.query_row("SELECT manual_values, transaction_id, coalesce(transfer_link_rejected, 0), raw_data FROM account_transactions WHERE id = ?1", [row], |r| {
+    c.query_row("SELECT manual_values, transaction_id, coalesce(transfer_link_rejected, 0), raw_data, base_asset_id, group_id FROM account_transactions WHERE id = ?1", [row], |r| {
         let manual = r.get::<_, Option<String>>(0)?.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
-        Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.trim(), "" | "{}" | "null")) })
+        Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.trim(), "" | "{}" | "null")), asset: r.get(4)?,
+                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()) })
     })
 }
 
-/// The widest window a sync reconciles one event's two spellings in: a CSV deposit and its API copy, ten minutes
-/// (sync/ledger.rs `file_side`), in days as SQLite's julianday counts them.
-const WINDOW_DAYS: f64 = 10.0 / 1440.0;
+/// SQL condition: ledger row `x` was not written by a venue sync. A sync stores the venue's answer with the row; what
+/// else writes rows stores none (`{}`: a Deltabadger CSV restore, a Binance CSV's dust and convert legs, a 2.x-era
+/// hand entry or restore), or a file's own marker: KuCoin's CSV (`source: kucoin_csv`), Binance's CSV (its `operation`
+/// alone).
+fn not_synced(x: &str) -> String {
+    format!("COALESCE(COALESCE({x}.raw_data, '{{}}') IN ('{{}}', '', 'null') OR json_extract({x}.raw_data, '$.source') = 'kucoin_csv' \
+             OR (json_extract({x}.raw_data, '$.operation') IS NOT NULL AND (SELECT count(*) FROM json_each({x}.raw_data)) = 1), 0)")
+}
 
 /// The ledger plan of step 7: each D row's twin, the merged metadata of each twin, and the final transfer links.
 struct Ledger { twin: HashMap<i64, i64>, merged: Vec<(i64, Meta)>, sources: BTreeSet<i64>, edges: BTreeMap<i64, i64>, conflicts: Vec<String> }
@@ -102,16 +109,20 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
             FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", [d, s], |r| r.get(0))?;
         if !same { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
     }
-    // One rule for every reconciliation a sync does within an account (Alpaca's split aggregates on one instant, Coinbase's
-    // legacy fills by event, a CSV deposit beside its API copy within ten minutes, KuCoin's fills within a second): a row
-    // of D with no exact-id twin (an id-less one too) beside a row of S of its entry type and base currency within the
-    // widest of those windows, ten minutes, may be one event under two spellings. Refused, naming it.
+    // A row of D with no exact-id twin (an id-less one too) may be an event S holds under another spelling: another type,
+    // another time, no id. Refused, naming it, when (a) no venue sync wrote it (a CSV import, a restore); (b) S holds a row
+    // no venue sync wrote of its asset within a day, of any type (a withdrawal stamped at request and at completion, an
+    // Earn payment under two names); (c) S holds a row of its type and asset within ten minutes (Coinbase's legacy ids).
+    // Whole seconds, so each boundary is exact.
+    let secs = |x: &str| format!("CAST(strftime('%s', {x}.transacted_at) AS INTEGER)");
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
-        let near: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions s, account_transactions d WHERE d.id = ?3 AND s.user_id = ?1 AND s.exchange_id = ?2 AND {} \
-                                               AND s.entry_type = d.entry_type AND s.base_currency IS d.base_currency \
-                                               AND abs(julianday(s.transacted_at) - julianday(d.transacted_at)) <= {WINDOW_DAYS})", ss.rows("s")),
-                                     params![ss.user_id, ss.exchange_id, row], |r| r.get(0))?;
-        if near { conflicts.push(named(c, *row)?); }
+        let refused: bool = c.query_row(&format!("SELECT {} OR EXISTS(SELECT 1 FROM account_transactions s WHERE s.user_id = ?1 AND s.exchange_id = ?2 AND {} \
+                                                    AND s.base_currency IS d.base_currency AND ((({}) AND abs({} - {}) <= 86400) \
+                                                    OR (s.entry_type = d.entry_type AND abs({} - {}) <= 600))) \
+                                                  FROM account_transactions d WHERE d.id = ?3",
+                                                 not_synced("d"), ss.rows("s"), not_synced("s"), secs("s"), secs("d"), secs("s"), secs("d")),
+                                         params![ss.user_id, ss.exchange_id, row], |r| r.get(0))?;
+        if refused { conflicts.push(named(c, *row)?); }
     }
     let mut merged = vec![];
     for (d, s) in &twin {
@@ -123,6 +134,17 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         match (sm.order, dm.order) { (Some(a), Some(b)) if a != b => clash = true, (None, Some(b)) => sm.order = Some(b), _ => {} }
         sm.rejected |= dm.rejected;
         sm.raw = if sm.raw.is_none() { dm.raw.clone() } else { None };
+        sm.asset = if sm.asset.is_none() { dm.asset } else { None };
+        // A group: D's where S's row has none and no other S row uses it (the group is S's then); two groups are a conflict.
+        sm.group = match (&sm.group, &dm.group) {
+            (Some(a), Some(b)) => { if a != b { clash = true; } None }
+            (None, Some(g)) => {
+                let used: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND a.group_id = ?3)", ss.rows("a")),
+                                             params![ss.user_id, ss.exchange_id, g], |r| r.get(0))?;
+                if used { clash = true; None } else { Some(g.clone()) }
+            }
+            _ => None,
+        };
         if clash { conflicts.push(named(c, *s)?); }
         merged.push((*s, sm));
     }
@@ -274,8 +296,9 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     for d_row in plan.twin.keys() { c.execute("DELETE FROM account_transactions WHERE id = ?1", [d_row])?; }
     venue_ids::move_rows(c, &sd, &ss)?;
     for (row, m) in &plan.merged {
-        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data) WHERE id = ?1",
-                  params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw])?;
+        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
+                   base_asset_id = COALESCE(base_asset_id, ?6), group_id = COALESCE(group_id, ?7) WHERE id = ?1",
+                  params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group])?;
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
 
@@ -296,7 +319,16 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
               params![crate::sync::kucoin_hf::gap_key(user), format!("$.\"{exchange}:{d}\"")])?;
 
     // 11. Observations and the tombstone.
-    c.execute("UPDATE exchange_account_overlaps SET other_account_id = ?2 WHERE other_account_id = ?1", [d, s])?;
+    // An observation against D now stands against S, on S's keys' evidence; with none, it goes (observed again on a sync).
+    let mut q = c.prepare("SELECT account_id FROM exchange_account_overlaps WHERE other_account_id = ?1 ORDER BY account_id")?;
+    let observed: Vec<i64> = q.query_map([d], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    drop(q);
+    for account in observed {
+        match identity::overlap_evidence(c, &[account, s])? {
+            Some(evidence) => { c.execute("UPDATE exchange_account_overlaps SET other_account_id = ?2, evidence = ?3 WHERE account_id = ?1", params![account, s, evidence])?; }
+            None => { c.execute("DELETE FROM exchange_account_overlaps WHERE account_id = ?1", [account])?; }
+        }
+    }
     c.execute("DELETE FROM exchange_account_overlaps WHERE account_id = ?1", [d])?;
     identity::tombstone(c, d, now)?;
     Ok(Some(Merged { duplicate: d, survivor: s, deleted_keys: deleted, kept_keys: kept }))
