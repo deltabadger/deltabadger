@@ -677,13 +677,13 @@ fn overlaps_ready(c: &Connection) -> rusqlite::Result<bool> {
 /// to its lowest live end. One statement; none on an install without the observation table.
 pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
     if !overlaps_ready(c)? { return Ok(vec![]); }
-    let mut s = c.prepare("SELECT d.id, s.id, d.fingerprint, s.fingerprint FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
+    let mut s = c.prepare(&format!("SELECT d.id, s.id, d.fingerprint, s.fingerprint FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
                              AND s.number < d.number AND s.removed_at IS NULL
-                           WHERE d.user_id = ?1 AND d.removed_at IS NULL AND (
+                           WHERE d.user_id = ?1 AND d.removed_at IS NULL AND {} AND {} AND (
                              (d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint)
                              OR (EXISTS (SELECT 1 FROM exchange_account_overlaps o WHERE o.account_id = d.id AND o.other_account_id = s.id)
                                  AND NOT (d.fingerprint IS NOT NULL AND s.fingerprint IS NOT NULL AND d.fingerprint <> s.fingerprint)))
-                           ORDER BY d.id, s.number")?;
+                           ORDER BY d.id, s.number", confirmed("d"), confirmed("s")))?;
     type Link = (i64, i64, Option<String>, Option<String>);
     let links = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<rusqlite::Result<Vec<Link>>>()?;
     let mut prints: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
@@ -701,6 +701,12 @@ pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i6
         for _ in 0..map.len() { match map.get(&s) { Some(&next) => { s = next; seen.extend(prints.get(&s)); } None => break } }
         seen.windows(2).all(|w| w[0] == w[1]).then_some((d, s))
     }).collect())
+}
+/// SQL condition: account row `x`'s known fingerprint (if any) is what its keys still read: one of its keys' identity
+/// observations confirms it and none reads another account. A stale or contradicted one is neither duplicate nor survivor.
+fn confirmed(x: &str) -> String {
+    let keys = format!("(SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id AND o.fingerprint IS NOT NULL)", key_account_sql("k"));
+    format!("({x}.fingerprint IS NULL OR ({x}.fingerprint IN {keys} AND NOT EXISTS (SELECT 1 FROM {keys} f WHERE f.fingerprint <> {x}.fingerprint)))")
 }
 /// The ids of the user's duplicates (`duplicates`).
 pub fn duplicate_ids(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<i64>> { Ok(duplicates(c, user_id)?.into_iter().map(|(d, _)| d).collect()) }

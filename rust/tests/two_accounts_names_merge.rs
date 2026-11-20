@@ -711,7 +711,9 @@ fn t11_equal_fingerprints_make_the_higher_number_a_duplicate() {
     two.fingerprint(c, 1, Some("fp-1"));
     assert_eq!(identity::duplicates(c, user).unwrap(), [(b, a)]);
     let third = two.third(c).id.unwrap();
-    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-1' WHERE id = ?1", [third]).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k3', 's3', 1, 0, 'now', 'now')", [user, two.seeded.exchange_id]).unwrap();
+    identity::Account::by_id(c, third).unwrap().unwrap().add_key(c, c.last_insert_rowid()).unwrap();
+    common::two_accounts::confirm(c, third, Some("fp-1"));
     assert_eq!(identity::duplicates(c, user).unwrap(), [(b, a), (third, a)]);
     remove(c, a);
     assert_eq!(identity::duplicates(c, user).unwrap(), [(third, b)], "a removed 1");
@@ -883,14 +885,14 @@ async fn t14_the_stored_history_follows_the_standing() {
         assert_eq!(first(&c, "portfolio_snapshots").as_deref(), Some("2026-01-10"));
         assert_eq!(sweep().await, Ok(true), "an unchanged standing");
         assert_eq!(first(&c, "portfolio_snapshots").as_deref(), Some("2026-01-10"), "nothing earlier deleted");
-        c.execute_batch("UPDATE exchange_accounts SET fingerprint = 'fp'").unwrap();
+        for n in 0..2 { common::two_accounts::confirm(&c, two.id(n), Some("fp")); }
         let cipher = seed::cipher();
         assert!(deltabadger::tracker::backfill::wanted(&c, &cipher, user, at.date_naive()).unwrap(), "the standing asks for a sweep");
         if s_rows {
             assert_eq!(sweep().await, Ok(true));
             assert_eq!(first(&c, "portfolio_snapshots").as_deref(), Some("2026-06-10"), "no day before S's first row");
         } else {
-            assert_eq!(sweep().await, Ok(false));
+            assert_eq!(sweep().await, Ok(true), "the history changed: the ledger walk records today again");
             assert_eq!((first(&c, "portfolio_snapshots"), first(&c, "exchange_account_snapshots")), (None, None), "no stored day left");
         }
         assert!(!deltabadger::tracker::backfill::wanted(&c, &cipher, user, at.date_naive()).unwrap(), "stamped");
@@ -1331,7 +1333,9 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     let c = &o.primary;
     two.fingerprint(c, 0, Some("other"));
     let third = two.third(c);
-    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp' WHERE id = ?1", [third.id.unwrap()]).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k3', 's3', 1, 0, 'now', 'now')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    third.add_key(c, c.last_insert_rowid()).unwrap();
+    common::two_accounts::confirm(c, third.id.unwrap(), Some("fp"));
     let row = two.row(c, 0, 4, "BTC", "1", Some("n1"), None, "2026-09-01 10:00:00");
     let _ = row;
     let s3 = deltabadger::venue_ids::Scope::of(c, &third).unwrap();
@@ -1681,8 +1685,8 @@ async fn rh_todays_point_follows_the_standing() {
     assert_eq!(sweep().await, Ok(true));
     c.execute("INSERT INTO portfolio_snapshots (user_id, date, value_usd, invested_usd, partial, created_at, updated_at) VALUES (?1, '2026-09-20', 100, 100, 0, 'now', 'now') \
                ON CONFLICT (user_id, date) DO NOTHING", [user]).unwrap();
-    c.execute_batch("UPDATE exchange_accounts SET fingerprint = 'fp'").unwrap();
-    assert_eq!(sweep().await, Ok(false));
+    for n in 0..2 { common::two_accounts::confirm(&c, two.id(n), Some("fp")); }
+    assert_eq!(sweep().await, Ok(true), "the history changed: the ledger walk records today again");
     let left: i64 = c.query_row("SELECT count(*) FROM portfolio_snapshots WHERE user_id = ?1", [user], |r| r.get(0)).unwrap();
     assert_eq!(left, 0, "no stale point on All");
 }
@@ -1695,4 +1699,134 @@ fn ri_a_binance_repair_checkpoint_refuses() {
     let key = deltabadger::jobs::state::key("binance_history_repair_account", Some(&format!("3:{}:{}@{}", two.seeded.user_id, two.seeded.exchange_id, two.id(1))));
     deltabadger::app_config::set_plain(c, &key, "{}", chrono::Utc::now()).unwrap();
     assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
+}
+
+// ---- review round 3 ----
+
+/// 1: a survivor whose current key reads another venue account than its recorded fingerprint is no survivor: no duplicate,
+/// and Merge is a 404.
+#[test]
+fn r3_1_a_stale_fingerprint_makes_no_duplicate() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE exchange_account_credentials SET fingerprint = 'another-uid' WHERE api_key_id = ?1", [two.keys[0]]).unwrap();
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(merge_now(c, &two, two.id(1)).unwrap().is_none());
+}
+
+/// 2: of twins one restored (no venue answer) and one from the API, the row kept carries the API answer (its signed
+/// `net_amount`).
+#[test]
+fn r3_2_the_kept_twin_carries_the_venue_answer() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    let api = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [api]).unwrap();
+    merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+    let raw: String = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [kept], |r| r.get(0)).unwrap();
+    assert!(raw.contains("\"net_amount\":\"-10\""), "{raw}");
+}
+
+/// 3: a duplicate row with no exact-id twin (an id-less one too) refuses when the survivor holds a row of its entry type and
+/// base currency within ten minutes: an Alpaca split leg beside an aggregate, a KuCoin CSV fill a second from its API
+/// copy, an id-less Binance CSV deposit beside its API deposit.
+#[test]
+fn r3_3_a_row_the_others_reconciliation_would_match_refuses() {
+    type Setup = fn(&Connection, &Two);
+    let cases: [(&str, &str, Setup); 3] = [
+        ("Exchanges::Alpaca", "Alpaca", |c, two| { two.row(c, 0, 15, "AAPL", "2", Some("leg-a"), None, "2026-09-01 00:00:00"); two.row(c, 1, 15, "AAPL", "1", Some("leg-b"), None, "2026-09-01 00:00:00"); }),
+        (deltabadger::venue::kucoin::KUCOIN, "KuCoin", |c, two| {
+            let api = two.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:01");
+            c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
+            two.row(c, 1, 0, "BTC", "1", Some("kucoin-csv-1"), None, "2026-09-01 10:00:00");
+        }),
+        ("Exchanges::Binance", "Binance", |c, two| { two.row(c, 0, 4, "BTC", "1", Some("dep-api"), None, "2026-09-01 10:05:00"); two.row(c, 1, 4, "BTC", "1", None, None, "2026-09-01 10:00:00"); }),
+    ];
+    for (kind, name, setup) in cases {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let kraken = Two::kraken(c, &seed::cipher());
+        let two = Two::venue(c, &seed::cipher(), &kraken.seeded, kind, name);
+        two.fingerprint(c, 0, Some("fp"));
+        two.fingerprint(c, 1, Some("fp"));
+        setup(c, &two);
+        let before = dump(c);
+        assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))), "{name}");
+        assert_eq!(dump(c), before, "{name}");
+    }
+}
+
+/// 5: a withheld KuCoin fill both accounts hold under one id with other facts refuses.
+#[test]
+fn r3_5_withheld_fills_that_differ_refuse() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let kucoin = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    kucoin.fingerprint(c, 0, Some("fp"));
+    kucoin.fingerprint(c, 1, Some("fp"));
+    for (n, entry) in [(0, "{\"size\":\"1\"}"), (1, "{\"size\":\"2\"}")] {
+        c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'f-1', 'now', ?2, 'now')", rusqlite::params![kucoin.id(n), entry]).unwrap();
+    }
+    assert!(matches!(merge_now(c, &kucoin, kucoin.id(1)), Err(Refusal::Conflict(_))));
+}
+
+/// 7: a key the survivor takes over is re-read: its balance time is cleared, so a survivor movement after the survivor's
+/// own last balance read (10:00 < 10:05 < the moved key's 10:10) is brought forward.
+#[test]
+fn r3_7_a_moved_keys_balance_time_is_read_again() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET key_type = 2, balances_synced_at = '2026-09-20 10:10:00' WHERE id = ?1", [two.keys[1]]).unwrap();
+    c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-20 10:00:00' WHERE id = ?1", [two.keys[0]]).unwrap();
+    two.row(c, 0, 4, "BTC", "0.5", Some("dep-s"), None, "2026-09-20 10:05:00");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let a = identity::AccountRow::of(c, &two.accounts[0]).unwrap().unwrap();
+    let moved = deltabadger::tracker::figures::pending(c, two.seeded.user_id, &deltabadger::tracker::Scope::Account(a)).unwrap();
+    assert_eq!(moved.into_iter().map(|(s, d)| (s, d.to_s_f())).collect::<Vec<_>>(), [("BTC".to_string(), "0.5".to_string())]);
+}
+
+/// 8: a venue read finished after its key moved to another account answers as for a missing account.
+#[test]
+fn r3_8_a_late_read_on_a_moved_key_is_account_not_found() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let version = deltabadger::engine::model::credential_version_by_id(c, two.keys[1]).unwrap().unwrap();
+    move_key_to_one(c, two.keys[1]);
+    use deltabadger::web::mcp::reads::{finish_read, Fetched};
+    let done = deltabadger::web::bot_api::Read { res: deltabadger::web::bot_api::Res { status: deltabadger::web::bot_api::Domain::Success, data: serde_json::json!({}), code: None, message: String::new() }, text: "orders".into(), is_error: false };
+    let read = finish_read(c, Fetched::Bound(Box::new(Fetched::Done(done)), vec![version])).unwrap();
+    assert!(read.is_error && read.text.contains("Account not found"), "{}", read.text);
+}
+
+/// 9: a duplicate key's later balance time does not make All's prices stale.
+#[test]
+fn r3_9_a_duplicate_keys_sync_time_makes_no_staleness() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    hold(c, &two, 0, "1", "100");
+    c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-20 10:30:00' WHERE id = ?1", [two.keys[1]]).unwrap();
+    assert!(!deltabadger::tracker::figures::page::cold(c, two.seeded.user_id, &deltabadger::tracker::Scope::All, true).unwrap().stale);
+}
+
+/// 10: a standing change that leaves nothing to sweep answers that the history changed, so the job wakes today's writer.
+#[tokio::test(flavor = "current_thread")]
+async fn r3_10_a_standing_change_with_nothing_to_sweep_wakes_todays_writer() {
+    let (dir, o) = install();
+    let two = Two::kraken(&o.primary, &seed::cipher());
+    let user = two.seeded.user_id;
+    two.row(&o.primary, 1, 4, "USD", "100", Some("dep-d"), None, "2026-01-10 10:00:00");
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let db = deltabadger::jobs::Db::new(o.primary, seed::cipher());
+    let clock = deltabadger::engine::FixedClock("2026-09-20T03:00:00Z".parse().unwrap());
+    let sweep = || deltabadger::tracker::jobs::backfill_run(&db, &NoVenue, None::<&deltabadger::jobs::market::Feed<deltabadger::venue::http::ScriptedTransport>>, None, user, &clock);
+    assert_eq!(sweep().await, Ok(true));
+    for n in 0..2 { common::two_accounts::confirm(&c, two.id(n), Some("fp")); }
+    assert_eq!(sweep().await, Ok(true), "the history changed: the job wakes the ledger walk that records today");
 }

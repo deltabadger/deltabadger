@@ -288,10 +288,12 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
         let all = super::rows::load_all(c, user_id)?;
         let first = all.iter().map(|r| r.date()).min();
         match first {
-            Some(first) if first <= last => { let plan = backfill::plan(c, user_id, &all, first, last)?; tx.commit()?; Ok(Some((version, first, plan))) }
+            Some(first) if first <= last => { let plan = backfill::plan(c, user_id, &all, first, last)?; tx.commit()?; Ok(Some(Some((version, first, plan)))) }
             _ => {
-                // #710 (PLAN-710-6 §5.2): a standing change that leaves nothing to sweep leaves no stored history behind it.
-                if backfill::standing_changed(c, cipher, user_id, &version)? {
+                // #710 (PLAN-710-6 §5.2): a standing change that leaves nothing to sweep leaves no stored history behind it, and
+                // answers that the history changed, so the job wakes the ledger walk that records today again.
+                let changed = backfill::standing_changed(c, cipher, user_id, &version)?;
+                if changed {
                     // Today's too: nothing counted is left to record it again, and no stale point may stay on All.
                     c.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1", [user_id])?;
                     c.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1", [user_id])?;
@@ -301,11 +303,11 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
                 // No history to sweep: nothing in it went unpriced.
                 super::unpriced::store(c, user_id, &super::unpriced::ByVenue::new(), now)?;
                 tx.commit()?;
-                Ok(None)
+                Ok(if changed { Some(None) } else { None })
             }
         }
     }).await?;
-    let Some((version, first, plan)) = begun else { return Ok(false) };
+    let (version, first, plan) = match begun { Some(Some(begun)) => begun, Some(None) => return Ok(true), None => return Ok(false) };
     // The price service `fetch_missing` builds.
     if !plan.instruments.is_empty() { fx::ensure_loaded(db, ecb, today).await; }
     let venue_retry = fetch_closes(db, venues, api, &plan, now).await?;

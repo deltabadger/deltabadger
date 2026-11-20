@@ -50,8 +50,6 @@ pub fn gap_key(user_id: i64) -> String { format!("rust_kucoin_hf_gap.{user_id}")
 
 /// A KuCoin fill-class row with neither this importer's provenance nor the API's: restored, or entered by the user.
 fn provenance_less() -> String { format!("entry_type IN ({BUY}, {SELL}, {FEE}, {ADJUSTMENT}) AND NOT ({API_ROW}) AND NOT ({DERIVED})") }
-/// `API_ROW` over ledger row `a`.
-pub(crate) fn api_row_of(a: &str) -> String { API_ROW.replace("raw_data", &format!("{a}.raw_data")) }
 
 pub type Span = (DateTime<Utc>, DateTime<Utc>);
 pub fn second(t: DateTime<Utc>) -> DateTime<Utc> { t.with_nanosecond(0).unwrap_or(t) }

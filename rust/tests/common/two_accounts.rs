@@ -21,6 +21,14 @@ pub struct Two {
     pub bots: [i64; 2],
 }
 
+/// Account `account`'s fingerprint, as its keys' identity reads confirm it: the account's and each of its keys'
+/// observation (a fixture writes any; `identity::establish` fills only an unknown one).
+pub fn confirm(c: &Connection, account: i64, fingerprint: Option<&str>) {
+    c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", params![account, fingerprint]).unwrap();
+    c.execute(&format!("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) SELECT k.id, k.exchange_id, ?2, 'now' FROM api_keys k WHERE {} = ?1 \
+                        ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint", deltabadger::identity::key_account_sql("k")), params![account, fingerprint]).unwrap();
+}
+
 impl Two {
     /// The seeded install's Kraken (seed::seed_kraken) with a second account.
     pub fn kraken(c: &Connection, cipher: &Cipher) -> Self {
@@ -87,9 +95,7 @@ impl Two {
     }
 
     /// Account `n`'s fingerprint (`identity::establish` fills only an unknown one; a fixture writes any).
-    pub fn fingerprint(&self, c: &Connection, n: usize, fingerprint: Option<&str>) {
-        c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", params![self.id(n), fingerprint]).unwrap();
-    }
+    pub fn fingerprint(&self, c: &Connection, n: usize, fingerprint: Option<&str>) { confirm(c, self.id(n), fingerprint) }
 
     /// A trade row of account `n` (`entry_type` 0-3) with venue id `id` and its facts: `base_amount` of BTC for 100 EUR at `at`.
     pub fn trade(&self, c: &Connection, n: usize, entry_type: i64, id: &str, base_amount: &str, at: &str) -> i64 {
