@@ -196,6 +196,10 @@ da:
             confirm_delete: 'Vil du fjerne denne CoinGecko API-nøgle?'
         market_data:
             none: 'Ingen'
+            intro: "Markedsdata i realtid driver indeks og prishistorikken til porteføljesporing. Brug en gratis CoinGecko-konto, eller Deltabadgers API for det samme med aktier, plus en fast IP-adresse til børsernes whitelist."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Også aktier og en fast IP-adresse til hvidlisten på børserne."
+            upgrade_button: "Opgrader"
             disabled: 'Synkronisering af markedsdata deaktiveret.'
             updated: 'Markedsdataindstillinger opdateret.'
             coingecko_configured: 'Forbundet til CoinGecko for live markedsdata.'

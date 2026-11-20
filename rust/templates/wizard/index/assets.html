@@ -49,16 +49,7 @@
 {%- else if admin %}
   <div class="index-view__providers">
     <p class="index-view__intro">{{ v.t("bot.setup.market_data.intro")|safe }}</p>
-    <section class="exchange-group">
-      <h3 class="label">{{ v.t("bot.setup.market_data.providers") }}</h3>
-      <div class="exchange-grid">
-{%- for (href, name, shown, mark) in providers %}
-        <div class="exchange-grid__option">
-          <a class="exchange-grid__item exchange-grid__item--provider" data-turbo-frame="modal_content" href="{{ href }}" aria-label="{{ name }}">{{ mark|safe }}{% if *shown %}<span>{{ name }}</span>{% endif %}</a>
-        </div>
-{%- endfor %}
-      </div>
-    </section>
+    {{ providers|safe }}
   </div>
 {%- else %}
   <p class="sheet__empty">{{ v.t("setup.coingecko_admin_only")|safe }}</p>

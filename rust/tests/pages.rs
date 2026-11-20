@@ -997,6 +997,32 @@ fn without_market_data_contents(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-LOCALE-SELECT-SHOWS-PAGE: the language select marks the page's language (a `/de` page reads Deutsch),
+/// where 2.x marked the saved one, so picking the saved language from a prefixed page was a no-op. Which option is selected
+/// is this build's own, pinned in tests/settings.rs; the options themselves are still compared. Applied to both sides;
+/// returns how many selects were read.
+fn without_locale_selection(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let mut taken = 0;
+    for i in 0..lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        if !(line.trim_start().starts_with("<select ") && attr(line, "id").as_deref() == Some("user_locale")) { continue; }
+        let end = subtree_end(lines, i);
+        for option in &mut lines[i + 1..end] {
+            if let Some(text) = option.as_str() { *option = json!(text.replace(" selected=\"selected\"", "")); }
+        }
+        taken += 1;
+    }
+    taken
+}
+
+#[test]
+fn only_which_language_is_selected_is_left_out() {
+    let mut page = json!(["  <select id=\"user_locale\" name=\"user[locale]\">", "    <option selected=\"selected\" value=\"en\">", "    </option>", "  </select>", "  <select id=\"user_time_zone\">", "    <option selected=\"selected\" value=\"UTC\">", "    </option>", "  </select>"]);
+    assert_eq!(without_locale_selection(&mut page), 1);
+    assert_eq!(page, json!(["  <select id=\"user_locale\" name=\"user[locale]\">", "    <option value=\"en\">", "    </option>", "  </select>", "  <select id=\"user_time_zone\">", "    <option selected=\"selected\" value=\"UTC\">", "    </option>", "  </select>"]));
+}
+
 #[test]
 fn only_the_market_data_frames_contents_are_left_out() {
     let mut page = json!(["    <div>", "      <turbo-frame id=\"market_data_settings\">", "        <form class=\"sswitch\">", "        </form>", "      </turbo-frame>", "      <div id=\"other\">", "      </div>", "    </div>"]);
@@ -2785,7 +2811,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers) = (0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers, mut locale_selects) = (0, 0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2812,9 +2838,10 @@ async fn replay_page_shard(shard: usize) {
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}/{scope}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
-        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); }
+        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); without_locale_selection(&mut answer["body"]); }
         for answer in rust["responses"].as_array_mut().unwrap() {
             market_data_frames += without_market_data_contents(&mut answer["body"]);
+            locale_selects += without_locale_selection(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
             small_tickers += without_small_tickers(&mut answer["body"]);
@@ -2827,6 +2854,7 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
                                              ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
+                                             ("settings_error_edge_blank_current_de", locale_selects, "D-LOCALE-SELECT-SHOWS-PAGE"),
                                              ("asset_search_kraken", small_tickers, "D-LIST-TICKER-SMALL")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }

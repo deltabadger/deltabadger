@@ -67,6 +67,9 @@ export default class extends Controller {
 
   #open() {
     this.element.show()
+    // With nothing inside asking for focus, the dialog's focusing steps land on its first button, the sheet's close X,
+    // which then draws its focus ring. The pane takes it instead, as Settings' autofocused pane does.
+    if (document.activeElement?.matches(".sheet__close")) this.element.querySelector(".sheet__pane")?.focus({ preventScroll: true })
     requestAnimationFrame(() => this.element.classList.add('dialog--open'))
     this.#dispatchModalOpenEvent(true)
   }
