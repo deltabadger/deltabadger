@@ -318,7 +318,7 @@ pub fn low_funds(c: &Connection, bot: &Bot) -> Result<bool, WebError> {
     let Some(key) = crate::sync::cache::reading_key(c, &account)? else { return Ok(false) };
     if crate::sync::cache::stale(c, account.user_id, &crate::tracker::Scope::Account(account))? { return Ok(false); }
     if crate::jobs::state::read(c, crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string())).map_err(super::data)?.incomplete_since.is_some() { return Ok(false); }
-    let free = c.query_row("SELECT free FROM exchange_account_balances WHERE account_id = ?1 AND asset_id = ?2", [account.id, quote.id],
+    let free = c.query_row("SELECT free FROM exchange_account_balances WHERE account_id = ?1 AND user_id = ?2 AND asset_id = ?3", [account.id, account.user_id, quote.id],
                            |r| Ok(crate::v2::from_sql(r.get_ref(0)?))).optional()?
         .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::v2::BigDec::zero);
     let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"),

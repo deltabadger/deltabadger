@@ -422,8 +422,12 @@ pub fn migrate(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> Resu
     if enabled(c, &key.scope)? { return Ok(false); }
     add(c, key, ENABLED, (second(now), second(now)), now)?;
     let catalogue = Catalogue::load(c, key.exchange_id)?;
-    let mut s = c.prepare("SELECT DISTINCT created_at FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY created_at")?;
-    let groups: Vec<String> = s.query_map(params![key.user_id, key.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    // #710 slice 5: imports land on the exchange's number 1 until they route by account (slice 7): an account 2+ takes none.
+    let groups: Vec<String> = if key.scope.member.is_some() { vec![] } else {
+        let mut s = c.prepare("SELECT DISTINCT created_at FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY created_at")?;
+        let groups = s.query_map(params![key.user_id, key.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        groups
+    };
     let mut seconds = BTreeSet::new();
     for group in groups {
         let mut s = c.prepare_cached("SELECT DISTINCT transacted_at FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 AND created_at = ?3")?;

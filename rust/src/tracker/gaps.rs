@@ -258,7 +258,7 @@ fn revision_of(c: &Connection, owner: i64, exchange: i64, account: Option<i64>) 
         // An install without numbered accounts (no table, or no `number`): the exchange's one, its stand-in.
         Err(e) if e.to_string().contains("no such") => {
             let a = AccountRow::unplaced(owner, exchange);
-            let (rows, newest) = c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1", [a.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            let (rows, newest) = c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1 AND user_id = ?2", [a.id, owner], |r| Ok((r.get(0)?, r.get(1)?)))?;
             Ok(Some((a, rows, newest)))
         }
         other => Ok(other?),
@@ -267,7 +267,7 @@ fn revision_of(c: &Connection, owner: i64, exchange: i64, account: Option<i64>) 
 
 /// The account's balance rows: a sync writes `updated_at` on every row it keeps and deletes the rest.
 fn revision(c: &Connection, account: &AccountRow) -> Result<(i64, Option<String>), FiguresError> {
-    Ok(c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1", [account.id], |r| Ok((r.get(0)?, r.get(1)?)))?)
+    Ok(c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1 AND user_id = ?2", [account.id, account.user_id], |r| Ok((r.get(0)?, r.get(1)?)))?)
 }
 
 fn encode(from: &Fingerprint, gaps: &[Gap]) -> Result<String, FiguresError> {

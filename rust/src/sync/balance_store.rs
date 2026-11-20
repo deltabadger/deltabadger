@@ -56,10 +56,11 @@ pub fn drop_fallback(c: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Every venue snapshot of `user` goes (a rewritten ledger invalidates them all; the sweep writes them again).
+/// Every venue snapshot of `user` goes (a rewritten ledger invalidates them all; the sweep writes them again): the store's
+/// and 2.x's own rows, so a takeover's refill (`refill_number_one`, run after the repairs) reads none of them back.
 pub fn forget_snapshots(c: &Connection, user: i64) -> rusqlite::Result<()> {
-    let table = if ready(c)? { SNAPSHOTS } else { V2_SNAPSHOTS };
-    c.execute(&format!("DELETE FROM {table} WHERE user_id = ?1"), [user]).map(drop)
+    if ready(c)? { c.execute(&format!("DELETE FROM main.{SNAPSHOTS} WHERE user_id = ?1"), [user])?; }
+    c.execute(&format!("DELETE FROM main.{V2_SNAPSHOTS} WHERE user_id = ?1"), [user]).map(drop)
 }
 
 /// The takeover after 2.x owned the install (handover's window): 2.x wrote only its own tables, so the number-1 rows of each

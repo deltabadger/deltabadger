@@ -79,7 +79,8 @@ impl Scope {
     pub fn account(&self) -> Option<&crate::identity::AccountRow> { match self { Self::Account(a) => Some(a), _ => None } }
     /// SQL condition: store row `alias` (exchange_account_balances, exchange_account_snapshots) is in the scope.
     pub fn store(&self, alias: &str) -> String {
-        match self { Self::All => "1".into(), Self::Account(a) => format!("{alias}.account_id = {}", a.id), Self::EmptyLegacyExchange(_) => "0".into() }
+        // A stand-in's id (minus the exchange id) is every user's on that exchange: the owner's own rows.
+        match self { Self::All => "1".into(), Self::Account(a) => format!("({alias}.account_id = {} AND {alias}.user_id = {})", a.id, a.user_id), Self::EmptyLegacyExchange(_) => "0".into() }
     }
     /// SQL condition: ledger row `alias` (account_transactions) is in the scope.
     pub fn rows(&self, alias: &str) -> String {

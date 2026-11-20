@@ -454,6 +454,8 @@ pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], n
 /// Every stored row of (user, exchange) at one UTC second, in no order (`derive` orders them). By the time index: an
 /// ORDER BY row_id made the planner walk the user's every row by the unique index instead, for each second.
 pub(crate) fn held_rows(c: &rusqlite::Connection, key: &Key, at: DateTime<Utc>) -> Result<Vec<SourceRow>, SyncError> {
+    // #710 slice 5: the stored rows are the exchange's number 1's (imports route by account from slice 7 on).
+    if key.scope.member.is_some() { return Ok(vec![]); }
     let mut s = c.prepare_cached("SELECT row_id, account_type, currency, side, amount, fee, remark, row_type FROM import_rows
                                   INDEXED BY index_import_rows_on_user_exchange_time WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at = ?3")?;
     let rows = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| {

@@ -62,7 +62,8 @@ pub fn stale(c: &Connection, user: i64, scope: &Scope) -> Result<bool, EngineErr
     for account in accounts(c, user, scope, true, true)? {
         let id = reading_key(c, &account)?;
         // An account whose key cannot read yet (an IBKR key pending activation) and that holds no balances has nothing stale.
-        if id.is_none() && !c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id=?1)", [account.id], |r| r.get::<_, bool>(0))? { continue; }
+        // The owner's own: a stand-in's id (minus the exchange id) is every user's on that exchange.
+        if id.is_none() && !c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id=?1 AND user_id=?2)", [account.id, user], |r| r.get::<_, bool>(0))? { continue; }
         let stamp = app_config::get_plain(c, &key(&account)).map_err(EngineError::Data)?
             .and_then(|s| serde_json::from_str::<Value>(&s).ok());
         let producer=stamp.as_ref().and_then(CredentialVersion::from_stamp);

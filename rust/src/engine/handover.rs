@@ -703,8 +703,9 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
-        // writes them back in as the number-1 rows (balance_store::refill_number_one).
-        (Table, "exchange_account_balances", Cache), (Table, "exchange_account_snapshots", Cache),
+        // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's
+        // tables have no place for it.
+        (Table, "exchange_account_balances", Refuses(SECOND_ACCOUNT_BALANCES)), (Table, "exchange_account_snapshots", Refuses(SECOND_ACCOUNT_BALANCES)),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
@@ -1108,6 +1109,8 @@ pub const SECOND_ACCOUNT_BOT: &str = "a bot of an exchange's second account is R
 pub const SECOND_ACCOUNT_STANDALONE: &str = "a standalone order of an exchange's second account is Rust-only";
 /// #710 slice 4: a ledger row of an account 2+ (exchange_account_rows holds nothing else): 2.x would read its id as NULL.
 pub const SECOND_ACCOUNT_HISTORY: &str = "history of a second account is Rust-only";
+/// #710 slice 5: a balance or a venue snapshot of an account 2+.
+pub const SECOND_ACCOUNT_BALANCES: &str = "balances of a second account are Rust-only";
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if super::rules::table_exists(c, "exchange_account_transactions")?
@@ -1118,7 +1121,8 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
         && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rows)", [], |r| r.get::<_, bool>(0))? {
         return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_HISTORY.into()]));
     }
-    for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE)] {
+    for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE),
+                          ("exchange_account_balances", SECOND_ACCOUNT_BALANCES), ("exchange_account_snapshots", SECOND_ACCOUNT_BALANCES)] {
         if super::rules::table_exists(c, table)?
             && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table} m JOIN exchange_accounts a ON a.id = m.account_id WHERE a.number <> 1)"), [], |r| r.get::<_, bool>(0))? {
             return Err(EngineError::Ineligible(vec![line.into()]));

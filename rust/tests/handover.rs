@@ -1563,7 +1563,7 @@ const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdr
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
     "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
     "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone",
-    "exchange_account_rows"];
+    "exchange_account_rows", "exchange_account_balances", "exchange_account_snapshots"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1692,6 +1692,19 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
             o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
                                VALUES (?1, ?2, 4, 'BTC', 1, ?3, '2026-09-01 10:00:00', '{}', '{}', 0, 'now', 'now')", rusqlite::params![s.user_id, s.exchange_id, scope.stored(Some("T2"))]).unwrap();
             deltabadger::venue_ids::after_insert(&o.primary, &scope, o.primary.last_insert_rowid(), Some("T2")).unwrap();
+        }
+        // #710 slice 5: a balance or a venue snapshot of an account 2+ (2.x's tables have no place for it).
+        "exchange_account_balances" | "exchange_account_snapshots" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = o.primary.last_insert_rowid();
+            if name == "exchange_account_balances" {
+                o.primary.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at, account_id) VALUES (?1, ?2, ?3, 's', 'c', 'u', ?4)",
+                                  rusqlite::params![s.user_id, s.exchange_id, s.btc, second]).unwrap();
+            } else {
+                o.primary.execute("INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, created_at, updated_at, account_id) VALUES (?1, ?2, '2026-09-01', 'c', 'u', ?3)",
+                                  rusqlite::params![s.user_id, s.exchange_id, second]).unwrap();
+            }
         }
         "rust_withdrawal_intents" => { o.primary.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
                                                           VALUES ('rule:1', 'dispatched', 'c', '2026-09-30 12:00:00', 1, 'd', 'h', 'a', 'k', 'p', 'f', '1', '1')", []).unwrap(); }

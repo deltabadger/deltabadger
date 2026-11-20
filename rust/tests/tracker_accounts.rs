@@ -362,3 +362,23 @@ async fn an_unmigrated_install_reads_its_balances_from_2xs_table() {
     let tables: i64 = Connection::open(&path).unwrap().query_row("SELECT count(*) FROM sqlite_master WHERE name LIKE 'exchange_account_%'", [], |r| r.get(0)).unwrap();
     assert_eq!(tables, 0, "nothing written to the file");
 }
+
+/// Codex r1 P2: a stand-in's id (minus the exchange id) is every user's on that exchange, so its reads keep the owner. On
+/// an unmigrated install user A holds Kraken balances; user B has only a pending Kraken key: B has nothing stale.
+#[test]
+fn a_stand_ins_balances_are_its_owners_only() {
+    let dir = common::v2_install_unmigrated();
+    let raw = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&raw, &seed::cipher());
+    raw.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, 2, 0, 100, 200, 'p', 's', 'c', 'u')", [s.user_id, s.exchange_id, s.btc]).unwrap();
+    raw.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('b@example.com', 'x', 'B', 0, 'now', 'now')", []).unwrap();
+    let b = raw.last_insert_rowid();
+    raw.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 0, 0, 'now', 'now')", [b, s.exchange_id]).unwrap();
+    drop(raw);
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let c = &o.primary;
+    assert!(!cache::stale(c, b, &Scope::All).unwrap(), "A's balances are not B's");
+    let b_scope = Scope::of_exchange(c, b, Some(s.exchange_id)).unwrap();
+    assert!(page::cold(c, b, &b_scope, true).unwrap().holdings.is_empty(), "B's scope holds none of A's balances");
+}

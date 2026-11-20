@@ -130,6 +130,8 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
     c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES(?1,'2026-09-20','2026-09-20','2026-09-20')",[s.user_id]).unwrap();
     common::number_one(c, s.user_id, s.exchange_id);
     c.execute("INSERT INTO exchange_account_snapshots(user_id,exchange_id,date,created_at,updated_at,account_id) VALUES(?1,?2,'2026-09-20','2026-09-20','2026-09-20',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",rusqlite::params![s.user_id,s.exchange_id]).unwrap();
+    // The same day as 2.x stored it, which a takeover's refill would read back (#710 slice 5, Codex r1 P2).
+    c.execute("INSERT INTO portfolio_venue_snapshots(user_id,exchange_id,date,created_at,updated_at) VALUES(?1,?2,'2026-09-20','2026-09-20','2026-09-20')",rusqlite::params![s.user_id,s.exchange_id]).unwrap();
     // A cancelled startup rolls back the amounts, derived invalidation and marker together.
     {
         let tx = c.unchecked_transaction().unwrap();
@@ -225,6 +227,9 @@ fn startup_repair_is_scoped_atomic_and_idempotent() {
             0
         );
     }
+    // A takeover refills the stores after the repair: a snapshot the repair removed stays gone.
+    deltabadger::sync::balance_store::refill_number_one(c).unwrap();
+    assert_eq!(c.query_row("SELECT count(*) FROM exchange_account_snapshots", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "not read back from 2.x's table");
 
     assert_eq!(
         c.query_row(

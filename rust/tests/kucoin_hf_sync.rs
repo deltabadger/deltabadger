@@ -1379,3 +1379,30 @@ async fn an_hf_sync_certifies_only_its_own_accounts_pairs() {
     assert!(fx.coverage("missing:DOGE-USDT").is_empty() && fx.coverage("missing:XRP-USDT").is_empty(), "another account's pairs open no episode here");
     assert_eq!(fx.coverage("hf_api").len(), 1, "the first account's unit is certified");
 }
+
+/// #710 slice 5 (Codex r1 P1): imports land on the exchange's number 1 until they route by account (slice 7). An account
+/// 2's first HF migration certifies none of number 1's export periods and rederives none of its imported seconds into
+/// account 2's ledger.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_2s_hf_migration_takes_no_number_1_import() {
+    let fx = Fx::new();
+    let now = t(NOW);
+    fx.import(&file(&[buy_legs("1", "100", "0.1", "2026-10-29 10:00:00")]));
+    let first = deltabadger::identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().ensure(&fx.c, now).unwrap();
+    fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [fx.user, fx.exchange]).unwrap();
+    let second = deltabadger::identity::Account::by_id(&fx.c, fx.c.last_insert_rowid()).unwrap().unwrap();
+    fx.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, 'now', 'now')",
+                 rusqlite::params![fx.user, fx.exchange, fx.cipher.encrypt("second"), fx.cipher.encrypt("secret"), fx.cipher.encrypt("phrase")]).unwrap();
+    let key2 = fx.c.last_insert_rowid();
+    second.add_key(&fx.c, key2).unwrap();
+    let key = deltabadger::sync::load_key_of(&fx.c, key2, &[KUCOIN]).unwrap();
+    let rows = |a: i64| fx.c.query_row(&format!("SELECT count(*) FROM account_transactions t WHERE {}", deltabadger::venue_ids::row_account("t") + &format!(" = {a}")), [], |r| r.get::<_, i64>(0)).unwrap();
+    let before = (rows(first.id.unwrap()), rows(second.id.unwrap()));
+    let tx = fx.c.unchecked_transaction().unwrap();
+    assert!(deltabadger::sync::kucoin_hf::migrate(&deltabadger::engine::model::fence_versions(&tx, &[]).unwrap(), &key, now).unwrap());
+    tx.commit().unwrap();
+    let exports: i64 = fx.c.query_row("SELECT count(*) FROM kucoin_coverage WHERE account_id = ?1 AND source = 'export'", [second.id.unwrap()], |r| r.get(0)).unwrap();
+    assert_eq!(exports, 0, "number 1's export certifies nothing of account 2's");
+    assert_eq!((rows(first.id.unwrap()), rows(second.id.unwrap())), before, "no imported trade lands in account 2's ledger");
+    assert!(before.0 > 0, "the import is number 1's");
+}
