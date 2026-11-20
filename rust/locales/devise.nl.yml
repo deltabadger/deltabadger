@@ -33,7 +33,6 @@ nl:
             new:
                 email_invalid: 'E-mail ongeldig!'
                 email_suggestion_html: 'E-mail ongeldig! Bedoelde je: <b>%{suggestion}</b>'
-                name_invalid: 'Het hoeft niet echt te zijn 👻'
                 submit: 'Registreren'
                 title: 'Maak een account'
             signed_up: 'Welkom! Je hebt je succesvol geregistreerd.'

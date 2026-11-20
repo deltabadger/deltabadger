@@ -41,7 +41,7 @@ pub enum Fetch {
     IbkrBalances{user:i64,exchange:i64,name:String,credentials:Material,account:String},
     /// `unread`: the exchanges asked about whose open orders this build does not read live (D-OPEN-ORDERS-UNREAD-NAMED).
     /// `ids`: the bot orders' (account, venue id) pairs; `venues`: one per account's trading key (exchange, account, name).
-    Orders{user:i64,local:Vec<String>,rows:Vec<Value>,ids:HashSet<(i64,String)>,venues:Vec<(i64,i64,String,Option<Material>)>,unread:Vec<String>},
+    Orders{user:i64,local:Vec<String>,rows:Vec<Value>,ids:HashSet<(i64,String)>,venues:Vec<(i64,i64,String,Option<Material>)>,unread:Vec<(crate::identity::Label,Option<i64>)>},
     /// `producer`: what the account's figures are made under (an Alpaca key or none, `loading::read_info`).
     Summary{user:i64,credentials:Option<Material>,producer:crate::figures::page_market::Producer,now:At},
 }
@@ -56,7 +56,7 @@ impl Fetch {
     }
 }
 type RawOrders = Vec<Box<serde_json::value::RawValue>>;
-pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::v2::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<(i64,String)>,Vec<(i64,i64,String,Result<RawOrders,String>)>,Vec<String>), Summary(i64,Cache,At,bool) }
+pub enum Fetched { Bound(Box<Fetched>,Vec<crate::engine::model::CredentialVersion>), Done(Read), Balances(i64,i64,String,crate::v2::BigDec,Vec<sync::balances::Position>), IbkrBalances(i64,i64,String,String), Orders(i64,Vec<String>,Vec<Value>,HashSet<(i64,String)>,Vec<(i64,i64,String,Result<RawOrders,String>)>,Vec<(crate::identity::Label,Option<i64>)>), Summary(i64,Cache,At,bool) }
 /// What a read asks for, as each surface names it: MCP by the tool's arguments, REST by its route's parameters.
 /// `account`: the posted `account_id` (#710, PLAN-710-6 §4.4), Null when none.
 pub enum Ask { Details(i64), Balances{name:String,id:Option<String>,account:Value}, Orders(Option<String>,Value), Summary }
@@ -84,7 +84,7 @@ fn credentials(c:&Connection,app:&App,account:&crate::identity::Account)->Result
 /// The posted account of a read naming `exchange`: Err its refusal (404, or 422 when one key must be chosen and 2+ live
 /// accounts are; `required` false: none posted reads every account, Ok(None)).
 fn read_account(c:&Connection,user:i64,exchange:i64,name:&str,posted:&Value,required:bool)->Result<Result<Option<crate::identity::Account>,Read>,WebError>{
-    if !crate::web::bot_api::present(posted) && !required {return Ok(Ok(None))}
+    if posted.is_null() && !required {return Ok(Ok(None))}
     Ok(match crate::web::bot_api::orders::picked(c,user,exchange,name,posted)? {
         Ok(account)=>Ok(Some(account)),
         Err(res)=>Err(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)),
@@ -127,7 +127,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
             };
             // #710 (§4.4): a live read is one account's key; with 2+ live accounts one must be named.
             let picked=match read_account(c,user,exchange,&name,&account,true)? {Ok(Some(a))=>a,Ok(None)=>return Err(error()),Err(read)=>return Ok(Planned::Done(read))};
-            let Some(credentials)=credentials(c,app,&picked)? else{return Ok(Planned::Done(failed(Domain::PermissionDenied,"api_key_missing",format!("No valid API key found for {name}. Please add an API key in Settings."))))};
+            let Some(credentials)=credentials(c,app,&picked)? else{return Ok(Planned::Done(failed(Domain::PermissionDenied,"api_key_missing",format!("No valid API key found for {}. Please add an API key in Settings.",crate::identity::label_or(c,picked.id,&name)?.plain()))))};
             if kind==crate::venue::ibkr::IBKR {
                 let key:i64=trading_key(c,&picked)?.ok_or_else(error)?;
                 let bound=crate::venue::ibkr_account::binding(c,key)?.and_then(|b|b.account_id(&app.cipher));
@@ -140,6 +140,16 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
         Ask::Orders(filter,account)=>{
             let filter=if let Some(name)=filter {
                 match exchange(c,&name)?{Some(ex)=>Some(ex),None=>return Ok(Planned::Done(failed(Domain::NotFound,"exchange_not_found",format!("Exchange '{name}' not found. Available: {}",super::tradeable(c)?.join(", ")))))}
+            }else if !account.is_null(){
+                // `account_id` alone reads that account's exchange; one not the user's live account is a 404.
+                let id=crate::web::bot_api::orders::account_id(&account);
+                let owned:Option<i64>=match id {Some(id) if crate::identity::ready(c)?=>c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id=?1 AND user_id=?2 AND removed_at IS NULL",[id,user],|r|r.get(0)).optional()?,_=>None};
+                let Some(owned)=owned else {let res=crate::web::bot_api::orders::account_not_found();return Ok(Planned::Done(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)))};
+                // An account of an exchange this build does not serve (Bitmart) is not found either, never "every account".
+                let Some(found)=c.query_row(&format!("{EXCHANGE} AND id=?1"),[owned],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?))).optional()? else {
+                    let res=crate::web::bot_api::orders::account_not_found();return Ok(Planned::Done(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)))
+                };
+                Some(found)
             }else{None};
             // #710 (§4.4): `account_id` beside `exchange_name` reads that account only.
             let picked=match &filter {Some((id,name,_))=>match read_account(c,user,*id,name,&account,false)? {Ok(a)=>a,Err(read)=>return Ok(Planned::Done(read))},None=>None};
@@ -154,14 +164,30 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 if picked.is_some_and(|p|p.id!=account.id) {continue}
                 exchanges.push((id,name,kind,account));
             }
+            // #710: an Alpaca account of an exchange with 2+ live accounts that has no correct key is named as unchecked, never
+            // silently left out beside a sibling that was read.
+            let mut seen:Vec<(i64,i64)>=vec![];
+            for (id,_,kind,_) in exchanges.iter() { if kind=="Exchanges::Alpaca" && !seen.iter().any(|(e,_)|e==id) { seen.push((*id,0)); } }
+            // The exchange asked about, even when none of its accounts has a correct key.
+            if let Some((id,_,kind))=&filter { if kind=="Exchanges::Alpaca" && !seen.iter().any(|(e,_)|e==id) { seen.push((*id,0)); } }
+            for (exchange_id,_) in seen {
+                let live=crate::identity::accounts_of(c,user,exchange_id)?;
+                if live.len()<2 {continue}
+                for (account_id,_) in live {
+                    if picked.is_some_and(|p|p.id!=Some(account_id)) || exchanges.iter().any(|(_,_,_,a)|a.id==Some(account_id)) {continue}
+                    let Some(account)=crate::identity::Account::by_id(c,account_id)? else {continue};
+                    let (name,kind)=match exchanges.iter().find(|(e,_,_,_)|*e==exchange_id) {Some((_,n,k,_))=>(n.clone(),k.clone()),None=>filter.as_ref().map(|(_,n,k)|(n.clone(),k.clone())).ok_or_else(error)?};
+                    exchanges.push((exchange_id,name,kind,account));
+                }
+            }
             // An exchange asked about with no correct key there is still named (as before: one entry).
             if let (Some((id,name,kind)),true)=(filter,exchanges.is_empty()) {exchanges.push((id,name,kind,picked.unwrap_or(crate::identity::Account::first(c,user,id)?)));}
             // Only Exchanges::Alpaca's open orders are read live; every other exchange asked about is named as unread
             // (D-OPEN-ORDERS-UNREAD-NAMED), where 2.x skips it (`respond_to?(:list_open_orders)`).
             let (mut venues,mut unread)=(vec![],vec![]);
             for (id,name,kind,account) in exchanges {
-                let label=crate::identity::label_or(c,account.id,&name)?.plain();
-                if kind=="Exchanges::Alpaca" {venues.push((id,account.id.unwrap_or(-id),label,credentials(c,app,&account)?));}else if !unread.contains(&label){unread.push(label);}
+                let label=crate::identity::label_or(c,account.id,&name)?;
+                if kind=="Exchanges::Alpaca" {venues.push((id,account.id.unwrap_or(-id),label.plain(),credentials(c,app,&account)?));}else if !unread.iter().any(|(l,_)|*l==label){unread.push((label,account.id));}
             }
             Ok(Planned::Fetch(Fetch::Orders{user,local,rows,ids,venues,unread}))
         },
@@ -302,7 +328,8 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
                 // The JSON's `exchange` stays the bare name; the account beside it while its number shows (§4.4).
                 let (bare,shown)=if account>0 {let l=crate::identity::label(c,account).map_err(|_|error())?;(l.name,l.number)} else {(name.clone(),None)};
                 match result{
-                    Err(why)=>{unavailable.push(format!("! {name}: could not be checked ({why}) — open orders there are not listed"));missing.push(json!({"exchange":name,"error":why}));}
+                    Err(why)=>{unavailable.push(format!("! {name}: could not be checked ({why}) — open orders there are not listed"));
+                        let mut entry=json!({"exchange":bare,"error":why});crate::identity::account_fields(&mut entry,Some(account),shown);missing.push(entry);}
                     Ok(listed)=>{
                         if !read_limits::count(listed.len(),read_limits::VENUE_ORDERS){return Ok(unported(read_limits::REFUSAL,false))}
                         for raw in listed{
@@ -327,8 +354,9 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
                     }}
                 }
             }
-            for name in unread{
-                unavailable.push(format!("! {name}: {UNREAD} — only your bots' orders there are listed"));missing.push(json!({"exchange":name,"error":UNREAD}));
+            for (label,account) in unread{
+                unavailable.push(format!("! {}: {UNREAD} — only your bots' orders there are listed",label.plain()));
+                let mut entry=json!({"exchange":label.name,"error":UNREAD});crate::identity::account_fields(&mut entry,account,label.number);missing.push(entry);
             }
             let text=if local.is_empty()&&unavailable.is_empty(){"No open orders found.".into()}else{
                 let header=if local.is_empty(){"No open orders found on the exchanges that answered.".into()}else{format!("Open orders ({}):",local.len())};

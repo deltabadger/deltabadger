@@ -33,7 +33,6 @@ el:
             new:
                 email_invalid: 'Μη έγκυρο email!'
                 email_suggestion_html: 'Μη έγκυρο email! Εννοούσες: <b>%{suggestion}</b>'
-                name_invalid: 'Δεν χρειάζεται να είναι αληθινό 👻'
                 submit: 'Εγγραφή'
                 title: 'Νέος λογαριασμός'
             signed_up: 'Καλωσήρθες! Η εγγραφή σου ολοκληρώθηκε.'

@@ -33,7 +33,6 @@ sv:
             new:
                 email_invalid: 'Ogiltig e-post!'
                 email_suggestion_html: 'Ogiltig e-post! Menade du: <b>%{suggestion}</b>'
-                name_invalid: 'Det behöver inte vara ditt riktiga namn 👻'
                 submit: 'Skapa konto'
                 title: 'Nytt konto'
             signed_up: 'Välkommen! Ditt konto har skapats.'

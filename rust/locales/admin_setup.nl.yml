@@ -12,7 +12,6 @@ nl:
       title: "De installatie is vergrendeld"
       text: "Open deze server via het dashboard van de dienst die hem host om het beheerdersaccount aan te maken."
     validations:
-      name_required: "Naam is verplicht"
       email_required: "E-mail is verplicht"
       password_required: "Wachtwoord is verplicht"
     api_configuration: "De bot gebruikt marktdata van CoinGecko. De toegang tot de CoinGecko API is gratis, maar je moet je aanmelden en een API-sleutel maken. Kijk voor instructies hieronder."

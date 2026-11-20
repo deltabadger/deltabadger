@@ -346,11 +346,6 @@ async fn every_settings_write_rejects_missing_csrf_and_preserves_all_rows() {
     let mut writes = vec![
         (
             "PATCH",
-            "/settings/update_name",
-            vec![("user[name]", "Changed")],
-        ),
-        (
-            "PATCH",
             "/settings/update_email",
             vec![
                 ("user[email]", "changed@example.com"),
@@ -705,7 +700,7 @@ async fn tax_guard_rolls_back_unsupported_protection_and_wakes_only_after_commit
     assert_eq!(jurisdiction, "GB");
 }
 #[tokio::test(flavor = "current_thread")]
-async fn account_writes_validate_current_password_name_and_preference_values() {
+async fn account_writes_validate_current_password_and_preference_values() {
     let server = MockServer::start().await;
     let mut h = Harness::new(server.uri()).await;
     for (path, form) in [
@@ -724,7 +719,6 @@ async fn account_writes_validate_current_password_name_and_preference_values() {
                 ("user[current_password]", "wrong"),
             ],
         ),
-        ("/settings/update_name", vec![("user[name]", "123")]),
         (
             "/settings/update_time_zone",
             vec![("user[time_zone]", "invalid")],
@@ -840,7 +834,7 @@ async fn connected_client_grants_intersect_owner_permissions_and_revoke_preserve
     let mut h = Harness::new(server.uri()).await;
     h.c.execute("INSERT INTO oauth_applications(name,uid,secret,redirect_uri,scopes,confidential,created_at,updated_at)VALUES('Shared','settings-client','','http://localhost/callback','mcp api',0,'2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
     let id = h.c.last_insert_rowid();
-    h.c.execute("INSERT INTO users(email,encrypted_password,name,created_at,updated_at)VALUES('other@example.com','x','Other','2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
     let other = h.c.last_insert_rowid();
     for user in [h.seed.user_id, other] {
         h.c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,refresh_token,scopes,expires_in,created_at)VALUES(?1,?2,?3,?4,'mcp',1,'2026-01-01 00:00:00')",(id,user,format!("token-{user}"),format!("refresh-{user}"))).unwrap();
@@ -1408,7 +1402,7 @@ async fn unchanged_credentials_before_intent_place_exactly_as_before() { tick_wi
 async fn taken_email_request_must_not_rebind_a_token_sent_to_the_previous_address() {
     let server=MockServer::start().await;
     let mut h=Harness::new(server.uri()).await;
-    h.c.execute("INSERT INTO users(email,encrypted_password,name,confirmed_at,setup_completed,wash_sale_enabled,created_at,updated_at) SELECT 'taken@example.com',encrypted_password,'Other',confirmed_at,1,0,created_at,updated_at FROM users WHERE id=?1",[h.seed.user_id]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,setup_completed,wash_sale_enabled,created_at,updated_at) SELECT 'taken@example.com',encrypted_password,confirmed_at,1,0,created_at,updated_at FROM users WHERE id=?1",[h.seed.user_id]).unwrap();
     let other=h.c.last_insert_rowid();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]","next@example.com"),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let first:String=h.c.query_row("SELECT confirmation_token FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();
@@ -2351,10 +2345,13 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     let answer=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
     assert_eq!(answer.status,200);
     // D-BROKERS-AS-VENUES: Connect holds the admin's market data and nothing broker-only.
-    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","sheet__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
+    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    // D-MARKET-DATA-NO-SWITCH: no switch; the configured provider is the one picked.
-    assert!(!market.contains("switch-settings-update_market_data"),"no market data switch");assert!(market.contains("aria-checked=\"true\" tabindex=\"0\" data-value=\"coingecko\""),"CoinGecko is picked");assert!(market.contains("/settings/disconnect_market_data"));
+    // D-MARKET-DATA-PICK: a connected provider is its row (the heading on the pane's top edge), no tiles to pick from.
+    assert!(market.contains("sheet__heading--first")&&market.contains("Connected to CoinGecko")&&market.contains("/settings/disconnect_market_data"),"{market}");
+    assert!(!market.contains("exchange-grid")&&!market.contains("switch-settings-update_market_data"),"no picker, no switch: {market}");
+    // On CoinGecko the Deltabadger Data API stays on offer, its card one click away.
+    assert!(market.contains("Deltabadger Data API")&&market.contains("data-turbo-frame=\"settings_pane\" href=\"/settings/connect?provider=deltabadger\""),"the upgrade row: {market}");
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -2384,31 +2381,48 @@ async fn a_market_data_save_asks_for_the_setup_run_and_a_failed_key_check_writes
     assert_eq!((requested(&h).as_deref(),woken(&h)),(Some("2"),2));
 }
 
-/// D-MARKET-DATA-NO-SWITCH: Connect has no market data switch. With no provider the picker stands on the one to connect and
-/// shows its card: CoinGecko's key form, or for a claimed platform one Connect button that makes it the provider.
+/// D-LOCALE-SELECT-SHOWS-PAGE: the language select shows the page's language, not the saved one. On a `/pl` page with English
+/// saved, it reads Polski, so picking English is a change (2.x showed English there, and picking it again sent nothing).
 #[tokio::test(flavor="current_thread")]
-async fn market_data_has_no_switch_and_an_unconnected_install_shows_what_to_connect(){
+async fn language_select_shows_the_page_language(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    h.c.execute("UPDATE users SET locale='en'",[]).unwrap();
+    let selected=|body:&str|body.split("id=\"user_locale\"").nth(1).unwrap().split("</select>").next().unwrap()
+        .split("<option selected=\"selected\" value=\"").nth(1).unwrap().split('"').next().unwrap().to_string();
+    assert_eq!(selected(&h.browser.send(&h.app,"GET","/pl/settings/account",None,Csrf::None,&[]).await.body),"pl");
+    assert_eq!(selected(&h.browser.send(&h.app,"GET","/settings/account",None,Csrf::None,&[]).await.body),"en");
+}
+
+/// D-MARKET-DATA-PICK: Connect picks market data as the index wizard does. With no provider, the providers' tiles; a tile
+/// opens its card (Back to the tiles): CoinGecko's key form, or for a claimed platform one Connect button that makes it the
+/// provider. No `wizard=1` on Settings' forms, so a save answers with the widget, not the wizard.
+#[tokio::test(flavor="current_thread")]
+async fn market_data_is_picked_from_tiles_then_connected_on_its_card(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let market=|body:&str|body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap().to_string();
-    let picked=|market:&str,provider:&str|market.contains(&format!("aria-checked=\"true\" tabindex=\"0\" data-value=\"{provider}\""));
+    let tile=|provider:&str|format!("data-turbo-frame=\"settings_pane\" href=\"/settings/connect?provider={provider}\"");
     deltabadger::app_config::delete(&h.c,"market_data_provider").unwrap();
     let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
-    assert!(!page.contains("sswitch"),"no switch: {page}");
-    assert!(picked(&page,"coingecko"),"CoinGecko is picked: {page}");
-    assert!(page.contains("data-form--market-data-target=\"coingeckoFields\" >")&&page.contains("name=\"coingecko_api_key\""),"its key form shows: {page}");
-    // A claimed platform that is not the provider (CoinGecko was disconnected): it is picked, with one Connect button.
+    assert!(page.contains("sheet__heading--first")&&page.contains(&tile("coingecko"))&&page.contains(&tile("deltabadger")),"the tiles: {page}");
+    assert!(!page.contains("name=\"coingecko_api_key\"")&&!page.contains("name=\"claim_code\""),"no form before a tile: {page}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=coingecko",None,Csrf::None,&[]).await.body);
+    assert!(card.contains("name=\"coingecko_api_key\"")&&card.contains("href=\"/settings/connect\" data-turbo-frame=\"settings_pane\""),"CoinGecko's card, Back to the tiles: {card}");
+    assert!(!card.contains("name=\"wizard\""),"{card}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=deltabadger",None,Csrf::None,&[]).await.body);
+    assert!(card.contains("name=\"claim_code\"")&&card.contains("action=\"/settings/platform_connection\""),"an unclaimed platform's card takes a code: {card}");
+    // A claimed platform that is not the provider (CoinGecko was disconnected): still the tiles, and its card is one Connect button.
     for (key,value) in [("platform_connected_at","2026-01-01 00:00:00"),("market_data_url","http://data-api.invalid"),("market_data_token","platform-token")]{
         deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
     }
     let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
-    assert!(picked(&page,"deltabadger")&&!page.contains("name=\"claim_code\""),"the platform is picked, no claim form: {page}");
-    let buttons=page.split("data-form--market-data-target=\"deltabadgerButtons\" >").nth(1).expect("its card shows");
-    assert!(buttons.contains("<input value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />"),"{buttons}");
+    assert!(page.contains(&tile("deltabadger"))&&page.contains("/settings/platform_connection"),"the tiles and the claim's row: {page}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=deltabadger",None,Csrf::None,&[]).await.body);
+    assert!(!card.contains("name=\"claim_code\"")&&card.contains("<input type=\"hidden\" name=\"market_data_provider\" value=\"deltabadger\" />"),"{card}");
     let saved=h.submit("PATCH","/settings/update_market_data",&[("market_data_provider","deltabadger")],Csrf::Header).await;
     assert_eq!(saved.status,200);
     assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"market_data_provider").unwrap().as_deref(),Some("deltabadger"));
     let page=market(&saved.body);
-    assert!(picked(&page,"deltabadger")&&!page.contains("value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n"),"connected: no button left: {page}");
+    assert!(!page.contains("exchange-grid")&&page.contains("/settings/platform_connection"),"connected: the claim's row, no tiles: {page}");
 }
 
 /// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. 2.x gates stocks
@@ -2425,7 +2439,7 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
     let phrases:Vec<String>=["bot.setup.stocks_ask_admin","bot.setup.stocks_activate_cta"].iter().map(|key|deltabadger::web::i18n::text("en",key,&[])).collect();
     let modal=[("Turbo-Frame","modal")];
     // Another admin, so a member's install is not one without an admin (which sends everyone to setup).
-    h.c.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 'Admin', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
     for admin in [false,true]{
         h.c.execute("UPDATE users SET admin=?1 WHERE id=?2",(admin,h.seed.user_id)).unwrap();
         let bots=h.browser.send(&h.app,"GET","/bots",None,Csrf::None,&[]).await;
@@ -2443,7 +2457,7 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
         assert_eq!(account.body.contains("/settings/connect\""),admin,"admin {admin}: Connect is the admin's section only");
         let connect=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
         assert_eq!(connect.status,200);
-        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings","sheet__heading--first"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
+        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
         assert_eq!(connect.body.contains("market_data_settings"),admin,"admin {admin}: Connect holds the admin's market data");
         let root=h.browser.send(&h.app,"GET","/settings",None,Csrf::None,&[]).await;
         assert_eq!(root.header("location"),Some(if admin{"/settings/connect"}else{"/settings/account"}),"admin {admin}: /settings opens a section the reader has");
@@ -3134,15 +3148,13 @@ async fn i_engine_diagnostics_redact_all_stored_material_in_every_encoding(){
 
 
 #[tokio::test(flavor="current_thread")]
-async fn r1_v2_name_whitespace_is_ascii() {
+async fn the_name_write_is_unrouted_and_writes_nothing() {
+    // D-NO-USER-NAME: PATCH /settings/update_name answers as any unknown settings route.
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
-    for name in ["Alice\u{a0}Smith","Alice\u{2003}Smith"] {
-        let before=h.snapshot();
-        let answer=h.submit("PATCH","/settings/update_name",&[("user[name]",name)],Csrf::Header).await;
-        assert_eq!(answer.status,422,"R1 2.x rejects this Unicode separator");
-        assert_eq!(h.snapshot(),before,"R1 rejected names leave every row unchanged");
-    }
-    assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,200);
+    let unknown=h.submit("PATCH","/settings/update_no_such_thing",&[("user[name]","Alice Smith")],Csrf::Header).await.status;
+    let before=h.snapshot();
+    assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,unknown);
+    assert_eq!(h.snapshot(),before);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -3324,7 +3336,7 @@ async fn r2_confirmation_normalizes_and_validates_pending_email(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let other=h.app.cipher.encrypt("not-used");drop(other);
     let hash=deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
-    h.c.execute("INSERT INTO users(name,email,encrypted_password,confirmed_at,created_at,updated_at,time_zone,display_currency)VALUES('Other','taken@example.com',?1,'2026-01-01','2026-01-01','2026-01-01','UTC','USD')",[hash]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at,time_zone,display_currency)VALUES('taken@example.com',?1,'2026-01-01','2026-01-01','2026-01-01','UTC','USD')",[hash]).unwrap();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]"," TAKEN@example.com "),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let pending:String=h.c.query_row("SELECT unconfirmed_email FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();assert_eq!(pending," TAKEN@example.com ");
     h.browser.get(&h.app,"/settings/account").await;
@@ -3529,7 +3541,6 @@ async fn r3_json_api_replacement_wakes_ledger_after_commit(){r3_replacement_wake
 async fn r3_html_settings_refuse_json_bodies_without_writes(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     for (path,body) in [
-        ("/settings/update_name",serde_json::json!({"user":{"name":"New Owner"}})),
         ("/settings/update_email",serde_json::json!({"user":{"email":"new@example.com","current_password":"Correct-horse-9"}})),
         ("/settings/update_password",serde_json::json!({"user":{"password":"New-horse-8","current_password":"Correct-horse-9"}})),
         ("/settings/update_time_zone",serde_json::json!({"user":{"time_zone":"UTC"}})),
@@ -3547,7 +3558,7 @@ async fn r3_html_settings_refuse_json_bodies_without_writes(){
         let before=h.snapshot();let response=h.browser.send_body(&h.app,"DELETE",path,Some("{}".into()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
         assert_eq!(response.status,400,"R3 HTML settings are form-only: {path}");assert_eq!(h.snapshot(),before);
     }
-    let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_name",Some(serde_json::json!({"user":{"name":"New Owner"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
+    let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_locale",Some(serde_json::json!({"user":{"locale":"de"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
     assert_eq!(response.status,400);assert_eq!(h.snapshot(),before);
     assert!(h.mail.0.lock().unwrap().is_empty());assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -4078,7 +4089,7 @@ async fn d5b_the_session_exchange_never_reaches_another_users_key(){
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
-    h.c.execute("INSERT INTO users(name,email,encrypted_password,created_at,updated_at)VALUES('Other','other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
     let other=h.c.last_insert_rowid();
     for kind in [0,2]{h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,1,?2,?3,?4,?5,1,'2026-01-01','2026-01-01')",(other,kind,h.app.cipher.encrypt("other-key"),h.app.cipher.encrypt("other-secret"),h.app.cipher.encrypt("paper"))).unwrap();}
     let theirs=|c:&rusqlite::Connection|c.prepare("SELECT * FROM api_keys WHERE user_id=?1 ORDER BY id").unwrap().query_map([other],|r|Ok((0..r.as_ref().column_count()).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
@@ -4484,4 +4495,41 @@ async fn the_tracker_connect_steps_are_the_sheet(){
     assert_eq!(refused.status,422,"{}",refused.body);
     assert!(refused.body.starts_with("<turbo-stream action=\"update\" target=\"modal_content\">"),"{}",refused.body);
     assert!(refused.body.contains("class=\"sform__error\"")&&refused.body.contains("sheet__track")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
+}
+
+/// #878 (D-ALERT-SETTINGS-ROW): the three bot alert email switches, on by default; each PATCH switches one alert of the
+/// signed-in user and answers with its row; anything malformed is a 400 that changes nothing; no CSRF token, no change.
+#[tokio::test(flavor = "current_thread")]
+async fn email_alert_switches_store_one_alert_per_user_and_refuse_anything_else() {
+    let server = MockServer::start().await;
+    let mut h = Harness::new(server.uri()).await;
+    let rows = |h: &Harness| -> Vec<(i64, String)> {
+        h.c.prepare("SELECT user_id, alert FROM rust_email_alert_opt_outs ORDER BY user_id, alert").unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+    };
+    let me = h.seed.user_id;
+    // Another user's switch is theirs alone.
+    h.c.execute("INSERT INTO rust_email_alert_opt_outs (user_id, alert) VALUES (?1, 'low_funds')", [me + 100]).unwrap();
+    let page = h.browser.send(&h.app, "GET", "/settings/account", None, Csrf::None, &[]).await;
+    for alert in ["low_funds", "bot_errors", "bot_stopped"] {
+        let frame = page.body.split(&format!("id=\"email_alert_{alert}\"")).nth(1).unwrap_or_else(|| panic!("{alert}: {}", page.body));
+        let frame = frame.split("</turbo-frame>").next().unwrap();
+        assert!(frame.contains("value=\"0\" type=\"hidden\" name=\"enabled\"") && frame.contains("checked "), "{alert} is on by default: {frame}");
+    }
+    for _ in 0..2 {
+        // A user id in the form is not read: the switch is the signed-in user's.
+        let off = h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "0"), ("user_id", "999")], Csrf::Header).await;
+        assert_eq!(off.status, 200, "{}", off.body);
+        assert!(off.body.contains("<turbo-stream action=\"replace\" target=\"email_alert_low_funds\">") && off.body.contains("value=\"1\" type=\"hidden\" name=\"enabled\""), "{}", off.body);
+    }
+    assert_eq!(rows(&h), [(me, "low_funds".to_string()), (me + 100, "low_funds".to_string())]);
+    for form in [vec![("alert", "low_funds")], vec![("alert", "low_funds"), ("enabled", "yes")], vec![("alert", "everything"), ("enabled", "1")], vec![("enabled", "1")]] {
+        assert_eq!(h.submit("PATCH", "/settings/update_email_alerts", &form, Csrf::Header).await.status, 400, "{form:?}");
+    }
+    assert_ne!(h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "1")], Csrf::None).await.status, 200);
+    assert_eq!(rows(&h).len(), 2, "nothing changed");
+    for _ in 0..2 {
+        assert_eq!(h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "1")], Csrf::Header).await.status, 200);
+    }
+    assert_eq!(rows(&h), [(me + 100, "low_funds".to_string())]);
 }

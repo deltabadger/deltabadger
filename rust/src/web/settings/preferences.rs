@@ -20,11 +20,12 @@ use axum::{
 use rusqlite::{Connection, Transaction, TransactionBehavior};
 
 /// The PATCH actions this module answers.
-pub const ACTIONS: [&str; 6] = [
+pub const ACTIONS: [&str; 7] = [
     "update_display_currency",
     "update_hide_balances",
     "update_show_cash",
     "update_advanced_bots",
+    "update_email_alerts",
     "update_registration",
     "update_email_notifications",
 ];
@@ -79,6 +80,7 @@ pub async fn write(app: App, ctx: Ctx, headers: HeaderMap) -> Result<Response, W
         "update_hide_balances" => hide_balances(app, ctx, headers, user).await,
         "update_show_cash" => show_cash(app, ctx, headers, user).await,
         "update_advanced_bots" => advanced_bots(app, ctx, user).await,
+        "update_email_alerts" => email_alerts(app, ctx, user).await,
         "update_registration" => registration(app, ctx).await,
         _ => email_notifications(app, ctx).await,
     }
@@ -187,6 +189,23 @@ async fn advanced_bots(app: App, ctx: Ctx, user: User) -> Result<Response, WebEr
         })
         .await?;
     Ok(stream(turbo::stream("replace", "advanced_bots", widget.trim_end())))
+}
+
+/// #878: one bot alert email switched on (its opt-out row deleted) or off (written). Anything but a known alert and
+/// `enabled` 0 or 1 is a 400 that changes nothing.
+async fn email_alerts(app: App, ctx: Ctx, user: User) -> Result<Response, WebError> {
+    let alert = ctx.params.form("alert").and_then(|a| crate::engine::notice::ALERTS.into_iter().find(|known| *known == a));
+    let on = match ctx.params.form("enabled") { Some("1") => true, Some("0") => false, _ => return Ok(StatusCode::BAD_REQUEST.into_response()) };
+    let Some(alert) = alert else { return Ok(StatusCode::BAD_REQUEST.into_response()) };
+    let (v, csrf) = (ctx.clone(), ctx.csrf_token());
+    let widget = app
+        .db(move |c| {
+            let sql = if on { "DELETE FROM rust_email_alert_opt_outs WHERE user_id = ?1 AND alert = ?2" } else { "INSERT OR IGNORE INTO rust_email_alert_opt_outs (user_id, alert) VALUES (?1, ?2)" };
+            c.execute(sql, rusqlite::params![user.id, alert])?;
+            Ok(super::sections::email_alert(&v, &csrf, alert, on))
+        })
+        .await?;
+    Ok(stream(turbo::stream("replace", &format!("email_alert_{alert}"), widget.trim_end())))
 }
 
 /// A widget replaced in its frame, and the flash prepended (`flash.now`, when there is a notice).

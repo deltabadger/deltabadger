@@ -445,8 +445,10 @@ pub(crate) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko
     let market_note=hosted_note("settings.market_data.deltabadger_configured");
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
-    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors};
-    Ok(match wizard { Some(provider) => super::sections::market_data_card(v,csrf,provider,&m), None => super::sections::market_data(v,csrf,&m) })
+    // D-MARKET-DATA-PICK: Settings' card: a claim refused or a CoinGecko switch with no key needs its form again; else the tile picked.
+    let card=if platform_errors.is_some(){Some("deltabadger")}else if show_coingecko_form{Some("coingecko")}else{v.params.query("provider").filter(|p|matches!(*p,"coingecko"|"deltabadger"))};
+    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors,card};
+    Ok(match wizard { Some(provider) => super::sections::market_data_card(v,csrf,provider,&m,true), None => super::sections::market_data(v,csrf,&m) })
 }
 /// GET /settings/api_keys: the exchange keys.
 pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
@@ -616,7 +618,10 @@ pub async fn legacy(
     let secret = parameter("secret").map(|s| s.replace("\\n", "\n"));
     let passphrase = parameter("passphrase");
     // #710 (PLAN-710-6 §4.1): the account the save names; none with one live account is the exchange's.
+    // Only an omitted or null account_id is the exchange's account; one that is no id (`[]`) names none.
+    let raw_account = ctx.params.json.as_ref().and_then(|j| j.get("api_key")).and_then(|root| root.get("account_id")).is_some_and(|v| !v.is_null());
     let posted_account = match parameter("account_id") {
+        None if raw_account => return Ok(layout::missing()),
         None => None,
         Some(text) => match text.trim().parse::<i64>() { Ok(id) => Some(id), Err(_) => return Ok(layout::missing()) },
     };

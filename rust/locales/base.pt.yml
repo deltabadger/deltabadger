@@ -74,10 +74,8 @@ pt:
                 enter_two_fa_code: 'Insira o código 2FA'
                 scan_code_info: 'Digitalize o código QR ou copie o código abaixo:'
             user:
-                name: Nome
                 current_password: 'Senha atual'
                 email: E-mail
-                new_name: 'Novo nome'
                 new_email: 'Novo e-mail'
                 new_password: 'Nova palavra-passe'
                 new_password_confirmation: 'Confirmar nova palavra-passe'
@@ -154,6 +152,11 @@ pt:
             check_now: 'Procurar atualizações'
             checking: 'A procurar…'
             check_failed: 'Não foi possível procurar atualizações.'
+        email_alerts:
+            title: 'Alertas dos bots por e-mail'
+            low_funds: 'Fundos baixos'
+            bot_errors: 'Erros do bot'
+            bot_stopped: 'Bot parado'
         advanced_bots:
             title: Bots avançados
             toggle_label: Mostrar bots avançados
@@ -164,8 +167,6 @@ pt:
             current_time_is: 'Este fuso horário será usado nos logs do bot. Segundo ele, a hora actual é'
             currency_updated: "A sua moeda de exibição foi atualizada."
             currency_is_used_for: "Os lucros e os totais da carteira são mostrados nesta moeda. Os bots continuam a negociar no seu próprio ativo de cotação."
-        name:
-            updated: 'Seu nome foi atualizado.'
         two_fa:
             disabled: 'A autenticação de dois fatores foi desativada.'
             enabled: 'A autenticação de dois fatores foi ativada.'
@@ -177,7 +178,6 @@ pt:
             trading_keys_section: 'Chaves de trading'
             withdrawal_keys_section: 'Chaves de retirada'
             email_section: E-mail
-            name_section: 'Primeiro nome'
             password_section: Palavra-passe
             title: Definições
             two_factor_section: 'Autenticação do Segundo Fator'
@@ -195,6 +195,10 @@ pt:
             confirm_delete: 'Pretende remover esta chave de API do CoinGecko?'
         market_data:
             none: 'Nenhum'
+            intro: "Os dados de mercado em tempo real alimentam os índices e o histórico de preços do acompanhamento da carteira. Use uma conta gratuita da CoinGecko, ou a API da Deltabadger para ter o mesmo com ações, além de um IP fixo para a lista branca das corretoras."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Ações também, e um IP fixo para a lista de permissões das corretoras."
+            upgrade_button: "Atualizar"
             disabled: 'Sincronização de dados de mercado desativada.'
             updated: 'Configurações de dados de mercado atualizadas.'
             coingecko_configured: 'Conectado ao CoinGecko para dados de mercado em tempo real.'

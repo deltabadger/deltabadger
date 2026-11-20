@@ -1,12 +1,12 @@
 /**
  * "Start investing" empty-state animation — procedural pixel art.
  *
- * A little astronaut hero walks in from the right (facing left) carrying a spinning coin, tosses it into the ground,
- * cheers, and walks off. Every coin sprouts a procedurally generated plant
+ * A little astronaut hero walks back and forth across the ground carrying a spinning coin, tosses it into the ground,
+ * cheers, and walks on to the edge, where he turns back with a new coin (Deltabadger: he never leaves the scene).
+ * Every coin sprouts a procedurally generated plant
  * (random curve, leaf layout, growth speed, sway) that grows forever and
- * eventually leaves the top of the frame. The hero keeps coming back, first
- * filling spots right-to-left, then planting in the gaps, so the garden
- * slowly turns into a forest.
+ * eventually leaves the top of the frame. The hero plants the free spots nearest
+ * the middle, then further out to the sides, so the garden slowly turns into a forest.
  *
  * Usage:
  *   const anim = createInvestAnimation(canvasEl, { scale: 4 });
@@ -27,10 +27,13 @@ const PALETTES = {
 const STOCK_HUES = [45, 140, 355, 268, 188, 24, 325, 215];
 
 export function createInvestAnimation(canvas, opts = {}) {
-  const W = 160, H = 64, GROUND = H - 1;
+  // Deltabadger: the frame is 64 rows tall in the layout, but the canvas reaches up to the window's top edge, so the
+  // plants grow on above it (`fit`): H and GROUND follow.
+  const W = 160, ROWS = 64;
+  let H = ROWS, GROUND = H - 1;
   const SPEED = 24;       // hero walk speed, logical px / s
   const GROWTH = opts.growth || 0.12;   // average stem growth, logical px / s
-  const TRIP_GAP = opts.tripGap || [6, 11]; // seconds between planting trips
+  const EDGE = [2, W - 10];             // Deltabadger: the hero turns back here, still in the frame
   const SPACING = [20, 12, 7, 4];       // gap-filling passes, wide -> dense
   const DIE_CHANCE = opts.dieChance ?? 0.2; // share of plants that wilt and vanish
   const WILT = 1.6, SHRINK = 1.4;       // seconds: turn brown, then sink away
@@ -75,15 +78,32 @@ export function createInvestAnimation(canvas, opts = {}) {
 
   // ---------- canvas ----------
   const scale = opts.scale || 4;
-  let ctx;
+  let ctx, el;
   // Deltabadger: the scene can move to another canvas (the bots page drawn again) and go on where it was.
   function setup(canvas) {
-    canvas.width = W; canvas.height = H;
+    el = canvas; H = 0;
     canvas.style.width = W * scale + 'px';
-    canvas.style.height = H * scale + 'px';
     canvas.style.imageRendering = 'pixelated';
-    ctx = canvas.getContext('2d');
+    size(ROWS, scale);
+    fit();
+  }
+  function size(rows, s) {
+    H = rows; GROUND = H - 1;
+    el.width = W; el.height = H;
+    el.style.height = H * scale + 'px';
+    el.style.marginTop = -(H - ROWS) * s + 'px';
+    ctx = el.getContext('2d');
     ctx.imageSmoothingEnabled = false;
+  }
+  // Deltabadger: as many rows as reach from the ground line up to the window's top edge, at the scale the canvas is drawn
+  // (a narrow page shrinks it). The layout keeps 64 rows; the ones over that hang above on a negative margin, so the
+  // canvas's bottom edge (the ground) stays where the layout put it. Checked every frame, as anything moving the page
+  // (a font loading, a resize) moves the ground line; the canvas is written only on a change.
+  function fit() {
+    const r = el.getBoundingClientRect(), s = r.width / W;
+    if (!s) return;
+    const rows = Math.max(ROWS, Math.ceil(r.bottom / s));
+    if (rows !== H) size(rows, s);
   }
   setup(canvas);
 
@@ -139,15 +159,15 @@ export function createInvestAnimation(canvas, opts = {}) {
   // ---------- state ----------
   const rng = mulberry32(opts.seed ?? (Date.now() & 0xffffff));
   let plants = [], particles = [], phase, phaseT, hero, coin, spot;
-  let clock = 0, nextTrip = 0.6;
+  let clock = 0;
 
-  // Rightmost free spot at the widest spacing that still fits; when the
-  // ground is full, a new sprout replaces whatever is growing there.
+  // The free spot nearest the middle at the widest spacing that still fits, so the garden spreads from the centre out
+  // to the sides; when the ground is full, a new sprout replaces whatever is growing there.
   function pickSpot() {
     for (const gap of SPACING) {
       const free = [];
-      for (let x = W - 16; x >= 16; x--)
-        if (plants.every(p => Math.abs(p.x - x) >= gap)) free.push(x);
+      for (let i = 16; i <= W - 16; i++) if (plants.every(p => Math.abs(p.x - i) >= gap)) free.push(i);
+      free.sort((a, b) => Math.abs(a - W / 2) - Math.abs(b - W / 2));
       if (free.length) return free[Math.min(free.length - 1, Math.floor(rng() * 3))];
     }
     return 16 + Math.floor(rng() * (W - 32));
@@ -181,11 +201,14 @@ export function createInvestAnimation(canvas, opts = {}) {
     return Math.floor(Math.min(5, age * 2.5) + age * p.speed);
   };
 
+  // Deltabadger: the hero turns at an edge with a new coin and sets out for the next spot. `dir`: -1 walks left.
+  // The coin is held 3px before the sprite, on whichever side it faces.
+  const holdAt = () => (hero.dir < 0 ? -3 : 10);
+  function newCoin() { hero.pose = 'carry'; hero.coin = COIN_MAPS[Math.floor(rng() * COIN_MAPS.length)]; }
   function startWalk() {
     spot = pickSpot();
-    phase = 'walkIn'; phaseT = 0;
-    hero = { x: W + 4, pose: 'carry', coin: COIN_MAPS[Math.floor(rng() * COIN_MAPS.length)] };
     coin = null;
+    go('walkIn');
   }
   function go(p) { phase = p; phaseT = 0; }
 
@@ -194,9 +217,9 @@ export function createInvestAnimation(canvas, opts = {}) {
 
     switch (phase) {
       case 'walkIn': {
-        hero.x -= SPEED * dt;
-        const target = spot + 3; // coin is held 3px left of the sprite
-        if (hero.x <= target) { hero.x = target; go('kneel'); }
+        hero.x += hero.dir * SPEED * dt;
+        const target = spot - holdAt();
+        if ((hero.x - target) * hero.dir >= 0) { hero.x = target; go('kneel'); }
         break;
       }
       case 'kneel':
@@ -230,15 +253,17 @@ export function createInvestAnimation(canvas, opts = {}) {
       case 'cheer':
         if (phaseT > 0.8) { hero.pose = 'free'; go('walkOut'); }
         break;
-      case 'walkOut':
-        hero.x -= SPEED * dt;
-        if (hero.x < -12) {
-          nextTrip = TRIP_GAP[0] + rng() * (TRIP_GAP[1] - TRIP_GAP[0]);
-          go('away');
+      case 'walkOut': // on to the edge ahead
+        hero.x += hero.dir * SPEED * dt;
+        if (hero.x <= EDGE[0] || hero.x >= EDGE[1]) {
+          hero.x = Math.min(EDGE[1], Math.max(EDGE[0], hero.x));
+          hero.dir = -hero.dir;
+          newCoin();
+          go('turn');
         }
         break;
-      case 'away':
-        if (phaseT > nextTrip) startWalk();
+      case 'turn': // a beat with the new coin before setting out
+        if (phaseT > 0.5) startWalk();
         break;
     }
 
@@ -348,7 +373,6 @@ export function createInvestAnimation(canvas, opts = {}) {
   }
 
   function drawHero() {
-    if (!['walkIn', 'kneel', 'drop', 'cheer', 'walkOut'].includes(phase)) return;
     const walking = phase === 'walkIn' || phase === 'walkOut';
     const crouch = phase === 'kneel' || (phase === 'drop' && phaseT < 0.25) ? 1 : 0;
     const hop = phase === 'cheer'
@@ -358,8 +382,8 @@ export function createInvestAnimation(canvas, opts = {}) {
     const x = Math.round(hero.x), y = GROUND - 10 + crouch + hop + bob;
 
     const upper = hero.pose === 'cheer' ? CHEER : HEAD.concat(ARMS[hero.pose]);
-    drawRows(upper.concat(LEGS[legF]), x, y, HERO_MAP, true); // faces left
-    if (hero.pose === 'carry') drawCoin(x - 3, y + 3, SPIN[Math.floor(clock * 8) % 4], hero.coin);
+    drawRows(upper.concat(LEGS[legF]), x, y, HERO_MAP, hero.dir < 0); // the sprite faces right; flipped, left
+    if (hero.pose === 'carry') drawCoin(x + holdAt(), y + 3, SPIN[Math.floor(clock * 8) % 4], hero.coin);
   }
 
   function render() {
@@ -378,10 +402,13 @@ export function createInvestAnimation(canvas, opts = {}) {
   }
 
   // ---------- loop ----------
+  hero = { x: EDGE[1], dir: -1 }; // from the right edge, facing left
+  newCoin();
   startWalk();
   let last = performance.now(), raf;
   function frame(now) {
     const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
+    fit();
     for (let i = 0; i < (opts.timeScale || 1); i++) update(dt);
     last = now;
     render();

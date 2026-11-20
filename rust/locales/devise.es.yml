@@ -34,7 +34,6 @@ es:
             new:
                 email_invalid: '¡Correo electrónico inválido!'
                 email_suggestion_html: '¡Correo electrónico inválido! ¿Quisiste decir: <b>%{suggestion}</b>'
-                name_invalid: 'No tiene que ser real 👻'
                 submit: 'Registrarse'
                 title: 'Crear cuenta'
             signed_up: '¡Bienvenido! Te has registrado exitosamente.'

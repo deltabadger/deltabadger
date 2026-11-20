@@ -732,6 +732,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_index_rankings", Ignored),
         // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
         (Table, "rust_index_retired", Ignored),
+        // #878: the bot alert emails a user switched off; 2.x sends them all, and the switches hold again after a reclaim.
+        (Table, "rust_email_alert_opt_outs", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
@@ -896,12 +898,26 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // A continue start the engine never handled goes the same way: 2.x's adoption re-arms the bot at its next checkpoint.
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
+    restore_dropped_columns(&tx)?;
     lease::hand_back(lock, &tx, cipher, now)?;
     // When this engine left, plain, so `check` reads it without keys: 2.x's stamps after it are 2.x's own (staleness).
     crate::app_config::set_plain(&tx, lease::HANDED_BACK_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)
         .map_err(EngineError::Data)?;
     tx.commit()?;
     Ok(scheduled)
+}
+
+/// D-HANDBACK-RESTORES-NAME: 2.x reads every column a Rust migration dropped (store::DROPPED_COLUMNS, `users.name`),
+/// so each comes back empty, as `<column> varchar`, and its migration is unrecorded: a later start drops it again.
+/// Inside the ownership transaction, so a refused or failed handback leaves both as they were.
+fn restore_dropped_columns(tx: &rusqlite::Transaction) -> Result<(), EngineError> {
+    for &(version, table, column) in crate::store::DROPPED_COLUMNS {
+        let present: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_xinfo(?1) WHERE name = ?2)", [table, column], |r| r.get(0))?;
+        if !present { tx.execute_batch(&format!("ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" varchar"))?; }
+        let recorded: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_schema_migrations')", [], |r| r.get(0))?;
+        if recorded { tx.execute("DELETE FROM rust_schema_migrations WHERE version = ?1", [version])?; }
+    }
+    Ok(())
 }
 
 /// `deltabadger handback`: one pass; when it leaves an order unaccounted for, wait (a full window, so a fresh process may

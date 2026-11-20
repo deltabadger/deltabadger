@@ -33,7 +33,6 @@ en:
             new:
                 email_invalid: 'Email invalid!'
                 email_suggestion_html: 'Email invalid! Did you mean: <b>%{suggestion}</b>'
-                name_invalid: 'It doesn''t have to be real 👻'
                 submit: 'Sign Up'
                 title: 'New Account'
             signed_up: 'Welcome! You have signed up successfully.'

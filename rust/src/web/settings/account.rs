@@ -18,7 +18,6 @@ use rusqlite::{Transaction, TransactionBehavior};
 
 #[derive(Default)]
 pub struct Draft {
-    pub name: Option<String>,
     pub email: Option<String>,
     pub errors: Vec<String>,
     pub messages: std::collections::BTreeMap<String, String>,
@@ -89,15 +88,6 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
         let mut salt=None;
         let mut notice=None;
         match action.as_str(){
-            "update_name"=>{
-                if let Some(name)=view.params.form("user[name]"){
-                    let previous:Option<String>=tx.query_row("SELECT name FROM users WHERE id=?1",[user.id],|r|r.get(0))?;
-                    draft.name=Some(name.into());
-                    if previous.as_deref()!=Some(name)&&!matches(r"(?m)^\p{L}+(\s+\p{L}+)*$",name)?{draft.errors.push("name".into());}
-                    else if previous.as_deref()!=Some(name){tx.execute("UPDATE users SET name=?1,updated_at=?2 WHERE id=?3",(name,&now,user.id))?;}
-                }
-                notice=Some("settings.name.updated");
-            }
             "update_time_zone"=>{
                 if let Some(value)=view.params.form("user[time_zone]"){
                     let zone=if crate::v2::blank(value){"UTC"}else{value};
@@ -153,7 +143,6 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
         }
         for field in &draft.errors {
             let message=match field.as_str(){
-              "name"=>i18n::text(view.locale,"devise.registrations.new.name_invalid",&[]),
               "email"=>{
                 let email=draft.email.as_deref().unwrap_or("");let mut messages=vec![];
                 if email.is_empty(){messages.push(i18n::text(view.locale,"errors.messages.blank",&[]));}
@@ -215,13 +204,7 @@ pub async fn write(app: App, ctx: Ctx, _headers: HeaderMap) -> Result<Response, 
     let Some(notice) = notice else {
         return Ok(crate::web::layout::missing());
     };
-    if ctx.params.route_path == "/settings/update_name" {
-        let flash = flash::render(&flash::take(
-            &ctx.session,
-            &[(flash::NOTICE, ctx.t(notice))],
-        ))?;
-        Ok(stream(turbo::prepend_flash(flash.trim_end())))
-    } else if ctx.params.route_path == "/settings/update_locale" {
+    if ctx.params.route_path == "/settings/update_locale" {
         let id = user.id;
         let locale = app
             .db(move |c| Ok(User::find(c, id)?.and_then(|u| u.locale)))

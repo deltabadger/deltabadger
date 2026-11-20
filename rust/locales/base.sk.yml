@@ -75,10 +75,8 @@ sk:
                 enter_two_fa_code: 'Zadajte 2FA kód'
                 scan_code_info: 'Naskenujte QR kód alebo skopírujte kód nižšie:'
             user:
-                name: Meno
                 current_password: 'Aktuálne heslo'
                 email: E-mail
-                new_name: 'Nové meno'
                 new_email: 'Nový e-mail'
                 new_password: 'Nové heslo'
                 new_password_confirmation: 'Potvrdenie nového hesla'
@@ -155,6 +153,11 @@ sk:
             check_now: "Skontrolovať aktualizácie"
             checking: "Kontroluje sa…"
             check_failed: "Kontrolu aktualizácií sa nepodarilo vykonať."
+        email_alerts:
+            title: 'Upozornenia na boty e-mailom'
+            low_funds: 'Nízky zostatok'
+            bot_errors: 'Chyby bota'
+            bot_stopped: 'Bot zastavený'
         advanced_bots:
             title: Pokročilí boti
             toggle_label: Zobraziť pokročilých botov
@@ -165,8 +168,6 @@ sk:
             current_time_is: "Toto časové pásmo sa použije v logoch bota. Podľa neho je aktuálny čas"
             currency_updated: "Zobrazovaná mena bola aktualizovaná."
             currency_is_used_for: "Zisky a súčty portfólia sa zobrazujú v tejto mene. Boti naďalej obchodujú vo svojom vlastnom kotovacom aktíve."
-        name:
-            updated: "Meno bolo aktualizované."
         two_fa:
             disabled: 'Dvojfaktorové overenie bolo vypnuté.'
             enabled: 'Dvojfaktorové overenie bolo zapnuté.'
@@ -178,7 +179,6 @@ sk:
             trading_keys_section: 'Obchodné kľúče'
             withdrawal_keys_section: 'Kľúče na výber'
             email_section: E-mail
-            name_section: Meno
             password_section: Heslo
             free_plan_reset_date_html: 'Váš limit sa obnoví <b>%{end_time}</b>.'
             title: Nastavenia
@@ -197,6 +197,10 @@ sk:
             confirm_delete: 'Chcete odobrať tento CoinGecko API kľúč?'
         market_data:
             none: 'Žiadny'
+            intro: "Trhové dáta v reálnom čase poháňajú indexy a históriu cien na sledovanie portfólia. Použite bezplatný účet CoinGecko, alebo API Deltabadger, ktoré to isté ponúka aj pre akcie, plus stálu IP adresu pre whitelist na burzách."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Aj akcie a stála IP adresa pre whitelist na burzách."
+            upgrade_button: "Prejsť na API"
             disabled: 'Synchronizácia trhových dát bola vypnutá.'
             updated: 'Nastavenie trhových dát bolo aktualizované.'
             coingecko_configured: 'Pripojené ku CoinGecko pre aktuálne trhové dáta.'

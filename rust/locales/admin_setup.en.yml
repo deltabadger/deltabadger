@@ -12,7 +12,6 @@ en:
       title: "Setup is locked"
       text: "To create the admin account, open this server from the dashboard of the service that hosts it."
     validations:
-      name_required: "Name is required"
       email_required: "Email is required"
       password_required: "Password is required"
     api_configuration: "The bot uses market data provided by CoinGecko. Access to the CoinGecko API is free, but you need to sign up and create an API key. Find instructions below."

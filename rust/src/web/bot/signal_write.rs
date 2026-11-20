@@ -385,7 +385,8 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
         None => None,
         Some(t) => match t.trim().parse::<i64>() { Ok(e) => Some(e), Err(_) => return Ok(Core::Answer(Answer::Unported("an exchange id this build does not read"))) },
     };
-    let posted_account = match text("account_id") {
+    // A null account_id is no account, as on the DCA and index path.
+    let posted_account = match fields.get("account_id").filter(|v| !v.is_null()).and(text("account_id")) {
         None => None,
         Some(t) => match t.trim().parse::<i64>() { Ok(a) => Some(a), Err(_) => return Ok(Core::Answer(Answer::Unported("an exchange that does not exist"))) },
     };

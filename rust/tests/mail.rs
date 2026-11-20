@@ -191,7 +191,7 @@ fn a_stored_locale_v2_does_not_know_is_english_and_a_missing_one_is_the_default(
 
 #[test]
 fn every_text_a_mail_uses_exists_in_every_locale() {
-    let keys = ["mailer.greeting_name", "test_mailer.test_email.subject", "test_mailer.test_email.body",
+    let keys = ["mailer.greeting", "test_mailer.test_email.subject", "test_mailer.test_email.body",
                 "bot_alerts_mailer.end_of_funds.subject", "bot_alerts_mailer.end_of_funds.template_html",
                 "bot_alerts_mailer.notify_about_error.subject", "bot_alerts_mailer.notify_about_error.template_html",
                 "bot_alerts_mailer.stopped_by_error.subject", "bot_alerts_mailer.stopped_by_error.template_html",

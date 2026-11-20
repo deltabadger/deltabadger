@@ -35,11 +35,45 @@ fn comparable(message: &str) -> String {
 }
 
 fn recipient(c: &Connection, user_id: i64, locale: Option<&str>, to: Option<&str>) -> Recipient {
-    let (email, name, stored): (String, Option<String>, Option<String>) =
-        c.query_row("SELECT email, name, locale FROM users WHERE id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let (email, stored): (String, Option<String>) =
+        c.query_row("SELECT email, locale FROM users WHERE id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     // An account mail is in the request's language; the test mail in the user's.
     let locale = locale.map_or_else(|| render::user_locale(stored.as_deref()), |l| deltabadger::web::locale::known(l).unwrap());
-    Recipient { email: to.map_or(email, str::to_string), name: name.unwrap_or_default(), locale }
+    Recipient { email: to.map_or(email, str::to_string), locale }
+}
+
+/// 2.x's `mailer.greeting_name` in each locale (the key this build deleted with the name, D-NO-USER-NAME).
+const V2_GREETING_NAME: &[(&str, &str)] = &[("bg", "Здравей %{name},"), ("cs", "Ahoj %{name},"), ("da", "Hej %{name},"), ("de", "Hi %{name},"),
+    ("el", "Γεια σου %{name},"), ("en", "Hi %{name},"), ("es", "¡Hola %{name}!"), ("fr", "Salut %{name},"), ("it", "Ciao %{name},"), ("nl", "Hoi %{name},"),
+    ("pl", "Cześć %{name},"), ("pt", "Olá %{name},"), ("ru", "Привет, %{name},"), ("sk", "Ahoj %{name},"), ("sv", "Hej %{name},")];
+
+/// D-NO-USER-NAME: this build greets every mail with `mailer.greeting`; 2.x greeted by `users.name` (the recorded install
+/// still holds it). The one greeting line of `html` (in `locale`) as 2.x wrote it for the account the mail is about: the
+/// bot's owner, the account at the taken address (none: blank), else `user_id`. ERB escapes the whole line.
+fn v2_greeting(c: &Connection, case: &Value, html: &str) -> String {
+    use rusqlite::OptionalExtension;
+    let name: Option<String> = match (case.get("notice"), case["account"].as_str()) {
+        (Some(n), _) => c.query_row("SELECT u.name FROM bots b JOIN users u ON u.id = b.user_id WHERE b.id = ?1", [n["bot_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(),
+        (None, Some("email_already_taken")) => {
+            // Sent to `to`, else to the user's own address (recipient()).
+            let to: String = case["to"].as_str().map_or_else(|| c.query_row("SELECT email FROM users WHERE id = ?1", [case["user_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(), str::to_string);
+            c.query_row("SELECT name FROM users WHERE email = ?1", [to], |r| r.get(0)).optional().unwrap().flatten()
+        }
+        _ => c.query_row("SELECT name FROM users WHERE id = ?1", [case["user_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(),
+    };
+    // The mail's language, as build() picks it: a bot mail in its owner's, an account mail in the request's (else the user's).
+    let stored = |sql: &str, id: i64| -> Option<String> { c.query_row(sql, [id], |r| r.get(0)).unwrap() };
+    let locale = match case.get("notice") {
+        Some(n) => render::user_locale(stored("SELECT u.locale FROM bots b JOIN users u ON u.id = b.user_id WHERE b.id = ?1", n["bot_id"].as_i64().unwrap()).as_deref()),
+        None => case["locale"].as_str().map_or_else(|| render::user_locale(stored("SELECT locale FROM users WHERE id = ?1", case["user_id"].as_i64().unwrap()).as_deref()),
+                                                   |l| deltabadger::web::locale::known(l).unwrap()),
+    };
+    let template = V2_GREETING_NAME.iter().find(|(l, _)| *l == locale).unwrap().1;
+    let line = template.replace("%{name}", name.as_deref().unwrap_or_default());
+    let escaped = line.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;");
+    let ours = format!("<p>{}</p>", deltabadger::web::i18n::t(locale, "mailer.greeting", &[]));
+    assert_eq!(html.matches(&ours).count(), 1, "one greeting line: {html}");
+    html.replacen(&ours, &format!("<p>{escaped}</p>"), 1)
 }
 
 fn build(c: &Connection, case: &Value) -> Message {
@@ -83,14 +117,23 @@ fn v2_and_rust_build_the_same_mails_across_the_grid() {
     let mut failures = vec![];
     let mut encodings = std::collections::BTreeMap::new();
     let mut plain_decimals = 0;
+    let footer = regex::Regex::new(r#"<p>\n  <a href="[^"]+/settings/account">[^<]+</a>\n</p>\n\n\n      <p style="#).unwrap();
     for case in &cases {
         let name = case["name"].as_str().unwrap();
         let mut ours = build(&c, case);
+        ours.html = v2_greeting(&c, case, &ours.html);
         // D-MAIL-PLAIN-DECIMAL: the amount-limit mail writes a tiny limit as "0.00001" where 2.x prints "1.0e-05".
         if case["notice"]["mail"] == "stopped_by_amount_limit" && ours.html.contains("0.00001") {
             assert!(!ours.html.contains("e-05"), "{name}: {}", ours.html);
             ours.html = ours.html.replace("0.00001", "1.0e-05");
             plain_decimals += 1;
+        }
+        // D-ALERT-UNSUBSCRIBE-LINK (#878): every bot alert ends with a link to the account settings; 2.x's has none.
+        if case.get("notice").is_some() {
+            assert_eq!(footer.find_iter(&ours.html).count(), 1, "{name}: {}", ours.html);
+            ours.html = footer.replace(&ours.html, "\n\n      <p style=").into_owned();
+        } else {
+            assert!(!ours.html.contains("/settings/account"), "{name}: an account mail has no unsubscribe link");
         }
         let (v2, rust) = (comparable(case["rails"].as_str().unwrap()), comparable(&ours.encode(now, "<1@rust.test>").unwrap_or_else(|why| panic!("{name}: {why}"))));
         if v2 != rust { failures.push(format!("{name}\n  2.x: {v2:?}\n  rust:  {rust:?}")); }
@@ -499,17 +542,145 @@ async fn a_label_with_a_line_break_is_not_mailed_and_its_marker_is_cleared() {
 }
 
 #[test]
-fn a_label_a_name_and_an_error_are_bounded_in_a_mail_and_ordinary_ones_are_untouched() {
+fn a_label_and_an_error_are_bounded_in_a_mail_and_ordinary_ones_are_untouched() {
     let i = install();
     let (from, urls) = ("bots@example.com", Urls::from_env(&|_| None));
     let stopped = |error: &str| render::for_notice(&i.o.primary, i.bot_id, &Notice::StoppedByError { error: error.into() }, from, &urls).unwrap().unwrap();
     assert_eq!(stopped("unauthorized.").subject, "Weekly BTC has been stopped");
     // A listed divergence, for sizes no form produces: 2.x has no bound.
     i.o.primary.execute("UPDATE bots SET label = ?1", ["ł".repeat(201)]).unwrap();
-    i.o.primary.execute("UPDATE users SET name = ?1", ["n".repeat(5000)]).unwrap();
     let mail = stopped(&"e".repeat(5000));
     assert_eq!(mail.subject, format!("{}… has been stopped", "ł".repeat(200)));
-    assert!(mail.html.contains(&format!("<p>Hi {}…,</p>", "n".repeat(200))) && !mail.html.contains(&"n".repeat(201)));
+    // D-NO-USER-NAME: no name to bound; every mail greets with `mailer.greeting`.
+    assert!(mail.html.contains(&format!("<p>{}</p>", deltabadger::web::i18n::t("en", "mailer.greeting", &[]))));
     assert!(mail.html.contains(&format!("<b>{}…</b>", "e".repeat(500))) && !mail.html.contains(&"e".repeat(501)));
     assert!(mail.html.len() < 4000, "{} bytes", mail.html.len());
+}
+
+/// #878 (D-ALERT-MAP): which switch lets each bot mail go out.
+#[test]
+fn every_bot_mail_has_its_switch() {
+    let e = || "x".to_string();
+    let all = [
+        (Notice::EndOfFunds { quote_asset_id: None }, "low_funds"),
+        (Notice::Error { kind: "unknown".into(), error: e() }, "bot_errors"),
+        (Notice::StoppedByError { error: e() }, "bot_stopped"),
+        (Notice::StoppedByAmountLimit, "bot_stopped"),
+        (Notice::StoppedByBaseAmountLimit, "bot_stopped"),
+        (Notice::SetAside { reasons: e() }, "bot_stopped"),
+    ];
+    for (n, alert) in all { assert_eq!(n.alert(), alert, "{n:?}"); assert!(notice::ALERTS.contains(&alert)); }
+}
+
+/// D-ALERT-UNSUBSCRIBE-LINK: every bot alert, the two the grid lacks included, links to the settings in the user's language.
+#[test]
+fn every_bot_alert_links_to_the_account_settings_in_its_language() {
+    let i = install();
+    let (from, urls) = ("bots@example.com", Urls::from_env(&|n| (n == "APP_ROOT_URL").then(|| "https://bot.example.com".into())));
+    let to = |locale| Recipient { email: "o@example.com".into(), locale };
+    let en = "<p>\n  <a href=\"https://bot.example.com/settings/account\">Unsubscribe</a>\n</p>\n";
+    let de = "<p>\n  <a href=\"https://bot.example.com/de/settings/account\">Abmelden</a>\n</p>\n";
+    assert_eq!(render::unsubscribe(&urls, "en"), en);
+    assert_eq!(render::unsubscribe(&urls, "de"), de);
+    for (locale, footer) in [("en", en), ("de", de)] {
+        let r = to(locale);
+        for mail in [render::end_of_funds(from, &urls, &r, "Kraken", "EUR"), render::failure(from, &urls, &r, false, "B", "Kraken", "e"),
+                     render::failure(from, &urls, &r, true, "B", "Kraken", "e"), render::set_aside(from, &urls, &r, "B", "why"),
+                     render::stopped_by_amount_limit(from, &urls, &r, "B", "1", "EUR"), render::stopped_by_base_amount_limit(from, &urls, &r, "B", "1", "BTC")] {
+            assert_eq!(mail.html.matches(footer).count(), 1, "{}", mail.html);
+        }
+        for mail in [render::test_email(from, &urls, &r), render::email_already_taken(from, &urls, &r), render::reset_password_instructions(from, &urls, &r, "t")] {
+            assert!(!mail.html.contains("/settings/account"), "{}", mail.html);
+        }
+    }
+    drop(i);
+}
+
+fn opt_out(i: &Install, alert: &str) {
+    i.o.primary.execute("INSERT INTO rust_email_alert_opt_outs (user_id, alert) SELECT user_id, ?2 FROM bots WHERE id = ?1", (i.bot_id, alert)).unwrap();
+}
+
+/// D-ALERT-AT-SEND: a switched-off alert is cleared unsent; the user's other alerts still go out.
+#[tokio::test]
+async fn a_switched_off_alert_is_cleared_unsent_and_the_others_still_go_out() {
+    tokio::task::LocalSet::new().run_until(async {
+        let mut i = install();
+        opt_out(&i, "low_funds");
+        // Another user's switch is theirs alone.
+        i.o.primary.execute("INSERT INTO rust_email_alert_opt_outs (user_id, alert) VALUES (999, 'bot_stopped')", []).unwrap();
+        let server = smtp::start(Behaviour { starttls: true, auth: true, ..Default::default() }).await;
+        mark(&i, notice::FUNDS, notice::funds_marker(Some(i.quote), chrono::Utc::now()));
+        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now()));
+        let (stop, stopped) = watch::channel(false);
+        let db = std::mem::replace(&mut i.sender_db, Connection::open_in_memory().unwrap());
+        let run = tokio::task::spawn_local(sender(db, server.port).run(stopped, None::<mpsc::UnboundedReceiver<()>>));
+        until("both markers are gone", || markers(&i).is_empty()).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let sent = server.messages();
+        assert_eq!(sent.len(), 1, "only the stop mail");
+        assert!(sent[0].contains("\r\nSubject: Weekly BTC has been stopped\r\n"), "{}", sent[0]);
+        stop.send(true).unwrap();
+        run.await.unwrap().unwrap();
+    }).await;
+}
+
+/// D-ALERT-AT-SEND: the switch is read before the mail settings, so with no mail configured a switched-off alert still goes.
+#[tokio::test]
+async fn a_switched_off_alert_is_cleared_with_no_mail_configured() {
+    tokio::task::LocalSet::new().run_until(async {
+        let i = install();
+        opt_out(&i, "bot_stopped");
+        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now()));
+        let db = Connection::open(i.o.primary.path().unwrap()).unwrap();
+        store::configure(&db).unwrap();
+        let mut unconfigured = Sender::new(db, seed::cipher(), &|_| None, SystemClock);
+        unconfigured.poll = Duration::from_millis(30);
+        let (stop, stopped) = watch::channel(false);
+        let run = tokio::task::spawn_local(unconfigured.run(stopped, None::<mpsc::UnboundedReceiver<()>>));
+        until("the marker is gone", || markers(&i).is_empty()).await;
+        stop.send(true).unwrap();
+        run.await.unwrap().unwrap();
+    }).await;
+}
+
+/// D-ALERT-AT-SEND: switched off while a refused mail waits for its retry, the retry clears it and sends nothing.
+#[tokio::test]
+async fn an_alert_switched_off_before_its_retry_is_not_sent_again() {
+    tokio::task::LocalSet::new().run_until(async {
+        let mut i = install();
+        mark(&i, notice::ERROR, notice::error_marker(None, "unknown", "order rejected", chrono::Utc::now()));
+        let refusing = smtp::start(Behaviour { starttls: true, auth: true, reply: Some((".", "451 4.3.0 try again later")), ..Default::default() }).await;
+        let (stop, stopped) = watch::channel(false);
+        let db = std::mem::replace(&mut i.sender_db, Connection::open_in_memory().unwrap());
+        let mut s = sender(db, refusing.port);
+        s.waits = vec![Duration::from_millis(300)];
+        let run = tokio::task::spawn_local(s.run(stopped, None::<mpsc::UnboundedReceiver<()>>));
+        until("one refused delivery", || refusing.messages().len() == 1).await;
+        opt_out(&i, "bot_errors");
+        until("the marker is gone", || markers(&i).is_empty()).await;
+        assert_eq!(refusing.messages().len(), 1, "no second delivery");
+        stop.send(true).unwrap();
+        run.await.unwrap().unwrap();
+    }).await;
+}
+
+/// D-ALERT-AT-SEND: a switch that cannot be read keeps the marker and sends nothing; once readable, the mail goes.
+#[tokio::test]
+async fn an_unreadable_switch_keeps_the_marker_until_it_can_be_read() {
+    tokio::task::LocalSet::new().run_until(async {
+        let mut i = install();
+        i.o.primary.execute("ALTER TABLE rust_email_alert_opt_outs RENAME TO hidden_opt_outs", []).unwrap();
+        let server = smtp::start(Behaviour { starttls: true, auth: true, ..Default::default() }).await;
+        mark(&i, notice::STOPPED, notice::stopped_marker("unauthorized.", chrono::Utc::now()));
+        let (stop, stopped) = watch::channel(false);
+        let db = std::mem::replace(&mut i.sender_db, Connection::open_in_memory().unwrap());
+        let run = tokio::task::spawn_local(sender(db, server.port).run(stopped, None::<mpsc::UnboundedReceiver<()>>));
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(markers(&i).len(), 1, "the marker waits");
+        assert!(server.sessions().is_empty(), "nothing was sent");
+        i.o.primary.execute("ALTER TABLE hidden_opt_outs RENAME TO rust_email_alert_opt_outs", []).unwrap();
+        until("sent and cleared", || server.messages().len() == 1 && markers(&i).is_empty()).await;
+        stop.send(true).unwrap();
+        run.await.unwrap().unwrap();
+    }).await;
 }

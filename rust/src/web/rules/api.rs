@@ -116,10 +116,7 @@ impl Request {
             .unwrap_or(0);
         let result = match action {
             Action::Create => {
-                let account = match args.get("account_id").filter(|v| crate::web::bot_api::present(v)) {
-                    None => None,
-                    Some(v) => match crate::web::bot_api::to_i(v) { Some(id) => Some(id), None => Some(0) },
-                };
+                let account = args.get("account_id").filter(|v| !v.is_null()).map(|v| crate::web::bot_api::orders::account_id(v).unwrap_or(0));
                 service::create_named(app, user, &text("exchange_name"), &text("asset"), account, patch())
                     .await?
             }

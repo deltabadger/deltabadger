@@ -9,7 +9,8 @@
 //!   bcrypt computation on both, and mails the account owner instead (D-ACCOUNT-MAIL-OFF-REQUEST: never in the request).
 //! - D-SIGNUP-RACE: two signups with one address at once: the second meets the unique index and takes the taken path.
 //! - D-SIGNUP-REAL-EMAIL: the Gmail account that "already taken" goes to is matched by username exactly, not by LIKE.
-//! - D-SIGNUP-THROTTLE (rate_limit.rs) and D-SIGNUP-NAME-ONE-LINE (setup::validate).
+//! - D-SIGNUP-THROTTLE (rate_limit.rs).
+//! - D-NO-USER-NAME: email and password only; no name is asked or stored.
 use super::layout::{self, Ctx, Page};
 use super::settings::mail::{self, AccountMail};
 use super::setup::{self, FieldError};
@@ -33,9 +34,7 @@ struct NewView<'a> {
     v: &'a Ctx,
     csrf: &'a str,
     links: Links,
-    name: Option<&'a str>,
     email: &'a str,
-    name_error: Option<String>,
     email_error: Option<String>,
     password_error: Option<String>,
 }
@@ -51,11 +50,11 @@ fn field_error(errors: &[FieldError], attribute: &str) -> Option<String> {
     (!messages.is_empty()).then(|| setup::upcase_first(&messages.join(", ")))
 }
 
-fn page(ctx: &Ctx, status: StatusCode, name: Option<&str>, email: &str, errors: &[FieldError]) -> Result<Response, WebError> {
+fn page(ctx: &Ctx, status: StatusCode, email: &str, errors: &[FieldError]) -> Result<Response, WebError> {
     let csrf = ctx.csrf_token();
     let body = NewView {
-        v: ctx, csrf: &csrf, links: Links { login: true, signup: false }, name, email,
-        name_error: field_error(errors, "name"), email_error: field_error(errors, "email"), password_error: field_error(errors, "password"),
+        v: ctx, csrf: &csrf, links: Links { login: true, signup: false }, email,
+        email_error: field_error(errors, "email"), password_error: field_error(errors, "password"),
     }.render()?;
     layout::devise(ctx, &csrf, Page { status, body, flash_now: Vec::new() })
 }
@@ -68,7 +67,7 @@ fn closed(ctx: &Ctx) -> Response {
 /// GET /signup.
 pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if !registration_open(&app).await? { return Ok(closed(&ctx)) }
-    page(&ctx, StatusCode::OK, None, "", &[])
+    page(&ctx, StatusCode::OK, "", &[])
 }
 
 enum Outcome {
@@ -84,7 +83,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     // params.require(:user): no user field at all is ActionController::ParameterMissing.
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("user[")) { return Ok(layout::bad_request()) }
     let field = |name: &str| ctx.params.form(name).map(str::to_string);
-    let (name, email, password) = (field("user[name]"), field("user[email]"), field("user[password]"));
+    let (email, password) = (field("user[email]"), field("user[password]"));
     let email = email.as_deref().map(setup::normalized_email).unwrap_or_default();
     // Devise hashes on assignment, before validation, and only a present password: one computation on every path that
     // has one, the taken path included.
@@ -97,10 +96,10 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         None => None,
     };
     let (locale, now, inner) = (ctx.locale, ctx.now, app.clone());
-    let (submitted_name, address) = (name.clone(), email.clone());
+    let address = email.clone();
     let outcome = app.db(move |c| {
         let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
-        let errors = setup::validate(&tx, locale, name.as_deref(), &address, password.as_deref())?;
+        let errors = setup::validate(&tx, locale, &address, password.as_deref())?;
         // 2.x drops every email error once one is :taken, and answers as for a new account if nothing else is wrong.
         // D-SIGNUP-TAKEN-NEEDS-VALID-ADDRESS: so a malformed Gmail alias ("ann+!@gmail.com") passed whenever its base account
         // existed and was refused otherwise, telling which. Here :taken counts only for an address valid on its own; the
@@ -114,9 +113,9 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let hash = hash.ok_or_else(|| WebError::Config("a valid signup without a password hash".into()))?;
         let (token, at) = (crate::crypto::friendly_token(), format_time(now));
         let inserted = tx.execute(
-            "INSERT INTO users (name, email, encrypted_password, confirmation_token, confirmation_sent_at, otp_secret_key, created_at, updated_at) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?5, ?5)",
-            (&name, &address, &hash, &token, &at, inner.cipher.encrypt_binary(&super::settings::two_fa::new_seed())),
+            "INSERT INTO users (email, encrypted_password, confirmation_token, confirmation_sent_at, otp_secret_key, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?4, ?4)",
+            (&address, &hash, &token, &at, inner.cipher.encrypt_binary(&super::settings::two_fa::new_seed())),
         );
         match inserted {
             Ok(_) => {}
@@ -131,7 +130,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         Ok(Outcome::Created { id, token })
     }).await?;
     let mail = match outcome {
-        Outcome::Invalid(errors) => return page(&ctx, StatusCode::UNPROCESSABLE_ENTITY, submitted_name.as_deref(), &email, &errors),
+        Outcome::Invalid(errors) => return page(&ctx, StatusCode::UNPROCESSABLE_ENTITY, &email, &errors),
         Outcome::Taken(address) => AccountMail::EmailTaken { address },
         Outcome::Created { id, token } => AccountMail::Confirmation { user_id: id, address: email, token },
     };

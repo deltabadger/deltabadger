@@ -26,7 +26,7 @@ fn install() -> tempfile::TempDir {
 fn db(dir: &tempfile::TempDir) -> rusqlite::Connection { rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap() }
 
 fn user(c: &rusqlite::Connection, email: &str, admin: bool) -> i64 {
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES (?1, 'x', 'Someone', ?2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, admin)).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES (?1, 'x', ?2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, admin)).unwrap();
     c.last_insert_rowid()
 }
 
@@ -326,4 +326,20 @@ async fn the_desktop_settings_say_alerts_are_system_notifications() {
     let page = b.get(&app, "/settings/account").await;
     assert_eq!(page.status, 200, "{}", page.body);
     assert!(page.body.contains("Deltabadger shows bot alerts as system notifications."), "{}", page.body);
+}
+
+/// #878 (D-ALERT-AT-SEND): the email switches are for mail; a desktop's system notification ignores a stored opt-out.
+#[tokio::test]
+async fn a_switched_off_email_alert_is_still_a_desktop_notice() {
+    let dir = install();
+    let c = db(&dir);
+    let me = user(&c, "desktop@deltabadger.invalid", true);
+    let _ = bot(&c, me, "Weekly BTC", "{}", stopped(FRESH));
+    c.execute_batch(include_str!("../migrations/20261122000001_email_alert_opt_outs.sql")).unwrap();
+    c.execute("INSERT INTO rust_email_alert_opt_outs (user_id, alert) VALUES (?1, 'bot_stopped')", [me]).unwrap();
+    let outbox = Arc::new(Outbox::default());
+    let (stop, run) = run_sender(&dir, outbox.clone(), me, Duration::from_secs(60));
+    until("offered", || !outbox.list(20).is_empty()).await;
+    stop.send(true).unwrap();
+    run.await.unwrap().unwrap();
 }

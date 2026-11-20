@@ -286,14 +286,16 @@ async fn rest(app: &deltabadger::web::App, c: &Connection, owner: i64, method: &
         let on: serde_json::Map<String, serde_json::Value> = deltabadger::web::mcp::tools::NAMES.iter().map(|t| (t.to_string(), serde_json::json!(true))).collect();
         c.execute("UPDATE users SET mcp_settings=?1,rest_settings=?1", [serde_json::json!({"tool_permissions": on}).to_string()]).unwrap();
     }
+    let key = KEY.with(|k| k.borrow().clone()).unwrap_or_else(|| format!("k-{}", rand_key()));
     let mut request = Request::builder().method(method).uri(path).header("host", "localhost:3000").header("authorization", "Bearer slice6-api").header("accept", "application/json")
-        .header("idempotency-key", format!("k-{}", rand_key()));
+        .header("idempotency-key", key);
     if body.is_some() { request = request.header("content-type", "application/json"); }
     let response = deltabadger::web::router(app.clone()).oneshot(request.body(Body::from(body.map(|b| b.to_string()).unwrap_or_default())).unwrap()).await.unwrap();
     let status = response.status().as_u16();
     let text = String::from_utf8(to_bytes(response.into_body(), 64_000_000).await.unwrap().to_vec()).unwrap();
     (status, serde_json::from_str(&text).unwrap_or(serde_json::json!(text)))
 }
+thread_local! { static KEY: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) }; }
 fn rand_key() -> u64 { use std::sync::atomic::{AtomicU64, Ordering}; static N: AtomicU64 = AtomicU64::new(0); N.fetch_add(1, Ordering::Relaxed) }
 fn mcp_text(v: &serde_json::Value) -> String { v["content"][0]["text"].as_str().unwrap_or_default().to_string() }
 fn counts(c: &Connection) -> (i64, i64, i64) {
@@ -447,6 +449,239 @@ async fn t9_an_order_id_one_account_holds_never_hides_the_others_live_order() {
     let read = reads::finish(c, fetched).unwrap();
     let orders = mcp_text(&read);
     assert!(orders.starts_with("Open orders (2):") && orders.contains("| Alpaca 1 | ext: X") && orders.contains("(Limit order) | Alpaca 2 | ext: X"), "account 1's from the db, account 2's from its venue: {read}");
+    // `account_id` alone reads that account's exchange only; one not the user's live account is a 404.
+    let Called::Fetch(fetch) = reads::plan(c, &app, user, "list_open_orders", &serde_json::json!({"account_id": alpaca.id(1)})).unwrap() else { panic!("no fetch") };
+    let read = reads::finish(c, reads::fetch(&app, fetch).await).unwrap();
+    let orders = mcp_text(&read);
+    assert!(orders.starts_with("Open orders (1):") && orders.contains("| Alpaca 2 | ext: X") && !orders.contains("Kraken"), "{read}");
+    remove(c, kraken.id(1));
+    let gone = reads::plan(c, &app, user, "list_open_orders", &serde_json::json!({"account_id": kraken.id(1)})).unwrap();
+    let Called::Done(gone) = gone else { panic!("a removed account is not read") };
+    assert!(gone.to_string().contains("Account not found."), "{gone}");
+    c.execute("UPDATE exchange_accounts SET removed_at = NULL WHERE id = ?1", [kraken.id(1)]).unwrap();
+    // The unread exchanges' JSON keeps the bare name, the account beside it (§4.4); the text names the account.
+    let Called::Fetch(fetch) = reads::plan(c, &app, user, "list_open_orders", &serde_json::json!({})).unwrap() else { panic!("no fetch") };
+    let full = reads::finish_read(c, reads::fetch(&app, fetch).await).unwrap();
+    let read = serde_json::json!({"data": full.res.data, "text": full.text});
+    let unavailable = read["data"]["unavailable"].as_array().cloned().unwrap_or_default();
+    let kraken_entries: Vec<_> = unavailable.iter().filter(|u| u["exchange"] == "Kraken").collect();
+    assert_eq!(kraken_entries.len(), 2, "{read}");
+    assert!(kraken_entries.iter().any(|u| u["account"] == 2 && u["account_id"] == kraken.id(1)), "{read}");
+    assert!(!unavailable.iter().any(|u| u["exchange"].as_str().is_some_and(|e| e.ends_with(" 1") || e.ends_with(" 2"))), "{read}");
+    assert!(read["text"].as_str().unwrap_or_default().contains("! Kraken 2:"), "{read}");
+}
+
+/// T3 (refusals): the REST/MCP order and bot-create refusals, the multi-asset create validation and the tax report's sync
+/// banner name account 2 as `Kraken 2`.
+#[tokio::test(flavor = "current_thread")]
+async fn t3_refusals_name_the_account() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    let order = |base: &str| serde_json::json!({"exchange_name": "Kraken", "base_asset": base, "quote_asset": "EUR", "amount": 0.001, "account_id": two.id(1)});
+    let unknown = mcp(c, &app, user, "market_buy", order("ETH"));
+    assert!(mcp_text(&unknown).contains("Trading pair ETH/EUR not found on Kraken 2."), "{unknown}");
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[1]]).unwrap();
+    let keyless = mcp(c, &app, user, "market_buy", order("BTC"));
+    assert!(mcp_text(&keyless).contains("No valid API key found for Kraken 2."), "{keyless}");
+    let (status, body) = rest(&app, c, user, "POST", "/api/v1/bots", Some(serde_json::json!({"type": "dca", "exchange_name": "Kraken", "base_asset": "BTC", "quote_asset": "EUR",
+        "quote_amount": 10, "interval": "day", "account_id": two.id(1)}))).await;
+    assert_eq!(status, 403, "{body}");
+    assert!(body["error"]["message"].as_str().unwrap_or_default().contains("No valid API key found for Kraken 2."), "{body}");
+    c.execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [two.keys[1]]).unwrap();
+
+    // validate_composition_pairs: an asset Kraken does not list against EUR.
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('ethereum', 'ETH', 'Ethereum', 'Cryptocurrency', 'now', 'now')", []).unwrap();
+    let eth = c.last_insert_rowid();
+    let config = serde_json::json!({"exchange_id": two.seeded.exchange_id, "settings": {"quote_asset_id": two.seeded.quote, "allocations": {eth.to_string(): 1.0}}});
+    let built = deltabadger::web::wizard::create::build(c, &config, "en").unwrap();
+    let errors = deltabadger::web::wizard::create::validate(c, &built, Some(&two.accounts[1]), "en").unwrap();
+    assert!(errors.iter().any(|e| e.contains("on Kraken 2.")), "{errors:?}");
+
+    two.row(c, 1, 4, "BTC", "1", Some("t-b"), None, "2026-03-10 10:00:00");
+    c.execute("UPDATE api_keys SET last_sync_error = 'Kraken said no' WHERE id = ?1", [two.keys[1]]).unwrap();
+    let report = deltabadger::tax::crypto_report(c, user, "DE", 2026, false, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap()).unwrap();
+    let deltabadger::tax::Outcome::Csv(csv) = report else { panic!("refused") };
+    let banners: Vec<&str> = csv.lines().filter(|l| l.contains("Kraken")).collect();
+    assert!(banners.iter().any(|l| l.contains("Kraken 1 ")) && banners.iter().any(|l| l.contains("Kraken 2 ")), "never synced 1, failed 2: {banners:?}");
+}
+
+/// T9 (balances): a balance read naming account 2 reads with account 2's key, over MCP and REST; account 1's key is
+/// another (the venue answers only account 2's).
+#[tokio::test(flavor = "current_thread")]
+async fn t9_a_balance_read_naming_account_2_uses_its_key() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-2-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status": "ACTIVE", "cash": "0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID", "account-2-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let kraken = Two::kraken(c, &cipher);
+    let alpaca = Two::venue(c, &cipher, &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE exchange_id = ?2", rusqlite::params![cipher.encrypt("paper"), alpaca.seeded.exchange_id]).unwrap();
+    let app = web_app(dir.path(), c).with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()), std::sync::Arc::new(Quiet)).unwrap();
+    let user = kraken.seeded.user_id;
+    use deltabadger::web::mcp::{reads, tools::Called};
+    for (n, ok) in [(1, true), (0, false)] {
+        let Called::Fetch(fetch) = reads::plan(c, &app, user, "get_exchange_balances", &serde_json::json!({"exchange_name": "Alpaca", "account_id": alpaca.id(n)})).unwrap() else { panic!("no fetch") };
+        let read = reads::finish(c, reads::fetch(&app, fetch).await).unwrap();
+        assert_eq!(read["isError"] != true, ok, "account {}: {read}", n + 1);
+        let (status, body) = rest(&app, c, user, "GET", &format!("/api/v1/exchanges/{}/balances?account_id={}", alpaca.seeded.exchange_id, alpaca.id(n)), None).await;
+        assert_eq!(status == 200, ok, "REST account {}: {status} {body}", n + 1);
+    }
+}
+
+/// T9 (transactions): with two live accounts each bot order of `GET /transactions` and `list_transactions` carries its
+/// account; with one, the answer has no account fields (D-API-ACCOUNT-FIELDS).
+#[tokio::test(flavor = "current_thread")]
+async fn t9_transactions_carry_the_account_only_with_two() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let first = two.order(c, 0, "o-1", 0, Some(1));
+    let second = two.order(c, 1, "o-2", 0, Some(1));
+    let app = web_app(dir.path(), c);
+    let (status, body) = rest(&app, c, user, "GET", "/api/v1/transactions", None).await;
+    assert_eq!(status, 200, "{body}");
+    let rows = body["data"]["transactions"].as_array().cloned().unwrap_or_default();
+    let of = |id: i64| rows.iter().find(|r| r["id"] == id).cloned().unwrap_or_default();
+    assert_eq!((of(first)["account_id"].as_i64(), of(first)["account"].as_i64()), (Some(two.id(0)), Some(1)), "{body}");
+    assert_eq!((of(second)["account_id"].as_i64(), of(second)["account"].as_i64()), (Some(two.id(1)), Some(2)), "{body}");
+    let service = deltabadger::web::bot_api::transactions(c, user, &serde_json::Value::Null, &serde_json::Value::Null).unwrap().unwrap();
+    assert_eq!(service.data, body["data"], "MCP's list_transactions reads the same service");
+
+    let (dir, o) = install();
+    let c = &o.primary;
+    let seeded = seed::seed_kraken(c, &seed::cipher());
+    identity::Account::first(c, seeded.user_id, seeded.exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap();
+    let bot = seed::insert_bot(c, &seeded, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    seed::insert_tx(c, &seeded, bot, &seed::TxSpec { status: 0, external_status: Some(1), external_id: Some("o-1".into()), order_type: 0, amount: Some("0.001"),
+        quote_amount: Some("60"), price: Some("60000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-02 10:00:00".into() });
+    let app = web_app(dir.path(), c);
+    let (_, body) = rest(&app, c, seeded.user_id, "GET", "/api/v1/transactions", None).await;
+    let rows = body["data"]["transactions"].as_array().cloned().unwrap_or_default();
+    assert!(rows.len() == 1 && rows.iter().all(|r| r.get("account_id").is_none() && r.get("account").is_none()), "{body}");
+}
+
+/// Codex 6a r2: an open-order read naming only an account of an exchange this build does not serve is not found, never a
+/// read of every account.
+#[test]
+fn an_open_order_read_naming_a_bitmart_account_is_not_found() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let kraken = Two::kraken(c, &cipher);
+    let bitmart = Two::venue(c, &cipher, &kraken.seeded, "Exchanges::Bitmart", "Bitmart");
+    let app = web_app(dir.path(), c);
+    let read = mcp(c, &app, kraken.seeded.user_id, "list_open_orders", serde_json::json!({"account_id": bitmart.id(1)}));
+    assert!(mcp_text(&read).contains("Account not found."), "{read}");
+}
+
+/// Codex 6a r2: `account_id: null` on a signal bot's settings update is no account, as on the DCA path.
+#[tokio::test(flavor = "current_thread")]
+async fn a_null_account_id_on_a_signal_update_is_no_account() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    let (status, body) = rest(&app, c, user, "POST", "/api/v1/bots", Some(serde_json::json!({"type": "signal", "exchange_name": "Kraken", "base_asset": "BTC",
+        "quote_asset": "EUR", "account_id": two.id(1)}))).await;
+    assert!(status < 300, "{body}");
+    let bot = body["data"]["id"].as_i64().unwrap();
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [bot]).unwrap();
+    let answer = mcp(c, &app, user, "update_bot_settings", serde_json::json!({"bot_id": bot, "label": "renamed", "account_id": null}));
+    assert!(answer["isError"] != true, "{answer}");
+    assert_eq!(one::<String>(c, &format!("SELECT label FROM bots WHERE id = {bot}")), "renamed");
+    assert_eq!(deltabadger::identity::account_of_bot(c, bot).unwrap(), Some(two.id(1)));
+}
+
+/// Codex 6a r3: `account_id` posted strictly (`"12oops"` names no account), and an Idempotency-Key reused with another
+/// account in the query is another request, never a replay of the first account's answer.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_id_is_whole_and_part_of_the_requests_fingerprint() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [two.bots[0]]).unwrap();
+    let moved = mcp(c, &app, user, "update_bot_settings", serde_json::json!({"bot_id": two.bots[0], "account_id": format!("{}oops", two.id(1))}));
+    assert!(moved["isError"] == true, "{moved}");
+    assert_eq!(deltabadger::identity::account_of_bot(c, two.bots[0]).unwrap(), Some(two.id(0)));
+    KEY.with(|k| *k.borrow_mut() = Some("one-key".into()));
+    let body = serde_json::json!({"type": "market_buy", "exchange_name": "Kraken", "base_asset": "BTC", "quote_asset": "EUR", "amount": 0.001});
+    let first = rest(&app, c, user, "POST", &format!("/api/v1/orders?account_id={}", two.id(0)), Some(body.clone())).await;
+    let second = rest(&app, c, user, "POST", &format!("/api/v1/orders?account_id={}", two.id(1)), Some(body)).await;
+    KEY.with(|k| *k.borrow_mut() = None);
+    assert_eq!((second.0, second.1["error"]["code"].as_str()), (409, Some("idempotency_key_reused")), "first {first:?}, second {second:?}");
+}
+
+/// Codex 6a r4: a posted `account_id` that names nothing (`false`) is not found, never the default account; a balance
+/// read on an account with no correct key names that account; a bot moving accounts with open orders is told to cancel
+/// them on the account holding them.
+#[tokio::test(flavor = "current_thread")]
+async fn a_posted_account_must_name_one_and_refusals_name_the_right_account() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    // MCP's schema refuses it already; REST has no schema.
+    for wrong in [serde_json::json!(false), serde_json::json!([]), serde_json::json!("")] {
+        let (status, body) = rest(&app, c, user, "POST", "/api/v1/orders", Some(serde_json::json!({"type": "market_buy", "exchange_name": "Kraken", "base_asset": "BTC",
+            "quote_asset": "EUR", "amount": 0.001, "account_id": wrong}))).await;
+        assert_eq!((status, body["error"]["code"].as_str()), (404, Some("account_not_found")), "{wrong}: {body}");
+        // Codex 6a r5: every entry point holds the same rule.
+        let (status, body) = rest(&app, c, user, "POST", "/api/v1/bots", Some(serde_json::json!({"type": "dca", "exchange_name": "Kraken", "base_asset": "BTC", "quote_asset": "EUR",
+            "quote_amount": 10, "interval": "day", "account_id": wrong}))).await;
+        assert_eq!(status, 404, "bot create {wrong}: {body}");
+        let (status, body) = rest(&app, c, user, "POST", "/api/v1/rules", Some(serde_json::json!({"exchange_name": "Kraken", "asset": "BTC", "address": "bc1-x", "account_id": wrong}))).await;
+        assert_eq!(status, 404, "rule create {wrong}: {body}");
+    }
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [two.bots[1]]).unwrap();
+    let bots_before = counts(c);
+    let (status, body) = rest(&app, c, user, "PATCH", &format!("/api/v1/bots/{}", two.bots[1]), Some(serde_json::json!({"label": "x", "account_id": []}))).await;
+    assert_eq!(status, 404, "bot update []: {body}");
+    assert_eq!(counts(c), bots_before);
+    for path in ["/api/v1/orders?account_id=", "/api/v1/transactions/account?account_id="] {
+        let (status, body) = rest(&app, c, user, "GET", path, None).await;
+        assert_eq!((status, body["error"]["code"].as_str()), (404, Some("account_not_found")), "{path}: {body}");
+    }
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[1]]).unwrap();
+    let balances = mcp(c, &app, user, "get_exchange_balances", serde_json::json!({"exchange_name": "Kraken", "account_id": two.id(1)}));
+    assert!(mcp_text(&balances).contains("No valid API key found for Kraken 2."), "{balances}");
+    c.execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [two.keys[1]]).unwrap();
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [two.bots[0]]).unwrap();
+    two.order(c, 0, "open-0", 0, Some(1));
+    let moved = mcp(c, &app, user, "update_bot_settings", serde_json::json!({"bot_id": two.bots[0], "account_id": two.id(1)}));
+    assert!(mcp_text(&moved).contains("on Kraken 1 before"), "{moved}");
+    assert_eq!(deltabadger::identity::account_of_bot(c, two.bots[0]).unwrap(), Some(two.id(0)));
+}
+
+/// Codex 6a r4: an Alpaca open-order read naming the exchange, neither of whose two accounts has a correct key, names both
+/// accounts as unchecked.
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_read_with_no_correct_key_names_both_accounts() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let kraken = Two::kraken(c, &cipher);
+    let alpaca = Two::venue(c, &cipher, &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    c.execute("UPDATE api_keys SET status = 2 WHERE exchange_id = ?1", [alpaca.seeded.exchange_id]).unwrap();
+    let app = web_app(dir.path(), c);
+    use deltabadger::web::mcp::{reads, tools::Called};
+    let Called::Fetch(fetch) = reads::plan(c, &app, kraken.seeded.user_id, "list_open_orders", &serde_json::json!({"exchange_name": "Alpaca"})).unwrap() else { panic!("no fetch") };
+    let read = reads::finish_read(c, reads::fetch(&app, fetch).await).unwrap();
+    let unchecked: Vec<_> = read.res.data["unavailable"].as_array().cloned().unwrap_or_default();
+    assert_eq!(unchecked.len(), 2, "{:?} {}", unchecked, read.text);
+    assert!(read.text.contains("! Alpaca 1:") && read.text.contains("! Alpaca 2:"), "{}", read.text);
 }
 
 // ---- commit 4: duplicate standing (§5, T11-T14) ----
@@ -828,7 +1063,7 @@ fn t15_anything_in_flight_refuses_the_merge() {
     let ambiguous = two.standalone(c, 1, "done", Some(r#"{"kind":"ambiguous","errors":[]}"#), None);
     deltabadger::engine::api_orders::forget(c, ambiguous).unwrap();
     assert!(merge_now(c, &two, two.id(1)).unwrap().is_some());
-    let log = deltabadger::engine::api_orders::log_order(c, two.seeded.user_id, two.seeded.exchange_id, "F-1").unwrap().unwrap();
+    let log = deltabadger::engine::api_orders::log_order(c, two.seeded.user_id, two.seeded.exchange_id, "F-1", None).unwrap().unwrap();
     assert_eq!(log.0.id, Some(two.id(0)), "the filled order's cancel log is S's");
 }
 

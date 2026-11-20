@@ -74,10 +74,8 @@ el:
                 enter_two_fa_code: 'Εισάγετε κωδικό 2FA'
                 scan_code_info: 'Σκανάρετε τον κωδικό QR ή αντιγράψτε τον κωδικό παρακάτω:'
             user:
-                name: Όνομα
                 current_password: 'Τρέχων κωδικός'
                 email: Email
-                new_name: 'Νέο όνομα'
                 new_email: 'Νέο email'
                 new_password: 'Νέος κωδικός'
                 new_password_confirmation: 'Επιβεβαίωση νέου κωδικού'
@@ -154,6 +152,11 @@ el:
             check_now: "Έλεγχος για ενημερώσεις"
             checking: "Γίνεται έλεγχος…"
             check_failed: "Ο έλεγχος για ενημερώσεις απέτυχε."
+        email_alerts:
+            title: 'Ειδοποιήσεις bot μέσω email'
+            low_funds: 'Χαμηλό υπόλοιπο'
+            bot_errors: 'Σφάλματα bot'
+            bot_stopped: 'Το bot σταμάτησε'
         advanced_bots:
             title: Προχωρημένα bot
             toggle_label: Εμφάνιση προχωρημένων bot
@@ -164,8 +167,6 @@ el:
             current_time_is: "Αυτή η ζώνη ώρας θα χρησιμοποιείται στα αρχεία καταγραφής του bot. Σύμφωνα με αυτήν, η τρέχουσα ώρα είναι"
             currency_updated: "Το νόμισμα εμφάνισης ενημερώθηκε."
             currency_is_used_for: "Τα κέρδη και τα σύνολα του χαρτοφυλακίου εμφανίζονται σε αυτό το νόμισμα. Τα bot συνεχίζουν να συναλλάσσονται στο δικό τους νόμισμα αποτίμησης."
-        name:
-            updated: "Το όνομά σου ενημερώθηκε."
         two_fa:
             disabled: 'Η ταυτοποίηση δύο παραγόντων απενεργοποιήθηκε.'
             enabled: 'Η ταυτοποίηση δύο παραγόντων ενεργοποιήθηκε.'
@@ -177,7 +178,6 @@ el:
             trading_keys_section: 'Κλειδιά συναλλαγών'
             withdrawal_keys_section: 'Κλειδιά ανάληψης'
             email_section: Email
-            name_section: Όνομα
             password_section: Κωδικός
             free_plan_reset_date_html: 'Το όριό σου ανανεώνεται στις <b>%{end_time}</b>.'
             title: Ρυθμίσεις
@@ -196,6 +196,10 @@ el:
             confirm_delete: 'Θέλεις να αφαιρέσεις αυτό το κλειδί CoinGecko API;'
         market_data:
             none: 'Κανένα'
+            intro: "Τα ζωντανά δεδομένα αγοράς τροφοδοτούν τους δείκτες και το ιστορικό τιμών για την παρακολούθηση του χαρτοφυλακίου. Χρησιμοποίησε έναν δωρεάν λογαριασμό CoinGecko ή το API του Deltabadger για τα ίδια και στις μετοχές, μαζί με σταθερή IP για τη λίστα επιτρεπόμενων στα ανταλλακτήρια."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Και μετοχές, μαζί με σταθερή IP για τη λίστα επιτρεπόμενων στα ανταλλακτήρια."
+            upgrade_button: "Αναβάθμιση"
             disabled: 'Ο συγχρονισμός δεδομένων αγοράς απενεργοποιήθηκε.'
             updated: 'Οι ρυθμίσεις δεδομένων αγοράς ενημερώθηκαν.'
             coingecko_configured: 'Συνδεδεμένο στο CoinGecko για ζωντανά δεδομένα αγοράς.'

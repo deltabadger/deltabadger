@@ -48,7 +48,7 @@ pub(crate) fn type_name(kind:&str)->&str{match kind{"Bots::DcaMultiAsset"=>"Dca 
 fn exchanges(data: &Value) -> String {
     let rows = data["exchanges"].as_array().cloned().unwrap_or_default();
     if rows.is_empty() { return "No exchanges connected. Add an API key when creating a bot.".into(); }
-    let lines: Vec<String> = rows.iter().map(|r| format!("- {} | API key status: {}", crate::identity::venue_text(r, &str_value(&r["name"])), str_value(&r["api_key_status"]))).collect();
+    let lines: Vec<String> = rows.iter().map(|r| format!("- {}{} | API key status: {}", crate::identity::venue_text(r, &str_value(&r["name"])), r["account_id"].as_i64().map_or(String::new(), |id| format!(" (account_id {id})")), str_value(&r["api_key_status"]))).collect();
     format!("Connected Exchanges ({}):\n{}", data["count"], lines.join("\n"))
 }
 /// ListTransactionsTool#present: the times in the user's zone (ActionMCP::Current sets it).

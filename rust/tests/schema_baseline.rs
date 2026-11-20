@@ -93,7 +93,11 @@ fn baseline_tables_untouched(extra: &[(String, String, String)]) -> Result<(), S
     store::create_schema(&c).unwrap();
     let baseline_tables: BTreeSet<String> = texts(&c, "SELECT tbl_name FROM sqlite_master").into_iter().collect();
     assert!(baseline_tables.contains("bots"), "baseline.sql creates the 2.x tables");
-    let before = objects_of_baseline_tables(&c, &baseline_tables);
+    // D-DROP-USERS-NAME: the one change a Rust migration makes to a baseline table, each listed column dropped.
+    let expected = Connection::open_in_memory().unwrap();
+    store::create_schema(&expected).unwrap();
+    for (_, table, column) in store::DROPPED_COLUMNS { expected.execute_batch(&format!("ALTER TABLE \"{table}\" DROP COLUMN \"{column}\"")).unwrap(); }
+    let before = objects_of_baseline_tables(&expected, &baseline_tables);
     store::test_support::migrate(&c).unwrap();
     for (_, _, sql) in extra { c.execute_batch(sql).unwrap(); }
     let after = objects_of_baseline_tables(&c, &baseline_tables);

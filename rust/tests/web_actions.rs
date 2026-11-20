@@ -401,7 +401,9 @@ mod action_draft {
         for (table, rows) in field(group, "rows").as_object().ok_or("rows")? {
             // Table and column names are generated fixture data, never request input.
             for row in rows.as_array().ok_or("table rows")? {
-                let row = row.as_object().ok_or("row")?;
+                let mut row = row.as_object().ok_or("row")?.clone();
+                // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+                if table == "users" { row.shift_remove("name"); }
                 let columns = row.keys().map(|key| format!("\"{key}\"")).collect::<Vec<_>>().join(",");
                 let values = row.values().map(|value| match value {
                     Value::Null => rusqlite::types::Value::Null,
@@ -1054,7 +1056,9 @@ mod action_write {
         let group=&vectors["bot_actions"];
         for (table,rows) in group["rows"].as_object().ok_or("rows")? {
             for row in rows.as_array().ok_or("table rows")? {
-                let row=row.as_object().ok_or("row")?;
+                let mut row=row.as_object().ok_or("row")?.clone();
+                // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+                if table=="users" { row.shift_remove("name"); }
                 let columns=row.keys().map(|k|format!("\"{k}\"")).collect::<Vec<_>>().join(",");
                 let values=row.values().map(|v|match v {
                     Value::Null=>rusqlite::types::Value::Null,
@@ -3185,7 +3189,7 @@ mod split {
     #[test]
     fn a_foreign_or_deleted_bot_is_missing() -> Result {
         let f = Fixture::baskets(&[&[0.5, 0.5], &[0.5, 0.5]])?;
-        f.c.execute("INSERT INTO users (email, encrypted_password, name, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', ?1, ?1)", [NOW])?;
+        f.c.execute("INSERT INTO users (email, encrypted_password, created_at, updated_at) VALUES ('x@example.com', 'x', ?1, ?1)", [NOW])?;
         f.c.execute("UPDATE bots SET user_id=?1 WHERE id=?2", (f.c.last_insert_rowid(), f.bots[1]))?;
         f.refused_unchanged(&[], "missing", "One of these bots is gone.")?;
         f.c.execute("UPDATE bots SET status=3 WHERE id=?1", [f.bots[1]])?;

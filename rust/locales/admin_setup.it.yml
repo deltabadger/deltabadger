@@ -12,7 +12,6 @@ it:
       title: "La configurazione è bloccata"
       text: "Per creare l'account amministratore, apri questo server dalla dashboard del servizio che lo ospita."
     validations:
-      name_required: "Il nome è obbligatorio"
       email_required: "L'e-mail è obbligatoria"
       password_required: "La password è obbligatoria"
     api_configuration: "Il bot utilizza i dati di mercato forniti da CoinGecko. L'accesso all'API di CoinGecko è gratuito, ma devi registrarti e creare una chiave API. Trova le istruzioni di seguito."
