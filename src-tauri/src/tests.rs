@@ -1176,17 +1176,28 @@ fn english(label: &str, script: &str, languages: &[&str]) -> Launch {
     Launch { languages: languages.iter().map(|l| l.to_string()).collect(), locale: languages.first().map(|l| l.to_string()), ..stub(label, script) }
 }
 
-/// `supervise` on its own thread, with the stub's script set until it returns.
-fn spawn_supervisor(launch: Launch) -> (std::sync::Arc<Launch>, std::sync::Arc<Engine>, std::sync::Arc<Recorder>, std::thread::JoinHandle<()>) {
+/// Quits the launch when a test ends, so a failed assertion never leaves the picker waiting with the stub's turn held.
+struct Quit(std::sync::Arc<Engine>);
+
+impl Drop for Quit {
+    fn drop(&mut self) { stop_engine(&self.0); }
+}
+
+/// `supervise` on its own thread, with the stub's script set until it returns. Returns once that thread has its turn,
+/// so a test's deadlines never count the wait behind the other stub tests.
+fn spawn_supervisor(launch: Launch) -> (std::sync::Arc<Launch>, std::sync::Arc<Engine>, std::sync::Arc<Recorder>, std::thread::JoinHandle<()>, Quit) {
     let (launch, engine, view) = (std::sync::Arc::new(launch), std::sync::Arc::new(Engine::default()), std::sync::Arc::new(Recorder::default()));
     let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
-    let thread = std::thread::spawn(move || with_stub_script(&l, || supervise(&l, &e, &*v)));
-    (launch, engine, view, thread)
+    let (turn, taken) = std::sync::mpsc::channel();
+    let thread = std::thread::spawn(move || with_stub_script(&l, || { let _ = turn.send(()); supervise(&l, &e, &*v) }));
+    taken.recv().unwrap();
+    let quit = Quit(engine.clone());
+    (launch, engine, view, thread, quit)
 }
 
 #[test]
 fn a_first_start_on_an_english_system_asks_before_the_engine_and_starts_it_in_the_choice() {
-    let (launch, engine, view, thread) = spawn_supervisor(english("language-asked", "serve:app:1500", &["en-US", "pl-PL"]));
+    let (launch, engine, view, thread, _quit) = spawn_supervisor(english("language-asked", "serve:app:1500", &["ja-JP", "pl-PL"]));
     view.wait_for("status:language&preselect=pl", Duration::from_secs(10));
     std::thread::sleep(Duration::from_millis(300));
     assert_eq!(starts(&launch), 0, "no engine while the picker waits");
@@ -1253,7 +1264,7 @@ fn a_database_folder_that_cannot_be_looked_at_is_d5_and_never_a_first_start() {
 #[test]
 fn a_quit_while_the_picker_waits_starts_nothing_and_a_late_choice_never_spawns() {
     for choose_after_quit in [false, true] {
-        let (launch, engine, view, thread) = spawn_supervisor(english("language-quit", "serve:app:500", &["en-US"]));
+        let (launch, engine, view, thread, _quit) = spawn_supervisor(english("language-quit", "serve:app:500", &["en-US"]));
         view.wait_for("status:language&preselect=en", Duration::from_secs(10));
         stop_engine(&engine);
         if choose_after_quit { engine.language().choose("de"); }
