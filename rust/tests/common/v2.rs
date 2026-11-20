@@ -52,6 +52,8 @@ pub fn v2_in(env: &str, dir: &Path, scratch: &Path, secret: &str, args: &[&str])
 /// (`baseline_install`) by fixtures/v2/continue_start.rb: the action_race::continue_* tests' 2.x side.
 pub fn continue_start() -> Result<serde_json::Value, String> {
     let dir = super::baseline_install();
+    // 2.x reads users.name, which this build's migrations dropped: put it back as a handback does (D-HANDBACK-RESTORES-NAME).
+    rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap().execute_batch("ALTER TABLE users ADD COLUMN name varchar").unwrap();
     let scratch = tempfile::tempdir().unwrap();
     std::fs::write(scratch.path().join("continue.rb"), include_str!("../fixtures/v2/continue_start.rb")).unwrap();
     let out = v2(dir.path(), scratch.path(), "engine-test-secret", &["runner", "/x/continue.rb"]);

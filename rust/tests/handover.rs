@@ -43,7 +43,10 @@ async fn handback_restores_the_name_column_and_the_next_start_drops_it_again() {
     assert_eq!(store::check(&p).unwrap().pending_rust, vec![DROP_NAME.to_string()]);
     drop((l, o));
     let l = lease::lock(&p, now()).unwrap();
-    assert_eq!(store::migrate(&p, &l).unwrap(), vec![DROP_NAME.to_string()]);
+    // A start before its claim (the lease is 2.x's) leaves the column; the claim's start drops it (store::migrate_unowned).
+    assert!(store::migrate_unowned(&p, &l, false).unwrap().is_empty());
+    assert_eq!(name_state(&rusqlite::Connection::open(&p.primary).unwrap()), (true, false), "2.x keeps its column until a claim");
+    assert_eq!(store::migrate_unowned(&p, &l, true).unwrap(), vec![DROP_NAME.to_string()]);
     assert_eq!(name_state(&rusqlite::Connection::open(&p.primary).unwrap()), (false, true));
 }
 
@@ -234,7 +237,7 @@ async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     let c = rusqlite::Connection::open(&p.primary).unwrap();
     assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64, "Rust's record untouched but the name drop's");
     assert_eq!(count(&c, "SELECT count(*) FROM sqlite_master WHERE name = 'rust_migration_probe'"), 1);
-    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, vec![DROP_NAME.to_string()], "the next start drops the name again");
+    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, vec![DROP_NAME.to_string()], "the next claim drops the name again");
 }
 
 #[tokio::test(flavor = "current_thread")]

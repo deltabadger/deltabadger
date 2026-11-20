@@ -654,6 +654,9 @@ async fn run(dir: &Path) -> Value {
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
         if step["resync"] == true { rank_fixture(dir, &app.cipher, now); }
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
+        // D-NO-USER-NAME (no_user_name_divergences): the rows before an unrouted name write, to hold it wrote nothing.
+        let name_write = dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_write_name_")) && step["settings_snapshot"] == true;
+        let rows_before_name_write = name_write.then(|| settings_snapshot::rows(dir, &app.cipher));
         let woken = app.job_wakers().map_or(0, |jobs| jobs.pending().len());
         // `raw_body`: a body sent as it is, whatever the method (the recording harness hands it to 2.x unparsed).
         // `rack_input`: the body Rack reads, with the Content-Length a step may declare apart from it.
@@ -698,6 +701,7 @@ async fn run(dir: &Path) -> Value {
             if let Some(keys) = rust_sync_keys(&wakes[woken..]) { response["sync_keys"] = keys; }
         }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
+        if let Some(rows) = rows_before_name_write { response["settings_rows_before"] = rows; }
         let delivered: Vec<deltabadger::mail::Message> = std::mem::take(&mut *mail.0.lock().unwrap());
         for message in &delivered { if let Some(token) = mailed_token(&message.html) { mailed = Some(token); } }
         if step["mails"] == true { response["mails"] = json!(delivered.iter().map(|m| json!({ "to": m.to, "subject": m.subject })).collect::<Vec<_>>()); }
@@ -3318,32 +3322,58 @@ fn no_user_name_divergences(name: &str, scenario: &Value, v2: &mut Value, rust: 
         rows
     };
     if name.starts_with("settings_write_name_") {
-        // PATCH /settings/update_name answers as any unknown route (the 501 page naming it) and writes nothing: the rows
-        // are 2.x's, less the name and the stamp 2.x's save moved.
+        // PATCH /settings/update_name answers as any unknown route: the 501 page naming it, with the refusal headers of a
+        // signed-in request (refusal_headers), and nothing written: every snapshot row, users' updated_at included, as it
+        // was right before the request. 2.x's rows differ from those only by the name and the stamp its save moved.
         if theirs["status"] != 200 && theirs["status"] != 422 { return Err(format!("D-NO-USER-NAME: 2.x no longer answers the name write: {theirs}")) }
-        if ours["status"] != 501 || !ours["body"].to_string().contains("PATCH /settings/update_name") { return Err(format!("D-NO-USER-NAME: expected the unrouted 501: {ours}")) }
+        let mut ours = ours.clone();
+        let before = ours.as_object_mut().unwrap().shift_remove("settings_rows_before").ok_or("D-NO-USER-NAME: no rows before the write")?;
+        if ours["settings_rows"] != before { return Err(format!("D-NO-USER-NAME: the unrouted write changed rows:\n  before: {before}\n  after: {}", ours["settings_rows"])) }
+        let expected_head = json!({ "status": 501, "headers": refusal_headers(true) });
+        if json!({ "status": ours["status"], "headers": ours["headers"] }) != expected_head || !ours["body"].to_string().contains("PATCH /settings/update_name") {
+            return Err(format!("D-NO-USER-NAME: expected the unknown route's 501:\n  expected: {expected_head}\n  rust: {ours}"));
+        }
         let rows = |answer: &Value| { let mut rows = answer["settings_rows"].clone(); if let Some(users) = rows.get_mut("users") { *users = without_stamp(users); } rows };
-        if rows(&theirs) != rows(&ours) { return Err(format!("D-NO-USER-NAME: rows differ past the name:\n  2.x: {}\n  rust: {}", rows(&theirs), rows(&ours))) }
+        if rows(&theirs) != rows(&ours) { return Err(format!("D-NO-USER-NAME: 2.x's rows differ past the name and its stamp:\n  2.x: {}\n  rust: {}", rows(&theirs), rows(&ours))) }
+        // The users rows the scenario compares at its end: 2.x's past the stamp its save moved, and this build's unchanged.
         if without_stamp(&v2["users"]) != without_stamp(&rust["users"]) { return Err(format!("D-NO-USER-NAME: users differ past the stamp: {} vs {}", v2["users"], rust["users"])) }
+        if theirs["status"] == 422 && v2["users"] != rust["users"] { return Err(format!("D-NO-USER-NAME: users differ after a write 2.x refused: {} vs {}", v2["users"], rust["users"])) }
+        // The expected answer, written out: the unknown route's (the 501 page as this build renders it), with the rows above.
+        let mut expected = expected_head;
+        expected["body"] = ours["body"].clone();
+        expected["settings_rows"] = before;
         v2["users"] = rust["users"].clone();
-        *v2["responses"].as_array_mut().unwrap().last_mut().unwrap() = ours.clone();
+        let at = v2["responses"].as_array().unwrap().len() - 1;
+        v2["responses"][at] = expected;
+        rust["responses"][at] = ours;
     }
     if name == "signup_bad_name" {
-        // 2.x refused only the name; this build asks none: the account is made and its confirmation mailed, and the
-        // answer is the sign-up's redirect to the login page (D-SIGNUP-NO-THANK-YOU).
-        let email = scenario["steps"].as_array().and_then(|s| s.last()).map(|s| s["form"]["user[email]"].clone()).unwrap_or_default();
-        let (before, after) = (theirs["account_rows"].as_array().cloned().unwrap_or_default(), ours["account_rows"].as_array().cloned().unwrap_or_default());
-        if theirs["status"] != 422 || theirs["mails"] != json!([]) || before.iter().any(|r| r["email"] == email) { return Err(format!("D-NO-USER-NAME: 2.x no longer refuses {name}: {theirs}")) }
-        let location = ours["headers"]["location"].as_array().and_then(|l| l.first()).or(ours["headers"].get("location")).and_then(Value::as_str).unwrap_or_default().to_string();
-        let mailed = json!([{ "to": email, "subject": deltabadger::web::i18n::text("en", "devise.mailer.confirmation_instructions.subject", &[]) }]);
-        if ours["status"] != 303 || !location.ends_with("/login") || ours["mails"] != mailed || after.len() != before.len() + 1 || after[..before.len()] != before[..]
-            || after.last().is_none_or(|r| r["email"] != email || !r["confirmed_at"].is_null()) {
-            return Err(format!("D-NO-USER-NAME: expected {name} accepted (303 to /login, an unconfirmed account, its confirmation mailed): {ours}"));
-        }
-        let users = v2["users"].as_array().cloned().unwrap_or_default();
-        if rust["users"].as_array().is_none_or(|r| r.len() != users.len() + 1 || r[..users.len()] != users[..]) { return Err(format!("D-NO-USER-NAME: users: {} vs {}", v2["users"], rust["users"])) }
-        v2["users"] = rust["users"].clone();
-        *v2["responses"].as_array_mut().unwrap().last_mut().unwrap() = ours;
+        // 2.x refused only the name; this build asks none, so the sign-up is 2.x's own signup_success, whose form differs
+        // only by the name: 2.x's answer, account rows, mails and users from that recording (under the name adapter) are
+        // the expectation, and D-SIGNUP-NO-THANK-YOU (account_divergences) and the whole comparison run on them as on it.
+        if theirs["status"] != 422 || theirs["mails"] != json!([]) { return Err(format!("D-NO-USER-NAME: 2.x no longer refuses {name}: {theirs}")) }
+        let twin_name = "signup_success";
+        let dir = (0..5).map(|k| grid_recording(&format!("shard-{k}")).path.join("expected").join(twin_name)).find(|d| d.join("expected.json").is_file())
+            .ok_or("D-NO-USER-NAME: no signup_success recording")?;
+        let twin_scenario = self::scenario(&dir);
+        // The two differ by the name and by the status each recording expects of the submit (2.x's 422 and 303), nothing else.
+        let expects = |steps: &Value| steps.as_array().and_then(|s| s.last()).map(|s| s["expect"].clone());
+        if expects(&scenario["steps"]) != Some(json!(422)) || expects(&twin_scenario["steps"]) != Some(json!(303)) { return Err(format!("D-NO-USER-NAME: {name} and {twin_name} no longer expect 422 and 303")) }
+        let without_name = |steps: &Value| {
+            let mut steps = steps.clone();
+            for step in steps.as_array_mut().into_iter().flatten() {
+                if let Some(f) = step["form"].as_object_mut() { f.shift_remove("user[name]"); }
+                step.as_object_mut().map(|s| s.shift_remove("expect"));
+            }
+            steps
+        };
+        if without_name(&scenario["steps"]) != without_name(&twin_scenario["steps"]) { return Err(format!("D-NO-USER-NAME: {name} and {twin_name} differ past the name and the expected status")) }
+        let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
+        let answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(twin_scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
+        let at = v2["responses"].as_array().unwrap().len() - 1;
+        if answers.len() != at + 1 { return Err(format!("D-NO-USER-NAME: {twin_name} has {} steps", answers.len())) }
+        v2["responses"][at] = answers[at].clone();
+        v2["users"] = recorded["users"].clone();
     }
     Ok(())
 }
