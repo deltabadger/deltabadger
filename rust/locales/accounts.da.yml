@@ -1,0 +1,4 @@
+da:
+    tracker:
+        duplicate_account_html: "%{duplicate} er den samme børskonto som %{survivor} og tælles derfor ikke med i dine totaler."
+        merge_in_settings: "Flet den i Indstillinger"

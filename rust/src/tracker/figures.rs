@@ -40,7 +40,7 @@ pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Ve
     let mut s = c.prepare(&format!(
         "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, {name}, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
-         WHERE b.user_id = ?1 AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b")))?;
+         WHERE b.user_id = ?1 AND {} AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b"), crate::identity::counted(c, user_id, "b.account_id")?))?;
     let mut q = s.query([user_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
@@ -94,8 +94,9 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec
     let any = crate::venue_ids::Scope::install(c)?;
     let mut s = c.prepare(&format!(
         "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, {}, transacted_at, id, fee_currency, fee_amount, group_id, {}, \
-         COALESCE({}, -exchange_id) FROM account_transactions WHERE user_id = ?1 AND {} ORDER BY id",
-        any.row_id("account_transactions"), any.member_sql("account_transactions"), any.row_account("account_transactions"), scope.rows("account_transactions")))?;
+         COALESCE({}, -exchange_id) FROM account_transactions WHERE user_id = ?1 AND {} AND {} ORDER BY id",
+        any.row_id("account_transactions"), any.member_sql("account_transactions"), any.row_account("account_transactions"), scope.rows("account_transactions"),
+        crate::identity::counted(c, user_id, &any.member_sql("account_transactions"))?))?;
     let mut q = s.query([user_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
         crate::figures::budget::charge(1, 0)?;

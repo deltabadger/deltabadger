@@ -290,6 +290,11 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
         match first {
             Some(first) if first <= last => { let plan = backfill::plan(c, user_id, &all, first, last)?; tx.commit()?; Ok(Some((version, first, plan))) }
             _ => {
+                // #710 (PLAN-710-6 §5.2): a standing change that leaves nothing to sweep leaves no stored history behind it.
+                if backfill::standing_changed(c, cipher, user_id, &version)? {
+                    c.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
+                    c.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
+                }
                 crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?;
                 backfill::mark_calculated(c, cipher, user_id, now)?;
                 // No history to sweep: nothing in it went unpriced.
@@ -328,6 +333,11 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             // A rewrite never leaves an account with history before the window's end with none.
             let had: bool = fenced.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2)", rusqlite::params![user_id, last.to_string()], |r| r.get(0))?;
             if had && swept.whole.is_empty() { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
+            // #710 (PLAN-710-6 §5.2): under a new standing the window may start later (a duplicate's rows no longer count):
+            // the whole-portfolio days before it go. The account snapshots are rewritten up to `last` anyway.
+            if backfill::standing_changed(fenced, cipher, user_id, &version)? {
+                fenced.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1 AND date < ?2", rusqlite::params![user_id, first.to_string()])?;
+            }
             backfill::store(fenced, cipher, user_id, &swept, last, &version, now)?;
             if limited {
                 crate::app_config::delete(fenced, &backfill::price_key(user_id)).map_err(FiguresError::Data)?;

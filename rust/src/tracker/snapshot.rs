@@ -45,7 +45,8 @@ pub fn today_row_on(c: &Connection, user_id: i64, scope: &Scope, ledger: &Summar
     }
 
     let balances = figures::balances(c, user_id, scope)?;
-    let rows: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND {})", scope.rows("a")), [user_id], |r| r.get(0))?;
+    let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("a"))?;
+    let rows: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND {} AND {counted})", scope.rows("a")), [user_id], |r| r.get(0))?;
     if balances.is_empty() && !rows { return Ok(None); }
     let pending = figures::pending(c, user_id, scope)?;
     let f = figures::compute_on(c, user_id, ledger, &balances, &pending, fx, today)?;
@@ -64,6 +65,9 @@ pub fn venues(c: &Connection, user_id: i64) -> Result<Vec<AccountRow>, FiguresEr
     let mut s = c.prepare(&format!("SELECT DISTINCT COALESCE({}, -t.exchange_id) AS a FROM account_transactions t WHERE t.user_id = ?1 \
                                     UNION SELECT account_id FROM exchange_account_balances WHERE user_id = ?1 AND free + locked > 0 ORDER BY a", any.row_account("t")))?;
     let ids: Vec<i64> = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    // A duplicate account (#710, PLAN-710-6 §5.2) is its survivor's: it has no venue snapshot of its own.
+    let duplicates = crate::identity::duplicate_ids(c, user_id)?;
+    let ids: Vec<i64> = ids.into_iter().filter(|id| !duplicates.contains(id)).collect();
     let mut out = vec![];
     for id in ids {
         crate::figures::budget::charge(1, 0)?;

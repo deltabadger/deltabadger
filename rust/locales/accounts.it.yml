@@ -1,0 +1,4 @@
+it:
+    tracker:
+        duplicate_account_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}, quindi non rientra nei tuoi totali."
+        merge_in_settings: "Uniscilo nelle Impostazioni"

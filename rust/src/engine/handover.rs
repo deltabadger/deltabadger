@@ -701,6 +701,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
         // #710 slice 4: a ledger row of an account 2+ (its venue id is here; 2.x would read NULL).
         (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
+        // #710 slice 6: an observation names an account 2+, whose keys and rows already refuse; 2.x never reads it.
+        (Table, "exchange_account_overlaps", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's

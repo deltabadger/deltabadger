@@ -1,0 +1,4 @@
+de:
+    tracker:
+        duplicate_account_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor} und wird deshalb nicht in deine Summen eingerechnet."
+        merge_in_settings: "In den Einstellungen zusammenführen"

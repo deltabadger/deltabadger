@@ -232,6 +232,9 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261121000002", TableContract { name: "kucoin_coverage", columns: &[
         ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true), ("end_at", "TEXT", true),
         ("updated_at", "TEXT", true)], unique_indexes: &[] }),
+    // #710 slice 6: an account 2+ observed as the same venue account as a lower one (identity::observe_overlap).
+    ("20261123000001", TableContract { name: "exchange_account_overlaps", columns: &[("account_id", "INTEGER", false), ("other_account_id", "INTEGER", true),
+        ("matches", "INTEGER", true), ("observed_at", "TEXT", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

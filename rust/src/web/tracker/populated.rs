@@ -425,6 +425,26 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
 
 // ---- the page -------------------------------------------------------------------------------------------------------
 
+/// #710 (PLAN-710-6 §5.2): a duplicate account is left out of the figures, and the page says so: in "All" while the user
+/// has one, and on the duplicate's own scope, where the notice replaces the figures (whether it does: the second value).
+fn duplicate_notice(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope) -> Result<(String, bool), WebError> {
+    let pairs = crate::identity::duplicates(c, owner)?;
+    let shown: Vec<&(i64, i64)> = match scope {
+        Scope::All => pairs.iter().collect(),
+        Scope::Account(a) => pairs.iter().filter(|(d, _)| *d == a.id).collect(),
+        Scope::EmptyLegacyExchange(_) => vec![],
+    };
+    if shown.is_empty() { return Ok((String::new(), false)); }
+    let merge = format!("<a href=\"{}\" data-turbo-frame=\"_top\">{}</a>", escape(&ctx.path("/settings/api_keys")), ctx.t("tracker.merge_in_settings"));
+    let mut lines = String::new();
+    for (d, s) in &shown {
+        let (d, s) = (crate::identity::label(c, *d)?.html(), crate::identity::label(c, *s)?.html());
+        lines.push_str(&format!("    <p class=\"notice__line\">{} {merge}</p>\n",
+                                i18n::t(ctx.locale, "tracker.duplicate_account_html", &[("duplicate", Arg::Html(&d)), ("survivor", Arg::Html(&s))])));
+    }
+    Ok((format!("<div class=\"widget notice\" role=\"status\">\n{lines}</div>\n"), scope.account().is_some()))
+}
+
 pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<Built, WebError> {
     // One snapshot for every input: the balances `cold` approves, the cached ledger and the balances `warm` computes
     // from are the same rows, whatever a sync commits meanwhile.
@@ -454,9 +474,15 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     // Holdings arrived since the sync with no price: no balance row names their venue yet.
     let balance_symbols: std::collections::HashSet<&str> = p.cold.holdings.iter().map(|h| h.symbol.as_str()).collect();
     let arrived: Vec<String> = p.warm.iter().flat_map(|w| w.figures.holdings.iter()).filter(|h| !h.priced && !balance_symbols.contains(h.symbol.as_str()) && !p.cold.unpriced.contains(&h.symbol)).map(|h| h.symbol.clone()).collect();
+    let (duplicate, replaced) = duplicate_notice(c, ctx, owner, scope)?;
+    if replaced {
+        // A duplicate's own scope: its figures would only repeat its survivor's.
+        return Ok(Built::Regions(Regions { pending: pending_report(c, ctx, owner, &settings)?, notice: duplicate, filters, bar_end, tiles: String::new(),
+                                           holdings: String::new(), chart: String::new(), record: String::new(), warnings: crate::web::settings::keys::warnings(c, ctx, owner)? }));
+    }
     Ok(Built::Regions(Regions {
         pending: pending_report(c, ctx, owner, &settings)?,
-        notice: super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
+        notice: duplicate + &super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
         filters, bar_end,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
         holdings: holdings_pane.clone(),

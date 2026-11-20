@@ -1,0 +1,4 @@
+nl:
+    tracker:
+        duplicate_account_html: "%{duplicate} is hetzelfde exchange-account als %{survivor} en telt daarom niet mee in je totalen."
+        merge_in_settings: "Voeg het samen in Instellingen"

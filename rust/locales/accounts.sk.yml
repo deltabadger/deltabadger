@@ -1,0 +1,4 @@
+sk:
+    tracker:
+        duplicate_account_html: "%{duplicate} je ten istý účet na burze ako %{survivor}, preto sa nezapočítava do tvojich súčtov."
+        merge_in_settings: "Zlúčiť v Nastaveniach"

@@ -199,3 +199,27 @@ pub fn order_by_id(c: &Connection, scope: &Scope, external: &str) -> rusqlite::R
                                params![n, external], |r| r.get(0)).optional(),
     }
 }
+
+/// A trade row's facts that two accounts' copies of one venue trade share (PLAN-710-6 §5.1): its venue id, side, both legs
+/// as stored decimal text, and its time to the second.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Facts { pub venue_id: String, pub entry_type: i64, pub base: Option<String>, pub base_amount: Option<String>, pub quote: Option<String>, pub quote_amount: Option<String>, pub at: String }
+/// The trade kinds (sync/activities.rs): BUY, SELL, SWAP_IN, SWAP_OUT. A transfer never counts, whatever its id.
+const TRADES: &str = "a.entry_type IN (0, 1, 2, 3)";
+const FACTS: &str = "a.entry_type, a.base_currency, CAST(a.base_amount AS TEXT), a.quote_currency, CAST(a.quote_amount AS TEXT), substr(a.transacted_at, 1, 19)";
+fn facts(r: &rusqlite::Row<'_>) -> rusqlite::Result<Facts> {
+    Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: r.get(3)?, quote: r.get(4)?, quote_amount: r.get(5)?, at: r.get(6)? })
+}
+/// The account's earliest `limit` trade rows that have a venue id, by row id.
+pub fn overlap_sample(c: &Connection, scope: &Scope, limit: i64) -> rusqlite::Result<Vec<Facts>> {
+    let mut s = c.prepare(&format!("SELECT {}, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {} \
+                                    ORDER BY a.id LIMIT ?3", scope.row_id("a"), scope.rows("a"), scope.has_id("a")))?;
+    let out = s.query_map(params![scope.user_id, scope.exchange_id, limit], facts)?.collect();
+    out
+}
+/// The account's trade row with venue id `id`, if any: one seek on 2.x's unique index for a number 1, on the membership's
+/// for an account 2+.
+pub fn overlap_match(c: &Connection, scope: &Scope, id: &str) -> rusqlite::Result<Option<Facts>> {
+    c.query_row(&format!("SELECT ?3, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} LIMIT 1",
+                         scope.id_is("a", "?3")), params![scope.user_id, scope.exchange_id, id], facts).optional()
+}

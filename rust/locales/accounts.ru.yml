@@ -1,0 +1,4 @@
+ru:
+    tracker:
+        duplicate_account_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}, поэтому он не входит в итоги."
+        merge_in_settings: "Объединить в настройках"

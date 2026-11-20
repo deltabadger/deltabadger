@@ -1,0 +1,4 @@
+bg:
+    tracker:
+        duplicate_account_html: "%{duplicate} е същият акаунт в борсата като %{survivor}, затова не влиза в сумите ти."
+        merge_in_settings: "Обедини го в Настройки"

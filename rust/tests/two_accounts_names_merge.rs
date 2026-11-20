@@ -448,3 +448,215 @@ async fn t9_an_order_id_one_account_holds_never_hides_the_others_live_order() {
     let orders = mcp_text(&read);
     assert!(orders.starts_with("Open orders (2):") && orders.contains("| Alpaca 1 | ext: X") && orders.contains("(Limit order) | Alpaca 2 | ext: X"), "account 1's from the db, account 2's from its venue: {read}");
 }
+
+// ---- commit 4: duplicate standing (§5, T11-T14) ----
+
+fn observe(c: &Connection, two: &Two, n: usize) -> bool {
+    identity::observe_overlap(c, &identity::AccountRow::of(c, &two.accounts[n]).unwrap().unwrap(), chrono::Utc::now()).unwrap()
+}
+/// `n` buys of account `k` under the shared trade ids `trade-0…`: the first `base_amount` given, the rest 1, one a day.
+fn trades(c: &Connection, two: &Two, k: usize, n: usize, entry_type: i64, first_amount: &str) {
+    for i in 0..n { two.trade(c, k, entry_type, &format!("trade-{i}"), if i == 0 { first_amount } else { "1" }, &format!("2026-09-0{} 10:00:00", i + 1)); }
+}
+
+/// T11: equal fingerprints make 2 a duplicate of 1; different or NULL ones none; three accounts on one fingerprint make 2
+/// and 3 duplicates of 1; a removed 1 makes 3 a duplicate of 2.
+#[test]
+fn t11_equal_fingerprints_make_the_higher_number_a_duplicate() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let (a, b) = (two.id(0), two.id(1));
+    assert!(identity::duplicates(c, user).unwrap().is_empty(), "NULL fingerprints");
+    two.fingerprint(c, 0, Some("fp-1"));
+    assert!(identity::duplicates(c, user).unwrap().is_empty(), "one NULL");
+    two.fingerprint(c, 1, Some("fp-2"));
+    assert!(identity::duplicates(c, user).unwrap().is_empty(), "different");
+    two.fingerprint(c, 1, Some("fp-1"));
+    assert_eq!(identity::duplicates(c, user).unwrap(), [(b, a)]);
+    let third = two.third(c).id.unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-1' WHERE id = ?1", [third]).unwrap();
+    assert_eq!(identity::duplicates(c, user).unwrap(), [(b, a), (third, a)]);
+    remove(c, a);
+    assert_eq!(identity::duplicates(c, user).unwrap(), [(third, b)], "a removed 1");
+}
+
+/// T12: overlap evidence on Kraken: 2 strong matches write nothing, 3 write the observation; a conflicting amount, side or
+/// asset vetoes it; deposits and withdrawal/deposit pairs never count; conflicting fingerprints veto; the fixture's shared
+/// ids write nothing.
+#[test]
+fn t12_shared_trade_ids_with_the_same_facts_are_the_evidence() {
+    let case = |setup: &dyn Fn(&Connection, &Two)| -> bool {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = Two::kraken(c, &seed::cipher());
+        setup(c, &two);
+        let observed = observe(c, &two, 1);
+        assert_eq!(observed, identity::duplicates(c, two.seeded.user_id).unwrap() == [(two.id(1), two.id(0))], "an observation is the standing");
+        observed
+    };
+    assert!(!case(&|c, two| { trades(c, two, 0, 2, 0, "1"); trades(c, two, 1, 2, 0, "1"); }), "two matches");
+    assert!(case(&|c, two| { trades(c, two, 0, 3, 0, "1"); trades(c, two, 1, 3, 0, "1"); }), "three matches");
+    assert!(!case(&|c, two| { trades(c, two, 0, 3, 0, "1"); trades(c, two, 1, 3, 0, "2"); }), "a different base_amount vetoes");
+    assert!(!case(&|c, two| { trades(c, two, 0, 4, 0, "1"); trades(c, two, 1, 4, 1, "1"); }), "the other side");
+    assert!(!case(&|c, two| {
+        trades(c, two, 0, 4, 0, "1"); trades(c, two, 1, 4, 0, "1");
+        c.execute("UPDATE account_transactions SET base_currency = 'ETH' WHERE id = (SELECT max(id) FROM account_transactions)", []).unwrap();
+    }), "another asset on one shared id");
+    assert!(!case(&|c, two| { trades(c, two, 0, 5, 4, "1"); trades(c, two, 1, 5, 4, "1"); }), "deposits never count");
+    assert!(!case(&|c, two| { trades(c, two, 0, 5, 5, "1"); trades(c, two, 1, 5, 4, "1"); }), "withdrawal/deposit pairs");
+    assert!(!case(&|c, two| { two.fingerprint(c, 0, Some("a")); two.fingerprint(c, 1, Some("b")); trades(c, two, 0, 5, 0, "1"); trades(c, two, 1, 5, 0, "1"); }),
+            "conflicting fingerprints");
+    assert!(!case(&|c, two| {
+        use common::two_accounts::{SHARED_ORDER, SHARED_TX};
+        for k in 0..2 { two.row(c, k, 4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01 10:00:00"); two.order(c, k, SHARED_ORDER, 0, Some(2)); }
+    }), "the fixture's shared ids");
+}
+
+/// T12: KuCoin is not a listed venue; an observed account is not sampled again; an install without the table reads no
+/// duplicates.
+#[test]
+fn t12_unlisted_venues_reruns_and_old_installs_observe_nothing() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let kucoin = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    trades(c, &kucoin, 0, 5, 0, "1");
+    trades(c, &kucoin, 1, 5, 0, "1");
+    assert!(!observe(c, &kucoin, 1), "KuCoin");
+    trades(c, &kraken, 0, 3, 0, "1");
+    trades(c, &kraken, 1, 3, 0, "1");
+    assert!(observe(c, &kraken, 1));
+    assert!(!observe(c, &kraken, 1), "observed once");
+    assert!(!observe(c, &kraken, 0), "a number 1 is never a duplicate");
+    assert_eq!(identity::duplicates(c, kraken.seeded.user_id).unwrap(), [(kraken.id(1), kraken.id(0))]);
+    kraken.fingerprint(c, 0, Some("fp"));
+    kraken.fingerprint(c, 1, Some("fp"));
+    c.execute_batch("DROP TABLE exchange_account_overlaps").unwrap();
+    assert!(identity::duplicates(c, kraken.seeded.user_id).unwrap().is_empty(), "no table, no duplicates");
+}
+
+/// T13: 3 observed against 2 while 2 is 1's duplicate by fingerprint: both chains end at 1.
+#[test]
+fn t13_chains_resolve_to_the_lowest_live_end() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let third = two.third(c).id.unwrap();
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, 3, 'now')", [third, two.id(1)]).unwrap();
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0)), (third, two.id(0))]);
+}
+
+/// A balance row of account `n` of `two`: `units` of BTC worth `value`.
+fn hold(c: &Connection, two: &Two, n: usize, units: &str, value: &str) {
+    c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+               VALUES (?1, ?2, ?3, ?4, 0, 100, ?5, '2026-09-20 10:00:00', '2026-09-20 10:00:00', 'now', 'now', ?6)",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, two.seeded.btc, units, value, two.id(n)]).unwrap();
+}
+
+/// T14: with 2 a duplicate, "All"'s balances, walk input and venue snapshots are account 1's; account 2's own scope reads
+/// nothing; its bot keeps its status. The history version gains the standing only while a duplicate exists, so the
+/// ledger cache and the sweep see the change.
+#[test]
+fn t14_a_duplicate_is_left_out_of_the_figures() {
+    use deltabadger::tracker::{backfill, figures::{self, page}, rows, snapshot, Scope};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let [a, b] = [0, 1].map(|n| identity::AccountRow::of(c, &two.accounts[n]).unwrap().unwrap());
+    two.row(c, 0, 4, "BTC", "1", Some("dep-a"), None, "2026-09-10 10:00:00");
+    two.row(c, 1, 4, "BTC", "1", Some("dep-b"), None, "2026-09-10 10:00:00");
+    hold(c, &two, 0, "1", "100");
+    hold(c, &two, 1, "1", "100");
+    let value = |scope: Scope| page::cold(c, user, &scope, true).unwrap().holdings.iter().map(|h| h.value.as_ref().unwrap().to_s_f()).collect::<Vec<_>>();
+    let balances = |scope: Scope| figures::balances(c, user, &scope).unwrap().len();
+    let version = backfill::history_version(c, user).unwrap();
+    let cache = deltabadger::tracker::cache::version(c, user).unwrap();
+    assert!(!version.contains("_d"), "no duplicate: the version is 2.x's");
+    assert_eq!((value(Scope::All), balances(Scope::All), rows::load_all(c, user).unwrap().len()), (vec!["200.0".to_string()], 2, 2));
+
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    assert_eq!(value(Scope::All), value(Scope::Account(a)), "All's balances are account 1's");
+    assert_eq!(balances(Scope::All), 1);
+    assert!(value(Scope::Account(b)).is_empty() && balances(Scope::Account(b)) == 0, "the duplicate's own scope reads nothing");
+    let walked = rows::load_all(c, user).unwrap();
+    assert_eq!(walked.iter().map(|r| r.tx_id.clone()).collect::<Vec<_>>(), [Some("dep-a".to_string())], "the walk reads account 1's rows only");
+    assert_eq!(snapshot::venues(c, user).unwrap(), [a], "no venue snapshot of the duplicate");
+    let changed = backfill::history_version(c, user).unwrap();
+    assert_eq!(changed, format!("{version}_d{}:{}", b.id, a.id));
+    assert!(deltabadger::tracker::cache::version(c, user).unwrap() != cache, "the ledger cache re-walks");
+    let status: i64 = c.query_row("SELECT status FROM bots WHERE id = ?1", [two.bots[1]], |r| r.get(0)).unwrap();
+    assert_eq!(status, 1, "its bot keeps working: nothing in the engine reads the standing");
+}
+
+/// T14: "All" says a duplicate is left out; the duplicate's own scope shows the notice in place of its figures.
+#[tokio::test(flavor = "current_thread")]
+async fn t14_the_page_says_a_duplicate_is_left_out() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    two.row(c, 0, 4, "BTC", "1", Some("t-a"), None, "2026-09-10 10:00:00");
+    two.row(c, 1, 4, "BTC", "1", Some("t-b"), None, "2026-09-10 10:00:00");
+    let app = web_app(dir.path(), c);
+    let all = get(&app, c, user, "/tracker").await;
+    assert_eq!(all.status, 200);
+    assert!(!all.body.contains("left out of your totals"), "no duplicate, no notice");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let all = get(&app, c, user, "/tracker").await;
+    assert!(all.body.contains("Kraken<sup>2</sup> is the same exchange account as Kraken<sup>1</sup>, so it is left out of your totals."), "{}", cut(&all.body, "notice", 600));
+    assert!(all.body.contains("data-grid--six"), "All keeps its figures");
+    let own = get(&app, c, user, &format!("/tracker?account_id={}", two.id(1))).await;
+    assert_eq!(own.status, 200);
+    assert!(own.body.contains("left out of your totals") && own.body.contains("/settings/api_keys"), "{}", cut(&own.body, "notice", 600));
+    assert!(!own.body.contains("data-grid--six"), "the notice replaces the duplicate's figures");
+}
+
+struct NoVenue;
+impl deltabadger::sync::jobs::Connect for NoVenue {
+    type T = deltabadger::venue::http::ScriptedTransport;
+    fn connect(&self, _: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ScriptedTransport::from_script(&serde_json::json!({})), deltabadger::venue::alpaca::Urls::for_passphrase(None))
+    }
+}
+
+/// T14: the stored history follows the standing. D's USD deposits start in January and S's in June: after D becomes a
+/// duplicate the sweep leaves no whole-portfolio day before June. With S holding no row, the no-sweep branch leaves no
+/// stored day up to yesterday. A sweep under an unchanged standing deletes nothing earlier.
+#[tokio::test(flavor = "current_thread")]
+async fn t14_the_stored_history_follows_the_standing() {
+    for s_rows in [true, false] {
+        let (dir, o) = install();
+        let two = Two::kraken(&o.primary, &seed::cipher());
+        let user = two.seeded.user_id;
+        two.row(&o.primary, 1, 4, "USD", "100", Some("dep-d"), None, "2026-01-10 10:00:00");
+        if s_rows { two.row(&o.primary, 0, 4, "USD", "50", Some("dep-s"), None, "2026-06-10 10:00:00"); }
+        let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+        let db = deltabadger::jobs::Db::new(o.primary, seed::cipher());
+        let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+        let clock = deltabadger::engine::FixedClock(at);
+        let sweep = || deltabadger::tracker::jobs::backfill_run(&db, &NoVenue, None::<&deltabadger::jobs::market::Feed<deltabadger::venue::http::ScriptedTransport>>, None, user, &clock);
+        let first = |c: &Connection, table: &str| -> Option<String> { c.query_row(&format!("SELECT min(date) FROM {table} WHERE user_id = ?1 AND date <= '2026-09-19'"), [user], |r| r.get(0)).unwrap() };
+        assert_eq!(sweep().await, Ok(true));
+        assert_eq!(first(&c, "portfolio_snapshots").as_deref(), Some("2026-01-10"));
+        assert_eq!(sweep().await, Ok(true), "an unchanged standing");
+        assert_eq!(first(&c, "portfolio_snapshots").as_deref(), Some("2026-01-10"), "nothing earlier deleted");
+        c.execute_batch("UPDATE exchange_accounts SET fingerprint = 'fp'").unwrap();
+        let cipher = seed::cipher();
+        assert!(deltabadger::tracker::backfill::wanted(&c, &cipher, user, at.date_naive()).unwrap(), "the standing asks for a sweep");
+        if s_rows {
+            assert_eq!(sweep().await, Ok(true));
+            assert_eq!(first(&c, "portfolio_snapshots").as_deref(), Some("2026-06-10"), "no day before S's first row");
+        } else {
+            assert_eq!(sweep().await, Ok(false));
+            assert_eq!((first(&c, "portfolio_snapshots"), first(&c, "exchange_account_snapshots")), (None, None), "no stored day left");
+        }
+        assert!(!deltabadger::tracker::backfill::wanted(&c, &cipher, user, at.date_naive()).unwrap(), "stamped");
+    }
+}

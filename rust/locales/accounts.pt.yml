@@ -1,0 +1,4 @@
+pt:
+    tracker:
+        duplicate_account_html: "%{duplicate} é a mesma conta da exchange que %{survivor}, por isso fica fora dos teus totais."
+        merge_in_settings: "Junta-a nas Definições"

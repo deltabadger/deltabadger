@@ -1,0 +1,4 @@
+el:
+    tracker:
+        duplicate_account_html: "Ο %{duplicate} είναι ο ίδιος λογαριασμός ανταλλακτηρίου με τον %{survivor}, γι’ αυτό δεν μετράει στα σύνολά σου."
+        merge_in_settings: "Συγχώνευσέ τον στις Ρυθμίσεις"

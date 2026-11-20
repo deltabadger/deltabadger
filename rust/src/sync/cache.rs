@@ -53,7 +53,9 @@ fn accounts(c: &Connection, user: i64, scope: &Scope, balances: bool, keys: bool
     let mut parts = vec![];
     if balances { parts.push(format!("SELECT b.account_id FROM exchange_account_balances b WHERE b.user_id = ?1 AND {}", scope.store("b"))); }
     if keys { parts.push(format!("SELECT {key} FROM api_keys k WHERE k.user_id = ?1 AND k.key_type != 1 AND {}", scope.keys("k"))); }
-    Ok(AccountRow::listed(c, user, &parts.join(" UNION "))?)
+    // A duplicate account (#710, PLAN-710-6 §5.2) is counted nowhere, so its freshness is no scope's.
+    let duplicates = crate::identity::duplicate_ids(c, user)?;
+    Ok(AccountRow::listed(c, user, &parts.join(" UNION "))?.into_iter().filter(|a| !duplicates.contains(&a.id)).collect())
 }
 /// Missing, malformed, partial or differently credentialed cache origins are sync-pending.
 /// Select the same reading slot as the sync scheduler: trading before read-only, never withdrawal.

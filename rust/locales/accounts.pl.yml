@@ -1,0 +1,4 @@
+pl:
+    tracker:
+        duplicate_account_html: "%{duplicate} to to samo konto na giełdzie co %{survivor}, więc nie wliczamy go do sum."
+        merge_in_settings: "Połącz je w Ustawieniach"

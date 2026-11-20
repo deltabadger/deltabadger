@@ -86,6 +86,18 @@ impl Two {
         id
     }
 
+    /// Account `n`'s fingerprint (`identity::establish` fills only an unknown one; a fixture writes any).
+    pub fn fingerprint(&self, c: &Connection, n: usize, fingerprint: Option<&str>) {
+        c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", params![self.id(n), fingerprint]).unwrap();
+    }
+
+    /// A trade row of account `n` (`entry_type` 0-3) with venue id `id` and its facts: `base_amount` of BTC for 100 EUR at `at`.
+    pub fn trade(&self, c: &Connection, n: usize, entry_type: i64, id: &str, base_amount: &str, at: &str) -> i64 {
+        let row = self.row(c, n, entry_type, "BTC", base_amount, Some(id), None, at);
+        c.execute("UPDATE account_transactions SET quote_currency = 'EUR', quote_amount = '100' WHERE id = ?1", [row]).unwrap();
+        row
+    }
+
     /// Account `n`'s (0: number 1, 1: number 2) row id.
     pub fn id(&self, n: usize) -> i64 { self.accounts[n].id.unwrap() }
 
@@ -95,7 +107,7 @@ impl Two {
     pub fn row(&self, c: &Connection, n: usize, entry_type: i64, currency: &str, amount: &str, id: Option<&str>, group: Option<&str>, at: &str) -> i64 {
         let scope = &self.scopes[n];
         c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, group_id, transacted_at, \
-                   raw_data, manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '{}', '{}', 0, 'now', 'now')",
+                   raw_data, manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '{}', '{}', 0, ?9, ?9)",
                   params![self.seeded.user_id, self.keys[n], self.seeded.exchange_id, entry_type, currency, amount, scope.stored(id), group, at]).unwrap();
         let row = c.last_insert_rowid();
         venue_ids::after_insert(c, scope, row, id).unwrap();

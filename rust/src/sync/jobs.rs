@@ -349,7 +349,16 @@ impl<C: Connect> Job for LedgerSync<C> {
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
             // 2.x's SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
-            else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
+            else {
+                // #710 slice 6 (PLAN-710-6 §5.1): a complete sync of an account 2+ may show it is a lower account's duplicate.
+                if outcome == Outcome::Done {
+                    let (key, at) = (self.key_id, cx.clock.now());
+                    if let Err(e) = cx.db.run(move |c, _| crate::identity::observe_overlap_of_key(c, key, at).map_err(|e| e.to_string())).await {
+                        crate::engine::log(&format!("[sync] account overlap of key {key} not observed: {e}"));
+                    }
+                }
+                if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
+            }
             outcome
 
             }.await;

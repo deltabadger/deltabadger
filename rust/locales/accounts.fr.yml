@@ -1,0 +1,4 @@
+fr:
+    tracker:
+        duplicate_account_html: "%{duplicate} est le même compte d’exchange que %{survivor} : il n’est donc pas compté dans tes totaux."
+        merge_in_settings: "Le fusionner dans les Paramètres"
