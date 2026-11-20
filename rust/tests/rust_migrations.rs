@@ -677,6 +677,24 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
     assert!(store::migrate(&p, &lock(&p)).unwrap().is_empty());
 }
 
+/// D-DROP-USERS-NAME timing: on an install this engine does not own yet, `migrate_unowned` applies every other migration
+/// and leaves the listed column drop pending (not an error), so 2.x keeps users.name; owned, the same call drops it.
+#[test]
+fn a_column_drop_waits_until_the_install_is_rusts() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let has_name = |p: &Paths| Connection::open(&p.primary).unwrap().query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_xinfo('users') WHERE name = 'name')", [], |r| r.get::<_, bool>(0)).unwrap();
+    let applied = store::migrate_unowned(&p, &lock(&p), false).unwrap();
+    assert_eq!(applied.len(), store::REGISTRY.migrations.len() - 1, "every migration but the drop");
+    assert!(!applied.iter().any(|v| v == "20261122000002"));
+    assert!(has_name(&p));
+    assert_eq!(store::check(&p).unwrap().pending_rust, vec!["20261122000002".to_string()]);
+    assert!(store::migrate_unowned(&p, &lock(&p), false).unwrap().is_empty(), "a second unowned start applies nothing");
+    store::open(&p).expect("an install with the drop pending opens");
+    assert_eq!(store::migrate_unowned(&p, &lock(&p), true).unwrap(), vec!["20261122000002".to_string()]);
+    assert!(!has_name(&p) && store::check(&p).unwrap().pending_rust.is_empty());
+}
+
 /// The run-time guard reads the listed migration too: one whose file is not exactly the drop is rolled back, whatever
 /// the build's scan let through (a fixture registry skips the build).
 #[test]

@@ -218,7 +218,17 @@ fn assert_genuine(app: &App, browser: &Browser, answer: &Answer, now: chrono::Da
     for rendered in &masked.tokens { assert!(csrf::valid(&token, rendered), "{step}: a rendered CSRF token does not verify"); }
 }
 
-struct Played { responses: Vec<Value>, dir: tempfile::TempDir, app: App, requests: Vec<Value>, woken: usize }
+struct Played { responses: Vec<Value>, dir: tempfile::TempDir, app: App, requests: Vec<Value>, woken: usize, browsers: BTreeMap<String, Browser>, mails: Arc<Mails> }
+
+/// Every mail the app hands its sender (D-NO-USER-NAME's setups: none).
+#[derive(Default)]
+struct Mails(std::sync::Mutex<Vec<deltabadger::mail::Message>>);
+impl web::settings::mail::Mailer for Mails {
+    fn deliver(&self, message: deltabadger::mail::Message, _: Option<deltabadger::mail::smtp::Settings>, _: chrono::DateTime<chrono::Utc>) -> web::settings::mail::Delivery {
+        self.0.lock().unwrap().push(message);
+        Box::pin(async { Ok(()) })
+    }
+}
 
 async fn play(name: &str, scenario: &Value) -> Played {
     let dir = install();
@@ -238,7 +248,14 @@ async fn play(name: &str, scenario: &Value) -> Played {
         (launchpad, requests) = (Some(url), seen);
     }
     let wakers = deltabadger::jobs::Wakers::default();
-    let start = |env: &HashMap<String, String>| { let app = app(dir.path(), env, clock.clone()); app.attach_jobs(wakers.clone()).unwrap(); app };
+    let mails = Arc::new(Mails::default());
+    let start = |env: &HashMap<String, String>| {
+        let app = app(dir.path(), env, clock.clone()).with_settings_mailer(mails.clone()).unwrap();
+        // D-NO-USER-NAME's setups run with mail that can be sent, so "no mail" is a finding, not a missing server.
+        let app = if matches!(name, "invalid_name" | "followup_json_locale") { app.with_mail_set_up(true).unwrap() } else { app };
+        app.attach_jobs(wakers.clone()).unwrap();
+        app
+    };
     let mut app = start(&env);
     let mut browsers: BTreeMap<String, Browser> = BTreeMap::new();
     let mut responses = vec![];
@@ -271,7 +288,7 @@ async fn play(name: &str, scenario: &Value) -> Played {
     }
     let woken = wakers.pending().iter().filter(|(job, _)| job == deltabadger::jobs::setup_sync::NAME).count();
     let requests = requests.lock().unwrap().clone();
-    Played { responses, dir, app, requests, woken }
+    Played { responses, dir, app, requests, woken, browsers, mails }
 }
 
 fn clock_now(at: &str) -> chrono::DateTime<chrono::Utc> { at.parse().unwrap() }
@@ -361,13 +378,34 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
         }
         if name == "invalid_name" || name == "followup_json_locale" {
             // D-NO-USER-NAME: 2.x refused only the name ("Owner1", blank). This build asks none: setup succeeds as it
-            // always does, a confirmed admin signed in and sent to /bots, and no mail.
-            let ours = played.responses.last().unwrap();
+            // always does. Every step before the submit is compared whole; the submit makes the submitted account (a
+            // confirmed admin in the submitted language, its password verifying), signs that account in, redirects to
+            // /bots and sends no mail; launchpad requests, the setup sync and app configuration are 2.x's (none).
+            let last = played.responses.len() - 1;
+            if v2.len() != played.responses.len() || v2[last]["status"] != 422 { failures.push(format!("{name}: 2.x no longer refuses only the name")); continue; }
+            if let Some(message) = first_difference(name, &v2[..last], &played.responses[..last]) { failures.push(message); continue; }
+            let step = &scenario["steps"][last];
+            let field = |key: &str| step["form"][format!("user[{key}]")].as_str().or_else(|| step["json"]["user"][key].as_str()).unwrap_or_default().to_string();
+            let locale = step["form"]["locale"].as_str().or_else(|| step["json"]["locale"].as_str()).unwrap_or_default().to_string();
+            let (email, password) = (field("email"), field("password"));
+            let ours = &played.responses[last];
             let users = table(played.dir.path(), "users");
-            let ok = ours["status"] == 302 && ours["headers"]["location"].as_str().is_some_and(|l| l.ends_with("/bots"))
-                && users.len() == 1 && users[0]["admin"] == json!(1) && !users[0]["confirmed_at"].is_null()
-                && ours["headers"]["set-cookie"].is_string() && played.woken == 0;
-            if !ok { failures.push(format!("{name}: expected the admin created and a redirect to /bots, got {ours} with {users:?}")); }
+            let account = users.len() == 1 && users[0]["email"] == json!(email) && users[0]["admin"] == json!(1) && !users[0]["confirmed_at"].is_null()
+                && users[0]["locale"] == json!(locale) && users[0].get("name").is_none_or(Value::is_null)
+                && users[0]["encrypted_password"].as_str().is_some_and(|h| deltabadger::crypto::verify_password(&password, h));
+            let home = if locale == "en" { "/bots".to_string() } else { format!("/{locale}/bots") };
+            if ours["status"] != 302 || ours["headers"]["location"] != json!(home) || !account { failures.push(format!("{name}: expected {email} made and a redirect to /bots, got {ours} with {users:?}")); }
+            // Signed in as that account: the session the browser holds names it, and the dashboard answers.
+            let browser = played.browsers.get_mut("main").unwrap();
+            let user = browser.cookie.as_deref().and_then(|cookie| session::open(&played.app.keys.session, cookie, played.app.now())).and_then(|s| s.user).map(|(id, _)| id);
+            let bots = browser.get(&played.app, "/bots").await;
+            if user.is_none() || users.first().map(|u| u["id"].clone()) != user.map(|id| json!(id)) || bots.status != 200 {
+                failures.push(format!("{name}: not signed in as {email}: session user {user:?}, /bots {}", bots.status));
+            }
+            if !played.mails.0.lock().unwrap().is_empty() { failures.push(format!("{name}: a mail was sent")); }
+            if scenario["launchpad_requests"] != json!(played.requests) { failures.push(format!("{name}: launchpad requests: 2.x {}, Rust {:?}", scenario["launchpad_requests"], played.requests)); }
+            if played.woken != 0 { failures.push(format!("{name}: the setup sync was woken")); }
+            if let Some(message) = app_configs_difference(&played.app, scenario["app_configs"].as_array().unwrap(), &table(played.dir.path(), "app_configs")) { failures.push(format!("{name}: {message}")); }
             continue;
         }
         if let Some(message) = first_difference(name, &v2, &played.responses) { failures.push(message); continue; }

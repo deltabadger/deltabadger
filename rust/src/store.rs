@@ -710,6 +710,18 @@ pub fn migrate(paths: &Paths, lock: &EngineLock) -> Result<Vec<String>, StoreErr
     migrate_with(paths, lock, &REGISTRY)
 }
 
+/// D-DROP-USERS-NAME timing: `migrate` for an install this engine may not own yet (`owned` false: the lease is not
+/// Rust's). A pending column drop (DROPPED_COLUMNS) is left pending, so a takeover that is refused, or a start that stops
+/// before its claim, leaves 2.x every column it reads; the claim's start applies it right after the claim
+/// (`migrate`). Every other migration, later-numbered ones included, applies as usual.
+pub fn migrate_unowned(paths: &Paths, lock: &EngineLock, owned: bool) -> Result<Vec<String>, StoreError> {
+    if owned { return migrate(paths, lock) }
+    let pending = check(paths)?.pending_rust;
+    let deferred = |v: &str| DROPPED_COLUMNS.iter().any(|(d, _, _)| *d == v) && pending.iter().any(|p| p == v);
+    let now: Vec<Migration> = REGISTRY.migrations.iter().copied().filter(|m| !deferred(m.version)).collect();
+    migrate_with(paths, lock, &Registry { migrations: &now, tables: REGISTRY.tables, retired: REGISTRY.retired })
+}
+
 /// `migrate` with `registry`'s migrations (see `check_with`). Each migration commits on its own; a failure stops here
 /// with nothing of it left, and the next start resumes at it.
 pub fn migrate_with(paths: &Paths, _lock: &EngineLock, registry: &Registry) -> Result<Vec<String>, StoreError> {

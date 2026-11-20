@@ -654,6 +654,9 @@ async fn run(dir: &Path) -> Value {
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
         if step["resync"] == true { rank_fixture(dir, &app.cipher, now); }
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
+        // D-NO-USER-NAME (no_user_name_divergences): the rows before an unrouted name write, to hold it wrote nothing.
+        let name_write = dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_write_name_")) && step["settings_snapshot"] == true;
+        let rows_before_name_write = name_write.then(|| settings_snapshot::rows(dir, &app.cipher));
         let woken = app.job_wakers().map_or(0, |jobs| jobs.pending().len());
         // `raw_body`: a body sent as it is, whatever the method (the recording harness hands it to 2.x unparsed).
         // `rack_input`: the body Rack reads, with the Content-Length a step may declare apart from it.
@@ -698,6 +701,7 @@ async fn run(dir: &Path) -> Value {
             if let Some(keys) = rust_sync_keys(&wakes[woken..]) { response["sync_keys"] = keys; }
         }
         if step["settings_snapshot"] == true { response["settings_rows"] = settings_snapshot::rows(dir,&app.cipher); }
+        if let Some(rows) = rows_before_name_write { response["settings_rows_before"] = rows; }
         let delivered: Vec<deltabadger::mail::Message> = std::mem::take(&mut *mail.0.lock().unwrap());
         for message in &delivered { if let Some(token) = mailed_token(&message.html) { mailed = Some(token); } }
         if step["mails"] == true { response["mails"] = json!(delivered.iter().map(|m| json!({ "to": m.to, "subject": m.subject })).collect::<Vec<_>>()); }
@@ -3318,15 +3322,30 @@ fn no_user_name_divergences(name: &str, scenario: &Value, v2: &mut Value, rust: 
         rows
     };
     if name.starts_with("settings_write_name_") {
-        // PATCH /settings/update_name answers as any unknown route (the 501 page naming it) and writes nothing: the rows
-        // are 2.x's, less the name and the stamp 2.x's save moved.
+        // PATCH /settings/update_name answers as any unknown route: the 501 page naming it, with the refusal headers of a
+        // signed-in request (refusal_headers), and nothing written: every snapshot row, users' updated_at included, as it
+        // was right before the request. 2.x's rows differ from those only by the name and the stamp its save moved.
         if theirs["status"] != 200 && theirs["status"] != 422 { return Err(format!("D-NO-USER-NAME: 2.x no longer answers the name write: {theirs}")) }
-        if ours["status"] != 501 || !ours["body"].to_string().contains("PATCH /settings/update_name") { return Err(format!("D-NO-USER-NAME: expected the unrouted 501: {ours}")) }
+        let mut ours = ours.clone();
+        let before = ours.as_object_mut().unwrap().shift_remove("settings_rows_before").ok_or("D-NO-USER-NAME: no rows before the write")?;
+        if ours["settings_rows"] != before { return Err(format!("D-NO-USER-NAME: the unrouted write changed rows:\n  before: {before}\n  after: {}", ours["settings_rows"])) }
+        let expected_head = json!({ "status": 501, "headers": refusal_headers(true) });
+        if json!({ "status": ours["status"], "headers": ours["headers"] }) != expected_head || !ours["body"].to_string().contains("PATCH /settings/update_name") {
+            return Err(format!("D-NO-USER-NAME: expected the unknown route's 501:\n  expected: {expected_head}\n  rust: {ours}"));
+        }
         let rows = |answer: &Value| { let mut rows = answer["settings_rows"].clone(); if let Some(users) = rows.get_mut("users") { *users = without_stamp(users); } rows };
-        if rows(&theirs) != rows(&ours) { return Err(format!("D-NO-USER-NAME: rows differ past the name:\n  2.x: {}\n  rust: {}", rows(&theirs), rows(&ours))) }
+        if rows(&theirs) != rows(&ours) { return Err(format!("D-NO-USER-NAME: 2.x's rows differ past the name and its stamp:\n  2.x: {}\n  rust: {}", rows(&theirs), rows(&ours))) }
+        // The users rows the scenario compares at its end: 2.x's past the stamp its save moved, and this build's unchanged.
         if without_stamp(&v2["users"]) != without_stamp(&rust["users"]) { return Err(format!("D-NO-USER-NAME: users differ past the stamp: {} vs {}", v2["users"], rust["users"])) }
+        if theirs["status"] == 422 && v2["users"] != rust["users"] { return Err(format!("D-NO-USER-NAME: users differ after a write 2.x refused: {} vs {}", v2["users"], rust["users"])) }
+        // The expected answer, written out: the unknown route's (the 501 page as this build renders it), with the rows above.
+        let mut expected = expected_head;
+        expected["body"] = ours["body"].clone();
+        expected["settings_rows"] = before;
         v2["users"] = rust["users"].clone();
-        *v2["responses"].as_array_mut().unwrap().last_mut().unwrap() = ours.clone();
+        let at = v2["responses"].as_array().unwrap().len() - 1;
+        v2["responses"][at] = expected;
+        rust["responses"][at] = ours;
     }
     if name == "signup_bad_name" {
         // 2.x refused only the name; this build asks none: the account is made and its confirmation mailed, and the
