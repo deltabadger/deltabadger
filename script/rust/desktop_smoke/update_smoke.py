@@ -147,6 +147,8 @@ def install_n(name, debug=False):
     if data.exists():
         shutil.rmtree(data)
     data.mkdir(parents=True)
+    # D-LANGUAGE-STEP: CI's systems are English; the choice saved as the picker saves it, so no start waits at the picker.
+    (data / "first-language").write_text("en\n")
     if WIN:
         shutil.rmtree(HOOKS, ignore_errors=True)
         HOOKS.mkdir(parents=True)
