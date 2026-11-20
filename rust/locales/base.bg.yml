@@ -154,6 +154,11 @@ bg:
             check_now: "Проверка за обновления"
             checking: "Проверява се…"
             check_failed: "Проверката за обновления е неуспешна."
+        email_alerts:
+            title: 'Предупреждения за ботове по имейл'
+            low_funds: 'Малко средства'
+            bot_errors: 'Грешки на бота'
+            bot_stopped: 'Ботът е спрян'
         advanced_bots:
             title: Разширени ботове
             toggle_label: Показване на разширени ботове

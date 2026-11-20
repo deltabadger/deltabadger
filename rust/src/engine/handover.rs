@@ -730,6 +730,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_index_rankings", Ignored),
         // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
         (Table, "rust_index_retired", Ignored),
+        // #878: the bot alert emails a user switched off; 2.x sends them all, and the switches hold again after a reclaim.
+        (Table, "rust_email_alert_opt_outs", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
