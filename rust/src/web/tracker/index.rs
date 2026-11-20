@@ -14,12 +14,8 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
     // from its tracker; the venues price what they can and the page's banner names the rest.
     let missing=false;
     {
-        // 2.x's order: the venue (`Exchange.find`, 404) before any date is read.
-        if let Some(raw)=ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()) {
-            let Some(id)=crate::web::bot::id_from_path(raw) else{return Ok(layout::missing())};
-            let exists:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get(0))?;
-            if !exists{return Ok(layout::missing());}
-        }
+        // 2.x's order: the venue (`Exchange.find`, 404) before any date is read; #710 slice 5: or the account.
+        if let Err(missing)=super::scope::read(c,ctx,owner)? {return Ok(missing);}
         if let Some(answer)=super::window::structured_exchange(c,ctx)? {return Ok(answer);}
         // `filtered_transactions` reads the window on every page past the market-data check (PLAN-A19).
         if super::window::read(ctx,super::window::zone(ctx)).is_err() {return Ok(layout::bad_request());}

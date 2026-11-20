@@ -43,7 +43,7 @@ async fn the_tracker_jobs_on_a_copy() {
     c.execute("DELETE FROM app_configs WHERE key = 'market_data_provider'", []).unwrap();
     let backfill_mode = std::env::var("TRACKER_COPY_MODE").ok().as_deref() == Some("backfill");
     let all_rows = |c: &Connection| json!({ "portfolio_snapshots": rows(c, "portfolio_snapshots", "1 = 1", "date"),
-                                            "portfolio_venue_snapshots": rows(c, "portfolio_venue_snapshots", "1 = 1", "exchange_id, date") });
+                                            "portfolio_venue_snapshots": rows(c, &deltabadger::sync::balance_store::v2_projection(c, "portfolio_venue_snapshots").unwrap().unwrap_or_else(|| "portfolio_venue_snapshots".into()), "1 = 1", "exchange_id, date") });
     let before = if backfill_mode { all_rows(&c) } else { Value::Null };
     let cipher = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "tracker-on-copy").unwrap());
     let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), cipher);
@@ -73,7 +73,7 @@ async fn the_tracker_jobs_on_a_copy() {
     let c = Connection::open(&path).unwrap();
     let tables = if backfill_mode { all_rows(&c) } else {
         json!({ "portfolio_snapshots": rows(&c, "portfolio_snapshots", &format!("date = '{today}'"), "date"),
-                "portfolio_venue_snapshots": rows(&c, "portfolio_venue_snapshots", &format!("date = '{today}'"), "exchange_id, date") })
+                "portfolio_venue_snapshots": rows(&c, &deltabadger::sync::balance_store::v2_projection(&c, "portfolio_venue_snapshots").unwrap().unwrap_or_else(|| "portfolio_venue_snapshots".into()), &format!("date = '{today}'"), "exchange_id, date") })
     };
     let report = json!({ "error": error, "tables": tables, "before": before, "requests": { "market": parity::logged(&market), "ecb": parity::logged(&ecb_t) }, "whole": whole, "venues": venues });
     std::fs::write(dir.join("rust.json"), serde_json::to_string_pretty(&report).unwrap()).unwrap();

@@ -464,6 +464,7 @@ impl App {
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         let cipher = Cipher::new(&encryption);
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
+        crate::sync::balance_store::fallback(&primary)?;
         Ok(Self(Arc::new(Inner {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,

@@ -260,6 +260,7 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
         let file = copy.path().join("production.sqlite3");
         std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
         let c = rusqlite::Connection::open(&file).unwrap();
+        deltabadger::sync::balance_store::fallback(&c).unwrap();
         // A split already in the ledger, for the edits below to correct.
         c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
                    SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
@@ -280,6 +281,7 @@ async fn replays_follow_what_the_figures_read(env: &impl Fn(&str) -> Option<Stri
     let file = copy.path().join("production.sqlite3");
     std::fs::copy(dir.join("production.sqlite3"), &file).unwrap();
     let c = rusqlite::Connection::open(&file).unwrap();
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at) \
                SELECT ?1,exchange_id,15,'AAA',base_asset_id,0,'{\"corporate_action\":\"split\",\"split_ratio\":\"10:1\"}','2020-01-01 00:00:00',?2,?2 FROM tickers WHERE ticker='AAA'", rusqlite::params![user, at]).unwrap();
     let read = |c: &rusqlite::Connection| { let started = std::time::Instant::now(); let (_, rows) = loading::revision(c, user, chrono::Utc::now()).unwrap(); (rows, started.elapsed()) };
@@ -344,6 +346,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
         }
         if name.starts_with("fx_") { display_currency(name, &dir, &sc, &expected).await; currencies += 1; continue; }
         let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+        deltabadger::sync::balance_store::fallback(&c).unwrap();
         let now = At::from_utc(chrono::DateTime::parse_from_rfc3339(sc["at"].as_str().unwrap()).unwrap().to_utc()).unwrap();
         let wire = Wire { script: sc["script"].clone(), calls: RefCell::default() };
         let mut cache = Cache::default();
@@ -788,6 +791,7 @@ async fn figures_fragments_match_the_v2_page_partials() {
                     .execute("VACUUM INTO ?1",[copy.path().join("production_queue.sqlite3").to_string_lossy().to_string()]).unwrap();
                 let (tx,ext,symbol,notional,qty,price):(i64,String,String,String,String,String)={
                     let c=rusqlite::Connection::open(&primary).unwrap();
+                    deltabadger::sync::balance_store::fallback(&c).unwrap();
                     c.execute("UPDATE bots SET status=2",[]).unwrap();
                     c.execute("UPDATE transactions SET external_status=2 WHERE status=0 AND external_status IN (0,1)",[]).unwrap();
                     let order=c.query_row("SELECT t.id,t.external_id,coalesce(t.base,''),coalesce(CAST(t.quote_amount AS TEXT),''),CAST(t.amount_exec AS TEXT),CAST(t.price AS TEXT) \
@@ -1251,6 +1255,7 @@ async fn rebalance_pages(name: &str, dir: &Path, sc: &Value, expected: &Value, n
     // recovered figures bring it back. What a page applies is the streamed replacement of its target.
     use deltabadger::figures::scripted::Scripted;
     let c=rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"),rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     let streamed=|rendered:&Value|->String {
         let streams=deltabadger::web::figure::streams(&c,user,rendered).unwrap();
         let (_,payload)=streams.into_iter().find(|(stream,payload)|*stream==page_stream && target(payload)=="settings-rebalance-info").unwrap_or_else(|| panic!("{name}: no readout streamed"));
@@ -1407,6 +1412,7 @@ async fn display_currency(name: &str, dir: &Path, sc: &Value, expected: &Value) 
     }
     assert_eq!(common::html::normalize(actual["account"].as_str().unwrap()), common::html::normalize(expected["account"].as_str().unwrap()), "{name} account");
     let c = rusqlite::Connection::open_with_flags(dir.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).unwrap();
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     // The cable bytes of every tile and of the headline: what 2.x's broadcast_pnl_update and broadcast_global_pnl_update sent.
     for (stream, payload) in deltabadger::web::figure::streams(&c, user, &actual).unwrap() {
         let target = target(&payload);
@@ -1437,6 +1443,7 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
     let database = copy.path().join("production.sqlite3");
     std::fs::copy(dir.join("production.sqlite3"), &database).unwrap();
     let c = rusqlite::Connection::open(&database).unwrap();
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     let user = sc["user_id"].as_i64().unwrap();
     let bot = sc["bot_ids"][0].as_i64().unwrap();
     c.execute("UPDATE bots SET status=2", []).unwrap(); // stopped, with shares already held
@@ -1696,6 +1703,7 @@ async fn rebalance_halted_pages_match_v2_cold_and_warm() {
         let expected:Value=serde_json::from_slice(&std::fs::read(dir.join("expected.json")).unwrap()).unwrap();
         let env=common::web::env(common::web::SECRET);
         let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+        deltabadger::sync::balance_store::fallback(&c).unwrap();
         let user=sc["user_id"].as_i64().unwrap();
         let password:String=c.query_row("SELECT encrypted_password FROM users WHERE id=?1",[user],|r|r.get(0)).unwrap();
         let now:chrono::DateTime<chrono::Utc>=sc["at"].as_str().unwrap().parse().unwrap();

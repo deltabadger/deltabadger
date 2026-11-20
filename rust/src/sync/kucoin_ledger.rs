@@ -318,7 +318,7 @@ pub async fn sync_within<T: Transport>(db: &Db, transport: T, key_id: i64, crede
     // D-KUCOIN-HF-LEDGER, D-KUCOIN-UTA-LEDGER: the history routes on the detected mode; trading keeps `prepare`'s gate.
     // HF and UTA accounts, and any history either has marked, are managed; a classic-only one reads as 2.x does.
     let refused = match venue.account_mode().await {
-        Ok(AccountMode::ClassicLf) if !{ let k = key.clone(); phase(db, move |c| super::kucoin_hf::enabled(c, k.user_id, k.exchange_id)).await? } => None,
+        Ok(AccountMode::ClassicLf) if !{ let k = key.clone(); phase(db, move |c| super::kucoin_hf::enabled(c, &k.scope)).await? } => None,
         Ok(mode) => return sync_managed(db, &version, &venue, key, mode, watermark, credentials, clock, wait, run).await,
         Err(e) => Some(e),
     };

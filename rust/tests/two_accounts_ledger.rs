@@ -266,7 +266,7 @@ fn withheld_kucoin_fills_move_to_their_number_one_through_the_hop() {
     c.execute_batch("PRAGMA foreign_keys = OFF; DELETE FROM exchange_accounts;
         INSERT INTO kucoin_withheld_fills (id, user_id, exchange_id, tx_id, transacted_at, entry, created_at) VALUES
           (4, 1, 2, 'f1', '2026-01-01', '{\"orderId\":\"o\"}', '2026-01-02'), (9, 3, 2, 'f1', '2026-01-03', '{}', '2026-01-04');").unwrap();
-    assert_eq!(store::migrate(&p, &lock).unwrap(), [V]);
+    assert_eq!(store::migrate(&p, &lock).unwrap()[0], V);
     let rows: Vec<(i64, i64, i64, String, String, String, String)> = c.prepare(
         "SELECT w.id, a.user_id, a.number, w.tx_id, w.transacted_at, w.entry, w.created_at FROM kucoin_withheld_fills w JOIN exchange_accounts a ON a.id = w.account_id ORDER BY w.id").unwrap()
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).unwrap().map(Result::unwrap).collect();

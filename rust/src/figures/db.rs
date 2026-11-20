@@ -303,7 +303,7 @@ pub fn account_classes(c: &Connection, user_id: i64, symbols: &[String]) -> Resu
     let mut out = vec![];
     for sql in ["SELECT DISTINCT t.base_currency, a.category FROM account_transactions t INNER JOIN assets a ON a.id = t.base_asset_id \
                  WHERE t.user_id = ?1 AND t.base_currency IN (SELECT value FROM json_each(?2))",
-                "SELECT DISTINCT a.symbol, a.category FROM account_balances b INNER JOIN assets a ON a.id = b.asset_id \
+                "SELECT DISTINCT a.symbol, a.category FROM exchange_account_balances b INNER JOIN assets a ON a.id = b.asset_id \
                  WHERE b.user_id = ?1 AND a.symbol IN (SELECT value FROM json_each(?2))"] {
         let mut statement = c.prepare(sql)?;
         for row in statement.query_map(params![user_id, names], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))? {

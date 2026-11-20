@@ -130,7 +130,7 @@
 
   <div class="tracker-record__actions">
     <form class="tracker-date-range" data-controller="form--submit" action="{{ v.path("/tracker") }}" accept-charset="UTF-8" method="get">
-{% if let Some(scope) = scope %}        <input type="hidden" name="exchange_id" id="exchange_id" value="{{ scope|safe }}" />
+{% if let Some((name, value)) = scope %}        <input type="hidden" name="{{ name }}" id="{{ name }}" value="{{ value|safe }}" />
 {% endif %}      <input type="date" name="from" value="{{ from }}" class="rinput" data-action="change->form--submit#submit">
       <input type="date" name="to" value="{{ to }}" class="rinput" data-action="change->form--submit#submit">
 </form>  </div>

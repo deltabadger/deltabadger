@@ -1582,7 +1582,7 @@ async fn a_balance_sync_started_before_replacement_must_not_publish_old_account_
     let running=balances::sync(&db,&venue_a,&NoPrices,h.seed.api_key_id,&a,&old_clock);
     let replacing=async {
         entered.notified().await;
-        assert_eq!(h.c.query_row("SELECT count(*) FROM account_balances",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_balances",[],|r|r.get::<_,i64>(0)).unwrap(),0);
         h.clock.set(at+chrono::Duration::seconds(1));
         let r=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
         assert_eq!(r.status,200);assert_ne!(version_a,model::credential_version(&h.c,&bot).unwrap());
@@ -1591,14 +1591,14 @@ async fn a_balance_sync_started_before_replacement_must_not_publish_old_account_
     };
     let (old,())=tokio::time::timeout(std::time::Duration::from_secs(20),async {tokio::join!(running,replacing)}).await.unwrap();
     assert_eq!(old.unwrap_err().0,"credentials changed; venue result discarded", "Q must discard the old-account balance run");
-    let stale=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap();
+    let stale=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap();
     let stale_value=stale.as_ref().map(|day|(day.value.to_s_f(),day.partial));
     assert_eq!(model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap().key,"account-b-key");
     // The new account control actually uses B's saved credentials and the same production writer/reader.
     let b=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
     let venue_b=AlpacaVenue::new(ReqwestTransport::new(http::client(),b.key.clone(),b.secret.clone()),urls);
     assert_eq!(balances::sync(&db,&venue_b,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at+chrono::Duration::seconds(2))).await.unwrap().unwrap().synced,1);
-    let current=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap().unwrap();
+    let current=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap().unwrap();
     assert_eq!((current.value.to_s_f(),current.partial),("2000.0".into(),false));
     server.verify().await;
     assert_eq!(stale_value,None,"money: an in-flight A sync must not publish A's USD10000 as the current B account's complete portfolio after B has been saved (B is USD2000)");
@@ -1750,17 +1750,17 @@ async fn previously_committed_balances_must_not_be_reported_as_replacement_accou
     let a=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
     let va=AlpacaVenue::new(ReqwestTransport::new(http::client(),a.key.clone(),a.secret.clone()),urls.clone());
     assert_eq!(balances::sync(&db,&va,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap().synced,1);
-    let before=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap().unwrap();
+    let before=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap().unwrap();
     assert_eq!((before.value.to_s_f(),before.partial),("10000.0".into(),false));
     h.clock.set(at+chrono::Duration::seconds(1));
     assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
     let b=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();assert_eq!(b.key,"account-b-key");
     assert!(model::load_bot(&h.c,bot_id).unwrap().rust_placement().is_none());
-    let stale=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap();
+    let stale=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap();
     let after_save=stale.map(|day|(day.value.to_s_f(),day.partial));
     let vb=AlpacaVenue::new(ReqwestTransport::new(http::client(),b.key.clone(),b.secret.clone()),urls);
     assert_eq!(balances::sync(&db,&vb,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at+chrono::Duration::seconds(2))).await.unwrap().unwrap().synced,1);
-    let current=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap().unwrap();
+    let current=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap().unwrap();
     assert_eq!((current.value.to_s_f(),current.partial),("2000.0".into(),false));
     server.verify().await;
     assert_ne!(after_save,Some(("10000.0".into(),false)),"money: after B is saved, already committed A balances must not be reported as B's complete current USD10000 portfolio; B has USD2000");
@@ -1962,9 +1962,9 @@ async fn r_new_account_cannot_reuse_old_accounts_balance_price() {
         let credentials=sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();
         let venue=AlpacaVenue::new(ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()),Urls{trading:server.uri(),data:server.uri()});
         balances::sync(&db,&venue,&NoPrices,h.seed.api_key_id,&credentials,&FixedClock(h.app.now())).await.unwrap().unwrap();
-        if !replacement {assert_eq!(h.c.query_row("SELECT usd_value FROM account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),240.0);}
+        if !replacement {assert_eq!(h.c.query_row("SELECT usd_value FROM exchange_account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),240.0);}
     }
-    assert_eq!(h.c.query_row("SELECT usd_value FROM account_balances",[],|r|r.get::<_,Option<f64>>(0)).unwrap(),None,"R B's completed sync must not publish the cached A venue price when B has no price");
+    assert_eq!(h.c.query_row("SELECT usd_value FROM exchange_account_balances",[],|r|r.get::<_,Option<f64>>(0)).unwrap(),None,"R B's completed sync must not publish the cached A venue price when B has no price");
     server.verify().await;
 }
 
@@ -1985,7 +1985,7 @@ async fn r_navbar_allocation_hides_a_after_b_is_saved() {
     assert!(!Shell::load(&h.c,&h.app,&user).unwrap().arcs.is_empty());
     assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
     assert!(Shell::load(&h.c,&h.app,&user).unwrap().arcs.is_empty(),"R navbar must not present A's cached allocation as B's current allocation");
-    assert_eq!(h.c.query_row("SELECT usd_value FROM account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),10000.0,"R retains history/cache rows");
+    assert_eq!(h.c.query_row("SELECT usd_value FROM exchange_account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),10000.0,"R retains history/cache rows");
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -2145,8 +2145,8 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
         h.c.busy_timeout(std::time::Duration::ZERO).unwrap(); // A blocking wait would hold the one thread the writer needs.
         while tokio::time::Instant::now()<deadline {
             // A busy answer is the scheduler mid-write on this one thread: not ready yet, so yield to it.
-            let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap_or(false);
-            synced=ready&&!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap_or(true);
+            let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap_or(false);
+            synced=ready&&!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap_or(true);
             if synced {break}tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
         stop.send(true).unwrap();(response.status,synced)
@@ -2156,7 +2156,7 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     assert_eq!(status,201);
     assert_eq!(accounts(&h.c,h.seed.user_id),1,"#710: the legacy save made its exchange's number 1");
     assert!(synced,"legacy save must complete actual validation and the enqueued balance sync without restart");
-    assert!(!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap(),"the completed legacy sync publishes B's producer digest under the retained identity");
+    assert!(!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap(),"the completed legacy sync publishes B's producer digest under the retained identity");
     let requests=server.received_requests().await.unwrap();assert!(!requests.is_empty(),"the sync must exercise real HTTP");
     for request in requests{assert_eq!(request.headers.get("apca-api-key-id").unwrap().to_str().unwrap(),"account-b-key","the woken validator and sync must use B, never the old credential");}
 
@@ -2770,7 +2770,7 @@ async fn r_reader_during_a_completed_replacement_sync(navbar:bool){
     let a=sync::credentials(&h.c,&h.app.cipher,id).unwrap();let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(&file).unwrap(),h.app.cipher.clone());
     let venue=AlpacaVenue::new(ReqwestTransport::new(http::client(),a.key.clone(),a.secret.clone()),Urls{trading:server.uri(),data:server.uri()});
     balances::sync(&db,&venue,&NoPrices,id,&a,&FixedClock(at)).await.unwrap().unwrap();
-    let a_day=snapshot::today_row(&h.c,owner,None,&Summary::empty()).unwrap().unwrap();assert_eq!(a_day.value.to_s_f(),"10000.0");assert!(!a_day.partial);
+    let a_day=snapshot::today_row(&h.c,owner,&deltabadger::tracker::Scope::All,&Summary::empty()).unwrap().unwrap();assert_eq!(a_day.value.to_s_f(),"10000.0");assert!(!a_day.partial);
     let user=User::find(&h.c,owner).unwrap().unwrap();assert!(!Shell::load(&h.c,&h.app,&user).unwrap().arcs.is_empty());
     let cipher=h.app.cipher.clone();let app=h.app.clone();let uri=server.uri();let fired=Arc::new(AtomicBool::new(false));let signal=fired.clone();let c=h.c;
     let (captured_partial,captured_arcs,current_value,current_partial,current_arcs)=tokio::task::spawn_blocking(move||{
@@ -2785,8 +2785,8 @@ async fn r_reader_during_a_completed_replacement_sync(navbar:bool){
             }
             Authorization::Allow
         }));
-        let (partial,arcs)=if navbar{(false,Shell::load(&c,&app,&user).unwrap().arcs.len())}else{(snapshot::today_row(&c,owner,None,&Summary::empty()).unwrap().unwrap().partial,0)};
-        let current=snapshot::today_row(&c,owner,None,&Summary::empty()).unwrap().unwrap();let current_arcs=Shell::load(&c,&app,&user).unwrap().arcs.len();
+        let (partial,arcs)=if navbar{(false,Shell::load(&c,&app,&user).unwrap().arcs.len())}else{(snapshot::today_row(&c,owner,&deltabadger::tracker::Scope::All,&Summary::empty()).unwrap().unwrap().partial,0)};
+        let current=snapshot::today_row(&c,owner,&deltabadger::tracker::Scope::All,&Summary::empty()).unwrap().unwrap();let current_arcs=Shell::load(&c,&app,&user).unwrap().arcs.len();
         (partial,arcs,current.value.to_s_f(),current.partial,current_arcs)
     }).await.unwrap();
     assert!(fired.load(Ordering::SeqCst),"the external encrypted replacement and real B sync must run within the reader");
@@ -3165,7 +3165,7 @@ async fn r1_snapshot_replacement_after_calculation_does_not_commit() {
     use deltabadger::{engine::model,tracker::{snapshot,jobs},figures::dec::Dec};
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
     let owner=h.seed.user_id;let date=h.app.now().date_naive();
-    let origin=deltabadger::sync::cache::capture_read(&h.c,owner,None).unwrap();
+    let origin=deltabadger::sync::cache::capture_read(&h.c,owner,&deltabadger::tracker::Scope::All).unwrap();
     let rows=vec![(None,snapshot::Day{value:Dec::strict("10000").unwrap(),invested:Dec::zero(),held_value:None,held_cost:None,partial:false})];
     h.c.execute("UPDATE api_keys SET secret=?1 WHERE id=?2",(h.app.cipher.encrypt("replacement-B"),h.seed.api_key_id)).unwrap();
     assert!(!deltabadger::sync::cache::read_is_current(&h.c,&origin).unwrap());
@@ -3183,7 +3183,7 @@ async fn r1_snapshot_checks_provenance_after_waiting_for_the_write_lock(){
     static RELEASE:std::sync::OnceLock<std::sync::mpsc::Sender<()>>=std::sync::OnceLock::new();
     fn busy(_:i32)->bool{let _=RELEASE.get().unwrap().send(());true}
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
-    let origin=cache::capture_read(&h.c,h.seed.user_id,None).unwrap();
+    let origin=cache::capture_read(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap();
     let rows=vec![(None,snapshot::Day{value:Dec::strict("10000").unwrap(),invested:Dec::zero(),held_value:None,held_cost:None,partial:false})];
     let file=h._dir.path().join("production.sqlite3");let ciphertext=h.app.cipher.encrypt("replacement-B");
     let (ready,held)=std::sync::mpsc::channel();let (release,wait)=std::sync::mpsc::channel();RELEASE.set(release).unwrap();
@@ -3197,7 +3197,7 @@ async fn r1_snapshot_checks_provenance_after_waiting_for_the_write_lock(){
     writer.join().unwrap();h.c.busy_handler(None).unwrap();
     assert!(out.is_err(),"R1 the digest must be re-read after acquiring the snapshot write lock");
     assert_eq!(h.c.query_row("SELECT count(*) FROM portfolio_snapshots",[],|r|r.get::<_,i64>(0)).unwrap(),0);
-    let fresh=cache::capture_read(&h.c,h.seed.user_id,None).unwrap();
+    let fresh=cache::capture_read(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap();
     jobs::written_for(&h.c,&fresh,&||h.app.now(),|c,now|snapshot::write(c,h.seed.user_id,&rows,now.date_naive())).unwrap();
     assert_eq!(h.c.query_row("SELECT count(*) FROM portfolio_snapshots",[],|r|r.get::<_,i64>(0)).unwrap(),1,"unchanged producer control still commits");
     let origin_key=deltabadger::jobs::state::key("snapshot_origin",Some(&format!("{}:all:{}",h.seed.user_id,h.app.now().date_naive())));
@@ -3727,7 +3727,7 @@ async fn r5_completed_snapshot_capture_is_refused_when_a_new_batch_is_incomplete
     let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
     let a=sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();let av=LocalAlpaca(server.uri()).connect(&a);
     balances::sync(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
-    let read=h.c.unchecked_transaction().unwrap();let origin=sync::cache::capture_read(&read,h.seed.user_id,None).unwrap().with_balance_producers(&read).unwrap();read.commit().unwrap();
+    let read=h.c.unchecked_transaction().unwrap();let origin=sync::cache::capture_read(&read,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap().with_balance_producers(&read).unwrap();read.commit().unwrap();
     let h_ref=&h;let origin_ref=&origin;
     let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
         let before=h_ref.snapshot();

@@ -29,7 +29,7 @@ pub struct Shell {
 impl Shell {
     pub fn load(c: &Connection, app: &Inner, user: &User) -> Result<Shell, WebError> {
         if c.is_autocommit(){
-            let tx=c.unchecked_transaction()?;let origin=crate::sync::cache::capture_read(&tx,user.id,None)?;
+            let tx=c.unchecked_transaction()?;let origin=crate::sync::cache::capture_read(&tx,user.id,&crate::tracker::Scope::All)?;
             let mut shell=Self::load(&tx,app,user)?;tx.commit()?;
             if !crate::sync::cache::read_is_current(c,&origin)?{shell.arcs.clear();}
             return Ok(shell)
@@ -42,8 +42,8 @@ impl Shell {
         // without cash unless the user's tracker shows it.
         let tracker_settings: Option<String> = c.query_row("SELECT tracker_settings FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let show_cash = bots::show_cash(tracker_settings.as_deref());
-        let mut priced = c.prepare("SELECT assets.symbol, assets.color, SUM(account_balances.usd_value) FROM account_balances JOIN assets ON assets.id = account_balances.asset_id \
-                                    WHERE account_balances.user_id = ?1 AND account_balances.usd_value IS NOT NULL AND account_balances.usd_value > 0 \
+        let mut priced = c.prepare("SELECT assets.symbol, assets.color, SUM(exchange_account_balances.usd_value) FROM exchange_account_balances JOIN assets ON assets.id = exchange_account_balances.asset_id \
+                                    WHERE exchange_account_balances.user_id = ?1 AND exchange_account_balances.usd_value IS NOT NULL AND exchange_account_balances.usd_value > 0 \
                                     GROUP BY assets.symbol, assets.color")?;
         let mut values = vec![];
         let mut rows = priced.query([user.id])?;
@@ -58,7 +58,7 @@ impl Shell {
         // Preserve 2.x's unreadable-colour error even for an unknown legacy producer.
         // Only the checked arcs may reach the navbar; stale holdings remain unavailable.
         let mut arcs = ring::icon_arcs(values).ok_or_else(|| WebError::Config("an asset's colour is not a colour".into()))?;
-        if crate::sync::cache::stale(c, user.id, None)? { arcs.clear(); }
+        if crate::sync::cache::stale(c, user.id, &crate::tracker::Scope::All)? { arcs.clear(); }
         Ok(Shell {
             syncing: app_config(c, &app.cipher, "setup_sync_status")?.as_deref() == Some("in_progress"),
             bot_count: bots.iter().filter(|(_, status)| *status != 7).count() as i64,

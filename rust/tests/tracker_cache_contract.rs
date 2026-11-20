@@ -7,6 +7,7 @@ fn fixture()->Value{serde_json::from_str(include_str!("fixtures/tracker_cache.js
 fn cache_lifecycle_matches_v2_with_documented_eviction_miss(){
     let c=rusqlite::Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT);CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT);CREATE TABLE historical_prices(id INTEGER);").unwrap();
+    c.execute_batch(deltabadger::identity::TEST_ACCOUNT_TABLES).unwrap();
     let now:DateTime<Utc>="2026-10-08T12:00:00Z".parse().unwrap();
     let w=Walked{whole:Summary::empty(),venues:vec![],terms:vec![],bot_sales:vec![]};
     let warm=||{let tx=c.unchecked_transaction().unwrap();let fenced=deltabadger::engine::model::fence_versions(&tx,&[]).unwrap();assert!(cache::publish(&fenced,1,&cache::version(&fenced,1).unwrap(),Some(&w),now).unwrap());tx.commit().unwrap();};

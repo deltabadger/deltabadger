@@ -19,6 +19,7 @@ use super::figures::{self, Balance, Note};
 use super::import::run::Reading;
 use super::walk::Summary;
 use crate::figures::{budget, dec::Dec, FiguresError};
+use crate::identity::AccountRow;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -42,9 +43,11 @@ pub fn key(owner: i64) -> String { format!("rust_tracker_gaps.{owner}") }
 /// `at >= taken`, borrowed rows included, so the probe errs towards "pending"). The time index bounds it to the rows
 /// dated since the watermark; no composite index on (user, venue, time) exists, and the user's index would read their
 /// whole history.
+/// (#710 slice 5: a number 1's rows; `pending` reads an account 2+'s by its membership.)
 #[doc(hidden)]
-pub fn pending_sql() -> String {
-    format!("SELECT 1 FROM account_transactions {} WHERE transacted_at >= ?1 AND user_id = ?2 AND exchange_id = ?3 LIMIT 1", crate::sync::ledger::BY_TIME)
+pub fn pending_sql() -> String { pending_sql_of("NOT EXISTS (SELECT 1 FROM exchange_account_rows m WHERE m.account_transaction_id = account_transactions.id)") }
+fn pending_sql_of(rows: &str) -> String {
+    format!("SELECT 1 FROM account_transactions {} WHERE transacted_at >= ?1 AND user_id = ?2 AND exchange_id = ?3 AND {rows} LIMIT 1", crate::sync::ledger::BY_TIME)
 }
 
 /// What the tests hold the step to: its step limit, a hook after its reads, how often it ran, and a page read that
@@ -66,8 +69,9 @@ const MAX_UNREAD: usize = 20;
 /// A gap as a page shows it: the venue, its reading key, the notes that are its evidence, and the periods of the
 /// venue's history no API read or export covers (half-open, as stored; the first twenty, `more_unread` when there are
 /// more).
+/// `account` (#710 slice 5): the account the gap was judged on; a number 1's line keeps its exchange's markup.
 #[derive(Clone, Debug, PartialEq)]
-pub struct StoredGap { pub exchange_id: i64, pub key: i64, pub name: String, pub kind: String, pub arrived: Dec, pub notes: Vec<Note>,
+pub struct StoredGap { pub exchange_id: i64, pub account: AccountRow, pub key: i64, pub name: String, pub kind: String, pub arrived: Dec, pub notes: Vec<Note>,
                        pub unread: Vec<(DateTime<Utc>, DateTime<Utc>)>, pub more_unread: bool }
 
 /// `Figures#resolve` and `resolve_departed` for one venue whose pending moves are empty, without `compute_on`'s
@@ -125,8 +129,8 @@ pub fn resolve(summary: &Summary, balances: &[Balance], venue: &str) -> Result<V
     Ok(notes)
 }
 
-/// One venue's gap as the step found it, with the balances it was judged on.
-struct Gap { exchange: i64, key: i64, origin: String, rows: i64, newest: Option<String>, arrived: Dec, notes: Vec<Note> }
+/// One account's gap as the step found it, with the balances it was judged on.
+struct Gap { exchange: i64, account: AccountRow, key: i64, origin: String, rows: i64, newest: Option<String>, arrived: Dec, notes: Vec<Note> }
 
 /// The SQL cap for the closure's duration, cleared however it ends. SQLite calls the handler every 1000 instructions of
 /// a statement, so a statement shorter than that goes uncounted: the cap is for the scans, which are what could grow.
@@ -178,24 +182,32 @@ fn judged(c: &Connection, owner: i64, now: DateTime<Utc>) -> Result<Option<(Fing
     let tx = c.unchecked_transaction()?;
     let Published::Warm { venues, from, .. } = cache::read_published(&tx, owner, now)? else { return Ok(None) };
     let readings = super::import::run::reading(&tx, owner).map_err(|e| FiguresError::Data(e.0))?;
-    let origin = crate::sync::cache::capture_read(&tx, owner, None).map_err(|_| data("reading provenance unavailable"))?;
+    let origin = crate::sync::cache::capture_read(&tx, owner,&crate::tracker::Scope::All).map_err(|_| data("reading provenance unavailable"))?;
     let mut gaps = vec![];
     let read = crate::sync::ledger_venues();
     for k in readings.iter().filter(|k| read.contains(&k.exchange_type.as_str())) {
-        let summary = venues.iter().find(|(id, _)| *id == k.exchange_id).map(|(_, s)| s);
-        if let Some(gap) = venue(&tx, owner, &origin, k, summary)? { gaps.push(gap); }
+        let account = account_of(&tx, owner, k.exchange_id, k.account_id)?;
+        let summary = venues.iter().find(|(id, _)| *id == account.id).map(|(_, s)| s);
+        if let Some(gap) = venue(&tx, owner, &origin, k, &account, summary)? { gaps.push(gap); }
     }
     tx.commit()?;
     Ok(Some((from, gaps)))
 }
 
-/// The rules a venue passes before its gap is stated: its ledger really read by the scheduler's key, the balances that
+/// Account `id` of (owner, exchange) (None: the exchange's number 1, or its stand-in while it has no row).
+fn account_of(c: &Connection, owner: i64, exchange: i64, id: Option<i64>) -> Result<AccountRow, FiguresError> {
+    let found = match id { Some(id) => AccountRow::by_id(c, id)?.filter(|a| a.user_id == owner && a.exchange_id == exchange), None => AccountRow::first(c, owner, exchange)? };
+    Ok(found.unwrap_or_else(|| AccountRow::unplaced(owner, exchange)))
+}
+
+/// The rules an account passes before its gap is stated: its ledger really read by the scheduler's key, the balances that
 /// key produced and valued, nothing pending, and ten dollars or more arrived or opened.
-fn venue(c: &Connection, owner: i64, origin: &crate::sync::cache::ReadOrigin, k: &Reading, summary: Option<&Summary>) -> Result<Option<Gap>, FiguresError> {
-    if !origin.key_read_complete(c, k.id, k.exchange_id).map_err(|_| data("reading provenance unavailable"))? { return Ok(None); }
-    if figures::page::cold(c, owner, Some(k.exchange_id), true)?.reason.is_some() { return Ok(None); }
-    if pending(c, owner, k.exchange_id)? { return Ok(None); }
-    let balances = figures::balances(c, owner, Some(k.exchange_id))?;
+fn venue(c: &Connection, owner: i64, origin: &crate::sync::cache::ReadOrigin, k: &Reading, account: &AccountRow, summary: Option<&Summary>) -> Result<Option<Gap>, FiguresError> {
+    let scope = super::Scope::Account(*account);
+    if !origin.key_read_complete(c, k.id, account).map_err(|_| data("reading provenance unavailable"))? { return Ok(None); }
+    if figures::page::cold(c, owner, &scope, true)?.reason.is_some() { return Ok(None); }
+    if pending(c, account)? { return Ok(None); }
+    let balances = figures::balances(c, owner, &scope)?;
     let empty = Summary::empty();
     let summary = summary.unwrap_or(&empty);
     let mut notes = resolve(summary, &balances, &k.exchange_name)?;
@@ -210,29 +222,52 @@ fn venue(c: &Connection, owner: i64, origin: &crate::sync::cache::ReadOrigin, k:
         if n.kind != "left" { evidence = (&evidence + &n.amount)?; }
     }
     if evidence < Dec::from_i64(GAP_FLOOR) { return Ok(None); }
-    let Some(stamp) = self::origin(c, owner, k.exchange_id)? else { return Ok(None) };
-    let (rows, newest) = revision(c, owner, k.exchange_id)?;
-    Ok(Some(Gap { exchange: k.exchange_id, key: k.id, origin: stamp, rows, newest, arrived, notes }))
+    let Some(stamp) = self::origin(c, account)? else { return Ok(None) };
+    let (rows, newest) = revision(c, account)?;
+    Ok(Some(Gap { exchange: k.exchange_id, account: *account, key: k.id, origin: stamp, rows, newest, arrived, notes }))
 }
 
-fn pending(c: &Connection, owner: i64, exchange: i64) -> Result<bool, FiguresError> {
-    let mark: Option<String> = c.query_row("SELECT MAX(balances_synced_at) FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2", [owner, exchange], |r| r.get(0))?;
-    // A venue with no watermark is not brought forward (`figures::pending`).
+/// Whether the account's pending moves are empty: any row of its own since its own balances were taken (#710 slice 5:
+/// another account's later sync never hides them).
+#[doc(hidden)]
+pub fn pending(c: &Connection, account: &AccountRow) -> Result<bool, FiguresError> {
+    let mark: Option<String> = c.query_row(&format!("SELECT MAX(k.balances_synced_at) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0))?;
+    // An account with no watermark is not brought forward (`figures::pending`).
     let Some(mark) = mark else { return Ok(false) };
     // To the second: a mark and a row of the same second compare in order whether or not either was written with its
     // microseconds (codec::format_time leaves whole seconds bare).
     let since: String = mark.chars().take(19).collect();
-    Ok(c.query_row(&pending_sql(), rusqlite::params![since, owner, exchange], |_| Ok(())).optional()?.is_some())
+    let sql = if !account.placed() { pending_sql_of("1") } else if account.number == 1 { pending_sql() } else { pending_sql_of(&account.venue_ids().rows("account_transactions")) };
+    Ok(c.query_row(&sql, rusqlite::params![since, account.user_id, account.exchange_id], |_| Ok(())).optional()?.is_some())
 }
 
-/// The balance origin row's `updated_at`: it moves with every balance sync of the venue.
-fn origin(c: &Connection, owner: i64, exchange: i64) -> Result<Option<String>, FiguresError> {
-    Ok(c.query_row("SELECT updated_at FROM app_configs WHERE key = ?1", [crate::sync::cache::balance_origin_key(owner, exchange)], |r| r.get::<_, Option<String>>(0)).optional()?.flatten())
+/// The balance origin row's `updated_at`: it moves with every balance sync of the account.
+fn origin(c: &Connection, account: &AccountRow) -> Result<Option<String>, FiguresError> {
+    Ok(c.query_row("SELECT updated_at FROM app_configs WHERE key = ?1", [crate::sync::cache::balance_origin_key_of(account)], |r| r.get::<_, Option<String>>(0)).optional()?.flatten())
 }
 
-/// The venue's balance rows: a sync writes `updated_at` on every row it keeps and deletes the rest.
-fn revision(c: &Connection, owner: i64, exchange: i64) -> Result<(i64, Option<String>), FiguresError> {
-    Ok(c.query_row("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2", [owner, exchange], |r| Ok((r.get(0)?, r.get(1)?)))?)
+/// The account `account` (None: (owner, exchange)'s number 1) and its balance rows' revision, in one read; none when it has
+/// no row.
+fn revision_of(c: &Connection, owner: i64, exchange: i64, account: Option<i64>) -> Result<Option<(AccountRow, i64, Option<String>)>, FiguresError> {
+    let numbered = c.query_row("SELECT a.id, a.number, (SELECT COUNT(*) FROM exchange_account_balances b WHERE b.account_id = a.id), \
+                    (SELECT MAX(b.updated_at) FROM exchange_account_balances b WHERE b.account_id = a.id) FROM exchange_accounts a \
+                    WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND CASE WHEN ?3 IS NULL THEN a.number = 1 ELSE a.id = ?3 END",
+                   rusqlite::params![owner, exchange, account],
+                   |r| Ok((AccountRow { id: r.get(0)?, user_id: owner, exchange_id: exchange, number: r.get(1)? }, r.get(2)?, r.get(3)?))).optional();
+    match numbered {
+        // An install without numbered accounts (no table, or no `number`): the exchange's one, its stand-in.
+        Err(e) if e.to_string().contains("no such") => {
+            let a = AccountRow::unplaced(owner, exchange);
+            let (rows, newest) = c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1 AND user_id = ?2", [a.id, owner], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            Ok(Some((a, rows, newest)))
+        }
+        other => Ok(other?),
+    }
+}
+
+/// The account's balance rows: a sync writes `updated_at` on every row it keeps and deletes the rest.
+fn revision(c: &Connection, account: &AccountRow) -> Result<(i64, Option<String>), FiguresError> {
+    Ok(c.query_row("SELECT COUNT(*), MAX(updated_at) FROM exchange_account_balances WHERE account_id = ?1 AND user_id = ?2", [account.id, account.user_id], |r| Ok((r.get(0)?, r.get(1)?)))?)
 }
 
 fn encode(from: &Fingerprint, gaps: &[Gap]) -> Result<String, FiguresError> {
@@ -253,18 +288,21 @@ fn encode(from: &Fingerprint, gaps: &[Gap]) -> Result<String, FiguresError> {
         notes.truncate(MAX_NOTES);
         let notes = notes.into_iter().map(|n| Ok(json!({"kind": n.kind, "symbol": n.symbol, "exchange": n.exchange, "history": optional(&n.history)?, "held": optional(&n.held)?, "amount": money(&n.amount)?})))
             .collect::<Result<Vec<_>, FiguresError>>()?;
-        out.push(json!({"exchange": g.exchange, "key": g.key, "balances": {"origin_updated_at": g.origin, "rows": g.rows, "max_updated_at": g.newest}, "arrived_usd": money(&g.arrived)?, "notes": notes}));
+        let mut gap = json!({"exchange": g.exchange, "key": g.key, "balances": {"origin_updated_at": g.origin, "rows": g.rows, "max_updated_at": g.newest}, "arrived_usd": money(&g.arrived)?, "notes": notes});
+        // An account 2+'s line names its account; a number 1's row is as it always was.
+        if g.account.number != 1 { gap["account"] = json!(g.account.id); }
+        out.push(gap);
     }
     let row = json!({"v": VERSION, "from": from.to_json(), "gaps": out}).to_string();
     if row.len() > MAX_ROW { return Err(data("the row exceeds 65536 bytes")); }
     Ok(row)
 }
 
-/// A stored gap before its revision is checked.
-struct Decoded { exchange: i64, key: i64, origin: String, rows: i64, newest: Option<String>, arrived: Dec, notes: Vec<Note> }
+/// A stored gap before its revision is checked (`account` None: the exchange's number 1).
+struct Decoded { exchange: i64, account: Option<i64>, key: i64, origin: String, rows: i64, newest: Option<String>, arrived: Dec, notes: Vec<Note> }
 
 /// The row's gaps for `scope`, when it is this publication's; None for anything malformed.
-fn decode(raw: &str, from: &Fingerprint, scope: Option<i64>) -> Option<Vec<Decoded>> {
+fn decode(raw: &str, from: &Fingerprint, scope: &super::Scope) -> Option<Vec<Decoded>> {
     if raw.len() > MAX_ROW { return None; }
     let v: Value = serde_json::from_str(raw).ok()?;
     if v["v"].as_i64() != Some(VERSION) || !v["from"].is_object() || Fingerprint::from_json(&v["from"]) != *from { return None; }
@@ -273,6 +311,7 @@ fn decode(raw: &str, from: &Fingerprint, scope: Option<i64>) -> Option<Vec<Decod
     let mut out = vec![];
     for g in v["gaps"].as_array()? {
         let exchange = g["exchange"].as_i64()?;
+        let account = if g["account"].is_null() { None } else { Some(g["account"].as_i64()?) };
         let notes = g["notes"].as_array()?.iter().map(|n| Some(Note {
             kind: match n["kind"].as_str()? { "arrived" => "arrived", "opened" => "opened", "left" => "left", _ => return None },
             symbol: n["symbol"].as_str()?.into(),
@@ -281,17 +320,26 @@ fn decode(raw: &str, from: &Fingerprint, scope: Option<i64>) -> Option<Vec<Decod
         })).collect::<Option<Vec<_>>>()?;
         let balances = &g["balances"];
         let newest = if balances["max_updated_at"].is_null() { None } else { Some(balances["max_updated_at"].as_str()?.to_string()) };
-        let gap = Decoded { exchange, key: g["key"].as_i64()?, origin: balances["origin_updated_at"].as_str()?.into(), rows: balances["rows"].as_i64()?, newest, arrived: decimal(&g["arrived_usd"])?, notes };
-        if scope.is_none_or(|s| s == exchange) { out.push(gap); }
+        let gap = Decoded { exchange, account, key: g["key"].as_i64()?, origin: balances["origin_updated_at"].as_str()?.into(), rows: balances["rows"].as_i64()?, newest, arrived: decimal(&g["arrived_usd"])?, notes };
+        if in_scope(scope, exchange, account) { out.push(gap); }
     }
     Some(out)
+}
+
+/// Whether a line of `exchange`'s account `account` (None: its number 1) is the scope's.
+fn in_scope(scope: &super::Scope, exchange: i64, account: Option<i64>) -> bool {
+    match scope {
+        super::Scope::All => true,
+        super::Scope::Account(a) => a.exchange_id == exchange && match account { Some(id) => id == a.id, None => a.number == 1 },
+        super::Scope::EmptyLegacyExchange(_) => false,
+    }
 }
 
 /// The gaps a page shows for `scope`, read against the entry the page itself read (`published`: None unless it is
 /// warm, and then nothing is read). `reading` is the user's `ApiKey.reading`, when the caller holds it already.
 /// Queries: the row; with an open gap stored, the reading keys once and two per derived gap venue (its balances'
 /// revision), and the credential check per open KuCoin entry.
-pub fn read(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&Fingerprint>, reading: Option<&[Reading]>) -> Result<Vec<StoredGap>, FiguresError> {
+pub fn read(c: &Connection, owner: i64, scope: &super::Scope, published: Option<&Fingerprint>, reading: Option<&[Reading]>) -> Result<Vec<StoredGap>, FiguresError> {
     if seam::SKIP_READ.load(SeqCst) { return Ok(vec![]); }
     // Both sources share one indexed lookup, retaining the clean page's one-query budget.
     let kucoin_key = crate::sync::kucoin_hf::gap_key(owner);
@@ -304,17 +352,28 @@ pub fn read(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&F
     };
     // Which KuCoin entries are open, from the JSON alone: `missing` non-empty. An entry written before `missing` was
     // stored is closed until the next sync rewrites it.
-    let kucoin: Vec<(i64, Value)> = rows.get(&kucoin_key).and_then(Option::as_deref).filter(|s| s.len() <= MAX_ROW)
+    // #710 slice 5: an entry is keyed `<exchange>` for a number 1 and `<exchange>:<account>` for an account 2+.
+    let kucoin: Vec<(i64, Option<i64>, Value)> = rows.get(&kucoin_key).and_then(Option::as_deref).filter(|s| s.len() <= MAX_ROW)
         .and_then(|s| serde_json::from_str::<Value>(s).ok()).and_then(|v| match v { Value::Object(m) => Some(m), _ => None }).into_iter().flatten()
-        .filter_map(|(id, entry)| Some((id.parse::<i64>().ok()?, entry)))
-        .filter(|(id, entry)| scope.is_none_or(|s| s == *id) && entry["missing"].as_array().is_some_and(|m| !m.is_empty()))
+        .filter_map(|(id, entry)| match id.split_once(':') {
+            None => Some((id.parse::<i64>().ok()?, None, entry)),
+            Some((e, a)) => Some((e.parse::<i64>().ok()?, Some(a.parse::<i64>().ok()?), entry)),
+        })
+        .filter(|(id, account, entry)| in_scope(scope, *id, *account) && entry["missing"].as_array().is_some_and(|m| !m.is_empty()))
         .collect();
     if derived.is_empty() && kucoin.is_empty() { return Ok(vec![]); }
     let loaded;
     let reading = match reading { Some(r) => r, None => { loaded = super::import::run::reading(c, owner).map_err(|e| FiguresError::Data(e.0))?; &loaded } };
     let mut out = read_derived(c, owner, derived, reading)?;
-    for (exchange, entry) in kucoin {
-        let Some(k) = reading.iter().find(|k| k.exchange_id == exchange) else { continue };
+    for (exchange, account, entry) in kucoin {
+        // The entry's account, as its reading key reads it (a stored account is an account 2+'s).
+        let Some(k) = reading.iter().find(|k| k.exchange_id == exchange && entry["key"].as_i64().is_none_or(|key| key == k.id)
+                                             && account.is_none_or(|a| k.account_id == Some(a))) else { continue };
+        let first = match (account, k.account_id) {
+            (Some(id), _) => AccountRow { id, user_id: owner, exchange_id: exchange, number: 2 },
+            (None, Some(id)) => AccountRow { id, user_id: owner, exchange_id: exchange, number: 1 },
+            (None, None) => AccountRow::unplaced(owner, exchange),
+        };
         let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&entry["credential"]) else { continue };
         if version.id != k.id || !crate::engine::model::credential_is_current(c, &version).map_err(|_| data("gap credential unavailable"))? { continue; }
         let listed = entry["missing"].as_array().map_or(&[][..], Vec::as_slice);
@@ -324,9 +383,9 @@ pub fn read(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&F
         }).collect();
         let total = entry["missing_spans"].as_u64().map_or(listed.len(), |n| n as usize).max(listed.len());
         let more_unread = total > unread.len();
-        match out.iter_mut().find(|g| g.exchange_id == exchange) {
+        match out.iter_mut().find(|g| g.account.id == first.id) {
             Some(g) => { g.unread = unread; g.more_unread = more_unread; }
-            None => out.push(StoredGap { exchange_id: k.exchange_id, key: k.id, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: Dec::zero(), notes: vec![], unread, more_unread }),
+            None => out.push(StoredGap { exchange_id: k.exchange_id, account: first, key: k.id, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: Dec::zero(), notes: vec![], unread, more_unread }),
         }
     }
     Ok(out)
@@ -335,11 +394,15 @@ pub fn read(c: &Connection, owner: i64, scope: Option<i64>, published: Option<&F
 fn read_derived(c: &Connection, owner: i64, stored: Vec<Decoded>, reading: &[Reading]) -> Result<Vec<StoredGap>, FiguresError> {
     let mut out = vec![];
     for g in stored {
-        // The key the gap was judged with must still be the one the venue is read with.
+        // The key the gap was judged with must still be the one the account is read with; its own balances unchanged.
         let Some(k) = reading.iter().find(|k| k.exchange_id == g.exchange && k.id == g.key) else { continue };
-        if origin(c, owner, g.exchange)?.as_deref() != Some(g.origin.as_str()) { continue; }
-        if revision(c, owner, g.exchange)? != (g.rows, g.newest) { continue; }
-        out.push(StoredGap { exchange_id: g.exchange, key: g.key, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: g.arrived, notes: g.notes, unread: vec![], more_unread: false });
+        // Two reads, as before #710: the origin by its key (a stored account is an account 2+'s), then the account and its
+        // balances' revision in one.
+        let key = match g.account { None => crate::sync::cache::balance_origin_key(owner, g.exchange), Some(id) => crate::sync::cache::balance_origin_key_of(&AccountRow { id, user_id: owner, exchange_id: g.exchange, number: 2 }) };
+        if c.query_row("SELECT updated_at FROM app_configs WHERE key = ?1", [key], |r| r.get::<_, Option<String>>(0)).optional()?.flatten().as_deref() != Some(g.origin.as_str()) { continue; }
+        let Some((account, rows, newest)) = revision_of(c, owner, g.exchange, g.account)? else { continue };
+        if (rows, newest) != (g.rows, g.newest) { continue; }
+        out.push(StoredGap { exchange_id: g.exchange, account, key: g.key, name: k.exchange_name.clone(), kind: k.exchange_type.clone(), arrived: g.arrived, notes: g.notes, unread: vec![], more_unread: false });
     }
     out.sort_by(|a, b| b.arrived.cmp(&a.arrived));
     Ok(out)
@@ -409,7 +472,25 @@ mod tests {
     }
 
     fn from() -> Fingerprint { Fingerprint::from_json(&json!({"history":"1_2_x","prices":0,"expires":"2026-10-31T02:00:00+00:00","producers":[]})) }
-    fn gap(notes: Vec<Note>) -> Gap { Gap { exchange: 2, key: 9, origin: "2026-10-01 02:00:00".into(), rows: 1, newest: Some("2026-10-01 02:00:00".into()), arrived: d("14800"), notes } }
+    /// §6 test 10: a number 1's stored line is exactly as before; an account 2+'s names its account, and each scope reads its
+    /// own account's line only.
+    #[test]
+    fn an_account_2s_line_names_its_account_and_a_number_1s_is_unchanged() {
+        let raw = encode(&from(), &[gap(vec![note("ETH", d("20"))])]).unwrap();
+        let v: Value = serde_json::from_str(&raw).unwrap();
+        assert!(v["gaps"][0].get("account").is_none(), "number 1: {raw}");
+        let second = AccountRow { id: 77, user_id: 1, exchange_id: 2, number: 2 };
+        let raw = encode(&from(), &[gap(vec![note("ETH", d("20"))]), Gap { account: second, ..gap(vec![note("BTC", d("30"))]) }]).unwrap();
+        let v: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(v["gaps"][1]["account"], 77);
+        let symbols = |scope: &crate::tracker::Scope| decode(&raw, &from(), scope).unwrap().iter().map(|g| g.notes[0].symbol.clone()).collect::<Vec<_>>();
+        assert_eq!(symbols(&scope(2)), ["ETH"]);
+        assert_eq!(symbols(&crate::tracker::Scope::Account(second)), ["BTC"]);
+        assert_eq!(symbols(&crate::tracker::Scope::All), ["ETH", "BTC"]);
+    }
+    fn first(exchange: i64) -> AccountRow { AccountRow { id: 40 + exchange, user_id: 1, exchange_id: exchange, number: 1 } }
+    fn scope(exchange: i64) -> crate::tracker::Scope { crate::tracker::Scope::Account(first(exchange)) }
+    fn gap(notes: Vec<Note>) -> Gap { Gap { exchange: 2, account: first(2), key: 9, origin: "2026-10-01 02:00:00".into(), rows: 1, newest: Some("2026-10-01 02:00:00".into()), arrived: d("14800"), notes } }
     fn note(symbol: &str, amount: Dec) -> Note { Note { kind: "arrived", symbol: symbol.into(), exchange: Some("KuCoin".into()), history: Some(Dec::zero()), held: Some(d("7.4")), amount } }
 
     /// A row round-trips; its decimals are stored rounded (money to 8 places, units to 16), arrived first by amount,
@@ -425,17 +506,17 @@ mod tests {
         assert_eq!(stored.len(), 20);
         assert_eq!((stored[0]["symbol"].as_str(), stored[0]["amount"].as_str()), (Some("S24"), Some("690.66666667")));
         assert!(stored.iter().all(|n| n["kind"] == "arrived"), "arrived first; the left note is past the twenty");
-        let decoded = decode(&raw, &from(), Some(2)).unwrap();
+        let decoded = decode(&raw, &from(), &scope(2)).unwrap();
         assert_eq!((decoded.len(), decoded[0].notes.len(), decoded[0].arrived.to_s_f()), (1, 20, "14800.0".to_string()));
-        assert!(decode(&raw, &from(), Some(3)).unwrap().is_empty(), "another venue's scope");
+        assert!(decode(&raw, &from(), &scope(3)).unwrap().is_empty(), "another venue's scope");
         let other = Fingerprint::from_json(&json!({"history":"1_2_y","prices":0,"expires":"2026-10-31T02:00:00+00:00","producers":[]}));
-        assert!(decode(&raw, &other, None).is_none(), "another publication");
+        assert!(decode(&raw, &other, &crate::tracker::Scope::All).is_none(), "another publication");
         assert!(encode(&from(), &[gap(vec![note("BTC", d(&format!("1{}", "0".repeat(70))))])]).is_err(), "a decimal over 64 characters");
         // Twenty larger `left` notes never push out what opened the line.
         let mut many: Vec<Note> = (0..20).map(|i| Note { kind: "left", amount: d("1000"), ..note(&format!("L{i:02}"), Dec::zero()) }).collect();
         many.push(Note { kind: "opened", held: None, amount: d("15"), ..note("ETH", Dec::zero()) });
         let raw = encode(&from(), &[gap(many)]).unwrap();
-        let decoded = decode(&raw, &from(), None).unwrap();
+        let decoded = decode(&raw, &from(), &crate::tracker::Scope::All).unwrap();
         assert_eq!((decoded[0].notes.len(), decoded[0].notes[0].kind, decoded[0].notes[0].held.clone()), (20, "opened", None));
         let wide = vec![note(&"X".repeat(70 * 1024), d("20"))];
         assert!(encode(&from(), &[gap(wide)]).is_err(), "a row over 64 KiB");

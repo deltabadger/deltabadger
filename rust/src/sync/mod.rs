@@ -10,7 +10,7 @@
 //!   budget of values (`wire`); every number in it goes through `number`, which bounds it before any arithmetic;
 //! - no value of an answer is logged: a log line says what happened and where, never an id, a cursor or a body;
 //! - no transaction is open across a network call: the fetch phases take no database handle at all;
-//! - written: `account_transactions`, `account_balances`, the sync columns of `api_keys` (`last_synced_at`,
+//! - written: `account_transactions`, `exchange_account_balances` (by account), the sync columns of `api_keys` (`last_synced_at`,
 //!   `last_sync_error`, `balances_synced_at`, and `status` → incorrect when Alpaca rejects the key on a balance read),
 //!   `bots.restatement_generation` (one single-column statement) and `asset_split` rows of `bot_activity_logs`;
 //! - never written: `transactions`, and on `bots` nothing but that counter (not `status`, `settings` or
@@ -18,6 +18,7 @@
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
 pub mod balances;
+pub mod balance_store;
 pub mod binance_ledger;
 pub mod binance_order_links;
 pub mod binance_identity;

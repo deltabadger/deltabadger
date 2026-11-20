@@ -357,7 +357,7 @@ fn walk_and_publish(install: &Install) -> deltabadger::tracker::walk::Walked {
     let inputs = jobs::load_inputs(&c, 1).unwrap();
     let mut none = Unfetched;
     let mut prices = PriceService::new(&inputs.reference, &inputs.fx, common::web::at(AT).date_naive(), &mut none);
-    let walked = walk::scopes(&inputs.rows, &inputs.deposits, &mut prices, &inputs.ids, deltabadger::figures::at::At::from_utc(common::web::at(AT)).unwrap()).unwrap();
+    let walked = walk::scopes(&inputs.rows, &inputs.deposits, &mut prices, deltabadger::figures::at::At::from_utc(common::web::at(AT)).unwrap()).unwrap();
     let tx = deltabadger::engine::model::immediate(&c).unwrap();
     let fenced = deltabadger::engine::model::fence_versions(&tx, &[]).unwrap();
     // The account's Alpaca key made its venue's ledger import, as a sync records it: the ledger is current.

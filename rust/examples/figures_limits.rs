@@ -75,7 +75,7 @@ const SCHEMA: &str = "
                                transaction_type varchar,
                                quote_amount decimal GENERATED ALWAYS AS (NULL) VIRTUAL); -- read, never written: positional INSERTs skip it
     CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6), base_asset_id integer);
-    CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
+    CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
     INSERT INTO users VALUES (1, 'UTC', 'EUR', 0);
     INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca');
     INSERT INTO assets VALUES (1, 'USDT', 'Tether', 'Cryptocurrency', 'tether'), (2, 'AAA', 'AAA Inc.', 'Stock', 'stock-aaa'), (3, 'BBB', 'BBB Inc.', 'Stock', 'stock-bbb');

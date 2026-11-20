@@ -217,6 +217,21 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261120000002", TableContract { name: "kucoin_withheld_fills", columns: &[
         ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("tx_id", "TEXT", true), ("transacted_at", "TEXT", true), ("entry", "TEXT", true),
         ("created_at", "TEXT", true)], unique_indexes: &[&["account_id", "tx_id"]] }),
+    // #710 slice 5: balances and venue snapshots by account (sync::balance_store): 2.x's columns and types, account_id last.
+    ("20261121000001", TableContract { name: "exchange_account_balances", columns: &[
+        ("id", "integer", true), ("asset_id", "integer", true), ("created_at", "datetime(6)", true), ("exchange_id", "integer", true),
+        ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true),
+        ("updated_at", "datetime(6)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false), ("user_id", "integer", true),
+        ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "asset_id"]] }),
+    ("20261121000001", TableContract { name: "exchange_account_snapshots", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("exchange_id", "integer", true), ("date", "date", true), ("value_usd", "decimal(20,8)", true),
+        ("invested_usd", "decimal(20,8)", true), ("held_value_usd", "decimal(20,8)", false), ("held_cost_usd", "decimal(20,8)", false),
+        ("partial", "boolean", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true), ("account_id", "INTEGER", true)],
+        unique_indexes: &[&["account_id", "date"]] }),
+    // #710 slice 5: KuCoin HF coverage by account.
+    ("20261121000002", TableContract { name: "kucoin_coverage", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true), ("end_at", "TEXT", true),
+        ("updated_at", "TEXT", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.
@@ -709,6 +724,7 @@ pub fn migrate_with(paths: &Paths, _lock: &EngineLock, registry: &Registry) -> R
 /// Applies every migration of `registry` that `c` has not recorded, each in its own BEGIN IMMEDIATE transaction with
 /// its record. A file that ends its transaction itself (COMMIT/END) is rolled back and refused.
 fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError> {
+    crate::sync::balance_store::drop_fallback(c)?;
     let done = recorded(c)?;
     let mut applied = Vec::new();
     for m in registry.migrations.iter().filter(|m| !done.contains(m.version)) {
@@ -1202,9 +1218,11 @@ pub fn apply_pending(c: &Connection) -> Result<Vec<String>, StoreError> {
 }
 
 /// Sets the connection timeout and foreign keys; 2.x owns the journal mode.
+/// An install a migration has not given the balance stores reads 2.x's tables through views (`balance_store::fallback`).
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
-    c.pragma_update(None, "foreign_keys", "ON")
+    c.pragma_update(None, "foreign_keys", "ON")?;
+    crate::sync::balance_store::fallback(c)
 }
 
 #[cfg(test)]

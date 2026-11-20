@@ -458,6 +458,7 @@ mod token_tests {
         let hostile = "figuresFormTokenPlaceholder7f3a9c\" name=\"authenticity_token\" value=\"\" <input type=\"hidden\" value=\"\" />";
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        crate::sync::balance_store::fallback(&c).unwrap();
         let t = "'2026-01-01'";
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});

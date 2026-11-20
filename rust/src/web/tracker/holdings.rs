@@ -3,15 +3,17 @@ use super::{Ctx,WebError};
 use crate::{figures::{dec::Dec,totals::Denomination},tracker::figures::page::Cold,web::{i18n::{self,Arg},format::{float_round,float_to_s},colors}};
 use rusqlite::Connection;
 pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
+    // #710 slice 5: no balances of an account without a key.
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM api_keys k LEFT JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND (e.type IS NULL OR e.type!='Exchanges::Alpaca' OR COALESCE(k.status,-1)!=1 OR COALESCE(k.key_type,-1) NOT IN(0,2) OR COALESCE(k.last_sync_error,'')!=''))
     AND (SELECT COUNT(DISTINCT exchange_id) FROM api_keys WHERE user_id=?1)=1
     AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-    AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)
+    AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?2)
-    AND EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
-    AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1 AND exchange_id NOT IN(SELECT exchange_id FROM api_keys WHERE user_id=?1))",rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
+    AND EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
+    AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND account_id NOT IN(SELECT {} FROM api_keys k WHERE k.user_id=?1))",
+    if crate::identity::numbered(c)? {format!("COALESCE({}, -k.exchange_id)",crate::identity::key_account_sql("k"))} else {"-k.exchange_id".into()}),rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 pub struct Presentation {pub value:String,pub card:String,pub sync:String,pub classes:Vec<&'static str>}
 pub struct Arc {pub color:String,pub dash:String,pub offset:String,pub label:String}
@@ -57,9 +59,9 @@ pub fn synced_label(ctx:&Ctx,synced:Option<chrono::DateTime<chrono::Utc>>,stale:
     format!("        <span class=\"label tracker-sync {}\">\n          <i class=\"tracker-sync__dot\"></i>{text}\n        </span>\n",if stale{"tracker-sync--stale"}else{""})
 }
 pub fn prepare(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Presentation,WebError>{
-    let scope=ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(|s|crate::web::bot::id_from_path(s).ok_or_else(invalid)).transpose()?;
+    let scope=super::scope::read(c,ctx,owner)?.map_err(|_|invalid())?;
     let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
-    let data=crate::figures::budget::within(||crate::tracker::figures::page::cold(c,owner,scope,crate::web::bots::show_cash(settings.as_deref()))).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
+    let data=crate::figures::budget::within(||crate::tracker::figures::page::cold(c,owner,&scope,crate::web::bots::show_cash(settings.as_deref()))).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
     let d=fx.denomination(c,owner,ctx.app.now().timestamp())?;
     let reason=data.reason.or(if d.is_none(){Some("Currency conversion unavailable")}else{None});
     let (value,(card,classes))=if let Some(reason)=reason{
@@ -71,6 +73,6 @@ pub fn prepare(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result
         };(value,card)
     }else{let d=d.ok_or_else(invalid)?;(money(data.value.as_ref().ok_or_else(invalid)?,&d)?,card(ctx,&data,&d)?)};
     let sync=synced_label(ctx,data.synced,data.stale);
-    let card=format!("{}{card}",super::prices_notice::banner(c,ctx,owner,scope,&[])?);
+    let card=format!("{}{card}",super::prices_notice::banner(c,ctx,owner,&scope,&[])?);
     Ok(Presentation{value,card,sync,classes})
 }

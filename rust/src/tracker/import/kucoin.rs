@@ -329,7 +329,7 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         }
     }
     crate::sync::kucoin_hf::export_period(c, key, rows, now)?;
-    let hf = crate::sync::kucoin_hf::enabled(c, key.user_id, key.exchange_id)?;
+    let hf = crate::sync::kucoin_hf::enabled(c, &key.scope)?;
     // A file of rows all held may still bridge two exports: the gap follows its period.
     if touched.is_empty() { if hf { crate::sync::kucoin_hf::refresh_gap(c, key, now)?; } return Ok(out); }
     if hf {
@@ -426,7 +426,7 @@ pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], n
     if classes.is_empty() { return Ok(()); }
     let cut = cutoffs(c, key)?;
     // D-KUCOIN-HF-LEDGER: on an HF-enabled history the fills are the one-trade rule's; the cutoff row stays as provenance.
-    let hf = crate::sync::kucoin_hf::enabled(c, key.user_id, key.exchange_id)?;
+    let hf = crate::sync::kucoin_hf::enabled(c, &key.scope)?;
     for class in classes.iter().filter(|class| !(hf && **class == "fills")) {
         let types = match *class { "fills" => format!("{BUY}, {SELL}"), "deposits" => DEPOSIT.to_string(), "withdrawals" => WITHDRAWAL.to_string(), _ => continue };
         let at_ = "account_transactions";
@@ -454,6 +454,8 @@ pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], n
 /// Every stored row of (user, exchange) at one UTC second, in no order (`derive` orders them). By the time index: an
 /// ORDER BY row_id made the planner walk the user's every row by the unique index instead, for each second.
 pub(crate) fn held_rows(c: &rusqlite::Connection, key: &Key, at: DateTime<Utc>) -> Result<Vec<SourceRow>, SyncError> {
+    // #710 slice 5: the stored rows are the exchange's number 1's (imports route by account from slice 7 on).
+    if key.scope.member.is_some() { return Ok(vec![]); }
     let mut s = c.prepare_cached("SELECT row_id, account_type, currency, side, amount, fee, remark, row_type FROM import_rows
                                   INDEXED BY index_import_rows_on_user_exchange_time WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at = ?3")?;
     let rows = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| {

@@ -14,8 +14,9 @@ const TTL_DAYS: i64 = 30;
 /// security and a coin is priced by the asset its rows recorded; 5: coin-quoted rows are two legs, transfers wait for their
 /// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY;
 /// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS; 8: a security's corporate
-/// action never restates a coin's lots under the symbol they share, #1061).
-const SCHEMA: u64 = 8;
+/// action never restates a coin's lots under the symbol they share, #1061; 9: each scope's summary is an account's, keyed by
+/// account id, #710 slice 5).
+const SCHEMA: u64 = 9;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 const SALES_SCHEMA: u64 = 1;
 const MAX_SALES: usize = 1024 * 1024;
@@ -33,7 +34,7 @@ impl PartialEq for Version {
     fn eq(&self,other:&Self)->bool {self.history==other.history && self.prices==other.prices && crate::engine::model::stamp_set_current_for(&self.producers,&other.producers)}
 }
 pub fn version(c:&Connection,owner:i64)->Result<Version,FiguresError> {
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     Ok(Version { history:backfill::history_version(c,owner)?, prices:backfill::generation(c)?,producers:origin.producer_stamps() })
 }
 pub fn key(owner:i64)->String { format!("rust_tracker_ledger.{owner}") }
@@ -83,7 +84,7 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
 pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
     if &version(c,owner)? != before { return Ok(false); }
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
     // The read bound applies at publish too: an entry the reader would refuse is never written.
     for summary in walked.into_iter().flat_map(|w|std::iter::once(&w.whole).chain(w.venues.iter().map(|(_,s)|s))) {
@@ -122,12 +123,16 @@ impl Fingerprint {
 #[derive(Clone, Debug)]
 pub enum Published { Cold, Failed(&'static str), Warm { whole:Box<Summary>, venues:Vec<(i64,Summary)>, from:Fingerprint } }
 impl Published {
-    /// The scope a page reads: the whole account, or one venue's (empty when it has none).
-    pub fn scoped(self,exchange:Option<i64>)->State {
+    /// The scope a page reads: the whole portfolio, or one account's (empty when it has none).
+    pub fn scoped(self,scope:&super::Scope)->State {
+        self.account(match scope {super::Scope::All=>None,super::Scope::Account(a)=>Some(a.id),super::Scope::EmptyLegacyExchange(_)=>Some(0)})
+    }
+    /// `scoped` by account id (None: the whole portfolio).
+    pub fn account(self,account:Option<i64>)->State {
         match self {
             Published::Cold=>State::Cold,
             Published::Failed(m)=>State::Failed(m),
-            Published::Warm{whole,venues,..}=>State::Warm(match exchange {
+            Published::Warm{whole,venues,..}=>State::Warm(match account {
                 None=>whole,
                 Some(id)=>Box::new(venues.into_iter().find(|(venue,_)|*venue==id).map_or_else(Summary::empty,|(_,summary)|summary)),
             }),
@@ -142,8 +147,9 @@ pub fn fingerprint(c:&Connection,owner:i64)->Result<Option<Fingerprint>,FiguresE
 }
 /// Cold includes absent/expired/obsolete/malformed cache entries, as 2.x's shape guard does.
 /// SQL failures propagate; a computed failure has its own safe, stated reason.
-pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
-    Ok(read_published(c,owner,now)?.scoped(exchange))
+/// `account`: an account id (None: the whole portfolio).
+pub fn read(c:&Connection,owner:i64,account:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
+    Ok(read_published(c,owner,now)?.account(account))
 }
 /// The entry stored under `key`, parsed, when it is one the current inputs made: schema, owner, expiry, `version()`, producers
 /// and `ledger_is_current` all hold. None is Cold. The ledger entry and the bot sales row are both read through it.
@@ -157,7 +163,7 @@ fn validated(c:&Connection,key:&str,schema:u64,owner:i64,now:DateTime<Utc>,limit
     let current=version(c,owner)?;
     if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(None)}
     if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(None)}
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(None)}
     Ok(Some(v))
 }
@@ -232,7 +238,7 @@ mod tests {
     }
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE exchange_account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c.execute_batch(crate::identity::TEST_ACCOUNT_TABLES).unwrap(); c
     }
     fn now()->DateTime<Utc> {"2026-10-08T12:00:00Z".parse().unwrap()}
     fn walked()->Walked {
@@ -368,7 +374,7 @@ mod tests {
             assert!(!publish(&c,1,&v,Some(&walked()),7,now()).unwrap(),"must reject a mid-walk change");
         }
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
-        c.execute_batch("INSERT INTO account_transactions VALUES(2,42,'2026-10-09'); INSERT INTO account_balances VALUES(1,100000)").unwrap();warm(&c,None);
+        c.execute_batch("INSERT INTO account_transactions VALUES(2,42,'2026-10-09'); INSERT INTO exchange_account_balances VALUES(1,100000)").unwrap();warm(&c,None);
         assert!(matches!(read(&c,1,None,now()+Duration::days(30)-Duration::microseconds(1)).unwrap(),State::Warm(_)));
         assert!(matches!(read(&c,1,None,now()+Duration::days(30)).unwrap(),State::Cold));
     }
@@ -438,13 +444,12 @@ mod tests {
         // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
         // and the 287-character decimal needs three successive restatements.
         let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None,account:7,to_account:None};
         let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;
         let mut ps=PriceService::new(&r,&fx,now().date_naive(),&mut none);
-        let ids=std::collections::HashMap::from([("alpaca".to_string(),7)]);
-        let w=walk::scopes(&rows,&Default::default(),&mut ps,&ids,At::from_utc(now()).unwrap()).unwrap();
+        let w=walk::scopes(&rows,&Default::default(),&mut ps,At::from_utc(now()).unwrap()).unwrap();
         let longest=[&w.whole.positions[0].quantity,&w.whole.positions[0].cost,&w.whole.positions[0].avg_cost].into_iter().map(|d|d.to_s_f().len()).max().unwrap();
         assert!(longest==287,"three split adjustments must exercise the 287-character regression, got {longest}: {:?}",encode(&w.whole));
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&w),7,now()).unwrap();

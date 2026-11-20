@@ -464,7 +464,8 @@ fn migration_inserts_only_into_rust_tables() {
     let created = regex::Regex::new(r#"(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)"?"#).unwrap();
     let created: Vec<String> = created.captures_iter(&sql).map(|c| c[1].to_lowercase()).collect();
     let inserts = regex::Regex::new(r#"(?i)INSERT\s+(?:OR\s+\w+\s+)?INTO\s+"?(\w+)"?"#).unwrap();
-    for c in inserts.captures_iter(&sql) {
+    // sqlite_sequence is SQLite's own: a store moved from 2.x starts its sequence at 2.x's (20261121000001).
+    for c in inserts.captures_iter(&sql).filter(|c| !c[1].eq_ignore_ascii_case("sqlite_sequence")) {
         assert!(created.contains(&c[1].to_lowercase()), "a Rust migration inserts into {}, which no Rust migration creates", &c[1]);
     }
 }

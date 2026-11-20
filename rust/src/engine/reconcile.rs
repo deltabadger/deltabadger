@@ -468,7 +468,7 @@ pub async fn observe<V: crate::venue::Venue>(c: &Connection, venue: &V, now: Dat
     let id = version.id;
     model::credential_write(c, &Some(version), |tx| {
         let key = crate::sync::load_key_of(tx, id, &[crate::venue::kucoin::KUCOIN]).map_err(|e| data(e.0))?;
-        if mode != AccountMode::ClassicLf || crate::sync::kucoin_hf::enabled(tx, key.user_id, key.exchange_id).map_err(|e| data(e.0))? {
+        if mode != AccountMode::ClassicLf || crate::sync::kucoin_hf::enabled(tx, &key.scope).map_err(|e| data(e.0))? {
             crate::sync::kucoin_hf::observe_mode(tx, &key, mode, now).map_err(|e| data(e.0))?;
         }
         Ok(())

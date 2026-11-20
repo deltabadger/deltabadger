@@ -55,6 +55,8 @@ pub fn figures(dir: &Path) -> Result<Value, FiguresError> {
     if scenario["parity_scratch"] != true { return Err(FiguresError::Data("not a parity_scratch scenario".into())); }
     // Read-only at the connection: no statement of this library can change a row.
     let c = Connection::open_with_flags(dir.join("production.sqlite3"), OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    // As `store::open` reads an install: the balance stores over 2.x's tables while no migration has made them.
+    crate::sync::balance_store::fallback(&c)?;
     let now = scenario["at"].as_str().and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok()).and_then(|at| At::from_utc(at.to_utc()))
         .ok_or_else(|| FiguresError::Data("scenario.json has no `at`".into()))?;
     if let Some(steps) = scenario["steps"].as_array() { return stepped(&c, &scenario, steps); }

@@ -120,7 +120,7 @@ pub(super) fn plain(value:&Dec,d:&Denomination)->Result<String,WebError>{
 pub(super) fn amount_text(value:&Dec,currency:&str)->Result<String,WebError>{amount(value,currency)}
 fn logo(c:&Connection,row:&Row)->Result<String,WebError>{
     // Recorded asset, then the owner's balances, then the ranked crypto catalogue.
-    let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};
+    let id=match row.asset {Some(id)=>Some(id),None=>c.query_row("SELECT a.id FROM exchange_account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND a.symbol=?2 ORDER BY b.id LIMIT 1",(row.owner,&row.base),|r|r.get(0)).optional()?.or(c.query_row("SELECT id FROM assets WHERE symbol=?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category='Cryptocurrency' DESC,id LIMIT 1",[&row.base],|r|r.get(0)).optional()?)};
     let Some(id)=id else{return Ok(String::new())};
     let (image,color,symbol,category):(Option<String>,Option<String>,String,Option<String>)=c.query_row("SELECT image_url,color,symbol,category FROM assets WHERE id=?1",[id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)))?;
     asset_logo(image,color,symbol,category)
@@ -193,8 +193,15 @@ fn venue(class: &str) -> String {
 /// The history-gap line (Rust only): the venue's button to the import steps, then what was found
 /// (D-GAP-STATES-EVIDENCE) across the header's other columns (`gap::gap_summary`; no money).
 pub fn gap_row(ctx:&Ctx,gap:&crate::tracker::gaps::StoredGap,hidden:bool)->String {
+    let (id,query)=gap_anchor(gap);
     format!("<tr id=\"history_gap_{id}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all\">\n  <td class=\"text-left tracker-row__when table__when\">\n    <a class=\"rbutton rbutton--small\" data-turbo-frame=\"modal\" href=\"{}\">{}</a>\n  </td>\n  <td class=\"tracker-exchange-icon\">{}</td>\n  <td class=\"text-left\" colspan=\"{}\">{}</td>\n</tr>\n",
-        escape(&ctx.path(&format!("/tracker/history_gap?exchange_id={}",gap.exchange_id))),ctx.t("tracker.history_gap.button"),crate::web::bot::exchange_svg(&crate::tracker::rows::name_id(&gap.kind)),if hidden{4}else{7},super::gap::gap_summary(ctx,gap),id=gap.exchange_id)
+        escape(&ctx.path(&format!("/tracker/history_gap?{query}"))),ctx.t("tracker.history_gap.button"),crate::web::bot::exchange_svg(&crate::tracker::rows::name_id(&gap.kind)),if hidden{4}else{7},super::gap::gap_summary(ctx,gap))
+}
+
+/// #710 slice 5: a line's row id suffix and the modal's scope. A number 1's keep its exchange's (the markup as it always
+/// was); an account 2+'s name the account, so "All" with two accounts of one exchange has two distinct lines.
+pub fn gap_anchor(gap:&crate::tracker::gaps::StoredGap)->(String,String) {
+    if gap.account.number==1 {(gap.exchange_id.to_string(),format!("exchange_id={}",gap.exchange_id))} else {(format!("a{}",gap.account.id),format!("account_id={}",gap.account.id))}
 }
 
 /// FX refusal replaces every monetary cell; never a zero or a mislabeled dollar figure.

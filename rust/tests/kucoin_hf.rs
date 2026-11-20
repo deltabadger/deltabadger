@@ -208,7 +208,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
         // The persisted refusal survives restart and contains no credential material.
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         no_placement(&c, bot.id);
-        assert_eq!(c.query_row("SELECT count(*) FROM account_balances", [], |r| r.get::<_,i64>(0)).unwrap(), 0, "no synthetic balances");
+        assert_eq!(c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get::<_,i64>(0)).unwrap(), 0, "no synthetic balances");
         let transient: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_failed' ORDER BY id DESC LIMIT 1", [bot.id], |r| r.get(0)).unwrap();
         assert!(transient.contains("KuCoin"), "refusal is visible: {transient}");
         assert!(!transient.contains("secret") && !transient.contains("passphrase"));
@@ -346,7 +346,8 @@ async fn m03_detection_and_balance_races_preserve_stored_balances_and_watermark(
         let (dir, o, bot, plan) = engine_setup();
         let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
         let key = version.id;
-        o.primary.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at) VALUES(?1,?2,?3,17,3,'2026-10-29','2026-10-29','2026-10-29')", rusqlite::params![bot.user_id, bot.exchange_id, plan.ticker.base_asset_id]).unwrap();
+        common::number_one(&o.primary, bot.user_id, bot.exchange_id);
+        o.primary.execute("INSERT INTO exchange_account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at,account_id) VALUES(?1,?2,?3,17,3,'2026-10-29','2026-10-29','2026-10-29',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))", rusqlite::params![bot.user_id, bot.exchange_id, plan.ticker.base_asset_id]).unwrap();
         let credentials = sync::validation_material(&o.primary, &common::seed::cipher(), key).unwrap().0;
         let t = ScriptedTransport::default();
         classic(&t, false);
@@ -375,7 +376,7 @@ async fn m03_detection_and_balance_races_preserve_stored_balances_and_watermark(
         }
         db.settled().await;
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-        assert_eq!(c.query_row("SELECT free,locked FROM account_balances", [], |r| Ok((r.get::<_,f64>(0)?,r.get::<_,f64>(1)?))).unwrap(), (17.0,3.0));
+        assert_eq!(c.query_row("SELECT free,locked FROM exchange_account_balances", [], |r| Ok((r.get::<_,f64>(0)?,r.get::<_,f64>(1)?))).unwrap(), (17.0,3.0));
         assert_eq!(c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1", [key], |r| r.get::<_,Option<String>>(0)).unwrap(), None);
         no_placement(&c, bot.id);
     }
