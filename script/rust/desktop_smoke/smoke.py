@@ -942,7 +942,8 @@ def scenario_language(name):
             check(again == shown and starts(data) == 0 and not (data / "first-language").exists(), f"after {value!r}: {again}, {starts(data)} starts")
         say("an invalid and an empty choice leave the picker as it is; no engine")
         win.js("var i = document.querySelector('#langs-list input[value=de]'); i.click(); return document.getElementById('hello').textContent;")
-        check(win.js("return document.getElementById('go').textContent;") == "Weiter", "the button is not in German")
+        # The label crossfades: the new text is the button's last child.
+        check(win.js("return document.getElementById('go').lastElementChild.textContent;") == "Weiter", "the button is not in German")
         win.click("#go")
         start = wait_start(data, 0)
         app_page_shown(win, start)

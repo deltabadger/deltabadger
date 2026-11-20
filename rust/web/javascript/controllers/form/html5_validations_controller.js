@@ -53,7 +53,10 @@ export default class extends Controller {
     }
   }
 
+  // Leaving a field checks what was typed into it. A field left empty says nothing until the form is submitted:
+  // passing through it (the email field has the focus when the admin form opens) is not a mistake.
   #onBlur = (event) => {
+    if (event.target.value === '') return
     this.#validateField(event.target)
   }
 
@@ -102,6 +105,13 @@ export default class extends Controller {
   }
 
   #refreshErrorForInvalidField(field, isValid) {
+    // A field that is still wrong keeps its message where it is (only the text may change): removing and showing
+    // it again would move everything below it twice.
+    const shown = this.#errors.get(field)
+    if (!isValid && shown?.isConnected) {
+      shown.textContent = this.#messageFor(field)
+      return
+    }
     this.#removeExistingErrorMessage(field)
     if (!isValid)
       this.#showErrorForInvalidField(field)
@@ -116,6 +126,10 @@ export default class extends Controller {
     const error = this.#buildFieldError(field)
     this.#errors.set(field, error)
     this.#placeErrorMessage(field, error)
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const open = getComputedStyle(error)
+    error.animate([{ height: 0, paddingTop: 0, opacity: 0, overflow: "hidden" }, { height: open.height, paddingTop: open.paddingTop, opacity: 1, overflow: "hidden" }],
+      { duration: 150, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" })
   }
 
   #placeErrorMessage(field, error) {

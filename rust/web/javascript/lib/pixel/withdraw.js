@@ -481,6 +481,7 @@ export function createWithdrawAnimation(canvas, opts = {}) {
   function recolor(colors) {
     Object.assign(C, colors);
     Object.assign(HERO_MAP, { w: C.suit, W: C.suitShade, v: C.visor, g: C.glint, a: C.accent, p: C.pack, B: C.boot });
+    Object.assign(GOLD, { o: C.coinO, y: C.coinY, h: C.coinH, d: C.coinD });
     Object.assign(CHEST_MAP, { o: C.chestO, w: C.chestW, h: C.chestH, x: C.rivet, p: C.panel, s: C.stripe });
   }
 

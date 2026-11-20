@@ -399,6 +399,7 @@ export function createTrackAnimation(canvas, opts = {}) {
   function recolor(colors) {
     Object.assign(C, colors);
     Object.assign(HERO_MAP, { w: C.suit, W: C.suitShade, v: C.visor, g: C.glint, a: C.accent, p: C.pack, B: C.boot });
+    Object.assign(GOLD, { o: C.coinO, y: C.coinY, h: C.coinH, d: C.coinD });
     for (const p of plants) {
       p.stem = depthTone(C.stem, p.depth);
       p.leafC = depthTone(C.leaf, p.depth);

@@ -1,8 +1,8 @@
-<form data-turbo="false" data-controller="form--html5-validations form--label-animations form--password-strength" data-form--password-strength-success-class-value="form__validation--success" data-form--password-strength-length-pattern-value=".{8,}" data-form--password-strength-uppercase-pattern-value="(?=.*[A-Z])" data-form--password-strength-lowercase-pattern-value="(?=.*[a-z])" data-form--password-strength-digit-pattern-value="(?=.*\d)" data-form--password-strength-symbol-pattern-value="(?=.*[\W_])" action="/setup?locale={{ v.locale }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+<form data-transition="dashboard" data-controller="form--html5-validations form--label-animations form--password-strength" data-form--password-strength-success-class-value="form__validation--success" data-form--password-strength-length-pattern-value=".{8,}" data-form--password-strength-uppercase-pattern-value="(?=.*[A-Z])" data-form--password-strength-lowercase-pattern-value="(?=.*[a-z])" data-form--password-strength-digit-pattern-value="(?=.*\d)" data-form--password-strength-symbol-pattern-value="(?=.*[\W_])" action="/setup?locale={{ v.locale }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
 
   <input type="hidden" name="locale" id="locale" value="{{ v.locale }}" />
 
-  <a href="/language?locale={{ v.locale }}" title="{{ v.language_name() }}" data-turbo="false">{% include "devise/_icon.html" %}</a>
+  <a href="/language?locale={{ v.locale }}" title="{{ v.language_name() }}" data-transition="language">{% include "devise/_icon.html" %}</a>
 
   <h1>{{ v.t("setup.admin_account")|safe }}</h1>
 {% if !errors.is_empty() %}
@@ -16,12 +16,12 @@
 {% endif %}
 
   <div class="form__row form__row--input">
-    <input type="email" name="user[email]" id="user_email" value="{{ email }}" autocomplete="off" class="form__input form__input--large" required="required" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("setup.validations.email_required")|safe }}" />
+    <input type="email" name="user[email]" id="user_email" value="{{ email }}" autocomplete="off" data-bwignore data-1p-ignore data-lpignore="true" class="form__input form__input--large" required="required" pattern="^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" data-html5-error-message="{{ v.t("setup.validations.email_required")|safe }}" />
     <label class="form__label" for="user_email">{{ v.t("activerecord.attributes.user.email")|safe }}</label>
   </div>
 
   <div class="form__row db-has-unmask" data-controller="form--password-unmask">
-    <input autocomplete="new-password" class="form__input form__input--has-icon form__input--large{% if password_error.is_some() %} is-invalid{% endif %}" data-form--password-unmask-target="input" data-form--password-strength-target="input" data-action="input-&gt;form--password-strength#checkPasswordStrength" data-html5-error-message="{{ v.t("setup.validations.password_required")|safe }}" required="required" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}" id="user_password" type="password" name="user[password]" />
+    <input autocomplete="new-password" data-bwignore data-1p-ignore data-lpignore="true" class="form__input form__input--has-icon form__input--large{% if password_error.is_some() %} is-invalid{% endif %}" data-form--password-unmask-target="input" data-form--password-strength-target="input" data-action="input-&gt;form--password-strength#checkPasswordStrength" data-html5-error-message="{{ v.t("setup.validations.password_required")|safe }}" required="required" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}" id="user_password" type="password" name="user[password]" />
 {% if let Some(message) = password_error %}
              <div class="form__info form__info--invalid">{{ message }}</div>
 {% endif %}
