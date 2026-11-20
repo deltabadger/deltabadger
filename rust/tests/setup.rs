@@ -242,7 +242,10 @@ async fn play(name: &str, scenario: &Value) -> Played {
     };
     apply(&mut env, &scenario["env"]);
     let (mut launchpad, mut requests) = (None, Arc::new(std::sync::Mutex::new(Vec::new())));
-    if let Some(answer) = scenario["launchpad"].as_str() {
+    // D-NO-USER-NAME's setups record no claim; the recording listener stands in for the launchpad so a request setup
+    // made anyway would be recorded (and refused: "close" answers nothing).
+    let no_name = matches!(name, "invalid_name" | "followup_json_locale");
+    if let Some(answer) = scenario["launchpad"].as_str().or(no_name.then_some("close")) {
         let (url, seen) = fake_launchpad(answer).await;
         env.insert("LAUNCHPAD_URL".into(), url.clone());
         (launchpad, requests) = (Some(url), seen);
