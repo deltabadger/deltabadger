@@ -29,4 +29,5 @@ pub mod sync;
 pub mod tax;
 pub mod tracker;
 pub mod venue;
+pub mod venue_ids;
 pub mod web;

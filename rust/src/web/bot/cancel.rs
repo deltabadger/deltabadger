@@ -97,7 +97,7 @@ pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Exten
         if status.is_none_or(|s| s == crate::enums::BotStatus::Deleted as i64) { return Ok(Found::NoBot) }
         let tx = tx.strip_suffix(".turbo_stream").unwrap_or(&tx);
         let row: Option<(i64, Option<String>)> = match super::id_from_path(tx) {
-            Some(tx) => c.query_row("SELECT id, external_id FROM transactions WHERE id = ?1 AND bot_id = ?2", (tx, id), |r| Ok((r.get(0)?, r.get(1)?))).optional()?,
+            Some(tx) => c.query_row(&format!("SELECT id, {} FROM transactions WHERE id = ?1 AND bot_id = ?2", crate::venue_ids::order_id(c, "transactions")?), (tx, id), |r| Ok((r.get(0)?, r.get(1)?))).optional()?,
             None => None,
         };
         let Some((tx, external)) = row else { return Ok(Found::NoRow) };

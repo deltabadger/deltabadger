@@ -939,9 +939,12 @@ fn deleting_one_accounts_subjects_leaves_the_other_accounts_memberships() {
     for (n, account) in [first, second].into_iter().enumerate() {
         let bot = common::seed::insert_bot(c, &s, &common::seed::BotSpec { status: 2, ..common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
         identity::place_bot(c, bot, s.user_id, s.exchange_id, Some(account), now()).unwrap();
-        // Two venue ids: one shared by both accounts needs the relocated id of slice 4 (the 2.x index is (exchange, id)).
         let order = common::seed::insert_row(c, &s, bot, s.btc, &json!({"external_id": format!("O-{n}"), "external_status": 2, "created_at": "2026-09-02 10:00:00"}));
-        if n == 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [order, second.id.unwrap()]).unwrap(); }
+        if n == 1 {
+            // Relocated as a placement writes it (slice 4): the venue id in the membership, 2.x's column NULL.
+            c.execute("UPDATE transactions SET external_id = NULL WHERE id = ?1", [order]).unwrap();
+            c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, 'O-1')", [order, second.id.unwrap()]).unwrap();
+        }
         bots.push(bot);
         orders.push(order);
         rule_ids.push(rules::create(c, &account, s.btc, "address", "{}", "2026-09-02 10:00:00").unwrap());
@@ -1017,7 +1020,7 @@ fn the_ownership_migration_keeps_every_rule_and_scopes_ids_it_cannot_place_by_ex
         DELETE FROM exchange_accounts;
         INSERT INTO rust_withdrawal_ids (exchange_id, venue_id, owner, settled_at, source) VALUES
           (5, 'R', 'rule:1', {t}, 'rust'), (7, 'V', 'recorder:a', {t}, 'rust'), (8, 'V', 'recorder:b', {t}, 'rust');")).unwrap();
-    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V710_3]);
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap().first().map(String::as_str), Some(V710_3), "the ownership migration, then any later one");
     let number_1: i64 = c.query_row("SELECT id FROM exchange_accounts WHERE user_id = 1 AND exchange_id = 5 AND number = 1", [], |r| r.get(0)).unwrap();
     let store: Vec<(i64, i64)> = c.prepare("SELECT id, account_id FROM exchange_account_rules ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(store, [(1, number_1)], "the withdrawal rule with an exchange, on its new number 1");

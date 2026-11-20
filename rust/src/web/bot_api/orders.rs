@@ -428,9 +428,9 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
         // (id, bot, external id, "base/quote", side, exchange name, exchange type)
         type Row = (i64, i64, String, String, String, String, String);
         let row: Option<Row> = match text.parse::<i64>() {
-            Ok(id) => c.query_row("SELECT t.id, t.bot_id, coalesce(t.external_id, ''), coalesce(t.base, '') || '/' || coalesce(t.quote, ''), \
+            Ok(id) => c.query_row(&format!("SELECT t.id, t.bot_id, coalesce({}, ''), coalesce(t.base, '') || '/' || coalesce(t.quote, ''), \
                                    CASE t.side WHEN 0 THEN 'buy' WHEN 1 THEN 'sell' ELSE '' END, coalesce(e.name, ''), coalesce(e.type, '') FROM transactions t \
-                                   JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1",
+                                   JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1", crate::venue_ids::order_id(c, "t")?),
                 [who.user, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional()?,
             Err(_) => None,
         };
@@ -454,8 +454,8 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     // r3: a stored order beats a bare id. The user's bot rows first (the latest with this venue and order id); then the
     // retained standalone order log (PLAN-A9 O4); then the bare id. #710: each is cancelled through the account it was
     // placed on (a bare id through the exchange's number 1), whose key is the one checked.
-    let row: Option<(i64, i64)> = c.query_row("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
-                                               WHERE b.user_id=?1 AND t.exchange_id=?2 AND t.external_id=?3 AND substr(t.external_id, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1",
+    let row: Option<(i64, i64)> = c.query_row(&format!("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
+                                               WHERE b.user_id=?1 AND t.exchange_id=?2 AND {o}=?3 AND substr({o}, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1", o = crate::venue_ids::order_id(c, "t")?),
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
     let account = match (&row, &log) {

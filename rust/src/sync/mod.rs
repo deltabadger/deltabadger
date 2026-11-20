@@ -222,6 +222,8 @@ pub struct Key {
     pub last_synced_at: Option<DateTime<Utc>>, pub last_sync_error: Option<String>,
     /// `exchanges.type`: one of the venues this build syncs.
     pub exchange_type: String,
+    /// #710: the key's account, as its ledger rows' venue ids are scoped (venue_ids).
+    pub scope: crate::venue_ids::Scope,
 }
 
 /// The venues whose balances this build syncs (`registry::Row::balances`).
@@ -246,7 +248,13 @@ pub fn load_key_of(c: &Connection, id: i64, venues: &[&str]) -> Result<Key, Sync
         return Err(SyncError(if venues == [ALPACA] { format!("api key {id} is not an Alpaca key") } else { format!("api key {id} is not on a venue this build syncs") }));
     };
     let last_synced_at = synced.map(|s| parse_time(&s)).transpose()?;
-    Ok(Key { id, user_id, exchange_id, status, key_type, last_synced_at, last_sync_error, exchange_type })
+    let scope = key_scope(c, id)?;
+    Ok(Key { id, user_id, exchange_id, status, key_type, last_synced_at, last_sync_error, exchange_type, scope })
+}
+
+/// #710: api key `id`'s account's scope; a key whose membership names another user's or exchange's account has none.
+pub fn key_scope(c: &Connection, id: i64) -> Result<crate::venue_ids::Scope, SyncError> {
+    crate::venue_ids::Scope::of_key(c, id)?.ok_or_else(|| SyncError(format!("api key {id} belongs to no account of its exchange")))
 }
 
 /// ApiKey.reading, for Alpaca: per user, the key the venue is read with. Status correct, never a withdrawal key; the

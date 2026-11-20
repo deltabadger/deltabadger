@@ -243,7 +243,10 @@ fn project(canon: &Connection, copy: &Path, lines: &mut Vec<String>) -> Result<(
     store::create_schema(canon).map_err(&f)?;
     store::apply_pending(canon).map_err(|e| store_error("canonical", e))?;
     canon.pragma_update(None, "foreign_keys", "OFF").map_err(&f)?;
-    let tables = names(canon, "SELECT name FROM main.sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name", &[]).map_err(&f)?;
+    // A table with a BEFORE INSERT trigger (#710's membership checks) is copied after every other, so each trigger sees the
+    // rows it reads.
+    let tables = names(canon, "SELECT name FROM main.sqlite_master t WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY \
+                               EXISTS (SELECT 1 FROM main.sqlite_master g WHERE g.type = 'trigger' AND g.tbl_name = t.name AND g.sql LIKE '%BEFORE INSERT%'), name", &[]).map_err(&f)?;
     for t in &tables { canon.execute_batch(&format!("DELETE FROM main.{}", quote(t))).map_err(&f)?; }
     let sequenced = names(canon, "SELECT name FROM main.sqlite_master WHERE type = 'table' AND sql LIKE '%AUTOINCREMENT%' ORDER BY name", &[]).map_err(&f)?;
     canon.execute_batch("DELETE FROM main.sqlite_sequence").map_err(&f)?;
@@ -515,7 +518,8 @@ pub fn readme_csv() -> String {
 
 fn csvs(c: &Connection, dir: &Path) -> Result<(), ExportError> {
     let web = |step: &'static str| move |e: crate::web::WebError| ExportError::Failed(format!("{step}: {e:?}"));
-    let tracker = crate::web::tracker::csv_rows(c, &format!("SELECT {} FROM account_transactions ORDER BY transacted_at ASC", crate::web::tracker::CSV_COLUMNS), vec![])
+    let columns = crate::web::tracker::csv_columns(c).map_err(failed("tracker.csv"))?;
+    let tracker = crate::web::tracker::csv_rows(c, &format!("SELECT {columns} FROM account_transactions ORDER BY transacted_at ASC"), vec![])
         .map_err(web("tracker.csv"))?;
     std::fs::write(dir.join("tracker.csv"), tracker).map_err(io("tracker.csv"))?;
     let f = failed("bots");

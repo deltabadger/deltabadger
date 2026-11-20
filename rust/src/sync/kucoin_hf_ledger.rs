@@ -135,11 +135,12 @@ fn load(c: &Connection, route: &Route, key: &Key, stamp: &Value) -> Result<Loade
     Ok((open, certified, unit))
 }
 
-/// The pairs the user's history trades: its KuCoin BUY/SELL rows, visible or withheld.
+/// The pairs the account's history trades (#710: only its own: another account's pairs would open episodes it never
+/// traded): its KuCoin BUY/SELL rows, visible or withheld.
 fn historical_pairs(c: &Connection, key: &Key) -> Result<BTreeSet<String>, SyncError> {
-    let mut s = c.prepare("SELECT DISTINCT base_currency || '-' || quote_currency FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type IN (0, 1) \
-                           AND base_currency IS NOT NULL AND quote_currency IS NOT NULL \
-                           UNION SELECT DISTINCT json_extract(entry, '$.symbol') FROM kucoin_withheld_fills WHERE user_id = ?1 AND exchange_id = ?2")?;
+    let mut s = c.prepare(&format!("SELECT DISTINCT base_currency || '-' || quote_currency FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {} \
+                           AND entry_type IN (0, 1) AND base_currency IS NOT NULL AND quote_currency IS NOT NULL \
+                           UNION SELECT DISTINCT json_extract(entry, '$.symbol') FROM kucoin_withheld_fills WHERE account_id = {}", key.scope.rows("account_transactions"), key.scope.account_sql()))?;
     let pairs: Vec<Option<String>> = s.query_map(params![key.user_id, key.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     Ok(pairs.into_iter().flatten().collect())
 }

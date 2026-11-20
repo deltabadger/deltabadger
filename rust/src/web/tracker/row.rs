@@ -31,8 +31,11 @@ impl Row {
             return Ok(self.quoted.clone().zip(self.quote.clone()));
         }
         let Some(group)=self.group.as_deref().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
-        let mut s=c.prepare("SELECT id,entry_type,base_currency,base_amount FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3")?;
-        let mut q=s.query((self.owner,self.exchange,group))?;
+        // #710: the legs of this row's own account (another account's legs of one group id never price it).
+        let any=crate::venue_ids::Scope::install(c)?;
+        let mut s=c.prepare(&format!("SELECT id,entry_type,base_currency,base_amount FROM account_transactions a WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3 \
+                                      AND {m} IS (SELECT {m2} FROM account_transactions x WHERE x.id=?4)",m=any.member_sql("a"),m2=any.member_sql("x")))?;
+        let mut q=s.query((self.owner,self.exchange,group,self.id))?;
         let mut count=0; let mut opposite=None;
         while let Some(r)=q.next()? {
             count+=1;

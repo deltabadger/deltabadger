@@ -15,6 +15,7 @@ use super::{sql_time, Key, SyncError};
 use crate::codec::parse_time;
 use crate::engine::model::FencedTransaction;
 use crate::v2::BigDec;
+use crate::venue_ids;
 use crate::venue::kucoin_account::AccountMode;
 use crate::tracker::import::kucoin::{self as file, Catalogue, Derived, SourceRow, Stored, API_ROW, DERIVED};
 use chrono::{DateTime, Duration, Timelike, Utc};
@@ -118,11 +119,13 @@ pub fn observe_mode(c: &Connection, key: &Key, mode: AccountMode, now: DateTime<
 fn hold_switched(c: &Connection, key: &Key, now: DateTime<Utc>) -> Result<(), SyncError> {
     let record = crate::venue::kucoin::ORDER_RECORD;
     let origin = crate::engine::reconcile::ORIGIN;
+    // #710: this history's account's orders, their venue ids wherever it keeps them.
+    let (o, mine) = (venue_ids::order_id(c, "t")?, key.scope.orders("t"));
     let mut s = c.prepare(&format!(
         "SELECT t.id, (SELECT CASE WHEN count(*) = 1 THEN max(k.ticker) END FROM tickers k WHERE k.exchange_id = t.exchange_id AND k.base_asset_id = t.base_asset_id \
          AND k.quote_asset_id = t.quote_asset_id), coalesce(t.side, 0) = 1, coalesce(t.order_type, 0) = 1 \
          FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE b.user_id = ?1 AND t.exchange_id = ?2 AND t.status = 0 AND t.external_status IN (0, 1) \
-         AND t.external_id IS NOT NULL AND t.external_id NOT LIKE 'imported_%' AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{record}' || t.id) \
+         AND {o} IS NOT NULL AND {o} NOT LIKE 'imported_%' AND {mine} AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{record}' || t.id) \
          AND NOT EXISTS (SELECT 1 FROM app_configs k WHERE k.key = '{origin}' || t.id AND json_extract(k.value, '$.origin') = 'unproven') ORDER BY t.id"))?;
     let rows: Vec<(i64, Option<String>, bool, bool)> =
         s.query_map(params![key.user_id, key.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
@@ -241,9 +244,10 @@ fn at_second(t: DateTime<Utc>) -> (String, String) { (sql_time(t), sql_time(t + 
 type Restored = (i64, Option<String>, i64, Option<String>, f64, Option<String>, Option<f64>, Option<String>, Option<f64>, Value);
 fn restored_rows(c: &Connection, key: &Key, t: DateTime<Utc>) -> Result<Vec<Restored>, SyncError> {
     let (from, to) = at_second(t);
-    let mut s = c.prepare_cached(&format!("SELECT id, tx_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, fee_amount, raw_data \
-                                           FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 AND transacted_at < ?4 AND {} ORDER BY id",
-                                          super::ledger::BY_TIME, provenance_less()))?;
+    let at_ = "account_transactions";
+    let mut s = c.prepare_cached(&format!("SELECT id, {}, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, fee_amount, raw_data \
+                                           FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND transacted_at >= ?3 AND transacted_at < ?4 AND {} ORDER BY id",
+                                          key.scope.row_id(at_), super::ledger::BY_TIME, key.scope.rows(at_), provenance_less()))?;
     let rows = s.query_map(params![key.user_id, key.exchange_id, from, to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, Option<f64>>(4)?.unwrap_or_default(),
         r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get::<_, Option<String>>(9)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().map(|(a, b, cc, d, e, f, g, h, i, raw)| (a, b, cc, d, e, f, g, h, i, raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null))).collect())
@@ -259,26 +263,29 @@ fn restored_key(r: &Restored) -> Option<FillKey> {
 /// The visible API BUY/SELL rows at `t`: (id, tx_id, raw).
 fn api_rows(c: &Connection, key: &Key, t: DateTime<Utc>) -> Result<Vec<(i64, String, Value)>, SyncError> {
     let (from, to) = at_second(t);
-    let mut s = c.prepare_cached(&format!("SELECT id, COALESCE(tx_id, ''), raw_data FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 \
-                                           AND transacted_at < ?4 AND entry_type IN ({BUY}, {SELL}) AND {API_ROW} ORDER BY id", super::ledger::BY_TIME))?;
+    let at_ = "account_transactions";
+    let mut s = c.prepare_cached(&format!("SELECT id, COALESCE({}, ''), raw_data FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND transacted_at >= ?3 \
+                                           AND transacted_at < ?4 AND entry_type IN ({BUY}, {SELL}) AND {API_ROW} ORDER BY id", key.scope.row_id(at_), super::ledger::BY_TIME, key.scope.rows(at_)))?;
     let rows = s.query_map(params![key.user_id, key.exchange_id, from, to], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, Option<String>>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().map(|(id, tx, raw)| (id, tx, raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null))).collect())
 }
 
 fn withheld_rows(c: &Connection, key: &Key, t: DateTime<Utc>) -> Result<Vec<Value>, SyncError> {
     let (from, to) = at_second(t);
-    let mut s = c.prepare_cached("SELECT entry FROM kucoin_withheld_fills WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at >= ?3 AND transacted_at < ?4 ORDER BY tx_id")?;
-    let rows = s.query_map(params![key.user_id, key.exchange_id, from, to], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
+    let mut s = c.prepare_cached(&format!("SELECT entry FROM kucoin_withheld_fills WHERE account_id = {} AND transacted_at >= ?1 AND transacted_at < ?2 ORDER BY tx_id", key.scope.account_sql()))?;
+    let rows = s.query_map(params![from, to], |r| r.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().filter_map(|r| serde_json::from_str(&r).ok()).collect())
 }
 
 /// The visible API fills at a second holding restored entries move to withheld: the restore is the user's record there.
+/// Each keeps its venue id under its account (#710), and its membership goes with its row.
 fn withhold(c: &Connection, key: &Key, t: DateTime<Utc>, now: DateTime<Utc>) -> Result<(), SyncError> {
     if restored_rows(c, key, t)?.is_empty() { return Ok(()); }
     for (id, tx_id, raw) in api_rows(c, key, t)? {
+        let account = match key.scope.account { Some(account) => account, None => crate::identity::ensure_account(c, key.user_id, key.exchange_id, now)? };
         let at: String = c.query_row("SELECT transacted_at FROM account_transactions WHERE id = ?1", [id], |r| r.get(0))?;
-        c.execute("INSERT INTO kucoin_withheld_fills (user_id, exchange_id, tx_id, transacted_at, entry, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
-                   ON CONFLICT (user_id, exchange_id, tx_id) DO NOTHING", params![key.user_id, key.exchange_id, tx_id, at, raw.to_string(), sql_time(now)])?;
+        c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, ?2, ?3, ?4, ?5) \
+                   ON CONFLICT (account_id, tx_id) DO NOTHING", params![account, tx_id, at, raw.to_string(), sql_time(now)])?;
         c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [id])?;
         c.execute("DELETE FROM account_transactions WHERE id = ?1", [id])?;
     }
@@ -433,7 +440,8 @@ pub fn migrate(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> Resu
         }
         if let Some(span) = period_of(&rows, &catalogue) { add(c, key, EXPORT, span, now)?; }
     }
-    let mut s = c.prepare(&format!("SELECT DISTINCT transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {}", provenance_less()))?;
+    let mut s = c.prepare(&format!("SELECT DISTINCT transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {}",
+                                   key.scope.rows("account_transactions"), provenance_less()))?;
     let restored: Vec<String> = s.query_map(params![key.user_id, key.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     for at in restored { seconds.insert(second(time(&at)?)); }
     flush(c, key, seconds, now)?;
@@ -479,12 +487,13 @@ fn file_entry(e: &Entry) -> bool { e.raw.value["source"] == "kucoin_csv" }
 /// API's raw (a restore keeping the id) is the trade: a duplicate.
 pub fn conflict(c: &Connection, key: &Key, e: &Entry) -> Result<Option<Result<(), String>>, SyncError> {
     let Some(tx_id) = e.tx_id.as_deref() else { return Ok(None) };
-    let visible: Option<Option<String>> = c.query_row("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3 LIMIT 1",
+    let visible: Option<Option<String>> = c.query_row(&format!("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {} LIMIT 1",
+                                                               key.scope.id_is("account_transactions", "?3")),
                                                       params![key.user_id, key.exchange_id, tx_id], |r| r.get(0)).optional()?;
     let stored = match visible {
         Some(raw) => raw,
-        None => match c.query_row("SELECT entry FROM kucoin_withheld_fills WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3",
-                                  params![key.user_id, key.exchange_id, tx_id], |r| r.get::<_, String>(0)).optional()? {
+        None => match c.query_row(&format!("SELECT entry FROM kucoin_withheld_fills WHERE account_id = {} AND tx_id = ?1", key.scope.account_sql()),
+                                  [tx_id], |r| r.get::<_, String>(0)).optional()? {
             Some(entry) => Some(entry),
             None => return Ok(None),
         },
@@ -545,8 +554,8 @@ fn allocate_second(c: &Connection, key: &Key, batch: &[Entry], t: DateTime<Utc>,
     let mut reserved = vec![false; stored.len()];
     let present = |e: &Entry| e.tx_id.as_deref().filter(|t| !crate::v2::blank(t)).map(str::to_string);
     let known = |id: &str| -> Result<bool, SyncError> {
-        Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3) \
-                        OR EXISTS(SELECT 1 FROM kucoin_withheld_fills WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)", params![key.user_id, key.exchange_id, id], |r| r.get(0))?)
+        Ok(venue_ids::known(c, &key.scope, id)?
+           || c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM kucoin_withheld_fills WHERE account_id = {} AND tx_id = ?1)", key.scope.account_sql()), [id], |r| r.get(0))?)
     };
     // Phase 1: ids already stored.
     let mut new_ids = vec![];
@@ -569,7 +578,10 @@ fn allocate_second(c: &Connection, key: &Key, batch: &[Entry], t: DateTime<Utc>,
     let adopt = |i: usize, j: usize, adopt_id: bool, flag: bool| -> Result<(), SyncError> {
         let e = &batch[i];
         let (id, row) = (&stored[j].1, stored[j].0);
-        if adopt_id && id.is_none() { c.execute("UPDATE account_transactions SET tx_id = ?1, updated_at = ?2 WHERE id = ?3", params![present(e), sql_time(now), row])?; }
+        if adopt_id && id.is_none() {
+            venue_ids::set_id(c, &key.scope, row, present(e).as_deref(), venue_ids::Write::Adopt)?;
+            c.execute("UPDATE account_transactions SET updated_at = ?1 WHERE id = ?2", params![sql_time(now), row])?;
+        }
         if exact[j].is_none() {
             c.execute("UPDATE account_transactions SET raw_data = json_set(CASE WHEN json_valid(raw_data) AND json_type(raw_data) = 'object' THEN raw_data ELSE '{}' END, \
                        '$.amounts', json(?1), '$.amounts_inexact', json(?2)), updated_at = ?3 WHERE id = ?4", params![amounts_of(e).to_string(), if flag { "true" } else { "false" }, sql_time(now), row])?;

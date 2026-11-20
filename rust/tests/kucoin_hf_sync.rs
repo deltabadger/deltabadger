@@ -1354,3 +1354,27 @@ async fn u1b_the_backfill_never_begins_past_its_half_of_the_deadline() {
     let _ = fx.sync_with(&api, &fixed(NOW), true).await;
     assert!(Fx::backfill_windows(&api, NOW).is_empty(), "{:?}", Fx::backfill_windows(&api, NOW));
 }
+
+// ---- #710 slice 4 (PLAN-710-4 §6 test 4): an HF sync certifies only its own account's pairs ----
+
+/// The exchange's second account trades DOGE-USDT (a visible row, its venue id relocated) and holds a withheld XRP-USDT
+/// fill; neither is listed. The first account's HF sync reads only its own history's pairs: no absence episode opens for
+/// the other account's, and its unit is certified.
+#[tokio::test(flavor = "current_thread")]
+async fn an_hf_sync_certifies_only_its_own_accounts_pairs() {
+    let fx = Fx::new();
+    let now = t(NOW);
+    deltabadger::identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().ensure(&fx.c, now).unwrap();
+    fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [fx.user, fx.exchange]).unwrap();
+    let second = fx.c.last_insert_rowid();
+    fx.c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, \
+                  manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, 0, 'DOGE', 10, 'USDT', 1, '2026-10-29 10:00:00', '{}', '{}', 0, 'now', 'now')",
+                 [fx.user, fx.exchange]).unwrap();
+    fx.c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id, venue_tx_id) VALUES (?1, ?2, 'shared-fill')", [fx.c.last_insert_rowid(), second]).unwrap();
+    fx.c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'shared-fill', '2026-10-29 10:00:00', ?2, 'now')",
+                 rusqlite::params![second, json!({"symbol": "XRP-USDT"}).to_string()]).unwrap();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    assert!(fx.coverage("missing:DOGE-USDT").is_empty() && fx.coverage("missing:XRP-USDT").is_empty(), "another account's pairs open no episode here");
+    assert_eq!(fx.coverage("hf_api").len(), 1, "the first account's unit is certified");
+}

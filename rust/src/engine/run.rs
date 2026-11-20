@@ -135,6 +135,8 @@ pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, ciph
     } else if exchange == crate::venue::kucoin::KUCOIN {
         factory.for_kucoin(credentials, sensitive, version.clone())
     } else { factory.for_bot_with_redaction(&exchange, credentials, sensitive) };
+    // #710: the bot's account (none for a request with no bot: `key_holder`).
+    let venue = match crate::venue_ids::Scope::of_bot(primary, bot.id)? { Some(scope) => crate::venue::Venue::for_account(venue, scope), None => venue };
     Ok((crate::venue::Handle::new(venue,version.clone()),version))
 }
 

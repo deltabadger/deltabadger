@@ -237,7 +237,9 @@ async fn a_split_of_a_second_accounts_bot_leaves_its_children_on_that_account() 
     i.c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [i.bots[0], second]).unwrap();
     i.order(0, "REGULAR", "100", "2026-09-02 10:00:00");
     let order: i64 = i.c.query_row("SELECT max(id) FROM transactions", [], |r| r.get(0)).unwrap();
-    i.c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [order, second]).unwrap();
+    let venue: Option<String> = i.c.query_row("SELECT external_id FROM transactions WHERE id = ?1", [order], |r| r.get(0)).unwrap();
+    i.c.execute("UPDATE transactions SET external_id = NULL WHERE id = ?1", [order]).unwrap();
+    i.c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, ?3)", rusqlite::params![order, second, venue]).unwrap();
     let (status, body) = i.rest(json!({ "bot_ids": [i.bots[0]] })).await;
     assert_eq!(status, 200, "{body}");
     let children = i.live();

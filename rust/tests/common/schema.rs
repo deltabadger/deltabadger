@@ -55,6 +55,11 @@ pub fn next_ids(c: &Connection) -> BTreeMap<String, i64> {
         let mut st = c.prepare(&format!("SELECT name, type, pk, hidden FROM pragma_table_xinfo({})", lit(&t))).unwrap();
         let cols: Vec<(String, String, i64, i64)> = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect();
         let keys = cols.iter().filter(|col| col.2 > 0).count();
+        // A table whose BEFORE INSERT trigger refuses a dummy row (#710's membership checks; none is AUTOINCREMENT): its
+        // next rowid, as a plain insert would take it.
+        let guarded: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND tbl_name = ?1 AND sql LIKE '%BEFORE INSERT%')",
+                                        [&t], |r| r.get(0)).unwrap();
+        if guarded { return (t.clone(), c.query_row(&format!("SELECT coalesce(max(rowid), 0) + 1 FROM {}", ident(&t)), [], |r| r.get(0)).unwrap()); }
         let given: Vec<String> = cols.iter()
             .filter(|(_, ty, pk, hidden)| *hidden == 0 && !(keys == 1 && *pk == 1 && ty.eq_ignore_ascii_case("INTEGER")))
             .map(|col| ident(&col.0)).collect();

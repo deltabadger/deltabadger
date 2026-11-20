@@ -212,15 +212,23 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
     Ok(rows)
 }
 
+/// #710: a group is its account's. A group id of an account 2+'s row reads as `<group>@<account>`, so every reader that
+/// keys groups by venue (the walk, the tax reports) keeps two accounts' legs of one group id apart.
+pub fn account_group(group: Option<String>, member: Option<i64>) -> Option<String> {
+    group.filter(|g| !g.trim().is_empty()).map(|g| match member { Some(m) => format!("{g}@{m}"), None => g })
+}
+
 /// The rows `filter` (over `t`) selects, by id, each a step of the open budget scope.
 fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, FiguresError> {
+    // #710: each row's venue id and account, wherever its account keeps them.
+    let any = crate::venue_ids::Scope::install(c)?;
     let mut s = c.prepare(&format!(
         "SELECT t.id, t.exchange_id, e.type, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, \
-                t.fee_currency, t.fee_amount, t.tx_id, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
-                le.type, l.exchange_id, ba.id, ba.external_id, ba.category, t.transaction_id \
+                t.fee_currency, t.fee_amount, {}, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
+                le.type, l.exchange_id, ba.id, ba.external_id, ba.category, t.transaction_id, {} \
          FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id LEFT JOIN assets ba ON ba.id = t.base_asset_id \
          LEFT JOIN account_transactions l ON l.id = t.linked_transaction_id LEFT JOIN exchanges le ON le.id = l.exchange_id \
-         WHERE {filter} ORDER BY t.id"))?;
+         WHERE {filter} ORDER BY t.id", any.row_id("t"), any.member_sql("t")))?;
     let mut q = s.query(params)?;
     let mut rows = vec![];
     while let Some(r) = q.next()? {
@@ -236,7 +244,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
             quote: r.get(6)?, quote_amount: Dec::from_sql(r.get_ref(7)?)?,
             fee_currency: r.get(8)?, fee_amount: Dec::from_sql(r.get_ref(9)?)?,
-            tx_id: r.get(10)?, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
+            tx_id: r.get(10)?, group: account_group(r.get(11)?, r.get(22)?),
             at: At::from_sql(&at_text).map_err(|e| data(format!("{e:?}")))?,
             per_share: json_number(raw.get("per_share_amount"))?,
             stated: json_number(manual.get("price"))?,

@@ -3370,6 +3370,21 @@ fn tracker_write_step(step: &Value) -> bool {
 /// 2.x still answers what the divergence names. Everything else of the scenario (rows, other steps) stays compared.
 fn tracker_api_difference(name: &str, v2: &mut Value) -> Result<(), String> {
     use deltabadger::web::tracker::api;
+    // D-CSV-ACCOUNT-COLUMN: the export's `account` column, 1 on every row of a 2.x install, and Rack::ETag's tag of that body.
+    // A HEAD's answer keeps the tag of the body it does not send.
+    if name.starts_with("api_tracker") {
+        use sha2::Digest;
+        let mut tags = std::collections::HashMap::new();
+        for r in v2["responses"].as_array_mut().into_iter().flatten() {
+            if common::csv_account::walk(&mut r["body"]) == 0 { continue; }
+            let Some(old) = r["headers"]["etag"].as_str().map(str::to_string) else { continue };
+            let body = r["body"].as_str().unwrap_or_default().to_string();
+            tags.insert(old, format!("W/\"{}\"", &hex::encode(sha2::Sha256::digest(body.as_bytes()))[..32]));
+        }
+        for r in v2["responses"].as_array_mut().into_iter().flatten() {
+            if let Some(new) = r["headers"]["etag"].as_str().and_then(|old| tags.get(old)).cloned() { r["headers"]["etag"] = json!(new); }
+        }
+    }
     let responses = v2["responses"].as_array_mut().ok_or("no responses")?;
     let status = |responses: &[Value], i: usize| responses[i]["status"].as_u64().unwrap_or(0);
     // Step `i` answered as step `like` (its status, headers and body; and its jobs, since a refusal enqueues none).

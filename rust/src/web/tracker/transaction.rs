@@ -23,7 +23,10 @@ fn stream(c:&Connection,ctx:&Ctx,owner:i64,ids:&[i64],d:Option<&crate::figures::
 // uniqueness and the proposed link. Nothing is persisted until every check passes.
 fn validate_save(c:&Connection,row:&Row,linked:Option<i64>)->Result<(),WebError>{
     if row.base.trim().is_empty(){return Err(WebError::RecordInvalid)}
-    let valid:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM users WHERE id=?1) AND EXISTS(SELECT 1 FROM exchanges WHERE id=?2) AND NOT EXISTS(SELECT 1 FROM account_transactions other JOIN account_transactions current ON current.id=?3 WHERE other.id<>current.id AND other.user_id=current.user_id AND other.exchange_id=current.exchange_id AND other.tx_id=current.tx_id)",(row.owner,row.exchange,row.id),|r|r.get(0))?;
+    // #710: an id is unique within its row's account.
+    let any=crate::venue_ids::Scope::install(c)?;
+    let valid:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM users WHERE id=?1) AND EXISTS(SELECT 1 FROM exchanges WHERE id=?2) AND NOT EXISTS(SELECT 1 FROM account_transactions other JOIN account_transactions current ON current.id=?3 WHERE other.id<>current.id AND other.user_id=current.user_id AND other.exchange_id=current.exchange_id AND {} IS {} AND {}={})",
+        any.row_account("other"),any.row_account("current"),any.row_id("other"),any.row_id("current")),(row.owner,row.exchange,row.id),|r|r.get(0))?;
     if !valid{return Err(WebError::RecordInvalid)}
     // Row::load already requires a present base_amount and parseable transacted_at.
     if let Some(id)=linked{

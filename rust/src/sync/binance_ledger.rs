@@ -316,7 +316,9 @@ fn start(c: &Connection, key_id: i64, version: &crate::engine::model::Credential
     let mut cursors: HashMap<String, i64> = HashMap::new();
     let mut stored: HashMap<String, Vec<(i64, DateTime<Utc>)>> = HashMap::new();
     let mut pairs = HashSet::new();
-    let mut s = c.prepare("SELECT base_currency, quote_currency, fee_currency, tx_id, entry_type, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2")?;
+    // #710: the key's account's rows only: another account's trade ids would move this one's cursors past its own trades.
+    let mut s = c.prepare(&format!("SELECT base_currency, quote_currency, fee_currency, {}, entry_type, transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {}",
+                                   key.scope.row_id("account_transactions"), key.scope.rows("account_transactions")))?;
     let mut rows = s.query(params![key.user_id, key.exchange_id])?;
     while let Some(r) = rows.next()? {
         for i in 0..3 { if let Some(coin) = r.get::<_, Option<String>>(i)? { coins.insert(coin); } }

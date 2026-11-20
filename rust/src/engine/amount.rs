@@ -8,7 +8,7 @@ use crate::v2::{to_sql, BigDec};
 use super::venue_rules::{AmountLogic, MinimumLogic, Rounding, VenueRules, WireFormat};
 use crate::venue::{NewOrder, OrderKind, Side};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 
 fn data(e: impl std::fmt::Debug) -> EngineError { EngineError::Data(format!("{e:?}")) }
@@ -351,6 +351,11 @@ pub fn write_order_row(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan:
     write_order_row_in(c, bot, plan, kind, created_at, None)
 }
 
+/// `write_order_row` on account `account` (#710: a 2.x order's, its exchange's number 1), not the bot's current one.
+pub fn write_order_row_on(c: &super::model::FencedTransaction<'_>, bot: &Bot, plan: &OrderPlan, kind: RowKind, created_at: DateTime<Utc>, account: Option<i64>) -> Result<i64, EngineError> {
+    write_order_row_in(c, bot, plan, kind, created_at, account)
+}
+
 /// Accepted orders are ledger facts, not a cache of the current credential's account state.
 /// The intent already authorized dispatch; never discard the acknowledgement on a later fence.
 pub fn write_accepted_order(c: &rusqlite::Transaction<'_>, bot: &Bot, plan: &OrderPlan, external_id: &str, created_at: DateTime<Utc>, run: Option<&super::model::RunIdentity>) -> Result<i64, EngineError> {
@@ -375,11 +380,11 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
         RowKind::Failed { errors } => (TxStatus::Failed, None, None, errors, zero),
         RowKind::Skipped => (TxStatus::Skipped, None, None, vec![], zero),
     };
+    // #710: the account the order is placed on keeps its venue id (venue_ids).
+    let scope = match account { Some(account) => crate::identity::order_scope_on(c, bot.id, account)?, None => crate::identity::order_scope(c, bot.id)? };
     if let Some(ref id) = external_id {
-        // An existing accepted row for this (exchange, external_id) wins.
-        let existing: Option<i64> = c.query_row("SELECT id FROM transactions WHERE exchange_id = ?1 AND external_id = ?2",
-            params![bot.exchange_id, id], |r| r.get(0)).optional()?;
-        if let Some(existing) = existing { return Ok(existing); }
+        // An existing accepted row for this (account, external_id) wins.
+        if let Some(existing) = crate::venue_ids::order_by_id(c, &scope, id)? { return Ok(existing); }
     }
     // A signal bot has no schedule: Bot::OrderCreator#order_identity_values leaves the two columns at their defaults.
     // D-SELL-ROW-CADENCE: a selling bot's sell row records the sell cadence (sell_interval, else interval) and what the
@@ -397,14 +402,14 @@ fn write_order_row_in(c: &Connection, bot: &Bot, plan: &OrderPlan, kind: RowKind
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?19, ?6, ?7, ?8, ?9, ?10, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?20, ?17, ?18, ?18)",
         params![
-            bot.id, bot.exchange_id, external_id, status as i64, external_status, if plan.limit { 1 } else { 0 },
+            bot.id, bot.exchange_id, scope.stored(external_id.as_deref()), status as i64, external_status, if plan.limit { 1 } else { 0 },
             to_sql(&plan.amount), to_sql(&plan.quote_amount), to_sql(&plan.price), exec,
             plan.ticker.base_symbol, plan.ticker.quote_symbol, plan.ticker.base_asset_id, plan.ticker.quote_asset_id,
             bot_interval.map(|i| i.as_str()).unwrap_or_default(), to_sql(&bot_quote_amount),
             serde_json::to_string(&errors).unwrap(), format_time(created_at), plan.side.code(), plan.kind.as_str(),
         ])?;
     let id = c.last_insert_rowid();
-    match account { Some(account) => crate::identity::place_order_on(c, id, account)?, None => crate::identity::place_order(c, id, bot.id)? }
+    crate::venue_ids::after_order_insert(c, &scope, id, external_id.as_deref())?;
     Ok(id)
 }
 
@@ -418,7 +423,7 @@ pub fn write_unsized_failure(c: &Connection, bot: &Bot, ticker: &Ticker, side: S
         params![bot.id, bot.exchange_id, TxStatus::Failed as i64, side.code(), 0.0f64, ticker.base_symbol, ticker.quote_symbol, ticker.base_asset_id, ticker.quote_asset_id,
                 to_sql(&BigDec::zero()), serde_json::to_string(errors).unwrap(), format_time(created_at)])?;
     let id = c.last_insert_rowid();
-    crate::identity::place_order(c, id, bot.id)?;
+    crate::venue_ids::after_order_insert(c, &crate::identity::order_scope(c, bot.id)?, id, None)?;
     Ok(id)
 }
 

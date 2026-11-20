@@ -20,9 +20,9 @@ use serde_json::Value;
 /// The app_configs key of the install's identity key (32 random bytes, hex, in the credential envelope).
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql,
-/// 20261119000002_exchange_account_ownership.sql).
-pub const TABLES: [&str; 7] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
-                               "exchange_account_rules", "exchange_account_transactions"];
+/// 20261119000002_exchange_account_ownership.sql, 20261120000001_exchange_account_ids.sql).
+pub const TABLES: [&str; 8] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
+                               "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
@@ -242,7 +242,6 @@ pub const FILL: &str = "INSERT INTO exchange_accounts (user_id, exchange_id, num
     UNION SELECT user_id, exchange_id FROM import_rows
     UNION SELECT user_id, exchange_id FROM import_cutoffs
     UNION SELECT user_id, exchange_id FROM kucoin_coverage
-    UNION SELECT user_id, exchange_id FROM kucoin_withheld_fills
     UNION SELECT o.user_id, s.exchange_id FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id
   ) n WHERE user_id IS NOT NULL AND exchange_id IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM exchange_accounts a WHERE a.user_id = n.user_id AND a.exchange_id = n.exchange_id)
@@ -382,26 +381,23 @@ pub fn place_bot(c: &Connection, bot_id: i64, user_id: i64, exchange_id: i64, ac
     Ok(())
 }
 
-/// Order `transaction_id` of bot `bot_id`, just written in this transaction, belongs to the bot's account for good (a bot
-/// that changes account later leaves its orders where they were placed): a membership row only for a number other than
-/// 1. A bot whose account resolves to none has no key either (`bot_keys`), so nothing of it is placed.
-pub fn place_order(c: &Connection, transaction_id: i64, bot_id: i64) -> rusqlite::Result<()> {
-    if !ready(c)? { return Ok(()); }
-    let Some(account) = Account::of_bot(c, bot_id)? else { return Ok(()) };
-    let Some(id) = account.id else { return Ok(()) };
-    if account.number(c)? != 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [transaction_id, id])?; }
-    Ok(())
+/// The account an order of bot `bot_id` is placed on when its intent names none: the bot's, as its venue ids are scoped
+/// (venue_ids). A bot whose account resolves to none has no key either (`bot_keys`): its rows are number 1's form.
+pub fn order_scope(c: &Connection, bot_id: i64) -> rusqlite::Result<crate::venue_ids::Scope> {
+    match crate::venue_ids::Scope::of_bot(c, bot_id)? {
+        Some(scope) => Ok(scope),
+        None => c.query_row("SELECT user_id, exchange_id FROM bots WHERE id = ?1", [bot_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .and_then(|(u, e)| crate::venue_ids::Scope::first(c, u, e)),
+    }
 }
 
-/// Order `transaction_id`, just written in this transaction, belongs to account `account_id` (the one its intent was placed
-/// on): a membership row only for a number other than 1. An account of another user or exchange than the order's is refused.
-pub fn place_order_on(c: &Connection, transaction_id: i64, account_id: i64) -> rusqlite::Result<()> {
-    if !ready(c)? { return Ok(()); }
-    let (number, matches): (i64, bool) = c.query_row("SELECT a.number, a.user_id = b.user_id AND a.exchange_id = t.exchange_id FROM exchange_accounts a, transactions t
-                                                      JOIN bots b ON b.id = t.bot_id WHERE a.id = ?1 AND t.id = ?2", [account_id, transaction_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+/// The scope of account `account_id` for an order of bot `bot_id` (the account its intent was placed on). An account of
+/// another user or exchange than the bot's is refused.
+pub fn order_scope_on(c: &Connection, bot_id: i64, account_id: i64) -> rusqlite::Result<crate::venue_ids::Scope> {
+    let matches: bool = c.query_row("SELECT a.user_id = b.user_id AND a.exchange_id = b.exchange_id FROM exchange_accounts a, bots b WHERE a.id = ?1 AND b.id = ?2",
+                                    [account_id, bot_id], |r| r.get(0))?;
     if !matches { return Err(rusqlite::Error::InvalidParameterName("an account of another user or exchange than the order's".into())); }
-    if number != 1 { c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [transaction_id, account_id])?; }
-    Ok(())
+    crate::venue_ids::Scope::of(c, &Account::by_id(c, account_id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)?)
 }
 
 /// SQL condition: bot row `b` trades on bot `bot_id`'s account (false when that resolves to none).
