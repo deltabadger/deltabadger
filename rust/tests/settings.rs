@@ -4506,7 +4506,8 @@ async fn email_alert_switches_store_one_alert_per_user_and_refuse_anything_else(
         assert!(frame.contains("value=\"0\" type=\"hidden\" name=\"enabled\"") && frame.contains("checked "), "{alert} is on by default: {frame}");
     }
     for _ in 0..2 {
-        let off = h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "0")], Csrf::Header).await;
+        // A user id in the form is not read: the switch is the signed-in user's.
+        let off = h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "0"), ("user_id", "999")], Csrf::Header).await;
         assert_eq!(off.status, 200, "{}", off.body);
         assert!(off.body.contains("<turbo-stream action=\"replace\" target=\"email_alert_low_funds\">") && off.body.contains("value=\"1\" type=\"hidden\" name=\"enabled\""), "{}", off.body);
     }
