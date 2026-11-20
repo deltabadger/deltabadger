@@ -1021,7 +1021,7 @@ fn duplicate() -> (tempfile::TempDir, store::Opened, Two) {
 /// `merge::run` in one transaction, committed only when it merged.
 fn merge_now(c: &Connection, two: &Two, d: i64) -> Result<Option<merge::Merged>, Refusal> {
     let tx = c.unchecked_transaction().unwrap();
-    let out = merge::run(&tx, two.seeded.user_id, d, chrono::Utc::now());
+    let out = merge::run(&tx, &seed::cipher(), two.seeded.user_id, d, chrono::Utc::now());
     if matches!(out, Ok(Some(_))) { tx.commit().unwrap(); }
     out
 }
@@ -1339,7 +1339,7 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
                VALUES (?1, ?2, 4, 'BTC', 1, NULL, '2026-09-02 10:00:00', '{}', '{}', 0, '2026-09-02 10:00:00', '2026-09-02 10:00:00')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
     deltabadger::venue_ids::after_insert(c, &s3, c.last_insert_rowid(), Some("t3")).unwrap();
     let tx = c.unchecked_transaction().unwrap();
-    merge::run(&tx, two.seeded.user_id, third.id.unwrap(), chrono::Utc::now()).unwrap().unwrap();
+    merge::run(&tx, &seed::cipher(), two.seeded.user_id, third.id.unwrap(), chrono::Utc::now()).unwrap().unwrap();
     tx.commit().unwrap();
     assert_eq!(one::<i64>(c, "SELECT account_id FROM exchange_account_rows"), two.id(1), "3's row is 2's");
     // What the handback's account-2 refusals read (handover::refuse_rust_only_conditions).
@@ -1454,7 +1454,7 @@ fn r1_a_restored_kucoin_fill_beside_the_others_api_copy_refuses() {
     c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
     kucoin.row(c, 1, 0, "BTC", "1", None, None, "2026-09-01 10:00:00");
     let before = dump(c);
-    match merge_now(c, &kucoin, kucoin.id(1)) { Err(Refusal::Conflict(rows)) => assert_eq!(rows, ["2026-09-01 buy 1 BTC"]), other => panic!("{other:?}") }
+    match merge_now(c, &kucoin, kucoin.id(1)) { Err(Refusal::Conflict(rows)) => assert_eq!(rows, ["KuCoin 2: 2026-09-01 buy 1 BTC"]), other => panic!("{other:?}") }
     assert_eq!(dump(c), before);
 }
 
@@ -1571,4 +1571,128 @@ fn r10_a_duplicates_activity_moves_no_history_version() {
     let before = deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap();
     two.row(c, 1, 4, "BTC", "1", Some("late"), None, "2026-09-25 10:00:00");
     assert_eq!(deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap(), before);
+}
+
+// ---- review round 2 ----
+
+/// A: twins merge only when every financial fact agrees; another fee, or another venue answer, refuses naming both rows.
+#[test]
+fn ra_twins_with_different_facts_refuse() {
+    for (what, sql) in [("fee", "UPDATE account_transactions SET fee_currency = 'BTC', fee_amount = '0.01' WHERE id = ?1"),
+                        ("raw answer", "UPDATE account_transactions SET raw_data = '{\"legs\":2}' WHERE id = ?1")] {
+        let (_d, o, two) = duplicate();
+        let c = &o.primary;
+        two.trade(c, 0, 0, "t-1", "1", "2026-09-01 10:00:00");
+        let d = two.trade(c, 1, 0, "t-1", "1", "2026-09-01 10:00:00");
+        c.execute(sql, [d]).unwrap();
+        let before = dump(c);
+        match merge_now(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert_eq!(rows.len(), 2, "{what}: {rows:?}"), other => panic!("{what}: {other:?}") }
+        assert_eq!(dump(c), before, "{what}");
+    }
+}
+
+/// B: a KuCoin CSV fill (with its source rows) of one account at a second the other holds an API fill of refuses.
+#[test]
+fn rb_a_kucoin_csv_fill_beside_the_others_api_copy_refuses() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let kucoin = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    kucoin.fingerprint(c, 0, Some("fp"));
+    kucoin.fingerprint(c, 1, Some("fp"));
+    let api = kucoin.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
+    let csv = kucoin.row(c, 1, 0, "BTC", "1", Some("kucoin-csv-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"source\":\"kucoin_csv\",\"class\":\"fills\",\"source_rows\":[\"r1\"]}' WHERE id = ?1", [csv]).unwrap();
+    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at) \
+               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'in', '1', '0', '2026-09-01 10:00:00', '', 'fills', 'now')", [kucoin.seeded.user_id, kucoin.seeded.exchange_id]).unwrap();
+    assert!(matches!(merge_now(c, &kucoin, kucoin.id(1)), Err(Refusal::Conflict(_))));
+}
+
+/// C: a recorder's withdrawal on the survivor whose key was deleted is still in flight; another user's unresolved KuCoin
+/// settlement on the same exchange is not this Merge's.
+#[test]
+fn rc_in_flight_by_account_and_by_user() {
+    let cipher = seed::cipher();
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let params = serde_json::json!({"user_id": two.seeded.user_id, "exchange_id": two.seeded.exchange_id}).to_string();
+    c.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
+               VALUES ('recorder:s2', 'unresolved', 'c', 'now', 999999, 'd', 'h', 's', 'k', ?1, 'f', 'b', 'f')", [cipher.encrypt(&params)]).unwrap();
+    refused_unchanged(c, &two, "a recorder intent whose key was deleted");
+
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 0, 'now', 'now')", []).unwrap();
+    let other = seed::Seeded { user_id: c.last_insert_rowid(), ..two.seeded };
+    let bot = seed::insert_bot(c, &other, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let order = seed::insert_tx(c, &other, bot, &seed::TxSpec { status: 1, external_status: Some(2), external_id: Some("theirs".into()), order_type: 0, amount: Some("0.001"),
+        quote_amount: Some("60"), price: Some("60000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-02 10:00:00".into() });
+    deltabadger::app_config::set_plain(c, &format!("{}{order}", deltabadger::engine::reconcile::UNRESOLVED), "{\"why\":\"x\"}", chrono::Utc::now()).unwrap();
+    assert!(merge_now(c, &two, two.id(1)).unwrap().is_some(), "another user's order is not in flight here");
+}
+
+/// E: an id built without the venue's own trade id (`SYMBOL--`) is no evidence.
+#[test]
+fn re_synthetic_ids_are_no_evidence() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    for k in 0..2 { for i in 0..3 { two.trade(c, k, 0, &format!("BTCEUR-{i}-"), "1", &format!("2026-09-0{} 10:00:00", i + 1)); } }
+    assert!(!observe(c, &two, 1));
+}
+
+/// G: a duplicate's key error marks no snapshot partial; rotating a duplicate's key changes no portfolio provenance; the
+/// selected account's own keys decide never-synced (a third account's sync does not hide it).
+#[tokio::test(flavor = "current_thread")]
+async fn rg_a_duplicates_keys_decide_no_freshness() {
+    let (dir, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET last_sync_error = 'Kraken said no' WHERE id = ?1", [two.keys[1]]).unwrap();
+    assert!(!deltabadger::tracker::snapshot::partial(c, two.seeded.user_id, &[]).unwrap(), "the duplicate's error");
+    let stamps = deltabadger::sync::cache::capture_read(c, two.seeded.user_id, &deltabadger::tracker::Scope::All).unwrap().producer_stamps();
+    assert_eq!(stamps.as_array().unwrap().len(), 1, "the duplicate's key is no producer of All");
+    // Never synced: account 1 has never synced; the duplicate and a third account have.
+    let third = two.third(c);
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'other' WHERE id = ?1", [third.id.unwrap()]).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, balances_synced_at, created_at, updated_at) VALUES (?1, ?2, 'k3', 's3', 1, 0, '2026-09-20 10:00:00', 'now', 'now')",
+              [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    third.add_key(c, c.last_insert_rowid()).unwrap();
+    c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-20 10:00:00', last_sync_error = NULL WHERE id = ?1", [two.keys[1]]).unwrap();
+    hold(c, &two, 1, "1", "100");
+    let app = web_app(dir.path(), c);
+    let page = get(&app, c, two.seeded.user_id, &format!("/tracker?exchange_id={}", two.seeded.exchange_id)).await;
+    assert_eq!(page.status, 200);
+    assert!(page.body.contains("Click Sync to load your portfolio."), "{}", cut(&page.body, "tracker-holdings", 600));
+}
+
+/// H: when the standing changes and nothing is counted, today's point goes too.
+#[tokio::test(flavor = "current_thread")]
+async fn rh_todays_point_follows_the_standing() {
+    let (dir, o) = install();
+    let two = Two::kraken(&o.primary, &seed::cipher());
+    let user = two.seeded.user_id;
+    two.row(&o.primary, 1, 4, "USD", "100", Some("dep-d"), None, "2026-01-10 10:00:00");
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let db = deltabadger::jobs::Db::new(o.primary, seed::cipher());
+    let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
+    let clock = deltabadger::engine::FixedClock(at);
+    let sweep = || deltabadger::tracker::jobs::backfill_run(&db, &NoVenue, None::<&deltabadger::jobs::market::Feed<deltabadger::venue::http::ScriptedTransport>>, None, user, &clock);
+    assert_eq!(sweep().await, Ok(true));
+    c.execute("INSERT INTO portfolio_snapshots (user_id, date, value_usd, invested_usd, partial, created_at, updated_at) VALUES (?1, '2026-09-20', 100, 100, 0, 'now', 'now') \
+               ON CONFLICT (user_id, date) DO NOTHING", [user]).unwrap();
+    c.execute_batch("UPDATE exchange_accounts SET fingerprint = 'fp'").unwrap();
+    assert_eq!(sweep().await, Ok(false));
+    let left: i64 = c.query_row("SELECT count(*) FROM portfolio_snapshots WHERE user_id = ?1", [user], |r| r.get(0)).unwrap();
+    assert_eq!(left, 0, "no stale point on All");
+}
+
+/// I: a completed Binance history repair of the duplicate refuses the Merge.
+#[test]
+fn ri_a_binance_repair_checkpoint_refuses() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let key = deltabadger::jobs::state::key("binance_history_repair_account", Some(&format!("3:{}:{}@{}", two.seeded.user_id, two.seeded.exchange_id, two.id(1))));
+    deltabadger::app_config::set_plain(c, &key, "{}", chrono::Utc::now()).unwrap();
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
 }

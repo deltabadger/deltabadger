@@ -306,7 +306,16 @@ impl<C: Connect> Job for LedgerSync<C> {
             let result=crate::sync::bound(version.account(), async {
             let key = self.key_id.to_string();
             let at = cx.clock.now();
-            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            // Marked only under the captured version (#710 §6.4): a run whose key moved account is discarded before it marks.
+            let captured = version.clone();
+            match cx.db.run(move |c, _| {
+                let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
+                if !crate::engine::model::credential_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))?
+                    || !crate::engine::model::account_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                crate::jobs::state::mark_incomplete(&tx, LEDGER_SYNC, Some(&key), at)?;
+                tx.commit().map_err(|e| e.to_string())?;
+                Ok(true)
+            }).await { Ok(true) => {}, Ok(false) => return Outcome::NothingNew, Err(e) => return Outcome::Failed(e) }
             use crate::venue::registry::{self, LedgerSync};
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),
@@ -393,7 +402,16 @@ impl<C: Connect> Job for BalanceSync<C> {
             // As the ledger: from before the first write unit until a complete success, the key's balances may be half
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
-            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            // Marked only under the captured version (#710 §6.4): a run whose key moved account is discarded before it marks.
+            let captured = version.clone();
+            match cx.db.run(move |c, _| {
+                let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
+                if !crate::engine::model::credential_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))?
+                    || !crate::engine::model::account_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                crate::jobs::state::mark_incomplete(&tx, BALANCE_SYNC, Some(&key), at)?;
+                tx.commit().map_err(|e| e.to_string())?;
+                Ok(true)
+            }).await { Ok(true) => {}, Ok(false) => return Outcome::NothingNew, Err(e) => return Outcome::Failed(e) }
             // D-LOW-FUNDS-STATUS: the balances stop being evidence from here; the status bars that read them redraw.
             cx.db.notifications.balances_changed(self.key_id);
             use crate::venue::registry::{self, BalanceSync};

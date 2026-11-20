@@ -48,10 +48,12 @@ pub fn record_terminal(c: &Connection, order_id: i64, status: &str) -> rusqlite:
     c.execute("UPDATE rust_api_orders SET outcome = json_set(outcome, '$.terminal', ?2) WHERE id = ?1 AND json_extract(outcome, '$.kind') = 'placed'", params![order_id, status])
 }
 
-/// A record named in a conflict: its date, type, amount and asset.
+/// A record named in a conflict: its account, date, type, amount and asset (`Kraken 2: 2026-09-01 buy 1 BTC`).
 fn named(c: &Connection, row: i64) -> rusqlite::Result<String> {
-    c.query_row("SELECT substr(transacted_at, 1, 10), entry_type, CAST(base_amount AS TEXT), base_currency FROM account_transactions WHERE id = ?1", [row],
-                |r| Ok(format!("{} {} {} {}", r.get::<_, String>(0)?, kind(r.get(1)?), r.get::<_, Option<String>>(2)?.unwrap_or_default(), r.get::<_, Option<String>>(3)?.unwrap_or_default())))
+    let (text, account): (String, Option<i64>) = c.query_row(&format!("SELECT substr(t.transacted_at, 1, 10), t.entry_type, CAST(t.base_amount AS TEXT), t.base_currency, {} \
+                                                 FROM account_transactions t WHERE t.id = ?1", crate::venue_ids::row_account("t")), [row],
+                |r| Ok((format!("{} {} {} {}", r.get::<_, String>(0)?, kind(r.get(1)?), r.get::<_, Option<String>>(2)?.unwrap_or_default(), r.get::<_, Option<String>>(3)?.unwrap_or_default()), r.get(4)?)))?;
+    Ok(match account { Some(a) => format!("{}: {text}", identity::label(c, a)?.plain()), None => text })
 }
 fn order_named(c: &Connection, order: i64) -> rusqlite::Result<String> {
     c.query_row("SELECT substr(created_at, 1, 10), CASE side WHEN 1 THEN 'sell' ELSE 'buy' END, CAST(coalesce(amount, quote_amount) AS TEXT), coalesce(base, '') FROM transactions WHERE id = ?1", [order],
@@ -85,6 +87,16 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         if let Some(found) = found { twin.insert(*row, found); }
     }
     let mut conflicts = vec![];
+    // A twin pair is one record only when every financial fact agrees (an API copy with another fee, a split aggregate
+    // against one of its legs, are not): otherwise a conflict naming both rows.
+    for (d, s) in &twin {
+        let same: bool = c.query_row("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND CAST(d.base_amount AS TEXT) IS CAST(s.base_amount AS TEXT) \
+            AND d.quote_currency IS s.quote_currency AND CAST(d.quote_amount AS TEXT) IS CAST(s.quote_amount AS TEXT) AND d.fee_currency IS s.fee_currency \
+            AND CAST(d.fee_amount AS TEXT) IS CAST(s.fee_amount AS TEXT) AND d.transacted_at IS s.transacted_at \
+            AND (COALESCE(d.raw_data, '{}') IN ('{}', '') OR COALESCE(s.raw_data, '{}') IN ('{}', '') OR json(d.raw_data) IS json(s.raw_data)) \
+            FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", [d, s], |r| r.get(0))?;
+        if !same { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
+    }
     let mut merged = vec![];
     for (d, s) in &twin {
         let (dm, mut sm) = (meta(c, *d)?, meta(c, *s)?);
@@ -125,7 +137,7 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
 
 /// Merge duplicate `duplicate_id` of `user` into its survivor, in the caller's write transaction (`engine::model::immediate`).
 /// None: it is no longer a duplicate of the user's (a 404). Any refusal leaves the transaction for the caller to roll back.
-pub fn run(c: &Connection, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> Result<Option<Merged>, Refusal> {
+pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> Result<Option<Merged>, Refusal> {
     // 0. Re-derived in the transaction.
     let Some(&(d, s)) = identity::duplicates(c, user)?.iter().find(|(d, _)| *d == duplicate_id) else { return Ok(None) };
     let (Some(rd), Some(rs)) = (AccountRow::by_id(c, d)?, AccountRow::by_id(c, s)?) else { return Ok(None) };
@@ -142,10 +154,11 @@ pub fn run(c: &Connection, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> 
          OR EXISTS(SELECT 1 FROM rust_withdrawal_intents i WHERE i.owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({d}, {s})) \
            OR i.api_key_id IN (SELECT k.id FROM api_keys k WHERE {} OR {})) \
          OR EXISTS(SELECT 1 FROM app_configs x JOIN transactions t ON t.id = CAST(substr(x.key, instr(x.key, ':') + 1) AS INTEGER) \
+           JOIN bots ob ON ob.id = t.bot_id AND ob.user_id = {user} \
            WHERE (x.key LIKE '{}%' OR (x.key LIKE '{}%' AND json_extract(x.value, '$.origin') = 'unproven')) AND t.exchange_id = {exchange} AND ({} OR {}))",
         unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
         sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
-    if waiting || settling(c, &ad)? || settling(c, &as_)? { return Err(Refusal::InFlight); }
+    if waiting || settling(c, &ad)? || settling(c, &as_)? || recorder_waiting(c, cipher, &[rd, rs])? { return Err(Refusal::InFlight); }
 
     // 2. Conflicts, before any write.
     let mut conflicts = vec![];
@@ -159,18 +172,20 @@ pub fn run(c: &Connection, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> 
             conflicts.push(order_named(c, other)?);
         }
     }
-    let binance: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%' AND (instr(key, ?1) > 0 OR substr(key, -length(?2)) = ?2))",
+    // The A12 buckets and repair state, and the history repair's per-account completion (`rust_job.binance_history_repair_account:…@<D>`).
+    let binance: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE (key LIKE 'rust_binance_a12_v1:%' OR key LIKE 'rust_job.binance_history_repair_account:%') \
+                                     AND (instr(key, ?1) > 0 OR substr(key, -length(?2)) = ?2))",
                                     [format!(":{user}:{exchange}@{d}:"), format!(":{user}:{exchange}@{d}")], |r| r.get(0))?;
     if binance { conflicts.push("Binance CSV import".into()); }
-    // KuCoin: a restored fill (no provenance) of one account at a second the other holds an API fill of would leave both
-    // visible; the sync's reconciliation, which withholds the API copy, runs per account. Refused, naming the restored row.
+    // KuCoin: a fill of one account that is not an API copy (a CSV fill, a restored one) at a second the other holds an API
+    // fill of is one the per-second reconciliation would have matched; it runs per account, so both would stay. Refused.
     let kucoin: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get(0)).optional()?.flatten();
     if kucoin.as_deref() == Some(crate::venue::kucoin::KUCOIN) {
         for (mine, theirs) in [(&sd, &ss), (&ss, &sd)] {
-            let mut q = c.prepare(&format!("SELECT a.id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} \
+            let mut q = c.prepare(&format!("SELECT a.id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND a.entry_type IN (0, 1, 10, 15) AND NOT ({}) \
                                             AND EXISTS (SELECT 1 FROM account_transactions b WHERE b.user_id = a.user_id AND b.exchange_id = a.exchange_id AND {} \
                                               AND b.entry_type IN (0, 1) AND {} AND substr(b.transacted_at, 1, 19) = substr(a.transacted_at, 1, 19)) ORDER BY a.id",
-                                           mine.rows("a"), crate::sync::kucoin_hf::provenance_less_of("a"), theirs.rows("b"), crate::sync::kucoin_hf::api_row_of("b")))?;
+                                           mine.rows("a"), crate::sync::kucoin_hf::api_row_of("a"), theirs.rows("b"), crate::sync::kucoin_hf::api_row_of("b")))?;
             let rows: Vec<i64> = q.query_map([user, exchange], |r| r.get(0))?.collect::<Result<_, _>>()?;
             for row in rows { conflicts.push(named(c, row)?); }
         }
@@ -274,6 +289,18 @@ pub fn run(c: &Connection, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> 
     c.execute("DELETE FROM exchange_account_overlaps WHERE account_id = ?1", [d])?;
     identity::tombstone(c, d, now)?;
     Ok(Some(Merged { duplicate: d, survivor: s, deleted_keys: deleted, kept_keys: kept }))
+}
+
+/// Whether a recorder's withdrawal intent is on one of `accounts`. Its account is its request's (user, exchange)'s number 1
+/// (`withdrawal::intent_account`), whatever became of its key; one whose request cannot be read counts.
+fn recorder_waiting(c: &Connection, cipher: &crate::crypto::Cipher, accounts: &[AccountRow]) -> Result<bool, Refusal> {
+    let mut q = c.prepare("SELECT params_enc FROM rust_withdrawal_intents WHERE owner LIKE 'recorder:%' ORDER BY owner")?;
+    let params: Vec<String> = q.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    for p in params {
+        let Some(v) = cipher.decrypt(&p).ok().and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()) else { return Ok(true) };
+        if accounts.iter().any(|a| a.number == 1 && v["user_id"].as_i64() == Some(a.user_id) && v["exchange_id"].as_i64() == Some(a.exchange_id)) { return Ok(true); }
+    }
+    Ok(false)
 }
 
 /// Key `id` of the duplicate joins `to` (its membership goes to `to`, none for a number 1).

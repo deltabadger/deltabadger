@@ -467,7 +467,8 @@ pub async fn refresh_fee(
         .db(move |c| {
             let tx = crate::engine::model::immediate(c)?;
             if let Some(version) = version {
-                if !crate::engine::model::credential_is_current(&tx, &version)? {
+                // The account too (#710 §6.4): a quote read before a Merge moved the key is not its new account's.
+                if !crate::engine::model::credential_is_current(&tx, &version)? || !crate::engine::model::account_is_current(&tx, &version)? {
                     return Ok(false);
                 }
             } else {

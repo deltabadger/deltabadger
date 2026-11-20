@@ -966,7 +966,7 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
     enum Done { Missing, Merged(crate::merge::Merged, String), InFlight, Conflict(Vec<String>), Refused(String) }
     let done = app.db(move |c| {
         let tx = crate::engine::model::immediate(c)?;
-        let merged = match crate::merge::run(&tx, user_id, id, inner.now()) {
+        let merged = match crate::merge::run(&tx, &inner.cipher, user_id, id, inner.now()) {
             Ok(None) => return Ok(Done::Missing),
             Ok(Some(merged)) => merged,
             Err(crate::merge::Refusal::InFlight) => return Ok(Done::InFlight),

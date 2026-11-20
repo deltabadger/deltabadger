@@ -292,8 +292,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             _ => {
                 // #710 (PLAN-710-6 §5.2): a standing change that leaves nothing to sweep leaves no stored history behind it.
                 if backfill::standing_changed(c, cipher, user_id, &version)? {
-                    c.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
-                    c.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1 AND date <= ?2", rusqlite::params![user_id, last.to_string()])?;
+                    // Today's too: nothing counted is left to record it again, and no stale point may stay on All.
+                    c.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1", [user_id])?;
+                    c.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1", [user_id])?;
                 }
                 crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?;
                 backfill::mark_calculated(c, cipher, user_id, now)?;
@@ -337,6 +338,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             // the whole-portfolio days before it go. The account snapshots are rewritten up to `last` anyway.
             if backfill::standing_changed(fenced, cipher, user_id, &version)? {
                 fenced.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1 AND date < ?2", rusqlite::params![user_id, first.to_string()])?;
+                // Today's point is the writer's (`record!`), which counts the new standing: the old one goes until then.
+                fenced.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1 AND date > ?2", rusqlite::params![user_id, last.to_string()])?;
+                fenced.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1 AND date > ?2", rusqlite::params![user_id, last.to_string()])?;
             }
             backfill::store(fenced, cipher, user_id, &swept, last, &version, now)?;
             if limited {

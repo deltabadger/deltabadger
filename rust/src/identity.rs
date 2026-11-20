@@ -708,6 +708,11 @@ pub fn duplicate_ids(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<i64>>
 pub fn not_duplicate(account: &str, ids: &[i64]) -> String {
     if ids.is_empty() { "1".into() } else { format!("COALESCE({account}, 0) NOT IN ({})", ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",")) }
 }
+/// SQL condition: api key row `alias` is no duplicate account's key (`"1"` with no duplicate). One statement.
+pub fn key_counted(c: &Connection, user_id: i64, alias: &str) -> rusqlite::Result<String> {
+    let ids = duplicate_ids(c, user_id)?;
+    Ok(if ids.is_empty() { "1".into() } else { not_duplicate(&key_account_sql(alias), &ids) })
+}
 /// SQL condition: account expression `account` is none of the user's duplicates. One statement.
 pub fn counted(c: &Connection, user_id: i64, account: &str) -> rusqlite::Result<String> { Ok(not_duplicate(account, &duplicate_ids(c, user_id)?)) }
 
@@ -865,9 +870,13 @@ pub fn tombstone(c: &Connection, id: i64, now: DateTime<Utc>) -> rusqlite::Resul
 /// An import for (user, exchange), inside the import's own transaction: the account row exists afterwards; a venue-native
 /// export's id fills its unknown fingerprint, and is recorded as an import observation either way.
 pub fn record_import(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, id: Option<&AccountId>, now: DateTime<Utc>) -> Result<(), String> {
+    record_import_to(c, cipher, user_id, exchange_id, None, id, now)
+}
+/// `record_import` for the account the file was routed to (`account`: its key's; None: the exchange's number 1).
+pub fn record_import_to(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, account: Option<i64>, id: Option<&AccountId>, now: DateTime<Utc>) -> Result<(), String> {
     let db = |e: rusqlite::Error| format!("account identity: {e}");
     if !ready(c).map_err(db)? { return Ok(()); }
-    let account = ensure_account(c, user_id, exchange_id, now).map_err(db)?;
+    let account = match account { Some(a) => a, None => ensure_account(c, user_id, exchange_id, now).map_err(db)? };
     let Some(id) = id else { return Ok(()) };
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
     let key = key(c, cipher, now)?;

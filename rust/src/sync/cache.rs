@@ -123,7 +123,8 @@ impl ReadOrigin {
     }
 }
 pub fn capture_read(c:&Connection,user:i64,scope:&Scope)->Result<ReadOrigin,EngineError>{
-    let mut stmt=c.prepare(&format!("SELECT k.id FROM api_keys k WHERE k.user_id=?1 AND k.key_type!=1 AND {} ORDER BY k.id",scope.keys("k")))?;
+    // A duplicate account's key produces none of the figures (#710, PLAN-710-6 §5.2): rotating it moves no provenance.
+    let mut stmt=c.prepare(&format!("SELECT k.id FROM api_keys k WHERE k.user_id=?1 AND k.key_type!=1 AND {} AND {} ORDER BY k.id",scope.keys("k"),crate::identity::key_counted(c,user,"k")?))?;
     let ids=stmt.query_map([user],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
     let versions=ids.into_iter().map(|id|model::credential_version_by_id(c,id)).collect::<Result<Vec<_>,_>>()?.into_iter().flatten().collect();
     Ok(ReadOrigin{user,scope:*scope,versions,balance_producers:vec![],balance_inputs:false})

@@ -208,14 +208,17 @@ pub struct Facts { pub venue_id: String, pub entry_type: i64, pub base: Option<S
 /// And a row the venue returned to the account's own key: a restored or hand-entered row (a Deltabadger CSV restore, the
 /// one import that reaches these venues) stores no venue answer, `{}`, and is never evidence.
 const TRADES: &str = "a.entry_type IN (0, 1, 2, 3) AND COALESCE(a.raw_data, '{}') NOT IN ('{}', '', 'null')";
+/// A venue id built from the venue's own ids, every part present: MEXC's and Bitrue's `{symbol}-{orderId}-{id}` with a
+/// part missing (`BTCEUR--`, `BTCEUR-1-`) is no trade's id.
+fn native(id: &str) -> String { format!("({id} NOT LIKE '%--%' AND {id} NOT LIKE '%-')") }
 const FACTS: &str = "a.entry_type, a.base_currency, CAST(a.base_amount AS TEXT), a.quote_currency, CAST(a.quote_amount AS TEXT), substr(a.transacted_at, 1, 19)";
 fn facts(r: &rusqlite::Row<'_>) -> rusqlite::Result<Facts> {
     Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: r.get(3)?, quote: r.get(4)?, quote_amount: r.get(5)?, at: r.get(6)? })
 }
 /// The account's earliest `limit` trade rows that have a venue id, by row id.
 pub fn overlap_sample(c: &Connection, scope: &Scope, limit: i64) -> rusqlite::Result<Vec<Facts>> {
-    let mut s = c.prepare(&format!("SELECT {}, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {} \
-                                    ORDER BY a.id LIMIT ?3", scope.row_id("a"), scope.rows("a"), scope.has_id("a")))?;
+    let mut s = c.prepare(&format!("SELECT {}, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {} AND {} \
+                                    ORDER BY a.id LIMIT ?3", scope.row_id("a"), scope.rows("a"), scope.has_id("a"), native(&scope.row_id("a"))))?;
     let out = s.query_map(params![scope.user_id, scope.exchange_id, limit], facts)?.collect();
     out
 }

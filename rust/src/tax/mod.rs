@@ -1105,7 +1105,8 @@ fn tokenized_symbols<'a>(c: &Connection, rows: impl Iterator<Item = &'a Stored>)
 fn sync_issues(c: &Connection, user_id: i64, locale: &str) -> Result<Vec<String>, FiguresError> {
     // #710: each key's venue named by its account (`Kraken 2` while the exchange has two live accounts).
     let keys = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT {}, k.key_type, k.status, k.last_sync_error, k.last_synced_at FROM api_keys k \
-                           JOIN exchanges e ON e.id = k.exchange_id WHERE k.user_id = ?1 AND e.type IS NOT 'Exchanges::Ibkr' ORDER BY k.id", crate::identity::plain_label_sql("e.name", account)))?
+                           JOIN exchanges e ON e.id = k.exchange_id WHERE k.user_id = ?1 AND e.type IS NOT 'Exchanges::Ibkr' AND {} ORDER BY k.id", crate::identity::plain_label_sql("e.name", account),
+                           if account == "NULL" { "1".to_string() } else { crate::identity::key_counted(c, user_id, "k")? }))?
         .query_map([user_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?,
                                       r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?)))?.collect::<rusqlite::Result<Vec<_>>>())?;
     let prefix = text(locale, "tax_report.incomplete_banner_prefix", &[]);

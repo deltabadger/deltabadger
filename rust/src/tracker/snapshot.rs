@@ -21,7 +21,8 @@ pub fn column(d: &Dec) -> Result<String, FiguresError> { Ok(d.round(8)?.to_s_f()
 pub fn partial(c: &Connection, user_id: i64, balances: &[Balance]) -> Result<bool, FiguresError> {
     if balances.iter().any(|b| b.usd_value.as_ref().is_none_or(Dec::is_zero)) { return Ok(true); }
     // ApiKey#sync_issue's :failed: a key that is not the withdrawal key, with a recorded error.
-    let mut s = c.prepare("SELECT last_sync_error FROM api_keys WHERE user_id = ?1 AND key_type != 1")?;
+    // A duplicate account's key is no key of the figures (#710, PLAN-710-6 §5.2).
+    let mut s = c.prepare(&format!("SELECT k.last_sync_error FROM api_keys k WHERE k.user_id = ?1 AND k.key_type != 1 AND {}", crate::identity::key_counted(c, user_id, "k")?))?;
     let errors: Vec<Option<String>> = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     if errors.iter().flatten().any(|e| !e.trim().is_empty()) { return Ok(true); }
     let oldest = balances.iter().filter_map(|b| b.priced_at).min();
