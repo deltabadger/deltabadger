@@ -37,6 +37,17 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     assert_eq!(unrecorded["name"],"answer_unrecorded_order");
     let split=ours["tools"].as_array_mut().unwrap().pop().unwrap();
     assert_eq!(split["name"],"split_bots");
+    // D-API-ACCOUNT-ID (#710 slice 6): exactly these fourteen tools take one optional `account_id`, this schema; stripped
+    // only after it is asserted.
+    let with: Vec<&str> = ours["tools"].as_array().unwrap().iter().filter(|t| t["inputSchema"]["properties"].get("account_id").is_some()).map(|t| t["name"].as_str().unwrap()).collect();
+    let mut sorted = protocol::ACCOUNT_ID_TOOLS.to_vec(); sorted.sort_unstable();
+    let mut found = with.clone(); found.sort_unstable();
+    assert_eq!(found, sorted);
+    for tool in ours["tools"].as_array_mut().unwrap() {
+        let Some(field) = tool["inputSchema"]["properties"].as_object_mut().and_then(|p| p.remove("account_id")) else { continue };
+        assert_eq!(field, serde_json::json!({"type":["integer","null"],"description":protocol::ACCOUNT_ID}), "{}", tool["name"]);
+        assert!(tool["inputSchema"]["required"].as_array().is_none_or(|r| !r.contains(&"account_id".into())), "{}", tool["name"]);
+    }
     ours["tools"].as_array_mut().unwrap().retain(|t| !["list_rules","create_rule","update_rule_settings","start_rule","stop_rule","delete_rule"].contains(&t["name"].as_str().unwrap()));
     let settings=|v:&Value|v["tools"].as_array().unwrap().iter().position(|t|t["name"]=="update_bot_settings").unwrap();
     let at=settings(&ours);
@@ -111,12 +122,14 @@ fn withdrawal_rule_schemas_and_permissions_are_pinned() {
         if name!="list_rules" && name!="create_rule" {expected.insert("rule_id".into(),serde_json::json!("number"));}
         if name=="create_rule" || name=="update_rule_settings" {for (field,kind) in common {expected.insert(field.into(),serde_json::json!(kind));}}
         if name=="create_rule" || name=="update_rule_settings" { expected.insert("max_interval".into(),serde_json::json!(["integer","null"])); }
+        // D-API-ACCOUNT-ID (#710 slice 6): create_rule takes the account too (pinned in the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas).
+        if name=="create_rule" { expected.insert("account_id".into(),serde_json::json!(["integer","null"])); }
         let actual:serde_json::Map<_,_>=schema["properties"].as_object().unwrap().iter().map(|(k,v)|(k.clone(),v["type"].clone())).collect();
         assert_eq!(actual,expected,"{name}");
         assert_eq!(schema["required"],match name {"list_rules"=>Value::Null,"create_rule"=>serde_json::json!(["exchange_name","asset","address"]),_=>serde_json::json!(["rule_id"])});
         assert_eq!(tool["annotations"],if name=="list_rules" {serde_json::json!({"readOnlyHint":true})} else {Value::Null});
         let descriptions = [
-            ("rule_id", "The rule ID"), ("exchange_name", "Exchange name (e.g., Binance)"), ("asset", "Asset symbol to withdraw (e.g., BTC)"),
+            ("rule_id", "The rule ID"), ("account_id", protocol::ACCOUNT_ID), ("exchange_name", "Exchange name (e.g., Binance)"), ("asset", "Asset symbol to withdraw (e.g., BTC)"),
             ("address", "Destination address, exactly as allow-listed on the exchange"), ("address_tag", "Memo / tag, if the network needs one"),
             ("network", "Network, if the exchange needs one"), ("address_name", "The listed withdrawal key for a Kraken destination"),
             ("max_interval", "Maximum interval in days; a positive integer, or null to remove the deadline"),

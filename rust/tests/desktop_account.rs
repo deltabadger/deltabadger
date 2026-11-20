@@ -76,7 +76,7 @@ fn users(dir: &tempfile::TempDir) -> Vec<UserRow> {
 
 fn insert_user(dir: &tempfile::TempDir, email: &str, admin: bool) -> i64 {
     let c = db(dir);
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES (?1, ?2, 'Someone', ?3, ?4, ?4)",
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
               (email, deltabadger::crypto::hash_password("Correct-horse-9").unwrap(), admin, "2026-01-01 00:00:00")).unwrap();
     c.last_insert_rowid()
 }
@@ -106,7 +106,7 @@ async fn a_fresh_install_gets_one_admin_with_the_os_language_and_zone_and_the_wi
 fn the_placeholder_email_passes_setups_own_checks() {
     let dir = install();
     let c = db(&dir);
-    assert!(web::setup::validate(&c, "en", Some("Deltabadger"), desktop::EMAIL, Some("Correct-horse-9")).unwrap().is_empty());
+    assert!(web::setup::validate(&c, "en", desktop::EMAIL, Some("Correct-horse-9")).unwrap().is_empty());
 }
 
 #[test]
@@ -296,7 +296,7 @@ async fn signed_out_the_login_page_asks_the_app_to_sign_the_window_in_and_shows_
 /// the router without a line here fails `every_route_of_the_router_is_classified`.
 const ROUTES: &[(&str, bool)] = &[
     ("/", true), ("/login", true), ("/logout", false), ("/verify_two_factor", false), ("/signup", false),
-    ("/password/new", false), ("/password/edit", false), ("/password", false), ("/setup", false), ("/setup/platform_connection", false),
+    ("/password/new", false), ("/password/edit", false), ("/password", false), ("/setup", false), ("/language", true),
     ("/{page}", true), ("/bots", true), ("/rules", true), ("/confirmation", false), ("/confirmation/new", false),
     ("/settings", true), ("/settings/{*action}", true),
     ("/.well-known/oauth-authorization-server", true), ("/.well-known/oauth-protected-resource", true), ("/.well-known/{*document}", true),
@@ -493,8 +493,9 @@ async fn off_the_desktop_the_desktop_paths_and_the_account_pages_are_todays() {
     let dir = install();
     let app = app_in(dir.path(), SECRET, None, &Map::new(), TestClock::at(NOW));
     assert_eq!(app.desktop_account(), None);
-    // No user is made, and setup is where every page goes.
-    assert_eq!(Browser::default().get(&app, "/bots").await.header("location"), Some("/setup"));
+    // No user is made, and the onboarding is where every page goes (D-LANGUAGE-STEP: the language step for a browser
+    // that names no language of ours).
+    assert_eq!(Browser::default().get(&app, "/bots").await.header("location"), Some("/language"));
     assert!(users(&dir).is_empty());
     insert_user(&dir, "owner@example.com", true);
     // /desktop is not a route here: the same answer as any other unknown path, header or not.
@@ -651,5 +652,67 @@ async fn the_window_s_first_page_after_a_launch_carries_the_intro_signed_in_or_o
 fn the_error_pages_carry_no_intro() {
     for page in [web::refused::page("a reason"), include_str!("../../src-tauri/ui/index.html").to_string()] {
         assert!(!page.contains("desktop-intro"), "{page}");
+    }
+}
+
+// ---- PLAN-ONBOARDING-LANGUAGE: the launcher's language choice, the stable-IP note ----
+
+/// D-LANGUAGE-STEP: the launcher passes the picked code bare (`el`), and the account is made in it. The engine has no
+/// language step of its own: the account exists, so `/language` goes to the dashboard.
+#[tokio::test]
+async fn the_launchers_bare_choice_makes_the_account_in_it_and_the_web_step_is_closed() {
+    for (code, want) in [("el", "el"), ("pl", "pl"), ("en", "en"), ("bg", "bg")] {
+        assert_eq!(desktop::map_locale(code), want, "{code}");
+    }
+    let dir = install();
+    let app = app_in(dir.path(), SECRET, None, &desktop_env_in(Some(LAUNCHER), "el"), TestClock::at(NOW));
+    desktop::prepare(&app).await.unwrap();
+    assert_eq!(users(&dir)[0].3.as_deref(), Some("el"));
+    for mut browser in [Browser::default(), signed_in_window(&app).await] {
+        let answer = browser.get(&app, "/language").await;
+        assert_eq!(answer.status, 302);
+        assert!(answer.header("location").is_some_and(|l| l == "/" || l == "/el"), "{:?}", answer.header("location"));
+    }
+}
+
+/// The desktop's Kraken key, for its walkthrough on Settings' key pane.
+fn kraken_key(dir: &tempfile::TempDir) -> i64 {
+    let c = db(dir);
+    let user: i64 = c.query_row("SELECT id FROM users", [], |r| r.get(0)).unwrap();
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', ?1, ?1)", ["2026-01-01 00:00:00"]).unwrap();
+    let exchange = c.last_insert_rowid();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, ?3, ?3)",
+              (user, exchange, "2026-01-01 00:00:00")).unwrap();
+    c.last_insert_rowid()
+}
+
+async fn pane(app: &App, window: &mut Browser, key: i64) -> String {
+    let answer = window.get(app, &format!("/settings/api_key_permissions/{key}")).await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    answer.body
+}
+
+/// D-DESKTOP-STABLE-IP-NOTE: on the desktop, with no proxy for the venue and no platform connection, the key's walkthrough
+/// ends with the note; its link is a full-page navigation to the Data API card, under the account's language.
+#[tokio::test(flavor = "current_thread")]
+async fn a_desktop_key_walkthrough_notes_the_changing_ip_until_a_proxy_or_the_platform_stands_in() {
+    for (locale, connect) in [("en-GB", "/settings/connect?provider=deltabadger"), ("pl-PL", "/pl/settings/connect?provider=deltabadger")] {
+        let dir = install();
+        let app = app_in(dir.path(), SECRET, None, &desktop_env_in(Some(LAUNCHER), locale), TestClock::at(NOW));
+        desktop::prepare(&app).await.unwrap();
+        let key = kraken_key(&dir);
+        let mut window = signed_in_window(&app).await;
+        let code = &locale[..2];
+        let note = web::i18n::t(code, "bot.api.desktop_stable_ip_html", &[("url", web::i18n::Arg::Text(connect))]);
+        assert!(note.contains(&format!("<a href=\"{connect}\" data-turbo-frame=\"_top\">")), "{note}");
+        assert!(pane(&app, &mut window, key).await.contains(&note), "{locale}: the note");
+        let now = common::web::at(NOW);
+        let c = db(&dir);
+        deltabadger::app_config::set(&c, &app.cipher, "proxy_kraken", "http://proxy.example:8080", now).unwrap();
+        assert!(!pane(&app, &mut window, key).await.contains(&note), "{locale}: a proxy");
+        c.execute("DELETE FROM app_configs WHERE key = 'proxy_kraken'", []).unwrap();
+        assert!(pane(&app, &mut window, key).await.contains(&note), "{locale}: the proxy gone");
+        deltabadger::app_config::set(&c, &app.cipher, "platform_connected_at", "2026-11-04T12:00:00Z", now).unwrap();
+        assert!(!pane(&app, &mut window, key).await.contains(&note), "{locale}: connected");
     }
 }

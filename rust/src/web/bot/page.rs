@@ -15,8 +15,8 @@ use rusqlite::{Connection, OptionalExtension};
 
 struct OtherExchange {
     id: i64,
-    /// `exchange.name.capitalize`.
-    name: String,
+    /// `exchange.name.capitalize`, with the account's number (`identity::Label::html`).
+    label: String,
     svg: &'static str,
     /// The user has a working trading key there.
     connected: bool,
@@ -173,14 +173,14 @@ fn other_exchanges(c: &Connection, bot: &Bot, user_id: i64) -> Result<Vec<OtherE
             else { accounts.into_iter().filter(|(account, _)| own.and_then(|a| a.id) != Some(*account)).map(Some).collect() };
         if listed.is_empty() { continue; }
         let (name, class): (Option<String>, Option<String>) = c.query_row("SELECT name, type FROM exchanges WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        let exchange = super::Exchange { id, name: name.unwrap_or_default(), class: class.unwrap_or_default(), maker_fee: None };
+        let exchange = super::Exchange { id, name: name.unwrap_or_default(), class: class.unwrap_or_default(), maker_fee: None, number: None };
         for account in listed {
             let keys = match account {
                 Some((account, _)) => crate::identity::Account::by_id(c, account)?.map_or_else(|| "0".into(), |a| a.keys("k")),
                 None => format!("k.user_id = {user_id} AND k.exchange_id = {id}"),
             };
             let connected = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {keys} AND k.status = 1)"), [], |r| r.get(0))?;
-            others.push(OtherExchange { id, name: capitalize(&exchange.name), svg: exchange_svg(&exchange.name_id()), connected, account });
+            others.push(OtherExchange { id, label: crate::identity::Label { name: capitalize(&exchange.name), number: account.map(|(_, n)| n) }.html(), svg: exchange_svg(&exchange.name_id()), connected, account });
         }
     }
     Ok(others)
@@ -475,7 +475,7 @@ pub(super) fn exchange_select(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, 
             None
         };
     Ok(ExchangeSelect { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), param_key: bot.param_key(),
-        exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: capitalize(&bot.exchange.name),
+        exchange_svg: exchange_svg(&bot.exchange.name_id()), exchange_name: crate::identity::Label { name: capitalize(&bot.exchange.name), number: bot.exchange.number }.html(),
         can_reconnect: switchable && bot.api_key_correct() && !bot.exchange.retired(), exchange_note, other_exchanges }.render()?)
 }
 

@@ -77,7 +77,8 @@ async fn temporary(app: &App, ctx: &Ctx, config: Value) -> Result<Option<Rule>, 
         let Some(asset)=Asset::find(c,crate::web::wizard::to_i(&config["asset_id"]))?else{return Ok(None)};
         let (fee,chains):(Option<String>,Option<String>)=c.query_row("SELECT withdrawal_fee,withdrawal_chains FROM exchange_assets WHERE exchange_id=?1 AND asset_id=?2",
             (exchange.id,asset.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?.unwrap_or_default();
-        Ok(Some(Rule{id:0,user_id:user,account:crate::identity::Account::first(c,user,exchange.id)?,status:0,exchange,asset,address:string(&config["address"]),settings:config,
+        let account=crate::identity::Account::first(c,user,exchange.id)?;
+        Ok(Some(Rule{id:0,user_id:user,account,status:0,label:crate::identity::label_or(c,account.id,&exchange.name)?,exchange,asset,address:string(&config["address"]),settings:config,
             fee:fee.and_then(|f|BigDec::parse(&f).ok()),chains:chains.and_then(|s|serde_json::from_str(&s).ok()).unwrap_or_default(),balance:None,unconfirmed:None}))
     }).await
 }
@@ -391,7 +392,7 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
     }
     let content = if list.is_some() {
         format!("<div class=\"bot-creation-layout\">\n<p class=\"sheet__empty\">{}</p>\n<a data-turbo-frame=\"modal_content\" class=\"rbutton rbutton--secondary\" href=\"{}\">{}</a>\n</div>",
-            i18n::t(ctx.locale,"rules.add_address.no_addresses_html",&[("symbol",Arg::Text(rule.asset.symbol())),("exchange",Arg::Text(&rule.exchange.name))]),
+            i18n::t(ctx.locale,"rules.add_address.no_addresses_html",&[("symbol",Arg::Text(rule.asset.symbol())),("exchange",Arg::Html(&rule.label.html()))]),
             escape(&ctx.path(&format!("{BASE}/add_address/new"))),ctx.t("button.check_again"))
     } else {
         format!(
@@ -399,12 +400,12 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
             i18n::t(
                 ctx.locale,
                 "rules.add_address.fetch_failed_html",
-                &[("exchange", Arg::Text(&rule.exchange.name))]
+                &[("exchange", Arg::Html(&rule.label.html()))]
             ),
             key_pane(&key_card(app, ctx, &rule.exchange, None).await?)?
         )
     };
-    full(app, ctx, 2, false, Some(&rule.exchange.name), Some(rule.asset.id), content).await
+    full(app, ctx, 2, false, Some(&rule.label.plain()), Some(rule.asset.id), content).await
 }
 
 fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String, WebError> {
@@ -482,7 +483,7 @@ fn preview(ctx: &Ctx, r: &Rule, list: Option<&reads::Listing>) -> Result<String,
             i18n::t(
                 ctx.locale,
                 "rules.tile.no_fee_info",
-                &[("exchange", Arg::Text(&r.exchange.name))],
+                &[("exchange", Arg::Text(&r.label.plain()))],
             ),
         ),
     ];
@@ -542,10 +543,10 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         let patch=service::Patch {
             address:Some(rule.address.clone()),settings:rule.settings.clone(),destination:posted,
         };
-        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,patch}).await? {
+        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,account_id:None,patch}).await? {
             Err(e) if e.code=="address_not_listed" || e.code=="credential_changed"=>return Ok(to(ctx,"add_address")),
             Err(e) if e.code=="rule_exists"=>return alert(ctx,i18n::t(ctx.locale,"errors.withdrawal_rule_already_exists",
-                &[("asset_symbol",Arg::Text(rule.asset.symbol())),("exchange_name",Arg::Text(&rule.exchange.name))]),false),
+                &[("asset_symbol",Arg::Text(rule.asset.symbol())),("exchange_name",Arg::Text(&rule.label.plain()))]),false),
             Err(e)=>return alert(ctx,e.reason,false),
             Ok(_)=>{}
         }
@@ -614,7 +615,7 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         preview,
     }
     .render()?;
-    full(app, ctx, 3, false, Some(&rule.exchange.name), Some(rule.asset.id), content).await
+    full(app, ctx, 3, false, Some(&rule.label.plain()), Some(rule.asset.id), content).await
 }
 
 pub async fn step(

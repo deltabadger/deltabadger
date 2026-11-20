@@ -50,7 +50,7 @@ pub struct Language {
 }
 
 /// layouts/_language_dropdown.html.erb: the names are not translated, and English comes first.
-const LANGUAGES: [(&str, &str); 15] = [
+pub(super) const LANGUAGES: [(&str, &str); 15] = [
     ("en", "🇬🇧 English"), ("de", "🇩🇪 Deutsch"), ("nl", "🇳🇱 Nederlands"), ("fr", "🇫🇷 Français"), ("es", "🇪🇸 Español"),
     ("pt", "🇵🇹 Português"), ("it", "🇮🇹 Italiano"), ("pl", "🇵🇱 Polski"), ("ru", "🇷🇺 Русский"), ("cs", "🇨🇿 Čeština"),
     ("sk", "🇸🇰 Slovenčina"), ("da", "🇩🇰 Dansk"), ("sv", "🇸🇪 Svenska"), ("el", "🇬🇷 Ελληνικά"), ("bg", "🇧🇬 Български"),
@@ -166,7 +166,7 @@ impl Ctx {
 
     /// layouts/_language_dropdown_full.html.erb's label: the name of the locale in effect, without its flag.
     pub fn language_name(&self) -> &'static str {
-        LANGUAGES.iter().find(|(code, _)| *code == self.locale).and_then(|(_, label)| label.split_once(' ')).map_or("English", |(_, name)| name)
+        locale::native_name(self.locale)
     }
 }
 
@@ -221,6 +221,8 @@ struct DeviseLayout<'a> {
     csrf: &'a str,
     flash: &'a str,
     body: &'a str,
+    /// D-DEVISE-STABLE-TOP: an onboarding page's name (`language`, `setup`), "" for every other devise page.
+    onboarding: &'a str,
 }
 
 #[derive(Template)]
@@ -268,11 +270,17 @@ pub(crate) fn frame(csrf: &str, page: &Page) -> Result<Response, WebError> {
 
 /// layouts/devise.html.erb.
 pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
+    onboarding(ctx, csrf, page, "")
+}
+
+/// The devise layout for an onboarding page (D-DEVISE-STABLE-TOP): `devise--onboarding devise--<name>` on its root, which
+/// anchors the block's top where its untouched height would be centred, and Montserrat preloaded (the step is a first visit).
+pub fn onboarding(ctx: &Ctx, csrf: &str, page: Page, name: &str) -> Result<Response, WebError> {
     if ctx.turbo_frame.is_some() {
         return frame(csrf, &page);
     }
     let flash = flash::render(&flash::take(&ctx.session, &page.flash_now))?;
-    Ok(html(page.status, DeviseLayout { v: ctx, csrf, flash: &flash, body: &page.body }.render()?))
+    Ok(html(page.status, DeviseLayout { v: ctx, csrf, flash: &flash, body: &page.body, onboarding: name }.render()?))
 }
 
 /// The answer for everything 2.x serves and this build does not yet: 501, naming the request.

@@ -102,7 +102,7 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
         if index_only && kind != Kind::Index { return Err(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
         // A signal bot takes its name, its venue and the rules this build runs on it (D-SIG-CONDITIONS, D-SIG-CAP), never a
         // subject (it watches its own pair).
-        if kind == Kind::Signal && !matches!(name, "label" | "exchange_id") && (super::draft::field_rule(name).is_none() || name.ends_with("_in_ticker_id")) {
+        if kind == Kind::Signal && !matches!(name, "label" | "exchange_id" | "account_id") && (super::draft::field_rule(name).is_none() || name.ends_with("_in_ticker_id")) {
             return Err(fail(draft, unsupported(name, applies(name))));
         }
         // D-IDX-CONDITIONS / D-IDX-CAP: a rule's field is taken where this build runs the rule (conditions::support). One
@@ -119,7 +119,7 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
                 Support::Implemented => {}
             }
         } else {
-            let shared = index_only || super::draft::form_field(Kind::Index, name) || matches!(name, "label" | "exchange_id");
+            let shared = index_only || super::draft::form_field(Kind::Index, name) || matches!(name, "label" | "exchange_id" | "account_id");
             if !shared && kind != Kind::Basket { return Err(fail(draft, unsupported(name, "basket"))); }
         }
         let posted = match name {

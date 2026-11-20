@@ -3,16 +3,12 @@ pt:
     title: "Bem-vindo ao Deltabadger"
     admin_account: "Conta de administrador"
     platform:
-      prompt: "Tem uma subscrição Deltabadger.com?"
-      code: "Código de ligação"
-      connect: "Ligar"
       connected_with_proxies: "Ligado ✓ — os dados de mercado e os proxies das corretoras estão ativos"
       connected_without_proxies: "Ligado ✓ — os dados de mercado estão ativos; os proxies das corretoras não estão disponíveis"
     locked:
       title: "A configuração está bloqueada"
       text: "Para criar a conta de administrador, abra este servidor a partir do painel do serviço que o aloja."
     validations:
-      name_required: "O nome é obrigatório"
       email_required: "O e-mail é obrigatório"
       password_required: "A palavra-passe é obrigatória"
     api_configuration: "O bot utiliza dados de mercado fornecidos pelo CoinGecko. O acesso à API do CoinGecko é gratuito, mas você precisa se inscrever e criar uma chave API. Encontre instruções abaixo."
@@ -28,6 +24,9 @@ pt:
         <li><b>Copie a chave API</b> e cole-a acima</li>
       </ol>
     continue: "Continuar"
+    create: "Criar"
+    language:
+      greeting: "Olá"
     submit: "Começar"
     success: "Configuração concluída com sucesso. Bem-vindo ao Deltabadger!"
     syncing_title: "A sincronizar recursos…"

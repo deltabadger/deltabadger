@@ -58,6 +58,8 @@ pub struct Draft {
     /// #710: the account a posted `account_id` names (the bot page's switch menu, with 2+ accounts on an exchange); the
     /// candidate's exchange is its exchange. None: the posted exchange's number 1, or the bot's own account.
     pub account: Option<crate::identity::Account>,
+    /// The switch the posted exchange and account resolved to (`identity::pick_switch`); None: neither was posted.
+    pub switch: Option<crate::identity::Switch>,
     error_codes: Vec<(String, String, String)>,
 }
 
@@ -121,7 +123,7 @@ impl Draft {
 
     pub fn from_bot(bot: Bot) -> Self {
         Self { raw_settings: bot.settings.clone(), raw_transient: bot.transient.clone(), baseline: bot.settings.clone(), candidate: bot.clone(), original: bot,
-            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, account: None, error_codes: vec![] }
+            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, account: None, switch: None, error_codes: vec![] }
     }
 
     /// This draft's candidate as an unsaved change of `stored`: dirty tracking reads the stored row.
@@ -129,6 +131,16 @@ impl Draft {
         self.raw_settings = stored.settings.clone();
         self.raw_transient = stored.transient.clone();
         self.original = stored.clone();
+    }
+
+    /// The posted switch's refusal (PLAN-710-6 §4.3), checked before anything is written: `Some(None)` a 404, `Some(Some)`
+    /// the 422 naming the accounts.
+    pub fn switch_refusal(&self) -> Option<Option<String>> {
+        match &self.switch {
+            Some(crate::identity::Switch::NotFound) => Some(None),
+            Some(crate::identity::Switch::Ambiguous(list)) => Some(Some(crate::identity::Pick::required(&self.candidate.exchange.name, list))),
+            _ => None,
+        }
     }
 
     pub fn parse(&mut self, c: &Connection, params: &Value, zone: &str, now: DateTime<Utc>) -> Result<(), ParseError> {
@@ -168,27 +180,38 @@ impl Draft {
         if let Some(label) = fields.get("label").filter(|v| present(v)) {
             self.submitted_label = Some(label.clone()); self.candidate.label = text(label);
         }
-        if let Some(exchange) = fields.get("exchange_id").filter(|v| !v.is_null()) {
-            self.submitted_exchange_id = Some(exchange.clone());
-            let id = match exchange { Value::Bool(b) => i64::from(*b), _ => numeric(exchange, true)?.as_i64().unwrap_or(0) };
-            let found = c.query_row("SELECT id, name, type, maker_fee FROM exchanges WHERE id = ?1", [id], |r| Ok(Exchange {
-                id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?,
-            })).optional()?;
-            self.exchange_missing = found.is_none();
-            self.candidate.exchange = found.unwrap_or(Exchange { id, name: String::new(), class: String::new(), maker_fee: None });
-        }
-        // An account of another user reads as an exchange that does not exist: nothing is saved.
-        if let Some(posted) = fields.get("account_id").filter(|v| !v.is_null()) {
-            let id = numeric(posted, true)?.as_i64().unwrap_or(0);
+        // #710 (PLAN-710-6 §4.3): the posted exchange and account resolved once, before anything is written (`pick_switch`).
+        let posted_exchange = match fields.get("exchange_id").filter(|v| !v.is_null()) {
+            None => None,
+            Some(exchange) => { self.submitted_exchange_id = Some(exchange.clone()); Some(match exchange { Value::Bool(b) => i64::from(*b), _ => numeric(exchange, true)?.as_i64().unwrap_or(0) }) }
+        };
+        let posted_account = fields.get("account_id").filter(|v| !v.is_null()).map(|v| crate::web::bot_api::orders::account_id(v).unwrap_or(0));
+        if posted_exchange.is_some() || posted_account.is_some() {
             let owner: Option<i64> = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [self.candidate.id], |r| r.get(0)).optional()?;
-            let account = crate::identity::Account::by_id(c, id)?.filter(|a| Some(a.user_id) == owner);
-            let found = match account { Some(a) => c.query_row("SELECT id, name, type, maker_fee FROM exchanges WHERE id = ?1", [a.exchange_id], |r| Ok(Exchange {
-                id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?,
-            })).optional()?, None => None };
-            self.submitted_exchange_id = Some(json!(account.map_or(0, |a| a.exchange_id)));
+            let switch = match owner { Some(owner) => crate::identity::pick_switch(c, owner, self.candidate.id, posted_exchange, posted_account)?, None => crate::identity::Switch::NotFound };
+            let exchange = match &switch {
+                crate::identity::Switch::To(a) => Some((a.exchange_id, a.id)),
+                crate::identity::Switch::Keep => posted_exchange.map(|e| (e, None)).or(posted_account.map(|_| (self.candidate.exchange.id, None))),
+                crate::identity::Switch::Ambiguous(_) => posted_exchange.map(|e| (e, None)),
+                crate::identity::Switch::NotFound => None,
+            };
+            let found = match exchange {
+                Some((id, account)) => {
+                    let number = crate::identity::label_number_sql(&account.map_or_else(|| "NULL".to_string(), |a| a.to_string()));
+                    c.query_row(&format!("SELECT id, name, type, maker_fee, {number} FROM exchanges WHERE id = ?1"), [id], |r| Ok(Exchange {
+                        id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?, number: r.get(4)?,
+                    })).optional()?
+                }
+                None => None,
+            };
+            if posted_account.is_some() { self.submitted_exchange_id = Some(json!(found.as_ref().map_or(0, |e| e.id))); }
             self.exchange_missing = found.is_none();
-            self.candidate.exchange = found.unwrap_or(Exchange { id: 0, name: String::new(), class: String::new(), maker_fee: None });
-            self.account = account.filter(|_| !self.exchange_missing);
+            // Kept on its own exchange, the candidate keeps the bot's account's name.
+            let number = self.candidate.exchange.number;
+            self.candidate.exchange = found.unwrap_or(Exchange { id: posted_exchange.unwrap_or(0), name: String::new(), class: String::new(), maker_fee: None, number: None });
+            if switch == crate::identity::Switch::Keep { self.candidate.exchange.number = number; }
+            self.account = switch.to().filter(|_| !self.exchange_missing);
+            self.switch = Some(switch);
         }
         self.refresh(c)?;
         // D-IDX-SUBJECT-DEFAULT: a rule an index bot's save switches on with no subject posted is given the default one.
@@ -568,7 +591,7 @@ impl Draft {
             if self.candidate.exchange.id != 0 && !matches!(self.candidate.status, BotStatus::Stopped | BotStatus::Deleted | BotStatus::Archived)
                 && (starting || self.candidate.exchange.id != self.original.exchange.id || self.candidate.settings.get("quote_asset_id") != self.raw_settings.get("quote_asset_id"))
                 && self.candidate.tickers.is_empty() {
-                self.add("exchange", i18n::text(locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", i18n::Arg::Text(&self.candidate.exchange.name))]));
+                self.add("exchange", i18n::text(locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", i18n::Arg::Text(&self.candidate.exchange.label().plain()))]));
             }
         }
         if context == ValidationContext::Update {
@@ -578,7 +601,9 @@ impl Draft {
             // #710: and on another account of the exchange, whose key would never find them.
             let account_moved = match self.account { Some(a) => crate::identity::Account::of_bot(c, self.candidate.id)? != Some(a), None => false };
             if self.original.has_waiting_orders && (self.original.exchange.id != self.candidate.exchange.id || account_moved) {
-                self.add("exchange", i18n::text(locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", i18n::Arg::Text(&self.candidate.exchange.name))]));
+                // 2.x names the exchange posted; a move within one exchange names the account holding the orders.
+                let shown = if self.original.exchange.id == self.candidate.exchange.id { self.original.exchange.label() } else { self.candidate.exchange.label() };
+                self.add("exchange", i18n::text(locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", i18n::Arg::Text(&shown.plain()))]));
             }
         }
         if self.candidate.kind == Kind::Basket {
@@ -934,7 +959,7 @@ impl Draft {
                     missing.sort_by_key(|(id, _)| *id);
                     let symbols: Vec<&str> = missing.iter().filter(|(_, symbol)| !symbol.is_empty()).map(|(_, symbol)| symbol.as_str()).collect();
                     let symbols = sentence(&symbols, locale);
-                    self.add("allocations", i18n::text(locale, "errors.bots.multi_asset.pair_missing", &[("assets", i18n::Arg::Text(&symbols)), ("exchange_name", i18n::Arg::Text(&self.candidate.exchange.name))]));
+                    self.add("allocations", i18n::text(locale, "errors.bots.multi_asset.pair_missing", &[("assets", i18n::Arg::Text(&symbols)), ("exchange_name", i18n::Arg::Text(&self.candidate.exchange.label().plain()))]));
                 }
             }
         }

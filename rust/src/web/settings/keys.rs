@@ -211,10 +211,11 @@ pub async fn save(
                 .optional()?;
             // A bot's sheet saves into the bot's account; the tracker's into the exchange's (#710 slice 7: the one picked).
             let account = match bot_account { Some(account) => account, None => Account::first(c, id, exchange)? };
-            Ok((venue, Key::read(c, &inner, account, kind)?))
+            let label = crate::identity::label_or(c, account.id, venue.as_ref().map_or("", |(_, name)| name.as_str()))?.plain();
+            Ok((venue, label, Key::read(c, &inner, account, kind)?))
         })
         .await?;
-    let (venue, original) = found;
+    let (venue, label, original) = found;
     if !bot_request && venue.as_ref().is_some_and(|(class, _)| crate::web::bot::retired_type(class)) {
         ctx.session.lock().tracker_connect=Some(exchange);
         return Ok(retired_answer(&ctx));
@@ -233,7 +234,7 @@ pub async fn save(
         Submitted::Correct => None,
         Submitted::Incorrect => Some(i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[])),
         // ApplicationController#incorrect_api_key_message: the flags the venue named.
-        Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, missing, forbidden)),
+        Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &label, kind, missing, forbidden)),
         Submitted::Failed => Some(i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[])),
         Submitted::Refused(reason) => Some(refusal_text(&ctx, reason)),
     };
@@ -381,7 +382,7 @@ impl WarningKey{
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
-    let keys=crate::identity::with_key_account("k",|account|c.prepare(&format!("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id),{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id"))?
+    let keys=crate::identity::with_key_account("k",|account|c.prepare(&format!("SELECT k.exchange_id,{},e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id),{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id",crate::identity::plain_label_sql("e.name",account)))?
     .query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,account:r.get(7)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>())?;
     // Per account (#710).
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
@@ -416,10 +417,10 @@ pub(crate) fn lookup(locale: &str, key: &str) -> Option<&'static str> {
 }
 /// settings/widgets/_api_keys for `user`.
 pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, WebError> {
-    let mut s=c.prepare("SELECT k.id,e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 ORDER BY k.id")?;
-    let rows = s
-        .query_map([user], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
+    // Each key named by its account (#710 slice 6).
+    let rows = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT k.id,e.name,e.type,k.key_type,{} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 ORDER BY k.id", crate::identity::label_number_sql(account)))?
+        .query_map([user], |r| Ok((r.get::<_, i64>(0)?, crate::identity::Label { name: r.get(1)?, number: r.get(4)? }, r.get::<_, String>(2)?, r.get::<_, i64>(3)?)))?
+        .collect::<Result<Vec<_>, _>>())?;
     let keys: Vec<super::sections::Key> = rows
         .into_iter()
         .map(|(id, name, venue, kind)| {
@@ -485,8 +486,8 @@ pub async fn modal(app: App, ctx: Ctx) -> Result<Response, WebError> {
     };
     let inner = app.clone();
     let v = ctx.clone();
-    let found=app.db(move|c|{let key=c.query_row("SELECT e.name,e.type,k.key_type FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?))).optional()?;
-        key.map(|(name,venue,kind)|Ok(((name.clone(),venue.clone()),key_instructions(c,&inner,&v,&venue,&name,kind)?,crate::web::shell::Shell::load(c,&inner,&user)?))).transpose()}).await?;
+    let found=app.db(move|c|{let key=crate::identity::with_key_account("k",|account|c.query_row(&format!("SELECT e.name,e.type,k.key_type,{} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",crate::identity::plain_label_sql("e.name",account)),(id,user.id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?))).optional())?;
+        key.map(|(name,venue,kind,label)|Ok(((label,venue.clone()),key_instructions(c,&inner,&v,&venue,&name,kind)?,crate::web::shell::Shell::load(c,&inner,&user)?))).transpose()}).await?;
     let Some(((name, venue), instructions, shell)) = found else {
         return Ok(crate::web::layout::missing());
     };
@@ -569,6 +570,9 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
 }
 
+/// `legacy`'s answers to a pick (§4.2): an account not the user's live one of this exchange, and which account.
+const MISSING: &str = "\0account not found";
+const AMBIGUOUS: &str = "\0account required: ";
 /// The browser's JSON endpoint: #497 replaces in place and resets only changed-key ledger progress.
 pub async fn legacy(
     axum::extract::State(app): axum::extract::State<App>,
@@ -618,6 +622,14 @@ pub async fn legacy(
     let key = parameter("key").map(|s| s.replace("\\n", "\n"));
     let secret = parameter("secret").map(|s| s.replace("\\n", "\n"));
     let passphrase = parameter("passphrase");
+    // #710 (PLAN-710-6 §4.1): the account the save names; none with one live account is the exchange's.
+    // Only an omitted or null account_id is the exchange's account; one that is no id (`[]`) names none.
+    let raw_account = ctx.params.json.as_ref().and_then(|j| j.get("api_key")).and_then(|root| root.get("account_id")).is_some_and(|v| !v.is_null());
+    let posted_account = match parameter("account_id") {
+        None if raw_account => return Ok(layout::missing()),
+        None => None,
+        Some(text) => match text.trim().parse::<i64>() { Ok(id) => Some(id), Err(_) => return Ok(layout::missing()) },
+    };
     let Some(exchange) = exchange else {
         return Ok((
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -633,7 +645,14 @@ pub async fn legacy(
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
-  let account=Account::first(&tx,user.id,exchange)?.ensure(&tx,inner.now())?;
+  let account=match crate::identity::pick(&tx,user.id,exchange,posted_account)?{
+   crate::identity::Pick::One(account)=>account,
+   crate::identity::Pick::NotFound=>return Ok(Err(Some(MISSING.into()))),
+   crate::identity::Pick::Ambiguous(accounts)=>{
+    let name:String=tx.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?;
+    return Ok(Err(Some(format!("{AMBIGUOUS}{}",crate::identity::Pick::required(&name,&accounts)))));
+   }
+  }.ensure(&tx,inner.now())?;
   let current=Key::read(&tx,&inner,account,kind)?;
   if current.id.is_some() && settling(&tx,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
@@ -662,9 +681,12 @@ pub async fn legacy(
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;
     if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
+    if matches!(&saved,Err(Some(reason)) if reason==MISSING){return Ok(layout::missing());}
     let (status, data) = match saved {
         Ok(()) => (StatusCode::CREATED, serde_json::json!({"data":true})),
         Err(None) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false})),
+        // An exchange with 2+ live accounts and no account named: which one, in the services' words (§4.2).
+        Err(Some(reason)) if reason.starts_with(AMBIGUOUS) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":&reason[AMBIGUOUS.len()..]})),
         Err(Some(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
     };
     Ok((status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], data.to_string()).into_response())
@@ -721,7 +743,15 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     let proxy=crate::venue::http::proxy_for(&name_id,crate::app_config::get(c,&app.cipher,&format!("proxy_{name_id}")).map_err(WebError::Config)?,&|k|std::env::var(k).ok());
     let ip=super::key_check::whitelist_ip_html(ctx.locale,proxy.as_deref());
     let html=|prefix:&str|super::key_check::instructions_html(ctx.locale,prefix,&name_id,name,&ip);
-    Ok(match kind{1=>html("withdrawal_api"),2=>html("read_only_api").or_else(||html("bot.api")),_=>html("bot.api")}.unwrap_or_default())
+    let mut out=match kind{1=>html("withdrawal_api"),2=>html("read_only_api").or_else(||html("bot.api")),_=>html("bot.api")}.unwrap_or_default();
+    // D-DESKTOP-STABLE-IP-NOTE: a desktop's own IP is what the key gets bound to when no proxy stands in front of the venue,
+    // and a home connection's IP changes; a subscription's proxies don't. The link is a full-page navigation: the card is
+    // drawn inside the wizard sheet's frame and inside Settings' pane.
+    if ctx.desktop()&&proxy.is_none()&&auth::app_config(c,&app.cipher,"platform_connected_at")?.is_none_or(|at|crate::v2::blank(&at)){
+        let url=ctx.path("/settings/connect?provider=deltabadger");
+        out.push_str(&format!("<p class=\"key-note\">{}</p>",i18n::t(ctx.locale,"bot.api.desktop_stable_ip_html",&[("url",i18n::Arg::Text(&url))])));
+    }
+    Ok(out)
 }
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
@@ -811,7 +841,7 @@ pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum:
     let inner=app.clone();let owner=user.clone();
     let (venues,connected,shell)=app.db(move|c|{
         let mut s=c.prepare("SELECT id,name,type FROM exchanges WHERE available=1")?;
-        let venues=s.query_map([],|r|Ok(crate::web::bot::Exchange{id:r.get(0)?,name:r.get::<_,Option<String>>(1)?.unwrap_or_default(),class:r.get(2)?,maker_fee:None}))?.collect::<Result<Vec<_>,_>>()?;
+        let venues=s.query_map([],|r|Ok(crate::web::bot::Exchange{id:r.get(0)?,name:r.get::<_,Option<String>>(1)?.unwrap_or_default(),class:r.get(2)?,maker_fee:None,number:None}))?.collect::<Result<Vec<_>,_>>()?;
         Ok((venues,crate::web::wizard::exchanges::connected(c,owner.id,&[0,2])?,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     use crate::web::wizard::{self, exchanges, Stop};

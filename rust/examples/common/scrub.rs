@@ -82,11 +82,59 @@ pub struct Scrubber {
     time: Vec<String>,
     /// "file path" → kind → count, paths folded (`[]` for indices, `*` for Kraken's id keys).
     pub report: BTreeMap<String, BTreeMap<&'static str, usize>>,
+    /// A capture mode's own field rules (KuCoin UTA, PLAN-841 r2.2), checked before the shared ones.
+    pub extra: Option<Extra>,
+}
+
+/// Field names (normalized, as `norm`) a capture mode treats its own way. `amounts` are multiplied by `factor`, exactly
+/// (an integer factor needs no rounding, so sums and pairings hold); `verbatim` decimals (prices, rates, error codes)
+/// and `keep` enums (shape-checked) are kept; `text` (an error message) is kept when it is short and words only (no
+/// digit, no `@`); `time` adds shifted names. An amount that is no plain decimal aborts.
+#[derive(Clone)]
+pub struct Extra {
+    pub factor: u32,
+    pub amounts: &'static [&'static str],
+    pub verbatim: &'static [&'static str],
+    pub keep: &'static [&'static str],
+    pub text: &'static [&'static str],
+    pub time: &'static [&'static str],
+}
+
+/// `s` (a decimal's text) times `k`, its decimals kept: exact. None if it is no decimal or too long.
+pub fn scale(s: &str, k: u32) -> Option<String> {
+    if !decimal(s) { return None; }
+    let (neg, s) = match s.strip_prefix('-') { Some(r) => (true, r), None => (false, s) };
+    let (int, frac) = s.split_once('.').unwrap_or((s, ""));
+    let n: u128 = format!("{int}{frac}").parse().ok()?;
+    let mut digits = n.checked_mul(u128::from(k))?.to_string();
+    while digits.len() <= frac.len() { digits.insert(0, '0'); }
+    if !frac.is_empty() { digits.insert(digits.len() - frac.len(), '.'); }
+    Some(if neg { format!("-{digits}") } else { digits })
 }
 
 impl Scrubber {
     pub fn new(key: Vec<u8>, days: i64) -> Self {
-        Self { key, days, map: HashMap::new(), originals: HashSet::new(), fakes: HashSet::new(), reserved: vec![], keep: None, time: vec![], report: BTreeMap::new() }
+        Self { key, days, map: HashMap::new(), originals: HashSet::new(), fakes: HashSet::new(), reserved: vec![], keep: None, time: vec![], report: BTreeMap::new(), extra: None }
+    }
+    /// What a later run needs to scrub as this one did (PLAN-841 r2.1): the salt, the offset, every mapping and every
+    /// reserved value. It holds originals: it is written outside the repo, never committed.
+    pub fn state(&self) -> Value {
+        let sorted = |s: &HashSet<String>| { let mut v: Vec<&String> = s.iter().collect(); v.sort(); json!(v) };
+        let map: BTreeMap<&String, &String> = self.map.iter().collect();
+        json!({ "salt": hex::encode(&self.key), "days": self.days, "map": map, "originals": sorted(&self.originals),
+                "fakes": sorted(&self.fakes), "reserved": self.reserved })
+    }
+    pub fn from_state(v: &Value) -> Result<Self, String> {
+        let bad = || "the scrub state file is unreadable".to_string();
+        let strings = |k: &str| -> Result<Vec<String>, String> {
+            v[k].as_array().ok_or_else(bad)?.iter().map(|x| x.as_str().map(String::from).ok_or_else(bad)).collect()
+        };
+        let mut sc = Self::new(hex::decode(v["salt"].as_str().ok_or_else(bad)?).map_err(|_| bad())?, v["days"].as_i64().ok_or_else(bad)?);
+        for (k, x) in v["map"].as_object().ok_or_else(bad)? { sc.map.insert(k.clone(), x.as_str().ok_or_else(bad)?.to_string()); }
+        sc.originals = strings("originals")?.into_iter().collect();
+        sc.fakes = strings("fakes")?.into_iter().collect();
+        sc.reserved = strings("reserved")?;
+        Ok(sc)
     }
     /// A salt that is never stored and an offset of 30–400 whole days back, both from the OS's randomness.
     pub fn random() -> Self {
@@ -160,6 +208,34 @@ impl Scrubber {
 
     fn string(&mut self, venue: &str, file: &str, path: &str, name: Option<&str>, s: &str) -> Result<Option<String>, String> {
         let n = name.map(norm).unwrap_or_default();
+        if let Some(x) = &self.extra {
+            let n = n.as_str();
+            // Text outside ASCII (a name, a remark) is replaced whole: a fake changes only ASCII letters and digits.
+            if !s.is_ascii() {
+                self.dropped(s);
+                self.note(file, path, "replaced");
+                return Ok(Some("(scrubbed)".into()));
+            }
+            if x.amounts.contains(&n) {
+                if s.is_empty() { return Ok(None); }
+                // An amount that can't be scaled is never faked apart from its siblings: the sums would break.
+                let t = scale(s, x.factor).ok_or_else(|| format!("{file}: an amount at {path} is no plain decimal; nothing written"))?;
+                if t != s { self.note(file, path, "scaled"); }
+                return Ok(Some(t));
+            }
+            if x.verbatim.contains(&n) && decimal(s) { return Ok(None); }
+            if x.keep.contains(&n) && kept_shape(s) { return Ok(None); }
+            // An error message: words only. A digit or `@` could be an account id or an email, so the text is replaced.
+            if x.text.contains(&n) {
+                if s.len() <= 200 && s.chars().all(|c| c.is_ascii_alphabetic() || " .,:;'()-_/".contains(c)) { return Ok(None); }
+                self.dropped(s);
+                self.note(file, path, "replaced");
+                return Ok(Some("(scrubbed)".into()));
+            }
+            if x.time.contains(&n) {
+                if let Some(t) = self.shift_str(s) { self.note(file, path, "shifted"); return Ok(Some(t)); }
+            }
+        }
         if self.kept(&n) && kept_shape(s) { return Ok(None); }
         if self.timed(&n) {
             if let Some(t) = self.shift_str(s) { self.note(file, path, "shifted"); return Ok(Some(t)); }
@@ -180,6 +256,23 @@ impl Scrubber {
         let name = name.map(norm).unwrap_or_default();
         if self.kept(&name) && n.as_u64().is_some_and(|x| x < 10_000) { return Ok(None); }
         let text = n.to_string();
+        if let Some(x) = &self.extra {
+            // A fractional JSON number has already passed through f64: scaling it could lose digits, so it aborts.
+            let scaled = match x.amounts.contains(&name.as_str()) {
+                true if n.is_f64() => return Err(format!("{file}: an amount at {path} is a fractional JSON number; nothing written")),
+                true => Some(scale(&text, x.factor).ok_or_else(|| format!("{file}: an amount at {path} is no plain decimal; nothing written"))?),
+                false => None,
+            };
+            let shifted = x.time.contains(&name.as_str()).then(|| self.shift_epoch(&text)).flatten();
+            if scaled.as_deref().is_some_and(|t| serde_json::from_str::<Number>(t).map_or(true, |n| n.is_f64())) {
+                return Err(format!("{file}: a scaled amount at {path} leaves the exact integer range; nothing written"));
+            }
+            if let Some(t) = scaled.or(shifted) {
+                self.note(file, path, if x.time.contains(&name.as_str()) { "shifted" } else { "scaled" });
+                return serde_json::from_str(&t).map(Some).map_err(|_| format!("{file}: a changed number at {path} is no number"));
+            }
+            if x.verbatim.contains(&name.as_str()) { return Ok(None); }
+        }
         if self.timed(&name) {
             if let Some(t) = self.shift_epoch(&text) {
                 self.note(file, path, "shifted");

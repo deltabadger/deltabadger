@@ -164,7 +164,8 @@ pub(crate) fn sync_plan(c: &Connection, owner: i64) -> Result<SyncPlan, WebError
     let mut names = vec![];
     let mut jobs = vec![];
     for key in keys {
-        let name: Option<String> = c.query_row("SELECT e.name FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",(key,owner),|r|r.get(0)).optional()?;
+        // Named by its account (#710 slice 6).
+        let name: Option<String> = crate::identity::with_key_account("k",|account|c.query_row(&format!("SELECT {} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.id=?1 AND k.user_id=?2",crate::identity::plain_label_sql("e.name",account)),(key,owner),|r|r.get(0)).optional())?;
         let Some(name) = name else { continue };
         names.push(name);
         for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] { jobs.push((job,key.to_string())); }

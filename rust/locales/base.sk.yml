@@ -75,10 +75,8 @@ sk:
                 enter_two_fa_code: 'Zadajte 2FA kód'
                 scan_code_info: 'Naskenujte QR kód alebo skopírujte kód nižšie:'
             user:
-                name: Meno
                 current_password: 'Aktuálne heslo'
                 email: E-mail
-                new_name: 'Nové meno'
                 new_email: 'Nový e-mail'
                 new_password: 'Nové heslo'
                 new_password_confirmation: 'Potvrdenie nového hesla'
@@ -170,8 +168,6 @@ sk:
             current_time_is: "Toto časové pásmo sa použije v logoch bota. Podľa neho je aktuálny čas"
             currency_updated: "Zobrazovaná mena bola aktualizovaná."
             currency_is_used_for: "Zisky a súčty portfólia sa zobrazujú v tejto mene. Boti naďalej obchodujú vo svojom vlastnom kotovacom aktíve."
-        name:
-            updated: "Meno bolo aktualizované."
         two_fa:
             disabled: 'Dvojfaktorové overenie bolo vypnuté.'
             enabled: 'Dvojfaktorové overenie bolo zapnuté.'
@@ -183,7 +179,6 @@ sk:
             trading_keys_section: 'Obchodné kľúče'
             withdrawal_keys_section: 'Kľúče na výber'
             email_section: E-mail
-            name_section: Meno
             password_section: Heslo
             free_plan_reset_date_html: 'Váš limit sa obnoví <b>%{end_time}</b>.'
             title: Nastavenia

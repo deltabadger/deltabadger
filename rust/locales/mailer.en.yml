@@ -1,7 +1,6 @@
 en:
     mailer:
         greeting: 'Hi legend,'
-        greeting_name: 'Hi %{name},'
         best_html: '<p>Best,<br>Jan</p>'
         unsubscribe: 'Unsubscribe'
     test_mailer:

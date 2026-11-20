@@ -172,6 +172,18 @@ fn settings_inner<T>(
         Ok(()) => draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?,
     }
     }
+    // #710 (§4.3): a posted account that is not the owner's live one, or not of the posted exchange, is a 404; another
+    // exchange alone with 2+ live accounts asks which one. Nothing is written.
+    match draft.switch_refusal() {
+        Some(None) => { tx.rollback()?; return Ok(Outcome::Missing); }
+        Some(Some(message)) => {
+            draft.errors = vec![FieldError { field: "base".into(), message: message.clone() }];
+            let prepared = response_builder(&tx, &ctx, &draft)?;
+            tx.rollback()?;
+            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("account_required", message)));
+        }
+        None => {}
+    }
     mcp_refused |= draft.validate_schedule_bounds(ctx.locale, ctx.now)?;
     if !draft.errors.is_empty() {
         let prepared = response_builder(&tx, &ctx, &draft)?;

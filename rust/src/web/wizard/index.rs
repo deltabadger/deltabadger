@@ -290,7 +290,7 @@ fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) 
     };
     let mut statement = c.prepare("SELECT id, name, type FROM exchanges WHERE available = 1 AND (?1 IS NULL OR type IN (SELECT value FROM json_each(?1))) ORDER BY id")?;
     let venues = statement.query_map([types.map(|t| json!(t).to_string())], |r| Ok(crate::web::bot::Exchange {
-        id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: None,
+        id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: None, number: None,
     }))?.collect::<Result<Vec<_>, _>>()?;
     let table = super::exchanges::Table { action: ctx.path(EXCHANGE), csrf: csrf.to_string(), param_name: EXCHANGE_FIELD.into(), venues: vec![],
                                           unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };

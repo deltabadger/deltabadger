@@ -27,6 +27,10 @@ on:
       - 'rust/src/web/mod.rs'
       - 'rust/src/engine/run.rs'
       - 'rust/tests/desktop_engine.rs'
+      # D-LANGUAGE-STEP: the launcher's tests read the rule's cases; build.rs copies the app's fonts for its picker.
+      - 'rust/tests/fixtures/first_choice.json'
+      - 'rust/web/fonts/**'
+      - 'rust/web/public/fonts/**'
       # PLAN-B7 B7-2: the update legs.
       - 'rust/src/bundle.rs'
       - 'rust/src/web/layout.rs'
@@ -133,6 +137,13 @@ jobs:
         shell: bash
         run: bash script/rust/desktop_engine.sh "${{ matrix.triple }}"
 
+      # The launcher's own tests (the supervisor through its View trait, the language step, the navigation rules), before
+      # the bundle so a failure is cheap; they need the sidecar the step above built.
+      - name: Test the launcher
+        shell: bash
+        working-directory: src-tauri
+        run: cargo test --locked
+
       # PLAN-B7 B7-2: the update legs' throwaway updater key, made in the job; it signs nothing anyone installs.
       - name: Make the update test key
         if: runner.os != 'macOS'
@@ -175,7 +186,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           python3 script/rust/desktop_smoke/smoke.py --kind macos --app src-tauri/target/release/bundle/macos/Deltabadger.app \
-            --work "$RUNNER_TEMP/smoke" fresh quit
+            --work "$RUNNER_TEMP/smoke" language fresh quit
 
       # ---------------- Windows ----------------
       - name: Install tauri-driver
@@ -249,7 +260,7 @@ jobs:
         run: |
           python script/rust/desktop_smoke/smoke.py --kind nsis \
             --app "$DESKTOP_APP" --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
-            fresh app-killed engine-killed refusals takeover downloads
+            language fresh app-killed engine-killed refusals takeover downloads
 
       # The whole suite in one session bus and one display (PLAN-B6 r4.5); the AppImage runs extracted (no FUSE), and
       # its extracted copy stays while a second instance exits. Downloads go to the folder user-dirs.dirs names.
@@ -270,7 +281,7 @@ jobs:
           status=0
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind appimage --app "$appimage" \
             --work "$RUNNER_TEMP/smoke" --fixture-2x "$RUNNER_TEMP/fixture/fixture-2x.tar" \
-            fresh quit app-killed engine-killed refusals takeover downloads || status=1
+            language fresh quit app-killed engine-killed refusals takeover downloads || status=1
           sudo apt-get install -y ./src-tauri/target/release/bundle/deb/*.deb
           dbus-run-session -- xvfb-run -a python3 script/rust/desktop_smoke/smoke.py --kind deb --app /usr/bin/Deltabadger \
             --work "$RUNNER_TEMP/smoke-deb" fresh || status=1

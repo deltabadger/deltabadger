@@ -710,7 +710,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
-        (Table, "kucoin_coverage", Refuses("KuCoin HF history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
+        (Table, "kucoin_coverage", Refuses("KuCoin HF and Unified account history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
         // API orders (D-ORDER-QUEUED): one placed through a bot is that bot's rust_placement (a wait). A standalone one is
         // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
@@ -757,7 +757,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_snapshot_prices_pending_", Ignored),
         // KuCoin (reconcile.rs): an HF or UTA order record refuses; a Classic one is 2.x's own route. An obligation or an
         // unproven route sits on 2.x's own transaction row, which adopt_handback! polls while it is open.
-        (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF orders are Rust-only")),
+        (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF and Unified account orders are Rust-only")),
         (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
         (AppConfig, "rust_kucoin_hf_gap.", Ignored),
         // A user cancel's re-read: adopt_handback! polls every open order.
@@ -896,12 +896,26 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     // A continue start the engine never handled goes the same way: 2.x's adoption re-arms the bot at its next checkpoint.
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
+    restore_dropped_columns(&tx)?;
     lease::hand_back(lock, &tx, cipher, now)?;
     // When this engine left, plain, so `check` reads it without keys: 2.x's stamps after it are 2.x's own (staleness).
     crate::app_config::set_plain(&tx, lease::HANDED_BACK_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)
         .map_err(EngineError::Data)?;
     tx.commit()?;
     Ok(scheduled)
+}
+
+/// D-HANDBACK-RESTORES-NAME: 2.x reads every column a Rust migration dropped (store::DROPPED_COLUMNS, `users.name`),
+/// so each comes back empty, as `<column> varchar`, and its migration is unrecorded: a later start drops it again.
+/// Inside the ownership transaction, so a refused or failed handback leaves both as they were.
+fn restore_dropped_columns(tx: &rusqlite::Transaction) -> Result<(), EngineError> {
+    for &(version, table, column) in crate::store::DROPPED_COLUMNS {
+        let present: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_xinfo(?1) WHERE name = ?2)", [table, column], |r| r.get(0))?;
+        if !present { tx.execute_batch(&format!("ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" varchar"))?; }
+        let recorded: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_schema_migrations')", [], |r| r.get(0))?;
+        if recorded { tx.execute("DELETE FROM rust_schema_migrations WHERE version = ?1", [version])?; }
+    }
+    Ok(())
 }
 
 /// `deltabadger handback`: one pass; when it leaves an order unaccounted for, wait (a full window, so a fresh process may
@@ -1131,7 +1145,7 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
         }
     }
     // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
-    if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
+    if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF and Unified account history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;
     if !hf.is_empty() { return Err(EngineError::Ineligible(hf)); }
     let found = rust_only_conditions(c)?;

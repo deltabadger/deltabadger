@@ -58,7 +58,8 @@ fn serve_resumes_unfinished_connected_setup_sync() {
     }
 }
 
-/// A prepared install with no admin user yet is served: every page sends the first visitor to /setup.
+/// A prepared install with no admin user yet is served: every page sends the first visitor to the onboarding
+/// (D-LANGUAGE-STEP: the language step, for a request that names no language of ours).
 #[test]
 fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
     let dir = common::baseline_install();
@@ -70,7 +71,8 @@ fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
         assert!(started.elapsed() < Duration::from_secs(10) && server.0.try_wait().unwrap().is_none(), "serve did not come up");
         std::thread::sleep(Duration::from_millis(50));
     };
-    assert!(answer.starts_with("HTTP/1.1 302") && answer.to_ascii_lowercase().contains("location: /setup\r\n"), "{answer}");
+    assert!(answer.starts_with("HTTP/1.1 302") && answer.to_ascii_lowercase().contains("location: /language\r\n"), "{answer}");
+    assert!(http_get(port, "/language").is_some_and(|page| page.starts_with("HTTP/1.1 200")), "the language step is served");
     assert!(http_get(port, "/setup").is_some_and(|page| page.starts_with("HTTP/1.1 200")), "the setup page is served");
 }
 
@@ -1270,8 +1272,8 @@ fn two_accounts(owner_two_factor: bool) -> (tempfile::TempDir, rusqlite::Connect
     if owner_two_factor {
         opened.primary.execute("UPDATE users SET otp_module = 1, otp_secret_key = ?1 WHERE id = ?2", (OTP_SEED, seeded.user_id)).unwrap();
     }
-    opened.primary.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) \
-                            VALUES ('second@example.com', ?1, 'Second', 0, ?2, ?2, ?2)", (&hash, "2026-01-01 00:00:00")).unwrap();
+    opened.primary.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) \
+                            VALUES ('second@example.com', ?1, 0, ?2, ?2, ?2)", (&hash, "2026-01-01 00:00:00")).unwrap();
     let second = opened.primary.last_insert_rowid();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     (dir, opened.primary, app, seeded.user_id, second)
@@ -2271,7 +2273,8 @@ async fn the_exchange_menu_lists_a_second_account_and_switches_the_bot_to_it() {
     let second = c.last_insert_rowid();
     let page = browser.get(&app, &format!("/bots/{bot}")).await;
     assert!(page.body.contains(&format!("name=\"bots_dca_multi_asset[account_id]\" type=\"submit\" value=\"{second}\"")), "{}", page.body);
-    assert!(page.body.contains("<sup>2</sup>") && !page.body.contains("<sup>1</sup>"), "the bot's own account is not offered");
+    // Slice 6: the current item names the bot's own account (`Kraken¹`); only the other one is offered.
+    assert!(page.body.contains("<sup>2</sup>") && !page.body.contains(&format!("[account_id]\" type=\"submit\" value=\"{first}\"")), "the bot's own account is not offered");
     let switched = browser.post(&app, &format!("/bots/{bot}"), &[("_method", "patch"), ("bots_dca_multi_asset[account_id]", &second.to_string())]).await;
     assert!(switched.status < 400, "{} {}", switched.status, switched.body);
     assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(second), "{} {}", switched.status, &switched.body[..switched.body.len().min(3000)]);

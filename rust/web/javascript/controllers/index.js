@@ -115,6 +115,9 @@ application.register("index-allocation", IndexAllocationController)
 import IndexFilterController from "./index_filter_controller"
 application.register("index-filter", IndexFilterController)
 
+import LanguagePickerController from "./language_picker_controller"
+application.register("language-picker", LanguagePickerController)
+
 import MarqueeController from "./marquee_controller"
 application.register("marquee", MarqueeController)
 

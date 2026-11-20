@@ -3,16 +3,12 @@ cs:
     title: "Vítejte v Deltabadger"
     admin_account: "Administrátorský účet"
     platform:
-      prompt: "Máte předplatné Deltabadger.com?"
-      code: "Připojovací kód"
-      connect: "Připojit"
       connected_with_proxies: "Připojeno ✓ — tržní data a proxy servery burz jsou aktivní"
       connected_without_proxies: "Připojeno ✓ — tržní data jsou aktivní; proxy servery burz nejsou k dispozici"
     locked:
       title: "Nastavení je uzamčeno"
       text: "Chcete-li vytvořit účet správce, otevřete tento server z ovládacího panelu služby, která jej hostuje."
     validations:
-      name_required: "Jméno je povinné"
       email_required: "E-mail je povinný"
       password_required: "Heslo je povinné"
     api_configuration: "Bot využívá tržní data od CoinGecko. Přístup k CoinGecko API je zdarma, ale je potřeba se zaregistrovat a vytvořit API klíč. Návod najdete níže."
@@ -28,6 +24,9 @@ cs:
         <li><b>Zkopírujte API klíč</b> a vložte ho výše</li>
       </ol>
     continue: "Pokračovat"
+    create: "Vytvořit"
+    language:
+      greeting: "Ahoj"
     submit: "Spustit"
     success: "Nastavení bylo úspěšně dokončeno. Vítejte v Deltabadger!"
     syncing_message: "Synchronizace aktiv…"

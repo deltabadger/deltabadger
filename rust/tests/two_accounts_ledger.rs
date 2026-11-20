@@ -80,7 +80,7 @@ fn the_accessor_reads_and_writes_each_accounts_ids_and_the_trigger_keeps_the_two
         c.last_insert_rowid()
     };
     let other = Two::venue(c, &seed::cipher(), &two.seeded, "Exchanges::Binance", "Binance");
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', 0, 'now', 'now')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('x@example.com', 'x', 0, 'now', 'now')", []).unwrap();
     let stranger = c.last_insert_rowid();
     c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [stranger, two.seeded.exchange_id]).unwrap();
     let strangers = c.last_insert_rowid();

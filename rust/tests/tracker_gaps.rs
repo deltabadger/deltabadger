@@ -227,7 +227,7 @@ async fn a_failing_step_writes_nothing_and_loses_nothing() {
             "sql cap" => {
                 // Another user's rows since the watermark, which the probe's time range reads, over a lowered cap.
                 let c = fx.c();
-                c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 'Other', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+                c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 0, '2026-01-01', '2026-01-01')", []).unwrap();
                 history(&c, c.last_insert_rowid(), fx.s.exchange_id, 3_000, "2026-10-01 03:00:00");
                 gaps::seam::SQL.store(5_000, SeqCst);
             }
@@ -341,7 +341,7 @@ async fn the_pending_probe_is_bounded_by_the_time_index_and_the_cap() {
     eprintln!("probe past 50,000 earlier rows: {cost} VM instructions");
     c.execute("DELETE FROM account_transactions WHERE transacted_at='2026-09-05 00:00:00'", []).unwrap();
     // Another user's history, and this venue's watermark at the epoch.
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 'Other', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 0, '2026-01-01', '2026-01-01')", []).unwrap();
     // Dated before this user's own rows, which the probe would otherwise find first.
     history(&c, c.last_insert_rowid(), fx.s.exchange_id, 600_000, "2026-08-01 00:00:00");
     let (_, cost) = instructions(&c, |c| c.query_row(&gaps::pending_sql(), rusqlite::params!["1970-01-01 00:00:00", fx.owner(), 999], |_| Ok(())).optional().unwrap());
@@ -611,7 +611,7 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     let app = app(&fx);
     let gaps_read = gaps_read(owner);
     // #710: with each key's account (run::reading groups by it) in the same statement.
-    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, (SELECT a.id FROM exchange_accounts a")
+    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, (e.name || COALESCE(' ' || (SELECT CASE WHEN lbl_a.removed_at")
         && s.contains(") FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
     // #710 slice 5: the line's account (its number 1, none stored) and its balances' revision, in the one read.

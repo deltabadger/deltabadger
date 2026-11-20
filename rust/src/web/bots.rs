@@ -245,7 +245,7 @@ impl Refused {
             "SELECT b.status, b.label, b.exchange_id, e.type FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [id],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
         let label = label.filter(|label| !label.trim().is_empty()).unwrap_or_else(|| i18n::text(locale, "bot.new", &[]));
-        let exchange = bot::Exchange { id: exchange_id.unwrap_or_default(), name: String::new(), class: class.unwrap_or_default(), maker_fee: None }.name_id();
+        let exchange = bot::Exchange { id: exchange_id.unwrap_or_default(), name: String::new(), class: class.unwrap_or_default(), maker_fee: None, number: None }.name_id();
         Ok(Refused { id, status: BotStatus::from_i64(status).unwrap_or(BotStatus::Stopped), label, exchange_id: exchange_id.unwrap_or_default(), exchange })
     }
 

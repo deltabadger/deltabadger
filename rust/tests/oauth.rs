@@ -670,7 +670,7 @@ fn seeded() -> (tempfile::TempDir, App) {
 fn seeded_with_clock() -> (tempfile::TempDir, App, std::sync::Arc<TestClock>) {
     let dir = common::baseline_install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute_batch("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01', '2026-01-01');
+    c.execute_batch("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01');
                      INSERT INTO oauth_applications (name, uid, redirect_uri, scopes, confidential, created_at, updated_at) VALUES ('Client', 'client-uid', 'https://client.example/callback', 'mcp', 0, '2026-01-01', '2026-01-01');
                      INSERT INTO oauth_access_grants (application_id, resource_owner_id, token, expires_in, redirect_uri, scopes, code_challenge, code_challenge_method, created_at)
                        VALUES (1, 1, 'the-code', 600, 'https://client.example/callback', 'mcp', 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM', 'S256', '2026-09-10 12:00:30.123456');").unwrap();
@@ -1019,8 +1019,8 @@ type Subject<'a> = (String, Option<(i64, bool, &'a str)>);
 fn property_install() -> (tempfile::TempDir, App, Clients, Tokens) {
     let dir = common::baseline_install();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute_batch("INSERT INTO users (id, email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) VALUES
-                       (1, 'o@example.com', 'x', 'Owner', 1, '2026-01-01', '2026-01-01', '2026-01-01'), (2, 't@example.com', 'x', 'Two', 0, '2026-01-01', '2026-01-01', '2026-01-01');
+    c.execute_batch("INSERT INTO users (id, email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES
+                       (1, 'o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01'), (2, 't@example.com', 'x', 0, '2026-01-01', '2026-01-01', '2026-01-01');
                      INSERT INTO oauth_applications (id, name, uid, secret, redirect_uri, scopes, confidential, personal_access_token, personal_owner_id, created_at, updated_at) VALUES
                        (1, 'A', 'a-uid', NULL, 'https://a.example/cb', 'mcp', 0, 0, NULL, '2026-01-01', '2026-01-01'),
                        (2, 'B', 'b-uid', NULL, 'https://b.example/cb', 'mcp', 0, 0, NULL, '2026-01-01', '2026-01-01'),

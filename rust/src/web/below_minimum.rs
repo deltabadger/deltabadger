@@ -8,7 +8,7 @@ use crate::engine::events::EngineEvent;
 struct Modal {title:String,intro:String,buffer:String,note:String,understand:String,single:bool}
 
 pub fn render(c:&Connection,bot_id:i64,ids:&[i64])->Result<(String,String),WebError>{
-    let (owner,locale,exchange):(i64,Option<String>,String)=c.query_row("SELECT b.user_id,u.locale,e.name FROM bots b JOIN users u ON u.id=b.user_id JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1",[bot_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?)))?;
+    let (owner,locale,exchange):(i64,Option<String>,String)=crate::identity::with_bot_account("b",|account|c.query_row(&format!("SELECT b.user_id,u.locale,{} FROM bots b JOIN users u ON u.id=b.user_id JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1",crate::identity::plain_label_sql("e.name",account)),[bot_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))))?;
     let locale=locale.as_deref().unwrap_or("en");
     let count=i64::try_from(ids.len()).map_err(|_|WebError::Config("warning row count".into()))?;
     let intro=if let [id]=ids {

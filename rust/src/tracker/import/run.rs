@@ -62,8 +62,8 @@ pub(crate) fn missing_permission(exchange_type: &str, error: Option<&str>) -> bo
 /// ApiKey.reading over the user's keys: status correct, never a withdrawal key; per venue the trading key that lacks no
 /// permission, else the read-only one, else the first.
 pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> {
-    let keys = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-                           WHERE k.user_id = ?1 AND k.status = 1 AND k.key_type != 1 ORDER BY k.id"))?.query_map([user_id], |r| Ok((Reading { id: r.get(0)?, exchange_id: r.get(1)?, account_id: r.get(6)?, key_type: r.get(2)?, exchange_type: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+    let keys = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, {}, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+                           WHERE k.user_id = ?1 AND k.status = 1 AND k.key_type != 1 ORDER BY k.id", crate::identity::plain_label_sql("e.name", account)))?.query_map([user_id], |r| Ok((Reading { id: r.get(0)?, exchange_id: r.get(1)?, account_id: r.get(6)?, key_type: r.get(2)?, exchange_type: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
                                                          exchange_name: r.get::<_, Option<String>>(5)?.unwrap_or_default() }, r.get::<_, Option<String>>(3)?)))?
         .collect::<Result<Vec<_>, _>>())?;
     // Per account (#710), in the order its first key was made.

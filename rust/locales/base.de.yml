@@ -74,10 +74,8 @@ de:
                 enter_two_fa_code: '2FA-Code eingeben'
                 scan_code_info: 'Scannen Sie den QR-Code oder kopieren Sie den unten stehenden Code:'
             user:
-                name: Name
                 current_password: 'Aktuelles Passwort'
                 email: E-Mail
-                new_name: 'Neuer Name'
                 new_email: 'Neue E-Mail'
                 new_password: 'Neues Passwort'
                 new_password_confirmation: 'Neues Passwort bestätigen'
@@ -169,8 +167,6 @@ de:
             current_time_is: 'Diese Zeitzone wird in den Bot-Logs verwendet. Nach ihr ist die aktuelle Uhrzeit'
             currency_updated: "Ihre Anzeigewährung wurde aktualisiert."
             currency_is_used_for: "Gewinne und Portfoliosummen werden in dieser Währung angezeigt. Bots handeln weiterhin in ihrem eigenen Quote-Asset."
-        name:
-            updated: 'Ihr Name wurde aktualisiert.'
         two_fa:
             disabled: 'Die Zwei-Faktor-Authentifizierung wurde deaktiviert.'
             enabled: 'Die Zwei-Faktor-Authentifizierung wurde aktiviert.'
@@ -182,7 +178,6 @@ de:
             trading_keys_section: 'Handelsschlüssel'
             withdrawal_keys_section: 'Auszahlungsschlüssel'
             email_section: E-Mail
-            name_section: Name
             password_section: Passwort
             free_plan_reset_date_html: 'Dein Limit wird am <b>%{end_time}</b> zurückgesetzt.'
             title: Einstellungen

@@ -35,8 +35,10 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
 
 /// `AccountBalance.for_user(user).nonzero` (and, #710 slice 5, one account's), with each row's asset symbol.
 pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<Balance>, FiguresError> {
+    // Each row named by its account (#710 slice 6); a stand-in (an install without the account tables) by its exchange.
+    let name = if crate::identity::numbered(c)? { crate::identity::plain_label_sql("e.name", "b.account_id") } else { "e.name".into() };
     let mut s = c.prepare(&format!(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, {name}, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
          WHERE b.user_id = ?1 AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b")))?;
     let mut q = s.query([user_id])?;
@@ -228,12 +230,16 @@ fn rate(currency: &str, fx: &FxTable, today: NaiveDate, notes: &mut Notes) -> Re
     })
 }
 
-/// `venue_of`: the venue a coin's history was booked on, when it is one venue.
+/// `venue_of`: the venue a coin's history was booked on, when it is one venue: one account (#710 slice 6), named by its label.
 fn venue_of(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<String>, FiguresError> {
-    let mut s = c.prepare("SELECT e.name FROM exchanges e WHERE e.id IN (SELECT exchange_id FROM account_transactions WHERE user_id = ?1 AND base_currency = ?2)")?;
-    let names: Vec<String> = s.query_map(rusqlite::params![user_id, symbol], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    let mut s = c.prepare("SELECT e.name, e.id FROM exchanges e WHERE e.id IN (SELECT exchange_id FROM account_transactions WHERE user_id = ?1 AND base_currency = ?2)")?;
+    let names: Vec<(String, i64)> = s.query_map(rusqlite::params![user_id, symbol], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     crate::figures::budget::charge(names.len() as u64, 0)?;
-    Ok(if names.len() == 1 { names.into_iter().next() } else { None })
+    let Ok([(name, exchange)]) = <[_; 1]>::try_from(names) else { return Ok(None) };
+    if !crate::identity::numbered(c)? || crate::identity::accounts_of(c, user_id, exchange)?.len() < 2 { return Ok(Some(name)); }
+    let mut s = c.prepare(&format!("SELECT DISTINCT {} FROM account_transactions t WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.base_currency = ?3", crate::venue_ids::row_account("t")))?;
+    let accounts: Vec<Option<i64>> = s.query_map(rusqlite::params![user_id, exchange, symbol], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    Ok(match accounts.as_slice() { [Some(id)] => Some(crate::identity::label(c, *id)?.plain()), _ => None })
 }
 
 /// A (key, value) list by its key; each entry a step.

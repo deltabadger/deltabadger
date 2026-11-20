@@ -3,16 +3,12 @@ nl:
     title: "Welkom bij Deltabadger"
     admin_account: "Beheerdersaccount"
     platform:
-      prompt: "Heb je een Deltabadger.com-abonnement?"
-      code: "Verbindingscode"
-      connect: "Verbinden"
       connected_with_proxies: "Verbonden ✓ — marktgegevens en beursproxy's zijn actief"
       connected_without_proxies: "Verbonden ✓ — marktgegevens zijn actief; beursproxy's zijn niet beschikbaar"
     locked:
       title: "De installatie is vergrendeld"
       text: "Open deze server via het dashboard van de dienst die hem host om het beheerdersaccount aan te maken."
     validations:
-      name_required: "Naam is verplicht"
       email_required: "E-mail is verplicht"
       password_required: "Wachtwoord is verplicht"
     api_configuration: "De bot gebruikt marktdata van CoinGecko. De toegang tot de CoinGecko API is gratis, maar je moet je aanmelden en een API-sleutel maken. Kijk voor instructies hieronder."
@@ -28,6 +24,9 @@ nl:
         <li><b>Kopieer de API-sleutel</b> en plak deze hierboven</li>
       </ol>
     continue: "Doorgaan"
+    create: "Aanmaken"
+    language:
+      greeting: "Hallo"
     submit: "Starten"
     success: "Setup succesvol voltooid. Welkom bij Deltabadger!"
     syncing_title: "Assets synchroniseren…"

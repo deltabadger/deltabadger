@@ -9,6 +9,20 @@
     padding: 4rem 4rem 8rem
     flex-direction: column
     background: var(--paper)
+    // D-DEVISE-STABLE-TOP: the two onboarding pages (/language, /setup) place their block where its untouched height would
+    // be centred and let it grow downward, so a warning or the password rules never move the logo. `--onboarding-half` is
+    // half the page's untouched block plus the 2rem the padding's asymmetry (4rem top, 8rem bottom) adds.
+    &--onboarding
+        justify-content: flex-start
+        padding-top: max(4rem, calc(50vh - var(--onboarding-half)))
+        .devise__col
+            gap: 2.5rem
+    // Greeting 6rem, list 33rem, button 7rem, two 2.5rem gaps: 51rem.
+    &--language
+        --onboarding-half: 27.5rem
+    // The admin form's own min-height (56rem) holds its untouched fields.
+    &--setup
+        --onboarding-half: 30rem
     &__row
         display: flex
         flex-direction: column-reverse

@@ -2,7 +2,6 @@ bg:
     activerecord:
         attributes:
             user:
-                name: "Име"
                 email: "Имейл"
                 password: "Парола"
         errors:

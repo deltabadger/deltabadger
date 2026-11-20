@@ -28,7 +28,7 @@ Settings that affect the whole instance are hidden from other users and refused 
 | Stocks catalog (Alpaca) | **Settings → Connect → Stocks** |
 | Email notifications (SMTP) | **Settings → Account → Email Notifications** |
 | Multiple Accounts | **Settings → Account** |
-| Deltabadger.com connect code | Market Data widget and the setup page |
+| Deltabadger.com connect code | Market Data widget (and `CLAIM_TOKEN` on the setup page) |
 
 A non-admin who reaches a feature that needs one of these sees a message to that effect — for example "The CoinGecko API key is managed by your instance admin. Ask them to add it under Settings → Connect." when opening a tax report, or "Ask your admin to activate stock trading." in the bot wizard.
 

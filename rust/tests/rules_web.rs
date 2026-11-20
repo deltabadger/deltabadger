@@ -102,6 +102,7 @@ async fn service_delete_revive_and_update_relist() {
         Command::Create {
             exchange_id: i.s.exchange_id,
             asset_id: i.s.btc,
+            account_id: None,
             patch,
         },
     )
@@ -1874,6 +1875,7 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
                     i.s.user_id,
                     args["exchange_name"].as_str().unwrap_or_default(),
                     args["asset"].as_str().unwrap_or_default(),
+                    None,
                     patch,
                 )
                 .await

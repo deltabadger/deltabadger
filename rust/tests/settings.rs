@@ -346,11 +346,6 @@ async fn every_settings_write_rejects_missing_csrf_and_preserves_all_rows() {
     let mut writes = vec![
         (
             "PATCH",
-            "/settings/update_name",
-            vec![("user[name]", "Changed")],
-        ),
-        (
-            "PATCH",
             "/settings/update_email",
             vec![
                 ("user[email]", "changed@example.com"),
@@ -705,7 +700,7 @@ async fn tax_guard_rolls_back_unsupported_protection_and_wakes_only_after_commit
     assert_eq!(jurisdiction, "GB");
 }
 #[tokio::test(flavor = "current_thread")]
-async fn account_writes_validate_current_password_name_and_preference_values() {
+async fn account_writes_validate_current_password_and_preference_values() {
     let server = MockServer::start().await;
     let mut h = Harness::new(server.uri()).await;
     for (path, form) in [
@@ -724,7 +719,6 @@ async fn account_writes_validate_current_password_name_and_preference_values() {
                 ("user[current_password]", "wrong"),
             ],
         ),
-        ("/settings/update_name", vec![("user[name]", "123")]),
         (
             "/settings/update_time_zone",
             vec![("user[time_zone]", "invalid")],
@@ -840,7 +834,7 @@ async fn connected_client_grants_intersect_owner_permissions_and_revoke_preserve
     let mut h = Harness::new(server.uri()).await;
     h.c.execute("INSERT INTO oauth_applications(name,uid,secret,redirect_uri,scopes,confidential,created_at,updated_at)VALUES('Shared','settings-client','','http://localhost/callback','mcp api',0,'2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
     let id = h.c.last_insert_rowid();
-    h.c.execute("INSERT INTO users(email,encrypted_password,name,created_at,updated_at)VALUES('other@example.com','x','Other','2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01 00:00:00','2026-01-01 00:00:00')",[]).unwrap();
     let other = h.c.last_insert_rowid();
     for user in [h.seed.user_id, other] {
         h.c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,refresh_token,scopes,expires_in,created_at)VALUES(?1,?2,?3,?4,'mcp',1,'2026-01-01 00:00:00')",(id,user,format!("token-{user}"),format!("refresh-{user}"))).unwrap();
@@ -1408,7 +1402,7 @@ async fn unchanged_credentials_before_intent_place_exactly_as_before() { tick_wi
 async fn taken_email_request_must_not_rebind_a_token_sent_to_the_previous_address() {
     let server=MockServer::start().await;
     let mut h=Harness::new(server.uri()).await;
-    h.c.execute("INSERT INTO users(email,encrypted_password,name,confirmed_at,setup_completed,wash_sale_enabled,created_at,updated_at) SELECT 'taken@example.com',encrypted_password,'Other',confirmed_at,1,0,created_at,updated_at FROM users WHERE id=?1",[h.seed.user_id]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,setup_completed,wash_sale_enabled,created_at,updated_at) SELECT 'taken@example.com',encrypted_password,confirmed_at,1,0,created_at,updated_at FROM users WHERE id=?1",[h.seed.user_id]).unwrap();
     let other=h.c.last_insert_rowid();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]","next@example.com"),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let first:String=h.c.query_row("SELECT confirmation_token FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();
@@ -2445,7 +2439,7 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
     let phrases:Vec<String>=["bot.setup.stocks_ask_admin","bot.setup.stocks_activate_cta"].iter().map(|key|deltabadger::web::i18n::text("en",key,&[])).collect();
     let modal=[("Turbo-Frame","modal")];
     // Another admin, so a member's install is not one without an admin (which sends everyone to setup).
-    h.c.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 'Admin', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, setup_completed, created_at, updated_at) VALUES ('admin@example.com', 'x', 1, '2026-01-01', 1, '2026-01-01', '2026-01-01')",[]).unwrap();
     for admin in [false,true]{
         h.c.execute("UPDATE users SET admin=?1 WHERE id=?2",(admin,h.seed.user_id)).unwrap();
         let bots=h.browser.send(&h.app,"GET","/bots",None,Csrf::None,&[]).await;
@@ -3154,15 +3148,13 @@ async fn i_engine_diagnostics_redact_all_stored_material_in_every_encoding(){
 
 
 #[tokio::test(flavor="current_thread")]
-async fn r1_v2_name_whitespace_is_ascii() {
+async fn the_name_write_is_unrouted_and_writes_nothing() {
+    // D-NO-USER-NAME: PATCH /settings/update_name answers as any unknown settings route.
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
-    for name in ["Alice\u{a0}Smith","Alice\u{2003}Smith"] {
-        let before=h.snapshot();
-        let answer=h.submit("PATCH","/settings/update_name",&[("user[name]",name)],Csrf::Header).await;
-        assert_eq!(answer.status,422,"R1 2.x rejects this Unicode separator");
-        assert_eq!(h.snapshot(),before,"R1 rejected names leave every row unchanged");
-    }
-    assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,200);
+    let unknown=h.submit("PATCH","/settings/update_no_such_thing",&[("user[name]","Alice Smith")],Csrf::Header).await.status;
+    let before=h.snapshot();
+    assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,unknown);
+    assert_eq!(h.snapshot(),before);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -3344,7 +3336,7 @@ async fn r2_confirmation_normalizes_and_validates_pending_email(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let other=h.app.cipher.encrypt("not-used");drop(other);
     let hash=deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
-    h.c.execute("INSERT INTO users(name,email,encrypted_password,confirmed_at,created_at,updated_at,time_zone,display_currency)VALUES('Other','taken@example.com',?1,'2026-01-01','2026-01-01','2026-01-01','UTC','USD')",[hash]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,confirmed_at,created_at,updated_at,time_zone,display_currency)VALUES('taken@example.com',?1,'2026-01-01','2026-01-01','2026-01-01','UTC','USD')",[hash]).unwrap();
     assert_eq!(h.submit("PATCH","/settings/update_email",&[("user[email]"," TAKEN@example.com "),("user[current_password]","Correct-horse-9")],Csrf::Header).await.status,200);
     let pending:String=h.c.query_row("SELECT unconfirmed_email FROM users WHERE id=?1",[h.seed.user_id],|r|r.get(0)).unwrap();assert_eq!(pending," TAKEN@example.com ");
     h.browser.get(&h.app,"/settings/account").await;
@@ -3404,7 +3396,7 @@ async fn r2_stored_errors_and_mcp_answers_check_every_column_and_encoding(){
         h.app=h.app.with_figure_source(Source::Script(script)).unwrap();
         let balances=reads::fetch(&h.app,reads::Fetch::Balances{user:h.seed.user_id,exchange:h.seed.exchange_id,name:"Alpaca".into(),credentials:deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()}).await;
         let response=reads::finish(&h.c,balances).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP balances: {encoded:?}");assert!(!response.contains(&encoded),"no reflected balances diagnostic");
-        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],rows:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))],unread:vec![]}).await;
+        let orders=reads::fetch(&h.app,reads::Fetch::Orders{user:h.seed.user_id,local:vec![],rows:vec![],ids:Default::default(),venues:vec![(h.seed.exchange_id,-h.seed.exchange_id,"Alpaca".into(),Some(deltabadger::web::mcp::reads::Material::load(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap()))],unread:vec![]}).await;
         let response=reads::finish(&h.c,orders).unwrap().to_string();assert!(response.contains(deltabadger::crypto::VENUE_TEXT_REDACTED),"MCP orders: {encoded:?}");assert!(!response.contains(&encoded),"no reflected orders diagnostic");
     }
     }
@@ -3549,7 +3541,6 @@ async fn r3_json_api_replacement_wakes_ledger_after_commit(){r3_replacement_wake
 async fn r3_html_settings_refuse_json_bodies_without_writes(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     for (path,body) in [
-        ("/settings/update_name",serde_json::json!({"user":{"name":"New Owner"}})),
         ("/settings/update_email",serde_json::json!({"user":{"email":"new@example.com","current_password":"Correct-horse-9"}})),
         ("/settings/update_password",serde_json::json!({"user":{"password":"New-horse-8","current_password":"Correct-horse-9"}})),
         ("/settings/update_time_zone",serde_json::json!({"user":{"time_zone":"UTC"}})),
@@ -3567,7 +3558,7 @@ async fn r3_html_settings_refuse_json_bodies_without_writes(){
         let before=h.snapshot();let response=h.browser.send_body(&h.app,"DELETE",path,Some("{}".into()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
         assert_eq!(response.status,400,"R3 HTML settings are form-only: {path}");assert_eq!(h.snapshot(),before);
     }
-    let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_name",Some(serde_json::json!({"user":{"name":"New Owner"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
+    let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_locale",Some(serde_json::json!({"user":{"locale":"de"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
     assert_eq!(response.status,400);assert_eq!(h.snapshot(),before);
     assert!(h.mail.0.lock().unwrap().is_empty());assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -4098,7 +4089,7 @@ async fn d5b_the_session_exchange_never_reaches_another_users_key(){
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
-    h.c.execute("INSERT INTO users(name,email,encrypted_password,created_at,updated_at)VALUES('Other','other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
+    h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
     let other=h.c.last_insert_rowid();
     for kind in [0,2]{h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,1,?2,?3,?4,?5,1,'2026-01-01','2026-01-01')",(other,kind,h.app.cipher.encrypt("other-key"),h.app.cipher.encrypt("other-secret"),h.app.cipher.encrypt("paper"))).unwrap();}
     let theirs=|c:&rusqlite::Connection|c.prepare("SELECT * FROM api_keys WHERE user_id=?1 ORDER BY id").unwrap().query_map([other],|r|Ok((0..r.as_ref().column_count()).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap();
@@ -4541,4 +4532,15 @@ async fn email_alert_switches_store_one_alert_per_user_and_refuse_anything_else(
         assert_eq!(h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "1")], Csrf::Header).await.status, 200);
     }
     assert_eq!(rows(&h), [(me + 100, "low_funds".to_string())]);
+}
+
+/// D-DESKTOP-STABLE-IP-NOTE is the desktop's: the web build's key walkthrough has no note, proxy or not.
+#[tokio::test(flavor = "current_thread")]
+async fn the_web_key_walkthrough_has_no_stable_ip_note() {
+    let server = wiremock::MockServer::start().await;
+    let mut h = Harness::new(server.uri()).await;
+    let answer = h.browser.send(&h.app, "GET", &format!("/settings/api_key_permissions/{}", h.seed.api_key_id), None, Csrf::None, &[]).await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("sheet__prose"), "the walkthrough's pane");
+    assert!(!answer.body.contains("data-turbo-frame=\"_top\">Get a stable IP"), "{}", answer.body);
 }

@@ -3,16 +3,12 @@ sv:
     title: "Välkommen till Deltabadger"
     admin_account: "Administratörskonto"
     platform:
-      prompt: "Har du en Deltabadger.com-prenumeration?"
-      code: "Anslutningskod"
-      connect: "Anslut"
       connected_with_proxies: "Ansluten ✓ — marknadsdata och börsproxyservrar är aktiva"
       connected_without_proxies: "Ansluten ✓ — marknadsdata är aktiva; börsproxyservrar är inte tillgängliga"
     locked:
       title: "Installationen är låst"
       text: "Öppna den här servern från kontrollpanelen hos tjänsten som hostar den för att skapa administratörskontot."
     validations:
-      name_required: "Namn krävs"
       email_required: "E-post krävs"
       password_required: "Lösenord krävs"
     api_configuration: "Boten använder marknadsdata från CoinGecko. CoinGecko API är gratis att använda, men du behöver skapa ett konto och en API-nyckel. Se instruktionerna nedan."
@@ -28,6 +24,9 @@ sv:
         <li><b>Copy API key</b> och klistra in den ovan</li>
       </ol>
     continue: "Fortsätt"
+    create: "Skapa"
+    language:
+      greeting: "Hej"
     submit: "Starta"
     success: "Installationen är klar. Välkommen till Deltabadger!"
     syncing_message: "Synkroniserar tillgångar…"

@@ -1045,6 +1045,8 @@ fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_o
         assert_eq!(backups(dir.path()).len(), 2, "start {n}: {:?}", backups(dir.path()));
     }
     assert_eq!(lease_of(dir.path()).unwrap()["engine"], "none", "nothing claimed");
+    // D-DROP-USERS-NAME: the refused starts left 2.x its users.name, the drop unrecorded.
+    assert!(has_user_name(&c) && !drop_recorded(&c), "2.x's install keeps users.name");
     // A 2.x change that queued nothing (here a setting edited by hand) is a new state: a new copy.
     c.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 61) WHERE id = ?1", [bot]).unwrap();
     refused(dir.path(), &mut bare(dir.path(), &["serve"]));
@@ -1112,6 +1114,63 @@ fn a_crash_mid_migrate_or_mid_backup_leaves_one_copy_per_state_and_no_partial() 
     let made = backups(dir.path());
     assert!(made.len() == 1 && made[0].extension().is_none_or(|e| e != "partial"), "{made:?}");
     same(&snapshots(&made[0], false), &before, "the original");
+}
+
+// ---- D-DROP-USERS-NAME: users.name is dropped only once the install is Rust's --------------------------------------
+
+const DROP_NAME: &str = "20261122000002";
+fn has_user_name(c: &rusqlite::Connection) -> bool {
+    c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_xinfo('users') WHERE name = 'name')", [], |r| r.get(0)).unwrap()
+}
+fn drop_recorded(c: &rusqlite::Connection) -> bool {
+    c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name = 'rust_schema_migrations')", [], |r| r.get::<_, bool>(0)).unwrap()
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM rust_schema_migrations WHERE version = ?1)", [DROP_NAME], |r| r.get(0)).unwrap()
+}
+
+/// A first takeover from 2.x that is refused (a bot the assessment refuses, with an open order) leaves 2.x its
+/// users.name and the drop pending; every other migration applied. Once the bot is fixed, the start that claims drops it.
+#[test]
+fn a_refused_first_takeover_keeps_users_name_and_the_claim_drops_it() {
+    let (dir, bot) = two_x_install(true);
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    assert!(has_user_name(&c));
+    let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
+    assert!(r.stderr.contains("future_price_drop_limited"), "{}", r.stderr);
+    assert!(lease_of(dir.path()).is_none_or(|l| l["engine"] != "rust"), "nothing claimed");
+    assert!(has_user_name(&c) && !drop_recorded(&c), "a refused takeover leaves 2.x its users.name");
+    let waiting = pending(dir.path());
+    assert!(waiting.len() == 1 && waiting[0].contains(DROP_NAME), "only the drop waits: {waiting:?}");
+    // The bot fixed by hand in 2.x: the next start claims, and drops the column in that start.
+    c.execute("UPDATE bots SET settings = json_remove(settings, '$.future_price_drop_limited') WHERE id = ?1", [bot]).unwrap();
+    let said = run_to_claim(dir.path());
+    assert!(said.contains("took over (FromV2)") && said.contains(&format!("applied Rust migration {DROP_NAME}")), "{said}");
+    assert!(!has_user_name(&c) && drop_recorded(&c), "Rust's install has no users.name");
+    assert!(pending(dir.path()).is_empty());
+}
+
+/// A start that stops after migrating and before its claim (abort point after-migrate) leaves the column and the lease
+/// as 2.x had them; the next start's claim drops it.
+#[test]
+fn a_crash_between_migrate_and_claim_keeps_users_name() {
+    let (dir, _) = two_x_install(false);
+    let out = bare(dir.path(), &["run"]).env("DELTABADGER_TEST_ABORT", "after-migrate").output().unwrap();
+    assert!(!out.status.success());
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    assert!(lease_of(dir.path()).is_none_or(|l| l["engine"] != "rust"), "not claimed");
+    assert!(has_user_name(&c) && !drop_recorded(&c));
+    assert!(run_to_claim(dir.path()).contains("took over (FromV2)"));
+    assert!(!has_user_name(&c) && drop_recorded(&c));
+}
+
+/// An install this build creates has no users.name, from its first start.
+#[test]
+fn a_new_install_has_no_users_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let said = run_to_claim(dir.path());
+    assert!(said.contains("set up a new install"), "{said}");
+    let c = rusqlite::Connection::open(dir.path().join(DATABASES[0])).unwrap();
+    assert!(!has_user_name(&c) && drop_recorded(&c));
+    assert!(pending(dir.path()).is_empty());
 }
 
 /// C5b (r6 Q3 = a hard stop): no copy, no takeover. Unix only: it makes `backups/` read-only by mode bits.
@@ -1285,8 +1344,8 @@ mod reset_password {
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         let hash = deltabadger::crypto::hash_password(OLD).unwrap();
         for (email, hash) in [("owner@example.com", hash.as_str()), ("someone-else@example.com", "x")] {
-            c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
-                       VALUES ('Owner', ?1, ?2, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, hash)).unwrap();
+            c.execute("INSERT INTO users (email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+                       VALUES (?1, ?2, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", (email, hash)).unwrap();
         }
         (dir, hash)
     }

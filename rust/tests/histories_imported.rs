@@ -16,7 +16,9 @@ fn install(c: &Connection, tables: &Value) {
     for (table, rows) in tables.as_object().unwrap() {
         c.execute(&format!("DELETE FROM {table}"), []).unwrap();
         for row in rows.as_array().unwrap() {
-            let row = row.as_object().unwrap();
+            let mut row = row.as_object().unwrap().clone();
+            // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+            if table == "users" { row.shift_remove("name"); }
             let columns: Vec<String> = row.keys().map(|k| format!("\"{k}\"")).collect();
             let values: Vec<Sql> = row.values().map(|v| match v {
                 Value::Object(real) => Sql::Real(real["real"].as_str().unwrap().parse().unwrap()),

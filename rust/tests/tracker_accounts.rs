@@ -224,7 +224,7 @@ fn chip<'a>(body: &'a str, value: &str) -> Option<&'a str> {
     Some(&body[start..start + body[start..].find("</a>")?])
 }
 
-/// §6 tests 8 and 9: two accounts of one exchange are two chips, both named by the exchange until slice 6; `?exchange_id=`
+/// §6 tests 8 and 9: two accounts of one exchange are two chips, each named by its account (slice 6); `?exchange_id=`
 /// names number 1 and `?account_id=` account 2; a foreign account id is a 404; account 2's CSV export holds its rows only.
 /// REST/MCP keep `exchange_id` exchange-wide: the rows of both accounts.
 #[tokio::test(flavor = "current_thread")]
@@ -240,7 +240,7 @@ async fn each_account_is_a_chip_and_its_own_scope() {
     let page = get(&app, c, user, "/tracker").await;
     assert_eq!(page.status, 200, "{}", &page.body[..page.body.len().min(400)]);
     let (first, second) = (chip(&page.body, &exchange.to_string()).expect("number 1's chip"), chip(&page.body, &format!("a{}", b.id)).expect("account 2's chip"));
-    assert!(first.ends_with(">Kraken") && second.ends_with(">Kraken"), "{first}\n{second}");
+    assert!(first.ends_with(">Kraken<sup>1</sup>") && second.ends_with(">Kraken<sup>2</sup>"), "slice 6 names each account: {first}\n{second}");
     assert!(first.contains(&format!("exchange_id={exchange}")) && second.contains(&format!("account_id={}", b.id)));
     let on = |body: &str, value: &str| chip(body, value).is_some_and(|c| c.contains("is-on"));
     let old = get(&app, c, user, &format!("/tracker?exchange_id={exchange}")).await.body;
@@ -409,7 +409,7 @@ fn a_stand_ins_balances_are_its_owners_only() {
     let s = seed::seed_kraken(&raw, &seed::cipher());
     raw.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at) \
                  VALUES (?1, ?2, ?3, 2, 0, 100, 200, 'p', 's', 'c', 'u')", [s.user_id, s.exchange_id, s.btc]).unwrap();
-    raw.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('b@example.com', 'x', 'B', 0, 'now', 'now')", []).unwrap();
+    raw.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('b@example.com', 'x', 0, 'now', 'now')", []).unwrap();
     let b = raw.last_insert_rowid();
     raw.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 0, 0, 'now', 'now')", [b, s.exchange_id]).unwrap();
     drop(raw);

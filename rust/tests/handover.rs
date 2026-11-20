@@ -16,6 +16,39 @@ fn job(q: &rusqlite::Connection, class: &str, gid: &str) {
     q.execute("INSERT INTO solid_queue_scheduled_executions (job_id, queue_name, priority, scheduled_at, created_at) VALUES (?1, 'kraken', 0, '2026-10-07 10:00:00', '2026-09-30 11:00:00')", [id]).unwrap();
 }
 fn count(c: &rusqlite::Connection, sql: &str) -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() }
+const DROP_NAME: &str = "20261122000002";
+/// (users has a name column, the name drop is recorded).
+fn name_state(c: &rusqlite::Connection) -> (bool, bool) {
+    (count(c, "SELECT count(*) FROM pragma_table_xinfo('users') WHERE name = 'name'") == 1,
+     count(c, &format!("SELECT count(*) FROM rust_schema_migrations WHERE version = '{DROP_NAME}'")) == 1)
+}
+
+/// D-HANDBACK-RESTORES-NAME: a handback gives 2.x its `users.name` back (blank) and unrecords the drop; a second
+/// handback finds the column there; the next start drops it again.
+#[tokio::test(flavor = "current_thread")]
+async fn handback_restores_the_name_column_and_the_next_start_drops_it_again() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    assert_eq!(name_state(&o.primary), (false, true), "this build's migrations dropped it");
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    for round in 0..2 {
+        handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+        handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+        assert_eq!(name_state(&o.primary), (true, false), "round {round}");
+        assert_eq!(count(&o.primary, "SELECT count(*) FROM users WHERE name IS NOT NULL"), 0, "round {round}: blank");
+    }
+    assert_eq!(store::check(&p).unwrap().pending_rust, vec![DROP_NAME.to_string()]);
+    drop((l, o));
+    let l = lease::lock(&p, now()).unwrap();
+    // A start before its claim (the lease is 2.x's) leaves the column; the claim's start drops it (store::migrate_unowned).
+    assert!(store::migrate_unowned(&p, &l, false).unwrap().is_empty());
+    assert_eq!(name_state(&rusqlite::Connection::open(&p.primary).unwrap()), (true, false), "2.x keeps its column until a claim");
+    assert_eq!(store::migrate_unowned(&p, &l, true).unwrap(), vec![DROP_NAME.to_string()]);
+    assert_eq!(name_state(&rusqlite::Connection::open(&p.primary).unwrap()), (false, true));
+}
 
 #[test]
 fn takeover_claims_the_install_removes_its_bots_v2_jobs_drops_the_rest_and_unsticks_executing() {
@@ -198,10 +231,13 @@ async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
         assert!(!stdout.contains(" down ") && !stdout.contains("NO FILE"), "{task}: {stdout}");
     }
     assert!(v2_boot(dir.path()).0, "2.x starts after a completed handback");
+    // D-HANDBACK-RESTORES-NAME: 2.x reads users.name again (blank) where it reads it most: an account mail's greeting.
+    let (booted, stderr) = v2_boot_running(dir.path(), "u = User.first or raise 'no user'\nraise 'a name' unless u.name.nil?\nDevise.mailer.confirmation_instructions(u, 'token').body.to_s");
+    assert!(booted, "2.x reads the restored name: {stderr}");
     let c = rusqlite::Connection::open(&p.primary).unwrap();
-    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64 + 1, "Rust's record untouched");
+    assert_eq!(count(&c, "SELECT count(*) FROM rust_schema_migrations"), store::REGISTRY.migrations.len() as i64, "Rust's record untouched but the name drop's");
     assert_eq!(count(&c, "SELECT count(*) FROM sqlite_master WHERE name = 'rust_migration_probe'"), 1);
-    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, Vec::<String>::new());
+    assert_eq!(store::check_with(&p, &registry).unwrap().pending_rust, vec![DROP_NAME.to_string()], "the next claim drops the name again");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -221,6 +257,7 @@ async fn wrong_secret_handback_writes_nothing() {
     assert!(matches!(r, Err(EngineError::Lease(lease::LeaseError::Unreadable))), "{r:?}");
     assert_eq!((row(), bots()), (row_before, bots_before), "no intents, a wrong secret: nothing written");
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
+    assert_eq!(name_state(&o.primary), (false, true), "a refused handback keeps the name dropped and recorded");
 }
 
 #[derive(Clone)]
@@ -876,7 +913,7 @@ async fn an_hf_order_recorded_during_the_handback_is_caught_inside_the_ownership
         "vol": "60", "vol_exec": "0.0012", "cost": "60", "oflags": "viqc", "descr": { "type": "buy", "ordertype": "market", "price": "0" } } } } });
     let venue = FakeVenue::from_script(&json!({ "http": { "/0/private/ClosedOrders": [closed] } })).on_lookup(record.clone()).on_query(record);
     let r = handover::hand_back(&l, &o, &FakeFactory(venue), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
-    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p.iter().any(|m| m == &format!("bot {index}: KuCoin HF orders are Rust-only"))), "{r:?}");
+    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p.iter().any(|m| m == &format!("bot {index}: KuCoin HF and Unified account orders are Rust-only"))), "{r:?}");
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
 }
 
@@ -1065,7 +1102,7 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     o.primary.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
     let refused = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
-    assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF history is Rust-only".to_string()]), "{refused:?}");
+    assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF and Unified account history is Rust-only".to_string()]), "{refused:?}");
     o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
 }

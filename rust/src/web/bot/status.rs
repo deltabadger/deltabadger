@@ -16,7 +16,7 @@ use rusqlite::{Connection, OptionalExtension};
 /// Exchange#humanize_error: the venue's own classifier (Kraken's nonce and regional restriction), then the
 /// sentence of the failure kind, else the message as it came. One classifier with the mails.
 fn humanize(bot: &Bot, message: &str, locale: &str) -> String {
-    crate::mail::render::humanize_error(&bot.exchange.class, &bot.exchange.name, locale, message)
+    crate::mail::render::humanize_error(&bot.exchange.class, &bot.exchange.label().plain(), locale, message)
 }
 
 /// BotHelper#humanized_bot_error: each message in the reader's words, joined as an English sentence.
@@ -423,7 +423,7 @@ pub fn render_unsaved(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, stored: 
     };
     // Only a signal bot lists its ticker for the hint (Bots::Signal#tickers_for_start); the other types list none.
     let hint = (signal && matches!(bot.status, BotStatus::Stopped | BotStatus::Created) && super::signal::start_blocked(bot))
-        .then(|| i18n::text(ctx.locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", i18n::Arg::Text(&bot.exchange.name))]));
+        .then(|| i18n::text(ctx.locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", i18n::Arg::Text(&bot.exchange.label().plain()))]));
     let tile_button = ButtonView::render_for(ctx, csrf, bot, &button, true, hint.clone())?;
     let button = ButtonView::render_for(ctx, csrf, bot, &button, false, hint)?;
     Ok(Status { bar, progress, button, tile_button, check: Some(check) })
