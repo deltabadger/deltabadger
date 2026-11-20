@@ -568,6 +568,9 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
 }
 
+/// `legacy`'s answers to a pick (§4.2): an account not the user's live one of this exchange, and which account.
+const MISSING: &str = "\0account not found";
+const AMBIGUOUS: &str = "\0account required: ";
 /// The browser's JSON endpoint: #497 replaces in place and resets only changed-key ledger progress.
 pub async fn legacy(
     axum::extract::State(app): axum::extract::State<App>,
@@ -617,6 +620,11 @@ pub async fn legacy(
     let key = parameter("key").map(|s| s.replace("\\n", "\n"));
     let secret = parameter("secret").map(|s| s.replace("\\n", "\n"));
     let passphrase = parameter("passphrase");
+    // #710 (PLAN-710-6 §4.1): the account the save names; none with one live account is the exchange's.
+    let posted_account = match parameter("account_id") {
+        None => None,
+        Some(text) => match text.trim().parse::<i64>() { Ok(id) => Some(id), Err(_) => return Ok(layout::missing()) },
+    };
     let Some(exchange) = exchange else {
         return Ok((
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -632,7 +640,14 @@ pub async fn legacy(
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
-  let account=Account::first(&tx,user.id,exchange)?.ensure(&tx,inner.now())?;
+  let account=match crate::identity::pick(&tx,user.id,exchange,posted_account)?{
+   crate::identity::Pick::One(account)=>account,
+   crate::identity::Pick::NotFound=>return Ok(Err(Some(MISSING.into()))),
+   crate::identity::Pick::Ambiguous(accounts)=>{
+    let name:String=tx.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?;
+    return Ok(Err(Some(format!("{AMBIGUOUS}{}",crate::identity::Pick::required(&name,&accounts)))));
+   }
+  }.ensure(&tx,inner.now())?;
   let current=Key::read(&tx,&inner,account,kind)?;
   if current.id.is_some() && settling(&tx,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
@@ -661,9 +676,12 @@ pub async fn legacy(
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;
     if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
+    if matches!(&saved,Err(Some(reason)) if reason==MISSING){return Ok(layout::missing());}
     let (status, data) = match saved {
         Ok(()) => (StatusCode::CREATED, serde_json::json!({"data":true})),
         Err(None) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false})),
+        // An exchange with 2+ live accounts and no account named: which one, in the services' words (§4.2).
+        Err(Some(reason)) if reason.starts_with(AMBIGUOUS) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":&reason[AMBIGUOUS.len()..]})),
         Err(Some(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
     };
     Ok((status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], data.to_string()).into_response())

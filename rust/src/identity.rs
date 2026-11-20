@@ -574,6 +574,38 @@ pub fn accounts_of(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::
     Ok(out)
 }
 
+/// What a write that names an exchange (and maybe an account) of the user acts on (PLAN-710-6 §4.2).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Pick {
+    One(Account),
+    /// The posted account is not a live account of this user and exchange: a 404 like a foreign bot id.
+    NotFound,
+    /// No account posted and the exchange has 2+ live accounts: each one's label and id, by number.
+    Ambiguous(Vec<(Label, i64)>),
+}
+
+impl Pick {
+    /// The REST/MCP refusal of an `Ambiguous` pick (English, like the services' other refusals).
+    pub fn required(exchange: &str, accounts: &[(Label, i64)]) -> String {
+        let listed = accounts.iter().map(|(l, id)| format!("{} (account_id {id})", l.plain())).collect::<Vec<_>>().join(", ");
+        format!("{exchange} has {} accounts: {listed}. Name one with account_id.", accounts.len())
+    }
+}
+
+/// The one resolver of a posted (user, exchange, account): the posted account when it is a live one of theirs, else
+/// `NotFound`; with none posted, the exchange's account while it has at most one live account, else `Ambiguous`.
+pub fn pick(c: &Connection, user_id: i64, exchange_id: i64, posted: Option<i64>) -> rusqlite::Result<Pick> {
+    if let Some(id) = posted {
+        if !ready(c)? { return Ok(Pick::NotFound); }
+        let live: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_accounts WHERE id = ?1 AND user_id = ?2 AND exchange_id = ?3 AND removed_at IS NULL)",
+                                     [id, user_id, exchange_id], |r| r.get(0))?;
+        return Ok(if live { Account::by_id(c, id)?.map_or(Pick::NotFound, Pick::One) } else { Pick::NotFound });
+    }
+    let live = accounts_of(c, user_id, exchange_id)?;
+    if live.len() < 2 { return Ok(Pick::One(Account::first(c, user_id, exchange_id)?)); }
+    Ok(Pick::Ambiguous(live.into_iter().map(|(id, _)| Ok((label(c, id)?, id))).collect::<rusqlite::Result<_>>()?))
+}
+
 /// Fills an unknown account's fingerprint. A known one is never overwritten.
 fn establish(c: &Connection, account: i64, fingerprint: &str, encrypted: &[u8], now: DateTime<Utc>) -> rusqlite::Result<bool> {
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2, account_id_enc = ?3, updated_at = ?4 WHERE id = ?1 AND fingerprint IS NULL",

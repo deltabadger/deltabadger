@@ -150,3 +150,99 @@ async fn t3_plain_text_names_the_account() {
     assert!(details.to_string().contains("Exchange: Kraken 2"), "{details}");
 }
 
+// ---- commit 2: settings per account (§4.1, T4-T5) ----
+
+fn status(c: &Connection, bot: i64) -> i64 { c.query_row("SELECT status FROM bots WHERE id = ?1", [bot], |r| r.get(0)).unwrap() }
+/// Bot `n` of `two` settles: an order of it still polled (open on the venue).
+fn settle(c: &Connection, two: &Two, n: usize) { two.order(c, n, &format!("open-{n}"), 0, Some(1)); }
+fn key_material(c: &Connection, cipher: &deltabadger::crypto::Cipher, key: i64) -> String {
+    cipher.decrypt(&c.query_row("SELECT key FROM api_keys WHERE id = ?1", [key], |r| r.get::<_, String>(0)).unwrap()).unwrap()
+}
+/// A signed-in browser that has read the settings page (its csrf token).
+async fn on_settings(app: &deltabadger::web::App, c: &Connection, owner: i64) -> common::web::Browser {
+    let mut b = browser(app, c, owner);
+    assert_eq!(b.get(app, "/settings/api_keys").await.status, 200);
+    b
+}
+
+/// T4: deleting account 2's trading key stops only account 2's working bots; account 1 settling does not refuse it,
+/// account 2 settling does.
+#[tokio::test(flavor = "current_thread")]
+async fn t4_a_key_delete_acts_on_its_account_only() {
+    for settling in [None, Some(0), Some(1)] {
+        let (dir, o) = install();
+        let c = &o.primary;
+        let two = Two::kraken(c, &seed::cipher());
+        if let Some(n) = settling { settle(c, &two, n); }
+        let app = web_app(dir.path(), c);
+        let mut b = on_settings(&app, c, two.seeded.user_id).await;
+        let answer = b.send(&app, "DELETE", &format!("/settings/destroy_api_key/{}", two.keys[1]), Some(&[]), common::web::Csrf::Header, &[]).await;
+        let gone = !one::<bool>(c, &format!("SELECT EXISTS(SELECT 1 FROM api_keys WHERE id = {})", two.keys[1]));
+        if settling == Some(1) {
+            assert_eq!(answer.status, 422, "account 2 settles");
+            assert!(!gone && status(c, two.bots[1]) == 1, "nothing changed");
+        } else {
+            assert_eq!(answer.status, 200, "{settling:?}: {}", answer.body);
+            assert!(gone, "{settling:?}");
+            assert_eq!((status(c, two.bots[0]), status(c, two.bots[1])), (1, 2), "{settling:?}: only account 2's bot stops");
+        }
+    }
+}
+
+struct Quiet;
+impl deltabadger::web::settings::keys::Logger for Quiet { fn warn(&self, _: &str) {} }
+
+/// T4: a bot sheet's key save on account 2 (Alpaca, validated by its host) changes account 2's key only.
+#[tokio::test(flavor = "current_thread")]
+async fn t4_a_bot_sheet_save_on_account_2_changes_only_its_key() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let kraken = Two::kraken(c, &cipher);
+    let alpaca = Two::venue(c, &cipher, &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    c.execute("UPDATE bots SET status = 2 WHERE exchange_id = ?1", [alpaca.seeded.exchange_id]).unwrap();
+    let app = web_app(dir.path(), c).with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()), std::sync::Arc::new(Quiet)).unwrap();
+    let mut b = browser(&app, c, kraken.seeded.user_id);
+    assert_eq!(b.get(&app, &format!("/bots/{}", alpaca.bots[1])).await.status, 200);
+    let saved = b.send(&app, "POST", &format!("/bots/{}/add_api_key", alpaca.bots[1]), Some(&[("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", "paper")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert!(saved.status < 400, "{}: {}", saved.status, saved.body);
+    assert_eq!((key_material(c, &cipher, alpaca.keys[0]), key_material(c, &cipher, alpaca.keys[1])), ("account-1-key".into(), "new-key".into()));
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM api_keys WHERE exchange_id = {}", alpaca.seeded.exchange_id)), 2, "no key made");
+}
+
+async fn json_save(app: &deltabadger::web::App, b: &mut common::web::Browser, exchange: &str, account: Option<&str>) -> common::web::Answer {
+    let mut form = vec![("api_key[exchange_id]", exchange), ("api_key[key_type]", "trading"), ("api_key[key]", "new-key"), ("api_key[secret]", "new-secret")];
+    if let Some(a) = account { form.push(("api_key[account_id]", a)); }
+    b.send(app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await
+}
+
+/// T5: the browser's JSON key save naming Kraken with two live accounts is a 422; with account 2's `account_id` the key is
+/// saved there; a foreign `account_id` is a 404.
+#[tokio::test(flavor = "current_thread")]
+async fn t5_the_json_key_save_names_its_account() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let two = Two::kraken(c, &cipher);
+    let app = web_app(dir.path(), c);
+    let mut b = on_settings(&app, c, two.seeded.user_id).await;
+    let exchange = two.seeded.exchange_id.to_string();
+    let ambiguous = json_save(&app, &mut b, &exchange, None).await;
+    assert_eq!(ambiguous.status, 422, "{}", ambiguous.body);
+    let message: serde_json::Value = serde_json::from_str(&ambiguous.body).unwrap();
+    assert_eq!(message["data"], false);
+    assert!(message["message"].as_str().unwrap().contains(&format!("Kraken 2 (account_id {})", two.id(1))), "{message}");
+    assert_eq!((key_material(c, &cipher, two.keys[0]), key_material(c, &cipher, two.keys[1])), ("test-key".into(), "account-2-key".into()), "nothing saved");
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1 + 100, ?2, 1, 'now', 'now')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    let foreign = c.last_insert_rowid().to_string();
+    assert_eq!(json_save(&app, &mut b, &exchange, Some(&foreign)).await.status, 404, "another user's account");
+    let second = two.id(1).to_string();
+    let saved = json_save(&app, &mut b, &exchange, Some(&second)).await;
+    assert_eq!(saved.status, 201, "{}", saved.body);
+    assert_eq!((key_material(c, &cipher, two.keys[0]), key_material(c, &cipher, two.keys[1])), ("test-key".into(), "new-key".into()));
+}
+

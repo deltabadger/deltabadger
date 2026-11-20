@@ -76,6 +76,16 @@ impl Two {
         id
     }
 
+    /// A bot order of account `n`'s bot with venue id `external`, `status` and `external_status`, written as placement writes
+    /// one: `stored` into 2.x's column, then `after_order_insert`. Returns its id.
+    pub fn order(&self, c: &Connection, n: usize, external: &str, status: i64, external_status: Option<i64>) -> i64 {
+        let scope = &self.scopes[n];
+        let id = seed::insert_tx(c, &self.seeded, self.bots[n], &seed::TxSpec { status, external_status, external_id: scope.stored(Some(external)).map(str::to_string), order_type: 0,
+            amount: Some("0.001"), quote_amount: Some("60"), price: Some("60000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-02 10:00:00".into() });
+        venue_ids::after_order_insert(c, scope, id, Some(external)).unwrap();
+        id
+    }
+
     /// Account `n`'s (0: number 1, 1: number 2) row id.
     pub fn id(&self, n: usize) -> i64 { self.accounts[n].id.unwrap() }
 
