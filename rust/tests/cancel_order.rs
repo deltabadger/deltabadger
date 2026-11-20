@@ -511,7 +511,7 @@ async fn a_second_accounts_standalone_order_is_cancelled_with_that_accounts_key(
     assert_eq!(api_orders::take(c, id, at(T0)).unwrap().unwrap().standalone.unwrap().account, second);
     assert!(api_orders::claim(c, id, "cl", None, &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());
     api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: "SCL-2".into() }).unwrap();
-    assert_eq!(api_orders::log_order(c, user, exchange, "SCL-2").unwrap().unwrap().0, second);
+    assert_eq!(api_orders::log_order(c, user, exchange, "SCL-2", None).unwrap().unwrap().0, second);
     kucoin_mode(&server, &o, "classic").await;
     let app = kucoin_app(&d, &server);
     // #710 slice 6 (§4.3): with two live accounts a venue id names its account, even when only one holds it.
@@ -525,6 +525,33 @@ async fn a_second_accounts_standalone_order_is_cancelled_with_that_accounts_key(
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
     let (status, body) = rest_cancel(&app, &named).await;
     assert_eq!((status, body["error"]["code"].as_str()), (403, Some("api_key_missing")), "{body}");
+}
+
+/// #710 (Codex 6a): two accounts each logged standalone order `SCL`, account 2's the newer: the log read for account 1 finds
+/// account 1's, never the newer one of account 2 that would hide it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_standalone_order_id_both_accounts_logged_reads_the_named_accounts() {
+    use deltabadger::{engine::api_orders, identity::Account};
+    let server = MockServer::start().await;
+    let (_d, o, _bot, _rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange, ticker): (i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let first = Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [user, exchange]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    let (amount, pair) = (deltabadger::v2::BigDec::parse("0.001").unwrap(), serde_json::Map::new());
+    for (account, symbol) in [(first, "BTC-EUR"), (second, "ETH-EUR")] {
+        let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
+            standalone: api_orders::Standalone { account, exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::v2::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+        api_orders::take(c, id, at(T0)).unwrap().unwrap();
+        assert!(api_orders::claim(c, id, &format!("cl-{symbol}"), None, &json!({"symbol": symbol, "side": "buy", "limit": true})).unwrap());
+        api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: "SCL".into() }).unwrap();
+    }
+    let read = |account: Option<i64>| api_orders::log_order(c, user, exchange, "SCL", account).unwrap().unwrap();
+    assert_eq!(read(first.id).0, first);
+    assert_eq!(read(first.id).2["symbol"], "BTC-EUR");
+    assert_eq!(read(second.id).0, second);
+    assert_eq!(read(None).0, second, "no account: the newest, as before");
 }
 
 /// #710: a bot's order is cancelled with the key of the account it was placed on, by database id or by exchange id, even

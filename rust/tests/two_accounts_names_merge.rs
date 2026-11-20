@@ -447,6 +447,26 @@ async fn t9_an_order_id_one_account_holds_never_hides_the_others_live_order() {
     let read = reads::finish(c, fetched).unwrap();
     let orders = mcp_text(&read);
     assert!(orders.starts_with("Open orders (2):") && orders.contains("| Alpaca 1 | ext: X") && orders.contains("(Limit order) | Alpaca 2 | ext: X"), "account 1's from the db, account 2's from its venue: {read}");
+    // `account_id` alone reads that account's exchange only; one not the user's live account is a 404.
+    let Called::Fetch(fetch) = reads::plan(c, &app, user, "list_open_orders", &serde_json::json!({"account_id": alpaca.id(1)})).unwrap() else { panic!("no fetch") };
+    let read = reads::finish(c, reads::fetch(&app, fetch).await).unwrap();
+    let orders = mcp_text(&read);
+    assert!(orders.starts_with("Open orders (1):") && orders.contains("| Alpaca 2 | ext: X") && !orders.contains("Kraken"), "{read}");
+    remove(c, kraken.id(1));
+    let gone = reads::plan(c, &app, user, "list_open_orders", &serde_json::json!({"account_id": kraken.id(1)})).unwrap();
+    let Called::Done(gone) = gone else { panic!("a removed account is not read") };
+    assert!(gone.to_string().contains("Account not found."), "{gone}");
+    c.execute("UPDATE exchange_accounts SET removed_at = NULL WHERE id = ?1", [kraken.id(1)]).unwrap();
+    // The unread exchanges' JSON keeps the bare name, the account beside it (§4.4); the text names the account.
+    let Called::Fetch(fetch) = reads::plan(c, &app, user, "list_open_orders", &serde_json::json!({})).unwrap() else { panic!("no fetch") };
+    let full = reads::finish_read(c, reads::fetch(&app, fetch).await).unwrap();
+    let read = serde_json::json!({"data": full.res.data, "text": full.text});
+    let unavailable = read["data"]["unavailable"].as_array().cloned().unwrap_or_default();
+    let kraken_entries: Vec<_> = unavailable.iter().filter(|u| u["exchange"] == "Kraken").collect();
+    assert_eq!(kraken_entries.len(), 2, "{read}");
+    assert!(kraken_entries.iter().any(|u| u["account"] == 2 && u["account_id"] == kraken.id(1)), "{read}");
+    assert!(!unavailable.iter().any(|u| u["exchange"].as_str().is_some_and(|e| e.ends_with(" 1") || e.ends_with(" 2"))), "{read}");
+    assert!(read["text"].as_str().unwrap_or_default().contains("! Kraken 2:"), "{read}");
 }
 
 /// T3 (refusals): the REST/MCP order and bot-create refusals, the multi-asset create validation and the tax report's sync

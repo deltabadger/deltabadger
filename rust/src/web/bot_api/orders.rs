@@ -481,7 +481,7 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
                                                WHERE b.user_id=?1 AND t.exchange_id=?2 AND {o}=?3 AND substr({o}, 1, 9) != 'imported_' AND {mine} ORDER BY t.id DESC LIMIT 1",
                                                o = crate::venue_ids::order_id(c, "t")?, mine = picked.orders(c, "t")?),
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))?
+    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text, picked.id).map_err(|e| WebError::Config(format!("{e:?}")))?
                                      .filter(|(account, _, _)| account.id == picked.id || picked.id.is_none()) } else { None };
     let account = match (&row, &log) {
         (Some((_, tx)), _) => crate::identity::Account::of_order(c, *tx)?,
