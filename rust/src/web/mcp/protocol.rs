@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); account_ids(&mut data); data })
 }
 /// A1 listed additions. 2.x's six rule tools, extended with W2's one-matrix fields.
 /// The 2.x definitions remain source-pinned by withdrawal_vectors.json.
@@ -95,6 +95,16 @@ fn unrecorded_orders(data: &mut Value) {
 pub const TAX_STABLECOIN: &str = "Accepted for compatibility and ignored: every supported country treats stablecoins as crypto";
 /// D-TAX-PL-DECLARED-CARRY: the web export form's PL field, as generate_tax_report's optional `pl_carried_costs`.
 pub const TAX_PL_CARRY: &str = "PL only: column d of PIT-38 you declare for this year, in PLN (a dot, at most 2 decimals): for 2019 the costs incurred before 2019 and never deducted, for later years the unused costs from column f of your previous PIT-38. null or \"\" clears it (column d is then carried from the year before); omitted keeps what is saved, also from the web export form.";
+/// D-API-ACCOUNT-ID (#710, PLAN-710-6 §4.5): the tools that name an exchange's account take its optional `account_id`.
+pub const ACCOUNT_ID_TOOLS: [&str; 14] = ["get_exchange_balances", "list_open_orders", "market_buy", "market_sell", "limit_buy", "limit_sell", "cancel_order",
+    "create_bot", "create_index_bot", "create_signal_bot", "update_bot_settings", "create_rule", "list_account_transactions", "export_transactions_csv"];
+pub const ACCOUNT_ID: &str = "The account of the exchange (account_id from list_exchanges). Needed when the exchange has more than one account.";
+fn account_ids(data: &mut Value) {
+    let Some(tools) = data["tools"].as_array_mut() else { return };
+    for tool in tools.iter_mut().filter(|t| ACCOUNT_ID_TOOLS.iter().any(|n| t["name"] == *n)) {
+        tool["inputSchema"]["properties"]["account_id"] = json!({"type": ["integer", "null"], "description": ACCOUNT_ID});
+    }
+}
 fn tax_stablecoin(data: &mut Value) {
     let Some(tool) = data["tools"].as_array_mut().and_then(|tools| tools.iter_mut().find(|t| t["name"] == "generate_tax_report")) else { return };
     tool["inputSchema"]["properties"]["stablecoin_as_fiat"]["description"] = json!(TAX_STABLECOIN);

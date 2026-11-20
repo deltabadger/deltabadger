@@ -514,13 +514,16 @@ async fn a_second_accounts_standalone_order_is_cancelled_with_that_accounts_key(
     assert_eq!(api_orders::log_order(c, user, exchange, "SCL-2").unwrap().unwrap().0, second);
     kucoin_mode(&server, &o, "classic").await;
     let app = kucoin_app(&d, &server);
-    let (status, body) = rest_cancel(&app, "SCL-2?exchange_name=kucoin").await;
+    // #710 slice 6 (§4.3): with two live accounts a venue id names its account, even when only one holds it.
+    assert_eq!(rest_cancel(&app, "SCL-2?exchange_name=kucoin").await.0, 422);
+    let named = format!("SCL-2?exchange_name=kucoin&account_id={}", second.id.unwrap());
+    let (status, body) = rest_cancel(&app, &named).await;
     assert_eq!((status, &body["data"]["cancelled"]), (200, &json!(true)), "{body}");
     let keys: Vec<String> = server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "DELETE")
         .map(|r| r.headers.get("KC-API-KEY").unwrap().to_str().unwrap().to_string()).collect();
     assert_eq!(keys, ["account-2-key"]);
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
-    let (status, body) = rest_cancel(&app, "SCL-2?exchange_name=kucoin").await;
+    let (status, body) = rest_cancel(&app, &named).await;
     assert_eq!((status, body["error"]["code"].as_str()), (403, Some("api_key_missing")), "{body}");
 }
 
@@ -533,7 +536,7 @@ async fn a_bots_order_is_cancelled_on_the_account_it_was_placed_on() {
     let (d, o, bot, rows) = kucoin_install(&server.uri());
     let c = &o.primary;
     let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM bots WHERE id = ?1", [bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
-    Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    let first = Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
     c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [user, exchange]).unwrap();
     let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
     let cipher = seed::cipher();
@@ -544,7 +547,8 @@ async fn a_bots_order_is_cancelled_on_the_account_it_was_placed_on() {
     deltabadger::identity::place_bot(c, bot, user, exchange, Some(second), at(T0)).unwrap();
     kucoin_mode(&server, &o, "classic").await;
     let app = kucoin_app(&d, &server);
-    for path in [rows[2].to_string(), "CL-1?exchange_name=kucoin".to_string()] {
+    // #710 slice 6 (§4.3): a venue id names its account with two live accounts (the order's, account 1).
+    for path in [rows[2].to_string(), format!("CL-1?exchange_name=kucoin&account_id={}", first.id.unwrap())] {
         let (status, body) = rest_cancel(&app, &path).await;
         assert_eq!(status, 200, "{path}: {body}");
     }
@@ -577,6 +581,6 @@ async fn a_second_accounts_standalone_order_needs_only_its_own_accounts_key() {
     api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: "SCL-3".into() }).unwrap();
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [first_key]).unwrap();
     kucoin_mode(&server, &o, "classic").await;
-    let (status, body) = rest_cancel(&kucoin_app(&d, &server), "SCL-3?exchange_name=kucoin").await;
+    let (status, body) = rest_cancel(&kucoin_app(&d, &server), &format!("SCL-3?exchange_name=kucoin&account_id={}", second.id.unwrap())).await;
     assert_eq!((status, &body["data"]["cancelled"]), (200, &json!(true)), "{body}");
 }

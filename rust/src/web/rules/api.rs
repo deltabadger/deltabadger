@@ -116,7 +116,11 @@ impl Request {
             .unwrap_or(0);
         let result = match action {
             Action::Create => {
-                service::create_named(app, user, &text("exchange_name"), &text("asset"), patch())
+                let account = match args.get("account_id").filter(|v| crate::web::bot_api::present(v)) {
+                    None => None,
+                    Some(v) => match crate::web::bot_api::to_i(v) { Some(id) => Some(id), None => Some(0) },
+                };
+                service::create_named(app, user, &text("exchange_name"), &text("asset"), account, patch())
                     .await?
             }
             Action::Update => service::call(app, user, Command::Update(id, patch())).await?,
@@ -204,10 +208,12 @@ fn row(r: ListedRule) -> Value {
     let unresolved = r.unresolved_withdrawal.map(
         |u| json!({"state":u.state,"reason":u.reason,"since":u.since,"candidates":u.candidates}),
     );
-    json!({"id":r.id,"type":r.rule_type,"status":r.status,"exchange":r.exchange,"asset":r.asset,
+    let mut out = json!({"id":r.id,"type":r.rule_type,"status":r.status,"exchange":r.exchange,"asset":r.asset,
         "address":r.address,"address_tag":r.address_tag,"network":r.network,"threshold_type":r.threshold_type,
         "withdrawal_percentage":r.withdrawal_percentage,"max_fee_percentage":r.max_fee_percentage,"min_amount":r.min_amount,
-        "max_interval":r.max_interval,"unresolved_withdrawal":unresolved})
+        "max_interval":r.max_interval,"unresolved_withdrawal":unresolved});
+    crate::identity::account_fields(&mut out, r.account.map(|a| a.0), r.account.map(|a| a.1));
+    out
 }
 fn list_text(rows: &[Value]) -> String {
     if rows.is_empty() {

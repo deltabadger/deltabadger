@@ -606,6 +606,44 @@ pub fn pick(c: &Connection, user_id: i64, exchange_id: i64, posted: Option<i64>)
     Ok(Pick::Ambiguous(live.into_iter().map(|(id, _)| Ok((label(c, id)?, id))).collect::<rusqlite::Result<_>>()?))
 }
 
+/// What a bot write's posted exchange and account do to the bot's account (PLAN-710-6 §4.3).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Switch {
+    /// The bot stays on its account.
+    Keep,
+    To(Account),
+    /// A posted account that is not a live one of the owner, or not of the posted exchange: a 404.
+    NotFound,
+    /// Another exchange posted alone, which has 2+ live accounts.
+    Ambiguous(Vec<(Label, i64)>),
+}
+
+impl Switch {
+    /// The account the bot is on after the switch, when it moves.
+    pub fn to(&self) -> Option<Account> { match self { Self::To(a) => Some(*a), _ => None } }
+}
+
+/// The one resolver of a bot write's switch, run before anything is written, in order: a posted account (a live one of
+/// `owner`, of the posted exchange when one is posted too; `Keep` when it is the bot's own); the bot's own exchange alone;
+/// another exchange alone (its account, or `Ambiguous` with 2+ live); nothing posted.
+pub fn pick_switch(c: &Connection, owner: i64, bot_id: i64, posted_exchange: Option<i64>, posted_account: Option<i64>) -> rusqlite::Result<Switch> {
+    let own_exchange: Option<i64> = c.query_row("SELECT exchange_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)).optional()?.flatten();
+    if let Some(id) = posted_account {
+        if !ready(c)? { return Ok(Switch::NotFound); }
+        let found: Option<i64> = c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL", [id, owner], |r| r.get(0)).optional()?;
+        let Some(exchange) = found.filter(|e| posted_exchange.is_none_or(|p| p == *e)) else { return Ok(Switch::NotFound) };
+        let Some(account) = Account::by_id(c, id)? else { return Ok(Switch::NotFound) };
+        let own = Account::of_bot(c, bot_id)?;
+        let number = account.number(c)?;
+        return Ok(if own.is_some_and(|a| a.id == Some(id) || (a.id.is_none() && a.exchange_id == exchange && number == 1)) { Switch::Keep } else { Switch::To(account) });
+    }
+    match posted_exchange {
+        None => Ok(Switch::Keep),
+        Some(e) if Some(e) == own_exchange => Ok(Switch::Keep),
+        Some(e) => Ok(match pick(c, owner, e, None)? { Pick::One(a) => Switch::To(a), Pick::Ambiguous(list) => Switch::Ambiguous(list), Pick::NotFound => Switch::NotFound }),
+    }
+}
+
 /// Fills an unknown account's fingerprint. A known one is never overwritten.
 fn establish(c: &Connection, account: i64, fingerprint: &str, encrypted: &[u8], now: DateTime<Utc>) -> rusqlite::Result<bool> {
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2, account_id_enc = ?3, updated_at = ?4 WHERE id = ?1 AND fingerprint IS NULL",

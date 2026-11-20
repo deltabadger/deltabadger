@@ -311,11 +311,15 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
 
 /// BotApi::Exchanges::List: the exchanges of the user's trading keys.
 pub fn exchanges(c: &Connection, user: i64) -> Result<Res, WebError> {
-    let mut q = c.prepare("SELECT e.id,e.name,k.status FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0")?;
-    let rows = q.query_map([user], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, usize>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
-    let exchanges: Vec<Value> = rows.into_iter().map(|(id, name, status)| {
+    // D-API-ACCOUNT-FIELDS: each key's account, beside the exchange, while the exchange has 2+ live accounts.
+    let rows = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT e.id,e.name,k.status,{account},{} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0",
+        crate::identity::label_number_sql(account)))?
+        .query_map([user], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, usize>(2)?, r.get::<_, Option<i64>>(3)?, r.get::<_, Option<i64>>(4)?)))?.collect::<Result<Vec<_>, _>>())?;
+    let exchanges: Vec<Value> = rows.into_iter().map(|(id, name, status, account, number)| {
         let status = ["pending_validation","correct","incorrect","pending_activation"].get(status).copied().unwrap_or("");
-        json!({"id": id, "name": name, "api_key_status": status})
+        let mut entry = json!({"id": id, "name": name, "api_key_status": status});
+        crate::identity::account_fields(&mut entry, account, number);
+        entry
     }).collect();
     Ok(Res::success(json!({"count": exchanges.len(), "exchanges": exchanges})))
 }

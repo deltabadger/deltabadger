@@ -365,6 +365,8 @@ enum Core {
     /// The engine's guard refused the save: its reason, and the bot as assigned.
     Refused { reason: String, shown: Bot },
     Saved { bot: Bot, changed: bool },
+    /// Another exchange posted alone with 2+ live accounts (§4.2): which one.
+    Ambiguous(String),
 }
 
 /// The settings a signal bot's rules keep in its row: the PATCH writes these keys only.
@@ -379,18 +381,26 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
     let id = bot.id;
     let text = |key: &str| fields.get(key).map(|v| match v { Value::String(s) => s.clone(), Value::Null => String::new(), other => other.to_string() });
     let label = text("label").filter(|l| !l.trim().is_empty());
-    let mut exchange_id = match text("exchange_id") {
+    let exchange_id = match text("exchange_id") {
         None => None,
         Some(t) => match t.trim().parse::<i64>() { Ok(e) => Some(e), Err(_) => return Ok(Core::Answer(Answer::Unported("an exchange id this build does not read"))) },
     };
-    // #710: the switch menu's account (with 2+ accounts on an exchange); its exchange is the one switched to.
-    let account = match text("account_id") {
+    let posted_account = match text("account_id") {
         None => None,
-        Some(t) => match t.trim().parse::<i64>().ok().map(|a| crate::identity::Account::by_id(tx, a)).transpose()?.flatten().filter(|a| a.user_id == owner) {
-            Some(a) => { exchange_id = Some(a.exchange_id); Some(a) }
-            None => return Ok(Core::Answer(Answer::Unported("an exchange that does not exist"))),
-        },
+        Some(t) => match t.trim().parse::<i64>() { Ok(a) => Some(a), Err(_) => return Ok(Core::Answer(Answer::Unported("an exchange that does not exist"))) },
     };
+    // #710 (PLAN-710-6 §4.3): one resolver before anything is written; a foreign, removed or mismatched account is a 404.
+    let switch = crate::identity::pick_switch(tx, owner, id, exchange_id, posted_account)?;
+    let account = match &switch {
+        crate::identity::Switch::NotFound => return Ok(Core::Answer(Answer::NotFound)),
+        crate::identity::Switch::Ambiguous(list) => {
+            let name: String = tx.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id = ?1", [exchange_id.unwrap_or(0)], |r| r.get(0)).optional()?.unwrap_or_default();
+            return Ok(Core::Ambiguous(crate::identity::Pick::required(&name, list)));
+        }
+        crate::identity::Switch::To(a) => Some(*a),
+        crate::identity::Switch::Keep => None,
+    };
+    let exchange_id = account.map(|a| a.exchange_id).or(exchange_id);
     let account_changed = match account { Some(a) => crate::identity::Account::of_bot(tx, id)? != Some(a), None => false };
     let mut assets = Map::new();
     for key in ["base_asset_id", "quote_asset_id"] {
@@ -513,6 +523,7 @@ fn settings_inner(c: &Connection, ctx: &Ctx, owner: i64, id: i64, params: &Actio
     match settings_core(&tx, &ctx, owner, &bot, &fields, None)? {
         Core::Answer(answer) => Ok(answer),
         Core::Invalid { errors, shown } => refused(tx, &shown, alert(sentence(&errors))?),
+        Core::Ambiguous(message) => refused(tx, &bot, alert(message)?),
         Core::Refused { reason, shown } => refused(tx, &shown, alert(i18n::text(ctx.locale, "engine.write_refused", &[("reason", Arg::Text(&reason))]))?),
         Core::Saved { bot, changed } => {
             let body = update_streams(&tx, &ctx, &csrf, &bot, &turbo::prepend_flash(flash::render(&[])?.trim_end()), base_url, owner)?;
@@ -552,6 +563,7 @@ pub fn settings_service(c: &Connection, ctx: &Ctx, owner: i64, id: i64, submitte
             let text = if errors.first().is_some_and(|e| e.field == "base") { super::mcp_input::full_messages(&errors) } else { message.clone() };
             Ok(Outcome::Invalid(Shown { data: Value::Null, text }, Failure::invalid("bot_save_failed", message)))
         }
+        Core::Ambiguous(message) => { tx.rollback()?; failed(Failure::invalid("account_required", message)) }
         Core::Refused { reason, .. } => { tx.rollback()?; Ok(Outcome::GuardRefused(Shown { data: Value::Null, text: crate::web::bot_api::refused(&reason) })) }
         Core::Saved { bot, changed } => {
             let shown = Shown { data: json!({ "id": id, "label": bot.label, "updated": updated }), text: format!("Bot '{}' settings updated: {}.", bot.label, updated.join(", ")) };

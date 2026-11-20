@@ -48,7 +48,7 @@ pub(crate) fn type_name(kind:&str)->&str{match kind{"Bots::DcaMultiAsset"=>"Dca 
 fn exchanges(data: &Value) -> String {
     let rows = data["exchanges"].as_array().cloned().unwrap_or_default();
     if rows.is_empty() { return "No exchanges connected. Add an API key when creating a bot.".into(); }
-    let lines: Vec<String> = rows.iter().map(|r| format!("- {} | API key status: {}", str_value(&r["name"]), str_value(&r["api_key_status"]))).collect();
+    let lines: Vec<String> = rows.iter().map(|r| format!("- {} | API key status: {}", crate::identity::venue_text(r, &str_value(&r["name"])), str_value(&r["api_key_status"]))).collect();
     format!("Connected Exchanges ({}):\n{}", data["count"], lines.join("\n"))
 }
 /// ListTransactionsTool#present: the times in the user's zone (ActionMCP::Current sets it).
@@ -82,7 +82,7 @@ fn order(c:&Connection,app:&App,who:Bearer,name:&str,args:&Value)->Result<Called
             orders::Placed::Done(res)=>res,
             orders::Placed::Queued(queued)=>{app.wake_engine();return Ok(Called::Order(Box::new(QueuedOrder{name:name.to_string(),args:args.clone(),queued})));}
         },
-        None=>match orders::cancel(c,caller,args.get("order_id").unwrap_or(&Value::Null),args.get("exchange_name").unwrap_or(&Value::Null))? {
+        None=>match orders::cancel(c,caller,args.get("order_id").unwrap_or(&Value::Null),args.get("exchange_name").unwrap_or(&Value::Null),args.get("account_id").unwrap_or(&Value::Null))? {
             orders::Cancel::Done(res)=>res,
             orders::Cancel::Send(job)=>return Ok(Called::Cancel(job,args.clone())),
         },

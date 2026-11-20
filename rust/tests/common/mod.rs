@@ -249,10 +249,13 @@ pub fn recorded_rule_kinds(body: &str) -> String {
     let (ours, v2) = (fields(protocol::metadata()), fields(&protocol::recorded()));
     let mut body = body.to_string();
     for (name, schema) in ours.as_object().unwrap() {
+        if v2.get(name).is_none() { continue; }
         let (a, b) = (schema["description"].to_string(), v2[name]["description"].to_string());
         if a != b { body = body.replace(a.trim_matches('"'), b.trim_matches('"')); }
     }
-    body
+    // D-API-ACCOUNT-ID (#710 slice 6): the listed `account_id` property (protocol::ACCOUNT_ID_TOOLS), absent from 2.x's.
+    let field = serde_json::json!({"type": ["integer", "null"], "description": protocol::ACCOUNT_ID}).to_string();
+    body.replace(&format!(",\"account_id\":{field}"), "").replace(&format!("\"account_id\":{field},"), "")
 }
 
 /// Drops a wiremock server from async code. wiremock's Drop runs `futures::executor::block_on(verify())`, and verify
