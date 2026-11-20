@@ -638,6 +638,21 @@ async fn a_posted_account_must_name_one_and_refusals_name_the_right_account() {
         let (status, body) = rest(&app, c, user, "POST", "/api/v1/orders", Some(serde_json::json!({"type": "market_buy", "exchange_name": "Kraken", "base_asset": "BTC",
             "quote_asset": "EUR", "amount": 0.001, "account_id": wrong}))).await;
         assert_eq!((status, body["error"]["code"].as_str()), (404, Some("account_not_found")), "{wrong}: {body}");
+        // Codex 6a r5: every entry point holds the same rule.
+        let (status, body) = rest(&app, c, user, "POST", "/api/v1/bots", Some(serde_json::json!({"type": "dca", "exchange_name": "Kraken", "base_asset": "BTC", "quote_asset": "EUR",
+            "quote_amount": 10, "interval": "day", "account_id": wrong}))).await;
+        assert_eq!(status, 404, "bot create {wrong}: {body}");
+        let (status, body) = rest(&app, c, user, "POST", "/api/v1/rules", Some(serde_json::json!({"exchange_name": "Kraken", "asset": "BTC", "address": "bc1-x", "account_id": wrong}))).await;
+        assert_eq!(status, 404, "rule create {wrong}: {body}");
+    }
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [two.bots[1]]).unwrap();
+    let bots_before = counts(c);
+    let (status, body) = rest(&app, c, user, "PATCH", &format!("/api/v1/bots/{}", two.bots[1]), Some(serde_json::json!({"label": "x", "account_id": []}))).await;
+    assert_eq!(status, 404, "bot update []: {body}");
+    assert_eq!(counts(c), bots_before);
+    for path in ["/api/v1/orders?account_id=", "/api/v1/transactions/account?account_id="] {
+        let (status, body) = rest(&app, c, user, "GET", path, None).await;
+        assert_eq!((status, body["error"]["code"].as_str()), (404, Some("account_not_found")), "{path}: {body}");
     }
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[1]]).unwrap();
     let balances = mcp(c, &app, user, "get_exchange_balances", serde_json::json!({"exchange_name": "Kraken", "account_id": two.id(1)}));

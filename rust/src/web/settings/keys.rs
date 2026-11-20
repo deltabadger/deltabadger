@@ -621,7 +621,10 @@ pub async fn legacy(
     let secret = parameter("secret").map(|s| s.replace("\\n", "\n"));
     let passphrase = parameter("passphrase");
     // #710 (PLAN-710-6 §4.1): the account the save names; none with one live account is the exchange's.
+    // Only an omitted or null account_id is the exchange's account; one that is no id (`[]`) names none.
+    let raw_account = ctx.params.json.as_ref().and_then(|j| j.get("api_key")).and_then(|root| root.get("account_id")).is_some_and(|v| !v.is_null());
     let posted_account = match parameter("account_id") {
+        None if raw_account => return Ok(layout::missing()),
         None => None,
         Some(text) => match text.trim().parse::<i64>() { Ok(id) => Some(id), Err(_) => return Ok(layout::missing()) },
     };

@@ -84,7 +84,7 @@ fn credentials(c:&Connection,app:&App,account:&crate::identity::Account)->Result
 /// The posted account of a read naming `exchange`: Err its refusal (404, or 422 when one key must be chosen and 2+ live
 /// accounts are; `required` false: none posted reads every account, Ok(None)).
 fn read_account(c:&Connection,user:i64,exchange:i64,name:&str,posted:&Value,required:bool)->Result<Result<Option<crate::identity::Account>,Read>,WebError>{
-    if !crate::web::bot_api::present(posted) && !required {return Ok(Ok(None))}
+    if posted.is_null() && !required {return Ok(Ok(None))}
     Ok(match crate::web::bot_api::orders::picked(c,user,exchange,name,posted)? {
         Ok(account)=>Ok(Some(account)),
         Err(res)=>Err(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)),
@@ -140,7 +140,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
         Ask::Orders(filter,account)=>{
             let filter=if let Some(name)=filter {
                 match exchange(c,&name)?{Some(ex)=>Some(ex),None=>return Ok(Planned::Done(failed(Domain::NotFound,"exchange_not_found",format!("Exchange '{name}' not found. Available: {}",super::tradeable(c)?.join(", ")))))}
-            }else if crate::web::bot_api::present(&account){
+            }else if !account.is_null(){
                 // `account_id` alone reads that account's exchange; one not the user's live account is a 404.
                 let id=crate::web::bot_api::orders::account_id(&account);
                 let owned:Option<i64>=match id {Some(id) if crate::identity::ready(c)?=>c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id=?1 AND user_id=?2 AND removed_at IS NULL",[id,user],|r|r.get(0)).optional()?,_=>None};

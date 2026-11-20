@@ -73,7 +73,8 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
         posted_exchange = Some(id);
     }
     // #710 (PLAN-710-6 §4.4): `account_id` reads one account's rows; `exchange_id` alone still reads all of its accounts.
-    if bot_api::present(arg("account_id")) {
+    // #710: only an omitted or null account_id reads every account; `""` or `false` names no account.
+    if !arg("account_id").is_null() {
         let found = match bot_api::orders::account_id(arg("account_id")) { Some(id) => crate::identity::AccountRow::by_id(c, id)?.filter(|a| a.user_id == user), None => None };
         let live = match found { Some(a) => c.query_row("SELECT removed_at IS NULL FROM exchange_accounts WHERE id = ?1", [a.id], |r| r.get::<_, bool>(0))?.then_some(a), None => None };
         // An account of another exchange than the one posted is not found either.
