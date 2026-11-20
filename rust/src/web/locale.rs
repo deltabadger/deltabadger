@@ -13,6 +13,78 @@ pub fn known(value: &str) -> Option<&'static str> {
     LOCALES.iter().copied().find(|l| *l == value)
 }
 
+/// D-LANGUAGE-STEP: the language step's rows, larger language communities first. The desktop launcher's status page
+/// keeps the same table (src-tauri/ui/index.html; tests/language.rs compares them).
+pub const PICKER: [&str; 15] = ["en", "es", "de", "fr", "pt", "it", "nl", "pl", "ru", "cs", "sk", "sv", "da", "el", "bg"];
+
+/// A language's name in that language: the language dropdown's label without its flag.
+pub fn native_name(code: &str) -> &'static str {
+    super::layout::LANGUAGES.iter().find(|(c, _)| *c == code).and_then(|(_, label)| label.split_once(' ')).map_or("English", |(_, name)| name)
+}
+
+/// What a first start does with the user's languages (D-LANGUAGE-STEP).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Choice {
+    /// The first preference is one of ours and not English: used unasked.
+    Use(&'static str),
+    /// English or a language we don't have: the picker asks, this one preselected.
+    Ask(&'static str),
+}
+
+impl Choice {
+    pub fn code(self) -> &'static str {
+        match self { Choice::Use(code) | Choice::Ask(code) => code }
+    }
+}
+
+/// A language tag's primary subtag, when it is one of `LOCALES` (`pl-PL`, `pl_PL` and `PL` are `pl`).
+fn primary(tag: &str) -> Option<&'static str> {
+    known(&tag.split(['-', '_']).next().unwrap_or("").to_ascii_lowercase())
+}
+
+/// The rule (Jan 2026-11-20: "if the user's language is not English and we have it: use it and don't ask; if it is English
+/// or a language we don't have: show the picker"), over the user's languages in preference order. The desktop launcher
+/// has its own copy (src-tauri/src/lib.rs); both are tested against tests/fixtures/first_choice.json.
+pub fn first_choice<S: AsRef<str>>(preferences: &[S]) -> Choice {
+    match preferences.first().and_then(|first| primary(first.as_ref())) {
+        Some(code) if code != DEFAULT => Choice::Use(code),
+        _ => Choice::Ask(preferences.iter().find_map(|tag| primary(tag.as_ref())).unwrap_or(DEFAULT)),
+    }
+}
+
+/// `Accept-Language`'s languages, most wanted first (by q, ties in header order). Dropped before the rule sees them: `*`,
+/// a malformed item (a tag that is not `1*8ALPHA *("-" 1*8alphanum)`, a parameter other than a well-formed q), and an
+/// item with q=0, which RFC 9110 §12.4.2 makes "not acceptable".
+pub fn accept_language(header: &str) -> Vec<&str> {
+    let tag_ok = |tag: &str| {
+        let mut parts = tag.split('-');
+        let first = parts.next().unwrap_or("");
+        (1..=8).contains(&first.len()) && first.bytes().all(|b| b.is_ascii_alphabetic())
+            && parts.all(|p| (1..=8).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_alphanumeric()))
+    };
+    // A qvalue in thousandths: "0" ["." 0*3DIGIT] / "1" ["." 0*3("0")].
+    let qvalue = |text: &str| -> Option<u16> {
+        let (whole, fraction) = text.split_once('.').unwrap_or((text, ""));
+        if fraction.len() > 3 || !fraction.bytes().all(|b| b.is_ascii_digit()) { return None; }
+        let thousandths: u16 = format!("{fraction:0<3}").parse().ok()?;
+        match whole { "0" => Some(thousandths), "1" if thousandths == 0 => Some(1000), _ => None }
+    };
+    let mut items: Vec<(&str, u16)> = header.split(',').filter_map(|item| {
+        let mut parts = item.split(';');
+        let tag = parts.next()?.trim();
+        if !tag_ok(tag) { return None; }
+        let mut q = 1000;
+        for parameter in parts {
+            let (name, value) = parameter.split_once('=')?;
+            if !name.trim().eq_ignore_ascii_case("q") { return None; }
+            q = qvalue(value.trim())?;
+        }
+        (q > 0).then_some((tag, q))
+    }).collect();
+    items.sort_by(|a, b| b.1.cmp(&a.1));
+    items.into_iter().map(|(tag, _)| tag).collect()
+}
+
 /// Splits a request path into its locale prefix and the path the routes match:
 /// `/de/login` -> (Some("de"), "/login"), `/de` -> (Some("de"), "/"), `/zz/login` -> (None, "/zz/login").
 pub fn split(path: &str) -> (Option<&'static str>, &str) {
