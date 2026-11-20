@@ -20,7 +20,7 @@
     <span>{{ v.t("rules.withdrawals.sentence.of") }}</span>
     <span class="ticker" style="background: {{ color }}" data-ticker-symbol="{{ r.asset.symbol() }}" data-ticker-asset-id="{{ r.asset.id }}">{{ r.asset.symbol() }}</span>
     <span>{{ v.t("rules.withdrawals.sentence.from") }}</span>
-    <span class="rule__exchange">{{ r.exchange.name }}</span>
+    <span class="rule__exchange">{{ r.label.html()|safe }}</span>
     <span>{{ v.t("rules.withdrawals.sentence.to") }}</span>
     {{ address|safe }}
     <div data-controller="form--select-toggle" style="display: contents">

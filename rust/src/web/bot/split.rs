@@ -322,7 +322,7 @@ fn perform_inner(c: &Connection, ctx: &Ctx, owner: i64, ids: Vec<i64>, keep: Vec
     if let Err(reason) = split.offers(&tx)? { return Ok(Performed::Unported(reason)); }
     if let Some((reason, offers)) = split.unanswered() { return Ok(Performed::Refused(Split::refusal(ctx.locale, &reason, offers))); }
     for source in &split.bots {
-        if write::engine_holds(&tx, &source.engine)? { return Ok(Performed::Refused(Split::refusal(ctx.locale, &Reason::Busy(source.bot.exchange.name.clone()), vec![]))); }
+        if write::engine_holds(&tx, &source.engine)? { return Ok(Performed::Refused(Split::refusal(ctx.locale, &Reason::Busy(source.bot.exchange.label().plain()), vec![]))); }
     }
     let mut children = vec![];
     for source in &split.bots {

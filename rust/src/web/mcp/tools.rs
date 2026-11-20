@@ -39,7 +39,7 @@ fn bots(data: &Value) -> String {
     if rows.is_empty() { return "No bots found.".into(); }
     let or_na = |v: &Value| if v.is_null() {"N/A".to_string()} else {str_value(v)};
     let lines: Vec<String> = rows.iter().map(|r| format!("- {} (ID {}) | {} | {} | {} | {} | {} {}/{}", str_value(&r["label"]), r["id"], type_name(r["type"].as_str().unwrap_or("")),
-        or_na(&r["pair"]), or_na(&r["exchange"]), str_value(&r["status"]), str_value(&r["quote_amount"]), str_value(&r["quote_asset"]), or_na(&r["interval"]))).collect();
+        or_na(&r["pair"]), crate::identity::venue_text(r, &or_na(&r["exchange"])), str_value(&r["status"]), str_value(&r["quote_amount"]), str_value(&r["quote_asset"]), or_na(&r["interval"]))).collect();
     format!("Bots ({}):\n{}", data["count"], lines.join("\n"))
 }
 /// `type.to_s.demodulize.titleize` for the bot classes there are.

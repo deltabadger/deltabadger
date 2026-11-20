@@ -62,7 +62,7 @@ const ELIGIBLE_PAIRS: &str = "SELECT p.exchange_id, p.quote_asset_id FROM ticker
 pub fn available_exchanges(c: &Connection, basket: &Basket, single: Option<Option<i64>>) -> Result<Vec<super::Exchange>, WebError> {
     let (_, quote, members, count, _) = offered_params(basket, Side::Base);
     let row = |r: &rusqlite::Row| Ok(super::Exchange {
-        id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?,
+        id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?, number: None,
     });
     let found = match single {
         Some(base) => c.prepare("SELECT id, name, type, maker_fee FROM exchanges WHERE available = 1 AND id IN (SELECT exchange_id FROM tickers \
@@ -291,7 +291,7 @@ pub fn attach_exchanges(c: &Connection, basket: &Basket, side: Side, page: &mut 
         [], |r| r.get::<_, Option<String>>(0)).optional()?.flatten();
     for row in page.iter_mut() {
         let listed = offered.iter().filter(|(id, _, _)| *id == row.id).map(|(_, class, name)| {
-            let exchange = super::Exchange { id: 0, name: name.clone().unwrap_or_default(), class: class.clone(), maker_fee: None };
+            let exchange = super::Exchange { id: 0, name: name.clone().unwrap_or_default(), class: class.clone(), maker_fee: None, number: None };
             (exchange.name_id(), exchange.name)
         }).collect();
         row.exchanges = parse_exchanges(listed, binance.as_deref());

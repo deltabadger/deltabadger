@@ -271,10 +271,11 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
         Value::Array(items) => items.iter().map(scalar_text).collect(),
         one => vec![scalar_text(one)],
     });
-    let mut q = c.prepare("SELECT b.type,b.label,b.settings,b.status,e.name,b.id FROM bots b LEFT JOIN exchanges e ON b.exchange_id=e.id WHERE b.user_id=?1 AND b.status != 3")?;
-    let rows = q.query_map([user],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,i64>(5)?)))?.collect::<Result<Vec<_>,_>>()?;
+    let rows = crate::identity::with_bot_account("b", |account| c.prepare(&format!("SELECT b.type,b.label,b.settings,b.status,e.name,b.id,{account},{} FROM bots b LEFT JOIN exchanges e ON b.exchange_id=e.id WHERE b.user_id=?1 AND b.status != 3",
+        crate::identity::label_number_sql(account)))?
+        .query_map([user],|r|Ok(((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?,r.get::<_,i64>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,i64>(5)?),(r.get::<_,Option<i64>>(6)?,r.get::<_,Option<i64>>(7)?))))?.collect::<Result<Vec<_>,_>>())?;
     let mut bots = vec![];
-    for (kind, label, settings, status, exchange, id) in rows {
+    for ((kind, label, settings, status, exchange, id), (account, number)) in rows {
         if !["Bots::DcaMultiAsset","Bots::DcaSingleAsset","Bots::DcaIndex","Bots::Signal"].contains(&kind.as_str()) { return Err(WebError::Config("unknown bot class".into())); }
         let name = usize::try_from(status).ok().and_then(|i| STATUSES.get(i)).copied().unwrap_or("");
         // `where(status:)`: an enum name, or the stored number.
@@ -299,9 +300,11 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
         };
         // A bot stored without a name is listed under its generated one, as 2.x loads it.
         let label = match label.filter(|l| !l.trim().is_empty()) { Some(l) => l, None => super::mcp::reads::generated_label(c, user, id, &kind, &s, "en")? };
-        bots.push(json!({"id": id, "label": label, "type": kind, "pair": pair, "base_asset": base, "quote_asset": quote, "exchange": exchange,
+        let mut bot = json!({"id": id, "label": label, "type": kind, "pair": pair, "base_asset": base, "quote_asset": quote, "exchange": exchange,
                          "status": name, "interval": s.get("interval").cloned().unwrap_or(Value::Null),
-                         "quote_amount": s.get("quote_amount").cloned().unwrap_or(Value::Null)}));
+                         "quote_amount": s.get("quote_amount").cloned().unwrap_or(Value::Null)});
+        crate::identity::account_fields(&mut bot, account, number);
+        bots.push(bot);
     }
     Ok(Res::success(json!({"count": bots.len(), "bots": bots})))
 }

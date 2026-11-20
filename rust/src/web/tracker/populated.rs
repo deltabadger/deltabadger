@@ -370,17 +370,18 @@ pub const SCOPE_FRAME: &str = "tracker_scope";
 /// The bar (venue switch and far end) and its far end alone.
 /// One chip of the switch (#710 slice 5, §8 Q7): an account with a key or ledger rows; a number 1 with no row yet as its
 /// stand-in (minus its exchange id).
-struct Switched { account: i64, number: i64, venue: Venue }
+struct Switched { account: i64, number: i64, shown: Option<i64>, venue: Venue }
 fn accounts(c: &Connection, owner: i64) -> Result<Vec<Switched>, WebError> {
     let any = crate::venue_ids::Scope::install(c)?;
     let numbered = crate::identity::numbered(c)?;
     let key = if numbered { crate::identity::key_account_sql("k") } else { "NULL".into() };
     let numbers = if numbered { "LEFT JOIN exchange_accounts a ON a.id = n.account" } else { "LEFT JOIN (SELECT NULL AS id, NULL AS number) a ON 0" };
+    let shown = crate::identity::label_number_sql(if numbered { "a.id" } else { "NULL" });
     let mut s = c.prepare(&format!(
-        "SELECT n.account, COALESCE(a.number, 1), e.id, e.name, e.type FROM (SELECT k.exchange_id AS exchange, COALESCE({key}, -k.exchange_id) AS account FROM api_keys k WHERE k.user_id=?1 \
+        "SELECT n.account, COALESCE(a.number, 1), e.id, e.name, e.type, {shown} FROM (SELECT k.exchange_id AS exchange, COALESCE({key}, -k.exchange_id) AS account FROM api_keys k WHERE k.user_id=?1 \
          UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1) n JOIN exchanges e ON e.id = n.exchange \
          {numbers} ORDER BY e.name, COALESCE(a.number, 1), n.account", any.row_account("t")))?;
-    let rows = s.query_map([owner], |r| Ok(Switched { account: r.get(0)?, number: r.get(1)?, venue: Venue { id: r.get(2)?, name: r.get(3)?, kind: r.get(4)? } }))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = s.query_map([owner], |r| Ok(Switched { account: r.get(0)?, number: r.get(1)?, shown: r.get(5)?, venue: Venue { id: r.get(2)?, name: r.get(3)?, kind: r.get(4)? } }))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 
@@ -407,7 +408,7 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
             // A number 1 is named by its exchange, as every chip and link was; an account 2+ by its own id.
             let (key, value, id) = if a.number == 1 { ("exchange_id", v.id.to_string(), v.id.to_string()) } else { ("account_id", format!("a{}", a.account), a.account.to_string()) };
             chips.push(Chip {
-                value, label: escape(&v.name), active: ok && scope.account().is_some_and(|s| s.id == a.account),
+                value, label: crate::identity::Label { name: v.name.clone(), number: a.shown }.html(), active: ok && scope.account().is_some_and(|s| s.id == a.account),
                 href: escape(&if ok { with_query(ctx, "/tracker", &[(key, Some(&id)), window[0], window[1]]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
                 broken: !ok,
             });

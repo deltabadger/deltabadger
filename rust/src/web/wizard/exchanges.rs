@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn stable_venues_first_and_a_query_keeps_the_alike() {
-        let venue = |id, name: &str, class: &str| Exchange { id, name: name.into(), class: class.into(), maker_fee: None };
+        let venue = |id, name: &str, class: &str| Exchange { id, name: name.into(), class: class.into(), maker_fee: None, number: None };
         let all = || vec![venue(1, "Alpaca", "Exchanges::Alpaca"), venue(2, "Interactive Brokers", "Exchanges::Ibkr"), venue(3, "Kraken", "Exchanges::Kraken"),
                           venue(4, "Binance", "Exchanges::Binance")];
         let ids = |venues: Vec<Exchange>| venues.into_iter().map(|venue| venue.id).collect::<Vec<_>>();

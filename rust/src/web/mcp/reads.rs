@@ -341,11 +341,11 @@ fn pct(n:&Num)->Result<String,WebError>{Ok(format!("{}{}%",if n.is_negative(){""
 const RAISED:&str="figure raised: ";
 fn fail_fig(e:figures::FiguresError)->WebError{match e{figures::FiguresError::Data(ref why)|figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"||why=="quote currency unavailable"=>WebError::Config(why.clone()),
     figures::FiguresError::Raised(error)=>WebError::Config(format!("{RAISED}{error}")),_=>error()}}
-struct Bot {id:i64,label:String,kind:String,status:i64,settings:Value,transient:Value,exchange:Option<String>,quote_asset:Option<String>,quote:String,base:Option<String>,pair:Option<String>,started:Option<String>}
+struct Bot {id:i64,label:String,kind:String,status:i64,settings:Value,transient:Value,exchange:Option<String>,account:(Option<i64>,Option<i64>),quote_asset:Option<String>,quote:String,base:Option<String>,pair:Option<String>,started:Option<String>}
 fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
     read_limits::charge_bot()?;
-    let row=c.query_row("SELECT b.label,b.type,b.status,b.settings,e.name,b.started_at,b.transient_data FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1 AND b.user_id=?2 AND b.status!=3",[id,user],|r|Ok((r.get::<_,Option<String>>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?))).optional()?;
-    let Some((label,kind,status,settings,exchange,started,transient))=row else{return Ok(None)};
+    let row=crate::identity::with_bot_account("b",|account|c.query_row(&format!("SELECT b.label,b.type,b.status,b.settings,e.name,b.started_at,b.transient_data,{account},{} FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1 AND b.user_id=?2 AND b.status!=3",crate::identity::label_number_sql(account)),[id,user],|r|Ok(((r.get::<_,Option<String>>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?),(r.get(7)?,r.get(8)?)))).optional())?;
+    let Some(((label,kind,status,settings,exchange,started,transient),account))=row else{return Ok(None)};
     crate::figures::fill::validate_row_times(c,id).map_err(fail_fig)?;
     let settings:Value=serde_json::from_str(&settings).map_err(|_|error())?;
     let transient:Value=serde_json::from_str(&transient).map_err(|_|error())?;
@@ -362,7 +362,7 @@ fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
         Some(label)=>label,
         None=>generated_label(c,user,id,&kind,&settings,"en")?,
     };
-    Ok(Some(Bot{id,label,kind,status,settings,transient,exchange,quote_asset,quote,base,pair,started}))
+    Ok(Some(Bot{id,label,kind,status,settings,transient,exchange,account,quote_asset,quote,base,pair,started}))
 }
 /// Automation::Labelable#generate_label for a bot stored without a name, any type. Only a read's
 /// view of it: nothing is saved. An index bot is named by `Bot::find`, which names what it loads.
@@ -420,7 +420,7 @@ fn metrics_error(e:&WebError)->String{match e{
 fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     let Some(b)=bot(c,user,id)?else{return Ok(failed(Domain::NotFound,"bot_not_found","Bot not found."))};
     let status=tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?;
-    let mut lines=vec![format!("Bot: {} (ID {})",b.label,b.id),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange.as_deref().unwrap_or("N/A"))];
+    let mut lines=vec![format!("Bot: {} (ID {})",b.label,b.id),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange.as_deref().map_or_else(||"N/A".to_string(),|e|match b.account.1{Some(n)=>format!("{e} {n}"),None=>e.to_string()}))];
     if let Some(pair)=&b.pair{lines.push(format!("Pair: {pair}"));}
     let members=members(c,&b.kind,&b.settings)?;
     // allocation_assets: a basket's members, each under the key it goes by (nil for any other type).
@@ -541,6 +541,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
                     "orders_executed":count,"started_at":started.map(crate::v2::iso8601_ms),"metrics":shown_metrics,"metrics_error":shown_error});
     // Only on a bot that has them: every other bot's answer stays 2.x's (D-V2-UNRECORDED-API).
     let mut data=data;
+    crate::identity::account_fields(&mut data,b.account.0,b.account.1);
     if !unrecorded.is_null(){data["unrecorded_orders"]=unrecorded;}
     Ok(ok(data,lines.join("\n")))
 }

@@ -570,7 +570,7 @@ pub fn tracker_coingecko_card(ctx: &Ctx, csrf: &str, admin: bool, error: Option<
 /// One exchange key of settings/widgets/_api_keys.
 pub struct Key {
     pub id: i64,
-    pub name: String,
+    pub name: crate::identity::Label,
     pub name_id: String,
     pub read_only: bool,
     pub withdrawal: bool,
@@ -603,7 +603,7 @@ pub fn api_keys(ctx: &Ctx, csrf: &str, keys: &[Key]) -> String {
             );
             let label = format!(
                 "{}{}",
-                escape(&key.name),
+                key.name.html(),
                 if key.read_only { format!("<span class=\"srow__aside\">{}</span>", ctx.t("links.tracker")) } else { String::new() }
             );
             out.push_str(&format!(

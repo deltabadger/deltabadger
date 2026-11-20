@@ -2271,7 +2271,8 @@ async fn the_exchange_menu_lists_a_second_account_and_switches_the_bot_to_it() {
     let second = c.last_insert_rowid();
     let page = browser.get(&app, &format!("/bots/{bot}")).await;
     assert!(page.body.contains(&format!("name=\"bots_dca_multi_asset[account_id]\" type=\"submit\" value=\"{second}\"")), "{}", page.body);
-    assert!(page.body.contains("<sup>2</sup>") && !page.body.contains("<sup>1</sup>"), "the bot's own account is not offered");
+    // Slice 6: the current item names the bot's own account (`Kraken¹`); only the other one is offered.
+    assert!(page.body.contains("<sup>2</sup>") && !page.body.contains(&format!("[account_id]\" type=\"submit\" value=\"{first}\"")), "the bot's own account is not offered");
     let switched = browser.post(&app, &format!("/bots/{bot}"), &[("_method", "patch"), ("bots_dca_multi_asset[account_id]", &second.to_string())]).await;
     assert!(switched.status < 400, "{} {}", switched.status, switched.body);
     assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(second), "{} {}", switched.status, &switched.body[..switched.body.len().min(3000)]);

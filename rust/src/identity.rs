@@ -278,6 +278,72 @@ pub fn numbered(c: &Connection) -> rusqlite::Result<bool> {
 
 /// SQL: api key row `alias`'s account id (NULL as the resolver reads it: a foreign membership, a number 1 with no row).
 pub fn key_account_sql(alias: &str) -> String { account_sql("exchange_account_keys", "api_key_id", alias) }
+/// SQL: bot row `alias`'s account id, as `key_account_sql`.
+pub fn bot_account_sql(alias: &str) -> String { account_sql("exchange_account_bots", "bot_id", alias) }
+/// `with_key_account` for bot row `alias`.
+pub fn with_bot_account<T>(alias: &str, read: impl Fn(&str) -> rusqlite::Result<T>) -> rusqlite::Result<T> {
+    unscoped_or(read(&bot_account_sql(alias)), || read("NULL"))
+}
+
+// ---- Names (#710 §4.9, PLAN-710-6 §3): `Kraken`, or `Kraken 2` / `Kraken<sup>2</sup>` while its exchange has 2+ live
+// accounts. A removed account always shows its number.
+
+/// An account's name: its exchange's, and the number it shows (None: the exchange has one live account).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Label { pub name: String, pub number: Option<i64> }
+
+impl Label {
+    /// The name alone (an exchange, or an account that shows no number).
+    pub fn bare(name: impl Into<String>) -> Self { Self { name: name.into(), number: None } }
+    /// Plain text: `Kraken`, `Kraken 2` (Q2).
+    pub fn plain(&self) -> String { match self.number { Some(n) => format!("{} {n}", self.name), None => self.name.clone() } }
+    /// HTML: the escaped name, then `<sup>n</sup>`.
+    pub fn html(&self) -> String {
+        let name = crate::web::i18n::escape(&self.name);
+        match self.number { Some(n) => format!("{name}<sup>{n}</sup>"), None => name }
+    }
+}
+
+/// SQL: the number account `account` (an id expression) shows in its label, NULL for none. `"NULL"` (an install without
+/// the account tables, or no account) stays NULL and names no table.
+pub fn label_number_sql(account: &str) -> String {
+    if account == "NULL" { return "NULL".into(); }
+    format!("(SELECT CASE WHEN lbl_a.removed_at IS NOT NULL OR (SELECT count(*) FROM exchange_accounts lbl_o WHERE lbl_o.user_id = lbl_a.user_id \
+             AND lbl_o.exchange_id = lbl_a.exchange_id AND lbl_o.removed_at IS NULL) >= 2 THEN lbl_a.number END FROM exchange_accounts lbl_a WHERE lbl_a.id = {account})")
+}
+/// SQL: `Label::plain` of the account `account` whose exchange is named `name` (both SQL expressions).
+pub fn plain_label_sql(name: &str, account: &str) -> String {
+    if account == "NULL" { return name.into(); }
+    format!("({name} || COALESCE(' ' || {}, ''))", label_number_sql(account))
+}
+/// D-API-ACCOUNT-FIELDS (PLAN-710-6 §4.4): an account-owned REST/MCP object gains `account_id` and `account` (its number)
+/// beside its unchanged `exchange`, only while the number shows (`label_number_sql`): a single-account answer keeps its bytes.
+pub fn account_fields(object: &mut Value, account: Option<i64>, number: Option<i64>) {
+    if let (Some(id), Some(n), Some(o)) = (account, number, object.as_object_mut()) {
+        o.insert("account_id".into(), id.into());
+        o.insert("account".into(), n.into());
+    }
+}
+/// A REST/MCP text's venue: `exchange`, then the object's `account` number (`account_fields`).
+pub fn venue_text(object: &Value, exchange: &str) -> String {
+    match object["account"].as_i64() { Some(n) => format!("{exchange} {n}"), None => exchange.to_string() }
+}
+/// Account `account_id`'s label. One statement.
+pub fn label(c: &Connection, account_id: i64) -> rusqlite::Result<Label> {
+    c.query_row(&format!("SELECT e.name, {} FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.id = ?1", label_number_sql("x.id")), [account_id],
+                |r| Ok(Label { name: r.get::<_, Option<String>>(0)?.unwrap_or_default(), number: r.get(1)? }))
+}
+/// The label of every account of the user, by id. One statement (none on an install without the account tables).
+pub fn labels(c: &Connection, user_id: i64) -> rusqlite::Result<std::collections::HashMap<i64, Label>> {
+    if !numbered(c)? { return Ok(Default::default()); }
+    let mut s = c.prepare(&format!("SELECT x.id, e.name, {} FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.user_id = ?1", label_number_sql("x.id")))?;
+    let out = s.query_map([user_id], |r| Ok((r.get(0)?, Label { name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), number: r.get(2)? })))?.collect();
+    out
+}
+/// Account `account`'s label, or the bare exchange `name` for a number 1 with no row yet (it is its exchange's only one).
+pub fn label_or(c: &Connection, account: Option<i64>, name: &str) -> rusqlite::Result<Label> {
+    match account { Some(id) if numbered(c)? => label(c, id), _ => Ok(Label::bare(name)) }
+}
 /// `read` given the SQL of api key row `alias`'s account (`account_of_key`, NULL as `account_sql`), run again with NULL for
 /// every key on an install without the account tables. One statement on a migrated install (page read budgets count them).
 pub fn with_key_account<T>(alias: &str, read: impl Fn(&str) -> rusqlite::Result<T>) -> rusqlite::Result<T> {

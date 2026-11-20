@@ -372,7 +372,7 @@ fn guard(
         let key =
             crate::engine::model::withdrawal_credentials(c, &app.cipher, &r.account)?;
         if key.is_none() || !c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1)",r.account.keys("k")),[],|r|r.get::<_,bool>(0))? {
-            return Ok(Err(refuse(Status::PermissionDenied,"withdrawal_key_missing",format!("No valid withdrawal API key for {}. Add one in Settings.",r.exchange.name))));
+            return Ok(Err(refuse(Status::PermissionDenied,"withdrawal_key_missing",format!("No valid withdrawal API key for {}. Add one in Settings.",r.label.plain()))));
         }
         if matches!(cmd, Command::Start(..)) && !capability.is_some_and(|v| v.withdraws) {
             return Ok(Err(refuse(
@@ -472,7 +472,7 @@ pub async fn call(
                 let account=crate::identity::Account::first(&tx,user,*exchange_id)?;
                 let id:Option<i64>=tx.query_row("SELECT id FROM exchange_account_rules WHERE account_id IS ?1 AND type='Rules::Withdrawal' AND asset_id=?2",(account.id,asset_id),|r|r.get(0)).optional()?;
                 if let Some(id)=id { model::load(&tx,&inner,user,id)?.ok_or_else(||WebError::Config("rule disappeared".into()))? }
-                else { Rule {id:0,user_id:user,account,status:0,exchange,asset,address:String::new(),settings:json!({}),fee:None,chains:vec![],balance:None,unconfirmed:None} }
+                else { Rule {id:0,user_id:user,account,status:0,label:crate::identity::label_or(&tx,account.id,&exchange.name)?,exchange,asset,address:String::new(),settings:json!({}),fee:None,chains:vec![],balance:None,unconfirmed:None} }
             },
             Command::Update(id,_)|Command::Start(id,_)|Command::Stop(id)|Command::Delete(id) => {
                 let Some(rule)=model::load(&tx,&inner,user,*id)? else { return Ok(Err(missing())) };

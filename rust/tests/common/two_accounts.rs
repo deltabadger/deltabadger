@@ -61,6 +61,24 @@ impl Two {
         Self { keys: [seeded.api_key_id, second_key], seeded, accounts: [first, second], scopes, bots }
     }
 
+    /// Account number 3 of the exchange, with no key or bot.
+    pub fn third(&self, c: &Connection) -> Account {
+        c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 3, 'now', 'now')",
+                  [self.seeded.user_id, self.seeded.exchange_id]).unwrap();
+        Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap()
+    }
+
+    /// A withdrawal rule of account `n` on `asset` with `status` (engine::rules::create, then its status, mirrored for number 1).
+    pub fn rule(&self, c: &Connection, cipher: &Cipher, n: usize, asset: i64, status: i64) -> i64 {
+        let id = deltabadger::engine::rules::create(c, &self.accounts[n], asset, &cipher.encrypt("bc1-address"), "{}", "2026-09-01 10:00:00").unwrap();
+        c.execute("UPDATE exchange_account_rules SET status = ?2 WHERE id = ?1", [id, status]).unwrap();
+        deltabadger::engine::rules::mirror(c, Some(id)).unwrap();
+        id
+    }
+
+    /// Account `n`'s (0: number 1, 1: number 2) row id.
+    pub fn id(&self, n: usize) -> i64 { self.accounts[n].id.unwrap() }
+
     /// A ledger row of account `n` (0: number 1, 1: number 2) written as every writer writes one: `stored` into 2.x's
     /// column, then `after_insert`. Returns its id.
     #[allow(clippy::too_many_arguments)]

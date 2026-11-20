@@ -19,8 +19,8 @@ pub enum Answer { Offer(i64), None }
 pub type Filed=(String,Result<(),ru::Refused>);
 
 pub fn answer(c:&Connection,user:i64,bot:i64,obligation:i64,answer:Answer,now:DateTime<Utc>)->Result<Option<Filed>,EngineError> {
-    let venue:Option<String>=c.query_row("SELECT coalesce(e.name, '') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1 AND b.user_id = ?2 AND b.status <> 3",
-                                         (bot,user),|r|r.get(0)).optional()?;
+    let venue:Option<String>=crate::identity::with_bot_account("b",|account|c.query_row(&format!("SELECT coalesce({}, '') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1 AND b.user_id = ?2 AND b.status <> 3",crate::identity::plain_label_sql("e.name",account)),
+                                         (bot,user),|r|r.get(0)).optional())?;
     let Some(venue)=venue else {return Ok(None)};
     let done=match answer {
         Answer::Offer(offer)=>ru::request_booking(c,user,bot,obligation,offer,now)?,

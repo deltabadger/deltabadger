@@ -411,7 +411,7 @@ fn settings_core(tx: &Connection, ctx: &Ctx, owner: i64, bot: &Bot, fields: &Map
     let assets_changed = asset_changed("base_asset_id") || asset_changed("quote_asset_id");
     let label_changed = label.as_ref().is_some_and(|l| *l != bot.label || bot.label_unsaved);
     let id_of = |key: &str| assets.get(key).or(bot.settings.get(key)).and_then(Value::as_i64);
-    let exchange = new_exchange.as_ref().map_or((bot.exchange.id, bot.exchange.name.clone()), |e| e.clone());
+    let exchange = new_exchange.as_ref().map_or((bot.exchange.id, bot.exchange.label().plain()), |e| e.clone());
     // The :update validations, in 2.x's order.
     let mut errors = vec![];
     if !matches!(bot.status, BotStatus::Stopped | BotStatus::Deleted | BotStatus::Archived) && (new_exchange.is_some() || assets_changed) && !listed(tx, exchange.0, id_of("base_asset_id"), id_of("quote_asset_id"))? {
@@ -580,7 +580,7 @@ fn start_errors(c: &Connection, locale: &str, bot: &Bot) -> Result<Vec<FieldErro
     if !bot.api_key_correct() { errors.push(error("base", i18n::text(locale, "engine.api_key_not_ready", &[]))); }
     let id = |key: &str| bot.settings.get(key).and_then(Value::as_i64);
     if !listed(c, bot.exchange.id, id("base_asset_id"), id("quote_asset_id"))? {
-        errors.push(error("exchange", i18n::text(locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", Arg::Text(&bot.exchange.name))])));
+        errors.push(error("exchange", i18n::text(locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", Arg::Text(&bot.exchange.label().plain()))])));
     }
     if signal::start_blocked(bot) {
         // On Bot::AssetConfigurable's `base_asset` and `quote_asset` (full_messages: "Base asset is invalid").

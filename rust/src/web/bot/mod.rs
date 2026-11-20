@@ -219,9 +219,13 @@ pub struct Exchange {
     /// `exchanges.type`: Exchanges::Alpaca.
     pub class: String,
     pub maker_fee: Option<String>,
+    /// The number its account shows in its name (#710 slice 6, `identity::Label`): None while the exchange has one live account.
+    pub number: Option<i64>,
 }
 
 impl Exchange {
+    /// The name of the account this is read for (`identity::Label`).
+    pub fn label(&self) -> crate::identity::Label { crate::identity::Label { name: self.name.clone(), number: self.number } }
     /// Exchange#name_id: `self.class.name.demodulize.underscore` ("alpaca", "binance_us").
     pub fn name_id(&self) -> String {
         let name = self.class.rsplit("::").next().unwrap_or(&self.class);
@@ -574,9 +578,11 @@ impl Bot {
         crate::codec::validate_bot_times(&Value::Object(settings.clone()), &Value::Object(transient.clone())).map_err(|e|data(format!("{e:?}")))?;
         let changed:Option<String>=c.query_row("SELECT settings_changed_at FROM bots WHERE id=?1",[id],|r|r.get(0))?;
         changed.as_deref().map(parse_time).transpose().map_err(|e|data(format!("{e:?}")))?;
-        let exchange = c.query_row("SELECT id, name, type, maker_fee FROM exchanges WHERE id = ?1", [exchange_id], |r| {
-            Ok(Exchange { id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)? })
-        }).optional()?.ok_or_else(|| data(format!("bot {id} has no exchange")))?;
+        // Named by the bot's account (#710 slice 6).
+        let exchange = crate::identity::with_bot_account("b", |account| c.query_row(&format!("SELECT e.id, e.name, e.type, e.maker_fee, {} FROM exchanges e, bots b WHERE e.id = ?1 AND b.id = ?2",
+                                                                                     crate::identity::label_number_sql(account)), [exchange_id, Some(id)], |r| {
+            Ok(Exchange { id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?, number: r.get(4)? })
+        }).optional())?.ok_or_else(|| data(format!("bot {id} has no exchange")))?;
         if asked != For::Feed { crate::figures::fill::validate_row_times(c,id).map_err(fill_error)?; }
         let started_at = started_at.map(|text| parse_time(&text).map_err(|e| data(format!("bot {id}: started_at {e:?}")))).transpose()?;
         let quote_asset_id = settings.get("quote_asset_id").and_then(Value::as_i64);

@@ -211,7 +211,7 @@ pub async fn confirm_destroy(
     }
     let body = Confirm {
         v: &ctx,
-        title: format!("{} — {}", rule.asset.symbol(), rule.exchange.name),
+        title: format!("{} — {}", rule.asset.symbol(), rule.label.plain()),
         action: ctx.path(&format!("{BASE}/{id}")),
         csrf: ctx.csrf_token(),
     }

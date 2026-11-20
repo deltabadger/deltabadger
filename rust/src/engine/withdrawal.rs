@@ -527,7 +527,7 @@ struct Rule {
 }
 fn rule(c: &Connection, cipher: &Cipher, id: i64) -> Result<Rule, EngineError> {
     let account = crate::identity::Account::of_rule(c, id)?.ok_or_else(|| data("the withdrawal rule's account is another user's or exchange's"))?;
-    let mut r=c.query_row("SELECT r.user_id,r.exchange_id,r.asset_id,e.type,e.name,a.symbol,r.address,r.settings,r.updated_at,r.status FROM exchange_account_rules r JOIN exchanges e ON e.id=r.exchange_id JOIN assets a ON a.id=r.asset_id WHERE r.id=?1 AND r.type='Rules::Withdrawal'",[id],|r|Ok(Rule{id,user:r.get(0)?,exchange:r.get(1)?,asset:r.get(2)?,class:r.get(3)?,name:r.get(4)?,symbol:r.get(5)?,address:r.get::<_,Option<String>>(6)?.unwrap_or_default(),settings:json!(r.get::<_,String>(7)?),revision:r.get(8)?,status:r.get(9)?,account}))?;
+    let mut r=c.query_row(&format!("SELECT r.user_id,r.exchange_id,r.asset_id,e.type,{},a.symbol,r.address,r.settings,r.updated_at,r.status FROM exchange_account_rules r JOIN exchanges e ON e.id=r.exchange_id JOIN assets a ON a.id=r.asset_id WHERE r.id=?1 AND r.type='Rules::Withdrawal'",crate::identity::plain_label_sql("e.name","r.account_id")),[id],|r|Ok(Rule{id,user:r.get(0)?,exchange:r.get(1)?,asset:r.get(2)?,class:r.get(3)?,name:r.get(4)?,symbol:r.get(5)?,address:r.get::<_,Option<String>>(6)?.unwrap_or_default(),settings:json!(r.get::<_,String>(7)?),revision:r.get(8)?,status:r.get(9)?,account}))?;
     r.address = cipher
         .decrypt(&r.address)
         .map_err(|_| data("withdrawal address cannot be decrypted"))?;

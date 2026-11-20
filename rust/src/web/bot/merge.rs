@@ -179,7 +179,7 @@ impl Merge {
         // A resting order is polled through its bot's exchange; on another venue it would never be found.
         for source in &self.bots {
             if source.bot.exchange.id != exchange && waiting(c, source.bot.id)? {
-                return Ok(Some(Reason::Open(source.bot.label.clone(), source.bot.exchange.name.clone())));
+                return Ok(Some(Reason::Open(source.bot.label.clone(), source.bot.exchange.label().plain())));
             }
         }
         self.books = vec![];
