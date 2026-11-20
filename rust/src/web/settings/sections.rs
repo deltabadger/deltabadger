@@ -432,7 +432,7 @@ pub fn market_data_providers(ctx: &Ctx, frame: &str, href: impl Fn(&str) -> Stri
 
 /// D-MARKET-DATA-PICK: Connect's market data, as the index wizard connects it: with no provider, the intro and the
 /// providers' tiles; a tile opens its connect card (Back returns to the tiles). A connected provider is its row: CoinGecko
-/// with resync and disconnect, the claimed platform with its disconnect.
+/// with resync and disconnect and, under it, the upgrade to the Deltabadger Data API; the claimed platform with its disconnect.
 pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
     let heading = format!("\n  <h3 class=\"sheet__heading sheet__heading--first\">{}</h3>", ctx.t("settings.index.resync_assets_section"));
     if let Some(note) = m.hosted {
@@ -450,6 +450,14 @@ pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
             super::dialog::confirm(csrf, &ctx.t("settings.market_data.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.market_data.disconnect"), &ctx.path("/settings/disconnect_market_data"), "delete", &[])
         );
         body.push_str(&format!("\n  {}", row("CoinGecko", Some(&ctx.t("settings.market_data.coingecko_configured")), "", "", None, Some(&control))));
+        // On CoinGecko the Deltabadger Data API stays on offer: stocks too, and a stable IP to whitelist. Its card claims a code,
+        // or for a claimed platform is one Connect button that makes it the provider.
+        let upgrade = format!(
+            "\n          <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"settings_pane\" href=\"{}\">{}</a>\n",
+            escape(&ctx.path("/settings/connect?provider=deltabadger")),
+            ctx.t("settings.market_data.upgrade_button")
+        );
+        body.push_str(&format!("\n  {}", row(&ctx.t("settings.market_data.upgrade_title"), Some(&ctx.t("settings.market_data.upgrade")), "", "", None, Some(&upgrade))));
     } else if m.selected != "deltabadger" {
         let tiles = market_data_providers(ctx, "settings_pane", |key| ctx.path(&format!("/settings/connect?provider={key}")));
         body.push_str(&format!("\n  <p class=\"sheet__intro\">{}</p>\n  {tiles}", ctx.t("settings.market_data.intro")));

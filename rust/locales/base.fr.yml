@@ -198,6 +198,9 @@ fr:
         market_data:
             none: 'Aucun'
             intro: "Les données de marché en direct alimentent les indices et l'historique des prix du suivi de portefeuille. Utilisez un compte CoinGecko gratuit, ou l'API Deltabadger pour obtenir la même chose avec les actions, plus une IP fixe à mettre en liste blanche sur les plateformes."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Les actions aussi, et une IP fixe à mettre en liste blanche sur les plateformes."
+            upgrade_button: "Passer à l'API"
             disabled: 'Synchronisation des données de marché désactivée.'
             updated: 'Paramètres des données de marché mis à jour.'
             coingecko_configured: 'Connecté à CoinGecko pour les données de marché en direct.'

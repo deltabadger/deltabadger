@@ -199,6 +199,9 @@ pl:
         market_data:
             none: 'Brak'
             intro: "Dane rynkowe na żywo napędzają indeksy i historię cen potrzebną do śledzenia portfela. Użyj darmowego konta CoinGecko albo API Deltabadger, które daje to samo także dla akcji, plus stały adres IP do białej listy na giełdach."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Także akcje oraz stały adres IP do białej listy na giełdach."
+            upgrade_button: "Ulepsz"
             disabled: 'Synchronizacja danych rynkowych wyłączona.'
             updated: 'Ustawienia danych rynkowych zaktualizowane.'
             coingecko_configured: 'Połączono z CoinGecko w celu pobierania danych rynkowych na żywo.'

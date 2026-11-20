@@ -2356,6 +2356,8 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     // D-MARKET-DATA-PICK: a connected provider is its row (the heading on the pane's top edge), no tiles to pick from.
     assert!(market.contains("sheet__heading--first")&&market.contains("Connected to CoinGecko")&&market.contains("/settings/disconnect_market_data"),"{market}");
     assert!(!market.contains("exchange-grid")&&!market.contains("switch-settings-update_market_data"),"no picker, no switch: {market}");
+    // On CoinGecko the Deltabadger Data API stays on offer, its card one click away.
+    assert!(market.contains("Deltabadger Data API")&&market.contains("data-turbo-frame=\"settings_pane\" href=\"/settings/connect?provider=deltabadger\""),"the upgrade row: {market}");
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
 }
