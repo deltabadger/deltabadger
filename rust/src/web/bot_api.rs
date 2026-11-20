@@ -334,19 +334,23 @@ pub fn transactions(c: &Connection, user: i64, bot_id: &Value, limit: &Value) ->
         Some(found)
     } else { None };
     let limit = match limit { Value::Null => 20, v => { let Some(n) = to_i(v) else { return Ok(None) }; if n <= 0 { 20 } else { n.min(100) } } };
-    let mut q = c.prepare("SELECT t.id,t.bot_id,t.created_at,t.side,t.status,t.base,t.quote FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.id=?2) ORDER BY t.created_at DESC LIMIT ?3")?;
-    let rows = q.query_map(rusqlite::params![user, bot, limit], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<i64>>(3)?,
-                                                                      r.get::<_, Option<usize>>(4)?, r.get::<_, Option<String>>(5)?, r.get::<_, Option<String>>(6)?)))?
+    // D-API-ACCOUNT-FIELDS: each order's account while its exchange has 2+ live accounts.
+    let (account, number) = if crate::identity::numbered(c)? { let a = crate::venue_ids::order_account("t"); (a.clone(), crate::identity::label_number_sql(&a)) } else { ("NULL".into(), "NULL".into()) };
+    let mut q = c.prepare(&format!("SELECT t.id,t.bot_id,t.created_at,t.side,t.status,t.base,t.quote,{account},{number} FROM transactions t JOIN bots b ON b.id=t.bot_id WHERE b.user_id=?1 AND (?2 IS NULL OR b.id=?2) ORDER BY t.created_at DESC LIMIT ?3"))?;
+    let rows = q.query_map(rusqlite::params![user, bot, limit], |r| Ok(((r.get::<_, i64>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<i64>>(3)?,
+                                                                      r.get::<_, Option<usize>>(4)?, r.get::<_, Option<String>>(5)?, r.get::<_, Option<String>>(6)?), (r.get::<_, Option<i64>>(7)?, r.get::<_, Option<i64>>(8)?))))?
         .collect::<Result<Vec<_>, _>>()?;
     let mut out = vec![];
-    for (id, bot_id, time, side, status, base, quote) in rows {
+    for ((id, bot_id, time, side, status, base, quote), (account, number)) in rows {
         let [price, _, _, amount, cost] = crate::figures::fill::display_amounts(c, id)?;
         let text = |n: Option<crate::v2::BigDec>| n.map_or(Value::Null, |n| json!(n.to_s_f()));
         let at = crate::codec::parse_time(&time).map_err(|e| WebError::Config(format!("transaction timestamp: {e:?}")))?;
-        out.push(json!({"id": id, "bot_id": bot_id, "created_at": crate::v2::iso8601_ms(at),
+        let mut row = json!({"id": id, "bot_id": bot_id, "created_at": crate::v2::iso8601_ms(at),
                         "side": side.and_then(|s| usize::try_from(s).ok()).and_then(|s| ["buy","sell"].get(s).copied()).unwrap_or(""),
                         "status": status.and_then(|s| ["submitted","failed","skipped"].get(s).copied()).unwrap_or(""),
-                        "amount_exec": text(amount), "base": base, "price": text(price), "quote": quote, "quote_amount_exec": text(cost)}));
+                        "amount_exec": text(amount), "base": base, "price": text(price), "quote": quote, "quote_amount_exec": text(cost)});
+        crate::identity::account_fields(&mut row, account, number);
+        out.push(row);
     }
     Ok(Some(Res::success(json!({"count": out.len(), "transactions": out}))))
 }

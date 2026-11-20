@@ -100,11 +100,13 @@ const PLACED_NOTHING:&[&str]=&["busy","skipped","unresolved","locked","refused",
 /// committed, a key 2.x or an older build left) answers `502 placement_ambiguous` from now on, its fingerprint kept.
 pub(crate) fn sweep_dead_claims(tx:&Connection,built:chrono::DateTime<chrono::Utc>)->Result<(),WebError> {
     type Row=(i64,bool,Option<i64>,Option<String>,Option<String>,Option<String>);
-    let rows:Vec<Row>=tx.prepare("SELECT k.id, l.key_id IS NOT NULL, l.order_id, o.state, json_extract(o.outcome, '$.kind'), e.name FROM idempotency_keys k \
+    // #710: the venue is named by the order's account (`Kraken 2` while the exchange has two live accounts).
+    let rows:Vec<Row>=crate::identity::with_bot_account("b",|bot_account|tx.prepare(&format!("SELECT k.id, l.key_id IS NOT NULL, l.order_id, o.state, json_extract(o.outcome, '$.kind'), {} FROM idempotency_keys k \
         LEFT JOIN rust_idempotency_orders l ON l.key_id = k.id LEFT JOIN rust_api_orders o ON o.id = l.order_id \
         LEFT JOIN rust_api_order_standalone s ON s.order_id = o.id LEFT JOIN bots b ON b.id = o.bot_id \
-        LEFT JOIN exchanges e ON e.id = coalesce(b.exchange_id, s.exchange_id) WHERE k.state = 'in_progress' ORDER BY k.id")?
-        .query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?)))?.collect::<Result<_,_>>()?;
+        LEFT JOIN exchanges e ON e.id = coalesce(b.exchange_id, s.exchange_id) WHERE k.state = 'in_progress' ORDER BY k.id",
+        crate::identity::plain_label_sql("e.name",&if bot_account=="NULL" {bot_account.to_string()} else {format!("coalesce(s.account_id, {bot_account})")})))?
+        .query_map([],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?,r.get(5)?)))?.collect::<Result<_,_>>())?;
     let now=crate::codec::format_time(built);
     for (id,linked,order,state,kind,exchange) in rows {
         let placed_nothing=linked && match (order,state.as_deref(),kind.as_deref()) {

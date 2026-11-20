@@ -372,7 +372,7 @@ fn split_one(tx: &Connection, ctx: &Ctx, owner: i64, source: &Source, now: DateT
         wizard::create::lock_limit_orders(tx, &mut decorated)?;
         built.settings = decorated["settings"].as_object().cloned().unwrap_or_default();
         built.set_members(tx, vec![*asset], ctx.locale)?;
-        if !wizard::create::validate(tx, &built, ctx.locale)?.is_empty() { return Ok(None); }
+        if !wizard::create::validate(tx, &built, Some(&account), ctx.locale)?.is_empty() { return Ok(None); }
         let label = built.label.clone();
         let id = wizard::create::insert_as(tx, owner, built, now, BotStatus::Stopped, source.position, Some(account))?;
         children.push(Child { id, label, asset: *asset });
