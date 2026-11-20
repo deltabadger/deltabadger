@@ -68,7 +68,7 @@ impl Harness {
     }
     async fn signup(&self, browser: &mut Browser, email: &str, password: &str) -> Answer {
         browser.get(&self.app, "/signup").await;
-        browser.post(&self.app, "/signup", &[("user[name]", "Ann Example"), ("user[email]", email), ("user[password]", password)]).await
+        browser.post(&self.app, "/signup", &[("user[email]", email), ("user[password]", password)]).await
     }
     async fn request_reset(&self, browser: &mut Browser, email: &str) -> Answer {
         browser.get(&self.app, "/password/new").await;
@@ -139,7 +139,7 @@ async fn concurrent_signups_with_one_address_make_one_account() {
     let (mut a, mut b) = (Browser::default(), Browser::default());
     a.get(&h.app, "/signup").await;
     b.get(&h.app, "/signup").await;
-    let form = [("user[name]", "Ann Example"), ("user[email]", "race@example.com"), ("user[password]", PASSWORD)];
+    let form = [("user[email]", "race@example.com"), ("user[password]", PASSWORD)];
     let (x, y) = tokio::join!(a.post(&h.app, "/signup", &form), b.post(&h.app, "/signup", &form));
     assert_eq!(visible(&x), visible(&y));
     assert_eq!(x.status, 303);
@@ -148,19 +148,6 @@ async fn concurrent_signups_with_one_address_make_one_account() {
     let mut subjects: Vec<String> = h.sent().into_iter().map(|(_, s)| s).collect();
     subjects.sort();
     assert_eq!(subjects, ["Confirm your email", "Email already taken"]);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn signup_name_with_a_line_break_is_refused() {
-    // D-SIGNUP-NAME-ONE-LINE: 2.x's ^…$ takes "Ann\nanything"; a tab between words is still a name, as in 2.x.
-    let h = harness();
-    for (name, status) in [("Ann\nEvil", 422), ("Ann\r\nEvil", 422), ("Ann\n", 422), ("Ann\tExample", 303)] {
-        let mut browser = Browser::default();
-        browser.get(&h.app, "/signup").await;
-        let email = format!("n{}@example.com", name.len());
-        let answer = browser.post(&h.app, "/signup", &[("user[name]", name), ("user[email]", &email), ("user[password]", PASSWORD)]).await;
-        assert_eq!(answer.status, status, "{name:?}");
-    }
 }
 
 #[tokio::test(flavor = "current_thread")]

@@ -26,6 +26,8 @@ fn install(sc: &Value) -> (tempfile::TempDir, store::Opened) {
     for table in TABLES {
         for row in sc["before"][table].as_array().into_iter().flatten() {
             let mut row = row.as_object().unwrap().clone();
+            // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+            if table == "users" { row.shift_remove("name"); }
             if table == "api_keys" {
                 row.insert("key".into(), json!(seed::cipher().encrypt("test-key")));
                 row.insert("secret".into(), json!(seed::cipher().encrypt("dGVzdC1zZWNyZXQ=")));

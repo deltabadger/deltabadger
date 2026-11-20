@@ -681,7 +681,7 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
 /// the build's scan let through (a fixture registry skips the build).
 #[test]
 fn a_listed_column_drop_with_anything_else_in_it_is_rolled_back() {
-    for sql in ["ALTER TABLE users DROP COLUMN name; UPDATE users SET admin = 1;", "ALTER TABLE users DROP COLUMN email;"] {
+    for sql in ["ALTER TABLE users DROP COLUMN name; UPDATE users SET admin = 1;", "ALTER TABLE users DROP COLUMN locale;"] {
         let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         let before = contents(&p);

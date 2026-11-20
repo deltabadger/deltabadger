@@ -9,7 +9,8 @@
 //!   bcrypt computation on both, and mails the account owner instead (D-ACCOUNT-MAIL-OFF-REQUEST: never in the request).
 //! - D-SIGNUP-RACE: two signups with one address at once: the second meets the unique index and takes the taken path.
 //! - D-SIGNUP-REAL-EMAIL: the Gmail account that "already taken" goes to is matched by username exactly, not by LIKE.
-//! - D-SIGNUP-THROTTLE (rate_limit.rs) and D-SIGNUP-NAME-ONE-LINE (setup::validate).
+//! - D-SIGNUP-THROTTLE (rate_limit.rs).
+//! - D-NO-USER-NAME: email and password only; no name is asked or stored.
 use super::layout::{self, Ctx, Page};
 use super::settings::mail::{self, AccountMail};
 use super::setup::{self, FieldError};

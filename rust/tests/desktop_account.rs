@@ -106,7 +106,7 @@ async fn a_fresh_install_gets_one_admin_with_the_os_language_and_zone_and_the_wi
 fn the_placeholder_email_passes_setups_own_checks() {
     let dir = install();
     let c = db(&dir);
-    assert!(web::setup::validate(&c, "en", Some("Deltabadger"), desktop::EMAIL, Some("Correct-horse-9")).unwrap().is_empty());
+    assert!(web::setup::validate(&c, "en", desktop::EMAIL, Some("Correct-horse-9")).unwrap().is_empty());
 }
 
 #[test]

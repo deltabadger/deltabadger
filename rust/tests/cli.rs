@@ -1039,19 +1039,21 @@ fn a_handed_back_install_is_backed_up_with_its_tax_rows_and_refused_starts_add_o
     handback();
     c.execute("UPDATE bots SET settings = json_set(settings, '$.future_price_drop_limited', json('true')) WHERE id = ?1", [bot]).unwrap();
     open_order(&c, &s, bot);
+    // D-HANDBACK-RESTORES-NAME: the handback gave 2.x its users.name back and the first start drops it again before it
+    // refuses, so the second start sees one more state (the column gone): one more copy, then none.
     for n in 1..=3 {
         let r = refused(dir.path(), &mut bare(dir.path(), &["serve"]));
         assert!(r.stderr.contains("future_price_drop_limited"), "start {n}: {}", r.stderr);
-        assert_eq!(backups(dir.path()).len(), 2, "start {n}: {:?}", backups(dir.path()));
+        assert_eq!(backups(dir.path()).len(), if n == 1 { 2 } else { 3 }, "start {n}: {:?}", backups(dir.path()));
     }
     assert_eq!(lease_of(dir.path()).unwrap()["engine"], "none", "nothing claimed");
     // A 2.x change that queued nothing (here a setting edited by hand) is a new state: a new copy.
     c.execute("UPDATE bots SET settings = json_set(settings, '$.quote_amount', 61) WHERE id = ?1", [bot]).unwrap();
     refused(dir.path(), &mut bare(dir.path(), &["serve"]));
-    assert_eq!(backups(dir.path()).len(), 3);
+    assert_eq!(backups(dir.path()).len(), 4);
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('hand_edited', 'x', '2026-11-01', '2026-11-01')", []).unwrap();
     refused(dir.path(), &mut bare(dir.path(), &["serve"]));
-    assert_eq!(backups(dir.path()).len(), 4);
+    assert_eq!(backups(dir.path()).len(), 5);
     assert!(backups(dir.path()).iter().all(|b| b.extension().is_none_or(|e| e != "partial")));
 
     // The typed rows come back with a restore.

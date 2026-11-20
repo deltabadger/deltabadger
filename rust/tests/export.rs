@@ -19,7 +19,17 @@ const VECTOR_SALT: &str = "948c8649965f6f0b7a94b7033f0be2ffb0b8b5e06205899336a07
 
 fn fixture() -> &'static Value {
     static F: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
-    F.get_or_init(|| serde_json::from_str(include_str!("fixtures/portable_export.json")).unwrap())
+    F.get_or_init(|| {
+        let mut f: Value = serde_json::from_str(include_str!("fixtures/portable_export.json")).unwrap();
+        // D-NO-USER-NAME: this build has no users.name; 2.x's users rows, in and out, are read without it.
+        for side in ["source", "scrubbed"] {
+            let users = &mut f[side]["users"];
+            let Some(at) = users["columns"].as_array().unwrap().iter().position(|c| c == "name") else { continue };
+            users["columns"].as_array_mut().unwrap().remove(at);
+            for row in users["rows"].as_array_mut().unwrap() { row.as_array_mut().unwrap().remove(at); }
+        }
+        f
+    })
 }
 fn now() -> DateTime<Utc> { "2026-11-01T12:00:00Z".parse().unwrap() }
 

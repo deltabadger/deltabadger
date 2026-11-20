@@ -346,11 +346,6 @@ async fn every_settings_write_rejects_missing_csrf_and_preserves_all_rows() {
     let mut writes = vec![
         (
             "PATCH",
-            "/settings/update_name",
-            vec![("user[name]", "Changed")],
-        ),
-        (
-            "PATCH",
             "/settings/update_email",
             vec![
                 ("user[email]", "changed@example.com"),
@@ -705,7 +700,7 @@ async fn tax_guard_rolls_back_unsupported_protection_and_wakes_only_after_commit
     assert_eq!(jurisdiction, "GB");
 }
 #[tokio::test(flavor = "current_thread")]
-async fn account_writes_validate_current_password_name_and_preference_values() {
+async fn account_writes_validate_current_password_and_preference_values() {
     let server = MockServer::start().await;
     let mut h = Harness::new(server.uri()).await;
     for (path, form) in [
@@ -724,7 +719,6 @@ async fn account_writes_validate_current_password_name_and_preference_values() {
                 ("user[current_password]", "wrong"),
             ],
         ),
-        ("/settings/update_name", vec![("user[name]", "123")]),
         (
             "/settings/update_time_zone",
             vec![("user[time_zone]", "invalid")],
@@ -3154,15 +3148,13 @@ async fn i_engine_diagnostics_redact_all_stored_material_in_every_encoding(){
 
 
 #[tokio::test(flavor="current_thread")]
-async fn r1_v2_name_whitespace_is_ascii() {
+async fn the_name_write_is_unrouted_and_writes_nothing() {
+    // D-NO-USER-NAME: PATCH /settings/update_name answers as any unknown settings route.
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
-    for name in ["Alice\u{a0}Smith","Alice\u{2003}Smith"] {
-        let before=h.snapshot();
-        let answer=h.submit("PATCH","/settings/update_name",&[("user[name]",name)],Csrf::Header).await;
-        assert_eq!(answer.status,422,"R1 2.x rejects this Unicode separator");
-        assert_eq!(h.snapshot(),before,"R1 rejected names leave every row unchanged");
-    }
-    assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,200);
+    let unknown=h.submit("PATCH","/settings/update_no_such_thing",&[("user[name]","Alice Smith")],Csrf::Header).await.status;
+    let before=h.snapshot();
+    assert_eq!(h.submit("PATCH","/settings/update_name",&[("user[name]","Alice Smith")],Csrf::Header).await.status,unknown);
+    assert_eq!(h.snapshot(),before);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -3549,7 +3541,6 @@ async fn r3_json_api_replacement_wakes_ledger_after_commit(){r3_replacement_wake
 async fn r3_html_settings_refuse_json_bodies_without_writes(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     for (path,body) in [
-        ("/settings/update_name",serde_json::json!({"user":{"name":"New Owner"}})),
         ("/settings/update_email",serde_json::json!({"user":{"email":"new@example.com","current_password":"Correct-horse-9"}})),
         ("/settings/update_password",serde_json::json!({"user":{"password":"New-horse-8","current_password":"Correct-horse-9"}})),
         ("/settings/update_time_zone",serde_json::json!({"user":{"time_zone":"UTC"}})),
@@ -3567,7 +3558,7 @@ async fn r3_html_settings_refuse_json_bodies_without_writes(){
         let before=h.snapshot();let response=h.browser.send_body(&h.app,"DELETE",path,Some("{}".into()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
         assert_eq!(response.status,400,"R3 HTML settings are form-only: {path}");assert_eq!(h.snapshot(),before);
     }
-    let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_name",Some(serde_json::json!({"user":{"name":"New Owner"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
+    let before=h.snapshot();let response=h.browser.send_body(&h.app,"PATCH","/de/settings/update_locale",Some(serde_json::json!({"user":{"locale":"de"}}).to_string()),Csrf::Header,&[("content-type","Application/JSON; charset=utf-8"),("origin","http://localhost:3000")]).await;
     assert_eq!(response.status,400);assert_eq!(h.snapshot(),before);
     assert!(h.mail.0.lock().unwrap().is_empty());assert!(server.received_requests().await.unwrap().is_empty());
 }

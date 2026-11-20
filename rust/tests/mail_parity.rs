@@ -54,7 +54,11 @@ fn v2_greeting(c: &Connection, case: &Value, html: &str) -> String {
     use rusqlite::OptionalExtension;
     let name: Option<String> = match (case.get("notice"), case["account"].as_str()) {
         (Some(n), _) => c.query_row("SELECT u.name FROM bots b JOIN users u ON u.id = b.user_id WHERE b.id = ?1", [n["bot_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(),
-        (None, Some("email_already_taken")) => c.query_row("SELECT name FROM users WHERE email = ?1", [case["to"].as_str().unwrap()], |r| r.get(0)).optional().unwrap().flatten(),
+        (None, Some("email_already_taken")) => {
+            // Sent to `to`, else to the user's own address (recipient()).
+            let to: String = case["to"].as_str().map_or_else(|| c.query_row("SELECT email FROM users WHERE id = ?1", [case["user_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(), str::to_string);
+            c.query_row("SELECT name FROM users WHERE email = ?1", [to], |r| r.get(0)).optional().unwrap().flatten()
+        }
         _ => c.query_row("SELECT name FROM users WHERE id = ?1", [case["user_id"].as_i64().unwrap()], |r| r.get(0)).unwrap(),
     };
     // The mail's language, as build() picks it: a bot mail in its owner's, an account mail in the request's (else the user's).
@@ -530,17 +534,17 @@ async fn a_label_with_a_line_break_is_not_mailed_and_its_marker_is_cleared() {
 }
 
 #[test]
-fn a_label_a_name_and_an_error_are_bounded_in_a_mail_and_ordinary_ones_are_untouched() {
+fn a_label_and_an_error_are_bounded_in_a_mail_and_ordinary_ones_are_untouched() {
     let i = install();
     let (from, urls) = ("bots@example.com", Urls::from_env(&|_| None));
     let stopped = |error: &str| render::for_notice(&i.o.primary, i.bot_id, &Notice::StoppedByError { error: error.into() }, from, &urls).unwrap().unwrap();
     assert_eq!(stopped("unauthorized.").subject, "Weekly BTC has been stopped");
     // A listed divergence, for sizes no form produces: 2.x has no bound.
     i.o.primary.execute("UPDATE bots SET label = ?1", ["ł".repeat(201)]).unwrap();
-    i.o.primary.execute("UPDATE users SET name = ?1", ["n".repeat(5000)]).unwrap();
     let mail = stopped(&"e".repeat(5000));
     assert_eq!(mail.subject, format!("{}… has been stopped", "ł".repeat(200)));
-    assert!(mail.html.contains(&format!("<p>Hi {}…,</p>", "n".repeat(200))) && !mail.html.contains(&"n".repeat(201)));
+    // D-NO-USER-NAME: no name to bound; every mail greets with `mailer.greeting`.
+    assert!(mail.html.contains(&format!("<p>{}</p>", deltabadger::web::i18n::t("en", "mailer.greeting", &[]))));
     assert!(mail.html.contains(&format!("<b>{}…</b>", "e".repeat(500))) && !mail.html.contains(&"e".repeat(501)));
     assert!(mail.html.len() < 4000, "{} bytes", mail.html.len());
 }

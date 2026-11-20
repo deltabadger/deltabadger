@@ -409,7 +409,7 @@ fn a_stand_ins_balances_are_its_owners_only() {
     let s = seed::seed_kraken(&raw, &seed::cipher());
     raw.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at) \
                  VALUES (?1, ?2, ?3, 2, 0, 100, 200, 'p', 's', 'c', 'u')", [s.user_id, s.exchange_id, s.btc]).unwrap();
-    raw.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('b@example.com', 'x', 'B', 0, 'now', 'now')", []).unwrap();
+    raw.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('b@example.com', 'x', 0, 'now', 'now')", []).unwrap();
     let b = raw.last_insert_rowid();
     raw.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 0, 0, 'now', 'now')", [b, s.exchange_id]).unwrap();
     drop(raw);

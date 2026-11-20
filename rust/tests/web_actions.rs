@@ -401,7 +401,9 @@ mod action_draft {
         for (table, rows) in field(group, "rows").as_object().ok_or("rows")? {
             // Table and column names are generated fixture data, never request input.
             for row in rows.as_array().ok_or("table rows")? {
-                let row = row.as_object().ok_or("row")?;
+                let mut row = row.as_object().ok_or("row")?.clone();
+                // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+                if table == "users" { row.shift_remove("name"); }
                 let columns = row.keys().map(|key| format!("\"{key}\"")).collect::<Vec<_>>().join(",");
                 let values = row.values().map(|value| match value {
                     Value::Null => rusqlite::types::Value::Null,
@@ -1054,7 +1056,9 @@ mod action_write {
         let group=&vectors["bot_actions"];
         for (table,rows) in group["rows"].as_object().ok_or("rows")? {
             for row in rows.as_array().ok_or("table rows")? {
-                let row=row.as_object().ok_or("row")?;
+                let mut row=row.as_object().ok_or("row")?.clone();
+                // D-NO-USER-NAME: 2.x's users rows carry a name this build no longer has.
+                if table=="users" { row.shift_remove("name"); }
                 let columns=row.keys().map(|k|format!("\"{k}\"")).collect::<Vec<_>>().join(",");
                 let values=row.values().map(|v|match v {
                     Value::Null=>rusqlite::types::Value::Null,

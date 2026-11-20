@@ -722,7 +722,7 @@ fn two() -> Two {
         fx.c.last_insert_rowid()
     };
     let (first, second, third) = (account(fx.user, exchange, 1, None), account(fx.user, exchange, 2, None), account(fx.user, exchange, 3, Some("2026-02-01")));
-    fx.c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('x@example.com', 'x', 'X', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    fx.c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('x@example.com', 'x', 0, '2026-01-01', '2026-01-01')", []).unwrap();
     let foreign = account(fx.c.last_insert_rowid(), exchange, 1, None);
     account(fx.user, other, 1, None);
     let (key1, key2) = (fx.key(KUCOIN, 0, "kc-1"), fx.key(KUCOIN, 0, "kc-2"));

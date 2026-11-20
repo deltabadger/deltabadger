@@ -258,7 +258,7 @@ mod sessions {
             user: Some((7, "$2a$11$abcdefghijklmnopqrstuv".into())), csrf: Some("c3Jm".into()),
             flash: vec![("alert".into(), "Zażółć \"it\"".into()), ("notice".into(), "ok".into())],
             pending: Some(Pending { user_id: 7, started_at: 1_789_041_630, salt: "$2a$11$abcdefghijklmnopqrstuv".into() }), return_to: Some("/bots?filter=active".into()), tracker_connect: Some(3),
-            setup_token: Some("expected-token".into()), platform_identity: Some((Some("Owner".into()), None)),
+            setup_token: Some("expected-token".into()), platform_identity: Some("owner@example.com".into()),
             bot_config: Some(serde_json::json!({ "flow": "asset_first", "settings": { "base_asset_ids": [3] } })),
             withdrawal_rule_config: Some(serde_json::json!({ "exchange_id": "3", "asset_id": "1" })),
             import_offsets: [("0123456789abcdef".to_string(), "+03:00".to_string())].into(),

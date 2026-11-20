@@ -290,6 +290,11 @@ async fn control_transcripts() {
             result_without_before(&mut got);
         }
         let (mut got,mut want)=(got,want);
+        // D-NO-USER-NAME: this build has no users.name (an install whose drop is still pending keeps it); user rows are
+        // compared without it.
+        for v in [&mut got, &mut want] {
+            for row in v["rows"]["users"].as_array_mut().into_iter().flatten() { row.as_object_mut().map(|r| r.shift_remove("name")); }
+        }
         if name.starts_with("order_") {
             for v in [&mut got,&mut want] { *v=serde_json::from_str(&dry.replace_all(&v.to_string(),"dry-order-<id>")).unwrap(); }
         }
