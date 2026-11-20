@@ -1,7 +1,6 @@
 it:
     mailer:
         greeting: 'Ciao campione,'
-        greeting_name: 'Ciao %{name},'
         best_html: '<p>Saluti,<br>Jan</p>'
         unsubscribe: 'Annulla iscrizione'
     test_mailer:

@@ -135,25 +135,23 @@ fn prepare(app: &App, c: &rusqlite::Connection, mail: AccountMail, locale: &'sta
         Err(reason) if reason == NOT_SET_UP => None,
         Err(_) => return Err(WebError::Config("the SMTP configuration is invalid".into())),
     };
-    let user = |condition: &str, value: &dyn rusqlite::ToSql| -> Result<Option<(String, String)>, WebError> {
-        Ok(c.query_row(&format!("SELECT COALESCE(name,''), email FROM users WHERE {condition} = ?1"), [value], |r| Ok((r.get(0)?, r.get(1)?))).optional()?)
+    let user = |user_id: i64| -> Result<Option<String>, WebError> {
+        Ok(c.query_row("SELECT email FROM users WHERE id = ?1", [user_id], |r| r.get(0)).optional()?)
     };
     let urls = render::Urls { root: app.config.own_origin.clone().unwrap_or_else(|| "http://localhost:3000".into()) + "/" };
     let from = smtp::notifications_sender(&app.settings_smtp, &read);
-    let recipient = |name: String, email: String| render::Recipient { email, name, locale };
+    let recipient = |email: String| render::Recipient { email, locale };
     let message = match mail {
         AccountMail::Confirmation { user_id, address, token } => {
-            let Some((name, _)) = user("id", &user_id)? else { return Ok(None) };
-            render::confirmation_instructions(&from, &urls, &recipient(name, address), &token)
+            if user(user_id)?.is_none() { return Ok(None) }
+            render::confirmation_instructions(&from, &urls, &recipient(address), &token)
         }
         AccountMail::ResetPassword { user_id, token } => {
-            let Some((name, email)) = user("id", &user_id)? else { return Ok(None) };
-            render::reset_password_instructions(&from, &urls, &recipient(name, email), &token)
+            let Some(email) = user(user_id)? else { return Ok(None) };
+            render::reset_password_instructions(&from, &urls, &recipient(email), &token)
         }
         AccountMail::EmailTaken { address } => {
-            // `@resource = User.find_by(email:)`: the greeting names that account.
-            let name = user("email", &address)?.map(|(name, _)| name).unwrap_or_default();
-            render::email_already_taken(&from, &urls, &recipient(name, address))
+            render::email_already_taken(&from, &urls, &recipient(address))
         }
     };
     Ok(Some((message, settings)))
@@ -189,10 +187,9 @@ pub async fn send_test(app: App, ctx: crate::web::layout::Ctx) -> Result<axum::r
             // SmtpSettings.configured? is true for what this build refuses to send with: 2.x's delivery fails there.
             Err(reason) => return Ok(TestMail::Refused(reason)),
         };
-        let name: String = c.query_row("SELECT COALESCE(name,'') FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let urls = render::Urls { root: inner.config.own_origin.clone().unwrap_or_else(|| "http://localhost:3000".into()) + "/" };
         let message = render::test_email(&smtp::notifications_sender(&inner.settings_smtp, &read), &urls,
-                                         &render::Recipient { email: user.email.clone(), name, locale });
+                                         &render::Recipient { email: user.email.clone(), locale });
         Ok(TestMail::Ready(Box::new((message, settings, user.email))))
     }).await?;
     let failed = |error: &str| (flash::ALERT, i18n::t(ctx.locale, "settings.email_notifications.test_email_failed", &[("error", i18n::Arg::Text(error))]));

@@ -1,7 +1,6 @@
 pt:
     mailer:
         greeting: 'Olá campeão,'
-        greeting_name: 'Olá %{name},'
         best_html: '<p>Cumprimentos,<br>Jan</p>'
         unsubscribe: 'Cancelar subscrição'
     test_mailer:

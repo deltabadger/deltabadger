@@ -21,8 +21,9 @@ pub struct Claim {
     pub market_token: String,
     /// `proxy_<key downcased>` => value, in the answer's order.
     pub proxies: Vec<(String, String)>,
-    /// platform_identity_attributes: name and email when the identity is an object (an object without them is `None`s).
-    pub identity: (Option<String>, Option<String>),
+    /// platform_identity_attributes: the email when the identity is an object that has one (D-NO-USER-NAME: its name is
+    /// not read).
+    pub identity: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -108,8 +109,8 @@ fn redeem(payload: &Map<String, Value>) -> Result<Claim, Failure> {
         Some(_) => return Err(Failure::Malformed),
     };
     let identity = match payload.get("identity") {
-        Some(Value::Object(identity)) => (identity.get("name").and_then(text), identity.get("email").and_then(text)),
-        _ => (None, None),
+        Some(Value::Object(identity)) => identity.get("email").and_then(text),
+        _ => None,
     };
     Ok(Claim { market_url, market_token, proxies, identity })
 }
@@ -150,7 +151,7 @@ mod tests {
     fn answers_read_as_v2_reads_them() {
         let ok = r#"{"identity":{"name":"Owner","email":"o@example.com"},"market_data":{"url":"https://d.example","token":"t"},"proxies":{"Binance":"http://p","n":1}}"#;
         assert_eq!(read(200, JSON, ok), Ok(Claim { market_url: "https://d.example".into(), market_token: "t".into(),
-            proxies: vec![("proxy_binance".into(), "http://p".into()), ("proxy_n".into(), "1".into())], identity: (Some("Owner".into()), Some("o@example.com".into())) }));
+            proxies: vec![("proxy_binance".into(), "http://p".into()), ("proxy_n".into(), "1".into())], identity: Some("o@example.com".into()) }));
         let failed = |status, content_type, body: &str| match read(status, content_type, body) { Err(Failure::Message(m)) => m, other => panic!("{other:?}") };
         assert_eq!(failed(401, JSON, "{}"), INVALID_CLAIM);
         // Deliberately stricter than 2.x: errors never expose an upstream body or request URL.

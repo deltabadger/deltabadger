@@ -55,7 +55,7 @@ impl Fx {
         Self { user, ..fx }
     }
     fn user(&self, email: &str) -> i64 {
-        self.c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES (?1, 'x', 'Owner', 1, '2026-01-01', '2026-01-01')", [email]).unwrap();
+        self.c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES (?1, 'x', 1, '2026-01-01', '2026-01-01')", [email]).unwrap();
         let user = self.c.last_insert_rowid();
         let e = |v: &str| self.cipher.encrypt(v);
         self.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",

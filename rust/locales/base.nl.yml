@@ -74,10 +74,8 @@ nl:
                 enter_two_fa_code: 'Voer 2FA code in'
                 scan_code_info: 'Scan de QR-code of kopieer de code hieronder:'
             user:
-                name: Naam
                 current_password: 'Huidig wachtwoord'
                 email: Email
-                new_name: 'Nieuwe naam'
                 new_email: 'Nieuw e-mailadres'
                 new_password: 'Nieuw wachtwoord'
                 new_password_confirmation: 'Bevestig nieuw wachtwoord'
@@ -169,8 +167,6 @@ nl:
             current_time_is: 'Deze tijdzone wordt gebruikt in de bot logs. Volgens deze is de huidige tijd'
             currency_updated: "Uw weergavevaluta is bijgewerkt."
             currency_is_used_for: "Winsten en portefeuilletotalen worden in deze valuta getoond. Bots blijven handelen in hun eigen quote-asset."
-        name:
-            updated: 'Uw naam is bijgewerkt.'
         two_fa:
             disabled: 'Twee-factor-authenticatie is uitgeschakeld.'
             enabled: 'Twee-factor-authenticatie is ingeschakeld.'
@@ -182,7 +178,6 @@ nl:
             trading_keys_section: 'Trading keys'
             withdrawal_keys_section: 'Withdrawal keys'
             email_section: Email
-            name_section: Voornaam
             password_section: Wachtwoord
             free_plan_reset_date_html: 'Uw limiet wordt gereset op <b>%{end_time}</b>.'
             title: Instellingen

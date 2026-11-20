@@ -78,8 +78,8 @@ impl Fx {
     }
 
     fn member(&self) -> i64 {
-        self.c.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, setup_completed, created_at, updated_at) \
-                        VALUES ('member@example.com', 'x', 'Member', 0, '2026-01-01', 1, '2026-01-01', '2026-01-01')", []).unwrap();
+        self.c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, setup_completed, created_at, updated_at) \
+                        VALUES ('member@example.com', 'x', 0, '2026-01-01', 1, '2026-01-01', '2026-01-01')", []).unwrap();
         self.c.last_insert_rowid()
     }
 

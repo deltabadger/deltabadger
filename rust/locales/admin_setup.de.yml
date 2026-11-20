@@ -12,7 +12,6 @@ de:
       title: "Die Einrichtung ist gesperrt"
       text: "Um das Admin-Konto zu erstellen, öffne diesen Server über das Dashboard des Dienstes, der ihn hostet."
     validations:
-      name_required: "Name ist erforderlich"
       email_required: "E-Mail ist erforderlich"
       password_required: "Passwort ist erforderlich"
     api_configuration: "Der Bot verwendet Marktdaten von CoinGecko. Der Zugriff auf die CoinGecko API ist kostenlos, aber Sie müssen sich registrieren und einen API-Schlüssel erstellen. Anweisungen finden Sie unten."

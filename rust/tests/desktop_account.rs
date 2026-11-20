@@ -76,7 +76,7 @@ fn users(dir: &tempfile::TempDir) -> Vec<UserRow> {
 
 fn insert_user(dir: &tempfile::TempDir, email: &str, admin: bool) -> i64 {
     let c = db(dir);
-    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES (?1, ?2, 'Someone', ?3, ?4, ?4)",
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
               (email, deltabadger::crypto::hash_password("Correct-horse-9").unwrap(), admin, "2026-01-01 00:00:00")).unwrap();
     c.last_insert_rowid()
 }
@@ -106,7 +106,7 @@ async fn a_fresh_install_gets_one_admin_with_the_os_language_and_zone_and_the_wi
 fn the_placeholder_email_passes_setups_own_checks() {
     let dir = install();
     let c = db(&dir);
-    assert!(web::setup::validate(&c, "en", Some("Deltabadger"), desktop::EMAIL, Some("Correct-horse-9")).unwrap().is_empty());
+    assert!(web::setup::validate(&c, "en", desktop::EMAIL, Some("Correct-horse-9")).unwrap().is_empty());
 }
 
 #[test]

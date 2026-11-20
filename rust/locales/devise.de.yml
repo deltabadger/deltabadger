@@ -34,7 +34,6 @@ de:
             new:
                 email_invalid: 'E-Mail ungültig!'
                 email_suggestion_html: 'E-Mail ungültig! Meinten Sie: <b>%{suggestion}</b>'
-                name_invalid: 'Muss nicht echt sein 👻'
                 submit: 'Registrieren'
                 title: 'Konto erstellen'
             signed_up: 'Willkommen! Sie haben sich erfolgreich registriert.'

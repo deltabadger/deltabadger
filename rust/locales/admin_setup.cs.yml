@@ -12,7 +12,6 @@ cs:
       title: "Nastavení je uzamčeno"
       text: "Chcete-li vytvořit účet správce, otevřete tento server z ovládacího panelu služby, která jej hostuje."
     validations:
-      name_required: "Jméno je povinné"
       email_required: "E-mail je povinný"
       password_required: "Heslo je povinné"
     api_configuration: "Bot využívá tržní data od CoinGecko. Přístup k CoinGecko API je zdarma, ale je potřeba se zaregistrovat a vytvořit API klíč. Návod najdete níže."

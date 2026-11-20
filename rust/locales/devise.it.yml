@@ -34,7 +34,6 @@ it:
             new:
                 email_invalid: 'Email non valida!'
                 email_suggestion_html: 'Email non valida! Intendevi: <b>%{suggestion}</b>'
-                name_invalid: 'Non deve essere reale 👻'
                 submit: 'Registrati'
                 title: 'Crea account'
             signed_up: 'Benvenuto! Ti sei registrato con successo.'

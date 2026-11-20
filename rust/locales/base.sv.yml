@@ -74,10 +74,8 @@ sv:
                 enter_two_fa_code: 'Ange 2FA-kod'
                 scan_code_info: 'Skanna QR-koden eller kopiera koden nedan:'
             user:
-                name: Namn
                 current_password: 'Nuvarande lösenord'
                 email: E-post
-                new_name: 'Nytt namn'
                 new_email: 'Ny e-post'
                 new_password: 'Nytt lösenord'
                 new_password_confirmation: 'Bekräfta nytt lösenord'
@@ -169,8 +167,6 @@ sv:
             current_time_is: "Denna tidszon används i botloggen. Enligt den är klockan nu"
             currency_updated: "Din visningsvaluta har uppdaterats."
             currency_is_used_for: "Vinster och portföljsummor visas i denna valuta. Botarna handlar fortfarande i sin egen noteringstillgång."
-        name:
-            updated: "Ditt namn har uppdaterats."
         two_fa:
             disabled: 'Tvåfaktorsautentisering har inaktiverats.'
             enabled: 'Tvåfaktorsautentisering har aktiverats.'
@@ -182,7 +178,6 @@ sv:
             trading_keys_section: 'Handelsnycklar'
             withdrawal_keys_section: 'Uttagsnycklar'
             email_section: E-post
-            name_section: Namn
             password_section: Lösenord
             free_plan_reset_date_html: 'Din gräns återställs <b>%{end_time}</b>.'
             title: Inställningar

@@ -128,7 +128,7 @@ fn main() {
             let keys=EncryptionKeys::resolve(&env,&secret).unwrap_or_else(|_|fail("encryption configuration unreadable"));
             let cipher=Cipher::new(&keys);
             check_readable(&paths,&cipher,&env);
-            store::migrate(&paths,&lock).unwrap_or_else(|e|refuse_store(e, &paths, &env));
+            store::migrate_unowned(&paths,&lock,owned_by_rust(&paths,&cipher)).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             if let Target::V2List(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
@@ -518,8 +518,12 @@ fn open_install(env: &dyn Fn(&str) -> Option<String>, start: bool) -> (EngineLoc
     }
     if start {
         pause("after-backup");
-        for version in store::migrate(&paths, &lock).unwrap_or_else(|e| refuse_store(e, &paths, env)) { log(&format!("applied Rust migration {version}")); }
+        // D-DROP-USERS-NAME: a column drop waits for the claim on an install that is not Rust's yet (claim_install).
+        let owned = owned_by_rust(&paths, &cipher);
+        for version in store::migrate_unowned(&paths, &lock, owned).unwrap_or_else(|e| refuse_store(e, &paths, env)) { log(&format!("applied Rust migration {version}")); }
         pause("after-migrate");
+        #[cfg(debug_assertions)]
+        store::abort_point("after-migrate");
     }
     let opened = store::open(&paths).unwrap_or_else(|e| refuse_store(e, &paths, env));
     // An encryption reset 2.x made while Rust was stopped: known account identities are cleared before any is recorded.
@@ -647,7 +651,7 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
 
 /// The takeover `run` and `serve` share: Err(exit code, what it printed after "deltabadger: "). Refusals are
 /// EXIT_REFUSED before anything is claimed; a takeover that fails after the claim is EXIT_ENGINE_ERROR.
-fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), (i32, String)> {
+fn claim_install(paths: &Paths, lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Result<(), (i32, String)> {
     let refused = |code: i32, message: String| { deltabadger::eline!("deltabadger: {message}"); Err((code, message)) };
     // preflight's refusals (venue, key) are the takeover's own now: a working bot without a key is set aside, one that
     // still owes orders is a hard stop (set_aside::apply).
@@ -663,6 +667,11 @@ fn claim_install(lock: &EngineLock, o: &store::Opened, cipher: &Cipher) -> Resul
     // D-UPGRADE-V2-WORK-DROPPED: the queued jobs with nothing left to finish are counted here.
     log(&format!("took over ({:?}): {} bot(s), {} queued job(s) removed, {} of them with nothing left to do, {} webhook call(s) taken over, {} bot(s) back to scheduled",
                  t.claim, t.eligible.len(), t.deleted_jobs, t.dropped_jobs, t.imported_calls, t.normalised));
+    // D-DROP-USERS-NAME: the install is Rust's now; what open_install left pending for the claim applies here.
+    match store::migrate(paths, lock) {
+        Ok(applied) => for version in applied { log(&format!("applied Rust migration {version}")); },
+        Err(e) => { let message = format!("takeover failed: {e:?}"); deltabadger::eline!("deltabadger: {message}"); return Err((EXIT_ENGINE_ERROR, message)) }
+    }
     #[cfg(debug_assertions)]
     store::abort_point("after-claim");
     Ok(())
@@ -675,7 +684,7 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     // and a service may still be draining then.
     let _held = lock.clone();
     let mail = mail_sender(env, &cipher);
-    if let Err((code, _)) = claim_install(&lock, &o, &cipher) { return code; }
+    if let Err((code, _)) = claim_install(&paths(env), &lock, &o, &cipher) { return code; }
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
     let code = rt.block_on(async move {
         let factory = LiveFactory::for_install(&o.primary, &cipher);
@@ -754,7 +763,7 @@ fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
         .unwrap_or_else(|e| { deltabadger::eline!("deltabadger: {}", web_problem(e)); std::process::exit(EXIT_REFUSED) });
     pause("before-claim");
     stop_if_requested();
-    if let Err((code, message)) = claim_install(&lock, &o, &cipher) {
+    if let Err((code, message)) = claim_install(&paths(env), &lock, &o, &cipher) {
         if code != EXIT_REFUSED { return code; }
         // Nothing was claimed: the port goes to the refusal page, and the lock goes with this process's other handles.
         drop((listener, mail, app, o, lock, _held, rt));

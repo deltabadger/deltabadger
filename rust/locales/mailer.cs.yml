@@ -1,7 +1,6 @@
 cs:
     mailer:
         greeting: 'Ahoj legendární investore,'
-        greeting_name: 'Ahoj %{name},'
         best_html: '<p>S pozdravem,<br>Jan</p>'
         unsubscribe: 'Odhlásit se'
     test_mailer:

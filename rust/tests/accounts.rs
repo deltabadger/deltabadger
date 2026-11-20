@@ -42,8 +42,8 @@ fn harness_with(behaviour: Behaviour, env: &[(&str, &str)], hook: Option<deltaba
     if let Some(hook) = hook { app = app.with_password_hook(hook).unwrap(); }
     let c = db(&dir);
     let hash = deltabadger::crypto::hash_password(PASSWORD).unwrap();
-    c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
-               VALUES ('Owner', 'owner@example.com', ?1, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", [&hash]).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+               VALUES ('owner@example.com', ?1, 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", [&hash]).unwrap();
     c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('registration_open', ?1, '2026-01-01', '2026-01-01')",
               [app.cipher.encrypt("true")]).unwrap();
     Harness { dir, app, mail, clock }
@@ -68,7 +68,7 @@ impl Harness {
     }
     async fn signup(&self, browser: &mut Browser, email: &str, password: &str) -> Answer {
         browser.get(&self.app, "/signup").await;
-        browser.post(&self.app, "/signup", &[("user[name]", "Ann Example"), ("user[email]", email), ("user[password]", password)]).await
+        browser.post(&self.app, "/signup", &[("user[email]", email), ("user[password]", password)]).await
     }
     async fn request_reset(&self, browser: &mut Browser, email: &str) -> Answer {
         browser.get(&self.app, "/password/new").await;
@@ -139,7 +139,7 @@ async fn concurrent_signups_with_one_address_make_one_account() {
     let (mut a, mut b) = (Browser::default(), Browser::default());
     a.get(&h.app, "/signup").await;
     b.get(&h.app, "/signup").await;
-    let form = [("user[name]", "Ann Example"), ("user[email]", "race@example.com"), ("user[password]", PASSWORD)];
+    let form = [("user[email]", "race@example.com"), ("user[password]", PASSWORD)];
     let (x, y) = tokio::join!(a.post(&h.app, "/signup", &form), b.post(&h.app, "/signup", &form));
     assert_eq!(visible(&x), visible(&y));
     assert_eq!(x.status, 303);
@@ -148,19 +148,6 @@ async fn concurrent_signups_with_one_address_make_one_account() {
     let mut subjects: Vec<String> = h.sent().into_iter().map(|(_, s)| s).collect();
     subjects.sort();
     assert_eq!(subjects, ["Confirm your email", "Email already taken"]);
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn signup_name_with_a_line_break_is_refused() {
-    // D-SIGNUP-NAME-ONE-LINE: 2.x's ^…$ takes "Ann\nanything"; a tab between words is still a name, as in 2.x.
-    let h = harness();
-    for (name, status) in [("Ann\nEvil", 422), ("Ann\r\nEvil", 422), ("Ann\n", 422), ("Ann\tExample", 303)] {
-        let mut browser = Browser::default();
-        browser.get(&h.app, "/signup").await;
-        let email = format!("n{}@example.com", name.len());
-        let answer = browser.post(&h.app, "/signup", &[("user[name]", name), ("user[email]", &email), ("user[password]", PASSWORD)]).await;
-        assert_eq!(answer.status, status, "{name:?}");
-    }
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -180,8 +167,8 @@ async fn signup_is_throttled() {
 /// a signup, and a confirmation resend for an unconfirmed account.
 async fn answers(behaviour: Behaviour, env: &[(&str, &str)]) -> Vec<(u16, Option<String>, String)> {
     let h = harness_with(behaviour, env, None);
-    db(&h.dir).execute("INSERT INTO users (name, email, encrypted_password, confirmation_token, created_at, updated_at) \
-                        VALUES ('Ann', 'pending@example.com', 'x', 'pendingConfirmToken1', '2026-01-01', '2026-01-01')", []).unwrap();
+    db(&h.dir).execute("INSERT INTO users (email, encrypted_password, confirmation_token, created_at, updated_at) \
+                        VALUES ('pending@example.com', 'x', 'pendingConfirmToken1', '2026-01-01', '2026-01-01')", []).unwrap();
     let mut out = vec![];
     for email in ["owner@example.com", "nobody@example.com"] {
         let mut browser = Browser::default();
@@ -219,8 +206,8 @@ async fn the_live_mailer_without_smtp_answers_alike() {
     let clock = TestClock::at(AT);
     let app = web_support::app(dir.path(), SECRET, clock); // settings::mail::live(), no SMTP configured
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
-               VALUES ('Owner', 'owner@example.com', 'x', 1, 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+               VALUES ('owner@example.com', 'x', 1, 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
     let mut seen = vec![];
     for email in ["owner@example.com", "nobody@example.com"] {
         let mut browser = Browser::default();
@@ -351,7 +338,7 @@ async fn a_malformed_gmail_alias_answers_alike_with_or_without_its_account() {
     for existing in [true, false] {
         let h = harness();
         if existing {
-            db(&h.dir).execute("INSERT INTO users (name, email, encrypted_password, created_at, updated_at) VALUES ('Ann', 'ann@gmail.com', 'x', '2026-01-01', '2026-01-01')", []).unwrap();
+            db(&h.dir).execute("INSERT INTO users (email, encrypted_password, created_at, updated_at) VALUES ('ann@gmail.com', 'x', '2026-01-01', '2026-01-01')", []).unwrap();
         }
         let answer = h.signup(&mut Browser::default(), "ann+!@gmail.com", PASSWORD).await;
         assert_eq!(answer.status, 422);
@@ -525,8 +512,8 @@ mod owner_reset {
         let id = owner_lookup(&c, "owner@example.com").unwrap().unwrap();
         // While the operator types: the owner moves to another address and a second account takes the old one.
         c.execute("UPDATE users SET email = 'moved@example.com' WHERE id = ?1", [id]).unwrap();
-        c.execute("INSERT INTO users (name, email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
-                   VALUES ('Other', 'owner@example.com', 'other-hash', 0, 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+        c.execute("INSERT INTO users (email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) \
+                   VALUES ('owner@example.com', 'other-hash', 0, 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
         let hashes = |c: &Connection| c.prepare("SELECT id, encrypted_password FROM users ORDER BY id").unwrap()
             .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
         let before = hashes(&c);

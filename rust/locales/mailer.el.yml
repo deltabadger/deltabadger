@@ -1,7 +1,6 @@
 el:
     mailer:
         greeting: 'Γεια σου θρύλε,'
-        greeting_name: 'Γεια σου %{name},'
         best_html: '<p>Με εκτίμηση,<br>Jan</p>'
         unsubscribe: 'Απεγγραφή'
     test_mailer:
