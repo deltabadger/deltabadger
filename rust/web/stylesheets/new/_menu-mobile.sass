@@ -62,12 +62,21 @@
   gap: 4rem
   @media (min-width: 768px)
     border-right: 7rem solid transparent
+  // The pixel scenes' line in a pixel font at their scale: a font pixel is 4px, 2px on a phone (where the scene shrinks
+  // to about that). No bold or smoothing, which would blur the grid.
   p
-    margin: 0
-    font-size: 3rem
-    font-weight: 700
-    color: var(--steel)
+    margin: -1.25rem 0 0 0
+    font-family: 'Tiny5', monospace
+    font-size: 4rem
+    line-height: 6rem
+    font-weight: 400
+    font-synthesis: none
+    -webkit-font-smoothing: none
+    color: var(--concrete)
     text-align: center
     text-wrap: balance
+    @media (max-width: 767px)
+      font-size: 3rem
+      line-height: 4rem
   .sbutton--sky
     transform: scale(1.5)

@@ -2351,10 +2351,11 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     let answer=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
     assert_eq!(answer.status,200);
     // D-BROKERS-AS-VENUES: Connect holds the admin's market data and nothing broker-only.
-    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","sheet__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
+    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    // D-MARKET-DATA-NO-SWITCH: no switch; the configured provider is the one picked.
-    assert!(!market.contains("switch-settings-update_market_data"),"no market data switch");assert!(market.contains("aria-checked=\"true\" tabindex=\"0\" data-value=\"coingecko\""),"CoinGecko is picked");assert!(market.contains("/settings/disconnect_market_data"));
+    // D-MARKET-DATA-PICK: a connected provider is its row (the heading on the pane's top edge), no tiles to pick from.
+    assert!(market.contains("sheet__heading--first")&&market.contains("Connected to CoinGecko")&&market.contains("/settings/disconnect_market_data"),"{market}");
+    assert!(!market.contains("exchange-grid")&&!market.contains("switch-settings-update_market_data"),"no picker, no switch: {market}");
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -2384,31 +2385,48 @@ async fn a_market_data_save_asks_for_the_setup_run_and_a_failed_key_check_writes
     assert_eq!((requested(&h).as_deref(),woken(&h)),(Some("2"),2));
 }
 
-/// D-MARKET-DATA-NO-SWITCH: Connect has no market data switch. With no provider the picker stands on the one to connect and
-/// shows its card: CoinGecko's key form, or for a claimed platform one Connect button that makes it the provider.
+/// D-LOCALE-SELECT-SHOWS-PAGE: the language select shows the page's language, not the saved one. On a `/pl` page with English
+/// saved, it reads Polski, so picking English is a change (2.x showed English there, and picking it again sent nothing).
 #[tokio::test(flavor="current_thread")]
-async fn market_data_has_no_switch_and_an_unconnected_install_shows_what_to_connect(){
+async fn language_select_shows_the_page_language(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    h.c.execute("UPDATE users SET locale='en'",[]).unwrap();
+    let selected=|body:&str|body.split("id=\"user_locale\"").nth(1).unwrap().split("</select>").next().unwrap()
+        .split("<option selected=\"selected\" value=\"").nth(1).unwrap().split('"').next().unwrap().to_string();
+    assert_eq!(selected(&h.browser.send(&h.app,"GET","/pl/settings/account",None,Csrf::None,&[]).await.body),"pl");
+    assert_eq!(selected(&h.browser.send(&h.app,"GET","/settings/account",None,Csrf::None,&[]).await.body),"en");
+}
+
+/// D-MARKET-DATA-PICK: Connect picks market data as the index wizard does. With no provider, the providers' tiles; a tile
+/// opens its card (Back to the tiles): CoinGecko's key form, or for a claimed platform one Connect button that makes it the
+/// provider. No `wizard=1` on Settings' forms, so a save answers with the widget, not the wizard.
+#[tokio::test(flavor="current_thread")]
+async fn market_data_is_picked_from_tiles_then_connected_on_its_card(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let market=|body:&str|body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap().to_string();
-    let picked=|market:&str,provider:&str|market.contains(&format!("aria-checked=\"true\" tabindex=\"0\" data-value=\"{provider}\""));
+    let tile=|provider:&str|format!("data-turbo-frame=\"settings_pane\" href=\"/settings/connect?provider={provider}\"");
     deltabadger::app_config::delete(&h.c,"market_data_provider").unwrap();
     let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
-    assert!(!page.contains("sswitch"),"no switch: {page}");
-    assert!(picked(&page,"coingecko"),"CoinGecko is picked: {page}");
-    assert!(page.contains("data-form--market-data-target=\"coingeckoFields\" >")&&page.contains("name=\"coingecko_api_key\""),"its key form shows: {page}");
-    // A claimed platform that is not the provider (CoinGecko was disconnected): it is picked, with one Connect button.
+    assert!(page.contains("sheet__heading--first")&&page.contains(&tile("coingecko"))&&page.contains(&tile("deltabadger")),"the tiles: {page}");
+    assert!(!page.contains("name=\"coingecko_api_key\"")&&!page.contains("name=\"claim_code\""),"no form before a tile: {page}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=coingecko",None,Csrf::None,&[]).await.body);
+    assert!(card.contains("name=\"coingecko_api_key\"")&&card.contains("href=\"/settings/connect\" data-turbo-frame=\"settings_pane\""),"CoinGecko's card, Back to the tiles: {card}");
+    assert!(!card.contains("name=\"wizard\""),"{card}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=deltabadger",None,Csrf::None,&[]).await.body);
+    assert!(card.contains("name=\"claim_code\"")&&card.contains("action=\"/settings/platform_connection\""),"an unclaimed platform's card takes a code: {card}");
+    // A claimed platform that is not the provider (CoinGecko was disconnected): still the tiles, and its card is one Connect button.
     for (key,value) in [("platform_connected_at","2026-01-01 00:00:00"),("market_data_url","http://data-api.invalid"),("market_data_token","platform-token")]{
         deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
     }
     let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
-    assert!(picked(&page,"deltabadger")&&!page.contains("name=\"claim_code\""),"the platform is picked, no claim form: {page}");
-    let buttons=page.split("data-form--market-data-target=\"deltabadgerButtons\" >").nth(1).expect("its card shows");
-    assert!(buttons.contains("<input value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />"),"{buttons}");
+    assert!(page.contains(&tile("deltabadger"))&&page.contains("/settings/platform_connection"),"the tiles and the claim's row: {page}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=deltabadger",None,Csrf::None,&[]).await.body);
+    assert!(!card.contains("name=\"claim_code\"")&&card.contains("<input type=\"hidden\" name=\"market_data_provider\" value=\"deltabadger\" />"),"{card}");
     let saved=h.submit("PATCH","/settings/update_market_data",&[("market_data_provider","deltabadger")],Csrf::Header).await;
     assert_eq!(saved.status,200);
     assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"market_data_provider").unwrap().as_deref(),Some("deltabadger"));
     let page=market(&saved.body);
-    assert!(picked(&page,"deltabadger")&&!page.contains("value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n"),"connected: no button left: {page}");
+    assert!(!page.contains("exchange-grid")&&page.contains("/settings/platform_connection"),"connected: the claim's row, no tiles: {page}");
 }
 
 /// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. 2.x gates stocks
@@ -2443,7 +2461,7 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
         assert_eq!(account.body.contains("/settings/connect\""),admin,"admin {admin}: Connect is the admin's section only");
         let connect=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
         assert_eq!(connect.status,200);
-        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings","sheet__heading--first"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
+        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
         assert_eq!(connect.body.contains("market_data_settings"),admin,"admin {admin}: Connect holds the admin's market data");
         let root=h.browser.send(&h.app,"GET","/settings",None,Csrf::None,&[]).await;
         assert_eq!(root.header("location"),Some(if admin{"/settings/connect"}else{"/settings/account"}),"admin {admin}: /settings opens a section the reader has");

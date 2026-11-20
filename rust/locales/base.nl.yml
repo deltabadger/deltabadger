@@ -196,6 +196,7 @@ nl:
             confirm_delete: 'Wilt u deze CoinGecko API-sleutel verwijderen?'
         market_data:
             none: 'Geen'
+            intro: "Live marktgegevens maken indexen en de koershistorie voor portfoliotracking mogelijk. Gebruik een gratis CoinGecko-account, of de Deltabadger-API voor hetzelfde met aandelen, plus een vast IP-adres voor de whitelist van exchanges."
             disabled: 'Marktgegevens synchronisatie uitgeschakeld.'
             updated: 'Marktgegevens instellingen bijgewerkt.'
             coingecko_configured: 'Verbonden met CoinGecko voor live marktgegevens.'

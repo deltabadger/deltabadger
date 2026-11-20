@@ -195,6 +195,7 @@ pt:
             confirm_delete: 'Pretende remover esta chave de API do CoinGecko?'
         market_data:
             none: 'Nenhum'
+            intro: "Os dados de mercado em tempo real alimentam os índices e o histórico de preços do acompanhamento da carteira. Use uma conta gratuita da CoinGecko, ou a API da Deltabadger para ter o mesmo com ações, além de um IP fixo para a lista branca das corretoras."
             disabled: 'Sincronização de dados de mercado desativada.'
             updated: 'Configurações de dados de mercado atualizadas.'
             coingecko_configured: 'Conectado ao CoinGecko para dados de mercado em tempo real.'

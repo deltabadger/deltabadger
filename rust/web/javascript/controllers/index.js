@@ -78,8 +78,6 @@ application.register("form--html5-validations", Form__Html5ValidationsController
 import Form__LabelAnimationsController from "./form/label_animations_controller"
 application.register("form--label-animations", Form__LabelAnimationsController)
 
-import Form__MarketDataController from "./form/market_data_controller"
-application.register("form--market-data", Form__MarketDataController)
 
 import Form__MoveCursorToEndController from "./form/move_cursor_to_end_controller"
 application.register("form--move-cursor-to-end", Form__MoveCursorToEndController)

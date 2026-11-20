@@ -197,6 +197,7 @@ sk:
             confirm_delete: 'Chcete odobrať tento CoinGecko API kľúč?'
         market_data:
             none: 'Žiadny'
+            intro: "Trhové dáta v reálnom čase poháňajú indexy a históriu cien na sledovanie portfólia. Použite bezplatný účet CoinGecko, alebo API Deltabadger, ktoré to isté ponúka aj pre akcie, plus stálu IP adresu pre whitelist na burzách."
             disabled: 'Synchronizácia trhových dát bola vypnutá.'
             updated: 'Nastavenie trhových dát bolo aktualizované.'
             coingecko_configured: 'Pripojené ku CoinGecko pre aktuálne trhové dáta.'

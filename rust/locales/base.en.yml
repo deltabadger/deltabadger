@@ -196,6 +196,7 @@ en:
             confirm_delete: 'Do you want to remove this CoinGecko API key?'
         market_data:
             none: 'None'
+            intro: "Live market data powers indexes and the price history behind portfolio tracking. Use a free CoinGecko account, or the Deltabadger API for the same with stocks, plus a stable IP to whitelist on exchanges."
             disabled: 'Market data sync disabled.'
             updated: 'Market data settings updated.'
             coingecko_configured: 'Connected to CoinGecko for live market data.'
