@@ -725,7 +725,7 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     // D-DESKTOP-STABLE-IP-NOTE: a desktop's own IP is what the key gets bound to when no proxy stands in front of the venue,
     // and a home connection's IP changes; a subscription's proxies don't. The link is a full-page navigation: the card is
     // drawn inside the wizard sheet's frame and inside Settings' pane.
-    if ctx.desktop()&&proxy.is_none()&&!crate::web::auth::app_config(c,&app.cipher,"platform_connected_at")?.is_some_and(|at|!crate::v2::blank(&at)){
+    if ctx.desktop()&&proxy.is_none()&&auth::app_config(c,&app.cipher,"platform_connected_at")?.is_none_or(|at|crate::v2::blank(&at)){
         let url=ctx.path("/settings/connect?provider=deltabadger");
         out.push_str(&format!("<p class=\"key-note\">{}</p>",i18n::t(ctx.locale,"bot.api.desktop_stable_ip_html",&[("url",i18n::Arg::Text(&url))])));
     }
