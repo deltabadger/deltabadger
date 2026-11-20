@@ -98,6 +98,23 @@ impl Two {
         row
     }
 
+    /// A recorded venue withdrawal id of account `n` (`rust_withdrawal_ids`), owned by `owner`.
+    pub fn withdrawal_id(&self, c: &Connection, n: usize, id: &str, owner: &str) {
+        c.execute("INSERT INTO rust_withdrawal_ids (account_id, exchange_id, venue_id, owner, settled_at, source) VALUES (?1, ?2, ?3, ?4, 'now', 'operator')",
+                  params![self.id(n), self.seeded.exchange_id, id, owner]).unwrap();
+    }
+
+    /// A standalone API order of account `n` in `state` with `outcome` (JSON text or None), placed as venue id `external`.
+    pub fn standalone(&self, c: &Connection, n: usize, state: &str, outcome: Option<&str>, external: Option<&str>) -> i64 {
+        c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, created_at, send_by) \
+                   VALUES (?1, NULL, 'buy', '10', 'quote', '{}', ?2, ?3, '2026-09-20 10:00:00', '2026-09-20 10:01:00')", params![self.seeded.user_id, state, outcome]).unwrap();
+        let id = c.last_insert_rowid();
+        c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+                   VALUES (?1, ?2, ?3, ?4, 'limit', 'rest', ?5, '{\"symbol\":\"BTCEUR\",\"side\":\"buy\",\"limit\":true}')",
+                  params![id, self.id(n), self.seeded.exchange_id, self.seeded.ticker_id, external]).unwrap();
+        id
+    }
+
     /// Account `n`'s (0: number 1, 1: number 2) row id.
     pub fn id(&self, n: usize) -> i64 { self.accounts[n].id.unwrap() }
 

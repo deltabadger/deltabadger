@@ -145,7 +145,8 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<V
     let mut values=key.extras.iter().flatten().cloned().collect::<Vec<_>>();
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
-    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
+    // #710 (PLAN-710-6 §6.4): the form's account, so a save validated while Merge moved or removed it is refused at its commit.
+    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns).with_account(original.account.id);
     // Session#initialize's reads, from the submitted fields over the stored ones.
     let ibkr=match (venue==crate::venue::ibkr::IBKR,&key.extras) {
         (true,[Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)])=>Some(Box::new(crate::venue::signers::ibkr::Material{
@@ -320,6 +321,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     let user_id=original.account.user_id;
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
+  if !crate::engine::model::account_is_current(&tx,validated.handle.producer())? {return Ok(Some("credential changed during validation".into()));}
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
   let target=original.account.ensure(&tx,inner.now())?;
   let current=Key::read(&tx,&inner,target,kind)?;

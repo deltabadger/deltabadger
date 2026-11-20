@@ -660,3 +660,99 @@ async fn t14_the_stored_history_follows_the_standing() {
         assert!(!deltabadger::tracker::backfill::wanted(&c, &cipher, user, at.date_naive()).unwrap(), "stamped");
     }
 }
+
+// ---- commit 5: the ownership fence (§6.4, T16) ----
+
+/// Whether a result captured under `version` may commit now (`check_credential_result`, the commit every sync and the
+/// engine pass).
+fn commits(c: &Connection, version: &deltabadger::engine::model::CredentialVersion) -> bool {
+    let tx = c.unchecked_transaction().unwrap();
+    let out = match deltabadger::engine::model::check_credential_result(&tx, &Some(version.clone())) {
+        Ok(_) => true,
+        Err(deltabadger::engine::EngineError::CredentialsChanged) => false,
+        Err(e) => panic!("{e:?}"),
+    };
+    drop(tx);
+    out
+}
+/// A stand-in of Merge's key move: account 2's key `key` joins number 1 (its membership goes).
+fn move_key_to_one(c: &Connection, key: i64) { c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [key]).unwrap(); }
+
+/// T16: every capture path fills the account and every one is discarded at its commit once its key moved to another
+/// account, or its account was removed: a sync's read by id, the engine's bot key version, a placement's credentials, a
+/// withdrawal's and a settings save's prepared version. A decoded stamp (no account) compares as before.
+#[test]
+fn t16_a_result_whose_key_changed_account_is_discarded() {
+    use deltabadger::engine::model;
+    let cipher = seed::cipher();
+    type Capture = fn(&Connection, &deltabadger::crypto::Cipher, &Two) -> model::CredentialVersion;
+    let paths: [(&str, Capture); 5] = [
+        ("credential_version_by_id", |c, _, two| model::credential_version_by_id(c, two.keys[1]).unwrap().unwrap()),
+        ("credential_version", |c, _, two| model::credential_version(c, &model::load_bot(c, two.bots[1]).unwrap()).unwrap().unwrap()),
+        ("credentials_with_redaction", |c, cipher, two| model::credentials_with_redaction(c, cipher, &model::load_bot(c, two.bots[1]).unwrap()).unwrap().1.unwrap()),
+        ("withdrawal_credentials", |c, cipher, two| {
+            c.execute("UPDATE api_keys SET key_type = 1 WHERE id = ?1", [two.keys[1]]).unwrap();
+            model::withdrawal_credentials(c, cipher, &two.accounts[1]).unwrap().unwrap().1
+        }),
+        ("prepared_credential_version", |_, _, two| model::prepared_credential_version(two.keys[1], &Default::default()).with_account(two.accounts[1].id)),
+    ];
+    for (name, capture) in paths {
+        for removal in [false, true] {
+            let (_d, o) = install();
+            let c = &o.primary;
+            let two = Two::kraken(c, &cipher);
+            let version = capture(c, &cipher, &two);
+            assert_eq!(version.account(), Some(two.id(1)), "{name} fills the account");
+            assert!(commits(c, &version) || name == "prepared_credential_version" && model::account_is_current(c, &version).unwrap(), "{name}: current");
+            if removal { remove(c, two.id(1)); } else { move_key_to_one(c, two.keys[1]); }
+            assert!(!model::account_is_current(c, &version).unwrap(), "{name}, removed {removal}: discarded");
+            if name != "prepared_credential_version" { assert!(!commits(c, &version), "{name}, removed {removal}: the commit refuses"); }
+        }
+    }
+    // A decoded stamp has no account: it compares as on main, whatever its key's account.
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &cipher);
+    let b = identity::AccountRow::of(c, &two.accounts[1]).unwrap().unwrap();
+    let stamps = deltabadger::sync::cache::capture_read(c, two.seeded.user_id, &deltabadger::tracker::Scope::Account(b)).unwrap().producer_stamps();
+    move_key_to_one(c, two.keys[1]);
+    let wait = serde_json::json!({"origin": "venue", "producer": stamps[0]});
+    assert!(model::wait_is_current(c, &wait).unwrap(), "a stamp's version is the key's ciphertext alone, as on main");
+}
+
+/// T16 (r4): a settings save validated on account 2's empty key slot, committed after Merge tombstoned 2, is refused by
+/// `Account::ensure`: nothing is inserted and 2 holds no key.
+#[test]
+fn t16_nothing_is_written_to_a_removed_account() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    remove(c, two.id(1));
+    let err = two.accounts[1].ensure(c, chrono::Utc::now()).unwrap_err();
+    assert!(err.to_string().contains(identity::REMOVED), "{err}");
+    assert!(two.accounts[0].ensure(c, chrono::Utc::now()).is_ok(), "a live account is unchanged");
+    // The save's own fence: a pending slot's version (no key yet) names only its account, which is removed.
+    let pending = deltabadger::engine::model::prepared_credential_version(0, &Default::default()).with_account(two.accounts[1].id);
+    assert!(!deltabadger::engine::model::account_is_current(c, &pending).unwrap());
+}
+
+/// T16: the constructor lint: `ciphertext_version(` is called by the five captures only (model.rs's own tests aside).
+#[test]
+fn t16_every_credential_capture_is_one_of_the_five() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut calls = vec![];
+    let mut stack = vec![root.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { stack.push(path); continue; }
+            if path.extension().is_none_or(|e| e != "rs") { continue; }
+            let text = std::fs::read_to_string(&path).unwrap();
+            let live = text.split("#[cfg(test)]").next().unwrap();
+            for (n, line) in live.lines().enumerate() {
+                if line.contains("ciphertext_version(") && !line.contains("fn ciphertext_version(") { calls.push(format!("{}:{}", path.strip_prefix(&root).unwrap().display(), n + 1)); }
+            }
+        }
+    }
+    assert_eq!(calls.len(), 5, "a new credential capture must fill its account (PLAN-710-6 §6.4): {calls:?}");
+}

@@ -414,8 +414,13 @@ impl Account {
         if !ready(c)? { return Ok(None); }
         c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1", [id], |r| Ok(Self { user_id: r.get(0)?, exchange_id: r.get(1)?, id: Some(id), scoped: true })).optional()
     }
-    /// This account with its row: `ensure_account`'s when it has none yet. Call in the write's own transaction.
+    /// This account with its row: `ensure_account`'s when it has none yet. Call in the write's own transaction. A removed
+    /// account (a Merge tombstoned it after the write was validated) is refused: nothing may be written to it.
     pub fn ensure(self, c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Self> {
+        if let Some(id) = self.id.filter(|_| self.scoped) {
+            let removed: bool = c.query_row("SELECT removed_at IS NOT NULL FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).optional()?.unwrap_or(false);
+            if removed { return Err(rusqlite::Error::InvalidParameterName(REMOVED.into())); }
+        }
         if self.id.is_some() || !self.scoped { return Ok(self); }
         Ok(Self { id: Some(ensure_account(c, self.user_id, self.exchange_id, now)?), ..self })
     }
@@ -523,6 +528,9 @@ pub fn place_bot(c: &Connection, bot_id: i64, user_id: i64, exchange_id: i64, ac
     if account.number(c)? != 1 { c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [bot_id, id])?; }
     Ok(())
 }
+
+/// `Account::ensure`'s refusal of a removed account.
+pub const REMOVED: &str = "the account was removed";
 
 /// The account an order of bot `bot_id` is placed on when its intent names none: the bot's, as its venue ids are scoped
 /// (venue_ids). A bot whose account resolves to none has no key either (`bot_keys`): its rows are number 1's form.
