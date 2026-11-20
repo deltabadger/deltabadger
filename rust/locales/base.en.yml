@@ -154,6 +154,11 @@ en:
             check_now: 'Check for updates'
             checking: 'Checking…'
             check_failed: 'Could not check for updates.'
+        email_alerts:
+            title: 'Bot alert emails'
+            low_funds: 'Low funds'
+            bot_errors: 'Bot errors'
+            bot_stopped: 'Bot stopped'
         advanced_bots:
             title: Advanced Bots
             toggle_label: Show advanced bots

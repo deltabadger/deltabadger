@@ -107,6 +107,12 @@ pub(super) fn registration(ctx: &Ctx, csrf: &str, registration_open: bool, mail_
 pub(super) fn advanced(ctx: &Ctx, csrf: &str, advanced: bool) -> Result<String, WebError> {
     Ok(sections::advanced(ctx, csrf, advanced))
 }
+/// #878: the three bot alert email switches of `user`, as stored now.
+pub(super) fn email_alerts(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, WebError> {
+    let mut off = c.prepare_cached("SELECT alert FROM rust_email_alert_opt_outs WHERE user_id = ?1")?;
+    let off: Vec<String> = off.query_map([user], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    Ok(crate::engine::notice::ALERTS.iter().map(|a| sections::email_alert(ctx, csrf, a, !off.iter().any(|o| o == a))).collect::<Vec<_>>().join("\n"))
+}
 /// settings/widgets/_email_notifications, as AppConfig and the environment hold it now.
 pub(super) fn email(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, show_form: bool) -> Result<String, WebError> {
     let read = |key: &str| crate::web::auth::app_config(c, &app.cipher, key);
@@ -263,7 +269,8 @@ pub async fn account(
     let (v, inner, owner) = (ctx.clone(), app.clone(), user.clone());
     let csrf = ctx.csrf_token();
     let token = csrf.clone();
-    let (name, pending_email, wash_widget, shell_data, registration_open, advanced, email_widget, update) = app
+    let desktop = ctx.desktop();
+    let (name, pending_email, wash_widget, shell_data, registration_open, advanced, email_widget, update, alerts) = app
         .db(move |c| {
             let (name, email): (Option<String>, Option<String>) = c.query_row(
                 "SELECT name,unconfirmed_email FROM users WHERE id=?1",
@@ -278,6 +285,8 @@ pub async fn account(
                 |r| r.get(0),
             )?;
             let email_widget = self::email(c, &inner, &v, &token, false)?;
+            // D-ALERT-SETTINGS-ROW: the desktop's alerts are system notifications, not mail.
+            let alerts = if desktop { String::new() } else { email_alerts(c, &v, &token, owner.id)? };
             // AppUpdate.latest: what the last successful check stored, while it is fresh.
             let update = crate::jobs::app_update::latest(c, v.now).map_err(|e| WebError::Engine(crate::engine::EngineError::Data(e)))?;
             Ok((
@@ -289,6 +298,7 @@ pub async fn account(
                 advanced,
                 email_widget,
                 update,
+                alerts,
             ))
         })
         .await?;
@@ -309,7 +319,6 @@ pub async fn account(
     let update = sections::app_update(ctx, app.update_platform, update.as_ref(), crate::VERSION);
     // D-DESKTOP-NO-ACCOUNT-PAGES: the desktop's one account has no name, email, password, 2FA, registration or mail rows,
     // so no Profile or Security section; "Sign in a browser" (D-DESKTOP-BROWSER-CODE) leads its Instance section.
-    let desktop = ctx.desktop();
     // D-DESKTOP-NOTIFY: where the mail row was, one line on how bot alerts arrive.
     let notifications = if desktop { sections::desktop_notifications(ctx) } else { String::new() };
     let sign_in = if desktop { sections::browser_sign_in(ctx, &csrf, None) } else { String::new() };
@@ -324,6 +333,7 @@ pub async fn account(
             two_fa: if desktop { String::new() } else { sections::two_fa(ctx, user.otp_enabled) },
             advanced: self::advanced(ctx, &csrf, advanced)?,
             wash: wash_widget,
+            alerts,
             admin: user.admin.then_some(if desktop { (sign_in.as_str(), notifications.as_str(), update.as_str()) } else { (registration.as_str(), email_widget.as_str(), update.as_str()) }),
         },
     );

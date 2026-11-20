@@ -232,6 +232,9 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261121000002", TableContract { name: "kucoin_coverage", columns: &[
         ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true), ("end_at", "TEXT", true),
         ("updated_at", "TEXT", true)], unique_indexes: &[] }),
+    // #878: the bot alert emails a user switched off.
+    ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
+        unique_indexes: &[&["user_id", "alert"]] }),
 ];
 
 /// What this build migrates.

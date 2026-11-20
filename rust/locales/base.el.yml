@@ -154,6 +154,11 @@ el:
             check_now: "Έλεγχος για ενημερώσεις"
             checking: "Γίνεται έλεγχος…"
             check_failed: "Ο έλεγχος για ενημερώσεις απέτυχε."
+        email_alerts:
+            title: 'Ειδοποιήσεις bot μέσω email'
+            low_funds: 'Χαμηλό υπόλοιπο'
+            bot_errors: 'Σφάλματα bot'
+            bot_stopped: 'Το bot σταμάτησε'
         advanced_bots:
             title: Προχωρημένα bot
             toggle_label: Εμφάνιση προχωρημένων bot

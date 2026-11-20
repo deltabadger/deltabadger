@@ -226,8 +226,8 @@ impl App {
 /// Any method and any `.format`.
 pub fn hidden(route_path: &str) -> bool {
     const TREES: [&str; 6] = ["/signup", "/password", "/setup", "/confirmation", "/verify_two_factor", "/logout"];
-    const SETTINGS: [&str; 8] = [
-        "/settings/update_registration", "/settings/update_email_notifications", "/settings/disconnect_email", "/settings/send_test_email",
+    const SETTINGS: [&str; 9] = [
+        "/settings/update_email_alerts", "/settings/update_registration", "/settings/update_email_notifications", "/settings/disconnect_email", "/settings/send_test_email",
         "/settings/update_email", "/settings/update_password", "/settings/update_two_fa", "/settings/edit_two_fa",
     ];
     let unformatted = match route_path.rsplit_once('/') {
