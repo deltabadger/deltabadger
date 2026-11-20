@@ -329,8 +329,8 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     if present(get(p, "label")) { built.label = text(get(p, "label")); }
     schedule(tx, user, &mut built.settings, p.get("start_at"), ctx.now)?;
     let create_errors: Vec<FieldError> = wizard::create::validate(tx, &built, Some(&account), "en")?.into_iter().map(|message| FieldError { field: "allocations".into(), message }).collect();
-    let id = wizard::create::insert(tx, user, built, ctx.now)?;
-    crate::identity::place_bot(tx, id, user, venue.id, Some(account), ctx.now)?;
+    // On the picked account before its IBKR binding (D-IBKR-ACCOUNT reads the bot's account's key).
+    let id = wizard::create::insert_as(tx, user, built, ctx.now, crate::enums::BotStatus::Created, 0, Some(account))?;
     let mut prepared = match start(tx, ctx, user, id, create_errors)? { Ok(p) => p, Err(res) => return Ok(refused(res)) };
     if let Some(res) = unservable(tx, ctx, id)? { return Ok(refused(res)); }
     if new_record_carry(tx, id, ctx.now)? { prepared.broadcasts.extend(scheduled_bars(tx, ctx, user, id)?); }

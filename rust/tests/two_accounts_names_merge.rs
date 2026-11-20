@@ -566,3 +566,36 @@ async fn t9_transactions_carry_the_account_only_with_two() {
     let rows = body["data"]["transactions"].as_array().cloned().unwrap_or_default();
     assert!(rows.len() == 1 && rows.iter().all(|r| r.get("account_id").is_none() && r.get("account").is_none()), "{body}");
 }
+
+/// Codex 6a r2: an open-order read naming only an account of an exchange this build does not serve is not found, never a
+/// read of every account.
+#[test]
+fn an_open_order_read_naming_a_bitmart_account_is_not_found() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let kraken = Two::kraken(c, &cipher);
+    let bitmart = Two::venue(c, &cipher, &kraken.seeded, "Exchanges::Bitmart", "Bitmart");
+    let app = web_app(dir.path(), c);
+    let read = mcp(c, &app, kraken.seeded.user_id, "list_open_orders", serde_json::json!({"account_id": bitmart.id(1)}));
+    assert!(mcp_text(&read).contains("Account not found."), "{read}");
+}
+
+/// Codex 6a r2: `account_id: null` on a signal bot's settings update is no account, as on the DCA path.
+#[tokio::test(flavor = "current_thread")]
+async fn a_null_account_id_on_a_signal_update_is_no_account() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    let (status, body) = rest(&app, c, user, "POST", "/api/v1/bots", Some(serde_json::json!({"type": "signal", "exchange_name": "Kraken", "base_asset": "BTC",
+        "quote_asset": "EUR", "account_id": two.id(1)}))).await;
+    assert!(status < 300, "{body}");
+    let bot = body["data"]["id"].as_i64().unwrap();
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [bot]).unwrap();
+    let answer = mcp(c, &app, user, "update_bot_settings", serde_json::json!({"bot_id": bot, "label": "renamed", "account_id": null}));
+    assert!(answer["isError"] != true, "{answer}");
+    assert_eq!(one::<String>(c, &format!("SELECT label FROM bots WHERE id = {bot}")), "renamed");
+    assert_eq!(deltabadger::identity::account_of_bot(c, bot).unwrap(), Some(two.id(1)));
+}

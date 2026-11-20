@@ -145,7 +145,11 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
                 let id=crate::web::bot_api::to_i(&account);
                 let owned:Option<i64>=match id {Some(id) if crate::identity::ready(c)?=>c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id=?1 AND user_id=?2 AND removed_at IS NULL",[id,user],|r|r.get(0)).optional()?,_=>None};
                 let Some(owned)=owned else {let res=crate::web::bot_api::orders::account_not_found();return Ok(Planned::Done(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)))};
-                c.query_row(&format!("{EXCHANGE} AND id=?1"),[owned],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?))).optional()?
+                // An account of an exchange this build does not serve (Bitmart) is not found either, never "every account".
+                let Some(found)=c.query_row(&format!("{EXCHANGE} AND id=?1"),[owned],|r|Ok((r.get(0)?,r.get(1)?,r.get::<_,String>(2)?))).optional()? else {
+                    let res=crate::web::bot_api::orders::account_not_found();return Ok(Planned::Done(failed(res.status,res.code.unwrap_or("account_not_found"),res.message)))
+                };
+                Some(found)
             }else{None};
             // #710 (§4.4): `account_id` beside `exchange_name` reads that account only.
             let picked=match &filter {Some((id,name,_))=>match read_account(c,user,*id,name,&account,false)? {Ok(a)=>a,Err(read)=>return Ok(Planned::Done(read))},None=>None};
