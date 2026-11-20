@@ -26,9 +26,9 @@ impl Kind {
     /// The parameters the service takes (BotsController's permit lists, the tools' properties).
     pub fn params(self) -> &'static [&'static str] {
         match self {
-            Self::Dca => &["exchange_name", "base_asset", "second_base_asset", "quote_asset", "quote_amount", "interval", "allocation", "label", "start_at", "assets", "weighting"],
-            Self::Index => &["exchange_name", "quote_asset", "quote_amount", "interval", "index", "num_coins", "allocation_flattening", "label", "start_at"],
-            Self::Signal => &["exchange_name", "base_asset", "quote_asset", "label"],
+            Self::Dca => &["exchange_name", "base_asset", "second_base_asset", "quote_asset", "quote_amount", "interval", "allocation", "label", "start_at", "assets", "weighting", "account_id"],
+            Self::Index => &["exchange_name", "quote_asset", "quote_amount", "interval", "index", "num_coins", "allocation_flattening", "label", "start_at", "account_id"],
+            Self::Signal => &["exchange_name", "base_asset", "quote_asset", "label", "account_id"],
         }
     }
 }
@@ -89,14 +89,14 @@ fn exchange_not_found(c: &Connection, name: &Value) -> Result<Res, WebError> {
 }
 
 /// CreateSupport#trading_key: a correct trading key of the user's on the venue.
-fn has_trading_key(c: &Connection, user: i64, venue: &Venue) -> Result<bool, WebError> {
-    let account = crate::identity::Account::first(c, user, venue.id)?;
+fn has_trading_key(c: &Connection, account: &crate::identity::Account) -> Result<bool, WebError> {
     Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND key_type = 0 AND status = ?1)", account.keys("k")),
                    [crate::enums::ApiKeyStatus::Correct as i64], |r| r.get(0))?)
 }
 
-fn api_key_missing(venue: &Venue) -> Res {
-    fail(Domain::PermissionDenied, "api_key_missing", format!("No valid API key found for {}. Please add an API key in Settings.", venue.name))
+/// `shown`: the account's label (#710, `Kraken 2` while the exchange has two live accounts).
+fn api_key_missing(shown: &str) -> Res {
+    fail(Domain::PermissionDenied, "api_key_missing", format!("No valid API key found for {shown}. Please add an API key in Settings."))
 }
 
 /// CreateSupport#positive_number.
@@ -113,8 +113,8 @@ fn find_pair(c: &Connection, venue: &Venue, base: &str, quote: &str) -> Result<O
     Ok(match rows.as_slice() { [(b, q, true)] => Some((*b, *q)), _ => None })
 }
 
-fn pair_not_found(venue: &Venue, symbol: &str, quote: &Value) -> Res {
-    fail(Domain::NotFound, "pair_not_found", format!("Trading pair {}/{} not found on {}.", symbol.to_uppercase(), text(quote).to_uppercase(), venue.name))
+fn pair_not_found(shown: &str, symbol: &str, quote: &Value) -> Res {
+    fail(Domain::NotFound, "pair_not_found", format!("Trading pair {}/{} not found on {shown}.", symbol.to_uppercase(), text(quote).to_uppercase()))
 }
 
 /// One basket entry: its symbol, and its weight when one was given (`None`: none given).
@@ -293,7 +293,10 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
         return Ok(refused(invalid("invalid_allocation", format!("Invalid allocation '{}'. Must be a percentage between 0 and 100.", text(allocation)))));
     }
     let Some(venue) = find_exchange(tx, get(p, "exchange_name"))? else { return Ok(refused(exchange_not_found(tx, get(p, "exchange_name"))?)) };
-    if !has_trading_key(tx, user, &venue)? { return Ok(refused(api_key_missing(&venue))); }
+    // #710 (§4.3): the posted account, or the exchange's while it has one live account.
+    let account = match crate::web::bot_api::orders::picked(tx, user, venue.id, &venue.name, get(p, "account_id"))? { Ok(a) => a, Err(res) => return Ok(refused(res)) };
+    let shown = crate::identity::label_or(tx, account.id, &venue.name)?.plain();
+    if !has_trading_key(tx, &account)? { return Ok(refused(api_key_missing(&shown))); }
     let amount = match positive(get(p, "quote_amount"), "quote_amount") { Ok(a) => a, Err(res) => return Ok(refused(res)) };
     let Some(entries) = basket_entries(p) else {
         return Ok(refused(invalid("invalid_basket", format!("assets must list 1 to {MAX_ASSETS} symbols, e.g. 'BTC:60,ETH:40' or 'BTC,ETH'."))));
@@ -301,7 +304,7 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     let quote = get(p, "quote_asset");
     let mut pairs = vec![];
     for (symbol, _) in &entries {
-        match find_pair(tx, &venue, symbol, &text(quote))? { Some(pair) => pairs.push(pair), None => return Ok(refused(pair_not_found(&venue, symbol, quote))) }
+        match find_pair(tx, &venue, symbol, &text(quote))? { Some(pair) => pairs.push(pair), None => return Ok(refused(pair_not_found(&shown, symbol, quote))) }
     }
     let Some(weights) = basket_weights(&entries, market_cap) else {
         return Ok(refused(invalid("allocations_unbalanced", "Either give every asset a weight summing to 100, or none.".into())));
@@ -325,8 +328,9 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     let mut built = wizard::create::build(tx, &config, "en")?;
     if present(get(p, "label")) { built.label = text(get(p, "label")); }
     schedule(tx, user, &mut built.settings, p.get("start_at"), ctx.now)?;
-    let create_errors: Vec<FieldError> = wizard::create::validate(tx, &built, "en")?.into_iter().map(|message| FieldError { field: "allocations".into(), message }).collect();
-    let id = wizard::create::insert(tx, user, built, ctx.now)?;
+    let create_errors: Vec<FieldError> = wizard::create::validate(tx, &built, Some(&account), "en")?.into_iter().map(|message| FieldError { field: "allocations".into(), message }).collect();
+    // On the picked account before its IBKR binding (D-IBKR-ACCOUNT reads the bot's account's key).
+    let id = wizard::create::insert_as(tx, user, built, ctx.now, crate::enums::BotStatus::Created, 0, Some(account))?;
     let mut prepared = match start(tx, ctx, user, id, create_errors)? { Ok(p) => p, Err(res) => return Ok(refused(res)) };
     if let Some(res) = unservable(tx, ctx, id)? { return Ok(refused(res)); }
     if new_record_carry(tx, id, ctx.now)? { prepared.broadcasts.extend(scheduled_bars(tx, ctx, user, id)?); }
@@ -356,10 +360,13 @@ fn index(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resul
         return Ok(refused(invalid("market_data_not_configured", "Market data provider is not configured. Set up CoinGecko or Deltabadger market data in Settings first.".into())));
     }
     let Some(venue) = find_exchange(tx, get(p, "exchange_name"))? else { return Ok(refused(exchange_not_found(tx, get(p, "exchange_name"))?)) };
-    if !has_trading_key(tx, user, &venue)? { return Ok(refused(api_key_missing(&venue))); }
+    // #710 (§4.3): the posted account, or the exchange's while it has one live account.
+    let account = match crate::web::bot_api::orders::picked(tx, user, venue.id, &venue.name, get(p, "account_id"))? { Ok(a) => a, Err(res) => return Ok(refused(res)) };
+    let shown = crate::identity::label_or(tx, account.id, &venue.name)?.plain();
+    if !has_trading_key(tx, &account)? { return Ok(refused(api_key_missing(&shown))); }
     let asked = if present(get(p, "index")) { text(get(p, "index")) } else { TOP_COINS.to_string() };
     let Some((external_id, name)) = find_index(tx, ctx, &venue, &asked)? else {
-        return Ok(refused(fail(Domain::NotFound, "index_not_found", format!("Index '{asked}' not found or not available on {}. Use 'list_indices' with exchange_name to see what is.", venue.name))));
+        return Ok(refused(fail(Domain::NotFound, "index_not_found", format!("Index '{asked}' not found or not available on {shown}. Use 'list_indices' with exchange_name to see what is."))));
     };
     let amount = match positive(get(p, "quote_amount"), "quote_amount") { Ok(a) => a, Err(res) => return Ok(refused(res)) };
     let flattening = if present(get(p, "allocation_flattening")) {
@@ -375,7 +382,7 @@ fn index(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resul
         else { json!({"index_type": "category", "index_category_id": external_id, "index_name": name, "index_name_prefix": wizard::index_create::count_named(Some(&external_id)).map(|(prefix, _)| prefix)}) };
     for (k, v) in index_settings.as_object().into_iter().flatten() { settings[k] = v.clone(); }
     let Some(quote) = wizard::index::quote_asset(tx, venue.id, &venue.class, settings.as_object().unwrap_or(&Map::new()), &text(get(p, "quote_asset")).to_uppercase())? else {
-        return Ok(refused(fail(Domain::NotFound, "quote_asset_not_found", format!("Fewer than {MINIMUM_SUPPORTED_COINS} members of '{asked}' trade against {} on {}. Try another quote asset or exchange.", text(get(p, "quote_asset")).to_uppercase(), venue.name))));
+        return Ok(refused(fail(Domain::NotFound, "quote_asset_not_found", format!("Fewer than {MINIMUM_SUPPORTED_COINS} members of '{asked}' trade against {} on {shown}. Try another quote asset or exchange.", text(get(p, "quote_asset")).to_uppercase()))));
     };
     // `bots.new(settings:)` runs after_initialize before the quote and the amount are assigned: no Smart Intervals amount
     // is derived (it needs both), and the assigned keys follow the defaults. The save's callbacks (the count's clamp, the
@@ -399,6 +406,7 @@ fn index(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resul
     schedule(tx, user, &mut built.settings, p.get("start_at"), ctx.now)?;
     let create_errors: Vec<FieldError> = wizard::index_create::validate(&built, "en").into_iter().map(|message| FieldError { field: "num_coins".into(), message }).collect();
     let id = wizard::index_create::insert(tx, user, built, ctx.now)?;
+    crate::identity::place_bot(tx, id, user, venue.id, Some(account), ctx.now)?;
     let mut prepared = match start(tx, ctx, user, id, create_errors)? { Ok(p) => p, Err(res) => return Ok(refused(res)) };
     if let Some(res) = unservable(tx, ctx, id)? { return Ok(refused(res)); }
     if new_record_carry(tx, id, ctx.now)? { prepared.broadcasts.extend(scheduled_bars(tx, ctx, user, id)?); }
@@ -417,12 +425,16 @@ fn index(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resul
 fn signal(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<Made, WebError> {
     if let Some(res) = missing(p, &["exchange_name", "base_asset", "quote_asset"]) { return Ok(refused(res)); }
     let Some(venue) = find_exchange(tx, get(p, "exchange_name"))? else { return Ok(refused(exchange_not_found(tx, get(p, "exchange_name"))?)) };
-    if !has_trading_key(tx, user, &venue)? { return Ok(refused(api_key_missing(&venue))); }
+    // #710 (§4.3): the posted account, or the exchange's while it has one live account.
+    let account = match crate::web::bot_api::orders::picked(tx, user, venue.id, &venue.name, get(p, "account_id"))? { Ok(a) => a, Err(res) => return Ok(refused(res)) };
+    let shown = crate::identity::label_or(tx, account.id, &venue.name)?.plain();
+    if !has_trading_key(tx, &account)? { return Ok(refused(api_key_missing(&shown))); }
     let Some((base, quote)) = find_pair(tx, &venue, &text(get(p, "base_asset")), &text(get(p, "quote_asset")))? else {
-        return Ok(refused(pair_not_found(&venue, &text(get(p, "base_asset")), get(p, "quote_asset"))));
+        return Ok(refused(pair_not_found(&shown, &text(get(p, "base_asset")), get(p, "quote_asset"))));
     };
     let label = present(get(p, "label")).then(|| text(get(p, "label")));
     let id = signal_write::insert_created(tx, user, venue.id, &json!({"base_asset_id": base, "quote_asset_id": quote}), label.as_deref(), &[], "en", ctx.now)?;
+    crate::identity::place_bot(tx, id, user, venue.id, Some(account), ctx.now)?;
     let broadcasts = match signal_write::start_created(tx, ctx, user, id)? {
         signal_write::Started::Yes(broadcasts) => broadcasts,
         signal_write::Started::Invalid(errors) => return Ok(refused(bot_invalid(&errors))),

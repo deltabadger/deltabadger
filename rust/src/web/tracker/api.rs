@@ -62,6 +62,7 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
     let none = Value::Null;
     let arg = |name: &str| args.get(name).unwrap_or(&none);
     let mut out = Filter { sql: String::new(), binds: vec![Sql::Integer(user)] };
+    let mut posted_exchange = None;
     if bot_api::present(arg("exchange_id")) {
         let found = match bot_api::to_i(arg("exchange_id")) {
             Some(id) => c.query_row("SELECT id FROM exchanges WHERE id=?1", [id], |r| r.get::<_, i64>(0)).optional()?,
@@ -69,6 +70,18 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
         };
         let Some(id) = found else { return Ok(Err(failure(Domain::NotFound, "exchange_not_found", "Exchange not found. Use 'list_exchanges' to see available exchanges."))) };
         out.push("exchange_id=", Sql::Integer(id));
+        posted_exchange = Some(id);
+    }
+    // #710 (PLAN-710-6 §4.4): `account_id` reads one account's rows; `exchange_id` alone still reads all of its accounts.
+    // #710: only an omitted or null account_id reads every account; `""` or `false` names no account.
+    if !arg("account_id").is_null() {
+        let found = match bot_api::orders::account_id(arg("account_id")) { Some(id) => crate::identity::AccountRow::by_id(c, id)?.filter(|a| a.user_id == user), None => None };
+        let live = match found { Some(a) => c.query_row("SELECT removed_at IS NULL FROM exchange_accounts WHERE id = ?1", [a.id], |r| r.get::<_, bool>(0))?.then_some(a), None => None };
+        // An account of another exchange than the one posted is not found either.
+        let live = live.filter(|a| posted_exchange.is_none_or(|e| e == a.exchange_id));
+        let Some(account) = live else { return Ok(Err(failure(Domain::NotFound, "account_not_found", "Account not found. Use 'list_exchanges' to see your accounts."))) };
+        out.push("exchange_id=", Sql::Integer(account.exchange_id));
+        out.sql.push_str(&format!(" AND {}", crate::tracker::Scope::Account(account).rows("account_transactions")));
     }
     let (Ok(from), Ok(to)) = (day(arg("from_date")), day(arg("to_date"))) else { return Ok(Err(failure(Domain::ValidationFailed, "invalid_date", INVALID_DATE))) };
     let bound = |day: NaiveDate, clock: (u32, u32, u32, u32)| -> Result<Sql, WebError> {
@@ -101,6 +114,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
         let mut statement = c.prepare(&sql)?;
         let mut rows = statement.query(rusqlite::params_from_iter(f.binds))?;
         let (mut out, mut lines) = (vec![], vec![]);
+        let numbered = crate::identity::numbered(c)?;
         while let Some(r) = rows.next()? {
             let id: i64 = r.get("id")?;
             let decimal = |name: &str| -> Result<Value, WebError> { Ok(v2::from_sql(r.get_ref(name)?).map_err(|_| super::row::invalid())?.map_or(Value::Null, |d| json!(d.to_s_f()))) };
@@ -110,14 +124,19 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
             let linked: Option<i64> = r.get("linked_transaction_id")?;
             let inverse: Option<i64> = c.query_row("SELECT id FROM account_transactions WHERE linked_transaction_id=?1", [id], |r| r.get(0)).optional()?;
             let exchange: Option<String> = c.query_row("SELECT name FROM exchanges WHERE id=?1", [r.get::<_, i64>("exchange_id")?], |r| r.get(0)).optional()?.flatten();
+            // D-API-ACCOUNT-FIELDS: the row's account while its exchange has 2+ live accounts.
+            let (account, number): (Option<i64>, Option<i64>) = if numbered {
+                c.query_row(&format!("SELECT {a}, {} FROM account_transactions t WHERE t.id = ?1", crate::identity::label_number_sql(&crate::venue_ids::row_account("t")), a = crate::venue_ids::row_account("t")), [id], |r| Ok((r.get(0)?, r.get(1)?)))?
+            } else { (None, None) };
             let manual: Option<String> = r.get("manual_values")?;
             let stated = stated_price(manual.as_deref())?;
             let venue_valued = Row::load(c, user, id)?.ok_or_else(super::row::invalid)?.counterpart(c)?.is_some();
-            let row = json!({"id": id, "transacted_at": v2::iso8601_ms(at), "entry_type": kind, "base_amount": decimal("base_amount")?,
+            let mut row = json!({"id": id, "transacted_at": v2::iso8601_ms(at), "entry_type": kind, "base_amount": decimal("base_amount")?,
                 "base_currency": r.get::<_, Option<String>>("base_currency")?, "quote_amount": decimal("quote_amount")?, "quote_currency": r.get::<_, Option<String>>("quote_currency")?,
                 "fee_amount": decimal("fee_amount")?, "fee_currency": r.get::<_, Option<String>>("fee_currency")?, "exchange": exchange,
                 "linked": linked.is_some() || inverse.is_some(), "linked_transaction_id": if kind == "withdrawal" { linked } else { inverse },
                 "stated_price_usd": stated, "venue_valued": venue_valued});
+            crate::identity::account_fields(&mut row, account, number);
             lines.push(line(&row, at.with_timezone(&zone)));
             out.push(row);
         }
@@ -143,7 +162,7 @@ fn line(row: &Value, at: DateTime<Tz>) -> String {
     let fee = if row["fee_amount"].is_null() { String::new() } else { format!(" | Fee: {} {}", text(&row["fee_amount"]), text(&row["fee_currency"])) };
     let link = if row["linked"] == true { format!(" | transfer ↔ #{}", text(&row["linked_transaction_id"])) } else { String::new() };
     let stated = if row["stated_price_usd"].is_null() { String::new() } else { format!(" | stated price {} USD", text(&row["stated_price_usd"])) };
-    let exchange = if row["exchange"].is_null() { "N/A".to_string() } else { text(&row["exchange"]) };
+    let exchange = if row["exchange"].is_null() { "N/A".to_string() } else { crate::identity::venue_text(row, &text(&row["exchange"])) };
     format!("- #{} [{}] {} {} {}{quote}{fee} | {exchange}{link}{stated}", row["id"], at.format("%Y-%m-%d %H:%M"), text(&row["entry_type"]).to_uppercase(),
             text(&row["base_amount"]), text(&row["base_currency"]))
 }

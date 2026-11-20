@@ -67,7 +67,7 @@ pub fn read(c: &Connection, owner: i64, scope: &super::Scope, arrived: &[String]
         let venue: Option<(i64, String)> = rusqlite::OptionalExtension::optional(if id < 0 {
             c.query_row("SELECT id, name FROM exchanges WHERE id = -?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
         } else {
-            c.query_row("SELECT e.id, e.name FROM exchange_accounts a JOIN exchanges e ON e.id = a.exchange_id WHERE a.id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
+            c.query_row(&format!("SELECT e.id, {} FROM exchange_accounts a JOIN exchanges e ON e.id = a.exchange_id WHERE a.id = ?1", crate::identity::plain_label_sql("e.name", "a.id")), [id], |r| Ok((r.get(0)?, r.get(1)?)))
         })?;
         let list = |m: &ByVenue| m.get(&id).map(|s| s.iter().cloned().collect()).unwrap_or_default();
         gaps.push(VenueGap { exchange_id: venue.as_ref().map(|v| v.0), venue: venue.map(|v| v.1), now: list(&now), history: list(&history) });
@@ -97,13 +97,13 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE app_configs (id INTEGER PRIMARY KEY, key TEXT UNIQUE, value TEXT, created_at TEXT, updated_at TEXT);
             CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
-            CREATE TABLE exchange_accounts (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, number INTEGER);
+            CREATE TABLE exchange_accounts (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, number INTEGER, removed_at TEXT);
             CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT);
             CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, asset_id INTEGER, free REAL, locked REAL, usd_value REAL, account_id INTEGER);
             CREATE TABLE portfolio_snapshots (user_id INTEGER, date TEXT, partial BOOLEAN);
             CREATE TABLE exchange_account_snapshots (user_id INTEGER, exchange_id INTEGER, date TEXT, partial BOOLEAN, account_id INTEGER);
             INSERT INTO exchanges VALUES (1, 'Alpaca'), (2, 'Kraken');
-            INSERT INTO exchange_accounts VALUES (1, 1, 1, 1), (2, 1, 2, 1), (3, 2, 1, 1);
+            INSERT INTO exchange_accounts (id, user_id, exchange_id, number) VALUES (1, 1, 1, 1), (2, 1, 2, 1), (3, 2, 1, 1);
             INSERT INTO assets VALUES (1, 'BTC'), (2, 'AAPL'), (3, 'ETH');
             INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, account_id) VALUES
               (1, 1, 1, 0.1, 0, NULL, 1), (1, 1, 2, 2, 0, 400, 1), (1, 2, 1, 0.2, 0, 12000, 2), (1, 2, 3, 1, 0, 0, 2), (1, 2, 2, 0, 0, NULL, 2), (2, 1, 1, 1, 0, NULL, 3);").unwrap();

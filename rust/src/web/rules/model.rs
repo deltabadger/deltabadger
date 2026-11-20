@@ -14,6 +14,8 @@ pub struct Rule {
     pub account: crate::identity::Account,
     pub status: i64,
     pub exchange: Venue,
+    /// Its account's name (#710 slice 6).
+    pub label: crate::identity::Label,
     pub asset: Asset,
     pub address: String,
     pub settings: Value,
@@ -143,6 +145,7 @@ pub fn load(c: &Connection, app: &App, user: i64, id: i64) -> Result<Option<Rule
         user_id: user,
         account,
         status,
+        label: crate::identity::label_or(c, account.id, &exchange.name)?,
         exchange,
         asset,
         address,

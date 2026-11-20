@@ -4,7 +4,7 @@
     <div class="dropdown dropdown--exchanges">
       <div class="dropdown__item dropdown__item--current">
         {{ exchange_svg|safe }}
-        {{ exchange_name }}
+        {{ exchange_name|safe }}
       </div>
 {% if can_reconnect %}
         <a class="dropdown__item" data-turbo-frame="modal" href="{{ path }}/add_api_key/new">
@@ -17,7 +17,7 @@
 {% for other in other_exchanges %}
           <button name="{{ param_key }}[{% if other.account.is_some() %}account_id{% else %}exchange_id{% endif %}]" type="submit" value="{% if let Some((account, _)) = other.account %}{{ account }}{% else %}{{ other.id }}{% endif %}" class="dropdown__item{% if other.connected %} dropdown__item--highlight{% endif %}">
             {{ other.svg|safe }}
-            {{ other.name }}{% if let Some((_, number)) = other.account %}<sup>{{ number }}</sup>{% endif %}
+            {{ other.label|safe }}
 </button>
 {% endfor %}
 {% endif %}

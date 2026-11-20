@@ -278,6 +278,72 @@ pub fn numbered(c: &Connection) -> rusqlite::Result<bool> {
 
 /// SQL: api key row `alias`'s account id (NULL as the resolver reads it: a foreign membership, a number 1 with no row).
 pub fn key_account_sql(alias: &str) -> String { account_sql("exchange_account_keys", "api_key_id", alias) }
+/// SQL: bot row `alias`'s account id, as `key_account_sql`.
+pub fn bot_account_sql(alias: &str) -> String { account_sql("exchange_account_bots", "bot_id", alias) }
+/// `with_key_account` for bot row `alias`.
+pub fn with_bot_account<T>(alias: &str, read: impl Fn(&str) -> rusqlite::Result<T>) -> rusqlite::Result<T> {
+    unscoped_or(read(&bot_account_sql(alias)), || read("NULL"))
+}
+
+// ---- Names (#710 §4.9, PLAN-710-6 §3): `Kraken`, or `Kraken 2` / `Kraken<sup>2</sup>` while its exchange has 2+ live
+// accounts. A removed account always shows its number.
+
+/// An account's name: its exchange's, and the number it shows (None: the exchange has one live account).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Label { pub name: String, pub number: Option<i64> }
+
+impl Label {
+    /// The name alone (an exchange, or an account that shows no number).
+    pub fn bare(name: impl Into<String>) -> Self { Self { name: name.into(), number: None } }
+    /// Plain text: `Kraken`, `Kraken 2` (Q2).
+    pub fn plain(&self) -> String { match self.number { Some(n) => format!("{} {n}", self.name), None => self.name.clone() } }
+    /// HTML: the escaped name, then `<sup>n</sup>`.
+    pub fn html(&self) -> String {
+        let name = crate::web::i18n::escape(&self.name);
+        match self.number { Some(n) => format!("{name}<sup>{n}</sup>"), None => name }
+    }
+}
+
+/// SQL: the number account `account` (an id expression) shows in its label, NULL for none. `"NULL"` (an install without
+/// the account tables, or no account) stays NULL and names no table.
+pub fn label_number_sql(account: &str) -> String {
+    if account == "NULL" { return "NULL".into(); }
+    format!("(SELECT CASE WHEN lbl_a.removed_at IS NOT NULL OR (SELECT count(*) FROM exchange_accounts lbl_o WHERE lbl_o.user_id = lbl_a.user_id \
+             AND lbl_o.exchange_id = lbl_a.exchange_id AND lbl_o.removed_at IS NULL) >= 2 THEN lbl_a.number END FROM exchange_accounts lbl_a WHERE lbl_a.id = {account})")
+}
+/// SQL: `Label::plain` of the account `account` whose exchange is named `name` (both SQL expressions).
+pub fn plain_label_sql(name: &str, account: &str) -> String {
+    if account == "NULL" { return name.into(); }
+    format!("({name} || COALESCE(' ' || {}, ''))", label_number_sql(account))
+}
+/// D-API-ACCOUNT-FIELDS (PLAN-710-6 §4.4): an account-owned REST/MCP object gains `account_id` and `account` (its number)
+/// beside its unchanged `exchange`, only while the number shows (`label_number_sql`): a single-account answer keeps its bytes.
+pub fn account_fields(object: &mut Value, account: Option<i64>, number: Option<i64>) {
+    if let (Some(id), Some(n), Some(o)) = (account, number, object.as_object_mut()) {
+        o.insert("account_id".into(), id.into());
+        o.insert("account".into(), n.into());
+    }
+}
+/// A REST/MCP text's venue: `exchange`, then the object's `account` number (`account_fields`).
+pub fn venue_text(object: &Value, exchange: &str) -> String {
+    match object["account"].as_i64() { Some(n) => format!("{exchange} {n}"), None => exchange.to_string() }
+}
+/// Account `account_id`'s label. One statement.
+pub fn label(c: &Connection, account_id: i64) -> rusqlite::Result<Label> {
+    c.query_row(&format!("SELECT e.name, {} FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.id = ?1", label_number_sql("x.id")), [account_id],
+                |r| Ok(Label { name: r.get::<_, Option<String>>(0)?.unwrap_or_default(), number: r.get(1)? }))
+}
+/// The label of every account of the user, by id. One statement (none on an install without the account tables).
+pub fn labels(c: &Connection, user_id: i64) -> rusqlite::Result<std::collections::HashMap<i64, Label>> {
+    if !numbered(c)? { return Ok(Default::default()); }
+    let mut s = c.prepare(&format!("SELECT x.id, e.name, {} FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.user_id = ?1", label_number_sql("x.id")))?;
+    let out = s.query_map([user_id], |r| Ok((r.get(0)?, Label { name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), number: r.get(2)? })))?.collect();
+    out
+}
+/// Account `account`'s label, or the bare exchange `name` for a number 1 with no row yet (it is its exchange's only one).
+pub fn label_or(c: &Connection, account: Option<i64>, name: &str) -> rusqlite::Result<Label> {
+    match account { Some(id) if numbered(c)? => label(c, id), _ => Ok(Label::bare(name)) }
+}
 /// `read` given the SQL of api key row `alias`'s account (`account_of_key`, NULL as `account_sql`), run again with NULL for
 /// every key on an install without the account tables. One statement on a migrated install (page read budgets count them).
 pub fn with_key_account<T>(alias: &str, read: impl Fn(&str) -> rusqlite::Result<T>) -> rusqlite::Result<T> {
@@ -506,6 +572,76 @@ pub fn accounts_of(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::
     let mut s = c.prepare("SELECT id, number FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number")?;
     let out = s.query_map([user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(out)
+}
+
+/// What a write that names an exchange (and maybe an account) of the user acts on (PLAN-710-6 §4.2).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Pick {
+    One(Account),
+    /// The posted account is not a live account of this user and exchange: a 404 like a foreign bot id.
+    NotFound,
+    /// No account posted and the exchange has 2+ live accounts: each one's label and id, by number.
+    Ambiguous(Vec<(Label, i64)>),
+}
+
+impl Pick {
+    /// The REST/MCP refusal of an `Ambiguous` pick (English, like the services' other refusals).
+    pub fn required(exchange: &str, accounts: &[(Label, i64)]) -> String {
+        let listed = accounts.iter().map(|(l, id)| format!("{} (account_id {id})", l.plain())).collect::<Vec<_>>().join(", ");
+        format!("{exchange} has {} accounts: {listed}. Name one with account_id.", accounts.len())
+    }
+}
+
+/// The one resolver of a posted (user, exchange, account): the posted account when it is a live one of theirs, else
+/// `NotFound`; with none posted, the exchange's account while it has at most one live account, else `Ambiguous`.
+pub fn pick(c: &Connection, user_id: i64, exchange_id: i64, posted: Option<i64>) -> rusqlite::Result<Pick> {
+    if let Some(id) = posted {
+        if !ready(c)? { return Ok(Pick::NotFound); }
+        let live: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_accounts WHERE id = ?1 AND user_id = ?2 AND exchange_id = ?3 AND removed_at IS NULL)",
+                                     [id, user_id, exchange_id], |r| r.get(0))?;
+        return Ok(if live { Account::by_id(c, id)?.map_or(Pick::NotFound, Pick::One) } else { Pick::NotFound });
+    }
+    let live = accounts_of(c, user_id, exchange_id)?;
+    if live.len() < 2 { return Ok(Pick::One(Account::first(c, user_id, exchange_id)?)); }
+    Ok(Pick::Ambiguous(live.into_iter().map(|(id, _)| Ok((label(c, id)?, id))).collect::<rusqlite::Result<_>>()?))
+}
+
+/// What a bot write's posted exchange and account do to the bot's account (PLAN-710-6 §4.3).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Switch {
+    /// The bot stays on its account.
+    Keep,
+    To(Account),
+    /// A posted account that is not a live one of the owner, or not of the posted exchange: a 404.
+    NotFound,
+    /// Another exchange posted alone, which has 2+ live accounts.
+    Ambiguous(Vec<(Label, i64)>),
+}
+
+impl Switch {
+    /// The account the bot is on after the switch, when it moves.
+    pub fn to(&self) -> Option<Account> { match self { Self::To(a) => Some(*a), _ => None } }
+}
+
+/// The one resolver of a bot write's switch, run before anything is written, in order: a posted account (a live one of
+/// `owner`, of the posted exchange when one is posted too; `Keep` when it is the bot's own); the bot's own exchange alone;
+/// another exchange alone (its account, or `Ambiguous` with 2+ live); nothing posted.
+pub fn pick_switch(c: &Connection, owner: i64, bot_id: i64, posted_exchange: Option<i64>, posted_account: Option<i64>) -> rusqlite::Result<Switch> {
+    let own_exchange: Option<i64> = c.query_row("SELECT exchange_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0)).optional()?.flatten();
+    if let Some(id) = posted_account {
+        if !ready(c)? { return Ok(Switch::NotFound); }
+        let found: Option<i64> = c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL", [id, owner], |r| r.get(0)).optional()?;
+        let Some(exchange) = found.filter(|e| posted_exchange.is_none_or(|p| p == *e)) else { return Ok(Switch::NotFound) };
+        let Some(account) = Account::by_id(c, id)? else { return Ok(Switch::NotFound) };
+        let own = Account::of_bot(c, bot_id)?;
+        let number = account.number(c)?;
+        return Ok(if own.is_some_and(|a| a.id == Some(id) || (a.id.is_none() && a.exchange_id == exchange && number == 1)) { Switch::Keep } else { Switch::To(account) });
+    }
+    match posted_exchange {
+        None => Ok(Switch::Keep),
+        Some(e) if Some(e) == own_exchange => Ok(Switch::Keep),
+        Some(e) => Ok(match pick(c, owner, e, None)? { Pick::One(a) => Switch::To(a), Pick::Ambiguous(list) => Switch::Ambiguous(list), Pick::NotFound => Switch::NotFound }),
+    }
 }
 
 /// Fills an unknown account's fingerprint. A known one is never overwritten.

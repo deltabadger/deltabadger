@@ -303,7 +303,7 @@ fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<
         // `params[:accept]` as it came; 2.x REST is live, like the liquidation above.
         bot_api::Write::Redeploy => Map::from_iter([("accept".to_string(), params.get("accept").cloned().unwrap_or(Value::Null)), ("dry_run".to_string(), json!(false))]),
         bot_api::Write::Settings => params.iter()
-            .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (name.as_str() == "allocations" || !(value.is_array() || value.is_object())))
+            .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (matches!(name.as_str(), "allocations" | "account_id") || !(value.is_array() || value.is_object())))
             .map(|(name, value)| (name.clone(), value.clone())).collect(),
         bot_api::Write::Lifecycle(super::bot::write::Action::Start) => params.get("start_fresh").map(|v| Map::from_iter([("start_fresh".to_string(), v.clone())])).unwrap_or_default(),
         bot_api::Write::Lifecycle(_) => Map::new(),
@@ -326,6 +326,8 @@ fn permitted(kind: super::bot::create::Kind, params: &Map<String, Value>) -> Map
             ("assets", Value::Object(h)) if !h.is_empty() && h.keys().all(|k| k.bytes().all(|b| b.is_ascii_digit()) && !k.is_empty()) => Some((name.to_string(),
                 Value::Object(h.iter().map(|(k, v)| (k.clone(), v.as_object().map_or(Value::Null, |e| Value::Object(e.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())))).collect()))),
             ("assets", Value::Object(h)) => Some((name.to_string(), Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect()))),
+            // #710: an account_id is validated whatever its shape (`[]` names no account), never dropped into the default.
+            ("account_id", _) => Some((name.to_string(), value.clone())),
             _ => None,
         }
     }).collect()
@@ -394,9 +396,9 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let ask = match reading {
                 // `params[:id].to_i`
                 Reading::Details => reads::Ask::Details(p.get("id").and_then(bot_api::to_i).unwrap_or(0)),
-                Reading::Balances => reads::Ask::Balances { name: String::new(), id: Some(p.get("id").map(super::mcp::tools::str_value).unwrap_or_default()) },
+                Reading::Balances => reads::Ask::Balances { name: String::new(), id: Some(p.get("id").map(super::mcp::tools::str_value).unwrap_or_default()), account: p.get("account_id").cloned().unwrap_or(Value::Null) },
                 // `params[:exchange_name]`, looked up when present.
-                Reading::Orders => reads::Ask::Orders(p.get("exchange_name").filter(|v| bot_api::present(v)).map(super::mcp::tools::str_value)),
+                Reading::Orders => reads::Ask::Orders(p.get("exchange_name").filter(|v| bot_api::present(v)).map(super::mcp::tools::str_value), p.get("account_id").cloned().unwrap_or(Value::Null)),
                 Reading::Portfolio => reads::Ask::Summary,
             };
             match reads::plan_ask(c, app, user, ask)? {
@@ -450,7 +452,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let unported = || failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet."));
             match order {
                 Order::Cancel => {
-                    match bot_api::orders::cancel(c, caller, p.get("id").unwrap_or(&Value::Null), p.get("exchange_name").unwrap_or(&Value::Null))? {
+                    match bot_api::orders::cancel(c, caller, p.get("id").unwrap_or(&Value::Null), p.get("exchange_name").unwrap_or(&Value::Null), p.get("account_id").unwrap_or(&Value::Null))? {
                         bot_api::orders::Cancel::Done(res) if res.status == Domain::NotPorted => unported(),
                         bot_api::orders::Cancel::Done(res) => render(res),
                         bot_api::orders::Cancel::Send(job) => Answer::Cancel(Box::new(job)),
@@ -460,10 +462,12 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                     let kind = bot_api::orders::Kind::tool(tool).ok_or_else(|| WebError::Config("an order gate named no order tool".into()))?;
                     // `params.permit(...)`: a list or a hash is dropped. `bot_id` is not permitted but handed over as its
                     // `to_s`, unless nil.
-                    let args: Map<String, Value> = ["exchange_name", "base_asset", "quote_asset", "amount", "price", "amount_type"].into_iter()
-                        .filter_map(|k| p.get(k).filter(|v| !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
+                    let args: Map<String, Value> = ["exchange_name", "base_asset", "quote_asset", "amount", "price", "amount_type", "account_id"].into_iter()
+                        .filter_map(|k| p.get(k).filter(|v| k == "account_id" || !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
                     let bot_id = p.get("bot_id").filter(|v| !v.is_null()).map(|v| json!(bot_api::orders::to_s(v)));
-                    let payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
+                    let mut payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
+                    // #710: the account may come from the query; the replay fingerprint carries it so another account is another order.
+                    if let Some(account) = args.get("account_id") { payload.insert("account_id".into(), account.clone()); }
                     Answer::Order(Box::new(OrderJob { user, key: input.idempotency.map(str::to_string), payload, kind, args, bot_id,
                                                       unported: format!("{method} {path} is not served by this build yet.") }))
                 }

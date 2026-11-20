@@ -192,7 +192,7 @@ pub fn info(ctx: &Ctx, r: &Rule) -> String {
         i18n::t(
             ctx.locale,
             "rules.tile.no_fee_info",
-            &[("exchange", Arg::Text(&r.exchange.name))],
+            &[("exchange", Arg::Text(&r.label.plain()))],
         )
     } else {
         return String::new();
@@ -304,7 +304,7 @@ pub fn tile(ctx: &Ctx, r: &Rule, list: Option<&Listing>) -> Result<String, WebEr
             "rules.tile.no_wallet_html",
             &[
                 ("symbol", Arg::Text(r.asset.symbol())),
-                ("exchange", Arg::Text(&r.exchange.name)),
+                ("exchange", Arg::Html(&r.label.html())),
             ],
         ),
         progress,
@@ -313,7 +313,7 @@ pub fn tile(ctx: &Ctx, r: &Rule, list: Option<&Listing>) -> Result<String, WebEr
             .as_ref()
             .map(|state| {
                 let candidates=state.candidates.iter().map(ToString::to_string).collect::<Vec<_>>();
-                let mut line = unconfirmed(ctx, &r.exchange.name, &state.state, &candidates);
+                let mut line = unconfirmed(ctx, &r.label.plain(), &state.state, &candidates);
                 if matches!(
                     r.exchange.class.as_str(),
                     "Exchanges::Kraken" | "Exchanges::Gemini"

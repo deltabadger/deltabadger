@@ -629,8 +629,10 @@ pub fn alpaca_order_ticker(c: &Connection, exchange_id: i64, symbol: Option<&str
     found.map(|id| ticker_by_id(c,exchange_id,id)).transpose().map(Option::flatten)
 }
 
+/// The bot's venue, named by its account (#710 slice 6: `Kraken 2` while the exchange has two live accounts).
 pub fn exchange_name(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
-    let name: Option<String> = c.query_row("SELECT name FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?.flatten();
+    let name: Option<String> = crate::identity::with_bot_account("b", |account| c.query_row(&format!("SELECT {} FROM exchanges e LEFT JOIN bots b ON b.id = ?2 WHERE e.id = ?1",
+        crate::identity::plain_label_sql("e.name", account)), [bot.exchange_id, bot.id], |r| r.get(0)).optional())?.flatten();
     Ok(name.unwrap_or_default())
 }
 

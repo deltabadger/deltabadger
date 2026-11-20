@@ -295,7 +295,8 @@ fn message(locale: &str, attribute: &str, code: &str) -> String {
 
 /// The create-context validations a wizard-built bot can fail (CALLBACKS names why the others pass): validate_allocations, then
 /// validate_composition_pairs. `errors.messages.values.flatten`: by attribute in the order each first failed, repeats dropped.
-pub fn validate(c: &Connection, bot: &Built, locale: &str) -> Result<Vec<String>, WebError> {
+/// `account`: the account the bot is made on (#710), which the pair error names; None names the bare exchange.
+pub fn validate(c: &Connection, bot: &Built, account: Option<&crate::identity::Account>, locale: &str) -> Result<Vec<String>, WebError> {
     let mut errors: Vec<(&str, String)> = vec![];
     let mut add = |attribute: &'static str, text: String| if !errors.iter().any(|(a, t)| *a == attribute && *t == text) { errors.push((attribute, text)); };
     let weights = bot.settings.get("allocations").and_then(Value::as_object).cloned().unwrap_or_default();
@@ -322,7 +323,8 @@ pub fn validate(c: &Connection, bot: &Built, locale: &str) -> Result<Vec<String>
                     let symbols = statement.query_map([json!(missing).to_string()], |r| r.get::<_, Option<String>>(0))?.collect::<Result<Vec<_>, _>>()?;
                     let symbols: Vec<String> = symbols.into_iter().map(Option::unwrap_or_default).collect();
                     let assets = crate::web::bot::draft::sentence(&symbols.iter().map(String::as_str).collect::<Vec<_>>(), locale);
-                    add("allocations", i18n::text(locale, "errors.bots.multi_asset.pair_missing", &[("assets", i18n::Arg::Text(&assets)), ("exchange_name", i18n::Arg::Text(&name.unwrap_or_default()))]));
+                    let name = crate::identity::label_or(c, account.and_then(|a| a.id), &name.unwrap_or_default())?.plain();
+                    add("allocations", i18n::text(locale, "errors.bots.multi_asset.pair_missing", &[("assets", i18n::Arg::Text(&assets)), ("exchange_name", i18n::Arg::Text(&name))]));
                 }
             }
         }

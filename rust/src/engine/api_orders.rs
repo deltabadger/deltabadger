@@ -161,13 +161,14 @@ pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
 /// The retained standalone order a user placed on `exchange_id` with the venue's id `external_id` (the latest): the
 /// account it was placed on, the venue's placement identity at its claim and its wire order (`claim`). None also for one
 /// whose account is another user's or exchange's.
-pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str) -> Result<Option<(crate::identity::Account, Option<Value>, Value)>, EngineError> {
+/// `account`: only that account's orders (#710: two accounts may hold the same venue id); None reads every account.
+pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str, account: Option<i64>) -> Result<Option<(crate::identity::Account, Option<Value>, Value)>, EngineError> {
     // An install Rust has not migrated (a 2.x one served read-only) has no log: nothing this build placed.
     if !super::rules::table_exists(c, "rust_api_order_standalone")? { return Ok(None); }
     let row: Option<(i64, Option<String>, Option<String>)> = c.query_row(&format!(
         "SELECT s.account_id, s.identity, s.order_snapshot FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
-         WHERE o.user_id = ?1 AND s.exchange_id = ?2 AND s.external_id = ?3 AND {RETAINED} ORDER BY o.id DESC LIMIT 1"),
-        params![user_id, exchange_id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+         WHERE o.user_id = ?1 AND s.exchange_id = ?2 AND s.external_id = ?3 AND (?4 IS NULL OR s.account_id = ?4) AND {RETAINED} ORDER BY o.id DESC LIMIT 1"),
+        params![user_id, exchange_id, external_id, account], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
     let Some((account, identity, snapshot)) = row else { return Ok(None) };
     let Some(account) = crate::identity::Account::by_id(c, account)?.filter(|a| a.user_id == user_id && a.exchange_id == exchange_id) else { return Ok(None) };
     let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| EngineError::Data(format!("api order log: {e}")));

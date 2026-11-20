@@ -179,7 +179,7 @@ impl Merge {
         // A resting order is polled through its bot's exchange; on another venue it would never be found.
         for source in &self.bots {
             if source.bot.exchange.id != exchange && waiting(c, source.bot.id)? {
-                return Ok(Some(Reason::Open(source.bot.label.clone(), source.bot.exchange.name.clone())));
+                return Ok(Some(Reason::Open(source.bot.label.clone(), source.bot.exchange.label().plain())));
             }
         }
         self.books = vec![];
@@ -365,7 +365,7 @@ fn write_merged(tx: &Connection, ctx: &Ctx, owner: i64, merge: &Merge, now: Date
     let members: Vec<i64> = allocations.keys().map(|key| crate::web::bot::search::to_i(key)).collect();
     built.settings.insert("allocations".into(), Value::Object(allocations));
     built.set_members(tx, members, ctx.locale)?;
-    let errors = wizard::create::validate(tx, &built, ctx.locale)?;
+    let errors = wizard::create::validate(tx, &built, None, ctx.locale)?;
     // `save!`: a merged bot 2.x cannot save raises.
     if !errors.is_empty() { return Err(super::data(format!("merged bot invalid: {}", errors.join(", ")))); }
     // #710: on the account its sources trade on there (one: `reason` refuses two), else on that exchange's number 1.

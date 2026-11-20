@@ -611,7 +611,7 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     let app = app(&fx);
     let gaps_read = gaps_read(owner);
     // #710: with each key's account (run::reading groups by it) in the same statement.
-    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, (SELECT a.id FROM exchange_accounts a")
+    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, (e.name || COALESCE(' ' || (SELECT CASE WHEN lbl_a.removed_at")
         && s.contains(") FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
     // #710 slice 5: the line's account (its number 1, none stored) and its balances' revision, in the one read.

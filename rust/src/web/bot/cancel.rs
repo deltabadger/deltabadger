@@ -104,7 +104,7 @@ pub async fn destroy_with_factory<F: VenueFactory>(State(app): State<App>, Exten
         // Transaction#cancel refuses an imported row; a row with no order id has nothing to name (D-CANCEL-NO-EXTERNAL-ID).
         let Some(ext) = external.filter(|e| !e.starts_with("imported_")) else { return Ok(Found::Refused) };
         let bot = crate::engine::model::load_bot(c, id)?;
-        let name: String = c.query_row("SELECT coalesce(e.name, '') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [id], |r| r.get(0))?;
+        let name: String = crate::identity::with_bot_account("b", |account| c.query_row(&format!("SELECT coalesce({}, '') FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", crate::identity::plain_label_sql("e.name", account)), [id], |r| r.get(0)))?;
         let factory = factory(c, inner);
         Ok(match send_for_row(c, inner, &factory, runtime, &bot, tx, &ext)? {
             Sent::Cancelled => Found::Answered { cancelled: true, invalid_key: None },

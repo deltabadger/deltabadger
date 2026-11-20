@@ -109,7 +109,9 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let mut config = config;
         super::create::lock_limit_orders(&tx, &mut config)?;
         let bot = super::create::build(&tx, &config, locale)?;
-        let errors = super::create::validate(&tx, &bot, locale)?;
+        // `insert` places the bot on its exchange's number 1.
+        let account = bot.exchange_id.map(|e| crate::identity::Account::first(&tx, user.id, e)).transpose()?;
+        let errors = super::create::validate(&tx, &bot, account.as_ref(), locale)?;
         if !errors.is_empty() { return Ok(Saved::Invalid(crate::web::bot::draft::sentence(&errors.iter().map(String::as_str).collect::<Vec<_>>(), locale))) }
         let id = super::create::insert(&tx, user.id, bot, inner.now())?;
         if let Err(refusal) = eligibility::guard(&tx, &inner.cipher, Some(id)) {

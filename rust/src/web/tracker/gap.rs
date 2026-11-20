@@ -66,10 +66,12 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
     let scope = match super::scope::read(c, ctx, owner)? { Ok(crate::tracker::Scope::All) | Err(_) => return Ok(layout::missing()), Ok(scope) => scope };
     let Some(exchange) = scope.exchange() else { return Ok(layout::missing()) };
     // The venue, whether it has a trading key of the user's (the key-fix links), and whether the user has it at all.
-    let venue: Option<(String, String, Option<bool>, bool)> = c.query_row(
-        "SELECT e.name, e.type, (SELECT MAX(key_type = 0) FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id AND key_type != 1), \
+    // Named by its account (#710 slice 6): a stand-in is its exchange's only account.
+    let account = scope.account().filter(|a| a.placed()).map_or_else(|| "NULL".to_string(), |a| a.id.to_string());
+    let venue: Option<(String, String, Option<bool>, bool)> = c.query_row(&format!(
+        "SELECT {}, e.type, (SELECT MAX(key_type = 0) FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id AND key_type != 1), \
          EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = e.id) \
-         FROM exchanges e WHERE e.id = ?2", rusqlite::params![owner, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
+         FROM exchanges e WHERE e.id = ?2", crate::identity::plain_label_sql("e.name", &account)), rusqlite::params![owner, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
     let Some((name, kind, trading, _)) = venue.filter(|v| v.3) else { return Ok(layout::missing()) };
     let reading = run::reading(c, owner).map_err(|e| WebError::Config(e.0))?;
     let entry = crate::figures::budget::within(|| cache::read_published(c, owner, ctx.app.now())).map_err(|_| super::row::invalid())?;

@@ -364,10 +364,11 @@ pub enum What {
 /// (a listed divergence that needs a bot 2.x never loaded).
 pub fn facts(c: &Connection, bot_id: i64, notice: &Notice) -> Result<Option<Facts>, EngineError> {
     type Row = (Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
-    let row: Option<Row> = c.query_row(
-        "SELECT b.label, b.settings, u.email, u.locale, e.name, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
-         LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1",
-        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional()?;
+    // The venue named by the bot's account (#710 slice 6: `Kraken 2`).
+    let row: Option<Row> = crate::identity::with_bot_account("b", |account| c.query_row(&format!(
+        "SELECT b.label, b.settings, u.email, u.locale, {}, e.type, json_extract(b.transient_data, '$.' || ?2) FROM bots b JOIN users u ON u.id = b.user_id \
+         LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", crate::identity::plain_label_sql("e.name", account)),
+        params![bot_id, crate::engine::notice::BASE_LIMIT], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional())?;
     let Some((label, settings, email, stored_locale, exchange_name, exchange_type, base_marker)) = row else { return Ok(None) };
     let settings: Value = serde_json::from_str(&settings).map_err(|e| EngineError::Data(format!("bot {bot_id}: settings: {e}")))?;
     let locale = user_locale(stored_locale.as_deref());

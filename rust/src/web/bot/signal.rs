@@ -157,7 +157,8 @@ pub fn unresolved(ctx: &Ctx, csrf: &str, bot: &Bot) -> String {
     let Some(marker) = marker(&Value::Object(bot.transient.clone())).cloned() else {
         return "    <div id=\"signal-unresolved-placement\" hidden></div>\n".into();
     };
-    let exchange = [("exchange", Arg::Text(&bot.exchange.name))];
+    let label = bot.exchange.label().plain();
+    let exchange = [("exchange", Arg::Text(&label))];
     let token = if csrf.is_empty() { String::new() } else { format!("<input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />", escape(csrf)) };
     let id = marker.get("id").and_then(Value::as_str).unwrap_or_default();
     format!("  <div id=\"signal-unresolved-placement\" class=\"widget redeploy-prompt\">\n    <span class=\"text-error\">{}</span>\n    \

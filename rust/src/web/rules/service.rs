@@ -51,6 +51,8 @@ pub enum Command {
     Create {
         exchange_id: i64,
         asset_id: i64,
+        /// #710: the posted account (REST/MCP `account_id`); None: the exchange's while it has one live account.
+        account_id: Option<i64>,
         patch: Patch,
     },
     Update(i64, Patch),
@@ -108,6 +110,7 @@ pub async fn create_named(
     user: i64,
     exchange_name: &str,
     asset_symbol: &str,
+    account_id: Option<i64>,
     patch: Patch,
 ) -> Result<Result<Outcome, Refusal>, WebError> {
     if crate::v2::blank(exchange_name)
@@ -142,6 +145,7 @@ pub async fn create_named(
         Command::Create {
             exchange_id,
             asset_id,
+            account_id,
             patch,
         },
     )
@@ -161,6 +165,8 @@ pub struct ListedRule {
     pub rule_type: &'static str,
     pub status: &'static str,
     pub exchange: String,
+    /// D-API-ACCOUNT-FIELDS: (account id, its number) while the exchange has 2+ live accounts.
+    pub account: Option<(i64, i64)>,
     pub asset: String,
     pub address: String,
     pub address_tag: Value,
@@ -215,6 +221,7 @@ pub fn list(c: &Connection, app: &App, user: i64) -> Result<Vec<ListedRule>, Web
             rule_type: "Rules::Withdrawal",
             status: status(r.status),
             exchange: r.exchange.name.clone(),
+            account: r.account.id.zip(r.label.number),
             asset: r.asset.symbol().into(),
             address: mask(&r.address),
             address_tag: r.settings["address_tag"].clone(),
@@ -372,7 +379,7 @@ fn guard(
         let key =
             crate::engine::model::withdrawal_credentials(c, &app.cipher, &r.account)?;
         if key.is_none() || !c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1)",r.account.keys("k")),[],|r|r.get::<_,bool>(0))? {
-            return Ok(Err(refuse(Status::PermissionDenied,"withdrawal_key_missing",format!("No valid withdrawal API key for {}. Add one in Settings.",r.exchange.name))));
+            return Ok(Err(refuse(Status::PermissionDenied,"withdrawal_key_missing",format!("No valid withdrawal API key for {}. Add one in Settings.",r.label.plain()))));
         }
         if matches!(cmd, Command::Start(..)) && !capability.is_some_and(|v| v.withdraws) {
             return Ok(Err(refuse(
@@ -459,7 +466,7 @@ pub async fn call(
     let loaded=app.db(move|c| {
         let tx=c.unchecked_transaction()?;
         let r=match &command {
-            Command::Create{exchange_id,asset_id,..} => {
+            Command::Create{exchange_id,asset_id,account_id,..} => {
                 let Some(exchange)=crate::web::wizard::keys::venue(&tx,Some(*exchange_id))? else {
                     return Ok(Err(refuse(Status::NotFound,"exchange_not_found","Exchange not found.")));
                 };
@@ -469,10 +476,15 @@ pub async fn call(
                 };
                 let listed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM tickers WHERE exchange_id=?1 AND available=1 AND trading_enabled=1 AND (base_asset_id=?2 OR quote_asset_id=?2))",(*exchange_id,*asset_id),|r|r.get(0))?;
                 if !listed { return Ok(Err(refuse(Status::NotFound,"asset_not_found","Asset is not listed on this exchange."))) }
-                let account=crate::identity::Account::first(&tx,user,*exchange_id)?;
+                // #710 (§4.3): the posted account, or the exchange's while it has one live account.
+                let account=match crate::identity::pick(&tx,user,*exchange_id,*account_id)? {
+                    crate::identity::Pick::One(account)=>account,
+                    crate::identity::Pick::NotFound=>return Ok(Err(refuse(Status::NotFound,"account_not_found","Account not found."))),
+                    crate::identity::Pick::Ambiguous(list)=>return Ok(Err(refuse(Status::ValidationFailed,"account_required",crate::identity::Pick::required(&exchange.name,&list)))),
+                };
                 let id:Option<i64>=tx.query_row("SELECT id FROM exchange_account_rules WHERE account_id IS ?1 AND type='Rules::Withdrawal' AND asset_id=?2",(account.id,asset_id),|r|r.get(0)).optional()?;
                 if let Some(id)=id { model::load(&tx,&inner,user,id)?.ok_or_else(||WebError::Config("rule disappeared".into()))? }
-                else { Rule {id:0,user_id:user,account,status:0,exchange,asset,address:String::new(),settings:json!({}),fee:None,chains:vec![],balance:None,unconfirmed:None} }
+                else { Rule {id:0,user_id:user,account,status:0,label:crate::identity::label_or(&tx,account.id,&exchange.name)?,exchange,asset,address:String::new(),settings:json!({}),fee:None,chains:vec![],balance:None,unconfirmed:None} }
             },
             Command::Update(id,_)|Command::Start(id,_)|Command::Stop(id)|Command::Delete(id) => {
                 let Some(rule)=model::load(&tx,&inner,user,*id)? else { return Ok(Err(missing())) };

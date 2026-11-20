@@ -59,6 +59,22 @@ fn find_exchange(c: &Connection, name: &Value) -> Result<Option<(i64, String, St
 fn exchange_not_found(c: &Connection, name: &Value) -> Result<Res, WebError> {
     Ok(failure(Domain::NotFound, "exchange_not_found", format!("Exchange '{}' not found. Available: {}", to_s(name), crate::web::mcp::tradeable(c)?.join(", "))))
 }
+/// #710 (PLAN-710-6 §4.2): the account a write naming `exchange` acts on, by its posted `account_id`: Err is the answer
+/// (a 404 for an account not the user's live one there, the 422 naming them when 2+ are live and none is named).
+pub(crate) fn picked(c: &Connection, user: i64, exchange: i64, name: &str, posted: &Value) -> Result<Result<crate::identity::Account, Res>, WebError> {
+    // Only an omitted or null account_id is the default account; anything else posted must name one (`false`, `[]`, `""` do not).
+    let posted = if posted.is_null() { None } else { match account_id(posted) { Some(id) => Some(id), None => return Ok(Err(account_not_found())) } };
+    Ok(match crate::identity::pick(c, user, exchange, posted)? {
+        crate::identity::Pick::One(account) => Ok(account),
+        crate::identity::Pick::NotFound => Err(account_not_found()),
+        crate::identity::Pick::Ambiguous(list) => Err(failure(Domain::ValidationFailed, "account_required", crate::identity::Pick::required(name, &list))),
+    })
+}
+/// A posted `account_id` (#710): a whole integer, or a string of digits; anything else (`"12oops"`, `1.5`) names no account.
+pub(crate) fn account_id(v: &Value) -> Option<i64> {
+    match v { Value::Number(n) => n.as_i64(), Value::String(s) => { let t = s.trim(); if !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()) { t.parse().ok() } else { None } }, _ => None }
+}
+pub(crate) fn account_not_found() -> Res { failure(Domain::NotFound, "account_not_found", "Account not found.") }
 /// Lookup.find_api_key: the user's correct trading key.
 /// Whether `account` has a correct trading key (#710: the account an order is placed on or cancelled through).
 fn has_correct_key(c: &Connection, account: &crate::identity::Account) -> Result<bool, WebError> {
@@ -103,7 +119,8 @@ fn trades(kind: &str) -> bool { crate::venue::registry::row(kind).is_some_and(|r
 pub enum Placed { Done(Res), Queued(Queued) }
 
 /// An order queued for the engine, with what its answer repeats of the request.
-pub struct Queued { pub id: i64, bot_id: Option<i64>, exchange: String, pair: String, base: String, side: &'static str, amount: Value, amount_type: String,
+/// `shown`: the account's label (#710), which the refusals name; `exchange` (the answer's field) stays the bare name.
+pub struct Queued { pub id: i64, bot_id: Option<i64>, exchange: String, shown: String, pair: String, base: String, side: &'static str, amount: Value, amount_type: String,
                     /// A standalone order's: "market" or "limit", and a limit's price as sent (Null otherwise).
                     order_type: &'static str, price: Value }
 
@@ -139,21 +156,22 @@ fn standalone_checked(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: C
         return done(failure(Domain::ValidationFailed, "missing_required_parameter", format!("Missing required parameter(s): {}.", missing.join(", "))));
     }
     let Some((exchange, name, venue)) = find_exchange(c, arg(args, "exchange_name"))? else { return exchange_not_found(c, arg(args, "exchange_name")).map(Placed::Done) };
-    // #710: the exchange's number 1 (REST and MCP name no other account before slice 6).
-    let account = crate::identity::Account::first(c, who.user, exchange)?;
-    if !has_correct_key(c, &account)? { return done(api_key_missing(&name)) }
+    // #710: the posted account, or the exchange's while it has one live account (§4.3).
+    let account = match picked(c, who.user, exchange, &name, arg(args, "account_id"))? { Ok(account) => account, Err(res) => return done(res) };
+    let shown = crate::identity::label_or(c, account.id, &name)?.plain();
+    if !has_correct_key(c, &account)? { return done(api_key_missing(&shown)) }
     let (base, quote) = (to_s(arg(args, "base_asset")).to_uppercase(), to_s(arg(args, "quote_asset")).to_uppercase());
     let Some(ticker) = find_ticker(c, exchange, &base, &quote)? else {
-        return done(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {name}.")));
+        return done(failure(Domain::NotFound, "pair_not_found", format!("Trading pair {base}/{quote} not found on {shown}.")));
     };
-    if let Some(refusal) = untradable(&name, &ticker) { return done(refusal) }
+    if let Some(refusal) = untradable(&shown, &ticker) { return done(refusal) }
     if kind.buy() { if let Some(refusal) = wash_refusal(c, now, who, &ticker)? { return done(refusal) } }
     // D-ORDER-AMOUNT-VALIDATION: where 2.x hands these to the venue (or raises), BotOrder's refusals.
     if !number(arg(args, "amount")).is_some_and(|n| n.is_positive()) { return done(invalid_number("amount")) }
     let Some(amount_type) = amount_type(kind, args) else { return done(invalid_amount_type()) };
     if kind.limit() && !number(arg(args, "price")).is_some_and(|n| n.is_positive()) { return done(invalid_number("price")) }
     if !trades(&venue) { return done(not_ported(IBKR)) }
-    let queued = Queued { id: 0, bot_id: None, exchange: name, pair: format!("{base}/{quote}"), base: base.clone(), side: kind.side(), amount: arg(args, "amount").clone(),
+    let queued = Queued { id: 0, bot_id: None, exchange: name, shown, pair: format!("{base}/{quote}"), base: base.clone(), side: kind.side(), amount: arg(args, "amount").clone(),
                           amount_type, order_type: if kind.limit() { "limit" } else { "market" }, price: if kind.limit() { arg(args, "price").clone() } else { Value::Null } };
     // Exchange::Dryable#create_dry_order's answer; D-ORDER-DRY-NO-READ: no price is read for it.
     if who.dry_run { return done(placed(&queued, true, &format!("dry-order-{}", &uuid::Uuid::new_v4().to_string()[10..]))) }
@@ -189,6 +207,7 @@ fn placed(q: &Queued, dry_run: bool, order_id: &str) -> Res {
 pub fn standalone_late_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, request: &crate::engine::api_orders::Request) -> Result<Option<Res>, WebError> {
     let Some(s) = &request.standalone else { return Err(WebError::Config("a bot request has no standalone refusal".into())) };
     let name: String = c.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id=?1", [s.exchange_id], |r| r.get(0)).optional()?.unwrap_or_default();
+    let name = crate::identity::label_or(c, s.account.id, &name)?.plain();
     if !has_correct_key(c, &s.account)? { return Ok(Some(api_key_missing(&name))) }
     let Some(ticker) = model::ticker_by_id(c, s.exchange_id, s.ticker_id).map_err(|e| WebError::Config(format!("{e:?}")))? else {
         let named = |k: &str| request.supplied.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
@@ -217,7 +236,9 @@ pub(crate) fn integer(v: &Value) -> Option<i64> {
 }
 
 /// The bot BotOrder trades through: what its refusals read.
-struct Through { bot: model::Bot, exchange: String, venue: String, ticker: Option<Ticker> }
+/// `shown`: the bot's account's label (#710), which the refusals name; `exchange` is the bare name the pair check compares.
+struct Through { bot: model::Bot, exchange: String, shown: String, venue: String, ticker: Option<Ticker> }
+fn shown(c: &Connection, bot: &model::Bot) -> Result<String, WebError> { model::exchange_name(c, bot).map_err(|e| WebError::Config(format!("{e:?}"))) }
 
 /// `@user.bots.not_deleted.find_by(id:)`, with what BotOrder's refusals read.
 fn find_bot(c: &Connection, user: i64, id: i64) -> Result<Option<Through>, WebError> {
@@ -227,7 +248,7 @@ fn find_bot(c: &Connection, user: i64, id: i64) -> Result<Option<Through>, WebEr
     let Some((exchange, venue)) = found else { return Ok(None) };
     let bot = model::load_bot(c, id).map_err(|e| WebError::Config(format!("{e:?}")))?;
     let ticker = if bot.bot_type == model::SIGNAL_TYPE { model::ticker_for(c, &bot).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
-    Ok(Some(Through { bot, exchange, venue, ticker }))
+    Ok(Some(Through { shown: shown(c, &bot)?, bot, exchange, venue, ticker }))
 }
 fn bot_not_found() -> Res { failure(Domain::NotFound, "bot_not_found", "Bot not found.") }
 
@@ -243,7 +264,7 @@ pub fn through_bot(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Call
     if let Some(refusal) = venue_refusal(c, now, who, kind, &through)? { return done(refusal) }
     if !trades(&through.venue) { return done(not_ported(IBKR)) }
     let (base, quote) = pair(c, &through)?;
-    let mut queued = Queued { id: 0, bot_id: Some(id), exchange: through.exchange.clone(), pair: format!("{base}/{quote}"), base, side: kind.side(), amount: arg(args, "amount").clone(), amount_type,
+    let mut queued = Queued { id: 0, bot_id: Some(id), exchange: through.exchange.clone(), shown: through.shown.clone(), pair: format!("{base}/{quote}"), base, side: kind.side(), amount: arg(args, "amount").clone(), amount_type,
                               order_type: "market", price: Value::Null };
     if who.dry_run { return done(submitted(&queued, true, None, None)) }
     // What validation saw goes with the request: the engine re-checks the bot against the supplied fields, and places
@@ -269,7 +290,7 @@ pub fn late_refusal(c: &Connection, bot: &model::Bot, request: &crate::engine::a
     if bot.user_id != request.user_id || bot.status == crate::enums::BotStatus::Deleted { return Ok(Some(bot_not_found())) }
     let (exchange, venue): (String, String) = c.query_row("SELECT coalesce(name, ''), coalesce(type, '') FROM exchanges WHERE id=?1", [bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?.unwrap_or_default();
     let ticker = if bot.bot_type == model::SIGNAL_TYPE { model::ticker_for(c, bot).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
-    bot_refusal(c, &Through { bot: bot.clone(), exchange, venue, ticker }, &request.supplied)
+    bot_refusal(c, &Through { bot: bot.clone(), exchange, shown: shown(c, bot)?, venue, ticker }, &request.supplied)
 }
 
 /// 2.x's status for each refusal code the engine answers with (`Outcome::Refused`).
@@ -296,10 +317,10 @@ pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
             if let Some(pair) = pair { res.data["pair"] = json!(pair); }
             res
         }
-        Outcome::Skipped => failure(Domain::ValidationFailed, "below_minimum_amount", format!("The order is below {}'s minimum for {}.", q.exchange, q.pair)),
-        Outcome::Unresolved => placement_unresolved(q.bot_id.unwrap_or_default(), &q.exchange),
+        Outcome::Skipped => failure(Domain::ValidationFailed, "below_minimum_amount", format!("The order is below {}'s minimum for {}.", q.shown, q.pair)),
+        Outcome::Unresolved => placement_unresolved(q.bot_id.unwrap_or_default(), &q.shown),
         Outcome::Locked => failure(Domain::Conflict, "wash_sale_locked", format!("{} is locked after a sale at a loss.", q.base)),
-        Outcome::Ambiguous { errors } => ambiguous(&sentence(&errors), &q.exchange),
+        Outcome::Ambiguous { errors } => ambiguous(&sentence(&errors), &q.shown),
         // r3 §2: a standalone failure is MarketBuy's `errors.join(', ')`; a bot order's is BotOrder's to_sentence.
         Outcome::Failed { errors } if q.bot_id.is_none() => failure(Domain::UpstreamFailed, "order_failed", format!("Order failed: {}", errors.join(", "))),
         Outcome::Failed { errors } => failure(Domain::UpstreamFailed, "order_failed", format!("Order failed: {}", sentence(&errors))),
@@ -311,13 +332,13 @@ pub fn answer(q: &Queued, outcome: crate::engine::api_orders::Outcome) -> Res {
         // D-ORDER-API-CAP.
         Outcome::CapReached { left } => failure(Domain::Conflict, "quote_amount_limit_reached",
             format!("Bot {} has {left} {} left of its spending limit.", q.bot_id.unwrap_or_default(), q.pair.split_once('/').map_or("", |(_, quote)| quote))),
-        Outcome::Busy => venue_busy(&q.exchange),
-        Outcome::Unknown => ambiguous("the engine restarted while it was placing it", &q.exchange),
+        Outcome::Busy => venue_busy(&q.shown),
+        Outcome::Unknown => ambiguous("the engine restarted while it was placing it", &q.shown),
     }
 }
 
 /// What a caller is told when its request's answer could not be read (a database error while waiting): it may have been placed.
-pub fn unanswered(q: &Queued) -> Res { ambiguous("its answer could not be read", &q.exchange) }
+pub fn unanswered(q: &Queued) -> Res { ambiguous("its answer could not be read", &q.shown) }
 
 /// How long a taken request may go unanswered before the caller is told it may have been placed (D-ORDER-WAIT-CAP): past
 /// the last instant a send may start, plus two whole venue calls (the -1021 one more attempt) and a margin.
@@ -349,8 +370,8 @@ pub async fn wait(app: &App, q: &Queued) -> Result<Res, WebError> {
         }).await?;
         match (state.as_str(), outcome) {
             ("done", Some(outcome)) => return Ok(answer(q, outcome)),
-            ("withdrawn", _) => return Ok(venue_busy(&q.exchange)),
-            _ if now >= cap => return Ok(ambiguous("the exchange did not answer in time", &q.exchange)),
+            ("withdrawn", _) => return Ok(venue_busy(&q.shown)),
+            _ if now >= cap => return Ok(ambiguous("the exchange did not answer in time", &q.shown)),
             _ => tokio::time::sleep(std::time::Duration::from_millis(250)).await,
         }
     }
@@ -374,7 +395,7 @@ fn bot_refusal(c: &Connection, t: &Through, args: &Map<String, Value>) -> Result
         return Ok(Some(failure(Domain::Conflict, "bot_not_running", format!("Bot {id} is not running. Start it to place orders through it."))));
     }
     // Bots::Signal#placement_unresolved?: the marker only (an intent this build keeps in flight is the engine's to wait on).
-    if t.bot.transient.get(crate::engine::signal::MARKER_KEY).is_some_and(Value::is_object) { return Ok(Some(placement_unresolved(id, &t.exchange))) }
+    if t.bot.transient.get(crate::engine::signal::MARKER_KEY).is_some_and(Value::is_object) { return Ok(Some(placement_unresolved(id, &t.shown))) }
     let Some(ticker) = &t.ticker else { return Ok(Some(failure(Domain::NotFound, "pair_not_found", format!("Bot {id} has no tradable pair on its exchange.")))) };
     // BotOrder#pair_mismatch: a field that was sent must agree, case-insensitively.
     let (base, quote) = pair(c, t)?;
@@ -382,9 +403,9 @@ fn bot_refusal(c: &Connection, t: &Through, args: &Map<String, Value>) -> Result
         .filter(|(key, actual)| { let sent = arg(args, key); present(sent) && to_s(sent).to_lowercase() != actual.to_lowercase() })
         .map(|(key, _)| key).collect();
     if !wrong.is_empty() {
-        return Ok(Some(failure(Domain::ValidationFailed, "bot_pair_mismatch", format!("Bot {id} trades {base}/{quote} on {}; {} say otherwise. Leave them out to use the bot's pair.", t.exchange, wrong.join(", ")))));
+        return Ok(Some(failure(Domain::ValidationFailed, "bot_pair_mismatch", format!("Bot {id} trades {base}/{quote} on {}; {} say otherwise. Leave them out to use the bot's pair.", t.shown, wrong.join(", ")))));
     }
-    Ok(untradable(&t.exchange, ticker))
+    Ok(untradable(&t.shown, ticker))
 }
 
 fn placement_unresolved(id: i64, exchange: &str) -> Res {
@@ -396,9 +417,9 @@ fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller
     if kind.buy() { if let Some(ticker) = &t.ticker { if let Some(refusal) = wash_refusal(c, now, who, ticker)? { return Ok(Some(refusal)) } } }
     let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, t.bot.id, "k")?), [], |r| r.get(0)).optional()?;
     Ok(match status {
-        Some(s) if s == crate::enums::ApiKeyStatus::PendingActivation as i64 => Some(failure(Domain::Conflict, "api_key_pending", format!("The API key for {} is still pending activation.", t.exchange))),
+        Some(s) if s == crate::enums::ApiKeyStatus::PendingActivation as i64 => Some(failure(Domain::Conflict, "api_key_pending", format!("The API key for {} is still pending activation.", t.shown))),
         Some(s) if s == crate::enums::ApiKeyStatus::Correct as i64 => None,
-        _ => Some(api_key_missing(&t.exchange)),
+        _ => Some(api_key_missing(&t.shown)),
     })
 }
 
@@ -406,6 +427,10 @@ fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller
 pub enum Cancel { Done(Res), Send(CancelJob) }
 /// What a cancel past every check sends, and its success answer.
 pub struct CancelJob { target: Target, answer: Value }
+impl CancelJob {
+    /// The account the cancel is sent through (None: a bot row's, sent through its bot's venue).
+    pub fn account(&self) -> Option<crate::identity::Account> { match &self.target { Target::Log { account, .. } | Target::Key { account, .. } => Some(*account), Target::Row { .. } => None } }
+}
 enum Target {
     /// Transaction#cancel: the row's order on its bot's venue, then the engine's re-read.
     Row { bot: i64, tx: i64, external: String },
@@ -420,7 +445,7 @@ enum Target {
 fn cancel_failed(why: &str) -> Res { failure(Domain::UpstreamFailed, "cancel_failed", format!("Cancel failed: {why}")) }
 
 /// BotApi::Orders::Cancel#call, up to its venue call.
-pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Value) -> Result<Cancel, WebError> {
+pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Value, account_id: &Value) -> Result<Cancel, WebError> {
     if !present(order_id) { return Ok(Cancel::Done(failure(Domain::ValidationFailed, "missing_required_parameter", "Missing required parameter(s): order_id."))) }
     let text = to_s(order_id);
     // `\A\d+\z`, then `@user.transactions.submitted.open.find_by(id: to_i)`: a bot's row, whatever the bot's status.
@@ -451,20 +476,25 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
         return Ok(Cancel::Done(failure(Domain::ValidationFailed, "exchange_name_required", "Exchange name is required when cancelling by exchange order ID.")));
     }
     let Some((exchange, name, venue)) = find_exchange(c, exchange_name)? else { return exchange_not_found(c, exchange_name).map(Cancel::Done) };
+    // #710 (§4.3): the account the venue id is looked up in; with 2+ live accounts one must be named, even when only one
+    // of them holds the id.
+    let picked = match picked(c, who.user, exchange, &name, account_id)? { Ok(account) => account, Err(res) => return Ok(Cancel::Done(res)) };
     // r3: a stored order beats a bare id. The user's bot rows first (the latest with this venue and order id); then the
     // retained standalone order log (PLAN-A9 O4); then the bare id. #710: each is cancelled through the account it was
     // placed on (a bare id through the exchange's number 1), whose key is the one checked.
     let row: Option<(i64, i64)> = c.query_row(&format!("SELECT t.bot_id, t.id FROM transactions t JOIN bots b ON b.id=t.bot_id \
-                                               WHERE b.user_id=?1 AND t.exchange_id=?2 AND {o}=?3 AND substr({o}, 1, 9) != 'imported_' ORDER BY t.id DESC LIMIT 1", o = crate::venue_ids::order_id(c, "t")?),
+                                               WHERE b.user_id=?1 AND t.exchange_id=?2 AND {o}=?3 AND substr({o}, 1, 9) != 'imported_' AND {mine} ORDER BY t.id DESC LIMIT 1",
+                                               o = crate::venue_ids::order_id(c, "t")?, mine = picked.orders(c, "t")?),
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
+    let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text, picked.id).map_err(|e| WebError::Config(format!("{e:?}")))?
+                                     .filter(|(account, _, _)| account.id == picked.id || picked.id.is_none()) } else { None };
     let account = match (&row, &log) {
         (Some((_, tx)), _) => crate::identity::Account::of_order(c, *tx)?,
         (None, Some((account, _, _))) => Some(*account),
-        (None, None) => Some(crate::identity::Account::first(c, who.user, exchange)?),
+        (None, None) => Some(picked),
     };
-    let Some(account) = account else { return Ok(Cancel::Done(api_key_missing(&name))) };
-    if !has_correct_key(c, &account)? { return Ok(Cancel::Done(api_key_missing(&name))) }
+    let Some(account) = account else { return Ok(Cancel::Done(api_key_missing(&crate::identity::label_or(c, picked.id, &name)?.plain()))) };
+    if !has_correct_key(c, &account)? { return Ok(Cancel::Done(api_key_missing(&crate::identity::label_or(c, account.id, &name)?.plain()))) }
     if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
     let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
     if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }

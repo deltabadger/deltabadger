@@ -1103,14 +1103,14 @@ fn tokenized_symbols<'a>(c: &Connection, rows: impl Iterator<Item = &'a Stored>)
 
 /// ApiKey#sync_issue for every key but those of a stock venue other than Alpaca, as banner lines in the report's locale.
 fn sync_issues(c: &Connection, user_id: i64, locale: &str) -> Result<Vec<String>, FiguresError> {
-    let mut s = c.prepare("SELECT e.name, k.key_type, k.status, k.last_sync_error, k.last_synced_at FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-                           WHERE k.user_id = ?1 AND e.type IS NOT 'Exchanges::Ibkr' ORDER BY k.id")?;
-    let keys = s.query_map([user_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?,
-                                               r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?)))?;
+    // #710: each key's venue named by its account (`Kraken 2` while the exchange has two live accounts).
+    let keys = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT {}, k.key_type, k.status, k.last_sync_error, k.last_synced_at FROM api_keys k \
+                           JOIN exchanges e ON e.id = k.exchange_id WHERE k.user_id = ?1 AND e.type IS NOT 'Exchanges::Ibkr' ORDER BY k.id", crate::identity::plain_label_sql("e.name", account)))?
+        .query_map([user_id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?,
+                                      r.get::<_, Option<String>>(3)?, r.get::<_, Option<String>>(4)?)))?.collect::<rusqlite::Result<Vec<_>>>())?;
     let prefix = text(locale, "tax_report.incomplete_banner_prefix", &[]);
     let mut out = vec![];
-    for key in keys {
-        let (name, key_type, status, error, synced) = key?;
+    for (name, key_type, status, error, synced) in keys {
         let name = name.unwrap_or_default();
         // key_type 1 is :withdrawal; status 1 is :correct.
         let reason = if key_type == 1 { None }

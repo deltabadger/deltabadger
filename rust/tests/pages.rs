@@ -3198,6 +3198,20 @@ fn a20_divergences(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), S
             if step["headers"]["content-disposition"] != doubled { return Err(format!("D-API-DOCS-FILENAME: 2.x now sends {}", step["headers"]["content-disposition"])); }
             step["headers"]["content-disposition"] = json!("attachment; filename=\"deltabadger-api.md\"; filename*=UTF-8''deltabadger-api.md");
         }
+        // D-API-ACCOUNT-ID (#710 slice 6): the manual documents `account_id`: one section and two status codes 2.x's has
+        // not. Exactly that: this build's manual without them is 2.x's.
+        let ours: Vec<Value> = rust["responses"].as_array().cloned().unwrap_or_default();
+        for (step, mine) in v2["responses"].as_array_mut().into_iter().flatten().zip(ours) {
+            if step["headers"].get("content-disposition").is_none() { continue; }
+            let text = |v: &Value| match v { Value::String(s) => s.clone(), Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default()).collect::<Vec<_>>().join("\n"), _ => String::new() };
+            let mine_text = text(&mine["body"]);
+            let start = mine_text.find("### Several accounts on one exchange").ok_or("D-API-ACCOUNT-ID: the manual no longer has its section")?;
+            let end = mine_text.find("### Not served yet").ok_or("D-API-ACCOUNT-ID: no section after it")?;
+            let reverted = format!("{}{}", &mine_text[..start], &mine_text[end..]).replace("`bot_not_found`, `account_not_found`, ", "`bot_not_found`, ")
+                .replace("`missing_required_parameter`, `account_required`, ", "`missing_required_parameter`, ");
+            if text(&step["body"]) != reverted { return Err("D-API-ACCOUNT-ID: 2.x's manual is not this build's without the account section".into()); }
+            step["body"] = mine["body"].clone();
+        }
     }
     // D-TEST-EMAIL-ERROR-SAFE: 2.x's alert carries the server's reply, which names the SMTP account; this one its codes only.
     if name == "settings_email_test_failed" {
