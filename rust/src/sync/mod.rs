@@ -10,7 +10,7 @@
 //!   budget of values (`wire`); every number in it goes through `number`, which bounds it before any arithmetic;
 //! - no value of an answer is logged: a log line says what happened and where, never an id, a cursor or a body;
 //! - no transaction is open across a network call: the fetch phases take no database handle at all;
-//! - written: `account_transactions`, `account_balances`, the sync columns of `api_keys` (`last_synced_at`,
+//! - written: `account_transactions`, `exchange_account_balances` (by account), the sync columns of `api_keys` (`last_synced_at`,
 //!   `last_sync_error`, `balances_synced_at`, and `status` → incorrect when Alpaca rejects the key on a balance read),
 //!   `bots.restatement_generation` (one single-column statement) and `asset_split` rows of `bot_activity_logs`;
 //! - never written: `transactions`, and on `bots` nothing but that counter (not `status`, `settings` or
@@ -18,6 +18,7 @@
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
 pub mod balances;
+pub mod balance_store;
 pub mod binance_ledger;
 pub mod binance_order_links;
 pub mod binance_identity;
@@ -222,6 +223,8 @@ pub struct Key {
     pub last_synced_at: Option<DateTime<Utc>>, pub last_sync_error: Option<String>,
     /// `exchanges.type`: one of the venues this build syncs.
     pub exchange_type: String,
+    /// #710: the key's account, as its ledger rows' venue ids are scoped (venue_ids).
+    pub scope: crate::venue_ids::Scope,
 }
 
 /// The venues whose balances this build syncs (`registry::Row::balances`).
@@ -246,7 +249,13 @@ pub fn load_key_of(c: &Connection, id: i64, venues: &[&str]) -> Result<Key, Sync
         return Err(SyncError(if venues == [ALPACA] { format!("api key {id} is not an Alpaca key") } else { format!("api key {id} is not on a venue this build syncs") }));
     };
     let last_synced_at = synced.map(|s| parse_time(&s)).transpose()?;
-    Ok(Key { id, user_id, exchange_id, status, key_type, last_synced_at, last_sync_error, exchange_type })
+    let scope = key_scope(c, id)?;
+    Ok(Key { id, user_id, exchange_id, status, key_type, last_synced_at, last_sync_error, exchange_type, scope })
+}
+
+/// #710: api key `id`'s account's scope; a key whose membership names another user's or exchange's account has none.
+pub fn key_scope(c: &Connection, id: i64) -> Result<crate::venue_ids::Scope, SyncError> {
+    crate::venue_ids::Scope::of_key(c, id)?.ok_or_else(|| SyncError(format!("api key {id} belongs to no account of its exchange")))
 }
 
 /// ApiKey.reading, for Alpaca: per user, the key the venue is read with. Status correct, never a withdrawal key; the
@@ -263,20 +272,20 @@ pub fn ledger_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| 
 /// ApiKey.reading over `ledger_venues`.
 pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &ledger_venues()) }
 
-/// ApiKey.reading: per user and venue, the trading key that lacks no permission (`missing_permission?`), else the
-/// read-only one, else the first; status correct, never a withdrawal key.
+/// ApiKey.reading: per user and account (#710; an exchange while it has one), the trading key that lacks no permission
+/// (`missing_permission?`), else the read-only one, else the first; status correct, never a withdrawal key.
 fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
-    let mut s = c.prepare(
-        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id")?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                                      r.get::<_, Option<String>>(5)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
+    let rows = crate::identity::with_key_account("k", |account| c.prepare(&format!(
+        "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id"))?
+        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+                                      r.get::<_, Option<String>>(5)?, r.get::<_, Option<i64>>(6)?)))?
+        .collect::<Result<Vec<_>, _>>())?;
     let rows: Vec<_> = rows.into_iter().filter(|r| venues.contains(&r.4.as_str())).collect();
-    let mut groups: Vec<(i64, i64)> = vec![];
-    for r in &rows { if !groups.contains(&(r.1, r.2)) { groups.push((r.1, r.2)); } }
+    let mut groups: Vec<(i64, i64, Option<i64>)> = vec![];
+    for r in &rows { if !groups.contains(&(r.1, r.2, r.6)) { groups.push((r.1, r.2, r.6)); } }
     Ok(groups.into_iter().filter_map(|g| {
-        let group: Vec<_> = rows.iter().filter(|r| (r.1, r.2) == g).collect();
+        let group: Vec<_> = rows.iter().filter(|r| (r.1, r.2, r.6) == g).collect();
         group.iter().find(|r| r.3 == 0 && !crate::tracker::import::run::missing_permission(&r.4, r.5.as_deref()))
             .or_else(|| group.iter().find(|r| r.3 == 2)).or_else(|| group.first()).map(|r| r.0)
     }).collect())

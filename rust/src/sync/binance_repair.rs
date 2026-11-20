@@ -10,19 +10,21 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
+/// `account_id`: the account (#710; None for a number 1 that has no row yet).
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Account { pub user_id:i64, pub exchange_id:i64, pub key_id:Option<i64> }
-/// Include historical scopes even when their original key was deleted or replaced.
+pub struct Account { pub user_id:i64, pub exchange_id:i64, pub account_id:Option<i64>, pub key_id:Option<i64> }
+/// Include historical scopes even when their original key was deleted or replaced: one per account.
 pub fn inventory(c:&Connection)->Result<Vec<Account>,SyncError> {
-    let mut s=c.prepare("SELECT user_id,exchange_id FROM account_transactions UNION SELECT user_id,exchange_id FROM api_keys")?;
-    let scopes=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+    let mut s=c.prepare(&format!("SELECT user_id,exchange_id,{} FROM account_transactions UNION SELECT k.user_id,k.exchange_id,{} FROM api_keys k",
+                                 crate::venue_ids::row_account("account_transactions"),crate::identity::with_key_account("k",|a|Ok(a.to_string()))?))?;
+    let scopes=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,i64>(1)?,r.get::<_,Option<i64>>(2)?)))?.collect::<Result<Vec<_>,_>>()?;
     let keys=super::reading_keys_of(c,&[crate::venue::binance::BINANCE,crate::venue::binance::BINANCE_US])?;
     let keys=keys.into_iter().map(|id|super::load_key_of(c,id,&[crate::venue::binance::BINANCE,crate::venue::binance::BINANCE_US])).collect::<Result<Vec<_>,_>>()?;
     let mut out=vec![];
-    for (user_id,exchange_id) in scopes {
+    for (user_id,exchange_id,account_id) in scopes {
         let venue:String=c.query_row("SELECT coalesce(type,'') FROM exchanges WHERE id=?1",[exchange_id],|r|r.get(0))?;
         if [crate::venue::binance::BINANCE,crate::venue::binance::BINANCE_US].contains(&venue.as_str()) {
-            out.push(Account{user_id,exchange_id,key_id:keys.iter().find(|k|k.user_id==user_id && k.exchange_id==exchange_id).map(|k|k.id)});
+            out.push(Account{user_id,exchange_id,account_id,key_id:keys.iter().find(|k|k.user_id==user_id && k.exchange_id==exchange_id && k.scope.account==account_id).map(|k|k.id)});
         }
     } Ok(out)
 }
@@ -46,14 +48,23 @@ pub struct Tally { pub fetched:usize, pub missing:usize, pub present:usize, pub 
     #[serde(skip)] seen:std::collections::HashSet<String> }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Manifest {
-    pub version:u8, pub user_id:i64, pub exchange_id:i64, pub key_id:i64, pub cutoff:String,
+    pub version:u8, pub user_id:i64, pub exchange_id:i64,
+    /// #710 (version 2): the account 2+ the repair writes (None: the exchange's number 1, as every version-1 manifest).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id:Option<i64>,
+    pub key_id:i64, pub cutoff:String,
     pub credential:Value, pub evidence:String, pub original:BTreeMap<i64,String>, pub retained:BTreeMap<String,String>,
     pub coverage:Vec<Window>, pub unresolved:Vec<String>, pub tally:Tally, pub batches:Vec<Batch>,
 }
 impl Manifest { pub fn digest(&self)->String { hash(&serde_json::to_string(self).expect("manifest")) } }
 fn hash(text:&str)->String { hex::encode(Sha256::digest(text.as_bytes())) }
 fn refuse(reason:&str)->SyncError { SyncError(format!("Binance repair refused: {reason}")) }
-fn bucket_name(key:&Key,bucket:&str)->String { format!("rust_binance_a12_v1:bucket:{}:{}:{}",key.user_id,key.exchange_id,hash(bucket)) }
+/// The manifest version this build writes and applies (#710: 2 names the account; its images carry it).
+pub const MANIFEST_VERSION:u8=2;
+/// Why a manifest of another version is refused, with nothing written.
+pub const OLD_MANIFEST:&str="This repair preview was made before per-account history. Run a fresh preview.";
+fn current(m:&Manifest)->Result<(),SyncError> { if m.version==MANIFEST_VERSION {Ok(())} else {Err(SyncError(OLD_MANIFEST.into()))} }
+fn bucket_name(key:&Key,bucket:&str)->String { format!("{}{}",writer::namespace(key),hash(bucket)) }
 fn journal(digest:&str,n:usize)->String { format!("rust_binance_a12_v1:repair:{digest}:{n}") }
 fn groups(e:&Evidence)->Result<BTreeMap<String,Vec<Input>>,SyncError> {
     let mut out=BTreeMap::<String,Vec<Input>>::new();
@@ -64,7 +75,7 @@ fn evidence_digest(e:&Evidence)->String {
     rows.sort();hash(&json!([e.coverage,rows]).to_string())
 }
 fn metadata(c:&Connection,key:&Key)->Result<BTreeMap<String,String>,SyncError> {
-    let prefix=format!("rust_binance_a12_v1:bucket:{}:{}:",key.user_id,key.exchange_id);
+    let prefix=writer::namespace(key);
     let mut s=c.prepare("SELECT key,value FROM app_configs WHERE key LIKE ?1 ORDER BY key")?;
     let rows=s.query_map([format!("{prefix}%")],|r|Ok((r.get::<_,String>(0)?,hash(&r.get::<_,String>(1)?))))?.collect::<Result<_,_>>()?;Ok(rows)
 }
@@ -78,7 +89,7 @@ pub fn require_ownership(c:&Connection,cipher:&Cipher)->Result<(),SyncError> {
 }
 fn require_scope(c:&Connection,key:&Key)->Result<(),SyncError> {
     let current=super::load_key_of(c,key.id,&VENUES)?;
-    if (current.user_id,current.exchange_id)!=(key.user_id,key.exchange_id) {return Err(refuse("credential scope changed"))} Ok(())
+    if (current.user_id,current.exchange_id,current.scope.member)!=(key.user_id,key.exchange_id,key.scope.member) {return Err(refuse("credential scope changed"))} Ok(())
 }
 fn integrity(c:&Connection)->Result<(),SyncError> {
     if c.query_row("PRAGMA quick_check",[],|r|r.get::<_,String>(0))?!="ok" || c.prepare("PRAGMA foreign_key_check")?.exists([])? {return Err(refuse("database integrity check failed"))} Ok(())
@@ -101,10 +112,12 @@ pub fn dry_run(c:&Connection,cipher:&Cipher,key:&Key,version:&CredentialVersion,
         rusqlite::backup::StepResult::Done=>{}
         _=>return Err(refuse("ledger busy; retry")),
     }
+    // Foreign keys and the membership triggers checked on the copy as on the install.
+    crate::store::configure(&copy)?;
     require_ownership(&copy,cipher)?;integrity(&copy)?;
     if !model::credential_is_current(&copy,version)? {return Err(refuse("credentials changed"))}
     require_scope(&copy,key)?;
-    let mut m=Manifest{version:1,user_id:key.user_id,exchange_id:key.exchange_id,key_id:key.id,cutoff:cutoff.to_rfc3339(),credential:version.cache_stamp(),
+    let mut m=Manifest{version:MANIFEST_VERSION,user_id:key.user_id,exchange_id:key.exchange_id,account_id:key.scope.member,key_id:key.id,cutoff:cutoff.to_rfc3339(),credential:version.cache_stamp(),
         evidence:evidence_digest(e),original:rows(&copy)?,retained:metadata(&copy,key)?,coverage:e.coverage.clone(),unresolved:vec![],tally:Tally::default(),batches:vec![]};
     let mut old=m.original.clone();
     let original_checksum=hash(&json!(m.original).to_string());
@@ -166,7 +179,8 @@ fn tally(t:&mut Tally,input:&[Input],old:&BTreeMap<i64,String>,after:Option<&str
 }
 /// Validate even a zero-batch approval. Nothing is written on a no-op or stale approval.
 pub fn validate(c:&Connection,cipher:&Cipher,key:&Key,m:&Manifest,approved:&str,e:&Evidence)->Result<(),SyncError> {
-    if m.version!=1 || m.digest()!=approved || evidence_digest(e)!=m.evidence || (key.id,key.user_id,key.exchange_id)!=(m.key_id,m.user_id,m.exchange_id) {return Err(refuse("approval, scope or fetched evidence changed"))}
+    current(m)?;
+    if m.digest()!=approved || evidence_digest(e)!=m.evidence || (key.id,key.user_id,key.exchange_id,key.scope.member)!=(m.key_id,m.user_id,m.exchange_id,m.account_id) {return Err(refuse("approval, scope or fetched evidence changed"))}
     let version=CredentialVersion::from_stamp(&m.credential).ok_or_else(||refuse("unreadable credential fence"))?;
     let tx=model::immediate(c)?;let fenced=model::fence_versions(&tx,&[version])?;require_ownership(&fenced,cipher)?;
     require_scope(&fenced,key)?;
@@ -187,8 +201,8 @@ impl<'a> AppendOnly<'a> {
     fn new(c:&'a Connection)->Self {
         use rusqlite::hooks::{AuthAction,AuthContext,Authorization};
         c.authorizer(Some(|ctx:AuthContext<'_>| match ctx.action {
-            AuthAction::Update{table_name:"account_transactions"|"api_keys"|"transactions",..}
-            | AuthAction::Delete{table_name:"account_transactions"|"api_keys"|"transactions"} => Authorization::Deny,
+            AuthAction::Update{table_name:"account_transactions"|"api_keys"|"transactions"|"exchange_account_rows"|"exchange_account_transactions",..}
+            | AuthAction::Delete{table_name:"account_transactions"|"api_keys"|"transactions"|"exchange_account_rows"|"exchange_account_transactions"} => Authorization::Deny,
             AuthAction::Insert{..}|AuthAction::Update{..}|AuthAction::Delete{..} if ctx.accessor.is_some()=>Authorization::Deny,
             _=>Authorization::Allow,
         }));Self(c)
@@ -209,7 +223,8 @@ pub struct ApplySession {
 }
 impl ApplySession {
     pub fn new(m:&Manifest,approved:&str,e:&Evidence)->Result<Self,SyncError> {
-        if m.version!=1 || m.digest()!=approved || evidence_digest(e)!=m.evidence {return Err(refuse("approval or fetched evidence changed"))}
+        current(m)?;
+        if m.digest()!=approved || evidence_digest(e)!=m.evidence {return Err(refuse("approval or fetched evidence changed"))}
         Ok(Self{approved:approved.into(),manifest:std::sync::Arc::new(m.clone()),grouped:groups(e)?,stamp:None,
             expected:BTreeMap::new(),retained:BTreeMap::new(),committed:Default::default(),checks:0})
     }
@@ -233,7 +248,7 @@ impl ApplySession {
         self.expected=expected;self.retained=retained;self.committed=committed;Ok(())
     }
     fn scope(&self,key:&Key,m:&Manifest)->Result<(),SyncError> {
-        if (key.id,key.user_id,key.exchange_id)!=(m.key_id,m.user_id,m.exchange_id) {return Err(refuse("approval scope changed"))} Ok(())
+        if (key.id,key.user_id,key.exchange_id,key.scope.member)!=(m.key_id,m.user_id,m.exchange_id,m.account_id) {return Err(refuse("approval scope changed"))} Ok(())
     }
     /// One bounded, atomic collision bucket. A stale database always requires fresh validation.
     pub fn apply_batch(&mut self,c:&Connection,cipher:&Cipher,key:&Key,n:usize)->Result<usize,SyncError> {
@@ -402,7 +417,9 @@ impl<R:HistoryReader> crate::jobs::Job for HistoryRepair<R> {
         }})
     }
 }
-fn account_scope(version:i64,key:&Key)->String {format!("{version}:{}:{}",key.user_id,key.exchange_id)}
+fn account_scope(version:i64,key:&Key)->String {
+    match key.scope.member {None=>format!("{version}:{}:{}",key.user_id,key.exchange_id),Some(n)=>format!("{version}:{}:{}@{n}",key.user_id,key.exchange_id)}
+}
 pub fn gap_key(owner:i64)->String {format!("rust_binance_repair_gaps.{owner}")}
 
 impl<R:HistoryReader> HistoryRepair<R> {
@@ -462,7 +479,8 @@ impl<R:HistoryReader> HistoryRepair<R> {
             let owner=key.user_id;
             cx.db.run(move |c,cipher| {
                 session.finish(c,cipher,&key,|fenced| {
-                    // The diagnostic has no monetary estimate and uses the existing Import history UI.
+                    // A diagnostic no page reads (D-GAP-EVIDENCE-ONLY): its windows are open for every account and no import closes
+                    // them; what they cost shows through the tracker's balance checks.
                     let name=gap_key(key.user_id);
                     let mut stored:Value=app_config::get_plain(fenced,&name).map_err(SyncError)?
                         .and_then(|s|serde_json::from_str(&s).ok()).filter(Value::is_object).unwrap_or_else(||json!({}));

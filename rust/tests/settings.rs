@@ -1158,6 +1158,89 @@ async fn credential_fence_covers_every_writer_intents_and_tracked_open_orders() 
     assert!(tokio::time::timeout(std::time::Duration::ZERO,wake.notified()).await.is_ok());
 }
 
+/// #710 slice 2: a second account on the seeded exchange, inserted directly (no path makes one yet): number 1 holds the
+/// seeded key, number 2 a trading key and a working bot by membership; account 1 a working bot of its own. Returns
+/// (account 2's key, account 1's bot, account 2's bot).
+fn second_account(h:&Harness)->(i64,i64,i64){
+    let account=|number:i64|{h.c.execute("INSERT INTO exchange_accounts(user_id,exchange_id,number,fingerprint,created_at,updated_at)VALUES(?1,?2,?3,'fp-'||?3,'2026-01-01','2026-01-01')",(h.seed.user_id,h.seed.exchange_id,number)).unwrap();h.c.last_insert_rowid()};
+    let (_,second)=(account(1),account(2));
+    let e=|v:&str|h.app.cipher.encrypt(v);
+    h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,0,?3,?4,?5,1,'2026-01-01','2026-01-01')",(h.seed.user_id,h.seed.exchange_id,e("second-key"),e("second-secret"),e("paper"))).unwrap();
+    let key=h.c.last_insert_rowid();
+    h.c.execute("INSERT INTO exchange_account_keys(api_key_id,account_id)VALUES(?1,?2)",[key,second]).unwrap();
+    let bot=||common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let (first_bot,second_bot)=(bot(),bot());
+    h.c.execute("INSERT INTO exchange_account_bots(bot_id,account_id)VALUES(?1,?2)",[second_bot,second]).unwrap();
+    (key,first_bot,second_bot)
+}
+fn fingerprints(h:&Harness)->Vec<Option<String>>{
+    let mut s=h.c.prepare("SELECT fingerprint FROM exchange_accounts WHERE user_id=?1 AND exchange_id=?2 ORDER BY number").unwrap();
+    s.query_map((h.seed.user_id,h.seed.exchange_id),|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap()
+}
+
+/// A bot trades with its account's key; deleting account 2's key stops account 2's bots only, waits for none of account
+/// 1's orders, and clears account 2's identity only.
+#[tokio::test(flavor="current_thread")]
+async fn deleting_one_accounts_key_stops_and_waits_for_that_accounts_bots_only() {
+    let server=MockServer::start().await;
+    let mut h=Harness::new(server.uri()).await;
+    let (key,first_bot,second_bot)=second_account(&h);
+    let credentials=|bot:i64|deltabadger::engine::model::credentials_for(&h.c,&h.app.cipher,&deltabadger::engine::model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap().key;
+    assert_eq!((credentials(first_bot),credentials(second_bot)),("previous-key".to_string(),"second-key".to_string()));
+    // Account 1's bot settles an order.
+    common::seed::insert_tx(&h.c,&h.seed,first_bot,&common::seed::TxSpec{status:0,external_status:Some(1),external_id:Some("order-a".into()),order_type:1,amount:Some("0.001"),quote_amount:None,price:Some("50000"),
+        quote_amount_exec:Some("0"),amount_exec:Some("0"),created_at:"2026-09-10 00:00:00".into()});
+    let answer=h.submit("DELETE",&format!("/settings/destroy_api_key/{key}"),&[],Csrf::Header).await;
+    assert_eq!(answer.status,200,"{}",answer.body);
+    let status=|bot:i64|->i64{h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap()};
+    assert_eq!((status(first_bot),status(second_bot)),(1,2),"account 2's bot stopped, account 1's kept working");
+    assert_eq!(fingerprints(&h),[Some("fp-1".to_string()),None]);
+    assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_keys",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+    let answer=h.submit("DELETE",&format!("/settings/destroy_api_key/{}",h.seed.api_key_id),&[],Csrf::Header).await;
+    assert_eq!(answer.status,422);
+    assert!(answer.body.contains("An order is still being settled. Please try again shortly."),"{}",answer.body);
+}
+
+/// #507's start validation reads the bot's account's trading key, not the exchange's first: account 1's incorrect key does
+/// not refuse account 2's bot, and account 1's correct key does not let account 2's bot start on an incorrect one.
+#[tokio::test(flavor="current_thread")]
+async fn starting_a_bot_asks_for_its_own_accounts_trading_key() {
+    for (first,second,starts) in [(2,1,true),(1,2,false)] {
+        let server=MockServer::start().await;
+        let mut h=Harness::new(server.uri()).await;
+        let (key,_,bot)=second_account(&h);
+        h.c.execute("UPDATE bots SET status=2",[]).unwrap();
+        h.c.execute("UPDATE api_keys SET status=?1 WHERE id=?2",[first,h.seed.api_key_id]).unwrap();
+        h.c.execute("UPDATE api_keys SET status=?1 WHERE id=?2",[second,key]).unwrap();
+        let answer=h.submit("PATCH",&format!("/bots/{bot}/start"),&[],Csrf::Header).await;
+        let refused=answer.body.contains("A valid trading API key is required to start this bot.");
+        let status:i64=h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap();
+        assert_eq!((refused,status==1),(!starts,starts),"account 1 {first}, account 2 {second}: {} {}",answer.status,answer.body);
+    }
+}
+
+/// A bot's key sheet reads and saves its account's key: a key saved for account 2 joins it and leaves account 1's.
+#[tokio::test(flavor="current_thread")]
+async fn a_bots_key_sheet_saves_into_the_bots_account() {
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let (key,_,second_bot)=second_account(&h);
+    h.c.execute("DELETE FROM api_keys WHERE id=?1",[key]).unwrap();
+    h.c.execute("DELETE FROM exchange_account_keys",[]).unwrap();
+    h.c.execute("UPDATE bots SET status=2",[]).unwrap();
+    let first:String=h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
+    assert_eq!(h.browser.send(&h.app,"GET",&format!("/bots/{second_bot}/add_api_key/new"),None,Csrf::None,&[]).await.status,200);
+    let answer=h.submit("POST",&format!("/bots/{second_bot}/add_api_key"),&[("api_key[key]","second-key"),("api_key[secret]","second-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(answer.status,200,"{}",answer.body);
+    let saved:(i64,i64,String)=h.c.query_row("SELECT k.id,m.account_id,k.key FROM api_keys k JOIN exchange_account_keys m ON m.api_key_id=k.id",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+    assert_eq!(h.app.cipher.decrypt(&saved.2).unwrap(),"second-key");
+    assert_eq!(Some(saved.1),deltabadger::identity::account_of_bot(&h.c,second_bot).unwrap(),"the key joined the bot's account");
+    assert_eq!(h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get::<_,String>(0)).unwrap(),first,"account 1's key unchanged");
+    assert_eq!(h.c.query_row("SELECT count(*) FROM api_keys",[],|r|r.get::<_,i64>(0)).unwrap(),2);
+    server.verify().await;
+}
+
 #[tokio::test(flavor="current_thread")]
 async fn credential_fence_rereads_intents_created_during_network_validation() {
     use deltabadger::{engine::{amount::{self,Sizing},model,placement,FixedClock},v2::BigDec};
@@ -1390,6 +1473,33 @@ async fn credential_digest_covers_each_stored_column_and_ignores_sync_metadata()
     assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)),"metadata-only changes must allow placement");
 }
 
+/// #710: a bot moved to another account after its key was captured places nothing with that key: the old key stays
+/// current, so the check is the key's account against the bot's, in the claim transaction.
+#[tokio::test(flavor="current_thread")]
+async fn a_key_captured_before_its_bot_moved_account_places_nothing() {
+    use deltabadger::engine::{model, placement, amount::{self, Sizing}, FixedClock};
+    use deltabadger::identity::Account;
+    let server=MockServer::start().await;
+    let h=Harness::new(server.uri()).await;
+    let at=h.app.now();
+    let id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at-chrono::Duration::seconds(1))));
+    h.c.execute("UPDATE bots SET status=4 WHERE id=?1",[id]).unwrap();
+    let bot=model::load_bot(&h.c,id).unwrap();
+    let ticker=model::ticker_for(&h.c,&bot).unwrap().unwrap();
+    let Sizing::Place(plan)=amount::size(&bot,&ticker,&deltabadger::v2::BigDec::from_i64(60),&deltabadger::v2::BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
+    let composition=placement::composition_snapshot(&h.c,&bot).unwrap();
+    let reconciled=deltabadger::engine::splits::snapshot(&h.c,&bot,"2026-09-10T12:00:00Z".parse().unwrap()).unwrap();
+    let captured=model::credential_version(&h.c,&bot).unwrap();
+    let first=Account::first(&h.c,bot.user_id,bot.exchange_id).unwrap().ensure(&h.c,at).unwrap();
+    h.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')",[bot.user_id,bot.exchange_id]).unwrap();
+    let second=Account::by_id(&h.c,h.c.last_insert_rowid()).unwrap().unwrap();
+    deltabadger::identity::place_bot(&h.c,id,bot.user_id,bot.exchange_id,Some(second),at).unwrap();
+    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::CredentialsChanged));
+    assert!(model::load_bot(&h.c,id).unwrap().rust_placement().is_none());
+    deltabadger::identity::place_bot(&h.c,id,bot.user_id,bot.exchange_id,Some(first),at).unwrap();
+    assert!(matches!(placement::begin_with_credentials(&h.c,&bot,&plan,&[&ticker],&composition,&reconciled,&captured,None,false,None,&FixedClock(at)).unwrap(),placement::Begun::Intent(_)));
+}
+
 // A real sync starts with A while the actual tick is paused before intent. B is
 // committed with a new encrypted credential digest. Finishing A's sync must not restore A's version.
 #[tokio::test(flavor="current_thread")]
@@ -1472,7 +1582,7 @@ async fn a_balance_sync_started_before_replacement_must_not_publish_old_account_
     let running=balances::sync(&db,&venue_a,&NoPrices,h.seed.api_key_id,&a,&old_clock);
     let replacing=async {
         entered.notified().await;
-        assert_eq!(h.c.query_row("SELECT count(*) FROM account_balances",[],|r|r.get::<_,i64>(0)).unwrap(),0);
+        assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_balances",[],|r|r.get::<_,i64>(0)).unwrap(),0);
         h.clock.set(at+chrono::Duration::seconds(1));
         let r=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
         assert_eq!(r.status,200);assert_ne!(version_a,model::credential_version(&h.c,&bot).unwrap());
@@ -1481,14 +1591,14 @@ async fn a_balance_sync_started_before_replacement_must_not_publish_old_account_
     };
     let (old,())=tokio::time::timeout(std::time::Duration::from_secs(20),async {tokio::join!(running,replacing)}).await.unwrap();
     assert_eq!(old.unwrap_err().0,"credentials changed; venue result discarded", "Q must discard the old-account balance run");
-    let stale=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap();
+    let stale=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap();
     let stale_value=stale.as_ref().map(|day|(day.value.to_s_f(),day.partial));
     assert_eq!(model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap().key,"account-b-key");
     // The new account control actually uses B's saved credentials and the same production writer/reader.
     let b=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
     let venue_b=AlpacaVenue::new(ReqwestTransport::new(http::client(),b.key.clone(),b.secret.clone()),urls);
     assert_eq!(balances::sync(&db,&venue_b,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at+chrono::Duration::seconds(2))).await.unwrap().unwrap().synced,1);
-    let current=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap().unwrap();
+    let current=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap().unwrap();
     assert_eq!((current.value.to_s_f(),current.partial),("2000.0".into(),false));
     server.verify().await;
     assert_eq!(stale_value,None,"money: an in-flight A sync must not publish A's USD10000 as the current B account's complete portfolio after B has been saved (B is USD2000)");
@@ -1640,17 +1750,17 @@ async fn previously_committed_balances_must_not_be_reported_as_replacement_accou
     let a=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();
     let va=AlpacaVenue::new(ReqwestTransport::new(http::client(),a.key.clone(),a.secret.clone()),urls.clone());
     assert_eq!(balances::sync(&db,&va,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap().synced,1);
-    let before=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap().unwrap();
+    let before=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap().unwrap();
     assert_eq!((before.value.to_s_f(),before.partial),("10000.0".into(),false));
     h.clock.set(at+chrono::Duration::seconds(1));
     assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
     let b=model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap();assert_eq!(b.key,"account-b-key");
     assert!(model::load_bot(&h.c,bot_id).unwrap().rust_placement().is_none());
-    let stale=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap();
+    let stale=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap();
     let after_save=stale.map(|day|(day.value.to_s_f(),day.partial));
     let vb=AlpacaVenue::new(ReqwestTransport::new(http::client(),b.key.clone(),b.secret.clone()),urls);
     assert_eq!(balances::sync(&db,&vb,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at+chrono::Duration::seconds(2))).await.unwrap().unwrap().synced,1);
-    let current=snapshot::today_row(&h.c,h.seed.user_id,Some(h.seed.exchange_id),&Summary::empty()).unwrap().unwrap();
+    let current=snapshot::today_row(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::of_exchange(&h.c,h.seed.user_id,Some(h.seed.exchange_id)).unwrap(),&Summary::empty()).unwrap().unwrap();
     assert_eq!((current.value.to_s_f(),current.partial),("2000.0".into(),false));
     server.verify().await;
     assert_ne!(after_save,Some(("10000.0".into(),false)),"money: after B is saved, already committed A balances must not be reported as B's complete current USD10000 portfolio; B has USD2000");
@@ -1813,6 +1923,8 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
+    let accounts=|c:&rusqlite::Connection,user:i64|->i64 {c.query_row("SELECT count(*) FROM exchange_accounts WHERE user_id=?1 AND exchange_id=1 AND number=1",[user],|r|r.get(0)).unwrap()};
+    assert_eq!(accounts(&h.c,h.seed.user_id),0,"the seeded key was stored as 2.x stores one");
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -1829,6 +1941,7 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
     let (run,(status,synced))=tokio::join!(scheduler.run(stopped,clock.as_ref()),control);run.unwrap();
     assert_eq!(status,200);
     assert!(synced,"successful new-key save must wake and register its real ledger sync in the already running scheduler");
+    assert_eq!(accounts(&h.c,h.seed.user_id),1,"#710: the save made its exchange's number 1");
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -1849,9 +1962,9 @@ async fn r_new_account_cannot_reuse_old_accounts_balance_price() {
         let credentials=sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();
         let venue=AlpacaVenue::new(ReqwestTransport::new(http::client(),credentials.key.clone(),credentials.secret.clone()),Urls{trading:server.uri(),data:server.uri()});
         balances::sync(&db,&venue,&NoPrices,h.seed.api_key_id,&credentials,&FixedClock(h.app.now())).await.unwrap().unwrap();
-        if !replacement {assert_eq!(h.c.query_row("SELECT usd_value FROM account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),240.0);}
+        if !replacement {assert_eq!(h.c.query_row("SELECT usd_value FROM exchange_account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),240.0);}
     }
-    assert_eq!(h.c.query_row("SELECT usd_value FROM account_balances",[],|r|r.get::<_,Option<f64>>(0)).unwrap(),None,"R B's completed sync must not publish the cached A venue price when B has no price");
+    assert_eq!(h.c.query_row("SELECT usd_value FROM exchange_account_balances",[],|r|r.get::<_,Option<f64>>(0)).unwrap(),None,"R B's completed sync must not publish the cached A venue price when B has no price");
     server.verify().await;
 }
 
@@ -1872,7 +1985,7 @@ async fn r_navbar_allocation_hides_a_after_b_is_saved() {
     assert!(!Shell::load(&h.c,&h.app,&user).unwrap().arcs.is_empty());
     assert_eq!(h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,200);
     assert!(Shell::load(&h.c,&h.app,&user).unwrap().arcs.is_empty(),"R navbar must not present A's cached allocation as B's current allocation");
-    assert_eq!(h.c.query_row("SELECT usd_value FROM account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),10000.0,"R retains history/cache rows");
+    assert_eq!(h.c.query_row("SELECT usd_value FROM exchange_account_balances",[],|r|r.get::<_,f64>(0)).unwrap(),10000.0,"R retains history/cache rows");
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -2020,6 +2133,8 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),registered,None).with_resolver(jobs::resolve::all(LocalAlpaca(server.uri()),std::rc::Rc::new(None::<jobs::data_api::DataApi<deltabadger::venue::http::ReqwestTransport>>),deltabadger::tracker::jobs::system_wall()));
     let env=web::env(web::SECRET);
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
+    let accounts=|c:&rusqlite::Connection,user:i64|->i64 {c.query_row("SELECT count(*) FROM exchange_accounts WHERE user_id=?1 AND exchange_id=1 AND number=1",[user],|r|r.get(0)).unwrap()};
+    assert_eq!(accounts(&h.c,h.seed.user_id),0,"the seeded key was stored as 2.x stores one");
     h.app.attach_jobs(scheduler.wakers()).unwrap();
     let (stop,stopped)=tokio::sync::watch::channel(false);
     let clock=h.clock.clone();
@@ -2030,8 +2145,8 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
         h.c.busy_timeout(std::time::Duration::ZERO).unwrap(); // A blocking wait would hold the one thread the writer needs.
         while tokio::time::Instant::now()<deadline {
             // A busy answer is the scheduler mid-write on this one thread: not ready yet, so yield to it.
-            let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap_or(false);
-            synced=ready&&!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap_or(true);
+            let ready:bool=h.c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b JOIN api_keys k ON k.exchange_id=b.exchange_id AND k.user_id=b.user_id WHERE k.user_id=?1 AND k.key_type=0 AND k.status=1 AND k.id=?2 AND b.usd_value=2000)",[h.seed.user_id,h.seed.api_key_id],|r|r.get(0)).unwrap_or(false);
+            synced=ready&&!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap_or(true);
             if synced {break}tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
         stop.send(true).unwrap();(response.status,synced)
@@ -2039,8 +2154,9 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
     let (run,(status,synced))=tokio::join!(scheduler.run(stopped,clock.as_ref()),control);run.unwrap();
     h.c.busy_timeout(std::time::Duration::from_secs(5)).unwrap();
     assert_eq!(status,201);
+    assert_eq!(accounts(&h.c,h.seed.user_id),1,"#710: the legacy save made its exchange's number 1");
     assert!(synced,"legacy save must complete actual validation and the enqueued balance sync without restart");
-    assert!(!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,None).unwrap(),"the completed legacy sync publishes B's producer digest under the retained identity");
+    assert!(!deltabadger::sync::cache::stale(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap(),"the completed legacy sync publishes B's producer digest under the retained identity");
     let requests=server.received_requests().await.unwrap();assert!(!requests.is_empty(),"the sync must exercise real HTTP");
     for request in requests{assert_eq!(request.headers.get("apca-api-key-id").unwrap().to_str().unwrap(),"account-b-key","the woken validator and sync must use B, never the old credential");}
 
@@ -2179,11 +2295,37 @@ async fn bot_credential_replacement_uses_the_owned_trading_slot_and_refreshes_th
     assert!(!form.body.contains("previous-secret"));
     let answer=h.browser.send(&h.app,"POST",&format!("/bots/{bot}/add_api_key"),Some(&[("api_key[key]","new-key"),("api_key[secret]","new-secret"),("api_key[passphrase]","paper")]),Csrf::Header,&[("accept",deltabadger::web::turbo::CONTENT_TYPE)]).await;
     assert_eq!(answer.status,200);assert!(answer.body.contains("action=\"refresh\""));
+    assert!(form.body.contains("turbo:submit-end-&gt;modal--base#submitEnd"),"D-BOT-KEY-SHEET: the card's form closes the sheet on success");
     let stored:String=h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"new-key");
     h.c.execute("INSERT INTO users(id,email,encrypted_password,created_at,updated_at)VALUES(999,'other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
     h.c.execute("UPDATE bots SET user_id=999 WHERE id=?1",[bot]).unwrap();
     let foreign=h.browser.send(&h.app,"GET",&format!("/bots/{bot}/add_api_key/new"),None,Csrf::None,&[]).await;assert_eq!(foreign.status,404);
     server.verify().await;
+}
+
+/// D-BOT-KEY-SHEET: the bot page's key step ("Add new keys", the status bar's Connect) is the sheet closing to the bot, no
+/// track, the venue's card with a plain header (no venue step to go back to); a refused key says why under its fields, in the
+/// sheet's frame, nothing flashed.
+#[tokio::test(flavor="current_thread")]
+async fn the_bot_key_step_is_the_sheet(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    let step=h.browser.send(&h.app,"GET",&format!("/bots/{bot}/add_api_key/new"),None,Csrf::None,&[("Turbo-Frame","modal")]).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    let page=scraper::Html::parse_document(&step.body);
+    assert_eq!(page.select(&select(&format!("dialog.sheet-dialog[data-modal--base-close-url-value=\"/bots/{bot}\"] turbo-frame.sheet__frame#modal_content"))).count(),1,"{}",step.body);
+    assert_eq!(page.select(&select("ol.sheet__track")).count(),0,"no track");
+    assert_eq!(page.select(&select(&format!("form[action=\"/bots/{bot}/add_api_key\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]"))).count(),1);
+    assert_eq!(page.select(&select("header.set-api__brand > .set-api__mark + h2.set-api__title")).count(),1,"a plain header");
+    assert_eq!(page.select(&select("a.set-api__back")).count(),0,"no Back");
+    for old in ["modal__footer","srow","set-api--modal"]{assert!(!step.body.contains(old),"{old}");}
+    let refused=h.submit("POST",&format!("/bots/{bot}/add_api_key"),&[("api_key[key]","bad-key"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(refused.status,422,"{}",refused.body);
+    assert!(refused.body.starts_with("<turbo-stream action=\"update\" target=\"modal_content\">"),"{}",refused.body);
+    assert!(refused.body.contains("class=\"sform__error\"")&&!refused.body.contains("sheet__track")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -2209,10 +2351,13 @@ async fn configured_connections_show_provider_state_without_stock_rows_or_echoed
     let answer=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
     assert_eq!(answer.status,200);
     // D-BROKERS-AS-VENUES: Connect holds the admin's market data and nothing broker-only.
-    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings","sheet__heading--first"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
+    for gone in ["stocks_settings","/settings/update_stocks","/settings/disconnect_stocks","ibkr_settings"]{assert!(!answer.body.contains(gone),"no stock row on Connect: {gone}");}
     let market=answer.body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap();
-    // D-MARKET-DATA-NO-SWITCH: no switch; the configured provider is the one picked.
-    assert!(!market.contains("switch-settings-update_market_data"),"no market data switch");assert!(market.contains("aria-checked=\"true\" tabindex=\"0\" data-value=\"coingecko\""),"CoinGecko is picked");assert!(market.contains("/settings/disconnect_market_data"));
+    // D-MARKET-DATA-PICK: a connected provider is its row (the heading on the pane's top edge), no tiles to pick from.
+    assert!(market.contains("sheet__heading--first")&&market.contains("Connected to CoinGecko")&&market.contains("/settings/disconnect_market_data"),"{market}");
+    assert!(!market.contains("exchange-grid")&&!market.contains("switch-settings-update_market_data"),"no picker, no switch: {market}");
+    // On CoinGecko the Deltabadger Data API stays on offer, its card one click away.
+    assert!(market.contains("Deltabadger Data API")&&market.contains("data-turbo-frame=\"settings_pane\" href=\"/settings/connect?provider=deltabadger\""),"the upgrade row: {market}");
     for value in ["catalog-key-placeholder","catalog-secret-placeholder","coingecko-key-placeholder"]{assert!(!answer.body.contains(value),"stored credential must never enter a page");}
     assert!(server.received_requests().await.unwrap().is_empty());
 }
@@ -2242,31 +2387,48 @@ async fn a_market_data_save_asks_for_the_setup_run_and_a_failed_key_check_writes
     assert_eq!((requested(&h).as_deref(),woken(&h)),(Some("2"),2));
 }
 
-/// D-MARKET-DATA-NO-SWITCH: Connect has no market data switch. With no provider the picker stands on the one to connect and
-/// shows its card: CoinGecko's key form, or for a claimed platform one Connect button that makes it the provider.
+/// D-LOCALE-SELECT-SHOWS-PAGE: the language select shows the page's language, not the saved one. On a `/pl` page with English
+/// saved, it reads Polski, so picking English is a change (2.x showed English there, and picking it again sent nothing).
 #[tokio::test(flavor="current_thread")]
-async fn market_data_has_no_switch_and_an_unconnected_install_shows_what_to_connect(){
+async fn language_select_shows_the_page_language(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    h.c.execute("UPDATE users SET locale='en'",[]).unwrap();
+    let selected=|body:&str|body.split("id=\"user_locale\"").nth(1).unwrap().split("</select>").next().unwrap()
+        .split("<option selected=\"selected\" value=\"").nth(1).unwrap().split('"').next().unwrap().to_string();
+    assert_eq!(selected(&h.browser.send(&h.app,"GET","/pl/settings/account",None,Csrf::None,&[]).await.body),"pl");
+    assert_eq!(selected(&h.browser.send(&h.app,"GET","/settings/account",None,Csrf::None,&[]).await.body),"en");
+}
+
+/// D-MARKET-DATA-PICK: Connect picks market data as the index wizard does. With no provider, the providers' tiles; a tile
+/// opens its card (Back to the tiles): CoinGecko's key form, or for a claimed platform one Connect button that makes it the
+/// provider. No `wizard=1` on Settings' forms, so a save answers with the widget, not the wizard.
+#[tokio::test(flavor="current_thread")]
+async fn market_data_is_picked_from_tiles_then_connected_on_its_card(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
     let market=|body:&str|body.split("id=\"market_data_settings\"").nth(1).unwrap().split("</turbo-frame>").next().unwrap().to_string();
-    let picked=|market:&str,provider:&str|market.contains(&format!("aria-checked=\"true\" tabindex=\"0\" data-value=\"{provider}\""));
+    let tile=|provider:&str|format!("data-turbo-frame=\"settings_pane\" href=\"/settings/connect?provider={provider}\"");
     deltabadger::app_config::delete(&h.c,"market_data_provider").unwrap();
     let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
-    assert!(!page.contains("sswitch"),"no switch: {page}");
-    assert!(picked(&page,"coingecko"),"CoinGecko is picked: {page}");
-    assert!(page.contains("data-form--market-data-target=\"coingeckoFields\" >")&&page.contains("name=\"coingecko_api_key\""),"its key form shows: {page}");
-    // A claimed platform that is not the provider (CoinGecko was disconnected): it is picked, with one Connect button.
+    assert!(page.contains("sheet__heading--first")&&page.contains(&tile("coingecko"))&&page.contains(&tile("deltabadger")),"the tiles: {page}");
+    assert!(!page.contains("name=\"coingecko_api_key\"")&&!page.contains("name=\"claim_code\""),"no form before a tile: {page}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=coingecko",None,Csrf::None,&[]).await.body);
+    assert!(card.contains("name=\"coingecko_api_key\"")&&card.contains("href=\"/settings/connect\" data-turbo-frame=\"settings_pane\""),"CoinGecko's card, Back to the tiles: {card}");
+    assert!(!card.contains("name=\"wizard\""),"{card}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=deltabadger",None,Csrf::None,&[]).await.body);
+    assert!(card.contains("name=\"claim_code\"")&&card.contains("action=\"/settings/platform_connection\""),"an unclaimed platform's card takes a code: {card}");
+    // A claimed platform that is not the provider (CoinGecko was disconnected): still the tiles, and its card is one Connect button.
     for (key,value) in [("platform_connected_at","2026-01-01 00:00:00"),("market_data_url","http://data-api.invalid"),("market_data_token","platform-token")]{
         deltabadger::app_config::set(&h.c,&h.app.cipher,key,value,h.app.now()).unwrap();
     }
     let page=market(&h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await.body);
-    assert!(picked(&page,"deltabadger")&&!page.contains("name=\"claim_code\""),"the platform is picked, no claim form: {page}");
-    let buttons=page.split("data-form--market-data-target=\"deltabadgerButtons\" >").nth(1).expect("its card shows");
-    assert!(buttons.contains("<input value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />"),"{buttons}");
+    assert!(page.contains(&tile("deltabadger"))&&page.contains("/settings/platform_connection"),"the tiles and the claim's row: {page}");
+    let card=market(&h.browser.send(&h.app,"GET","/settings/connect?provider=deltabadger",None,Csrf::None,&[]).await.body);
+    assert!(!card.contains("name=\"claim_code\"")&&card.contains("<input type=\"hidden\" name=\"market_data_provider\" value=\"deltabadger\" />"),"{card}");
     let saved=h.submit("PATCH","/settings/update_market_data",&[("market_data_provider","deltabadger")],Csrf::Header).await;
     assert_eq!(saved.status,200);
     assert_eq!(deltabadger::app_config::get(&h.c,&h.app.cipher,"market_data_provider").unwrap().as_deref(),Some("deltabadger"));
     let page=market(&saved.body);
-    assert!(picked(&page,"deltabadger")&&!page.contains("value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n"),"connected: no button left: {page}");
+    assert!(!page.contains("exchange-grid")&&page.contains("/settings/platform_connection"),"connected: the claim's row, no tiles: {page}");
 }
 
 /// D-BROKERS-AS-VENUES and D-STOCKS-NO-GATE: no stock catalog on the install, a member holding an IBKR key. 2.x gates stocks
@@ -2301,7 +2463,7 @@ async fn brokers_are_venues_without_a_stock_gate_or_a_member_connect_section(){
         assert_eq!(account.body.contains("/settings/connect\""),admin,"admin {admin}: Connect is the admin's section only");
         let connect=h.browser.send(&h.app,"GET","/settings/connect",None,Csrf::None,&[]).await;
         assert_eq!(connect.status,200);
-        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings","sheet__heading--first"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
+        for gone in ["ibkr_settings","/settings/ibkr_connect","stocks_settings"]{assert!(!connect.body.contains(gone),"admin {admin}: no broker widget on Connect: {gone}");}
         assert_eq!(connect.body.contains("market_data_settings"),admin,"admin {admin}: Connect holds the admin's market data");
         let root=h.browser.send(&h.app,"GET","/settings",None,Csrf::None,&[]).await;
         assert_eq!(root.header("location"),Some(if admin{"/settings/connect"}else{"/settings/account"}),"admin {admin}: /settings opens a section the reader has");
@@ -2352,7 +2514,9 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     let (ex,assets_new,advance,order)=("/bots/dca_single_assets/pick_exchange/new","/bots/dca_single_assets/pick_buyable_asset/new","/bots/dca_single_assets/pick_buyable_asset/advance","/bots/dca_single_assets/order");
 
     // Exchange first: the first screen has no search and offers the other order on Assets.
-    assert_eq!(h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await.status,200);
+    // D-CHOOSER-SKIPPED: no advanced bots, so New bot is the wizard's first step.
+    let skipped=h.browser.send(&h.app,"GET","/bots/new",None,Csrf::None,&modal).await;
+    assert_eq!((skipped.status,skipped.header("location")),(302,Some("/bots/dca_single_assets/pick_exchange/new")));
     let step=h.browser.send(&h.app,"GET",ex,None,Csrf::None,&modal).await;
     assert_eq!(step.status,200);sheet(&step.body);
     assert_eq!(track(&step.body),["Exchange:current plain".to_string(),format!("Assets:upcoming POST {order} flow=asset_first"),"Currency:upcoming plain".into()]);
@@ -2361,7 +2525,7 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     let groups:Vec<(String,Vec<String>)>={let page=scraper::Html::parse_document(&step.body);page.select(&select("section.exchange-group")).map(|g|(
         g.select(&select("h3")).next().unwrap().text().collect::<String>(),
         g.select(&select("button.exchange-grid__item")).map(|b|b.value().attr("value").unwrap().to_string()).collect())).collect()};
-    assert_eq!(groups,[("Brokers".to_string(),vec![exchange.clone()])],"the one venue, a broker: {groups:?}");
+    assert_eq!(groups,[("Connected".to_string(),vec![exchange.clone()]),("Brokers".to_string(),vec![exchange.clone()])],"the one venue, a broker the user holds a key on (D-WIZARD-CONNECTED-GROUP): {groups:?}");
     // The key step, not skipped (no key yet): the current venue goes back, Assets still switches the order.
     h.c.execute("UPDATE api_keys SET status=2 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     h.c.execute("UPDATE api_keys SET key=NULL, secret=NULL WHERE id=?1",[h.seed.api_key_id]).unwrap();
@@ -2390,8 +2554,8 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
     let back=h.browser.send(&h.app,"POST",advance,Some(&[("to","exchange")]),Csrf::Header,&frame).await;
     let step=follow(&mut h,back,&frame).await;
     assert_eq!(step.status,200,"{}",step.body);
-    assert_eq!(track(&step.body)[0],"Exchange:current plain","picking again: the label, and the search");
-    assert!(step.body.contains("sheet__search"));
+    assert_eq!(track(&step.body)[0],"Exchange:current plain","picking again: the label");
+    assert!(!step.body.contains("sheet__search"),"D-EXCHANGE-NO-SEARCH");
 
     // Asset first, switched from the track: assets, exchange, (key correct) quote.
     let switched=h.browser.send(&h.app,"POST",order,Some(&[("flow","asset_first")]),Csrf::Header,&frame).await;
@@ -2437,7 +2601,11 @@ async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v
     let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
     let bad=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","trading"),("api_key[key]","bad-account"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     let read=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","positions-bad"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(bad.status,422);assert_eq!(read.status,422);assert_eq!(read.body,bad.body,"a positions 401 must be the same incorrect-key error, not an inconclusive validation error");assert_eq!(h.snapshot(),before);
+    assert_eq!(bad.status,422);assert_eq!(read.status,422);
+    // The sheet's card says why under its fields (D-TRACKER-SHEET); the two cards differ by their key type, the reasons must not.
+    let reason=|body:&str|body.split("class=\"sform__error\"").nth(1).and_then(|s|s.split("</p>").next()).map(str::to_string);
+    assert!(reason(&bad.body).is_some(),"{}",bad.body);
+    assert_eq!(reason(&read.body),reason(&bad.body),"a positions 401 must be the same incorrect-key error, not an inconclusive validation error");assert_eq!(h.snapshot(),before);
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -2622,7 +2790,7 @@ async fn r_reader_during_a_completed_replacement_sync(navbar:bool){
     let a=sync::credentials(&h.c,&h.app.cipher,id).unwrap();let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(&file).unwrap(),h.app.cipher.clone());
     let venue=AlpacaVenue::new(ReqwestTransport::new(http::client(),a.key.clone(),a.secret.clone()),Urls{trading:server.uri(),data:server.uri()});
     balances::sync(&db,&venue,&NoPrices,id,&a,&FixedClock(at)).await.unwrap().unwrap();
-    let a_day=snapshot::today_row(&h.c,owner,None,&Summary::empty()).unwrap().unwrap();assert_eq!(a_day.value.to_s_f(),"10000.0");assert!(!a_day.partial);
+    let a_day=snapshot::today_row(&h.c,owner,&deltabadger::tracker::Scope::All,&Summary::empty()).unwrap().unwrap();assert_eq!(a_day.value.to_s_f(),"10000.0");assert!(!a_day.partial);
     let user=User::find(&h.c,owner).unwrap().unwrap();assert!(!Shell::load(&h.c,&h.app,&user).unwrap().arcs.is_empty());
     let cipher=h.app.cipher.clone();let app=h.app.clone();let uri=server.uri();let fired=Arc::new(AtomicBool::new(false));let signal=fired.clone();let c=h.c;
     let (captured_partial,captured_arcs,current_value,current_partial,current_arcs)=tokio::task::spawn_blocking(move||{
@@ -2637,8 +2805,8 @@ async fn r_reader_during_a_completed_replacement_sync(navbar:bool){
             }
             Authorization::Allow
         }));
-        let (partial,arcs)=if navbar{(false,Shell::load(&c,&app,&user).unwrap().arcs.len())}else{(snapshot::today_row(&c,owner,None,&Summary::empty()).unwrap().unwrap().partial,0)};
-        let current=snapshot::today_row(&c,owner,None,&Summary::empty()).unwrap().unwrap();let current_arcs=Shell::load(&c,&app,&user).unwrap().arcs.len();
+        let (partial,arcs)=if navbar{(false,Shell::load(&c,&app,&user).unwrap().arcs.len())}else{(snapshot::today_row(&c,owner,&deltabadger::tracker::Scope::All,&Summary::empty()).unwrap().unwrap().partial,0)};
+        let current=snapshot::today_row(&c,owner,&deltabadger::tracker::Scope::All,&Summary::empty()).unwrap().unwrap();let current_arcs=Shell::load(&c,&app,&user).unwrap().arcs.len();
         (partial,arcs,current.value.to_s_f(),current.partial,current_arcs)
     }).await.unwrap();
     assert!(fired.load(Ordering::SeqCst),"the external encrypted replacement and real B sync must run within the reader");
@@ -2774,9 +2942,11 @@ async fn owner_slice_refuses_other_venue_add_and_replace_routes_without_changes_
     // Kraken, Binance, KuCoin and Gemini keys are checked (pages.rs settings_venue_key_*), and Binance.US, Bitvavo, Bitget, MEXC, Hyperliquid, Bybit, Bitrue, Coinbase and BingX keys (wizard_oracles.rs, hyperliquid.rs); every other venue refuses.
     for venue in ["Bitmart","Ibkr"]{
         h.c.execute("UPDATE exchanges SET type=?1,name=?2 WHERE id=1",(format!("Exchanges::{venue}"),venue)).unwrap();let before=h.snapshot();
-        // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal.
+        // D5b: a retired venue gets RetiredExchangeGuard's redirect to /tracker, every other one the refusal. D-TRACKER-IBKR-SHEET:
+        // IBKR's link opens its own connection in the sheet for a user who has its key (the seeded one), never the generic form.
         let refused=if venue=="Bitmart"{302}else{501};
-        assert_eq!(h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await.status,refused);
+        let link=h.browser.get(&h.app,"/tracker/add_api_key/new?exchange_id=1&key_type=trading").await;
+        if venue=="Ibkr"{assert!(link.status==200&&link.body.contains("ibkr-connect-wizard"),"{}",link.body);}else{assert_eq!(link.status,refused);}
         let modern=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret")],Csrf::Header).await;assert_eq!(modern.status,refused);assert_eq!(h.snapshot(),before);
         let key=format!("0x{}","a".repeat(40));let secret="b".repeat(64);
         let legacy=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]",&key),("api_key[secret]",&secret)],Csrf::Header).await;
@@ -3015,7 +3185,7 @@ async fn r1_snapshot_replacement_after_calculation_does_not_commit() {
     use deltabadger::{engine::model,tracker::{snapshot,jobs},figures::dec::Dec};
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
     let owner=h.seed.user_id;let date=h.app.now().date_naive();
-    let origin=deltabadger::sync::cache::capture_read(&h.c,owner,None).unwrap();
+    let origin=deltabadger::sync::cache::capture_read(&h.c,owner,&deltabadger::tracker::Scope::All).unwrap();
     let rows=vec![(None,snapshot::Day{value:Dec::strict("10000").unwrap(),invested:Dec::zero(),held_value:None,held_cost:None,partial:false})];
     h.c.execute("UPDATE api_keys SET secret=?1 WHERE id=?2",(h.app.cipher.encrypt("replacement-B"),h.seed.api_key_id)).unwrap();
     assert!(!deltabadger::sync::cache::read_is_current(&h.c,&origin).unwrap());
@@ -3033,7 +3203,7 @@ async fn r1_snapshot_checks_provenance_after_waiting_for_the_write_lock(){
     static RELEASE:std::sync::OnceLock<std::sync::mpsc::Sender<()>>=std::sync::OnceLock::new();
     fn busy(_:i32)->bool{let _=RELEASE.get().unwrap().send(());true}
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;
-    let origin=cache::capture_read(&h.c,h.seed.user_id,None).unwrap();
+    let origin=cache::capture_read(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap();
     let rows=vec![(None,snapshot::Day{value:Dec::strict("10000").unwrap(),invested:Dec::zero(),held_value:None,held_cost:None,partial:false})];
     let file=h._dir.path().join("production.sqlite3");let ciphertext=h.app.cipher.encrypt("replacement-B");
     let (ready,held)=std::sync::mpsc::channel();let (release,wait)=std::sync::mpsc::channel();RELEASE.set(release).unwrap();
@@ -3047,7 +3217,7 @@ async fn r1_snapshot_checks_provenance_after_waiting_for_the_write_lock(){
     writer.join().unwrap();h.c.busy_handler(None).unwrap();
     assert!(out.is_err(),"R1 the digest must be re-read after acquiring the snapshot write lock");
     assert_eq!(h.c.query_row("SELECT count(*) FROM portfolio_snapshots",[],|r|r.get::<_,i64>(0)).unwrap(),0);
-    let fresh=cache::capture_read(&h.c,h.seed.user_id,None).unwrap();
+    let fresh=cache::capture_read(&h.c,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap();
     jobs::written_for(&h.c,&fresh,&||h.app.now(),|c,now|snapshot::write(c,h.seed.user_id,&rows,now.date_naive())).unwrap();
     assert_eq!(h.c.query_row("SELECT count(*) FROM portfolio_snapshots",[],|r|r.get::<_,i64>(0)).unwrap(),1,"unchanged producer control still commits");
     let origin_key=deltabadger::jobs::state::key("snapshot_origin",Some(&format!("{}:all:{}",h.seed.user_id,h.app.now().date_naive())));
@@ -3255,7 +3425,9 @@ async fn r2_validation_logs_flashes_and_pages_check_every_encoding(){
         let deltabadger::web::settings::validator::Validity::Pending(diagnostic)=validity else{panic!("fixture response is inconclusive")};
         assert_eq!(diagnostic.text,deltabadger::crypto::VENUE_TEXT_REDACTED,"validation returns a whole-text decision for each captured stored column: {encoded}");
         let before=h.snapshot();let response=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","next-key"),("api_key[secret]","next-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-        assert_eq!(response.status,422);assert!(response.body.contains("Failed to validate API key permissions"));assert!(!response.body.contains(&encoded));assert!(!response.body.contains("venue-free-text"));assert_eq!(h.snapshot(),before);
+        assert_eq!(response.status,422);assert!(response.body.contains("Failed to validate API key permissions"));assert!(!response.body.contains("venue-free-text"));assert_eq!(h.snapshot(),before);
+        // The sheet's card answers with the key step again (D-TRACKER-SHEET), whose Paper/Live switch says "paper" itself.
+        if secret!="paper"{assert!(!response.body.contains(&encoded));}
         let logs=h.logs.0.lock().unwrap().join("\n");assert!(logs.contains("HTTP 503"));assert!(!logs.contains(&encoded)&&!logs.contains("venue-free-text"),"validation logger: {encoded}");
         let page=h.browser.get(&h.app,"/settings/connect").await;assert_eq!(page.status,200);assert!(!page.body.contains("venue-free-text"));if secret!="paper"{assert!(!page.body.contains(&encoded));}server.verify().await;
     }}
@@ -3534,7 +3706,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     balances::sync_with_steps(&db,&bv,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at),&step).await.unwrap().unwrap();
     assert_eq!(*gaps.borrow(),vec![0,1,2],"cover origin-only and both partial batch gaps");
     jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
-    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
+    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1 ORDER BY date DESC LIMIT 1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
 }
 
 async fn r5_retry_rotation(exhaust:bool,restart:bool){
@@ -3575,7 +3747,7 @@ async fn r5_completed_snapshot_capture_is_refused_when_a_new_batch_is_incomplete
     let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
     let a=sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();let av=LocalAlpaca(server.uri()).connect(&a);
     balances::sync(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
-    let read=h.c.unchecked_transaction().unwrap();let origin=sync::cache::capture_read(&read,h.seed.user_id,None).unwrap().with_balance_producers(&read).unwrap();read.commit().unwrap();
+    let read=h.c.unchecked_transaction().unwrap();let origin=sync::cache::capture_read(&read,h.seed.user_id,&deltabadger::tracker::Scope::All).unwrap().with_balance_producers(&read).unwrap();read.commit().unwrap();
     let h_ref=&h;let origin_ref=&origin;
     let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
         let before=h_ref.snapshot();
@@ -3843,6 +4015,26 @@ fn d5b_connect(h:&Harness)->Option<i64>{
     let cookie=h.browser.cookie.as_deref().unwrap();
     deltabadger::web::session::open(&h.app.keys.session,cookie,h.app.now()).unwrap().tracker_connect
 }
+// D-WIZARD-CONNECTED-GROUP (#710): the venues the user holds a correct trading or read-only key on come first under
+// "Connected" (stable venues first, as below), and stay in their own group below. The seeded user holds Alpaca's (id 1).
+#[tokio::test(flavor="current_thread")]
+async fn d5b_pick_exchange_draws_the_connected_venues_first(){
+    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
+    let (kraken,bitmart,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Binance"));
+    let other:i64={h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();h.c.last_insert_rowid()};
+    // Kraken: a correct read-only key. Binance: only a withdrawal key. BitMart: an incorrect key, and another user's correct one.
+    for (user,exchange,kind,status) in [(h.seed.user_id,&kraken,2,1),(h.seed.user_id,&binance,1,1),(h.seed.user_id,&bitmart,0,2),(other,&bitmart,0,1)]{
+        h.c.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,status,created_at,updated_at)VALUES(?1,?2,?3,?4,'2026-01-01','2026-01-01')",(user,exchange,kind,status)).unwrap();
+    }
+    let page=h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&[]).await;
+    assert_eq!(page.status,200,"{}",page.body);
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    let groups:Vec<(String,Vec<String>)>={let page=scraper::Html::parse_document(&page.body);page.select(&select("section.exchange-group")).map(|g|(
+        g.select(&select("h3.label")).next().unwrap().text().collect::<String>().trim().to_string(),
+        g.select(&select("button[name=\"exchange_id\"]")).map(|b|b.value().attr("value").unwrap().to_string()).collect())).collect()};
+    assert_eq!(groups,[("Connected".to_string(),vec![kraken.clone(),"1".to_string()]),("Brokers".to_string(),vec!["1".to_string()]),("Exchanges".to_string(),vec![binance,kraken,bitmart])],"{groups:?}");
+    assert_eq!(page.body.matches("exchange-group--connected").count(),1);
+}
 #[tokio::test(flavor="current_thread")]
 async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_id(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
@@ -3853,7 +4045,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
     assert!(page.body.contains("action=\"/tracker/pick_exchange\""));
     let buttons:Vec<&str>=page.body.split("name=\"exchange_id\" type=\"submit\" value=\"").skip(1).map(|s|s.split('"').next().unwrap()).collect();
     let (kraken,bitmart,gemini,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Binance"));
-    assert_eq!(buttons,[binance.as_str(),kraken.as_str(),"1",bitmart.as_str()],"stable venues first, then by name; available only, retired included");
+    assert_eq!(buttons,["1","1",binance.as_str(),kraken.as_str(),bitmart.as_str()],"the seeded Alpaca key's venue under Connected (D-WIZARD-CONNECTED-GROUP), the broker under Brokers (D-TRACKER-SHEET, D-WIZARD-VENUE-GROUPS), then stable venues first, then by name; available only, retired included");
     assert!(!buttons.contains(&gemini.as_str()));
     assert!(!page.body.contains("disabled"),"the tracker's picker disables nothing");
     let localized=h.browser.send(&h.app,"GET","/de/tracker/pick_exchange/new",None,Csrf::None,&[("turbo-frame","modal")]).await;
@@ -4269,4 +4461,47 @@ async fn a_test_email_to_a_server_that_never_answers_is_an_alert_after_the_greet
     assert!(waited >= std::time::Duration::from_secs(5) && waited < std::time::Duration::from_secs(15), "bounded by the greeting's read timeout: {waited:?}");
     assert_eq!(h.snapshot(), before, "nothing is written");
     assert_eq!(silent.sessions().len(), 1, "one connection, never greeted");
+}
+
+/// D-TRACKER-SHEET, which the 2.x recordings cannot hold: the tracker's connect steps are the sheet closing to the tracker,
+/// whether the connect button's venue step or a venue link straight to the key step asked (both in the `modal` frame); its
+/// track is Exchange and Connect; a refused key says why under the sheet's fields, in the sheet's frame.
+#[tokio::test(flavor="current_thread")]
+async fn the_tracker_connect_steps_are_the_sheet(){
+    let server=MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    let select=|s:&str|scraper::Selector::parse(s).unwrap();
+    let modal=[("Turbo-Frame","modal")];
+    let track=|page:&scraper::Html|page.select(&select("ol.sheet__track > li")).map(|li|{
+        let class=li.value().attr("class").unwrap_or_default();
+        let state=if class.contains("--done"){"done"}else if class.contains("--current"){"current"}else{"upcoming"};
+        let link=li.select(&select("a.sheet__control")).next().and_then(|a|a.value().attr("href")).unwrap_or("plain").to_string();
+        format!("{}:{state} {link}",li.text().collect::<String>().trim())
+    }).collect::<Vec<_>>();
+    let sheet=|body:&str|{
+        let page=scraper::Html::parse_document(body);
+        assert_eq!(page.select(&select("dialog.sheet-dialog[data-modal--base-close-url-value=\"/tracker\"] turbo-frame.sheet__frame#modal_content")).count(),1,"{body}");
+        for old in ["dialogview","process-progress","conversational","modal__footer"]{assert!(!body.contains(old),"{old}");}
+        page
+    };
+    let step=h.browser.send(&h.app,"GET","/tracker/pick_exchange/new",None,Csrf::None,&modal).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    let page=sheet(&step.body);
+    assert_eq!(track(&page),["Exchange:current plain","Connect:upcoming plain"]);
+    assert_eq!(page.select(&select("input[name=\"query\"]")).count(),0,"D-EXCHANGE-NO-SEARCH");
+    assert!(page.select(&select("section.exchange-group button[name=\"exchange_id\"]")).count()>0,"the venues, grouped");
+    // A venue link straight to the key step (the populated tracker's menu, a sync warning's fix).
+    let step=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=read_only",None,Csrf::None,&modal).await;
+    assert_eq!(step.status,200,"{}",step.body);
+    let page=sheet(&step.body);
+    assert_eq!(track(&page),["Alpaca:done /tracker/pick_exchange/new","Connect:current plain"]);
+    assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=read_only\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
+    // D-KEY-LOGO-BACK: the venue's logo and name are Back, to the venue step.
+    assert_eq!(page.select(&select("a.set-api__back[href=\"/tracker/pick_exchange/new\"][data-wizard-dir=\"back\"][data-turbo-frame=\"modal_content\"] .set-api__mark + h2.set-api__title")).count(),1);
+    // Refused: the sheet's frame again, the reason under the fields, nothing flashed.
+    let refused=h.submit("POST","/tracker/add_api_key?exchange_id=1&key_type=read_only",&[("api_key[key]","bad-key"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(refused.status,422,"{}",refused.body);
+    assert!(refused.body.starts_with("<turbo-stream action=\"update\" target=\"modal_content\">"),"{}",refused.body);
+    assert!(refused.body.contains("class=\"sform__error\"")&&refused.body.contains("sheet__track")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
 }

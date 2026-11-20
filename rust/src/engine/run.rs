@@ -135,13 +135,15 @@ pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, ciph
     } else if exchange == crate::venue::kucoin::KUCOIN {
         factory.for_kucoin(credentials, sensitive, version.clone())
     } else { factory.for_bot_with_redaction(&exchange, credentials, sensitive) };
+    // #710: the bot's account (none for a request with no bot: `key_holder`).
+    let venue = match crate::venue_ids::Scope::of_bot(primary, bot.id)? { Some(scope) => crate::venue::Venue::for_account(venue, scope), None => venue };
     Ok((crate::venue::Handle::new(venue,version.clone()),version))
 }
 
-/// The user's trading-key venue on `exchange_id`, built as a bot's on that venue (`venue_for`): for a request with no
-/// bot (an API cancel by exchange order id). IBKR never reaches here (D-ORDER-IBKR).
-pub(crate) fn venue_for_key<F: VenueFactory>(primary: &Connection, factory: &F, cipher: &Cipher, user: i64, exchange_id: i64) -> Result<crate::venue::Handle<F::V>, EngineError> {
-    Ok(venue_for(primary, factory, cipher, &model::Bot::key_holder(user, exchange_id))?.0)
+/// `account`'s trading-key venue, built as a bot's on that venue (`venue_for`): for a request with no bot (an API cancel
+/// by exchange order id). IBKR never reaches here (D-ORDER-IBKR).
+pub(crate) fn venue_for_key<F: VenueFactory>(primary: &Connection, factory: &F, cipher: &Cipher, account: crate::identity::Account) -> Result<crate::venue::Handle<F::V>, EngineError> {
+    Ok(venue_for(primary, factory, cipher, &model::Bot::key_holder(account))?.0)
 }
 
 /// A stop request for the loop: the tick in hand finishes, nothing new starts, and `run` returns `EngineError::Stopped`.
@@ -826,7 +828,7 @@ async fn run_bookings<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> 
     let polled: HashSet<i64> = e.polls.keys().copied().collect();
     let since = last_line(&e.primary);
     let served = super::v2_unrecorded::serve_bookings(&e.primary, &e.factory, &e.cipher, &|tx| polled.contains(&tx), clock.now()).await;
-    // A refusal's `rails_order_not_added` line has no order to announce it; a booking's lines follow its order's event.
+    // A refusal's `v2_order_not_added` line has no order to announce it; a booking's lines follow its order's event.
     let served = match served {
         Ok(served) => served,
         Err(err) => {
@@ -1396,9 +1398,9 @@ async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orde
 /// api_orders::place_standalone. A key replaced since validation places nothing (`api_key_missing`).
 async fn standalone_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orders::Request, clock: &dyn Clock) -> Result<(), EngineError> {
     use super::api_orders::{self, Outcome};
-    let exchange_id = request.standalone.as_ref().map(|s| s.exchange_id).ok_or_else(|| EngineError::Data(format!("api order {}: no bot and no exchange", request.id)))?;
+    let (exchange_id, account) = request.standalone.as_ref().map(|s| (s.exchange_id, s.account)).ok_or_else(|| EngineError::Data(format!("api order {}: no bot and no exchange", request.id)))?;
     if clock.now() > request.send_by { return api_orders::finish(&e.primary, request.id, &Outcome::Busy); }
-    let (venue, producer) = venue_for(&e.primary, &e.factory, &e.cipher, &model::Bot::key_holder(request.user_id, exchange_id))?;
+    let (venue, producer) = venue_for(&e.primary, &e.factory, &e.cipher, &model::Bot::key_holder(account))?;
     if producer.is_none() || producer != request.credential_version {
         let exchange: String = e.primary.query_row("SELECT coalesce(name, '') FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get(0)).optional()?.unwrap_or_default();
         return api_orders::finish(&e.primary, request.id, &Outcome::Refused { code: "api_key_missing".into(),

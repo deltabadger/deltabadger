@@ -93,6 +93,7 @@ cs:
                 external_sales: "%{label} prodal aktiva, která zde nikdy nekoupil, takže jeho historii nelze sloučit."
                 interleaved: "Spojením historií těchto botů by se změnil jejich celkový výsledek, proto je nelze sloučit."
                 quote: "Všichni boti musí utrácet stejnou měnu."
+                accounts: "Tito boti obchodují na různých účtech téže burzy, a proto je nelze sloučit."
                 nothing_to_buy: "Žádné z těchto aktiv se na této burze už neobchoduje."
             index_switch:
                 stop_first: "Nejdřív bota zastav."

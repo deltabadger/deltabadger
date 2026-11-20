@@ -174,6 +174,7 @@ it:
                     prices: 'Mostra prezzi'
                     modes: 'Modalità grafico'
                     pnl: 'P/L'
+                    received: 'Ricevuto'
                     total_invested: 'Totale investito'
                     value: Valore
                 csv_download_html: 'La tabella sopra mostra solo le ultime dieci transazioni. Il report completo è disponibile per il download in formato CSV qui sotto.'
@@ -183,12 +184,13 @@ it:
                 download_csv: 'Scarica'
                 generating_csv: 'Generazione file...'
                 import_csv: 'Importa'
-                exchange_unavailable_html: 'L''API dell''exchange non risponde al momento.<br>I calcoli sono basati sugli ultimi dati disponibili.'
+                exchange_unavailable_html: "Non è stato possibile leggere i prezzi dall'exchange.<br>I valori si basano sugli ultimi dati disponibili."
                 order: Ordine
                 profit_loss: Profitto/Perdita
                 price: 'Tasso(%{quote})'
                 sold: Venduto
                 received: 'Ricevuto'
+                realised_pnl_basis_note: "Importo ricevuto meno il costo delle monete vendute, secondo la cronologia del tuo account."
                 title: Statistiche
                 total_invested: 'Totale investito'
                 portfolio_value: 'Valore del portafoglio'

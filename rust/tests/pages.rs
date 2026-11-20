@@ -451,6 +451,9 @@ fn before(dir: &Path, what: &str) {
                                       VALUES ('00000000000000000000000000000001', (SELECT min(id) FROM users), 'crypto', 'US', 2025, 0, 'en', 'queued', '2026-09-10 12:00:00')", []).unwrap(),
         // The report the previous create queued: this build's create already wrote its request row (2.x: the Solid Queue job).
         "tax_queued" => 0,
+        // D-INDEX-IN-ASSETS walks: the owner turns advanced bots on; the market data goes away mid-wizard.
+        "advanced_bots" => c.execute("UPDATE users SET advanced_bots_enabled = 1", []).unwrap(),
+        "no_market_data" => c.execute("DELETE FROM app_configs WHERE key LIKE 'market_data_%' OR key IN ('coingecko_api_key', 'platform_connected_at')", []).unwrap(),
         // Bot 1's price status line within its 20 s, as the engine's info pass stores it (2.x: bot.price_limit_info_from_cache).
         "warm_price_info" | "warm_price_info_met" => {
             let info = json!({ "price_limit": { "buying": { "base": "BTC", "quote": "USD", "price": "64310.75", "condition_met": what == "warm_price_info_met",
@@ -660,6 +663,7 @@ async fn run(dir: &Path) -> Value {
             deltabadger::parity::resync_marked(&c, &app.cipher, now).await.unwrap_or_else(|e| panic!("resync: {e:?}"));
         }
         assert_genuine(&app, browser, &answer, now, &format!("{} step {index}", dir.file_name().unwrap().to_string_lossy()));
+        follow_skipped_chooser(&app, browser, &request_path, &answer, &headers).await;
         etags.insert(client, answer.header("etag").unwrap_or_default().to_string());
         if answer.body.contains("name=\"halt_token\"") {
             let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
@@ -681,6 +685,8 @@ async fn run(dir: &Path) -> Value {
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
         if let Some(tables) = step.get("may_mutate") { response["may_mutate"] = tables.clone(); }
         if let Some(spec) = step["raw_rows"].as_object() { response["raw_rows"] = raw_rows(dir, spec, &step["raw_clock"]); }
+        // This file's own walks read the page itself (D-INDEX-IN-ASSETS), not its normalised lines.
+        if step["raw"] == true { response["raw"] = json!(answer.body); }
         if let Some(keys) = step["session"].as_array().filter(|_| session_compared(step)) {
             let data = browser.cookie.as_deref().and_then(|cookie| session::open(&app.keys.session, cookie, now)).unwrap_or_default();
             response["session"] = keys.iter().filter_map(Value::as_str).map(|key| (key.to_string(), session_value(&data, key))).collect::<serde_json::Map<_, _>>().into();
@@ -886,6 +892,19 @@ fn only_the_low_funds_prefix_and_its_colour_are_left_out() {
 
 /// Named divergence D-SPLIT-BOT-MENU: a splittable bot's menu has a Split item (the split modal for that bot), which 2.x's
 /// menu does not. Only that item, with the whitespace before it, is taken out of this crate's page; returns how many.
+/// D-LIST-TICKER-SMALL: every scrollable asset list (the search rows, the picked assets, the index rows and tiles) draws its
+/// tickers small; 2.x's never carry `ticker--small` (no recording has it), so the class alone comes off ours.
+fn without_small_tickers(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let mut taken = 0;
+    for line in lines.iter_mut() {
+        let Some(text) = line.as_str().filter(|t| t.contains(" ticker--small")) else { continue };
+        taken += 1;
+        *line = json!(text.replace(" ticker--small", ""));
+    }
+    taken
+}
+
 fn without_split_item(body: &mut Value) -> usize {
     let Value::Array(lines) = body else { return 0 };
     let (mut taken, mut i) = (0, 0);
@@ -978,6 +997,32 @@ fn without_market_data_contents(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-LOCALE-SELECT-SHOWS-PAGE: the language select marks the page's language (a `/de` page reads Deutsch),
+/// where 2.x marked the saved one, so picking the saved language from a prefixed page was a no-op. Which option is selected
+/// is this build's own, pinned in tests/settings.rs; the options themselves are still compared. Applied to both sides;
+/// returns how many selects were read.
+fn without_locale_selection(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let mut taken = 0;
+    for i in 0..lines.len() {
+        let line = lines[i].as_str().unwrap_or_default();
+        if !(line.trim_start().starts_with("<select ") && attr(line, "id").as_deref() == Some("user_locale")) { continue; }
+        let end = subtree_end(lines, i);
+        for option in &mut lines[i + 1..end] {
+            if let Some(text) = option.as_str() { *option = json!(text.replace(" selected=\"selected\"", "")); }
+        }
+        taken += 1;
+    }
+    taken
+}
+
+#[test]
+fn only_which_language_is_selected_is_left_out() {
+    let mut page = json!(["  <select id=\"user_locale\" name=\"user[locale]\">", "    <option selected=\"selected\" value=\"en\">", "    </option>", "  </select>", "  <select id=\"user_time_zone\">", "    <option selected=\"selected\" value=\"UTC\">", "    </option>", "  </select>"]);
+    assert_eq!(without_locale_selection(&mut page), 1);
+    assert_eq!(page, json!(["  <select id=\"user_locale\" name=\"user[locale]\">", "    <option value=\"en\">", "    </option>", "  </select>", "  <select id=\"user_time_zone\">", "    <option selected=\"selected\" value=\"UTC\">", "    </option>", "  </select>"]));
+}
+
 #[test]
 fn only_the_market_data_frames_contents_are_left_out() {
     let mut page = json!(["    <div>", "      <turbo-frame id=\"market_data_settings\">", "        <form class=\"sswitch\">", "        </form>", "      </turbo-frame>", "      <div id=\"other\">", "      </div>", "    </div>"]);
@@ -1002,64 +1047,21 @@ fn only_the_settings_jobs_row_is_left_out() {
     }
 }
 
-/// Named divergence D-FULL-PAGE-DIALOG-COMPLETE: a full-page dialog (a `dialogview` straight inside the modal frame) opens
-/// its frame with `complete`, as 2.x's small modals (layouts/modal/_base) do and its full-page layout does not. The modal
-/// CSS shows the card only in a `#modal[complete]` frame, and Turbo marks a frame complete only when it loads it itself, so a
-/// full-page answer (a refresh, a typed URL, a stream redirect) left the card invisible behind the open dialog. Puts this
-/// crate's frame back as 2.x writes it; returns how many, or the line of one left without `complete`.
-fn full_page_dialogs(body: &mut Value) -> Result<usize, String> {
-    let Value::Array(lines) = body else { return Ok(0) };
-    let mut taken = 0;
-    for i in 0..lines.len() {
-        let line = lines[i].as_str().unwrap_or_default();
-        if !(line.trim_start().starts_with("<turbo-frame ") && attr(line, "id").as_deref() == Some("modal")) { continue; }
-        let Some(child) = lines[i + 1..].iter().find(|l| !is_space(l)).and_then(Value::as_str) else { continue };
-        let full_page = child.trim_start().starts_with("<dialog ") && attr(child, "class").is_some_and(|c| c.split(' ').any(|c| c == "dialogview"));
-        if !full_page { continue; }
-        if !line.contains(" complete=\"\"") { return Err(format!("a full-page dialog without complete stays invisible: {line}")); }
-        lines[i] = json!(line.replacen(" complete=\"\"", "", 1));
-        taken += 1;
-    }
-    Ok(taken)
-}
-
+/// D-SHEET-EVERYWHERE: every wizard is the sheet, so no template, source or script draws the old full-page dialog, its
+/// progress bar or its sentence.
 #[test]
-fn full_page_dialogs_are_put_back_as_v2_writes_them() {
-    let page = |frame: &str, dialog: &str| json!(html::normalize(&format!("<html><body>{frame}\n  <dialog class=\"{dialog}\">\n    <div class=\"x\">a</div>\n  </dialog></turbo-frame></body></html>")));
-    let mut ours = page("<turbo-frame id=\"modal\" complete>", "dialogview");
-    assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(1), &page("<turbo-frame id=\"modal\">", "dialogview")));
-    assert!(full_page_dialogs(&mut page("<turbo-frame id=\"modal\">", "dialogview")).is_err(), "one without complete fails");
-    // A small modal keeps its complete (2.x writes it too); an empty or src frame has no dialog to show.
-    for frame in [page("<turbo-frame id=\"modal\" complete>", "dialog"), json!(html::normalize("<turbo-frame id=\"modal\"></turbo-frame>")),
-                  json!(html::normalize("<turbo-frame id=\"modal\" src=\"/bots/new\"></turbo-frame>"))] {
-        let mut ours = frame.clone();
-        assert_eq!((full_page_dialogs(&mut ours), &ours), (Ok(0), &frame));
-    }
-}
-
-/// D-FULL-PAGE-DIALOG-COMPLETE in the templates themselves, so a step no recorded scenario renders full page is held too.
-#[test]
-fn every_full_page_dialog_template_opens_its_frame_complete() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("templates");
-    let mut found = Vec::new();
-    let mut walk = vec![root.clone()];
+fn no_template_or_source_draws_the_old_wizard_dialog() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut walk = vec![root.join("templates"), root.join("src"), root.join("web/javascript"), root.join("web/stylesheets")];
     while let Some(dir) = walk.pop() {
         for entry in std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()) {
             if entry.is_dir() { walk.push(entry); continue; }
-            let text = std::fs::read_to_string(&entry).unwrap();
-            let Some(at) = text.match_indices("<turbo-frame ").map(|(at, _)| at)
-                .find(|&at| text[at..at + text[at..].find('>').unwrap()].contains(" id=\"modal\"")) else { continue };
-            let open = &text[at..at + text[at..].find('>').unwrap() + 1];
-            let rest = text[at + open.len()..].trim_start();
-            // The tag ends at its closing `">`: an attribute value may hold a `>` (`click->modal--base#clickOutside`).
-            if !(rest.starts_with("<dialog ") && rest[..rest.find("\">").unwrap()].contains("class=\"dialogview\"")) { continue; }
-            let name = entry.strip_prefix(&root).unwrap().to_string_lossy().into_owned();
-            assert_eq!(open, "<turbo-frame complete=\"\" id=\"modal\">", "{name}");
-            found.push(name);
+            let Ok(text) = std::fs::read_to_string(&entry) else { continue };
+            for old in ["dialogview", "process-progress", "conversational--bot-setup", "&--bot-setup", "full_page.html", "wizard/_progress.html"] {
+                assert!(!text.contains(old), "{} names {old}", entry.display());
+            }
         }
     }
-    found.sort();
-    assert_eq!(found, ["bots/new.html", "settings/alpaca_full.html", "settings/pick_exchange.html", "wizard/full_page.html"]);
 }
 
 /// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-V2-UNRECORDED-API's answer_unrecorded_order
@@ -2073,6 +2075,11 @@ fn recorded_grid(scope: &str) -> (common::Recording, tempfile::TempDir, Vec<Path
     common::copy_tree(&recording.path.join("input"), rust_root.path());
     // Rust's side starts as `serve` does: with this build's Rust migrations applied.
     for scenario in std::fs::read_dir(rust_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()) {
+        // A scenario's locale copy (`de/`) is served too.
+        if scenario.join("de").join("production.sqlite3").exists() {
+            deltabadger::store::test_support::migrate(&rusqlite::Connection::open(scenario.join("de").join("production.sqlite3")).unwrap())
+                .expect("this build's Rust migrations apply");
+        }
         let c = rusqlite::Connection::open(scenario.join("production.sqlite3")).unwrap();
         deltabadger::store::test_support::migrate(&c).expect("this build's Rust migrations apply");
         // D-STRAY-FLAGS-MIGRATION turned off the rules 2.x's index bot cannot have; CE-2's twin_ index bots are ones whose owner
@@ -2600,6 +2607,27 @@ fn expected_broker_pages(name: &str, scenario: &Value) -> usize {
     0
 }
 
+/// D-CHOOSER-SKIPPED: New bot answers with the wizard's first step where 2.x drew the chooser. A browser follows the redirect (a
+/// frame visit too), so the page it holds next, and the token the next step sends, is that step's, as it was 2.x's chooser's;
+/// the step itself is not one of the scenario's answers.
+async fn follow_skipped_chooser(app: &App, browser: &mut Browser, path: &str, answer: &Answer, headers: &[(&str, &str)]) {
+    if answer.status != 302 || !path.split('?').next().unwrap_or_default().ends_with("/bots/new") { return }
+    let Some(to) = answer.header("location").filter(|to| to.ends_with("/bots/dca_single_assets/pick_exchange/new")).map(str::to_string) else { return };
+    let frame: Vec<(&str, &str)> = headers.iter().filter(|(name, _)| name.eq_ignore_ascii_case("turbo-frame")).copied().collect();
+    browser.send(app, "GET", &to, None, Csrf::None, &frame).await;
+}
+
+/// D-INDEX-IN-ASSETS (PLAN-index-in-wizard): 2.x's index wizard, its CoinGecko and index steps, has no entry of its own now (the
+/// index is picked on the DCA wizard's Assets step and its exchange, key and quote steps are drawn in the sheet), so these
+/// recorded walks of it are no longer compared. What they proved is walked by this file's index_in_wizard_ tests on the same
+/// recorded installs, the created bots compared with the ones 2.x created.
+const RETIRED_INDEX_WIZARD: [&str; 17] = [
+    "wizard_index_alpaca", "wizard_index_alpaca_key", "wizard_index_crypto_picker", "wizard_index_expired_session", "wizard_index_kraken_key",
+    "wizard_index_kucoin_key", "wizard_index_layer1_binance", "wizard_index_locales", "wizard_index_member_count", "wizard_index_stale_step",
+    "wizard_index_top_alpaca", "wizard_index_top_coingecko", "wizard_index_unconfigured", "wizard_index_unconfigured_member",
+    "wizard_setup_coingecko_bad_key", "wizard_setup_coingecko_non_admin", "wizard_setup_coingecko_ok",
+];
+
 /// 2.x's scenario inventory (the recorded `inventory`), frozen.
 fn page_inventory() -> Value {
     let path = common::frozen("pages-inventory", |d| d.join("inventory.json").is_file()).join("inventory.json");
@@ -2647,14 +2675,16 @@ fn page_grid_selection_is_complete_and_disjoint() {
     assert_eq!(split_menu_pages, 1, "D-SPLIT-BOT-MENU: the basket menu witness");
     assert_eq!(full.iter().filter(|name| name.starts_with("actions")).count(), 254 + 2 + 6 + 1 + 2 + 4,
                "PAGES=actions includes two amounts typed key by key, six settings metrics cases, the wash-sale Stop, WS-4a's two saves carrying the selling warning and WS-4b's four that ask the question");
-    let dirs: Vec<PathBuf> = full.iter().map(PathBuf::from).collect();
+    for name in RETIRED_INDEX_WIZARD { assert!(full.contains(name), "{name}: retired, so it must be one of 2.x's scenarios"); }
+    assert_eq!(RETIRED_INDEX_WIZARD.len(), 17);
+    let dirs: Vec<PathBuf> = full.iter().filter(|name| !RETIRED_INDEX_WIZARD.contains(name)).map(PathBuf::from).collect();
     {
         let hook = |dir: &&PathBuf| dir.file_name().is_some_and(|n| ["hook_", "missing_hook_", "override_"].iter().any(|p| n.to_string_lossy().starts_with(p)));
         assert_eq!(dirs.iter().filter(hook).count(), 29 + 23 + 1, "the signal webhook (pages_signals.rb): twenty-nine compared whole, two of them calls accepted (plan 8d), twenty-three the router's 404 (methods, overrides, paths); and a settings update under the override header");
-        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 - 1 + 6 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2 + 78 + 4 + 7 + 3 + 1 + 2 - 1 + 1, "completed read-only baseline (merge_create_repeat, a second Confirm after the merge answered, refused as missing; 3.0 A26 drops not_ported_wizard_index_confirm_settings: the legacy settings step restarts the wizard now, D-LEGACY-STALE-CREATE, pinned in tests/serve.rs; 3.0 A25's two /jobs answers kept from 2.x: signed out, and a non-admin's 404; 3.0 A22's api_create_start_at_repeated, a wall time Tallinn repeats taken at its earlier occurrence; 3.0 A20's seven tooltip_ hover cards and three broadcasts_fetch_open_orders refreshes; 3.0 A17-1's four CoinGecko wizard scenarios: the key step saved, refused and a member's, and Top coins on Kraken to its bot page; 3.0 A16's seventy-eight signup_ and password_ scenarios: signup open, closed and signed in, the reset request, link, new password with and without two-factor, the mailed flow, and the link's end on a password or email change; 3.0 A12-1's thirty-four api_tax_ scenarios on the tax report routes, in place of the download route's three gated and not_ported_ ones; 3.0 A11's thirty-five api_tracker_ scenarios on the tracker routes, less the list route's three gated and not_ported_ ones; 3.0 A8's thirty-one bot_csv_ export and import scenarios, with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows, and PLAN-wash-sale WS-4a's eleven rule-on pages in place of the one not_ported_ (eight bot_wash_ on baskets: the locks, the selling warning and its acknowledgement; two missing_wash_ 404s; one signal_page_wash_rule), less the dashboard's one not_ported_ list (D-DASHBOARD-REFUSED-TILE: a refused bot is listed plain, pinned in tests/serve.rs), and PLAN-wash-sale WS-4b's seven question pages in place of the one not_ported_ (six on baskets: the modal, its answers, a missing_ 404; one Sell confirmation that asks it; the signal rule write and the signal wizard save are served under their own names), and 3.0 plan A3's two bot pages while a rebalance sells or buys, and 3.0 plan A4's eight cancel_order_ answers (a cancel, a refusal in English and German, an invalid key, an imported row, a missing and a deleted bot, signed out; one missing_ row 404), and 3.0 plan A9 O1's eight orders answers (six api_orders_ on the refusals before the venue, and slice O2's two api_orders_cancel_ sent in place of their not_ported_; O4 retires the two not_ported_api_orders_ placements past them, which only an engine answers: tests/orders_api.rs), and 3.0 plan A10's thirty-nine bot creates (api_create_*, fixed_api_create_dca_hyperliquid, refused_api_create_signal_ibkr; not_ported_api_create_bot is served now)");
+        assert_eq!(dirs.iter().filter(|dir| !hook(dir) && !dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_") || n.to_string_lossy().starts_with("settings_"))).count(), 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 1 + 7 + 2 + 1 + 10 + 1 + 5 + 11 + 1 + 21 + 1 - 3 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 - 1 + 6 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2 + 78 + 4 + 7 + 3 + 1 + 2 - 1 + 1 - 17, "completed read-only baseline (less D-INDEX-IN-ASSETS's seventeen retired index wizard scenarios, RETIRED_INDEX_WIZARD: the index is picked on the Assets step now, walked by this file's index_in_wizard_ tests; merge_create_repeat, a second Confirm after the merge answered, refused as missing; 3.0 A26 drops not_ported_wizard_index_confirm_settings: the legacy settings step restarts the wizard now, D-LEGACY-STALE-CREATE, pinned in tests/serve.rs; 3.0 A25's two /jobs answers kept from 2.x: signed out, and a non-admin's 404; 3.0 A22's api_create_start_at_repeated, a wall time Tallinn repeats taken at its earlier occurrence; 3.0 A20's seven tooltip_ hover cards and three broadcasts_fetch_open_orders refreshes; 3.0 A17-1's four CoinGecko wizard scenarios: the key step saved, refused and a member's, and Top coins on Kraken to its bot page; 3.0 A16's seventy-eight signup_ and password_ scenarios: signup open, closed and signed in, the reset request, link, new password with and without two-factor, the mailed flow, and the link's end on a password or email change; 3.0 A12-1's thirty-four api_tax_ scenarios on the tax report routes, in place of the download route's three gated and not_ported_ ones; 3.0 A11's thirty-five api_tracker_ scenarios on the tracker routes, less the list route's three gated and not_ported_ ones; 3.0 A8's thirty-one bot_csv_ export and import scenarios, with the market-closed weekend page and the expired start on bots that are not stopped), with D5b's two missing_ connect scenarios and the one not_ported_ (a venue no tracker key step serves), the venue pages (eight served, one refused), the selling pages (three served, in place of two refusals; the base cap's page served in place of its refusal, slice 6d-2), the venue basket pages (seven served, in place of the one refusal), the asset search on each venue, the wizard's chooser and order switch (twelve served, one unrouted GET), its asset and exchange steps (ten served), its broker, key and quote steps to a created bot (nine served), the signal tile and the IBKR key step (two not_ported_), the first empty bots page that opens it (two), the index wizard (twelve served, its Kraken, Alpaca Top Coins and Binance Layer 1 bots among them; its legacy settings step one not_ported_), the crypto index bot pages on Kraken and Binance (two), the IBKR key step reached from the nested venue frame (one not_ported_, as a stream), the KuCoin wizard (plan K O6: a basket to its bot, its key step from the nested frame, and a Top coins index bot), and the REST API's (sixty-three on the nine served reads' tokens and grants, ten on the four venue reads' lookups and venue answers, twelve on the routes it gates but does not serve, three on typed creates, nine unrouted paths, seven on parameters, one on conditional GETs and one on an install without an admin; sixty-one on the six bot writes: six per route on its tokens, grants, ids and malformed bodies, five on settings values, fourteen on lifecycle states one start the engine guard refuses, the broadcasts an open page hears (in English and in its owner's German), encoded path ids and two oversized parameters), and plan CB T6's market-cap baskets (an Alpaca page and a venue page served, in place of the one refusal), and plan 8c-1's signal bot pages (ten, pages_signals.rb signal_page_), and plan 8c-2's signal bot writes (twenty-seven: nineteen signal_action_ compared whole, three of them the starts and the settings save plan 8d admits, seven api_signal_ on BotApi's lifecycle, one of them the start 8d admits, one not_ported_signal_ wash-sale question), and the web's own lifecycle writes from a /de/ page heard in the owner's Polish, and Hyperliquid's limit-order lock on stopped and working bots with either stored flag, and plan 8e's signal wizard (six served in place of the tile's one not_ported_, one not_ported_ key step on a venue no signal bot runs on, and one not_ported_ save of a bot whose page asks the wash-sale question), and the rebalancing pages in place of their refusal (RP1: three served, one not_ported_ removed), and the selling multi-asset basket page (RP4), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and CE-2's four twin_ pages (an index bot's rule forms against its basket twin's), and the dashboard's ten reorder_ drags, and PLAN-wash-sale WS-3's five Stops on an account with the rule on or the question unanswered (two REST on a basket, one REST and two web on a signal bot), and the bot menu's Follow index and Change the index (twenty-one follow_index_, and one refused_web_ on a CoinGecko install), less plan IBKR B1's three stock-gate scenarios retired (bots_empty_stocks_active, wizard_stocks_inactive, wizard_stocks_inactive_member: D-STOCKS-NO-GATE), and the dashboard's Merge (twenty-eight merge_: fourteen on the modal, fourteen on the merge itself; and one refused_web_ merge onto a venue this build does not run), and the dashboard's Split (twenty-seven split_: thirteen on the modal, fourteen on the split itself; and two refused_web_: a split on Interactive Brokers, and one of a basket whose liquidation rows this build does not read), and CE-4's three twin_signal_ pages (a signal bot's rule forms against its basket twins'), and slice 6c-5's four redeploy_ answers (a Yes, a refused second Yes, a No, a stale Clear), and AUDIT #6's two rebalance resolution flows, and PLAN-wash-sale WS-4a's eleven rule-on pages in place of the one not_ported_ (eight bot_wash_ on baskets: the locks, the selling warning and its acknowledgement; two missing_wash_ 404s; one signal_page_wash_rule), less the dashboard's one not_ported_ list (D-DASHBOARD-REFUSED-TILE: a refused bot is listed plain, pinned in tests/serve.rs), and PLAN-wash-sale WS-4b's seven question pages in place of the one not_ported_ (six on baskets: the modal, its answers, a missing_ 404; one Sell confirmation that asks it; the signal rule write and the signal wizard save are served under their own names), and 3.0 plan A3's two bot pages while a rebalance sells or buys, and 3.0 plan A4's eight cancel_order_ answers (a cancel, a refusal in English and German, an invalid key, an imported row, a missing and a deleted bot, signed out; one missing_ row 404), and 3.0 plan A9 O1's eight orders answers (six api_orders_ on the refusals before the venue, and slice O2's two api_orders_cancel_ sent in place of their not_ported_; O4 retires the two not_ported_api_orders_ placements past them, which only an engine answers: tests/orders_api.rs), and 3.0 plan A10's thirty-nine bot creates (api_create_*, fixed_api_create_dca_hyperliquid, refused_api_create_signal_ibkr; not_ported_api_create_bot is served now)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("settings_"))).count(), 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 - 3 + 24 + 19 + 21 + 15 + 27, "A21's twenty-seven settings_app_update_ pages (five platform markers by five states, German, a member); A20's fifteen settings_email_ and settings_api_docs writes and downloads; complete S1 inventory, A18's twenty-one stocks and platform writes (settings_stocks_, settings_platform_), A17-1's nineteen market-data and tracker CoinGecko scenarios, D5b's connect flow (its Kraken key form served now), the preference writes, the following client's card, the switch back to the default locale, the settings dialog (two more sections, in-place confirms, the page behind a language change) and the key routes on Kraken, Binance and KuCoin (fifty-four), less plan IBKR B1's three retired Alpaca catalog states (settings_connection_state_stocks_paper, _stocks_live, _catalog: D-ALPACA-CATALOGUE)");
         assert_eq!(dirs.iter().filter(|dir| dir.file_name().is_some_and(|n| n.to_string_lossy().starts_with("actions_"))).count(), 197 + 53 + 4 + 2 + 6 + 1 + 2 + 4, "action inventory with six settings metrics cases (with the five ⇄ rotations and nine sell-settings writes, twenty-two Kraken/Binance venue actions, fifty on their baskets, plan CB T4's three saves of a crypto basket with settled rebalance history, plan CB T5's four market-cap saves, and two amounts typed key by key, and a basket's Stop with the wash-sale rule on, and WS-4a's two settings saves of a selling basket that carry the selling warning, and WS-4b's four that ask the question: two saves, the start dialog and the start)");
-        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 + 2 - 1 + 6 + 4 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2 + 78 + 23 + 21 + 25 + 27 + 1 + 2 - 1 + 1, "merge_create_repeat, a second Confirm refused as missing; 3.0 A26 drops not_ported_wizard_index_confirm_settings; 3.0 A25's jobs_requires_sign_in and missing_jobs_not_admin; 3.0 A22's api_create_start_at_repeated; 3.0 A21's twenty-seven settings_app_update_ pages; 3.0 A20's twenty-five (seven tooltip_, three broadcasts_fetch_open_orders, fifteen settings_); 3.0 A18's twenty-one settings_stocks_ and settings_platform_ scenarios; 3.0 A17-1's twenty-three CoinGecko scenarios (nineteen settings_, four wizard_); a scenario was dropped or added without this count (A12-1's thirty-four api_tax_ less the three tax download gates, and O4's two retired not_ported_api_orders_ placements; including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
+        assert_eq!(dirs.len(), 27 + 23 + 2 + 1 + 160 + 3 + 9 + 2 + 6 + 3 + 49 + 68 + 61 + 38 + 1 + 2 + 1 + 2 + 1 + 10 + 27 + 1 + 197 + 53 + 4 + 2 + 413 + 3 + 45 + 52 + 5 + 1 + 71 + 55 + 1 + 6 + 7 + 2 + 1 + 10 + 1 + 6 + 11 + 1 + 21 + 1 - 6 + 24 + 28 + 1 + 4 + 29 + 3 + 28 + 7 + 4 + 2 + 10 + 2 - 1 + 6 + 4 + 2 + 8 + 31 + 10 + 39 + 32 + 34 - 3 - 2 + 78 + 23 + 21 + 25 + 27 + 1 + 2 - 1 + 1 - 17, "D-INDEX-IN-ASSETS retires seventeen index wizard scenarios (RETIRED_INDEX_WIZARD); merge_create_repeat, a second Confirm refused as missing; 3.0 A26 drops not_ported_wizard_index_confirm_settings; 3.0 A25's jobs_requires_sign_in and missing_jobs_not_admin; 3.0 A22's api_create_start_at_repeated; 3.0 A21's twenty-seven settings_app_update_ pages; 3.0 A20's twenty-five (seven tooltip_, three broadcasts_fetch_open_orders, fifteen settings_); 3.0 A18's twenty-one settings_stocks_ and settings_platform_ scenarios; 3.0 A17-1's twenty-three CoinGecko scenarios (nineteen settings_, four wizard_); a scenario was dropped or added without this count (A12-1's thirty-four api_tax_ less the three tax download gates, and O4's two retired not_ported_api_orders_ placements; including the Hyperliquid limit-order lock and six settings metrics cases, and slice 7s's price status line, plus AUDIT #6's two rebalance resolution flows)");
         assert_eq!(countdown_pages, 4, "the pages where 2.x knows a time this build does not: the listed divergence grew or shrank");
         assert_eq!(broker_gate_pages, 30 + 3 + 10 + 3 + 5 + 9 + 6, "2.x's pages with a broker-only surface (without_broker_gate): Connect in each locale as a page and a frame, its three provider states and ten preference refusals that redraw it, the empty bots page for a member (twice) and on the first visit, the five Connect pages slice 6c-5's redeploy_ answers start from, the nine A17-1 settings_market_data_ writes start from, and A18's six stocks writes 2.x answers with the widget");
     }
@@ -2770,6 +2800,7 @@ async fn replay_page_shard(shard: usize) {
     let mut failures = vec![];
     for dir in &dirs {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
+        if RETIRED_INDEX_WIZARD.contains(&name.as_str()) { continue }
         if name.starts_with("actions_") { assert!(dir.join("de/scenario.json").is_file(), "missing German variant: {name}"); }
         if ["actions_single_amount", "actions_single_start", "actions_start_missed_false", "actions_start_missed_true"].contains(&name.as_str()) {
             for scope in ["crypto", "crypto_de"] { assert!(dir.join(scope).join("scenario.json").is_file(), "missing {scope} variant: {name}"); }
@@ -2780,7 +2811,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut full_page_frames, mut market_data_frames) = (0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers, mut locale_selects) = (0, 0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2807,13 +2838,14 @@ async fn replay_page_shard(shard: usize) {
             let page = if framed { tabs::tracker_page(raw) } else { tabs::first_sync_page(raw) }.unwrap_or_else(|e| panic!("{name}/{scope}: {e}"));
             answer["body"] = json!(html::normalize(&page));
         }
-        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); }
+        for answer in v2["responses"].as_array_mut().unwrap() { without_market_data_contents(&mut answer["body"]); without_locale_selection(&mut answer["body"]); }
         for answer in rust["responses"].as_array_mut().unwrap() {
             market_data_frames += without_market_data_contents(&mut answer["body"]);
+            locale_selects += without_locale_selection(&mut answer["body"]);
             without_low_funds(&mut answer["body"]);
             split_menu_pages += without_split_item(&mut answer["body"]);
+            small_tickers += without_small_tickers(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
-            match full_page_dialogs(&mut answer["body"]) { Ok(n) => full_page_frames += n, Err(e) => failures.push(format!("{name}/{scope}: D-FULL-PAGE-DIALOG-COMPLETE: {e}")) }
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
@@ -2822,7 +2854,8 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
                                              ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
-                                             ("wizard_chooser", full_page_frames, "D-FULL-PAGE-DIALOG-COMPLETE")] {
+                                             ("settings_error_edge_blank_current_de", locale_selects, "D-LOCALE-SELECT-SHOWS-PAGE"),
+                                             ("asset_search_kraken", small_tickers, "D-LIST-TICKER-SMALL")] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: {divergence}: no rendered witness")); }
         }
         if name.starts_with("countdown_") {
@@ -2903,19 +2936,30 @@ async fn replay_page_shard(shard: usize) {
         for answer in v2["responses"].as_array_mut().unwrap() {
             if without_broker_gate(&mut answer["body"]) > 0 { broker_gate_pages += 1; }
         }
-        let (mut sheet_answers, mut chooser_tiles) = (0, 0);
+        let (mut sheet_answers, mut chooser_tiles, mut sheet_flows) = (0, 0, 0);
         for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
             let (Some(theirs), Some(ours)) = (v2["responses"].get_mut(index), rust["responses"].get_mut(index)) else { continue };
             let path = step["path"].as_str().unwrap_or_default();
+            // D-BOT-KEY-SHEET, D-TRACKER-COINGECKO-SHEET: the cards first, under the form the step posted.
+            match wizard_sheet::key_cards(path, step["method"].as_str().unwrap_or("GET"), &step["form"], &mut theirs["body"], &mut ours["body"]) {
+                Ok(adapted) => sheet_flows += adapted,
+                Err(e) => failures.push(format!("{name}/{scope} step {index}: D-BOT-KEY-SHEET: {e}")),
+            }
+            match wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut theirs["body"], &mut ours["body"]) {
+                Ok(adapted) => sheet_flows += adapted,
+                Err(e) => failures.push(format!("{name}/{scope} step {index}: D-SHEET-EVERYWHERE: {e}")),
+            }
             // The wizard's order as the session holds it, when the step reads the session.
             let flow = ours.get("session").and_then(|s| s.get("bot_config")).filter(|c| c.is_object()).map(|c| c["flow"].as_str().unwrap_or("exchange_first").to_string());
             let sheet = wizard_sheet::wizard_sheet(path, flow.as_deref(), &mut theirs["body"], &mut ours["body"]);
-            match (sheet, wizard_sheet::chooser_tile(path, &mut ours["body"])) {
+            match (sheet, wizard_sheet::chooser(path, theirs, ours)) {
                 (Ok(sheets), Ok(tiles)) => { sheet_answers += sheets; chooser_tiles += tiles; }
                 (Err(e), _) | (_, Err(e)) => failures.push(format!("{name}/{scope} step {index}: D-WIZARD-SHEET: {e}")),
             }
         }
-        for (witness, count) in [("wizard_exchange_first_binance", sheet_answers), ("wizard_kucoin_key_stream", sheet_answers), ("wizard_chooser", chooser_tiles)] {
+        for (witness, count) in [("wizard_exchange_first_binance", sheet_answers), ("wizard_kucoin_key_stream", sheet_answers), ("wizard_chooser", chooser_tiles),
+                                 ("wizard_signal_kraken", sheet_flows), ("rules_wizard_exchange", sheet_flows), ("settings_pick_page_en", sheet_flows), ("settings_key_incorrect", sheet_flows),
+                                 ("settings_bot_key_form_es", sheet_flows), ("settings_setup_coingecko_tracker_non_admin", sheet_flows)] {
             if name == witness && count == 0 { failures.push(format!("{name}/{scope}: D-WIZARD-SHEET: no rendered witness")); }
         }
         let expected_brokers = expected_broker_pages(&name, &scenario);
@@ -3354,6 +3398,21 @@ fn tracker_write_step(step: &Value) -> bool {
 /// 2.x still answers what the divergence names. Everything else of the scenario (rows, other steps) stays compared.
 fn tracker_api_difference(name: &str, v2: &mut Value) -> Result<(), String> {
     use deltabadger::web::tracker::api;
+    // D-CSV-ACCOUNT-COLUMN: the export's `account` column, 1 on every row of a 2.x install, and Rack::ETag's tag of that body.
+    // A HEAD's answer keeps the tag of the body it does not send.
+    if name.starts_with("api_tracker") {
+        use sha2::Digest;
+        let mut tags = std::collections::HashMap::new();
+        for r in v2["responses"].as_array_mut().into_iter().flatten() {
+            if common::csv_account::walk(&mut r["body"]) == 0 { continue; }
+            let Some(old) = r["headers"]["etag"].as_str().map(str::to_string) else { continue };
+            let body = r["body"].as_str().unwrap_or_default().to_string();
+            tags.insert(old, format!("W/\"{}\"", &hex::encode(sha2::Sha256::digest(body.as_bytes()))[..32]));
+        }
+        for r in v2["responses"].as_array_mut().into_iter().flatten() {
+            if let Some(new) = r["headers"]["etag"].as_str().and_then(|old| tags.get(old)).cloned() { r["headers"]["etag"] = json!(new); }
+        }
+    }
     let responses = v2["responses"].as_array_mut().ok_or("no responses")?;
     let status = |responses: &[Value], i: usize| responses[i]["status"].as_u64().unwrap_or(0);
     // Step `i` answered as step `like` (its status, headers and body; and its jobs, since a refusal enqueues none).
@@ -3520,6 +3579,7 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         };
         let answer = browser.send(&app, step["method"].as_str().unwrap(), step["path"].as_str().unwrap(), form.as_deref(), csrf, &headers).await;
         assert_genuine(&app, &browser, &answer, now, name);
+        follow_skipped_chooser(&app, &mut browser, step["path"].as_str().unwrap(), &answer, &headers).await;
         let mut expected = v2_answer(recorded, step);
         let mut actual = rust_answer(&answer, step);
         assert_eq!(action_rows(&dir, &app.cipher).unwrap().0["bot_activity_logs"], before.0["bot_activity_logs"], "no request-side activity");
@@ -3542,9 +3602,11 @@ async fn follow_index_shortfall_pages_and_rows_match_after_engine_resync() {
         without_broker_gate(&mut expected["body"]);
         without_low_funds(&mut actual["body"]);
         without_split_item(&mut actual["body"]);
-        full_page_dialogs(&mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-FULL-PAGE-DIALOG-COMPLETE: {e}"));
+        without_small_tickers(&mut actual["body"]);
         let path = step["path"].as_str().unwrap_or_default();
-        wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser_tile(path, &mut actual["body"])).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
+        wizard_sheet::key_cards(path, step["method"].as_str().unwrap_or("GET"), &step["form"], &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-BOT-KEY-SHEET: {e}"));
+        wizard_sheet::sheet_flows(path, step["method"].as_str().unwrap_or("GET"), &mut expected["body"], &mut actual["body"]).unwrap_or_else(|e| panic!("{name}: D-SHEET-EVERYWHERE: {e}"));
+        wizard_sheet::wizard_sheet(path, None, &mut expected["body"], &mut actual["body"]).and_then(|_| wizard_sheet::chooser(path, &mut expected, &mut actual)).unwrap_or_else(|e| panic!("{name}: D-WIZARD-SHEET: {e}"));
         let _ = index_rules(&mut actual["body"]);
         let _ = signal_rules(&mut actual["body"]);
         theirs.push(expected);
@@ -4243,21 +4305,8 @@ fn rules_differences(name: &str, scenario: &Value, v2: &mut Value, rust: &mut Va
         rules_service_differences(name, step, a, b)?;
         rules_start_differences(name, step, a, b)?;
         rules_listed_entry_picker(&mut a["body"], &b["body"])?;
-        if step["path"].as_str().is_some_and(|p| p.ends_with("/pick_exchange/new")) && step["method"]=="GET" {
-            let offered = |body: &Value| body.as_array().unwrap().iter().filter_map(|l| {
-                let text=l.as_str()?;
-                (text.contains("name=\"bots_dca_single_asset[exchange_id]\"")).then(||attr(text,"value")).flatten()
-            }).collect::<Vec<_>>();
-            if offered(&a["body"]) != ["1","5","2","3","4"] || offered(&b["body"]) != ["1","2","3","4"] {
-                return Err(format!("D-RULE-BINANCE-US-UNSUPPORTED: unexpected picker: {:?} / {:?}",offered(&a["body"]),offered(&b["body"])));
-            }
-            let lines=a["body"].as_array_mut().unwrap();
-            let button=lines.iter().position(|l|l.as_str().is_some_and(|s|s.contains("name=\"bots_dca_single_asset[exchange_id]\"")&&attr(s,"value").as_deref()==Some("5"))).unwrap();
-            let start=(0..button).rev().find(|i|lines[*i].as_str().is_some_and(|s|s.contains("class=\"exchange-grid__option\""))).unwrap();
-            let end=subtree_end(lines,start);
-            let from=if start>0&&is_space(&lines[start-1]){start-1}else{start};
-            lines.drain(from..end);
-        }
+        // D-RULE-BINANCE-US-UNSUPPORTED (the picker offers no Binance US) is checked by wizard_sheet::sheet_flows, which compares
+        // the sheet's venues with 2.x's before the step's body is set aside (D-RULES-SHEET).
         if name=="rules_tile_address_listed" && step["method"]=="PATCH" {
             let old=&a["raw_rows"]["rules"][0]["settings"];
             let mut expected:Value=serde_json::from_str(old.as_str().unwrap()).unwrap();
@@ -4361,4 +4410,429 @@ async fn rebalance_resolution_pages_match_v2_without_a_listener() {
         assert_eq!(foreign.status,404,"an owner's session cannot resolve another owner's bot");
         assert_eq!(c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event='rebalance_manually_resolved'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
     }
+}
+
+// D-INDEX-IN-ASSETS (PLAN-index-in-wizard): this crate's own walks of the index wizard, now picked on the DCA wizard's Assets
+// step, on the installs 2.x's retired index scenarios were recorded on (RETIRED_INDEX_WIZARD): Alpaca, Interactive Brokers,
+// Kraken and Binance; the indices Nasdaq 100 (data-api, naming no venue), Top Coins and Layer 1 (Binance only); the platform's
+// market data, except on `wizard_index_unconfigured`.
+mod index_in_wizard {
+    use super::*;
+
+    pub const ASSETS: &str = "/bots/dca_single_assets/pick_buyable_asset/new";
+    const TURBO: &str = "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
+
+    pub fn get(path: &str, frame: &str) -> Value {
+        json!({"method": "GET", "path": path, "headers": if frame.is_empty() { json!({}) } else { json!({"Turbo-Frame": frame}) }, "session": ["bot_config"], "raw": true})
+    }
+    pub fn post(path: &str, form: Value) -> Value {
+        json!({"method": "POST", "path": path, "form": form, "csrf": "both", "headers": {"Accept": TURBO, "Origin": "http://localhost:3000", "Referer": "http://localhost:3000/bots"},
+               "session": ["bot_config"], "raw": true})
+    }
+    /// `name`'s recorded install as the grid built it (before 2.x's requests), started as `serve` starts it, walked by its sign-in
+    /// and then `steps`: this crate's answers, the sign-in's two left out.
+    pub async fn walk(name: &str, steps: Vec<Value>) -> (tempfile::TempDir, Vec<Value>) {
+        let shard = page_inventory()["shards"].as_array().unwrap().iter().position(|s| s.as_array().unwrap().iter().any(|n| n == name)).expect("a recorded scenario");
+        let recording = grid_recording(&format!("shard-{shard}"));
+        let dir = tempfile::tempdir().unwrap();
+        common::copy_tree(&recording.path.join("input").join(name), dir.path());
+        deltabadger::store::test_support::migrate(&rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap()).unwrap();
+        let mut scenario = scenario(dir.path());
+        let sign_in: Vec<Value> = scenario["steps"].as_array().unwrap()[..2].to_vec();
+        assert!(sign_in[1]["path"] == "/login" && sign_in[1]["method"] == "POST", "{name} signs in first");
+        scenario["steps"] = json!([sign_in, steps].concat());
+        std::fs::write(dir.path().join("scenario.json"), scenario.to_string()).unwrap();
+        let answers = run(dir.path()).await["responses"].as_array().unwrap()[2..].to_vec();
+        (dir, answers)
+    }
+    pub fn raw(answer: &Value) -> String { answer["raw"].as_str().unwrap_or_default().to_string() }
+    pub fn location(answer: &Value) -> String { answer["headers"]["location"].as_str().unwrap_or_default().to_string() }
+    pub fn select(s: &str) -> scraper::Selector { scraper::Selector::parse(s).unwrap() }
+    /// The answer's status and where it sends the browser: a 302's Location, a stream's redirect, else nothing.
+    pub fn went(answer: &Value) -> (u64, String) {
+        let to = location(answer);
+        let streamed = scraper::Html::parse_fragment(&raw(answer)).select(&select("turbo-stream[action=redirect]")).next().and_then(|s| s.value().attr("target").map(str::to_string));
+        (answer["status"].as_u64().unwrap(), if to.is_empty() { streamed.unwrap_or_default() } else { to })
+    }
+    /// Each track item: "text:state" and what it does ("plain", "GET url" or "POST url field=value…"), as tests/settings.rs reads it.
+    pub fn track(answer: &Value) -> Vec<String> {
+        let page = scraper::Html::parse_document(&raw(answer));
+        assert_eq!(page.select(&select("ol.sheet__track")).count(), 1, "one track: {}", raw(answer));
+        page.select(&select("ol.sheet__track > li")).map(|step| {
+            let class = step.value().attr("class").unwrap();
+            let state = if class.contains("sheet__step--done") { "done" } else if class.contains("sheet__step--current") { "current" } else { "upcoming" };
+            let shown = step.text().map(str::trim).filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ");
+            let action = if let Some(a) = step.select(&select("a")).next() {
+                assert_eq!(a.value().attr("data-wizard-dir"), Some("back"), "a track link goes back");
+                format!("GET {}", a.value().attr("href").unwrap())
+            } else if let Some(f) = step.select(&select("form")).next() {
+                let fields: Vec<String> = f.select(&select("input[type=hidden]")).filter(|i| i.value().attr("name") != Some("authenticity_token"))
+                    .map(|i| format!("{}={}", i.value().attr("name").unwrap(), i.value().attr("value").unwrap())).collect();
+                format!("POST {} {}", f.value().attr("action").unwrap(), fields.join(",")).trim_end().to_string()
+            } else { "plain".to_string() };
+            format!("{shown}:{state} {action}")
+        }).collect()
+    }
+    /// The step inside the sheet, the way every DCA step is drawn.
+    pub fn in_sheet(answer: &Value) {
+        let page = scraper::Html::parse_document(&raw(answer));
+        assert!(page.select(&select("div.sheet turbo-frame.sheet__frame#modal_content div.sheet__pane")).next().is_some(), "the sheet: {}", raw(answer));
+        assert!(!raw(answer).contains("dialogview") && !raw(answer).contains("conversational") && !raw(answer).contains("process-progress"), "no full-page dialog, sentence or progress bar");
+    }
+    /// The Asset / Index switch: each option's (label, href, frame, aria-current).
+    pub fn switch(answer: &Value) -> Vec<(String, String, String, Option<String>)> {
+        let page = scraper::Html::parse_document(&raw(answer));
+        let controls: Vec<_> = page.select(&select(".wizard-search .segmented")).collect();
+        assert_eq!(controls.len(), 1, "one switch: {}", raw(answer));
+        assert!(controls[0].value().attr("data-segmented-frame").is_none(), "no page history");
+        controls[0].select(&select("a.segmented__option")).map(|a| (a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string(),
+            a.value().attr("data-turbo-frame").unwrap_or_default().to_string(), a.value().attr("aria-current").map(str::to_string))).collect()
+    }
+    pub fn switch_of(prefix: &str, index_shown: bool) -> Vec<(String, String, String, Option<String>)> {
+        let current = |on: bool| on.then(|| "page".to_string());
+        vec![("Asset".into(), format!("{prefix}{ASSETS}?kind=asset"), "modal_content".into(), current(!index_shown)),
+             ("Index".into(), format!("{prefix}{ASSETS}?kind=index"), "modal_content".into(), current(index_shown))]
+    }
+    /// The Index view's rows: each one's index (its category id, the form's `index_type` value), in order.
+    pub fn index_rows(answer: &Value) -> Vec<(String, String)> {
+        let page = scraper::Html::parse_document(&raw(answer));
+        page.select(&select("form[action$='/bots/dca_indexes/pick_index'] button.index-row")).map(|b| {
+            (b.value().attr("data-index-category-id").unwrap().to_string(), b.value().attr("value").unwrap().to_string())
+        }).collect()
+    }
+    pub fn rows_of(ids: &[&str]) -> Vec<(String, String)> {
+        ids.iter().map(|id| (id.to_string(), if *id == "top-coins" { "top" } else { "category" }.to_string())).collect()
+    }
+    pub fn config(answer: &Value) -> Value { answer["session"]["bot_config"].clone() }
+    pub fn bot_row(dir: &Path) -> (Value, i64) {
+        let exchange = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap().query_row("SELECT exchange_id FROM bots WHERE id = 1", [], |r| r.get(0)).unwrap();
+        (rows(dir, "bots", &BOT_COLUMNS), exchange)
+    }
+    /// What 2.x created at the end of `name`: its bots rows, and the exchange its bot is on.
+    pub fn recorded_bot(name: &str, exchange: i64) -> (Value, i64) {
+        let shard = page_inventory()["shards"].as_array().unwrap().iter().position(|s| s.as_array().unwrap().iter().any(|n| n == name)).unwrap();
+        let expected: Value = serde_json::from_str(&std::fs::read_to_string(grid_recording(&format!("shard-{shard}")).path.join("expected").join(name).join("expected.json")).unwrap()).unwrap();
+        (expected["bots"].clone(), exchange)
+    }
+}
+use index_in_wizard::{get, post, walk, went, track, switch, switch_of, index_rows, rows_of, config, in_sheet, raw, select, ASSETS};
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_the_chooser_is_skipped_and_the_switch_shows_one_list_at_a_time() {
+    // The owner has no advanced bots: New bot lands in the wizard. Asset first, the Index view, back to assets, a search, its next page.
+    let (_dir, answers) = walk("wizard_index_kraken_key", vec![
+        get("/bots/new", "modal"),                                                   // 0
+        get("/bots/dca_single_assets/pick_exchange/new", "modal"),                   // 1
+        post("/bots/dca_single_assets/order", json!({"flow": "asset_first"})),       // 2
+        get(ASSETS, "modal_content"),                                                // 3 the Asset view
+        get(&format!("{ASSETS}?kind=index"), "modal_content"),                       // 4 the Index view
+        get(ASSETS, "modal_content"),                                                // 5 no index in the session: assets
+        get(&format!("{ASSETS}?kind=asset&query="), "asset-picker"),                 // 6 a search from the Asset view
+        get("/de/bots/new", "modal"),                                                // 7
+        get("/de/bots/dca_single_assets/pick_exchange/new", "modal"),                // 8
+        post("/de/bots/dca_single_assets/order", json!({"flow": "asset_first"})),    // 9
+        get(&format!("/de{ASSETS}?kind=index"), "modal_content"),                    // 10
+    ]).await;
+    assert_eq!(went(&answers[0]), (302, "/bots/dca_single_assets/pick_exchange/new".into()), "D-CHOOSER-SKIPPED");
+    assert_eq!(config(&answers[0]), json!({}), "the wizard begun as the chooser begins it");
+    assert_eq!(went(&answers[2]), (302, ASSETS.into()));
+    in_sheet(&answers[3]);
+    assert_eq!(switch(&answers[3]), switch_of("", false));
+    let asset_view = scraper::Html::parse_document(&raw(&answers[3]));
+    assert!(asset_view.select(&select(".wizard-search form[data-turbo-frame=asset-picker] input[type=hidden][name=kind][value=asset]")).next().is_some(), "the search keeps the Asset view");
+    assert!(index_rows(&answers[3]).is_empty());
+    // The Index view: the same step, no basket and no Next, every index (asset first, nothing chosen: no venue narrows it).
+    in_sheet(&answers[4]);
+    assert_eq!(switch(&answers[4]), switch_of("", true));
+    assert_eq!(index_rows(&answers[4]), rows_of(&["nasdaq-100", "top-coins", "layer-1"]));
+    assert!(!raw(&answers[4]).contains("wizard-assets") && !raw(&answers[4]).contains("sheet__next"), "no basket, no Next");
+    assert_eq!(config(&answers[4]), config(&answers[3]), "a GET of the step writes nothing");
+    // Each row: the name, the members' stack, the description under them (its whole text in `title`), or the name alone.
+    let page = scraper::Html::parse_document(&raw(&answers[4]));
+    let row = |id: &str| page.select(&select(&format!("button.index-row[data-index-category-id='{id}']"))).next().unwrap();
+    let top = row("top-coins");
+    assert_eq!(top.select(&select(".index-row__name")).next().unwrap().text().collect::<String>().trim(), "Top Coins");
+    assert!(top.select(&select(".ticker-group .ticker")).count() >= 1, "the members' stack");
+    let described = top.select(&select(".index-row__description")).next().expect("the description under the name");
+    assert_eq!(described.value().attr("title"), Some("The largest coins by market cap."));
+    assert!(row("nasdaq-100").select(&select(".index-row__description")).next().is_none(), "no description: the first line alone");
+    assert!(page.select(&select("[data-controller~=index-filter] input[data-index-filter-target=input]")).next().is_some(), "filtered in the page");
+    // Back on assets: the search answers the asset-picker frame and its next page keeps the Asset view.
+    assert_eq!(switch(&answers[5]), switch_of("", false));
+    let found = scraper::Html::parse_document(&raw(&answers[6]));
+    assert!(found.select(&select("turbo-frame#asset-picker button[name='bots_dca_single_asset[base_asset_id]']")).next().is_some(), "assets, in the asset-picker frame");
+    assert!(index_rows(&answers[6]).is_empty());
+    let next = found.select(&select("turbo-frame[loading=lazy]")).next().expect("a next page").value().attr("src").unwrap().to_string();
+    assert!(next.contains("kind=asset") && next.contains("offset=20"), "{next}");
+    // In German the links keep the locale (the page under the sheet may be /de/bots or a bot's).
+    assert_eq!(went(&answers[7]), (302, "/de/bots/dca_single_assets/pick_exchange/new".into()));
+    assert_eq!(switch(&answers[10]).iter().map(|o| o.1.clone()).collect::<Vec<_>>(), [format!("/de{ASSETS}?kind=asset"), format!("/de{ASSETS}?kind=index")]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_advanced_bots_keep_the_chooser_without_its_index_tile() {
+    let mut chooser = get("/bots/new", "modal");
+    chooser["before"] = json!("advanced_bots");
+    let (_dir, answers) = walk("wizard_index_kraken_key", vec![chooser, post("/bots/dca_indexes", json!({}))]).await;
+    assert_eq!(answers[0]["status"], 200);
+    let page = scraper::Html::parse_document(&raw(&answers[0]));
+    let tiles: Vec<String> = page.select(&select("a.itile")).map(|a| a.value().attr("href").unwrap().to_string()).collect();
+    assert_eq!(tiles, ["/bots/dca_single_assets/pick_exchange/new", "/bots/signals/pick_buyable_asset/new"], "Portfolio and Signal");
+    // A stale create still restarts the wizard (D-LEGACY-STALE-CREATE), whose start is the chooser here.
+    assert_eq!(went(&answers[1]).1, "/bots/new");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_old_urls_and_index_steps_without_an_index_go_to_the_index_view() {
+    let index_view = format!("{ASSETS}?kind=index");
+    let (_dir, answers) = walk("wizard_index_kraken_key", vec![
+        get("/bots/new", "modal"),                                                   // 0 exchange first, nothing chosen
+        get("/bots/dca_indexes/setup_coingecko/new", "modal_content"),               // 1
+        get("/bots/dca_indexes/pick_index/new", "modal_content"),                    // 2
+        get("/bots/dca_indexes/pick_exchange/new", "modal_content"),                 // 3 no index chosen
+        get("/bots/dca_indexes/add_api_key/new", "modal_content"),                   // 4
+        get("/bots/dca_indexes/pick_spendable_asset/new", "modal_content"),          // 5
+        get(&index_view, "modal_content"),                                           // 6 exchange first, no venue: its step
+        get("/bots/dca_single_assets/pick_exchange/new", "modal_content"),           // 7
+        post("/bots/dca_single_assets/pick_exchange", json!({"bots_dca_single_asset[exchange_id]": "3"})), // 8 Kraken, no key yet
+        get(&index_view, "modal_content"),                                           // 9 a venue, no key: the key step
+        get("/de/bots/dca_indexes/pick_index/new", "modal_content"),                 // 10
+    ]).await;
+    for at in [1, 2, 3, 4, 5] { assert_eq!(went(&answers[at]), (302, index_view.clone()), "step {at}"); }
+    assert_eq!(went(&answers[6]), (302, "/bots/dca_single_assets/pick_exchange/new".into()), "the earlier step first, kind dropped");
+    assert_eq!(went(&answers[8]), (302, "/bots/dca_single_assets/add_api_key/new".into()));
+    assert_eq!(went(&answers[9]), (302, "/bots/dca_single_assets/add_api_key/new".into()));
+    assert_eq!(went(&answers[10]), (302, format!("/de{index_view}")));
+}
+
+/// Picks `index` on the Index view and walks to the created bot in either order on `name`'s install; the key steps submit `key`
+/// when the venue has none yet (else they pass on). Returns the install and the answers.
+async fn index_bot(name: &str, asset_first: bool, exchange: &str, index: Value, key: Option<Value>, quote: &str) -> (tempfile::TempDir, Vec<Value>) {
+    walk(name, index_bot_steps(asset_first, exchange, index, key, quote)).await
+}
+
+fn index_bot_steps(asset_first: bool, exchange: &str, index: Value, key: Option<Value>, quote: &str) -> Vec<Value> {
+    let mut steps = vec![get("/bots/new", "modal"), get("/bots/dca_single_assets/pick_exchange/new", "modal")];
+    let key_step = |namespace: &str| -> Vec<Value> {
+        match &key { Some(form) => vec![get(&format!("/bots/{namespace}/add_api_key/new"), "modal_content"), post(&format!("/bots/{namespace}/add_api_key"), form.clone())],
+                     None => vec![get(&format!("/bots/{namespace}/add_api_key/new"), "modal_content")] }
+    };
+    if asset_first {
+        steps.extend([post("/bots/dca_single_assets/order", json!({"flow": "asset_first"})), get(&format!("{ASSETS}?kind=index"), "modal_content"),
+                      post("/bots/dca_indexes/pick_index", index), get("/bots/dca_indexes/add_api_key/new", "modal_content"),
+                      get("/bots/dca_indexes/pick_exchange/new", "modal_content"), post("/bots/dca_indexes/pick_exchange", json!({"bots_dca_index[exchange_id]": exchange}))]);
+        steps.extend(key_step("dca_indexes"));
+    } else {
+        steps.push(post("/bots/dca_single_assets/pick_exchange", json!({"bots_dca_single_asset[exchange_id]": exchange})));
+        steps.extend(key_step("dca_single_assets"));
+        steps.extend([get(&format!("{ASSETS}?kind=index"), "modal_content"), post("/bots/dca_indexes/pick_index", index), get("/bots/dca_indexes/add_api_key/new", "modal_content")]);
+    }
+    steps.extend([get("/bots/dca_indexes/pick_spendable_asset/new", "modal_content"), post("/bots/dca_indexes/pick_spendable_asset", json!({"bots_dca_index[quote_asset_id]": quote}))]);
+    steps
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_both_orders_create_the_bots_v2_created() {
+    let top = || json!({"index_type": "top", "index_category_id": "", "index_name": ""});
+    let layer1 = || json!({"index_type": "category", "index_category_id": "layer-1", "index_name": "Layer 1 <L1>"});
+    let kraken = || Some(json!({"api_key[key]": "kraken-correct", "api_key[secret]": "c2VjcmV0"}));
+    let alpaca = || Some(json!({"api_key[key]": "PKTEST", "api_key[secret]": "c2VjcmV0", "api_key[passphrase]": "paper"}));
+    for asset_first in [true, false] {
+        for (name, exchange, index, key, quote) in [("wizard_index_kraken_key", "3", top(), kraken(), "18"), ("wizard_index_layer1_binance", "4", layer1(), None, "19"),
+                                                    ("wizard_index_top_alpaca", "1", top(), alpaca(), "1")] {
+            let picked = index["index_category_id"].as_str().filter(|id| !id.is_empty()).unwrap_or("top-coins").to_string();
+            let steps = index_bot_steps(asset_first, exchange, index, key, quote);
+            let view = steps.iter().position(|step| step["path"].as_str().unwrap().ends_with("?kind=index")).unwrap();
+            let (dir, answers) = walk(name, steps).await;
+            assert!(index_rows(&answers[view]).iter().any(|(id, _)| *id == picked), "{name}: the Index view offers {picked}: {}", raw(&answers[view]));
+            // Every step drawn on the way, the index's own included, is the sheet.
+            for answer in answers.iter().filter(|a| a["status"] == 200 && raw(a).contains("id=\"modal_content\"")) { in_sheet(answer); }
+            let last = answers.last().unwrap();
+            assert_eq!(went(last), (200, "/bots/1".into()), "{name} (asset first: {asset_first}): {:?}", answers.iter().map(went).collect::<Vec<_>>());
+            assert_eq!(index_in_wizard::bot_row(dir.path()), index_in_wizard::recorded_bot(name, exchange.parse().unwrap()), "{name} (asset first: {asset_first})");
+        }
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_the_index_track_on_each_step_in_both_orders() {
+    let top = json!({"index_type": "top", "index_category_id": "", "index_name": ""});
+    let key = Some(json!({"api_key[key]": "kraken-correct", "api_key[secret]": "c2VjcmV0"}));
+    let (assets, exchange) = (ASSETS.to_string(), "/bots/dca_indexes/pick_exchange/new");
+    // Asset first: 0 bots/new, 1 exchange step, 2 order, 3 Index view, 4 pick, 5 key (no venue), 6 exchange step, 7 venue, 8 key step,
+    // 9 key, 10 quote step, 11 create.
+    let (_dir, answers) = index_bot("wizard_index_kraken_key", true, "3", top.clone(), key.clone(), "18").await;
+    assert_eq!(went(&answers[4]), (302, "/bots/dca_indexes/add_api_key/new".into()));
+    assert_eq!(went(&answers[5]), (302, exchange.into()), "no venue yet: the index exchange step");
+    in_sheet(&answers[6]);
+    assert_eq!(track(&answers[6]), [format!("Top 10:done GET {assets}"), "Exchange:current plain".into(), "Currency:upcoming plain".into()]);
+    let venues = scraper::Html::parse_document(&raw(&answers[6]));
+    assert!(venues.select(&select(".sheet__search")).next().is_none(), "D-EXCHANGE-NO-SEARCH: no search on the exchange step");
+    assert!(venues.select(&select("turbo-frame#exchange-picker section.exchange-group button.exchange-grid__item")).count() >= 2, "Brokers / Exchanges");
+    in_sheet(&answers[8]);
+    assert_eq!(track(&answers[8]), [format!("Top 10:done GET {assets}"), "Kraken:current plain".into(), "Currency:upcoming plain".into()]);
+    assert_eq!(went(&answers[9]), (200, "/bots/dca_indexes/pick_spendable_asset/new".into()), "a correct key: on to the quote, in the sheet");
+    in_sheet(&answers[10]);
+    assert_eq!(track(&answers[10]), [format!("Top 10:done GET {assets}"), format!("Kraken:done GET {exchange}"), "Currency:current plain".into()]);
+    let quote = scraper::Html::parse_document(&raw(&answers[10]));
+    assert!(quote.select(&select(".sheet__search form[data-turbo-frame=asset-picker][action='/bots/dca_indexes/pick_spendable_asset/new']")).next().is_some(), "the quote's search box");
+    assert!(quote.select(&select("turbo-frame#asset-picker button[name='bots_dca_index[quote_asset_id]'] .ticker-group")).next().is_some(), "the rows with their members");
+    // Exchange first: 0 bots/new, 1 exchange step, 2 venue, 3 key step, 4 key, 5 Index view, 6 pick, 7 index key step (correct), 8 quote.
+    let (_dir, answers) = index_bot("wizard_index_kraken_key", false, "3", top, key, "18").await;
+    assert_eq!(went(&answers[4]).1, ASSETS, "the DCA key step goes on to the assets");
+    in_sheet(&answers[5]);
+    assert_eq!(track(&answers[5]), ["Kraken:done POST /bots/dca_single_assets/pick_buyable_asset/advance to=exchange".to_string(), "Assets:current plain".into(), "Currency:upcoming plain".into()],
+               "no index chosen yet: the DCA track");
+    assert_eq!(index_rows(&answers[5]), rows_of(&["nasdaq-100", "top-coins"]), "narrowed to Kraken: Layer 1 is Binance's");
+    assert_eq!(went(&answers[7]), (302, "/bots/dca_indexes/pick_spendable_asset/new".into()));
+    assert_eq!(track(&answers[8]), [format!("Kraken:done GET {exchange}"), format!("Top 10:done GET {assets}"), "Currency:current plain".into()]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_revisit_lists_the_venues_indices_and_one_index_or_one_basket() {
+    let top = json!({"index_type": "top", "index_category_id": "", "index_name": ""});
+    let layer1 = json!({"index_type": "category", "index_category_id": "layer-1", "index_name": "Layer 1 <L1>"});
+    // Asset first to the quote step (answers[10]; its create not sent), then back to the Assets step.
+    let mut steps = index_bot_steps(true, "3", top.clone(), Some(json!({"api_key[key]": "kraken-correct", "api_key[secret]": "c2VjcmV0"})), "18");
+    steps.pop();
+    steps.extend([
+        get(ASSETS, "modal_content"),                                                // 11 the index chosen: the Index view
+        post("/bots/dca_indexes/pick_index", layer1.clone()),                        // 12 not Kraken's
+        post("/bots/dca_indexes/pick_index", json!({"index_type": "category", "index_category_id": "nope", "index_name": "x"})), // 13 forged
+        post("/bots/dca_indexes/pick_index", top.clone()),                           // 14 another pick replaces the first
+        get(&format!("{ASSETS}?kind=asset"), "modal_content"),                       // 15 the Asset view: Kraken's assets
+        post("/bots/dca_single_assets/pick_buyable_asset", json!({"bots_dca_single_asset[base_asset_id]": "16"})), // 16 the first asset: BTC, on Kraken
+        get(&format!("{ASSETS}?kind=index"), "modal_content"),                       // 17
+        post("/bots/dca_indexes/pick_index", top),                                   // 18 an index over the basket
+    ]);
+    let (_dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    assert_eq!(switch(&answers[11]), switch_of("", true), "the session's index: the Index view");
+    assert_eq!(index_rows(&answers[11]), rows_of(&["nasdaq-100", "top-coins"]), "Kraken's");
+    assert_eq!(track(&answers[11]), ["Top 10:current plain".to_string(), "Kraken:upcoming GET /bots/dca_indexes/pick_exchange/new".into(), "Currency:upcoming plain".into()]);
+    for at in [12, 13] {
+        assert_eq!(answers[at]["status"], 422, "an index the list does not offer: {at}");
+        assert!(raw(&answers[at]).contains(&deltabadger::web::i18n::text("en", "bot.dca_index.setup.pick_index.error", &[])), "{at}");
+        assert_eq!(config(&answers[at]), config(&answers[11]), "nothing written: {at}");
+    }
+    assert_eq!(went(&answers[14]), (302, "/bots/dca_indexes/add_api_key/new".into()));
+    assert_eq!(config(&answers[14])["exchange_id"], json!("3"));
+    // The Asset view after an index: narrowed to Kraken; the first asset keeps the venue and clears the index.
+    assert_eq!(switch(&answers[15]), switch_of("", false));
+    assert_eq!(went(&answers[16]).0, 302);
+    let basket = config(&answers[16]);
+    assert_eq!(basket["exchange_id"], json!("3"), "the venue stays");
+    assert_eq!(basket["settings"]["base_asset_ids"], json!([16]));
+    for key in ["index_type", "index_category_id", "index_name", "index_name_prefix", "allocation_flattening"] { assert!(basket["settings"].get(key).is_none(), "{key}: {basket}"); }
+    // An index over a non-empty basket replaces it, without a question.
+    assert_eq!(went(&answers[18]), (302, "/bots/dca_indexes/add_api_key/new".into()));
+    let index = config(&answers[18]);
+    assert_eq!(index["settings"]["index_type"], json!("top"));
+    for key in ["base_asset_ids", "base_asset_id", "quote_asset_id"] { assert!(index["settings"].get(key).is_none(), "{key}: {index}"); }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_market_data_is_connected_in_the_index_view() {
+    let index_view = format!("{ASSETS}?kind=index");
+    let widget = |answer: &Value| {
+        let page = scraper::Html::parse_document(&raw(answer));
+        let frame = page.select(&select("turbo-frame#market_data_settings")).next().unwrap_or_else(|| panic!("the market-data widget: {}", raw(answer)));
+        let forms: Vec<_> = frame.select(&select("form")).collect();
+        assert!(!forms.is_empty());
+        for form in &forms { assert!(form.select(&select("input[type=hidden][name=wizard][value='1']")).next().is_some(), "wizard=1 in {}", form.html()); }
+        assert!(frame.select(&select(".srow--heading")).next().is_none(), "no section heading");
+        assert!(!frame.html().contains("/settings/disconnect_market_data") && !frame.html().contains("name=\"_method\" value=\"delete\""), "no Disconnect");
+        frame.html()
+    };
+    let stays = |answer: &Value| { assert_eq!(answer["status"], 422, "{}", raw(answer)); widget(answer); };
+    let redirected = |answer: &Value| assert_eq!(went(answer), (200, index_view.clone()), "{}", raw(answer));
+    let card = |provider: &str| format!("{index_view}&provider={provider}");
+    let patch = |fields: Value| { let mut form = json!({"_method": "patch"}); for (k, v) in fields.as_object().unwrap() { form[k] = v.clone(); } post("/settings/update_market_data", form) };
+    let (_dir, answers) = walk("wizard_index_unconfigured", vec![
+        get("/bots/new", "modal"),                                                                            // 0
+        get("/bots/dca_single_assets/pick_exchange/new", "modal"),                                            // 1
+        post("/bots/dca_single_assets/order", json!({"flow": "asset_first"})),                                // 2
+        get(&index_view, "modal_content"),                                                                    // 3 the providers
+        get(&card("coingecko"), "modal_content"),                                                             // 4 CoinGecko's card
+        patch(json!({"market_data_provider": "coingecko", "coingecko_api_key": "CG-bad-key", "wizard": "1"})), // 5
+        patch(json!({"market_data_provider": "coingecko", "wizard": "1"})),                                   // 6 no key: its card
+        get(&card("deltabadger"), "modal_content"),                                                           // 7 Deltabadger's card
+        post("/settings/platform_connection", json!({"claim_code": "dbc_bad", "wizard": "1"})),              // 8
+        get(&card("coingecko"), "modal_content"),                                                             // 9
+        patch(json!({"market_data_provider": "coingecko", "coingecko_api_key": "CG-good-key", "wizard": "1"})), // 10
+        get("/bots/dca_indexes/pick_exchange/new", "modal_content"),                                          // 11 configured, no index: the view
+        patch(json!({"market_data_provider": ""})),                                                           // 12 off again, as Settings
+        get(&card("deltabadger"), "modal_content"),                                                           // 13
+        post("/settings/platform_connection", json!({"claim_code": "dbc_ok", "wizard": "1"})),               // 14 a connect code
+        patch(json!({"market_data_provider": ""})),                                                           // 15 off: the platform stays claimed
+        get(&card("deltabadger"), "modal_content"),                                                           // 16 the claimed platform's Connect
+        patch(json!({"market_data_provider": "deltabadger", "wizard": "1"})),                                 // 17
+        patch(json!({"market_data_provider": "deltabadger"})),                                                // 18 without wizard=1: as before
+    ]).await;
+    in_sheet(&answers[3]);
+    assert_eq!(switch(&answers[3]), switch_of("", true), "the switch above the providers");
+    assert!(index_rows(&answers[3]).is_empty());
+    let page = scraper::Html::parse_document(&raw(&answers[3]));
+    let tiles: Vec<(String, String, String)> = page.select(&select(".exchange-group .exchange-grid a.exchange-grid__item")).map(|a| (a.value().attr("aria-label").unwrap().to_string(), a.text().collect::<String>().trim().to_string(), a.value().attr("href").unwrap().to_string())).collect();
+    // CoinGecko's wordmark draws its name; deltabadger's logo sits beside the lowercase name.
+    assert_eq!(tiles, [("CoinGecko".into(), String::new(), card("coingecko")), ("deltabadger".into(), "deltabadger".into(), card("deltabadger"))]);
+    assert_eq!(page.select(&select(".exchange-group h3.label")).next().unwrap().text().collect::<String>().trim(), deltabadger::web::i18n::text("en", "bot.setup.market_data.providers", &[]));
+    assert!(raw(&answers[3]).contains(&deltabadger::web::i18n::text("en", "bot.setup.market_data.intro", &[])));
+    assert!(!raw(&answers[3]).contains("market_data_settings"), "no form before a provider is picked");
+    // Each provider's card: the key card's layout, posting where Settings posts.
+    for (at, field, action) in [(4, "coingecko_api_key", "/settings/update_market_data"), (7, "claim_code", "/settings/platform_connection")] {
+        in_sheet(&answers[at]);
+        let card = widget(&answers[at]);
+        assert!(card.contains("set-api--connect") && card.contains(&format!("name=\"{field}\"")) && card.contains(&format!("action=\"{action}\"")), "{at}: {card}");
+        // D-KEY-LOGO-BACK: the provider's logo and name are Back, to the providers.
+        let brand = scraper::Html::parse_fragment(&card);
+        assert_eq!(brand.select(&select("a.set-api__back[data-wizard-dir=back] .set-api__mark + h2.set-api__title")).count(), 1, "{at}: {card}");
+    }
+    // Deltabadger's card: the subscription's three perks under the Deltabadger API link, not Settings' line.
+    let perks = widget(&answers[7]);
+    assert!(perks.contains(">Deltabadger API</a>") && !perks.contains("Self-hosted"), "{perks}");
+    for perk in ["indexes_title", "history_title", "ip_title"] {
+        assert!(perks.contains(&format!("<p><b>{}</b><br>", deltabadger::web::i18n::text("en", &format!("bot.setup.market_data.subscription.{perk}"), &[]))), "{perk}");
+    }
+    // A refused key: its flash, the card left in place, as Settings answers; a missing key: its card again; a refused code: the
+    // card again with the error under its field.
+    assert_eq!(answers[5]["status"], 422);
+    assert!(raw(&answers[5]).contains(&deltabadger::web::i18n::text("en", "setup.invalid_coingecko_api_key", &[])) && !raw(&answers[5]).contains("action=\"redirect\""));
+    assert_eq!(answers[6]["status"], 200);
+    assert!(widget(&answers[6]).contains("name=\"coingecko_api_key\""));
+    stays(&answers[8]);
+    assert!(widget(&answers[8]).contains("sform__error"));
+    redirected(&answers[10]);
+    assert_eq!(went(&answers[11]), (302, index_view.clone()), "an index step with no index chosen");
+    assert!(!raw(&answers[12]).contains("turbo-stream action=\"redirect\""), "Settings' own write answers as before");
+    redirected(&answers[14]);
+    let claimed = widget(&answers[16]);
+    assert!(!claimed.contains("claim_code") && claimed.contains("value=\"deltabadger\""), "the claimed platform: Connect alone: {claimed}");
+    redirected(&answers[17]);
+    assert!(!raw(&answers[18]).contains("turbo-stream action=\"redirect\""), "without wizard=1, as before");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_member_is_told_who_connects_market_data() {
+    let (_dir, answers) = walk("wizard_index_unconfigured_member", vec![
+        get("/bots/new", "modal"), get("/bots/dca_single_assets/pick_exchange/new", "modal"),
+        post("/bots/dca_single_assets/order", json!({"flow": "asset_first"})), get(&format!("{ASSETS}?kind=index"), "modal_content"),
+    ]).await;
+    in_sheet(&answers[3]);
+    assert_eq!(switch(&answers[3]), switch_of("", true));
+    assert!(raw(&answers[3]).contains(&deltabadger::web::i18n::text("en", "setup.coingecko_admin_only", &[])));
+    assert!(!raw(&answers[3]).contains("market_data_settings"), "no widget: its writes are the admin's");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_market_data_lost_mid_flow_goes_back_to_the_index_view() {
+    let top = json!({"index_type": "top", "index_category_id": "", "index_name": ""});
+    // Walked to the quote step (its create not sent), then the market data removed: each index step, and a search on it, goes
+    // to the Index view.
+    let mut steps = index_bot_steps(true, "4", top, None, "19");
+    steps.pop();
+    let mut lost = json!({"method": "GET", "path": "/bots/dca_indexes/pick_spendable_asset/new?query=us", "headers": {"Turbo-Frame": "asset-picker"}, "raw": true});
+    lost["before"] = json!("no_market_data");
+    steps.extend([lost, get("/bots/dca_indexes/pick_exchange/new?query=bin", "exchange-picker"), get("/bots/dca_indexes/add_api_key/new", "modal_content")]);
+    let (_dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    for answer in &answers[answers.len() - 3..] { assert_eq!(went(answer), (302, format!("{ASSETS}?kind=index"))); }
 }

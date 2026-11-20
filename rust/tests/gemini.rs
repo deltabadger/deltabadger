@@ -369,10 +369,10 @@ fn a_base_plan_and_every_venue_without_a_cross_are_untouched() {
     // No cross: no wire price, a Market order, the base as it is.
     let kraken = plan.clone().with_wire_price(&KRAKEN, &bd("100"), false).unwrap();
     assert!(kraken.wire_price.is_none());
-    assert_eq!(kraken.to_order("c".into(), t0(), KRAKEN.wire).unwrap().kind, OrderKind::Market);
+    assert_eq!(kraken.to_order("c".into(), t0(), &KRAKEN).unwrap().kind, OrderKind::Market);
     // A Gemini sell of 1 base at bid 100: still 1 base (never 1.0101), at the crossed 99.
     let gemini = plan.clone().with_wire_price(&GEMINI, &bd("100"), false).unwrap();
-    let o = gemini.to_order("c".into(), t0(), GEMINI.wire).unwrap();
+    let o = gemini.to_order("c".into(), t0(), &GEMINI).unwrap();
     assert_eq!((o.kind, o.volume.as_str()), (OrderKind::Crossed { price: "99.0".into() }, "1.0"), "BigDecimal#to_s('F')");
     // A limit plan is never crossed.
     let limit = amount::OrderPlan { limit: true, ..plan }.with_wire_price(&GEMINI, &bd("100"), false).unwrap();

@@ -55,6 +55,9 @@ pub struct Draft {
     pub added: Vec<FieldError>,
     parse_errors: Vec<FieldError>,
     exchange_missing: bool,
+    /// #710: the account a posted `account_id` names (the bot page's switch menu, with 2+ accounts on an exchange); the
+    /// candidate's exchange is its exchange. None: the posted exchange's number 1, or the bot's own account.
+    pub account: Option<crate::identity::Account>,
     error_codes: Vec<(String, String, String)>,
 }
 
@@ -118,7 +121,7 @@ impl Draft {
 
     pub fn from_bot(bot: Bot) -> Self {
         Self { raw_settings: bot.settings.clone(), raw_transient: bot.transient.clone(), baseline: bot.settings.clone(), candidate: bot.clone(), original: bot,
-            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, error_codes: vec![] }
+            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, account: None, error_codes: vec![] }
     }
 
     /// This draft's candidate as an unsaved change of `stored`: dirty tracking reads the stored row.
@@ -173,6 +176,19 @@ impl Draft {
             })).optional()?;
             self.exchange_missing = found.is_none();
             self.candidate.exchange = found.unwrap_or(Exchange { id, name: String::new(), class: String::new(), maker_fee: None });
+        }
+        // An account of another user reads as an exchange that does not exist: nothing is saved.
+        if let Some(posted) = fields.get("account_id").filter(|v| !v.is_null()) {
+            let id = numeric(posted, true)?.as_i64().unwrap_or(0);
+            let owner: Option<i64> = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [self.candidate.id], |r| r.get(0)).optional()?;
+            let account = crate::identity::Account::by_id(c, id)?.filter(|a| Some(a.user_id) == owner);
+            let found = match account { Some(a) => c.query_row("SELECT id, name, type, maker_fee FROM exchanges WHERE id = ?1", [a.exchange_id], |r| Ok(Exchange {
+                id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: r.get(3)?,
+            })).optional()?, None => None };
+            self.submitted_exchange_id = Some(json!(account.map_or(0, |a| a.exchange_id)));
+            self.exchange_missing = found.is_none();
+            self.candidate.exchange = found.unwrap_or(Exchange { id: 0, name: String::new(), class: String::new(), maker_fee: None });
+            self.account = account.filter(|_| !self.exchange_missing);
         }
         self.refresh(c)?;
         // D-IDX-SUBJECT-DEFAULT: a rule an index bot's save switches on with no subject posted is given the default one.
@@ -520,9 +536,19 @@ impl Draft {
         if starting && self.original.status == BotStatus::Archived { self.add("status", i18n::text(locale, "errors.bots.archived", &[])); }
         // #507: Bot#trading_key_ready runs in the start validation context, before subclass fields.
         if starting {
-            let key: Option<i64> = c.query_row(
-                "SELECT k.status FROM api_keys k JOIN bots b ON b.user_id=k.user_id WHERE b.id=?1 AND k.exchange_id=?2 AND k.key_type=0 ORDER BY k.id LIMIT 1",
-                (self.candidate.id,self.candidate.exchange.id), |row| row.get(0)).optional()?;
+            // #710: the bot's account's key while it stays on its exchange; on another exchange, that exchange's account.
+            let user: Option<i64> = c.query_row("SELECT user_id FROM bots WHERE id=?1", [self.candidate.id], |row| row.get(0)).optional()?;
+            let key: Option<i64> = match user {
+                None => None,
+                Some(user) => {
+                    let account = match (self.account, crate::identity::Account::of_bot(c, self.candidate.id)?) {
+                        (Some(account), _) => account,
+                        (None, Some(account)) if account.exchange_id == self.candidate.exchange.id => account,
+                        _ => crate::identity::Account::first(c, user, self.candidate.exchange.id)?,
+                    };
+                    c.query_row(&format!("SELECT k.status FROM api_keys k WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1", account.keys("k")), [], |row| row.get(0)).optional()?
+                }
+            };
             if key != Some(crate::enums::ApiKeyStatus::Correct as i64) {
                 self.add("base", i18n::text(locale, "engine.api_key_not_ready", &[]));
             }
@@ -549,7 +575,9 @@ impl Draft {
             if self.candidate.quote_asset.is_none() { self.error(locale, "quote_asset_id", "invalid", None); }
             if self.original.has_orders && self.raw_settings.get("quote_asset_id") != self.candidate.settings.get("quote_asset_id") { self.error(locale, "quote_asset_id", "unchangeable", None); }
             if self.original.working() && self.raw_settings.get("interval") != self.candidate.settings.get("interval") { self.add("settings", "Interval cannot be changed while the bot is running".into()); }
-            if self.original.has_waiting_orders && self.original.exchange.id != self.candidate.exchange.id {
+            // #710: and on another account of the exchange, whose key would never find them.
+            let account_moved = match self.account { Some(a) => crate::identity::Account::of_bot(c, self.candidate.id)? != Some(a), None => false };
+            if self.original.has_waiting_orders && (self.original.exchange.id != self.candidate.exchange.id || account_moved) {
                 self.add("exchange", i18n::text(locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", i18n::Arg::Text(&self.candidate.exchange.name))]));
             }
         }

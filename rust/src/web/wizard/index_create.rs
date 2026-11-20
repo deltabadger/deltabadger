@@ -257,7 +257,10 @@ pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Resu
                VALUES (?1, ?2, 'Bots::DcaIndex', 0, ?3, ?4, ?5, ?6, ?7, ?7, ?7)",
               // The settings column as ActiveRecord's JSON coder writes it (ActiveSupport escapes <, > and &: an index's name may hold them).
               rusqlite::params![user, bot.exchange_id, bot.label, position, crate::web::bots::json(&Value::Object(bot.settings)), transient.to_string(), at])?;
-    Ok(c.last_insert_rowid())
+    let id = c.last_insert_rowid();
+    // #710: on its exchange's number 1 (the wizard, REST and MCP name no other account before slice 7).
+    if let Some(exchange) = bot.exchange_id { crate::identity::place_bot(c, id, user, exchange, None, now)?; }
+    Ok(id)
 }
 
 #[cfg(test)]

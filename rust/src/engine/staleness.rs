@@ -180,7 +180,7 @@ fn record_at(c: &Connection, s: &Source) -> Result<Option<Option<Clock>>, Engine
     let row_at = if s.name == TOP_COINS.name { Some(column_at(c,s,None)?) } else { None };
     Ok(crate::jobs::state::find(c, s.job, None).map_err(EngineError::Data)?.map(|st| {
         let catalogue = st.source_at.filter(|_| st.catalogue).map(|at| (at, CATALOGUE_BOUND_SECS));
-        let hosted = if s.evidence { st.source_at.filter(|_| !st.catalogue) } else { st.last_success_at.max(st.rails_at) };
+        let hosted = if s.evidence { st.source_at.filter(|_| !st.catalogue) } else { st.last_success_at.max(st.v2_at) };
         let hosted = match row_at { Some(row) => hosted.zip(row).map(|(run,row)|run.min(row)), None => hosted };
         newest(hosted.map(|at| (at, s.max_age_secs)), catalogue)
     }))
@@ -366,7 +366,7 @@ pub fn ledger_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Opt
         return Ok(stale);
     }
     if model::exchange_type(c, bot)? != "Exchanges::Alpaca" || model::all_crypto(c, bot)? { return Ok(None); }
-    let key: Option<i64> = c.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1", rusqlite::params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
+    let key: Option<i64> = c.query_row(&format!("SELECT id FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1", model::bot_keys(c, bot)?), [], |r| r.get(0)).optional()?;
     let state = match key {
         Some(key) => crate::jobs::state::read(c, "ledger_sync", Some(&key.to_string())).map_err(EngineError::Data)?,
         None => crate::jobs::state::JobState::default(),

@@ -192,7 +192,7 @@
       "let version=result.origin().clone()"
     ],
     "tracker/jobs.rs": [
-      "let origin = crate::sync::cache::capture_read(&tx, user_id, None)",
+      "let origin = crate::sync::cache::capture_read(&tx, user_id, &crate::tracker::Scope::All)",
       "fence_read(&tx,origin)",
       "inputs.origin.with_balance_producers(&read)",
       "written_for(c, &origin, &*wall, |c, now| {",

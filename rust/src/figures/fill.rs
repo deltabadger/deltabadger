@@ -417,9 +417,11 @@ fn validate_raw(raw: &Raw) -> Result<(), FiguresError> {
 /// Exact stored bytes for synthetic parity snapshots only; never a money calculation.
 /// Keeping this here prevents a generic SELECT * from bypassing the fill-reader boundary.
 pub(crate) fn parity_rows(c: &Connection, table: &str, order: &str) -> rusqlite::Result<(Vec<String>, Vec<Vec<rusqlite::types::Value>>)> {
-    if !["bots","transactions","bot_activity_logs","bot_index_assets","assets","tickers","exchange_assets","indices","app_configs","account_transactions","account_balances","api_keys","portfolio_snapshots","portfolio_venue_snapshots","wash_sale_locks","historical_prices"].contains(&table)
+    if !["bots","transactions","bot_activity_logs","bot_index_assets","assets","tickers","exchange_assets","indices","app_configs","account_transactions",crate::sync::balance_store::V2_BALANCES,"api_keys","portfolio_snapshots",crate::sync::balance_store::V2_SNAPSHOTS,"wash_sale_locks","historical_prices"].contains(&table)
         || !["id","date","exchange_id, date"].contains(&order) { return Err(rusqlite::Error::InvalidQuery); }
-    let mut statement = c.prepare(&format!("SELECT * FROM {table} ORDER BY {order}"))?;
+    // #710 slice 5: 2.x's balances and venue snapshots are read from their stores, under 2.x's names and columns.
+    let from = crate::sync::balance_store::v2_projection(c, table)?.unwrap_or_else(|| table.to_string());
+    let mut statement = c.prepare(&format!("SELECT * FROM {from} ORDER BY {order}"))?;
     let names:Vec<String> = statement.column_names().iter().map(|n|n.to_string()).collect();
     let mut rows = statement.query([])?;
     let mut out = vec![];

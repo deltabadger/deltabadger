@@ -208,7 +208,7 @@ async fn m01_detection_refusal_has_no_intent_transaction_balance_or_placement_ef
         // The persisted refusal survives restart and contains no credential material.
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
         no_placement(&c, bot.id);
-        assert_eq!(c.query_row("SELECT count(*) FROM account_balances", [], |r| r.get::<_,i64>(0)).unwrap(), 0, "no synthetic balances");
+        assert_eq!(c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get::<_,i64>(0)).unwrap(), 0, "no synthetic balances");
         let transient: String = c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id=?1 AND event='execution_failed' ORDER BY id DESC LIMIT 1", [bot.id], |r| r.get(0)).unwrap();
         assert!(transient.contains("KuCoin"), "refusal is visible: {transient}");
         assert!(!transient.contains("secret") && !transient.contains("passphrase"));
@@ -346,7 +346,8 @@ async fn m03_detection_and_balance_races_preserve_stored_balances_and_watermark(
         let (dir, o, bot, plan) = engine_setup();
         let version = model::credential_version(&o.primary, &bot).unwrap().unwrap();
         let key = version.id;
-        o.primary.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at) VALUES(?1,?2,?3,17,3,'2026-10-29','2026-10-29','2026-10-29')", rusqlite::params![bot.user_id, bot.exchange_id, plan.ticker.base_asset_id]).unwrap();
+        common::number_one(&o.primary, bot.user_id, bot.exchange_id);
+        o.primary.execute("INSERT INTO exchange_account_balances(user_id,exchange_id,asset_id,free,locked,synced_at,created_at,updated_at,account_id) VALUES(?1,?2,?3,17,3,'2026-10-29','2026-10-29','2026-10-29',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))", rusqlite::params![bot.user_id, bot.exchange_id, plan.ticker.base_asset_id]).unwrap();
         let credentials = sync::validation_material(&o.primary, &common::seed::cipher(), key).unwrap().0;
         let t = ScriptedTransport::default();
         classic(&t, false);
@@ -375,7 +376,7 @@ async fn m03_detection_and_balance_races_preserve_stored_balances_and_watermark(
         }
         db.settled().await;
         let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-        assert_eq!(c.query_row("SELECT free,locked FROM account_balances", [], |r| Ok((r.get::<_,f64>(0)?,r.get::<_,f64>(1)?))).unwrap(), (17.0,3.0));
+        assert_eq!(c.query_row("SELECT free,locked FROM exchange_account_balances", [], |r| Ok((r.get::<_,f64>(0)?,r.get::<_,f64>(1)?))).unwrap(), (17.0,3.0));
         assert_eq!(c.query_row("SELECT last_synced_at FROM api_keys WHERE id=?1", [key], |r| r.get::<_,Option<String>>(0)).unwrap(), None);
         no_placement(&c, bot.id);
     }
@@ -1184,7 +1185,7 @@ async fn r1_known_fills_bound_a_settlement() {
     known_fill(&o.primary, 1, bot.exchange_id, "2", &ext, "0.0002", "12", "0.012");
     o.primary.execute_batch("CREATE TEMP TABLE u AS SELECT * FROM users WHERE id = 1; UPDATE u SET id = 2, email = 'two@example.test'; INSERT INTO users SELECT * FROM u;").unwrap();
     known_fill(&o.primary, 2, bot.exchange_id, "3", &ext, "0.9", "9000", "9");
-    let k = reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "ClassicHf").unwrap();
+    let k = reconcile::known_fills(&o.primary, &deltabadger::identity::Account::first(&o.primary, 1, bot.exchange_id).unwrap(), &ext, "ClassicHf").unwrap();
     assert_eq!((k.size.to_s_f(), k.funds.to_s_f(), k.fees["EUR"].to_s_f()), ("0.0005".into(), "30.0".into(), "0.03".into()));
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0004", "24"));
     t.reply(&format!("GET /api/v1/hf/orders/{ext}?symbol=BTC-EUR"), 200, hf_answer(&ext, false, true, "0.0005", "30"));
@@ -1799,7 +1800,7 @@ async fn unmigrated_install_reads_stand() {
     let (_dir, o, bot, _t, _v, id, ext) = placed("KEY-A", false).await;
     o.primary.execute_batch("DROP TABLE IF EXISTS kucoin_withheld_fills; DROP TABLE IF EXISTS kucoin_coverage;").unwrap();
     known_fill(&o.primary, 1, bot.exchange_id, "1", &ext, "0.0002", "12", "0.02");
-    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "ClassicHf").unwrap().size.to_s_f(), "0.0002");
+    assert_eq!(reconcile::known_fills(&o.primary, &deltabadger::identity::Account::first(&o.primary, 1, bot.exchange_id).unwrap(), &ext, "ClassicHf").unwrap().size.to_s_f(), "0.0002");
     assert!(reconcile::barrier(&o.primary, bot.id).unwrap().is_none());
     assert_eq!(reconcile(&o.primary, id, &bundle(&o.primary, id, "closed", "0.001", "60", eur("0.06"), attested("x"))).unwrap(), reconcile::Operator::Reconciled);
 }
@@ -2539,7 +2540,7 @@ async fn u3a_known_fills_of_a_uta_row_are_the_uta_familys() {
     let (_dir, o, bot, t, v, id, ext) = uta_placed(true).await;
     uta_known_fill(&o.primary, bot.exchange_id, "1", &ext, "0.002", "Uta");
     uta_known_fill(&o.primary, bot.exchange_id, "2", &ext, "0.9", "ClassicHf");
-    assert_eq!(reconcile::known_fills(&o.primary, 1, bot.exchange_id, &ext, "Uta").unwrap().size.to_s_f(), "0.002");
+    assert_eq!(reconcile::known_fills(&o.primary, &deltabadger::identity::Account::first(&o.primary, 1, bot.exchange_id).unwrap(), &ext, "Uta").unwrap().size.to_s_f(), "0.002");
     t.reply(&detail_key(&ext), 200, uta_detail(&ext, 6, "0.001", "LIMIT"));
     executions(&t, &ext, &[("T1", "0.001", "50")], 7);
     let _ = polling::sweep(&o.primary, &v, &model::load_bot(&o.primary, bot.id).unwrap(), now).await;

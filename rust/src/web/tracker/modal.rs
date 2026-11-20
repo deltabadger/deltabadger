@@ -82,16 +82,11 @@ pub async fn export_modal(State(app):State<App>,Extension(ctx):Extension<Ctx>)->
     }).await
 }
 
-/// tracker/setup_coingecko: the key form for an admin, for anyone else who to ask.
-#[derive(Template)]
-#[template(path="tracker/setup_coingecko.html")]
-struct Setup<'a>{ctx:&'a Ctx,admin:bool,title:String,how:String,csrf:String}
-
+/// D-TRACKER-COINGECKO-SHEET: the CoinGecko card in the sheet closing to the tracker, no track: the key form for an admin, for
+/// anyone else who to ask.
 fn setup_page(ctx:&Ctx)->Result<Response,WebError>{
-    use crate::web::i18n::{t,Arg};
-    let admin=ctx.user().is_some_and(|u|u.admin);
-    let page=Setup{ctx,admin,title:t(ctx.locale,"bot.setup.connect_to",&[("name",Arg::Text("CoinGecko"))]),
-        how:t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",Arg::Text("CoinGecko"))]),csrf:ctx.csrf_token()}.render()?;
+    let card=crate::web::settings::sections::tracker_coingecko_card(ctx,&ctx.csrf_token(),ctx.user().is_some_and(|u|u.admin),None);
+    let page=crate::web::wizard::sheet_to(ctx,"/tracker","",&crate::web::wizard::keys::key_pane(&card)?)?;
     Ok(([(header::CONTENT_TYPE,"text/html; charset=utf-8")],page).into_response())
 }
 
@@ -108,7 +103,12 @@ pub async fn setup_coingecko(State(app):State<App>,Extension(ctx):Extension<Ctx>
     let Some(user)=ctx.user()else{return Ok(auth::unauthenticated(&ctx))};
     if !user.admin{return Ok(md::head(axum::http::StatusCode::FORBIDDEN))}
     let key=ctx.params.form("api_key").unwrap_or_default().to_string();
-    if crate::v2::blank(&key)||!md::key_valid(&app,&key).await{return md::invalid_key(&ctx)}
+    if crate::v2::blank(&key)||!md::key_valid(&app,&key).await{
+        // The reason under the card's field, in the sheet's frame.
+        let card=crate::web::settings::sections::tracker_coingecko_card(&ctx,&ctx.csrf_token(),true,Some(&ctx.t("setup.invalid_coingecko_api_key")));
+        let body=crate::web::turbo::stream("update","modal_content",&format!("{}\n",crate::web::wizard::sheet_frame("",&crate::web::wizard::keys::key_pane(&card)?)?));
+        return Ok((axum::http::StatusCode::UNPROCESSABLE_ENTITY,[(header::CONTENT_TYPE,crate::web::turbo::CONTENT_TYPE)],format!("{body}\n")).into_response())
+    }
     md::save_key(&app,key).await?;
     Ok(([(header::CONTENT_TYPE,crate::web::turbo::CONTENT_TYPE)],crate::web::turbo::redirect(&ctx.path("/tracker"))).into_response())
 }

@@ -89,6 +89,12 @@ en:
     links:
         hide_balances: 'Hide balances'
         display_currency: 'Display currency'
+        scheme: 'Color scheme'
+        scheme_default: 'Default'
+        scheme_space: 'Space'
+        scheme_warm: 'Warm'
+        scheme_ember: 'Ember'
+        scheme_forest: 'Forest'
         show_balances: 'Show balances'
         about: About
         telegram: 'Telegram'
@@ -185,6 +191,10 @@ en:
             confirm_delete: 'Do you want to remove this CoinGecko API key?'
         market_data:
             none: 'None'
+            intro: "Live market data powers indexes and the price history behind portfolio tracking. Use a free CoinGecko account, or the Deltabadger API for the same with stocks, plus a stable IP to whitelist on exchanges."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Stocks too, and a stable IP to whitelist on exchanges."
+            upgrade_button: "Upgrade"
             disabled: 'Market data sync disabled.'
             updated: 'Market data settings updated.'
             coingecko_configured: 'Connected to CoinGecko for live market data.'
@@ -666,6 +676,7 @@ en:
         notes:
             left: '%{exchange} reports %{held} %{symbol}; the history accounts for %{history}. The difference is taken as having left at cost (%{amount}).'
             arrived: '%{exchange} reports %{held} %{symbol}; the history accounts for %{history}. The difference is taken as having arrived at its price (%{amount}).'
+            opened: 'The history needs %{history} %{symbol} that it never shows arriving. Taken as held from the start, at that day''s price (%{amount}).'
             since_sync: '%{symbol} bought since the last sync: valued at cost (%{amount}) until the next one.'
             cash_out: 'The history holds %{history} %{symbol}; %{exchange} reports %{held}. The difference (%{amount}) is taken as moved out.'
             cash_in: 'The history holds %{history} %{symbol}; %{exchange} reports %{held}. The difference (%{amount}) is taken as moved in.'
@@ -784,7 +795,8 @@ en:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Temporary connection issue — retrying automatically'
+            execution_retrying: "Order attempt failed — the bot will try again"
+            execution_retrying_with_error: "Order attempt failed: %{error} — the bot will try again"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: 'Order %{order_id} abandoned (exchange no longer tracks it)'
             placement_ambiguous: 'Order status unconfirmed — not retried, to avoid placing it twice'

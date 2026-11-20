@@ -1,8 +1,8 @@
 //! The DCA wizard's asset step (Bots::DcaSingleAssets::PickBuyableAssetsController): the basket is collected here, one asset
 //! at a time, and leaves through `advance`. The URL stays in the single namespace; once anything is chosen the later steps
 //! are the multi namespace's. Every GET but `new`'s `||= {}` leaves the session alone: Turbo prefetches on hover.
-use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, reset_keys_but_exchange, steer, BotType, Chip,
-            SentenceOf, Step, StepOrder, Variant, EXCHANGE_KEY};
+use super::{chips, chosen_ids, current_variant, exchange_id, expired, first_incomplete_after, fresh_start, index_chosen, reset_keys_but_exchange, steer,
+            BotType, Chip, SentenceOf, Step, StepOrder, Variant, EXCHANGE_KEY, INDEX_KEYS};
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::layout::{self, Ctx, Page};
 use crate::web::shell::{self, Shell};
@@ -33,16 +33,19 @@ fn step_path(step: Step, basket_empty: bool) -> &'static str {
 }
 
 /// What the step reads from the session: the chosen Assets in pick order, and the venue the search is narrowed to (none on an
-/// asset-first fresh start, where a venue left behind is neither shown nor searched against).
-struct Chosen { chips: Vec<Chip>, ids: Vec<i64>, variant: Variant, venue: Option<i64> }
+/// asset-first fresh start, D-INDEX-FRESH-START, where a venue left behind is neither shown nor searched against).
+struct Chosen { chips: Vec<Chip>, ids: Vec<i64>, variant: Variant, venue: Option<i64>, fresh_start: bool }
 
 fn chosen(c: &Connection, config: Option<&Value>) -> Result<Chosen, WebError> {
     let chips = chips(c, &chosen_ids(config))?;
     let variant = current_variant(config);
-    let fresh_start = variant == Variant::AssetFirst && chips.is_empty();
+    let fresh_start = fresh_start(config, chips.is_empty());
     let ids = chips.iter().map(|chip| chip.id).collect();
-    Ok(Chosen { chips, ids, variant, venue: if fresh_start { None } else { exchange_id(config) } })
+    Ok(Chosen { chips, ids, variant, venue: if fresh_start { None } else { exchange_id(config) }, fresh_start })
 }
+
+/// The venue in force on the Assets step: none on a fresh start (the Index view narrows by it too).
+pub(super) fn venue_in_force(c: &Connection, config: Option<&Value>) -> Result<Option<i64>, WebError> { Ok(chosen(c, config)?.venue) }
 
 impl Chosen {
     /// `search_scope`: before the first pick the blank one-asset bot, then the basket. Neither sees the session's quote.
@@ -63,6 +66,7 @@ struct New<'a> {
     v: &'a Ctx,
     csrf: &'a str,
     search: String,
+    switch: String,
     next_url: String,
     next_label: String,
     more_label: String,
@@ -80,7 +84,10 @@ struct New<'a> {
 }
 
 /// `prepare_step` and the page: the whole step, or (`render_asset_page`, a lazy frame asking for `offset`) one page of results.
-fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool) -> Result<(String, bool), WebError> {
+/// D-KIND-IN-URL: `kind=index` (or, with no `kind`, an index in the session) is the Index view instead.
+fn page(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool) -> Result<(String, bool), WebError> {
+    let index_view = match ctx.params.query("kind") { Some("index") => true, Some("asset") => false, _ => index_chosen(config) };
+    if index_view { return Ok((super::index::assets_view(c, app, ctx, config, None)?, false)) }
     let chosen = chosen(c, config)?;
     let scope = chosen.scope();
     let params = &ctx.params;
@@ -111,7 +118,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     let exchange = super::exchange_name(c, chosen.venue)?;
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Currencies, multi: !chosen.chips.is_empty(), chips: chips(c, &chosen.ids)?, exchange }, true)?;
     let body = New {
-        v: ctx, csrf: &csrf, search: steered.search,
+        v: ctx, csrf: &csrf, search: steered.search, switch: super::kind_switch(ctx, false)?,
         next_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), next_label: ctx.t("button.next"), more_label: ctx.t("bot.setup.add_more_assets"),
         remove_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/remove"), remove_title: ctx.t("bot.dca_multi_asset.remove_asset"),
         no_common_exchange,
@@ -119,7 +126,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
         search_url: ctx.path(NEW), create_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset"), syncing, field_name: FIELD, items, next,
         chosen: chosen.chips,
     }.render()?;
-    Ok((super::sheet(ctx, &steered.track, &body)?, false))
+    Ok((super::assets_sheet(ctx, &steered.track, &body)?, false))
 }
 
 /// The step page, through the layout (or bare, for a lazy page of results).
@@ -127,7 +134,7 @@ async fn render(app: &App, ctx: &Ctx, status: StatusCode, partial_allowed: bool)
     let user = ctx.user().cloned().ok_or_else(|| WebError::Config("the asset step without a user".into()))?;
     let config = ctx.session.lock().bot_config.clone();
     let (inner, view, owner) = (app.clone(), ctx.clone(), user.clone());
-    let ((body, partial), shell) = app.db(move |c| Ok((page(c, &view, config.as_ref(), partial_allowed)?, Shell::load(c, &inner, &owner)?))).await?;
+    let ((body, partial), shell) = app.db(move |c| Ok((page(c, &inner, &view, config.as_ref(), partial_allowed)?, Shell::load(c, &inner, &owner)?))).await?;
     if partial { return Ok(([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response()) }
     shell::application(ctx, &ctx.csrf_token(), &user, &shell, Page { status, body, flash_now: vec![] })
 }
@@ -151,10 +158,12 @@ fn asset_param(ctx: &Ctx) -> Option<i64> {
     ctx.params.form(FIELD).or_else(|| ctx.params.query(FIELD)).map(search::to_i)
 }
 
-/// `write_ids`: every wizard key but the exchange goes, then the list is written (an empty one is not).
+/// `write_ids`: every wizard key but the exchange goes, an index chosen before too (D-INDEX-OR-BASKET), then the list is written
+/// (an empty one is not).
 fn write_ids(config: &mut Value, ids: &[i64]) {
     if !config.is_object() { *config = json!({}); }
     reset_keys_but_exchange(config);
+    for key in INDEX_KEYS { super::delete_path(config, key); }
     if !ids.is_empty() {
         let settings = &mut config["settings"];
         if settings.is_null() { *settings = json!({}); }
@@ -175,7 +184,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         if !chosen.ids.contains(&id) && chosen.ids.len() < MAX_ASSETS && search::offers(c, &chosen.scope(), Side::Base, id)? {
             let mut data = session.lock();
             let config = data.bot_config.get_or_insert_with(|| json!({}));
-            if chosen.variant == Variant::AssetFirst && chosen.ids.is_empty() {
+            // Read before the index settings go: the first asset after an index keeps the venue.
+            if chosen.fresh_start {
                 if let Some(entries) = config.as_object_mut() { entries.remove(EXCHANGE_KEY[0]); }
             }
             write_ids(config, &[chosen.ids.as_slice(), &[id]].concat());
@@ -273,4 +283,18 @@ pub fn stock_brokers(c: &Connection, basket: &Basket, usd: Option<i64>) -> Resul
     let priced = Basket { quote_asset_id: basket.quote_asset_id.or(usd), ..basket.clone() };
     Ok(search::available_exchanges(c, &priced, None)?.into_iter().filter(|venue| broker(&venue.class))
         .map(|venue| venue.id).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    #[test]
+    fn a_basket_write_drops_an_index_and_its_refused_saves_defaults() {
+        // D-INDEX-OR-BASKET: an index chosen, its save refused (the index defaults merged), then an asset.
+        let mut config = json!({"flow": "asset_first", "exchange_id": "3", "settings": {"index_type": "category", "index_category_id": "layer-1", "index_name": "Layer 1",
+                                "index_name_prefix": null, "quote_asset_id": 18, "quote_amount": 100, "interval": "week", "allocation_flattening": 0.0}});
+        super::write_ids(&mut config, &[7]);
+        assert_eq!(config, json!({"flow": "asset_first", "exchange_id": "3", "settings": {"quote_amount": 100, "interval": "week", "base_asset_ids": [7]}}));
+    }
 }

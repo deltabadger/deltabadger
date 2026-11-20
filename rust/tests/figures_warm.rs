@@ -57,6 +57,7 @@ impl Install {
         let file = dir.path().join("production.sqlite3");
         let c = rusqlite::Connection::open(&file).unwrap();
         c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
+        deltabadger::sync::balance_store::fallback(&c).unwrap();
         c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
         let t = "'2026-01-01'";
         c.execute_batch(&format!("
@@ -241,7 +242,7 @@ async fn render_runs_no_figure_computation() {
             Ok((out?, used.steps))
         }).await.unwrap();
         // Written since `prepare`, the fingerprint is read again: whatever it costs, and nothing more.
-        let fingerprint = if unchanged { 0 } else { install.app.db(|c| Ok(budget::scope(budget::FIGURE, || loading::revision(c, 1)).1.steps)).await.unwrap() };
+        let fingerprint = if unchanged { 0 } else { install.app.db(|c| Ok(budget::scope(budget::FIGURE, || loading::revision(c, 1, chrono::Utc::now())).1.steps)).await.unwrap() };
         assert_eq!(steps, fingerprint, "{case}: a page computed figures");
         if unchanged { assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 0, "{case}: a page read what only a computation reads"); }
         if case.starts_with("ready, n") || case == "ready, another locale" || case == "expired" { assert!(shown.is_none(), "{case}: 2.x's loading state"); }
@@ -1072,6 +1073,7 @@ fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
     let dir = tempfile::tempdir().unwrap();
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
     let t = "'2026-01-01'";
     c.execute_batch(&format!("
         INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t});
@@ -1085,7 +1087,7 @@ fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at)
             VALUES (1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'o1','REGULAR','2026-03-02 14:30:00',{t});
     ")).unwrap();
-    let revision = || loading::revision(&c, 1).unwrap().0;
+    let revision = || loading::revision(&c, 1, chrono::Utc::now()).unwrap().0;
     let changes = |sql: &str| { let before = revision(); c.execute_batch(sql).unwrap(); before != revision() };
     assert!(!changes(&format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at) \
         VALUES (2,'ZZZ',3,9,1,0,1,2,'USDT',4,2,'ZZZ/USDT',{t},{t})")), "a listing under another spelling");
@@ -1096,6 +1098,42 @@ fn a_pair_bots_listings_by_spelling_are_in_the_fingerprint() {
     assert!(changes("UPDATE tickers SET price_decimals=4 WHERE id=1"), "the pair ticker's price precision");
     assert!(changes("UPDATE tickers SET base_decimals=6 WHERE id=1"), "the pair ticker's base precision");
     assert!(changes("UPDATE tickers SET quote_decimals=3 WHERE id=1"), "the pair ticker's quote precision");
+}
+
+/// D-SPLIT-ASSETLESS-SHARED-NAME: whether a venue lists a coin under a split row's name decides a holding with no stored
+/// asset, so kept figures go stale with it, per venue: a coin listed (here by its symbol, under another spelling),
+/// recategorised or removed under a name that already resolves to no one asset, and the same coin listed on a second
+/// bot's venue though the account-wide set of names is unchanged.
+#[test]
+fn a_coin_listed_under_a_split_rows_name_is_in_the_fingerprint() {
+    let dir = tempfile::tempdir().unwrap();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute_batch(include_str!("fixtures/settings_primary_schema.sql")).unwrap();
+    deltabadger::sync::balance_store::fallback(&c).unwrap();
+    let t = "'2026-01-01'";
+    c.execute_batch(&format!("
+        INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t}),(2,'Exchanges::Kraken','Kraken',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t}),
+            (2,'Stock','btc-a','BTC','BTC A',{t},{t}),(3,'Cryptocurrency','bitcoin','BTC','Bitcoin',{t},{t}),(4,'Stock','btc-b','BTC','BTC B',{t},{t});
+        INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at)
+            VALUES (1,'BTC',2,9,1,0,1,2,'USD',1,2,'BTC',{t},{t}),(2,'BTC',4,9,1,0,1,2,'USD',1,2,'BTC.B',{t},{t});
+        INSERT INTO users(id,email,encrypted_password,setup_completed,admin,confirmed_at,created_at,updated_at) VALUES (1,'u1@example.com','x',1,1,{t},{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at)
+            VALUES (1,1,1,'Bots::DcaMultiAsset',1,'{{}}','{{}}',{t},{t}),(2,1,2,'Bots::DcaMultiAsset',1,'{{}}','{{}}',{t},{t});
+        INSERT INTO transactions(bot_id,exchange_id,base,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at)
+            VALUES (1,1,'BTC','USD',1,1,1,100,100,0,0,2,'o1','REGULAR','2026-03-02 14:30:00',{t}),(2,2,'BTC','USD',1,1,1,100,100,0,0,2,'o2','REGULAR','2026-03-02 14:30:00',{t});
+        INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,created_at,updated_at)
+            VALUES (1,1,15,'BTC',0,'2026-04-01 00:00:00','{{\"corporate_action\":\"split\",\"split_ratio\":\"2:1\"}}',{t},{t});
+    ")).unwrap();
+    let revision = || loading::revision(&c, 1, chrono::Utc::now()).unwrap().0;
+    let changes = |sql: &str| { let before = revision(); c.execute_batch(sql).unwrap(); before != revision() };
+    let list = |id: i64, venue: i64| format!("INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,created_at,updated_at) \
+        VALUES ({id},'XBT',3,9,{venue},0,1,2,'USD',1,2,'XBT/USD',{t},{t})");
+    assert!(changes(&list(3, 1)), "a coin listed under the name by its symbol");
+    assert!(changes("UPDATE assets SET category='Stock' WHERE id=3"), "the coin recategorised");
+    assert!(changes("UPDATE assets SET category='Cryptocurrency' WHERE id=3"), "and back");
+    assert!(changes(&list(4, 2)), "the same coin listed on the second bot's venue");
+    assert!(changes("DELETE FROM tickers WHERE id=3"), "the coin's listing on the first venue removed");
 }
 
 /// One account whose bot is a signal bot on AAA (Bots::Signal reads its pair from its settings), bought once at 100.

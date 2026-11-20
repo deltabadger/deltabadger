@@ -192,14 +192,15 @@ async fn many_held_symbols_record_in_linear_work_or_are_refused_before_the_write
     let path = dir.path().join("production.sqlite3");
     let c = Connection::open(&path).unwrap();
     let exchange: i64 = c.query_row("SELECT exchange_id FROM api_keys WHERE id = ?1", [key], |r| r.get(0)).unwrap();
+    let account = common::number_one(&c, user, exchange);
     c.execute_batch(&format!("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 100000)
         INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) SELECT 'ZZ' || i || '.US', 'ZZ' || i, 'ZZ' || i, 'Stock', '2026-01-01', '2026-01-01' FROM n;
         INSERT INTO account_transactions (user_id, exchange_id, api_key_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at,
             raw_data, manual_values, created_at, updated_at)
           SELECT {user}, {exchange}, {key}, 0, symbol, 1, 'USD', 1, 'f-' || symbol, '2026-09-03 14:30:00', '{{}}', '{{}}', '2026-09-03 15:00:00', '2026-09-03 15:00:00'
           FROM assets WHERE symbol LIKE 'ZZ%';
-        INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at)
-          SELECT {user}, {exchange}, id, 1, 0, 1.5, 1.5, '2026-09-20 02:30:00', '2026-09-20 02:30:00', '2026-09-20 02:30:00', '2026-09-20 02:30:00'
+        INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id)
+          SELECT {user}, {exchange}, id, 1, 0, 1.5, 1.5, '2026-09-20 02:30:00', '2026-09-20 02:30:00', '2026-09-20 02:30:00', '2026-09-20 02:30:00', {account}
           FROM assets WHERE symbol LIKE 'ZZ%';
         UPDATE api_keys SET balances_synced_at = '2026-09-20 02:30:00' WHERE id = {key};")).unwrap();
     let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), seed::cipher());
@@ -357,7 +358,7 @@ async fn rows_moving_under_the_backfills_walk_write_no_history() {
     let state = |dir: &Path| {
         let c = Connection::open(dir.join("production.sqlite3")).unwrap();
         let count = |sql: &str| c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap();
-        (count("SELECT count(*) FROM portfolio_snapshots"), count("SELECT count(*) FROM portfolio_venue_snapshots"),
+        (count("SELECT count(*) FROM portfolio_snapshots"), count("SELECT count(*) FROM exchange_account_snapshots"),
          count("SELECT count(*) FROM app_configs WHERE key LIKE 'snapshot_history_version_%' OR key LIKE 'snapshot_price_generation_%'"))
     };
     let before = state(dir.path());
@@ -384,12 +385,15 @@ async fn a_two_venue_history_is_rewritten_under_each_venue_and_rolled_back_whole
         INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, linked_transaction_id, created_at, updated_at)
           SELECT {user}, exchange_id, 5, 'USD', 100, 'a-wd', '2026-09-05 10:00:00', '{{}}', '{{}}', (SELECT id FROM account_transactions WHERE tx_id = 'b-dep'), '2026-09-05 11:00:00', '2026-09-05 11:00:00'
           FROM account_transactions WHERE tx_id = 'd-1';
-        INSERT INTO portfolio_venue_snapshots (user_id, exchange_id, date, value_usd, invested_usd, partial, created_at, updated_at)
-          SELECT {user}, id, '2026-09-20', 7, 7, 0, '2026-09-20 02:00:00', '2026-09-20 02:00:00' FROM exchanges;")).unwrap();
+        INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) SELECT {user}, id, 1, 'now', 'now' FROM exchanges e
+          WHERE NOT EXISTS (SELECT 1 FROM exchange_accounts a WHERE a.user_id = {user} AND a.exchange_id = e.id AND a.number = 1);
+        INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, value_usd, invested_usd, partial, created_at, updated_at, account_id)
+          SELECT {user}, id, '2026-09-20', 7, 7, 0, '2026-09-20 02:00:00', '2026-09-20 02:00:00',
+                 (SELECT a.id FROM exchange_accounts a WHERE a.user_id = {user} AND a.exchange_id = exchanges.id AND a.number = 1) FROM exchanges;")).unwrap();
     let db = deltabadger::jobs::Db::new(Connection::open(&path).unwrap(), seed::cipher());
     let at: chrono::DateTime<chrono::Utc> = "2026-09-20T03:00:00Z".parse().unwrap();
     let sweep = || async { backfill_run(&db, &Scripted(ScriptedTransport::from_script(&script())), None::<&Feed<ScriptedTransport>>, None, user, &deltabadger::engine::FixedClock(at)).await };
-    let binance = |c: &Connection| -> (String, i64, i64) { c.query_row("SELECT min(date), count(*), sum(date = '2026-09-20' AND value_usd = 7) FROM portfolio_venue_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap() };
+    let binance = |c: &Connection| -> (String, i64, i64) { c.query_row("SELECT min(date), count(*), sum(date = '2026-09-20' AND value_usd = 7) FROM exchange_account_snapshots v JOIN exchanges e ON e.id = v.exchange_id WHERE e.type = 'Exchanges::Binance'", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap() };
     assert_eq!(sweep().await, Ok(true));
     assert_eq!(binance(&c), ("2026-09-05".to_string(), 16, 1), "5 to 19 September, and today's row kept");
     c.execute("UPDATE account_transactions SET linked_transaction_id = NULL, updated_at = '2026-09-19 12:00:00' WHERE tx_id = 'a-wd'", []).unwrap();
@@ -398,7 +402,7 @@ async fn a_two_venue_history_is_rewritten_under_each_venue_and_rolled_back_whole
     // A write that fails rolls the unit back: both tables and the version stamp stay as the last sweep left them.
     let dump = |c: &Connection| -> Vec<String> {
         let mut out = vec![];
-        for sql in ["SELECT date || value_usd || invested_usd FROM portfolio_snapshots ORDER BY date", "SELECT exchange_id || date || value_usd FROM portfolio_venue_snapshots ORDER BY exchange_id, date",
+        for sql in ["SELECT date || value_usd || invested_usd FROM portfolio_snapshots ORDER BY date", "SELECT exchange_id || date || value_usd FROM exchange_account_snapshots ORDER BY exchange_id, date",
                     "SELECT key || value FROM app_configs WHERE key LIKE 'snapshot_%' ORDER BY key"] {
             let mut s = c.prepare(sql).unwrap();
             out.extend(s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap));
@@ -417,7 +421,7 @@ fn history_dump(dir: &Path) -> Vec<String> {
     let c = Connection::open(dir.join("production.sqlite3")).unwrap();
     let mut out = vec![];
     for sql in ["SELECT date || '|' || value_usd || '|' || invested_usd || '|' || partial FROM portfolio_snapshots ORDER BY date",
-                "SELECT exchange_id || '|' || date || '|' || value_usd || '|' || invested_usd FROM portfolio_venue_snapshots ORDER BY exchange_id, date",
+                "SELECT exchange_id || '|' || date || '|' || value_usd || '|' || invested_usd FROM exchange_account_snapshots ORDER BY exchange_id, date",
                 "SELECT key || '|' || value FROM app_configs WHERE key LIKE 'snapshot_%' ORDER BY key"] {
         let mut s = c.prepare(sql).unwrap();
         out.extend(s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap));

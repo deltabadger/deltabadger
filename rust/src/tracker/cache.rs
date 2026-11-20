@@ -1,19 +1,25 @@
 //! Page-facing cache of the tracker walk: every scope's Summary the page reads (Tracker::Ledger::Summary).
 //! One Rust-owned app_configs row per user; no request computes, writes or enqueues.
-use super::{backfill, walk::{Position, RoundTrip, Summary, Walked}};
+use super::{backfill, walk::{BotSale, Position, RoundTrip, Summary, Walked}};
 use crate::figures::at::At;
 use crate::{app_config, figures::{dec::Dec, FiguresError}};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
 use rusqlite::Connection;
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 pub const UNAVAILABLE: &str = "Tracker ledger unavailable: calculation failed";
 const TTL_DAYS: i64 = 30;
 /// The calculation a stored summary was made by: a summary of another one is cold (4: a broker name that is both a
 /// security and a coin is priced by the asset its rows recorded; 5: coin-quoted rows are two legs, transfers wait for their
-/// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY).
-const SCHEMA: u64 = 6;
+/// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY;
+/// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS; 8: a security's corporate
+/// action never restates a coin's lots under the symbol they share, #1061; 9: each scope's summary is an account's, keyed by
+/// account id, #710 slice 5).
+const SCHEMA: u64 = 9;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
+const SALES_SCHEMA: u64 = 1;
+const MAX_SALES: usize = 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
 pub const DECIMAL_TOO_LARGE: &str = "ledger cache computed decimal exceeds 1048576-byte limit";
@@ -28,22 +34,23 @@ impl PartialEq for Version {
     fn eq(&self,other:&Self)->bool {self.history==other.history && self.prices==other.prices && crate::engine::model::stamp_set_current_for(&self.producers,&other.producers)}
 }
 pub fn version(c:&Connection,owner:i64)->Result<Version,FiguresError> {
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     Ok(Version { history:backfill::history_version(c,owner)?, prices:backfill::generation(c)?,producers:origin.producer_stamps() })
 }
 pub fn key(owner:i64)->String { format!("rust_tracker_ledger.{owner}") }
+pub fn sales_key(owner:i64)->String { format!("rust_tracker_bot_sales.{owner}") }
 fn encode(s:&Summary)->Value {
     let at=|a:&Option<At>|a.map(|a|a.0);
     let pairs=|l:&[(String,Dec)]|l.iter().map(|(k,v)|json!([k,v.to_s_f()])).collect::<Vec<_>>();
     json!({"positions":s.positions.iter().map(|p|json!({"symbol":p.symbol,"quantity":p.quantity.to_s_f(),"cost":p.cost.to_s_f(),"avg_cost":p.avg_cost.to_s_f(),"opened_at":at(&p.opened_at),"estimated":p.estimated,"unpriced":p.unpriced.to_s_f()})).collect::<Vec<_>>(),
         "round_trips":s.round_trips.iter().map(|t|json!({"symbol":t.symbol,"opened_at":at(&t.opened_at),"closed_at":t.closed_at.0,"quantity":t.quantity.to_s_f(),"invested":t.invested.to_s_f(),"proceeds":t.proceeds.to_s_f(),"fees":t.fees.to_s_f(),"realised":t.realised.to_s_f(),"incomplete":t.incomplete})).collect::<Vec<_>>(),
         "total_invested":s.total_invested.to_s_f(),"received":s.received.to_s_f(),"realised":s.realised.to_s_f(),"fees":s.fees.to_s_f(),"cash_usd":s.cash_usd.to_s_f(),"unpriced_proceeds":s.unpriced_proceeds.to_s_f(),
-        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
+        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"opening_values":pairs(&s.opening_values),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
 }
 /// Every computed decimal a summary stores: the bound a reader applies is applied before publishing too.
 fn decimals(s:&Summary)->impl Iterator<Item=&Dec> {
     [&s.total_invested,&s.received,&s.realised,&s.fees,&s.cash_usd,&s.unpriced_proceeds].into_iter()
-        .chain(s.cash.iter().chain(&s.cash_basis).chain(&s.openings).map(|(_,v)|v))
+        .chain(s.cash.iter().chain(&s.cash_basis).chain(&s.openings).chain(&s.opening_values).map(|(_,v)|v))
         .chain(s.positions.iter().flat_map(|p|[&p.quantity,&p.cost,&p.avg_cost,&p.unpriced]))
         .chain(s.round_trips.iter().flat_map(|t|[&t.quantity,&t.invested,&t.proceeds,&t.fees,&t.realised]))
 }
@@ -72,12 +79,12 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
     Ok(Summary { positions:array(&v["positions"] )?.iter().map(|p|Ok(Position { symbol:text(&p["symbol"] )?.into(),quantity:decimal(&p["quantity"] )?,cost:decimal(&p["cost"] )?,avg_cost:decimal(&p["avg_cost"] )?,opened_at:optional_instant(&p["opened_at"])?,estimated:boolean(&p["estimated"] )?,unpriced:decimal(&p["unpriced"] )? })).collect::<Result<_,FiguresError>>()?,
         round_trips:array(&v["round_trips"])?.iter().map(|t|Ok(RoundTrip { symbol:text(&t["symbol"])?.into(),opened_at:optional_instant(&t["opened_at"])?,closed_at:instant(&t["closed_at"])?,quantity:decimal(&t["quantity"])?,invested:decimal(&t["invested"])?,proceeds:decimal(&t["proceeds"])?,fees:decimal(&t["fees"])?,realised:decimal(&t["realised"])?,incomplete:boolean(&t["incomplete"])? })).collect::<Result<_,FiguresError>>()?,
         total_invested:decimal(&v["total_invested"] )?,received:decimal(&v["received"])?,realised:decimal(&v["realised"])?,fees:decimal(&v["fees"])?,cash_usd:decimal(&v["cash_usd"])?,unpriced_proceeds:decimal(&v["unpriced_proceeds"])?,
-        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
+        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,opening_values:pairs(&v["opening_values"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
 }
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
 pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
     if &version(c,owner)? != before { return Ok(false); }
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
     if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(false)}
     // The read bound applies at publish too: an entry the reader would refuse is never written.
     for summary in walked.into_iter().flat_map(|w|std::iter::once(&w.whole).chain(w.venues.iter().map(|(_,s)|s))) {
@@ -90,9 +97,17 @@ pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&
     }
     // Schema 3: the page's figures too (round trips, received, realised, fees, cash at today's rates, unpriced proceeds,
     // openings, position dates). Schema 1 and 2 entries read cold and the next pass republishes.
-    let payload=json!({"schema":SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":(now+Duration::days(TTL_DAYS)).to_rfc3339(),"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
+    let expires=(now+Duration::days(TTL_DAYS)).to_rfc3339();
+    let payload=json!({"schema":SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":expires,"whole":walked.map(|w|encode(&w.whole)),"venues":walked.map(|w|w.venues.iter().map(|(id,s)|json!([id,encode(s)])).collect::<Vec<_>>())}).to_string();
     if payload.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache publish refused: payload exceeds 8388608-byte limit");return Err(FiguresError::NotComputed(PAYLOAD_TOO_LARGE.into()));}
     app_config::set_plain(c,&key(owner),&payload,now).map_err(FiguresError::Data)?;
+    // The bot sales beside it, same fence, same inputs: what the figures read for a sell-only bot's P/L. A failed walk or an
+    // oversized set publishes none (nobody's P/L shows); the ledger entry above is never refused for it.
+    let sales_row=|sales:Vec<Value>|json!({"schema":SALES_SCHEMA,"owner":owner,"history":before.history,"prices":before.prices,"producers":before.producers,"expires":expires,"sales":sales}).to_string();
+    if walked.is_none() {crate::engine::log("[tracker] bot sales published empty: the walk failed");}
+    let mut sales=sales_row(walked.map(|w|w.bot_sales.iter().map(|b|json!([b.order,b.at.0,b.amount.to_s_f(),b.quote,b.cost.to_s_f(),b.known])).collect()).unwrap_or_default());
+    if sales.len()>MAX_SALES {crate::engine::log("[tracker] bot sales publish refused: payload exceeds 1048576-byte limit");sales=sales_row(vec![])}
+    app_config::set_plain(c,&sales_key(owner),&sales,now).map_err(FiguresError::Data)?;
     Ok(true)
 }
 /// The published entry's own `history`, `prices`, `expires` and `producers`, as stored. `expires` is new with every
@@ -108,12 +123,16 @@ impl Fingerprint {
 #[derive(Clone, Debug)]
 pub enum Published { Cold, Failed(&'static str), Warm { whole:Box<Summary>, venues:Vec<(i64,Summary)>, from:Fingerprint } }
 impl Published {
-    /// The scope a page reads: the whole account, or one venue's (empty when it has none).
-    pub fn scoped(self,exchange:Option<i64>)->State {
+    /// The scope a page reads: the whole portfolio, or one account's (empty when it has none).
+    pub fn scoped(self,scope:&super::Scope)->State {
+        self.account(match scope {super::Scope::All=>None,super::Scope::Account(a)=>Some(a.id),super::Scope::EmptyLegacyExchange(_)=>Some(0)})
+    }
+    /// `scoped` by account id (None: the whole portfolio).
+    pub fn account(self,account:Option<i64>)->State {
         match self {
             Published::Cold=>State::Cold,
             Published::Failed(m)=>State::Failed(m),
-            Published::Warm{whole,venues,..}=>State::Warm(match exchange {
+            Published::Warm{whole,venues,..}=>State::Warm(match account {
                 None=>whole,
                 Some(id)=>Box::new(venues.into_iter().find(|(venue,_)|*venue==id).map_or_else(Summary::empty,|(_,summary)|summary)),
             }),
@@ -128,23 +147,30 @@ pub fn fingerprint(c:&Connection,owner:i64)->Result<Option<Fingerprint>,FiguresE
 }
 /// Cold includes absent/expired/obsolete/malformed cache entries, as 2.x's shape guard does.
 /// SQL failures propagate; a computed failure has its own safe, stated reason.
-pub fn read(c:&Connection,owner:i64,exchange:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
-    Ok(read_published(c,owner,now)?.scoped(exchange))
+/// `account`: an account id (None: the whole portfolio).
+pub fn read(c:&Connection,owner:i64,account:Option<i64>,now:DateTime<Utc>)->Result<State,FiguresError> {
+    Ok(read_published(c,owner,now)?.account(account))
+}
+/// The entry stored under `key`, parsed, when it is one the current inputs made: schema, owner, expiry, `version()`, producers
+/// and `ledger_is_current` all hold. None is Cold. The ledger entry and the bot sales row are both read through it.
+fn validated(c:&Connection,key:&str,schema:u64,owner:i64,now:DateTime<Utc>,limit:usize)->Result<Option<Value>,FiguresError> {
+    let Some(raw)=app_config::get_plain(c,key).map_err(FiguresError::Data)? else {return Ok(None)};
+    if raw.len()>limit {crate::engine::log(&format!("[tracker] cache cold: {key} exceeds {limit}-byte limit"));return Ok(None)}
+    let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(None)};
+    if v["schema"].as_u64()!=Some(schema) || v["owner"].as_i64()!=Some(owner) {return Ok(None)}
+    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(None)};
+    if now>=expires {return Ok(None)}
+    let current=version(c,owner)?;
+    if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(None)}
+    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(None)}
+    let origin=crate::sync::cache::capture_read(c,owner,&crate::tracker::Scope::All).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
+    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(None)}
+    Ok(Some(v))
 }
 /// `read` before the scope is picked: one parse, every scope, and the publication's fingerprint.
 pub fn read_published(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Published,FiguresError> {
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=read_published(&tx,owner,now)?;tx.commit()?;return Ok(out)}
-    let Some(raw)=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)? else {return Ok(Published::Cold)};
-    if raw.len()>MAX_PAYLOAD {crate::engine::log("[tracker] ledger cache cold: payload exceeds 8388608-byte limit");return Ok(Published::Cold)}
-    let Ok(v)=serde_json::from_str::<Value>(&raw) else {return Ok(Published::Cold)};
-    if v["schema"].as_u64()!=Some(SCHEMA) || v["owner"].as_i64()!=Some(owner) {return Ok(Published::Cold)}
-    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(Published::Cold)};
-    if now>=expires {return Ok(Published::Cold)}
-    let current=version(c,owner)?;
-    if v["history"].as_str()!=Some(current.history.as_str()) || v["prices"].as_i64()!=Some(current.prices) {return Ok(Published::Cold)}
-    if !crate::engine::model::stamp_set_current_for(&v["producers"],&current.producers) {return Ok(Published::Cold)}
-    let origin=crate::sync::cache::capture_read(c,owner,None).map_err(|_|FiguresError::Data("ledger cache provenance unavailable".into()))?;
-    if !origin.ledger_is_current(c).map_err(|_|FiguresError::Data("ledger cache producer unavailable".into()))? {return Ok(Published::Cold)}
+    let Some(v)=validated(c,&key(owner),SCHEMA,owner,now,MAX_PAYLOAD)? else {return Ok(Published::Cold)};
     if !v.as_object().is_some_and(|o|o.contains_key("whole") && o.contains_key("venues")) {return Ok(Published::Cold)}
     if v["whole"].is_null() && v["venues"].is_null() {return Ok(Published::Failed(UNAVAILABLE))}
     type Scopes=(Summary,Vec<(i64,Summary)>);
@@ -164,6 +190,45 @@ pub fn read_published(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Publish
     }
 }
 
+/// The bot sales of the walk the ledger entry was made from. Cold unless validated exactly as the ledger entry is.
+#[derive(Clone, Debug)]
+pub enum Sales { Cold, Warm { by_order: HashMap<i64, BotSale>, expires: DateTime<Utc> } }
+impl Sales {
+    /// A hash of the sales (0 when Cold, never 0 when Warm): what figures rendered from them are held to. Not of the
+    /// expiry: a republish of the same sales keeps kept figures shown; expiry is the read's (`bot_sales`) and the fill's
+    /// (`until` capped at `expires`).
+    pub fn stamp(&self)->u64 {
+        use std::hash::{Hash,Hasher};
+        let Sales::Warm{by_order,..}=self else {return 0};
+        let mut rows:Vec<_>=by_order.values().map(|b|(b.order,b.at.0,b.amount.to_s_f(),b.quote.clone(),b.cost.to_s_f(),b.known)).collect();
+        rows.sort_by_key(|r|r.0);
+        let mut h=std::collections::hash_map::DefaultHasher::new();
+        rows.hash(&mut h);
+        h.finish().max(1)
+    }
+}
+pub fn bot_sales(c:&Connection,owner:i64,now:DateTime<Utc>)->Result<Sales,FiguresError> {
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=bot_sales(&tx,owner,now)?;tx.commit()?;return Ok(out)}
+    let Some(v)=validated(c,&sales_key(owner),SALES_SCHEMA,owner,now,MAX_SALES)? else {return Ok(Sales::Cold)};
+    let Some(expires)=v["expires"].as_str().and_then(|s|s.parse::<DateTime<Utc>>().ok()) else {return Ok(Sales::Cold)};
+    // Published beside the ledger entry with the same expiry: an invalidation that deletes that entry (a rewrite `history`
+    // may not see), or a ledger entry of another publish, leaves these sales cold too.
+    let ledger=app_config::get_plain(c,&key(owner)).map_err(FiguresError::Data)?;
+    let ledger_expires=ledger.as_deref().and_then(|raw|serde_json::from_str::<Value>(raw).ok()).and_then(|l|l["expires"].as_str().map(str::to_string));
+    if ledger_expires.as_deref()!=v["expires"].as_str() {return Ok(Sales::Cold)}
+    let decoded=(||->Result<HashMap<i64,BotSale>,FiguresError>{
+        let mut by_order=HashMap::new();
+        for row in array(&v["sales"])? {
+            let row=array(row)?;
+            if row.len()!=6 {return Err(malformed())}
+            let order=row[0].as_i64().ok_or_else(malformed)?;
+            by_order.insert(order,BotSale{order,at:instant(&row[1])?,amount:decimal(&row[2])?,quote:text(&row[3])?.into(),cost:decimal(&row[4])?,known:boolean(&row[5])?});
+        }
+        Ok(by_order)
+    })();
+    Ok(decoded.map_or(Sales::Cold,|by_order|Sales::Warm{by_order,expires}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,7 +238,7 @@ mod tests {
     }
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE exchange_account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c.execute_batch(crate::identity::TEST_ACCOUNT_TABLES).unwrap(); c
     }
     fn now()->DateTime<Utc> {"2026-10-08T12:00:00Z".parse().unwrap()}
     fn walked()->Walked {
@@ -181,12 +246,77 @@ mod tests {
         whole.positions.push(Position{symbol:"AAPL".into(),quantity:Dec::strict("2.5").unwrap(),cost:Dec::strict("123.4567890123456789").unwrap(),avg_cost:Dec::strict("49.38271560493827156").unwrap(),opened_at:Some(At(1_790_000_000_123_456_789)),estimated:true,unpriced:Dec::zero()});
         whole.round_trips.push(RoundTrip{symbol:"MSFT".into(),opened_at:None,closed_at:At(1_790_000_100_000_000_000),quantity:Dec::strict("1.5").unwrap(),invested:Dec::strict("300.01").unwrap(),proceeds:Dec::strict("280.5").unwrap(),fees:Dec::strict("0.25").unwrap(),realised:Dec::strict("-19.76").unwrap(),incomplete:true});
         whole.received=Dec::strict("3.3").unwrap();whole.realised=Dec::strict("-19.76").unwrap();whole.fees=Dec::strict("0.25").unwrap();whole.cash_usd=Dec::strict("7.125").unwrap();whole.unpriced_proceeds=Dec::strict("0.5").unwrap();
-        whole.openings=vec![("BTC".into(),Dec::strict("0.01").unwrap())];
+        whole.openings=vec![("BTC".into(),Dec::strict("0.01").unwrap())];whole.opening_values=vec![("BTC".into(),Dec::strict("600.123456789").unwrap())];
         whole.cash=vec![("USD".into(),Dec::strict("-0.0").unwrap())];whole.cash_basis=vec![("USD".into(),Dec::strict("1.01").unwrap())];whole.incomplete=true;whole.loss_sales=vec![("AAPL".into(),now().date_naive())];
-        Walked{venues:vec![(7,whole.clone())],whole,terms:vec![]}
+        Walked{venues:vec![(7,whole.clone())],whole,terms:vec![],bot_sales:vec![]}
     }
     fn warm(c:&Connection,exchange:Option<i64>)->Summary {
         let State::Warm(s)=read(c,1,exchange,now()).unwrap() else { panic!("expected warm cache") };*s
+    }
+    fn sale(order:i64,cost:&str)->BotSale { BotSale{order,at:At(1_790_000_000_000_000_000),amount:Dec::strict("0.5").unwrap(),quote:"EUR".into(),cost:Dec::strict(cost).unwrap(),known:true} }
+    fn with_sales(sales:Vec<BotSale>)->Walked { let mut w=walked(); w.bot_sales=sales; w }
+    fn sales(c:&Connection)->Sales { bot_sales(c,1,now()).unwrap() }
+    #[test]
+    fn bot_sales_roundtrip_and_stamp() {
+        let c=db();let v=version(&c,1).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold));
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10.25"),sale(9,"0.0")])),7,now()).unwrap();
+        let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};
+        assert_eq!(by_order.len(),2);assert_eq!(by_order[&5],sale(5,"10.25"));assert_eq!(by_order[&9].cost,Dec::zero());
+        let a=sales(&c).stamp();
+        // A republish of the same sales, a moment later (a later expiry): the same stamp, so kept figures stay shown.
+        publish(&c,1,&v,Some(&with_sales(vec![sale(9,"0.0"),sale(5,"10.25")])),7,now()+Duration::minutes(5)).unwrap();
+        assert_eq!(sales(&c).stamp(),a,"the stamp is the sales, not their expiry");
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10.26")])),7,now()).unwrap();
+        let b=sales(&c).stamp();
+        assert!(a!=0 && b!=0 && a!=b);
+        assert_eq!(Sales::Cold.stamp(),0);
+        warm(&c,None);
+    }
+    #[test]
+    fn bot_sales_cold_when_stale_expired_absent_or_malformed() {
+        let c=db();let v=version(&c,1).unwrap();
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10")])),7,now()).unwrap();
+        assert!(matches!(bot_sales(&c,1,now()+Duration::days(31)).unwrap(),Sales::Cold));
+        let good=app_config::get_plain(&c,&sales_key(1)).unwrap().unwrap();
+        // Another owner's key holding this owner's row: refused by the owner check, not for want of a row.
+        app_config::set_plain(&c,&sales_key(2),&good,now()).unwrap();
+        assert!(matches!(bot_sales(&c,2,now()).unwrap(),Sales::Cold));
+        for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace("\"schema\":1","\"schema\":2")] {
+            app_config::set_plain(&c,&sales_key(1),&bad,now()).unwrap();assert!(matches!(sales(&c),Sales::Cold));
+        }
+        app_config::set_plain(&c,&sales_key(1),&good,now()).unwrap();assert!(matches!(sales(&c),Sales::Warm{..}));
+        c.execute("UPDATE account_transactions SET updated_at='2026-10-09 00:00:00'",[]).unwrap();
+        c.execute("INSERT INTO account_transactions(id,user_id,updated_at) VALUES(1,1,'2026-10-09 00:00:00')",[]).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold));
+        c.execute("DELETE FROM app_configs WHERE key=?1",[sales_key(1)]).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold));
+    }
+    #[test]
+    fn bot_sales_are_cold_without_the_ledger_entry_they_were_published_with() {
+        let c=db();let v=version(&c,1).unwrap();
+        publish(&c,1,&v,Some(&with_sales(vec![sale(5,"10")])),7,now()).unwrap();
+        let ledger=app_config::get_plain(&c,&key(1)).unwrap().unwrap();
+        // An invalidation that deletes the ledger entry (a rewrite `history` may not see) withdraws the sales with it.
+        c.execute("DELETE FROM app_configs WHERE key=?1",[key(1)]).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold),"the ledger entry is gone");
+        // A ledger entry of another publish (another expiry) is not the one these sales were published beside.
+        let other:Value=serde_json::from_str(&ledger).unwrap();
+        let mut other=other;other["expires"]=json!((now()+Duration::days(2)).to_rfc3339());
+        app_config::set_plain(&c,&key(1),&other.to_string(),now()).unwrap();
+        assert!(matches!(sales(&c),Sales::Cold),"another publish's ledger entry");
+        app_config::set_plain(&c,&key(1),&ledger,now()).unwrap();
+        assert!(matches!(sales(&c),Sales::Warm{..}));
+    }
+    #[test]
+    fn failed_walk_or_oversized_sales_publish_none_and_the_ledger_still_publishes() {
+        let c=db();let v=version(&c,1).unwrap();
+        assert!(publish(&c,1,&v,None,7,now()).unwrap());
+        let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};assert!(by_order.is_empty());
+        let big:Vec<BotSale>=(0..20_000).map(|i|sale(i,"123456789.123456789")).collect();
+        assert!(publish(&c,1,&v,Some(&with_sales(big)),7,now()).unwrap());
+        let Sales::Warm{by_order,..}=sales(&c) else {panic!("warm")};assert!(by_order.is_empty());
+        warm(&c,None);
     }
     #[test]
     fn cache_publish_decimal_limit_keeps_previous_entry() {
@@ -197,7 +327,7 @@ mod tests {
         let changes=c.total_changes();
         // Exercise every decimal field and both scopes, below the payload limit.
         for scope in [false,true] {
-            for field in 0..20 {
+            for field in 0..21 {
                 let mut w=walked();
                 let s=if scope {&mut w.venues[0].1}else{&mut w.whole};
                 let huge=Dec::parse(&format!("0.{}1","0".repeat(MAX_COMPUTED_DECIMAL))).unwrap();
@@ -208,7 +338,7 @@ mod tests {
                     6=>s.cash_basis[0].1=huge,7=>s.positions[0].cost=huge.neg(),
                     8=>s.received=huge,9=>s.realised=huge,10=>s.fees=huge,11=>s.cash_usd=huge,12=>s.unpriced_proceeds=huge,13=>s.openings[0].1=huge,
                     14=>s.round_trips[0].quantity=huge,15=>s.round_trips[0].invested=huge,16=>s.round_trips[0].proceeds=huge,17=>s.round_trips[0].fees=huge,
-                    18=>s.round_trips[0].realised=huge,_=>s.realised=huge.neg(),
+                    18=>s.round_trips[0].realised=huge,19=>s.opening_values[0].1=huge,_=>s.realised=huge.neg(),
                 }
                 let result=publish(&c,1,&v,Some(&w),7,now());
                 assert!(result.is_err(),"publish must refuse oversize decimal in scope {scope} field {field}");
@@ -244,7 +374,7 @@ mod tests {
             assert!(!publish(&c,1,&v,Some(&walked()),7,now()).unwrap(),"must reject a mid-walk change");
         }
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
-        c.execute_batch("INSERT INTO account_transactions VALUES(2,42,'2026-10-09'); INSERT INTO account_balances VALUES(1,100000)").unwrap();warm(&c,None);
+        c.execute_batch("INSERT INTO account_transactions VALUES(2,42,'2026-10-09'); INSERT INTO exchange_account_balances VALUES(1,100000)").unwrap();warm(&c,None);
         assert!(matches!(read(&c,1,None,now()+Duration::days(30)-Duration::microseconds(1)).unwrap(),State::Warm(_)));
         assert!(matches!(read(&c,1,None,now()+Duration::days(30)).unwrap(),State::Cold));
     }
@@ -275,10 +405,10 @@ mod tests {
             app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
             assert!(matches!(read(&c,1,None,now()),Ok(State::Cold)),"oversized {path:?}");
         }
-        for (list,field) in [("round_trips","fees"),("round_trips","realised"),("openings","1")] {
+        for (list,field) in [("round_trips","fees"),("round_trips","realised"),("openings","1"),("opening_values","1")] {
             publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
             let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
-            if list=="openings" {raw["whole"][list][0][1]=huge.clone()} else {raw["whole"][list][0][field]=huge.clone()}
+            if field=="1" {raw["whole"][list][0][1]=huge.clone()} else {raw["whole"][list][0][field]=huge.clone()}
             app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
             assert!(matches!(read(&c,1,None,now()),Ok(State::Cold)),"oversized {list}.{field}");
         }
@@ -314,13 +444,12 @@ mod tests {
         // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
         // and the 287-character decimal needs three successive restatements.
         let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default()};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None,account:7,to_account:None};
         let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;
         let mut ps=PriceService::new(&r,&fx,now().date_naive(),&mut none);
-        let ids=std::collections::HashMap::from([("alpaca".to_string(),7)]);
-        let w=walk::scopes(&rows,&Default::default(),&mut ps,&ids,At::from_utc(now()).unwrap()).unwrap();
+        let w=walk::scopes(&rows,&Default::default(),&mut ps,At::from_utc(now()).unwrap()).unwrap();
         let longest=[&w.whole.positions[0].quantity,&w.whole.positions[0].cost,&w.whole.positions[0].avg_cost].into_iter().map(|d|d.to_s_f().len()).max().unwrap();
         assert!(longest==287,"three split adjustments must exercise the 287-character regression, got {longest}: {:?}",encode(&w.whole));
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&w),7,now()).unwrap();

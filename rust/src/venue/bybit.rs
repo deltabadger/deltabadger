@@ -86,9 +86,13 @@ pub fn parse_order(id: &str, raw: &Value) -> Result<OrderState, VenueError> {
 pub struct BybitVenue<T: Transport> {
     transport: T, base: String, pairs: Pairs, identity: Option<Value>, placed: HashMap<String, DateTime<Utc>>, now: DateTime<Utc>,
     history_db: Option<std::path::PathBuf>,
+    /// #710: the account this venue trades for; an order's placement time is read from that account's orders only.
+    order_scope: Option<crate::venue_ids::Scope>,
 }
 impl<T: Transport> BybitVenue<T> {
-    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, placed: HashMap::new(), now: Utc::now(), history_db: None } }
+    pub fn new(transport: T, base: &str) -> Self { Self { transport, base: base.into(), pairs: Pairs::default(), identity: None, placed: HashMap::new(), now: Utc::now(), history_db: None, order_scope: None } }
+    /// #710: the account whose orders' placement times the history fallback reads (`engine::run::venue_for`, the bot's).
+    pub fn with_order_scope(mut self, scope: crate::venue_ids::Scope) -> Self { self.order_scope = Some(scope); self }
     pub fn with_pairs(mut self, pairs: Pairs) -> Self { self.pairs = pairs; self }
     pub fn with_identity(mut self, credentials: &crate::crypto::Credentials) -> Self { self.identity = Some(super::key_identity(&self.base, credentials)); self }
     pub fn with_history(mut self, placed: HashMap<String, DateTime<Utc>>, now: DateTime<Utc>) -> Self { self.placed = placed; self.now = now; self }
@@ -96,14 +100,18 @@ impl<T: Transport> BybitVenue<T> {
     pub fn with_history_db(mut self, path: std::path::PathBuf, now: DateTime<Utc>) -> Self { self.history_db = Some(path); self.now = now; self }
     async fn placement_time(&self, id: &str) -> Result<Option<DateTime<Utc>>, VenueError> {
         let Some(path) = self.history_db.clone() else { return Ok(self.placed.get(id).copied()) };
-        let id = id.to_owned();
+        let (id, scope) = (id.to_owned(), self.order_scope);
         let unreadable = || VenueError::Transient("Bybit order placement time is unreadable".into());
         // Like the factory's settings reads, use a fresh connection to this install, without creating a missing DB.
         // SQLite's open, query and timestamp parsing all stay off the async thread; no connection survives the read.
         tokio::task::spawn_blocking(move || {
             let c = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|_| unreadable())?;
-            let at: Option<String> = c.query_row(
-                "SELECT created_at FROM transactions WHERE exchange_id = (SELECT id FROM exchanges WHERE type = ?1) AND external_id = ?2",
+            // #710: the order of this venue's account (two accounts may hold one order id); without one (a request with no
+            // bot), the id as before.
+            let mine = match scope { Some(s) => format!("AND {}", s.orders("transactions")), None => String::new() };
+            let at: Option<String> = c.query_row(&format!(
+                "SELECT created_at FROM transactions WHERE exchange_id = (SELECT id FROM exchanges WHERE type = ?1) AND {} = ?2 {mine}",
+                crate::venue_ids::order_id(&c, "transactions").map_err(|_| unreadable())?),
                 rusqlite::params![BYBIT, id], |r| r.get(0)).optional().map_err(|_| unreadable())?;
             at.map(|at| crate::codec::parse_time(&at).map_err(|_| unreadable())).transpose()
         }).await.map_err(|_| unreadable())?

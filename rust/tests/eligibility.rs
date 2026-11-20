@@ -1024,7 +1024,7 @@ fn a_signal_bot_outside_what_the_engine_ports_is_refused_with_its_reason() {
         ("REBALANCE/LIQUIDATION/REDEPLOY row(s)", Box::new(|c, s| { let id = signal_bot(c, s);
             c.execute("INSERT INTO transactions (bot_id, exchange_id, base_asset_id, quote_asset_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
                        VALUES (?1, ?2, ?3, ?4, 'OREB', 0, 2, 0, 0, 'REBALANCE', '[]', '', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id, s.btc, s.quote]).unwrap(); id })),
-        ("row(s) with a status Rails never writes", Box::new(|c, s| { let id = signal_bot(c, s);
+        ("row(s) with a status 2.x never writes", Box::new(|c, s| { let id = signal_bot(c, s);
             c.execute("INSERT INTO transactions (bot_id, exchange_id, base_asset_id, quote_asset_id, external_id, status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
                        VALUES (?1, ?2, ?3, ?4, 'OX', 9, 0, 0, 'REGULAR', '[]', '', 0, '2026-09-01 00:00:00', '2026-09-01 00:00:00')", rusqlite::params![id, s.exchange_id, s.btc, s.quote]).unwrap(); id })),
     ];

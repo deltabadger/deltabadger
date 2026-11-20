@@ -219,7 +219,8 @@ async fn a_deleted_key_with_synced_balances_leaves_the_ledger_publishable(){
     let (_dir,o,s)=common::install_alpaca();let b=binance(&o.primary);let gone=key(&o.primary,s.user_id,b,1);row(&o.primary,s.user_id,b);seed(&o.primary,s.user_id,s.exchange_id);
     let version=deltabadger::engine::model::credential_version_by_id(&o.primary,gone).unwrap().unwrap();
     deltabadger::engine::model::credential_write(&o.primary,&Some(version.clone()),|fenced|deltabadger::sync::cache::record(fenced,s.user_id,b,&version,true,clock().0)).unwrap();
-    o.primary.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at) VALUES(?1,?2,?3,1,0,60000,60000,'2026-09-20 01:00:00','2026-09-20 01:00:00','2026-09-20 01:00:00','2026-09-20 01:00:00')",rusqlite::params![s.user_id,b,s.btc]).unwrap();
+    common::number_one(&o.primary, s.user_id, b);
+    o.primary.execute("INSERT INTO exchange_account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at,account_id) VALUES(?1,?2,?3,1,0,60000,60000,'2026-09-20 01:00:00','2026-09-20 01:00:00','2026-09-20 01:00:00','2026-09-20 01:00:00',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",rusqlite::params![s.user_id,b,s.btc]).unwrap();
     delete_key(&o.primary,gone);
     let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);

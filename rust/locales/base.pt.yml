@@ -89,6 +89,12 @@ pt:
     links:
         hide_balances: 'Ocultar saldos'
         display_currency: 'Moeda de exibição'
+        scheme: 'Esquema de cores'
+        scheme_default: 'Predefinido'
+        scheme_space: 'Espaço'
+        scheme_warm: 'Quente'
+        scheme_ember: 'Brasa'
+        scheme_forest: 'Floresta'
         show_balances: 'Mostrar saldos'
         about: 'Sobre'
         telegram: 'Telegram'
@@ -184,6 +190,10 @@ pt:
             confirm_delete: 'Pretende remover esta chave de API do CoinGecko?'
         market_data:
             none: 'Nenhum'
+            intro: "Os dados de mercado em tempo real alimentam os índices e o histórico de preços do acompanhamento da carteira. Use uma conta gratuita da CoinGecko, ou a API da Deltabadger para ter o mesmo com ações, além de um IP fixo para a lista branca das corretoras."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Ações também, e um IP fixo para a lista de permissões das corretoras."
+            upgrade_button: "Atualizar"
             disabled: 'Sincronização de dados de mercado desativada.'
             updated: 'Configurações de dados de mercado atualizadas.'
             coingecko_configured: 'Conectado ao CoinGecko para dados de mercado em tempo real.'
@@ -655,6 +665,7 @@ pt:
         notes:
             left: '%{exchange} reporta %{held} %{symbol}; o histórico explica %{history}. A diferença é tida como saída ao custo (%{amount}).'
             arrived: '%{exchange} reporta %{held} %{symbol}; o histórico explica %{history}. A diferença é tida como entrada ao seu preço (%{amount}).'
+            opened: 'O histórico precisa de %{history} %{symbol} cuja entrada nunca mostra. Considerados detidos desde o início, ao preço desse dia (%{amount}).'
             since_sync: '%{symbol} comprado desde a última sincronização: avaliado ao custo (%{amount}) até à próxima.'
             cash_out: 'O histórico detém %{history} %{symbol}; %{exchange} reporta %{held}. A diferença (%{amount}) é tida como saída.'
             cash_in: 'O histórico detém %{history} %{symbol}; %{exchange} reporta %{held}. A diferença (%{amount}) é tida como entrada.'
@@ -768,7 +779,8 @@ pt:
             market_closed: 'Mercado fechado — próxima abertura %{time}'
             limit_paused: 'Em pausa: limite %{limit} não atingido'
             execution_failed: 'Tentativa de ordem falhou'
-            execution_retrying: 'Problema de ligação temporário — a repetir automaticamente'
+            execution_retrying: "Tentativa de ordem falhou — o bot vai tentar novamente"
+            execution_retrying_with_error: "Tentativa de ordem falhou: %{error} — o bot vai tentar novamente"
             execution_failed_with_error: 'Tentativa de ordem falhou: %{error}'
             order_abandoned: "Ordem %{order_id} abandonada (a exchange já não a regista)"
             placement_ambiguous: "Estado da ordem não confirmado — sem nova tentativa, para evitar uma ordem duplicada"

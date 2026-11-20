@@ -371,7 +371,7 @@ async fn every_recorded_v2_sizing_and_wire_is_reproduced() {
             refused += 1;
             continue;
         }
-        let order = plan.to_order(CL.into(), deadline, BINGX.wire).unwrap();
+        let order = plan.to_order(CL.into(), deadline, &BINGX).unwrap();
         let (t, venue) = venue(
             json!({ "POST /openApi/spot/v1/trade/order": ok(json!({ "symbol": "BTC-USDT", "orderId": "C02__1" })) }),
         );

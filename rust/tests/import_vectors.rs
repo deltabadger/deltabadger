@@ -33,7 +33,8 @@ fn the_ported_constants_are_the_recorded_ones() {
     assert_eq!(ops, recorded);
     assert_eq!(v["cash"], binance::CASH);
     assert_eq!(v["convert_window"], binance::CONVERT_WINDOW);
-    assert_eq!(v["csv_headers"], json!(CSV_HEADERS));
+    // D-CSV-ACCOUNT-COLUMN (#710): 2.x's twelve, then `account`.
+    assert_eq!((v["csv_headers"].clone(), CSV_HEADERS[12]), (json!(CSV_HEADERS[..12]), "account"));
     let types: Vec<Value> = v["entry_types"].as_object().unwrap().iter().map(|(k, id)| json!([k, id])).collect();
     assert_eq!(types, TYPES.iter().enumerate().map(|(i, t)| json!([t, i])).collect::<Vec<_>>());
     assert_eq!(v["tz"], "UTC");

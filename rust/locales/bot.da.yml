@@ -174,6 +174,7 @@ da:
                     prices: 'Vis priser'
                     modes: 'Diagramtilstand'
                     pnl: 'P/L'
+                    received: 'Modtaget'
                     total_invested: 'Samlet investeret'
                     value: Værdi
                 csv_download_html: 'Tabellen ovenfor viser kun de seneste ti transaktioner. Den fulde rapport kan downloades i CSV-format nedenfor.'
@@ -190,12 +191,13 @@ da:
                 import_malformed_csv: 'CSV-filen er fejlformateret og kan ikke læses.'
                 import_error: 'Import mislykkedes: %{message}'
                 import_currency_mismatch: "Valutauoverensstemmelse: CSV har '%{csv_quote}', men botten bruger '%{bot_quote}'"
-                exchange_unavailable_html: 'Børsens API svarer ikke i øjeblikket.<br>Beregninger er baseret på de senest tilgængelige data.'
+                exchange_unavailable_html: "Priserne kunne ikke læses fra børsen.<br>Tallene bygger på de senest tilgængelige data."
                 order: Ordre
                 profit_loss: Gevinst/Tab
                 price: 'Kurs(%{quote})'
                 sold: Solgt
                 received: 'Modtaget'
+                realised_pnl_basis_note: "Modtaget beløb minus det, de solgte coins kostede, ifølge historikken på din konto."
                 title: Statistik
                 total_invested: 'Samlet investeret'
                 portfolio_value: 'Porteføljeværdi'

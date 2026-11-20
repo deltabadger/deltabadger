@@ -7,15 +7,32 @@ sk:
             stocks_ask_admin: "Požiadaj svojho administrátora o aktiváciu obchodovania s akciami."
             stocks_activate_cta: "Aktivovať obchodovanie s akciami v nastaveniach"
             add_more_assets: "Pridať ďalšie aktíva"
+            pick_assets: "Vyberte jedno alebo viac aktív"
             venue_groups:
+                connected: "Pripojené"
                 brokers: "Brokeri"
                 exchanges: "Burzy"
+            market_data:
+                intro: "Indexy potrebujú živé trhové dáta. Použite oficiálne dátové API Deltabadger alebo bezplatný účet CoinGecko."
+                providers: "Poskytovatelia trhových dát"
+                subscription:
+                    lead_html: "Predplatné <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> zahŕňa:"
+                    indexes_title: "Akciové a kryptomenové indexy"
+                    indexes: "Indexy vychádzajú z trhovej kapitalizácie svojich aktív a potrebujú živé aktualizácie."
+                    history_title: "Historické ceny"
+                    history: "Burzy cez svoje API ponúkajú len obmedzenú históriu cien. Pre sledovanie portfólia a daňové prehľady poskytuje API úplnú históriu cien a výmenných kurzov."
+                    ip_title: "Pevná IP"
+                    ip: "Domáca sieť zvyčajne nemá pevnú IP adresu na whitelist. Proxy vás udrží pripojených, aj keď sa zmení."
+            kind:
+                asset: "Aktívum"
+                index: "Index"
             progress_steps:
                 assets: "Aktíva"
                 currencies: "Vyberte aktivum"
                 exchange: "Burza"
                 spendable: "Mena"
                 api: "Pripojit burzu"
+                connect: "Pripojiť"
                 coingecko: "Pripojit CoinGecko"
                 index: "Vybrat index"
                 pick_asset: "Vybrat aktivum"

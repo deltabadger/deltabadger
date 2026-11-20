@@ -93,6 +93,7 @@ da:
                 external_sales: "%{label} solgte aktiver, den aldrig købte her, så dens historik kan ikke flettes."
                 interleaved: "Samlet ville disse botters historik give et andet samlet resultat, så de kan ikke flettes."
                 quote: "Alle botter skal bruge samme valuta."
+                accounts: "Disse botter handler på forskellige konti på samme børs, så de kan ikke slås sammen."
                 nothing_to_buy: "Ingen af disse aktiver handles længere på denne børs."
             index_switch:
                 stop_first: "Stop botten først."

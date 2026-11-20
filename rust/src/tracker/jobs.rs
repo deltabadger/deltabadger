@@ -100,8 +100,6 @@ pub struct Inputs {
     pub deposits: HashMap<i64, Dec>,
     pub reference: Reference,
     pub fx: FxTable,
-    /// `Exchange.all.to_h { [name_id, id] }`.
-    pub ids: HashMap<String, i64>,
     /// `PortfolioSnapshot.history_version` (the rows' count and newest update) and the price generation, as read.
     pub history: String,
     pub generation: i64,
@@ -113,7 +111,7 @@ pub struct Inputs {
 /// `Inputs` for the user, in one read transaction.
 pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError> {
     let tx = c.unchecked_transaction()?;
-    let origin = crate::sync::cache::capture_read(&tx, user_id, None).map_err(|_| FiguresError::Data("snapshot provenance unavailable".into()))?;
+    let origin = crate::sync::cache::capture_read(&tx, user_id, &crate::tracker::Scope::All).map_err(|_| FiguresError::Data("snapshot provenance unavailable".into()))?;
     let cache = super::cache::version(&tx, user_id)?;
     let history = backfill::history_version(&tx, user_id)?;
     let generation = backfill::generation(&tx)?;
@@ -123,17 +121,8 @@ pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError>
     let mut reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
     reference.record_coins(&tx, user_id)?;
     let fx = FxTable::load(&tx)?;
-    let mut ids = HashMap::new();
-    {
-        let mut s = tx.prepare("SELECT id, type FROM exchanges ORDER BY id")?;
-        let mut q = s.query([])?;
-        while let Some(r) = q.next()? {
-            let (id, kind): (i64, Option<String>) = (r.get(0)?, r.get(1)?);
-            if let Some(kind) = kind { ids.insert(super::rows::name_id(&kind), id); }
-        }
-    }
     tx.commit()?;
-    Ok(Inputs { all, rows, deposits, reference, fx, ids, history, generation, cache, origin })
+    Ok(Inputs { all, rows, deposits, reference, fx, history, generation, cache, origin })
 }
 
 type Answer = Result<Vec<(NaiveDate, Dec)>, String>;
@@ -216,7 +205,7 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&
         fx::ensure_loaded(db, ecb, today).await;
         let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
         let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
-        let (walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await?;
+        let (walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
         let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
         let still = history == inputs.history && generation == inputs.generation;
         last = Some((walked, inputs, began));
@@ -335,7 +324,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             if current != *version || inputs.history != *version { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
             // D-TRACKER-COIN-QUOTE: the history reads the legs the walk reads (its holdings, its cash shortfall, its closers).
             let legs = super::rows::split_coin_quoted_trades(inputs.all.clone(), true)?;
-            let swept = backfill::sweep(&plan, &prices, &legs, &terms, first, last, &inputs.fx, &inputs.ids)?;
+            let swept = backfill::sweep(&plan, &prices, &legs, &terms, first, last, &inputs.fx)?;
             // A rewrite never leaves an account with history before the window's end with none.
             let had: bool = fenced.query_row("SELECT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id = ?1 AND date <= ?2)", rusqlite::params![user_id, last.to_string()], |r| r.get(0))?;
             if had && swept.whole.is_empty() { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
@@ -511,7 +500,7 @@ async fn cached_ledger_run<T:Transport>(cx:&Cx<'_>,api:Option<&Feed<T>>,ecb:Opti
             cx.db.run(move|c,_|{
                 let tx=c.unchecked_transaction().map_err(|e|e.to_string())?;
                 let before=super::cache::version(&tx,owner).map_err(message)?;
-                let origin=crate::sync::cache::capture_read(&tx,owner,None).map_err(|_|"ledger cache provenance unavailable")?;
+                let origin=crate::sync::cache::capture_read(&tx,owner,&crate::tracker::Scope::All).map_err(|_|"ledger cache provenance unavailable")?;
                 tx.commit().map_err(|e|e.to_string())?;
                 written_for(c,&origin,&*clock,|c,now|{
                     super::cache::publish(c,owner,&before,None,now)
@@ -618,12 +607,12 @@ mod tests {
             INSERT INTO assets VALUES (1, 'AAPL.US', 'Stock', 'AAPL', NULL), (2, 'bitcoin', 'Cryptocurrency', 'BTC', 1);
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'AAPL', 1), (2, 1, 'BTC', 2);
             CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
-            CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
+            CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
             CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC, UNIQUE (currency, date));
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
             CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT, base_asset_id INTEGER, base_amount NUMERIC,
                 quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT, transacted_at TEXT, raw_data TEXT,
-                manual_values TEXT, linked_transaction_id INTEGER, updated_at TEXT);").unwrap();
+                manual_values TEXT, linked_transaction_id INTEGER, updated_at TEXT, transaction_id INTEGER);").unwrap();
         for (kind, base, amount, usd, when) in rows {
             c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, manual_values, updated_at) \
                        VALUES (1, 1, ?1, ?2, ?3, CASE WHEN ?4 IS NULL THEN NULL ELSE 'USD' END, ?4, ?5, '{}', '{}', ?5)", rusqlite::params![kind, base, amount, usd, when]).unwrap();
@@ -644,11 +633,12 @@ mod tests {
         let mut allowance = Allowance::run();
         let inputs = metered(&db, &mut allowance, |c, _| load_inputs(c, 1)).await.unwrap();
         let now = crate::figures::at::At::from_utc(at("2026-10-01T03:00:00Z")).unwrap();
-        let (walked, _) = pass(&db, Some(&api), inputs, at("2026-10-01T03:00:00Z"), &mut allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, &i.ids, now)).await.unwrap();
+        let (walked, _) = pass(&db, Some(&api), inputs, at("2026-10-01T03:00:00Z"), &mut allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await.unwrap();
         assert!(walked.whole.loss_sales.is_empty(), "the global opening had no price");
         // An opening's lookup takes its warning back, and the located walk is fully priced: the figures are complete.
         assert!(!walked.whole.incomplete);
-        assert_eq!(walked.venue(1).unwrap().positions[0].cost.to_s_f(), "585.0", "the located opening was priced, and sold first");
+        // The install has no account tables: its rows sit on the number 1 with no row yet, minus its exchange id.
+        assert_eq!(walked.venue(-1).unwrap().positions[0].cost.to_s_f(), "585.0", "the located opening was priced, and sold first");
         assert_eq!(t.requests().len(), 2);
         let stored: i64 = db.run(|c, _| c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get(0)).map_err(|e| e.to_string())).await.unwrap();
         assert_eq!(stored, 1, "the fetch's price stored before the walk went on");

@@ -16,7 +16,9 @@ fn snapshot(c: &Connection) -> Value {
     let mut tables = Map::new();
     for name in names {
         let skip = if name == "app_configs" { format!(" WHERE key IS NOT '{}'", deltabadger::identity::KEY_CONFIG) } else { String::new() };
-        let mut statement = c.prepare(&format!("SELECT * FROM {name}{skip} ORDER BY 1")).unwrap();
+        // #710 slice 5: 2.x's balances and venue snapshots are what their stores hold, under 2.x's names and columns.
+        let from = deltabadger::sync::balance_store::v2_projection(c, &name).unwrap().unwrap_or_else(|| name.clone());
+        let mut statement = c.prepare(&format!("SELECT * FROM {from}{skip} ORDER BY 1")).unwrap();
         let columns: Vec<String> = statement.column_names().iter().map(|s|s.to_string()).collect();
         let rows = statement.query_map([],|r| {
             let mut values = Map::new();

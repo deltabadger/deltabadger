@@ -32,7 +32,7 @@ fn write(c: &Connection, key: &sync::Key, rows: &[writer::Input]) -> Result<sync
     tx.commit()?;Ok(out)
 }
 fn state(c: &Connection) -> Value {
-    let tables=["account_transactions","app_configs","portfolio_snapshots","portfolio_venue_snapshots","api_keys","transactions"];
+    let tables=["account_transactions","app_configs","portfolio_snapshots","exchange_account_snapshots","api_keys","transactions"];
     json!(tables.map(|table| { let mut s=c.prepare(&format!("SELECT * FROM {table} ORDER BY id")).unwrap(); let n=s.column_count();
         s.query_map([],|r|Ok((0..n).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap() }))
 }
@@ -113,7 +113,7 @@ fn suppress(c: &Connection, coin: &str) {
     } app_config::set_plain(&tx,&key,&v.to_string(),now()).unwrap();}
     for owner in owners {
         for key in [deltabadger::tracker::cache::key(owner),deltabadger::tracker::backfill::history_key(owner),deltabadger::tracker::backfill::price_key(owner)] {tx.execute("DELETE FROM app_configs WHERE key=?1",[key]).unwrap();}
-        for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {tx.execute(&format!("DELETE FROM {table} WHERE user_id=?1"),[owner]).unwrap();}
+        for table in ["portfolio_snapshots","exchange_account_snapshots"] {tx.execute(&format!("DELETE FROM {table} WHERE user_id=?1"),[owner]).unwrap();}
     }tx.commit().unwrap();
 }
 
@@ -132,14 +132,16 @@ fn suppression_precedes_sync_csv_and_equal_bnb_stamped_anchor_after_restart() {
 #[test]
 fn invalidation_and_marker_roll_back_with_failed_insert_and_zero_insert_retry_is_fresh() {
     let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());let rows=pair("p1","BTC");
-    for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
+    for k in [deltabadger::tracker::cache::key(key.user_id),deltabadger::tracker::cache::sales_key(key.user_id),deltabadger::tracker::backfill::history_key(key.user_id),deltabadger::tracker::backfill::price_key(key.user_id)] {app_config::set_plain(c,&k,"stale",now()).unwrap();}
     c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES (?1,'2099-01-01','2099-01-01','2099-01-01')",[key.user_id]).unwrap();
-    c.execute("INSERT INTO portfolio_venue_snapshots(user_id,exchange_id,date,created_at,updated_at) VALUES (?1,?2,'2099-01-01','2099-01-01','2099-01-01')",params![key.user_id,key.exchange_id]).unwrap();
+    common::number_one(c, key.user_id, key.exchange_id);
+    c.execute("INSERT INTO exchange_account_snapshots(user_id,exchange_id,date,created_at,updated_at,account_id) VALUES (?1,?2,'2099-01-01','2099-01-01','2099-01-01',(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",params![key.user_id,key.exchange_id]).unwrap();
     let before=state(c);
     c.execute_batch("CREATE TEMP TRIGGER fail_invalidation BEFORE DELETE ON app_configs BEGIN SELECT RAISE(ABORT,'simulated crash'); END").unwrap();
     assert!(write(c,&key,&rows).is_err());assert_eq!(state(c),before);c.execute_batch("DROP TRIGGER fail_invalidation").unwrap();
     assert_eq!(write(c,&key,&rows).unwrap().imported,2);assert!(app_config::get_plain(c,&deltabadger::tracker::cache::key(key.user_id)).unwrap().is_none());
-    for table in ["portfolio_snapshots","portfolio_venue_snapshots"] {assert_eq!(c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);}
+    assert!(app_config::get_plain(c,&deltabadger::tracker::cache::sales_key(key.user_id)).unwrap().is_none(),"the bot sales go with the ledger entry");
+    for table in ["portfolio_snapshots","exchange_account_snapshots"] {assert_eq!(c.query_row(&format!("SELECT count(*) FROM {table}"),[],|r|r.get::<_,i64>(0)).unwrap(),0);}
     let after=state(c);assert_eq!(write(c,&key,&rows).unwrap().imported,0);assert_eq!(state(c),after);
 }
 
@@ -334,7 +336,7 @@ fn accounting(c:&Connection,owner:i64,expected:&Value) {
         let fee=r.fee_amount.as_ref().map(|f|(f*&price).unwrap()).unwrap_or_else(Dec::zero);
         Row{uid,kind:r.kind,base:r.base,amount:r.amount,quote:None,quote_amount:None,fiat_value:value,fee_fiat_value:fee,
             fee_currency:r.fee_currency,fee_amount:r.fee_amount,at:r.at,group:r.group,price_missing:false,value_missing:None,
-            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false}
+            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
     }).collect();
     let mut engine=Engine::new(false);engine.calculate(&rows).unwrap();
     let lots:std::collections::BTreeMap<_,_>=engine.remaining_lots().map(|(asset,venue,lots)| {
@@ -424,7 +426,7 @@ async fn rebuild_from_cold(c:&Connection,path:&std::path::Path,owner:i64) {
     for job in [jobs::TRACKER_LEDGER,jobs::PORTFOLIO_BACKFILL] {assert!(wakes.contains(&(job.into(),Some(owner.to_string()))),"{job}: {wakes:?}");}
     let inputs=jobs::load_inputs(c,owner).unwrap();let mut no_prices=Unfetched;
     let mut prices=PriceService::new(&inputs.reference,&inputs.fx,now().date_naive(),&mut no_prices);
-    let rebuilt=walk::scopes(&inputs.rows,&inputs.deposits,&mut prices,&inputs.ids,deltabadger::figures::at::At::from_utc(now()).unwrap()).unwrap();
+    let rebuilt=walk::scopes(&inputs.rows,&inputs.deposits,&mut prices,deltabadger::figures::at::At::from_utc(now()).unwrap()).unwrap();
     let tx=model::immediate(c).unwrap();assert!(cache::publish(&model::fence_versions(&tx,&[]).unwrap(),owner,&inputs.cache,Some(&rebuilt),now()).unwrap());tx.commit().unwrap();
     let cache::State::Warm(read)=cache::read(c,owner,None,now()).unwrap() else {panic!("the read must use the rebuilt cache")};
     assert_eq!(read.realised,rebuilt.whole.realised);assert_eq!(read.positions.len(),rebuilt.whole.positions.len());
@@ -891,7 +893,8 @@ async fn repair_update_runs_once_per_install_version_and_new_version_runs_again(
         let next=job.with_version(repair::REPAIR_VERSION+1);
         assert_eq!(run_repair(&next,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::Done);
         assert!(calls.borrow().len()>requests);assert_eq!(count(&c),1);
-        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().iter().any(|g|g.exchange_id==key.exchange_id),"retention/excluded windows reach the existing Import history line");
+        assert!(c.query_row("SELECT count(*) FROM app_configs WHERE key=?1",[repair::gap_key(key.user_id)],|r|r.get::<_,i64>(0)).unwrap()==1,"the repair keeps its diagnostic row");
+        assert!(deltabadger::tracker::gaps::read(&c,key.user_id,&deltabadger::tracker::Scope::All,None,None).unwrap().is_empty(),"the repair's diagnostics do not open the line");
     }
 }
 
@@ -923,7 +926,7 @@ async fn repair_update_crash_after_committed_bucket_resumes_on_restart() {
     assert_eq!(run_repair(&job,Connection::open(c.path().unwrap()).unwrap()).await,Outcome::NothingNew);assert_eq!(count(&c),2);
 }
 #[tokio::test(flavor="current_thread")]
-async fn repair_update_unresolved_identity_is_visible_on_the_gap_line() {
+async fn repair_update_unresolved_identity_stays_off_the_gap_line() {
     let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
     let a=input(Source::Deposit,"d1","","BTC");write(&o.primary,&key,std::slice::from_ref(&a)).unwrap();
     o.primary.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:bucket:%'",[]).unwrap();
@@ -936,10 +939,9 @@ async fn repair_update_unresolved_identity_is_visible_on_the_gap_line() {
     }
     assert_eq!(run_repair(&repair::HistoryRepair::new(Ambiguous),o.primary).await,deltabadger::jobs::Outcome::Done);
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    let gaps=deltabadger::tracker::gaps::read(&c,key.user_id,Some(key.exchange_id),None,None).unwrap();assert_eq!(gaps.len(),1);
-    assert!(deltabadger::tracker::gaps::read(&c,key.user_id+1,None,None,None).unwrap().is_empty());
-    c.execute("UPDATE api_keys SET key='rotated' WHERE id=?1",[key.id]).unwrap();
-    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().is_empty(),"the diagnostic is credential fenced");
+    let stored:serde_json::Value=serde_json::from_str(&c.query_row("SELECT value FROM app_configs WHERE key=?1",[repair::gap_key(key.user_id)],|r|r.get::<_,String>(0)).unwrap()).unwrap();
+    assert!(stored[key.exchange_id.to_string()]["unresolved"].as_u64().unwrap()>0,"the diagnostic is stored");
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,&deltabadger::tracker::Scope::of_exchange(&c,key.user_id,Some(key.exchange_id)).unwrap(),None,None).unwrap().is_empty(),"no page reads it");
 }
 #[tokio::test(flavor="current_thread")]
 async fn repair_update_venue_failure_uses_scheduler_retry_without_blocking_start() {
@@ -984,11 +986,11 @@ fn repair_session_keeps_guards_between_batches_and_avoids_repeated_full_scans() 
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn repair_update_unavailable_windows_finish_without_claiming_recovery() {
+async fn repair_update_unavailable_windows_finish_without_claiming_recovery_or_opening_the_line() {
     let (dir,o,s)=common::install();let key=key(&o.primary,&s);let _lock=claim(&o.primary,dir.path());
     assert_eq!(run_repair(&repair_job("unavailable"),o.primary).await,deltabadger::jobs::Outcome::Done);
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();assert_eq!(count(&c),0);
-    assert_eq!(deltabadger::tracker::gaps::read(&c,key.user_id,None,None,None).unwrap().len(),1);
+    assert!(deltabadger::tracker::gaps::read(&c,key.user_id,&deltabadger::tracker::Scope::All,None,None).unwrap().is_empty(),"a failed window names nothing to import");
 }
 
 #[tokio::test(flavor="current_thread")]

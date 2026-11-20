@@ -464,6 +464,7 @@ impl App {
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         let cipher = Cipher::new(&encryption);
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
+        crate::sync::balance_store::fallback(&primary)?;
         Ok(Self(Arc::new(Inner {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
@@ -802,7 +803,7 @@ fn routes(app: App) -> Router {
         .route("/bots/dca_multi_assets/pick_spendable_asset/new", only(get(wizard::spendable::new)))
         .route("/bots/dca_multi_assets/pick_spendable_asset", only(post(wizard::spendable::create)))
         .route("/bots/dca_indexes/setup_coingecko/new", only(get(wizard::index::setup_new)))
-        .route("/bots/dca_indexes/pick_index/new", only(get(wizard::index::pick_new)))
+        .route("/bots/dca_indexes/pick_index/new", only(get(wizard::index::setup_new)))
         .route("/bots/dca_indexes/pick_index", only(post(wizard::index::pick_create)))
         .route("/bots/dca_indexes/pick_exchange/new", only(get(wizard::index::exchange_new)))
         .route("/bots/dca_indexes/pick_exchange", only(post(wizard::index::exchange_create)))
@@ -864,6 +865,7 @@ fn routes(app: App) -> Router {
         .route("/bots/{id}/delete.turbo_stream", only(delete(bot::actions::delete)))
         .route("/bots/{id}/archive.turbo_stream", only(post(bot::actions::archive).delete(bot::actions::unarchive)))
         .route("/bots/{id}/chart", only(get(bot::page::chart_frame)))
+        .route("/bots/{id}/chart/data", only(get(bot::page::chart_data)))
         .route("/bots/{id}/bot_signals", only(post(bot::signal_write::create_rule)))
         .route("/bots/{id}/bot_signals/{rule}", only(patch(bot::signal_write::update_rule).delete(bot::signal_write::destroy_rule)))
         .route("/bots/{id}/signal_resolution", only(post(bot::signal_write::resolve)))

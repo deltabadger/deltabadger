@@ -97,6 +97,9 @@ pub type PriceKey = (String, Option<Asset>);
 pub const STOCK_CATEGORIES: [&str; 4] = ["Stock", "Common Stock", "ETF", "Fund"];
 fn security(a: &Asset) -> bool { a.2.as_deref().is_some_and(|c| STOCK_CATEGORIES.contains(&c)) }
 fn crypto(a: &Asset) -> bool { a.2.as_deref() == Some("Cryptocurrency") }
+/// The class a row's stored asset records: Some(true) a security, Some(false) a coin, None no asset or another category
+/// (`classify`'s convention).
+pub fn recorded_class(a: Option<&Asset>) -> Option<bool> { a.and_then(|a| if security(a) { Some(true) } else if crypto(a) { Some(false) } else { None }) }
 
 /// What a pass reads of the catalogue, the venues and the stored prices, for the symbols it names: each table read in
 /// one query, every row read a step of the open budget scope, and indexed in memory, so no lookup issues SQL.

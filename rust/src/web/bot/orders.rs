@@ -174,7 +174,7 @@ struct Rows<'a> {
     decimals: HashMap<String, u8>,
     /// A broadcast has no session: its Cancel form carries no token, and Turbo sends the receiving page's.
     broadcast: bool,
-    /// A28-2a: the page's `rails_order_open`/`listed` lines' obligations, read at once (`with_obligations`).
+    /// A28-2a: the page's `v2_order_open`/`listed` lines' obligations, read at once (`with_obligations`).
     obligations: HashMap<i64, ObligationView>,
 }
 
@@ -348,9 +348,10 @@ impl<'a> Rows<'a> {
             // D-SIG-COND-LINE / D-SIG-CAP: this engine's own signal lines (locale data under `engine.`).
             "signal_condition_unmet" => i18n::text(self.ctx.locale, "engine.signal_condition_unmet", &[("limit", Arg::Text(&detail("limit_type").replace('_', " ")))]),
             "signal_quote_amount_limit_reached" => i18n::text(self.ctx.locale, "engine.signal_quote_amount_limit_reached", &[]),
-            "execution_failed" => match humanized_error(self.bot, &[detail("error")], self.ctx.locale) {
-                Some(error) => event("execution_failed_with_error", &[("error", Arg::Text(&error))]),
-                None => event("execution_failed", &[]),
+            // The stored error, named as execution_failed names it; a row without one keeps the bare line.
+            "execution_failed" | "execution_retrying" => match humanized_error(self.bot, &[detail("error")], self.ctx.locale) {
+                Some(error) => event(&format!("{}_with_error", log.event), &[("error", Arg::Text(&error))]),
+                None => event(&log.event, &[]),
             },
             "stopped" => match detail("stop_message_key") {
                 key if key.trim().is_empty() => event("stopped", &[]),
@@ -374,25 +375,25 @@ impl<'a> Rows<'a> {
             "upgrade_signal_unresolved" => event(&log.event, &[("call", Arg::Text(&detail("call")))]),
             "upgrade_command_dropped" => event(&log.event, &[("action", Arg::Text(&detail("action")))]),
             // A28-1: 2.x's unrecorded-order candidates (engine::v2_unrecorded).
-            "rails_order_candidates" => {
+            "v2_order_candidates" => {
                 let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
-                event(if one { "rails_order_candidate" } else { "rails_order_candidates" },
+                event(if one { "v2_order_candidate" } else { "v2_order_candidates" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("trades", Arg::Text(&detail("trades")))])
             }
             // A28-3: the venue's own orders (engine::v2_unrecorded::merged).
-            "rails_order_open" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))]),
-            "rails_order_listed" => {
+            "v2_order_open" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))]),
+            "v2_order_listed" => {
                 let one = log.details.get("count").and_then(Value::as_i64) == Some(1);
-                event(if one { "rails_order_listed_one" } else { "rails_order_listed" },
+                event(if one { "v2_order_listed_one" } else { "v2_order_listed" },
                       &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue"))), ("orders", Arg::Text(&detail("orders")))])
             }
             // A28-2: the owner's booking of one of those orders, and what follows it (engine::v2_unrecorded).
-            "rails_order_recovered" => event(&log.event, &[("order", Arg::Text(&detail("order")))]),
-            "rails_order_not_added" => event(&format!("rails_order_not_added_{}", detail("reason")), &[("venue", Arg::Text(&detail("venue")))]),
-            "rails_order_not_mine" => event(&log.event, &[]),
-            "rails_order_unsettled" | "rails_order_settled_lower" => event(&log.event, &[("venue", Arg::Text(&detail("venue"))), ("placed", Arg::Text(&detail("placed")))]),
-            "rails_order_none_seen" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
-            "rails_order_unchecked" => event(&format!("rails_order_unchecked_{}", detail("reason")), &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
+            "v2_order_recovered" => event(&log.event, &[("order", Arg::Text(&detail("order")))]),
+            "v2_order_not_added" => event(&format!("v2_order_not_added_{}", detail("reason")), &[("venue", Arg::Text(&detail("venue")))]),
+            "v2_order_not_mine" => event(&log.event, &[]),
+            "v2_order_unsettled" | "v2_order_settled_lower" => event(&log.event, &[("venue", Arg::Text(&detail("venue"))), ("placed", Arg::Text(&detail("placed")))]),
+            "v2_order_none_seen" => event(&log.event, &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
+            "v2_order_unchecked" => event(&format!("v2_order_unchecked_{}", detail("reason")), &[("when", Arg::Text(&detail("when"))), ("venue", Arg::Text(&detail("venue")))]),
             "asset_split" => match detail("ratio") {
                 ratio if ratio.trim().is_empty() => event("asset_split_unknown_ratio", &[("base", Arg::Text(&detail("base")))]),
                 ratio => event("asset_split", &[("base", Arg::Text(&detail("base"))), ("ratio", Arg::Text(&ratio))]),
@@ -408,10 +409,10 @@ impl<'a> Rows<'a> {
                 log.id, if self.hidden { "other" } else { "all" }, self.when(log.created_at), if self.hidden { 1 } else { 3 }, escape(&self.activity_summary(log)?), self.v2_order_answers(log)))
     }
 
-    /// A28-2a (PLAN-A28-2 §1, r1.7): the owner's answers under a `rails_order_open`/`listed` line whose group is undecided:
+    /// A28-2a (PLAN-A28-2 §1, r1.7): the owner's answers under a `v2_order_open`/`listed` line whose group is undecided:
     /// one form per offer and one "none"; "Checking…" while a request waits; nothing once decided, or on any other line.
     fn v2_order_answers(&self, log: &Log) -> String {
-        if !matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed") || self.broadcast { return String::new(); }
+        if !matches!(log.event.as_str(), "v2_order_open" | "v2_order_listed") || self.broadcast { return String::new(); }
         let Some(view) = log.details.get("obligation").and_then(Value::as_i64).and_then(|id| self.obligations.get(&id)) else { return String::new() };
         if view.resolved { return String::new(); }
         let venue = log.details.get("venue").and_then(Value::as_str).unwrap_or_default();
@@ -439,10 +440,10 @@ impl<'a> Rows<'a> {
         out
     }
 
-    /// The obligations of `items`' first page of `rails_order_open`/`listed` lines, in one `offers_for` call.
+    /// The obligations of `items`' first page of `v2_order_open`/`listed` lines, in one `offers_for` call.
     fn with_obligations(mut self, c: &Connection, items: &[Item]) -> Result<Self, WebError> {
         let ids: Vec<i64> = items.iter().take(PAGE).filter_map(|item| match item {
-            Item::Log(log) if matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed") => log.details.get("obligation").and_then(Value::as_i64),
+            Item::Log(log) if matches!(log.event.as_str(), "v2_order_open" | "v2_order_listed") => log.details.get("obligation").and_then(Value::as_i64),
             _ => None,
         }).collect();
         if !ids.is_empty() {
@@ -494,14 +495,14 @@ pub fn feed(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User) -> Result<String,
 /// D-LIQUIDATION-ONE-LINE: the bot's activity lines above `after`, as the feed selects them, prepended oldest first (Turbo's
 /// prepend drops a child of the same id, so a line the feed also loaded is not doubled), then the filters. `before`: only the
 /// lines older than it, in id order up to the first that is not (an order about to be prepended goes above them; the rest
-/// wait for a later event). A28-2's `rails_order_open`/`listed` lines are not broadcast: their answers need the session's
+/// wait for a later event). A28-2's `v2_order_open`/`listed` lines are not broadcast: their answers need the session's
 /// token, and a prepend would replace the feed's row carrying them. The highest id passed, or `after`.
 pub fn new_lines(c: &Connection, ctx: &Ctx, bot: &Bot, user: &User, after: i64, before: Option<DateTime<Utc>>) -> Result<(Vec<(String, String)>, i64), WebError> {
     let mut s = c.prepare("SELECT id, created_at, event, message, details FROM bot_activity_logs WHERE bot_id = ?1 AND id > ?2 AND event NOT IN ('order_skipped', 'order_ignored') ORDER BY id")?;
     let mut logs = s.query_map([bot.id, after], log_row)?.collect::<Result<Vec<_>, _>>()?;
     if let Some(before) = before { if let Some(at) = logs.iter().position(|log| log.created_at >= before) { logs.truncate(at); } }
     let Some(last) = logs.last().map(|log| log.id) else { return Ok((vec![], after)) };
-    logs.retain(|log| !matches!(log.event.as_str(), "rails_order_open" | "rails_order_listed"));
+    logs.retain(|log| !matches!(log.event.as_str(), "v2_order_open" | "v2_order_listed"));
     if logs.is_empty() { return Ok((vec![], last)); }
     let rows = Rows { broadcast: true, ..Rows::new(ctx, bot, user) };
     let page = super::page::page_stream(bot);

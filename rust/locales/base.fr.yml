@@ -89,6 +89,12 @@ fr:
     links:
         hide_balances: 'Masquer les soldes'
         display_currency: "Devise d'affichage"
+        scheme: 'Thème de couleurs'
+        scheme_default: 'Par défaut'
+        scheme_space: 'Espace'
+        scheme_warm: 'Chaud'
+        scheme_ember: 'Braise'
+        scheme_forest: 'Forêt'
         show_balances: 'Afficher les soldes'
         about: 'À propos'
         telegram: 'Telegram'
@@ -186,6 +192,10 @@ fr:
             confirm_delete: 'Voulez-vous supprimer cette clé API CoinGecko ?'
         market_data:
             none: 'Aucun'
+            intro: "Les données de marché en direct alimentent les indices et l'historique des prix du suivi de portefeuille. Utilisez un compte CoinGecko gratuit, ou l'API Deltabadger pour obtenir la même chose avec les actions, plus une IP fixe à mettre en liste blanche sur les plateformes."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Les actions aussi, et une IP fixe à mettre en liste blanche sur les plateformes."
+            upgrade_button: "Passer à l'API"
             disabled: 'Synchronisation des données de marché désactivée.'
             updated: 'Paramètres des données de marché mis à jour.'
             coingecko_configured: 'Connecté à CoinGecko pour les données de marché en direct.'
@@ -657,6 +667,7 @@ fr:
         notes:
             left: '%{exchange} déclare %{held} %{symbol} ; l''historique en explique %{history}. La différence est réputée sortie au coût (%{amount}).'
             arrived: '%{exchange} déclare %{held} %{symbol} ; l''historique en explique %{history}. La différence est réputée entrée à son prix (%{amount}).'
+            opened: 'L''historique a besoin de %{history} %{symbol} dont il ne montre jamais l''arrivée. Considérés comme détenus dès le départ, au prix de ce jour-là (%{amount}).'
             since_sync: '%{symbol} acheté depuis la dernière synchronisation : valorisé au coût (%{amount}) jusqu''à la prochaine.'
             cash_out: 'L''historique détient %{history} %{symbol} ; %{exchange} déclare %{held}. La différence (%{amount}) est réputée sortie.'
             cash_in: 'L''historique détient %{history} %{symbol} ; %{exchange} déclare %{held}. La différence (%{amount}) est réputée entrée.'
@@ -770,7 +781,8 @@ fr:
             market_closed: 'Marché fermé — prochaine ouverture %{time}'
             limit_paused: 'En pause : limite %{limit} non atteinte'
             execution_failed: "Tentative d'ordre échouée"
-            execution_retrying: 'Problème de connexion temporaire — nouvelle tentative automatique'
+            execution_retrying: "Tentative d'ordre échouée — le bot réessaiera"
+            execution_retrying_with_error: "Tentative d'ordre échouée : %{error} — le bot réessaiera"
             execution_failed_with_error: "Tentative d'ordre échouée : %{error}"
             order_abandoned: "Ordre %{order_id} abandonné (la bourse ne le suit plus)"
             placement_ambiguous: "Statut de l'ordre non confirmé — pas de nouvelle tentative, pour éviter un ordre en double"

@@ -7,15 +7,32 @@ en:
             stocks_ask_admin: "Ask your admin to activate stock trading."
             stocks_activate_cta: "Activate stock trading in Settings"
             add_more_assets: "Add more assets"
+            pick_assets: "Pick one or more assets"
             venue_groups:
+                connected: "Connected"
                 brokers: "Brokers"
                 exchanges: "Exchanges"
+            market_data:
+                intro: "Indexes require live market data. Use the official Deltabadger data API, or a free CoinGecko account."
+                providers: "Market data providers"
+                subscription:
+                    lead_html: "The <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> subscription includes:"
+                    indexes_title: "Stock and crypto indexes"
+                    indexes: "Indexes are based on the market capitalization of their assets and need live updates."
+                    history_title: "Historical prices"
+                    history: "Exchanges offer only limited price history through their APIs. For portfolio tracking and tax reporting, the API provides the full history of prices and exchange rates."
+                    ip_title: "Stable IP"
+                    ip: "Your home network usually has no stable IP address to whitelist. The proxy keeps you connected when it changes."
+            kind:
+                asset: "Asset"
+                index: "Index"
             progress_steps:
                 assets: "Assets"
                 currencies: "Pick asset"
                 exchange: "Exchange"
                 spendable: "Currency"
                 api: "Connect exchange"
+                connect: "Connect"
                 coingecko: "Connect CoinGecko"
                 index: "Pick index"
                 pick_asset: "Pick asset"

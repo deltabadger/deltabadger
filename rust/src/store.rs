@@ -165,6 +165,73 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("fingerprint", "TEXT", true), ("ranked_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261112000001", TableContract { name: "rust_index_retired", columns: &[("external_id", "TEXT", true), ("provider", "TEXT", true),
         ("retired_at", "TEXT", true)], unique_indexes: &[&["external_id", "provider"]] }),
+    // B11-9 (D-B11-9-V2-NAMES): rust_withdrawal_ids rebuilt (its CHECK says 'v2'), the eight tables retired below renamed rust_v2_*.
+    ("20261117000001", TableContract { name: "rust_withdrawal_ids", columns: &[
+        ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)], unique_indexes: &[&["exchange_id", "venue_id"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_attempt_acks", columns: &[
+        ("rule_log_id", "INTEGER", false), ("rule_id", "INTEGER", true), ("resolution", "TEXT", true), ("venue_id", "TEXT", false), ("at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_job_acks", columns: &[
+        ("active_job_id", "TEXT", true), ("rule_id", "INTEGER", true), ("resolution", "TEXT", true), ("venue_id", "TEXT", false), ("at", "TEXT", true)], unique_indexes: &[&["active_job_id"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded", columns: &[("id", "INTEGER", false), ("bot_id", "INTEGER", true),
+        ("source", "TEXT", true), ("source_ref", "INTEGER", true), ("span_from", "TEXT", true), ("span_to", "TEXT", true), ("scope", "TEXT", false),
+        ("collected_at", "TEXT", true), ("reported_at", "TEXT", false), ("outcome", "TEXT", false)], unique_indexes: &[&["source", "source_ref"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_live", columns: &[("obligation_id", "INTEGER", false), ("stamp", "TEXT", true),
+        ("attempts", "INTEGER", true), ("refused_at", "TEXT", false), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_offers", columns: &[("id", "INTEGER", false), ("obligation_id", "INTEGER", true),
+        ("external_id", "TEXT", true), ("symbol", "TEXT", true), ("facts", "TEXT", true)], unique_indexes: &[&["obligation_id", "external_id"]] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_resolutions", columns: &[("obligation_id", "INTEGER", false), ("resolution", "TEXT", true),
+        ("offer_id", "INTEGER", false), ("transaction_id", "INTEGER", false), ("resolved_at", "TEXT", true), ("confirmed_base", "TEXT", false),
+        ("confirmed_quote", "TEXT", false)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_requests", columns: &[("obligation_id", "INTEGER", false), ("offer_id", "INTEGER", true),
+        ("requested_at", "TEXT", true), ("attempts", "INTEGER", true), ("last_at", "TEXT", false)], unique_indexes: &[] }),
+    ("20261117000001", TableContract { name: "rust_v2_unrecorded_notices", columns: &[("transaction_id", "INTEGER", true), ("kind", "TEXT", true),
+        ("at", "TEXT", true)], unique_indexes: &[&["transaction_id", "kind"]] }),
+    // #710 slice 1: exchange_accounts rebuilt (number, removed_at; one row per number), and key and bot membership.
+    ("20261119000001", TableContract { name: "exchange_accounts", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("number", "INTEGER", true), ("fingerprint", "TEXT", false),
+        ("account_id_enc", "BLOB", false), ("removed_at", "TEXT", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)],
+        unique_indexes: &[&["user_id", "exchange_id", "number"]] }),
+    ("20261119000001", TableContract { name: "exchange_account_keys", columns: &[("api_key_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
+    ("20261119000001", TableContract { name: "exchange_account_bots", columns: &[("bot_id", "INTEGER", false), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
+    // #710 slice 3: withdrawal rules by account (2.x's `rules` mirrors the number-1 ones).
+    ("20261119000002", TableContract { name: "exchange_account_rules", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("user_id", "INTEGER", true), ("type", "TEXT", true), ("status", "INTEGER", true),
+        ("exchange_id", "INTEGER", true), ("asset_id", "INTEGER", false), ("address", "TEXT", false), ("settings", "TEXT", true),
+        ("settings_changed_at", "TEXT", false), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)],
+        unique_indexes: &[&["account_id", "type", "asset_id"]] }),
+    ("20261119000002", TableContract { name: "rust_api_order_standalone", columns: &[
+        ("order_id", "INTEGER", false), ("account_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("ticker_id", "INTEGER", true), ("order_type", "TEXT", true),
+        ("price", "TEXT", false), ("surface", "TEXT", true), ("identity", "TEXT", false), ("order_snapshot", "TEXT", false), ("external_id", "TEXT", false)],
+        unique_indexes: &[] }),
+    // Its unique index is on (coalesce(account_id, -exchange_id), venue_id): an expression the contract cannot name.
+    ("20261119000002", TableContract { name: "rust_withdrawal_ids", columns: &[("account_id", "INTEGER", false),
+        ("exchange_id", "INTEGER", true), ("venue_id", "TEXT", true), ("owner", "TEXT", true), ("settled_at", "TEXT", true), ("source", "TEXT", true)],
+        unique_indexes: &[] }),
+    // #710 slice 3: a bot's order's account (PLAN-710-4 §2's shape; slice 3 writes account_id only).
+    ("20261119000002", TableContract { name: "exchange_account_transactions", columns: &[("transaction_id", "INTEGER", false), ("account_id", "INTEGER", true),
+        ("venue_external_id", "TEXT", false)], unique_indexes: &[&["account_id", "venue_external_id"]] }),
+    // #710 slice 4: a ledger row's account 2+ and its venue id (venue_ids); its trigger keeps a member's 2.x tx_id NULL.
+    ("20261120000001", TableContract { name: "exchange_account_rows", columns: &[("account_transaction_id", "INTEGER", false), ("account_id", "INTEGER", true),
+        ("venue_tx_id", "TEXT", false)], unique_indexes: &[&["account_id", "venue_tx_id"]] }),
+    // #710 slice 4: a withheld KuCoin HF fill is its account's.
+    ("20261120000002", TableContract { name: "kucoin_withheld_fills", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("tx_id", "TEXT", true), ("transacted_at", "TEXT", true), ("entry", "TEXT", true),
+        ("created_at", "TEXT", true)], unique_indexes: &[&["account_id", "tx_id"]] }),
+    // #710 slice 5: balances and venue snapshots by account (sync::balance_store): 2.x's columns and types, account_id last.
+    ("20261121000001", TableContract { name: "exchange_account_balances", columns: &[
+        ("id", "integer", true), ("asset_id", "integer", true), ("created_at", "datetime(6)", true), ("exchange_id", "integer", true),
+        ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true),
+        ("updated_at", "datetime(6)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false), ("user_id", "integer", true),
+        ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "asset_id"]] }),
+    ("20261121000001", TableContract { name: "exchange_account_snapshots", columns: &[
+        ("id", "integer", true), ("user_id", "integer", true), ("exchange_id", "integer", true), ("date", "date", true), ("value_usd", "decimal(20,8)", true),
+        ("invested_usd", "decimal(20,8)", true), ("held_value_usd", "decimal(20,8)", false), ("held_cost_usd", "decimal(20,8)", false),
+        ("partial", "boolean", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true), ("account_id", "INTEGER", true)],
+        unique_indexes: &[&["account_id", "date"]] }),
+    // #710 slice 5: KuCoin HF coverage by account.
+    ("20261121000002", TableContract { name: "kucoin_coverage", columns: &[
+        ("id", "INTEGER", false), ("account_id", "INTEGER", true), ("source", "TEXT", true), ("start_at", "TEXT", true), ("end_at", "TEXT", true),
+        ("updated_at", "TEXT", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.
@@ -175,7 +242,12 @@ pub const REGISTRY: Registry<'static> = Registry { migrations: RUST_MIGRATIONS, 
 
 // (version, table): migration `version` removes `table` (D-B11-9-RETIRED-CONTRACT). Its contracts above stay, for the
 // installs between versions. Extend with every migration that renames or drops a Rust table.
-const RUST_RETIRED: &[(&str, &str)] = &[];
+const RUST_RETIRED: &[(&str, &str)] = &[
+    ("20261117000001", "rust_rails_attempt_acks"), ("20261117000001", "rust_rails_job_acks"), ("20261117000001", "rust_rails_unrecorded"),
+    ("20261117000001", "rust_rails_unrecorded_live"), ("20261117000001", "rust_rails_unrecorded_offers"),
+    ("20261117000001", "rust_rails_unrecorded_resolutions"), ("20261117000001", "rust_rails_unrecorded_requests"),
+    ("20261117000001", "rust_rails_unrecorded_notices"),
+];
 
 /// The table the migrator records Rust migrations in, created in the transaction of the first one it applies.
 pub const RUST_MIGRATIONS_TABLE: &str = "rust_schema_migrations";
@@ -655,6 +727,7 @@ pub fn migrate_with(paths: &Paths, _lock: &EngineLock, registry: &Registry) -> R
 /// Applies every migration of `registry` that `c` has not recorded, each in its own BEGIN IMMEDIATE transaction with
 /// its record. A file that ends its transaction itself (COMMIT/END) is rolled back and refused.
 fn apply(c: &Connection, registry: &Registry) -> Result<Vec<String>, StoreError> {
+    crate::sync::balance_store::drop_fallback(c)?;
     let done = recorded(c)?;
     let mut applied = Vec::new();
     for m in registry.migrations.iter().filter(|m| !done.contains(m.version)) {
@@ -1165,9 +1238,11 @@ pub fn apply_pending(c: &Connection) -> Result<Vec<String>, StoreError> {
 }
 
 /// Sets the connection timeout and foreign keys; 2.x owns the journal mode.
+/// An install a migration has not given the balance stores reads 2.x's tables through views (`balance_store::fallback`).
 pub fn configure(c: &Connection) -> rusqlite::Result<()> {
     c.busy_timeout(std::time::Duration::from_millis(5_000))?;
-    c.pragma_update(None, "foreign_keys", "ON")
+    c.pragma_update(None, "foreign_keys", "ON")?;
+    crate::sync::balance_store::fallback(c)
 }
 
 #[cfg(test)]

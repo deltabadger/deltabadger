@@ -374,7 +374,7 @@ async fn balances_map_every_position_page_by_conid_and_cash_by_currency() {
                  json!([{ "conid": "8314", "position": 2.0, "ticker": "IBM" }]), json!([])];
     let t = scripted(json!({ "accounts": ["U1234567"] }), &pages);
     sync_balances(&fx, t.clone()).await.unwrap();
-    let mut s = fx.c.prepare("SELECT asset_id, free, locked FROM account_balances WHERE exchange_id = ?1 ORDER BY asset_id").unwrap();
+    let mut s = fx.c.prepare("SELECT asset_id, free, locked FROM exchange_account_balances WHERE exchange_id = ?1 ORDER BY asset_id").unwrap();
     let rows: Vec<(i64, f64, f64)> = s.query_map([fx.s.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
     let mut expected = vec![(aapl, 10.0, 0.0), (ibm, 2.0, 0.0), (usd, 100.5, 0.0), (eur, 20.0, 0.0)];
     expected.sort_by_key(|r| r.0);
@@ -392,7 +392,7 @@ async fn balances_of_a_login_that_names_another_account_fail_with_nothing_writte
     let t = scripted(json!({ "accounts": ["U7654321"] }), &[json!([])]);
     let failed = sync_balances(&fx, t.clone()).await.unwrap_err();
     assert!(failed.error.contains("no longer names the account"), "{}", failed.error);
-    assert_eq!(fx.c.query_row("SELECT count(*) FROM account_balances", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     assert!(!t.requests().iter().any(|r| r.path.contains("/portfolio/")), "the other account is never read");
     assert_eq!(fx.key().0, 1, "IBKR names no invalid-key words: the key stays");
 }
@@ -434,7 +434,7 @@ async fn a_correct_key_without_a_binding_is_checked_and_bound_by_its_first_sync(
     sync_balances(&fx, t).await.unwrap();
     assert_eq!(fx.bound_account(fx.s.api_key_id).as_deref(), Some("U1234567"));
     assert_eq!(fx.key().0, 1);
-    assert_eq!(fx.c.query_row("SELECT free FROM account_balances WHERE asset_id = ?1", [aapl], |r| r.get::<_, f64>(0)).unwrap(), 4.0);
+    assert_eq!(fx.c.query_row("SELECT free FROM exchange_account_balances WHERE asset_id = ?1", [aapl], |r| r.get::<_, f64>(0)).unwrap(), 4.0);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -447,7 +447,7 @@ async fn an_unbound_correct_key_that_cannot_bind_is_marked_as_the_check_marks_it
     assert!(failed.error.contains("more than one account"), "{}", failed.error);
     assert_eq!(fx.key().0, 2, "several accounts: incorrect, as the key check marks it");
     assert!(fx.bindings().is_empty());
-    assert_eq!(fx.c.query_row("SELECT count(*) FROM account_balances", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     assert_eq!(fx.c.query_row("SELECT last_sync_error FROM api_keys WHERE id = ?1", [fx.s.api_key_id], |r| r.get::<_, Option<String>>(0)).unwrap(), None);
     assert!(!t.requests().iter().any(|r| r.path.contains("/portfolio/")), "no account is read");
 }
@@ -511,7 +511,7 @@ async fn negative_balances_are_live_answers_but_never_stored() {
     fx.c.execute("DELETE FROM ibkr_bindings", []).unwrap();
     ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, "U1234567", at(NOW)).unwrap().unwrap();
     sync_balances(&fx, t).await.unwrap();
-    let stored: Vec<i64> = fx.c.prepare("SELECT asset_id FROM account_balances").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let stored: Vec<i64> = fx.c.prepare("SELECT asset_id FROM exchange_account_balances").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert!(!stored.contains(&aapl) && stored.len() == 1, "{stored:?}");
 }
 

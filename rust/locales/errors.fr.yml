@@ -84,6 +84,7 @@ fr:
                 external_sales: "%{label} a vendu des actifs qu'il n'a jamais achetés ici, son historique ne peut donc pas être fusionné."
                 interleaved: "Combiner les historiques de ces bots changerait leur résultat global, ils ne peuvent donc pas être fusionnés."
                 quote: "Tous les bots doivent dépenser la même devise."
+                accounts: "Ces bots tradent sur des comptes différents d'une même plateforme, ils ne peuvent donc pas être fusionnés."
                 nothing_to_buy: "Aucun de ces actifs ne se négocie plus sur cette plateforme."
             index_switch:
                 stop_first: "Arrête d’abord le bot."

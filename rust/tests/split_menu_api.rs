@@ -161,7 +161,7 @@ async fn the_menu_opens_the_split_modal_of_this_one_bot() {
     let token = page.split("name=\"authenticity_token\" value=\"").nth(1).unwrap().split('"').next().unwrap().to_string();
     let ctx = web::layout::Ctx { app: i.app.clone(), params: Arc::new(web::Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
         session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut, method: axum::http::Method::GET, locale: "en", nonce: String::new(),
-        now: common::web::at(NOW), turbo_frame: None, stream: false };
+        now: common::web::at(NOW), turbo_frame: None, stream: false, scheme: "" };
     let Ok(Loaded::Split(mut split)) = Split::load(&i.c, &ctx, i.s.user_id, vec![i.bots[0]], vec![]) else { panic!("load") };
     let fragment = modal(&i.c, &ctx, &mut split, &token).unwrap().unwrap();
     assert!(fragment.starts_with("<turbo-frame complete=\"\" id=\"modal\">") && page.contains(&fragment), "{page}");
@@ -226,6 +226,26 @@ async fn rest_returns_the_unanswered_offers_then_splits_with_keep_proceeds_for()
     let (status, body) = i.rest(json!({ "bot_ids": [bot], "keep_proceeds_for": [bot] })).await;
     assert_eq!(status, 200, "{body}");
     assert_eq!(i.live().len(), 2);
+}
+
+/// #710: a split's children trade on the source's account; the orders they take over keep the account they were placed on.
+#[tokio::test(flavor = "current_thread")]
+async fn a_split_of_a_second_accounts_bot_leaves_its_children_on_that_account() {
+    let i = baskets(&[&[0.6, 0.4]], &["split_bots"]);
+    i.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [i.s.user_id, i.s.exchange_id]).unwrap();
+    let second = i.c.last_insert_rowid();
+    i.c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [i.bots[0], second]).unwrap();
+    i.order(0, "REGULAR", "100", "2026-09-02 10:00:00");
+    let order: i64 = i.c.query_row("SELECT max(id) FROM transactions", [], |r| r.get(0)).unwrap();
+    let venue: Option<String> = i.c.query_row("SELECT external_id FROM transactions WHERE id = ?1", [order], |r| r.get(0)).unwrap();
+    i.c.execute("UPDATE transactions SET external_id = NULL WHERE id = ?1", [order]).unwrap();
+    i.c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, ?3)", rusqlite::params![order, second, venue]).unwrap();
+    let (status, body) = i.rest(json!({ "bot_ids": [i.bots[0]] })).await;
+    assert_eq!(status, 200, "{body}");
+    let children = i.live();
+    assert_eq!(children.len(), 2);
+    for child in &children { assert_eq!(deltabadger::identity::account_of_bot(&i.c, *child).unwrap(), Some(second), "child {child}"); }
+    assert_eq!(deltabadger::identity::Account::of_order(&i.c, order).unwrap().and_then(|a| a.id), Some(second));
 }
 
 /// A split this build does not serve (a redeploy in progress) is the API's 501.

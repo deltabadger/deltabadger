@@ -312,11 +312,13 @@ pub fn next_action_at(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<O
 pub fn low_funds(c: &Connection, bot: &Bot) -> Result<bool, WebError> {
     if bot.selling() || bot.kind == Kind::Signal || bot.exchange.class == "Exchanges::Alpaca" { return Ok(false); }
     let Some(quote) = bot.quote_asset.as_ref() else { return Ok(false) };
-    let user: i64 = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot.id], |r| r.get(0))?;
-    let Some(key) = crate::sync::cache::reading_key(c, user, bot.exchange.id)? else { return Ok(false) };
-    if crate::sync::cache::stale(c, user, Some(bot.exchange.id))? { return Ok(false); }
+    // #710 slice 5: the bot's account's balances, key and provenance.
+    let Some(account) = crate::identity::Account::of_bot(c, bot.id)? else { return Ok(false) };
+    let Some(account) = crate::identity::AccountRow::of(c, &account)? else { return Ok(false) };
+    let Some(key) = crate::sync::cache::reading_key(c, &account)? else { return Ok(false) };
+    if crate::sync::cache::stale(c, account.user_id, &crate::tracker::Scope::Account(account))? { return Ok(false); }
     if crate::jobs::state::read(c, crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string())).map_err(super::data)?.incomplete_since.is_some() { return Ok(false); }
-    let free = c.query_row("SELECT free FROM account_balances WHERE user_id = ?1 AND exchange_id = ?2 AND asset_id = ?3", [user, bot.exchange.id, quote.id],
+    let free = c.query_row("SELECT free FROM exchange_account_balances WHERE account_id = ?1 AND user_id = ?2 AND asset_id = ?3", [account.id, account.user_id, quote.id],
                            |r| Ok(crate::v2::from_sql(r.get_ref(0)?))).optional()?
         .map(|free| free.map_err(|e| super::data(format!("{e:?}")))).transpose()?.flatten().unwrap_or_else(crate::v2::BigDec::zero);
     let buffer = crate::engine::accounting::funds_buffer(bot.number("quote_amount").map_or(0.0, |n| n.to_f()), bot.text("interval"),

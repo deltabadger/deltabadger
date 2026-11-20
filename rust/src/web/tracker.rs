@@ -19,6 +19,7 @@ pub mod classifications;
 pub mod import;
 pub mod gap;
 pub mod prices_notice;
+pub mod scope;
 pub mod api;
 pub mod report;
 pub mod window;
@@ -200,20 +201,20 @@ pub async fn export(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
 }
 
 /// AccountTransaction.csv_headers: the export's columns, and the columns the Deltabadger import reads back.
-pub const CSV_HEADERS: [&str; 12] = ["date","type","base_currency","base_amount","quote_currency","quote_amount","fee_currency","fee_amount","exchange","tx_id","group_id","description"];
+/// D-CSV-ACCOUNT-COLUMN (#710): a 13th, `account`, the row's account number on its exchange (an import without it reads 1).
+pub const CSV_HEADERS: [&str; 13] = ["date","type","base_currency","base_amount","quote_currency","quote_amount","fee_currency","fee_amount","exchange","tx_id","group_id","description","account"];
 
 /// `filtered_transactions` (exchange, then the window `from`..`to`, `window::read`) through `AccountTransaction.to_csv`.
 fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     use rusqlite::types::Value as Sql;
-    let present = |key: &str| ctx.params.query(key).filter(|v| !crate::v2::blank(v));
     // 2.x's own query, so that rows at the same instant come out in the same order.
-    let mut sql = format!("SELECT {CSV_COLUMNS} FROM account_transactions WHERE user_id=?1");
+    let mut sql = format!("SELECT {} FROM account_transactions WHERE user_id=?1", csv_columns(c)?);
     let mut binds = vec![Sql::Integer(owner)];
-    if let Some(raw) = present("exchange_id") {
-        let Some(id) = super::bot::id_from_path(raw) else { return Ok(layout::missing()) };
-        if !c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)", [id], |r| r.get::<_, bool>(0))? { return Ok(layout::missing()); }
-        binds.push(Sql::Integer(id));
-        sql.push_str(&format!(" AND exchange_id=?{}", binds.len()));
+    // #710 slice 5: the page's scope (an account; an old `exchange_id` link, its number 1): that account's rows.
+    match scope::read(c, ctx, owner)? {
+        Err(missing) => return Ok(missing),
+        Ok(crate::tracker::Scope::All) => {}
+        Ok(scope) => sql.push_str(&format!(" AND {}", scope.rows("account_transactions"))),
     }
     if let Some(answer) = window::structured_exchange(c, ctx)? { return Ok(answer); }
     // The page's window, read the same way (PLAN-A19: the user's days, ISO only, 400 otherwise).
@@ -227,12 +228,19 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
          (header::HeaderName::from_static("content-transfer-encoding"), "binary".to_string())], out).into_response())
 }
 
-/// The columns `csv_rows` reads, in its order.
-pub(crate) const CSV_COLUMNS: &str = "transacted_at,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange_id,tx_id,group_id,description";
+/// The columns `csv_rows` reads, in its order, over unaliased `account_transactions`: the venue id wherever the row's
+/// account keeps it, and that account's number (#710).
+pub fn csv_columns(c: &Connection) -> rusqlite::Result<String> {
+    let any = crate::venue_ids::Scope::install(c)?;
+    let t = "account_transactions";
+    // An install without the account tables has one account per exchange: number 1.
+    let number = if crate::venue_ids::ready(c)? { format!("COALESCE((SELECT n.number FROM exchange_accounts n WHERE n.id = {}), 1)", any.row_account(t)) } else { "1".into() };
+    Ok(format!("transacted_at,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange_id,{},group_id,description,{number}", any.row_id(t)))
+}
 
-/// AccountTransaction.to_csv over the rows `sql` selects (CSV_COLUMNS, in the order the query gives): the web export's
+/// AccountTransaction.to_csv over the rows `sql` selects (`csv_columns`, in the order the query gives): the web export's
 /// and the API's one writer.
-pub(crate) fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Value>) -> Result<String, WebError> {
+pub fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Value>) -> Result<String, WebError> {
     use crate::tax::{line, Cell};
     let mut out = String::new();
     line(&mut out, &CSV_HEADERS.map(|h| Cell::Text(h.into())));
@@ -253,7 +261,8 @@ pub(crate) fn csv_rows(c: &Connection, sql: &str, binds: Vec<rusqlite::types::Va
         }
         line(&mut out, &[Cell::Text(at.format("%Y-%m-%dT%H:%M:%SZ").to_string()),
             usize::try_from(kind).ok().and_then(|k| row::TYPES.get(k)).map_or(Cell::Nil, |k| Cell::Text((*k).into())),
-            text(2)?, amount(3)?, text(4)?, amount(5)?, text(6)?, amount(7)?, Cell::Text(venues[&exchange].clone()), text(9)?, text(10)?, text(11)?]);
+            text(2)?, amount(3)?, text(4)?, amount(5)?, text(6)?, amount(7)?, Cell::Text(venues[&exchange].clone()), text(9)?, text(10)?, text(11)?,
+            Cell::Raw(r.get::<_, i64>(12)?.to_string())]);
     }
     Ok(out)
 }

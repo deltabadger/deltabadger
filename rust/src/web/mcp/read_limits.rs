@@ -32,19 +32,22 @@ pub fn table(c:&Connection,table:&str,filter:&str,cap:usize,user:i64,total:&mut 
     }
     Ok(true)
 }
-const UNRECORDED:&str="obligation_id IN (SELECT o.id FROM rust_rails_unrecorded o JOIN bots b ON b.id=o.bot_id WHERE b.user_id=?1)";
+const UNRECORDED:&str="obligation_id IN (SELECT o.id FROM rust_v2_unrecorded o JOIN bots b ON b.id=o.bot_id WHERE b.user_id=?1)";
 pub fn check(c:&Connection,user:i64)->Result<bool,WebError>{
     let mut bytes=0;
     for (table_name,filter,cap) in [
         ("indices","?1 IS NOT NULL",CATALOG),("assets","?1 IS NOT NULL",CATALOG),("tickers","?1 IS NOT NULL",CATALOG),("exchange_assets","?1 IS NOT NULL",CATALOG),
         ("exchanges","?1 IS NOT NULL",100),("users","id=?1",1),("api_keys","user_id=?1",100),
+        // #710: the accounts a key's or a bot's lookup reads.
+        ("exchange_accounts","user_id=?1",100),("exchange_account_keys","api_key_id IN (SELECT id FROM api_keys WHERE user_id=?1)",100),
+        ("exchange_account_bots","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",BOTS),
         ("bots","user_id=?1",BOTS),("transactions","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
         ("bot_index_assets","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
         ("wash_sale_locks","user_id=?1",ORDERS),("account_transactions","user_id=?1",ORDERS),
         // A28-2b: get_bot_details' unrecorded orders.
-        ("rust_rails_unrecorded","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
-        ("rust_rails_unrecorded_offers",UNRECORDED,ORDERS),("rust_rails_unrecorded_requests",UNRECORDED,ORDERS),
-        ("rust_rails_unrecorded_resolutions",UNRECORDED,ORDERS),
+        ("rust_v2_unrecorded","bot_id IN (SELECT id FROM bots WHERE user_id=?1)",ORDERS),
+        ("rust_v2_unrecorded_offers",UNRECORDED,ORDERS),("rust_v2_unrecorded_requests",UNRECORDED,ORDERS),
+        ("rust_v2_unrecorded_resolutions",UNRECORDED,ORDERS),
     ]{if !table(c,table_name,filter,cap,user,&mut bytes)?{return Ok(false)}}
     Ok(true)
 }

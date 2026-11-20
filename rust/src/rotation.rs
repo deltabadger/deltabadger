@@ -227,7 +227,7 @@ pub const COVERAGE: &[(&str, &str)] = &[
     ("api_keys", "key"), ("api_keys", "secret"), ("api_keys", "passphrase"), ("api_keys", "access_token"),
     ("api_keys", "rsa_signature_key"), ("api_keys", "rsa_encryption_key"), ("api_keys", "dh_param"),
     ("fee_api_keys", "key"), ("fee_api_keys", "secret"), ("fee_api_keys", "passphrase"),
-    ("app_configs", "value"), ("users", "otp_secret_key"), ("rules", "address"),
+    ("app_configs", "value"), ("users", "otp_secret_key"), ("rules", "address"), ("exchange_account_rules", "address"),
     ("exchange_accounts", "account_id_enc"), ("exchange_account_credentials", "account_id_enc"),
     ("exchange_account_imports", "account_id_enc"), ("ibkr_bindings", "account_id_enc"),
     ("ibkr_bot_accounts", "account_id_enc"), ("rust_withdrawal_intents", "params_enc"),
@@ -296,8 +296,14 @@ pub fn inventory(c: &Connection, cipher: &Cipher) -> rusqlite::Result<Inventory>
         v.sort();
         Ok(v)
     };
-    let mut s = c.prepare("SELECT e.name, a.symbol, r.address FROM rules r LEFT JOIN exchanges e ON e.id = r.exchange_id LEFT JOIN assets a ON a.id = r.asset_id \
-                           WHERE r.type = 'Rules::Withdrawal' ORDER BY r.id")?;
+    // 2.x's rules (a number-1 rule's row mirrors Rust's store) and, #710, the store's rules of accounts 2+, which only it holds.
+    // (Such a rule's own row in 2.x's table holds only its id.)
+    let others = if table(c, "exchange_account_rules")? {
+        let of = "SELECT r.id, r.exchange_id, r.asset_id, r.address, r.type FROM exchange_account_rules r JOIN exchange_accounts n ON n.id = r.account_id AND n.number <> 1";
+        format!(" WHERE id NOT IN (SELECT id FROM ({of})) UNION ALL {of}")
+    } else { String::new() };
+    let mut s = c.prepare(&format!("SELECT e.name, a.symbol, r.address FROM (SELECT id, exchange_id, asset_id, address, type FROM rules{others}) r \
+                           LEFT JOIN exchanges e ON e.id = r.exchange_id LEFT JOIN assets a ON a.id = r.asset_id WHERE r.type = 'Rules::Withdrawal' ORDER BY r.id"))?;
     let withdrawal_addresses = s.query_map([], |r| Ok((r.get::<_, Option<String>>(0)?.unwrap_or_default(), r.get::<_, Option<String>>(1)?.unwrap_or_default(),
         r.get::<_, Option<String>>(2)?.map(|a| cipher.decrypt(&a).unwrap_or_else(|_| UNREADABLE.into())).unwrap_or_default())))?.collect::<Result<Vec<_>, _>>()?;
     Ok(Inventory {
@@ -476,8 +482,18 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
         tx.execute("INSERT INTO bot_activity_logs (bot_id, event, level, message, details, created_at) VALUES (?1, 'stopped', 0, NULL, '{}', ?2)", params![id, at])?;
     }
     let rebalancing_off = rebalancing_off(tx)?;
-    let rules_stopped = tx.execute(&format!("UPDATE rules SET status = 2, updated_at = ?1 WHERE status IN ({working})"), [&at])?;
-    let withdrawal_addresses_cleared = tx.execute("UPDATE rules SET address = NULL WHERE type = 'Rules::Withdrawal' AND address IS NOT NULL", [])?;
+    let mut rules_stopped = tx.execute(&format!("UPDATE rules SET status = 2, updated_at = ?1 WHERE status IN ({working})"), [&at])?;
+    let mut withdrawal_addresses_cleared = tx.execute("UPDATE rules SET address = NULL WHERE type = 'Rules::Withdrawal' AND address IS NOT NULL", [])?;
+    // #710: Rust's store of withdrawal rules too. A number-1 rule is the row just written in 2.x's (its mirror), so only the
+    // rules of accounts 2+ add to the counts.
+    if table(tx, "exchange_account_rules")? {
+        for (number, counted) in [("= 1", false), ("<> 1", true)] {
+            let of = format!("account_id IN (SELECT id FROM exchange_accounts WHERE number {number})");
+            let stopped = tx.execute(&format!("UPDATE exchange_account_rules SET status = 2, updated_at = ?1 WHERE status IN ({working}) AND {of}"), [&at])?;
+            let cleared = tx.execute(&format!("UPDATE exchange_account_rules SET address = NULL WHERE address IS NOT NULL AND {of}"), [])?;
+            if counted { rules_stopped += stopped; withdrawal_addresses_cleared += cleared; }
+        }
+    }
     tx.execute("UPDATE account_transactions SET api_key_id = NULL WHERE api_key_id IS NOT NULL", [])?;
     if table(tx, "ibkr_reservations")? { tx.execute("DELETE FROM ibkr_reservations", [])?; }
     let api_keys_deleted = tx.execute("DELETE FROM api_keys", [])?;
@@ -493,6 +509,8 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
         tx.execute("DELETE FROM exchange_account_credentials", [])?;
         tx.execute("DELETE FROM exchange_account_imports", [])?;
     }
+    // Every key is gone, and its membership with it (#710).
+    if table(tx, "exchange_account_keys")? { tx.execute("DELETE FROM exchange_account_keys", [])?; }
     if table(tx, "ibkr_bindings")? { tx.execute("DELETE FROM ibkr_bindings", [])?; tx.execute("DELETE FROM ibkr_bot_accounts", [])?; }
     // Never sent (dispatched is written before the request): the engine drops these itself. The rest are owed.
     if table(tx, "rust_withdrawal_intents")? { tx.execute("DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'", [])?; }
@@ -713,11 +731,11 @@ fn left_over(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Vec<String>
             lines.push(format!("Rule {rule}: a withdrawal may have been sent and its result isn't recorded; resolve it with resolve-withdrawal {rule}."));
         }
     }
-    if table(c, "rust_rails_unrecorded")? {
+    if table(c, "rust_v2_unrecorded")? {
         // Owed until reported, or while an answer is asked for (offers, no resolution in its group); reported with
         // nothing to answer is done (A28-1's report-only outcome).
-        let mut s = c.prepare("SELECT o.id, o.bot_id, o.reported_at IS NULL, EXISTS (SELECT 1 FROM rust_rails_unrecorded_offers f WHERE f.obligation_id = o.id) \
-                               FROM rust_rails_unrecorded o ORDER BY o.id")?;
+        let mut s = c.prepare("SELECT o.id, o.bot_id, o.reported_at IS NULL, EXISTS (SELECT 1 FROM rust_v2_unrecorded_offers f WHERE f.obligation_id = o.id) \
+                               FROM rust_v2_unrecorded o ORDER BY o.id")?;
         let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, bool>(2)?, r.get::<_, bool>(3)?)))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
         for (id, bot, unreported, offered) in rows {

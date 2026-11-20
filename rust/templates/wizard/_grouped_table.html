@@ -2,8 +2,8 @@
   <form action="{{ table.action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ table.csrf }}" />
     <div class="exchange-groups">
 {%- for group in groups %}
-      <section class="exchange-group">
-        <h3 class="exchange-group__heading">{{ group.title }}</h3>
+      <section class="exchange-group{% if group.connected %} exchange-group--connected{% endif %}">
+        <h3 class="label">{{ group.title }}</h3>
         <div class="exchange-grid">
 {%- for venue in group.venues %}
           <div class="exchange-grid__option">

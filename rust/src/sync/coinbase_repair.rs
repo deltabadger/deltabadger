@@ -79,17 +79,14 @@ pub fn run(tx: &Transaction<'_>, now: DateTime<Utc>) -> Result<usize, EngineErro
     for owner in owners {
         // Explicit invalidation also handles a future-dated row masking max(updated_at). The usual jobs rebuild both.
         for key in [
-            crate::tracker::cache::key(owner),
+            crate::tracker::cache::key(owner),crate::tracker::cache::sales_key(owner),
             crate::tracker::backfill::history_key(owner),
             crate::tracker::backfill::price_key(owner),
         ] {
             tx.execute("DELETE FROM app_configs WHERE key=?1", [key])?;
         }
         tx.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1", [owner])?;
-        tx.execute(
-            "DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",
-            [owner],
-        )?;
+        super::balance_store::forget_snapshots(tx, owner)?;
     }
     if count > 0 { app_config::set_plain(tx, FLAG, &now.to_rfc3339(), now).map_err(EngineError::Data)?; }
     Ok(count)

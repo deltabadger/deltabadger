@@ -323,6 +323,8 @@ async fn control_transcripts() {
 /// The listed tracker divergences (PLAN-A11): the named tool calls' 2.x results become the ones this build owes, in the
 /// answer and in the session's stored copy of it, after checking 2.x still answers what the divergence names.
 fn tracker_difference(name:&str,want:&mut Value)->Result<(),String> {
+    // D-CSV-ACCOUNT-COLUMN: the export's `account` column, 1 on every row of a 2.x install (its answer and its stored copy).
+    if name.starts_with("tracker") { common::csv_account::walk(want); }
     use deltabadger::web::{mcp::protocol::tool_text,tracker::api};
     let text=|want:&Value,i:usize|->Result<(Value,String),String>{
         let body:Value=serde_json::from_str(want["responses"][i]["body"].as_str().ok_or("no body")?).map_err(|e|e.to_string())?;

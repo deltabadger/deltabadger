@@ -1,0 +1,75 @@
+// D-SCHEME-SWITCH: the Settings menu's colour schemes, each a tiny 4:3 screen of itself — the page, the menu bar down its
+// left side, a card with a line of text and the accent button. A scheme that follows the OS shows the mode the OS is in.
+// The chosen one wears a ring in the text colour.
+=screen($paper, $bar, $card, $line, $sky)
+  --s-paper: #{$paper}
+  --s-bar: #{$bar}
+  --s-card: #{$card}
+  --s-line: #{$line}
+  --s-sky: #{$sky}
+
+.scheme-screen
+  position: relative
+  width: 4.8rem
+  height: 3.6rem
+  padding: 0
+  border: none
+  border-radius: 0.5rem
+  overflow: hidden
+  cursor: pointer
+  background: var(--s-paper)
+  box-shadow: inset 0 0 0 0.125rem #8883
+  transition: box-shadow 0.15s
+  &:hover
+    box-shadow: inset 0 0 0 0.125rem #8883, 0 0 0 0.25rem var(--dropdown-bg), 0 0 0 0.375rem var(--concrete)
+  &.is-on
+    box-shadow: inset 0 0 0 0.125rem #8883, 0 0 0 0.25rem var(--dropdown-bg), 0 0 0 0.5rem var(--ink)
+  &:focus-visible
+    outline: none
+    box-shadow: inset 0 0 0 0.125rem #8883, 0 0 0 0.25rem var(--dropdown-bg), 0 0 0 0.5rem var(--sky)
+  &__bar
+    position: absolute
+    inset: 0 auto 0 0
+    width: 0.875rem
+    background: var(--s-bar)
+  &__card
+    position: absolute
+    inset: 0.625rem 0.5rem 0.625rem 1.375rem
+    border-radius: 0.25rem
+    background: var(--s-card)
+  &__line
+    position: absolute
+    top: 0.5rem
+    left: 0.375rem
+    width: 1.5rem
+    height: 0.25rem
+    border-radius: 0.125rem
+    background: var(--s-line)
+  &__button
+    position: absolute
+    left: 0.375rem
+    bottom: 0.375rem
+    width: 1.25rem
+    height: 0.5rem
+    border-radius: 0.25rem
+    background: var(--s-sky)
+
+  &--default
+    +screen(#00152a, #0c1e37, #0c1e37, #2b4b7c, #0000ff)
+    @media (prefers-color-scheme: light)
+      +screen(#F8F9FA, #FFFFFF, #FFFFFF, #C2CAD4, #0000ff)
+  &--warm
+    +screen(#262624, #30302E, #30302E, #55554E, #AE5630)
+    @media (prefers-color-scheme: light)
+      +screen(#FAF9F5, #FFFFFF, #FFFFFF, #D4D1C6, #AE5630)
+  &--space
+    +screen(#050506, #0f0f12, #0f0f12, #2c2c33, #3f5569)
+  &--ember
+    +screen(#171411, #211D19, #211D19, #4A4038, #B4592C)
+  &--forest
+    +screen(#0C1812, #13231A, #13231A, #2A4536, #2E7D57)
+
+.dropdown__item--scheme, .menu-mobile__item--scheme
+  gap: 1rem
+  padding-top: 1rem
+  padding-bottom: 1rem

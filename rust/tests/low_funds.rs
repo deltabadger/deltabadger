@@ -431,7 +431,7 @@ async fn low_funds_shows_only_from_a_complete_current_sync() {
     for (eur, want) in [(Some("1"), &low), (Some("1000"), &none), (None, &low)] {
         let k = install(1);
         k.synced(eur).await;
-        let rows: i64 = k.o.primary.query_row("SELECT count(*) FROM account_balances WHERE asset_id = ?1", [k.s.quote], |r| r.get(0)).unwrap();
+        let rows: i64 = k.o.primary.query_row("SELECT count(*) FROM exchange_account_balances WHERE asset_id = ?1", [k.s.quote], |r| r.get(0)).unwrap();
         assert_eq!(rows, i64::from(eur.is_some()), "EUR {eur:?}: a zero balance has no row");
         assert_eq!(&prefix(&k.bar()), want, "EUR {eur:?}: buffer 60 / week × 3 days = 25.71");
     }
@@ -601,7 +601,9 @@ fn the_reading_key_is_the_schedulers_pick() {
     };
     let trading = key(0, None);
     let read_only = key(2, None);
-    assert_eq!(deltabadger::sync::cache::reading_key(&c, seed.user_id, exchange).unwrap(), Some(trading));
+    common::number_one(&c, seed.user_id, exchange);
+    let account = deltabadger::identity::AccountRow::first(&c, seed.user_id, exchange).unwrap().unwrap();
+    assert_eq!(deltabadger::sync::cache::reading_key(&c, &account).unwrap(), Some(trading));
     c.execute("UPDATE api_keys SET last_sync_error='Incorrect permissions' WHERE id=?1", [trading]).unwrap();
-    assert_eq!(deltabadger::sync::cache::reading_key(&c, seed.user_id, exchange).unwrap(), Some(read_only));
+    assert_eq!(deltabadger::sync::cache::reading_key(&c, &account).unwrap(), Some(read_only));
 }

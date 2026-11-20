@@ -16,7 +16,7 @@ fn job(q: &rusqlite::Connection, class: &str, gid: &str) {
     q.execute("INSERT INTO solid_queue_scheduled_executions (job_id, queue_name, priority, scheduled_at, created_at) VALUES (?1, 'kraken', 0, '2026-10-07 10:00:00', '2026-09-30 11:00:00')", [id]).unwrap();
 }
 fn count(c: &rusqlite::Connection, sql: &str) -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() }
-const DROP_NAME: &str = "20261117000001";
+const DROP_NAME: &str = "20261122000001";
 /// (users has a name column, the name drop is recorded).
 fn name_state(c: &rusqlite::Connection) -> (bool, bool) {
     (count(c, "SELECT count(*) FROM pragma_table_xinfo('users') WHERE name = 'name'") == 1,
@@ -211,7 +211,7 @@ async fn v2_migrates_and_adopts_a_handback_on_an_install_rust_migrated() {
     let migrations: Vec<store::Migration> = store::REGISTRY.migrations.iter().copied().chain(common::as_migrations(&list)).collect();
     let tables: Vec<(&str, store::TableContract)> = store::REGISTRY.tables.iter().chain(common::PROBE_TABLES)
         .map(|(v, t)| (*v, store::TableContract { name: t.name, columns: t.columns, unique_indexes: t.unique_indexes })).collect();
-    let registry = store::Registry { migrations: &migrations, tables: &tables, retired: &[] };
+    let registry = store::Registry { migrations: &migrations, tables: &tables, retired: store::REGISTRY.retired };
     // Opened before the probe migrates: this build's own registry does not know it, so `open` would refuse after.
     let o = store::open(&p).unwrap();
     assert_eq!(store::migrate_with(&p, &l, &registry).unwrap(), vec![common::PROBE.to_string()]);
@@ -648,7 +648,7 @@ fn job_ids(q: &rusqlite::Connection) -> Vec<String> {
 fn job_id(fixture: &serde_json::Value, name: &str) -> String { fixture["jobs"][name]["job_id"].as_str().unwrap().to_string() }
 fn imported(fixture: &serde_json::Value, name: &str) -> model::SignalCall {
     let job = &fixture["jobs"][name];
-    model::SignalCall { source: format!("rails:{}", job["job_id"].as_str().unwrap()), signal_id: job["signal_id"].as_i64().unwrap(),
+    model::SignalCall { source: format!("v2:{}", job["job_id"].as_str().unwrap()), signal_id: job["signal_id"].as_i64().unwrap(),
                         triggered_at: job["triggered_at"].as_str().unwrap().parse().unwrap() }
 }
 
@@ -665,7 +665,7 @@ fn v2_signal_jobs_become_the_engines_calls_and_leave_the_queue() {
     assert_eq!(signal_calls_of(&o), ["ready", "blocked", "scheduled"].map(|n| imported(&fixture, n)).to_vec());
     assert_eq!(signal_calls_of(&o)[0].triggered_at, "2026-09-30T11:58:01.123456Z".parse::<DateTime<Utc>>().unwrap(), "the TimeWithZone, to the microsecond");
     assert_eq!(job_ids(&o.queue), [job_id(&fixture, "finished")], "2.x's record of the finished job stays");
-    assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "failed")), "the failed job is the bot's marker");
+    assert_eq!(marker_of(&o)["id"], format!("v2-job:{}", job_id(&fixture, "failed")), "the failed job is the bot's marker");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_ready_executions") + count(&o.queue, "SELECT count(*) FROM solid_queue_blocked_executions")
                + count(&o.queue, "SELECT count(*) FROM solid_queue_scheduled_executions"), 0, "executions cascade");
     assert_eq!(import_set(&o), None, "the set empties once the rows are gone");
@@ -728,7 +728,7 @@ fn claimed_and_failed_signal_jobs_become_one_marker_and_a_line_each() {
     assert_eq!((t.imported_calls, t.deleted_jobs), (0, 2));
     assert!(signal_calls_of(&o).is_empty(), "never a call");
     let marker = marker_of(&o);
-    assert_eq!((marker["id"].as_str().unwrap(), marker["side"].as_str()), (format!("rails-job:{}", job_id(&fixture, "ready")).as_str(), Some("buy")));
+    assert_eq!((marker["id"].as_str().unwrap(), marker["side"].as_str()), (format!("v2-job:{}", job_id(&fixture, "ready")).as_str(), Some("buy")));
     assert_eq!(bot_events(&o.primary, 1), [handover::UPGRADE_SIGNAL_UNRESOLVED, handover::UPGRADE_SIGNAL_UNRESOLVED]);
     assert!(deltabadger::engine::signal::blocked(&model::load_bot(&o.primary, 1).unwrap()));
     assert!(job_ids(&o.queue).is_empty());
@@ -968,8 +968,98 @@ async fn rust_withdrawal_outcomes_and_consumed_evaluations_survive_handback_take
     handover::take_over(&lock,&o,&seed::cipher(),"test",now()).unwrap();
     handover::hand_back(&lock,&o,&FakeFactory::default(),&seed::cipher(),&deltabadger::engine::FixedClock(now())).await.unwrap();
     handover::take_over(&lock,&o,&seed::cipher(),"test",now()).unwrap();
-    assert_eq!(count(&o.primary,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
+    assert_eq!(count(&o.primary,"SELECT count(*) FROM rust_v2_attempt_acks"),0);
     assert_eq!(count(&o.primary,"SELECT count(*) FROM rule_logs"),1);
+}
+
+/// #710: a takeover after 2.x owned the install makes 2.x's withdrawal rules Rust's number-1 rules again, ids kept: one 2.x
+/// added is there, one it changed reads as changed, one it deleted is gone. A rule of account 2 stays as it was.
+#[tokio::test(flavor = "current_thread")]
+async fn a_takeover_refills_the_number_1_rules_from_2x_and_keeps_account_2s() {
+    let dir = common::v2_install(); let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, now()).unwrap(); let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let at = deltabadger::codec::format_time(now());
+    let insert = |asset: i64| { o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,settings,created_at,updated_at) VALUES('Rules::Withdrawal',2,?1,?2,?3,'{}',?4,?4)",
+        rusqlite::params![s.user_id, s.exchange_id, asset, at]).unwrap(); o.primary.last_insert_rowid() };
+    let (kept, deleted) = (insert(s.btc), insert(s.quote));
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    let second = second_account_rule(&o.primary, &s);
+    let store = |c: &rusqlite::Connection| -> Vec<(i64, i64, i64)> { c.prepare("SELECT r.id, r.status, a.number FROM exchange_account_rules r JOIN exchange_accounts a ON a.id = r.account_id ORDER BY r.id")
+        .unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect() };
+    assert_eq!(store(&o.primary), [(kept, 2, 1), (deleted, 2, 1), (second, 0, 2)]);
+    // What 2.x does while it owns the install (the handback is refused while account 2 has a rule, so it goes first).
+    o.primary.execute("DELETE FROM exchange_account_rules WHERE id = ?1", [second]).unwrap();
+    handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    o.primary.execute("UPDATE rules SET status = 1 WHERE id = ?1", [kept]).unwrap();
+    o.primary.execute("DELETE FROM rules WHERE id = ?1", [deleted]).unwrap();
+    let eth = o.primary.query_row("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('eth', 'ETH', 'Ethereum', 'Cryptocurrency', ?1, ?1) RETURNING id", [&at], |r| r.get(0)).unwrap();
+    let added = insert(eth);
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    assert_eq!(store(&o.primary), [(kept, 1, 1), (added, 2, 1)]);
+}
+
+/// #710 slice 5 §6 test 12: a takeover after 2.x owned the install writes 2.x's balances and venue snapshots into the stores
+/// again as the number-1 rows, after giving an exchange 2.x first connected its number 1. A 2.x id that an account-2 row
+/// holds is refilled under a fresh id above both ranges (account 2's row stays); every other id is 2.x's, and each store's
+/// sequence is at least 2.x's. Outside 2.x's window nothing changes.
+#[tokio::test(flavor = "current_thread")]
+async fn a_takeover_refills_the_number_1_balances_and_snapshots_from_2x_without_id_collisions() {
+    use rusqlite::params;
+    let dir = common::v2_install(); let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, now()).unwrap(); let o = store::open(&p).unwrap();
+    let c = &o.primary;
+    let two = common::two_accounts::Two::kraken(c, &seed::cipher());
+    let (user, kraken, second) = (two.seeded.user_id, two.seeded.exchange_id, two.accounts[1].id.unwrap());
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Coinbase', 'Coinbase', '0.1', '0.1', 'now', 'now')", []).unwrap();
+    let coinbase = c.last_insert_rowid();
+    // Account 2's rows hold id 1 in each store (Rust wrote them while it owned the install).
+    c.execute("INSERT INTO exchange_account_balances (id, user_id, exchange_id, asset_id, free, synced_at, created_at, updated_at, account_id) VALUES (1, ?1, ?2, ?3, '9', 's', 'c', 'u', ?4)",
+              params![user, kraken, two.seeded.btc, second]).unwrap();
+    c.execute("INSERT INTO exchange_account_snapshots (id, user_id, exchange_id, date, value_usd, created_at, updated_at, account_id) VALUES (1, ?1, ?2, '2026-09-01', 9, 'c', 'u', ?3)",
+              params![user, kraken, second]).unwrap();
+    // 2.x's rows: ids 1 and 2 on Kraken, 3 on an exchange it connected itself.
+    for (id, exchange, asset) in [(1, kraken, two.seeded.btc), (2, kraken, two.seeded.quote), (3, coinbase, two.seeded.btc)] {
+        c.execute("INSERT INTO account_balances (id, user_id, exchange_id, asset_id, free, synced_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?1, 's', 'c', 'u')",
+                  params![id, user, exchange, asset]).unwrap();
+        c.execute("INSERT INTO portfolio_venue_snapshots (id, user_id, exchange_id, date, value_usd, created_at, updated_at) VALUES (?1, ?2, ?3, '2026-09-0' || ?1, ?1, 'c', 'u')",
+                  params![id, user, exchange]).unwrap();
+    }
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    let coinbase_first = deltabadger::identity::Account::first(c, user, coinbase).unwrap().id.expect("2.x's new exchange has its number 1");
+    let kraken_first = two.accounts[0].id.unwrap();
+    for (store, value) in [("exchange_account_balances", "free"), ("exchange_account_snapshots", "value_usd")] {
+        let rows: Vec<(i64, i64, i64)> = c.prepare(&format!("SELECT id, CAST({value} AS INTEGER), account_id FROM {store} ORDER BY id")).unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+        assert_eq!(rows, [(1, 9, second), (2, 2, kraken_first), (3, 3, coinbase_first), (4, 1, kraken_first)], "{store}");
+        let seq: i64 = c.query_row(&format!("SELECT seq FROM sqlite_sequence WHERE name = '{store}'"), [], |r| r.get(0)).unwrap();
+        assert!(seq >= 3, "{store}: {seq}");
+    }
+    // Rust owns the install now: a row 2.x's table gets is not read into the stores at a restart.
+    c.execute("INSERT INTO account_balances (id, user_id, exchange_id, asset_id, free, synced_at, created_at, updated_at) VALUES (9, ?1, ?2, ?3, 1, 's', 'c', 'u')",
+              params![user, coinbase, two.seeded.quote]).unwrap();
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    assert_eq!(count(c, "SELECT count(*) FROM exchange_account_balances"), 4);
+}
+
+/// #710: the handback writes Rust's number-1 rules into 2.x's `rules` by id, so a rule stopped or deleted in Rust never runs
+/// again on 2.x, even where its 2.x row had fallen behind.
+#[tokio::test(flavor = "current_thread")]
+async fn a_handback_writes_the_number_1_rules_back_into_2x() {
+    let dir = common::v2_install(); let p = Paths::from_env(&|_| None, dir.path());
+    let lock = lease::lock(&p, now()).unwrap(); let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let at = deltabadger::codec::format_time(now());
+    o.primary.execute("INSERT INTO rules(type,status,user_id,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES('Rules::Withdrawal',1,?1,?2,?3,'old','{}',?4,?4)",
+        rusqlite::params![s.user_id, s.exchange_id, s.btc, at]).unwrap();
+    let rule = o.primary.last_insert_rowid();
+    handover::take_over(&lock, &o, &seed::cipher(), "test", now()).unwrap();
+    // Deleted in Rust, its 2.x row behind (as no Rust write leaves it: mirror keeps it equal).
+    o.primary.execute("UPDATE exchange_account_rules SET status = 3, address = 'new', settings = '{\"a\":1}', updated_at = 'later' WHERE id = ?1", [rule]).unwrap();
+    handover::hand_back(&lock, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    let row: (i64, String, String, String) = o.primary.query_row("SELECT status, address, settings, updated_at FROM rules WHERE id = ?1", [rule], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
+    assert_eq!(row, (3, "new".into(), "{\"a\":1}".into(), "later".into()));
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM rules"), 1);
 }
 
 #[test]
@@ -989,10 +1079,10 @@ fn withdrawal_cli_migrates_and_seeds_before_any_takeover() {
     };
     let duplicate=run(&["--v2",&log,"--sent","X","--amount","0.9"]);
     assert!(!duplicate.status.success());assert!(String::from_utf8_lossy(&duplicate.stderr).contains("already recorded"));
-    assert_eq!(count(&c,"SELECT count(*) FROM rust_withdrawal_ids"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),0);
+    assert_eq!(count(&c,"SELECT count(*) FROM rust_withdrawal_ids"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_v2_attempt_acks"),0);
     let listed=run(&["--v2-list",&rule.to_string()]);assert!(listed.status.success(),"{}",String::from_utf8_lossy(&listed.stderr));assert!(String::from_utf8_lossy(&listed.stdout).contains(&format!("2.x attempt {log}")));
     let resolved=run(&["--v2",&log,"--sent","new-id","--amount","0.9"]);assert!(resolved.status.success(),"{}",String::from_utf8_lossy(&resolved.stderr));
-    assert_eq!(count(&c,"SELECT count(*) FROM rust_rails_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
+    assert_eq!(count(&c,"SELECT count(*) FROM rust_v2_attempt_acks"),1);assert_eq!(count(&c,"SELECT count(*) FROM rust_rule_log_origins"),1);
     assert!(lease::read(&c,&seed::cipher()).unwrap().is_none(),"resolution does not take ownership");
 }
 
@@ -1007,7 +1097,7 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     seed::insert_bot(&o.primary, &s, &BotSpec { status: 5, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
+    o.primary.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
     let refused = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
     assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF history is Rust-only".to_string()]), "{refused:?}");
     o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
@@ -1220,7 +1310,7 @@ fn a_failed_only_signal_job_becomes_the_marker() {
     let (_dir, l, o, fixture, _) = signal_install(&["scheduled"]);
     fail_signal_job(&o.queue, &fixture, "scheduled", false);
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    assert_eq!(marker_of(&o)["id"], format!("rails-job:{}", job_id(&fixture, "scheduled")));
+    assert_eq!(marker_of(&o)["id"], format!("v2-job:{}", job_id(&fixture, "scheduled")));
     assert!(signal_calls_of(&o).is_empty() && job_ids(&o.queue).is_empty());
 }
 
@@ -1248,7 +1338,7 @@ fn a_claimed_signal_job_whose_rule_is_gone_is_a_marker_without_side() {
     fail_signal_job(&o.queue, &fixture, "rule_removed", true);
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let marker = marker_of(&o);
-    assert_eq!(marker["id"], format!("rails-job:{}", job_id(&fixture, "rule_removed")));
+    assert_eq!(marker["id"], format!("v2-job:{}", job_id(&fixture, "rule_removed")));
     assert!(marker.get("side").is_none(), "{marker}");
     assert_eq!(bot_events(&o.primary, 1), [handover::UPGRADE_SIGNAL_UNRESOLVED]);
 }
@@ -1324,7 +1414,7 @@ fn rule_jobs_a_failed_fanout_is_acknowledged_its_children_judged_and_an_unreadab
     assert!(lines[0].contains(&format!("resolve-withdrawal --v2-job {child_job}")), "{lines:?}");
     o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [child]).unwrap();
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
-    assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_rails_job_acks WHERE resolution = 'skip'"), 1, "the fan-out is acknowledged");
+    assert_eq!(count(&o.primary, "SELECT count(*) FROM rust_v2_job_acks WHERE resolution = 'skip'"), 1, "the fan-out is acknowledged");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0, "and removed");
     let row = queued(&o.queue, "Rule::ExecuteJob", json!(["no rule here"]), "ready");
     let message = hard_stop(handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()));
@@ -1505,7 +1595,9 @@ const NOT_STATE: &[&str] = &["rust_index_env", "rust_index_decrypt"];
 /// this list as well.
 const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdrawal_intents", "rust_rule_evaluations", "rust_created_at",
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
-    "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold"];
+    "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
+    "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone",
+    "exchange_account_rows", "exchange_account_balances", "exchange_account_snapshots"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1540,13 +1632,13 @@ fn every_rust_only_state_has_a_handback_outcome() {
     let v2: std::collections::BTreeSet<String> = regex::Regex::new(r#"CREATE TABLE "([a-z_0-9]+)""#).unwrap()
         .captures_iter(&schema).map(|m| m[1].to_string()).collect();
     assert!(v2.contains("bots") && v2.contains("app_configs"), "{v2:?}");
-    let mut found = std::collections::BTreeSet::new();
-    let create = regex::Regex::new(r"CREATE TABLE ([a-z_0-9]+)").unwrap();
-    for entry in std::fs::read_dir(root.join("migrations")).unwrap() {
-        for m in create.captures_iter(&std::fs::read_to_string(entry.unwrap().path()).unwrap()) {
-            if !v2.contains(&m[1]) { found.insert(m[1].to_string()); }
-        }
-    }
+    // PLAN-B11-9 r1.6: Rust's tables as bootstrap builds them (2.x's schema, then every migration), so a table a later
+    // migration retired or a hop table it dropped is not state.
+    let built = rusqlite::Connection::open_in_memory().unwrap();
+    store::create_schema(&built).unwrap();
+    store::test_support::migrate(&built).unwrap();
+    let mut found: std::collections::BTreeSet<String> = built.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").unwrap()
+        .query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap).filter(|t| !v2.contains(t)).collect();
     assert!(found.contains("rust_tax_pl_carry") && found.contains("estv_crypto_values"), "{found:?}");
     let tables = found.clone();
     let mut files = vec![];
@@ -1556,6 +1648,12 @@ fn every_rust_only_state_has_a_handback_outcome() {
         let text = std::fs::read_to_string(f).unwrap();
         match (text.find("pub const HANDBACK_STATE"), f.ends_with("engine/handover.rs")) {
             (Some(start), true) => { let end = start + text[start..].find("\n};").unwrap(); format!("{}{}", &text[..start], &text[end..]) }
+            // PLAN-B11-9 r1.6: the contracts and the retired list describe applied SQL, not state the code keeps.
+            _ if f.ends_with("src/store.rs") => {
+                let (start, retired) = (text.find("const RUST_TABLES").unwrap(), text.find("const RUST_RETIRED").unwrap());
+                let end = retired + text[retired..].find("\n];").unwrap();
+                format!("{}{}", &text[..start], &text[end..])
+            }
             _ => text,
         }
     }).collect();
@@ -1591,7 +1689,57 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
     let set = |key: &str, value: &str| deltabadger::app_config::set_plain(&o.primary, key, value, now()).unwrap();
     let transient = |path: &str, value: &str| { o.primary.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{path}', json(?1)) WHERE id = ?2"), rusqlite::params![value, bot]).unwrap(); };
     match name {
-        "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (user_id, exchange_id, source, start_at, end_at, updated_at) VALUES (1, 9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
+        "kucoin_coverage" => { o.primary.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap(); }
+        // #710: a rule of the exchange's second account.
+        "exchange_account_rules" => { second_account_rule(&o.primary, s); }
+        // #710: a key, and a bot, of the exchange's second account.
+        "exchange_account_keys" | "exchange_account_bots" | "rust_api_order_standalone" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = deltabadger::identity::Account::by_id(&o.primary, o.primary.last_insert_rowid()).unwrap().unwrap();
+            if name == "exchange_account_keys" {
+                o.primary.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+                second.add_key(&o.primary, o.primary.last_insert_rowid()).unwrap();
+            } else if name == "exchange_account_bots" {
+                deltabadger::identity::place_bot(&o.primary, bot, s.user_id, s.exchange_id, Some(second), now()).unwrap();
+            } else {
+                let (amount, pair) = (deltabadger::v2::BigDec::parse("1").unwrap(), serde_json::Map::new());
+                deltabadger::engine::api_orders::insert(&o.primary, &deltabadger::engine::api_orders::New::Standalone { user_id: s.user_id, side: deltabadger::venue::Side::Buy,
+                    amount: &amount, in_base: false, supplied: &pair, standalone: deltabadger::engine::api_orders::Standalone { account: second, exchange_id: s.exchange_id,
+                    ticker_id: s.ticker_id, limit: true, price: Some(deltabadger::v2::BigDec::parse("1").unwrap()), mcp: false } }, now()).unwrap();
+            }
+        }
+        // An order of the exchange's second account (its venue id relocated, slice 4).
+        "exchange_account_transactions" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = o.primary.last_insert_rowid();
+            let row = seed::insert_row(&o.primary, s, bot, s.btc, &json!({"external_status": 2, "created_at": "2026-09-01 10:00:00"}));
+            o.primary.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, 'A2')", [row, second]).unwrap();
+        }
+        // #710 slice 4: a ledger row of the exchange's second account (its venue id is in the membership).
+        "exchange_account_rows" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = deltabadger::identity::Account::by_id(&o.primary, o.primary.last_insert_rowid()).unwrap().unwrap();
+            let scope = deltabadger::venue_ids::Scope::of(&o.primary, &second).unwrap();
+            o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+                               VALUES (?1, ?2, 4, 'BTC', 1, ?3, '2026-09-01 10:00:00', '{}', '{}', 0, 'now', 'now')", rusqlite::params![s.user_id, s.exchange_id, scope.stored(Some("T2"))]).unwrap();
+            deltabadger::venue_ids::after_insert(&o.primary, &scope, o.primary.last_insert_rowid(), Some("T2")).unwrap();
+        }
+        // #710 slice 5: a balance or a venue snapshot of an account 2+ (2.x's tables have no place for it).
+        "exchange_account_balances" | "exchange_account_snapshots" => {
+            deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
+            o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+            let second = o.primary.last_insert_rowid();
+            if name == "exchange_account_balances" {
+                o.primary.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at, account_id) VALUES (?1, ?2, ?3, 's', 'c', 'u', ?4)",
+                                  rusqlite::params![s.user_id, s.exchange_id, s.btc, second]).unwrap();
+            } else {
+                o.primary.execute("INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, created_at, updated_at, account_id) VALUES (?1, ?2, '2026-09-01', 'c', 'u', ?3)",
+                                  rusqlite::params![s.user_id, s.exchange_id, second]).unwrap();
+            }
+        }
         "rust_withdrawal_intents" => { o.primary.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
                                                           VALUES ('rule:1', 'dispatched', 'c', '2026-09-30 12:00:00', 1, 'd', 'h', 'a', 'k', 'p', 'f', '1', '1')", []).unwrap(); }
         "rust_rule_evaluations" => { o.primary.execute("INSERT INTO rust_rule_evaluations (rule_id, source, created_at) VALUES (1, 'start', '2026-09-30 12:00:00')", []).unwrap(); }
@@ -1613,6 +1761,15 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
         "liquidation_selling_since.holdings" => transient("liquidation_selling_since", r#"{"holdings":{}}"#),
         other => panic!("{other}: no setup in the matrix run and not in PROVEN_ELSEWHERE"),
     }
+}
+
+/// #710: account 2 of the seeded exchange and its withdrawal rule for BTC (2.x's `rules` holds only its id). Returns the rule.
+fn second_account_rule(c: &rusqlite::Connection, s: &seed::Seeded) -> i64 {
+    let account = deltabadger::identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, '2026-09-30', '2026-09-30')", [s.user_id, s.exchange_id]).unwrap();
+    let second = deltabadger::identity::Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    assert_ne!(account, second);
+    deltabadger::engine::rules::create(c, &second, s.btc, "address", "{}", "2026-09-30 12:00:00").unwrap()
 }
 
 /// PLAN-B2 r1.10: on a 2.x-born install, each refusing state refuses the handback with its line, and each waiting state
@@ -1758,7 +1915,7 @@ fn unscoped_and_asset_wakes_replay_until_their_job_runs() {
 // ---- A28-1: 2.x's unrecorded-order candidates (engine::v2_unrecorded) ----------------------------------------------
 
 fn unrecorded_refs(c: &rusqlite::Connection) -> Vec<i64> {
-    let mut s = c.prepare("SELECT source_ref FROM rust_rails_unrecorded ORDER BY id").unwrap();
+    let mut s = c.prepare("SELECT source_ref FROM rust_v2_unrecorded ORDER BY id").unwrap();
     s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
 fn line_id(c: &rusqlite::Connection, bot: i64, at: DateTime<Utc>) -> i64 {

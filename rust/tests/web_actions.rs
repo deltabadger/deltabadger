@@ -428,7 +428,7 @@ mod action_draft {
             app: common::web::app(dir.path(), common::web::SECRET, common::web::TestClock::at(field(group, "now").as_str().ok_or("now")?)),
             params: std::sync::Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
             session: deltabadger::web::session::Session::new(Default::default()),
-            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None, stream: false,
+            current: deltabadger::web::auth::Current::SignedOut, method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now, turbo_frame: None, stream: false, scheme: "",
         };
         for recorded in cases {
             let mut resolved = recorded.clone();
@@ -577,7 +577,7 @@ mod action_write {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::PATCH, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok(Self { _dir: dir, c, ctx, seed: s, id })
         }
         fn params(fields: Value) -> Result<ActionParams> {
@@ -2413,7 +2413,7 @@ mod custom_allocation {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok(Self { _dir: dir, c, ctx, user: s.user_id, id, assets: members.into_iter().map(|(asset, _)| asset).collect() })
         }
         fn customize(&self) -> Result<Switched> { Ok(customize(&self.c, &self.ctx, self.user, self.id).map_err(|e| format!("{e:?}"))?) }
@@ -2645,7 +2645,7 @@ mod merge {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok(Self { _dir: dir, c, ctx, s, bots })
         }
         fn merge(&self) -> Result<Merged> { self.merge_onto(None) }
@@ -2691,6 +2691,32 @@ mod merge {
         }
         let (status, members): (i64, i64) = f.c.query_row("SELECT status, (SELECT count(*) FROM bot_index_assets WHERE bot_id=?1 AND in_index=1) FROM bots WHERE id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
         assert_eq!((status, members), (2, 2));
+        Ok(())
+    }
+
+    /// #710: account 2 of the Alpaca install, with `bots` on it.
+    fn second_account(f: &Fixture, bots: &[i64]) -> Result<i64> {
+        f.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [f.s.user_id, f.s.exchange_id])?;
+        let second = f.c.last_insert_rowid();
+        for bot in bots { f.c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [*bot, second])?; }
+        Ok(second)
+    }
+
+    /// #710: two accounts of one exchange hold apart what each bot bought: their bots are never merged.
+    #[test]
+    fn bots_on_two_accounts_of_one_exchange_are_not_merged() -> Result {
+        let f = Fixture::new(1, 1)?;
+        second_account(&f, &f.bots[..1])?;
+        f.refused_unchanged("These bots trade on different accounts of one exchange, so they can't be merged.")
+    }
+
+    /// #710: bots that all trade on account 2 merge into a bot on account 2.
+    #[test]
+    fn bots_on_one_second_account_merge_onto_it() -> Result {
+        let f = Fixture::new(1, 1)?;
+        let second = second_account(&f, &f.bots)?;
+        let Merged::Done(id) = f.merge()? else { return Err("expected a merge".into()) };
+        assert_eq!(deltabadger::identity::account_of_bot(&f.c, id)?, Some(second));
         Ok(())
     }
 
@@ -2777,7 +2803,7 @@ mod split {
             let app = harness::app(dir.path(), "engine-test-secret", harness::TestClock::at(NOW));
             let ctx = Ctx { app, params: Arc::new(Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
                 session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut,
-                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false };
+                method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: harness::at(NOW), turbo_frame: None, stream: false, scheme: "" };
             Ok((dir, opened.primary, opened.queue, ctx, s))
         }
         /// Stopped Alpaca baskets at 60 weekly, one per list of weights: a stock (S<n>X<i>) per weight, each a member row.

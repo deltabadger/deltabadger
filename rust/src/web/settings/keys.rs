@@ -9,6 +9,7 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
+use crate::identity::Account;
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
 use std::sync::Arc;
 use subtle::ConstantTimeEq;
@@ -30,9 +31,10 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 }
 /// K: no new tracking. Read the intent and the engine's actual polling rows under the write lock.
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
-fn settling(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> {
-    let mut stmt = c.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 ORDER BY id")?;
-    let ids = stmt.query_map((user, exchange), |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+/// The account's bots only (#710 §4.2).
+fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> {
+    let mut stmt = c.prepare(&format!("SELECT b.id FROM bots b WHERE {} ORDER BY b.id", account.bots("b")))?;
+    let ids = stmt.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     for id in ids {
         let bot = crate::engine::model::load_bot(c, id)?;
         if bot.rust_placement().is_some() || !crate::engine::polling::waiting_ids(c, &bot)?.is_empty() {
@@ -57,17 +59,18 @@ pub(crate) struct Key {
     extras: [Option<String>;4],
     realm: Option<String>,
     version: Option<crate::engine::model::CredentialVersion>,
+    /// The account it was read from, where a save of it goes (#710).
+    pub(crate) account: Account,
 }
 impl Key {
     pub(crate) fn read(
         c: &Connection,
         app: &App,
-        user: i64,
-        exchange: i64,
+        account: Account,
         kind: i64,
     ) -> Result<Self, WebError> {
-        if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=Self::read(&tx,app,user,exchange,kind)?;tx.commit()?;return Ok(out)}
-        let row=c.query_row("SELECT id,key,secret,passphrase,status,last_sync_error,updated_at,access_token,rsa_signature_key,rsa_encryption_key,dh_param,ibkr_realm FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3 ORDER BY id LIMIT 1",(user,exchange,kind),|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?,[r.get::<_,Option<String>>(7)?,r.get(8)?,r.get(9)?,r.get(10)?],r.get::<_,Option<String>>(11)?))).optional()?;
+        if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=Self::read(&tx,app,account,kind)?;tx.commit()?;return Ok(out)}
+        let row=c.query_row(&format!("SELECT id,key,secret,passphrase,status,last_sync_error,updated_at,access_token,rsa_signature_key,rsa_encryption_key,dh_param,ibkr_realm FROM api_keys k WHERE {} AND key_type=?1 ORDER BY id LIMIT 1",account.keys("k")),[kind],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<String>>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,i64>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?,[r.get::<_,Option<String>>(7)?,r.get(8)?,r.get(9)?,r.get(10)?],r.get::<_,Option<String>>(11)?))).optional()?;
         let decrypt = |text: Option<String>| {
             text.map(|s| {
                 app.cipher
@@ -87,6 +90,7 @@ impl Key {
                 updated_at: Some(updated_at),
                 extras:[decrypt(a)?,decrypt(b)?,decrypt(extra_c)?,decrypt(d)?],realm,
                 version:crate::engine::model::credential_version_by_id(c,id)?,
+                account,
             }),
             None => Ok(Self {
                 id: None,
@@ -96,7 +100,7 @@ impl Key {
                 status: 0,
                 last_error: None,
                 updated_at: None,
-                extras: [None,None,None,None],realm:None,version:None,
+                extras: [None,None,None,None],realm:None,version:None,account,
             }),
         }
     }
@@ -125,14 +129,6 @@ fn same(a: &Option<String>, b: &Option<String>) -> bool {
         (None, None) => true,
         _ => false,
     }
-}
-fn flash_response(ctx: &Ctx, status: StatusCode, key: &str) -> Result<Response, WebError> {
-    let message = i18n::text(ctx.locale, key, &[]);
-    let body = turbo::prepend_flash(flash::render(&flash::take(
-        &ctx.session,
-        &[(flash::ALERT, message)],
-    ))?.trim_end());
-    Ok((status, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response())
 }
 use super::validator::Validity;
 /// The prepared envelopes are the stored producer field for a newly validated slot.
@@ -187,9 +183,9 @@ pub async fn save(
         return Ok(auth::unauthenticated(&ctx));
     };
     let bot_request=ctx.params.route_path.starts_with("/bots/");
-    let bot_exchange=if bot_request {owned_bot_exchange(&app,&ctx).await?} else {None};
-    if bot_request && bot_exchange.is_none(){return Ok(crate::web::layout::missing())}
-    let exchange=if bot_request{bot_exchange}else{tracker_exchange(&app,&ctx).await?};
+    let bot_account=if bot_request {owned_bot_account(&app,&ctx).await?} else {None};
+    if bot_request && bot_account.is_none(){return Ok(crate::web::layout::missing())}
+    let exchange=if bot_request{bot_account.map(|a|a.exchange_id)}else{tracker_exchange(&app,&ctx).await?};
     let Some(exchange) = exchange else {
         return Ok(crate::web::layout::redirect(
             StatusCode::FOUND,
@@ -213,7 +209,9 @@ pub async fn save(
                     Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default()))
                 })
                 .optional()?;
-            Ok((venue, Key::read(c, &inner, id, exchange, kind)?))
+            // A bot's sheet saves into the bot's account; the tracker's into the exchange's (#710 slice 7: the one picked).
+            let account = match bot_account { Some(account) => account, None => Account::first(c, id, exchange)? };
+            Ok((venue, Key::read(c, &inner, account, kind)?))
         })
         .await?;
     let (venue, original) = found;
@@ -228,29 +226,27 @@ pub async fn save(
         return Ok(crate::web::layout::not_ported_for(&ctx));
     };
     if !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
-    let outcome = submit(&app, &ctx, user.id, exchange, &class, &name, kind, original).await?;
-    match outcome {
-        Submitted::Correct => {}
-        Submitted::Incorrect => return flash_response(&ctx, StatusCode::UNPROCESSABLE_ENTITY, "errors.incorrect_api_key_permissions"),
+    let live = ctx.params.form("api_key[passphrase]").map_or(original.passphrase.as_deref() == Some("live"), |mode| mode == "live");
+    let outcome = submit(&app, &ctx, &class, &name, kind, original).await?;
+    // D-TRACKER-SHEET, D-BOT-KEY-SHEET: a refused key says why under the sheet's fields.
+    let message = match &outcome {
+        Submitted::Correct => None,
+        Submitted::Incorrect => Some(i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[])),
         // ApplicationController#incorrect_api_key_message: the flags the venue named.
-        Submitted::Permissions(missing, forbidden) => {
-            let text = super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, &missing, &forbidden);
-            let body = turbo::prepend_flash(flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?.trim_end());
-            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response());
-        }
-        Submitted::Failed => return flash_response(
-            &ctx,
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "errors.api_key_permission_validation_failed",
-        ),
-        Submitted::Refused(reason) => {
-            let text = refusal_text(&ctx, &reason);
-            let body = turbo::prepend_flash(&flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?);
-            return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response());
-        }
+        Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &name, kind, missing, forbidden)),
+        Submitted::Failed => Some(i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[])),
+        Submitted::Refused(reason) => Some(refusal_text(&ctx, reason)),
+    };
+    if let Some(message) = message {
+        let (inner, v) = (app.clone(), ctx.clone());
+        let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, &class, &name, live, Some(&message))?)) }
+                                              else { tracker_step(c, &inner, &v, exchange, &class, &name, kind, live, Some(&message)) }).await?;
+        let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
+        return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
     }
     if bot_request {
         flash::set(&ctx.session,flash::NOTICE,ctx.t("errors.bots.api_key_success"));
+        // 2.x's page refresh; the card's form closes the sheet on success (`modal--base#submitEnd`).
         return Ok(([(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],turbo::refresh()).into_response());
     }
     ctx.session.lock().tracker_connect=None;
@@ -267,9 +263,9 @@ pub(crate) enum Submitted { Correct, Incorrect, Permissions(Vec<String>, Vec<Str
 
 /// The submitted `api_key[...]` fields over the stored key (`original`), validated on `venue` outside the write lock, and a
 /// correct one saved (status correct, sync error cleared) inside it: rechecked against what was validated, guarded, then the
-/// syncs a reading key has woken after the commit. An incorrect or unverified key is not saved.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue: &str, venue_name: &str, kind: i64, original: Key) -> Result<Submitted, WebError> {
+/// syncs a reading key has woken after the commit. An incorrect or unverified key is not saved. It is saved into the
+/// account `original` was read from.
+pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, kind: i64, original: Key) -> Result<Submitted, WebError> {
     let mut candidate = original.clone();
     if let Some(value) = ctx.params.form("api_key[key]") {
         candidate.key = Some(value.into());
@@ -284,12 +280,11 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, user: i64, exchange: i64, venue
         if let Some(value)=ctx.params.form(&format!("api_key[{name}]")){candidate.extras[i]=Some(value.into());}
     }
     if let Some(value)=ctx.params.form("api_key[ibkr_realm]"){candidate.realm=Some(value.into());}
-    submit_candidate(app,user,exchange,venue,venue_name,kind,original,candidate).await
+    submit_candidate(app,venue,venue_name,kind,original,candidate).await
 }
 
 /// `submit` of a candidate made by the caller over the stored key (`original`): the IBKR connect page's activation.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
+pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     match &validated.result.value {
         Validity::Incorrect => return Ok(Submitted::Incorrect),
@@ -321,10 +316,12 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
     let account=match &validated.result.value {Validity::Account(account)=>Some(account.clone()),_=>None};
     let jobs=app.job_wakers()?;
     let inner = app.clone();
-    let user_id=user;
+    let user_id=original.account.user_id;
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-  let current=Key::read(&tx,&inner,user_id,exchange,kind)?;
+  // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
+  let target=original.account.ensure(&tx,inner.now())?;
+  let current=Key::read(&tx,&inner,target,kind)?;
   if !original.same(&current){return Ok(Some("credential changed during validation".into()));}
   if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
   let candidate=&validated.key;
@@ -332,23 +329,23 @@ pub(crate) async fn submit_candidate(app: &App, user: i64, exchange: i64, venue:
   let status=if pending {3} else {1};
   // A submission awaiting activation always moves updated_at (activation_stalled? reads it as the last submission).
   let changed=pending||!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
-  if current.id.is_some() && settling(&tx,user_id,exchange)? { return Ok(Some(SETTLING.into())); }
-  {
+  if current.id.is_some() && settling(&tx,&target)? { return Ok(Some(SETTLING.into())); }
+  let id={
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
    let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
    match current.id{
-    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=?7,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",rusqlite::params![key,secret,passphrase,&now,id,user_id,status])?;},
-    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,exchange,kind,key,secret,passphrase,&now,status])?;}
+    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=?7,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",rusqlite::params![key,secret,passphrase,&now,id,user_id,status])?;id},
+    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,kind,key,secret,passphrase,&now,status])?;
+     let id=tx.last_insert_rowid();target.add_key(&tx,id)?;id}
    }
-  }
+  };
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
   if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
    tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
   }
-  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE user_id=?6 AND exchange_id=?7 AND key_type=?8",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,user_id,exchange,kind])?;
+  tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE id=?6",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,id])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
-  let id:i64=tx.query_row("SELECT id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=?3",(user_id,exchange,kind),|r|r.get(0))?;
   // D-IBKR-ACCOUNT: the key binds to the account it names, or is refused (nothing saved) when bound to another.
   if let Some(account)=&account {
    if let Err(refusal)=crate::venue::ibkr_account::bind(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {return Ok(Some(refusal));}
@@ -376,7 +373,7 @@ struct Warnings{title:String,fixes:Vec<Fix>}
 struct Fix{message:String,trading:bool,trading_path:String,reading_path:String,trading_label:String,add_label:String,replace_label:String}
 /// `unresolved`: the key's last balance sync held codes no asset is named by (`rust_sync.kraken_unresolved:<key_id>`, D-KR-6),
 /// a failure 2.x never records; it reads as the sync's own failure.
-struct WarningKey{exchange:i64,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
+struct WarningKey{exchange:i64,account:Option<i64>,name:String,venue:String,status:i64,kind:i64,error:Option<String>,unresolved:bool}
 impl WarningKey{
     fn failed(&self)->bool{self.unresolved||self.error.as_deref().is_some_and(|e|!crate::v2::blank(e))}
     /// ApiKey#missing_permission?: the venue's own permission_denied texts (Exchange#permission_error?), one table for every venue.
@@ -384,12 +381,13 @@ impl WarningKey{
 }
 /// `ApiKey.sync_warnings` rendered as tracker/_sync_warnings: the contents of #sync-warnings.
 pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
-    let mut statement=c.prepare("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id) FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id")?;
-    let keys=statement.query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>()?;
+    let keys=crate::identity::with_key_account("k",|account|c.prepare(&format!("SELECT k.exchange_id,e.name,e.type,k.status,k.key_type,k.last_sync_error,EXISTS(SELECT 1 FROM app_configs a WHERE a.key='rust_sync.kraken_unresolved:'||k.id),{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type!=1 ORDER BY k.id"))?
+    .query_map([user],|r|Ok(WarningKey{exchange:r.get(0)?,account:r.get(7)?,name:r.get(1)?,venue:r.get(2)?,status:r.get(3)?,kind:r.get(4)?,error:r.get(5)?,unresolved:r.get(6)?}))?.collect::<Result<Vec<_>,_>>())?;
+    // Per account (#710).
     let mut failed=vec![];let mut seen=std::collections::HashSet::new();
     for key in &keys{
-        if !seen.insert(key.exchange){continue}
-        let group:Vec<_>=keys.iter().filter(|k|k.exchange==key.exchange).collect();
+        if !seen.insert((key.exchange,key.account)){continue}
+        let group:Vec<_>=keys.iter().filter(|k|(k.exchange,k.account)==(key.exchange,key.account)).collect();
         let reading=group.iter().copied().find(|k|k.status==1&&k.kind==0&&!k.permission()).or_else(||group.iter().copied().find(|k|k.status==1&&k.kind==2)).or_else(||group.iter().copied().find(|k|k.status==1));
         let chosen=if let Some(reading)=reading{reading.failed().then_some(reading)}else{group.iter().copied().find(|k|k.kind==2&&k.failed()).or_else(||group.iter().copied().find(|k|k.failed()))};
         if let Some(key)=chosen{failed.push(key)}
@@ -436,8 +434,9 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
 /// `show_coingecko_form`: 2.x's `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: 2.x's
-/// `@platform_errors` with `@show_platform_form`, a claim that failed.
-pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>)->Result<String,WebError>{
+/// `@platform_errors` with `@show_platform_form`, a claim that failed. `wizard`: the provider whose connect card the index
+/// wizard's Index view draws in its place (D-INDEX-CONNECT-IN-VIEW), its writes answering the wizard.
+pub(crate) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko_form:bool,platform_errors:Option<&str>,wizard:Option<&str>)->Result<String,WebError>{
     let setting=|name:&str|auth::app_config(c,&app.cipher,name);
     let has=|name:&str|Ok::<_,WebError>(setting(name)?.is_some_and(|s|!crate::v2::blank(&s)));
     let provider=setting("market_data_provider")?.unwrap_or_default();let hosted=app.config.market_data_url;
@@ -450,8 +449,10 @@ pub(super) fn market_data(c:&Connection,app:&App,v:&Ctx,csrf:&str,show_coingecko
     let market_note=hosted_note("settings.market_data.deltabadger_configured");
     let platform_note=v.t(if proxies{"settings.platform.connected_with_proxies"}else{"settings.platform.connected_without_proxies"});
     let coingecko_instructions=v.t("setup.coingecko_api_key_hint_html");
-    let market=super::sections::market_data(v,csrf,&super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors});
-    Ok(market)
+    // D-MARKET-DATA-PICK: Settings' card: a claim refused or a CoinGecko switch with no key needs its form again; else the tile picked.
+    let card=if platform_errors.is_some(){Some("deltabadger")}else if show_coingecko_form{Some("coingecko")}else{v.params.query("provider").filter(|p|matches!(*p,"coingecko"|"deltabadger"))};
+    let m=super::sections::Market{hosted:hosted.then_some(market_note.as_str()),selected,coingecko_configured,platform_connected,platform_note:&platform_note,coingecko_instructions:&coingecko_instructions,platform_errors,card};
+    Ok(match wizard { Some(provider) => super::sections::market_data_card(v,csrf,provider,&m,true), None => super::sections::market_data(v,csrf,&m) })
 }
 /// GET /settings/api_keys: the exchange keys.
 pub async fn show_keys(app: App, ctx: Ctx) -> Result<Response, WebError> {
@@ -468,7 +469,7 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let (inner, v, csrf) = (app.clone(), ctx.clone(), ctx.csrf_token());
     let token = csrf.clone();
     let (pane, shell) = app.db(move |c| {
-        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token, false, None)?) } else { String::new() };
+        let pane = if user.admin { format!("\n{}\n", market_data(c, &inner, &v, &token, false, None, None)?) } else { String::new() };
         Ok((pane, crate::web::shell::Shell::load(c, &inner, &user)?))
     }).await?;
     let user = ctx.user().ok_or_else(|| WebError::Config("missing key owner".into()))?;
@@ -545,21 +546,24 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
 }
 
 /// A key's deletion (SettingsController#destroy_api_key, Settings::IbkrConnectionsController#destroy): its owner's working bots
-/// on its venue stopped first when it trades, its ledger rows kept (unlinked), its account identity and IBKR binding dropped.
-/// `then` runs inside the transaction after the delete, before the commit. None when the user has no such key; refused with
-/// nothing written while a bot of the venue settles an order, or when the eligibility guard objects.
+/// on its account stopped first when it trades, its ledger rows kept (unlinked), its account identity and IBKR binding dropped.
+/// `then` runs inside the transaction after the delete, before the commit. None when the user has no such key (or one whose
+/// account resolves to none); refused with nothing written while a bot of the account settles an order, or when the
+/// eligibility guard objects.
 pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: impl FnOnce(&Connection) -> Result<T, WebError>) -> Result<Option<Result<T, String>>, WebError> {
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-  let key:Option<(i64,i64)>=tx.query_row("SELECT exchange_id,key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|Ok((r.get(0)?,r.get(1)?))).optional()?;let Some((exchange,kind))=key else{return Ok(None);};
-  if settling(&tx,user,exchange)? { return Ok(Some(Err(SETTLING.into()))); }
+  let kind:Option<i64>=tx.query_row("SELECT key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|r.get(0)).optional()?;let Some(kind)=kind else{return Ok(None);};
+  // Before the delete: the key's account is read through its row.
+  let Some(account)=Account::of_key(&tx,id)? else{return Ok(None);};
+  if settling(&tx,&account)? { return Ok(Some(Err(SETTLING.into()))); }
   let now=format_time(inner.now());
   if kind==0{
-   let mut s=tx.prepare("SELECT id FROM bots WHERE user_id=?1 AND exchange_id=?2 AND status IN(1,4,5,6)")?;let ids=s.query_map((user,exchange),|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
+   let mut s=tx.prepare(&format!("SELECT b.id FROM bots b WHERE {} AND b.status IN(1,4,5,6) ORDER BY b.id",account.bots("b")))?;let ids=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
    for bot in ids{tx.execute("UPDATE bots SET status=2,stopped_at=?1,stop_message_key=NULL,updated_at=?1 WHERE id=?2",(&now,bot))?;tx.execute("INSERT INTO bot_activity_logs(bot_id,event,level,message,details,created_at)VALUES(?1,'stopped',0,NULL,'{}',?2)",(bot,&now))?;}
   }
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user))?;
-  crate::identity::forget(&tx,id,user,exchange)?;
+  crate::identity::forget(&tx,id,&account)?;
   crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
   let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
@@ -628,8 +632,10 @@ pub async fn legacy(
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
-  let current=Key::read(&tx,&inner,user.id,exchange,kind)?;
-  if current.id.is_some() && settling(&tx,user.id,exchange)? { return Ok(Err(Some(SETTLING.to_string()))); }
+  // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
+  let account=Account::first(&tx,user.id,exchange)?.ensure(&tx,inner.now())?;
+  let current=Key::read(&tx,&inner,account,kind)?;
+  if current.id.is_some() && settling(&tx,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
   if venue=="Exchanges::Hyperliquid"{
    let address=crate::v2::validation_regex(r"\A0x[0-9a-fA-F]{40}\z").map_err(|_|WebError::Config("invalid wallet pattern".into()))?;
@@ -649,7 +655,8 @@ pub async fn legacy(
    }
    id
   }else{
-   tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,0,?7,?7)",(user.id,exchange,kind,key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),&now))?;tx.last_insert_rowid()
+   tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,0,?7,?7)",(user.id,exchange,kind,key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),&now))?;
+   let id=tx.last_insert_rowid();account.add_key(&tx,id)?;id
   };
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
@@ -702,8 +709,8 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
 
 #[derive(Template)]
 #[template(path="settings/alpaca_form.html")]
-struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, modal:bool, sheet:bool, error:Option<&'a str>,
-    name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String }
+struct AlpacaForm<'a> { v:&'a Ctx, csrf:&'a str, action:String, form_data:&'a str, connect_title:String, instructions_title:String, instructions:String, live:bool, error:Option<&'a str>,
+    name_id:String, mark:&'static str, alpaca:bool, passphrase:bool, key_label:String, secret_label:String, back:Option<String> }
 
 /// The venues whose keys this build checks (the wizard's list): every other venue's key route is a named refusal.
 fn ported(class:&str)->bool{crate::web::wizard::keys::ported(class)}
@@ -718,49 +725,48 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
 }
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
-/// shared/_api_key_form inside shared/_connect_form: the venue's connect card. `name`/`class` are the exchange row's name and
-/// type; `instructions` the walkthrough under it; the fields are the key and secret, and Alpaca's Paper/Live switch before them.
+/// The venue's connect card as the sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`)
+/// under the venue's name alone (the button says "Connect"), the walkthrough (`instructions`) below; a refused key's reason
+/// (`error`) under the fields, which it marks invalid. `name`/`class` are the exchange row's name and type. With `back` (a
+/// wizard's venue step) the venue's logo is Back (D-KEY-LOGO-BACK); without (the bot page's key, D-BOT-KEY-SHEET) it is a plain
+/// header.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,instructions:String)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,modal,None,instructions)
-}
-/// The card as the DCA wizard's sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`),
-/// the same fields and the same Connect, under the venue's name alone (the button says "Connect"); a refused key's reason
-/// (`error`) under the fields, which it marks invalid, where the other cards flash it.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String,error:Option<&str>)->Result<String,WebError>{
-    card_in(ctx,csrf,action,form_data,name,class,live,false,Some(error),instructions)
-}
-#[allow(clippy::too_many_arguments)]
-/// `sheet`: drawn in the DCA wizard's sheet, with the refusal to show under its fields if any.
-fn card_in(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,modal:bool,sheet:Option<Option<&str>>,instructions:String)->Result<String,WebError>{
+pub(crate) fn sheet_card(ctx:&Ctx,csrf:&str,action:String,form_data:&str,name:&str,class:&str,live:bool,instructions:String,error:Option<&str>,back:Option<String>)->Result<String,WebError>{
     let name_id=crate::tracker::rows::name_id(class);
     // BotHelper#api_key_field_label: the venue's own word for a field, else the generic one.
     let label=|field:&str|{let specific=format!("bot.api.{name_id}.{field}");if lookup(ctx.locale,&specific).is_some(){ctx.t(&specific)}else{ctx.t(&format!("bot.api.{field}_label"))}};
-    let connect_title=if sheet.is_some(){i18n::escape(name)}else{i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",i18n::Arg::Text(name))])};
-    Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title,
-        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,modal,sheet:sheet.is_some(),error:sheet.flatten(),
-        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id}.render()?)
+    Ok(AlpacaForm{v:ctx,csrf,action,form_data,connect_title:i18n::escape(name),
+        instructions_title:i18n::t(ctx.locale,"bot.setup.how_to_get_keys",&[("exchange",i18n::Arg::Text(name))]),instructions,live,error,
+        mark:crate::web::bot::exchange_svg(&name_id),alpaca:class=="Exchanges::Alpaca",passphrase:requires_passphrase(class),key_label:label("public_key"),secret_label:label("private_key"),name_id,back}.render()?)
 }
-#[derive(Template)]
-#[template(path="settings/alpaca_modal.html")]
-struct AlpacaModal<'a> { card:&'a str }
-#[derive(Template)]
-#[template(path="settings/alpaca_full.html")]
-struct AlpacaFull<'a> { v:&'a Ctx, card:&'a str, progress_title:String, name:&'a str }
 pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::extract::Extension(ctx):axum::extract::Extension<Ctx>) -> Result<Response,WebError> {
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let exchange=tracker_exchange(&app,&ctx).await?;
     let Some(exchange)=exchange else {return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))};
+    // D-TRACKER-IBKR-SHEET: IBKR's connection, whatever key type the link asked for, before any key is read the generic way
+    // (its material may not decrypt; its own reader offers Disconnect then).
+    let class:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
+    if class.as_deref()==Some(crate::venue::ibkr::IBKR){
+        ctx.session.lock().tracker_connect=Some(exchange);
+        // What the connection's last write earned, drawn in the card: a frame does not show the layout's flash.
+        let notice=std::mem::take(&mut ctx.session.lock().flash).pop().map(|(kind,text)|(kind==flash::ALERT,text));
+        let (inner,v,owner)=(app.clone(),ctx.clone(),user.clone());
+        let found=app.db(move|c|Ok((super::ibkr::tracker_step(c,&inner,&v,owner.id,notice)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
+        let (Some((track,content)),shell)=found else {return Ok(crate::web::layout::not_ported_for(&ctx))};
+        let csrf=ctx.csrf_token();
+        let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
+        return crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]});
+    }
     let requested=ctx.params.query("key_type").filter(|s|matches!(*s,"trading"|"read_only"));
     let kind=if requested==Some("trading"){0}else{2};
     let inner=app.clone();let owner=user.clone();
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
+        let account=Account::first(c,owner.id,exchange)?;
         // healthy_trading_key: a correct bot key that lacks no permission the sync needs.
-        let errors=c.prepare("SELECT last_sync_error FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 AND status=1 ORDER BY id LIMIT 1")?.query_map([owner.id,exchange],|r|r.get::<_,Option<String>>(0))?.collect::<Result<Vec<_>,_>>()?;
+        let errors=c.prepare(&format!("SELECT last_sync_error FROM api_keys k WHERE {} AND key_type=0 AND status=1 ORDER BY id LIMIT 1",account.keys("k")))?.query_map([],|r|r.get::<_,Option<String>>(0))?.collect::<Result<Vec<_>,_>>()?;
         let healthy=venue.as_ref().is_some_and(|(class,_)|errors.iter().any(|error|!crate::tracker::import::run::missing_permission(class,error.as_deref())));
-        Ok((venue,healthy,Key::read(c,&inner,owner.id,exchange,kind)?,crate::web::shell::Shell::load(c,&inner,&owner)?))
+        Ok((venue,healthy,Key::read(c,&inner,account,kind)?,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let (venue,healthy,mut key,shell)=found;
     let Some((class,name))=venue else {return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))};
@@ -773,36 +779,46 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
                 let body=turbo::prepend_flash(&flash::render(&flash::take(&ctx.session,&[(flash::ALERT,refusal_text(&ctx,&reason))]))?);
                 return Ok((StatusCode::UNPROCESSABLE_ENTITY,[(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],body).into_response())
             }
-            let inner=app.clone();let user_id=user.id;
-            key=app.db(move|c|Key::read(c,&inner,user_id,exchange,kind)).await?;
+            let (inner,account)=(app.clone(),key.account);
+            key=app.db(move|c|Key::read(c,&inner,account,kind)).await?;
         }
     }
     if requested.is_none()&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
     let csrf=ctx.csrf_token();
-    let modal=ctx.turbo_frame.as_deref()==Some("modal");
-    let (inner,v,venue_class,venue_name)=(app.clone(),ctx.clone(),class.clone(),name.clone());
-    let instructions=app.db(move|c|key_instructions(c,&inner,&v,&venue_class,&venue_name,kind)).await?;
-    let card=card(&ctx,&csrf,ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"})),if modal{"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\""}else{"data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\""},&name,&class,key.passphrase.as_deref()==Some("live"),modal,instructions)?;
-    let body=if modal{AlpacaModal{card:&card}.render()?}else{AlpacaFull{v:&ctx,card:&card,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.connect",&[]),name:&name}.render()?};
+    let (inner,v,live)=(app.clone(),ctx.clone(),key.passphrase.as_deref()==Some("live"));
+    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,&class,&name,kind,live,None)).await?;
+    let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 
-#[derive(Template)]
-#[template(path="settings/pick_exchange.html")]
-struct PickExchange<'a> { v:&'a Ctx, progress_title:String, table:crate::web::wizard::exchanges::Table }
-/// Tracker::PickExchangesController#new: every available venue, stable ones first (Bots::Searchable), none disabled.
+/// D-TRACKER-SHEET: the tracker's key step in the sheet, however it was asked for (the connect button's venue step, or a venue,
+/// sync-warning or gap link straight to it): the track (the venue done, its link back to the venue step; Connect current) and
+/// the venue's card, `error` under its fields.
+#[allow(clippy::too_many_arguments)]
+fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,class:&str,name:&str,kind:i64,live:bool,error:Option<&str>)->Result<(String,String),WebError>{
+    use crate::web::wizard::{self, Stop};
+    let instructions=key_instructions(c,app,ctx,class,name,kind)?;
+    let action=ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"}));
+    let card=sheet_card(ctx,&ctx.csrf_token(),action,SHEET_FORM,name,class,live,instructions,error,Some(ctx.path("/tracker/pick_exchange/new")))?;
+    let track=wizard::track(ctx,1,vec![Stop::new("exchange").name(Some(name.to_string())).back(ctx.path("/tracker/pick_exchange/new")),Stop::new("connect")])?;
+    Ok((track,wizard::keys::key_pane(&card)?))
+}
+
+/// Tracker::PickExchangesController#new: every available venue, stable ones first (Bots::Searchable), none disabled, in the sheet
+/// (D-TRACKER-SHEET): the pane's search box over the venues, brokers and exchanges apart; the track's Exchange current.
 pub async fn pick_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else {return Ok(auth::unauthenticated(&ctx))};
     let inner=app.clone();let owner=user.clone();
-    let (venues,shell)=app.db(move|c|{
-        let mut s=c.prepare("SELECT id,type FROM exchanges WHERE available=1 ORDER BY type IN ('Exchanges::Binance','Exchanges::BinanceUs','Exchanges::Coinbase','Exchanges::Kraken') DESC,name")?;
-        let venues=s.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
-        let venues=venues.into_iter().map(|(id,class)|crate::web::wizard::exchanges::Venue{id,mark:crate::web::bot::exchange_wordmark(&crate::web::bot::Exchange{id,name:String::new(),class,maker_fee:None}.name_id()),unavailable:false}).collect::<Vec<_>>();
-        Ok((venues,crate::web::shell::Shell::load(c,&inner,&owner)?))
+    let (venues,connected,shell)=app.db(move|c|{
+        let mut s=c.prepare("SELECT id,name,type FROM exchanges WHERE available=1")?;
+        let venues=s.query_map([],|r|Ok(crate::web::bot::Exchange{id:r.get(0)?,name:r.get::<_,Option<String>>(1)?.unwrap_or_default(),class:r.get(2)?,maker_fee:None}))?.collect::<Result<Vec<_>,_>>()?;
+        Ok((venues,crate::web::wizard::exchanges::connected(c,owner.id,&[0,2])?,crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
+    use crate::web::wizard::{self, exchanges, Stop};
     let csrf=ctx.csrf_token();
-    let table=crate::web::wizard::exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues,unavailable_note:String::new()};
-    let body=PickExchange{v:&ctx,progress_title:i18n::t(ctx.locale,"bot.setup.progress_steps.exchange",&[]),table}.render()?;
+    let table=exchanges::Table{action:ctx.path("/tracker/pick_exchange"),csrf:csrf.clone(),param_name:"exchange_id".into(),venues:vec![],unavailable_note:String::new()};
+    let content=exchanges::venue_pane(&ctx,table,venues,&connected)?;
+    let body=wizard::sheet_to(&ctx,"/tracker",&wizard::track(&ctx,0,vec![Stop::new("exchange"),Stop::new("connect")])?,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 /// Tracker::PickExchangesController#create: `Exchange.find` (any row), the session keeps only its id.
@@ -816,26 +832,42 @@ pub async fn pick_save(axum::extract::State(app):axum::extract::State<App>,axum:
     Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/add_api_key/new")))
 }
 
-async fn owned_bot_exchange(app:&App,ctx:&Ctx)->Result<Option<i64>,WebError>{
+/// The account of the user's bot this request names (#710: its sheet reads and saves that account's key).
+async fn owned_bot_account(app:&App,ctx:&Ctx)->Result<Option<Account>,WebError>{
     let Some(user)=ctx.user() else{return Ok(None)};let owner=user.id;
     let id=ctx.params.route_path.split('/').nth(2).and_then(|s|s.parse::<i64>().ok());
     let Some(id)=id else{return Ok(None)};
-    app.db(move|c|Ok(c.query_row("SELECT exchange_id FROM bots WHERE id=?1 AND user_id=?2",[id,owner],|r|r.get(0)).optional()?)).await
+    app.db(move|c|{
+        let exchange:Option<i64>=c.query_row("SELECT exchange_id FROM bots WHERE id=?1 AND user_id=?2",[id,owner],|r|r.get(0)).optional()?;
+        Ok(match exchange {Some(_)=>Account::of_bot(c,id)?,None=>None})
+    }).await
+}
+/// The form attributes of every card the sheet draws: answered in its frame (`modal_content`).
+pub(crate) const SHEET_FORM:&str="data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
+/// `/bots/:id`, from this request's `/bots/:id/add_api_key[/new]`.
+fn bot_base(ctx:&Ctx)->String{ctx.params.route_path.trim_end_matches("/new").trim_end_matches("/add_api_key").to_string()}
+/// D-BOT-KEY-SHEET: the bot page's key step ("Add new keys", the status bar's Connect) as the sheet's card with no track: the
+/// venue's name a plain header (no venue step to go back to), `error` under its fields.
+fn bot_step(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
+    let instructions=key_instructions(c,app,ctx,class,name,0)?;
+    let form_data=format!("{SHEET_FORM} data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"");
+    let card=sheet_card(ctx,&ctx.csrf_token(),ctx.path(&format!("{}/add_api_key",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
+    crate::web::wizard::keys::key_pane(&card)
 }
 pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
     let Some(user)=ctx.user().cloned() else{return Ok(auth::unauthenticated(&ctx))};
-    let Some(exchange)=owned_bot_exchange(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
+    let Some(account)=owned_bot_account(&app,&ctx).await? else{return Ok(crate::web::layout::missing())};
     let inner=app.clone();let owner=user.clone();
     let v=ctx.clone();
-    let ((class,name),key,shell,instructions)=app.db(move|c|{
-        let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
-        let instructions=if ported(&class){key_instructions(c,&inner,&v,&class,&name,0)?}else{String::new()};
-        Ok(((class,name),Key::read(c,&inner,owner.id,exchange,0)?,crate::web::shell::Shell::load(c,&inner,&owner)?,instructions))
+    let (content,shell)=app.db(move|c|{
+        let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[account.exchange_id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
+        if !ported(&class){return Ok((None,crate::web::shell::Shell::load(c,&inner,&owner)?))}
+        let live=Key::read(c,&inner,account,0)?.passphrase.as_deref()==Some("live");
+        Ok((Some(bot_step(c,&inner,&v,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
-    if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
-    let csrf=ctx.csrf_token();let action=ctx.path(ctx.params.route_path.trim_end_matches("/new"));
-    let card=card(&ctx,&csrf,action,"data-controller=\"\" data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"",&name,&class,key.passphrase.as_deref()==Some("live"),true,instructions)?;
-    let body=AlpacaModal{card:&card}.render()?;
+    let Some(content)=content else{return Ok(crate::web::layout::not_ported_for(&ctx))};
+    let csrf=ctx.csrf_token();
+    let body=crate::web::wizard::sheet_to(&ctx,&bot_base(&ctx),"",&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
 

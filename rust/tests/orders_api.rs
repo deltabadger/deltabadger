@@ -524,8 +524,11 @@ fn retained(k: &Kraken) -> Vec<(String, Option<String>)> {
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn a_standalone_order_is_placed_in_one_pass_answers_v2_bytes_replays_and_is_kept_for_cancel() {
     let mut k = kraken(priced());
+    let accounts = |k: &Kraken| k.count(&format!("SELECT count(*) FROM exchange_accounts WHERE user_id = {} AND number = 1", k.user));
+    assert_eq!(accounts(&k), 0, "the seeded key and bot were stored as 2.x stores them");
     let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "one");
     queued(&k, 1).await;
+    assert_eq!(accounts(&k), 1, "#710: queueing the order made its exchange's number 1");
     run::step(&mut k.e, &kt(0)).await.unwrap();
     let (status, body) = request.await.unwrap();
     assert_eq!((status, body.clone()), (201, json!({"data": {"dry_run": false, "exchange": "Kraken", "pair": "BTC/EUR", "side": "buy", "order_type": "market",
@@ -607,7 +610,7 @@ async fn a_standalone_order_asks_again_at_its_claim_what_changed_after_validatio
     let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair: serde_json::Map<String, Value> = [("base_asset".to_string(), json!("BTC")), ("quote_asset".to_string(), json!("EUR"))].into_iter().collect();
     let id = api_orders::insert(k.c(), &api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
-        standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
+        standalone: api_orders::Standalone { account: deltabadger::identity::Account::first(k.c(), k.user, exchange).unwrap(), exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: true } }, kt(0).0).unwrap();
     k.c().execute_batch(&lock).unwrap();
     let request = api_orders::take(k.c(), id, kt(0).0).unwrap().unwrap();
     let refused = deltabadger::web::bot_api::orders::standalone_late_refusal(k.c(), kt(0).0, &request).unwrap().unwrap();
@@ -650,7 +653,7 @@ async fn a_restart_answers_a_standalone_sending_order_unknown_and_never_sends_it
     let amount = deltabadger::v2::BigDec::parse("100").unwrap();
     let pair = serde_json::Map::new();
     let new = || api_orders::New::Standalone { user_id: k.user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: false, supplied: &pair,
-        standalone: api_orders::Standalone { exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
+        standalone: api_orders::Standalone { account: deltabadger::identity::Account::first(k.c(), k.user, exchange).unwrap(), exchange_id: exchange, ticker_id: ticker, limit: false, price: None, mcp: false } };
     let (t, s) = (api_orders::insert(k.c(), &new(), kt(0).0).unwrap(), api_orders::insert(k.c(), &new(), kt(0).0).unwrap());
     api_orders::take(k.c(), t, kt(0).0).unwrap();
     api_orders::take(k.c(), s, kt(0).0).unwrap();
@@ -700,6 +703,12 @@ async fn limit_order_sizes_as_place_limit_order() {
     // Hyperliquid: five significant figures, so a fractional price floors to a whole one.
     let hl = limit_order(&ticker, &HYPERLIQUID, buy, &d("100"), true, &d("64006.123")).unwrap();
     assert_eq!((hl.price.to_s_f(), hl.quote_type), ("64006.0".into(), false));
+    // #679: under 0.1 with base_decimals 2 the rule allows six places; the order is sent at that price, not floored to five.
+    let small = deltabadger::engine::model::Ticker { base_decimals: 2, price_decimals: 5, ..ticker.clone() };
+    let hl = limit_order(&small, &HYPERLIQUID, buy, &d("10.01"), true, &d("0.0012345")).unwrap();
+    assert_eq!(hl.price.to_s_f(), "0.001234");
+    let order = hl.to_order("cl".into(), chrono::Utc::now(), &HYPERLIQUID).unwrap();
+    assert_eq!(order.kind, deltabadger::venue::OrderKind::Limit { price: "0.001234".into() });
 }
 
 // ---- A20d, D-IDEMPOTENCY-DEAD-CLAIM: a key whose request died with the process is settled at the next start. ----

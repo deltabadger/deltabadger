@@ -132,7 +132,7 @@ fn main() {
             let o=store::open(&paths).unwrap_or_else(|e|refuse_store(e, &paths, &env));
             if let Target::V2List(id)=target {
                 let tx=deltabadger::engine::model::immediate(&o.primary).unwrap_or_else(|e|fail(&format!("{e:?}")));
-                deltabadger::engine::rules::seed_v2_ids(&tx).unwrap_or_else(|e|fail(&format!("{e:?}")));
+                deltabadger::engine::rules::seed_v2_ids(&tx, chrono::Utc::now()).unwrap_or_else(|e|fail(&format!("{e:?}")));
                 tx.commit().unwrap_or_else(|e|fail(&format!("{e:?}")));
                 for (attempt,rule) in deltabadger::engine::rules::open_attempts(&o.primary,Some(id)).unwrap_or_else(|e|fail(&format!("{e:?}"))) {println!("rule {rule}: 2.x attempt {attempt}");}
             } else {
@@ -912,6 +912,7 @@ fn repair_binance_history(env:&dyn Fn(&str)->Option<String>)->i32 {
     let approved:Option<repair::Manifest>=if mode=="--apply" {
         let bytes=std::fs::read(options["--manifest"]).unwrap_or_else(|_|fail("cannot read repair manifest"));
         let m:repair::Manifest=serde_json::from_slice(&bytes).unwrap_or_else(|_|fail("invalid repair manifest"));
+        if m.version!=repair::MANIFEST_VERSION {fail(repair::OLD_MANIFEST)}
         if m.digest()!=options["--approve"] {fail("approved digest does not match manifest")};Some(m)
     }else{None};
     let key_id=approved.as_ref().map(|m|m.key_id).unwrap_or_else(||options["--key"].parse().unwrap_or_else(|_|fail(USAGE)));

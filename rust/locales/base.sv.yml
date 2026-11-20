@@ -89,6 +89,12 @@ sv:
     links:
         hide_balances: 'Dölj saldon'
         display_currency: 'Visningsvaluta'
+        scheme: 'Färgschema'
+        scheme_default: 'Standard'
+        scheme_space: 'Rymd'
+        scheme_warm: 'Varm'
+        scheme_ember: 'Glöd'
+        scheme_forest: 'Skog'
         show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'
@@ -185,6 +191,10 @@ sv:
             confirm_delete: 'Vill du ta bort denna CoinGecko API-nyckel?'
         market_data:
             none: 'Ingen'
+            intro: "Marknadsdata i realtid driver index och prishistoriken för portföljspårning. Använd ett gratis CoinGecko-konto, eller Deltabadgers API för samma sak med aktier, plus en fast IP-adress att vitlista hos börserna."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Även aktier, och en fast IP-adress att vitlista på börserna."
+            upgrade_button: "Uppgradera"
             disabled: 'Synkronisering av marknadsdata inaktiverad.'
             updated: 'Marknadsdatainställningar uppdaterade.'
             coingecko_configured: 'Ansluten till CoinGecko för marknadsdata i realtid.'
@@ -666,6 +676,7 @@ sv:
         notes:
             left: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha lämnat till anskaffningsvärde (%{amount}).'
             arrived: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha kommit in till sitt pris (%{amount}).'
+            opened: 'Historiken behöver %{history} %{symbol} som den aldrig visar komma in. Tas som innehavda från början, till den dagens pris (%{amount}).'
             since_sync: '%{symbol} köpt sedan senaste synkningen: värderat till anskaffningsvärde (%{amount}) tills nästa.'
             cash_out: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts ut.'
             cash_in: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts in.'
@@ -780,7 +791,8 @@ sv:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Tillfälligt anslutningsproblem — försöker igen automatiskt'
+            execution_retrying: "Orderförsöket misslyckades — boten försöker igen"
+            execution_retrying_with_error: "Orderförsöket misslyckades: %{error} — boten försöker igen"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Order %{order_id} övergiven (börsen spårar den inte längre)"
             placement_ambiguous: "Orderstatus obekräftad — försöks inte igen, för att undvika en dubbel order"

@@ -91,6 +91,12 @@ pl:
     links:
         hide_balances: 'Ukryj salda'
         display_currency: 'Waluta wyświetlania'
+        scheme: 'Motyw kolorów'
+        scheme_default: 'Domyślny'
+        scheme_space: 'Kosmos'
+        scheme_warm: 'Ciepły'
+        scheme_ember: 'Żar'
+        scheme_forest: 'Las'
         show_balances: 'Pokaż salda'
         about: 'O nas'
         telegram: 'Telegram'
@@ -187,6 +193,10 @@ pl:
             confirm_delete: 'Czy chcesz usunąć ten klucz API CoinGecko?'
         market_data:
             none: 'Brak'
+            intro: "Dane rynkowe na żywo napędzają indeksy i historię cen potrzebną do śledzenia portfela. Użyj darmowego konta CoinGecko albo API Deltabadger, które daje to samo także dla akcji, plus stały adres IP do białej listy na giełdach."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Także akcje oraz stały adres IP do białej listy na giełdach."
+            upgrade_button: "Ulepsz"
             disabled: 'Synchronizacja danych rynkowych wyłączona.'
             updated: 'Ustawienia danych rynkowych zaktualizowane.'
             coingecko_configured: 'Połączono z CoinGecko w celu pobierania danych rynkowych na żywo.'
@@ -660,6 +670,7 @@ pl:
         notes:
             left: '%{exchange} raportuje %{held} %{symbol}; historia wyjaśnia %{history}. Różnicę przyjęto jako wyprowadzoną po koszcie (%{amount}).'
             arrived: '%{exchange} raportuje %{held} %{symbol}; historia wyjaśnia %{history}. Różnicę przyjęto jako nabytą po cenie (%{amount}).'
+            opened: 'Historia wymaga %{history} %{symbol}, których wpływu nigdy nie pokazuje. Przyjęto, że były posiadane od początku, po cenie z tamtego dnia (%{amount}).'
             since_sync: '%{symbol} kupione od ostatniej synchronizacji: wyceniane po koszcie (%{amount}) do następnej.'
             cash_out: 'Historia wykazuje %{history} %{symbol}; %{exchange} raportuje %{held}. Różnicę (%{amount}) przyjęto jako wyprowadzoną.'
             cash_in: 'Historia wykazuje %{history} %{symbol}; %{exchange} raportuje %{held}. Różnicę (%{amount}) przyjęto jako wprowadzoną.'
@@ -773,7 +784,8 @@ pl:
             market_closed: 'Rynek zamknięty — następne otwarcie %{time}'
             limit_paused: 'Wstrzymano: limit %{limit} nie został spełniony'
             execution_failed: 'Próba zlecenia nie powiodła się'
-            execution_retrying: 'Tymczasowy problem z połączeniem — automatyczne ponawianie'
+            execution_retrying: "Próba zlecenia nie powiodła się — bot spróbuje ponownie"
+            execution_retrying_with_error: "Próba zlecenia nie powiodła się: %{error} — bot spróbuje ponownie"
             execution_failed_with_error: 'Próba zlecenia nie powiodła się: %{error}'
             order_abandoned: "Zlecenie %{order_id} porzucone (giełda już go nie śledzi)"
             placement_ambiguous: "Status zlecenia niepotwierdzony — bez ponowienia, aby uniknąć zdublowanego zlecenia"

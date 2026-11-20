@@ -215,13 +215,19 @@ fn settings_inner<T>(
     // A bot loaded without a name shows a generated one; submitting it on purpose saves it (Automation::Labelable#label=).
     let label_changed = draft.candidate.label != draft.original.label || (draft.original.label_unsaved && draft.submitted_label.is_some());
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
-    let changed = label_changed || exchange_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
+    // #710: another account of an exchange (the switch menu's, with 2+ accounts there).
+    let account_changed = match draft.account { Some(a) => crate::identity::Account::of_bot(&tx, id)? != Some(a), None => false };
+    let changed = label_changed || exchange_changed || account_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     forget_composed(&tx, id, &effects.settings.set)?;
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
-    if exchange_changed { one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?; }
+    if exchange_changed {
+        one(tx.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (draft.candidate.exchange.id, id, owner, class))?)?;
+    }
+    // The bot moves to the posted account, or to its new exchange's number 1; what it placed keeps its own account.
+    if exchange_changed || account_changed { crate::identity::place_bot(&tx, id, owner, draft.candidate.exchange.id, draft.account, ctx.now)?; }
     // Bot::PriceLimitable#reset_price_limit_info_cache (before_save, when the settings are written): a price-rule field changed
     // on either side drops the status line's info of the side the bot is saved on, as 2.x does; D-INFO-SIDE: and the info of
     // the side whose rule changed (each side has its own line).

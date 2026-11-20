@@ -125,7 +125,8 @@ pub fn kucoin_balances(fx: &Fx, exchange: i64, key: i64, held: &[(&str, &str, &s
     let c = fx.c();
     for (symbol, units, price) in held {
         let asset: i64 = c.query_row("SELECT id FROM assets WHERE symbol=?1 ORDER BY id LIMIT 1", [symbol], |r| r.get(0)).unwrap();
-        c.execute("INSERT INTO account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at) VALUES(?1,?2,?3,?4,0,?5,?4*?5,?6,?6,?6,?6)",
+        common::number_one(&c, fx.owner(), exchange);
+        c.execute("INSERT INTO exchange_account_balances(user_id,exchange_id,asset_id,free,locked,usd_price,usd_value,priced_at,synced_at,created_at,updated_at,account_id) VALUES(?1,?2,?3,?4,0,?5,?4*?5,?6,?6,?6,?6,(SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))",
                   rusqlite::params![fx.owner(), exchange, asset, units, price, "2026-10-01 02:00:00"]).unwrap();
     }
     c.execute("UPDATE api_keys SET balances_synced_at='2026-10-01 02:00:00' WHERE id=?1", [key]).unwrap();

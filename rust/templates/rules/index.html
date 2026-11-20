@@ -1,6 +1,6 @@
 {{ source|safe }}
 {% if empty %}
-  <div class="welcome-screen">
+  <div class="welcome-screen"><canvas class="pixel-scene" data-controller="pixel-scene" data-pixel-scene-name-value="withdraw" data-pixel-scene aria-hidden="true"></canvas>
     <p>{{ v.t("rules.index.welcome.keep_coins_safe") }}</p>
     <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ add }}">
       {% include "svg/_24x24_plus.html" %}

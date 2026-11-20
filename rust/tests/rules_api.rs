@@ -75,6 +75,7 @@ impl Install {
     }
     fn rule(&self, status: i64, exchange: i64, settings: Value) {
         self.c.execute("INSERT INTO rules(user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,'Rules::Withdrawal',?2,?3,?4,?5,?6,?7,?7)",params![self.s.user_id,status,exchange,self.s.btc,self.app.cipher.encrypt(ADDRESS),settings.to_string(),AT]).unwrap();
+        common::seed::rules_as_v2_wrote(&self.c);
     }
     fn setup(&self, name: &str) {
         if name == "list_each_status" {
@@ -582,6 +583,7 @@ async fn mcp_paper_trading_refuses_start_and_other_users_rows_are_not_found() {
     i.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at) VALUES ('other@example.com','x',?1,?1)",[AT]).unwrap();
     i.c.execute("UPDATE rules SET user_id=?1", [i.c.last_insert_rowid()])
         .unwrap();
+    common::seed::rules_as_v2_wrote(&i.c);
     let before = i.rows();
     for tool in &TOOLS[2..] {
         assert_eq!(

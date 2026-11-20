@@ -91,6 +91,12 @@ ru:
     links:
         hide_balances: 'Скрыть балансы'
         display_currency: 'Валюта отображения'
+        scheme: 'Цветовая схема'
+        scheme_default: 'По умолчанию'
+        scheme_space: 'Космос'
+        scheme_warm: 'Тёплая'
+        scheme_ember: 'Угли'
+        scheme_forest: 'Лес'
         show_balances: 'Показать балансы'
         about: 'О нас'
         telegram: 'Телеграм'
@@ -188,6 +194,10 @@ ru:
             confirm_delete: 'Вы хотите удалить этот ключ API CoinGecko?'
         market_data:
             none: 'Нет'
+            intro: "Рыночные данные в реальном времени нужны для индексов и истории цен при отслеживании портфеля. Используйте бесплатный аккаунт CoinGecko или API Deltabadger — то же самое и для акций, плюс постоянный IP для белого списка на биржах."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Также акции и постоянный IP-адрес для белого списка на биржах."
+            upgrade_button: "Перейти"
             disabled: 'Синхронизация рыночных данных отключена.'
             updated: 'Настройки рыночных данных обновлены.'
             coingecko_configured: 'Подключено к CoinGecko для получения рыночных данных в реальном времени.'
@@ -660,6 +670,7 @@ ru:
         notes:
             left: '%{exchange} сообщает %{held} %{symbol}; история объясняет %{history}. Разница принята как ушедшая по себестоимости (%{amount}).'
             arrived: '%{exchange} сообщает %{held} %{symbol}; история объясняет %{history}. Разница принята как поступившая по своей цене (%{amount}).'
+            opened: 'Истории нужно %{history} %{symbol}, поступления которых она нигде не показывает. Они приняты как имевшиеся с самого начала, по цене того дня (%{amount}).'
             since_sync: '%{symbol} куплено после последней синхронизации: оценено по себестоимости (%{amount}) до следующей.'
             cash_out: 'История держит %{history} %{symbol}; %{exchange} сообщает %{held}. Разница (%{amount}) принята как выведенная.'
             cash_in: 'История держит %{history} %{symbol}; %{exchange} сообщает %{held}. Разница (%{amount}) принята как введённая.'
@@ -774,7 +785,8 @@ ru:
             market_closed: 'Рынок закрыт — следующее открытие %{time}'
             limit_paused: 'Приостановлено: лимит %{limit} не достигнут'
             execution_failed: 'Попытка ордера не удалась'
-            execution_retrying: 'Временная проблема с подключением — автоматический повтор'
+            execution_retrying: "Попытка ордера не удалась — бот попробует снова"
+            execution_retrying_with_error: "Попытка ордера не удалась: %{error} — бот попробует снова"
             execution_failed_with_error: 'Попытка ордера не удалась: %{error}'
             order_abandoned: "Ордер %{order_id} оставлен (биржа больше его не отслеживает)"
             placement_ambiguous: "Статус ордера не подтверждён — повтор не выполняется, чтобы избежать дублирования"

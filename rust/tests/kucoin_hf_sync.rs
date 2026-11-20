@@ -210,7 +210,7 @@ impl Fx {
         s.query_map([self.user], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
     fn coverage(&self, source: &str) -> Vec<(String, String)> {
-        let mut s = self.c.prepare("SELECT start_at, end_at FROM kucoin_coverage WHERE user_id = ?1 AND source = ?2 ORDER BY 1").unwrap();
+        let mut s = self.c.prepare("SELECT start_at, end_at FROM kucoin_coverage WHERE account_id IN (SELECT id FROM exchange_accounts WHERE user_id = ?1) AND source = ?2 ORDER BY 1").unwrap();
         s.query_map(rusqlite::params![self.user, source], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
     fn ambiguous(&self) -> Vec<String> { self.coverage("ambiguous").into_iter().map(|(a, _)| a).collect() }
@@ -218,7 +218,11 @@ impl Fx {
         let raw: Option<String> = self.c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::sync::kucoin_hf::gap_key(self.user)], |r| r.get(0)).ok();
         raw.map(|r| serde_json::from_str::<Value>(&r).unwrap()[self.exchange.to_string()]["uncovered"].clone()).unwrap_or(Value::Null)
     }
-    fn line(&self) -> bool { !deltabadger::tracker::gaps::read(&self.c, self.user, None, None, None).unwrap().is_empty() }
+    fn missing(&self) -> Value {
+        let raw: Option<String> = self.c.query_row("SELECT value FROM app_configs WHERE key = ?1", [deltabadger::sync::kucoin_hf::gap_key(self.user)], |r| r.get(0)).ok();
+        raw.map(|r| serde_json::from_str::<Value>(&r).unwrap()[self.exchange.to_string()]["missing"].clone()).unwrap_or(Value::Null)
+    }
+    fn line(&self) -> bool { !deltabadger::tracker::gaps::read(&self.c, self.user, &deltabadger::tracker::Scope::All, None, None).unwrap().is_empty() }
     fn error(&self) -> Option<String> { self.c.query_row("SELECT last_sync_error FROM api_keys WHERE id = ?1", [self.key], |r| r.get(0)).unwrap() }
 }
 
@@ -766,6 +770,36 @@ async fn l10_exports_close_the_gap_only_when_they_cover_trades() {
     assert!(!fx.line());
 }
 
+/// An ambiguous second stays flagged whatever is imported, so it is not a missing period and opens no line
+/// (D-GAP-EVIDENCE-ONLY); `uncovered` keeps it.
+#[tokio::test(flavor = "current_thread")]
+async fn an_ambiguous_second_is_not_a_missing_period() {
+    let fx = Fx::new();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    api.hf(vec![hf_fill("BTC-USDT", "buy", "1", "100", "0", "2026-10-30T10:00:00Z")]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    fx.restore(&["2026-10-30T10:00:00Z,buy,BTC,1,USDT,200,,,kucoin,,,"]);
+    assert_eq!(fx.ambiguous(), vec!["2026-10-30 10:00:00".to_string()]);
+    assert!(fx.uncovered().as_array().unwrap().contains(&json!(["2026-10-30 10:00:00", "2026-10-30 10:00:01"])), "{}", fx.uncovered());
+    assert_eq!(fx.missing(), json!([]));
+    assert!(!fx.line());
+}
+
+/// A period no unit covers is missing and shows; the export covering it, imported through the reader, closes it.
+#[tokio::test(flavor = "current_thread")]
+async fn an_export_closes_a_missing_period() {
+    let fx = Fx::new();
+    fx.c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+                  VALUES (?1, ?2, ?3, 4, 'USDT', 10, '2026-09-01 00:00:00', '{}', '{}', 0, '2026-09-01', '2026-09-01')", rusqlite::params![fx.user, fx.key, fx.exchange]).unwrap();
+    assert_eq!(fx.sync(&Api::new("hf", &["BTC-USDT"])).await, Ok(true));
+    assert_eq!(fx.missing(), json!([["2026-09-01 00:00:00", "2026-10-23 18:00:00"]]));
+    let gaps = deltabadger::tracker::gaps::read(&fx.c, fx.user, &deltabadger::tracker::Scope::All, None, None).unwrap();
+    assert_eq!((gaps.len(), gaps[0].unread.len(), gaps[0].more_unread), (1, 1, false));
+    fx.import(&file(&[buy_legs("1", "1", "0", "2026-09-01 00:00:00"), buy_legs("1", "1", "0", "2026-10-24 00:00:00")]));
+    assert_eq!(fx.missing(), json!([]));
+    assert!(!fx.line());
+}
+
 // ---- balances and budget ---------------------------------------------------------------------------------------------
 
 #[tokio::test(flavor = "current_thread")]
@@ -843,7 +877,7 @@ impl Fx {
     fn reopened(&self) -> Connection { Connection::open(self.dir.path().join("production.sqlite3")).unwrap() }
     fn holdings(&self) -> std::collections::BTreeMap<String, f64> {
         let c = self.reopened();
-        let mut s = c.prepare("SELECT a.symbol, b.free + b.locked FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1").unwrap();
+        let mut s = c.prepare("SELECT a.symbol, b.free + b.locked FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1").unwrap();
         s.query_map([self.user], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
     }
     fn uta_rows(&self, entry_type: Option<i64>) -> i64 {
@@ -863,8 +897,9 @@ async fn u1a_unified_balances_store_balance_and_a_debt_currency_keeps_its_row() 
         for symbol in ["BTC", "USDT"] {
             fx.c.execute("INSERT INTO exchange_assets (exchange_id, asset_id, created_at, updated_at) SELECT ?1, id, '2026-01-01', '2026-01-01' FROM assets WHERE symbol = ?2",
                          rusqlite::params![fx.exchange, symbol]).unwrap();
-            fx.c.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
-                          SELECT ?1, ?2, id, 9, 0, 0, '2026-10-01', '2026-10-01', '2026-10-01' FROM assets WHERE symbol = ?3", rusqlite::params![fx.user, fx.exchange, symbol]).unwrap();
+            common::number_one(&fx.c, fx.user, fx.exchange);
+            fx.c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at, account_id) \
+                          SELECT ?1, ?2, id, 9, 0, 0, '2026-10-01', '2026-10-01', '2026-10-01', (SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1) FROM assets WHERE symbol = ?3", rusqlite::params![fx.user, fx.exchange, symbol]).unwrap();
         }
         let api = Api::new("uta", &[]);
         *api.0.uta_balance.borrow_mut() = Some(c["response"].clone());
@@ -1319,4 +1354,55 @@ async fn u1b_the_backfill_never_begins_past_its_half_of_the_deadline() {
     api.uta(vec![uta_fill("BUY", "1", "100", "0", &days_before(NOW, 10))]);
     let _ = fx.sync_with(&api, &fixed(NOW), true).await;
     assert!(Fx::backfill_windows(&api, NOW).is_empty(), "{:?}", Fx::backfill_windows(&api, NOW));
+}
+
+// ---- #710 slice 4 (PLAN-710-4 §6 test 4): an HF sync certifies only its own account's pairs ----
+
+/// The exchange's second account trades DOGE-USDT (a visible row, its venue id relocated) and holds a withheld XRP-USDT
+/// fill; neither is listed. The first account's HF sync reads only its own history's pairs: no absence episode opens for
+/// the other account's, and its unit is certified.
+#[tokio::test(flavor = "current_thread")]
+async fn an_hf_sync_certifies_only_its_own_accounts_pairs() {
+    let fx = Fx::new();
+    let now = t(NOW);
+    deltabadger::identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().ensure(&fx.c, now).unwrap();
+    fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [fx.user, fx.exchange]).unwrap();
+    let second = fx.c.last_insert_rowid();
+    fx.c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, \
+                  manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, 0, 'DOGE', 10, 'USDT', 1, '2026-10-29 10:00:00', '{}', '{}', 0, 'now', 'now')",
+                 [fx.user, fx.exchange]).unwrap();
+    fx.c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id, venue_tx_id) VALUES (?1, ?2, 'shared-fill')", [fx.c.last_insert_rowid(), second]).unwrap();
+    fx.c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'shared-fill', '2026-10-29 10:00:00', ?2, 'now')",
+                 rusqlite::params![second, json!({"symbol": "XRP-USDT"}).to_string()]).unwrap();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    assert_eq!(fx.sync(&api).await, Ok(true));
+    assert!(fx.coverage("missing:DOGE-USDT").is_empty() && fx.coverage("missing:XRP-USDT").is_empty(), "another account's pairs open no episode here");
+    assert_eq!(fx.coverage("hf_api").len(), 1, "the first account's unit is certified");
+}
+
+/// #710 slice 5 (Codex r1 P1): imports land on the exchange's number 1 until they route by account (slice 7). An account
+/// 2's first HF migration certifies none of number 1's export periods and rederives none of its imported seconds into
+/// account 2's ledger.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_2s_hf_migration_takes_no_number_1_import() {
+    let fx = Fx::new();
+    let now = t(NOW);
+    fx.import(&file(&[buy_legs("1", "100", "0.1", "2026-10-29 10:00:00")]));
+    let first = deltabadger::identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().ensure(&fx.c, now).unwrap();
+    fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [fx.user, fx.exchange]).unwrap();
+    let second = deltabadger::identity::Account::by_id(&fx.c, fx.c.last_insert_rowid()).unwrap().unwrap();
+    fx.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, 'now', 'now')",
+                 rusqlite::params![fx.user, fx.exchange, fx.cipher.encrypt("second"), fx.cipher.encrypt("secret"), fx.cipher.encrypt("phrase")]).unwrap();
+    let key2 = fx.c.last_insert_rowid();
+    second.add_key(&fx.c, key2).unwrap();
+    let key = deltabadger::sync::load_key_of(&fx.c, key2, &[KUCOIN]).unwrap();
+    let rows = |a: i64| fx.c.query_row(&format!("SELECT count(*) FROM account_transactions t WHERE {}", deltabadger::venue_ids::row_account("t") + &format!(" = {a}")), [], |r| r.get::<_, i64>(0)).unwrap();
+    let before = (rows(first.id.unwrap()), rows(second.id.unwrap()));
+    let tx = fx.c.unchecked_transaction().unwrap();
+    assert!(deltabadger::sync::kucoin_hf::migrate(&deltabadger::engine::model::fence_versions(&tx, &[]).unwrap(), &key, now).unwrap());
+    tx.commit().unwrap();
+    let exports: i64 = fx.c.query_row("SELECT count(*) FROM kucoin_coverage WHERE account_id = ?1 AND source = 'export'", [second.id.unwrap()], |r| r.get(0)).unwrap();
+    assert_eq!(exports, 0, "number 1's export certifies nothing of account 2's");
+    assert_eq!((rows(first.id.unwrap()), rows(second.id.unwrap())), before, "no imported trade lands in account 2's ledger");
+    assert!(before.0 > 0, "the import is number 1's");
 }

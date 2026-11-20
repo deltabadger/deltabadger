@@ -18,7 +18,7 @@ const SCHEMA: &str = "
                                transaction_type varchar,
                                quote_amount decimal GENERATED ALWAYS AS (NULL) VIRTUAL); -- read, never written: positional INSERTs skip it
     CREATE TABLE account_transactions (id integer PRIMARY KEY, user_id integer, exchange_id integer, entry_type integer, base_currency varchar, raw_data json, transacted_at datetime(6), base_asset_id integer);
-    CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
+    CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id integer, exchange_id integer, asset_id integer);
     INSERT INTO users(id,time_zone,display_currency,hide_balances) VALUES (1, 'UTC', 'USD', 0);
     INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca', 'Alpaca');
     INSERT INTO assets(id,symbol,name,category,external_id) VALUES (1, 'USD', 'USD', 'Fiat', 'usd'), (2, 'AAA', 'AAA Inc.', 'Stock', 'stock-aaa'), (3, 'BBB', 'BBB Inc.', 'Stock', 'stock-bbb');

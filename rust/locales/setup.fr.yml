@@ -7,15 +7,32 @@ fr:
             stocks_ask_admin: "Demande à ton administrateur d'activer le trading d'actions."
             stocks_activate_cta: "Activer le trading d'actions dans les paramètres"
             add_more_assets: "Ajouter d'autres actifs"
+            pick_assets: "Choisissez un ou plusieurs actifs"
             venue_groups:
+                connected: "Connectés"
                 brokers: "Courtiers"
                 exchanges: "Exchanges"
+            market_data:
+                intro: "Les indices nécessitent des données de marché en direct. Utilisez l’API de données officielle de Deltabadger ou un compte CoinGecko gratuit."
+                providers: "Fournisseurs de données de marché"
+                subscription:
+                    lead_html: "Un abonnement <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> comprend :"
+                    indexes_title: "Indices actions et crypto"
+                    indexes: "Les indices reposent sur la capitalisation boursière de leurs actifs et nécessitent des mises à jour en direct."
+                    history_title: "Historique des prix"
+                    history: "Les plateformes n’offrent via leurs API qu’un historique de prix limité. Pour le suivi du portefeuille et les déclarations fiscales, l’API fournit l’historique complet des prix et des taux de change."
+                    ip_title: "IP fixe"
+                    ip: "Votre réseau domestique n’a généralement pas d’adresse IP fixe à mettre en liste blanche. Le proxy vous garde connecté lorsqu’elle change."
+            kind:
+                asset: "Actif"
+                index: "Indice"
             progress_steps:
                 assets: "Actifs"
                 currencies: "Choisir l'actif"
                 exchange: "Exchange"
                 spendable: "Devise"
                 api: "Connecter l'exchange"
+                connect: "Connecter"
                 coingecko: "Connecter CoinGecko"
                 index: "Choisir l'indice"
                 pick_asset: "Choisir l'actif"

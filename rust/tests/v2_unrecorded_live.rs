@@ -142,7 +142,7 @@ fn queue() -> Connection {
 }
 fn synced(c: &Connection, key: i64, at: DateTime<Utc>) { deltabadger::jobs::state::record_success(c, deltabadger::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), at).unwrap(); }
 fn lines(c: &Connection, bot: i64) -> Vec<(String, Value)> {
-    let mut s = c.prepare("SELECT event, details FROM bot_activity_logs WHERE bot_id = ?1 AND event LIKE 'rails_order_%' ORDER BY id").unwrap();
+    let mut s = c.prepare("SELECT event, details FROM bot_activity_logs WHERE bot_id = ?1 AND event LIKE 'v2_order_%' ORDER BY id").unwrap();
     s.query_map([bot], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))).unwrap().map(|r| { let (e, d) = r.unwrap(); (e, serde_json::from_str(&d).unwrap()) }).collect()
 }
 /// The money guard (r2.6): no order row, carry, figure or ledger link moves.
@@ -350,7 +350,7 @@ async fn each_order_state_is_named_as_the_venue_lists_it() {
         (o(7, St::Cancelled, "0", "0"), ru::LIVE_LISTED, "buy of 20 EUR cancelled, nothing filled"),
     ];
     for kind in SERVED {
-        for (i, (order, event, text)) in cases.iter().enumerate() {
+        for (order, event, text) in cases.iter() {
             // D-HISTORY-NO-LEDGER-BASIS: with no ledger, "nothing filled" is never claimed.
             let text = if kind.no_ledger() { text.strip_suffix(", nothing filled").unwrap_or(text) } else { text };
             let f = fx(kind);
@@ -358,11 +358,10 @@ async fn each_order_state_is_named_as_the_venue_lists_it() {
             assert_eq!(f.pass(now()).await, 1);
             let (_, venue) = kind.exchange();
             assert_eq!(f.one(), (event.to_string(), json!({ "when": WHEN, "venue": venue, "orders": format!("{text}, {placed}"), "count": 1, "complete": true, "conflict": false,
-                                            "obligation": f.c.query_row("SELECT id FROM rust_rails_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })),
+                                            "obligation": f.c.query_row("SELECT id FROM rust_v2_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })),
                        "{kind:?}");
             assert_eq!(f.pass(now() + Duration::hours(1)).await, 0, "one line, ever");
             assert_eq!(f.requests(), kind.reads(), "{kind:?}: read once");
-            if kind == SERVED[0] && i < 2 { common::freeze::freeze(["a28_live_listed", "a28_live_open"][i], &f.c, None); }
         }
     }
 }
@@ -675,9 +674,8 @@ async fn a_refusal_writes_a28_1s_line_and_after_a_crash_is_never_asked_again() {
             assert_eq!(f.pass(now()).await, 1);
             assert_eq!(f.one(), oracle, "{kind:?} {http}");
             assert_eq!(f.requests(), 1);
-            if kind == SERVED_ALL[0] && !http { common::freeze::freeze("a28_live_refused", &f.c, None); }
             // The line's transaction lost (a crash after the refusal was stored), then a restart with the same key.
-            f.c.execute_batch("UPDATE rust_rails_unrecorded SET reported_at = NULL, outcome = NULL; DELETE FROM bot_activity_logs WHERE event LIKE 'rails_order_%'").unwrap();
+            f.c.execute_batch("UPDATE rust_v2_unrecorded SET reported_at = NULL, outcome = NULL; DELETE FROM bot_activity_logs WHERE event LIKE 'v2_order_%'").unwrap();
             assert_eq!(f.pass(now() + Duration::hours(1)).await, 1);
             assert_eq!((f.one(), f.requests()), (oracle.clone(), 1), "{kind:?}: one request ever");
         }
@@ -799,7 +797,7 @@ async fn an_order_recorded_between_the_read_and_the_write_is_not_named() {
 async fn the_reads_of_a_pass_are_bounded_and_taken_round_robin() {
     let f = fx(Kind::Binance);
     // 21 more obligations, each its own 2.x tick a day earlier, the last one the one with an open order (r1.8).
-    f.c.execute_batch("DELETE FROM rust_rails_unrecorded; DELETE FROM bot_activity_logs WHERE event = 'placement_ambiguous'").unwrap();
+    f.c.execute_batch("DELETE FROM rust_v2_unrecorded; DELETE FROM bot_activity_logs WHERE event = 'placement_ambiguous'").unwrap();
     for n in 0..21 { ambiguous_line(&f.c, f.b, &format!("2026-09-28 {:02}:00:00", n + 1)); }
     ambiguous_line(&f.c, f.b, AT);
     ru::collect(&f.c, &queue(), None, now()).unwrap();
@@ -884,7 +882,7 @@ async fn an_order_linked_to_a_bots_order_through_its_fill_is_not_named() {
 #[test]
 fn every_live_line_renders_in_english_without_a_missing_key() {
     use deltabadger::web::i18n::{self, Arg};
-    for key in ["rails_order_open", "rails_order_listed", "rails_order_listed_one"] {
+    for key in ["v2_order_open", "v2_order_listed", "v2_order_listed_one"] {
         let text = i18n::text("en", &format!("bot_activity.events.{key}"), &[("when", Arg::Text(WHEN)), ("venue", Arg::Text("Binance")), ("orders", Arg::Text("x"))]);
         assert!(text.starts_with("Before the update, an order from this bot may have gone through without being recorded (around 2026-09-29 14:03 UTC)."), "{key}: {text}");
         assert!(text.ends_with("This may not be every order from that time. Check your Binance order history."), "{key}: {text}");
@@ -1170,7 +1168,7 @@ async fn each_hyperliquid_order_state_is_named_as_the_venue_lists_it() {
         f.answer(std::slice::from_ref(order));
         assert_eq!(f.pass(now()).await, 1);
         assert_eq!(f.one(), (event.to_string(), json!({ "when": WHEN, "venue": "Hyperliquid", "orders": format!("{text}, {placed}"), "count": 1, "complete": true, "conflict": false,
-                                        "obligation": f.c.query_row("SELECT id FROM rust_rails_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })));
+                                        "obligation": f.c.query_row("SELECT id FROM rust_v2_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })));
         assert_eq!(f.pass(now() + Duration::hours(1)).await, 0, "one line, ever");
         assert_eq!(f.requests(), *requests, "{text}: fills read only for an open or filled order");
     }
@@ -2061,7 +2059,7 @@ async fn each_gemini_order_state_is_named_as_the_venue_lists_it() {
         f.answer(std::slice::from_ref(order));
         assert_eq!(f.pass(now()).await, 1);
         assert_eq!(f.one(), (event.to_string(), json!({ "when": WHEN, "venue": "Gemini", "orders": format!("{text}, {placed}"), "count": 1, "complete": true, "conflict": false,
-                                        "obligation": f.c.query_row("SELECT id FROM rust_rails_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })));
+                                        "obligation": f.c.query_row("SELECT id FROM rust_v2_unrecorded", [], |r| r.get::<_, i64>(0)).unwrap() })));
         assert_eq!(f.requests(), 2);
     }
 }
@@ -2619,7 +2617,7 @@ async fn a_kraken_line_is_a28_1s_no_history_line_unless_the_venue_lists_an_order
     assert_eq!((event.as_str(), d["orders"].as_str()), (ru::LIVE_LISTED, Some("bought 0.0004 BTC for 20.01 EUR (filled), placed 2026-09-29 14:03:05 UTC; \
                                                                              buy of 20 EUR cancelled, placed 2026-09-29 14:03:05 UTC")));
     assert!(d["obligation"].is_i64());
-    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_rails_unrecorded_offers", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_v2_unrecorded_offers", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
 }
 
 // ---- A28-3d-5: KuCoin, no fills ledger, its classic list built from the docs ---------------------------------------------------
@@ -2962,5 +2960,5 @@ async fn a_kucoin_line_is_a28_1s_no_history_line_unless_the_venue_lists_an_order
     let (event, d) = f.one();
     assert_eq!((event.as_str(), d["orders"].as_str()), (ru::LIVE_LISTED, Some("bought 0.0004 BTC for 20.01 EUR (filled), placed 2026-09-29 14:03:05 UTC; \
                                                                              buy of 20 EUR cancelled, placed 2026-09-29 14:03:05 UTC")));
-    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_rails_unrecorded_offers", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
+    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_v2_unrecorded_offers", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
 }

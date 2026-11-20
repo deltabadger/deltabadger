@@ -287,7 +287,9 @@ pub async fn account(
             ))
         })
         .await?;
-    let (_, locale_options) = language_options(user.locale.as_deref().unwrap_or(i18n::DEFAULT));
+    // D-LOCALE-SELECT-SHOWS-PAGE: the page's language (a `/pl` prefix outranks the saved one), so picking the saved
+    // language from a prefixed page is a change that saves it and drops the prefix, not a no-op.
+    let (_, locale_options) = language_options(ctx.locale);
     let draft = draft.unwrap_or_default();
     // A failed email change keeps the address it had: the row shows what is stored, not what was typed.
     let hint = if pending_email.is_empty() {

@@ -100,6 +100,7 @@ de:
                 external_sales: "%{label} hat Assets verkauft, die es hier nie gekauft hat, daher lässt sich seine Historie nicht zusammenführen."
                 interleaved: "Zusammen ergäben die Historien dieser Bots ein anderes Gesamtergebnis, daher lassen sie sich nicht zusammenführen."
                 quote: "Alle Bots müssen dieselbe Währung ausgeben."
+                accounts: "Diese Bots handeln auf verschiedenen Konten derselben Börse und lassen sich daher nicht zusammenführen."
                 nothing_to_buy: "Keines dieser Assets wird an dieser Börse noch gehandelt."
             index_switch:
                 stop_first: "Stoppe zuerst den Bot."

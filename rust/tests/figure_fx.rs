@@ -69,8 +69,8 @@ fn install_with(currency: &str, source: Source) -> Install {
         INSERT INTO app_configs(key,value,created_at,updated_at) VALUES ('market_data_provider','deltabadger',{t},{t}),('market_data_url','http://data-api:3000',{t},{t}),('market_data_token','token',{t},{t});
         INSERT INTO users(id,email,encrypted_password,setup_completed,admin,confirmed_at,display_currency,created_at,updated_at) VALUES (1,'u1@example.com','x',1,1,{t},'{currency}',{t},{t});
         INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
-            (1,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"allocations\":{{\"2\":1.0}}}}','{{}}',{t},{t}),
-            (2,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":3,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+            (1,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"interval\":\"day\",\"quote_amount\":100,\"allocations\":{{\"2\":1.0}}}}','{{}}',{t},{t}),
+            (2,1,1,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":3,\"interval\":\"day\",\"quote_amount\":100,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
         INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
             (1,1,'AAA',2,'USD',1,1,1,100,100,0,0,2,'o1','REGULAR','2026-03-02 14:30:00',{t}),
             (2,1,'BTC',4,'USDT',3,1,1,100,100,0,0,2,'o2','REGULAR','2026-03-02 14:30:00',{t});
@@ -321,35 +321,325 @@ async fn a_raised_price_read_leaves_only_its_bot_without_figures_and_holds_the_h
     assert!(until <= common::web::at(AT).timestamp() + 60, "figures with a raised bot outlived the price's minute: {until}");
 }
 
-#[tokio::test]
-async fn a_sell_only_bot_says_what_it_sold_and_received() {
-    // 3.0, Rust only: a bot that only sells (what it sells came from outside) states what it sold and what that brought
-    // in, not an investment. Its venue (Gemini, read since A13 through its price feed) answers, so there is no note that it
-    // did not.
+/// A Gemini basket of BTC for USDC (bot 3) that only sold: 0.002 for 5 (order 3) and 0.001 for 2.6 (order 4), beside the
+/// install's buyers. Its venue (Gemini, read since A13 through its price feed) answers, so there is no note that it did not.
+fn gemini_seller(signal: bool) -> Install {
     let mut sc = script(true, json!(1.0));
-    sc["GET api.gemini.com/v1/pricefeed"] = json!({"body": [{"pair": "BTCUSDC", "price": "2600", "percentChange24h": "0.0"}]});
+    sc["GET api.gemini.com/v1/pricefeed"] = json!({"body": [{"pair": "BTCUSDC", "price": "2600", "percentChange24h": "0.0"}, {"pair": "BTCEUR", "price": "90", "percentChange24h": "0.0"}]});
     let install = install("USD", sc);
     let c = rusqlite::Connection::open(&install.file).unwrap();
     let t = "'2026-01-01'";
+    let (class, settings) = if signal { ("Bots::Signal", r#"{"base_asset_id":4,"quote_asset_id":5}"#) } else { ("Bots::DcaMultiAsset", r#"{"quote_asset_id":5,"allocations":{"4":1.0},"direction":"selling"}"#) };
     c.execute_batch(&format!("
         INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Gemini','Gemini',{t},{t});
-        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t});
+        INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (5,'Cryptocurrency','usd-coin','USDC','USDC',{t},{t}),(6,'Fiat','eur','EUR','Euro',{t},{t});
         INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
-            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'btcusdc',1,1,{t},{t});
-        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
-            (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":5,\"allocations\":{{\"4\":1.0}},\"direction\":\"selling\"}}','{{}}',{t},{t});
-        INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
-            (3,2,'BTC',4,'USDC',5,0.002,0.002,2500,5,1,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t}),
-            (3,2,'BTC',4,'USDC',5,0.001,0.001,2600,2.6,1,0,2,'o4','REGULAR','2026-03-03 14:30:00',{t});
+            VALUES (3,'BTC',4,8,2,0,1,2,'USDC',5,2,'btcusdc',1,1,{t},{t}),(4,'BTC',4,8,2,0,1,2,'EUR',6,2,'btceur',1,1,{t},{t});
+        INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES (3,1,2,'{class}',1,'{settings}','{{}}',{t},{t});
+        INSERT INTO transactions(id,bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (3,3,2,'BTC',4,'USDC',5,0.002,0.002,2500,5,1,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t}),
+            (4,3,2,'BTC',4,'USDC',5,0.001,0.001,2600,2.6,1,0,2,'o4','REGULAR','2026-03-03 14:30:00',{t});
     ")).unwrap();
+    install
+}
+/// A row of the account's ledger on `venue`: `kind` as stored (0 buy, 1 sell, 4 deposit, 5 withdrawal), the bot order it
+/// is a fill of, and the row it is linked to.
+#[allow(clippy::too_many_arguments)]
+fn ledger(c: &rusqlite::Connection, id: i64, venue: i64, kind: i64, amount: &str, quote: Option<(&str, &str)>, fee: Option<(&str, &str)>, at: &str, order: Option<i64>, linked: Option<i64>) {
+    c.execute("INSERT INTO account_transactions(id,user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,tx_id,raw_data,transacted_at,transaction_id,linked_transaction_id,created_at,updated_at) \
+               VALUES (?1,1,?2,?3,'BTC',4,?4,?5,?6,?7,?8,?9,'{}',?10,?11,?12,'2026-03-17 00:00:00','2026-03-17 00:00:00')",
+              rusqlite::params![id, venue, kind, amount, quote.map(|q| q.0), quote.map(|q| q.1), fee.map(|f| f.0), fee.map(|f| f.1), format!("t{id}"), at, order, linked]).unwrap();
+}
+/// The tracker job's walk of the ledger, published as the job publishes it (`tracker::cache::publish`).
+fn walk_and_publish(install: &Install) -> deltabadger::tracker::walk::Walked {
+    use deltabadger::tracker::{jobs, prices::{PriceService, Unfetched}, walk};
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let inputs = jobs::load_inputs(&c, 1).unwrap();
+    let mut none = Unfetched;
+    let mut prices = PriceService::new(&inputs.reference, &inputs.fx, common::web::at(AT).date_naive(), &mut none);
+    let walked = walk::scopes(&inputs.rows, &inputs.deposits, &mut prices, deltabadger::figures::at::At::from_utc(common::web::at(AT)).unwrap()).unwrap();
+    let tx = deltabadger::engine::model::immediate(&c).unwrap();
+    let fenced = deltabadger::engine::model::fence_versions(&tx, &[]).unwrap();
+    // The account's Alpaca key made its venue's ledger import, as a sync records it: the ledger is current.
+    let key = deltabadger::engine::model::credential_version_by_id(&fenced, 1).unwrap().unwrap();
+    deltabadger::sync::cache::record_ledger(&fenced, 1, &key, common::web::at(AT)).unwrap();
+    assert!(deltabadger::tracker::cache::publish(&fenced, 1, &deltabadger::tracker::cache::version(&fenced, 1).unwrap(), Some(&walked), common::web::at(AT)).unwrap());
+    tx.commit().unwrap();
+    walked
+}
+/// The seller's two orders, filled from 0.003 BTC bought for 6 USDC on its venue.
+fn sold_from_a_purchase(install: &Install) {
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    ledger(&c, 1, 2, 0, "0.003", Some(("USDC", "6")), None, "2026-03-01 10:00:00", None, None);
+    ledger(&c, 2, 2, 1, "0.002", Some(("USDC", "5")), None, "2026-03-02 14:30:00", Some(3), None);
+    ledger(&c, 3, 2, 1, "0.001", Some(("USDC", "2.6")), None, "2026-03-03 14:30:00", Some(4), None);
+}
+fn metrics(v: &Value, bot: i64) -> String { v["bots"][bot.to_string()]["metrics"].as_str().unwrap().to_string() }
+/// The bot's figures state no P/L: no box, and a tile without a figure.
+fn no_pnl(v: &Value, bot: i64) {
+    let metrics = metrics(v, bot);
+    assert!(metrics.contains("Received") && !metrics.contains("Realised P/L"), "{metrics}");
+    assert!(!tile(v, bot).contains("pnl-percent"), "{}", tile(v, bot));
+}
+
+#[tokio::test]
+async fn a_sell_only_bot_says_what_it_sold_and_received() {
+    // 3.0, Rust only: a bot that only sells (what it sells came from outside) states what it sold and what that brought
+    // in, not an investment.
+    let install = gemini_seller(false);
     let _stop = install.consume();
     let shown = install.shown("ready").await;
-    let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
+    let metrics = metrics(&shown, 3);
     assert!(metrics.contains(">Sold</div>") && metrics.contains("0.003 <small>BTC</small>"), "{metrics}");
     assert!(metrics.contains(">Received</div>") && metrics.contains("7.60 <small>USDC</small>"), "{metrics}");
-    assert!(!metrics.contains("Total invested") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(!metrics.contains("Total invested") && !metrics.contains("could not be read from the exchange"), "{metrics}");
+    // No ledger walked: what the sold coins cost is not known, and no P/L is stated (D-SELL-ONLY-KNOWN-COST 1).
+    no_pnl(&shown, 3);
+    assert!(metrics.contains("data-grid--two-columns"), "{metrics}");
     // A bot that bought keeps its investment.
     assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("Total invested"));
+}
+
+/// D-SELL-ONLY-PNL-IS-RECEIVED-MINUS-COST, D-SELL-ONLY-TILE: 7.60 received for coins that cost 6.00.
+async fn known_cost_states_the_realised_pnl(signal: bool) {
+    let install = gemini_seller(signal);
+    sold_from_a_purchase(&install);
+    let walked = walk_and_publish(&install);
+    assert_eq!(walked.bot_sales.iter().map(|s| (s.order, s.cost.to_s_f(), s.known)).collect::<Vec<_>>(), [(3, "4.0".into(), true), (4, "2.0".into(), true)]);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let metrics = metrics(&shown, 3);
+    assert!(metrics.contains("Received") && metrics.contains("7.60 <small>USDC</small>"), "{metrics}");
+    assert!(metrics.contains("Realised P/L") && metrics.contains("text-success") && metrics.contains("+1.60 <small>USDC</small>"), "{metrics}");
+    assert!(metrics.contains("Received minus what the sold coins cost, from your account&#39;s history.") || metrics.contains("Received minus what the sold coins cost, from your account's history."), "{metrics}");
+    assert!(!metrics.contains("data-grid--two-columns"), "{metrics}");
+    assert!(tile(&shown, 3).contains("26.67%") && tile(&shown, 3).contains("text-success"), "{}", tile(&shown, 3));
+}
+#[tokio::test]
+async fn a_sell_only_bot_with_known_cost_states_its_realised_pnl() { known_cost_states_the_realised_pnl(false).await; }
+#[tokio::test]
+async fn a_sell_only_pair_with_known_cost_states_its_realised_pnl() { known_cost_states_the_realised_pnl(true).await; }
+
+#[tokio::test]
+async fn a_sale_of_an_unlinked_deposit_states_no_pnl() {
+    let install = gemini_seller(false);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    // Arrived from outside with no link to where it came from: its cost is assumed, never known (Review focus 1).
+    ledger(&c, 1, 2, 4, "0.003", None, None, "2026-03-01 10:00:00", None, None);
+    ledger(&c, 2, 2, 1, "0.002", Some(("USDC", "5")), None, "2026-03-02 14:30:00", Some(3), None);
+    ledger(&c, 3, 2, 1, "0.001", Some(("USDC", "2.6")), None, "2026-03-03 14:30:00", Some(4), None);
+    assert!(walk_and_publish(&install).bot_sales.iter().all(|s| !s.known));
+    let _stop = install.consume();
+    no_pnl(&install.shown("ready").await, 3);
+}
+
+#[tokio::test]
+async fn a_fill_the_ledger_has_not_all_of_states_no_pnl() {
+    let install = gemini_seller(false);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    ledger(&c, 1, 2, 0, "0.003", Some(("USDC", "6")), None, "2026-03-01 10:00:00", None, None);
+    // Order 3 filled 0.002; the ledger has synced 0.0015 of it.
+    ledger(&c, 2, 2, 1, "0.0015", Some(("USDC", "3.75")), None, "2026-03-02 14:30:00", Some(3), None);
+    ledger(&c, 3, 2, 1, "0.001", Some(("USDC", "2.6")), None, "2026-03-03 14:30:00", Some(4), None);
+    walk_and_publish(&install);
+    let _stop = install.consume();
+    no_pnl(&install.shown("ready").await, 3);
+}
+
+#[tokio::test]
+async fn an_executed_sale_without_proceeds_withholds_the_pnl() {
+    let install = gemini_seller(false);
+    sold_from_a_purchase(&install);
+    // A liquidation that executed units and reported no proceeds: they left with no fill (Review focus 4).
+    rusqlite::Connection::open(&install.file).unwrap().execute_batch("
+        INSERT INTO transactions(id,bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+            (5,3,2,'BTC',4,'USDC',5,0.0005,0.0005,2600,NULL,1,0,2,'o5','LIQUIDATION','2026-03-04 14:30:00','2026-01-01');").unwrap();
+    walk_and_publish(&install);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    no_pnl(&shown, 3);
+    assert!(metrics(&shown, 3).contains("7.60 <small>USDC</small>"), "{}", metrics(&shown, 3));
+}
+
+#[tokio::test]
+async fn a_cold_ledger_states_no_pnl() {
+    let install = gemini_seller(true);
+    sold_from_a_purchase(&install);
+    let _stop = install.consume();
+    no_pnl(&install.shown("ready").await, 3);
+}
+
+/// One Binance sell of 1 BTC for 150 USDC (order 3), its commission `fee` in `asset`, read as the venue reader stores the
+/// bot's order and as the ledger sync stores the trade, over 1 BTC bought for 100 USDC.
+async fn binance_sale(fee: &str, asset: &str) -> Value {
+    use deltabadger::venue::binance::{parse_trade, Pair, Pairs};
+    let install = gemini_seller(false);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    let trade = json!({"symbol": "BTCUSDC", "id": 1, "orderId": 3, "price": "150", "qty": "1", "quoteQty": "150", "commission": fee, "commissionAsset": asset,
+                       "isBuyer": false, "isMaker": false, "time": 1_773_066_600_000_i64});
+    let pairs = Pairs { by_symbol: [("BTCUSDC".to_string(), Pair { base: "BTC".into(), quote: "USDC".into(), price_decimals: 2 })].into(), assets: Default::default() };
+    let order = parse_trade(&trade, &pairs).unwrap();
+    c.execute_batch("DELETE FROM transactions WHERE bot_id=3").unwrap();
+    c.execute("INSERT INTO transactions(id,bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) \
+               VALUES (3,3,2,'BTC',4,'USDC',5,?1,?2,150,?3,1,0,2,'o3','REGULAR','2026-03-09 14:30:00','2026-01-01')",
+              rusqlite::params![order.amount.to_s_f(), order.amount_exec.to_s_f(), order.quote_amount_exec.to_s_f()]).unwrap();
+    ledger(&c, 1, 2, 0, "1", Some(("USDC", "100")), None, "2026-03-01 10:00:00", None, None);
+    // The fee coin's price that day, as the price backfill stores it: the walk values the fee with it.
+    c.execute("INSERT INTO historical_prices(asset,currency,date,price) VALUES (?1,'USD','2026-03-09','600')", [asset]).unwrap();
+    let legs = deltabadger::sync::binance_ledger::normalize_trade(&deltabadger::sync::activities::Raw::from_value(trade), "BTCUSDC", "BTC", "USDC").unwrap();
+    for (i, leg) in legs.iter().enumerate() {
+        c.execute("INSERT INTO account_transactions(id,user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,tx_id,group_id,raw_data,transacted_at,transaction_id,created_at,updated_at) \
+                   VALUES (?1,1,2,?2,?3,4,?4,?5,?6,?7,?8,?9,?10,'{}',?11,3,'2026-03-17 00:00:00','2026-03-17 00:00:00')",
+                  rusqlite::params![2 + i as i64, leg.entry_type, leg.base_currency, leg.base_amount.to_s_f(), leg.quote_currency, leg.quote_amount.as_ref().map(|q| q.to_s_f()),
+                                    leg.fee_currency, leg.fee_amount.as_ref().map(|f| f.to_s_f()), leg.tx_id, leg.group_id, leg.transacted_at.unwrap().format("%Y-%m-%d %H:%M:%S").to_string()]).unwrap();
+    }
+    walk_and_publish(&install);
+    let _stop = install.consume();
+    install.shown("ready").await
+}
+
+#[tokio::test]
+async fn a_quote_fee_is_counted_once() {
+    // Received is net of the 1.50 the venue kept; the cost is the lot's 100: P/L 48.50, not 50 and not 47 (Review focus 3).
+    let shown = binance_sale("1.5", "USDC").await;
+    let metrics = metrics(&shown, 3);
+    assert!(metrics.contains("148.50 <small>USDC</small>") && metrics.contains("+48.50 <small>USDC</small>"), "{metrics}");
+    // A fee in a third coin is not the bot's to subtract: the tracker counts it.
+    let metrics = metrics_of(binance_sale("0.01", "BNB").await);
+    assert!(metrics.contains("150.00 <small>USDC</small>") && metrics.contains("+50.00 <small>USDC</small>"), "{metrics}");
+    // A fee in the coin sold leaves outside the sale: its cost is not in it, and the bot counts those units as sold.
+    no_pnl(&binance_sale("0.001", "BTC").await, 3);
+}
+fn metrics_of(v: Value) -> String { metrics(&v, 3) }
+
+#[tokio::test]
+async fn a_euro_bot_states_its_pnl_in_euros() {
+    async fn sold_for(currency: &str, paid: &str) -> Value {
+        let install = gemini_seller(false);
+        let c = rusqlite::Connection::open(&install.file).unwrap();
+        c.execute_batch("UPDATE bots SET settings='{\"quote_asset_id\":6,\"allocations\":{\"4\":1.0},\"direction\":\"selling\"}' WHERE id=3;
+            DELETE FROM transactions WHERE bot_id=3;
+            INSERT INTO transactions(id,bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+                (3,3,2,'BTC',4,'EUR',6,1,1,100,100,1,0,2,'o3','REGULAR','2026-03-10 14:30:00','2026-01-01');
+            INSERT INTO fx_rates(currency,date,rate) VALUES ('USD','2026-03-10',1.1);").unwrap();
+        // A lot that cost 55 dollars, sold for 100 euros worth 110 dollars that day: it cost 50 euros (D-SELL-ONLY-QUOTE-RATE).
+        ledger(&c, 1, 2, 0, "1", Some(("USD", "55")), None, "2026-03-01 10:00:00", None, None);
+        ledger(&c, 2, 2, 1, "1", Some((currency, paid)), None, "2026-03-10 14:30:00", Some(3), None);
+        walk_and_publish(&install);
+        let _stop = install.consume();
+        install.shown("ready").await
+    }
+    let metrics = metrics_of(sold_for("EUR", "100").await);
+    assert!(metrics.contains("100.00 <small>EUR</small>") && metrics.contains("+50.00 <small>EUR</small>"), "{metrics}");
+    // The ledger sold for dollars: not the bot's quote, so no P/L in it.
+    no_pnl(&sold_for("USD", "110").await, 3);
+}
+
+#[tokio::test]
+async fn an_unlinked_transfer_withdraws_the_kept_pnl() {
+    let install = gemini_seller(false);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    // Bought on another venue and moved over, the transfer linked: the cost came with the coins.
+    c.execute_batch("INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (3,'Exchanges::Kraken','Kraken','2026-01-01','2026-01-01')").unwrap();
+    ledger(&c, 1, 3, 0, "0.003", Some(("USDC", "6")), None, "2026-03-01 10:00:00", None, None);
+    ledger(&c, 2, 3, 5, "0.003", None, None, "2026-03-01 12:00:00", None, Some(3));
+    ledger(&c, 3, 2, 4, "0.003", None, None, "2026-03-01 12:00:00", None, None);
+    ledger(&c, 4, 2, 1, "0.002", Some(("USDC", "5")), None, "2026-03-02 14:30:00", Some(3), None);
+    ledger(&c, 5, 2, 1, "0.001", Some(("USDC", "2.6")), None, "2026-03-03 14:30:00", Some(4), None);
+    assert!(walk_and_publish(&install).bot_sales.iter().all(|s| s.known));
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert!(metrics(&shown, 3).contains("+1.60 <small>USDC</small>"), "{}", metrics(&shown, 3));
+    let Snapshot::Ready(cache, at, revision, mark, until) = loading::prepare(&install.app, 1).await.unwrap() else { panic!("not ready") };
+    // The user unlinks the transfer: the ledger moved, and no republish has happened yet (Review focus 2).
+    c.execute("UPDATE account_transactions SET linked_transaction_id = NULL, updated_at = '2026-03-18 12:00:00' WHERE id = 2", []).unwrap();
+    for (snapshot, stale) in [(Snapshot::Ready(cache.clone(), at, revision, mark, until), false), (Snapshot::Stale(cache, at, revision, until), true)] {
+        let clock = install.clock.clone();
+        let shown = install.app.db(move |c| loading::render(c, 1, &snapshot, "en", "token", "", &*clock)).await.unwrap();
+        // Ready: the revision moves first, so the kept figures are not served. Stale: the bot's kept figures are withheld.
+        if stale { assert!(shown.is_none(), "stale figures still served: {shown:?}"); }
+        assert!(shown.as_ref().is_none_or(|v| !v.to_string().contains("Realised P/L")), "kept figures still state the P/L: {shown:?}");
+    }
+    // Republished: what the deposit cost is assumed, and the figures say so.
+    assert!(walk_and_publish(&install).bot_sales.iter().all(|s| !s.known));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if let Some(v) = install.page().await.filter(|v| v["bots"]["3"]["metrics"].as_str().is_some_and(|m| m.contains("Received"))) { no_pnl(&v, 3); break; }
+        assert!(Instant::now() < deadline, "no figures within 20 s");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+/// The chart's `data-bot--chart-<name>-value`, unescaped; None when the chart has no such attribute.
+fn chart_value(v: &Value, bot: i64, name: &str) -> Option<String> {
+    let chart = v["bots"][bot.to_string()]["chart"].as_str().unwrap();
+    let start = chart.find(&format!("data-bot--chart-{name}-value=\"")).map(|at| at + name.len() + 24)?;
+    let raw = &chart[start..start + chart[start..].find('"').unwrap()];
+    Some(raw.replace("&quot;", "\"").replace("&#39;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
+}
+/// The chart's series as its data request answers from them (D-CHART-DATA-REQUEST: they are kept with the record, not in
+/// the shell): `series` is [value, invested]; `pnl` their difference, none while Received's cost is unknown, as the
+/// controller draws it.
+fn chart_numbers(v: &Value, bot: i64, name: &str) -> Value {
+    let kept: Value = serde_json::from_str(v["bots"][bot.to_string()]["series"].as_str().unwrap()).unwrap();
+    let (value, invested) = (kept["value"].as_array().unwrap(), kept["invested"].as_array().unwrap());
+    match name {
+        "series" => json!([value, invested]),
+        "pnl" if chart_value(v, bot, "received").as_deref() == Some("unknown") => json!([]),
+        "pnl" => json!(value.iter().zip(invested).map(|(v, i)| float(v) - float(i)).collect::<Vec<f64>>()),
+        other => panic!("no kept series {other}"),
+    }
+}
+fn float(n: &Value) -> f64 { n.as_f64().or_else(|| n.as_str().and_then(|s| s.parse().ok())).unwrap_or_else(|| panic!("not a number: {n}")) }
+
+#[tokio::test]
+async fn a_sell_only_chart_is_cumulative_received() {
+    // D-SELL-ONLY-CHART: what the sold coins cost is not known, so the chart is what came in, never a profit.
+    let install = gemini_seller(false);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    let series = chart_numbers(&shown, 3, "series");
+    assert_eq!(float(series[0].as_array().unwrap().last().unwrap()), 7.6, "{chart}");
+    assert!(series[1].as_array().unwrap().iter().all(|n| float(n) == 0.0), "{chart}");
+    assert_eq!(chart_numbers(&shown, 3, "pnl"), json!([]), "{chart}");
+    assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("unknown"), "{chart}");
+    assert!(!chart.contains("chart-mode"), "no mode switch: {chart}");
+    // A bot that bought is charted as it was.
+    assert_eq!(chart_value(&shown, 1, "received"), None, "{}", shown["bots"]["1"]["chart"]);
+}
+
+#[tokio::test]
+async fn a_sell_only_chart_with_known_cost_draws_the_realised_pnl() {
+    let install = gemini_seller(false);
+    sold_from_a_purchase(&install);
+    walk_and_publish(&install);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    let series = chart_numbers(&shown, 3, "series");
+    assert_eq!(float(series[0].as_array().unwrap().last().unwrap()), 7.6, "{chart}");
+    assert_eq!(float(series[1].as_array().unwrap().last().unwrap()), 6.0, "{chart}");
+    // The controller subtracts the two rounded series, as the attribute's P/L was their difference.
+    assert!((float(chart_numbers(&shown, 3, "pnl").as_array().unwrap().last().unwrap()) - 1.6).abs() < 1e-9, "{chart}");
+    assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("known"), "{chart}");
+    assert!(chart.contains("chart-mode") && chart.contains(">Received<"), "the mode switch, its value mode named Received: {chart}");
+}
+
+#[tokio::test]
+async fn coins_that_cost_nothing_state_no_pnl() {
+    // The walk knows the sold coins cost nothing: no P/L is stated against nothing, in the box, the tile or the chart.
+    let install = gemini_seller(false);
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    ledger(&c, 1, 2, 0, "0.003", Some(("USDC", "0")), None, "2026-03-01 10:00:00", None, None);
+    ledger(&c, 2, 2, 1, "0.002", Some(("USDC", "5")), None, "2026-03-02 14:30:00", Some(3), None);
+    ledger(&c, 3, 2, 1, "0.001", Some(("USDC", "2.6")), None, "2026-03-03 14:30:00", Some(4), None);
+    let walked = walk_and_publish(&install);
+    assert_eq!(walked.bot_sales.iter().map(|s| (s.cost.is_zero(), s.known)).collect::<Vec<_>>(), [(true, true), (true, true)], "{:?}", walked.bot_sales);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    no_pnl(&shown, 3);
+    assert_eq!(chart_value(&shown, 3, "received").as_deref(), Some("unknown"), "{}", shown["bots"]["3"]["chart"]);
 }
 
 #[tokio::test]
@@ -376,7 +666,7 @@ async fn a_kucoin_bot_is_priced_from_the_venues_tickers_and_counts_in_the_headli
     let _stop = install.consume();
     let shown = install.shown("ready").await;
     let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
-    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("could not be read from the exchange"), "{metrics}");
     assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
     assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
 }
@@ -426,7 +716,7 @@ async fn an_account_without_an_alpaca_key_gets_its_kucoin_figures_and_keeps_them
     let _stop = install.consume();
     let shown = install.shown("ready").await;
     let metrics = shown["bots"]["3"]["metrics"].as_str().unwrap();
-    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("does not respond"), "{metrics}");
+    assert!(metrics.contains("130.00 <small>USDC</small>") && !metrics.contains("could not be read from the exchange"), "{metrics}");
     assert!(tile(&shown, 3).contains("30.00%"), "{}", tile(&shown, 3));
     assert!(shown["account"].as_str().is_some_and(|h| h.contains("pnl-percent")), "{}", shown["account"]);
     // Warm reads within the price's minute stay ready on the same cache: nothing is asked again.
@@ -480,7 +770,7 @@ async fn an_undecryptable_alpaca_key_leaves_its_alpaca_bots_stale_and_the_rest_f
     ")).unwrap();
     let _stop = install.consume();
     let shown = install.shown("ready").await;
-    assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("does not respond"), "the Alpaca bot is stale: {}", shown["bots"]["1"]["metrics"]);
+    assert!(shown["bots"]["1"]["metrics"].as_str().unwrap().contains("could not be read from the exchange"), "the Alpaca bot is stale: {}", shown["bots"]["1"]["metrics"]);
     assert!(tile(&shown, 3).contains("30.00%"), "the KuCoin bot is priced: {}", tile(&shown, 3));
     // Removing the unreadable key changes the account's identity: the figures are filled again, never served blank.
     c.execute("DELETE FROM api_keys", []).unwrap();
@@ -537,10 +827,11 @@ async fn a_kucoin_bots_chart_is_marked_at_the_venues_candles() {
     let install = kucoin_basket(json!({"body": {"code": "200000", "data": rows}}));
     let _stop = install.consume();
     let shown = install.shown("ready").await;
-    let chart = shown["bots"]["3"]["chart"].as_str().unwrap();
+    // The chart's series are its data request's (D-CHART-DATA-REQUEST), kept with the record.
+    let chart = shown["bots"]["3"]["series"].as_str().unwrap();
     // Marked at each closed candle's open from the first after the order (03-03, 102.5) to yesterday's (03-17, 116.5), then
     // at the live price.
-    assert!(chart.contains("&quot;102.5&quot;,&quot;103.5&quot;") && chart.contains("&quot;116.5&quot;,&quot;130.0&quot;"), "{chart}");
+    assert!(chart.contains("102.5,103.5") && chart.contains("116.5,130.0"), "{chart}");
     assert!(!chart.contains("117.5"), "today's candle is still open: {chart}");
     // The Alpaca bots beside it keep their figures.
     assert!(tile(&shown, 1).contains("10.00%"), "{}", tile(&shown, 1));
@@ -723,4 +1014,119 @@ async fn a_failed_coingecko_pair_is_held_five_minutes_and_a_cold_one_asks_again(
         install.fill(&[("USD", "EUR")]).await;
         assert_eq!(count(&log, &rates), 3, "{status}: asked again after five minutes");
     }
+}
+
+// ---- D-CHART-DATA-REQUEST: GET /bots/{id}/chart/data
+
+const HASH: &str = "$2a$04$abcdefghijklmnopqrstuuKq8n2RkM1bXh0Zc3TtYw5LpJv7dEoGi";
+/// A browser signed in as `user` (whose stored password is set to `HASH`, which the session is tied to).
+fn browser(install: &Install, user: i64) -> common::web::Browser {
+    let c = rusqlite::Connection::open(&install.file).unwrap();
+    c.execute("UPDATE users SET encrypted_password=?1 WHERE id=?2", rusqlite::params![HASH, user]).unwrap();
+    // The bot page's lookup reads full timestamps; the fixture's are dates.
+    c.execute_batch("UPDATE bots SET created_at='2026-01-01 00:00:00', updated_at='2026-01-01 00:00:00'; UPDATE users SET created_at='2026-01-01 00:00:00', updated_at='2026-01-01 00:00:00', confirmed_at='2026-01-01 00:00:00'; UPDATE transactions SET updated_at=created_at").unwrap();
+    let data = deltabadger::web::session::SessionData { user: Some((user, HASH[..29].to_string())), ..Default::default() };
+    common::web::Browser { cookie: Some(deltabadger::web::session::seal(&install.app.keys.session, &data, install.app.now())), page: None }
+}
+fn rev_of(shell: &str) -> i64 {
+    shell.split("data-bot--chart-rev-value=\"").nth(1).and_then(|rest| rest.split('"').next()).unwrap().parse().unwrap()
+}
+async fn data(install: &Install, browser: &mut common::web::Browser, path: &str) -> (u16, Value) {
+    let answer = browser.send(&install.app, "GET", path, None, common::web::Csrf::None, &[("accept", "application/json")]).await;
+    let body = if answer.status == 200 {
+        assert_eq!((answer.header("content-type"), answer.header("cache-control")), (Some("application/json"), Some("private, no-store")));
+        serde_json::from_str(&answer.body).unwrap()
+    } else { Value::String(answer.body.clone()) };
+    (answer.status, body)
+}
+
+#[tokio::test]
+async fn the_chart_shell_carries_no_series_and_its_data_request_answers_them_from_the_same_record() {
+    let install = install("USD", script(true, json!(1.0)));
+    let mut owner = browser(&install, 1);
+    // Cold: no record kept. Nothing is computed in the request; the work is queued.
+    assert_eq!(data(&install, &mut owner, "/bots/1/chart/data").await.0, 204);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let shell = shown["bots"]["1"]["chart"].as_str().unwrap();
+    assert!(shell.contains("data-bot--chart-src-value=\"/bots/1/chart/data\""), "{shell}");
+    for series in ["labels", "series", "pnl", "assets", "buys", "prices", "buy-logos"] {
+        assert!(!shell.contains(&format!("data-bot--chart-{series}-value")), "{series}: {shell}");
+    }
+    let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+    assert_eq!(status, 200);
+    assert_eq!(answer["rev"], rev_of(shell), "the revision its shell carries");
+    assert_eq!(answer["quote"], "USD");
+    let t = answer["t"].as_array().unwrap();
+    assert!(t.len() > 2 && t.len() == answer["value"].as_array().unwrap().len() && t.len() == answer["invested"].as_array().unwrap().len(), "{answer}");
+    assert_eq!(answer["holdings"], json!(["AAA"]));
+    assert!(answer.get("asset").is_none() && answer.get("prices").is_none() && answer.get("buys").is_none(), "the portfolio only: {answer}");
+    let (_, asked) = data(&install, &mut owner, "/bots/1/chart/data?asset=AAA&prices=1&buys=1&points=2").await;
+    assert_eq!(asked["asset"]["key"], "AAA");
+    assert_eq!(asked["asset"]["value"].as_array().unwrap().len(), asked["t"].as_array().unwrap().len());
+    assert_eq!(asked["prices"]["AAA"].as_array().unwrap().len(), asked["t"].as_array().unwrap().len());
+    assert_eq!(asked["buys"].as_array().unwrap().len(), 1);
+    // D-CHART-LIVE: the same query with the answer's `closed` and `sum`, nothing published since: the points from `closed` on.
+    let (closed, sum) = (answer["closed"].as_i64().expect("closed"), answer["sum"].as_str().expect("sum"));
+    let (status, again) = data(&install, &mut owner, &format!("/bots/1/chart/data?after={closed}&sum={sum}")).await;
+    assert_eq!((status, &again["append"]), (200, &json!(true)), "{again}");
+    assert!(again["t"].as_array().unwrap().iter().all(|t| t.as_i64().unwrap() >= closed), "{again}");
+    let (status, unknown) = data(&install, &mut owner, "/bots/1/chart/data?asset=ZZZ").await;
+    assert!(status == 200 && unknown.get("asset").is_none(), "an unknown holding is answered without it");
+    for bad in ["points=1", "points=2001", "points=x", "from=x", "from=5&to=4", "prices=yes", "buys=2", "after=5", "sum=ab", "after=x&sum=ab", "after=5&sum="] {
+        assert_eq!(data(&install, &mut owner, &format!("/bots/1/chart/data?{bad}")).await.0, 400, "{bad}");
+    }
+    // Not this account's bot, and signed out.
+    rusqlite::Connection::open(&install.file).unwrap().execute("INSERT INTO users(id,email,encrypted_password,setup_completed,confirmed_at,created_at,updated_at) VALUES (2,'u2@example.com','x',1,'2026-01-01','2026-01-01','2026-01-01')", []).unwrap();
+    assert_eq!(data(&install, &mut browser(&install, 2), "/bots/1/chart/data").await.0, 404);
+    assert_eq!(data(&install, &mut common::web::Browser::default(), "/bots/1/chart/data").await.0, 401);
+}
+
+#[tokio::test]
+async fn a_stale_record_answers_with_the_rev_its_shell_carries() {
+    let install = install("USD", script(true, json!(1.0)));
+    let mut owner = browser(&install, 1);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    let rev = rev_of(shown["bots"]["1"]["chart"].as_str().unwrap());
+    // A write moves the revision; the fill it starts cannot run while the figures' one permit is held, so the page reads
+    // the stale record meanwhile.
+    // The refill's revision is its fill's time: the fill begins with the request below, a minute on.
+    install.set("2026-03-18T12:04:30Z");
+    let permit = install.app.figure_service.compute().acquire_owned().await.unwrap();
+    rusqlite::Connection::open(&install.file).unwrap().execute("INSERT INTO transactions(bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES (2,1,'BTC',4,'USDT',3,1,1,100,100,0,0,2,'o3','REGULAR','2026-03-03 14:30:00','2026-01-01')", []).unwrap();
+    let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+    assert_eq!((status, &answer["rev"]), (200, &json!(rev)), "{answer}");
+    drop(permit);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+        if status == 200 && answer["rev"].as_i64().unwrap() > rev { break; }
+        assert!(Instant::now() < deadline, "the refill never answered: {status} {answer}");
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test]
+async fn a_chart_without_a_candle_grid_is_published_and_its_shell_finds_its_data() {
+    // No bars at all: no holding is marked on candles, so 2.x would not cache the marked chart (`chart_cached` false) and
+    // the page loads its frame; the publication still carries the shell, and the shell its fill-marked points.
+    let mut script = script(true, json!(1.0));
+    for key in ["GET data.alpaca.markets/v2/stocks/AAA/bars", "GET data.alpaca.markets/v2/stocks/AAA/bars?adjustment=split", "GET data.alpaca.markets/v1beta3/crypto/us/bars?symbols=BTC/USDT"] {
+        script[key] = json!({"body": {"bars": []}});
+    }
+    let install = install("USD", script);
+    let mut owner = browser(&install, 1);
+    let _stop = install.consume();
+    let shown = install.shown("ready").await;
+    assert_eq!((shown["bots"]["1"]["cached"].as_bool(), shown["bots"]["1"]["chart_cached"].as_bool()), (Some(true), Some(false)));
+    let streams = install.app.db(move |c| Ok(deltabadger::web::figure::streams(c, 1, &shown).unwrap())).await.unwrap();
+    let chart = streams.iter().map(|(_, html)| html).find(|html| html.contains("target=\"chart\"") && html.contains("/bots/1/chart/data")).expect("the chart's shell is published");
+    assert!(chart.starts_with("<turbo-stream action=\"replace\" target=\"chart\" method=\"morph\">"), "{chart}");
+    let (status, answer) = data(&install, &mut owner, "/bots/1/chart/data").await;
+    assert_eq!(status, 200, "{answer}");
+    assert_eq!(answer["rev"], rev_of(chart));
+    // The fill's own mark, then the live price on the last label: no candle between.
+    assert_eq!(answer["t"].as_array().unwrap().len(), 2, "{answer}");
+    assert_eq!((&answer["value"], &answer["holdings"]), (&json!([100.0, 110.0]), &json!([])), "{answer}");
 }

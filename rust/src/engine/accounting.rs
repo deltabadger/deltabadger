@@ -497,7 +497,8 @@ pub fn guard_exact_cap(c: &Connection, bot: &Bot, plan: &OrderPlan) -> Result<Ca
     let rules = || -> Result<&'static super::venue_rules::VenueRules, EngineError> {
         super::venue_rules::for_exchange(&super::model::exchange_type(c, bot)?).ok_or_else(|| EngineError::Data("no venue rules for the bot's exchange".into()))
     };
-    let price = if plan.limit { plan.price.floor(price_scale) } else { plan.price.clone() };
+    // #679: a limit order is valued at the price to_order sends (the venue's rule), not price_scale as places.
+    let price = if plan.limit { rules()?.adjusted_price(&plan.price, &plan.ticker, super::venue_rules::Rounding::Floor).map_err(EngineError::Data)? } else { plan.price.clone() };
     // A base market buy on Bitget goes out in quote coins, its unfloored amount at the floored touch (WireFormat::Bitget):
     // that quote is what it spends.
     let quote_sent = !plan.limit && !plan.quote_type && rules()?.wire == super::venue_rules::WireFormat::Bitget;

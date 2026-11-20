@@ -65,10 +65,17 @@ pub struct Stored {
     pub linked_to: Option<i64>,
     pub to_venue: Option<String>,
     pub to_exchange_id: Option<i64>,
+    /// #710 slice 5 (PLAN-710-5 §5.2): where the row sits, its account (`venue_ids::row_account`; on an install without the
+    /// account tables, or a number 1 with no row yet, the negated exchange id), and the linked deposit's. The walk locates
+    /// lots, cash and transfer ends by it; `venue` stays the exchange's identity (pricing, the cash rule).
+    pub account: i64,
+    pub to_account: Option<i64>,
     /// `base_asset`: the asset the row recorded, as (id, external id, category).
     pub base_asset: Option<super::prices::Asset>,
     /// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE, and what the fold made of a fill it was charged on.
     pub cfee: Cfee,
+    /// `transaction_id`: the bot order the row is a fill of.
+    pub bot_order: Option<i64>,
 }
 
 /// D-TAX-CFEE-PREVIOUS-DAY: Alpaca books its crypto fee as a `CFEE` activity of its own, a coin amount dated 00:00 UTC
@@ -96,7 +103,7 @@ pub struct Expense { pub of: std::sync::Arc<Attribution>, pub index: usize }
 pub struct Attribution { pub fee: Stored, pub weights: Vec<Dec>, pub total: Dec }
 
 fn charged_on(fee: &Stored, r: &Stored) -> bool {
-    matches!(r.kind, Kind::Buy | Kind::Sell) && r.venue == fee.venue && r.base == fee.base && r.amount.is_positive() && !r.borrowed()
+    matches!(r.kind, Kind::Buy | Kind::Sell) && r.account == fee.account && r.base == fee.base && r.amount.is_positive() && !r.borrowed()
         && fee.date().pred_opt() == Some(r.date())
 }
 
@@ -122,11 +129,11 @@ pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresErr
 
 /// Each CFEE of `rows` (time-ordered) with the places of its fills (`cfee_fills`), through one index of the trades.
 pub fn cfee_places(rows: &[Stored]) -> Vec<(usize, Vec<usize>)> {
-    let mut trades: std::collections::HashMap<(&str, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
-    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((&r.venue, &r.base, r.date())).or_default().push(i); } }
+    let mut trades: std::collections::HashMap<(i64, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
+    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((r.account, &r.base, r.date())).or_default().push(i); } }
     let place: std::collections::HashMap<i64, usize> = trades.values().flatten().map(|&i| (rows[i].id, i)).collect();
     rows.iter().enumerate().filter(|(_, r)| r.cfee.fee && r.kind == Kind::Fee).filter_map(|(i, fee)| {
-        let pool = trades.get(&(fee.venue.as_str(), fee.base.as_str(), fee.date().pred_opt()?))?;
+        let pool = trades.get(&(fee.account, fee.base.as_str(), fee.date().pred_opt()?))?;
         Some((i, cfee_fills(fee, pool.iter().map(|&j| &rows[j])).into_iter().map(|r| place[&r.id]).collect()))
     }).collect()
 }
@@ -210,15 +217,24 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
     Ok(rows)
 }
 
+/// #710: a group is its account's. A group id of an account 2+'s row reads as `<group>@<account>`, so every reader that
+/// keys groups by venue (the walk, the tax reports) keeps two accounts' legs of one group id apart.
+pub fn account_group(group: Option<String>, member: Option<i64>) -> Option<String> {
+    group.filter(|g| !g.trim().is_empty()).map(|g| match member { Some(m) => format!("{g}@{m}"), None => g })
+}
+
 /// The rows `filter` (over `t`) selects, by id, each a step of the open budget scope.
 fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, FiguresError> {
+    // #710: each row's venue id and account, wherever its account keeps them.
+    let any = crate::venue_ids::Scope::install(c)?;
     let mut s = c.prepare(&format!(
         "SELECT t.id, t.exchange_id, e.type, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, \
-                t.fee_currency, t.fee_amount, t.tx_id, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
-                le.type, l.exchange_id, ba.id, ba.external_id, ba.category \
+                t.fee_currency, t.fee_amount, {}, t.group_id, t.transacted_at, t.raw_data, t.manual_values, t.linked_transaction_id, \
+                le.type, l.exchange_id, ba.id, ba.external_id, ba.category, t.transaction_id, {}, COALESCE({}, -t.exchange_id), \
+                CASE WHEN l.id IS NULL THEN NULL ELSE COALESCE({}, -l.exchange_id) END \
          FROM account_transactions t JOIN exchanges e ON e.id = t.exchange_id LEFT JOIN assets ba ON ba.id = t.base_asset_id \
          LEFT JOIN account_transactions l ON l.id = t.linked_transaction_id LEFT JOIN exchanges le ON le.id = l.exchange_id \
-         WHERE {filter} ORDER BY t.id"))?;
+         WHERE {filter} ORDER BY t.id", any.row_id("t"), any.member_sql("t"), any.row_account("t"), any.row_account("l")))?;
     let mut q = s.query(params)?;
     let mut rows = vec![];
     while let Some(r) = q.next()? {
@@ -234,13 +250,15 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
             quote: r.get(6)?, quote_amount: Dec::from_sql(r.get_ref(7)?)?,
             fee_currency: r.get(8)?, fee_amount: Dec::from_sql(r.get_ref(9)?)?,
-            tx_id: r.get(10)?, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
+            tx_id: r.get(10)?, group: account_group(r.get(11)?, r.get(22)?),
             at: At::from_sql(&at_text).map_err(|e| data(format!("{e:?}")))?,
             per_share: json_number(raw.get("per_share_amount"))?,
             stated: json_number(manual.get("price"))?,
             linked_to: r.get(15)?, to_venue: to_type.as_deref().map(name_id), to_exchange_id: r.get(17)?,
             base_asset: r.get::<_, Option<i64>>(18)?.map(|id| -> rusqlite::Result<_> { Ok((id, r.get(19)?, r.get(20)?)) }).transpose()?,
             cfee: Cfee { fee: raw.get("activity_type").and_then(Value::as_str) == Some("CFEE"), ..Cfee::default() },
+            bot_order: r.get(21)?,
+            account: r.get(23)?, to_account: r.get(24)?,
         });
     }
     Ok(rows)
@@ -322,7 +340,7 @@ pub fn ordered(mut rows: Vec<Stored>) -> Vec<Stored> {
 /// borrowed wallets' included, and every balance, before any row is filtered or anything written; `Err` names what
 /// falls outside it.
 pub fn alpaca_sweep_domain(c: &Connection, user_id: i64, all: &[Stored]) -> Result<(), String> {
-    let elsewhere: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_balances b JOIN exchanges e ON e.id = b.exchange_id \
+    let elsewhere: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b JOIN exchanges e ON e.id = b.exchange_id \
                                        WHERE b.user_id = ?1 AND e.type IS NOT ?2)", rusqlite::params![user_id, super::VENUE_TYPE], |r| r.get(0))
         .map_err(|e| e.to_string())?;
     if elsewhere { return Err("balances on a venue other than Alpaca".into()); }
@@ -346,7 +364,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default() }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.
@@ -432,10 +450,10 @@ mod tests {
     fn db(rows: &[&str]) -> Connection {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT); INSERT INTO exchanges VALUES (1, 'Exchanges::Alpaca'), (2, 'Exchanges::Binance');
-                         CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, free NUMERIC, locked NUMERIC);
+                         CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, free NUMERIC, locked NUMERIC);
                          CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, base_currency TEXT,
                          base_amount NUMERIC, quote_currency TEXT, quote_amount NUMERIC, fee_currency TEXT, fee_amount NUMERIC, tx_id TEXT, group_id TEXT,
-                         transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER, base_asset_id INTEGER);
+                         transacted_at TEXT, raw_data TEXT, manual_values TEXT, linked_transaction_id INTEGER, base_asset_id INTEGER, transaction_id INTEGER);
                          CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT);").unwrap();
         for values in rows {
             c.execute(&format!("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, \
@@ -453,6 +471,9 @@ mod tests {
         assert_eq!(all.iter().map(|r| r.id).collect::<Vec<_>>(), [1, 2, 3]);
         assert_eq!(walk_rows(&all).unwrap().iter().map(|r| r.id).collect::<Vec<_>>(), [1, 3]);
         assert_eq!((all[0].venue.as_str(), all[0].fee_currency.as_deref()), ("binance", Some("BNB")));
+        assert_eq!(all[0].bot_order, None);
+        c.execute("UPDATE account_transactions SET transaction_id = 7 WHERE id = 1", []).unwrap();
+        assert_eq!(load_all(&c, 1).unwrap()[0].bot_order, Some(7));
     }
 
     /// The backfill's domain is D4a's Alpaca account in dollars; anything else is named.
@@ -471,7 +492,7 @@ mod tests {
         }
         let c = db(&[ok]);
         assert_eq!(alpaca_sweep_domain(&c, 1, &load_all(&c, 1).unwrap()), Ok(()));
-        c.execute("INSERT INTO account_balances (user_id, exchange_id, free, locked) VALUES (1, 2, 0.5, 0)", []).unwrap();
+        c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, free, locked) VALUES (1, 2, 0.5, 0)", []).unwrap();
         assert_eq!(alpaca_sweep_domain(&c, 1, &load_all(&c, 1).unwrap()), Err("balances on a venue other than Alpaca".to_string()));
     }
 

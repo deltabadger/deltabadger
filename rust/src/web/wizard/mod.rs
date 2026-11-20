@@ -110,6 +110,65 @@ fn present(value: Option<&Value>) -> bool {
     }
 }
 
+/// The index keys a basket write clears (D-INDEX-OR-BASKET), `allocation_flattening` among them: the default a refused index save
+/// leaves behind.
+pub const INDEX_KEYS: [Key; 5] = [&["settings", "index_type"], &["settings", "index_category_id"], &["settings", "index_name"],
+                                  &["settings", "index_name_prefix"], &["settings", "allocation_flattening"]];
+
+/// D-INDEX-IN-ASSETS: an index is chosen on the Assets step.
+pub fn index_chosen(config: Option<&Value>) -> bool { present(dig(config, &["settings", "index_type"])) }
+
+/// D-INDEX-FRESH-START: asset-first with neither a basket nor an index chosen, where a venue left behind is neither shown nor
+/// searched against.
+pub fn fresh_start(config: Option<&Value>, basket_empty: bool) -> bool {
+    current_variant(config) == Variant::AssetFirst && basket_empty && !index_chosen(config)
+}
+
+/// The Assets step's Index view, where every index step's gate sends the browser.
+pub const INDEX_VIEW: &str = "/bots/dca_single_assets/pick_buyable_asset/new?kind=index";
+const ASSETS_NEW: &str = "/bots/dca_single_assets/pick_buyable_asset/new";
+
+#[derive(Template)]
+#[template(path = "wizard/_kind_switch.html")]
+struct KindSwitch { label: String, options: [(String, String, bool); 2] }
+
+/// The Asset / Index switch in the Assets step's search row (D-INDEX-IN-ASSETS): two links to the step, the shown one current.
+pub fn kind_switch(ctx: &Ctx, index: bool) -> Result<String, WebError> {
+    let option = |kind: &str, on: bool| (ctx.t(&format!("bot.setup.kind.{kind}")), ctx.path(&format!("{ASSETS_NEW}?kind={kind}")), on);
+    Ok(KindSwitch { label: ctx.t("bot.setup.progress_steps.assets"), options: [option("asset", !index), option("index", index)] }.render()?)
+}
+
+/// The pane's search box (`wizard/_search.html`).
+pub fn search_box(frame: &str, url: &str, placeholder: &str) -> Result<String, WebError> {
+    Ok(Search { frame, url, placeholder }.render()?)
+}
+
+/// Where an index step is: the Assets step's Index view, the venue, its key, the quote.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum At { Assets, Exchange, Key, Quote }
+
+/// The index track (D-INDEX-IN-ASSETS): Exchange, Assets, Currency in the order in force, done, current or upcoming by place.
+/// Exchange shows the venue's name once chosen (not on the exchange step), Assets the index's name; an item other than the
+/// current one whose value is chosen goes back to its step.
+pub fn index_track(ctx: &Ctx, csrf: &str, config: Option<&Value>, at: At, index: &str, venue: Option<String>) -> Result<String, WebError> {
+    let order: [usize; 3] = if current_variant(config) == Variant::AssetFirst { [1, 0, 2] } else { [0, 1, 2] };
+    let current = match at { At::Assets => 1, At::Exchange | At::Key => 0, At::Quote => 2 };
+    let current_place = order.iter().position(|item| *item == current).unwrap_or(0);
+    let venue = venue.filter(|_| at != At::Exchange);
+    let mut items = vec![];
+    for (place, item) in order.into_iter().enumerate() {
+        let state = match place.cmp(&current_place) { std::cmp::Ordering::Less => "done", std::cmp::Ordering::Equal => "current", _ => "upcoming" };
+        let (label, back) = match item {
+            0 => (venue.clone().unwrap_or_else(|| ctx.t("bot.setup.progress_steps.exchange")), venue.is_some().then(|| ctx.path("/bots/dca_indexes/pick_exchange/new"))),
+            1 => (index.to_string(), Some(ctx.path(ASSETS_NEW))),
+            _ => (ctx.t("bot.setup.progress_steps.spendable"), None),
+        };
+        let action = match back { Some(url) if item != current => Action::get(url, true), _ => Action::plain() };
+        items.push(Item { state, label, chips: vec![], more: 0, stack_class: "", action });
+    }
+    Ok(Track { items, csrf }.render()?)
+}
+
 /// Navigable#current_variant: exchange-first unless the order switch chose asset-first (it writes only those two).
 pub fn current_variant(config: Option<&Value>) -> Variant {
     if dig(config, &["flow"]).and_then(Value::as_str) == Some("asset_first") { Variant::AssetFirst } else { Variant::ExchangeFirst }
@@ -121,9 +180,12 @@ pub fn step_complete(c: &Connection, user_id: i64, config: Option<&Value>, step:
     match step {
         Step::Api => {
             let exchange = dig(config, EXCHANGE_KEY).and_then(|id| id.as_i64().or_else(|| id.as_str().and_then(|text| text.trim().parse().ok())));
-            // `user.api_keys.find_by(exchange_id:, key_type: :trading)`, then `correct?`.
-            let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id IS ?2 AND key_type = 0 ORDER BY id LIMIT 1",
-                                                  rusqlite::params![user_id, exchange], |r| r.get(0)).optional()?;
+            // `user.api_keys.find_by(exchange_id:, key_type: :trading)`, then `correct?`: the exchange's account's (#710 slice 7:
+            // the one picked).
+            let Some(exchange) = exchange else { return Ok(false) };
+            let account = crate::identity::Account::first(c, user_id, exchange)?;
+            let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", account.keys("k")),
+                                                  [], |r| r.get(0)).optional()?;
             Ok(status == Some(1))
         }
         // `Array(...).any?`: one asset is a basket too; only an empty list leaves the step incomplete.
@@ -270,15 +332,6 @@ pub fn exchange_name(c: &Connection, id: Option<i64>) -> Result<Option<String>, 
 }
 
 #[derive(Template)]
-#[template(path = "wizard/_progress.html")]
-struct Progress { title: String, progress: i64 }
-
-/// bots/_new_step_progress_bar: a step's title and its share of the wizard.
-pub fn progress_bar(title: String, progress: i64) -> Result<String, WebError> {
-    Ok(Progress { title, progress }.render()?)
-}
-
-#[derive(Template)]
 #[template(path = "wizard/_sheet_frame.html")]
 struct SheetFrame<'a> { track: &'a str, content: &'a str }
 
@@ -288,8 +341,41 @@ struct Sheet<'a> { close_url: String, close_label: String, track: &'a str, conte
 
 /// D-WIZARD-SHEET: a DCA step as the sheet Settings uses, the track beside the pane holding `content`. The frame around both is
 /// `modal_content`, so every form, stream and transition that targets it is unchanged.
-pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> {
-    Ok(Sheet { close_url: ctx.path("/bots"), close_label: ctx.t("button.close"), track, content }.render()?)
+pub fn sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> { sheet_to(ctx, "/bots", track, content) }
+
+/// The Assets step's sheet, whichever tab the switch shows (the Asset view, the Index view): its caption first in the pane,
+/// drawn here once so the switch leaves it where it is.
+pub fn assets_sheet(ctx: &Ctx, track: &str, content: &str) -> Result<String, WebError> {
+    sheet(ctx, track, &format!("<h3 class=\"label\">{}</h3>\n{content}", crate::web::i18n::escape(&ctx.t("bot.setup.pick_assets"))))
+}
+
+/// D-SHEET-EVERYWHERE: `sheet` closing to `close` (the tracker's, the rules' and the bots' page). An empty `track` leaves the
+/// side column empty, which the sheet does not draw.
+pub fn sheet_to(ctx: &Ctx, close: &str, track: &str, content: &str) -> Result<String, WebError> {
+    Ok(Sheet { close_url: ctx.path(close), close_label: ctx.t("button.close"), track, content }.render()?)
+}
+
+/// One item of a track that is not the DCA sentence's (D-SHEET-EVERYWHERE): its `bot.setup.progress_steps` label, or the chosen
+/// venue's name, or the chosen tickers; and, when given, the link back to the step that chose it.
+pub struct Stop { pub key: &'static str, pub name: Option<String>, pub chips: Vec<Chip>, pub back: Option<String> }
+
+impl Stop {
+    pub fn new(key: &'static str) -> Self { Stop { key, name: None, chips: vec![], back: None } }
+    pub fn name(mut self, name: Option<String>) -> Self { self.name = name; self }
+    pub fn chips(mut self, chips: Vec<Chip>) -> Self { self.chips = chips; self }
+    pub fn back(mut self, url: String) -> Self { self.back = Some(url); self }
+}
+
+/// The track of `stops`, the one at `current` current, those before it done.
+pub fn track(ctx: &Ctx, current: usize, stops: Vec<Stop>) -> Result<String, WebError> {
+    let items = stops.into_iter().enumerate().map(|(place, stop)| {
+        let state = if place < current { "done" } else if place == current { "current" } else { "upcoming" };
+        let more = stop.chips.len().saturating_sub(5);
+        let stack_class = match stop.chips.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" };
+        Item { state, label: stop.name.unwrap_or_else(|| ctx.t(&format!("bot.setup.progress_steps.{}", stop.key))), more, stack_class,
+               chips: stop.chips.into_iter().take(5).collect(), action: stop.back.map_or_else(Action::plain, |url| Action::get(url, true)) }
+    }).collect();
+    Ok(Track { items, csrf: "" }.render()?)
 }
 
 /// What `sheet` puts in its `modal_content` frame, for a stream that updates the frame.
@@ -426,17 +512,21 @@ struct New<'a> {
 }
 
 /// GET /bots/new: every new bot config starts fresh (`session[:bot_config] = {}`), the one GET of the wizard
-/// that writes. The Signal tile shows only when the user enabled advanced bots.
+/// that writes. The chooser (Portfolio and Signal) shows only when the user enabled advanced bots; otherwise the portfolio
+/// wizard's first step.
 pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     ctx.session.lock().bot_config = Some(json!({}));
     let (inner, owner) = (app.clone(), user.clone());
     let (advanced, shell) = app.db(move |c| {
         let advanced = c.query_row("SELECT advanced_bots_enabled FROM users WHERE id = ?1", [owner.id], |r| r.get::<_, bool>(0))?;
-        Ok((advanced, Shell::load(c, &inner, &owner)?))
+        Ok((advanced, if advanced { Some(Shell::load(c, &inner, &owner)?) } else { None }))
     }).await?;
+    // D-CHOOSER-SKIPPED: with nothing but the portfolio wizard to choose (the index is picked on its Assets step), its first step.
+    let Some(shell) = shell else { return Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/bots/dca_single_assets/pick_exchange/new"))) };
     let csrf = ctx.csrf_token();
-    let body = New { v: &ctx, advanced }.render()?;
+    // D-SHEET-NO-DIALOG: the chooser in the sheet, with no track.
+    let body = sheet(&ctx, "", &New { v: &ctx, advanced }.render()?)?;
     shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] })
 }
 

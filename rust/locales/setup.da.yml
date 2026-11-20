@@ -7,15 +7,32 @@ da:
             stocks_ask_admin: "Bed din administrator om at aktivere aktiehandel."
             stocks_activate_cta: "Aktivér aktiehandel i indstillingerne"
             add_more_assets: "Tilføj flere aktiver"
+            pick_assets: "Vælg et eller flere aktiver"
             venue_groups:
+                connected: "Tilsluttede"
                 brokers: "Mæglere"
                 exchanges: "Børser"
+            market_data:
+                intro: "Indeks kræver markedsdata i realtid. Brug Deltabadgers officielle data-API eller en gratis CoinGecko-konto."
+                providers: "Udbydere af markedsdata"
+                subscription:
+                    lead_html: "Et <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a>-abonnement omfatter:"
+                    indexes_title: "Aktie- og kryptoindeks"
+                    indexes: "Indeks bygger på deres aktivers markedsværdi og kræver live-opdateringer."
+                    history_title: "Historiske priser"
+                    history: "Børser tilbyder kun en begrænset prishistorik via deres API. Til porteføljesporing og skatterapportering leverer API’en den fulde historik over priser og vekselkurser."
+                    ip_title: "Fast IP"
+                    ip: "Dit hjemmenetværk har som regel ingen fast IP-adresse til whitelisting. Proxyen holder dig forbundet, når den skifter."
+            kind:
+                asset: "Aktiv"
+                index: "Indeks"
             progress_steps:
                 assets: "Aktiver"
                 currencies: "Vælg aktiv"
                 exchange: "Børs"
                 spendable: "Valuta"
                 api: "Forbind børs"
+                connect: "Forbind"
                 coingecko: "Forbind CoinGecko"
                 index: "Vælg indeks"
                 pick_asset: "Vælg aktiv"

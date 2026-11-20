@@ -2,9 +2,9 @@
 //! staleness refusal. 2.x owns the schema until 3.0 (spec §2), and Plan 2 rules "no new tables or columns", so the state
 //! is one `app_configs` row per job and scope: key `rust_job.<name>` (or `rust_job.<name>:<scope>` for a job registered
 //! once per scope, such as a ledger sync per API key), value plain JSON
-//! `{"last_run_at":"…Z","last_success_at":"…Z","last_error_at":"…Z","last_error":"…","rails_at":"…Z","incomplete_since":"…Z"}`.
+//! `{"last_run_at":"…Z","last_success_at":"…Z","last_error_at":"…Z","last_error":"…","v2_at":"…Z","incomplete_since":"…Z"}`.
 //! The scheduler writes the run fields, one job at a time; a job writes `incomplete_since` before its first write unit
-//! (`mark_incomplete`); `rails_at` is written once, at the takeover (engine::staleness::seed).
+//! (`mark_incomplete`); `v2_at` is written once, at the takeover (engine::staleness::seed).
 use crate::app_config;
 use chrono::{DateTime, SecondsFormat, Utc};
 use rusqlite::Connection;
@@ -25,7 +25,7 @@ pub struct JobState {
     pub last_error: Option<String>,
     /// The newest stamp of the data this job refreshes, as 2.x left it when this engine took the install over and
     /// before any run of its own (Plan 2f P1-1): the freshness baseline until the job's first success here.
-    pub rails_at: Option<DateTime<Utc>>,
+    pub v2_at: Option<DateTime<Utc>>,
     /// Set by a job before its first write unit, cleared only with `last_success_at` (Codex round 2): while it is set, some
     /// of the source's rows may carry this engine's stamps from an import that did not finish.
     pub incomplete_since: Option<DateTime<Utc>>,
@@ -83,7 +83,7 @@ pub fn find(c: &Connection, job: &str, scope: Option<&str>) -> Result<Option<Job
     if !app_config::exists(c, &key(job, scope))? { return Ok(None); }
     let v: Value = app_config::get_plain(c, &key(job, scope))?.and_then(|s| serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
     Ok(Some(JobState { last_run_at: time(&v["last_run_at"]), last_success_at: time(&v["last_success_at"]), last_error_at: time(&v["last_error_at"]),
-                       last_error: v["last_error"].as_str().map(String::from), rails_at: time(&v["rails_at"]),
+                       last_error: v["last_error"].as_str().map(String::from), v2_at: time(&v["v2_at"]),
                        incomplete_since: time(&v["incomplete_since"]), revision: v["revision"].as_i64(),
                        importing_revision: v["importing_revision"].as_i64(), source_at: time(&v["source_at"]),
                        partial: v["partial"] == Value::Bool(true), catalogue: v["catalogue"] == Value::Bool(true) }))
@@ -94,7 +94,7 @@ pub fn read(c: &Connection, job: &str, scope: Option<&str>) -> Result<JobState, 
 
 pub fn write(c: &Connection, job: &str, scope: Option<&str>, s: &JobState, now: DateTime<Utc>) -> Result<(), String> {
     let mut v = json!({ "last_run_at": s.last_run_at.map(text), "last_success_at": s.last_success_at.map(text),
-                    "last_error_at": s.last_error_at.map(text), "last_error": s.last_error, "rails_at": s.rails_at.map(text),
+                    "last_error_at": s.last_error_at.map(text), "last_error": s.last_error, "v2_at": s.v2_at.map(text),
                     "incomplete_since": s.incomplete_since.map(text) });
     // Only a revisioned source carries these: every other job's row keeps its shape.
     for (k, x) in [("revision", s.revision.map(Value::from)), ("importing_revision", s.importing_revision.map(Value::from)),
@@ -136,11 +136,11 @@ pub fn record_error(c: &Connection, job: &str, scope: Option<&str>, at: DateTime
     write(c, job, scope, &s, at)
 }
 
-/// Creates the row with 2.x's baseline (`rails_at`) when the job has none yet; an existing row is left alone (P1-1: once
+/// Creates the row with 2.x's baseline (`v2_at`) when the job has none yet; an existing row is left alone (P1-1: once
 /// this engine has run the job, only its completed runs count). True when it created the row.
-pub fn seed(c: &Connection, job: &str, rails_at: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Result<bool, String> {
+pub fn seed(c: &Connection, job: &str, v2_at: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Result<bool, String> {
     if find(c, job, None)?.is_some() { return Ok(false); }
-    write(c, job, None, &JobState { rails_at, ..JobState::default() }, now)?;
+    write(c, job, None, &JobState { v2_at, ..JobState::default() }, now)?;
     Ok(true)
 }
 

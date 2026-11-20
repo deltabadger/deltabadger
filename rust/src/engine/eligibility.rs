@@ -109,7 +109,7 @@ pub fn rebalance_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, Engin
 /// Unported operations still refuse admission. Liquidation and redeploy states are admitted and stand trading down inside the engine.
 const PENDING_KEYS: [&str; 1] = ["rebalance_pending"];
 
-const UNKNOWN_STATUS: &str = "row(s) with a status Rails never writes";
+const UNKNOWN_STATUS: &str = "row(s) with a status 2.x never writes";
 const AMBIGUOUS_HALT: &str = "rebalance_pending in phase \"ambiguous\"";
 const ABANDONED_REBALANCE: &str = "abandoned REBALANCE order(s) (fill unknown)";
 
@@ -450,9 +450,9 @@ fn history_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(),
 /// polls them nor cancels them, and leaves them waiting
 /// forever: failed cancels at each flip, phantom reservations, caps counting them open. That is not ported: refused by name.
 fn order_kind_reasons(c: &Connection, bot: &Bot, r: &mut Vec<Reason>) -> Result<(), EngineError> {
-    let (imported, no_asset): (i64, i64) = c.query_row(
-        "SELECT coalesce(sum(external_id LIKE 'imported_%' AND (external_status IS NULL OR external_status NOT IN (2, 3, 4))), 0), \
-                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1",
+    let (imported, no_asset): (i64, i64) = c.query_row(&format!(
+        "SELECT coalesce(sum({} LIKE 'imported_%' AND (external_status IS NULL OR external_status NOT IN (2, 3, 4))), 0), \
+                coalesce(sum((transaction_type = 'REGULAR' OR status = 0) AND base_asset_id IS NULL), 0) FROM transactions WHERE bot_id = ?1", crate::venue_ids::order_id(c, "transactions")?),
         [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     // Sell rows are no refusal on any venue: off Alpaca the same normalized walk reads them (tests/eligibility.rs proves it
     // on Kraken and Binance), and bot_reasons_with runs it for such a history before accepting it.
@@ -571,7 +571,12 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> { install(c,
 /// cannot mask the same damage to another.
 fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<String>>) -> Result<Report, EngineError> {
     let mut report = Report::default();
-    let mut rule_rows=c.prepare(&format!("SELECT r.id,e.type,r.type FROM rules r LEFT JOIN exchanges e ON e.id=r.exchange_id WHERE r.status IN ({})",model::working_list()))?;
+    // 2.x's rules (a number-1 withdrawal rule's row mirrors Rust's store, and is the truth before a takeover's refill), and
+    // the store's rules of accounts 2+, which 2.x's table cannot hold (#710).
+    let others=if crate::engine::rules::table_exists(c,"exchange_account_rules")? {
+        format!(" UNION ALL SELECT r.id,e.type,r.type FROM exchange_account_rules r JOIN exchange_accounts a ON a.id=r.account_id AND a.number<>1 LEFT JOIN exchanges e ON e.id=r.exchange_id WHERE r.status IN ({})",model::working_list())
+    } else { String::new() };
+    let mut rule_rows=c.prepare(&format!("SELECT r.id,e.type,r.type FROM rules r LEFT JOIN exchanges e ON e.id=r.exchange_id WHERE r.status IN ({}){others}",model::working_list()))?;
     for row in rule_rows.query_map([],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,String>(2)?)))? {
         let (id,exchange,kind)=row?;
         if kind!="Rules::Withdrawal" || !exchange.as_deref().and_then(crate::venue::registry::row).is_some_and(|v|v.withdraws) {
@@ -609,9 +614,9 @@ fn install(c: &Connection, mut items: Option<&mut std::collections::BTreeSet<Str
         let rebalances = rebalances_here(&bot);
         let composition_only = rebalances && reasons.iter().all(|r| r.starts_with(UNBALANCED));
         // Imported rows are never polled, by 2.x or here (polling.rs): no work.
-        let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
-                                            AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') \
-                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", params![id, composition_only], |r| r.get(0))?;
+        let outstanding: i64 = c.query_row(&format!("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) \
+                                            AND ({o} IS NULL OR {o} NOT LIKE 'imported_%') \
+                                            AND NOT (?2 AND transaction_type IN ('REBALANCE', 'LIQUIDATION', 'REDEPLOY'))", o = crate::venue_ids::order_id(c, "transactions")?), params![id, composition_only], |r| r.get(0))?;
         let mut work = v2_work(c, &bot)?;
         // bot_reasons admitted this halt with only the stopped-basket allocation exception left.
         if composition_only { work.retain(|reason| !halt_reason(reason)); }

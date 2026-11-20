@@ -12,6 +12,12 @@ pub fn stream(action: &str, target: &str, content: &str) -> String {
     format!("<turbo-stream action=\"{}\" target=\"{}\"><template>{content}</template></turbo-stream>", escape(action), escape(target))
 }
 
+/// `replace` with `method="morph"`: the target is morphed into `content`, so a controller on it stays connected. Written
+/// after the target, so the mailbox still reads it as a `replace` of that target (`cable::replaced_target`).
+pub fn morph(target: &str, content: &str) -> String {
+    format!("<turbo-stream action=\"replace\" target=\"{}\" method=\"morph\"><template>{content}</template></turbo-stream>", escape(target))
+}
+
 pub fn remove(target: &str) -> String {
     format!("<turbo-stream action=\"remove\" target=\"{}\"></turbo-stream>", escape(target))
 }

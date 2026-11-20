@@ -17,7 +17,8 @@ pub const DEFAULT_FORMAT: &str = "deltabadger";
 
 /// A key ApiKey.reading answers: the one a venue of the user's is read with.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Reading { pub id: i64, pub exchange_id: i64, pub exchange_type: String, pub exchange_name: String, pub key_type: i64 }
+/// `account_id`: its account (crate::identity::account_of_key; None for a number 1 with no row yet).
+pub struct Reading { pub id: i64, pub exchange_id: i64, pub account_id: Option<i64>, pub exchange_type: String, pub exchange_name: String, pub key_type: i64 }
 
 /// What Import::Run#import! answers.
 #[derive(Debug, Clone, PartialEq)]
@@ -61,15 +62,15 @@ pub(crate) fn missing_permission(exchange_type: &str, error: Option<&str>) -> bo
 /// ApiKey.reading over the user's keys: status correct, never a withdrawal key; per venue the trading key that lacks no
 /// permission, else the read-only one, else the first.
 pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> {
-    let mut s = c.prepare("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-                           WHERE k.user_id = ?1 AND k.status = 1 AND k.key_type != 1 ORDER BY k.id")?;
-    let keys = s.query_map([user_id], |r| Ok((Reading { id: r.get(0)?, exchange_id: r.get(1)?, key_type: r.get(2)?, exchange_type: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
+    let keys = crate::identity::with_key_account("k", |account| c.prepare(&format!("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+                           WHERE k.user_id = ?1 AND k.status = 1 AND k.key_type != 1 ORDER BY k.id"))?.query_map([user_id], |r| Ok((Reading { id: r.get(0)?, exchange_id: r.get(1)?, account_id: r.get(6)?, key_type: r.get(2)?, exchange_type: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
                                                          exchange_name: r.get::<_, Option<String>>(5)?.unwrap_or_default() }, r.get::<_, Option<String>>(3)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut venues: Vec<i64> = vec![];
-    for (k, _) in &keys { if !venues.contains(&k.exchange_id) { venues.push(k.exchange_id); } }
-    Ok(venues.into_iter().filter_map(|venue| {
-        let group: Vec<&(Reading, Option<String>)> = keys.iter().filter(|(k, _)| k.exchange_id == venue).collect();
+        .collect::<Result<Vec<_>, _>>())?;
+    // Per account (#710), in the order its first key was made.
+    let mut accounts: Vec<(i64, Option<i64>)> = vec![];
+    for (k, _) in &keys { if !accounts.contains(&(k.exchange_id, k.account_id)) { accounts.push((k.exchange_id, k.account_id)); } }
+    Ok(accounts.into_iter().filter_map(|account| {
+        let group: Vec<&(Reading, Option<String>)> = keys.iter().filter(|(k, _)| (k.exchange_id, k.account_id) == account).collect();
         group.iter().find(|(k, error)| k.key_type == 0 && !missing_permission(&k.exchange_type, error.as_deref()))
             .or_else(|| group.iter().find(|(k, _)| k.key_type == 2)).or_else(|| group.first()).map(|(k, _)| k.clone())
     }).collect())
@@ -78,7 +79,9 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
 /// A file as read, before any database is touched: each entry with the venue it names (None: the format's own venue),
 /// the operations the reader did not recognise, a KuCoin export's rows (stored as rows, `kucoin::store`), and a
 /// venue-native export's account id (crate::identity).
-pub struct Read { entries: Vec<(Option<String>, Entry)>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
+/// An entry with the venue and account number (#710) its row names, where the format names one.
+type Named = (Option<(String, u32)>, Entry);
+pub struct Read { entries: Vec<Named>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
 
 /// What a column holds of an amount: its nearest double, which must be finite (2.x stores 1e309 as Infinity, which
 /// no later read takes; this refuses the file instead).
@@ -92,7 +95,7 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
     let text = csv::as_text(bytes);
     let mut account_id = None;
     let mut rows = vec![];
-    let (entries, unrecognised): (Vec<(Option<String>, Entry)>, Vec<String>) = match format {
+    let (entries, unrecognised): (Vec<Named>, Vec<String>) = match format {
         // D-IMPORT-UID: Binance's own export names its account (`User ID`, or `User_ID`) on every record. It is read
         // over every record before the reader skips any; a missing, blank, masked or mixed id is a malformed export.
         "binance" => match csv::Table::parse(&text).and_then(|table| crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS))
@@ -109,7 +112,7 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
             Err(_) => return Err(Answer::Error("malformed")),
         },
         "deltabadger" => match deltabadger::read(&text) {
-            Ok((rows, unrecognised)) => (rows.into_iter().map(|r| (r.exchange, r.entry)).collect(), unrecognised),
+            Ok((rows, unrecognised)) => (rows.into_iter().map(|r| (r.exchange.map(|v| (v, r.account)), r.entry)).collect(), unrecognised),
             Err(_) => return Err(Answer::Error("malformed")),
         },
         _ => return Err(Answer::Error("unreadable")),
@@ -158,12 +161,20 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
         };
         routed.push((picked, entries.into_iter().map(|(_, e)| e).collect()));
     } else {
-        // `index_by(name_id)`: of two venues of one kind, the later key.
-        let by_name = |name: &str| keys.iter().rev().find(|k| crate::tracker::rows::name_id(&k.exchange_type) == name);
+        // `index_by(name_id)`: of two venues of one kind, the later key; #710: of the account the row's number names (an
+        // account this install does not have is unrouted, named as plain text names it: `kraken 2`).
+        let numbered: Vec<(&Reading, i64)> = keys.iter().map(|k| Ok((k, match k.account_id {
+            Some(id) => tx.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0))?,
+            None => 1,
+        }))).collect::<Result<_, rusqlite::Error>>()?;
+        let by_name = |name: &str, number: u32| numbered.iter().rev().find(|(k, n)| crate::tracker::rows::name_id(&k.exchange_type) == name && *n == i64::from(number)).map(|(k, _)| *k);
         for (venue, entry) in entries {
-            match venue.as_deref().and_then(by_name) {
+            match venue.as_ref().and_then(|(name, number)| by_name(name, *number)) {
                 Some(key) => match routed.iter_mut().find(|(k, _)| k.id == key.id) { Some((_, rows)) => rows.push(entry), None => routed.push((key.clone(), vec![entry])) },
-                None => if let Some(venue) = venue { if !unrouted.contains(&venue) { unrouted.push(venue); } },
+                None => if let Some((venue, number)) = venue {
+                    let venue = if number == 1 { venue } else { format!("{venue} {number}") };
+                    if !unrouted.contains(&venue) { unrouted.push(venue); }
+                },
             }
         }
         unrouted.sort();
@@ -174,7 +185,7 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     let (mut imported, mut duplicates, mut skipped, mut generic) = (0, 0, 0, 0);
     for (reading, rows) in routed {
         let key = Key { id: reading.id, user_id, exchange_id: reading.exchange_id, status: 1, key_type: reading.key_type, last_synced_at: None,
-                        last_sync_error: None, exchange_type: reading.exchange_type };
+                        last_sync_error: None, exchange_type: reading.exchange_type, scope: crate::sync::key_scope(&tx, reading.id)? };
         if format == "kucoin" {
             let out = kucoin::store(&fenced, &key, &kucoin_rows, now)?;
             (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);

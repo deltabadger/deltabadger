@@ -252,9 +252,9 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_v2_version_a_transaction_s
         // D-DROP-USERS-NAME: a column drop only at a listed version, and only as its one statement.
         ("an unlisted column drop", &[("20990101000001_t.sql", "ALTER TABLE bots DROP COLUMN label;")], "ALTER TABLE"),
         ("the listed drop at another version", &[("20990101000001_t.sql", "ALTER TABLE users DROP COLUMN name;")], "ALTER TABLE"),
-        ("the listed version, another column", &[("20261117000001_t.sql", "ALTER TABLE users DROP COLUMN email;")], "exactly"),
-        ("the listed version, a second statement", &[("20261117000001_t.sql", "ALTER TABLE users DROP COLUMN name; UPDATE users SET admin = 1;")], "exactly"),
-        ("the listed version, a rebuild", &[("20261117000001_t.sql", "CREATE TABLE u2 (id INTEGER); DROP TABLE users;")], "exactly"),
+        ("the listed version, another column", &[("20261122000001_t.sql", "ALTER TABLE users DROP COLUMN email;")], "exactly"),
+        ("the listed version, a second statement", &[("20261122000001_t.sql", "ALTER TABLE users DROP COLUMN name; UPDATE users SET admin = 1;")], "exactly"),
+        ("the listed version, a rebuild", &[("20261122000001_t.sql", "CREATE TABLE u2 (id INTEGER); DROP TABLE users;")], "exactly"),
         ("DROP of a double-quoted name", &[("20990101000001_t.sql", "DROP TABLE \"bots\";")], "no earlier Rust migration created"),
         ("DROP of a backquoted name", &[("20990101000001_t.sql", "DROP TABLE `bots`;")], "no earlier Rust migration created"),
         ("DROP of a bracketed name", &[("20990101000001_t.sql", "DROP TABLE [bots];")], "no earlier Rust migration created"),
@@ -343,8 +343,9 @@ fn before_stray() -> (tempfile::TempDir, Paths, store::Opened, common::seed::See
     let p = paths(dir.path());
     let n = RUST_MIGRATIONS.iter().position(|m| m.version == STRAY).unwrap();
     let k = REGISTRY.tables.iter().position(|(v, _)| *v >= STRAY).unwrap_or(REGISTRY.tables.len());
-    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..n], tables: &REGISTRY.tables[..k], retired: &[] }).unwrap();
-    let o = store::open(&p).unwrap();
+    let before = Registry { migrations: &RUST_MIGRATIONS[..n], tables: &REGISTRY.tables[..k], retired: &[] };
+    store::migrate_with(&p, &lock(&p), &before).unwrap();
+    let o = store::open_with(&p, &before).unwrap();
     let s = common::seed::seed_kraken(&o.primary, &common::seed::cipher());
     (dir, p, o, s)
 }
@@ -629,66 +630,7 @@ fn live_tables_leave_out_a_retired_table() {
     let fx = Registry { migrations: &[], tables: FX_TABLES, retired: FX_RETIRED };
     assert_eq!(fx.owned_tables(), ["rust_schema_migrations", "rust_fx_old", "rust_fx_kept", "rust_fx_new"]);
     assert_eq!(fx.live_tables(), ["rust_schema_migrations", "rust_fx_kept", "rust_fx_new"]);
-    assert_eq!(REGISTRY.live_tables(), REGISTRY.owned_tables(), "nothing is retired yet");
-}
-
-// ---- the frozen beta fixture (PLAN-B11-9 §2.4, §5 #2/#3/#6): installs the pre-rename writers produced -----------------
-
-/// Every frozen install loads as an install this build accepts, and together they hold each stored name the B11-9 rename
-/// moves (§1.1), the two kept diagnostics (r1.1) and a mid-takeover install (#6), so the rename's tests can't pass on
-/// an empty fixture. (`B11_9_FREEZE=1` on the tests that call common::freeze rewrote it from this build's writers.)
-#[test]
-fn the_frozen_beta_fixture_holds_every_stored_name_the_rename_moves() {
-    let items: &[(&str, &str)] = &[
-        ("rust_rails_attempt_acks rows", "SELECT count(*) FROM rust_rails_attempt_acks"),
-        ("rust_rails_job_acks rows", "SELECT count(*) FROM rust_rails_job_acks"),
-        ("rust_rails_unrecorded rows", "SELECT count(*) FROM rust_rails_unrecorded"),
-        ("its source index", "SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = 'index_rust_rails_unrecorded_on_source'"),
-        ("rust_rails_unrecorded_live rows", "SELECT count(*) FROM rust_rails_unrecorded_live"),
-        ("rust_rails_unrecorded_offers rows", "SELECT count(*) FROM rust_rails_unrecorded_offers"),
-        ("rust_rails_unrecorded_resolutions rows", "SELECT count(*) FROM rust_rails_unrecorded_resolutions"),
-        ("rust_rails_unrecorded_requests rows", "SELECT count(*) FROM rust_rails_unrecorded_requests"),
-        ("rust_rails_unrecorded_notices rows", "SELECT count(*) FROM rust_rails_unrecorded_notices"),
-        ("key rust_rails_wakes", "SELECT count(*) FROM app_configs WHERE key = 'rust_rails_wakes'"),
-        ("key rust_rails_queue_done", "SELECT count(*) FROM app_configs WHERE key = 'rust_rails_queue_done'"),
-        ("key rust_rails_unrecorded.live_cursor", "SELECT count(*) FROM app_configs WHERE key = 'rust_rails_unrecorded.live_cursor'"),
-        ("key rust_job.rails_unrecorded_report", "SELECT count(*) FROM app_configs WHERE key = 'rust_job.rails_unrecorded_report'"),
-        ("a job's rails_at", "SELECT count(*) FROM app_configs WHERE substr(key, 1, 9) = 'rust_job.' AND json_valid(value) AND json_type(value, '$.rails_at') = 'text'"),
-        ("withdrawal id source 'rails'", "SELECT count(*) FROM rust_withdrawal_ids WHERE source = 'rails'"),
-        ("rule evaluation source 'rails:'", "SELECT count(*) FROM rust_rule_evaluations WHERE substr(source, 1, 6) = 'rails:'"),
-        ("signal call source 'rails:'", "SELECT count(*) FROM bots, json_each(bots.transient_data, '$.rust_signal_calls') e WHERE substr(json_extract(e.value, '$.source'), 1, 6) = 'rails:'"),
-        ("marker 'rails-job:'", "SELECT count(*) FROM bots WHERE substr(json_extract(transient_data, '$.signal_placement_unresolved.id'), 1, 10) = 'rails-job:'"),
-        ("upgrade_signal_unresolved marker_id", "SELECT count(*) FROM bot_activity_logs WHERE event = 'upgrade_signal_unresolved' AND substr(json_extract(details, '$.marker_id'), 1, 10) = 'rails-job:'"),
-        ("signal_placement_resolved marker_id", "SELECT count(*) FROM bot_activity_logs WHERE event = 'signal_placement_resolved' AND substr(json_extract(details, '$.marker_id'), 1, 10) = 'rails-job:'"),
-        ("event rails_order_candidates", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_candidates'"),
-        ("event rails_order_none_seen", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_none_seen'"),
-        ("event rails_order_unchecked", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_unchecked'"),
-        ("event rails_order_open", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_open'"),
-        ("event rails_order_listed", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_listed'"),
-        ("event rails_order_recovered", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_recovered'"),
-        ("event rails_order_not_added", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_not_added'"),
-        ("event rails_order_not_mine", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_not_mine'"),
-        ("event rails_order_unsettled", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_unsettled'"),
-        ("event rails_order_settled_lower", "SELECT count(*) FROM bot_activity_logs WHERE event = 'rails_order_settled_lower'"),
-        ("kept: a job's last_error naming Rails", "SELECT count(*) FROM app_configs WHERE substr(key, 1, 9) = 'rust_job.' AND json_extract(value, '$.last_error') LIKE '%Rails%'"),
-        ("kept: an activity details.error", "SELECT count(*) FROM bot_activity_logs WHERE json_type(details, '$.error') = 'text'"),
-        ("mid-takeover: the signal import journal", "SELECT count(*) FROM app_configs WHERE key = 'rust_signal_import' AND value <> '[]'"),
-        ("mid-takeover: the rule import journal", "SELECT count(*) FROM app_configs WHERE key = 'rust_rule_import' AND value <> '[]'"),
-    ];
-    let installs = common::freeze::installs();
-    assert!(!installs.is_empty());
-    let mut found = vec![0i64; items.len()];
-    for (name, dir) in &installs {
-        let p = paths(dir.path());
-        assert!(store::check(&p).is_ok(), "{name}: {:?}", store::check(&p));
-        let c = Connection::open(&p.primary).unwrap();
-        for (n, (_, sql)) in found.iter_mut().zip(items) { *n += c.query_row(sql, [], |r| r.get::<_, i64>(0)).unwrap_or(0); }
-    }
-    let missing: Vec<&str> = items.iter().zip(&found).filter(|(_, n)| **n == 0).map(|((what, _), _)| *what).collect();
-    assert_eq!(missing, Vec::<&str>::new(), "the fixture lacks these");
-    let (_, mid) = installs.iter().find(|(name, _)| name == "mid_takeover").expect("a mid-takeover install");
-    let q = Connection::open(paths(mid.path()).queue).unwrap();
-    assert!(q.query_row("SELECT count(*) FROM solid_queue_jobs", [], |r| r.get::<_, i64>(0)).unwrap() > 0, "2.x's rows still queued");
+    for (_, t) in REGISTRY.retired { assert!(REGISTRY.owned_tables().contains(t) && !REGISTRY.live_tables().contains(t), "{t}"); }
 }
 
 /// The migrator's own guard, whatever the build's scan let through: a file that drops or rebuilds a table no Rust
@@ -723,11 +665,11 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
     let before = columns(&p);
     assert!(before.iter().any(|c| c == "name"));
     // Every migration before the drop first, so only the drop runs last.
-    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version < "20261117000001").collect();
+    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version < "20261122000001").collect();
     store::migrate_with(&p, &lock(&p), &Registry { migrations: &earlier, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap();
     let others = |p: &Paths| contents(p).into_iter().filter(|t| !t.starts_with("users:") && !t.contains("TABLE \"users\"") && !t.starts_with("rust_schema_migrations")).collect::<Vec<_>>();
     let untouched = others(&p);
-    assert_eq!(store::migrate(&p, &lock(&p)).unwrap(), vec!["20261117000001".to_string()]);
+    assert_eq!(store::migrate(&p, &lock(&p)).unwrap(), vec!["20261122000001".to_string()]);
     assert_eq!(columns(&p), before.into_iter().filter(|c| c != "name").collect::<Vec<_>>());
     assert_eq!(others(&p), untouched, "every other 2.x table as it was");
     let row: (String, i64) = Connection::open(&p.primary).unwrap().query_row("SELECT email, admin FROM users", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
@@ -743,11 +685,98 @@ fn a_listed_column_drop_with_anything_else_in_it_is_rolled_back() {
         let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         let before = contents(&p);
-        let migrations = [Migration { version: "20261117000001", name: "drop_users_name", sql }];
+        let migrations = [Migration { version: "20261122000001", name: "drop_users_name", sql }];
         match store::migrate_with(&p, &lock(&p), &Registry { migrations: &migrations, tables: &[], retired: &[] }) {
             Err(StoreError::Migration { error, .. }) => assert!(error.contains("exactly"), "{sql}: {error}"),
             other => panic!("{sql}: expected the refusal, got {other:?}"),
         }
         assert_eq!(contents(&p), before, "{sql}: rolled back");
     }
+}
+
+// ---- #710 slice 5 (PLAN-710-5 §4): balances and venue snapshots move to stores keyed by account ----
+
+const STORES: &str = "20261121000001";
+
+/// §6 test 1: 2.x's balances and venue snapshots, with gappy ids and a sequence above the largest, are in the stores with
+/// their ids and content, each on its (user, exchange)'s number 1 (made where none was there), and each store's sequence
+/// is its 2.x table's. 2.x's tables keep their rows.
+#[test]
+fn the_balances_and_venue_snapshots_move_to_stores_keyed_by_account_keeping_ids_and_sequences() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= STORES).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= STORES).unwrap_or(REGISTRY.tables.len());
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }).unwrap();
+    exec(&p.primary, "PRAGMA foreign_keys = OFF; DELETE FROM exchange_accounts;
+        INSERT INTO exchange_accounts (id, user_id, exchange_id, number, created_at, updated_at) VALUES (40, 1, 2, 1, 'now', 'now');
+        INSERT INTO account_balances (id, user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at) VALUES
+          (3, 1, 2, 7, 1.5, 0, 100.25, 150.375, 'p', 's', 'c', 'u'), (8, 1, 3, 7, '0.1', 2, NULL, NULL, NULL, 's2', 'c2', 'u2');
+        UPDATE sqlite_sequence SET seq = 20 WHERE name = 'account_balances';
+        INSERT INTO portfolio_venue_snapshots (id, user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at) VALUES
+          (5, 1, 2, '2026-01-01', 10.5, 9, NULL, 1.25, 1, 'c', 'u'), (6, 1, 2, '2026-01-02', 11, 9, 2, 1, 0, 'c', 'u');
+        UPDATE sqlite_sequence SET seq = 30 WHERE name = 'portfolio_venue_snapshots';");
+    assert_eq!(store::migrate(&p, &lock(&p)).unwrap()[0], STORES);
+    let rows = |sql: &str| rows(&p, sql);
+    let same = |v2: &str, store: &str, columns: &str| {
+        assert_eq!(rows(&format!("SELECT {columns} FROM {store} ORDER BY id")), rows(&format!("SELECT {columns} FROM {v2} ORDER BY id")), "{store}: ids and content are 2.x's");
+        assert_eq!(rows(&format!("SELECT seq FROM sqlite_sequence WHERE name = '{store}'")), rows(&format!("SELECT seq FROM sqlite_sequence WHERE name = '{v2}'")));
+    };
+    same("account_balances", "exchange_account_balances", "id, asset_id, created_at, exchange_id, free, typeof(free), locked, priced_at, synced_at, updated_at, usd_price, typeof(usd_price), usd_value, user_id");
+    same("portfolio_venue_snapshots", "exchange_account_snapshots", "id, user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at");
+    use rusqlite::types::Value::Integer;
+    assert_eq!(rows("SELECT b.id, a.user_id, a.exchange_id, a.number FROM exchange_account_balances b JOIN exchange_accounts a ON a.id = b.account_id ORDER BY b.id"),
+               [[Integer(3), Integer(1), Integer(2), Integer(1)], [Integer(8), Integer(1), Integer(3), Integer(1)]], "each on its number 1, made where missing");
+    assert_eq!(rows("SELECT DISTINCT account_id FROM exchange_account_snapshots"), [[Integer(40)]]);
+    assert_eq!(rows("SELECT count(*) FROM account_balances"), [[Integer(2)]], "2.x's rows stay");
+    // A new row takes the id 2.x would have given it.
+    exec(&p.primary, "INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at, account_id) VALUES (1, 2, 9, 's', 'c', 'u', 40)");
+    assert_eq!(rows("SELECT max(id) FROM exchange_account_balances"), [[Integer(21)]]);
+    assert!(store::check(&p).unwrap().pending_rust.is_empty());
+}
+/// §6 test 14: outside the stores' own module and the 2.x schema contract, no Rust code names 2.x's balance and venue
+/// snapshot tables (comments aside).
+#[test]
+fn only_the_store_module_names_the_2x_balance_and_snapshot_tables() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut found = vec![];
+    let mut dirs = vec![root.join("src"), root.join("examples")];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() { dirs.push(path); continue; }
+            if path.extension().is_none_or(|e| e != "rs") || path.ends_with("src/store.rs") || path.ends_with("src/sync/balance_store.rs") { continue; }
+            for (n, line) in std::fs::read_to_string(&path).unwrap().lines().enumerate() {
+                let code = line.split("//").next().unwrap();
+                if ["account_balances", "portfolio_venue_snapshots"].iter().any(|t| code.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')).any(|w| w == *t)) {
+                    found.push(format!("{}:{}", path.strip_prefix(root).unwrap().display(), n + 1));
+                }
+            }
+        }
+    }
+    assert!(found.is_empty(), "read balances and venue snapshots from the stores (sync::balance_store): {found:?}");
+}
+
+/// §6 test 1: KuCoin HF coverage keeps its rows, ids and content through the hop, each on its (user, exchange)'s number 1
+/// (made where none was there).
+#[test]
+fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
+    const V: &str = "20261121000002";
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let m = RUST_MIGRATIONS.iter().position(|m| m.version >= V).unwrap();
+    let t = REGISTRY.tables.iter().position(|(v, _)| *v >= V).unwrap_or(REGISTRY.tables.len());
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: &RUST_MIGRATIONS[..m], tables: &REGISTRY.tables[..t], retired: REGISTRY.retired }).unwrap();
+    exec(&p.primary, "PRAGMA foreign_keys = OFF; DELETE FROM exchange_accounts;
+        INSERT INTO exchange_accounts (id, user_id, exchange_id, number, created_at, updated_at) VALUES (30, 1, 2, 1, 'now', 'now');
+        INSERT INTO kucoin_coverage (id, user_id, exchange_id, source, start_at, end_at, updated_at) VALUES
+          (4, 1, 2, 'hf_enabled', '2026-01-01', '2026-01-01', 'u1'), (9, 3, 2, 'export', '2026-01-01', '2026-02-01', 'u2');");
+    assert_eq!(store::migrate(&p, &lock(&p)).unwrap()[0], V);
+    use rusqlite::types::Value::{Integer, Text};
+    let s = |x: &str| Text(x.into());
+    assert_eq!(rows(&p, "SELECT k.id, a.user_id, a.exchange_id, a.number, k.source, k.start_at, k.end_at, k.updated_at FROM kucoin_coverage k JOIN exchange_accounts a ON a.id = k.account_id ORDER BY k.id"),
+               [vec![Integer(4), Integer(1), Integer(2), Integer(1), s("hf_enabled"), s("2026-01-01"), s("2026-01-01"), s("u1")],
+                vec![Integer(9), Integer(3), Integer(2), Integer(1), s("export"), s("2026-01-01"), s("2026-02-01"), s("u2")]]);
+    assert_eq!(rows(&p, "SELECT account_id FROM kucoin_coverage WHERE id = 4"), [[Integer(30)]], "the existing number 1");
+    assert!(store::check(&p).unwrap().pending_rust.is_empty());
 }

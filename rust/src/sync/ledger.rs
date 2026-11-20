@@ -11,6 +11,7 @@ use crate::engine::Clock;
 use crate::v2::{json_to_d, BigDec};
 use crate::venue::alpaca::AlpacaVenue;
 use crate::venue::http::Transport;
+use crate::venue_ids::{self, Write};
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -631,7 +632,7 @@ pub(super) type EventKey = (i64, Option<String>, BigDec, Option<DateTime<Utc>>);
 /// The legs of every merged split already stored for the user on this venue.
 pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
     let mut merged: HashSet<String> = HashSet::new();
-    let mut s = c.prepare("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = ?3")?;
+    let mut s = c.prepare(&format!("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = ?3 AND {}", key.scope.rows("account_transactions")))?;
     for raw in s.query_map(params![key.user_id, key.exchange_id, ADJUSTMENT], |r| r.get::<_, Option<String>>(0))? {
         merged.extend(merged_ids(&raw?.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null)));
     }
@@ -666,7 +667,7 @@ fn split(e: &Entry) -> bool { e.entry_type == ADJUSTMENT && e.raw.value["corpora
 /// updated by forward sync. Legacy aggregates discarded their legs and require a separate,
 /// reviewed historical repair. Reconciliation happens inside the guarded write transaction.
 fn reconcile_split(c: &Connection, key: &Key, incoming: &Entry) -> Result<(Entry, Option<i64>, bool), SyncError> {
-    let rows = stored_rows(c, "WHERE user_id=?1 AND exchange_id=?2 AND entry_type=15 AND base_currency IS ?3 AND transacted_at=?4 ORDER BY id",
+    let rows = stored_rows(c, &key.scope, &format!("WHERE user_id=?1 AND exchange_id=?2 AND {} AND entry_type=15 AND base_currency IS ?3 AND transacted_at=?4 ORDER BY id", key.scope.rows("account_transactions")),
                            params![key.user_id, key.exchange_id, incoming.base_currency, incoming.transacted_at.map(sql_time)])?;
     let mut found = None;
     for row in rows {
@@ -723,8 +724,9 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if let Some(id) = super::pending_transfers::existing(c, key, e, p.pending.as_ref().expect("pending identities loaded"))? {
             if let (Some(base), Some(at)) = (present(&e.base_currency), e.transacted_at) {
                 let no_fee = e.fee_amount.as_ref().is_none_or(BigDec::is_zero);
-                c.execute("UPDATE account_transactions SET base_currency=?1,base_amount=?2,fee_currency=?3,fee_amount=?4,tx_id=COALESCE(?5,tx_id),transacted_at=?6,raw_data=?7,updated_at=?8,base_asset_id=COALESCE(base_asset_id,?9) WHERE id=?10",
-                    params![base,amount_sql(&key.exchange_type,&e.base_amount),if no_fee { None } else { e.fee_currency.as_deref() },if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type,d)) },e.tx_id,sql_time(at),e.raw.text(),sql_time(now),p.assets.asset_id(c,Some(base),&e.raw.value,Some(at))?,id])?;
+                c.execute("UPDATE account_transactions SET base_currency=?1,base_amount=?2,fee_currency=?3,fee_amount=?4,transacted_at=?5,raw_data=?6,updated_at=?7,base_asset_id=COALESCE(base_asset_id,?8) WHERE id=?9",
+                    params![base,amount_sql(&key.exchange_type,&e.base_amount),if no_fee { None } else { e.fee_currency.as_deref() },if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type,d)) },sql_time(at),e.raw.text(),sql_time(now),p.assets.asset_id(c,Some(base),&e.raw.value,Some(at))?,id])?;
+                venue_ids::set_id(c, &key.scope, id, e.tx_id.as_deref(), Write::IfGiven)?;
                 p.stored.insert(id);
                 p.out.duplicates += 1;
                 continue;
@@ -760,9 +762,11 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
              fee_currency, fee_amount, tx_id, group_id, description, transacted_at, raw_data, manual_values, base_asset_id, transaction_id, \
              transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, '{}', ?16, ?17, 0, ?18, ?18)",
                 params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
-                    if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)) }, tx_id, e.group_id,
+                    if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)) }, key.scope.stored(tx_id), e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
-            p.stored.insert(c.last_insert_rowid());
+            let row = c.last_insert_rowid();
+            venue_ids::after_insert(c, &key.scope, row, tx_id)?;
+            p.stored.insert(row);
         }
         p.merged.extend(merged_ids(&e.raw.value));
         if split(e) {
@@ -832,7 +836,7 @@ fn duplicate(c: &Connection, key: &Key, p: &Progress, index: usize, tx_id: Optio
     if known_id(c, key, Some(tx_id), &p.merged)? { return Ok(true); }
     if api_dust(e, tx_id) { return api_dust_twin(c, key, e, tx_id, &p.stored, repeat); }
     if api_transfer(e.entry_type, &e.raw.value) { return api_transfer_twin(c, key, e, tx_id, &p.stored, repeat); }
-    same_event(c, key, e, e.entry_type, "AND tx_id IS NULL", &p.stored, repeat, &|r| {
+    same_event(c, key, e, e.entry_type, &format!("AND {}", key.scope.id_less("account_transactions")), &p.stored, repeat, &|r| {
         // A displaced adjusted fill is not an id-less copy of the original FILL, even at identical amounts/times.
         key.exchange_type == crate::venue::coinbase::COINBASE && e.raw.value["trade_type"] == "FILL"
             && r.raw["trade_id"] == e.raw.value["trade_id"]
@@ -844,8 +848,8 @@ fn duplicate(c: &Connection, key: &Key, p: &Progress, index: usize, tx_id: Optio
 struct Stored { id: i64, tx_id: Option<String>, entry_type: i64, base_currency: Option<String>, group_id: Option<String>, at: Option<DateTime<Utc>>, raw: Value }
 
 /// The stored rows `tail` (conditions on `account_transactions`, then an order) selects, in its order.
-fn stored_rows(c: &Connection, tail: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, SyncError> {
-    let mut s = c.prepare(&format!("SELECT id, tx_id, entry_type, base_currency, group_id, transacted_at, raw_data FROM account_transactions {tail}"))?;
+fn stored_rows(c: &Connection, scope: &crate::venue_ids::Scope, tail: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, SyncError> {
+    let mut s = c.prepare(&format!("SELECT id, {}, entry_type, base_currency, group_id, transacted_at, raw_data FROM account_transactions {tail}", scope.row_id("account_transactions")))?;
     let rows = s.query_map(p, |r| Ok((Stored { id: r.get(0)?, tx_id: r.get(1)?, entry_type: r.get(2)?, base_currency: r.get(3)?, group_id: r.get(4)?, at: None, raw: Value::Null },
                                       r.get::<_, Option<String>>(5)?, r.get::<_, Option<String>>(6)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().map(|(row, at, raw)| Stored {
@@ -859,9 +863,10 @@ fn same_events(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &st
     let Some(at) = e.transacted_at else { return Ok(vec![]) };
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let other = if present(&e.tx_id).is_some() { "tx_id IS NULL" } else { "tx_id IS NOT NULL" };
-    let scope = format!("{scope} {}", kucoin_source_scope(key, e));
-    stored_rows(c, &format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
+    let at_ = "account_transactions";
+    let other = if present(&e.tx_id).is_some() { key.scope.id_less(at_) } else { key.scope.has_id(at_) };
+    let scope = format!("{scope} AND {} {}", key.scope.rows(at_), kucoin_source_scope(key, e));
+    stored_rows(c, &key.scope, &format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
                              AND transacted_at >= ?6 AND transacted_at <= ?7 AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7)) ORDER BY id"),
                 params![key.user_id, key.exchange_id, entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), sql_time(from), sql_time(to)])
 }
@@ -889,8 +894,7 @@ fn same_event(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str
 fn known_id(c: &Connection, key: &Key, tx_id: Option<&str>, merged: &HashSet<String>) -> Result<bool, SyncError> {
     let Some(tx_id) = tx_id else { return Ok(false) };
     if merged.contains(tx_id) { return Ok(true); }
-    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id = ?3)",
-                   params![key.user_id, key.exchange_id, tx_id], |r| r.get(0))?)
+    Ok(venue_ids::known(c, &key.scope, tx_id)?)
 }
 
 /// One transfer as Binance's export and its API each describe it (AccountTransactionSync, "one transfer"): the export
@@ -930,8 +934,8 @@ fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_n
         let rows = s.query_map(p, |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
         Ok(rows.into_iter().map(|(id, raw)| (id, raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null))).collect())
     };
-    let base = format!("SELECT id, raw_data FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL \
-                        AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5");
+    let base = format!("SELECT id, raw_data FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} \
+                        AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5", key.scope.rows("account_transactions"), key.scope.id_less("account_transactions"));
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let same = raws(&format!("{base} AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
@@ -943,7 +947,7 @@ fn api_transfer_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_n
         let rows: Vec<i64> = raws(&sql, params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&amount), sql_time(from), sql_time(to)])?
             .into_iter().filter(|(_, raw)| file_transfer(e.entry_type, raw)).map(|(id, _)| id).collect();
         let [row] = rows[..] else { return Ok(false) };
-        match c.execute("UPDATE account_transactions SET tx_id = ?1 WHERE id = ?2 AND tx_id IS NULL", params![tx_id, row]) {
+        match venue_ids::set_id(c, &key.scope, row, Some(tx_id), Write::Adopt) {
             Ok(1) => return Ok(true),
             Ok(_) => {}
             Err(rusqlite::Error::SqliteFailure(f, _)) if f.code == rusqlite::ErrorCode::ConstraintViolation => return Ok(true),
@@ -977,7 +981,8 @@ fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: 
     };
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
-    let base = format!("SELECT id, entry_type, group_id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL");
+    let base = format!("SELECT id, entry_type, group_id FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {}",
+                       key.scope.rows("account_transactions"), key.scope.id_less("account_transactions"));
     let same = rows(&format!("{base} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at <= ?7"), // across sources: ends included
                     params![key.user_id, key.exchange_id, e.entry_type, e.base_currency, real(&e.base_amount), sql_time(from), sql_time(to)])?;
     if same.iter().filter(|(id, t, g)| !stored_now.contains(id) && !file_dust(*t, g.as_deref())).count() > repeat { return Ok(true); }
@@ -999,8 +1004,7 @@ fn api_dust_twin(c: &Connection, key: &Key, e: &Entry, tx_id: &str, stored_now: 
     let [(outs, ins)] = both[..] else { return Ok(false) };
     let (&[out], &[inn]) = (&outs[..], &ins[..]) else { return Ok(false) };
     let id = tx_id.strip_suffix("-out").or_else(|| tx_id.strip_suffix("-in")).unwrap_or(tx_id);
-    match c.execute("UPDATE account_transactions SET tx_id = CASE id WHEN ?1 THEN ?2 ELSE ?3 END WHERE id IN (?1, ?4) AND tx_id IS NULL",
-                    params![out, format!("{id}-out"), format!("{id}-in"), inn]) {
+    match venue_ids::adopt_pair(c, &key.scope, [(out, &format!("{id}-out")), (inn, &format!("{id}-in"))]) {
         Ok(n) => Ok(n == 2),
         Err(rusqlite::Error::SqliteFailure(f, _)) if f.code == rusqlite::ErrorCode::ConstraintViolation => Ok(true),
         Err(err) => Err(err.into()),
@@ -1036,7 +1040,8 @@ fn api_rows_for(c: &Connection, key: &Key, e: &Entry) -> Result<Vec<Stored>, Syn
         let to = at.checked_add_signed(Duration::seconds(1)).ok_or_else(|| SyncError("a time at the end of the calendar".into()))?;
         format!("transacted_at < '{}'", sql_time(to))
     };
-    let rows = stored_rows(c, &format!("WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NOT NULL AND entry_type = ?3 AND base_currency IS ?4 AND {window} ORDER BY id"),
+    let rows = stored_rows(c, &key.scope, &format!("WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} AND entry_type = ?3 AND base_currency IS ?4 AND {window} ORDER BY id",
+                                       key.scope.rows("account_transactions"), key.scope.has_id("account_transactions")),
                            params![key.user_id, key.exchange_id, e.entry_type, e.base_currency])?;
     Ok(rows.into_iter().filter(|r| api_transfer_row(r) && pairs(r, e)).collect())
 }
@@ -1059,7 +1064,7 @@ fn stamp(c: &Connection, id: i64, at: DateTime<Utc>) -> Result<bool, SyncError> 
 
 /// #paired?: an export row whose pairing is written down: stored with an API row's id, or its date stamped on one.
 fn paired(c: &Connection, key: &Key, e: &Entry) -> Result<bool, SyncError> {
-    if same_events(c, key, e, e.entry_type, "AND tx_id IS NOT NULL")?.iter().any(|r| !api_transfer_row(r)) { return Ok(true); }
+    if same_events(c, key, e, e.entry_type, &format!("AND {}", key.scope.has_id("account_transactions")))?.iter().any(|r| !api_transfer_row(r)) { return Ok(true); }
     Ok(match e.transacted_at { Some(at) => twinned(&api_rows_for(c, key, e)?, at), None => false })
 }
 
@@ -1127,8 +1132,8 @@ fn file_dust_twin(c: &Connection, key: &Key, p: &Progress, index: usize, repeat:
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     for _ in 0..2 {
         // Only a whole API conversion: one stored a leg short leaves the file's BNB credit standing, a visible double.
-        let rows = stored_rows(c, &format!("WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id LIKE 'dust-%' AND entry_type IN ({SWAP_OUT}, {SWAP_IN}) \
-                                            AND transacted_at >= ?3 AND transacted_at <= ?4 ORDER BY id"),
+        let rows = stored_rows(c, &key.scope, &format!("WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} LIKE 'dust-%' AND entry_type IN ({SWAP_OUT}, {SWAP_IN}) \
+                                            AND transacted_at >= ?3 AND transacted_at <= ?4 ORDER BY id", key.scope.rows("account_transactions"), key.scope.row_id("account_transactions")),
                                params![key.user_id, key.exchange_id, sql_time(from), sql_time(to)])?;
         let mut groups: Vec<(Option<String>, Vec<Stored>)> = vec![];
         for r in rows.into_iter().filter(|r| api_dust_row(r) && dust_leg(e, &conversion(&r.raw)).is_some()) {
@@ -1168,9 +1173,9 @@ fn replaced_trade(c: &Connection, key: &Key, p: &Progress, index: usize) -> Resu
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let trade = |kind: i64, base: &Entry, quote: &Entry| -> Result<bool, SyncError> {
-        Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND tx_id IS NULL \
+        Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} \
                                  AND transacted_at > ?3 AND transacted_at < ?4 AND entry_type = ?5 AND base_currency IS ?6 AND base_amount = ?7 \
-                                 AND quote_currency IS ?8 AND quote_amount = ?9)"),
+                                 AND quote_currency IS ?8 AND quote_amount = ?9)", key.scope.rows("account_transactions"), key.scope.id_less("account_transactions")),
                        params![key.user_id, key.exchange_id, sql_time(from), sql_time(to), kind, base.base_currency, real(&base.base_amount),
                                quote.base_currency, real(&quote.base_amount)], |r| r.get(0))?)
     };
@@ -1193,13 +1198,15 @@ fn legacy_token_swap(c: &Connection, key: &Key, p: &Progress, index: usize, repe
 fn bot_order(c: &Connection, key: &Key, tx_id: Option<&str>, raw: &Value) -> Result<Option<i64>, SyncError> {
     if super::binance_order_links::venue(&key.exchange_type) {
         if let Some(fill) = super::binance_order_links::fill_order(tx_id, raw) {
-            return Ok(match fill { Some(external) => super::binance_order_links::order(c, key.user_id, key.exchange_id, &external)?, None => None });
+            return Ok(match fill { Some(external) => super::binance_order_links::order(c, &key.scope, &external)?, None => None });
         }
     }
+    // #710: an order of the key's own account (a row is never another account's order's fill).
     for id in [tx_id, raw["order_id"].as_str().filter(|s| !blank(s))].into_iter().flatten() {
-        let found: Option<i64> = c.query_row("SELECT id FROM transactions WHERE external_id = ?1 AND exchange_id = ?2 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?3) LIMIT 1",
-                                             params![id, key.exchange_id, key.user_id], |r| r.get(0)).optional()?;
-        if found.is_some() { return Ok(found); }
+        let Some(found) = venue_ids::order_by_id(c, &key.scope, id)? else { continue };
+        let owned: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE id = ?1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2))",
+                                      params![found, key.user_id], |r| r.get(0))?;
+        if owned { return Ok(Some(found)); }
     }
     Ok(None)
 }
@@ -1217,11 +1224,13 @@ fn asset_ids_named(c: &Connection, exchange_id: i64, name: &str) -> Result<Vec<i
 }
 
 /// AccountTransactionSync.rows_naming as a WHERE clause over `transactions`: the user's submitted orders on this
-/// venue for the asset a symbol names (params: ?1 exchange, ?2 user, ?3 symbol).
+/// venue for the asset a symbol names (params: ?1 exchange, ?2 user, ?3 symbol). Only splits read it, and a split is a
+/// security's corporate action: an order that stored a coin is never named (#478), whichever arm matched it.
 fn rows_naming(c: &Connection, exchange_id: i64, symbol: &str) -> Result<String, SyncError> {
     let ids = asset_ids_named(c, exchange_id, symbol)?.iter().map(i64::to_string).collect::<Vec<_>>().join(", ");
     let by_asset = if ids.is_empty() { String::new() } else { format!(" OR base_asset_id IN ({ids})") };
-    Ok(format!("status = 0 AND exchange_id = ?1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2) AND (base = ?3{by_asset})"))
+    Ok(format!("status = 0 AND exchange_id = ?1 AND bot_id IN (SELECT id FROM bots WHERE user_id = ?2) AND (base = ?3{by_asset}) \
+                AND NOT EXISTS (SELECT 1 FROM assets a WHERE a.id = transactions.base_asset_id AND a.category = 'Cryptocurrency')"))
 }
 
 /// The bots AccountTransactionSync.expire_restated_bots moves: every bot of the user that traded the symbol on this venue.
@@ -1430,14 +1439,14 @@ fn coinbase_rekey(c:&Connection,key:&Key,e:&Entry,merged:&HashSet<String>)->Resu
     let raw=&e.raw.value;
     if raw["trade_type"] == "FILL" {
         if let (Some(id), Some(trade)) = (present(&e.tx_id), raw["trade_id"].as_str().filter(|s| !s.is_empty())) {
-            let rows = stored_rows(c,"WHERE user_id=?1 AND exchange_id=?2 AND tx_id=?3",params![key.user_id,key.exchange_id,id])?;
+            let rows = stored_rows(c, &key.scope, &format!("WHERE user_id=?1 AND exchange_id=?2 AND {}",key.scope.id_is("account_transactions","?3")),params![key.user_id,key.exchange_id,id])?;
             for row in rows.iter().filter(|r| r.raw["trade_id"] == trade && r.raw["trade_type"].as_str().is_some_and(|t| !t.is_empty() && t != "FILL")) {
                 // Free the original FILL's unique id before its page is stored. A later page can rekey an old
                 // adjusted row without entry_id by its event; NULL keeps that row without inventing a venue id.
                 let replacement = row.raw["entry_id"].as_str().filter(|s| !s.is_empty()).map(|entry| id.replacen(trade, entry, 1));
                 if replacement.as_deref().is_some_and(|new| new == id) { continue; }
                 if replacement.is_some() && known_id(c,key,replacement.as_deref(),merged)? { continue; }
-                c.execute("UPDATE account_transactions SET tx_id=?1 WHERE id=?2",params![replacement,row.id])?;
+                venue_ids::set_id(c,&key.scope,row.id,replacement.as_deref(),Write::Replace)?;
             }
         }
         return Ok(());
@@ -1446,13 +1455,14 @@ fn coinbase_rekey(c:&Connection,key:&Key,e:&Entry,merged:&HashSet<String>)->Resu
     let (Some(entry),Some(trade),Some(id))=(raw["entry_id"].as_str().filter(|s|!s.is_empty()),raw["trade_id"].as_str().filter(|s|!s.is_empty()),present(&e.tx_id))else{return Ok(())};
     if known_id(c,key,Some(id),merged)?{return Ok(());}
     let legacy=id.replacen(entry,trade,1);
-    let rows=stored_rows(c,"WHERE user_id=?1 AND exchange_id=?2 AND (tx_id=?3 OR (tx_id IS NULL AND json_extract(raw_data,'$.trade_id')=?4 AND json_extract(raw_data,'$.trade_type') NOT IN ('','FILL'))) AND base_currency IS ?5 AND entry_type=?6 ORDER BY id",params![key.user_id,key.exchange_id,legacy,trade,e.base_currency,e.entry_type])?;
+    let (rid,rows_of)=(key.scope.row_id("account_transactions"),key.scope.rows("account_transactions"));
+    let rows=stored_rows(c, &key.scope, &format!("WHERE user_id=?1 AND exchange_id=?2 AND {rows_of} AND ({rid}=?3 OR ({rid} IS NULL AND json_extract(raw_data,'$.trade_id')=?4 AND json_extract(raw_data,'$.trade_type') NOT IN ('','FILL'))) AND base_currency IS ?5 AND entry_type=?6 ORDER BY id"),params![key.user_id,key.exchange_id,legacy,trade,e.base_currency,e.entry_type])?;
     let exact=rows.iter().find(|r|r.raw["entry_id"]==entry);
     let selected=if let Some(row)=exact{Some(row.id)}else{
         let events=same_events(c,key,e,e.entry_type,"AND json_extract(raw_data, '$.entry_id') IS NULL")?;
         rows.iter().find(|r|events.iter().any(|event|event.id==r.id)).map(|r|r.id)
     };
-    if let Some(row)=selected{c.execute("UPDATE account_transactions SET tx_id=?1 WHERE id=?2",params![id,row])?;}
+    if let Some(row)=selected{venue_ids::set_id(c,&key.scope,row,Some(id),Write::Replace)?;}
     Ok(())
 }
 

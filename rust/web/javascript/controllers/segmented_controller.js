@@ -140,6 +140,7 @@ export default class extends Controller {
   // MODIFIED click is ignored: it opens a new tab and leaves this page as it was, so moving the
   // chip would put it on an option aria-current still says is not the one.
   select(event) {
+    this.cleared = false;
     const chosen = event.currentTarget;
     if (chosen.href && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0)) return;
     if (this.#frameId && chosen.href) {
@@ -163,6 +164,21 @@ export default class extends Controller {
     this.#layout();
     this.#remember(chosen.dataset.value);
     this.dispatch("change", { detail: { value: chosen.dataset.value } });
+  }
+
+  // No option holds any more: the state a consumer draws has left them all (the chart's range, once a zoom or a pan
+  // has moved the view off its preset). Expanded, no chip; collapsed, the trigger names the control. Choosing an option
+  // ends it.
+  clear() {
+    this.cleared = true;
+    this.optionTargets.forEach((option, i) => {
+      option.classList.remove("is-on");
+      if (option.hasAttribute("role")) {
+        option.setAttribute("aria-checked", "false");
+        option.tabIndex = i === 0 ? 0 : -1;
+      }
+    });
+    this.#layout();
   }
 
   // --- frame mode ---------------------------------------------------------------------
@@ -402,7 +418,9 @@ export default class extends Controller {
   #room() {
     const parent = this.element.parentElement;
     const gap = parseFloat(getComputedStyle(parent).columnGap) || 0;
-    return [...parent.children].reduce(
+    // Boxes only: a hidden field (the asset search's `kind`) takes no width and leaves no gap, and
+    // charging a gap for it folded the switch with the room to spare.
+    return [...parent.children].filter((child) => child.getClientRects().length > 0).reduce(
       (room, child) => (child === this.element ? room : room - child.getBoundingClientRect().width - gap),
       parent.clientWidth
     );
@@ -411,13 +429,15 @@ export default class extends Controller {
   #moveThumb() {
     if (!this.hasThumbTarget) return;
 
+    const none = this.cleared && !this.optionTargets.some((option) => option.classList.contains("is-on"));
     const selected = this.optionTargets.find((option) => option.classList.contains("is-on")) || this.optionTargets[0];
     if (!selected) return;
+    this.thumbTarget.style.opacity = none && !this.#collapsed ? "0" : "";
 
     // Collapsed, the chip IS the trigger: it carries the selected label and sizes itself to it,
     // so the measured left and width have to go.
     if (this.#collapsed) {
-      this.thumbTarget.textContent = selected.textContent.trim();
+      this.thumbTarget.textContent = none ? this.element.getAttribute("aria-label") : selected.textContent.trim();
       this.thumbTarget.style.left = this.thumbTarget.style.width = "";
       return;
     }

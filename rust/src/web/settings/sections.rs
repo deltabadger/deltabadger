@@ -384,25 +384,6 @@ pub fn email_notifications(ctx: &Ctx, csrf: &str, m: &Mail) -> String {
     format!("<turbo-frame class=\"sitem\" id=\"email_notifications\">{inner}</turbo-frame>")
 }
 
-/// shared/_segmented as a radio group, where these widgets place it.
-pub fn segmented(label: &str, fluid: bool, options: &[(&str, String, bool)]) -> String {
-    let buttons: String = options
-        .iter()
-        .map(|(value, text, on)| {
-            format!(
-                "\n            <button type=\"button\" class=\"segmented__option{}\" role=\"radio\" aria-checked=\"{on}\" tabindex=\"{}\" data-value=\"{value}\" data-segmented-target=\"option\" data-action=\"segmented#select keydown-&gt;segmented#keys\">{text}</button>",
-                if *on { " is-on" } else { "" },
-                if *on { "0" } else { "-1" }
-            )
-        })
-        .collect();
-    format!(
-        "\n<div class=\"segmented{}\" role=\"radiogroup\" aria-label=\"{}\" data-controller=\"segmented\" data-action=\"click-&gt;segmented#toggle\">\n  <span class=\"segmented__thumb\" data-segmented-target=\"thumb\"></span>\n  <div class=\"segmented__dropdown dropdown\" data-segmented-target=\"dropdown\">\n    <div class=\"segmented__panes\">\n      <div class=\"segmented__pane segmented__menu\">{buttons}\n      </div>\n    </div>\n  </div>\n  <span class=\"segmented__caret\" aria-hidden=\"true\">\n    <svg class=\"icon-16\" fill=\"none\" viewbox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\">\n<path clip-rule=\"evenodd\" d=\"M4.3 6.3a1 1 0 0 1 1.4 0L8 8.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z\" fill-rule=\"evenodd\"></path>\n</svg>\n\n</span></div>\n",
-        if fluid { " segmented--fluid" } else { "" },
-        escape(label)
-    )
-}
-
 /// settings/widgets/_market_data.
 pub struct Market<'a> {
     /// The platform's own feed, the only one there is: its note.
@@ -414,88 +395,120 @@ pub struct Market<'a> {
     pub platform_note: &'a str,
     pub coingecko_instructions: &'a str,
     pub platform_errors: Option<&'a str>,
+    /// The provider whose connect card Settings draws: a tile picked, or a write that needs its form again.
+    pub card: Option<&'a str>,
 }
 
+/// The providers as the wizard's exchange tiles (CoinGecko's mark is its wordmark, deltabadger's the logo beside the
+/// lowercase name), each opening its connect card at `href(provider)` in `frame`.
+pub fn market_data_providers(ctx: &Ctx, frame: &str, href: impl Fn(&str) -> String) -> String {
+    let tiles: String = [("coingecko", "CoinGecko", false, include_str!("../../../templates/svg/_coingecko_wordmark.html")),
+                         ("deltabadger", "deltabadger", true, include_str!("../../../templates/svg/_40x30_logo.html"))]
+        .iter()
+        .map(|(key, name, shown, mark)| format!(
+            "
+        <div class=\"exchange-grid__option\">\n          <a class=\"exchange-grid__item exchange-grid__item--provider\" data-turbo-frame=\"{frame}\" href=\"{}\" aria-label=\"{name}\">{mark}{}</a>\n        </div>",
+            escape(&href(key)), if *shown { format!("<span>{name}</span>") } else { String::new() }))
+        .collect();
+    format!("<section class=\"exchange-group\">\n      <h3 class=\"label\">{}</h3>\n      <div class=\"exchange-grid\">{tiles}\n      </div>\n    </section>", ctx.t("bot.setup.market_data.providers"))
+}
+
+/// D-MARKET-DATA-PICK: Connect's market data, as the index wizard connects it: with no provider, the intro and the
+/// providers' tiles; a tile opens its connect card (Back returns to the tiles). A connected provider is its row: CoinGecko
+/// with resync and disconnect and, under it, the upgrade to the Deltabadger Data API; the claimed platform with its disconnect.
 pub fn market_data(ctx: &Ctx, csrf: &str, m: &Market) -> String {
-    let label = ctx.t("settings.index.resync_assets_section");
+    let heading = format!("\n  <h3 class=\"sheet__heading sheet__heading--first\">{}</h3>", ctx.t("settings.index.resync_assets_section"));
     if let Some(note) = m.hosted {
-        return format!("<turbo-frame id=\"market_data_settings\">\n\n    {}\n</turbo-frame>", row(&label, Some(note), "srow--heading", "", None, None));
+        return format!("<turbo-frame id=\"market_data_settings\">{heading}\n  <p class=\"sheet__intro\">{note}</p>\n</turbo-frame>");
     }
-    // D-MARKET-DATA-NO-SWITCH: no on/off switch; market data is on once a provider is connected. With none, the picker
-    // stands on the one to connect (the claimed platform, else CoinGecko) and shows its connect card.
-    let selected = if !m.selected.is_empty() { m.selected } else if m.platform_connected { "deltabadger" } else { "coingecko" };
-    let mut body = format!(
-        "\n\n    <div data-controller=\"form--market-data\" data-action=\"segmented:change->form--market-data#select\"\n         data-form--market-data-platform-connected-value=\"{}\">\n      {}\n",
-        m.platform_connected,
-        row(&label, None, "srow--heading", "", None, None)
-    );
-    {
-        let provider = ctx.t("settings.sections.provider");
+    if let Some(provider) = m.card {
+        return market_data_card(ctx, csrf, provider, m, false);
+    }
+    let mut body = heading;
+    if m.coingecko_configured {
         let control = format!(
-            "\n          {}\n            {}            <input value=\"{}\" data-form--market-data-target=\"provider\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n</form>",
-            form_open(" data-form--market-data-target=\"providerForm\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
-            segmented(&provider, true, &[("coingecko", "CoinGecko".into(), selected == "coingecko"), ("deltabadger", ctx.t("settings.platform.option"), selected == "deltabadger")]),
-            selected
+            "\n              <form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--secondary\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>\n              {}\n",
+            escape(&ctx.path("/settings/resync_assets")),
+            ctx.t("settings.resync_assets.button"),
+            super::dialog::confirm(csrf, &ctx.t("settings.market_data.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.market_data.disconnect"), &ctx.path("/settings/disconnect_market_data"), "delete", &[])
         );
-        body.push_str(&format!("        {}\n", row(&provider, None, "", "", None, Some(&control))));
-        let connect = ctx.t("button.connect");
-        let validating = format!(" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\"", ctx.t("bot.setup.validating"));
-        let coingecko = if m.coingecko_configured {
-            let control = format!(
-                "\n              <form class=\"button_to\" method=\"post\" action=\"{}\"><button class=\"rbutton rbutton--secondary\" type=\"submit\">{}</button><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" /></form>\n              {}\n",
-                escape(&ctx.path("/settings/resync_assets")),
-                ctx.t("settings.resync_assets.button"),
-                super::dialog::confirm(csrf, &ctx.t("settings.market_data.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.market_data.disconnect"), &ctx.path("/settings/disconnect_market_data"), "delete", &[])
-            );
-            format!("\n            {}", row("CoinGecko", Some(&ctx.t("settings.market_data.coingecko_configured")), "", "", None, Some(&control)))
-        } else {
-            let key = ctx.t("setup.coingecko_api_key");
-            format!(
-                "\n            {}\n              <input value=\"coingecko\" type=\"hidden\" name=\"market_data_provider\" id=\"market_data_provider\" />\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{key}\" aria-label=\"{key}\" type=\"text\" name=\"coingecko_api_key\" id=\"coingecko_api_key\" />\n              {}\n              <section class=\"shelp\">\n                <h3 class=\"shelp__title\">{}</h3>\n                <div class=\"sheet__prose\">{}</div>\n              </section>\n</form>",
-                form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
-                submit(&connect, &validating),
-                crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("CoinGecko"))]),
-                m.coingecko_instructions
-            )
-        };
-        body.push_str(&format!(
-            "        <div class=\"sitem\" data-form--market-data-target=\"coingeckoFields\" {}>{coingecko}\n        </div>\n\n",
-            if selected == "coingecko" { "" } else { "hidden" }
-        ));
-        let claim = if m.platform_connected {
-            // Claimed but not the provider (CoinGecko was disconnected, or the old switch turned it off): one button.
-            if m.selected == "deltabadger" {
-                String::new()
-            } else {
-                format!(
-                    "\n            {}\n              <input value=\"deltabadger\" type=\"hidden\" name=\"market_data_provider\" />\n              {}\n</form>",
-                    form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/update_market_data"), "patch", csrf),
-                    submit(&connect, "")
-                )
-            }
-        } else {
-            let code = ctx.t("settings.platform.code");
-            format!(
-                "\n            {}\n{}              <p class=\"srow__hint\">{}</p>\n              <input required=\"required\" autocomplete=\"off\" class=\"rinput rinput--outline rinput--text\" placeholder=\"{code}\" aria-label=\"{code}\" type=\"text\" name=\"claim_code\" id=\"claim_code\" />\n              {}\n</form>",
-                form_open(" class=\"sform sform--stack sform--inset sitem\" data-turbo-frame=\"market_data_settings\"", &ctx.path("/settings/platform_connection"), "post", csrf),
-                m.platform_errors.map(|errors| format!("                <p class=\"sform__error\" role=\"alert\">{}</p>\n", escape(errors))).unwrap_or_default(),
-                ctx.t("settings.platform.subscription_html"),
-                submit(&connect, &validating)
-            )
-        };
-        body.push_str(&format!(
-            "        <div class=\"sitem\" data-form--market-data-target=\"deltabadgerButtons\" {}>{claim}        </div>\n",
-            if selected == "deltabadger" { "" } else { "hidden" }
-        ));
+        body.push_str(&format!("\n  {}", row("CoinGecko", Some(&ctx.t("settings.market_data.coingecko_configured")), "", "", None, Some(&control))));
+        // On CoinGecko the Deltabadger Data API stays on offer: stocks too, and a stable IP to whitelist. Its card claims a code,
+        // or for a claimed platform is one Connect button that makes it the provider.
+        let upgrade = format!(
+            "\n          <a class=\"rbutton rbutton--secondary\" data-turbo-frame=\"settings_pane\" href=\"{}\">{}</a>\n",
+            escape(&ctx.path("/settings/connect?provider=deltabadger")),
+            ctx.t("settings.market_data.upgrade_button")
+        );
+        body.push_str(&format!("\n  {}", row(&ctx.t("settings.market_data.upgrade_title"), Some(&ctx.t("settings.market_data.upgrade")), "", "", None, Some(&upgrade))));
+    } else if m.selected != "deltabadger" {
+        let tiles = market_data_providers(ctx, "settings_pane", |key| ctx.path(&format!("/settings/connect?provider={key}")));
+        body.push_str(&format!("\n  <p class=\"sheet__intro\">{}</p>\n  {tiles}", ctx.t("settings.market_data.intro")));
     }
     if m.platform_connected {
         let control = format!(
             "\n          {}\n",
             super::dialog::confirm(csrf, &ctx.t("settings.platform.disconnect"), &ctx.t("settings.index.api_key_confirmation"), &ctx.t("settings.platform.disconnect"), &ctx.path("/settings/platform_connection"), "delete", &[])
         );
-        body.push_str(&format!("\n        {}\n", row(&ctx.t("settings.platform.option"), Some(m.platform_note), "", "", None, Some(&control))));
+        body.push_str(&format!("\n  {}", row(&ctx.t("settings.platform.option"), Some(m.platform_note), "", "", None, Some(&control))));
     }
-    format!("<turbo-frame id=\"market_data_settings\">{body}\n    </div>\n</turbo-frame>")
+    format!("<turbo-frame id=\"market_data_settings\">{body}\n</turbo-frame>")
+}
+
+/// D-INDEX-CONNECT-IN-VIEW: a market-data provider's connect card in the index wizard's Index view, drawn as the wizard's
+/// exchange key card (`.set-api--connect`): the provider's mark and name with Connect on that line, its field under them, the
+/// walkthrough (CoinGecko's) or the subscription note (Deltabadger's) under that. The same frame, fields and writes as Settings'
+/// widget, each form carrying `wizard=1`. Settings' Connect draws it too (`wizard` false): Back to its tiles, no `wizard=1`.
+pub fn market_data_card(ctx: &Ctx, csrf: &str, provider: &str, m: &Market, wizard: bool) -> String {
+    let deltabadger = provider == "deltabadger";
+    let (action, method) = if deltabadger && !m.platform_connected { ("/settings/platform_connection", "post") } else { ("/settings/update_market_data", "patch") };
+    let method_field = if method == "post" { String::new() } else { format!("<input type=\"hidden\" name=\"_method\" value=\"{method}\" />") };
+    let (name, mark) = if deltabadger { ("deltabadger".to_string(), include_str!("../../../templates/svg/_40x30_logo.html")) }
+                       else { ("CoinGecko".to_string(), include_str!("../../../templates/svg/_coingecko.html")) };
+    let field = |name: &str, label: &str, error: Option<&str>| format!(
+        "\n    <input autofocus=\"autofocus\" required=\"required\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text{}\" placeholder=\"{label}\" aria-label=\"{label}\" type=\"text\" name=\"{name}\" id=\"{name}\" />{}",
+        if error.is_some() { " rinput--invalid" } else { "" },
+        error.map(|e| format!("\n    <p class=\"sform__error\" role=\"alert\">{}</p>", escape(e))).unwrap_or_default());
+    let fields = match (deltabadger, m.platform_connected) {
+        (false, _) => format!("<input type=\"hidden\" name=\"market_data_provider\" value=\"coingecko\" />{}", field("coingecko_api_key", &ctx.t("setup.coingecko_api_key"), None)),
+        // Claimed but not the provider: Connect alone.
+        (true, true) => "<input type=\"hidden\" name=\"market_data_provider\" value=\"deltabadger\" />".to_string(),
+        (true, false) => field("claim_code", &ctx.t("settings.platform.code"), m.platform_errors),
+    };
+    let help = if deltabadger {
+        let t = |key: &str| ctx.t(&format!("bot.setup.market_data.subscription.{key}"));
+        let perks: String = ["indexes", "history", "ip"].iter().map(|k| format!("<p><b>{}</b><br>{}</p>", t(&format!("{k}_title")), t(k))).collect();
+        format!("<div class=\"sheet__prose sheet__prose--perks\"><p>{}</p>{perks}</div>", t("lead_html"))
+    } else {
+        format!("<h3 class=\"set-api__eyebrow\">{}</h3>\n      {}", crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("CoinGecko"))]), m.coingecko_instructions)
+    };
+    let connect = ctx.t("button.connect");
+    // The logo is Back: the Index view's providers, or Connect's.
+    let (back, frame, mark_wizard) = if wizard { (crate::web::wizard::INDEX_VIEW, "modal_content", "<input type=\"hidden\" name=\"wizard\" value=\"1\" />") }
+                                     else { ("/settings/connect", "settings_pane", "") };
+    let (back, back_label) = (escape(&ctx.path(back)), ctx.t("button.back"));
+    // In Settings the wizard's key-step layout goes around it, as the Index view's does (the card's styles are scoped to it).
+    let (layout, layout_end) = if wizard { ("", "") } else { ("<div class=\"bot-creation-layout bot-creation-layout--api\"><div class=\"vt-step-body\">\n", "\n</div></div>") };
+    format!(
+        "<turbo-frame id=\"market_data_settings\">\n{layout}<div class=\"set-api set-api--connect\">\n  <header class=\"set-api__brand\">\n  <a class=\"set-api__back\" href=\"{back}\" data-turbo-frame=\"{frame}\" data-wizard-dir=\"back\" title=\"{back_label}\">\n  <span class=\"set-api__mark{}\" aria-hidden=\"true\">{mark}</span>\n  <h2 class=\"set-api__title\">{}</h2>\n  </a>\n</header>\n  <form class=\"set-api__form form\" data-turbo-frame=\"market_data_settings\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\">{method_field}<input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />{mark_wizard}{fields}\n    <div class=\"set-api__actions\">\n      <input type=\"submit\" name=\"commit\" value=\"{connect}\" class=\"rbutton rbutton--secondary\" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\" data-disable-with=\"{connect}\" />\n    </div>\n</form>\n    <section class=\"set-api__instructions\">\n      {help}\n    </section>\n</div>{layout_end}\n</turbo-frame>",
+        if deltabadger { " set-api__mark--deltabadger" } else { "" }, escape(&name), escape(&ctx.path(action)), ctx.t("bot.setup.validating"))
+}
+
+/// D-TRACKER-COINGECKO-SHEET: the tracker's CoinGecko card (its "Connect to CoinGecko" links, a report with no market data), as
+/// the wizard draws `market_data_card` but with no Back (no step before it): for an admin the key field posting to
+/// `/tracker/setup_coingecko`, `error` under it; for anyone else who to ask.
+pub fn tracker_coingecko_card(ctx: &Ctx, csrf: &str, admin: bool, error: Option<&str>) -> String {
+    let (name, mark) = ("CoinGecko", include_str!("../../../templates/svg/_coingecko.html"));
+    let header = format!("  <header class=\"set-api__brand\">\n  <span class=\"set-api__mark\" aria-hidden=\"true\">{mark}</span>\n  <h2 class=\"set-api__title\">{name}</h2>\n</header>");
+    if !admin { return format!("<div class=\"set-api set-api--connect\">\n{header}\n  <p class=\"set-api__note\">{}</p>\n</div>", ctx.t("setup.coingecko_admin_only")) }
+    let label = ctx.t("setup.coingecko_api_key");
+    let invalid = if error.is_some() { " rinput--invalid\" aria-invalid=\"true\" aria-describedby=\"api_key_error" } else { "" };
+    let error = error.map(|e| format!("\n    <p class=\"sform__error\" id=\"api_key_error\" role=\"alert\">{}</p>", escape(e))).unwrap_or_default();
+    let connect = ctx.t("button.connect");
+    let how = crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text(name))]);
+    format!(
+        "<div class=\"set-api set-api--connect\">\n{header}\n  <p class=\"set-api__note\">{}</p>\n  <form class=\"set-api__form form\" {} action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"authenticity_token\" value=\"{csrf}\" />\n    <input required=\"required\" autofocus=\"autofocus\" autocomplete=\"off\" data-controller=\"autofocus\" class=\"rinput rinput--outline rinput--text{invalid}\" placeholder=\"{label}\" aria-label=\"{label}\" type=\"text\" name=\"api_key\" id=\"api_key\" />{error}\n    <div class=\"set-api__actions\">\n      <input type=\"submit\" name=\"commit\" value=\"{connect}\" class=\"rbutton rbutton--secondary\" data-turbo-stream=\"true\" data-turbo-submits-with=\"{}\" data-disable-with=\"{connect}\" />\n    </div>\n</form>\n    <section class=\"set-api__instructions\">\n      <h3 class=\"set-api__eyebrow\">{how}</h3>\n      {}\n    </section>\n</div>",
+        ctx.t("tracker.setup_coingecko_html"), super::keys::SHEET_FORM, escape(&ctx.path("/tracker/setup_coingecko")), ctx.t("bot.setup.validating"), ctx.t("setup.coingecko_api_key_hint_html"))
 }
 
 /// One exchange key of settings/widgets/_api_keys.

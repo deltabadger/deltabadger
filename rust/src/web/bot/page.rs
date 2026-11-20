@@ -20,6 +20,8 @@ struct OtherExchange {
     svg: &'static str,
     /// The user has a working trading key there.
     connected: bool,
+    /// #710: (account id, number) when its exchange has 2+ live accounts: the item names that account.
+    account: Option<(i64, i64)>,
 }
 
 #[derive(Template)]
@@ -161,12 +163,25 @@ fn other_exchanges(c: &Connection, bot: &Bot, user_id: i64) -> Result<Vec<OtherE
             }
         }
     };
+    // #710: an exchange with 2+ live accounts lists each of them (the bot's own excepted), its own exchange included; one
+    // with fewer is one item, as before.
+    let own = crate::identity::Account::of_bot(c, bot.id)?;
     let mut others = vec![];
-    for id in ids.into_iter().filter(|id| *id != bot.exchange.id) {
+    for id in ids {
+        let accounts = crate::identity::accounts_of(c, user_id, id)?;
+        let listed: Vec<Option<(i64, i64)>> = if accounts.len() < 2 { if id == bot.exchange.id { vec![] } else { vec![None] } }
+            else { accounts.into_iter().filter(|(account, _)| own.and_then(|a| a.id) != Some(*account)).map(Some).collect() };
+        if listed.is_empty() { continue; }
         let (name, class): (Option<String>, Option<String>) = c.query_row("SELECT name, type FROM exchanges WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
         let exchange = super::Exchange { id, name: name.unwrap_or_default(), class: class.unwrap_or_default(), maker_fee: None };
-        let connected = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND status = 1)", [user_id, id], |r| r.get(0))?;
-        others.push(OtherExchange { id, name: capitalize(&exchange.name), svg: exchange_svg(&exchange.name_id()), connected });
+        for account in listed {
+            let keys = match account {
+                Some((account, _)) => crate::identity::Account::by_id(c, account)?.map_or_else(|| "0".into(), |a| a.keys("k")),
+                None => format!("k.user_id = {user_id} AND k.exchange_id = {id}"),
+            };
+            let connected = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {keys} AND k.status = 1)"), [], |r| r.get(0))?;
+            others.push(OtherExchange { id, name: capitalize(&exchange.name), svg: exchange_svg(&exchange.name_id()), connected, account });
+        }
     }
     Ok(others)
 }
@@ -384,6 +399,46 @@ pub async fn chart_frame(State(app): State<App>, Extension(ctx): Extension<Ctx>,
     let (inner, owner) = (app.clone(), user.clone());
     let shell = match app.db(move |c| Shell::load(c, &inner, &owner)).await { Ok(shell) => shell, Err(error) => return layout::or_refused(&ctx, error) };
     shell::application(&ctx, &csrf, &user, &shell, Page { status: StatusCode::OK, body, flash_now: Vec::new() })
+}
+
+/// GET /bots/:bot_id/chart/data (D-CHART-DATA-REQUEST): the chart's series, thinned to `points`, read from the record the
+/// page's figures are (`loading::render_page`: the same producer, freshness and stale rules), never computed here. Whether
+/// the page draws the chart inline (`chart_cached`) is no condition: a shell asks exactly when its record has a series.
+/// 204 while no record is kept (the work is queued, and the shell's next `rev` asks again) or its chart is not drawn.
+pub async fn chart_data(State(app): State<App>, Extension(ctx): Extension<Ctx>, headers: HeaderMap, Path(segment): Path<String>) -> Result<Response, WebError> {
+    // Asked by `fetch` with a JSON Accept: signed out is Devise's 401 in JSON, as for the dashboard's reorder.
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated_in_format(&ctx, &headers)) };
+    let Some(query) = chart_query(&ctx) else { return Ok(StatusCode::BAD_REQUEST.into_response()) };
+    let (inner, owner) = (app.clone(), user.clone());
+    let locale = ctx.locale;
+    let bot = match app.db(move |c| find(c, &inner, &owner, &segment, true, if matches!(inner.figure_source,crate::web::figure::loading::Source::Disabled) { super::For::Page } else { super::For::FiguresPage }, locale)).await {
+        Ok((Found::Bot(bot), _)) => *bot,
+        Ok((Found::Missing, _)) => return Ok(StatusCode::NOT_FOUND.into_response()),
+        Ok((Found::NotPorted(reason), _)) => return Ok(layout::refused(&ctx, reason)),
+        Err(error) => return layout::or_refused(&ctx, error),
+    };
+    let snapshot = crate::web::figure::loading::prepare(&app,user.id).await?;
+    let (view,id,token,inner)=(ctx.clone(),bot.id,ctx.csrf_token(),app.clone());
+    let answer = app.db(move|c|{
+        let figures=crate::web::figure::loading::render_page(&inner,c,user.id,&snapshot,view.locale,&token,&view.path(""))?;
+        let Some(text)=figures.as_ref().and_then(|v|v["bots"][id.to_string()]["series"].as_str()) else { return Ok(None) };
+        let series:crate::figures::chart::Series=serde_json::from_str(text).map_err(|e|WebError::Task(format!("chart series: {e}")))?;
+        Ok(Some(series.window(&query).to_string()))
+    }).await?;
+    let Some(answer) = answer else { return Ok(StatusCode::NO_CONTENT.into_response()) };
+    Ok(([(axum::http::header::CONTENT_TYPE, "application/json"), (axum::http::header::CACHE_CONTROL, "private, no-store")], answer).into_response())
+}
+/// The data request's query; None when a part of it cannot be read (a 400).
+fn chart_query(ctx: &Ctx) -> Option<crate::figures::chart::Query> {
+    use crate::figures::chart::{Query, POINTS, POINTS_RANGE};
+    let number = |name: &str| ctx.params.query(name).map(|v| v.parse::<i64>().ok()).map_or(Some(None), |v| v.map(Some));
+    let flag = |name: &str| match ctx.params.query(name) { None | Some("0") => Some(false), Some("1") => Some(true), Some(_) => None };
+    let points = match ctx.params.query("points") { None => POINTS, Some(v) => v.parse::<usize>().ok().filter(|p| POINTS_RANGE.contains(p))? };
+    let (from, to) = (number("from")?, number("to")?);
+    if from.zip(to).is_some_and(|(from, to)| from > to) { return None; }
+    // D-CHART-LIVE: `after` and `sum` come together or not at all.
+    let after = match (number("after")?, ctx.params.query("sum")) { (None, None) => None, (Some(after), Some(sum)) if !sum.is_empty() => Some((after, sum.to_string())), _ => return None };
+    Some(Query { from, to, points, asset: ctx.params.query("asset").filter(|key| !key.is_empty()).map(str::to_string), prices: flag("prices")?, buys: flag("buys")?, after })
 }
 
 #[derive(Template)]

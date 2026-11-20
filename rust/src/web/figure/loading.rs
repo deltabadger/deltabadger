@@ -4,6 +4,7 @@ use crate::figures::{at::At,budget,db,page_market::{Cache,FxDeps,FxSnapshot,Prod
 use crate::venue::http::{self,HttpRequest,HttpResponse,ReqwestTransport,Transport,TransportError};
 use crate::web::{App,WebError};
 use crate::crypto::Credentials;
+use crate::tracker::cache::Sales;
 use rusqlite::{Connection,OptionalExtension};
 use serde_json::Value;
 use std::time::Duration;
@@ -128,7 +129,8 @@ fn stale_shown(mut shown:Value,then:&Value,now:&Value)->Option<Value> {
     Some(shown)
 }
 
-pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
+/// `now`: the time the bot sales are read at (they expire).
+pub fn revision(c:&Connection,user:i64,now:chrono::DateTime<chrono::Utc>)->Result<(u64,usize),rusqlite::Error> {
     use std::hash::{Hash,Hasher};
     use crate::figures::FiguresError;
     let mut hash=std::hash::DefaultHasher::new();
@@ -137,6 +139,10 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     fn computed<T>(result:Result<T,FiguresError>,hash:&mut impl Hasher)->Result<Option<T>,rusqlite::Error> {
         match result { Ok(v)=>Ok(Some(v)), Err(FiguresError::Sqlite(e))=>Err(e), Err(other)=>{format!("{other:?}").hash(hash);Ok(None)} }
     }
+    // The bot sales a sell-only bot's P/L is read from (D-SELL-ONLY-*): an open page refills when the ledger republishes
+    // them. What kept figures are held to is `sales_hold`; this is only the refill's trigger.
+    "sales".hash(&mut hash);
+    computed(budget::within(||crate::figures::basis::dependency(c,user,now)),&mut hash)?.hash(&mut hash);
     // What each split row's name stands for on the venue it was reported on, as the walk of each bot's orders resolves
     // it. A name resolves alike for every bot that traded on its venue: one lookup over the venues of all their
     // submitted orders that name a base (splits::eligibility), read from those columns alone. Parsing the orders whole
@@ -144,9 +150,14 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let eligible=format!("SELECT DISTINCT exchange_id FROM transactions WHERE bot_id IN (SELECT id FROM bots WHERE user_id=?1 AND status!={}) \
         AND status={} AND (trim(base)<>'' OR base_asset_id IS NOT NULL) ORDER BY exchange_id",crate::enums::BotStatus::Deleted as i64,crate::enums::TxStatus::Submitted as i64);
     let venues_traded=c.prepare(&eligible)?.query_map([user],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
-    let resolved:std::collections::BTreeMap<_,_>=computed(crate::figures::splits::lookups(c,user,&venues_traded),&mut hash)?.map(|(_,named)|named.into_iter().collect()).unwrap_or_default();
+    // And where a coin is listed under a split row's name (D-SPLIT-ASSETLESS-SHARED-NAME), per venue: each bot groups
+    // over its own venues, so a coin listed on one more venue moves a bot there though the account-wide union stays.
+    let (resolved,coin_named):(std::collections::BTreeMap<_,_>,_)=computed(crate::figures::splits::lookups(c,user,&venues_traded),&mut hash)?
+        .map(|(_,named,coin_named)|(named.into_iter().collect(),coin_named)).unwrap_or_default();
     "names".hash(&mut hash);
     for entry in &resolved { read+=1; entry.hash(&mut hash); }
+    "coin names".hash(&mut hash);
+    for entry in &coin_named { read+=1; entry.hash(&mut hash); }
     let resolved=ids_source(resolved.values().flatten().copied());
     let bots="SELECT id FROM bots WHERE user_id=?1";
     // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the
@@ -185,7 +196,7 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
     let tickers=literal(&tickers)?;
     let assets=literal(&format!("SELECT base_asset_id FROM tickers WHERE id IN ({tickers}) UNION SELECT quote_asset_id FROM tickers WHERE id IN ({tickers}) \
         UNION {traded} UNION SELECT quote_asset_id FROM transactions WHERE bot_id IN ({bots}) \
-        UNION SELECT asset_id FROM account_balances WHERE user_id=?1 \
+        UNION SELECT asset_id FROM exchange_account_balances WHERE user_id=?1 \
         UNION SELECT base_asset_id FROM account_transactions WHERE user_id=?1 UNION SELECT asset_id FROM wash_sale_locks WHERE user_id=?1"))?;
     // A conversion reads an asset by its symbol alone, upper-cased (totals::exchange_rate, db::asset_by_symbol): any
     // asset under one of these symbols as stored or upper-cased, under USD (what the figures convert into), and under the
@@ -212,7 +223,7 @@ pub fn revision(c:&Connection,user:i64)->Result<(u64,usize),rusqlite::Error> {
         (format!("SELECT id,exchange_id,base_currency,base_asset_id,raw_data,transacted_at FROM account_transactions WHERE user_id=?1 AND entry_type={} \
                   AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data,'$.corporate_action') END='split' ORDER BY id",crate::figures::db::ADJUSTMENT),"splits"),
         ("SELECT DISTINCT base_currency,base_asset_id FROM account_transactions WHERE user_id=?1 ORDER BY 1,2".to_string(),"ledger classes"),
-        ("SELECT DISTINCT asset_id FROM account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
+        ("SELECT DISTINCT asset_id FROM exchange_account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
         // An index reads every tradable listing of its venue in its quote (db::tickers): their coarsest quote precision
         // rounds its chart (chart::quote_decimals), and their tickers are what it asks the market for (`symbols`). Per
         // quote on each index's venue, one aggregate over the venue's index: their coarsest and finest precision, and
@@ -256,7 +267,7 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Info,WebError> 
         (_,key)=>(serde_json::json!([user,crate::engine::model::NO_ALPACA_IDENTITY,key.as_ref().map(|k|k.cache_stamp()),ibkr.stamp()]),Producer::no_alpaca(user,key),None),
     };
     let producer=producer.with_ibkr(ibkr);
-    let revision=revision(c,user)?.0;
+    let revision=revision(c,user,app.now())?.0;
     Ok(Info{identity:identity.to_string(),revision,mark:mark(c)?,credentials,producer})
 }
 /// `alpaca`: whether `real` carries an Alpaca key. Without one, Alpaca's market data is a settled failure: never sent.
@@ -412,7 +423,7 @@ async fn build<T:Send+'static>(app:&App,work:impl FnOnce(&Connection)->Result<T,
     tokio::task::spawn_blocking(move||{ let _permit=permit; service.with_builder(work) }).await.map_err(|e|WebError::Task(e.to_string()))?
 }
 /// Figures rendered for kept use, by (locale, path prefix).
-type Rendered=Vec<((String,String),(Value,super::Slots),FxDeps)>;
+type Rendered=Vec<((String,String),(Value,super::Slots,Option<Sales>),FxDeps)>;
 /// The key a publication renders: the account's own locale and its paths (Bot#with_user_locale,
 /// ApplicationController#default_url_options).
 pub(crate) fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::Error> {
@@ -422,7 +433,20 @@ pub(crate) fn own_key(c:&Connection,user:i64)->Result<(String,String),rusqlite::
 }
 fn kept_key(revision:u64,at:At,locale:&str,prefix:&str)->String { serde_json::json!([revision,at.0,locale,prefix]).to_string() }
 /// Kept figures, with the held conversions they read (`fx`): they are shown only while those still hold (`fx_holds`).
-fn kept_value((value,slots):(Value,super::Slots),fx:&FxDeps)->std::sync::Arc<Value> { std::sync::Arc::new(serde_json::json!({"figures":value,"slots":slots,"fx":fx.to_json()})) }
+/// And the bot sales they were rendered from (`sales`: their stamp, null when none were read): shown only while those hold.
+fn kept_value((value,slots,sales):(Value,super::Slots,Option<Sales>),fx:&FxDeps)->std::sync::Arc<Value> {
+    std::sync::Arc::new(serde_json::json!({"figures":value,"slots":slots,"fx":fx.to_json(),"sales":sales.as_ref().map(Sales::stamp)}))
+}
+/// Whether the bot sales kept figures were rendered from are the ones the figures would read now (`basis::dependency`):
+/// figures made from sales published mid-fill, or from sales that went cold since (a transfer unlinked, a sync), are not
+/// shown, on the Ready path, the Stale path and the queue's pass alike. Unreadable: they do not hold.
+// ponytail: a mismatch holds back the whole account's kept figures, not only its sell-only bots'; per bot if that ever shows.
+/// Figures that read none (no sell-only bot then) hold without a read: a page showing kept figures reads no orders
+/// (figures_warm), and a bot that turns sell-only changed its orders, which the revision and the shape already hold.
+fn sales_hold(c:&Connection,user:i64,kept:&Value,now:chrono::DateTime<chrono::Utc>)->bool {
+    if kept["sales"].is_null() { return true; }
+    matches!(budget::within(||crate::figures::basis::dependency(c,user,now)),Ok(now) if kept["sales"].as_u64()==now)
+}
 /// The conversions kept figures read (none for a record that names none).
 fn kept_fx(kept:&Value)->FxDeps { FxDeps::from_json(&kept["fx"]).unwrap_or_default() }
 /// Whether the conversions kept figures read still hold now, for the provider configured now (read on `c`, which must be
@@ -479,7 +503,8 @@ enum Kept { Done, Overtaken, Failed(String), Fx(Vec<(String,String)>) }
 /// longer hold are rendered again. A conversion not held is `Fx`: the queue fetches it and comes back.
 #[allow(clippy::too_many_arguments)]
 fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collections::BTreeSet<(String,String)>,fx:&FxSnapshot,identity:&str,clock:i64)->Kept {
-    let missing:Vec<&(String,String)>=keys.iter().filter(|(locale,prefix)|cache.kept(&kept_key(prepared,at,locale,prefix)).is_none_or(|kept|!cache.fx_current(&kept_fx(&kept),identity,clock))).collect();
+    let wall=chrono::DateTime::from_timestamp(clock,0).unwrap_or_default();
+    let missing:Vec<&(String,String)>=keys.iter().filter(|(locale,prefix)|cache.kept(&kept_key(prepared,at,locale,prefix)).is_none_or(|kept|!cache.fx_current(&kept_fx(&kept),identity,clock) || !sales_hold(c,user,&kept,wall))).collect();
     if missing.is_empty() { return Kept::Done; }
     let mut asked=std::collections::BTreeSet::new();
     let names=match symbols(c,user) { Ok(names)=>names, Err(e)=>return Kept::Failed(format!("{e:?}")) };
@@ -495,7 +520,7 @@ fn keep(c:&Connection,user:i64,cache:&Cache,at:At,prepared:u64,keys:&std::collec
         match rendered { Ok((rendered,deps))=>out.push((kept_key(prepared,at,locale,prefix),rendered,deps)), Err(e)=>failed.push(format!("{locale}: {e:?}")) }
     }
     if !asked.is_empty() { return Kept::Fx(asked.into_iter().collect()); }
-    match revision(c,user) {
+    match revision(c,user,wall) {
         Ok((now,_)) if now!=prepared=>Kept::Overtaken,
         Ok(_)=>{ for (key,rendered,deps) in out { cache.keep(key,kept_value(rendered,&deps)); } if failed.is_empty() { Kept::Done } else { Kept::Failed(failed.join("; ")) } }
         Err(e)=>Kept::Failed(format!("{e:?}")),
@@ -672,7 +697,9 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
         cache.set_stamp(now);
         // A bot left without figures after a transient price read (`figure::computed`'s `raised`): these figures last only
         // the price's minute, so the next read fills again and asks the quote afresh, as 2.x retries its metrics job.
-        let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_),_)|figures["raised"].is_array() || figures["retry"]==true));
+        let retry=matches!(&result,Ok(rendered) if rendered.iter().any(|(_,(figures,_,_),_)|figures["raised"].is_array() || figures["retry"]==true));
+        // Figures that read the bot sales last no longer than those sales (D-SELL-ONLY-*).
+        let sales_until=result.as_ref().ok().and_then(|rendered|rendered.iter().filter_map(|(_,(_,_,sales),_)|match sales { Some(Sales::Warm{expires,..})=>Some(expires.timestamp()), _=>None }).min());
         let retry_at=now.utc().timestamp().saturating_add(crate::figures::page_market::PRICE_TTL);
         let (ready,reason,deadline)=match result {
             // What the last pass rendered is kept with the cache: no page computes it. Kept too when a write overtook the
@@ -683,6 +710,7 @@ fn spawn_fill(app:&App,user:i64,info:Info,now:At,ticket:super::service::Ticket,m
                 Ok(deadline)=>{
                     for ((locale,prefix),rendered,deps) in rendered { cache.keep(kept_key(info.revision,now,&locale,&prefix),kept_value(rendered,&deps)); }
                     cache.keep(shape_key(info.revision),std::sync::Arc::new(shape));
+                    let deadline=[deadline,sales_until].into_iter().flatten().min();
                     (true,None,if retry { Some(deadline.map_or(retry_at,|deadline:i64|deadline.min(retry_at))) } else { deadline })
                 }
                 Err(_)=>(false,None,None), // a lifetime that cannot be read is no lifetime: the next read fills again
@@ -736,7 +764,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             // The fingerprint is the most expensive read of a warm page, and `prepare` read it a moment ago on this
             // connection (App::db's one): read again only if anything was written since.
             let unchanged=read.is_some_and(|read|mark(c).ok()==Some(read));
-            if current && (unchanged || revision(c,user).ok().map(|(revision,_)|revision)==Some(*prepared_revision)) {
+            if current && (unchanged || revision(c,user,clock.now()).ok().map(|(revision,_)|revision)==Some(*prepared_revision)) {
                 // The figures are a function of this cache, the revision and `now` (the cache's stamp), and of how they
                 // are rendered. The fill or the queue renders them; a page only reads what was kept, and a form token is
                 // per request: kept figures record where each form's field goes, and a page writes its own.
@@ -744,6 +772,8 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
                 // Rendered with conversions that no longer hold (refreshed, expired, another provider): the loading state,
                 // and the queue renders them anew.
                 if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
+                // Rendered from bot sales that are not the ones read now: the loading state, and the queue renders them anew.
+                if !sales_hold(c,user,&kept,clock.now()) { return Ok(None); }
                 let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
                 let shown=with_token(&kept["figures"],&slots,csrf);
                 // Their lifetime is checked as they are shown, not when the page prepared them: past the cut (or a wash-sale
@@ -756,7 +786,7 @@ pub fn render(c:&Connection,user:i64,snapshot:&Snapshot,locale:&str,csrf:&str,pr
             let current=cache.producer().as_ref().is_some_and(|producer|producer.is_current(c).unwrap_or(false));
             if !current || clock.now().timestamp()>=*until { return Ok(None); }
             let (Some(kept),Some(then))=(cache.kept(&kept_key(*revision,*at,locale,prefix)),cache.kept(&shape_key(*revision))) else { return Ok(None) };
-            if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) { return Ok(None); }
+            if !fx_holds(c,cache,&kept_fx(&kept),clock.now().timestamp()) || !sales_hold(c,user,&kept,clock.now()) { return Ok(None); }
             let Ok(slots)=serde_json::from_value::<super::Slots>(kept["slots"].clone()) else { return Ok(None) };
             return Ok(stale_shown(with_token(&kept["figures"],&slots,csrf),&then,&shape(c,user)?));
         }
@@ -1011,7 +1041,7 @@ mod credential_cache_tests {
     #[tokio::test]
     async fn r_each_credential_column_starts_figures_with_an_empty_market_cache() {
         let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
-        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
         c.execute("INSERT INTO exchanges(type,name,created_at,updated_at)VALUES('Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01')",[]).unwrap();
         let now="2026-09-10T12:00:00Z".parse().unwrap();
@@ -1040,7 +1070,7 @@ mod credential_cache_tests {
         // provenance as the Alpaca key's is, with an Alpaca key and without one.
         for alpaca in [false,true] {
             let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
-            let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+            let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
             c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
             c.execute_batch("INSERT INTO exchanges(id,type,name,created_at,updated_at)VALUES(1,'Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01'),(2,'Exchanges::Ibkr','Interactive Brokers','2026-01-01','2026-01-01')").unwrap();
             let now:chrono::DateTime<chrono::Utc>="2026-09-10T12:00:00Z".parse().unwrap();
@@ -1081,7 +1111,7 @@ mod credential_cache_tests {
         use crate::{engine::FixedClock,web::Config};
         use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
         let dir=tempfile::tempdir().unwrap();let file=dir.path().join("primary.sqlite3");
-        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
+        let c=Connection::open(&file).unwrap();c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();c.execute_batch("PRAGMA journal_mode=WAL").unwrap();
         c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('r@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
         c.execute("INSERT INTO exchanges(type,name,created_at,updated_at)VALUES('Exchanges::Alpaca','Alpaca','2026-01-01','2026-01-01')",[]).unwrap();
         let now="2026-09-10T12:00:00Z".parse().unwrap();let env=|name:&str|(name=="SECRET_KEY_BASE").then(||"settings-capture-test-secret".to_string());
@@ -1105,13 +1135,15 @@ mod credential_cache_tests {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::{engine::FixedClock,venue::http::ScriptedTransport};
     /// Each venue's public reads go through its own egress (ExchangeProxy.for by its name_id). One whose proxy is unusable
     /// is a settled failure for that venue, sent nowhere, never a direct connection; the other venues keep theirs.
     #[tokio::test]
     async fn a_venues_unusable_proxy_is_a_settled_failure_and_never_a_direct_read() {
         use crate::venue::http::{HttpRequest,Transport,TransportError};
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         let cipher=crate::crypto::Cipher::new(&crate::crypto::EncryptionKeys::resolve(&|_|None,"figures-egress-test-secret").unwrap());
         let now=chrono::Utc::now();
         crate::app_config::set(&c,&cipher,"proxy_binance","http://[unusable",now).unwrap();
@@ -1151,8 +1183,8 @@ mod tests {
     fn the_fingerprint_reads_no_whole_table_at_real_sizes() {
         use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
-        let t="'2024-01-01'";
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
+        let (t, v2) = ("'2024-01-01'", crate::sync::balance_store::V2_BALANCES);
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
             INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (1,'Exchanges::Alpaca','Alpaca',{t},{t}),(2,'Exchanges::Kraken','Kraken',{t},{t}),
@@ -1181,13 +1213,13 @@ mod tests {
             WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<3799)
             INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at)
                 SELECT 1,1,4,'USD',1,100,'{{}}',datetime('2024-01-01','+'||(i%700)||' days'),{t},{t} FROM n;
-            INSERT INTO account_balances(user_id,exchange_id,asset_id,free,synced_at,created_at,updated_at) SELECT DISTINCT 1,1,base_asset_id,1,{t},{t},{t} FROM transactions;
+            INSERT INTO {v2}(user_id,exchange_id,asset_id,free,synced_at,created_at,updated_at) SELECT DISTINCT 1,1,base_asset_id,1,{t},{t},{t} FROM transactions;
         ")).unwrap();
         assert_eq!(c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get::<_,i64>(0)).unwrap(),5792);
         let steps=Arc::new(AtomicU64::new(0));
         let counter=steps.clone();
         c.progress_handler(100,Some(move||{counter.fetch_add(100,Ordering::Relaxed);false}));
-        let measure=|c:&rusqlite::Connection|{ steps.store(0,Ordering::Relaxed); let (revision,_)=super::revision(c,1).unwrap(); (revision,steps.load(Ordering::Relaxed)) };
+        let measure=|c:&rusqlite::Connection|{ steps.store(0,Ordering::Relaxed); let (revision,_)=super::revision(c,1,chrono::Utc::now()).unwrap(); (revision,steps.load(Ordering::Relaxed)) };
         let (before,alone)=measure(&c);
         // The rest of the install: 39,818 assets in all (150 of them currencies), and the other venues' listings.
         c.execute_batch(&format!("
@@ -1218,7 +1250,7 @@ mod tests {
     #[test]
     fn the_drift_readout_inputs_move_the_fingerprint_and_the_stale_shape() {
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         let t="'2024-01-01'";
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
@@ -1230,7 +1262,7 @@ mod tests {
                 VALUES (1,'AAA',2,9,1,0,1,2,'USD',1,2,'AAA',{t},{t});
             INSERT INTO bot_index_assets(id,bot_id,asset_id,ticker_id,in_index,target_allocation,created_at,updated_at) VALUES (1,1,2,1,1,1.0,{t},{t});
         ")).unwrap();
-        let read=|c:&rusqlite::Connection|(super::revision(c,1).unwrap().0,super::shape(c,1).unwrap());
+        let read=|c:&rusqlite::Connection|(super::revision(c,1,chrono::Utc::now()).unwrap().0,super::shape(c,1).unwrap());
         let (revision,shape)=read(&c);
         let figures=serde_json::json!({"bots":{"1":{"rebalance_info":"<small id=\"settings-rebalance-info\"></small>"}}});
         for (what,sql,moves) in [
@@ -1255,7 +1287,7 @@ mod tests {
     fn the_shape_reads_no_orders_per_listing_at_real_sizes() {
         use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(&c).unwrap();
         let t="'2024-01-01'";
         c.execute_batch(&format!("
             INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (1,'o@example.com','x',{t},{t});
@@ -1286,6 +1318,118 @@ mod tests {
         let (after,doubled)=measure(&c);
         assert_eq!(before["bots"],after["bots"],"the same rows and listings");
         assert!(doubled<=alone+alone/10,"the shape took {doubled} VM steps over twice the orders, {alone} over them once");
+    }
+    /// An account with a sell-only basket (bot 3, Gemini, BTC for dollars: 0.002 for 5 and 0.001 for 2.6) and one ledger
+    /// row, and none of its bot sales published yet.
+    fn seller(c:&rusqlite::Connection) {
+        c.execute_batch(include_str!("../../../tests/fixtures/settings_primary_schema.sql")).unwrap();crate::sync::balance_store::fallback(c).unwrap();
+        let t="'2026-01-01 00:00:00'";
+        c.execute_batch(&format!("
+            INSERT INTO users(id,email,encrypted_password,display_currency,created_at,updated_at) VALUES (1,'o@example.com','x','USD',{t},{t});
+            INSERT INTO exchanges(id,type,name,created_at,updated_at) VALUES (2,'Exchanges::Gemini','Gemini',{t},{t});
+            INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (1,'Fiat','usd','USD','US Dollar',{t},{t}),(4,'Cryptocurrency','bitcoin','BTC','Bitcoin',{t},{t});
+            INSERT INTO tickers(id,base,base_asset_id,base_decimals,exchange_id,minimum_base_size,minimum_quote_size,price_decimals,quote,quote_asset_id,quote_decimals,ticker,available,trading_enabled,created_at,updated_at)
+                VALUES (3,'BTC',4,8,2,0,1,2,'USD',1,2,'btcusd',1,1,{t},{t});
+            INSERT INTO bots(id,user_id,exchange_id,type,status,settings,transient_data,created_at,updated_at) VALUES
+                (3,1,2,'Bots::DcaMultiAsset',1,'{{\"quote_asset_id\":1,\"allocations\":{{\"4\":1.0}}}}','{{}}',{t},{t});
+            INSERT INTO transactions(id,bot_id,exchange_id,base,base_asset_id,quote,quote_asset_id,amount,amount_exec,price,quote_amount_exec,side,status,external_status,external_id,transaction_type,created_at,updated_at) VALUES
+                (3,3,2,'BTC',4,'USD',1,0.002,0.002,2500,5,1,0,2,'o3','REGULAR','2026-03-02 14:30:00',{t}),
+                (4,3,2,'BTC',4,'USD',1,0.001,0.001,2600,2.6,1,0,2,'o4','REGULAR','2026-03-03 14:30:00',{t});
+            INSERT INTO account_transactions(id,user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,raw_data,transacted_at,created_at,updated_at)
+                VALUES (1,1,2,4,'BTC',4,0.003,'{{}}','2026-03-01 10:00:00',{t},{t});
+        ")).unwrap();
+    }
+    /// The tracker job's publication of bot sales whose lots cost 4 and 2 dollars, known.
+    fn publish_known(c:&rusqlite::Connection,now:chrono::DateTime<chrono::Utc>) {
+        use crate::{figures::{at::At,dec::Dec},tracker::{cache,walk::{BotSale,Summary,Walked}}};
+        let sale=|order,amount:&str,cost:&str|BotSale{order,at:At(order),amount:Dec::strict(amount).unwrap(),quote:"USD".into(),cost:Dec::strict(cost).unwrap(),known:true};
+        let walked=Walked{venues:vec![],whole:Summary::empty(),terms:vec![],bot_sales:vec![sale(3,"0.002","4"),sale(4,"0.001","2")]};
+        let tx=c.unchecked_transaction().unwrap();
+        let fenced=crate::engine::model::fence_versions(&tx,&[]).unwrap();
+        assert!(cache::publish(&fenced,1,&cache::version(&fenced,1).unwrap(),Some(&walked),now).unwrap());
+        tx.commit().unwrap();
+    }
+    /// The fill's last pass: the account's figures rendered over a market cache filled from Gemini's price feed.
+    async fn rendered(c:&rusqlite::Connection,cache:&mut Cache,now:At)->(Value,super::super::Slots,Option<Sales>) {
+        let wire=ScriptedTransport::from_script(&serde_json::json!({"GET /v1/pricefeed":[{"status":200,"body":[{"pair":"BTCUSD","price":"2600","percentChange24h":"0.0"}]}],
+            "GET /v2/candles/btcusd/1day":[{"status":200,"body":[]}]}));
+        for _ in 0..4 {
+            let reader=Reader::new(cache,now.utc().timestamp()).with_current(c).with_symbols(symbols(c,1).unwrap());
+            let out=budget::within(||super::super::kept_account(c,1,&reader,now,"en","")).unwrap();
+            if !reader.pending() { return out; }
+            let demands=reader.demands();
+            cache.fill(&wire,demands,now.utc().timestamp()).await;
+        }
+        panic!("the market cache never settled");
+    }
+    fn pnl_shown(shown:&Option<Value>)->Option<bool> { shown.as_ref().map(|v|v["bots"]["3"]["metrics"].as_str().unwrap_or_default().contains("Realised P/L")) }
+    /// D-SELL-ONLY-*: figures are held to the bot sales they were rendered from, not to the revision or shape a fill read
+    /// before them. Sales published while the fill ran, then gone cold again (a transfer unlinked) before the page reads:
+    /// the revision and the shape are back at the values the fill read, and still the kept P/L is not shown, on the Ready
+    /// path or the Stale one; the queue's pass replaces it with no further publication or revision change. And the mirror.
+    #[tokio::test]
+    async fn figures_rendered_from_sales_published_mid_fill_are_held_to_them() {
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        seller(&c);
+        let now=At::from_sql("2026-03-18 12:00:00").unwrap();
+        let wall=now.utc();
+        let clock=FixedClock(wall);
+        let keys:std::collections::BTreeSet<(String,String)>=[("en".to_string(),String::new())].into();
+        let fresh=||{ let mut cache=Cache::default(); cache.produced_by(Producer::no_alpaca(1,None).with_ibkr(crate::figures::page_market::KeyRow::new(1,None))); cache.set_stamp(now); cache };
+        let snapshots=|cache:&Cache,revision:u64|[Snapshot::Ready(cache.clone(),now,revision,None,i64::MAX),Snapshot::Stale(cache.clone(),now,revision,i64::MAX)];
+        let show=|snapshot:&Snapshot|render(&c,1,snapshot,"en","","",&clock).unwrap();
+        // The fill reads the revision and the shape while the sales are cold ...
+        let (revision,shape)=(super::revision(&c,1,wall).unwrap().0,super::shape(&c,1).unwrap());
+        // ... the tracker job publishes them, and the fill's pass renders from them.
+        publish_known(&c,wall);
+        let mut cache=fresh();
+        let figures=rendered(&c,&mut cache,now).await;
+        assert!(figures.0["bots"]["3"]["metrics"].as_str().unwrap().contains("+1.60"),"{}",figures.0);
+        cache.keep(kept_key(revision,now,"en",""),kept_value(figures,&FxDeps::default()));
+        cache.keep(shape_key(revision),std::sync::Arc::new(shape.clone()));
+        // The transfer is unlinked: the sales read cold again, and what the fill read is current once more.
+        c.execute("UPDATE account_transactions SET updated_at='2026-03-18 11:00:00' WHERE id=1",[]).unwrap();
+        assert_eq!((super::revision(&c,1,wall).unwrap().0,super::shape(&c,1).unwrap()),(revision,shape.clone()));
+        for snapshot in snapshots(&cache,revision) { assert_eq!(show(&snapshot),None,"kept figures of other sales are loading"); }
+        // The queue's pass renders them anew from this cache, with nothing else moved.
+        assert!(matches!(keep(&c,1,&cache,now,revision,&keys,&FxSnapshot::default(),"",wall.timestamp()),Kept::Done));
+        for snapshot in snapshots(&cache,revision) { assert_eq!(pnl_shown(&show(&snapshot)),Some(false),"Sold and Received, no P/L"); }
+        // The mirror: rendered cold, then the sales are published (the revision moves; the Stale path does not read it).
+        let c2=rusqlite::Connection::open_in_memory().unwrap();
+        seller(&c2);
+        let (revision,shape)=(super::revision(&c2,1,wall).unwrap().0,super::shape(&c2,1).unwrap());
+        let mut cache=fresh();
+        let figures=rendered(&c2,&mut cache,now).await;
+        cache.keep(kept_key(revision,now,"en",""),kept_value(figures,&FxDeps::default()));
+        cache.keep(shape_key(revision),std::sync::Arc::new(shape));
+        let stale=Snapshot::Stale(cache.clone(),now,revision,i64::MAX);
+        assert_eq!(pnl_shown(&render(&c2,1,&stale,"en","","",&clock).unwrap()),Some(false));
+        publish_known(&c2,wall);
+        assert_eq!(render(&c2,1,&stale,"en","","",&clock).unwrap(),None,"figures of cold sales once they are published");
+        assert!(matches!(keep(&c2,1,&cache,now,revision,&keys,&FxSnapshot::default(),"",wall.timestamp()),Kept::Overtaken),"the sales moved the revision");
+        let current=super::revision(&c2,1,wall).unwrap().0;
+        assert!(matches!(keep(&c2,1,&cache,now,current,&keys,&FxSnapshot::default(),"",wall.timestamp()),Kept::Done));
+        assert_eq!(pnl_shown(&render(&c2,1,&Snapshot::Ready(cache.clone(),now,current,None,i64::MAX),"en","","",&clock).unwrap()),Some(true),"refilled with the P/L");
+    }
+    /// An account with no sell-only bot never reads the bot sales: publishing them (whatever they hold) moves neither its
+    /// fingerprint nor the SQLite VM steps it takes; one sell-only bot makes them part of it.
+    #[test]
+    fn an_account_with_no_sell_only_bot_reads_no_sales() {
+        use std::sync::{Arc,atomic::{AtomicU64,Ordering}};
+        let c=rusqlite::Connection::open_in_memory().unwrap();
+        seller(&c);
+        c.execute("UPDATE transactions SET side=0 WHERE id=3",[]).unwrap();
+        let wall=At::from_sql("2026-03-18 12:00:00").unwrap().utc();
+        let steps=Arc::new(AtomicU64::new(0));
+        let counter=steps.clone();
+        c.progress_handler(1,Some(move||{counter.fetch_add(1,Ordering::Relaxed);false}));
+        let measure=|c:&rusqlite::Connection|{ steps.store(0,Ordering::Relaxed); let (revision,_)=super::revision(c,1,wall).unwrap(); (revision,steps.load(Ordering::Relaxed)) };
+        let before=measure(&c);
+        publish_known(&c,wall);
+        assert_eq!(crate::figures::basis::dependency(&c,1,wall).unwrap(),None);
+        assert_eq!(measure(&c),before,"no sales read");
+        c.execute("UPDATE transactions SET side=1 WHERE id=3",[]).unwrap();
+        assert!(crate::figures::basis::dependency(&c,1,wall).unwrap().is_some_and(|stamp|stamp!=0));
     }
     #[test]
     fn stored_text_that_looks_like_a_placeholder_gets_no_token() {

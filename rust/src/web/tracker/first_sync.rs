@@ -13,9 +13,9 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
       AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?4)
       AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM account_balances WHERE user_id=?1)
+      AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM portfolio_venue_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
+      AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 
 
@@ -25,7 +25,7 @@ use askama::Template;
 use axum::{http::StatusCode,response::Response};
 #[derive(Template)]
 #[template(path="tracker/first_sync.html")]
-struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<String>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>,holdings:String}
+struct Page<'a>{v:&'a Ctx,preferences:String,tax_report:String,sync:String,csrf:String,hidden:bool,show_cash:bool,scope:Option<(&'static str,String)>,export_path:String,from:String,to:String,record_switch:String,hint:String,unavailable:String,cold:Option<super::holdings::Presentation>,holdings:String}
 
 /// `Date.parse` of what an HTML date control submits, an ISO day: `None` for any other grammar, which stays refused, and an
 /// error for an impossible day, which 2.x raises on.
@@ -62,10 +62,10 @@ pub(super) fn render_with(c:&Connection,ctx:&Ctx,owner:i64,cold:Option<super::ho
     // No balance sync has happened. An empty table cannot prove a zero account value.
     let reason=ctx.t("tracker.portfolio.never_synced");
     let unavailable=format!("<span class=\"no-value\" title=\"{reason}\">—</span>");
-    let pairs=ctx.params.query.iter().filter(|(key,_)|matches!(key.as_str(),"exchange_id"|"from"|"to")).cloned().collect::<Vec<_>>();
+    let pairs=super::scope::passed(ctx);
     let query=crate::web::locale::switch_query(&pairs);
     let export_path=i18n::escape(&ctx.path(&format!("/tracker/export{}",if query.is_empty(){String::new()}else{format!("?{query}")})));
-    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:ctx.params.query("exchange_id").filter(|s|!s.trim().is_empty()).map(i18n::escape),export_path,from,to,record_switch,hint,unavailable,cold,holdings}.render()?;
+    let body=Page{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),csrf:ctx.csrf_token(),hidden:user.hide_balances,show_cash,scope:super::scope::hidden(ctx),export_path,from,to,record_switch,hint,unavailable,cold,holdings}.render()?;
     let page=layout::Page{status:StatusCode::OK,body,flash_now:vec![]};
     if ctx.turbo_frame.is_some(){return layout::frame(&ctx.csrf_token(),&page);}
     let shell=Shell::load(c,&ctx.app,user)?;
@@ -77,7 +77,7 @@ mod tests {
     use super::*;
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE exchanges(id INTEGER,type TEXT); CREATE TABLE app_configs(key TEXT,value TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_synced_at TEXT,balances_synced_at TEXT,last_sync_error TEXT); CREATE TABLE account_transactions(user_id INTEGER); CREATE TABLE account_balances(user_id INTEGER); CREATE TABLE portfolio_snapshots(user_id INTEGER); CREATE TABLE portfolio_venue_snapshots(user_id INTEGER); INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca'),(2,'Exchanges::Kraken'); INSERT INTO api_keys VALUES(11,7,1,1,0,NULL,NULL,NULL);").unwrap();
+        c.execute_batch("CREATE TABLE exchanges(id INTEGER,type TEXT); CREATE TABLE app_configs(key TEXT,value TEXT); CREATE TABLE api_keys(id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_synced_at TEXT,balances_synced_at TEXT,last_sync_error TEXT); CREATE TABLE account_transactions(user_id INTEGER); CREATE TABLE exchange_account_balances(user_id INTEGER); CREATE TABLE portfolio_snapshots(user_id INTEGER); CREATE TABLE exchange_account_snapshots(user_id INTEGER); INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca'),(2,'Exchanges::Kraken'); INSERT INTO api_keys VALUES(11,7,1,1,0,NULL,NULL,NULL);").unwrap();
         c
     }
     #[test]
@@ -85,7 +85,7 @@ mod tests {
         let c=db();
         assert!(super::super::read::only(&c,|c|supported(c,7)).unwrap());
         assert!(!supported(&c,8).unwrap());
-        for table in ["account_transactions","account_balances","portfolio_snapshots","portfolio_venue_snapshots"] {
+        for table in ["account_transactions","exchange_account_balances","portfolio_snapshots","exchange_account_snapshots"] {
             c.execute(&format!("INSERT INTO {table} VALUES(8)"),[]).unwrap();
             assert!(supported(&c,7).unwrap(),"foreign {table}");
             c.execute(&format!("INSERT INTO {table} VALUES(7)"),[]).unwrap();
@@ -135,7 +135,7 @@ mod tests {
     }
     #[test]
     fn first_sync_database_errors_are_propagated() {
-        let c=db();c.execute("DROP TABLE account_balances",[]).unwrap();
+        let c=db();c.execute("DROP TABLE exchange_account_balances",[]).unwrap();
         assert!(supported(&c,7).is_err());
     }
 }

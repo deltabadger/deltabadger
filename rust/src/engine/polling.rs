@@ -250,13 +250,20 @@ fn classify(e: VenueError, ids: &[String], rules: &VenueRules) -> PollFailure {
     }
 }
 
+/// SQL condition: order row `alias` was placed on bot `bot_id`'s account (false when that resolves to none).
+fn orders_of_bot(c: &Connection, bot_id: i64, alias: &str) -> Result<String, EngineError> {
+    Ok(match crate::identity::Account::of_bot(c, bot_id)? { Some(account) => account.orders(c, alias)?, None => "0".into() })
+}
+
 pub(crate) fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64)>, EngineError> {
     // A row whose status 2.x never writes may be a working order: unresolved, never skipped.
     let unknown: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND (status IS NULL OR status NOT IN (0, 1, 2))", [bot.id], |r| r.get(0))?;
-    if unknown > 0 { return Err(EngineError::Data(format!("bot {}: {unknown} order row(s) with a status Rails never writes are unresolved", bot.id))); }
-    let mut s = c.prepare(
-        "SELECT id, external_id, created_at FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 AND external_status IN (0, 1) \
-         AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') ORDER BY id")?;
+    if unknown > 0 { return Err(EngineError::Data(format!("bot {}: {unknown} order row(s) with a status 2.x never writes are unresolved", bot.id))); }
+    // #710: the orders placed on the bot's account, which its venue reads (the bot's account changes only with none waiting).
+    let mine = orders_of_bot(c, bot.id, "transactions")?;
+    let mut s = c.prepare(&format!(
+        "SELECT id, {o}, created_at FROM transactions WHERE bot_id = ?1 AND exchange_id = ?2 AND status = 0 AND external_status IN (0, 1) \
+         AND ({o} IS NULL OR {o} NOT LIKE 'imported_%') AND {mine} ORDER BY id", o = crate::venue_ids::order_id(c, "transactions")?))?;
     let rows = s.query_map(params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, String>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?;
     rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect()
@@ -511,8 +518,9 @@ async fn refresh_row<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: i6
     let bot = model::load_bot(c, bot_id).map_err(db)?;
     let handle = crate::venue::Handle::for_bot(venue, c, &bot).map_err(db)?;
     let venue = &handle;
-    let mut s = c.prepare("SELECT id, external_id, created_at, external_status FROM transactions WHERE id = ?1 AND bot_id = ?2 AND exchange_id = ?3 AND status = 0 \
-                           AND external_id IS NOT NULL AND external_id NOT LIKE 'imported_%'").map_err(|e| db(e.into()))?;
+    let mine = orders_of_bot(c, bot.id, "transactions").map_err(db)?;
+    let mut s = c.prepare(&format!("SELECT id, {o}, created_at, external_status FROM transactions WHERE id = ?1 AND bot_id = ?2 AND exchange_id = ?3 AND status = 0 \
+                           AND {o} IS NOT NULL AND {o} NOT LIKE 'imported_%' AND {mine}", o = crate::venue_ids::order_id(c, "transactions").map_err(|e| db(e.into()))?)).map_err(|e| db(e.into()))?;
     let rows = s.query_map(params![tx_id, bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, Option<i64>>(3)?)))
         .and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| db(e.into()))?;
     let terminal = rows.first().is_some_and(|(_, _, _, status)| matches!(status, Some(2) | Some(3)));

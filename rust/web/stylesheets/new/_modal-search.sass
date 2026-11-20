@@ -33,83 +33,8 @@
         @media screen and (min-width: 576px)
             padding: 2rem 0
 
-.dialogview
-    border: none
-    width: 100vw
-    height: 100vh
-    max-height: 100vh
-    max-width: 100vw
-    display: flex
-    justify-content: center
-    position: fixed
-    top: 0
-    left: 0
-    overflow: scroll
-    overscroll-behavior: contain
-    z-index: 1000
-    // Like the small .dialog: start transparent (a <dialog> is white by default, which flashed
-    // for a frame before .dialog--open landed) and blur the backdrop in gradually. The open /
-    // closing states are repeated here because the bare .dialog--open rule above loses the
-    // cascade to these base declarations.
-    background: transparent
-    backdrop-filter: blur(0)
-    transition: background 0.3s ease, backdrop-filter 0.3s ease
-    &.dialog--open
-        background: var(--modal-backdrop)
-        backdrop-filter: blur(1rem)
-    &.dialog--closing
-        background: transparent
-        backdrop-filter: blur(0)
-        transition: background 0.15s ease, backdrop-filter 0.15s ease
-    @media screen and (min-width: 768px)
-        align-items: flex-start
-        padding-top: 2rem
-    // A full-page step keeps its centred title; only the small modals moved theirs left.
-    .modal__title
-        text-align: center
-    .modal__close
-        top:   1rem
-        right: 1rem
-        @media screen and (min-width: 768px)
-            top:   2rem
-            right: 2rem
-    &__vertical-center
-        position: relative
-        height: fit-content
-        min-height: 100vh
-        max-width: 100rem
-        width: 100%
-        background: var(--washed)
-        overflow: hidden
-        @media screen and (min-width: 768px)
-            min-height: auto
-            border-radius: 2rem
-            filter: drop-shadow(0 0 10rem #0000000f)
-            top: 0
-            margin-bottom: 2rem
-    // Content-heavy variant — driven by `data-dialog-size="wide"` on the
-    // CURRENT step's inner wrapper (the element rendered inside the
-    // `modal_content` turbo frame). Using `:has()` instead of a class on the
-    // outer dialog itself means the modifier follows whichever step is
-    // active: when the user advances and the next step's inner content
-    // doesn't carry the marker, the dialog snaps back to default sizing.
-    // Add further custom styles for the "wide" state inside this block as
-    // the use case grows (extra padding, denser grids, taller card, etc.).
-    &__vertical-center:has([data-dialog-size="wide"])
-        @media screen and (min-width: 768px)
-            max-width: calc(100vw - 4rem)
-            background: none !important
-    // The bot-type chooser: tiles floating on the backdrop, no card, the width the old
-    // `.modal--medium` had. The dialog itself then persists into the first wizard step.
-    &__vertical-center:has([data-dialog-size="bare"])
-        background: none !important
-        @media screen and (min-width: 768px)
-            filter: none
-            max-width: 104rem
-    .sinput:not(.widget *)
-        background: var(--washed)
-// The small dialog is a fixed card capped at the viewport — it does not page-scroll the way the
-// full-page wizard does, so its result list keeps a scroller of its own. Flex rather than a
+// The small dialog is a fixed card capped at the viewport, so its result list keeps a scroller of
+// its own. Flex rather than a
 // magic offset: the list takes whatever the search box leaves.
 .dialog__vertical-center .modal--search
     display: flex
@@ -124,19 +49,16 @@
 html:has(#modal dialog[open])
     overflow: hidden
 #modal
-    .modal,
-    .dialogview__vertical-center
+    .modal
         opacity: 0
     &[complete]
-        .modal,
-        .dialogview__vertical-center
+        .modal
             animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
     // The settings card zooms in when it is inserted, not on [complete]: visited as a page its frame
     // never completes, and switching sections replaces only the pane inside it, so it zooms once.
     .sheet
         animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
-    .modal--closing,
-    .dialogview__vertical-center--closing
+    .modal--closing
         animation: modal-zoom-out 0.15s ease-in both !important
 
 @keyframes modal-zoom-in
@@ -333,7 +255,7 @@ html:has(#modal dialog[open])
         &:focus
             outline: none
         &::placeholder
-            color: var(--modal-search-placeholder)
+            color: var(--concrete)
     &__assets
         display: block
         scrollbar-width: none
@@ -359,17 +281,19 @@ html:has(#modal dialog[open])
                 grid-template-columns: 11.25rem 1fr 1fr
                 width: 100%
                 cursor: pointer
+    &__row
+        min-height: 7rem
     &__cell
         font-size: 1.75rem
         text-align: left
-        padding: 0.75rem 0.25rem 0.75rem 1rem
-        line-height: 3rem
+        padding: 1rem 0.25rem 1rem 1rem
+        line-height: 2.5rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
         text-wrap: nowrap
         &:first-child
-            padding-left: 2rem
+            padding-left: var(--sheet-side-padding)
         &--ticker
             font-weight: 600
             color: var(--ink)

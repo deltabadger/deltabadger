@@ -42,7 +42,7 @@ pub fn load(dir: &Path, v2_versions: &[String]) -> Result<Vec<(String, String, s
 /// D-DROP-USERS-NAME. The only 2.x-born columns a Rust migration drops: (version, table, column). Each listed file is
 /// exactly `ALTER TABLE <table> DROP COLUMN <column>;` (comments aside); store::apply checks at run time that the table's
 /// SQL changed exactly as that statement changes it and nothing else did.
-pub const DROPPED_COLUMNS: &[(&str, &str, &str)] = &[("20261117000001", "users", "name")];
+pub const DROPPED_COLUMNS: &[(&str, &str, &str)] = &[("20261122000001", "users", "name")];
 
 /// For a version `DROPPED_COLUMNS` lists: `Ok((table, column))` when `sql` is exactly its one statement, else the
 /// refusal. `None` for every other version (check_tables reads it).

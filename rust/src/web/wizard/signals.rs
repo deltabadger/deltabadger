@@ -7,12 +7,12 @@
 //! Venues: the exchange step offers only the venues this engine runs signal bots on (eligibility::signal_admission). 2.x's
 //! own way of showing a venue it cannot trade on (bots/pick_exchanges/_table's disabled button) names Hyperliquid's missing
 //! adapter, so it does not fit; a refused venue is left out instead, and one sent anyway is refused by name at its key step.
-use super::exchanges::{ordered, Table, Venue as Tile};
-use super::keys::{self, FullPage};
-use super::{chips, dig, exchange_id, expired, progress_bar, step_complete, Chip, Step};
+use super::exchanges::{venue_pane, Table};
+use super::keys;
+use super::{chips, dig, exchange_id, expired, search_box, step_complete, Stop, Step};
 use crate::engine::{eligibility, model};
 use crate::v2::BigDec;
-use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
+use crate::web::bot::search::{self, AssetPage, Basket, Side};
 use crate::web::bot::signal_write::{self, Started};
 use crate::web::layout::{self, Ctx, Page};
 use crate::web::shell::{self, Shell};
@@ -36,12 +36,6 @@ const CONFIRM_NEW: &str = "/bots/signals/confirm_settings/new";
 const BASE_FIELD: &str = "bots_signal[base_asset_id]";
 const EXCHANGE_FIELD: &str = "bots_signal[exchange_id]";
 const QUOTE_FIELD: &str = "bots_signal[quote_asset_id]";
-
-/// bots/signals/_new_step_progress_bar.
-fn progress(ctx: &Ctx, step: &str) -> Result<String, WebError> {
-    let share = match step { "currencies" => 20, "exchange" => 40, "spendable" => 60, "api" => 80, _ => 100 };
-    progress_bar(ctx.t(&format!("bot.setup.progress_steps.{step}")), share)
-}
 
 /// `bot.base_asset_id` / `quote_asset_id` of the bot built from the session: the stored id, nil when blank.
 fn setting_id(config: Option<&Value>, key: &str) -> Option<i64> {
@@ -71,58 +65,32 @@ fn merge_setting(ctx: &Ctx, key: &str, id: i64) {
 
 fn missing(what: &str) -> WebError { WebError::Config(format!("a signal wizard step with no {what} in the session")) }
 
-/// The base Asset as its pill shows it (`bot.base_asset`, which every later step's sentence reads).
-fn base_chip(c: &Connection, config: Option<&Value>) -> Result<Chip, WebError> {
-    let id = base_id(config).ok_or_else(|| missing("asset"))?;
-    chips(c, &[id])?.into_iter().next().ok_or_else(|| missing("asset row"))
+/// Where the signal wizard is (D-SIGNAL-SHEET): its track's current item, the key step being the exchange's.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Stage { Asset, Exchange, Key, Quote, Confirm }
+
+/// The track: Asset, Exchange, Currency, Settings. An item before the current one shows what was chosen (the asset's and the
+/// quote's tickers, the venue's name) and links back to its step; on the key step the venue's item does too.
+fn track(c: &Connection, ctx: &Ctx, config: Option<&Value>, stage: Stage) -> Result<String, WebError> {
+    let current = match stage { Stage::Asset => 0, Stage::Exchange | Stage::Key => 1, Stage::Quote => 2, Stage::Confirm => 3 };
+    let shown = |place: usize| place < current || (stage == Stage::Key && place == 1);
+    let mut asset = Stop::new("assets");
+    if shown(0) { if let Some(id) = base_id(config) { asset = asset.chips(chips(c, &[id])?).back(ctx.path(ASSETS_NEW)); } }
+    let mut venue = Stop::new("exchange");
+    if shown(1) { if let Some(found) = keys::venue(c, exchange_id(config))? { venue = venue.name(Some(found.name)).back(ctx.path(EXCHANGE_NEW)); } }
+    let mut quote = Stop::new("spendable");
+    if shown(2) { if let Some(id) = quote_id(config) { quote = quote.chips(chips(c, &[id])?).back(ctx.path(QUOTE_NEW)); } }
+    super::track(ctx, current, vec![asset, venue, quote, Stop::new("settings")])
 }
 
-struct SentenceVenue { name_id: String, mark: &'static str, name: String }
-
-fn sentence_venue(venue: &keys::Venue) -> SentenceVenue {
-    let name_id = crate::tracker::rows::name_id(&venue.class);
-    SentenceVenue { mark: crate::web::bot::exchange_svg(&name_id), name_id, name: venue.name.clone() }
-}
-
-#[derive(Template)]
-#[template(path = "wizard/signals/_sentence.html")]
-struct Sentence<'a> { v: &'a Ctx, base: Option<Chip>, assets_url: String, venue: Option<SentenceVenue>, exchange_url: String, search: Option<(&'static str, String)> }
-
-/// "Invest in {asset} at {venue} spending {search}": the base from the exchange step on, the venue from the key step on.
-fn sentence(c: &Connection, ctx: &Ctx, config: Option<&Value>, base: bool, venue: bool, search: Option<(&'static str, &str)>) -> Result<String, WebError> {
-    let base = if base { Some(base_chip(c, config)?) } else { None };
-    let venue = if venue { Some(sentence_venue(&keys::venue(c, exchange_id(config))?.ok_or_else(|| missing("exchange"))?)) } else { None };
-    Ok(Sentence { v: ctx, base, assets_url: ctx.path(ASSETS_NEW), venue, exchange_url: ctx.path(EXCHANGE_NEW), search: search.map(|(frame, url)| (frame, ctx.path(url))) }.render()?)
-}
-
-#[derive(Template)]
-#[template(path = "wizard/signals/_api_key_form.html")]
-struct KeyForm { progress: String, sentence: String, card: String }
-
-/// bots/signals/add_api_keys/_form: "Invest in {asset} at {venue}" over the venue's connect card.
-pub fn key_form(c: &Connection, ctx: &Ctx, config: Option<&Value>, card: &str) -> Result<String, WebError> {
-    // The partial opens with the line that assigns the pill's colour: a line break before its markup.
-    Ok(format!("\n{}", KeyForm { progress: progress(ctx, "api")?, sentence: sentence(c, ctx, config, true, true, None)?, card: card.to_string() }.render()?))
-}
-
-#[derive(Template)]
-#[template(path = "wizard/signals/pick_asset.html")]
-struct PickAsset<'a> {
-    progress: String,
-    sentence: String,
-    create_url: String,
-    csrf: &'a str,
-    field_name: &'static str,
-    items: Vec<Item>,
-    next: Option<(String, String)>,
-    base_step: bool,
-}
+/// The key step's track (keys.rs draws the step).
+pub fn key_track(c: &Connection, ctx: &Ctx, config: Option<&Value>) -> Result<String, WebError> { track(c, ctx, config, Stage::Key) }
 
 /// One side of the asset steps: the base (any venue, the quote if one is chosen) or the quote (the chosen venue and base).
-struct AssetStep { side: Side, step: &'static str, field: &'static str, create: &'static str, search: &'static str }
+struct AssetStep { side: Side, stage: Stage, field: &'static str, create: &'static str, search: &'static str }
 
-const BASE_STEP: AssetStep = AssetStep { side: Side::Base, step: "currencies", field: BASE_FIELD, create: ASSETS, search: ASSETS_NEW };
-const QUOTE_STEP: AssetStep = AssetStep { side: Side::Quote, step: "spendable", field: QUOTE_FIELD, create: QUOTE, search: QUOTE_NEW };
+const BASE_STEP: AssetStep = AssetStep { side: Side::Base, stage: Stage::Asset, field: BASE_FIELD, create: ASSETS, search: ASSETS_NEW };
+const QUOTE_STEP: AssetStep = AssetStep { side: Side::Quote, stage: Stage::Quote, field: QUOTE_FIELD, create: QUOTE, search: QUOTE_NEW };
 
 /// `prepare_step` and the page (Bots::Searchable#asset_search_results over Bot::AssetConfigurable#offered_tickers, the step's
 /// own asset cleared), or (`render_asset_page`, a lazy frame asking for `offset`) one page of results.
@@ -145,13 +113,10 @@ fn asset_page(c: &Connection, ctx: &Ctx, config: Option<&Value>, at: &AssetStep,
     if partial_allowed && offset > 0 {
         return Ok((AssetPage { frame_id: format!("assets-page-{offset}"), field_name: at.field.into(), items, next }.render()?, true));
     }
-    let csrf = ctx.csrf_token();
-    let quote = at.side == Side::Quote;
-    let content = PickAsset {
-        progress: progress(ctx, at.step)?, sentence: sentence(c, ctx, config, quote, quote, Some(("asset-picker", at.search)))?, create_url: ctx.path(at.create),
-        csrf: &csrf, field_name: at.field, items, next, base_step: !quote,
-    }.render()?;
-    Ok((FullPage { close_url: ctx.path("/bots"), content: &content }.render()?, false))
+    let placeholder = if at.side == Side::Quote { "USD".to_string() } else { ctx.t("utils.search.placeholder.asset") };
+    let search = search_box("asset-picker", &ctx.path(at.search), &placeholder)?;
+    let content = super::spendable::asset_pane(search, ctx.path(at.create), ctx.csrf_token(), at.field, items, next)?;
+    Ok((super::sheet(ctx, &track(c, ctx, config, at.stage)?, &content)?, false))
 }
 
 /// A step page through the layout, its content made on the database thread; a lazy page of results bare.
@@ -188,21 +153,15 @@ pub async fn assets_create(State(app): State<App>, Extension(ctx): Extension<Ctx
     Ok(redirect(&ctx, EXCHANGE_NEW))
 }
 
-#[derive(Template)]
-#[template(path = "wizard/index/pick_exchange.html")]
-struct ExchangeStep { progress: String, sentence: String, table: Table }
-
 /// `prepare_step` and the page: the venues listing the pair (Bot::AssetConfigurable#available_exchanges_for_current_settings, the
 /// venue cleared) that this engine runs signal bots on, ordered or searched as Bots::Searchable does.
 fn exchange_page(c: &Connection, ctx: &Ctx, config: Option<&Value>) -> Result<(String, bool), WebError> {
     let scope = Basket { exchange_id: None, quote_asset_id: quote_id(config), base_asset_ids: vec![] };
     let venues = search::available_exchanges(c, &scope, Some(base_id(config)))?.into_iter()
         .filter(|venue| eligibility::signal_admission(Some(&venue.class)).is_none()).collect();
-    let venues = ordered(venues, ctx.params.query("query")).into_iter()
-        .map(|venue| Tile { id: venue.id, mark: crate::web::bot::exchange_wordmark(&venue.name_id()), unavailable: false }).collect();
-    let table = Table { action: ctx.path(EXCHANGE), csrf: ctx.csrf_token(), param_name: EXCHANGE_FIELD.into(), venues, unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    let content = ExchangeStep { progress: progress(ctx, "exchange")?, sentence: sentence(c, ctx, config, true, false, Some(("exchange-picker", EXCHANGE_NEW)))?, table }.render()?;
-    Ok((FullPage { close_url: ctx.path("/bots"), content: &content }.render()?, false))
+    let table = Table { action: ctx.path(EXCHANGE), csrf: ctx.csrf_token(), param_name: EXCHANGE_FIELD.into(), venues: vec![], unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
+    let content = venue_pane(ctx, table, venues, &super::exchanges::connected(c, ctx.user().map_or(0, |user| user.id), &[0])?)?;
+    Ok((super::sheet(ctx, &track(c, ctx, config, Stage::Exchange)?, &content)?, false))
 }
 
 async fn exchange_render(app: &App, ctx: &Ctx, status: StatusCode) -> Result<Response, WebError> {
@@ -331,7 +290,7 @@ fn button(ctx: &Ctx, csrf: &str, rules: &[Rule]) -> Result<String, WebError> {
 
 #[derive(Template)]
 #[template(path = "wizard/signals/confirm_settings.html")]
-struct Confirm { progress: String, name_id: String, mark: &'static str, name: String, exchange_url: String, button: String, settings: String }
+struct Confirm { button: String, settings: String }
 
 /// The session's rules (`session[:bot_config]['signals']`): a wizard not begun, or not yet at this step, is 2.x's NoMethodError.
 fn session_rules(config: Option<&Value>) -> Result<Vec<Value>, WebError> {
@@ -349,11 +308,10 @@ pub async fn confirm_new(State(app): State<App>, Extension(ctx): Extension<Ctx>)
     };
     render(&app, &ctx, StatusCode::OK, move |c, ctx| {
         let rules = rules(&session_rules(config.as_ref())?)?;
-        let venue = sentence_venue(&keys::venue(c, exchange_id(config.as_ref()))?.ok_or_else(|| missing("exchange"))?);
+        keys::venue(c, exchange_id(config.as_ref()))?.ok_or_else(|| missing("exchange"))?;
         let csrf = ctx.csrf_token();
-        let content = Confirm { progress: progress(ctx, "confirm")?, name_id: venue.name_id, mark: venue.mark, name: venue.name, exchange_url: ctx.path(EXCHANGE_NEW),
-                                button: button(ctx, &csrf, &rules)?, settings: settings(c, ctx, &csrf, config.as_ref(), &rules)? }.render()?;
-        Ok((FullPage { close_url: ctx.path("/bots"), content: &content }.render()?, false))
+        let content = Confirm { button: button(ctx, &csrf, &rules)?, settings: settings(c, ctx, &csrf, config.as_ref(), &rules)? }.render()?;
+        Ok((super::sheet(ctx, &track(c, ctx, config.as_ref(), Stage::Confirm)?, &content)?, false))
     }).await
 }
 

@@ -202,7 +202,15 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         Claim::FromV2 | Claim::AfterHandback => true,
         Claim::AfterCrash => handed_back.is_some_and(|back| taken_before.is_none_or(|taken| taken < back)),
     };
-    if v2_window { super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?; }
+    if v2_window {
+        super::v2_unrecorded::collect(&tx, &o.queue, handed_back, now)?;
+        // #710: what 2.x added names exchanges with no account yet; rows stay eager. Its withdrawal rules are the number-1
+        // rules again (Rust's store), before the rule jobs are imported from them.
+        crate::identity::fill(&tx, now)?;
+        super::rules::refill(&tx)?;
+        // #710 slice 5: 2.x's balances and venue snapshots are the number-1 rows of Rust's stores again.
+        crate::sync::balance_store::refill_number_one(&tx)?;
+    }
     import_wakes(&tx, &work.wakes, now)?;
     for (id, material) in &ibkr { fill_ibkr_keys(&tx, cipher, *id, material, now)?; }
     super::rules::acknowledge_fanouts(&tx, &mut rule_jobs, now)?;
@@ -257,7 +265,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
 /// takeover committed with its claim and that may still be queued (the queue is its own database). A start skips them and
 /// deletes them again, then the ids whose rows are gone leave the set, so a crash between the commit and the delete never
 /// stops, marks or logs twice. 2.x is gone, so nothing enqueues a row in between.
-pub const QUEUE_DONE_KEY: &str = "rust_rails_queue_done";
+pub const QUEUE_DONE_KEY: &str = "rust_v2_queue_done";
 
 fn queue_done(c: &Connection) -> Result<Vec<i64>, EngineError> {
     let Some(text) = crate::app_config::get_plain(c, QUEUE_DONE_KEY).map_err(EngineError::Data)? else { return Ok(vec![]) };
@@ -470,7 +478,7 @@ fn unresolved_signal(c: &Connection, row: &QueueRow, w: &mut QueueWork) -> Resul
         Some(v) => crate::codec::parse_time(&v).map_err(|e| format!("{v}: {e:?}")),
         None => Err("no triggered_at".to_string()),
     };
-    let marker_id = format!("rails-job:{}", row.job.clone().unwrap_or_else(|| format!("queue-row-{}", row.id)));
+    let marker_id = format!("v2-job:{}", row.job.clone().unwrap_or_else(|| format!("queue-row-{}", row.id)));
     w.done.push(row.id);
     w.signals.push(Unresolved { bot, marker_id, side, triggered_at });
     Ok(())
@@ -527,7 +535,7 @@ fn apply_queue_work(tx: &Connection, w: &QueueWork, from_v2: bool, now: DateTime
 /// D-UPGRADE-V2-WAKES: 2.x ran such a job once, with its own retries; here it runs at least once after the takeover,
 /// and one whose run keeps failing (a key the validator doesn't cover, a backfill without market data) is woken again at
 /// every start, as a manual wake of it would be. Duplicates of one job and scope run once.
-pub const V2_WAKES_KEY: &str = "rust_rails_wakes";
+pub const V2_WAKES_KEY: &str = "rust_v2_wakes";
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct V2Wake { job: String, scope: String, at: String }
@@ -685,7 +693,19 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // ---- tables ----
         // The user's imported accounts and rows (tracker): 2.x never reads them.
         (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
+        // #710: a key or a bot of an account 2+ refuses: 2.x would trade it with the first account's key.
+        (Table, "exchange_account_keys", Refuses(SECOND_ACCOUNT_KEY)), (Table, "exchange_account_bots", Refuses(SECOND_ACCOUNT_BOT)),
+        // #710: withdrawal rules by account. 2.x's `rules` mirrors the number-1 ones (written again in the handback); a rule
+        // of an account 2+ refuses (rules::handback_problems).
+        (Table, "exchange_account_rules", Refuses(super::rules::HANDBACK_REFUSAL)),
+        (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
+        // #710 slice 4: a ledger row of an account 2+ (its venue id is here; 2.x would read NULL).
+        (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
+        // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
+        // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's
+        // tables have no place for it.
+        (Table, "exchange_account_balances", Refuses(SECOND_ACCOUNT_BALANCES)), (Table, "exchange_account_snapshots", Refuses(SECOND_ACCOUNT_BALANCES)),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
@@ -695,16 +715,17 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
         // its stored route (a KuCoin HF or UTA family) is this engine's; 2.x's cancel sends on its own route.
-        (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Ignored),
+        // #710: one placed on an exchange's second account refuses (2.x would cancel it with the first account's key).
+        (Table, "rust_api_orders", Ignored), (Table, "rust_api_order_standalone", Refuses(SECOND_ACCOUNT_STANDALONE)),
         // A20d: an order key's link to its order, read only by the start sweep. A key handed back in_progress is 2.x's 409.
         (Table, "rust_idempotency_orders", Ignored),
         // A28-1: 2.x's unrecorded-order candidates and whether their line was written; 2.x never reads it.
-        (Table, "rust_rails_unrecorded", Ignored),
+        (Table, "rust_v2_unrecorded", Ignored),
         // A28-3: the live order-history reads of those candidates (refused or failed with a key), and the pass's cursor.
-        (Table, "rust_rails_unrecorded_live", Ignored), (AppConfig, "rust_rails_unrecorded.live_cursor", Ignored),
+        (Table, "rust_v2_unrecorded_live", Ignored), (AppConfig, "rust_v2_unrecorded.live_cursor", Ignored),
         // A28-2: the bookable orders of those lines, the owner's resolutions and requests, and the booked rows' notices.
-        (Table, "rust_rails_unrecorded_offers", Ignored), (Table, "rust_rails_unrecorded_resolutions", Ignored),
-        (Table, "rust_rails_unrecorded_requests", Ignored), (Table, "rust_rails_unrecorded_notices", Ignored),
+        (Table, "rust_v2_unrecorded_offers", Ignored), (Table, "rust_v2_unrecorded_resolutions", Ignored),
+        (Table, "rust_v2_unrecorded_requests", Ignored), (Table, "rust_v2_unrecorded_notices", Ignored),
         // A17-4: which provider ranked an index row; 2.x never reads it, its deletes cascade, and the next claim clears it.
         (Table, "rust_index_rankings", Ignored),
         // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
@@ -713,7 +734,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_rule_evaluations", Refuses("withdrawal work is unconsumed or unconfirmed")),
         (Table, "rust_withdrawal_candidates", Ignored), (Table, "rust_withdrawal_ids", Ignored), (Table, "rust_rule_log_origins", Ignored),
-        (Table, "rust_rails_attempt_acks", Ignored), (Table, "rust_rails_job_acks", Ignored), (Table, "rust_recorder_runs", Ignored),
+        (Table, "rust_v2_attempt_acks", Ignored), (Table, "rust_v2_job_acks", Ignored), (Table, "rust_recorder_runs", Ignored),
         // Tax: a queued report runs after a reclaim; the carried costs are the user's (r7.1: intact after handback, 2.x boot
         // and reclaim).
         (Table, "rust_tax_reports", Ignored), (Table, "rust_tax_pl_carry", Ignored),
@@ -741,12 +762,12 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_cancel_reread:", Ignored),
         // The takeover's journals: the queue rows it handled are deleted first (finish_queue_work, finish_signal_import);
         // a row that won't go refuses. The wakes are woken again at a reclaim.
-        (AppConfig, "rust_rails_queue_done", Settled), (AppConfig, "rust_signal_import", Settled), (AppConfig, "rust_rails_wakes", Ignored),
+        (AppConfig, "rust_v2_queue_done", Settled), (AppConfig, "rust_signal_import", Settled), (AppConfig, "rust_v2_wakes", Ignored),
         (AppConfig, "rust_rule_import", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rule_job_cleanup", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rules_fired_at", Ignored),
         (AppConfig, "rust_job.", Ignored), (AppConfig, "rust_sync.", Ignored), (AppConfig, "rust_tracker_gaps.", Ignored), (AppConfig, "rust_snapshot_unpriced.", Ignored), (AppConfig, "rust_venue_history_cursor_", Ignored),
-        (AppConfig, "rust_tracker_ledger.", Cache),
+        (AppConfig, "rust_tracker_ledger.", Cache), (AppConfig, "rust_tracker_bot_sales.", Cache),
         // ---- bots.transient_data ----
         (Bot, "rust_placement", Waits), (Bot, "rust_reversal_cancels", Waits), (Bot, "rust_signal_calls", Waits),
         (Bot, "rust_base_cap_rotation_pending", Refuses("run the engine to settle the base-cap rotation decision before handing back")),
@@ -845,6 +866,8 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_commands(&tx)?;
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
+    // #710: 2.x's withdrawal rules are Rust's number-1 rules (a rule Rust deleted or stopped never runs again on 2.x).
+    if super::rules::table_exists(&tx, "exchange_account_rules")? { super::rules::mirror(&tx, None)?; }
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
     // A bot paused on its price rule stays `waiting`: 2.x's adoption (Bot::RepairOrphanedBotsJob) restarts its check chain,
     // where `scheduled` would trade it at the next checkpoint whatever the price.
@@ -967,7 +990,7 @@ fn signal_jobs(o: &Opened, skip: &[i64]) -> Result<(Vec<SignalJob>, Vec<UnreadSi
             (Some(job), Ok((bot_id, signal_id, triggered_at))) => {
                 let bot: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?1 AND type = ?2)", params![bot_id, model::SIGNAL_TYPE], |r| r.get(0))?;
                 let rule: bool = o.primary.query_row("SELECT EXISTS (SELECT 1 FROM bot_signals WHERE id = ?1)", [signal_id], |r| r.get(0))?;
-                let call = (bot && rule).then(|| (bot_id, model::SignalCall { source: format!("rails:{job}"), signal_id, triggered_at }));
+                let call = (bot && rule).then(|| (bot_id, model::SignalCall { source: format!("v2:{job}"), signal_id, triggered_at }));
                 jobs.push((job, call));
             }
             (None, _) => unread.push((row, format!("deleted a waiting webhook call this build can't read (queue row {row}, {bot}): no job id"))),
@@ -1091,7 +1114,34 @@ fn refuse_split_holds(c: &Connection) -> Result<(), EngineError> {
         let this engine run the bot until the hold clears before handing back")).collect()))
 }
 
+/// #710: an order of an exchange's account 2+ (exchange_account_transactions holds nothing else): 2.x would follow it with
+/// the first account's key.
+pub const SECOND_ACCOUNT_ORDER: &str = "an order of an exchange's second account is Rust-only";
+/// #710: a key or a bot of an exchange's account 2+: 2.x knows one account per exchange, and would use the first's key.
+pub const SECOND_ACCOUNT_KEY: &str = "a key of an exchange's second account is Rust-only";
+pub const SECOND_ACCOUNT_BOT: &str = "a bot of an exchange's second account is Rust-only";
+pub const SECOND_ACCOUNT_STANDALONE: &str = "a standalone order of an exchange's second account is Rust-only";
+/// #710 slice 4: a ledger row of an account 2+ (exchange_account_rows holds nothing else): 2.x would read its id as NULL.
+pub const SECOND_ACCOUNT_HISTORY: &str = "history of a second account is Rust-only";
+/// #710 slice 5: a balance or a venue snapshot of an account 2+.
+pub const SECOND_ACCOUNT_BALANCES: &str = "balances of a second account are Rust-only";
+
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
+    if super::rules::table_exists(c, "exchange_account_transactions")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_transactions)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_ORDER.into()]));
+    }
+    if super::rules::table_exists(c, "exchange_account_rows")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rows)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_HISTORY.into()]));
+    }
+    for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE),
+                          ("exchange_account_balances", SECOND_ACCOUNT_BALANCES), ("exchange_account_snapshots", SECOND_ACCOUNT_BALANCES)] {
+        if super::rules::table_exists(c, table)?
+            && c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table} m JOIN exchange_accounts a ON a.id = m.account_id WHERE a.number <> 1)"), [], |r| r.get::<_, bool>(0))? {
+            return Err(EngineError::Ineligible(vec![line.into()]));
+        }
+    }
     // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;

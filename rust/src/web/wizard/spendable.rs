@@ -22,6 +22,12 @@ const FIELD: &str = "bots_dca_multi_asset[quote_asset_id]";
 #[template(path = "wizard/pick_spendable_asset.html")]
 struct New { search: String, create_url: String, csrf: String, field_name: &'static str, items: Vec<Item>, next: Option<(String, String)> }
 
+/// An asset step's pane (D-SHEET-EVERYWHERE): `search` over the results (frame `asset-picker`), each posting `field_name` to
+/// `create_url`, and the lazy frame of the next page.
+pub fn asset_pane(search: String, create_url: String, csrf: String, field_name: &'static str, items: Vec<Item>, next: Option<(String, String)>) -> Result<String, WebError> {
+    Ok(New { search, create_url, csrf, field_name, items, next }.render()?)
+}
+
 /// `prepare_step` and the page: the quotes the venue lists every chosen asset in (the bot built with its quote cleared), or
 /// (a lazy frame asking for `offset`) one page of them.
 fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool) -> Result<(String, bool), WebError> {

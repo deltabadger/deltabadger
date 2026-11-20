@@ -42,7 +42,13 @@ pub(crate) fn csv_refusal(error: &SyncError) -> Option<&str> {
     ).then_some(reason)
 }
 fn hash(s: &str) -> String { hex::encode(Sha256::digest(s.as_bytes())) }
-fn scope(key: &Key) -> String { format!("{PREFIX}{}:{}:",key.user_id,key.exchange_id) }
+/// The bucket names of `key`'s account: number 1's as before, an account 2+'s with `@{account}` (outside number 1's
+/// range scan and its repair's `LIKE` prefix). The writer's and the A12 repair's one spelling.
+pub(super) fn namespace(key: &Key) -> String {
+    match key.scope.member { None => format!("{PREFIX}{}:{}:",key.user_id,key.exchange_id), Some(n) => format!("{PREFIX}{}:{}@{n}:",key.user_id,key.exchange_id) }
+}
+/// SQL: the key's account's rows of `account_transactions` (#710).
+fn mine(key: &Key) -> String { key.scope.rows("account_transactions") }
 pub(super) fn bucket_id(e: &Entry) -> Result<String,SyncError> {
     let id=e.tx_id.as_deref().filter(|s|!s.trim().is_empty()).ok_or_else(||refused("missing legacy bucket"))?;
     Ok(if id.starts_with("dust-") { id.strip_suffix("-in").or_else(||id.strip_suffix("-out")).unwrap_or(id) }else{id}.into())
@@ -76,19 +82,31 @@ pub(super) fn mark(c: &FencedTransaction<'_>, now: DateTime<Utc>) -> Result<(),S
     if !written(c)? {app_config::set_plain(c,MARKER,"1",now).map_err(SyncError)?;} Ok(())
 }
 fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
-    for key in [crate::tracker::cache::key(owner),crate::tracker::backfill::history_key(owner),crate::tracker::backfill::price_key(owner)] {
+    for key in [crate::tracker::cache::key(owner),crate::tracker::cache::sales_key(owner),crate::tracker::backfill::history_key(owner),crate::tracker::backfill::price_key(owner)] {
         c.execute("DELETE FROM app_configs WHERE key=?1",[key])?;
     }
     c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;
-    c.execute("DELETE FROM portfolio_venue_snapshots WHERE user_id=?1",[owner])?; Ok(())
+    super::balance_store::forget_snapshots(c,owner)?; Ok(())
 }
+/// A row as the writer and the repair compare it: its columns, `tx_id` its venue id wherever its account keeps it, and
+/// for an account 2+'s row `account_id` its account (#710).
 pub(super) fn image(c: &Connection, id: i64) -> Result<Value,rusqlite::Error> {
-    let mut s=c.prepare("SELECT * FROM account_transactions WHERE id=?1")?;
+    // An account 2+'s row only: a number-1 row reads exactly as 2.x's (its recorded after-images).
+    let (venue,member)=if crate::venue_ids::ready(c)? {(crate::venue_ids::row_id("account_transactions"),
+        "(SELECT m.account_id FROM exchange_account_rows m WHERE m.account_transaction_id = account_transactions.id)".to_string())} else {("tx_id".into(),"NULL".into())};
+    let mut s=c.prepare(&format!("SELECT *, {venue} AS venue_id_710, {member} AS account_id_710 FROM account_transactions WHERE id=?1"))?;
     let names=s.column_names().iter().map(|n|n.to_string()).collect::<Vec<_>>();
     s.query_row([id],|r| {let mut out=serde_json::Map::new();for (i,n) in names.iter().enumerate() {
         let v=match r.get_ref(i)? {rusqlite::types::ValueRef::Null=>Value::Null,rusqlite::types::ValueRef::Integer(n)=>json!(n),
             rusqlite::types::ValueRef::Real(n)=>json!(n),rusqlite::types::ValueRef::Text(s)=>json!(String::from_utf8_lossy(s)),rusqlite::types::ValueRef::Blob(b)=>json!(hex::encode(b))};out.insert(n.clone(),v);
-    }Ok(Value::Object(out))})
+    }
+    if let Some(venue)=out.remove("venue_id_710") {out.insert("tx_id".into(),venue);}
+    if let Some(member)=out.remove("account_id_710").filter(|m|!m.is_null()) {out.insert("account_id".into(),member);}
+    Ok(Value::Object(out))})
+}
+/// Whether image `row` is a row of `key`'s account.
+fn owned(row: &Value, key: &Key) -> bool {
+    row["user_id"]==key.user_id && row["exchange_id"]==key.exchange_id && row["account_id"]==json!(key.scope.member)
 }
 fn load(c: &Connection, name: &str, legacy: &str) -> Result<Bucket,SyncError> {
     let text:Option<Option<String>>=c.query_row("SELECT value FROM app_configs WHERE key=?1",[name],|r|r.get(0)).optional()?;
@@ -106,7 +124,7 @@ fn validate(b: &Bucket) -> Result<(),SyncError> {
 }
 fn buckets(c: &Connection, key: &Key) -> Result<Vec<Bucket>,SyncError> {
     let mut stmt=c.prepare("SELECT key,value FROM app_configs WHERE key>=?1 AND key<?2 ORDER BY key")?;
-    let prefix=scope(key);let texts=stmt.query_map(params![prefix,format!("{prefix}\u{7f}")],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
+    let prefix=namespace(key);let texts=stmt.query_map(params![prefix,format!("{prefix}\u{7f}")],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
     texts.into_iter().map(|(name,text)| {let b:Bucket=serde_json::from_str(&text).map_err(|_|refused("unreadable identity metadata"))?;
         if name!=format!("{prefix}{}",hash(&b.legacy)) {return Err(refused("conflicting bucket digest"))}validate(&b)?;Ok(b)}).collect()
 }
@@ -133,7 +151,7 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
             let order=|i:&Input|(i.event.pair_key().unwrap_or_else(||i.event.key().unwrap()).tuple().to_string(),i.entry.entry_type==2);
             order(a).cmp(&order(b))
         });
-        let name=format!("{}{}",scope(key),hash(&legacy));let mut b=load(c,&name,&legacy)?;
+        let name=format!("{}{}",namespace(key),hash(&legacy));let mut b=load(c,&name,&legacy)?;
         let before=serde_json::to_string(&b).expect("bucket");
         let mut live=vec![];
         for i in items {if let Some(a)=b.bindings.iter().find(|a|a.event.key()==i.event.key() && a.suppressed) {
@@ -143,7 +161,7 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
         let mut candidates=vec![];
         for a in b.bindings.iter().filter(|a|!a.suppressed) {
             let row=image(c,a.row_id).map_err(|_|refused("alias points to deleted row"))?;
-            if row["user_id"]!=key.user_id || row["exchange_id"]!=key.exchange_id || row["tx_id"]!=a.tx_id {return Err(refused("alias scope changed"))}
+            if !owned(&row,key) || row["tx_id"]!=a.tx_id {return Err(refused("alias scope changed"))}
             let mut raw:Value=serde_json::from_str(row["raw_data"].as_str().ok_or_else(||refused("missing raw data"))?).map_err(|_|refused("unreadable raw data"))?;
             if let Some(raw)=raw.as_object_mut(){raw.remove("file_twin_at");}
             if !a.event.legacy(&raw,a.at).is_ok_and(|e|e.equivalent(&a.event)) {return Err(refused("retained raw identity changed"))}
@@ -152,7 +170,8 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
         // Include every legacy leg and reject possible nil-ID twins before assigning an anchor.
         let ids:HashSet<_>=live.iter().filter_map(|i|i.entry.tx_id.as_deref()).collect();
         let capital_ids:Vec<_>=live.iter().filter(|i|i.event.capital()).map(|i|json!([i.entry.entry_type,super::binance_ledger::text(i.entry.raw.value.get("id"))])).collect();
-        let mut stmt=c.prepare("SELECT id,tx_id,entry_type,base_currency,transacted_at,raw_data FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND (tx_id=?3 OR tx_id=?4 OR tx_id=?5 OR tx_id IS NULL OR (json_valid(raw_data) AND json_array(entry_type,CAST(json_extract(raw_data,'$.id') AS TEXT)) IN (SELECT value FROM json_each(?6)))) ORDER BY id")?;
+        let rid=key.scope.row_id("account_transactions");
+        let mut stmt=c.prepare(&format!("SELECT id,{rid},entry_type,base_currency,transacted_at,raw_data FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND ({rid}=?3 OR {rid}=?4 OR {rid}=?5 OR {rid} IS NULL OR (json_valid(raw_data) AND json_array(entry_type,CAST(json_extract(raw_data,'$.id') AS TEXT)) IN (SELECT value FROM json_each(?6)))) ORDER BY id",mine(key)))?;
         let rows=stmt.query_map(params![key.user_id,key.exchange_id,legacy,format!("{legacy}-in"),format!("{legacy}-out"),json!(capital_ids).to_string()],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,String>(4)?,r.get::<_,String>(5)?)))?.collect::<Result<Vec<_>,_>>()?;
         for (id,txid,kind,coin,at,raw) in rows {
             if candidates.iter().any(|a|a.row_id==id){continue}
@@ -184,7 +203,7 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
                 Decision::Missing=>{
                     if occupied.contains(e.tx_id.as_deref().unwrap()) {e.tx_id=i.event.sibling_id();}
                     if let Some(group)=i.event.group_id(){
-                        let existing:usize=c.query_row("SELECT count(*) FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3",params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
+                        let existing:usize=c.query_row(&format!("SELECT count(*) FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3",mine(key)),params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
                         let own=b.bindings.iter().filter(|a|a.event.pair_key()==i.event.pair_key() && !a.suppressed).count();
                         if existing!=own {return Err(refused("canonical group already belongs to other rows"))} e.group_id=Some(group);
                     }
@@ -210,8 +229,10 @@ fn insert(c: &FencedTransaction<'_>, key: &Key, e: &Entry, now: DateTime<Utc>) -
     let amount=|d:&BigDec|ledger::amount_sql(&key.exchange_type,d);
     let fee=e.fee_amount.as_ref().filter(|d|!d.is_zero());
     c.execute("INSERT INTO account_transactions (user_id,api_key_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,tx_id,group_id,description,transacted_at,raw_data,manual_values,base_asset_id,transfer_link_rejected,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,'{}',?16,0,?17,?17)",
-        params![key.user_id,key.id,key.exchange_id,e.entry_type,coin,amount(&e.base_amount),e.quote_currency,e.quote_amount.as_ref().map(amount),fee.and(e.fee_currency.as_deref()),fee.map(amount),e.tx_id,e.group_id,e.description,super::sql_time(at),e.raw.text(),asset,super::sql_time(now)])?;
-    Ok(c.last_insert_rowid())
+        params![key.user_id,key.id,key.exchange_id,e.entry_type,coin,amount(&e.base_amount),e.quote_currency,e.quote_amount.as_ref().map(amount),fee.and(e.fee_currency.as_deref()),fee.map(amount),key.scope.stored(e.tx_id.as_deref()),e.group_id,e.description,super::sql_time(at),e.raw.text(),asset,super::sql_time(now)])?;
+    let row=c.last_insert_rowid();
+    crate::venue_ids::after_insert(c,&key.scope,row,e.tx_id.as_deref())?;
+    Ok(row)
 }
 
 /// Whole-pair matching also applies to already-stamped anchors. An incoming BNB leg alone
@@ -273,11 +294,11 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
                 Err(rusqlite::Error::QueryReturnedNoRows)=>return Err(refused("CSV alias points to deleted row")),
                 Err(error)=>return Err(error.into()),
             };
-                if row["user_id"]!=key.user_id || row["exchange_id"]!=key.exchange_id || row["tx_id"]!=a.tx_id || row["group_id"]!=json!(a.group) {return Err(refused("CSV alias changed"))}
+                if !owned(&row,key) || row["tx_id"]!=a.tx_id || row["group_id"]!=json!(a.group) {return Err(refused("CSV alias changed"))}
                 let mut raw:Value=serde_json::from_str(row["raw_data"].as_str().ok_or_else(||refused("missing CSV candidate raw data"))?).map_err(|_|refused("unreadable CSV candidate raw data"))?;
                 if let Some(raw)=raw.as_object_mut(){raw.remove("file_twin_at");}
                 if !a.event.legacy(&raw,a.at).is_ok_and(|e|e.equivalent(&a.event)) {return Err(refused("CSV candidate identity changed"))}
-                if dust && c.query_row("SELECT count(*) FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3",params![key.user_id,key.exchange_id,a.group],|r|r.get::<_,i64>(0))?!=2 {return Err(refused("CSV candidate is not one whole pair"))}
+                if dust && c.query_row(&format!("SELECT count(*) FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3",mine(key)),params![key.user_id,key.exchange_id,a.group],|r|r.get::<_,i64>(0))?!=2 {return Err(refused("CSV candidate is not one whole pair"))}
             }
             out.duplicates+=rows.len();continue;
         }
@@ -315,15 +336,15 @@ fn csv_dust(c:&FencedTransaction<'_>, key:&Key, rows:&[&Entry], used:&mut HashSe
         return Err(refused("ambiguous CSV dust pair"));
     }
     let at=out.transacted_at.unwrap();
-    let partial:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id=?1 AND a.exchange_id=?2 AND a.group_id LIKE 'dust%' AND a.transacted_at BETWEEN ?3 AND ?4 AND (SELECT count(*) FROM account_transactions b WHERE b.user_id=a.user_id AND b.exchange_id=a.exchange_id AND b.group_id=a.group_id)!=2)",
+    let partial:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id=?1 AND a.exchange_id=?2 AND {} AND a.group_id LIKE 'dust%' AND a.transacted_at BETWEEN ?3 AND ?4 AND (SELECT count(*) FROM account_transactions b WHERE b.user_id=a.user_id AND b.exchange_id=a.exchange_id AND {} AND b.group_id=a.group_id)!=2)",key.scope.rows("a"),key.scope.rows("b")),
         params![key.user_id,key.exchange_id,super::sql_time(at-chrono::Duration::seconds(1)),super::sql_time(at+chrono::Duration::seconds(1))],|r|r.get(0))?;
     if partial {return Err(refused("partial existing CSV dust pair"));}
-    let mut stmt=c.prepare("SELECT id,group_id FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND transacted_at BETWEEN ?3 AND ?4 AND entry_type=3 AND base_currency=?5 AND base_amount=?6")?;
+    let mut stmt=c.prepare(&format!("SELECT id,group_id FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND transacted_at BETWEEN ?3 AND ?4 AND entry_type=3 AND base_currency=?5 AND base_amount=?6",mine(key)))?;
     let candidates=stmt.query_map(params![key.user_id,key.exchange_id,super::sql_time(at-chrono::Duration::seconds(1)),super::sql_time(at+chrono::Duration::seconds(1)),out.base_currency,ledger::amount_sql(&key.exchange_type,&out.base_amount)],|r|Ok((r.get::<_,i64>(0)?,r.get::<_,Option<String>>(1)?)))?.collect::<Result<Vec<_>,_>>()?;
     if !candidates.is_empty() {
         if candidates.len()!=1 {return Err(refused("ambiguous CSV dust identity"));}
         let (id,Some(group))=&candidates[0] else {return Err(refused("partial existing CSV dust pair"));};
-        let mut stmt=c.prepare("SELECT id FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3 ORDER BY id")?;
+        let mut stmt=c.prepare(&format!("SELECT id FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3 ORDER BY id",mine(key)))?;
         let ids=stmt.query_map(params![key.user_id,key.exchange_id,group],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
         if ids.len()!=2 || !ids.contains(id) {return Err(refused("partial existing CSV dust pair"));}
         let stored=ids.iter().map(|id|image(c,*id)).collect::<Result<Vec<_>,_>>()?;
@@ -344,7 +365,7 @@ fn csv_dust(c:&FencedTransaction<'_>, key:&Key, rows:&[&Entry], used:&mut HashSe
     if rows.iter().any(|e|e.tx_id.as_deref().is_some_and(|id|id.contains("a12"))) {return Err(refused("exported identity has no retained binding"));}
     let tuple=serde_json::json!([key.user_id,key.exchange_id,out.group_id,out.base_currency,out.base_amount.to_s_f(),inn.base_amount.to_s_f(),at.timestamp_micros()]).to_string();
     let group=format!("dustcsv_a12_v1_{}",hash(&tuple));
-    let occupied:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND group_id=?3)",params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
+    let occupied:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3)",mine(key)),params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
     if occupied {return Err(refused("CSV group is already occupied"));}
     for e in rows {let mut e=(*e).clone();e.group_id=Some(group.clone());used.insert(insert(c,key,&e,now)?);}
     Ok(true)

@@ -89,6 +89,12 @@ da:
     links:
         hide_balances: 'Skjul saldi'
         display_currency: 'Visningsvaluta'
+        scheme: 'Farvetema'
+        scheme_default: 'Standard'
+        scheme_space: 'Rummet'
+        scheme_warm: 'Varm'
+        scheme_ember: 'Glød'
+        scheme_forest: 'Skov'
         show_balances: 'Vis saldi'
         about: Om
         telegram: 'Telegram'
@@ -185,6 +191,10 @@ da:
             confirm_delete: 'Vil du fjerne denne CoinGecko API-nøgle?'
         market_data:
             none: 'Ingen'
+            intro: "Markedsdata i realtid driver indeks og prishistorikken til porteføljesporing. Brug en gratis CoinGecko-konto, eller Deltabadgers API for det samme med aktier, plus en fast IP-adresse til børsernes whitelist."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Også aktier og en fast IP-adresse til hvidlisten på børserne."
+            upgrade_button: "Opgrader"
             disabled: 'Synkronisering af markedsdata deaktiveret.'
             updated: 'Markedsdataindstillinger opdateret.'
             coingecko_configured: 'Forbundet til CoinGecko for live markedsdata.'
@@ -666,6 +676,7 @@ da:
         notes:
             left: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være gået ud til kostpris (%{amount}).'
             arrived: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være kommet ind til sin pris (%{amount}).'
+            opened: 'Historikken kræver %{history} %{symbol}, som den aldrig viser komme ind. Antages holdt fra starten, til den dags pris (%{amount}).'
             since_sync: '%{symbol} købt siden sidste synkronisering: værdiansat til kostpris (%{amount}) indtil næste.'
             cash_out: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ud.'
             cash_in: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ind.'
@@ -780,7 +791,8 @@ da:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Midlertidigt forbindelsesproblem — prøver igen automatisk'
+            execution_retrying: "Ordreforsøg mislykkedes — botten prøver igen"
+            execution_retrying_with_error: "Ordreforsøg mislykkedes: %{error} — botten prøver igen"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Ordre %{order_id} opgivet (børsen sporer den ikke længere)"
             placement_ambiguous: "Ordrestatus ubekræftet — forsøges ikke igen for at undgå en dobbelt ordre"

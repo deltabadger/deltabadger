@@ -1,14 +1,14 @@
-//! The index wizard (Bots::DcaIndexes::*): the CoinGecko step (SetupCoingeckosController, its form only: this build has no
-//! CoinGecko provider, so the key it would save is a named refusal), the index picker (PickIndicesController), the venue
-//! (PickExchangesController), the key (keys.rs, `Namespace::Index`) and the quote (PickSpendableAssetsController), whose POST
-//! saves the bot (index_create). Every step but the first sends the browser to it while no market data is configured.
+//! The index wizard (Bots::DcaIndexes::*). D-INDEX-IN-ASSETS: an index is picked on the DCA wizard's Assets step (its Index view,
+//! `assets_view`, which connects market data in place when none is), posted to `pick_create`; the venue (PickExchangesController),
+//! the key (keys.rs, `Namespace::Index`) and the quote (PickSpendableAssetsController), whose POST saves the bot (index_create),
+//! are drawn in the sheet with the index track. Every index step sends the browser to the Index view while no market data is
+//! configured or no index is chosen; the old CoinGecko and index steps' URLs go there too.
 //!
 //! What this engine runs is an index bot on Alpaca, Kraken or Binance on a data-api install (eligibility::admission and index_reasons);
 //! the steps offer what 2.x offers, and the key and quote steps refuse, by name, an index bot this build would not run.
-use super::exchanges::{ordered, Table, Venue as Tile};
 use super::index_create::{self as create, count_named, display_index_name, index_row};
-use super::keys::FullPage;
-use super::{dig, exchange_id, expired, progress_bar, step_complete, Step};
+use super::{chips, chosen_ids, exchange_id, exchange_name, expired, fresh_start, index_chosen, index_track, search_box, step_complete, At, Step,
+            BASE_IDS_KEY, BASE_KEY, EXCHANGE_KEY, INDEX_VIEW, QUOTE_KEY};
 use crate::engine::{eligibility, model};
 use crate::web::bot::search::{self, Item};
 use crate::web::layout::{self, Ctx, Page};
@@ -21,12 +21,8 @@ use axum::response::Response;
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 
-pub const SETUP_NEW: &str = "/bots/dca_indexes/setup_coingecko/new";
-const SETUP: &str = "/bots/dca_indexes/setup_coingecko";
 const PICK: &str = "/bots/dca_indexes/pick_index";
-const PICK_NEW: &str = "/bots/dca_indexes/pick_index/new";
 const EXCHANGE: &str = "/bots/dca_indexes/pick_exchange";
-const EXCHANGE_NEW: &str = "/bots/dca_indexes/pick_exchange/new";
 const KEY_NEW: &str = "/bots/dca_indexes/add_api_key/new";
 const QUOTE: &str = "/bots/dca_indexes/pick_spendable_asset";
 const QUOTE_NEW: &str = "/bots/dca_indexes/pick_spendable_asset/new";
@@ -37,12 +33,6 @@ const QUOTE_FIELD: &str = "bots_dca_index[quote_asset_id]";
 const TILE_PILLS: usize = 5;
 const ROW_PILLS: usize = 6;
 const MINIMUM_SUPPORTED_COINS: i64 = 3;
-
-/// bots/dca_indexes/_new_step_progress_bar.
-fn progress(ctx: &Ctx, step: &str) -> Result<String, WebError> {
-    let share = match step { "coingecko" => 20, "index" => 40, "exchange" => 60, "api" => 80, _ => 100 };
-    progress_bar(ctx.t(&format!("bot.setup.progress_steps.{step}")), share)
-}
 
 fn settings_of(config: Option<&Value>) -> Map<String, Value> {
     config.and_then(|config| config.get("settings")).and_then(Value::as_object).cloned().unwrap_or_default()
@@ -75,43 +65,30 @@ fn begin(ctx: &Ctx) {
     if matches!(data.bot_config, None | Some(Value::Null) | Some(Value::Bool(false))) { data.bot_config = Some(json!({})); }
 }
 
-/// A step page in the wizard's dialog, its content made on the database thread.
+/// A step page in the sheet, its track and content made on the database thread.
 async fn render<F>(app: &App, ctx: &Ctx, status: StatusCode, flash_now: Vec<(&'static str, String)>, content: F) -> Result<Response, WebError>
-where F: FnOnce(&Connection, &Ctx, &str) -> Result<String, WebError> + Send + 'static {
+where F: FnOnce(&Connection, &Ctx, &str) -> Result<(String, String), WebError> + Send + 'static {
     let user = ctx.user().cloned().ok_or_else(|| WebError::Config("an index step without a user".into()))?;
     let (inner, view, owner) = (app.clone(), ctx.clone(), user.clone());
     let (body, shell) = app.db(move |c| {
         let csrf = view.csrf_token();
-        let content = content(c, &view, &csrf)?;
-        Ok((FullPage { close_url: view.path("/bots"), content: &content }.render()?, Shell::load(c, &inner, &owner)?))
+        let (track, content) = content(c, &view, &csrf)?;
+        Ok((super::sheet(&view, &track, &content)?, Shell::load(c, &inner, &owner)?))
     }).await?;
     shell::application(ctx, &ctx.csrf_token(), &user, &shell, Page { status, body, flash_now })
 }
 
 fn redirect(ctx: &Ctx, path: &str) -> Response { layout::redirect(StatusCode::FOUND, &ctx.path(path)) }
 
-#[derive(Template)]
-#[template(path = "wizard/index/setup_coingecko.html")]
-struct Setup<'a> { v: &'a Ctx, progress: String, admin: bool, title: String, how: String, action: String, csrf: &'a str }
-
-/// GET .../setup_coingecko/new: market data configured, the index step (the wizard begun); else the CoinGecko key form for an
-/// admin, and for anyone else who to ask.
-pub async fn setup_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
-    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
-    let inner = app.clone();
-    if app.db(move |c| configured(c, &inner)).await? {
-        begin(&ctx);
-        return Ok(redirect(&ctx, PICK_NEW));
-    }
-    render(&app, &ctx, StatusCode::OK, vec![], move |_, ctx, csrf| {
-        let title = i18n::t(ctx.locale, "bot.setup.connect_to", &[("name", i18n::Arg::Text("CoinGecko"))]);
-        let how = i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", i18n::Arg::Text("CoinGecko"))]);
-        Ok(Setup { v: ctx, progress: progress(ctx, "coingecko")?, admin: user.admin, title, how, action: ctx.path(SETUP), csrf }.render()?)
-    }).await
+/// GET .../setup_coingecko/new and .../pick_index/new: the old CoinGecko and index steps (a stale tab, a bookmark). The index is
+/// picked on the Assets step's Index view, which connects market data when none is.
+pub async fn setup_new(Extension(ctx): Extension<Ctx>) -> Response {
+    if ctx.user().is_none() { return auth::unauthenticated(&ctx) }
+    redirect(&ctx, INDEX_VIEW)
 }
 
-/// POST .../setup_coingecko (SetupCoingeckosController#create): admin only; a key CoinGecko refuses is answered with the alert,
-/// else it is saved, the setup runs, and the wizard (begun) goes on to the index step.
+/// POST .../setup_coingecko (SetupCoingeckosController#create), which no form posts to now: admin only; a key CoinGecko refuses
+/// is answered with the alert, else it is saved, the setup runs, and the wizard (begun) goes on to the Index view.
 pub async fn setup_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     use crate::web::settings::market_data as md;
     let Some(user) = ctx.user() else { return Ok(auth::unauthenticated(&ctx)) };
@@ -120,7 +97,7 @@ pub async fn setup_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
     if crate::v2::blank(&key) || !md::key_valid(&app, &key).await { return md::invalid_key(&ctx) }
     md::save_key(&app, key).await?;
     begin(&ctx);
-    Ok(redirect(&ctx, PICK_NEW))
+    Ok(redirect(&ctx, INDEX_VIEW))
 }
 
 pub(crate) struct Pill { pub(crate) id: i64, pub(crate) symbol: String, pub(crate) color: String }
@@ -128,15 +105,13 @@ pub(crate) struct Pill { pub(crate) id: i64, pub(crate) symbol: String, pub(crat
 /// One tile of the picker; `stored_name` is the `indices` row's name, for the bot menu's switch.
 pub(crate) struct IndexTile { pub(crate) stored_name: Option<String>, pub(crate) index_type: &'static str,
     pub(crate) top: bool, pub(crate) name: String, pub(crate) external_id: String, pub(crate) description: String, pub(crate) summary: String,
-    pub(crate) has_coins: bool, pub(crate) pills: Vec<Pill>, pub(crate) more: i64 }
+    pub(crate) has_coins: bool, pub(crate) pills: Vec<Pill>, pub(crate) more: i64,
+    /// The venue types its `available_exchanges` names (none: every venue).
+    pub(crate) venues: Vec<String> }
 
 /// Index.followable_on(exchange, quote_asset_id): the indices of which at least MINIMUM_SUPPORTED_COINS members exported for the
 /// venue's class trade there at the quote; `current` (an index bot's own index) is left out, as Bots::IndicesController does.
 pub(crate) struct Followable<'a> { pub exchange_id: i64, pub class: &'a str, pub quote: Option<i64>, pub current: Option<i64> }
-
-#[derive(Template)]
-#[template(path = "wizard/index/pick_index.html")]
-struct Picker<'a> { v: &'a Ctx, progress: String, action: String, csrf: &'a str, tiles: Vec<IndexTile> }
 
 /// `truncate(text, length: 150)`: past 150 characters, the first 147 and "...".
 fn truncate(text: &str) -> String {
@@ -187,107 +162,122 @@ pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) 
             let Some((id, symbol, color)) = assets.get(coin) else { continue };
             pills.push(Pill { id: *id, symbol: symbol.clone(), color: colors::pill_color(color.as_deref()).ok_or_else(|| WebError::Config("an asset colour 2.x cannot read".into()))? });
         }
-        let most = available.and_then(|text| serde_json::from_str::<Value>(&text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default()
-            .values().filter_map(|count| count.as_i64().or_else(|| count.as_f64().map(|f| f as i64))).max().unwrap_or(0);
+        let available = available.and_then(|text| serde_json::from_str::<Value>(&text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
+        let most = available.values().filter_map(|count| count.as_i64().or_else(|| count.as_f64().map(|f| f as i64))).max().unwrap_or(0);
         let top = source.as_deref() == Some("internal");
         let description = description.unwrap_or_default();
         Ok(IndexTile {
             stored_name: name.clone(), index_type: if top { "top" } else { "category" }, top,
             name: count_named(Some(&external_id)).map_or_else(|| name.unwrap_or_default(), |(_, named)| named.to_string()),
             summary: truncate(&description), description, has_coins: !coins.is_empty(), more: most - pills.len() as i64, pills, external_id,
+            venues: available.keys().cloned().collect(),
         })
     }).collect()
 }
 
-async fn picker(app: &App, ctx: &Ctx, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
-    let inner = app.clone();
-    render(app, ctx, status, flash_now, move |c, ctx, csrf| {
-        Ok(Picker { v: ctx, progress: progress(ctx, "index")?, action: ctx.path(PICK), csrf, tiles: tiles(c, &inner, None)? }.render()?)
-    }).await
+/// The Index view's list: `tiles` narrowed by the venue in force on the Assets step (none on a fresh start): Top Coins and the
+/// indices naming no venue always, a category when it names the venue's type; nothing on a venue `refusal` refuses.
+fn offered(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<IndexTile>, WebError> {
+    let all = tiles(c, app, None)?;
+    let Some(venue) = super::keys::venue(c, super::assets::venue_in_force(c, config)?)? else { return Ok(all) };
+    if refusal(c, app, &venue.class)?.is_some() { return Ok(vec![]) }
+    Ok(all.into_iter().filter(|tile| tile.top || tile.venues.is_empty() || tile.venues.contains(&venue.class)).collect())
 }
 
-/// GET .../pick_index/new.
-pub async fn pick_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
-    if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
-    let inner = app.clone();
-    if !app.db(move |c| configured(c, &inner)).await? { return Ok(redirect(&ctx, SETUP_NEW)) }
-    begin(&ctx);
-    picker(&app, &ctx, StatusCode::OK, vec![]).await
+#[derive(Template)]
+#[template(path = "wizard/index/assets.html")]
+struct AssetsView<'a> { v: &'a Ctx, switch: String, error: Option<String>, configured: bool, admin: bool, widget: Option<String>, providers: String,
+    action: String, csrf: &'a str, tiles: Vec<IndexTile> }
+
+/// D-INDEX-IN-ASSETS: the Assets step's Index view, as the sheet: the Asset / Index switch, then the index list (market data
+/// configured), Settings' market-data widget (an admin), or who to ask. The track is the DCA one until an index is chosen.
+pub fn assets_view(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>, error: Option<String>) -> Result<String, WebError> {
+    let csrf = ctx.csrf_token();
+    let admin = ctx.user().is_some_and(|user| user.admin);
+    let configured = configured(c, app)?;
+    // D-INDEX-CONNECT-IN-VIEW: no market data: the providers as the exchange step's tiles, each opening its connect card.
+    let provider = ctx.params.query("provider").filter(|p| matches!(*p, "coingecko" | "deltabadger"));
+    let widget = match provider { Some(provider) if !configured && admin => Some(crate::web::settings::keys::market_data(c, app, ctx, &csrf, false, None, Some(provider))?), _ => None };
+    let providers = crate::web::settings::sections::market_data_providers(ctx, "modal_content", |key| ctx.path(&format!("{INDEX_VIEW}&provider={key}")));
+    let tiles = if configured { offered(c, app, config)? } else { vec![] };
+    let content = AssetsView { v: ctx, switch: super::kind_switch(ctx, true)?, error, configured, admin, widget, providers, action: ctx.path(PICK), csrf: &csrf, tiles }.render()?;
+    let venue = super::assets::venue_in_force(c, config)?;
+    let track = if index_chosen(config) {
+        index_track(ctx, &csrf, config, At::Assets, &index_name(c, config, ctx.locale)?, exchange_name(c, venue)?)?
+    } else {
+        let order = super::StepOrder::new(super::BotType::Single, super::current_variant(config));
+        let ids = chosen_ids(config);
+        super::steer(ctx, &csrf, super::SentenceOf { order: &order, step: Step::Currencies, multi: !ids.is_empty(), chips: chips(c, &ids)?, exchange: exchange_name(c, venue)? }, true)?.track
+    };
+    super::assets_sheet(ctx, &track, &content)
 }
 
-/// POST .../pick_index: the tile's index (Top Coins, or a category with its id) joins the session's settings; nothing chosen
-/// re-renders the step (422) with the reason.
+/// POST .../pick_index: an index the Index view offers (Top Coins, or a category with its id) joins the session's settings in place
+/// of a basket (D-INDEX-OR-BASKET); one it does not offer re-renders the view (422) with the reason.
 pub async fn pick_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
-    if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
-    let inner = app.clone();
-    if !app.db(move |c| configured(c, &inner)).await? { return Ok(redirect(&ctx, SETUP_NEW)) }
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let param = |name: &str| ctx.params.form(name).or_else(|| ctx.params.query(name)).map(str::to_string);
-    let (index_type, category, name) = (param("index_type"), param("index_category_id"), param("index_name"));
-    let chosen = {
+    let (index_type, category, name) = (param("index_type"), param("index_category_id").filter(|id| !crate::v2::blank(id)), param("index_name"));
+    let config = ctx.session.lock().bot_config.clone();
+    let (inner, held, wanted, id) = (app.clone(), config.clone(), index_type.clone(), category.clone());
+    let (configured, offered, fresh) = app.db(move |c| {
+        let fresh = fresh_start(held.as_ref(), chips(c, &chosen_ids(held.as_ref()))?.is_empty());
+        if !configured(c, &inner)? { return Ok((false, false, fresh)) }
+        let offered = offered(c, &inner, held.as_ref())?.iter().any(|tile| match (wanted.as_deref(), id.as_deref()) {
+            (Some("top"), _) => tile.top,
+            (Some("category"), Some(id)) => !tile.top && tile.external_id == id,
+            _ => false,
+        });
+        Ok((true, offered, fresh))
+    }).await?;
+    if !configured { return Ok(redirect(&ctx, INDEX_VIEW)) }
+    if !offered {
+        let (inner, view, error) = (app.clone(), ctx.clone(), ctx.t("bot.dca_index.setup.pick_index.error"));
+        let (body, shell) = app.db(move |c| Ok((assets_view(c, &inner, &view, config.as_ref(), Some(error))?, Shell::load(c, &inner, &user)?))).await?;
+        return shell::application(&ctx, &ctx.csrf_token(), ctx.user().expect("checked above"), &shell, Page { status: StatusCode::UNPROCESSABLE_ENTITY, body, flash_now: vec![] });
+    }
+    {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));
         if !config.is_object() { *config = json!({}); }
+        for key in [BASE_IDS_KEY, BASE_KEY, QUOTE_KEY] { super::delete_path(config, key); }
+        // Asset first with nothing chosen before: a venue left behind goes, as the first asset drops it.
+        if fresh { if let Some(entries) = config.as_object_mut() { entries.remove(EXCHANGE_KEY[0]); } }
         if !config["settings"].is_object() { config["settings"] = json!({}); }
         let settings = config["settings"].as_object_mut().expect("an object, made one above");
-        match (index_type.as_deref(), category.filter(|id| !crate::v2::blank(id))) {
-            (Some("top"), _) => {
-                for key in ["index_type", "index_category_id", "index_name", "index_name_prefix"] { settings.insert(key.into(), Value::Null); }
-                settings.insert("index_type".into(), json!("top"));
-                true
-            }
+        match (index_type.as_deref(), category) {
             (Some("category"), Some(id)) => {
                 let prefix = count_named(Some(&id)).map(|(prefix, _)| prefix);
                 settings.insert("index_type".into(), json!("category"));
                 settings.insert("index_category_id".into(), json!(id));
                 settings.insert("index_name".into(), json!(name));
                 settings.insert("index_name_prefix".into(), json!(prefix));
-                true
             }
-            _ => false,
+            _ => {
+                for key in ["index_type", "index_category_id", "index_name", "index_name_prefix"] { settings.insert(key.into(), Value::Null); }
+                settings.insert("index_type".into(), json!("top"));
+            }
         }
-    };
-    if chosen { return Ok(redirect(&ctx, EXCHANGE_NEW)) }
-    picker(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, vec![(flash::ALERT, ctx.t("bot.dca_index.setup.pick_index.error"))]).await
+    }
+    Ok(redirect(&ctx, KEY_NEW))
 }
 
-/// The before_actions of the venue step: market data, then an index chosen.
-fn exchange_gate(c: &Connection, app: &App, config: Option<&Value>) -> Result<Option<&'static str>, WebError> {
-    if !configured(c, app)? { return Ok(Some(SETUP_NEW)) }
-    let chosen = dig(config, &["settings", "index_type"]).is_some_and(|v| v.as_str().is_some_and(|t| !crate::v2::blank(t)) || matches!(v, Value::Number(_) | Value::Bool(true)));
-    Ok((!chosen).then_some(PICK_NEW))
+/// The before_actions of every index step: market data, then an index chosen; else the Index view, which asks for either.
+pub fn gate(c: &Connection, app: &App, config: Option<&Value>) -> Result<Option<&'static str>, WebError> {
+    Ok((!configured(c, app)? || !index_chosen(config)).then_some(INDEX_VIEW))
 }
-
-/// The sentence of the venue and quote steps: "Invest in {index} portfolio at {venue} spending {quote}".
-struct SentenceVenue { name_id: String, mark: &'static str, name: String }
-
-#[derive(Template)]
-#[template(path = "wizard/index/_sentence.html")]
-struct Sentence<'a> { v: &'a Ctx, index_url: String, index_name: String, venue: Option<SentenceVenue>, exchange_url: String, search_url: String }
 
 /// The index's name as the bot built from the session shows it, after_initialize's coin count included.
-fn index_name(c: &Connection, config: Option<&Value>, locale: &str) -> Result<String, WebError> {
+pub(super) fn index_name(c: &Connection, config: Option<&Value>, locale: &str) -> Result<String, WebError> {
     let mut settings = settings_of(config);
     let bounded = create::bounded(index_row(c, &settings)?.as_ref());
     if matches!(settings.get("num_coins"), None | Some(Value::Null)) { settings.insert("num_coins".into(), json!(bounded.map_or(10, |size| size.min(10)))); }
     Ok(display_index_name(&settings, bounded, locale))
 }
 
-fn sentence(c: &Connection, ctx: &Ctx, config: Option<&Value>, venue: Option<&super::keys::Venue>, search: &str) -> Result<String, WebError> {
-    let venue = venue.map(|venue| {
-        let name_id = crate::tracker::rows::name_id(&venue.class);
-        SentenceVenue { mark: crate::web::bot::exchange_svg(&name_id), name_id, name: venue.name.clone() }
-    });
-    Ok(Sentence { v: ctx, index_url: ctx.path(PICK_NEW), index_name: index_name(c, config, ctx.locale)?, venue, exchange_url: ctx.path(EXCHANGE_NEW),
-                  search_url: ctx.path(search) }.render()?)
-}
-
-#[derive(Template)]
-#[template(path = "wizard/index/pick_exchange.html")]
-struct ExchangeStep { progress: String, sentence: String, table: Table }
-
 /// `exchange_search_results_for_index_bot`: the venues a category index is available on (every available venue when it names
 /// none, or for Top Coins), ordered or searched as Bots::Searchable does.
-fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> Result<String, WebError> {
+fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> Result<(String, String), WebError> {
     let settings = settings_of(config);
     let category = settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::v2::blank(id));
     let types: Option<Vec<String>> = match (settings.get("index_type").and_then(Value::as_str), category) {
@@ -302,10 +292,10 @@ fn exchange_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) 
     let venues = statement.query_map([types.map(|t| json!(t).to_string())], |r| Ok(crate::web::bot::Exchange {
         id: r.get(0)?, name: r.get::<_, Option<String>>(1)?.unwrap_or_default(), class: r.get::<_, Option<String>>(2)?.unwrap_or_default(), maker_fee: None,
     }))?.collect::<Result<Vec<_>, _>>()?;
-    let venues = ordered(venues, ctx.params.query("query")).into_iter()
-        .map(|venue| Tile { id: venue.id, mark: crate::web::bot::exchange_wordmark(&venue.name_id()), unavailable: false }).collect();
-    let table = Table { action: ctx.path(EXCHANGE), csrf: csrf.to_string(), param_name: EXCHANGE_FIELD.into(), venues, unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
-    Ok(ExchangeStep { progress: progress(ctx, "exchange")?, sentence: sentence(c, ctx, config, None, EXCHANGE_NEW)?, table }.render()?)
+    let table = super::exchanges::Table { action: ctx.path(EXCHANGE), csrf: csrf.to_string(), param_name: EXCHANGE_FIELD.into(), venues: vec![],
+                                          unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
+    let content = super::exchanges::venue_pane(ctx, table, venues, &super::exchanges::connected(c, ctx.user().map_or(0, |user| user.id), &[0])?)?;
+    Ok((index_track(ctx, csrf, config, At::Exchange, &index_name(c, config, ctx.locale)?, None)?, content))
 }
 
 async fn exchange_render(app: &App, ctx: &Ctx, status: StatusCode) -> Result<Response, WebError> {
@@ -317,7 +307,7 @@ async fn exchange_render(app: &App, ctx: &Ctx, status: StatusCode) -> Result<Res
 pub async fn exchange_new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     let (inner, config) = (app.clone(), ctx.session.lock().bot_config.clone());
-    if let Some(path) = app.db(move |c| exchange_gate(c, &inner, config.as_ref())).await? { return Ok(redirect(&ctx, path)) }
+    if let Some(path) = app.db(move |c| gate(c, &inner, config.as_ref())).await? { return Ok(redirect(&ctx, path)) }
     begin(&ctx);
     exchange_render(&app, &ctx, StatusCode::OK).await
 }
@@ -327,7 +317,7 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)) }
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let (inner, config) = (app.clone(), ctx.session.lock().bot_config.clone());
-    if let Some(path) = app.db(move |c| exchange_gate(c, &inner, config.as_ref())).await? { return Ok(redirect(&ctx, path)) }
+    if let Some(path) = app.db(move |c| gate(c, &inner, config.as_ref())).await? { return Ok(redirect(&ctx, path)) }
     let Some(exchange) = ctx.params.form(EXCHANGE_FIELD).or_else(|| ctx.params.query(EXCHANGE_FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
     if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
     {
@@ -339,21 +329,11 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     Ok(redirect(&ctx, KEY_NEW))
 }
 
-#[derive(Template)]
-#[template(path = "wizard/index/_api_key_form.html")]
-struct KeyForm<'a> { v: &'a Ctx, progress: String, name_id: String, mark: &'static str, name: &'a str, exchange_url: String, card: &'a str }
-
-/// bots/dca_indexes/add_api_keys/_form: "Build index portfolio at {venue}" over the venue's connect card.
-pub fn key_form(ctx: &Ctx, name: &str, class: &str, card: &str) -> Result<String, WebError> {
-    let name_id = crate::tracker::rows::name_id(class);
-    Ok(KeyForm { v: ctx, progress: progress(ctx, "api")?, mark: crate::web::bot::exchange_svg(&name_id), name_id, name, exchange_url: ctx.path(EXCHANGE_NEW), card }.render()?)
-}
-
 struct QuoteRow { item: Item, pills: Vec<Pill>, more: i64 }
 
 #[derive(Template)]
 #[template(path = "wizard/index/pick_spendable_asset.html")]
-struct QuoteStep { progress: String, sentence: String, create_url: String, csrf: String, rows: Vec<QuoteRow> }
+struct QuoteStep { search: String, create_url: String, csrf: String, rows: Vec<QuoteRow> }
 
 /// The quote step: Bots::DcaIndex#available_assets_for_current_settings (the quotes in which the venue lists at least three of
 /// the index's members; Top Coins any three) ranked or searched, one page of them, each with the index's members it pairs
@@ -388,7 +368,7 @@ pub fn quote_asset(c: &Connection, exchange: i64, class: &str, settings: &Map<St
                    rusqlite::params![exchange, narrowed, symbol], |r| r.get(0)).optional()?)
 }
 
-fn quote_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> Result<String, WebError> {
+fn quote_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> Result<(String, String), WebError> {
     let settings = settings_of(config);
     let venue = super::keys::venue(c, exchange_id(config))?;
     let index = index_row(c, &settings)?;
@@ -421,7 +401,8 @@ fn quote_page(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>) -> 
         all.truncate(ROW_PILLS);
         rows.push(QuoteRow { item, pills: all, more });
     }
-    Ok(QuoteStep { progress: progress(ctx, "spendable")?, sentence: sentence(c, ctx, config, venue.as_ref(), QUOTE_NEW)?, create_url: ctx.path(QUOTE), csrf: csrf.to_string(), rows }.render()?)
+    let content = QuoteStep { search: search_box("asset-picker", &ctx.path(QUOTE_NEW), "USD")?, create_url: ctx.path(QUOTE), csrf: csrf.to_string(), rows }.render()?;
+    Ok((index_track(ctx, csrf, config, At::Quote, &index_name(c, config, ctx.locale)?, venue.map(|venue| venue.name))?, content))
 }
 
 async fn quote_render(app: &App, ctx: &Ctx, status: StatusCode, flash_now: Vec<(&'static str, String)>) -> Result<Response, WebError> {
@@ -429,12 +410,12 @@ async fn quote_render(app: &App, ctx: &Ctx, status: StatusCode, flash_now: Vec<(
     render(app, ctx, status, flash_now, move |c, ctx, csrf| quote_page(c, ctx, csrf, config.as_ref())).await
 }
 
-/// What the quote step does before its page: no market data, the CoinGecko step; the key not correct, the key step; an index
-/// bot this engine would not run, refused.
+/// What the quote step does before its page: no market data or no index, the Index view; the key not correct, the key step; an
+/// index bot this engine would not run, refused.
 enum QuoteGate { To(&'static str), Refused, Open }
 
 fn quote_gate(c: &Connection, app: &App, user: i64, config: Option<&Value>, check_key: bool) -> Result<QuoteGate, WebError> {
-    if !configured(c, app)? { return Ok(QuoteGate::To(SETUP_NEW)) }
+    if let Some(path) = gate(c, app, config)? { return Ok(QuoteGate::To(path)) }
     if check_key && !step_complete(c, user, config, Step::Api)? { return Ok(QuoteGate::To(KEY_NEW)) }
     let class = super::keys::venue(c, exchange_id(config))?.map(|venue| venue.class).unwrap_or_default();
     Ok(if refusal(c, app, &class)?.is_some() { QuoteGate::Refused } else { QuoteGate::Open })

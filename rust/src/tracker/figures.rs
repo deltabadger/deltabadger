@@ -33,13 +33,13 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
     text.map(|t| At::from_sql(&t).map_err(|e| FiguresError::Data(format!("{e:?}")))).transpose()
 }
 
-/// `AccountBalance.for_user(user).nonzero` (and `.for_exchange`), with each row's asset symbol.
-pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<Balance>, FiguresError> {
-    let mut s = c.prepare(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM account_balances b JOIN assets a ON a.id = b.asset_id \
+/// `AccountBalance.for_user(user).nonzero` (and, #710 slice 5, one account's), with each row's asset symbol.
+pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<Balance>, FiguresError> {
+    let mut s = c.prepare(&format!(
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, e.name, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
-         WHERE b.user_id = ?1 AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0 ORDER BY b.id")?;
-    let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
+         WHERE b.user_id = ?1 AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b")))?;
+    let mut q = s.query([user_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
         out.push(Balance {
@@ -50,25 +50,28 @@ pub fn balances(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Resul
     Ok(out)
 }
 
-/// `PortfolioSnapshot.watermarks`: per venue, when its balances were last taken, over every key of the user.
-fn watermarks(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<HashMap<i64, At>, FiguresError> {
-    let mut s = c.prepare("SELECT exchange_id, balances_synced_at FROM api_keys WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
-    let rows: Vec<(i64, Option<String>)> = s.query_map(rusqlite::params![user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+/// `PortfolioSnapshot.watermarks`, by account (#710 slice 5, PLAN-710-5 §5.4): when each account's balances were last
+/// taken, over its own keys (a key whose number 1 has no row yet: minus its exchange id, as a row of that account reads).
+fn watermarks(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<HashMap<i64, At>, FiguresError> {
+    let key_account = if crate::identity::numbered(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
+    let account = format!("COALESCE({key_account}, -k.exchange_id)");
+    let mut s = c.prepare(&format!("SELECT {account}, k.balances_synced_at FROM api_keys k WHERE k.user_id = ?1 AND {} ORDER BY k.id", scope.keys("k")))?;
+    let rows: Vec<(i64, Option<String>)> = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     let mut marks: HashMap<i64, At> = HashMap::new();
-    for (exchange, at) in rows {
+    for (account, at) in rows {
         crate::figures::budget::charge(1, 0)?;
         let Some(at) = instant(at)? else { continue };
-        let m = marks.entry(exchange).or_insert(at);
+        let m = marks.entry(account).or_insert(at);
         if at > *m { *m = at }
     }
     Ok(marks)
 }
 
-/// `Figures.moved_since(pending_scope, watermarks)`: what the ledger has moved since each venue's balances were taken,
-/// by symbol, the cash it spent or returned included. A venue with no watermark is not brought forward. A transfer is
+/// `Figures.moved_since(pending_scope, watermarks)`: what the ledger has moved since each account's balances were taken,
+/// by symbol, the cash it spent or returned included. An account with no watermark is not brought forward. A transfer is
 /// linked here only when its partner moved since too (`quantity_row`).
-pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result<Vec<(String, Dec)>, FiguresError> {
-    let marks = watermarks(c, user_id, exchange_id)?;
+pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<(String, Dec)>, FiguresError> {
+    let marks = watermarks(c, user_id, scope)?;
     let mut moved: Vec<(String, Dec)> = vec![];
     let mut index: HashMap<String, usize> = HashMap::new();
     let Some(since) = marks.values().copied().min() else { return Ok(moved) };
@@ -86,10 +89,12 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         }
     }
     let mut rows: Vec<super::rows::Stored> = vec![];
-    let mut s = c.prepare(
-        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, id, fee_currency, fee_amount, group_id \
-         FROM account_transactions WHERE user_id = ?1 AND (?2 IS NULL OR exchange_id = ?2) ORDER BY id")?;
-    let mut q = s.query(rusqlite::params![user_id, exchange_id])?;
+    let any = crate::venue_ids::Scope::install(c)?;
+    let mut s = c.prepare(&format!(
+        "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, {}, transacted_at, id, fee_currency, fee_amount, group_id, {}, \
+         COALESCE({}, -exchange_id) FROM account_transactions WHERE user_id = ?1 AND {} ORDER BY id",
+        any.row_id("account_transactions"), any.member_sql("account_transactions"), any.row_account("account_transactions"), scope.rows("account_transactions")))?;
+    let mut q = s.query([user_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
         crate::figures::budget::charge(1, 0)?;
         match index.get(&symbol) {
@@ -103,15 +108,17 @@ pub fn pending(c: &Connection, user_id: i64, exchange_id: Option<i64>) -> Result
         let (exchange, tx_id, at): (i64, Option<String>, String) = (r.get(0)?, r.get(6)?, r.get(7)?);
         let Some(at) = instant(Some(at))? else { continue };
         if at < since || borrowed(tx_id.as_deref()) { continue; }
-        let Some(&taken) = marks.get(&exchange) else { continue };
+        let account: i64 = r.get(13)?;
+        let Some(&taken) = marks.get(&account) else { continue };
         if at < taken { continue; }
         let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type 2.x does not have".into()))?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         rows.push(super::rows::Stored {
             id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
-            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: r.get::<_, Option<String>>(11)?.filter(|g| !g.trim().is_empty()),
+            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::account_group(r.get(11)?, r.get(12)?),
             at,
-            per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(),
+            per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None,
+            account, to_account: None,
         });
     }
     let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();
@@ -202,7 +209,7 @@ impl Figures {
 /// asset of that symbol.
 fn asset_for(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<i64>, FiguresError> {
     use rusqlite::OptionalExtension;
-    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND a.symbol = ?2 ORDER BY b.id LIMIT 1",
+    let held: Option<i64> = c.query_row("SELECT b.asset_id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND a.symbol = ?2 ORDER BY b.id LIMIT 1",
         rusqlite::params![user_id, symbol], |r| r.get(0)).optional()?;
     if held.is_some() { return Ok(held); }
     let catalog: Option<i64> = c.query_row("SELECT id FROM assets WHERE symbol = ?1 AND category IN ('Cryptocurrency','Fiat','Currency') ORDER BY category = 'Cryptocurrency' DESC, id LIMIT 1",
@@ -241,6 +248,9 @@ pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balan
     compute_on(c, user_id, ledger, balances, pending, &FxTable::load(c)?, chrono::Utc::now().date_naive())
 }
 
+/// The refusal when one symbol names two asset classes and nothing says which a row is.
+pub const AMBIGUOUS_CLASS: &str = "Tracker figures unavailable: ambiguous asset class for a shared symbol";
+
 /// `compute` with the ECB table read and today's date.
 pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)], fx: &FxTable, today: NaiveDate) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
@@ -257,7 +267,7 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
         }
     }
     if classes.values().any(|categories| categories.len() > 1) {
-        return Err(FiguresError::NotComputed("Tracker figures unavailable: ambiguous asset class for a shared symbol".into()));
+        return Err(FiguresError::NotComputed(AMBIGUOUS_CLASS.into()));
     }
     let zero = Dec::zero();
     let mut moved = Dec::zero();
@@ -429,7 +439,7 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT, category TEXT);
                          CREATE TABLE account_transactions (user_id INTEGER, base_currency TEXT, base_asset_id INTEGER, exchange_id INTEGER);
-                         CREATE TABLE account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
+                         CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
                          CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
                          INSERT INTO assets VALUES (1, 'BTC', 'Cryptocurrency'), (2, 'SOL', 'Cryptocurrency'), (3, 'EUR', 'Fiat');").unwrap();
         let f = crate::figures::budget::within(|| compute_on(&c, 1, &Summary::empty(), balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();

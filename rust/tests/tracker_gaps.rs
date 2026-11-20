@@ -60,6 +60,49 @@ async fn kucoin_holding_ether_with_no_history_and_no_bitcoin_has_one_gap_with_bo
                                      {"kind":"left","symbol":"BTC","exchange":"KuCoin","history":"0.5","held":"0.0","amount":"20000.0"}]));
 }
 
+/// KuCoin with `sold` ETH sold at 2000 before any is bought back, then bought back, holding `held`: run with every
+/// price at `price` (none at all when None). Returns the KuCoin exchange id.
+async fn sold_first(fx: &Fx, sold: &str, held: &str, price: Option<f64>) -> i64 {
+    let (kucoin, key) = add_kucoin(fx);
+    let quote = (&deltabadger::figures::dec::Dec::strict(sold).unwrap() * &deltabadger::figures::dec::Dec::from_i64(2000)).unwrap().to_s_f();
+    insert_row(&fx.c(), fx.owner(), kucoin, 1, "ETH", sold, Some(("USDT", &quote)), "2026-09-01 10:00:00");
+    insert_row(&fx.c(), fx.owner(), kucoin, 0, "ETH", sold, Some(("USDT", &quote)), "2026-09-02 10:00:00");
+    kucoin_balances(fx, kucoin, key, &[("ETH", held, "2000")]);
+    let api = match price { Some(p) => prices_api(p, &["2026-08-31", "2026-09-01", "2026-09-02"]), None => Rc::new(None) };
+    assert_eq!(run_with(fx, api).await, Outcome::Done);
+    kucoin
+}
+fn kucoin_gap(fx: &Fx, kucoin: i64) -> Option<Value> { gaps_of(&fx.row().unwrap()).iter().find(|g| g["exchange"].as_i64() == Some(kucoin)).cloned() }
+
+/// D-GAP-OPENINGS: ETH sold before it was ever bought, then bought back; the venue holds what the history ends with.
+/// The opening the walk forced opens the line, at that day's price.
+#[tokio::test(flavor = "current_thread")]
+async fn a_coin_sold_before_it_was_bought_opens_the_line() {
+    let fx = alpaca_synced("0.01").await;
+    let kucoin = sold_first(&fx, "1", "1", Some(2000.0)).await;
+    let gap = kucoin_gap(&fx, kucoin).expect("the gap");
+    assert_eq!(gap["notes"], json!([{"kind":"opened","symbol":"ETH","exchange":"KuCoin","history":"1.0","held":null,"amount":"2000.0"}]));
+    assert_eq!(gap["arrived_usd"], "0.0", "arrived_usd stays what arrived");
+}
+
+/// An opening nobody could price is worth zero: no note, no line, and the sum is not broken.
+#[tokio::test(flavor = "current_thread")]
+async fn an_opening_nobody_could_price_does_not_open_the_line() {
+    let fx = alpaca_synced("0.01").await;
+    let kucoin = sold_first(&fx, "1", "1", None).await;
+    assert!(kucoin_gap(&fx, kucoin).is_none(), "{:?}", fx.row());
+}
+
+/// Six dollars arrived and six opened: under the floor apart, over it together.
+#[tokio::test(flavor = "current_thread")]
+async fn arrived_and_opened_add_up_to_the_floor() {
+    let fx = alpaca_synced("0.01").await;
+    let kucoin = sold_first(&fx, "0.003", "0.006", Some(2000.0)).await;
+    let gap = kucoin_gap(&fx, kucoin).expect("the gap");
+    let kinds: Vec<&str> = gap["notes"].as_array().unwrap().iter().map(|n| n["kind"].as_str().unwrap()).collect();
+    assert_eq!(kinds, ["arrived", "opened"], "{gap}");
+}
+
 /// A KuCoin venue beside the Alpaca one, with a correct key; returns (exchange, key).
 /// No gap unless every rule passes: each case writes `[]`, or (a cold cache) no row and no step at all.
 #[tokio::test(flavor = "current_thread")]
@@ -69,12 +112,12 @@ async fn no_gap_unless_the_venue_passes_every_rule() {
         Case { name: "ledger stamp of another credential", cold: true, setup: |fx, _, key| { fx.c().execute("UPDATE app_configs SET value='{}' WHERE key=?1", [format!("rust_job.ledger_origin:{key}")]).unwrap(); } },
         Case { name: "ledger run left incomplete", cold: true, setup: |fx, _, key| { deltabadger::jobs::state::mark_incomplete(&fx.c(), deltabadger::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), at()).unwrap(); } },
         Case { name: "balance stamp incomplete", cold: false, setup: |fx, exchange, key| { let c = fx.c(); let v = deltabadger::engine::model::credential_version_by_id(&c, key).unwrap().unwrap(); deltabadger::engine::model::credential_write(&c, &Some(v.clone()), |f| deltabadger::sync::cache::record(f, fx.owner(), exchange, &v, false, at())).unwrap(); } },
-        Case { name: "unpriced holding", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE account_balances SET usd_value=NULL, usd_price=NULL WHERE exchange_id=?1", [exchange]).unwrap(); } },
-        Case { name: "stale price", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE account_balances SET priced_at='2026-09-30 00:00:00' WHERE exchange_id=?1", [exchange]).unwrap(); } },
+        Case { name: "unpriced holding", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE exchange_account_balances SET usd_value=NULL, usd_price=NULL WHERE exchange_id=?1", [exchange]).unwrap(); } },
+        Case { name: "stale price", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE exchange_account_balances SET priced_at='2026-09-30 00:00:00' WHERE exchange_id=?1", [exchange]).unwrap(); } },
         Case { name: "a row since the watermark", cold: false, setup: |fx, exchange, _| { insert_row(&fx.c(), fx.owner(), exchange, 0, "SOL", "1", Some(("USD", "100")), "2026-10-01 02:00:00"); } },
-        Case { name: "cash only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("USDT", "5000", "1")]); } },
-        Case { name: "a $6 gap", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE account_balances SET free=0.003, usd_value=6 WHERE exchange_id=?1", [exchange]).unwrap(); } },
-        Case { name: "left only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("SOL", "0.001", "100")]); insert_row(&fx.c(), fx.owner(), exchange, 0, "BTC", "0.5", Some(("USDT", "20000")), "2022-01-10 09:00:00"); } },
+        Case { name: "cash only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM exchange_account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("USDT", "5000", "1")]); } },
+        Case { name: "a $6 gap", cold: false, setup: |fx, exchange, _| { fx.c().execute("UPDATE exchange_account_balances SET free=0.003, usd_value=6 WHERE exchange_id=?1", [exchange]).unwrap(); } },
+        Case { name: "left only", cold: false, setup: |fx, exchange, _| { fx.c().execute("DELETE FROM exchange_account_balances WHERE exchange_id=?1", [exchange]).unwrap(); kucoin_balances(fx, exchange, kucoin_key(fx), &[("SOL", "0.001", "100")]); insert_row(&fx.c(), fx.owner(), exchange, 0, "BTC", "0.5", Some(("USDT", "20000")), "2022-01-10 09:00:00"); } },
     ];
     for case in cases {
         let fx = alpaca_synced("0.01").await;
@@ -209,7 +252,7 @@ async fn a_failing_step_writes_nothing_and_loses_nothing() {
         assert_eq!(fx.cache(), cache_of(&twin, fx.owner()), "{failure}: the cache as the producer alone leaves it");
         let c = fx.c();
         let cache::Published::Warm { from, .. } = cache::read_published(&c, fx.owner(), at()).unwrap() else { panic!("{failure}: warm") };
-        assert_eq!(gaps::read(&c, fx.owner(), None, Some(&from), None).unwrap(), vec![], "{failure}: the earlier row is not this publication's");
+        assert_eq!(gaps::read(&c, fx.owner(), &deltabadger::tracker::Scope::All, Some(&from), None).unwrap(), vec![], "{failure}: the earlier row is not this publication's");
     }
 }
 
@@ -244,7 +287,7 @@ async fn the_step_runs_on_its_own_budget_after_the_tightest_publish() {
     assert!(!gaps::derive_logged(&db, fx.owner(), Arc::new(at)).await, "the starved step writes nothing");
     assert_eq!(left.steps, 0);
     assert_eq!(cache_of(&copies[2].1, fx.owner()), cache_of(&copies[0].1, fx.owner()), "the cache as the producer alone left it");
-    let snapshots = |file: &PathBuf| Connection::open(file).unwrap().query_row("SELECT (SELECT count(*) FROM portfolio_snapshots) || '/' || (SELECT count(*) FROM portfolio_venue_snapshots)", [], |r| r.get::<_, String>(0)).unwrap();
+    let snapshots = |file: &PathBuf| Connection::open(file).unwrap().query_row("SELECT (SELECT count(*) FROM portfolio_snapshots) || '/' || (SELECT count(*) FROM exchange_account_snapshots)", [], |r| r.get::<_, String>(0)).unwrap();
     assert_eq!(snapshots(&copies[2].1), snapshots(&copies[0].1));
     assert_ne!(snapshots(&copies[2].1), "0/0");
     assert!(Connection::open(&copies[2].1).unwrap().query_row("SELECT 1 FROM app_configs WHERE key=?1", [gaps::key(fx.owner())], |_| Ok(())).optional().unwrap().is_none());
@@ -254,7 +297,7 @@ async fn the_step_runs_on_its_own_budget_after_the_tightest_publish() {
     assert_eq!((jobbed.refreshes(), jobbed.row()), (1, None));
     assert_eq!(jobbed.cache(), cache_of(&copies[0].1, fx.owner()));
     gaps::seam::STEPS.store(gaps::GAPS.steps, SeqCst);
-    jobbed.exec("DELETE FROM portfolio_venue_snapshots");
+    jobbed.exec("DELETE FROM exchange_account_snapshots");
     assert_eq!(run(&jobbed).await, Outcome::Done);
     assert_eq!(jobbed.refreshes(), 3);
     assert_eq!(gaps_of(&jobbed.row().unwrap()).len(), 1);
@@ -289,7 +332,9 @@ async fn the_pending_probe_is_bounded_by_the_time_index_and_the_cap() {
     let fx = alpaca_synced("0.02").await;
     let c = fx.c();
     let plan: Vec<String> = c.prepare(&format!("EXPLAIN QUERY PLAN {}", gaps::pending_sql())).unwrap().query_map(rusqlite::params!["2026-10-01 02:00:00", 1, 1], |r| r.get(3)).unwrap().collect::<Result<_, _>>().unwrap();
-    assert_eq!(plan, ["SEARCH account_transactions USING INDEX index_account_transactions_on_transacted_at (transacted_at>?)"]);
+    // #710 slice 5: a number 1's rows only, each a primary-key lookup of its membership.
+    assert_eq!(plan, ["SEARCH account_transactions USING INDEX index_account_transactions_on_transacted_at (transacted_at>?)", "CORRELATED SCALAR SUBQUERY 1",
+                      "SEARCH m USING INTEGER PRIMARY KEY (rowid=?)"]);
     history(&c, fx.owner(), fx.s.exchange_id, 50_000, "2026-09-05 00:00:00");
     let (found, cost) = instructions(&c, |c| c.query_row(&gaps::pending_sql(), rusqlite::params!["2026-10-01 02:00:00", fx.owner(), fx.s.exchange_id], |_| Ok(())).optional().unwrap());
     assert!(found.is_none() && cost < 1000, "the probe took {cost} instructions past 50,000 earlier rows");
@@ -384,7 +429,7 @@ async fn a_deadline_during_the_step_loses_only_its_second_refresh() {
         result.unwrap();
         assert_eq!(fx.refreshes(), 1, "{superseded}: {:?}", fx.sent.lock().unwrap());
         assert!(matches!(cache::read(&fx.c(), owner, None, at()).unwrap(), cache::State::Warm(_)), "the figures stay readable");
-        assert_ne!(fx.c().query_row("SELECT count(*) FROM portfolio_venue_snapshots WHERE user_id=?1", [owner], |r| r.get::<_, i64>(0)).unwrap(), 0);
+        assert_ne!(fx.c().query_row("SELECT count(*) FROM exchange_account_snapshots WHERE user_id=?1", [owner], |r| r.get::<_, i64>(0)).unwrap(), 0);
         if superseded {
             assert!(fx.row().is_none(), "the late write found another publication and wrote nothing");
         } else {
@@ -428,18 +473,27 @@ async fn the_line_sits_atop_the_table_in_the_headers_columns() {
     let id = fx.s.exchange_id;
     let all = get(&fx, &app, "/tracker").await.body;
     let shown = line(&all, id).expect("the line under All");
-    assert!(shown.starts_with(&format!("<tr id=\"history_gap_{id}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all\">\n  <td class=\"text-left tracker-row__when table__when\">\n    <a class=\"rbutton rbutton--small\" data-turbo-frame=\"modal\" href=\"/tracker/history_gap?exchange_id={id}\">Import history</a>\n  </td>\n  <td class=\"tracker-exchange-icon\">")), "{shown}");
-    assert_eq!(shown.matches("<td").count(), 9, "date, venue, type, asset, amount, price, value, fee, bot");
+    assert!(shown.starts_with(&format!("<tr id=\"history_gap_{id}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all\">\n  <td class=\"text-left tracker-row__when table__when\">\n    <a class=\"rbutton rbutton--small\" data-turbo-frame=\"modal\" href=\"/tracker/history_gap?exchange_id={id}\">Add missing history</a>\n  </td>\n  <td class=\"tracker-exchange-icon\">")), "{shown}");
+    assert!(shown.contains("<td class=\"text-left\" colspan=\"7\">No history for part of your BTC</td>") && !shown.contains("no-value"), "{shown}");
+    assert_eq!(columns(&shown), 9, "date, venue, type, asset, amount, price, value, fee, bot");
     let tbody = all.find("<tbody>\n").unwrap();
     assert!(all[tbody..].find("history_gap_").unwrap() < all[tbody..].find("account_transaction_").unwrap(), "above the newest row");
     assert!(line(&get(&fx, &app, &format!("/tracker?exchange_id={id}")).await.body, id).is_some(), "the venue's own view");
     fx.exec("UPDATE users SET hide_balances=1");
     let hidden = line(&get(&fx, &app, "/tracker").await.body, id).unwrap();
-    assert_eq!(hidden.matches("<td").count(), 6, "no amount, value or fee with balances hidden: {hidden}");
-    assert!(!hidden.contains("tracker-row__value") && !hidden.contains("tracker-row__fee"));
+    assert_eq!(columns(&hidden), 6, "no amount, value or fee with balances hidden: {hidden}");
+    assert!(hidden.contains(">No history for part of your BTC</td>") && !hidden.contains("tracker-row__value") && !hidden.contains("tracker-row__fee"), "the coins, never an amount");
     fx.exec("UPDATE users SET hide_balances=0");
     let de = line(&get(&fx, &app, "/de/tracker").await.body, id).unwrap();
-    assert!(de.contains(&format!("href=\"/de/tracker/history_gap?exchange_id={id}\">Historie importieren</a>")), "{de}");
+    assert!(de.contains(&format!("href=\"/de/tracker/history_gap?exchange_id={id}\">Fehlende Historie hinzufügen</a>")), "{de}");
+}
+
+/// The columns a row's cells take, colspans counted.
+fn columns(row: &str) -> usize {
+    row.match_indices("<td").map(|(i, _)| {
+        let cell = &row[i..i + row[i..].find('>').unwrap()];
+        cell.split("colspan=\"").nth(1).map_or(1, |rest| rest[..rest.find('"').unwrap()].parse().unwrap())
+    }).sum()
 }
 
 /// A venue with a gap and no transaction of its own: its view draws the table with the line, not "no transactions".
@@ -514,7 +568,7 @@ async fn a_row_that_cannot_be_trusted_leaves_the_page_as_it_was() {
     deltabadger::app_config::set_plain(&fx.c(), &gaps::key(fx.owner()), &good.to_string(), at()).unwrap();
     assert!(line(&get(&fx, &app, "/tracker").await.body, fx.s.exchange_id).is_some());
     app.db(|c| { c.authorizer(Some(|a: rusqlite::hooks::AuthContext<'_>| match a.action {
-        rusqlite::hooks::AuthAction::Read { table_name: "account_balances", column_name: "updated_at" } => rusqlite::hooks::Authorization::Deny,
+        rusqlite::hooks::AuthAction::Read { table_name: "exchange_account_balances", column_name: "updated_at" } => rusqlite::hooks::Authorization::Deny,
         _ => rusqlite::hooks::Authorization::Allow,
     })); Ok(()) }).await.unwrap();
     assert_eq!(stable(&get(&fx, &app, "/tracker").await.body), without, "an Err from gaps::read");
@@ -555,10 +609,14 @@ async fn the_line_costs_a_page_one_read_and_a_shown_gap_three_more() {
     assert_eq!(run(&fx).await, Outcome::Done);
     let (owner, id) = (fx.owner(), fx.s.exchange_id);
     let app = app(&fx);
-    let gaps_read = format!("SELECT key,value FROM app_configs WHERE key IN ('rust_tracker_gaps.{owner}','rust_binance_repair_gaps.{owner}','rust_kucoin_hf_gap.{owner}')");
-    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name FROM api_keys k");
+    let gaps_read = gaps_read(owner);
+    // #710: with each key's account (run::reading groups by it) in the same statement.
+    let reading = |s: &String| s.starts_with("SELECT k.id, k.exchange_id, k.key_type, k.last_sync_error, e.type, e.name, (SELECT a.id FROM exchange_accounts a")
+        && s.contains(") FROM api_keys k");
     let origin = format!("SELECT updated_at FROM app_configs WHERE key = 'rust_job.balance_origin:{owner}:{id}'");
-    let revision = format!("SELECT COUNT(*), MAX(updated_at) FROM account_balances WHERE user_id = {owner} AND exchange_id = {id}");
+    // #710 slice 5: the line's account (its number 1, none stored) and its balances' revision, in the one read.
+    let revision = format!("SELECT a.id, a.number, (SELECT COUNT(*) FROM exchange_account_balances b WHERE b.account_id = a.id), (SELECT MAX(b.updated_at) FROM exchange_account_balances b \
+                            WHERE b.account_id = a.id) FROM exchange_accounts a WHERE a.user_id = {owner} AND a.exchange_id = {id} AND CASE WHEN NULL IS NULL THEN a.number = 1 ELSE a.id = NULL END");
     for path in ["/tracker".to_string(), format!("/tracker?exchange_id={id}")] {
         let extra = added(&statements(&fx, &app, &path, true).await, &statements(&fx, &app, &path, false).await);
         assert_eq!(extra.len(), 4, "{path}: {extra:#?}");
@@ -634,7 +692,8 @@ async fn the_modal_says_why_shows_the_evidence_and_the_steps_per_venue() {
     assert!(b.contains(&deltabadger::web::i18n::t("en", "tracker.history_gap.why_binance", &[])) && b.contains(&deltabadger::web::i18n::t("en", "tracker.history_gap.steps_binance_2", &[])));
     assert!(!b.contains("<pre") && !b.contains("What the tracker found"), "no examples and no gap on Binance");
     let a = modal(fx.s.exchange_id).await;
-    assert!(a.contains("Alpaca holds more than the history Deltabadger could read from it.") && a.contains(",alpaca,,alpaca-convert-1,") && a.contains("What the tracker found"));
+    assert!(a.contains("Part of what happened on Alpaca isn&#39;t in the history Deltabadger could read from it.") && a.contains(",alpaca,,alpaca-convert-1,") && a.contains("What the tracker found"), "{a}");
+    assert!(a.find("What the tracker found").unwrap() < a.find("Part of what happened on Alpaca").unwrap(), "the evidence leads, then why");
     assert!(a.contains("Alpaca reports 0.02 BTC; the history accounts for 0.01. The difference is taken as having arrived at its price ($600.00)."), "{a}");
     fx.exec("UPDATE users SET hide_balances=1");
     let hidden = modal(fx.s.exchange_id).await;
@@ -699,7 +758,7 @@ async fn the_polish_flow_from_line_to_import() {
     let id = fx.s.exchange_id;
     let page = line(&get(&fx, &app, "/pl/tracker").await.body, id).unwrap();
     let href = format!("/pl/tracker/history_gap?exchange_id={id}");
-    assert!(page.contains(&format!("href=\"{href}\">Importuj historię</a>")), "{page}");
+    assert!(page.contains(&format!("href=\"{href}\">Dodaj brakującą historię</a>")), "{page}");
     let modal = get(&fx, &app, &href).await.body;
     assert!(modal.contains("Uzupełnij historię z Alpaca") && modal.contains("href=\"/pl/tracker/import/new\">Importuj plik</a>"), "{modal}");
     let import = get(&fx, &app, "/pl/tracker/import/new").await.body;
@@ -711,7 +770,7 @@ async fn the_polish_flow_from_line_to_import() {
 fn every_locale_has_every_key() {
     let all = deltabadger::web::i18n::all();
     let keys: Vec<&str> = all.iter().filter_map(|(k, _)| k.strip_prefix("en.tracker.history_gap.")).collect();
-    assert_eq!(keys.len(), 22);
+    assert_eq!(keys.len(), 28);
     for locale in deltabadger::web::locale::LOCALES {
         for key in &keys {
             let full = format!("{locale}.tracker.history_gap.{key}");
@@ -813,21 +872,135 @@ browser.kill();
 process.exit(failed ? 1 : 0);
 "#####;
 
+fn gaps_read(owner: i64) -> String { format!("SELECT key,value FROM app_configs WHERE key IN ('rust_tracker_gaps.{owner}','rust_kucoin_hf_gap.{owner}')") }
+/// The credential stamp the venue's reading key is current with.
+fn stamp(fx: &Fx, exchange: i64) -> Value { { let c = fx.c(); deltabadger::sync::cache::capture_read(&c, fx.owner(), &deltabadger::tracker::Scope::of_exchange(&c, fx.owner(), Some(exchange)).unwrap()) }.unwrap().producer_stamps()[0].clone() }
+/// The KuCoin HF row with `entry` for `exchange`, fenced on its current credential.
+fn kucoin_row(fx: &Fx, exchange: i64, mut entry: Value) {
+    entry["credential"] = stamp(fx, exchange);
+    deltabadger::app_config::set_plain(&fx.c(), &deltabadger::sync::kucoin_hf::gap_key(fx.owner()), &json!({exchange.to_string(): entry}).to_string(), at()).unwrap();
+}
+fn spans(n: usize) -> Value { json!((0..n).map(|i| json!([format!("2026-09-{:02} 00:00:00", i + 1), format!("2026-09-{:02} 12:00:00", i + 1)])).collect::<Vec<_>>()) }
+fn published(fx: &Fx) -> cache::Fingerprint { cache::Fingerprint::from_json(&serde_json::from_str(&fx.cache().0).unwrap()) }
+
+/// D-GAP-EVIDENCE-ONLY: the Binance repair's row (every Binance account has one) opens no line, and the page reads it
+/// not at all: one query, the reading keys never loaded.
 #[tokio::test(flavor = "current_thread")]
-async fn repair_diagnostics_use_the_existing_import_line_without_a_balance_gap() {
+async fn a_binance_repair_row_opens_no_line_and_costs_no_query() {
     let fx = alpaca_synced("0.01").await;
     assert_eq!(run(&fx).await, Outcome::Done);
     let c = fx.c();
     c.execute("UPDATE exchanges SET type='Exchanges::Binance',name='Binance' WHERE id=?1", [fx.s.exchange_id]).unwrap();
-    let producer = deltabadger::sync::cache::capture_read(&c, fx.owner(), Some(fx.s.exchange_id)).unwrap().producer_stamps()[0].clone();
-    let stored = json!({fx.s.exchange_id.to_string(): {"credential": producer, "unresolved": 1, "version": deltabadger::sync::binance_repair::REPAIR_VERSION}});
+    let stored = json!({fx.s.exchange_id.to_string(): {"credential": stamp(&fx, fx.s.exchange_id), "unresolved": 12, "version": deltabadger::sync::binance_repair::REPAIR_VERSION}});
     deltabadger::app_config::set_plain(&c, &deltabadger::sync::binance_repair::gap_key(fx.owner()), &stored.to_string(), at()).unwrap();
+    assert!(gaps::read(&c, fx.owner(), &deltabadger::tracker::Scope::All, Some(&published(&fx)), None).unwrap().is_empty());
     let app = app(&fx);
-    let body = get(&fx, &app, "/tracker").await.body;
-    assert!(line(&body, fx.s.exchange_id).is_some(), "a repair diagnostic needs no estimated balance deficit");
-    assert!(body.contains(&deltabadger::web::i18n::t("en", "tracker.history_gap.button", &[])));
-    let modal = get(&fx, &app, &format!("/tracker/history_gap?exchange_id={}", fx.s.exchange_id)).await;
-    assert_eq!(modal.status, 200);
-    assert!(modal.body.contains(&deltabadger::web::i18n::t("en", "tracker.history_gap.why_binance", &[])));
-    assert!(!modal.body.contains("What the tracker found"), "the repair invents no monetary estimate");
+    assert!(line(&get(&fx, &app, "/tracker").await.body, fx.s.exchange_id).is_none());
+    let extra = added(&statements(&fx, &app, "/tracker", true).await, &statements(&fx, &app, "/tracker", false).await);
+    assert_eq!(extra, vec![gaps_read(fx.owner())]);
+}
+
+/// A KuCoin row whose every entry is closed: `missing: []`, or an entry written before `missing` was stored (its
+/// `uncovered` open). No line, one query.
+#[tokio::test(flavor = "current_thread")]
+async fn a_closed_kucoin_row_costs_one_query() {
+    let fx = alpaca_synced("0.01").await;
+    assert_eq!(run(&fx).await, Outcome::Done);
+    let (kucoin, key) = add_kucoin(&fx);
+    let app = app(&fx);
+    for entry in [json!({"key": key, "spans": 0, "uncovered": [], "missing_spans": 0, "missing": []}), json!({"key": key, "spans": 2, "uncovered": spans(2)})] {
+        kucoin_row(&fx, kucoin, entry.clone());
+        assert!(gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, None, None).unwrap().is_empty(), "{entry}");
+        assert!(line(&get(&fx, &app, "/tracker").await.body, kucoin).is_none(), "{entry}");
+        let extra = added(&statements(&fx, &app, "/tracker", true).await, &statements(&fx, &app, "/tracker", false).await);
+        assert_eq!(extra, vec![gaps_read(fx.owner())], "{entry}");
+    }
+}
+
+/// A derived KuCoin gap and the row's missing periods are one gap: its notes kept, the periods beside them.
+#[tokio::test(flavor = "current_thread")]
+async fn kucoin_spans_join_the_coin_gap() {
+    let fx = alpaca_synced("0.01").await;
+    let (kucoin, key) = add_kucoin(&fx);
+    kucoin_balances(&fx, kucoin, key, &[("ETH", "7.4", "2000")]);
+    assert_eq!(run(&fx).await, Outcome::Done);
+    kucoin_row(&fx, kucoin, json!({"key": key, "spans": 2, "uncovered": spans(2), "missing_spans": 2, "missing": spans(2)}));
+    let found = gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, Some(&published(&fx)), None).unwrap();
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!((found[0].exchange_id, found[0].notes.len(), found[0].unread.len(), found[0].more_unread), (kucoin, 1, 2, false));
+    assert_eq!(found[0].unread[0].0, "2026-09-01T00:00:00Z".parse::<chrono::DateTime<Utc>>().unwrap());
+}
+
+/// No derived gap: the periods alone are a gap, its first twenty listed and the rest said to follow.
+#[tokio::test(flavor = "current_thread")]
+async fn kucoin_spans_alone_are_a_gap() {
+    let fx = alpaca_synced("0.01").await;
+    assert_eq!(run(&fx).await, Outcome::Done);
+    let (kucoin, key) = add_kucoin(&fx);
+    kucoin_row(&fx, kucoin, json!({"key": key, "spans": 25, "uncovered": spans(25), "missing_spans": 25, "missing": spans(25)}));
+    let found = gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, Some(&published(&fx)), None).unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!((found[0].exchange_id, found[0].notes.len(), found[0].unread.len(), found[0].more_unread), (kucoin, 0, 20, true));
+    // Another credential (the key rotated since the row was written): nothing.
+    fx.c().execute("UPDATE api_keys SET key='rotated' WHERE id=?1", [key]).unwrap();
+    assert!(gaps::read(&fx.c(), fx.owner(), &deltabadger::tracker::Scope::All, None, None).unwrap().is_empty());
+}
+
+// ---- the row and the modal state the evidence (D-GAP-STATES-EVIDENCE) -------------------------------------------------
+
+/// The Alpaca gap of `alpaca_synced("0.02")` with its notes replaced by `notes` (kind, symbol, amount): the row stays
+/// this publication's, so a page shows them.
+async fn with_notes(notes: &[(&str, &str, &str)]) -> Fx {
+    let fx = alpaca_synced("0.02").await;
+    assert_eq!(run(&fx).await, Outcome::Done);
+    let mut row = fx.row().unwrap();
+    row["gaps"][0]["notes"] = json!(notes.iter().map(|(kind, symbol, amount)| json!({"kind": kind, "symbol": symbol, "exchange": "Alpaca", "history": "1.0", "held": if *kind == "opened" { Value::Null } else { json!("2.0") }, "amount": amount})).collect::<Vec<_>>());
+    deltabadger::app_config::set_plain(&fx.c(), &gaps::key(fx.owner()), &row.to_string(), at()).unwrap();
+    fx
+}
+
+/// The row names each coin once, at the sum of what arrived and opened, largest first, three at most.
+#[tokio::test(flavor = "current_thread")]
+async fn the_row_names_each_coin_once_largest_first() {
+    let fx = with_notes(&[("opened", "ETH", "30.0"), ("arrived", "BTC", "40.0"), ("arrived", "ETH", "20.0"), ("left", "SOL", "999.0")]).await;
+    let shown = line(&get(&fx, &app(&fx), "/tracker").await.body, fx.s.exchange_id).unwrap();
+    assert!(shown.contains(">No history for part of your ETH, BTC</td>") && !shown.contains(" and others"), "{shown}");
+    let fx = with_notes(&[("arrived", "A", "40.0"), ("arrived", "B", "30.0"), ("arrived", "C", "20.0"), ("opened", "D", "10.0")]).await;
+    let shown = line(&get(&fx, &app(&fx), "/tracker").await.body, fx.s.exchange_id).unwrap();
+    assert!(shown.contains(">No history for part of your A, B, C and others</td>"), "{shown}");
+}
+
+/// Periods alone: the row says the history is incomplete; the modal dates the first five in the user's zone (a span
+/// ending at local midnight ends the day before; one inside a day is that day), then says more follow.
+#[tokio::test(flavor = "current_thread")]
+async fn incomplete_periods_are_dated_in_the_users_zone() {
+    let fx = alpaca_synced("0.01").await;
+    assert_eq!(run(&fx).await, Outcome::Done);
+    fx.exec("UPDATE users SET time_zone='Warsaw'");
+    let (kucoin, key) = add_kucoin(&fx);
+    let mut missing = vec![json!(["2026-09-01 10:00:00", "2026-09-02 22:00:00"]), json!(["2026-09-05 10:00:00", "2026-09-05 10:00:01"])];
+    missing.extend((10..15).map(|d| json!([format!("2026-09-{d} 00:00:00"), format!("2026-09-{d} 12:00:00")])));
+    kucoin_row(&fx, kucoin, json!({"key": key, "spans": 7, "uncovered": missing, "missing_spans": 7, "missing": missing}));
+    let app = app(&fx);
+    let shown = line(&get(&fx, &app, "/tracker").await.body, kucoin).unwrap();
+    assert!(shown.contains(">Part of your KuCoin history is incomplete</td>"), "{shown}");
+    let modal = get(&fx, &app, &format!("/tracker/history_gap?exchange_id={kucoin}")).await.body;
+    assert!(modal.contains("<li>2026/09/01 – 2026/09/02: trades in this period couldn&#39;t be read.</li>"), "{modal}");
+    assert!(modal.contains("<li>2026/09/05: trades on this day couldn&#39;t be read.</li>"));
+    assert_eq!(modal.matches("couldn&#39;t be read.</li>").count(), 5);
+    assert!(modal.contains("<li>More periods follow these.</li>") && !modal.contains("2026/09/14"));
+}
+
+/// An opening alone opens the line on Alpaca: the reworded cause, the `opened` note, its money masked when hidden.
+#[tokio::test(flavor = "current_thread")]
+async fn an_openings_only_gap_says_what_the_history_needs() {
+    let fx = with_notes(&[("opened", "BTC", "600.0")]).await;
+    let app = app(&fx);
+    let path = format!("/tracker/history_gap?exchange_id={}", fx.s.exchange_id);
+    let modal = get(&fx, &app, &path).await.body;
+    assert!(modal.contains("Part of what happened on Alpaca isn&#39;t in the history Deltabadger could read from it."), "{modal}");
+    assert!(modal.contains("<li>The history needs 1.00 BTC that it never shows arriving. Taken as held from the start, at that day&#39;s price ($600.00).</li>"), "{modal}");
+    fx.exec("UPDATE users SET hide_balances=1");
+    let hidden = get(&fx, &app, &path).await.body;
+    assert!(hidden.contains("at that day&#39;s price (•••).") && !hidden.contains("$600.00"), "{hidden}");
 }

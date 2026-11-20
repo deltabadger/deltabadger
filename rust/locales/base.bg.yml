@@ -89,6 +89,12 @@ bg:
     links:
         hide_balances: 'Скрий балансите'
         display_currency: 'Валута за показване'
+        scheme: 'Цветова схема'
+        scheme_default: 'По подразбиране'
+        scheme_space: 'Космос'
+        scheme_warm: 'Топла'
+        scheme_ember: 'Жар'
+        scheme_forest: 'Гора'
         show_balances: 'Покажи балансите'
         about: За нас
         telegram: 'Telegram'
@@ -185,6 +191,10 @@ bg:
             confirm_delete: 'Искате ли да премахнете този CoinGecko API ключ?'
         market_data:
             none: 'Няма'
+            intro: "Пазарните данни в реално време захранват индексите и историята на цените за проследяване на портфейла. Използвайте безплатен акаунт в CoinGecko или API на Deltabadger — същото и за акции, плюс постоянен IP адрес за белия списък на борсите."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Също и акции, плюс стабилен IP адрес за бял списък на борсите."
+            upgrade_button: "Надгради"
             disabled: 'Синхронизацията на пазарни данни е изключена.'
             updated: 'Настройките за пазарни данни са обновени.'
             coingecko_configured: 'Свързано с CoinGecko за актуални пазарни данни.'
@@ -666,6 +676,7 @@ bg:
         notes:
             left: '%{exchange} отчита %{held} %{symbol}; историята обяснява %{history}. Разликата се приема за излязла по себестойност (%{amount}).'
             arrived: '%{exchange} отчита %{held} %{symbol}; историята обяснява %{history}. Разликата се приема за постъпила по цената си (%{amount}).'
+            opened: 'Историята изисква %{history} %{symbol}, чието постъпване никога не показва. Приема се, че са държани от началото, по цената от онзи ден (%{amount}).'
             since_sync: '%{symbol}, купени след последната синхронизация: оценени по себестойност (%{amount}) до следващата.'
             cash_out: 'Историята държи %{history} %{symbol}; %{exchange} отчита %{held}. Разликата (%{amount}) се приема за изведена.'
             cash_in: 'Историята държи %{history} %{symbol}; %{exchange} отчита %{held}. Разликата (%{amount}) се приема за въведена.'
@@ -780,7 +791,8 @@ bg:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Временен проблем с връзката — автоматичен повторен опит'
+            execution_retrying: "Опитът за поръчка не успя — ботът ще опита отново"
+            execution_retrying_with_error: "Опитът за поръчка не успя: %{error} — ботът ще опита отново"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Поръчката %{order_id} е изоставена (борсата вече не я следи)"
             placement_ambiguous: "Статусът на поръчката е непотвърден — без повторен опит, за да не се дублира"

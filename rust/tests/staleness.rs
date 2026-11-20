@@ -65,7 +65,7 @@ async fn a_run_that_fails_after_its_first_unit_leaves_the_source_ageing_through_
         listings.push(json!({ "base_asset_id": format!("crypto:coin-{i}"), "symbol": format!("C{i}/USD"), "base_decimals": 9, "quote_decimals": 2, "price_decimals": 2 }));
     }
     handover::take_over(&lock, &o, &seed::cipher(), "0.2.0", at("2026-09-30T08:00:00Z")).unwrap();
-    assert_eq!(state::read(&o.primary, reference::ALPACA_CRYPTO, None).unwrap().rails_at, Some(at("2026-09-29T10:15:00Z")), "2.x's baseline, read once at the takeover");
+    assert_eq!(state::read(&o.primary, reference::ALPACA_CRYPTO, None).unwrap().v2_at, Some(at("2026-09-29T10:15:00Z")), "2.x's baseline, read once at the takeover");
 
     // The 10-01 run commits its first unit (500 tickers) and fails in the second.
     o.primary.execute_batch(&format!("CREATE TRIGGER late_failure BEFORE INSERT ON tickers WHEN NEW.ticker = 'C{}/USD' \

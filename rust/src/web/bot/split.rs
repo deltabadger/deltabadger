@@ -355,6 +355,8 @@ fn split_one(tx: &Connection, ctx: &Ctx, owner: i64, source: &Source, now: DateT
     let setting = |key: &str| source.bot.settings.get(key).cloned().unwrap_or(Value::Null);
     let amount = match setting("quote_amount") { Value::String(text) => text.trim().parse::<f64>().unwrap_or(0.0), other => other.as_f64().unwrap_or(0.0) };
     let exchange = source.bot.exchange.id;
+    // #710: the children trade on the source's account.
+    let account = crate::identity::Account::of_bot(tx, source.bot.id)?.ok_or_else(|| WebError::Config("the bot's account is another user's or exchange's".into()))?;
     let mut children = vec![];
     for (asset, weight) in &source.members {
         // `quote_amount.to_f * weight`, stored as Oj writes a Float into the settings and read back as that number.
@@ -372,7 +374,7 @@ fn split_one(tx: &Connection, ctx: &Ctx, owner: i64, source: &Source, now: DateT
         built.set_members(tx, vec![*asset], ctx.locale)?;
         if !wizard::create::validate(tx, &built, ctx.locale)?.is_empty() { return Ok(None); }
         let label = built.label.clone();
-        let id = wizard::create::insert_as(tx, owner, built, now, BotStatus::Stopped, source.position)?;
+        let id = wizard::create::insert_as(tx, owner, built, now, BotStatus::Stopped, source.position, Some(account))?;
         children.push(Child { id, label, asset: *asset });
     }
     let Some(first) = children.first().map(|child| child.id) else { return Ok(Some(children)) };

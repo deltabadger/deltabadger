@@ -220,6 +220,116 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
     }
 }
 
+/// D-SPLIT-ASSETLESS-SHARED-NAME (#478): a holding whose rows stored no asset is restated by name only while no venue
+/// the bot is eligible on lists a coin under that name; otherwise its split is unresolved, never silently skipped.
+#[test]
+fn a_holding_with_no_stored_asset_is_not_restated_under_a_name_a_coin_shares() {
+    use deltabadger::figures::{at::At, budget, db::Order, fill::Raw, splits::{self as v2, Holding}};
+    let now = At::from_sql("2026-10-01 00:00:00").unwrap();
+    let order = |id, exchange_id, base: &str, asset_id| Order { id, at: At::from_sql("2026-08-15 00:00:00").unwrap(), exchange_id: Some(exchange_id),
+        raw: Raw::new(None, None, None, None), base: Some(base.into()), asset_id, sell: false, buy: true, closed: true, kind: "REGULAR".into(), abandoned_request: None };
+    let assetless = |strings: &[&str]| Holding { key: "BTC".into(), asset_id: None, strings: strings.iter().map(|s| s.to_string()).collect() };
+    // venue A: s.exchange_id, listing the coin BTC/USD (seed_alpaca). venue B: a second venue.
+    type Orders = fn(i64, i64, i64) -> Vec<(i64, &'static str, Option<i64>)>;
+    struct Case { name: &'static str, stock_on_a: bool, stock_on_b: bool, coin_on_a: bool, split_on_b: bool, recorded: bool, ledger_stock: bool,
+                  orders: Orders, holdings: fn(i64) -> Vec<Holding>, factors: Vec<&'static str>, unresolved: bool }
+    let cases = [
+        Case { name: "a: coin + security listed, report recorded the security", stock_on_a: true, stock_on_b: false, coin_on_a: true, split_on_b: false, recorded: true,
+               ledger_stock: false, orders: |a, _, _| vec![(a, "BTC", None)], holdings: |_| vec![], factors: vec![], unresolved: true },
+        Case { name: "b: coin + security listed, report asset-less", stock_on_a: true, stock_on_b: false, coin_on_a: true, split_on_b: false, recorded: false,
+               ledger_stock: true, orders: |a, _, _| vec![(a, "BTC", None)], holdings: |_| vec![], factors: vec![], unresolved: true },
+        Case { name: "c: asset-less on A (coin), known security on B, B's split", stock_on_a: false, stock_on_b: true, coin_on_a: true, split_on_b: true, recorded: true,
+               ledger_stock: false, orders: |a, b, stock| vec![(a, "BTC", None), (b, "BTC", Some(stock))],
+               holdings: |stock| vec![Holding { key: "stock".into(), asset_id: Some(stock), strings: vec!["BTC".into()] }], factors: vec!["2.0"], unresolved: true },
+        Case { name: "d: no eligible venue lists a coin under the name", stock_on_a: false, stock_on_b: true, coin_on_a: true, split_on_b: true, recorded: false,
+               ledger_stock: false, orders: |_, b, _| vec![(b, "BTC", None)], holdings: |_| vec![], factors: vec!["2.0"], unresolved: false },
+        Case { name: "e: only the coin is listed, report asset-less", stock_on_a: false, stock_on_b: false, coin_on_a: true, split_on_b: false, recorded: false,
+               ledger_stock: false, orders: |a, _, _| vec![(a, "BTC", None)], holdings: |_| vec![], factors: vec![], unresolved: true },
+    ];
+    let setup = |case: &Case| {
+        let (d, o, s) = common::install_alpaca();
+        let c = &o.primary;
+        c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'B', '0.1', '0.1', ?1, ?1)", [T]).unwrap();
+        let b = c.last_insert_rowid();
+        if !case.coin_on_a { c.execute("DELETE FROM tickers WHERE id = ?1", [s.ticker_id]).unwrap(); }
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('BTC.US', 'BTC', 'BTC', 'Stock', ?1, ?1)", [T]).unwrap();
+        let stock = c.last_insert_rowid();
+        for (on, venue) in [(case.stock_on_a, s.exchange_id), (case.stock_on_b, b)] {
+            if !on { continue; }
+            c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                       minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+                       VALUES (?1, 'BTC', 'BTC', 'USD', ?2, ?3, 9, 2, 2, '0.000000001', '1', 1, 1, ?4, ?5)", params![venue, stock, s.quote, T, seed::SYNCED]).unwrap();
+        }
+        if case.ledger_stock {
+            c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_asset_id, base_amount, quote_currency, quote_amount, \
+                       transacted_at, raw_data, created_at, updated_at) VALUES (?1, ?2, 0, 'BTC', ?3, '10', 'USD', '300', '2026-08-01 00:00:00', '{}', ?4, ?4)",
+                      params![s.user_id, s.exchange_id, stock, T]).unwrap();
+        }
+        c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_asset_id, base_amount, transacted_at, raw_data, created_at, updated_at) \
+                   VALUES (?1, ?2, 15, 'BTC', ?3, '0', '2026-09-01 00:00:00', ?4, ?5, ?5)",
+                  params![s.user_id, if case.split_on_b { b } else { s.exchange_id }, case.recorded.then_some(stock), r#"{"corporate_action":"split","split_ratio":"2:1"}"#, T]).unwrap();
+        (d, o, s, b, stock)
+    };
+    let check = |c: &Connection, user_id, orders: &[Order], holdings: &[Holding], factors: Vec<&str>, unresolved: bool, name: &str| {
+        let events = budget::within(|| v2::events(c, user_id, orders, holdings, now)).unwrap();
+        assert_eq!(events.iter().map(|e| e.factor.to_s_f()).collect::<Vec<_>>(), factors, "{name}");
+        assert_eq!(budget::within(|| v2::unresolved(c, user_id, orders, holdings, now)).unwrap(), unresolved, "{name}");
+    };
+    for case in &cases {
+        let (_d, o, s, b, stock) = setup(case);
+        let orders: Vec<Order> = (case.orders)(s.exchange_id, b, stock).into_iter().enumerate().map(|(i, (v, base, id))| order(i as i64 + 1, v, base, id)).collect();
+        let mut holdings = vec![assetless(&["BTC"])];
+        holdings.extend((case.holdings)(stock));
+        check(&o.primary, s.user_id, &orders, &holdings, case.factors.clone(), case.unresolved, case.name);
+        // e: a known coin holding in the same setup stays skipped and resolved.
+        if case.name.starts_with("e:") {
+            let coin = [Holding { key: "BTC".into(), asset_id: Some(s.btc), strings: vec!["BTC".into()] }];
+            check(&o.primary, s.user_id, &[order(1, s.exchange_id, "BTC", Some(s.btc))], &coin, vec![], false, "e: known coin");
+        }
+    }
+    // f: an asset-less holding the row is not eligible for (other strings, or the name not traded on the row's venue) is untouched.
+    let (_d, o, s, b, _) = setup(&cases[0]);
+    check(&o.primary, s.user_id, &[order(1, s.exchange_id, "BTC", None)], &[assetless(&["XBT"])], vec![], false, "f: other strings");
+    check(&o.primary, s.user_id, &[order(1, s.exchange_id, "ETH", None), order(2, b, "BTC", None)], &[assetless(&["BTC", "ETH"])], vec![], false, "f: name not traded on the venue");
+}
+
+/// #478 controls: callers that never pass an asset-less holding. The engine builds holdings from stored ids (a known coin
+/// is never restated nor untrusted, a known security is restated), and a single-asset bot pools its asset-less rows under
+/// its configured asset (a coin bot is not restated whatever its rows stored).
+#[test]
+fn a_security_split_restates_only_known_securities_in_the_engine_and_never_a_coin_pair_bot() {
+    use deltabadger::figures::{at::At, pair};
+    let now: chrono::DateTime<chrono::Utc> = "2026-10-01T00:00:00Z".parse().unwrap();
+    for coin in [true, false] {
+        let (_d, o, s) = common::install_alpaca();
+        let c = &o.primary;
+        let (stock, _) = seed::add_alpaca_stock(c, &s, "BTC");
+        let row = seed::insert_split(c, &s, "BTC", "2026-09-01 00:00:00", Some("2:1"));
+        c.execute("UPDATE account_transactions SET base_asset_id = ?1 WHERE id = ?2", [stock, row]).unwrap();
+        let held = if coin { s.btc } else { stock };
+        let id = seed::insert_bot(c, &s, &BotSpec::weekly(60.0, "2026-08-01 10:00:00").weights(&[(held, 1.0)]));
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, base, quote, base_asset_id, quote_asset_id, \
+                   amount, amount_exec, price, quote_amount_exec, bot_interval, bot_quote_amount, transaction_type, error_messages, created_at, updated_at) VALUES (?1, ?2, 'o-1', 0, 2, 0, 0, \
+                   'BTC', 'USD', ?3, ?4, 1, 1, 60, 60, 'week', 60, 'REGULAR', '[]', '2026-08-15 00:00:00', '2026-08-15 00:00:00')", params![id, s.exchange_id, held, s.quote]).unwrap();
+        let bot = model::load_bot(c, id).unwrap();
+        let factors = |events: Vec<String>| if coin { assert!(events.is_empty(), "coin: {events:?}") } else { assert_eq!(events, ["2.0"], "security") };
+        let engine = splits::splits(c, &bot, now).unwrap();
+        factors(engine.events.iter().map(|e| e.factor.to_s_f()).collect());
+        assert!(!engine.unresolved && !splits::untrusted(c, &bot, now).unwrap(), "coin {coin}: trusted");
+        let cap = splits::asset_splits(c, s.user_id, id, &[(s.exchange_id, held)], now).unwrap();
+        factors(cap.events.iter().map(|(_, e)| e.factor.to_s_f()).collect());
+        assert!(!cap.unresolved);
+        // The single-asset bot on the same venue, its orders storing no asset.
+        if coin {
+            c.execute("UPDATE bots SET type = 'Bots::DcaSingleAsset', settings = json_object('base_asset_id', ?1, 'quote_asset_id', ?2, 'interval', 'week', 'quote_amount', 60) WHERE id = ?3",
+                      params![s.btc, s.quote, id]).unwrap();
+            c.execute("UPDATE transactions SET base_asset_id = NULL WHERE bot_id = ?1", [id]).unwrap();
+            let p = pair::metrics(c, id, At::from_utc(now).unwrap()).unwrap();
+            assert!(p.restated_at.is_none(), "a coin pair bot is not restated");
+        }
+    }
+}
+
 /// D-ALPACA-SPLIT-GROUPING: identities distinguish sequential actions from conflicting reports.
 fn same_day_events(c: &Connection, s: &seed::Seeded, identity: &str, conflict: bool, reverse: bool) -> (model::Bot, i64) {
     use serde_json::json;

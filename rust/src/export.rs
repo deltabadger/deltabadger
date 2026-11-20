@@ -243,7 +243,10 @@ fn project(canon: &Connection, copy: &Path, lines: &mut Vec<String>) -> Result<(
     store::create_schema(canon).map_err(&f)?;
     store::apply_pending(canon).map_err(|e| store_error("canonical", e))?;
     canon.pragma_update(None, "foreign_keys", "OFF").map_err(&f)?;
-    let tables = names(canon, "SELECT name FROM main.sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name", &[]).map_err(&f)?;
+    // A table with a BEFORE INSERT trigger (#710's membership checks) is copied after every other, so each trigger sees the
+    // rows it reads.
+    let tables = names(canon, "SELECT name FROM main.sqlite_master t WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY \
+                               EXISTS (SELECT 1 FROM main.sqlite_master g WHERE g.type = 'trigger' AND g.tbl_name = t.name AND g.sql LIKE '%BEFORE INSERT%'), name", &[]).map_err(&f)?;
     for t in &tables { canon.execute_batch(&format!("DELETE FROM main.{}", quote(t))).map_err(&f)?; }
     let sequenced = names(canon, "SELECT name FROM main.sqlite_master WHERE type = 'table' AND sql LIKE '%AUTOINCREMENT%' ORDER BY name", &[]).map_err(&f)?;
     canon.execute_batch("DELETE FROM main.sqlite_sequence").map_err(&f)?;
@@ -311,6 +314,7 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("app_configs", "value"), Policy::FilterAppConfigs),
     (("users", "otp_secret_key"), Policy::Keep("sign in with two-factor after a restore (2.x keeps it; the keys ship)")),
     (("rules", "address"), Policy::Keep("the owner's own withdrawal addresses (2.x keeps them; the keys ship)")),
+    (("exchange_account_rules", "address"), Policy::Keep("the owner's own withdrawal addresses, by account (2.x's `rules` mirrors the first account's; the keys ship)")),
     (("exchange_accounts", "account_id_enc"), Policy::Keep("the account a venue key belongs to: a key on another account shows as a conflict (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("exchange_account_credentials", "account_id_enc"), Policy::DeleteRows),
     (("exchange_account_imports", "account_id_enc"), Policy::Keep("the account an imported history belongs to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
@@ -377,6 +381,7 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Exact(crate::lease::TAKEN_OVER_AT), "when this engine took the install over"),
     (Key::Exact(crate::lease::HANDED_BACK_AT), "when this engine handed it back"),
     (Key::Prefix("rust_tracker_ledger."), "the tracker's cached ledger summary"),
+    (Key::Prefix("rust_tracker_bot_sales."), "what each bot order's sale cost, derived from the ledger and rebuilt"),
     (Key::Prefix("rust_tracker_gaps."), "the tracker's history gaps"),
     (Key::Prefix("rust_snapshot_unpriced."), "what the tracker's stored history could not price"),
     (Key::Prefix("rust_venue_history_cursor_"), "where the tracker's venue history reads resume"),
@@ -393,9 +398,9 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Exact("rust_rule_import"), "the 2.x rule logs the takeover imported"),
     (Key::Exact("rust_rule_job_cleanup"), "the 2.x rule jobs still to clean up"),
     (Key::Exact("rust_coinbase_size_in_quote_repaired_at"), "a Coinbase repair's time"),
-    (Key::Exact("rust_rails_unrecorded.live_cursor"), "the unrecorded-orders check's cursor"),
-    (Key::Exact("rust_rails_queue_done"), "the 2.x jobs the takeover already ran"),
-    (Key::Exact("rust_rails_wakes"), "the 2.x wakes the takeover carried over"),
+    (Key::Exact("rust_v2_unrecorded.live_cursor"), "the unrecorded-orders check's cursor"),
+    (Key::Exact("rust_v2_queue_done"), "the 2.x jobs the takeover already ran"),
+    (Key::Exact("rust_v2_wakes"), "the 2.x wakes the takeover carried over"),
     (Key::Exact("rust_signal_import"), "the 2.x signal calls the takeover imported"),
     (Key::Exact("rust_app_update"), "the update check's state"),
     (Key::Exact("rust_set_aside"), "the bots the takeover set aside"),
@@ -418,7 +423,8 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     tx.execute_batch("DELETE FROM fee_api_keys").map_err(&f)?;
     let keys = names(tx, "SELECT key FROM app_configs ORDER BY id", &[]).map_err(&f)?;
     for key in keys.iter().filter(|k| !app_config_kept(k)) { tx.execute("DELETE FROM app_configs WHERE key = ?1", [key]).map_err(&f)?; }
-    tx.execute_batch("UPDATE bots SET status = 2 WHERE status NOT IN (3, 7); UPDATE rules SET status = 2 WHERE status NOT IN (3, 7)").map_err(&f)?;
+    tx.execute_batch("UPDATE bots SET status = 2 WHERE status NOT IN (3, 7); UPDATE rules SET status = 2 WHERE status NOT IN (3, 7); \
+                      UPDATE exchange_account_rules SET status = 2 WHERE status NOT IN (3, 7)").map_err(&f)?;
     for id in tx.prepare("SELECT id FROM bot_signals ORDER BY id").and_then(|mut s| s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()).map_err(&f)? {
         tx.execute("UPDATE bot_signals SET token = ?1, enabled = 0 WHERE id = ?2", params![hex::encode(rand::random::<[u8; 32]>()), id]).map_err(&f)?;
     }
@@ -512,7 +518,8 @@ pub fn readme_csv() -> String {
 
 fn csvs(c: &Connection, dir: &Path) -> Result<(), ExportError> {
     let web = |step: &'static str| move |e: crate::web::WebError| ExportError::Failed(format!("{step}: {e:?}"));
-    let tracker = crate::web::tracker::csv_rows(c, &format!("SELECT {} FROM account_transactions ORDER BY transacted_at ASC", crate::web::tracker::CSV_COLUMNS), vec![])
+    let columns = crate::web::tracker::csv_columns(c).map_err(failed("tracker.csv"))?;
+    let tracker = crate::web::tracker::csv_rows(c, &format!("SELECT {columns} FROM account_transactions ORDER BY transacted_at ASC"), vec![])
         .map_err(web("tracker.csv"))?;
     std::fs::write(dir.join("tracker.csv"), tracker).map_err(io("tracker.csv"))?;
     let f = failed("bots");

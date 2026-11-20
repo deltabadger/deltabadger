@@ -315,8 +315,9 @@ async fn the_bot_pages_refuse_what_this_build_does_not_render_and_change_nothing
     assert_eq!(browser.get(&app, "/bots").await.status, 200, "no bots, no balances: the empty page");
 
     // Ruling R: a legacy balance with no credential producer remains unavailable.
-    opened.primary.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
-                            VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4)", (seeded.user_id, seeded.exchange_id, seeded.btc, "2026-01-01 00:00:00")).unwrap();
+    common::number_one(&opened.primary, seeded.user_id, seeded.exchange_id);
+    opened.primary.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at, account_id) \
+                            VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4, (SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1))", (seeded.user_id, seeded.exchange_id, seeded.btc, "2026-01-01 00:00:00")).unwrap();
     let with_holdings = browser.get(&app, "/bots").await;
     assert!(with_holdings.status == 200 && with_holdings.body.contains("class=\"stroke--icon\"") && !with_holdings.body.contains("stroke-dasharray=\"52.55 4.0\""), "unknown credential provenance must not draw a current holding");
 
@@ -1454,7 +1455,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
                         { "bot": bot, "field": quote, "keys": ["1", "5", "ArrowLeft", "."], "saved": "1.5" },
                         { "bot": bot, "field": quote, "keys": ["1", "2", ".", "5"], "saved": "12.5" }]);
     c.execute("UPDATE bots SET label='Browser '||id", [])?;
-    for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test")] {
+    for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://example.test"),("market_data_token","test"),("platform_connected_at","2026-01-01T00:00:00Z")] {
         c.execute("INSERT INTO app_configs(key,value,created_at,updated_at) VALUES(?1,?2,'2026-01-01','2026-01-01')",(key,seed::cipher().encrypt(value)))?;
     }
     // Hold the engine: this browser proof exercises the real HTTP/CSRF/guard/cable path
@@ -1462,8 +1463,24 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     // A venue this build does not trade, for the index wizard's refusal inside its nested frame (plan CI T7).
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Ibkr', 'Interactive Brokers', '0.1', '0.1', 1, '2026-01-01', '2026-01-01')", [])?;
     let unported = c.last_insert_rowid();
+    // D-INDEX-IN-ASSETS: Kraken, whose key check answers here, and two indices on it for the index wizard in the sheet.
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', 1, '2026-01-01', '2026-01-01')", [])?;
+    let kraken = c.last_insert_rowid();
+    c.execute("DELETE FROM indices", [])?;
+    for (external, source, name, description) in [("top-coins", "internal", "Top Coins", "The largest coins by market cap."), ("layer-1", "coingecko", "Layer 1", "Base chains.")] {
+        c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weight, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, ?4, '[]', '{}', '{\"Exchanges::Kraken\":3}', 0, '2026-01-01', '2026-01-01')", (external, source, name, description))?;
+    }
+    let venue_server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST")).and(wiremock::matchers::path("/api.kraken.com/0/private/GetApiKeyInfo"))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"error": [], "result": {"permissions": ["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "query-ledger"]}})))
+        .mount(&venue_server).await;
+    let index_wizard = json!({"venue": kraken, "key": "kraken-correct", "secret": "c2VjcmV0"});
     // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
-    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()));
+    let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()))
+        .with_venue_key_urls(&format!("{}/api.kraken.com", venue_server.uri()), &format!("{}/api.binance.com", venue_server.uri()), &format!("{}/api.kucoin.com", venue_server.uri())).unwrap();
+    // A correct key wakes its syncs, as `serve`'s scheduler takes them.
+    app.attach_jobs(Default::default()).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
     struct Server(tokio::task::JoinHandle<()>);
@@ -1472,7 +1489,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",unported.to_string()).env("TYPING",typing.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",unported.to_string()).env("TYPING",typing.to_string()).env("INDEX_WIZARD",index_wizard.to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }
@@ -2167,13 +2184,14 @@ async fn holdings_that_add_up_to_no_number_refuse_the_pages_that_draw_the_ring()
     let c = &opened.primary;
     let paths = ["/bots".to_string(), format!("/bots/{working}"), format!("/bots/{stopped}"), format!("/bots/{stopped}/chart")];
     for value in [f64::INFINITY, 12.5] {
-        c.execute("INSERT INTO account_balances (asset_id, exchange_id, user_id, free, locked, usd_price, usd_value, synced_at, created_at, updated_at) \
-                   VALUES (?1, ?2, ?3, '1', '0', '100', ?4, '2026-09-10 12:00:00', '2026-09-10 12:00:00', '2026-09-10 12:00:00')",
+        common::number_one(c, seeded.user_id, seeded.exchange_id);
+        c.execute("INSERT INTO exchange_account_balances (asset_id, exchange_id, user_id, free, locked, usd_price, usd_value, synced_at, created_at, updated_at, account_id) \
+                   VALUES (?1, ?2, ?3, '1', '0', '100', ?4, '2026-09-10 12:00:00', '2026-09-10 12:00:00', '2026-09-10 12:00:00', (SELECT id FROM exchange_accounts WHERE user_id = ?3 AND exchange_id = ?2 AND number = 1))",
                   rusqlite::params![seeded.btc, seeded.exchange_id, seeded.user_id, value]).unwrap();
         let mut statuses = vec![];
         for path in &paths { statuses.push(browser.get(&app, path).await.status); }
         assert_eq!(statuses, if value.is_finite() { [200; 4] } else { [501; 4] }, "{value}");
-        c.execute("DELETE FROM account_balances", []).unwrap();
+        c.execute("DELETE FROM exchange_account_balances", []).unwrap();
     }
 }
 
@@ -2226,6 +2244,39 @@ async fn the_exchange_menu_of_a_large_catalogue_is_counted_by_the_database() {
     // The venues that list all hundred: seven of the other fourteen, each with its button.
     assert_eq!(page.body.matches("name=\"bots_dca_multi_asset[exchange_id]\"").count(), 7, "bots {basket} and {other}");
     assert!(took < Duration::from_secs(5), "a page over 150,000 listings took {took:?}");
+}
+
+/// #710: with two live accounts on the bot's exchange, its exchange menu lists the other one (`Name<sup>n</sup>`, posting the
+/// account); picking it moves the bot to that account, and the menu then offers number 1. With one account the menu names
+/// no account at all.
+#[tokio::test(flavor = "current_thread")]
+async fn the_exchange_menu_lists_a_second_account_and_switches_the_bot_to_it() {
+    use deltabadger::identity::{self, Account};
+    let (dir, opened, seeded) = common::install_alpaca();
+    let c = &opened.primary;
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let mut stopped = common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+    stopped.status = 2;
+    let bot = common::seed::insert_bot(c, &seeded, &stopped);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    assert!(!page.body.contains("[account_id]"), "one account: the menu names none");
+    let first = Account::first(c, seeded.user_id, seeded.exchange_id).unwrap().ensure(c, deltabadger::codec::parse_time("2026-09-10 12:00:00").unwrap()).unwrap().id.unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [seeded.user_id, seeded.exchange_id]).unwrap();
+    let second = c.last_insert_rowid();
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert!(page.body.contains(&format!("name=\"bots_dca_multi_asset[account_id]\" type=\"submit\" value=\"{second}\"")), "{}", page.body);
+    assert!(page.body.contains("<sup>2</sup>") && !page.body.contains("<sup>1</sup>"), "the bot's own account is not offered");
+    let switched = browser.post(&app, &format!("/bots/{bot}"), &[("_method", "patch"), ("bots_dca_multi_asset[account_id]", &second.to_string())]).await;
+    assert!(switched.status < 400, "{} {}", switched.status, switched.body);
+    assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(second), "{} {}", switched.status, &switched.body[..switched.body.len().min(3000)]);
+    let page = browser.get(&app, &format!("/bots/{bot}")).await;
+    assert!(page.body.contains(&format!("value=\"{first}\"")) && page.body.contains("<sup>1</sup>"), "{}", page.body);
 }
 
 /// The orders feed prints what the venue and the engine wrote: an order's symbols and its error, an
@@ -2970,7 +3021,7 @@ async fn a_takeover_marker_without_side_shows_and_resolves() {
     let c = &opened.primary;
     let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     c.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00', wash_sale_enabled = 0 WHERE id = ?2", (hash, seeded.user_id)).unwrap();
-    let transient = json!({ "signal_placement_unresolved": { "id": "rails-job:00000000-0000-4000-8000-000000000009", "at": "2026-09-10T11:00:00Z",
+    let transient = json!({ "signal_placement_unresolved": { "id": "v2-job:00000000-0000-4000-8000-000000000009", "at": "2026-09-10T11:00:00Z",
                                                              "error": "Deltabadger stopped while placing it" } });
     c.execute("INSERT INTO bots (type, status, exchange_id, user_id, label, settings, transient_data, created_at, updated_at) \
                VALUES ('Bots::Signal', 2, ?1, ?2, 'Signals', ?3, ?4, '2026-08-25 09:00:00', '2026-08-25 09:00:00')",
@@ -2982,12 +3033,11 @@ async fn a_takeover_marker_without_side_shows_and_resolves() {
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     let page = browser.get(&app, &format!("/bots/{id}")).await;
     assert_eq!(page.status, 200, "{:.500}", page.body);
-    assert!(page.body.contains("name=\"marker_id\" value=\"rails-job:00000000-0000-4000-8000-000000000009\""), "{:.2000}", page.body);
-    let answer = browser.send(&app, "POST", &format!("/bots/{id}/signal_resolution"), Some(&[("marker_id", "rails-job:00000000-0000-4000-8000-000000000009")]), web::Csrf::Header, &[]).await;
+    assert!(page.body.contains("name=\"marker_id\" value=\"v2-job:00000000-0000-4000-8000-000000000009\""), "{:.2000}", page.body);
+    let answer = browser.send(&app, "POST", &format!("/bots/{id}/signal_resolution"), Some(&[("marker_id", "v2-job:00000000-0000-4000-8000-000000000009")]), web::Csrf::Header, &[]).await;
     assert_eq!(answer.status, 302);
     let (left, lines): (String, i64) = c.query_row("SELECT transient_data, (SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1) FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!((serde_json::from_str::<serde_json::Value>(&left).unwrap(), lines), (json!({}), 1), "lifted with its line");
-    common::freeze::freeze("signal_resolved", c, Some(&opened.queue));
 }
 
 /// Slice 8c-2: a signal bot's Stop from its page commits even where another of the owner's bots cannot be drawn (a stored
@@ -3064,24 +3114,50 @@ async fn the_signal_wizard_starts_a_bot_on_bybit() {
     browser.get(&app, "/login").await;
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
     let (exchange, base, quote) = (seeded.exchange_id.to_string(), seeded.btc.to_string(), seeded.quote.to_string());
-    assert_eq!(browser.get(&app, "/bots/signals/pick_buyable_asset/new").await.status, 200);
+    // D-SIGNAL-SHEET: every step is the sheet closing to the bots page, with no old dialog, and its track: Asset, Exchange,
+    // Currency, Settings, an earlier item showing what was chosen with its link back (the venue's too on the key step).
+    let track = |body: &str| {
+        let page = scraper::Html::parse_document(body);
+        let select = |s: &str| scraper::Selector::parse(s).unwrap();
+        assert_eq!(page.select(&select("dialog.sheet-dialog[data-modal--base-close-url-value=\"/bots\"] turbo-frame.sheet__frame#modal_content")).count(), 1, "{body}");
+        for old in ["dialogview", "process-progress", "conversational--bot-setup"] { assert!(!body.contains(old), "{old}"); }
+        page.select(&select("ol.sheet__track > li")).map(|li| {
+            let class = li.value().attr("class").unwrap_or_default();
+            let state = if class.contains("--done") { "done" } else if class.contains("--current") { "current" } else { "upcoming" };
+            let link = li.select(&select("a.sheet__control")).next().and_then(|a| a.value().attr("href")).unwrap_or("plain").to_string();
+            format!("{}:{state} {link}", li.text().collect::<String>().trim())
+        }).collect::<Vec<_>>()
+    };
+    let first = browser.get(&app, "/bots/signals/pick_buyable_asset/new").await;
+    assert_eq!(first.status, 200);
+    assert_eq!(track(&first.body), ["Assets:current plain", "Exchange:upcoming plain", "Currency:upcoming plain", "Settings:upcoming plain"]);
+    assert!(first.body.contains("data-turbo-frame=\"asset-picker\" class=\"wizard-search__form\" action=\"/bots/signals/pick_buyable_asset/new\""), "the pane's search");
     let picked = browser.post(&app, "/bots/signals/pick_buyable_asset", &[("bots_signal[base_asset_id]", &base)]).await;
     assert_eq!(picked.header("location"), Some("/bots/signals/pick_exchange/new"));
     let venues = browser.get(&app, "/bots/signals/pick_exchange/new").await;
     assert!(venues.status == 200 && venues.body.contains(&format!("value=\"{exchange}\"")), "Bybit is offered: {}", venues.body);
+    assert_eq!(track(&venues.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Exchange:current plain", "Currency:upcoming plain", "Settings:upcoming plain"]);
+    assert!(venues.body.contains("class=\"exchange-group\""), "the venues, grouped");
     let chosen = browser.post(&app, "/bots/signals/pick_exchange", &[("bots_signal[exchange_id]", &exchange)]).await;
     assert_eq!(chosen.header("location"), Some("/bots/signals/add_api_key/new"));
     let step = browser.get(&app, "/bots/signals/add_api_key/new").await;
     assert!(step.status == 200 && step.body.contains("action=\"/bots/signals/add_api_key\""), "the key step: {} {}", step.status, step.body);
+    assert_eq!(track(&step.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Bybit:current /bots/signals/pick_exchange/new", "Currency:upcoming plain", "Settings:upcoming plain"]);
+    assert!(step.body.contains("class=\"rinput rinput--outline rinput--text\""), "the sheet's card");
     // The key as the step's check saves it (keys::submit: correct).
     c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
               (seeded.user_id, seeded.exchange_id, app.cipher.encrypt("bybit-key"), app.cipher.encrypt("bybit-secret"))).unwrap();
     let on = browser.get(&app, "/bots/signals/add_api_key/new").await;
     assert_eq!(on.header("location"), Some("/bots/signals/pick_spendable_asset/new"), "{} {}", on.status, on.body);
-    assert_eq!(browser.get(&app, "/bots/signals/pick_spendable_asset/new").await.status, 200);
+    let quotes = browser.get(&app, "/bots/signals/pick_spendable_asset/new").await;
+    assert_eq!(quotes.status, 200);
+    assert_eq!(track(&quotes.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Bybit:done /bots/signals/pick_exchange/new", "Currency:current plain", "Settings:upcoming plain"]);
     let spent = browser.post(&app, "/bots/signals/pick_spendable_asset", &[("bots_signal[quote_asset_id]", &quote)]).await;
     assert_eq!(spent.header("location"), Some("/bots/signals/confirm_settings/new"));
-    assert_eq!(browser.get(&app, "/bots/signals/confirm_settings/new").await.status, 200);
+    let confirm = browser.get(&app, "/bots/signals/confirm_settings/new").await;
+    assert_eq!(confirm.status, 200);
+    assert_eq!(track(&confirm.body), ["BTC:done /bots/signals/pick_buyable_asset/new", "Bybit:done /bots/signals/pick_exchange/new", "USDT:done /bots/signals/pick_spendable_asset/new", "Settings:current plain"]);
+    assert!(confirm.body.contains("id=\"new-settings\"") && confirm.body.contains("class=\"rbutton rbutton--primary\" data-turbo-submits-with"), "the rules and Start");
     let edited = browser.send(&app, "PATCH", "/bots/signals/confirm_settings/update_signal", Some(&[("signal_index", "0"), ("amount", "25"), ("amount_type", "percentage")]), web::Csrf::Header, &[]).await;
     assert_eq!(edited.status, 200, "{}", edited.body);
     let started = browser.send(&app, "POST", "/bots/signals", Some(&[]), web::Csrf::Header, &[]).await;

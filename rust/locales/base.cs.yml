@@ -90,6 +90,12 @@ cs:
     links:
         hide_balances: 'Skrýt zůstatky'
         display_currency: 'Zobrazovaná měna'
+        scheme: 'Barevné schéma'
+        scheme_default: 'Výchozí'
+        scheme_space: 'Vesmír'
+        scheme_warm: 'Teplé'
+        scheme_ember: 'Žár'
+        scheme_forest: 'Les'
         show_balances: 'Zobrazit zůstatky'
         about: O nás
         telegram: 'Telegram'
@@ -186,6 +192,10 @@ cs:
             confirm_delete: 'Chcete odebrat tento CoinGecko API klíč?'
         market_data:
             none: 'Žádný'
+            intro: "Tržní data v reálném čase pohánějí indexy a historii cen pro sledování portfolia. Použijte bezplatný účet CoinGecko, nebo API Deltabadger, které totéž nabízí i pro akcie, plus stálou IP adresu pro whitelist na burzách."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Také akcie a stálá IP adresa pro whitelist na burzách."
+            upgrade_button: "Upgradovat"
             disabled: 'Synchronizace tržních dat byla vypnuta.'
             updated: 'Nastavení tržních dat bylo aktualizováno.'
             coingecko_configured: 'Připojeno k CoinGecko pro aktuální tržní data.'
@@ -674,6 +684,7 @@ cs:
         notes:
             left: '%{exchange} hlásí %{held} %{symbol}; historie vysvětluje %{history}. Rozdíl se považuje za odešlý za pořizovací cenu (%{amount}).'
             arrived: '%{exchange} hlásí %{held} %{symbol}; historie vysvětluje %{history}. Rozdíl se považuje za příchozí za jeho cenu (%{amount}).'
+            opened: 'Historie potřebuje %{history} %{symbol}, jejichž příchod nikdy neukazuje. Bere se, že byly drženy od začátku, za cenu toho dne (%{amount}).'
             since_sync: '%{symbol} koupeno od poslední synchronizace: oceněno pořizovací cenou (%{amount}) do té příští.'
             cash_out: 'Historie drží %{history} %{symbol}; %{exchange} hlásí %{held}. Rozdíl (%{amount}) se považuje za odvedený.'
             cash_in: 'Historie drží %{history} %{symbol}; %{exchange} hlásí %{held}. Rozdíl (%{amount}) se považuje za přivedený.'
@@ -788,7 +799,8 @@ cs:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
-            execution_retrying: 'Dočasný problém s připojením — automatické opakování'
+            execution_retrying: "Pokus o objednávku selhal — bot to zkusí znovu"
+            execution_retrying_with_error: "Pokus o objednávku selhal: %{error} — bot to zkusí znovu"
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Pokyn %{order_id} opuštěn (burza jej již nesleduje)"
             placement_ambiguous: "Stav pokynu nepotvrzen — bez opakování, aby nevznikl duplicitní pokyn"

@@ -1,11 +1,11 @@
 @use "mixins" as *
 @use "variables" as *
 
-@media (prefers-color-scheme: dark)
-  .db-show-day
+.db-show-day
+  +dark
     display: none !important
-@media (prefers-color-scheme: light)
-  .db-show-night
+.db-show-night
+  +light
     display: none !important
 
 .table

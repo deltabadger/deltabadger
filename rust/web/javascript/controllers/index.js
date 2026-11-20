@@ -49,8 +49,6 @@ application.register("clock", ClockController)
 import CoarseSliderController from "./coarse_slider_controller"
 application.register("coarse-slider", CoarseSliderController)
 
-import ConversationalSentenceController from "./conversational_sentence_controller"
-application.register("conversational-sentence", ConversationalSentenceController)
 
 import ConvertingController from "./converting_controller"
 application.register("converting", ConvertingController)
@@ -80,8 +78,6 @@ application.register("form--html5-validations", Form__Html5ValidationsController
 import Form__LabelAnimationsController from "./form/label_animations_controller"
 application.register("form--label-animations", Form__LabelAnimationsController)
 
-import Form__MarketDataController from "./form/market_data_controller"
-application.register("form--market-data", Form__MarketDataController)
 
 import Form__MoveCursorToEndController from "./form/move_cursor_to_end_controller"
 application.register("form--move-cursor-to-end", Form__MoveCursorToEndController)
@@ -163,6 +159,12 @@ application.register("rule-toggle", RuleToggleController)
 
 import SegmentedController from "./segmented_controller"
 application.register("segmented", SegmentedController)
+
+import SchemeController from "./scheme_controller"
+application.register("scheme", SchemeController)
+
+import PixelSceneController from "./pixel_scene_controller"
+application.register("pixel-scene", PixelSceneController)
 
 import SheetController from "./sheet_controller"
 application.register("sheet", SheetController)

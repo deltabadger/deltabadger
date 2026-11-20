@@ -35,7 +35,7 @@ fn binance_a12_recorded_accounting_baselines() {
                 fiat_value:d("fiat_value"),fee_fiat_value:d("fee_fiat_value"),fee_currency:r["fee_currency"].as_str().map(str::to_owned),fee_amount:r["fee_amount"].as_str().map(|s|Dec::parse(s).unwrap()),
                 at:At::from_sql(r["transacted_at"].as_str().unwrap()).unwrap(),group:r["group_id"].as_str().map(str::to_owned),
                 price_missing:false,value_missing:None,exchange:"binance".into(),linked:false,transfer_fee:None,swap_fiat_cost:None,
-                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false}
+                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
         }).collect();
         let mut engine=Engine::new(false); engine.calculate(&rows).unwrap();
         let lots: serde_json::Map<String,Value>=engine.lots.iter().map(|((_,asset),ls)|
@@ -89,6 +89,8 @@ pub struct Row {
     pub stated_value: bool,
     /// Whether the fee's own valuation warned (`price_missing` folds it in with the row's value).
     pub fee_missing: bool,
+    /// The class its stored asset records (`prices::recorded_class`): Some(true) a security, Some(false) a coin, None unknown.
+    pub class: Option<bool>,
 }
 
 impl Row {
@@ -137,19 +139,28 @@ pub struct Summary {
     pub unpriced_proceeds: Dec,
     /// Per asset, what must have been held before its history begins, in the order first opened.
     pub openings: Vec<(String, Dec)>,
+    /// Per asset of `openings`, same order: the dollars its opening carries at that day's price (zero when unpriced).
+    pub opening_values: Vec<(String, Dec)>,
 }
 
 impl Summary {
     /// `empty_summary`: a venue the walk has no rows of.
     pub fn empty() -> Summary { Summary { positions: vec![], total_invested: Dec::zero(), cash: vec![], cash_basis: vec![], incomplete: false, loss_sales: vec![],
                                         round_trips: vec![], received: Dec::zero(), realised: Dec::zero(), fees: Dec::zero(), cash_usd: Dec::zero(),
-                                        unpriced_proceeds: Dec::zero(), openings: vec![] } }
+                                        unpriced_proceeds: Dec::zero(), openings: vec![], opening_values: vec![] } }
 }
 
 /// Every scope from one walk (`Ledger.scopes`): each venue's summary by exchange id, in the order the walk met the
-/// venues, the whole account's, and the terms.
+/// venues, the whole account's, the terms, and what each bot order's sale cost.
 #[derive(Clone, Debug)]
-pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term> }
+pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term>, pub bot_sales: Vec<BotSale> }
+
+/// D-SELL-ONLY-QUOTE-RATE: one bot order's sale, its fill rows summed: the units the located walk disposed of and what
+/// their lots cost, in the rows' own quote, each row's dollar cost restated at that row's own rate
+/// (`cost_usd × quote_amount ÷ proceeds_usd`). `known` (D-SELL-ONLY-KNOWN-COST) only when every row is a complete
+/// sale for one fiat or stable quote with positive proceeds and no fee in the coin sold; `cost` is zero otherwise.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BotSale { pub order: i64, pub at: At, pub amount: Dec, pub quote: String, pub cost: Dec, pub known: bool }
 
 impl Walked {
     /// The venue's scope, or the empty ledger 2.x reads for a venue the walk has no rows of.
@@ -296,7 +307,30 @@ fn fee_fiat_value(t: &Stored, ps: &mut PriceService, report: &str) -> Result<Dec
 
 /// `enrich(ordered, currency: 'USD')`, then the venue each linked row's coins went to and the orphan swap legs.
 /// `deposits` are the base amounts of every row of the account, for a linked withdrawal's fee.
-pub fn enrich(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService) -> Result<Vec<Row>, FiguresError> { enrich_with(stored, deposits, ps, true, "USD", &mut |_| {}) }
+pub fn enrich(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService) -> Result<Vec<Row>, FiguresError> {
+    let mut rows = enrich_with(stored, deposits, ps, true, "USD", &mut |_| {})?;
+    // #710 slice 5 (PLAN-710-5 §5.2): the tracker walk locates by account. `exchange`/`to_exchange` become the row's and
+    // its linked deposit's account (`location`); the exchange's identity is read through `Names` where the walk needs it.
+    for (r, t) in rows.iter_mut().zip(stored) { r.exchange = location(t.account); r.to_exchange = t.to_account.map(location); }
+    Ok(rows)
+}
+
+/// The walk's location key of account `account` (the tracker's `Row.exchange`, `Term.exchange`, the cash book's).
+pub fn location(account: i64) -> String { account.to_string() }
+
+/// Location → its exchange's `name_id`, for the exchange's own rules (pricing, `LENDS_CASH`). Nothing parses an exchange
+/// out of a location.
+pub type Names = HashMap<String, String>;
+/// `Names` over `stored`: each row's account and its linked deposit's.
+pub fn names(stored: &[Stored]) -> Names {
+    let mut names = Names::new();
+    for t in stored {
+        names.entry(location(t.account)).or_insert_with(|| t.venue.clone());
+        if let (Some(a), Some(v)) = (t.to_account, &t.to_venue) { names.entry(location(a)).or_insert_with(|| v.clone()); }
+    }
+    names
+}
+fn name<'a>(names: &'a Names, location: &'a str) -> &'a str { names.get(location).map_or(location, String::as_str) }
 
 /// `enrich`, its prefetch left out when `prefetch` is false (the tax report reads stored prices only).
 /// `on_progress(percent)` as PriceService#enrich reports it: 0–21 over the prefetch's ranges, then 21–100 over the rows.
@@ -340,6 +374,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
             swap_fiat_cost: leg.and_then(|l| l.swap_fiat.clone()), swap_stable_cost: leg.and_then(|l| l.swap_stable.clone()),
             per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), orphan: false, opening: false,
             stated_value: t.stated.is_some() && !(t.quoted() || leg.is_some_and(|l| l.fiat_value.is_some())), fee_missing,
+            class: super::prices::recorded_class(t.base_asset.as_ref()),
         });
     }
     attribute_quote_row_fees(&mut rows);
@@ -529,7 +564,7 @@ pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError>
 /// `open_with_what_must_have_been_held`: an asset whose running quantity goes below zero is opened, a second before its
 /// first row, with the least that keeps it at or above zero, at that day's price (a zero, unpriced, when nobody has
 /// one); located, per venue.
-pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next_uid: &mut usize) -> Result<Vec<Row>, FiguresError> {
+pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next_uid: &mut usize, names: &Names) -> Result<Vec<Row>, FiguresError> {
     let rows = net_daily_splits(rows)?;
     type Key = (Option<String>, String);
     let mut running: HashMap<Key, Dec> = HashMap::new();
@@ -560,14 +595,14 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         let at = row.at.plus_seconds(-1).ok_or_else(|| FiguresError::Data("an instant out of range".into()))?;
         let quantity = low.neg();
         let kept = ps.warnings.len();
-        let price = ps.price_at(&symbol, "USD", at, Some(&venue))?;
+        let price = ps.price_at(&symbol, "USD", at, Some(name(names, &venue)))?;
         ps.warnings.truncate(kept);
         let uid = *next_uid;
         *next_uid += 1;
         before.entry(i).or_default().push(Row {
             uid, kind: Kind::Deposit, base: symbol, fiat_value: (&price * &quantity)?, fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None,
             amount: quantity, quote: None, quote_amount: None, at, group: None, price_missing: price.is_zero(), value_missing: None, exchange: venue,
-            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true, stated_value: false, fee_missing: false,
+            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true, stated_value: false, fee_missing: false, class: None,
         });
     }
     if before.is_empty() { return Ok(rows); }
@@ -582,18 +617,29 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
 /// D-ALPACA-SPLIT-GROUPING: a venue's same-day adjustments of one symbol are one restatement.
 /// Applying an intermediate removal first can erase FIFO basis or invent an opening balance. Net before
 /// either walk, at the first row of that day; retain the other row identities with zero quantity changes.
+/// #1061: a day whose legs record both classes (a security and a coin sharing the symbol) nets per class; one leg with
+/// no stored asset beside both classes could be either's, and the walk refuses. One known class: every leg nets into
+/// the first row, which takes that class.
 fn net_daily_splits(mut rows: Vec<Row>) -> Result<Vec<Row>, FiguresError> {
-    let mut first = HashMap::new();
-    for i in 0..rows.len() {
+    let mut days: HashMap<(String, String, NaiveDate), Vec<usize>> = HashMap::new();
+    for (i, row) in rows.iter().enumerate() {
         crate::figures::budget::charge(1, 0)?;
-        let row = &rows[i];
         if row.kind != Kind::Adjustment { continue; }
-        let key = (row.exchange.clone(), row.base.clone(), row.at.utc().date_naive());
-        let at = *first.entry(key).or_insert(i);
-        if at != i {
-            rows[at].amount = (&rows[at].amount + &rows[i].amount)?;
-            rows[i].amount = Dec::zero();
+        days.entry((row.exchange.clone(), row.base.clone(), row.at.utc().date_naive())).or_default().push(i);
+    }
+    for legs in days.values() {
+        let known: HashSet<bool> = legs.iter().filter_map(|&i| rows[i].class).collect();
+        let per_class = known.len() == 2;
+        if per_class && legs.iter().any(|&i| rows[i].class.is_none()) { return Err(FiguresError::NotComputed(super::figures::AMBIGUOUS_CLASS.into())); }
+        let mut first: HashMap<Option<bool>, usize> = HashMap::new();
+        for &i in legs {
+            let at = *first.entry(if per_class { rows[i].class } else { None }).or_insert(i);
+            if at != i {
+                rows[at].amount = (&rows[at].amount + &rows[i].amount)?;
+                rows[i].amount = Dec::zero();
+            }
         }
+        if let (false, Some(&class)) = (per_class, known.iter().next()) { rows[legs[0]].class = Some(class); }
     }
     Ok(rows)
 }
@@ -608,18 +654,23 @@ fn taxable(rows: &[Row]) -> Vec<Row> {
 // ---------------------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-struct Lot { amount: Dec, cost_per_unit: Dec, date: At, basis_assumed: bool, unpriced: Dec }
+struct Lot { amount: Dec, cost_per_unit: Dec, date: At, basis_assumed: bool, unpriced: Dec, class: Option<bool> }
 #[derive(Clone, Debug)]
-struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced: Dec, weight: Dec }
+struct Tranche { amount: Dec, cost: Dec, date: At, basis_assumed: bool, unpriced: Dec, weight: Dec, class: Option<bool> }
 
 /// A disposal (Tax::Methods::Fifo#disposal_row, without a holding rule), as the figures, the round trips and the arming
 /// read one.
 #[derive(Clone, Debug)]
 pub struct Disposal { pub at: At, pub acquired: Option<At>, pub asset: String, pub exchange: String, pub amount: Dec, pub proceeds: Dec, pub cost_basis: Dec,
                       pub fee: Dec, pub gain_loss: Dec, pub data_incomplete: bool, pub unpriced_quantity: Dec, pub unpriced_proceeds: Dec,
-                      pub closes_position: bool, pub any_lot_lost: Option<bool> }
+                      pub closes_position: bool, pub any_lot_lost: Option<bool>,
+                      /// The uid of the row sold.
+                      pub source: usize }
 
 type GroupKey = (String, String);
+
+/// #1061: a lot of the other known class than the row's (a security's corporate action and a coin's lot sharing a symbol).
+fn other_class(r: &Row, lot: &Lot) -> bool { matches!((r.class, lot.class), (Some(a), Some(b)) if a != b) }
 
 pub struct Engine {
     located: bool,
@@ -709,7 +760,7 @@ impl Engine {
             let Some(lot) = lots.front_mut() else { break };
             let take = min(&lot.amount, &remaining);
             let unpriced = if lot.amount.is_positive() { (&lot.unpriced * &take)?.div(&lot.amount)? } else { Dec::zero() };
-            tranches.push(Tranche { cost: (&take * &lot.cost_per_unit)?, amount: take, date: lot.date, basis_assumed: lot.basis_assumed, unpriced: unpriced.clone(), weight: Dec::zero() });
+            tranches.push(Tranche { cost: (&take * &lot.cost_per_unit)?, amount: take, date: lot.date, basis_assumed: lot.basis_assumed, unpriced: unpriced.clone(), weight: Dec::zero(), class: lot.class });
             if lot.amount <= remaining {
                 remaining = (&remaining - &lot.amount)?;
                 lots.pop_front();
@@ -809,7 +860,7 @@ impl Engine {
             // FIFO's `data_incomplete?`, and a sale only partly covered (which FIFO books at zero basis).
             data_incomplete: r.price_missing || tranches.iter().any(|t| t.basis_assumed) || !has_lots || !covered,
             unpriced_proceeds: if amount.is_positive() { (value * &unpriced_quantity)?.div(amount)? } else { Dec::zero() },
-            unpriced_quantity, closes_position, any_lot_lost: Engine::verdict(r, &tranches, amount, value)?,
+            unpriced_quantity, closes_position, any_lot_lost: Engine::verdict(r, &tranches, amount, value)?, source: r.uid,
         });
         if !covered { self.uncovered = true; self.uncovered_venues.insert(self.venue.clone()); }
         Ok(())
@@ -846,13 +897,13 @@ impl Engine {
         if uncovered.is_positive() {
             self.uncovered = true;
             self.uncovered_venues.insert(self.venue.clone());
-            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero() });
+            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero(), class: r.class });
         }
         let key = (Some(destination), r.base.clone());
         let lots = self.lots.entry(key.clone()).or_default();
         for t in &tranches {
             if !t.amount.is_positive() { continue; }
-            lots.push_back(Lot { amount: t.amount.clone(), cost_per_unit: t.cost.div(&t.amount)?, date: t.date, basis_assumed: t.basis_assumed, unpriced: t.unpriced.clone() });
+            lots.push_back(Lot { amount: t.amount.clone(), cost_per_unit: t.cost.div(&t.amount)?, date: t.date, basis_assumed: t.basis_assumed, unpriced: t.unpriced.clone(), class: t.class.or(r.class) });
         }
         self.sort_lots(key);
         self.moved.insert(r.uid, (sum(tranches.iter().map(|t| Ok(t.cost.clone())))?, tranches.iter().any(|t| t.unpriced.is_positive())));
@@ -865,7 +916,7 @@ impl Engine {
         let Some(key) = group_key(r) else { return Ok(()) };
         let uncovered = (amount - &min(amount, &held))?;
         if uncovered.is_positive() {
-            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero() });
+            tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero(), class: r.class });
         }
         let weight = self.swap_out_groups.get(&key).and_then(|(w, _)| w.get(&r.uid)).cloned()
             .ok_or_else(|| FiguresError::Raised("KeyError: a swap leg outside its group".into()))?;
@@ -893,7 +944,7 @@ impl Engine {
         let lots_key = self.key(&r.base);
         if tranches.is_empty() && !cash_present {
             let lot = Lot { amount: lot_amount.clone(), cost_per_unit: unit(&(value + &fee_cost)?, &lot_amount)?, date: r.at, basis_assumed: assumed,
-                            unpriced: if r.value_missing() { lot_amount.clone() } else { Dec::zero() } };
+                            unpriced: if r.value_missing() { lot_amount.clone() } else { Dec::zero() }, class: r.class };
             self.lots(&r.base).push_back(lot);
             return Ok(());
         }
@@ -926,37 +977,37 @@ impl Engine {
             // equal tranches carried half of it).
             let cost = (&(&(&t.cost * &share)? * &total_weight)?.div(&t.weight)? + &fee_cost)?;
             let unpriced = if t.amount.is_positive() { (&tranche_amount * &t.unpriced)?.div(&t.amount)? } else { Dec::zero() };
-            opened.push(Lot { amount: tranche_amount, cost_per_unit: cost.div(&rest)?, date: t.date, basis_assumed: t.basis_assumed || assumed, unpriced });
+            opened.push(Lot { amount: tranche_amount, cost_per_unit: cost.div(&rest)?, date: t.date, basis_assumed: t.basis_assumed || assumed, unpriced, class: r.class });
         }
         if cash_amount.is_positive() {
             let mut scale = if tranches.is_empty() { fee_cost.clone() } else if coin_value.is_positive() { coin_value.clone() } else { transferred_cost.clone() };
             // D-TRACKER-SWAP-FEE: when no tranche took any units, the fee joins the cash lot (2.x dropped it).
             if !tranches.is_empty() && !rest.is_positive() { scale = (&scale + &fee_cost)?; }
             opened.push(Lot { amount: cash_amount, cost_per_unit: unit(&(&cash_cost + &scale)?, &lot_amount)?, date: r.at,
-                              basis_assumed: assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed)), unpriced: Dec::zero() });
+                              basis_assumed: assumed || (rest.is_zero() && tranches.iter().any(|t| t.basis_assumed)), unpriced: Dec::zero(), class: r.class });
         }
         self.lots(&r.base).extend(opened);
         self.sort_lots(lots_key);
         Ok(())
     }
 
-    /// Tax::Methods::Fifo#apply_split.
+    /// Tax::Methods::Fifo#apply_split, over the lots of the row's class (#1061: never the other known class's).
     fn split(&mut self, r: &Row) -> Result<(), FiguresError> {
         let amount = &r.amount;
-        let pool = self.held(&r.base)?;
-        let factor = if pool.is_positive() { (&pool + amount)?.div(&pool)? } else { Dec::zero() };
         let at = r.at;
         let lots = self.lots(&r.base);
+        let pool = sum(lots.iter().filter(|l| !other_class(r, l)).map(|l| Ok(l.amount.clone())))?;
+        let factor = if pool.is_positive() { (&pool + amount)?.div(&pool)? } else { Dec::zero() };
         if !amount.is_zero() && pool.is_positive() && factor.is_positive() {
-            for lot in lots.iter_mut() {
+            for lot in lots.iter_mut().filter(|l| !other_class(r, l)) {
                 lot.cost_per_unit = lot.cost_per_unit.div(&factor)?;
                 lot.amount = (&lot.amount * &factor)?;
                 lot.unpriced = (&lot.unpriced * &factor)?;
             }
         } else if amount.is_negative() && !factor.is_positive() {
-            lots.clear();
+            lots.retain(|l| other_class(r, l));
         } else if amount.is_positive() && pool.is_zero() {
-            lots.push_back(Lot { amount: amount.clone(), cost_per_unit: Dec::zero(), date: at, basis_assumed: true, unpriced: amount.clone() });
+            lots.push_back(Lot { amount: amount.clone(), cost_per_unit: Dec::zero(), date: at, basis_assumed: true, unpriced: amount.clone(), class: r.class });
         }
         Ok(())
     }
@@ -974,16 +1025,17 @@ impl Engine {
         let venue = self.venue.clone();
         let lots = self.lots(&r.base);
         // What is returned past the basis is realised (`roc_at`).
-        let excess = if let (Some(per_unit), false) = (&per_unit, lots.is_empty()) {
+        let none_of_its_class = lots.iter().all(|l| other_class(r, l));
+        let excess = if let (Some(per_unit), false) = (&per_unit, none_of_its_class) {
             let mut excess = Dec::zero();
-            for lot in lots.iter_mut() {
+            for lot in lots.iter_mut().filter(|l| !other_class(r, l)) {
                 excess = (&excess + &(&lot.amount * &max(&(per_unit - &lot.cost_per_unit)?, &Dec::zero()))?)?;
                 lot.cost_per_unit = max(&(&lot.cost_per_unit - per_unit)?, &Dec::zero());
             }
             excess
         } else {
             let mut remaining = value;
-            for lot in lots.iter_mut() {
+            for lot in lots.iter_mut().filter(|l| !other_class(r, l)) {
                 if !remaining.is_positive() { break; }
                 let lot_cost = (&lot.amount * &lot.cost_per_unit)?;
                 let take = min(&lot_cost, &remaining);
@@ -1086,7 +1138,7 @@ impl Engine {
         let (lot_amount, lot_cost) = self.acquisition_fee(r, &r.amount, &r.fiat_value)?;
         let cost_per_unit = unit(&lot_cost, &lot_amount)?;
         let unpriced = if r.value_missing() { lot_amount.clone() } else { Dec::zero() };
-        self.lots(&r.base).push_back(Lot { amount: lot_amount, cost_per_unit, date: r.at, basis_assumed, unpriced });
+        self.lots(&r.base).push_back(Lot { amount: lot_amount, cost_per_unit, date: r.at, basis_assumed, unpriced, class: r.class });
         Ok(())
     }
 
@@ -1378,8 +1430,9 @@ fn arrival(r: &Row, ps: &mut PriceService) -> Result<Dec, FiguresError> {
 }
 
 /// `unfunded_contribution`: cash the venue spent without ever seeing it arrive is money from outside.
-fn unfunded(book: &mut Book, venue: &str, r: &Row, ps: &mut PriceService) -> Result<Dec, FiguresError> {
-    if LENDS_CASH.contains(&venue) { return Ok(Dec::zero()); }
+fn unfunded(book: &mut Book, venue: &str, r: &Row, ps: &mut PriceService, names: &Names) -> Result<Dec, FiguresError> {
+    // The exchange's rule, over this location's (account's) own book.
+    if LENDS_CASH.contains(&name(names, venue)) { return Ok(Dec::zero()); }
     let standing: Vec<((String, String), Dec)> = book.cash.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
     let mut total = Dec::zero();
     for ((exchange, currency), balance) in standing {
@@ -1395,7 +1448,7 @@ fn unfunded(book: &mut Book, venue: &str, r: &Row, ps: &mut PriceService) -> Res
 type MoneyIn = (Vec<Term>, Book, HashMap<String, Dec>);
 
 /// `money_in_terms`: one term per row (two more for a linked transfer between venues), and the cash book.
-fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService) -> Result<MoneyIn, FiguresError> {
+fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService, names: &Names) -> Result<MoneyIn, FiguresError> {
     let mut book = Book::default();
     // Per venue: what coins cost when they left for nothing (a fee row, a transfer's fee slice), realised as a loss.
     let mut costs: HashMap<String, Dec> = HashMap::new();
@@ -1411,7 +1464,7 @@ fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService) -> Result<
         let entry = costs.entry(r.exchange.clone()).or_insert_with(Dec::zero);
         *entry = (&*entry - &cost)?;
         let mut amount = contribution(r, engine, &withdrawn, ps)?;
-        if let Some(venue) = closes.get(&i) { amount = (&amount + &unfunded(&mut book, venue, r, ps)?)?; }
+        if let Some(venue) = closes.get(&i) { amount = (&amount + &unfunded(&mut book, venue, r, ps, names)?)?; }
         let complete = ps.warnings.len() == kept && !(r.price_missing && valued_by_price(r));
         terms.push(Term { at: r.at, amount, complete, opens: r.opening.then(|| (r.base.clone(), r.amount.clone())), exchange: r.exchange.clone(), received: in_kind(r) });
         if between_venues(r) {
@@ -1450,13 +1503,14 @@ pub fn walk_rows(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Price
     let rows = enrich(stored, deposits, ps)?;
     let mut next_uid = rows.len();
     let located_order = transfers_first(&rows, At(i64::MIN))?;
-    let opened = open_with_held(rows, ps, false, &mut next_uid)?;
+    let names = names(stored);
+    let opened = open_with_held(rows, ps, false, &mut next_uid, &names)?;
     let mut global = Engine::new(false);
     global.calculate(&taxable(&opened))?;
-    let located = open_with_held(located_order, ps, true, &mut next_uid)?;
+    let located = open_with_held(located_order, ps, true, &mut next_uid, &names)?;
     let mut engine = Engine::new(true);
     engine.calculate(&taxable(&located))?;
-    let (terms, book, costs) = money_in(&located, &mut engine, ps)?;
+    let (terms, book, costs) = money_in(&located, &mut engine, ps, &names)?;
     Ok(Walk { rows: located, engine, global, terms, book, costs })
 }
 
@@ -1465,19 +1519,46 @@ pub fn terms(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceServ
     Ok(walk_rows(stored, deposits, ps)?.terms)
 }
 
-/// `Ledger.scopes`: each venue's summary (by `ids`, Exchange name_id → id) and the whole account's. `now` is
+/// `Ledger.scopes`: each account's summary (by account id, #710 slice 5) and the whole portfolio's. `now` is
 /// `Time.current`, at which cash is valued.
-pub fn scopes(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService, ids: &HashMap<String, i64>, now: At) -> Result<Walked, FiguresError> {
+pub fn scopes(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut PriceService, now: At) -> Result<Walked, FiguresError> {
     let w = walk_rows(stored, deposits, ps)?;
     let mut venues: Vec<String> = vec![];
     for r in &w.rows { for v in [Some(&r.exchange), r.to_exchange.as_ref()].into_iter().flatten() { if !venues.contains(v) { venues.push(v.clone()); } } }
     let mut by_venue = vec![];
     for v in &venues {
-        let id = *ids.get(v).ok_or_else(|| FiguresError::Raised(format!("KeyError: key not found: \"{v}\"")))?;
+        let id: i64 = v.parse().map_err(|_| FiguresError::Raised(format!("KeyError: key not found: \"{v}\"")))?;
         by_venue.push((id, summarise(&w, v, ps, now)?));
     }
     let whole = whole(&w, &by_venue, ps)?;
-    Ok(Walked { venues: by_venue, whole, terms: w.terms })
+    let bot_sales = bot_sales(&w, stored)?;
+    Ok(Walked { venues: by_venue, whole, terms: w.terms, bot_sales })
+}
+
+/// Each bot order's sale, by order id, from the located walk's disposals of stored rows carrying a `bot_order`.
+/// A row is known (D-SELL-ONLY-KNOWN-COST) read off the enriched row the engine walked, its fees attributed.
+fn bot_sales(w: &Walk, stored: &[Stored]) -> Result<Vec<BotSale>, FiguresError> {
+    let rows: HashMap<usize, &Row> = w.rows.iter().map(|r| (r.uid, r)).collect();
+    let mut out: BTreeMap<i64, BotSale> = BTreeMap::new();
+    for d in &w.engine.disposals {
+        crate::figures::budget::check()?;
+        // An opening (uid past the stored rows) is never a bot's fill.
+        let Some(t) = stored.get(d.source) else { continue };
+        let Some(order) = t.bot_order else { continue };
+        let quote = t.quote.clone().unwrap_or_default();
+        let s = out.entry(order).or_insert_with(|| BotSale { order, at: d.at, amount: Dec::zero(), quote: quote.clone(), cost: Dec::zero(), known: true });
+        let paid = rows.get(&d.source).filter(|r| {
+            !d.data_incomplete && r.kind == Kind::Sell && fiat_disposal(r) && r.quote == t.quote && quote == s.quote && d.proceeds.is_positive()
+                && !(r.fee_is(&r.base) && r.fee().is_positive())
+        }).and_then(|r| r.quote_amount.clone()).filter(Dec::is_positive);
+        s.amount = (&s.amount + &d.amount)?;
+        s.at = d.at;
+        match paid {
+            Some(paid) if s.known => s.cost = (&s.cost + &(&d.cost_basis * &paid)?.div(&d.proceeds)?)?,
+            _ => { s.known = false; s.cost = Dec::zero(); }
+        }
+    }
+    Ok(out.into_values().collect())
 }
 
 /// `round_trips`: one row per round trip, not per sell. What is still accumulating when the disposals run out is flushed
@@ -1535,8 +1616,12 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
     let book_realised = w.book.realised.get(venue).cloned().unwrap_or_else(Dec::zero);
     let costs = w.costs.get(venue).cloned().unwrap_or_else(Dec::zero);
     let mut openings: Vec<(String, Dec)> = vec![];
+    let mut opening_values: Vec<(String, Dec)> = vec![];
     for r in rows.iter().filter(|r| r.opening) {
-        match openings.iter_mut().find(|(k, _)| *k == r.base) { Some((_, v)) => *v = r.amount.clone(), None => openings.push((r.base.clone(), r.amount.clone())) }
+        match openings.iter().position(|(k, _)| *k == r.base) {
+            Some(i) => { openings[i].1 = r.amount.clone(); opening_values[i].1 = r.fiat_value.clone(); }
+            None => { openings.push((r.base.clone(), r.amount.clone())); opening_values.push((r.base.clone(), r.fiat_value.clone())); }
+        }
     }
     Ok(Summary {
         positions,
@@ -1552,6 +1637,7 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
         incomplete,
         loss_sales: vec![],
         openings,
+        opening_values,
     })
 }
 
@@ -1566,7 +1652,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
     };
     let mut held: Vec<(String, Vec<Position>)> = vec![];
     let (mut received, mut realised, mut fees, mut cash_usd, mut unpriced_proceeds) = (Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero());
-    let (mut round_trips, mut openings) = (vec![], vec![]);
+    let (mut round_trips, mut openings, mut opening_values) = (vec![], vec![], vec![]);
     for (_, s) in venues {
         total = (&total + &s.total_invested)?;
         received = (&received + &s.received)?;
@@ -1576,6 +1662,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         unpriced_proceeds = (&unpriced_proceeds + &s.unpriced_proceeds)?;
         round_trips.extend(s.round_trips.iter().cloned());
         for (symbol, quantity) in &s.openings { add_to(&mut openings, symbol, quantity)?; }
+        for (symbol, value) in &s.opening_values { add_to(&mut opening_values, symbol, value)?; }
         for (c, a) in &s.cash { add(&mut cash, c, a)?; }
         for (c, a) in &s.cash_basis { add(&mut basis, c, a)?; }
         for p in &s.positions {
@@ -1595,7 +1682,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         positions, total_invested: total, cash, cash_basis: basis.into_iter().filter(|(_, b)| !b.is_zero()).collect(),
         incomplete: venues.iter().any(|(_, s)| s.incomplete) || w.engine.uncovered || !ps.warnings.is_empty(),
         loss_sales: loss_sales(&w.global.disposals, ps.today)?,
-        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings,
+        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings, opening_values,
     })
 }
 
@@ -1609,7 +1696,7 @@ mod tests {
         Row { uid, kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None, fiat_value: Dec::zero(), fee_fiat_value: Dec::zero(),
               fee_currency: None, fee_amount: None, at: At::from_sql(at).unwrap(), group: None, price_missing: false, value_missing: None,
               exchange: exchange.into(), linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None,
-              to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false }
+              to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false, class: None }
     }
     /// A 1 BTC withdrawal from `from` linked to a deposit on `to`.
     fn send(uid: usize, from: &str, to: &str) -> Row { Row { linked: true, to_exchange: Some(to.into()), ..row(uid, Kind::Withdrawal, "BTC", "1", T, from) } }
@@ -1713,5 +1800,234 @@ mod tests {
         let mut e = Engine::new(true);
         e.calculate(&rows).unwrap();
         assert_eq!(e.positions(Some("a")).unwrap().into_iter().find(|p| p.symbol == "BTC").unwrap().cost.to_s_f(), "130.0", "2.x: 100");
+    }
+
+    // D-SELL-ONLY-*: the located walk's cost of each bot order's sale, read through `scopes` over stored rows.
+    const D1: &str = "2026-09-01 10:00:00";
+    const D2: &str = "2026-09-02 10:00:00";
+    const D3: &str = "2026-09-03 10:00:00";
+    fn st(id: i64, venue: &str, kind: Kind, base: &str, amount: &str, at: &str) -> Stored {
+        Stored { id, exchange_id: if venue == "a" { 1 } else { 2 }, venue: venue.into(), kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None,
+                 fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql(at).unwrap(), per_share: None, stated: None, linked_to: None,
+                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: if venue == "a" { 1 } else { 2 }, to_account: None }
+    }
+    fn trade(id: i64, venue: &str, kind: Kind, amount: &str, quote: &str, paid: &str, at: &str) -> Stored {
+        Stored { quote: Some(quote.into()), quote_amount: Some(d(paid)), ..st(id, venue, kind, "BTC", amount, at) }
+    }
+    fn sold(id: i64, order: i64, amount: &str, quote: &str, paid: &str, at: &str) -> Stored { Stored { bot_order: Some(order), ..trade(id, "a", Kind::Sell, amount, quote, paid, at) } }
+    fn deposit(id: i64, amount: &str, worth: &str, at: &str) -> Stored { Stored { stated: Some(d(worth).div(&d(amount)).unwrap()), ..st(id, "a", Kind::Deposit, "BTC", amount, at) } }
+    fn walked_with(rows: Vec<Stored>, deposits: &[(i64, &str)], fx: &crate::tracker::fx::FxTable) -> Walked {
+        let stored = crate::tracker::rows::walk_rows(&rows).unwrap();
+        let r = crate::tracker::prices::Reference::default();
+        let mut none = crate::tracker::prices::NoFetch;
+        let mut ps = PriceService::new(&r, fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut none);
+        let deposits: HashMap<i64, Dec> = deposits.iter().map(|(i, a)| (*i, d(a))).collect();
+        scopes(&stored, &deposits, &mut ps, At::from_sql("2026-10-01 00:00:00").unwrap()).unwrap()
+    }
+    fn sales(rows: Vec<Stored>) -> Vec<BotSale> { walked_with(rows, &[], &Default::default()).bot_sales }
+    fn sale(order: i64, at: &str, amount: &str, quote: &str, cost: &str, known: bool) -> BotSale {
+        BotSale { order, at: At::from_sql(at).unwrap(), amount: d(amount), quote: quote.into(), cost: d(cost), known }
+    }
+
+    /// Stored row `id` of account `account` on exchange `venue`.
+    fn on(id: i64, account: i64, venue: &str, kind: Kind, base: &str, amount: &str, at: &str) -> Stored {
+        Stored { account, venue: venue.into(), exchange_id: if venue == "kraken" { 1 } else { 2 }, ..st(id, "a", kind, base, amount, at) }
+    }
+
+    /// §6 test 7 (#710 slice 5): a linked move between two accounts of one exchange reads exactly as the same rows between
+    /// two exchanges: it left the first account and arrived at the second; the whole portfolio holds what one account
+    /// holding it throughout would.
+    #[test]
+    fn a_move_between_two_accounts_of_one_exchange_reads_as_one_between_two_exchanges() {
+        let rows = |second: &str| {
+            let buy = Stored { quote: Some("USD".into()), quote_amount: Some(d("100")), ..on(1, 1, "kraken", Kind::Buy, "BTC", "1", D1) };
+            let sent = Stored { linked_to: Some(3), to_venue: Some(second.into()), to_exchange_id: Some(if second == "kraken" { 1 } else { 2 }), to_account: Some(2),
+                                ..on(2, 1, "kraken", Kind::Withdrawal, "BTC", "1", D2) };
+            vec![buy, sent, on(3, 2, second, Kind::Deposit, "BTC", "1", D2)]
+        };
+        let one = walked_with(rows("kraken"), &[(3, "1")], &Default::default());
+        let two = walked_with(rows("binance"), &[(3, "1")], &Default::default());
+        assert_eq!(format!("{:?}", one.venues), format!("{:?}", two.venues), "two accounts of one exchange read as two exchanges");
+        assert_eq!(format!("{:?}", one.whole), format!("{:?}", two.whole));
+        let (a, b) = (one.venue(1).unwrap(), one.venue(2).unwrap());
+        assert!(a.positions.is_empty(), "it left the first account");
+        assert_eq!((b.positions[0].quantity.to_s_f(), b.positions[0].cost.to_s_f()), ("1.0".to_string(), "100.0".to_string()), "and arrived at the second, its cost with it");
+        let held = walked_with(rows("kraken")[..1].to_vec(), &[], &Default::default());
+        let position = |w: &Walked| (w.whole.positions[0].quantity.to_s_f(), w.whole.positions[0].cost.to_s_f(), w.whole.total_invested.to_s_f());
+        assert_eq!(position(&one), position(&held), "the whole portfolio nets the move");
+    }
+
+    /// §6 test 7: an account 2 keeps its exchange's cash rule: Alpaca lends cash (a buy with none is no money in), Kraken does
+    /// not (the cash it spent unseen is money in), each exactly as its account 1.
+    #[test]
+    fn an_account_2_keeps_its_exchanges_cash_rule() {
+        let buy = |account: i64, venue: &str| Stored { quote: Some("USD".into()), quote_amount: Some(d("100")), ..on(1, account, venue, Kind::Buy, "BTC", "1", D1) };
+        for account in [1, 2] {
+            assert_eq!(walked_with(vec![buy(account, "alpaca")], &[], &Default::default()).venue(account).unwrap().total_invested.to_s_f(), "0.0", "alpaca {account}");
+            assert_eq!(walked_with(vec![buy(account, "kraken")], &[], &Default::default()).venue(account).unwrap().total_invested.to_s_f(), "100.0", "kraken {account}");
+        }
+    }
+
+    #[test]
+    fn a_bot_sale_of_bought_coins_has_its_lots_cost() {
+        let w = walked_with(vec![trade(1, "a", Kind::Buy, "1", "USD", "100", D1), sold(2, 7, "1", "USD", "150", D2)], &[], &Default::default());
+        assert_eq!(w.bot_sales, [sale(7, D2, "1", "USD", "100", true)]);
+        assert_eq!(w.whole.realised.to_s_f(), "50.0", "the summary is the walk's as before");
+    }
+
+    #[test]
+    fn a_bot_sale_of_an_unlinked_deposit_is_not_known() {
+        assert_eq!(sales(vec![deposit(1, "1", "120", D1), sold(2, 7, "1", "USD", "150", D2)]), [sale(7, D2, "1", "USD", "0", false)]);
+    }
+
+    #[test]
+    fn a_linked_deposit_brings_its_cost_to_the_bots_venue() {
+        let sent = Stored { linked_to: Some(3), to_venue: Some("a".into()), to_exchange_id: Some(1), to_account: Some(1), ..st(2, "b", Kind::Withdrawal, "BTC", "1", D2) };
+        let rows = vec![trade(1, "b", Kind::Buy, "1", "USD", "100", D1), sent, st(3, "a", Kind::Deposit, "BTC", "1", D2), sold(4, 7, "1", "USD", "150", D3)];
+        assert_eq!(walked_with(rows, &[(3, "1")], &Default::default()).bot_sales, [sale(7, D3, "1", "USD", "100", true)]);
+    }
+
+    #[test]
+    fn one_unknown_lot_makes_the_whole_order_unknown() {
+        let rows = vec![trade(1, "a", Kind::Buy, "0.5", "USD", "50", D1), deposit(2, "0.5", "60", D1), sold(3, 7, "1", "USD", "150", D2)];
+        assert_eq!(sales(rows), [sale(7, D2, "1", "USD", "0", false)]);
+    }
+
+    #[test]
+    fn fills_of_one_order_are_one_sale() {
+        let rows = vec![trade(1, "a", Kind::Buy, "3", "USD", "300", D1), sold(2, 7, "0.5", "USD", "75", D2), sold(3, 7, "1.5", "USD", "225", D3),
+                        sold(4, 5, "1", "USD", "90", D3)];
+        assert_eq!(sales(rows), [sale(5, D3, "1", "USD", "100", true), sale(7, D3, "2", "USD", "200", true)]);
+    }
+
+    #[test]
+    fn a_fee_in_the_coin_sold_is_not_known() {
+        let fee = Stored { fee_currency: Some("BTC".into()), fee_amount: Some(d("0.01")), ..sold(2, 7, "1", "USD", "150", D2) };
+        assert_eq!(sales(vec![trade(1, "a", Kind::Buy, "2", "USD", "200", D1), fee]), [sale(7, D2, "1", "USD", "0", false)]);
+    }
+
+    #[test]
+    fn a_base_fee_moved_from_the_fiat_leg_is_not_known() {
+        let with_fee = |coin: &str, amount: &str| {
+            let g = Some("g".to_string());
+            let cash = Stored { group: g.clone(), fee_currency: Some(coin.into()), fee_amount: Some(d(amount)), ..st(3, "a", Kind::SwapIn, "USD", "150", D2) };
+            sales(vec![trade(1, "a", Kind::Buy, "2", "USD", "200", D1), Stored { group: g, ..sold(2, 7, "1", "USD", "150", D2) }, cash])
+        };
+        assert_eq!(with_fee("BTC", "0.01"), [sale(7, D2, "1", "USD", "0", false)]);
+        assert_eq!(with_fee("USD", "1"), [sale(7, D2, "1", "USD", "100", true)], "a quote fee moved the same way is known");
+    }
+
+    #[test]
+    fn a_sale_for_a_coin_makes_no_record() {
+        assert_eq!(sales(vec![trade(1, "a", Kind::Buy, "1", "USD", "100", D1), sold(2, 7, "1", "ETH", "30", D2)]), []);
+    }
+
+    #[test]
+    fn fills_at_two_rates_are_restated_one_by_one() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC); INSERT INTO fx_rates VALUES ('USD', '2026-09-02', '1'), ('USD', '2026-09-03', '2');").unwrap();
+        let fx = crate::tracker::fx::FxTable::load(&c).unwrap();
+        let rows = vec![trade(1, "a", Kind::Buy, "1", "USD", "60", D1), trade(2, "a", Kind::Buy, "1", "USD", "40", "2026-09-01 11:00:00"),
+                        sold(3, 7, "1", "EUR", "100", D2), sold(4, 7, "1", "EUR", "100", D3)];
+        assert_eq!(walked_with(rows, &[], &fx).bot_sales, [sale(7, D3, "2", "EUR", "80", true)], "not the 66.67 a blended rate gives");
+    }
+
+    #[test]
+    fn a_sale_of_an_opened_coin_is_not_known() {
+        let w = walked_with(vec![sold(1, 9, "1", "USD", "150", D2)], &[], &Default::default());
+        assert!(w.whole.openings.iter().any(|(s, _)| s == "BTC"), "the walk opened what the sale needed");
+        assert_eq!(w.bot_sales, [sale(9, D2, "1", "USD", "0", false)]);
+    }
+
+    // #1061: a security and a coin sharing a symbol (Alpaca's BTC security beside BTC/USD). A row's stored asset decides its
+    // class; a corporate action of one known class never touches a lot of the other.
+    const DAY: &str = "2026-09-01 10:00:00";
+    const SPLIT: &str = "2026-09-05 10:00:00";
+    fn of(class: Option<bool>, r: Row) -> Row { Row { class, ..r } }
+    fn bought(uid: usize, class: Option<bool>, amount: &str, value: &str, venue: &str) -> Row { of(class, Row { fiat_value: d(value), ..row(uid, Kind::Buy, "BTC", amount, DAY, venue) }) }
+    fn adjust(uid: usize, class: Option<bool>, amount: &str) -> Row { of(class, row(uid, Kind::Adjustment, "BTC", amount, SPLIT, "alpaca")) }
+    fn lots_at(e: &Engine, venue: Option<&str>) -> Vec<(String, String)> {
+        e.remaining_lots().filter(|(a, v, _)| *a == "BTC" && *v == venue).flat_map(|(_, _, l)| l.into_iter().map(|(a, c)| (a.to_s_f(), c.to_s_f()))).collect()
+    }
+    fn walked(located: bool, rows: &[Row]) -> Engine { let mut e = Engine::new(located); e.calculate(rows).unwrap(); e }
+    fn pair(a: &str, c: &str) -> (String, String) { (d(a).to_s_f(), d(c).to_s_f()) }
+    const COIN: Option<bool> = Some(false);
+    const SECURITY: Option<bool> = Some(true);
+
+    #[test]
+    fn a_securitys_split_leaves_the_coin_that_shares_its_symbol() {
+        let rows = [bought(0, COIN, "1", "60000", "alpaca"), bought(1, SECURITY, "10", "300", "alpaca"), adjust(2, SECURITY, "10")];
+        assert_eq!(lots_at(&walked(true, &rows), Some("alpaca")), [pair("1", "60000"), pair("20", "15")]);
+        assert_eq!(lots_at(&walked(false, &rows), None), [pair("1", "60000"), pair("20", "15")]);
+        // The coin bought on another venue: the account-wide pool has no venue, and still leaves it at 1.
+        let rows = [bought(0, COIN, "1", "60000", "kraken"), bought(1, SECURITY, "10", "300", "alpaca"), adjust(2, SECURITY, "10")];
+        assert_eq!(lots_at(&walked(false, &rows), None), [pair("1", "60000"), pair("20", "15")]);
+        assert_eq!(lots_at(&walked(true, &rows), Some("kraken")), [pair("1", "60000")]);
+    }
+
+    #[test]
+    fn a_reverse_split_to_nothing_keeps_the_coin() {
+        for located in [true, false] {
+            let rows = [bought(0, COIN, "1", "60000", "alpaca"), bought(1, SECURITY, "10", "300", "alpaca"), adjust(2, SECURITY, "-10")];
+            assert_eq!(lots_at(&walked(located, &rows), if located { Some("alpaca") } else { None }), [pair("1", "60000")], "located {located}");
+        }
+    }
+
+    #[test]
+    fn a_return_of_capital_leaves_the_coin() {
+        for located in [true, false] {
+            let roc = of(SECURITY, Row { per_share: Some(d("1")), fiat_value: d("10"), ..row(2, Kind::ReturnOfCapital, "BTC", "10", SPLIT, "alpaca") });
+            let rows = [bought(0, COIN, "1", "60000", "alpaca"), bought(1, SECURITY, "10", "300", "alpaca"), roc];
+            assert_eq!(lots_at(&walked(located, &rows), if located { Some("alpaca") } else { None }), [pair("1", "60000"), pair("10", "29")], "located {located}");
+        }
+    }
+
+    #[test]
+    fn a_row_with_no_stored_asset_splits_by_name_as_before() {
+        let factor = d("21").div(&d("11")).unwrap();
+        let scaled = |amount: &str, cost: &str| ((&d(amount) * &factor).unwrap().to_s_f(), d(cost).div(&factor).unwrap().to_s_f());
+        for located in [true, false] {
+            let rows = [bought(0, None, "1", "60000", "alpaca"), bought(1, None, "10", "300", "alpaca"), adjust(2, None, "10")];
+            assert_eq!(lots_at(&walked(located, &rows), if located { Some("alpaca") } else { None }), [scaled("1", "60000"), scaled("10", "30")], "located {located}");
+        }
+    }
+
+    #[test]
+    fn same_day_adjustments_of_two_classes_are_not_netted() {
+        let netted = net_daily_splits(vec![adjust(0, COIN, "1"), adjust(1, SECURITY, "10")]).unwrap();
+        assert_eq!(netted.iter().map(|r| r.amount.to_s_f()).collect::<Vec<_>>(), [d("1").to_s_f(), d("10").to_s_f()]);
+    }
+
+    #[test]
+    fn a_splits_legs_net_when_one_stored_no_asset() {
+        for legs in [[adjust(1, None, "-10"), adjust(2, SECURITY, "20")], [adjust(2, SECURITY, "20"), adjust(1, None, "-10")]] {
+            let rows = [vec![bought(0, SECURITY, "10", "300", "alpaca")], legs.to_vec()].concat();
+            for located in [true, false] {
+                let e = walked(located, &rows);
+                let venue = if located { Some("alpaca".to_string()) } else { None };
+                let lots = &e.lots[&(venue.clone(), "BTC".to_string())];
+                assert_eq!(lots.iter().map(|l| (l.amount.to_s_f(), l.cost_per_unit.to_s_f(), l.class)).collect::<Vec<_>>(),
+                           [(d("20").to_s_f(), d("15").to_s_f(), SECURITY)], "located {located}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_day_with_both_classes_and_an_asset_less_leg_is_refused() {
+        let legs = [adjust(1, COIN, "1"), adjust(2, None, "-10"), adjust(3, SECURITY, "20")];
+        for order in [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] {
+            let rows = [vec![bought(10, COIN, "1", "60000", "alpaca"), bought(11, SECURITY, "10", "300", "alpaca")], order.iter().map(|&i| legs[i].clone()).collect()].concat();
+            match Engine::new(true).calculate(&rows) {
+                Err(FiguresError::NotComputed(m)) => assert_eq!(m, "Tracker figures unavailable: ambiguous asset class for a shared symbol", "{order:?}"),
+                other => panic!("{order:?}: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_coin_keeps_its_class_through_a_transfer_that_stored_none() {
+        let sent = Row { linked: true, to_exchange: Some("alpaca".into()), ..row(1, Kind::Withdrawal, "BTC", "1", "2026-09-02 10:00:00", "kraken") };
+        let rows = [bought(0, COIN, "1", "60000", "kraken"), sent, bought(2, SECURITY, "10", "300", "alpaca"), adjust(3, SECURITY, "10")];
+        assert_eq!(lots_at(&walked(true, &rows), Some("alpaca")), [pair("1", "60000"), pair("20", "15")]);
     }
 }

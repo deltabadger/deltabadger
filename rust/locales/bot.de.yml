@@ -172,6 +172,7 @@ de:
                     prices: 'Preise anzeigen'
                     modes: 'Diagrammmodus'
                     pnl: 'P/L'
+                    received: 'Erhalten'
                     total_invested: 'Insgesamt investiert'
                     value: Wert
                 csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen. Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'
@@ -181,12 +182,13 @@ de:
                 download_csv: 'Exportieren'
                 generating_csv: 'Datei wird generiert...'
                 import_csv: 'Importieren'
-                exchange_unavailable_html: 'Die Börsen-API reagiert derzeit nicht.<br>Berechnungen basieren auf den letzten verfügbaren Daten.'
+                exchange_unavailable_html: "Die Preise konnten nicht von der Börse gelesen werden.<br>Die Zahlen beruhen auf den letzten verfügbaren Daten."
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust
                 price: 'Rate(%{quote})'
                 sold: Verkauft
                 received: 'Erhalten'
+                realised_pnl_basis_note: "Erhalten abzüglich dessen, was die verkauften Coins gekostet haben – laut der Historie deines Kontos."
                 title: Statistiken
                 total_invested: 'Insgesamt investiert'
                 portfolio_value: 'Portfoliowert'

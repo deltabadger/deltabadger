@@ -89,6 +89,12 @@ de:
     links:
         hide_balances: 'Guthaben ausblenden'
         display_currency: 'Anzeigewährung'
+        scheme: 'Farbschema'
+        scheme_default: 'Standard'
+        scheme_space: 'Weltraum'
+        scheme_warm: 'Warm'
+        scheme_ember: 'Glut'
+        scheme_forest: 'Wald'
         show_balances: 'Guthaben einblenden'
         about: Über
         telegram: Telegram
@@ -185,6 +191,10 @@ de:
             confirm_delete: 'Möchten Sie diesen CoinGecko API-Schlüssel entfernen?'
         market_data:
             none: 'Keine'
+            intro: "Live-Marktdaten ermöglichen Indizes und die Kurshistorie für das Portfolio-Tracking. Nutze ein kostenloses CoinGecko-Konto oder die Deltabadger-API – dieselben Daten auch für Aktien, dazu eine feste IP-Adresse für die Whitelist der Börsen."
+            upgrade_title: 'Deltabadger Data API'
+            upgrade: "Auch Aktien und eine feste IP-Adresse für die Whitelist der Börsen."
+            upgrade_button: "Upgraden"
             disabled: 'Marktdaten-Synchronisierung deaktiviert.'
             updated: 'Marktdaten-Einstellungen aktualisiert.'
             coingecko_configured: 'Mit CoinGecko für Live-Marktdaten verbunden.'
@@ -657,6 +667,7 @@ de:
         notes:
             left: '%{exchange} meldet %{held} %{symbol}; die Historie erklärt %{history}. Die Differenz gilt als zum Einstandswert abgegangen (%{amount}).'
             arrived: '%{exchange} meldet %{held} %{symbol}; die Historie erklärt %{history}. Die Differenz gilt als zum Kurs zugegangen (%{amount}).'
+            opened: 'Die Historie braucht %{history} %{symbol}, deren Eingang sie nie zeigt. Als von Anfang an gehalten angenommen, zum Preis jenes Tages (%{amount}).'
             since_sync: '%{symbol} seit der letzten Synchronisierung gekauft: bis zur nächsten zum Einstandswert bewertet (%{amount}).'
             cash_out: 'Die Historie hält %{history} %{symbol}; %{exchange} meldet %{held}. Die Differenz (%{amount}) gilt als abgeflossen.'
             cash_in: 'Die Historie hält %{history} %{symbol}; %{exchange} meldet %{held}. Die Differenz (%{amount}) gilt als zugeflossen.'
@@ -770,7 +781,8 @@ de:
             market_closed: 'Markt geschlossen — nächste Öffnung %{time}'
             limit_paused: 'Pausiert: Limit %{limit} nicht erfüllt'
             execution_failed: 'Orderversuch fehlgeschlagen'
-            execution_retrying: 'Vorübergehendes Verbindungsproblem — wird automatisch wiederholt'
+            execution_retrying: "Orderversuch fehlgeschlagen — der Bot versucht es erneut"
+            execution_retrying_with_error: "Orderversuch fehlgeschlagen: %{error} — der Bot versucht es erneut"
             execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
             order_abandoned: "Order %{order_id} aufgegeben (Börse erfasst sie nicht mehr)"
             placement_ambiguous: "Orderstatus unbestätigt — kein erneuter Versuch, um eine doppelte Order zu vermeiden"

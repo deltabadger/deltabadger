@@ -118,8 +118,8 @@ fn dump(c: &Connection, sql: &str) -> String {
 /// The money guard: no order row, carry, figure input or ledger link moves, and no resolution is written.
 fn money(c: &Connection) -> Vec<String> {
     vec![dump(c, "SELECT * FROM transactions ORDER BY id"), dump(c, "SELECT id, settings, transient_data, status, started_at, settings_changed_at FROM bots ORDER BY id"),
-         dump(c, "SELECT id, transaction_id, linked_transaction_id FROM account_transactions ORDER BY id"), dump(c, "SELECT * FROM rust_rails_unrecorded_resolutions"),
-         dump(c, "SELECT * FROM rust_rails_unrecorded_offers ORDER BY id")]
+         dump(c, "SELECT id, transaction_id, linked_transaction_id FROM account_transactions ORDER BY id"), dump(c, "SELECT * FROM rust_v2_unrecorded_resolutions"),
+         dump(c, "SELECT * FROM rust_v2_unrecorded_offers ORDER BY id")]
 }
 fn lines(c: &Connection, bot: i64, event: &str) -> Vec<Value> {
     let mut s = c.prepare("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event = ?2 ORDER BY id").unwrap();
@@ -286,10 +286,10 @@ impl Fx {
     }
     /// The line's obligation and its offers (offer id, external id).
     fn offers(&self) -> (i64, Vec<(i64, String)>) {
-        let line: Value = self.c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('rails_order_open', 'rails_order_listed') ORDER BY id DESC LIMIT 1",
+        let line: Value = self.c.query_row("SELECT details FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('v2_order_open', 'v2_order_listed') ORDER BY id DESC LIMIT 1",
                                            [self.b], |r| r.get::<_, String>(0)).map(|d| serde_json::from_str(&d).unwrap()).unwrap();
         let obligation = line["obligation"].as_i64().unwrap();
-        let mut s = self.c.prepare("SELECT id, external_id FROM rust_rails_unrecorded_offers WHERE obligation_id = ?1 ORDER BY id").unwrap();
+        let mut s = self.c.prepare("SELECT id, external_id FROM rust_v2_unrecorded_offers WHERE obligation_id = ?1 ORDER BY id").unwrap();
         let offers = s.query_map([obligation], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
         (obligation, offers)
     }
@@ -366,7 +366,7 @@ async fn the_line_stores_its_bookable_orders_as_offers_and_names_its_obligation(
         let mut ids: Vec<String> = offers.into_iter().map(|(_, e)| e).collect();
         ids.sort_by_key(|e| e.rsplit('-').next().unwrap().parse::<u64>().unwrap());
         assert_eq!(ids, [7, 8, 9, 10].map(|n| kind.external_id(n)), "{kind:?}: cancelled with nothing filled is listed, never offered");
-        assert_eq!(obligation, count(&f.c, "SELECT id FROM rust_rails_unrecorded"));
+        assert_eq!(obligation, count(&f.c, "SELECT id FROM rust_v2_unrecorded"));
     }
 }
 
@@ -376,12 +376,12 @@ async fn a_ledger_only_candidate_or_an_unserved_venue_offers_nothing() {
     fill(&f.c, &f.s, 50, 5, "0.0004", "20.01", "2026-09-29T14:03:01Z");
     f.answer(&[]);
     f.report().await;
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_offers"), 0);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_offers"), 0);
     // A28-3d-5: IBKR, the one venue left with no fills ledger and no served list.
     let f = fx(Kind::Binance);
     f.c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr', name = 'Interactive Brokers' WHERE id = ?1", [f.s.exchange_id]).unwrap();
     f.report().await;
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_offers"), 0);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_offers"), 0);
 }
 
 // ---- one booking: 2.x's accepted row, then the follow-up poll (r2.1, r2.2) ------------------------------------------------
@@ -394,7 +394,6 @@ async fn a_booking_writes_v2_accepted_row_and_the_follow_up_settles_it() {
     f.report().await;
     let (obligation, offers) = f.offers();
     assert_eq!(f.request(obligation, offers[0].0), Ok(()));
-    common::freeze::freeze("a28_requested", &f.c, None);
     let served = f.serve().await;
     let tx = served.booked[0].1;
     assert_eq!(served.booked, [(f.b, tx)]);
@@ -405,14 +404,13 @@ async fn a_booking_writes_v2_accepted_row_and_the_follow_up_settles_it() {
     assert_eq!(count(&f.c, "SELECT count(*) FROM ibkr_reservations"), 0);
     assert_eq!(f.c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [mine], |r| r.get::<_, Option<i64>>(0)).unwrap(), Some(tx), "its fill linked");
     let resolution: (i64, String, i64, i64, String, String) = f.c.query_row("SELECT obligation_id, resolution, offer_id, transaction_id, confirmed_base, confirmed_quote \
-        FROM rust_rails_unrecorded_resolutions", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap();
+        FROM rust_v2_unrecorded_resolutions", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))).unwrap();
     assert_eq!(resolution, (obligation, "booked".into(), offers[0].0, tx, "0.0004".into(), "20.0".into()));
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_requests"), 0);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_requests"), 0);
     let recovered = lines(&f.c, f.b, ru::RECOVERED);
     assert_eq!(recovered, [json!({ "obligation": obligation, "transaction_id": tx, "venue_created_at": "2026-09-29 14:03:05",
                                    "order": "bought 0.0004 BTC for 20 EUR (filled), placed 2026-09-29 14:03:05 UTC" })]);
     assert_eq!(model::load_bot(&f.c, f.b).unwrap().transient[model::HISTORY_GENERATION], json!(1));
-    common::freeze::freeze("a28_booked", &f.c, None);
     // FetchAndUpdateOrderJob: GET order, then its trades with a quote commission.
     f.tr.reply("GET /api/v3/order", 200, binance_row(&o(7, St::Filled, "0.0004", "20")));
     f.tr.reply("GET /api/v3/myTrades", 200, json!([trade(50, 7, "0.0004", "20", "0.02", "EUR", "2026-09-29T14:03:06Z")]));
@@ -508,8 +506,7 @@ async fn every_refusal_writes_nothing_but_its_line() {
         let refused = lines(&f.c, f.b, ru::NOT_ADDED);
         assert_eq!(refused.len(), 1, "{name}");
         assert_eq!(refused[0]["reason"], reason, "{name}");
-        assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_requests"), 0, "{name}: the request goes");
-        if reason == "nothing_filled" { common::freeze::freeze("a28_not_added", &f.c, None); }
+        assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_requests"), 0, "{name}: the request goes");
         if reason != "deleted" { assert_eq!(f.request(obligation, offers[0].0), Ok(()), "{name}: the offer can be asked for again"); }
     }
 }
@@ -600,13 +597,13 @@ async fn one_attempt_books_one_order_whatever_source_named_it() {
     ru::collect(&f.c, &queue(), None, now()).unwrap();
     f.answer(&[o(7, St::Filled, "0.0004", "20")]);
     Report::new(Factory { venue: f.binance(), hook: RefCell::new(None) }).pass(&f.db, now()).await.unwrap();
-    let mut s = f.c.prepare("SELECT obligation_id, id FROM rust_rails_unrecorded_offers ORDER BY id").unwrap();
+    let mut s = f.c.prepare("SELECT obligation_id, id FROM rust_v2_unrecorded_offers ORDER BY id").unwrap();
     let offers: Vec<(i64, i64)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
     assert_eq!(offers.len(), 2, "each line offers the order");
     f.request(offers[0].0, offers[0].1).unwrap();
     assert_eq!(f.request(offers[1].0, offers[1].1), Err(Refused::Pending), "one request per attempt");
     f.serve().await;
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_resolutions WHERE resolution = 'booked'"), 2, "the whole group is resolved");
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_resolutions WHERE resolution = 'booked'"), 2, "the whole group is resolved");
     assert_eq!(f.request(offers[1].0, offers[1].1), Err(Refused::Decided));
     assert_eq!(ru::dismiss(&f.c, f.s.user_id, f.b, offers[1].0, now()).unwrap(), Err(Refused::Decided));
 }
@@ -626,7 +623,6 @@ async fn none_was_mine_resolves_the_group_with_one_line_and_no_row() {
     assert_eq!(lines(&f.c, f.b, ru::NOT_MINE), [json!({ "obligation": obligation })]);
     assert_eq!(f.request(obligation, offers[0].0), Err(Refused::Decided));
     assert!(ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].resolved);
-    common::freeze::freeze("a28_not_mine", &f.c, None);
 }
 
 // ---- the carry (§4, r1.7) ------------------------------------------------------------------------------------------------
@@ -640,7 +636,7 @@ fn carry_fx(failed_row: bool) -> Fx {
     prior_row(&f.c, &f.s, f.b, "2026-09-03 00:00:00");
     f.c.execute("UPDATE transactions SET quote_amount = 40, quote_amount_exec = 40, amount = 0.0008, amount_exec = 0.0008 WHERE id = (SELECT max(id) FROM transactions)", []).unwrap();
     if failed_row {
-        f.c.execute_batch("DELETE FROM rust_rails_unrecorded; DELETE FROM bot_activity_logs").unwrap();
+        f.c.execute_batch("DELETE FROM rust_v2_unrecorded; DELETE FROM bot_activity_logs").unwrap();
         f.c.execute("INSERT INTO transactions (bot_id, exchange_id, status, side, base_asset_id, quote_asset_id, transaction_type, error_messages, bot_interval, \
                      bot_quote_amount, created_at, updated_at) VALUES (?1, ?2, 1, 0, ?3, ?4, 'REGULAR', '[\"Net::ReadTimeout\"]', 'week', 15, '2026-09-02 00:00:00', '2026-09-02 00:00:00')",
                     params![f.b, f.s.exchange_id, f.s.btc, f.s.quote]).unwrap();
@@ -734,7 +730,6 @@ async fn a_booked_row_no_poll_holds_is_enrolled_again_and_after_seven_days_unset
     pass(now() + Duration::days(8), true).await.unwrap();
     assert_eq!(lines(&f.c, f.b, ru::UNSETTLED), [json!({ "transaction_id": tx, "venue": "Binance", "placed": "2026-09-29 14:03:05 UTC" })]);
     assert_eq!(f.row(tx)["external_status"], json!(0), "never abandoned or removed");
-    common::freeze::freeze("a28_unsettled", &f.c, None);
     // A deleted bot's row is not watched.
     f.c.execute("UPDATE bots SET status = 3 WHERE id = ?1", [f.b]).unwrap();
     assert_eq!(pass(now(), false).await.unwrap().watch, []);
@@ -787,14 +782,13 @@ async fn an_answer_below_what_the_owner_confirmed_is_held_and_a_consistent_one_a
     f.follow_up(tx, now() + Duration::days(7)).await.unwrap();
     f.follow_up(tx, now() + Duration::days(8)).await.unwrap();
     assert_eq!(lines(&f.c, f.b, ru::SETTLED_LOWER).len(), 1);
-    common::freeze::freeze("a28_held", &f.c, None);
     // A consistent answer (0.1 % commission in BTC, within the taker fee) applies and ends the hold.
     f.tr = ScriptedTransport::default();
     f.tr.reply("GET /api/v3/order", 200, binance_row(&o(7, St::Filled, "0.0004", "20")));
     f.tr.reply("GET /api/v3/myTrades", 200, json!([trade(50, 7, "0.0004", "20", "0.0000004", "BTC", PLACED)]));
     assert_eq!(f.follow_up(tx, now() + Duration::days(9)).await, Ok(polling::FollowUp::Done));
     assert_eq!((f.row(tx)["external_status"].clone(), f.row(tx)["amount_exec"].clone()), (json!(2), json!(0.0003996)));
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_notices WHERE kind = 'held'"), 0);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_notices WHERE kind = 'held'"), 0);
 }
 
 #[tokio::test]
@@ -841,9 +835,9 @@ async fn the_engine_books_a_request_polls_it_and_announces_it() {
 fn every_booking_line_renders_in_english_without_a_missing_key() {
     use deltabadger::web::i18n::{self, Arg};
     let args = [("venue", Arg::Text("Binance")), ("placed", Arg::Text("2026-09-29 14:03:05 UTC")), ("order", Arg::Text("bought 0.0004 BTC"))];
-    let mut keys: Vec<String> = ["rails_order_recovered", "rails_order_not_mine", "rails_order_unsettled", "rails_order_settled_lower"].map(String::from).to_vec();
+    let mut keys: Vec<String> = ["v2_order_recovered", "v2_order_not_mine", "v2_order_unsettled", "v2_order_settled_lower"].map(String::from).to_vec();
     for reason in ["busy", "key_changed", "settings_changed", "held", "linked", "nothing_filled", "no_cost", "ledger", "not_found", "unreachable", "refused",
-                   "deleted", "resolved", "unsupported", "unreadable", "unconfirmed"] { keys.push(format!("rails_order_not_added_{reason}")); }
+                   "deleted", "resolved", "unsupported", "unreadable", "unconfirmed"] { keys.push(format!("v2_order_not_added_{reason}")); }
     for key in keys {
         let text = i18n::text("en", &format!("bot_activity.events.{key}"), &args);
         assert!(!text.contains("%{") && !text.contains("bot_activity") && !text.contains("obligation"), "{key}: {text}");
@@ -949,11 +943,11 @@ fn flash(app: &deltabadger::web::App, b: &common::web::Browser) -> Vec<(String, 
 async fn line_row(app: &deltabadger::web::App, b: &mut common::web::Browser, bot: i64, c: &Connection) -> String {
     let feed = b.send(app, "GET", &format!("/bots/{bot}.turbo_stream"), None, common::web::Csrf::None, &[("Turbo-Frame", "orders_pagination")]).await;
     assert_eq!(feed.status, 200, "{}", feed.body);
-    let id: i64 = c.query_row("SELECT id FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('rails_order_open', 'rails_order_listed') ORDER BY id DESC LIMIT 1", [bot], |r| r.get(0)).unwrap();
+    let id: i64 = c.query_row("SELECT id FROM bot_activity_logs WHERE bot_id = ?1 AND event IN ('v2_order_open', 'v2_order_listed') ORDER BY id DESC LIMIT 1", [bot], |r| r.get(0)).unwrap();
     let start = feed.body.find(&format!("<tr id=\"bot_activity_log_{id}\"")).unwrap_or_else(|| panic!("{}", feed.body));
     feed.body[start..].split_once("</tr>").unwrap().0.to_string() + "</tr>"
 }
-fn waiting(c: &Connection) -> Vec<String> { vec![dump(c, "SELECT * FROM rust_rails_unrecorded_requests"), dump(c, "SELECT id, event, details FROM bot_activity_logs ORDER BY id")] }
+fn waiting(c: &Connection) -> Vec<String> { vec![dump(c, "SELECT * FROM rust_v2_unrecorded_requests"), dump(c, "SELECT id, event, details FROM bot_activity_logs ORDER BY id")] }
 
 #[tokio::test]
 async fn the_post_without_csrf_or_on_another_users_bot_writes_nothing() {
@@ -993,7 +987,7 @@ async fn this_was_this_bots_order_leaves_a_request_and_wakes_the_engine() {
     let posted = answer(&app, &mut b, f.b, &[("obligation", &obligation.to_string()), ("offer", &offers[0].0.to_string())], common::web::Csrf::Header).await;
     assert_eq!((posted.status, posted.header("location")), (302, Some(format!("/bots/{}", f.b).as_str())), "{}", posted.body);
     assert_eq!(flash(&app, &b), [("notice".to_string(), "Checking this order with Binance. Reload the page in a moment to see whether it was added.".to_string())]);
-    assert_eq!(dump(&f.c, "SELECT obligation_id, offer_id, attempts FROM rust_rails_unrecorded_requests"), format!("Integer({obligation}),Integer({}),Integer(0)", offers[0].0));
+    assert_eq!(dump(&f.c, "SELECT obligation_id, offer_id, attempts FROM rust_v2_unrecorded_requests"), format!("Integer({obligation}),Integer({}),Integer(0)", offers[0].0));
     assert_eq!(money(&f.c), before, "the engine books it, not the web");
     tokio::time::timeout(std::time::Duration::from_secs(1), wake.notified()).await.expect("the engine is woken");
     // Pending: refused, nothing written; the line says it is being checked.
@@ -1019,7 +1013,7 @@ async fn none_of_these_resolves_not_mine_and_then_refuses_as_decided() {
     let posted = answer(&app, &mut b, f.b, &[("obligation", &obligation.to_string()), ("none", "1")], common::web::Csrf::Header).await;
     assert_eq!((posted.status, posted.header("location")), (302, Some(format!("/bots/{}", f.b).as_str())));
     assert_eq!(flash(&app, &b), [("notice".to_string(), "Noted: none of these orders was this bot's.".to_string())]);
-    let resolution: (i64, String) = f.c.query_row("SELECT obligation_id, resolution FROM rust_rails_unrecorded_resolutions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    let resolution: (i64, String) = f.c.query_row("SELECT obligation_id, resolution FROM rust_v2_unrecorded_resolutions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(resolution, (obligation, "not_mine".to_string()));
     assert_eq!(lines(&f.c, f.b, ru::NOT_MINE), [json!({ "obligation": obligation })]);
     assert_eq!(dump(&f.c, "SELECT * FROM transactions ORDER BY id"), rows);
@@ -1057,7 +1051,7 @@ async fn the_line_offers_each_order_with_its_carry_and_a_none_button() {
     let mine = field.captures(forms[1]).unwrap()[1].to_string();
     let posted = b.send(&app, "POST", &format!("/bots/{}/v2_orders", f.b), Some(&[("obligation", &obligation.to_string()), ("none", "1"), ("authenticity_token", &mine)]), common::web::Csrf::None, &[]).await;
     assert_eq!(posted.header("location"), Some(format!("/bots/{}", f.b).as_str()));
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
 }
 
 #[tokio::test]
@@ -1198,7 +1192,7 @@ async fn none_was_mine_through_mcp_and_a_rest_form() {
     let a = api(&f, &BOTH);
     let (status, body) = a.post_form(&format!("/api/v1/bots/{}/unrecorded_orders", f.b), &format!("obligation={obligation}&none=1")).await;
     assert_eq!((status, body), (200, json!({ "data": { "bot_id": f.b, "obligation": obligation, "state": "not_mine" }, "error": null })));
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_resolutions WHERE resolution = 'not_mine'"), 1);
 }
 
 #[tokio::test]
@@ -1315,7 +1309,7 @@ async fn the_read_shows_the_offers_and_the_engines_refusal() {
     let a = api(&f, &BOTH);
     let listed = a.listed(f.b).await;
     let view = &ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].offers[0];
-    let (from, to): (String, String) = f.c.query_row("SELECT span_from, span_to FROM rust_rails_unrecorded WHERE id = ?1", [obligation], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    let (from, to): (String, String) = f.c.query_row("SELECT span_from, span_to FROM rust_v2_unrecorded WHERE id = ?1", [obligation], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(listed, json!({ "carry": view.carry_before.as_ref().map(BigDec::to_s_f), "more": false, "obligations": [{ "obligation": obligation, "state": "open", "from": from, "to": to,
         "offers": [{ "offer": offer, "order": view.order, "carry_after": view.carry_after.as_ref().map(BigDec::to_s_f) }], "transaction_id": null, "refused": null }] }));
     let (text, _) = a.mcp("get_bot_details", json!({ "bot_id": f.b })).await;
@@ -1332,7 +1326,7 @@ async fn the_read_shows_the_offers_and_the_engines_refusal() {
     assert!(a.mcp("get_bot_details", json!({ "bot_id": f.b })).await.0.contains(&format!("  last try refused: {message}")));
     // The line is pruned before the next pass: still listed, then booked.
     assert_eq!(a.post_json(f.b, json!({ "obligation": obligation, "offer": offer })).await.0, 202);
-    f.c.execute("DELETE FROM bot_activity_logs WHERE event IN ('rails_order_open', 'rails_order_listed')", []).unwrap();
+    f.c.execute("DELETE FROM bot_activity_logs WHERE event IN ('v2_order_open', 'v2_order_listed')", []).unwrap();
     assert_eq!(a.listed(f.b).await["obligations"][0]["state"], "checking");
     let tx = f.serve().await.booked[0].1;
     assert_eq!(a.listed(f.b).await["obligations"][0]["transaction_id"], tx);
@@ -1340,10 +1334,10 @@ async fn the_read_shows_the_offers_and_the_engines_refusal() {
 
 /// A reported obligation of the bot over [from, to], with `offers` offers (unreadable facts: listed without offers).
 fn obligation(f: &Fx, from: &str, to: &str, offers: usize) -> i64 {
-    f.c.execute("INSERT INTO rust_rails_unrecorded (bot_id, source, source_ref, span_from, span_to, collected_at, reported_at) VALUES (?1, 'failed_row', \
-                 (SELECT coalesce(max(source_ref), 0) + 1000 FROM rust_rails_unrecorded), ?2, ?3, ?4, ?4)", params![f.b, from, to, "2026-09-30 11:00:00"]).unwrap();
+    f.c.execute("INSERT INTO rust_v2_unrecorded (bot_id, source, source_ref, span_from, span_to, collected_at, reported_at) VALUES (?1, 'failed_row', \
+                 (SELECT coalesce(max(source_ref), 0) + 1000 FROM rust_v2_unrecorded), ?2, ?3, ?4, ?4)", params![f.b, from, to, "2026-09-30 11:00:00"]).unwrap();
     let id = f.c.last_insert_rowid();
-    for n in 0..offers { f.c.execute("INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, 'BTCEUR', '{}')", params![id, format!("X-{id}-{n}")]).unwrap(); }
+    for n in 0..offers { f.c.execute("INSERT INTO rust_v2_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, 'BTCEUR', '{}')", params![id, format!("X-{id}-{n}")]).unwrap(); }
     id
 }
 fn day(n: usize) -> (String, String) { (format!("2026-08-{:02} 10:00:00", n + 1), format!("2026-08-{:02} 10:01:00", n + 1)) }
@@ -1381,7 +1375,7 @@ async fn a_group_is_read_from_every_member() {
     let listed = a.listed(f.b).await;
     let shown: Vec<(i64, usize, Value)> = listed["obligations"].as_array().unwrap().iter().map(|o| (o["obligation"].as_i64().unwrap(), o["offers"].as_array().unwrap().len(), o["refused"]["reason"].clone())).collect();
     assert_eq!(shown, [(low, 0, json!("unreachable")), (high, 0, json!("unreachable"))], "each member listed with its own offers (unreadable here), the group's refusal on both; no offer, not listed ({lone})");
-    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_rails_unrecorded_offers WHERE obligation_id = ?1", [high], |r| r.get::<_, i64>(0)).unwrap(), 2);
+    assert_eq!(f.c.query_row("SELECT count(*) FROM rust_v2_unrecorded_offers WHERE obligation_id = ?1", [high], |r| r.get::<_, i64>(0)).unwrap(), 2);
     assert_eq!(a.post_json(f.b, json!({ "obligation": high, "none": true })).await.0, 200);
     let states: Vec<Value> = a.listed(f.b).await["obligations"].as_array().unwrap().iter().map(|o| o["state"].clone()).collect();
     assert_eq!(states, [json!("not_mine"), json!("not_mine")]);
@@ -1417,7 +1411,7 @@ async fn the_read_is_refused_past_the_read_limits() {
     let a = api(&f, &BOTH);
     let id = obligation(&f, "2026-08-01 10:00:00", "2026-08-01 10:01:00", 0);
     f.c.execute("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 10001) \
-                 INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) SELECT ?1, 'X-' || i, 'BTCEUR', '{}' FROM n", [id]).unwrap();
+                 INSERT INTO rust_v2_unrecorded_offers (obligation_id, external_id, symbol, facts) SELECT ?1, 'X-' || i, 'BTCEUR', '{}' FROM n", [id]).unwrap();
     let (status, body) = a.rest("GET", &format!("/api/v1/bots/{}", f.b), None).await;
     assert_eq!((status, body["error"]["code"].clone()), (501, json!("not_ported")));
     assert_eq!(a.mcp("get_bot_details", json!({ "bot_id": f.b })).await.0, "Read unavailable: request data exceeds read limits");
@@ -1712,7 +1706,7 @@ async fn unconfirmed(f: &Fx, name: &str) {
     assert_eq!(money(&f.c), before, "{name}: nothing written");
     let refused = lines(&f.c, f.b, ru::NOT_ADDED);
     assert_eq!((refused.len(), refused[0]["reason"].as_str()), (1, Some("unconfirmed")), "{name}");
-    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_rails_unrecorded_requests"), 0, "{name}: the request goes");
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_requests"), 0, "{name}: the request goes");
 }
 
 #[tokio::test]
@@ -1728,7 +1722,7 @@ async fn a_failed_doc_built_lookup_counts_an_attempt_and_a_refused_one_refuses()
         let before = money(&f.c);
         f.serve_with(now(), None).await;
         assert!(lines(&f.c, f.b, ru::NOT_ADDED).is_empty(), "{kind:?}: a retry, no line");
-        assert_eq!(count(&f.c, "SELECT attempts FROM rust_rails_unrecorded_requests"), 1, "{kind:?}: one attempt counted");
+        assert_eq!(count(&f.c, "SELECT attempts FROM rust_v2_unrecorded_requests"), 1, "{kind:?}: one attempt counted");
         f.serve_with(now() + Duration::seconds(60), None).await;
         f.serve_with(now() + Duration::seconds(120), None).await;
         let lookups = f.tr.requests().iter().filter(|r| format!("GET {}", r.path) == lookup).count();
@@ -1929,7 +1923,7 @@ async fn a_failed_bitget_bitvavo_or_gemini_lookup_counts_an_attempt_and_a_refuse
         let before = money(&f.c);
         f.serve_with(now(), None).await;
         assert!(lines(&f.c, f.b, ru::NOT_ADDED).is_empty(), "{kind:?}: a retry, no line");
-        assert_eq!(count(&f.c, "SELECT attempts FROM rust_rails_unrecorded_requests"), 1, "{kind:?}: one attempt counted");
+        assert_eq!(count(&f.c, "SELECT attempts FROM rust_v2_unrecorded_requests"), 1, "{kind:?}: one attempt counted");
         f.serve_with(now() + Duration::seconds(60), None).await;
         f.serve_with(now() + Duration::seconds(120), None).await;
         let lookups = f.tr.requests().iter().filter(|r| format!("{} {}", r.method, r.path) == lookup2(kind)).count();
@@ -2062,7 +2056,7 @@ async fn a_failed_coinbase_lookup_counts_an_attempt_and_one_refused_by_its_statu
         let before = money(&f.c);
         f.serve_with(now(), None).await;
         assert!(lines(&f.c, f.b, ru::NOT_ADDED).is_empty(), "{failure:?}: a retry, no line");
-        assert_eq!(count(&f.c, "SELECT attempts FROM rust_rails_unrecorded_requests"), 1, "one attempt counted");
+        assert_eq!(count(&f.c, "SELECT attempts FROM rust_v2_unrecorded_requests"), 1, "one attempt counted");
         f.serve_with(now() + Duration::seconds(60), None).await;
         f.serve_with(now() + Duration::seconds(120), None).await;
         let lookups = f.tr.requests().iter().filter(|r| r.path.starts_with(coinbase::ORDER) && r.path != coinbase::ORDERS).count();
@@ -2125,7 +2119,7 @@ async fn a_kraken_or_kucoin_order_is_listed_never_offered_and_every_confirm_path
         // The engine: a request on an offer stored some other way is refused unsupported, the venue never asked.
         let facts = json!({ "external_id": kind.external_id(7), "symbol": kind.symbol(), "created_at": "2026-09-29T14:03:05Z", "side": "buy", "limit": null,
                             "size": { "quote": "20" }, "state": "filled", "filled_base": "0.0004", "filled_quote": "20" });
-        f.c.execute("INSERT INTO rust_rails_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, ?3, ?4)",
+        f.c.execute("INSERT INTO rust_v2_unrecorded_offers (obligation_id, external_id, symbol, facts) VALUES (?1, ?2, ?3, ?4)",
                     params![obligation, kind.external_id(7), kind.symbol(), facts.to_string()]).unwrap();
         let offer = f.c.last_insert_rowid();
         f.request(obligation, offer).unwrap();
@@ -2142,4 +2136,102 @@ fn kucoin_row(o: &O) -> Value {
     json!({ "id": Kind::Kucoin.external_id(o.id), "symbol": "BTC-EUR", "type": ty, "side": if o.sell { "sell" } else { "buy" }, "price": price, "size": size, "funds": funds,
             "dealSize": o.exec, "dealFunds": o.cum, "isActive": matches!(o.state, St::Open | St::Partly),
             "cancelExist": matches!(o.state, St::PartlyCancelled | St::Cancelled), "createdAt": t(o.at).timestamp_millis() })
+}
+
+// ---- PLAN-B11-9 #7: the beta's frozen A28 states, renamed by migration 20261117000001 (money) --------------------------
+
+/// This file's own state as the beta build froze it (tests/fixtures/b11_9_beta/<name>, from the test named there),
+/// migrated by this build, in a Binance Fx: the same seeded ids and rows, the new names.
+fn from_beta(name: &str) -> Fx {
+    let mut f = fx(Kind::Binance);
+    let (_, beta) = common::freeze::installs().into_iter().find(|(n, _)| n == name).unwrap();
+    let p = deltabadger::store::Paths::from_env(&|_| None, beta.path());
+    assert_eq!(deltabadger::store::migrate(&p, &deltabadger::lease::lock(&p, Utc::now()).unwrap()).unwrap()[0], "20261117000001");
+    f.c.restore(rusqlite::MAIN_DB, &p.primary, None::<fn(rusqlite::backup::Progress)>).unwrap();
+    f
+}
+
+/// The confirmation the beta recorded (a_booking_writes_v2_accepted_row…, frozen after `request`) is served once after
+/// the rename: one row, one resolution, one `v2_order_recovered` line; a second pass books nothing.
+#[tokio::test]
+async fn a_request_the_beta_froze_books_once_after_the_rename() {
+    let f = from_beta("a28_requested");
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_requests"), 1);
+    let rows = count(&f.c, "SELECT count(*) FROM transactions");
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    let served = f.serve().await;
+    assert_eq!(served.booked.len(), 1, "{:?}", lines(&f.c, f.b, ru::NOT_ADDED));
+    let tx = served.booked[0].1;
+    assert_eq!(count(&f.c, &format!("SELECT count(*) FROM rust_v2_unrecorded_resolutions WHERE resolution = 'booked' AND transaction_id = {tx}")), 1);
+    assert_eq!(count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_requests"), 0);
+    assert_eq!(lines(&f.c, f.b, ru::RECOVERED).len(), 1);
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    assert!(f.serve().await.booked.is_empty(), "served once");
+    assert_eq!((count(&f.c, "SELECT count(*) FROM transactions"), lines(&f.c, f.b, ru::RECOVERED).len()), (rows + 1, 1));
+}
+
+/// The owner's "none was mine" the beta recorded stays decided after the rename.
+#[tokio::test]
+async fn a_decision_the_beta_froze_stays_decided_after_the_rename() {
+    let f = from_beta("a28_not_mine");
+    let (obligation, offers) = f.offers();
+    assert_eq!(f.request(obligation, offers[0].0), Err(Refused::Decided));
+    assert!(ru::offers_for(&f.c, f.b, &[obligation], now()).unwrap()[0].resolved);
+    assert_eq!(lines(&f.c, f.b, ru::NOT_MINE).len(), 1);
+}
+
+/// A hold the beta noted (an_answer_below_what_the_owner_confirmed…, frozen after its one settled_lower line) is not
+/// noted again after the rename: the held notice and the line stay one each.
+#[tokio::test]
+async fn a_hold_the_beta_froze_is_not_noted_twice_after_the_rename() {
+    let f = from_beta("a28_held");
+    let tx: i64 = f.c.query_row("SELECT transaction_id FROM rust_v2_unrecorded_resolutions WHERE resolution = 'booked'", [], |r| r.get(0)).unwrap();
+    let held = || count(&f.c, "SELECT count(*) FROM rust_v2_unrecorded_notices WHERE kind = 'held'");
+    assert_eq!(held(), 1);
+    let row = f.row(tx);
+    f.tr.reply("GET /api/v3/order", 200, binance_row(&o(7, St::Cancelled, "0", "0")));
+    assert_eq!(f.follow_up(tx, now() + Duration::days(10)).await, Ok(polling::FollowUp::Done));
+    assert_eq!(f.row(tx), row, "still held");
+    assert_eq!((held(), lines(&f.c, f.b, ru::SETTLED_LOWER).len()), (1, 1));
+}
+
+/// #710 (Codex r1 P2): a 2.x order is its exchange's first account's (2.x knew one account per exchange). The bot now trades
+/// on account 2, which holds an order and a fill under the same venue ids: the obligation is read and booked on account 1
+/// alone (its key, its fills, its row's account), and account 2's rows are untouched.
+#[tokio::test]
+async fn a_v2_order_is_recovered_on_the_first_account_whatever_the_bots_account_is_now() {
+    let f = fx(Kind::Binance);
+    let c = &f.c;
+    deltabadger::identity::Account::first(c, f.s.user_id, f.s.exchange_id).unwrap().ensure(c, now()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [f.s.user_id, f.s.exchange_id]).unwrap();
+    let second = deltabadger::identity::Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    // Account 2's own trading key (the bot trades there now); the obligation is read with account 1's.
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01', '2026-01-01')",
+              params![f.s.user_id, f.s.exchange_id, seed::cipher().encrypt("account-2-key"), seed::cipher().encrypt("account-2-secret")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    deltabadger::identity::place_bot(c, f.b, f.s.user_id, f.s.exchange_id, Some(second), now()).unwrap();
+    // Account 2's own order and fill under the shared ids (its venue ids relocated).
+    c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, base_asset_id, quote_asset_id, transaction_type, amount, amount_exec, \
+               quote_amount, quote_amount_exec, price, error_messages, created_at, updated_at) VALUES (?1, ?2, 0, 2, 0, ?3, ?4, 'REGULAR', 0.0009, 0.0009, 45, 45, 50000, '[]', ?5, ?5)",
+              params![f.b, f.s.exchange_id, f.s.btc, f.s.quote, "2026-09-29 15:00:00"]).unwrap();
+    let theirs_order = c.last_insert_rowid();
+    c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id, venue_external_id) VALUES (?1, ?2, 'BTCEUR-7')", params![theirs_order, second.id]).unwrap();
+    let theirs_fill = fill(c, &f.s, 50, 7, "0.0009", "45", "2026-09-29T15:00:06Z");
+    let venue_id: String = c.query_row("SELECT tx_id FROM account_transactions WHERE id = ?1", [theirs_fill], |r| r.get(0)).unwrap();
+    c.execute("UPDATE account_transactions SET tx_id = NULL, transaction_id = ?2 WHERE id = ?1", [theirs_fill, theirs_order]).unwrap();
+    c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id, venue_tx_id) VALUES (?1, ?2, ?3)", params![theirs_fill, second.id, venue_id]).unwrap();
+    let mine = fill(c, &f.s, 50, 7, "0.0004", "20", "2026-09-29T14:03:06Z");
+    let before = dump(c, &format!("SELECT * FROM account_transactions WHERE id = {theirs_fill}")) + &dump(c, &format!("SELECT * FROM transactions WHERE id = {theirs_order}"));
+    f.answer(&[o(7, St::Filled, "0.0004", "20")]);
+    f.report().await;
+    let (obligation, offers) = f.offers();
+    assert_eq!(offers.iter().map(|o| o.1.as_str()).collect::<Vec<_>>(), ["BTCEUR-7"], "account 2's order of the id is no record of account 1's");
+    assert_eq!(f.request(obligation, offers[0].0), Ok(()));
+    let served = f.serve().await;
+    let tx = served.booked[0].1;
+    assert_eq!(deltabadger::identity::Account::of_order(c, tx).unwrap().map(|a| a.number(c).unwrap()), Some(1), "booked on account 1");
+    assert_eq!(f.row(tx)["external_id"], "BTCEUR-7");
+    assert_eq!(c.query_row("SELECT transaction_id FROM account_transactions WHERE id = ?1", [mine], |r| r.get::<_, Option<i64>>(0)).unwrap(), Some(tx), "account 1's fill linked");
+    let after = dump(c, &format!("SELECT * FROM account_transactions WHERE id = {theirs_fill}")) + &dump(c, &format!("SELECT * FROM transactions WHERE id = {theirs_order}"));
+    assert_eq!(after, before, "account 2's rows untouched");
 }

@@ -171,11 +171,11 @@ async fn clear_http_accounts_for_shown_rows_and_status_lasts_through_taken_reque
     let (_d,c,s,id,app,mut b)=install();
     let row=seed::insert_row(&c,&s,id,s.btc,&json!({"side":1,"external_status":4,"external_id":"lost","created_at":"2026-09-01 12:00:00"}));
     c.execute("UPDATE transactions SET transaction_type='LIQUIDATION' WHERE id=?1",[row]).unwrap();
-    let revision=deltabadger::web::figure::loading::revision(&c,s.user_id).unwrap().0;
+    let revision=deltabadger::web::figure::loading::revision(&c,s.user_id,chrono::Utc::now()).unwrap().0;
     let answer=b.send(&app,"POST",&format!("/bots/{id}/liquidation_resolutions"),Some(&[("order_ids[]",&row.to_string())]),Csrf::Header,HEADERS).await;
     assert!(matches!(answer.status,302|303),"{}",answer.body);
     assert_eq!(model::load_bot(&c,id).unwrap().transient["liquidation_resolved_orders"],json!([row]));
-    assert_ne!(deltabadger::web::figure::loading::revision(&c,s.user_id).unwrap().0,revision,"Clear invalidates cached halt controls even without a pending marker");
+    assert_ne!(deltabadger::web::figure::loading::revision(&c,s.user_id,chrono::Utc::now()).unwrap().0,revision,"Clear invalidates cached halt controls even without a pending marker");
     for taken in [false,true] {
         let mut request=json!({"id":"request","at":1,"holdings":[["BTC",s.btc]]});
         if taken {request["taken_at"]=json!(2);}
@@ -449,7 +449,7 @@ async fn an_orders_event_announces_only_the_lines_below_it_and_never_the_v2_orde
     c.execute("UPDATE bot_activity_logs SET created_at='2026-09-01 12:00:30' WHERE id=?1",[early]).unwrap();
     let b=liquidation_row(&c,&s,id,s.btc,1);
     c.execute("UPDATE transactions SET created_at='2026-09-01 12:01:00' WHERE id=?1",[b]).unwrap();
-    let late=log(&c,id,"rails_order_open",json!({"when":"x","venue":"Alpaca","orders":"1","obligation":1}));
+    let late=log(&c,id,"v2_order_open",json!({"when":"x","venue":"Alpaca","orders":"1","obligation":1}));
     let prepended=|messages:&[(String,String)]|messages.iter().filter(|(_,html)|html.contains("action=\"prepend\"")).map(|(_,html)|html.clone()).collect::<Vec<_>>();
     // A's event: nothing older than A.
     assert_eq!(prepended(&lines.announce(&c,&app,&EngineEvent::OrderRecorded {bot_id:id,transaction_id:a}).unwrap()),Vec::<String>::new());
@@ -525,4 +525,24 @@ async fn the_feed_names_each_redeploy_reason_and_keeps_legacy_lines() {
     let de=b.send(&app,"GET",&format!("/de/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
     assert!(de.contains("ETH wurde nicht gekauft — es konnte kein Preis gelesen werden"),"{de}");
     assert!(de.contains("Nichts wurde neu verteilt — der Markt ist geschlossen"),"{de}");
+}
+
+/// A retry line says what is known — the attempt failed and the bot tries again — and names the stored error as
+/// execution_failed names its own; a row without one keeps the bare line.
+#[tokio::test(flavor="current_thread")]
+async fn a_retry_line_names_its_error_as_a_failed_line_does() {
+    let (_d,c,s,id,app,mut b)=install();
+    log(&c,id,"execution_retrying",json!({"error":"No price for BTC: HTTP 401","transient_exhausted":true}));
+    log(&c,id,"execution_retrying",json!({"placement_transient":true}));
+    log(&c,id,"execution_failed",json!({"error":"No price for BTC: HTTP 401"}));
+    let feed=|locale:&str|{c.execute("UPDATE users SET locale=?2 WHERE id=?1",(s.user_id,locale)).unwrap();};
+    feed("en");
+    let en=b.send(&app,"GET",&format!("/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    assert!(en.contains("Order attempt failed: No price for BTC: HTTP 401 — the bot will try again"),"{en}");
+    assert!(en.contains("Order attempt failed — the bot will try again"),"{en}");
+    assert!(en.contains("Order attempt failed: No price for BTC: HTTP 401<"),"{en}");
+    assert!(!en.contains("Temporary"),"{en}");
+    feed("de");
+    let de=b.send(&app,"GET",&format!("/de/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
+    assert!(de.contains("Orderversuch fehlgeschlagen: No price for BTC: HTTP 401 — der Bot versucht es erneut"),"{de}");
 }

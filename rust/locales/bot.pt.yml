@@ -172,6 +172,7 @@ pt:
                     prices: 'Mostrar preços'
                     modes: 'Modo do gráfico'
                     pnl: 'P/L'
+                    received: 'Recebido'
                     total_invested: 'Total investido'
                     value: 'Valor'
                 csv_download_html: 'A tabela acima mostra apenas as últimas 10 transações. O relatório completo está disponível para transferência no formato CSV, abaixo.'
@@ -181,12 +182,13 @@ pt:
                 download_csv: 'Transferir'
                 generating_csv: 'Gerando ficheiro...'
                 import_csv: 'Importar'
-                exchange_unavailable_html: 'A API do câmbio não responde atualmente<br>Os cálculos baseiam-se nos últimos dados disponíveis.'
+                exchange_unavailable_html: "Não foi possível ler os preços da corretora.<br>Os valores usam os últimos dados disponíveis."
                 order: Pedido
                 profit_loss: Lucro/perda
                 price: 'Taxa (%{quote})'
                 sold: Vendido
                 received: 'Recebido'
+                realised_pnl_basis_note: "O valor recebido menos o custo das moedas vendidas, segundo o histórico da sua conta."
                 title: Estatísticas
                 total_invested: 'Total investido'
                 portfolio_value: 'Valor da carteira'

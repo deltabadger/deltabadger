@@ -912,7 +912,7 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
 }
 
 /// Bot::OrderSetter#reference_price through Exchange's 5-second price cache: the venue's "Wrong … price" (a zero book) and
-/// a transport failure both fail the tick as the composition rescues them ("No price for …").
+/// a transport failure both fail the tick as the composition rescues them ("No price for …"); a 401 is a rejected key.
 /// `named`: how the failure names the asset (the buy leg its symbol, the sell leg `ticker.base`, the venue's own code).
 async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: PriceSide, named: &str, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<BigDec, Fail> {
     let key = (bot.exchange_id, ticker.id, side);
@@ -923,8 +923,12 @@ async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &
     };
     match fetched {
         Ok(p) => Ok(p),
+        // D-PRICE-READ-UNAUTHORIZED: a read's 401 is a rejected key, as the clock, condition and index reads already say it
+        // (2.x's Exchange#raise_on_invalid_key!, which its composition never applied: it retried "No price for … HTTP 401" every
+        // interval as transient). A failed tick with no retry; its kind is the text's, as for any General failure.
+        Err(VenueError::Unauthorized(e)) => Err(Fail::General { message: format!("{} rejected the API key: {}", venue.rules().name, to_sentence(&e)), errors: vec![], failed_row: false }),
         // A zero book is the venue's own "Wrong … price" error, which the composition rescues into "No price for …".
-        Err(VenueError::Rejected(e) | VenueError::Unauthorized(e) | VenueError::Coded { errors: e, .. }) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
+        Err(VenueError::Rejected(e) | VenueError::Coded { errors: e, .. }) => Err(Fail::Transient(format!("No price for {named}: {}", to_sentence(&e)))),
         // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises it
         // unwrapped, so it reaches retry_on with its own message.
         Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Fail::Transient(m)),

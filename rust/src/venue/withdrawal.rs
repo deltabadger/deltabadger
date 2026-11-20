@@ -395,8 +395,9 @@ pub fn venue_code(c: &Connection, exchange_id: i64, asset_id: i64) -> rusqlite::
 /// `Withdrawal` carries the api_keys id.
 pub enum FeeKey { Fee(crate::crypto::Credentials), Withdrawal(crate::crypto::Credentials, i64) }
 
-/// The exchange's FeeApiKey when one is stored and readable, else the user's withdrawal key; None without either.
-pub fn fee_key(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, exchange_id: i64) -> Result<Option<FeeKey>, crate::engine::EngineError> {
+/// The exchange's FeeApiKey when one is stored and readable, else the account's withdrawal key; None without either.
+pub fn fee_key(c: &Connection, cipher: &crate::crypto::Cipher, account: &crate::identity::Account) -> Result<Option<FeeKey>, crate::engine::EngineError> {
+    let exchange_id = account.exchange_id;
     let row: Option<(Option<String>, Option<String>)> = c.query_row("SELECT key, secret FROM fee_api_keys WHERE exchange_id = ?1 ORDER BY id LIMIT 1",
                                                                     [exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     if let Some((Some(key), Some(secret))) = row {
@@ -405,7 +406,7 @@ pub fn fee_key(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, exc
             return Ok(Some(FeeKey::Fee(credentials)));
         }
     }
-    Ok(crate::engine::model::withdrawal_credentials(c, cipher, user_id, exchange_id)?.map(|(cr, v)| FeeKey::Withdrawal(cr, v.id)))
+    Ok(crate::engine::model::withdrawal_credentials(c, cipher, account)?.map(|(cr, v)| FeeKey::Withdrawal(cr, v.id)))
 }
 
 // ---- §6 sizing

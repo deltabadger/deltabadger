@@ -109,6 +109,11 @@ async fn service_delete_revive_and_update_relist() {
     .unwrap()
     .unwrap();
     assert_eq!(revived.id, id);
+    assert_eq!(
+        i.c.query_row("SELECT count(*) FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", (i.s.user_id, i.s.exchange_id), |r| r.get::<_, i64>(0)).unwrap(),
+        1,
+        "#710: writing the rule made its exchange's number 1"
+    );
     assert_eq!(revived.status, "created");
     assert_eq!(
         i.c.query_row(
@@ -191,8 +196,8 @@ fn withdrawal_migration_is_registered_and_idempotent() {
         "rust_rule_evaluations",
         "rust_withdrawal_intents",
         "rust_withdrawal_ids",
-        "rust_rails_attempt_acks",
-        "rust_rails_job_acks",
+        "rust_v2_attempt_acks",
+        "rust_v2_job_acks",
         "rust_recorder_runs",
     ] {
         assert!(deltabadger::store::REGISTRY.owned_tables().contains(&name));
@@ -351,6 +356,7 @@ async fn select_each_identity(venue: &str) {
         }
         // Changing the selection on a stopped tile uses the same identity contract.
         i.c.execute("UPDATE rules SET status=2", []).unwrap();
+        common::seed::rules_as_v2_wrote(&i.c);
         let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
         let (name, options) = picker(&body);
         assert_eq!(options.iter().filter(|o| o.2).count(), 1);
@@ -432,6 +438,7 @@ async fn tile_settings_keep_network_tag_and_key() {
     let (i, _server) = identity_listing("Kraken", &["first", "second"]).await;
     let id = i.rule(2);
     i.c.execute("UPDATE rules SET settings=json_set(settings,'$.network','legacy network','$.address_tag','legacy tag','$.address_name','second')", []).unwrap();
+    common::seed::rules_as_v2_wrote(&i.c);
     for submit_picker in [false, true] {
         let mut fields = vec![
             (
@@ -703,6 +710,7 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
                 .extend_pairs([(&name[..], &value)])
                 .finish();
             i.c.execute("UPDATE rules SET status=3", []).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
             assert_eq!(
                 i.send(
                     "POST",
@@ -718,6 +726,7 @@ async fn picker_rechecks_every_posted_identity_field_against_the_listing() {
                 "{venue} {field}"
             );
             i.c.execute("UPDATE rules SET status=2", []).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
             let form = form_urlencoded::Serializer::new(String::new())
                 .extend_pairs([("rules_withdrawal[destination]", &value)])
                 .finish();
@@ -798,6 +807,7 @@ async fn gemini_picker_preserves_v1_account_and_group_deduplication() {
             200
         );
         i.c.execute("UPDATE rules SET status=2", []).unwrap();
+        common::seed::rules_as_v2_wrote(&i.c);
         let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
         let (_, options) = picker(&body);
         assert_eq!(options.len(), 2);
@@ -858,6 +868,7 @@ async fn mexc_picker_deduplicates_network_aliases_before_selecting_saving_and_st
                 .mount(&server).await;
             let id = i.rule(2);
             i.c.execute("UPDATE rules SET settings=json_set(settings,'$.network',?1,'$.address_tag','memo')", [stored]).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
             let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
             let (name, options) = picker(&body);
             assert_eq!(options.len(), 1, "{networks:?}, stored {stored}");
@@ -942,6 +953,7 @@ async fn unresolved_picker_has_no_successful_value_and_refuses_edits_and_start()
                     [i.app.cipher.encrypt("removed-wallet")],
                 )
                 .unwrap();
+                common::seed::rules_as_v2_wrote(&i.c);
             }
             let before = i.rows();
             let (_, body) = i.send("GET", "/rules", "", None, true, false).await;
@@ -1166,7 +1178,9 @@ impl Install {
     fn rule(&self, status: i64) -> i64 {
         self.c.execute("INSERT INTO rules(user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,'Rules::Withdrawal',?2,?3,?4,?5,?6,'2026-01-01','2026-01-01')",
             params![self.s.user_id,status,self.s.exchange_id,self.s.btc,self.app.cipher.encrypt(ADDRESS),json!({"threshold_type":"min_amount","min_amount":"0.1","withdrawal_percentage":"100"}).to_string()]).unwrap();
-        self.c.last_insert_rowid()
+        let id = self.c.last_insert_rowid();
+        common::seed::rules_as_v2_wrote(&self.c);
+        id
     }
     async fn send(
         &self,
@@ -1285,6 +1299,7 @@ async fn auth_csrf_and_owner_scope_refuse_without_writing() {
     i.c.execute("INSERT INTO users(id,email,encrypted_password,created_at,updated_at) VALUES (?1,'other@example.com','x','2026-01-01 00:00:00','2026-01-01 00:00:00')",[i.s.user_id+100]).unwrap();
     i.c.execute("UPDATE rules SET user_id=user_id+100 WHERE id=?1", [id])
         .unwrap();
+    common::seed::rules_as_v2_wrote(&i.c);
     let before = i.rows();
     for method in ["PATCH", "DELETE"] {
         assert_eq!(
@@ -1758,6 +1773,7 @@ fn x0_seed(i: &Install, case: &str, vector: &Value) -> i64 {
             }
             i.c.execute("INSERT INTO rules(id,user_id,type,status,exchange_id,asset_id,address,settings,created_at,updated_at) VALUES (?1,?2,'Rules::Withdrawal',?3,?1,?4,?5,?6,?7,?7)",
                 params![exchange,i.s.user_id,n as i64,i.s.btc,i.app.cipher.encrypt(X0_ADDRESS),vector["rules"][n]["settings"].to_string(),AT]).unwrap();
+            common::seed::rules_as_v2_wrote(&i.c);
         }
         return 1;
     }
@@ -1788,6 +1804,7 @@ fn x0_seed(i: &Install, case: &str, vector: &Value) -> i64 {
             (i.app.cipher.encrypt(X0_ADDRESS), settings.to_string()),
         )
         .unwrap();
+        common::seed::rules_as_v2_wrote(&i.c);
         id
     } else {
         999
@@ -2026,4 +2043,53 @@ async fn all_seventy_x0_api_cells_share_web_database_effects() {
             "W2 never sends"
         );
     }
+}
+
+/// D-RULES-SHEET: a step page is the sheet closing to the rules page, with no trace of the old dialog, and its track's items
+/// (label or chosen value, state, link back) as `expected` lists them.
+fn rules_sheet(body: &str, expected: &[(&str, &str, Option<&str>)]) -> scraper::Html {
+    let doc = scraper::Html::parse_document(body);
+    let one = |css: &str| doc.select(&scraper::Selector::parse(css).unwrap()).count();
+    assert_eq!(one("dialog.sheet-dialog[data-modal--base-close-url-value=\"/rules\"] turbo-frame.sheet__frame#modal_content"), 1, "{body}");
+    for old in [".dialogview", ".process-progress", ".conversational--bot-setup", ".set-api__form .form__row"] { assert_eq!(one(old), 0, "{old} left in the sheet"); }
+    let steps: Vec<(String, String, Option<String>)> = doc.select(&scraper::Selector::parse("ol.sheet__track > li").unwrap()).map(|li| {
+        let class = li.value().attr("class").unwrap_or_default();
+        let state = if class.contains("--done") { "done" } else if class.contains("--current") { "current" } else { "upcoming" };
+        let link = li.select(&scraper::Selector::parse("a.sheet__control").unwrap()).next().and_then(|a| a.value().attr("href").map(str::to_string));
+        (li.text().collect::<String>().trim().to_string(), state.to_string(), link)
+    }).collect();
+    let expected: Vec<(String, String, Option<String>)> = expected.iter().map(|(t, s, l)| (t.to_string(), s.to_string(), l.map(str::to_string))).collect();
+    assert_eq!(steps, expected);
+    doc
+}
+
+#[tokio::test]
+async fn rules_wizard_steps_are_drawn_in_the_sheet() {
+    let (i, _server) = identity_listing("Kraken", &["first"]).await;
+    let count = |doc: &scraper::Html, css: &str| doc.select(&scraper::Selector::parse(css).unwrap()).count();
+    // The venue step: the venues, no search (D-EXCHANGE-NO-SEARCH).
+    let (status, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new", "", None, true, false).await;
+    assert_eq!(status, 200);
+    let doc = rules_sheet(&body, &[("Exchange", "current", None), ("Assets", "upcoming", None), ("Address", "upcoming", None), ("Settings", "upcoming", None)]);
+    assert_eq!(count(&doc, ".sheet__pane input[name=\"query\"]"), 0);
+    assert_eq!(count(&doc, ".exchange-group:not(.exchange-group--connected) button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the one withdrawing venue");
+    // D-WIZARD-CONNECTED-GROUP: the user holds its withdrawal key, so it is drawn under Connected too.
+    assert_eq!(count(&doc, ".exchange-group--connected button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1, "the venue under Connected");
+    // D-EXCHANGE-NO-SEARCH: a query (a 2.x link's) filters nothing; the venues are all offered.
+    let (_, body) = i.send("GET", "/rules/withdrawals/pick_exchange/new?query=zzzz", "", None, true, false).await;
+    assert_eq!(count(&scraper::Html::parse_document(&body), ".exchange-group:not(.exchange-group--connected) button[name=\"bots_dca_single_asset[exchange_id]\"]"), 1);
+    // The asset step: the venue done, its link back.
+    let config = json!({"exchange_id": i.s.exchange_id.to_string()});
+    let (status, body) = i.send("GET", "/rules/withdrawals/pick_asset/new", "", Some(config), true, false).await;
+    assert_eq!(status, 200);
+    let doc = rules_sheet(&body, &[("Kraken", "done", Some("/rules/withdrawals/pick_exchange/new")), ("Assets", "current", None), ("Address", "upcoming", None), ("Settings", "upcoming", None)]);
+    assert_eq!(count(&doc, "form[data-turbo-frame=\"asset-picker\"][action=\"/rules/withdrawals/pick_asset/new\"] input[name=\"query\"]"), 1);
+    assert!(count(&doc, "#asset-picker form[action=\"/rules/withdrawals/pick_asset\"] button[name=\"bots_dca_single_asset[asset_id]\"]") > 0);
+    // The settings step: venue and asset done (the asset's ticker), the address plain, the preview kept, Create the sheet's button.
+    let (status, body) = i.send("GET", "/rules/withdrawals/confirm_settings/new", "", Some(i.config()), true, false).await;
+    assert_eq!(status, 200);
+    let doc = rules_sheet(&body, &[("Kraken", "done", Some("/rules/withdrawals/pick_exchange/new")), ("BTC", "done", Some("/rules/withdrawals/pick_asset/new")),
+                                   ("Address", "done", None), ("Settings", "current", None)]);
+    assert_eq!(count(&doc, "#rule-preview"), 1);
+    assert_eq!(count(&doc, "#create-bot-button input.rbutton.rbutton--primary[name=\"commit\"]"), 1);
 }

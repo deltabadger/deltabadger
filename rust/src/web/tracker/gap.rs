@@ -32,6 +32,27 @@ struct KeyFix { href: String, label: String }
 #[template(path = "tracker/history_gap.html")]
 struct Modal<'a> { v: &'a Ctx, title: String, why: Vec<String>, evidence: Vec<String>, steps: Vec<String>, examples: Vec<Example>, header: &'static str, eligible: bool, cannot: String, fixes: Vec<KeyFix>, import: String }
 
+/// The line's words, escaped: the coins found (up to three, largest first, a coin both arrived and opened once), or
+/// that the venue's history has periods no read covered.
+pub fn gap_summary(ctx: &Ctx, gap: &gaps::StoredGap) -> String {
+    let mut coins: Vec<(&str, Dec)> = vec![];
+    for n in gap.notes.iter().filter(|n| matches!(n.kind, "arrived" | "opened")) {
+        match coins.iter_mut().find(|(s, _)| *s == n.symbol) {
+            Some((_, sum)) => if let Ok(more) = &*sum + &n.amount { *sum = more },
+            None => coins.push((&n.symbol, n.amount.clone())),
+        }
+    }
+    if coins.is_empty() { return i18n::t(ctx.locale, "tracker.history_gap.row_unread", &[("exchange", Arg::Text(&gap.name))]); }
+    coins.sort_by(|a, b| b.1.cmp(&a.1));
+    let symbols = coins.iter().take(3).map(|(s, _)| *s).collect::<Vec<_>>().join(", ");
+    let mut out = i18n::t(ctx.locale, "tracker.history_gap.row_coins", &[("symbols", Arg::Text(&symbols))]);
+    if coins.len() > 3 { out.push_str(&i18n::t(ctx.locale, "tracker.history_gap.row_more", &[])); }
+    out
+}
+
+/// The modal lists this many unread periods; the rest are said to follow.
+const SHOWN_SPANS: usize = 5;
+
 pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(owner) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     app.db(move |c| super::read::only(c, |c| render(c, &ctx, owner))).await
@@ -41,7 +62,9 @@ pub async fn show(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
 #[doc(hidden)]
 pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebError> {
     if c.is_autocommit() { let tx = c.unchecked_transaction()?; let out = render(&tx, ctx, owner)?; tx.commit()?; return Ok(out); }
-    let Some(exchange) = ctx.params.query("exchange_id").and_then(crate::web::bot::id_from_path) else { return Ok(layout::missing()) };
+    // #710 slice 5: the line's account (`account_id`), or its exchange's number 1 (`exchange_id`, every number-1 line's link).
+    let scope = match super::scope::read(c, ctx, owner)? { Ok(crate::tracker::Scope::All) | Err(_) => return Ok(layout::missing()), Ok(scope) => scope };
+    let Some(exchange) = scope.exchange() else { return Ok(layout::missing()) };
     // The venue, whether it has a trading key of the user's (the key-fix links), and whether the user has it at all.
     let venue: Option<(String, String, Option<bool>, bool)> = c.query_row(
         "SELECT e.name, e.type, (SELECT MAX(key_type = 0) FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id AND key_type != 1), \
@@ -51,10 +74,11 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
     let reading = run::reading(c, owner).map_err(|e| WebError::Config(e.0))?;
     let entry = crate::figures::budget::within(|| cache::read_published(c, owner, ctx.app.now())).map_err(|_| super::row::invalid())?;
     let from = match &entry { cache::Published::Warm { from, .. } => Some(from.clone()), _ => None };
-    let found = gaps::read(c, owner, Some(exchange), from.as_ref(), Some(&reading)).unwrap_or_else(|e| {
+    let found = gaps::read(c, owner, &scope, from.as_ref(), Some(&reading)).unwrap_or_else(|e| {
         crate::engine::log(&format!("[tracker] history gap for user {owner} not read: {}", crate::tracker::jobs::message(e))); vec![]
     });
-    let hidden = ctx.user().ok_or_else(super::row::invalid)?.hide_balances;
+    let user = ctx.user().ok_or_else(super::row::invalid)?;
+    let hidden = user.hide_balances;
     let named = [("exchange", Arg::Text(&name))];
     let t = |key: &str| i18n::t(ctx.locale, &format!("tracker.history_gap.{key}"), &named);
     let mut evidence = vec![];
@@ -62,6 +86,14 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
         let usd = Denomination { currency: "USD".into(), rate: Dec::one() };
         let den = super::fx::held(&ctx.app, c, owner)?.denomination(c, owner, ctx.app.now().timestamp())?.unwrap_or(usd);
         for note in &gap.notes { evidence.push(escape(&super::populated::note_text(ctx, note, &den, hidden)?)); }
+        // A span is half-open: its last day is the day of its last second, in the user's zone as the table dates rows.
+        for (from, to) in gap.unread.iter().take(SHOWN_SPANS) {
+            let last = (*to - chrono::Duration::seconds(1)).max(*from);
+            let (first, last) = (crate::web::format::table_date(*from, &user.time_zone), crate::web::format::table_date(last, &user.time_zone));
+            evidence.push(if first == last { i18n::t(ctx.locale, "tracker.history_gap.unread_day", &[("from", Arg::Text(&first))]) }
+                          else { i18n::t(ctx.locale, "tracker.history_gap.unread_span", &[("from", Arg::Text(&first)), ("to", Arg::Text(&last))]) });
+        }
+        if gap.unread.len() > SHOWN_SPANS || gap.more_unread { evidence.push(t("unread_more")); }
     }
     let (why, steps): (&[&str], &[&str]) = match kind.as_str() {
         crate::venue::kucoin::KUCOIN => (&["why_kucoin_reach", "why_kucoin_hf_convert", "why_kucoin_transfers"], &["steps_kucoin_1", "steps_kucoin_2", "steps_kucoin_3"]),

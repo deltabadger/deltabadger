@@ -37,13 +37,10 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     if (!frame) return
 
-    // Support the small modal (.modal), the sheet card (.sheet, which zooms like it) and the
-    // full-page wizard (.dialogview).
-    const smallCard = frame.querySelector('.modal, .sheet')
-    const fullCard  = frame.querySelector('.dialogview__vertical-center')
-    const card = smallCard || fullCard
+    // The small modal (.modal) and the sheet card (.sheet, which zooms like it).
+    const card = frame.querySelector('.modal, .sheet')
     if (card) {
-      card.classList.add(smallCard ? 'modal--closing' : 'dialogview__vertical-center--closing')
+      card.classList.add('modal--closing')
       this.element.classList.remove('dialog--open')
       this.element.classList.add('dialog--closing')
 
@@ -70,6 +67,9 @@ export default class extends Controller {
 
   #open() {
     this.element.show()
+    // With nothing inside asking for focus, the dialog's focusing steps land on its first button, the sheet's close X,
+    // which then draws its focus ring. The pane takes it instead, as Settings' autofocused pane does.
+    if (document.activeElement?.matches(".sheet__close")) this.element.querySelector(".sheet__pane")?.focus({ preventScroll: true })
     requestAnimationFrame(() => this.element.classList.add('dialog--open'))
     this.#dispatchModalOpenEvent(true)
   }

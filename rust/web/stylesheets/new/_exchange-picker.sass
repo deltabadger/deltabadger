@@ -2,9 +2,9 @@
   display: grid
   grid-template-columns: 1fr 1fr
   gap: 1rem
-  padding: 0 2rem 1rem
+  padding: 0 var(--sheet-side-padding) 1rem
   @media (min-width: 768px)
-    padding: 0 3rem
+    padding: 0 var(--sheet-side-padding)
     grid-template-columns: 1fr 1fr 1fr
   &__option
     display: flex
@@ -29,7 +29,7 @@
       cursor: not-allowed
       opacity: .55
     svg
-      height: 3rem
+      height: 2.5rem
       width: auto
       *
         fill: var(--ash)

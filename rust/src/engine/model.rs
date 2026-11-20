@@ -17,6 +17,8 @@ pub struct Bot {
     started_at: Option<String>, settings_changed_at: Option<String>, pub restatement_generation: i64,
     /// Bot::LimitOrderable#limit_orders_locked?: a bot on Hyperliquid (spot has no market order) places limits only.
     limit_locked: bool,
+    /// A key holder's account (`key_holder`, #710); None on a bot row (its account is its membership's).
+    holder: Option<crate::identity::Account>,
 }
 
 /// Captured before any intervening tick work, never from the row at claim time. The counters also
@@ -52,9 +54,9 @@ impl RunIdentity {
 impl Bot {
     /// No bot: the user's trading key on `exchange_id`, for what reads a key as a bot on that venue would (the venue
     /// `engine::run::venue_for_key` builds for an API cancel by exchange order id). Never stored, never ticked.
-    pub(crate) fn key_holder(user_id: i64, exchange_id: i64) -> Self {
-        Self { id: 0, user_id, exchange_id, status: BotStatus::Stopped, bot_type: String::new(), settings: Value::Null, transient: Value::Null,
-               started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false }
+    pub(crate) fn key_holder(account: crate::identity::Account) -> Self {
+        Self { id: 0, user_id: account.user_id, exchange_id: account.exchange_id, status: BotStatus::Stopped, bot_type: String::new(), settings: Value::Null, transient: Value::Null,
+               started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false, holder: Some(account) }
     }
     pub fn run_generation(&self) -> i64 { self.transient["run_generation"].as_i64().unwrap_or(0) }
     /// Bumped by a web write that adds to the bot's order history (web::bot::csv's import), never by a stop or a start: an
@@ -115,7 +117,7 @@ pub fn load_bot(c: &Connection, id: i64) -> Result<Bot, EngineError> {
         id, user_id: user.unwrap_or(0), exchange_id: exchange.unwrap_or(0),
         status: BotStatus::from_i64(status).ok_or_else(|| EngineError::Data(format!("bot {id}: status {status}")))?,
         bot_type: ty.unwrap_or_default(), settings, transient,
-        started_at: started, settings_changed_at: changed, restatement_generation: restated, limit_locked,
+        started_at: started, settings_changed_at: changed, restatement_generation: restated, limit_locked, holder: None,
     })
 }
 
@@ -445,7 +447,7 @@ pub const CONDITION_FLAGS: [&str; 8] = ["price_limited", "price_drop_limited", "
 pub const SIGNAL_CALLS_KEY: &str = "rust_signal_calls";
 
 /// One webhook call a signal bot's hook accepted (the arguments of Bot::SignalJob): which rule, and when it arrived. `source`
-/// names it once: "hook:<uuid>" for a call the hook took, "rails:<active_job_id>" for a job imported at takeover.
+/// names it once: "hook:<uuid>" for a call the hook took, "v2:<active_job_id>" for a job imported at takeover.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignalCall { pub source: String, pub signal_id: i64, pub triggered_at: DateTime<Utc> }
 
@@ -810,16 +812,22 @@ pub fn credential_write<T>(c: &Connection, version: &Option<CredentialVersion>, 
     let out=work(&check_credential_result(&tx,version)?)?;
     tx.commit()?;Ok(out)
 }
+/// SQL condition on api key row `k`: a key of `bot`'s account (#710). A key holder (`Bot::key_holder`, id 0: a standalone
+/// order's or a recovery's account on an exchange) names no bot row; its account is the one it holds.
+pub(crate) fn bot_keys(c: &Connection, bot: &Bot) -> rusqlite::Result<String> {
+    if bot.id == 0 { return Ok(match bot.holder { Some(account) => account.keys("k"), None => crate::identity::Account::first(c, bot.user_id, bot.exchange_id)?.keys("k") }); }
+    crate::identity::bot_keys(c, bot.id, "k")
+}
 /// `bot.api_key&.pending_activation?`: the bot's trading key, registered but not yet activated (IBKR's). Every job that
 /// would reach the venue for the bot asks first (Bot::ActionJob, SignalJob, RebalanceJob, BotApi orders).
 pub fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    let status: Option<i64> = c.query_row("SELECT status FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 LIMIT 1",
-                                          params![bot.user_id, bot.exchange_id], |r| r.get(0)).optional()?;
+    let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", bot_keys(c, bot)?),
+                                          [], |r| r.get(0)).optional()?;
     Ok(status == Some(crate::enums::ApiKeyStatus::PendingActivation as i64))
 }
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
-    Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=0 LIMIT 1",
-        params![bot.user_id,bot.exchange_id], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)
+    Ok(c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1",bot_keys(c,bot)?),
+        [], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)
 }
 pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
     Ok(credentials_with_version(c,cipher,bot)?.0)
@@ -835,8 +843,8 @@ pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>
 pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
     type KeyRow = ([Option<String>;7], Option<String>, i64);
     let row: Option<KeyRow> = c.query_row(
-        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.exchange_id=?2 AND k.key_type=0 LIMIT 1",
-        params![bot.user_id,bot.exchange_id], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1",bot_keys(c,bot)?),
+        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
     let Some((columns,exchange_type,id)) = row else { return Ok((None,None,Vec::new())) };
     let version = ciphertext_version(id,&columns);
     let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
@@ -868,11 +876,12 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
 
 /// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,
 /// an absent, invalid or undecryptable key is never replaced by an empty signing key.
-pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,user_id:i64,exchange_id:i64)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
-    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,user_id,exchange_id)?;tx.commit()?;return Ok(result);}
+/// `account`'s correct withdrawal key (#710: a rule withdraws with its own account's).
+pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::identity::Account)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
+    if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,account)?;tx.commit()?;return Ok(result);}
     let row:Option<([Option<String>;7],i64)>=c.query_row(
-        "SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys WHERE user_id=?1 AND exchange_id=?2 AND key_type=1 AND status=1 ORDER BY id LIMIT 1",
-        params![user_id,exchange_id],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),
+        [],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
     let Some((columns,id))=row else{return Ok(None)};
     let open=|v:&Option<String>|v.as_ref().and_then(|v|cipher.decrypt(v).ok());
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};

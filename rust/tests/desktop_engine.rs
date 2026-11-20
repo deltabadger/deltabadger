@@ -461,9 +461,9 @@ fn rows(base: &Data) -> Vec<(Data, Row)> {
         bought or sold.{phase} Quit Deltabadger and open it again. If this keeps happening, contact support and send them the files in {}.", log(d));
     let failed_check = |_: &Data| "Sqlite(InvalidColumnType(0, \"label\", Blob))".to_string();
     row("set-aside failure", &|d| d.sql(MALFORMED_BOT), vec![], &failed_check, &aside(" Nothing was changed."));
-    // PLAN-B6 r3.7: an account with no identity key is an encryption reset, committed before the set-aside check.
+    // PLAN-B6 r3.7: a known account identity with no identity key is an encryption reset, committed before the set-aside check.
     row("identity reset, then a set-aside failure", &|d| d.sql(&format!("{MALFORMED_BOT};
-            INSERT INTO exchange_accounts (user_id, exchange_id, created_at, updated_at) VALUES (1, (SELECT min(id) FROM exchanges), '2026-01-01', '2026-01-01')")),
+            INSERT INTO exchange_accounts (user_id, exchange_id, number, fingerprint, created_at, updated_at) VALUES (1, (SELECT min(id) FROM exchanges), 1, 'fp', '2026-01-01', '2026-01-01')")),
         vec![], &failed_check, &aside(""));
     out
 }
@@ -792,9 +792,31 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// The two newest Rust migrations and how to make each pending again on a made install (its table gone, its row
 /// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
 /// testing "an update brings a migration" the day one is added.
-const UNDO: [(&str, &str); 2] = [
-    ("20261111000001", "DROP TABLE rust_index_rankings"),
-    ("20261112000001", "DROP TABLE rust_index_retired")];
+type Undo = (&'static str, fn() -> String);
+const UNDO: [Undo; 2] = [
+    // Its trigger on slice 3's table goes with it.
+    ("20261121000001", || undo_replacement("20261121000001")),
+    ("20261121000002", || undo_replacement("20261121000002"))];
+
+/// A replacing migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each
+/// table it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).
+fn undo_replacement(v: &str) -> String {
+    let reg = deltabadger::store::REGISTRY;
+    let made: Vec<&str> = reg.tables.iter().filter(|(at, _)| *at == v).map(|(_, t)| t.name).collect();
+    let back: Vec<&str> = reg.retired.iter().filter(|(at, _)| *at == v).map(|(_, t)| *t).chain(made.iter().copied().filter(|t| reg.tables.iter().any(|(at, c)| c.name == *t && *at < v))).collect();
+    let mut sql: String = made.iter().map(|t| format!("DROP TABLE {t};")).collect();
+    let statements = |m: &deltabadger::store::Migration| -> Vec<String> {
+        let code: String = m.sql.lines().map(|l| l.split("--").next().unwrap()).collect::<Vec<_>>().join("\n");
+        code.split(';').map(|text| text.trim().to_string()).collect()
+    };
+    let creates = |text: &str, t: &str| text.contains(&format!("CREATE TABLE {t} ")) || text.contains(&format!(" ON {t} ("));
+    // Each table as the newest migration before `v` that creates it wrote it (an earlier rebuild's first shape is gone).
+    for t in &back {
+        let Some(m) = deltabadger::store::RUST_MIGRATIONS.iter().rfind(|m| m.version < v && statements(m).iter().any(|s| creates(s, t))) else { continue };
+        for text in statements(m).into_iter().filter(|s| creates(s, t)) { sql.push_str(&text); sql.push(';'); }
+    }
+    sql
+}
 
 #[test]
 fn the_undo_table_covers_the_newest_migration() {
@@ -806,7 +828,7 @@ fn the_undo_table_covers_the_newest_migration() {
 /// `data` as the build before the newest `n` migrations left it.
 fn pending(data: &Data, n: usize) {
     for (version, undo) in &UNDO[UNDO.len() - n..] {
-        data.sql(&format!("{undo}; DELETE FROM rust_schema_migrations WHERE version = '{version}'"));
+        data.sql(&format!("{}; DELETE FROM rust_schema_migrations WHERE version = '{version}'", undo()));
     }
 }
 
