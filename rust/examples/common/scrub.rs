@@ -77,6 +77,9 @@ pub struct Scrubber {
     /// Every value of every answer (`reserve`, before any fake): no fake may equal or contain one (≥ 4 characters), as
     /// the leak check reads it.
     reserved: Vec<String>,
+    /// A recorder's own kept field names (`with_names`), in place of KEEP; its time names beside TIME.
+    keep: Option<Vec<String>>,
+    time: Vec<String>,
     /// "file path" → kind → count, paths folded (`[]` for indices, `*` for Kraken's id keys).
     pub report: BTreeMap<String, BTreeMap<&'static str, usize>>,
     /// A capture mode's own field rules (KuCoin UTA, PLAN-841 r2.2), checked before the shared ones.
@@ -111,7 +114,7 @@ pub fn scale(s: &str, k: u32) -> Option<String> {
 
 impl Scrubber {
     pub fn new(key: Vec<u8>, days: i64) -> Self {
-        Self { key, days, map: HashMap::new(), originals: HashSet::new(), fakes: HashSet::new(), reserved: vec![], report: BTreeMap::new(), extra: None }
+        Self { key, days, map: HashMap::new(), originals: HashSet::new(), fakes: HashSet::new(), reserved: vec![], keep: None, time: vec![], report: BTreeMap::new(), extra: None }
     }
     /// What a later run needs to scrub as this one did (PLAN-841 r2.1): the salt, the offset, every mapping and every
     /// reserved value. It holds originals: it is written outside the repo, never committed.
@@ -140,6 +143,14 @@ impl Scrubber {
         Self::new(salt, days)
     }
     pub fn days(&self) -> i64 { self.days }
+    /// A recorder's own kept (enum-shaped) field names, in place of KEEP, and time names beside TIME; matched after `norm`.
+    pub fn with_names(mut self, keep: &[&str], time: &[&str]) -> Self {
+        self.keep = Some(keep.iter().map(|k| norm(k)).collect());
+        self.time = time.iter().map(|k| norm(k)).collect();
+        self
+    }
+    fn kept(&self, n: &str) -> bool { self.keep.as_ref().map_or(KEEP.contains(&n), |k| k.iter().any(|k| k == n)) }
+    fn timed(&self, n: &str) -> bool { TIME.contains(&n) || self.time.iter().any(|k| k == n) }
 
     fn note(&mut self, file: &str, path: &str, kind: &'static str) {
         *self.report.entry(format!("{file} {}", if path.is_empty() { "/" } else { path })).or_default().entry(kind).or_default() += 1;
@@ -225,8 +236,8 @@ impl Scrubber {
                 if let Some(t) = self.shift_str(s) { self.note(file, path, "shifted"); return Ok(Some(t)); }
             }
         }
-        if KEEP.contains(&n.as_str()) && kept_shape(s) { return Ok(None); }
-        if TIME.contains(&n.as_str()) {
+        if self.kept(&n) && kept_shape(s) { return Ok(None); }
+        if self.timed(&n) {
             if let Some(t) = self.shift_str(s) { self.note(file, path, "shifted"); return Ok(Some(t)); }
         }
         if !s.chars().any(|c| c.is_ascii_alphanumeric()) || zero(s) { return Ok(None); }
@@ -243,7 +254,7 @@ impl Scrubber {
 
     fn number(&mut self, file: &str, path: &str, name: Option<&str>, n: &Number) -> Result<Option<Number>, String> {
         let name = name.map(norm).unwrap_or_default();
-        if KEEP.contains(&name.as_str()) && n.as_u64().is_some_and(|x| x < 10_000) { return Ok(None); }
+        if self.kept(&name) && n.as_u64().is_some_and(|x| x < 10_000) { return Ok(None); }
         let text = n.to_string();
         if let Some(x) = &self.extra {
             // A fractional JSON number has already passed through f64: scaling it could lose digits, so it aborts.
@@ -262,7 +273,7 @@ impl Scrubber {
             }
             if x.verbatim.contains(&name.as_str()) { return Ok(None); }
         }
-        if TIME.contains(&name.as_str()) {
+        if self.timed(&name) {
             if let Some(t) = self.shift_epoch(&text) {
                 self.note(file, path, "shifted");
                 return serde_json::from_str(&t).map(Some).map_err(|_| format!("{file}: a shifted time at {path} is no number"));
