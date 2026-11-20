@@ -355,12 +355,49 @@ async fn an_unmigrated_install_reads_its_balances_from_2xs_table() {
     assert_eq!(old, Scope::Account(AccountRow::unplaced(s.user_id, s.exchange_id)));
     assert_eq!(value(old), ["200.0"], "an exchange's one account reads its rows");
     assert_eq!(figures::balances(c, s.user_id, &old).unwrap().len(), 1);
-    assert!(c.execute("DELETE FROM exchange_account_balances", []).is_err(), "a view refuses a write");
+    // A write through the view lands in 2.x's table and nothing else; an account the install cannot have aborts.
+    let id: i64 = one(c, "SELECT id FROM account_balances");
+    c.execute("UPDATE exchange_account_balances SET free = 3 WHERE id = ?1", [id]).unwrap();
+    assert_eq!(one::<f64>(c, "SELECT free FROM account_balances"), 3.0);
+    c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at, account_id) VALUES (?1, ?2, ?3, 's', 'c', 'u', ?4)",
+              [s.user_id, s.exchange_id, s.quote, -s.exchange_id]).unwrap();
+    assert_eq!(c.query_row("SELECT free FROM account_balances WHERE asset_id = ?1", [s.quote], |r| r.get::<_, f64>(0)).unwrap(), 0.0, "2.x's default");
+    assert!(c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, synced_at, created_at, updated_at, account_id) VALUES (?1, ?2, ?3, 's', 'c', 'u', 99)",
+                      [s.user_id, s.exchange_id, s.ticker_id]).is_err(), "an account 2+ aborts");
+    assert!(c.execute("UPDATE exchange_account_balances SET account_id = 99 WHERE id = ?1", [id]).is_err(), "an account 2+ aborts");
+    c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id]).unwrap();
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_balances"), 1);
+    c.execute("INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, created_at, updated_at, account_id) VALUES (?1, ?2, '2026-09-20', 'c', 'u', ?3)",
+              [s.user_id, s.exchange_id, -s.exchange_id]).unwrap();
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM portfolio_venue_snapshots WHERE value_usd = 0 AND partial = 0"), 1);
+    c.execute("DELETE FROM exchange_account_snapshots", []).unwrap();
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM portfolio_venue_snapshots"), 0);
     let app = web_app(dir.path(), &Connection::open(&path).unwrap());
     let page = get(&app, c, s.user_id, "/tracker").await;
     assert_eq!(page.status, 200, "{}", &page.body[..page.body.len().min(400)]);
     let tables: i64 = Connection::open(&path).unwrap().query_row("SELECT count(*) FROM sqlite_master WHERE name LIKE 'exchange_account_%'", [], |r| r.get(0)).unwrap();
     assert_eq!(tables, 0, "nothing written to the file");
+}
+
+/// Codex r2 P2: `sync balances` opens without migrating (store::open); on an install with slice 5 pending its writes
+/// go through the fallback views into 2.x's table, as before the stores.
+#[tokio::test(flavor = "current_thread")]
+async fn a_balance_sync_on_an_unmigrated_install_writes_2xs_table() {
+    let dir = common::v2_install_unmigrated();
+    let raw = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&raw, &seed::cipher());
+    raw.execute("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES (?1, ?2, 1, 'now', 'now')", [s.btc, s.exchange_id]).unwrap();
+    raw.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, synced_at, created_at, updated_at) VALUES (?1, ?2, ?3, 9, 0, 's', 'c', 'u')",
+                [s.user_id, s.exchange_id, s.quote]).unwrap();
+    drop(raw);
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let db = Db::new(o.primary, seed::cipher());
+    let key = Credentials { ibkr: None, redaction_values: vec![], key: "test-key".into(), secret: "dGVzdC1zZWNyZXQ=".into(), passphrase: None };
+    balances::sync_kraken(&db, answer(json!({ "XBT": { "balance": "0.5", "hold_trade": "0" } })), &NoPrices, s.api_key_id, &key, &FixedClock(NOW.parse().unwrap())).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let held: Vec<(i64, String)> = c.prepare("SELECT asset_id, CAST(free AS TEXT) FROM account_balances").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(held, [(s.btc, "0.5".to_string())], "BTC written, the gone EUR row deleted, in 2.x's table");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM sqlite_master WHERE name LIKE 'exchange_account_balances%' OR name LIKE 'exchange_account_snapshots%'"), 0, "no store on the file");
 }
 
 /// Codex r1 P2: a stand-in's id (minus the exchange id) is every user's on that exchange, so its reads keep the owner. On

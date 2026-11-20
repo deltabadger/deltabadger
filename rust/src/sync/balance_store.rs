@@ -33,8 +33,9 @@ pub fn v2_projection(c: &Connection, v2: &str) -> rusqlite::Result<Option<String
 /// An install whose stores a migration has not made yet (every command but `run`/`serve` opens one as it is, `store::open`):
 /// each store, on this connection only, is a TEMP view over its 2.x table, every row on its exchange's number 1 (its row,
 /// else the stand-in `identity::AccountRow::unplaced` reads, minus the exchange id). On such an install every exchange has
-/// exactly one account, so every reader, account scopes included, reads what 2.x's table holds. A write to a view fails
-/// loudly; writers run under `run`/`serve`, which migrate first. Nothing touches the file. `store::apply` drops the views
+/// exactly one account, so every reader, account scopes included, reads what 2.x's table holds. A write through a view
+/// lands in 2.x's table (TEMP INSTEAD OF triggers; an upsert cannot, and only the figures jobs under `run`/`serve`, which
+/// migrate first, upsert). Nothing touches the file's schema. `store::apply` drops the views
 /// before it migrates.
 pub fn fallback(c: &Connection) -> rusqlite::Result<()> {
     if ready(c)? { return Ok(()); }
@@ -46,9 +47,25 @@ pub fn fallback(c: &Connection) -> rusqlite::Result<()> {
         if !v2_exists { continue; }
         let of = columns.split(", ").map(|n| format!("t.{n}")).collect::<Vec<_>>().join(", ");
         c.execute_batch(&format!("CREATE TEMP VIEW IF NOT EXISTS {store} AS SELECT {of}, {number_1} AS account_id FROM main.{v2} t"))?;
+        // The legacy writes (`sync`, a repair) land in 2.x's table, as they did before the stores; the migration copies
+        // them in (a trigger's write names its table unqualified: no TEMP table shares 2.x's names). Only the row's own exchange's number 1 or stand-in exists here: any other account aborts the write.
+        let own = if crate::identity::numbered(c)? {
+            "NEW.account_id = -NEW.exchange_id OR NEW.account_id IS (SELECT a.id FROM main.exchange_accounts a WHERE a.user_id = NEW.user_id AND a.exchange_id = NEW.exchange_id AND a.number = 1)"
+        } else { "NEW.account_id = -NEW.exchange_id" };
+        let guard = format!("SELECT RAISE(ABORT, 'an account other than its exchange''s first on an unmigrated install') WHERE NOT ({own});");
+        let names: Vec<&str> = columns.split(", ").collect();
+        let values = names.iter().map(|n| match DEFAULTS.iter().find(|(d, _)| d == n) { Some((_, v)) => format!("COALESCE(NEW.{n}, {v})"), None => format!("NEW.{n}") }).collect::<Vec<_>>().join(", ");
+        let set = names.iter().filter(|n| **n != "id").map(|n| format!("{n} = NEW.{n}")).collect::<Vec<_>>().join(", ");
+        c.execute_batch(&format!(
+            "CREATE TEMP TRIGGER IF NOT EXISTS {store}_insert INSTEAD OF INSERT ON {store} BEGIN {guard} INSERT INTO {v2} ({columns}) VALUES ({values}); END;
+             CREATE TEMP TRIGGER IF NOT EXISTS {store}_update INSTEAD OF UPDATE ON {store} BEGIN {guard} UPDATE {v2} SET {set} WHERE id = OLD.id; END;
+             CREATE TEMP TRIGGER IF NOT EXISTS {store}_delete INSTEAD OF DELETE ON {store} BEGIN DELETE FROM {v2} WHERE id = OLD.id; END;"))?;
     }
     Ok(())
 }
+
+/// 2.x's column defaults, for an insert through a fallback view that leaves the column out.
+const DEFAULTS: [(&str, &str); 5] = [("free", "0.0"), ("locked", "0.0"), ("value_usd", "0.0"), ("invested_usd", "0.0"), ("partial", "FALSE")];
 
 /// `fallback`'s views go (a migration about to make the stores on this connection).
 pub fn drop_fallback(c: &Connection) -> rusqlite::Result<()> {
