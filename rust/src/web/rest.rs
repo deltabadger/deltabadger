@@ -461,7 +461,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                     // `params.permit(...)`: a list or a hash is dropped. `bot_id` is not permitted but handed over as its
                     // `to_s`, unless nil.
                     let args: Map<String, Value> = ["exchange_name", "base_asset", "quote_asset", "amount", "price", "amount_type", "account_id"].into_iter()
-                        .filter_map(|k| p.get(k).filter(|v| !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
+                        .filter_map(|k| p.get(k).filter(|v| k == "account_id" || !(v.is_array() || v.is_object())).map(|v| (k.to_string(), v.clone()))).collect();
                     let bot_id = p.get("bot_id").filter(|v| !v.is_null()).map(|v| json!(bot_api::orders::to_s(v)));
                     let mut payload = super::rest_idempotency::wrapped_payload(input, "order", p)?;
                     // #710: the account may come from the query; the replay fingerprint carries it so another account is another order.

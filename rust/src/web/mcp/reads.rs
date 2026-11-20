@@ -127,7 +127,7 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
             };
             // #710 (§4.4): a live read is one account's key; with 2+ live accounts one must be named.
             let picked=match read_account(c,user,exchange,&name,&account,true)? {Ok(Some(a))=>a,Ok(None)=>return Err(error()),Err(read)=>return Ok(Planned::Done(read))};
-            let Some(credentials)=credentials(c,app,&picked)? else{return Ok(Planned::Done(failed(Domain::PermissionDenied,"api_key_missing",format!("No valid API key found for {name}. Please add an API key in Settings."))))};
+            let Some(credentials)=credentials(c,app,&picked)? else{return Ok(Planned::Done(failed(Domain::PermissionDenied,"api_key_missing",format!("No valid API key found for {}. Please add an API key in Settings.",crate::identity::label_or(c,picked.id,&name)?.plain()))))};
             if kind==crate::venue::ibkr::IBKR {
                 let key:i64=trading_key(c,&picked)?.ok_or_else(error)?;
                 let bound=crate::venue::ibkr_account::binding(c,key)?.and_then(|b|b.account_id(&app.cipher));
@@ -168,13 +168,15 @@ fn plan_inner(c:&Connection,app:&App,user:i64,ask:Ask)->Result<Planned,WebError>
             // silently left out beside a sibling that was read.
             let mut seen:Vec<(i64,i64)>=vec![];
             for (id,_,kind,_) in exchanges.iter() { if kind=="Exchanges::Alpaca" && !seen.iter().any(|(e,_)|e==id) { seen.push((*id,0)); } }
+            // The exchange asked about, even when none of its accounts has a correct key.
+            if let Some((id,_,kind))=&filter { if kind=="Exchanges::Alpaca" && !seen.iter().any(|(e,_)|e==id) { seen.push((*id,0)); } }
             for (exchange_id,_) in seen {
                 let live=crate::identity::accounts_of(c,user,exchange_id)?;
                 if live.len()<2 {continue}
                 for (account_id,_) in live {
                     if picked.is_some_and(|p|p.id!=Some(account_id)) || exchanges.iter().any(|(_,_,_,a)|a.id==Some(account_id)) {continue}
                     let Some(account)=crate::identity::Account::by_id(c,account_id)? else {continue};
-                    let (name,kind)=exchanges.iter().find(|(e,_,_,_)|*e==exchange_id).map(|(_,n,k,_)|(n.clone(),k.clone())).ok_or_else(error)?;
+                    let (name,kind)=match exchanges.iter().find(|(e,_,_,_)|*e==exchange_id) {Some((_,n,k,_))=>(n.clone(),k.clone()),None=>filter.as_ref().map(|(_,n,k)|(n.clone(),k.clone())).ok_or_else(error)?};
                     exchanges.push((exchange_id,name,kind,account));
                 }
             }

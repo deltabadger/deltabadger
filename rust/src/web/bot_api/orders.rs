@@ -62,7 +62,8 @@ fn exchange_not_found(c: &Connection, name: &Value) -> Result<Res, WebError> {
 /// #710 (PLAN-710-6 §4.2): the account a write naming `exchange` acts on, by its posted `account_id`: Err is the answer
 /// (a 404 for an account not the user's live one there, the 422 naming them when 2+ are live and none is named).
 pub(crate) fn picked(c: &Connection, user: i64, exchange: i64, name: &str, posted: &Value) -> Result<Result<crate::identity::Account, Res>, WebError> {
-    let posted = if present(posted) { match account_id(posted) { Some(id) => Some(id), None => return Ok(Err(account_not_found())) } } else { None };
+    // Only an omitted or null account_id is the default account; anything else posted must name one (`false`, `[]`, `""` do not).
+    let posted = if posted.is_null() { None } else { match account_id(posted) { Some(id) => Some(id), None => return Ok(Err(account_not_found())) } };
     Ok(match crate::identity::pick(c, user, exchange, posted)? {
         crate::identity::Pick::One(account) => Ok(account),
         crate::identity::Pick::NotFound => Err(account_not_found()),

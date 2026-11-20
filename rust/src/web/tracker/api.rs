@@ -113,6 +113,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
         let mut statement = c.prepare(&sql)?;
         let mut rows = statement.query(rusqlite::params_from_iter(f.binds))?;
         let (mut out, mut lines) = (vec![], vec![]);
+        let numbered = crate::identity::numbered(c)?;
         while let Some(r) = rows.next()? {
             let id: i64 = r.get("id")?;
             let decimal = |name: &str| -> Result<Value, WebError> { Ok(v2::from_sql(r.get_ref(name)?).map_err(|_| super::row::invalid())?.map_or(Value::Null, |d| json!(d.to_s_f()))) };
@@ -123,7 +124,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
             let inverse: Option<i64> = c.query_row("SELECT id FROM account_transactions WHERE linked_transaction_id=?1", [id], |r| r.get(0)).optional()?;
             let exchange: Option<String> = c.query_row("SELECT name FROM exchanges WHERE id=?1", [r.get::<_, i64>("exchange_id")?], |r| r.get(0)).optional()?.flatten();
             // D-API-ACCOUNT-FIELDS: the row's account while its exchange has 2+ live accounts.
-            let (account, number): (Option<i64>, Option<i64>) = if crate::identity::numbered(c)? {
+            let (account, number): (Option<i64>, Option<i64>) = if numbered {
                 c.query_row(&format!("SELECT {a}, {} FROM account_transactions t WHERE t.id = ?1", crate::identity::label_number_sql(&crate::venue_ids::row_account("t")), a = crate::venue_ids::row_account("t")), [id], |r| Ok((r.get(0)?, r.get(1)?)))?
             } else { (None, None) };
             let manual: Option<String> = r.get("manual_values")?;

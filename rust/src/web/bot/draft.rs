@@ -601,7 +601,9 @@ impl Draft {
             // #710: and on another account of the exchange, whose key would never find them.
             let account_moved = match self.account { Some(a) => crate::identity::Account::of_bot(c, self.candidate.id)? != Some(a), None => false };
             if self.original.has_waiting_orders && (self.original.exchange.id != self.candidate.exchange.id || account_moved) {
-                self.add("exchange", i18n::text(locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", i18n::Arg::Text(&self.candidate.exchange.label().plain()))]));
+                // 2.x names the exchange posted; a move within one exchange names the account holding the orders.
+                let shown = if self.original.exchange.id == self.candidate.exchange.id { self.original.exchange.label() } else { self.candidate.exchange.label() };
+                self.add("exchange", i18n::text(locale, "errors.bots.exchange_change_while_open_orders", &[("exchange_name", i18n::Arg::Text(&shown.plain()))]));
             }
         }
         if self.candidate.kind == Kind::Basket {
