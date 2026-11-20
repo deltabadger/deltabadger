@@ -3,6 +3,8 @@
 //! over a scripted transport. No live call anywhere.
 #[path = "../examples/record_order_lists/recorder.rs"]
 mod recorder;
+#[path = "../examples/record_order_lists/uta.rs"]
+mod uta;
 
 use deltabadger::venue::http::ScriptedTransport;
 use recorder::*;
@@ -417,4 +419,270 @@ fn a_kept_zero_bars_no_fake() {
     let out = sc.scrub("gemini", "orders_history.json", body).unwrap();
     assert_eq!(out[0]["avg_execution_price"], json!("0.00"));
     sc.leak_check("orders_history.json", &out, &[]).unwrap();
+}
+
+// ---- kucoin-uta capture mode (PLAN-841 U5-0, r1.1–r5) ----
+
+const ORDER: &str = "68a3e81d2a090d00070575f7";
+const FACTOR: u32 = 3;
+
+fn uta_window() -> Window {
+    Window { since: "2024-03-05T00:00:00Z".parse().unwrap(), until: "2024-03-08T00:00:00Z".parse().unwrap(), symbol: Some("BTC-USDT".into()) }
+}
+fn kc_keys() -> Keys { Keys { key: KEY.into(), secret: "TESTSECRETabcdefghijkl".into(), passphrase: "TESTPASSPHRASE01".into() } }
+fn ok_data(data: Value) -> Value { json!({"code": "200000", "data": data}) }
+fn refusal() -> Value { json!({"code": "400100", "msg": "This API is not supported in unified account mode"}) }
+fn hf_fill() -> Value {
+    json!({"id": 2312411231i64, "orderId": "6721a1f3e2b5d00007f4b123", "tradeId": 11116472408833i64, "symbol": "BTC-USDT", "side": "buy", "liquidity": "taker",
+           "type": "market", "price": "67012.3", "size": "0.0001", "funds": "6.70123", "fee": "0.00670123", "feeRate": "0.001", "feeCurrency": "USDT", "createdAt": 1709712000123i64})
+}
+fn execution(trade: &str, size: &str, value: &str, fee: &str) -> Value {
+    json!({"tradeId": trade, "orderId": ORDER, "symbol": "BTC-USDT", "side": "BUY", "tradeType": "SPOT", "liquidityRole": "TAKER", "price": "67000.1",
+           "size": size, "value": value, "fee": fee, "feeCurrency": "USDT", "executionTime": 1709712000123000000i64})
+}
+fn detail() -> Value {
+    ok_data(json!({"orderId": ORDER, "clientOid": "5c52e11203aa677f33e493fb", "symbol": "BTC-USDT", "side": "BUY", "orderType": "MARKET", "tradeType": "SPOT",
+                   "status": 3, "size": "28.14", "sizeUnit": "QUOTECCY", "filledSize": "0.00042", "price": "0", "avgPrice": "67000.1",
+                   "orderTime": 1709712000100000000i64, "updatedTime": 1709712000200000000i64}))
+}
+
+/// One phase's answers, in the order `uta::reads` sends them. `switched`: the classic routes refuse; HF still lists the
+/// pre-switch fill.
+fn script(t: &ScriptedTransport, phase: uta::Phase) {
+    let before = phase == uta::Phase::Before;
+    t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General"})));
+    t.reply("GET /api/ua/v2/account/mode", 200, ok_data(json!({"selfAccountMode": if before { "CLASSIC" } else { "UNIFIED" }})));
+    let classic = |t: &ScriptedTransport, path: &str, body: Value| { if before { t.reply(path, 200, body); } else { t.reply(path, 400, refusal()); } };
+    classic(t, "GET /api/v1/hf/accounts/opened", ok_data(json!(true)));
+    classic(t, "GET /api/v1/accounts", ok_data(json!([{"id": "5bd6e9286d99522a52e458de", "currency": "USDT", "type": "trade_hf", "balance": "12.345", "available": "12.345", "holds": "0"}])));
+    t.reply("GET /api/v1/hf/fills", 200, ok_data(json!({"items": [hf_fill()], "lastId": 2312411231i64})));
+    t.reply("GET /api/v1/hf/fills", 200, ok_data(json!({"items": [], "lastId": 2312411231i64})));
+    for _ in 0..2 { classic(t, "GET /api/v1/fills", ok_data(json!({"currentPage": 1, "pageSize": 500, "totalNum": 0, "totalPage": 0, "items": []}))); }
+    if before { return; }
+    t.reply("GET /api/v1/orders", 400, refusal());
+    t.reply("GET /api/v1/hf/orders/done", 400, refusal());
+    t.reply("GET /api/ua/v2/unified/account/balance", 200, ok_data(json!({"accountType": "UNIFIED", "accounts": [{"currencies": [
+        {"currency": "USDT", "balance": "20.5", "available": "20.5", "hold": "0", "liability": "0", "equity": "20.5"}]}]})));
+    let page = |items: Vec<Value>, last: u64| ok_data(json!({"items": items, "lastId": last}));
+    t.reply("GET /api/ua/v2/unified/order/execution", 200, page(vec![], 0));
+    t.reply("GET /api/ua/v2/unified/order/history", 200, page(vec![], 0));
+    if phase != uta::Phase::Traded { return; }
+    t.reply("GET /api/ua/v2/unified/order/detail", 200, detail());
+    // A trade on two pages, the second page repeating one fill: each tradeId once, Σ size = filledSize.
+    let (e1, e2, e3) = (execution("T1001", "0.0002", "13.40002", "0.01340002"), execution("T1002", "0.0001", "6.70001", "0.00670001"),
+                        execution("T1003", "0.00012", "8.040012", "0.008040012"));
+    t.reply("GET /api/ua/v2/unified/order/execution", 200, page(vec![e1, e2.clone()], 9007199254740993));
+    t.reply("GET /api/ua/v2/unified/order/execution", 200, page(vec![e2, e3], 9007199254740995));
+    t.reply("GET /api/ua/v2/unified/order/execution", 200, page(vec![], 9007199254740995));
+}
+
+fn read_json(path: &std::path::Path) -> Value { serde_json::from_str(&std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))).unwrap() }
+fn uta_scrubber() -> Scrubber { Scrubber::new(b"test salt".to_vec(), DAYS) }
+
+#[test]
+fn uta_amounts_scale_exactly_with_their_decimals() {
+    assert_eq!(scale("0.00042", 3).as_deref(), Some("0.00126"));
+    assert_eq!(scale("100", 7).as_deref(), Some("700"));
+    assert_eq!(scale("-1.5", 2).as_deref(), Some("-3.0"));
+    assert_eq!(scale("0.00000000", 9).as_deref(), Some("0.00000000"));
+    assert_eq!(scale("1e5", 2), None);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn uta_traded_phase_records_every_page_and_the_scrubbed_set_reads_as_the_adapter_reads_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let t = ScriptedTransport::default();
+    script(&t, uta::Phase::Traded);
+    let mut sc = uta_scrubber();
+    let report = uta::record_uta(&t, "https://x", uta::Phase::Traded, &uta_window(), &[ORDER.into()], &kc_keys(), &mut sc, FACTOR, dir.path(), None).await.unwrap();
+    assert!(report.contains("refused (recorded as the answer): hf_accounts_opened.json, accounts.json, fills_symbol.1.json"), "{report}");
+    assert!(!report.contains("cannot read"), "{report}");
+    let set = dir.path().join("kucoin_uta/traded");
+    let files: Vec<Value> = ["order_1_detail.json", "order_1_executions.1.json", "order_1_executions.2.json", "order_1_executions.3.json"].iter().map(|f| read_json(&set.join(f))).collect();
+    // r2.2, r3.1: the contract check the adapter runs; the totals are the raw ones times the factor.
+    let d = &files[0]["data"];
+    let want = deltabadger::venue::kucoin::HfOrder { id: d["orderId"].as_str().unwrap().into(), symbol: "BTC-USDT".into(), sell: false, limit: false };
+    assert_ne!(want.id, ORDER);
+    let (state, fees) = deltabadger::venue::kucoin::uta_evidence(&files, &want).unwrap();
+    assert_eq!(state.amount_exec.to_s_f(), "0.00126");
+    assert_eq!(state.quote_amount_exec.unwrap().to_s_f(), "84.420126");
+    assert_eq!(fees["USDT"].to_s_f(), "0.084420126");
+    // Kept: the enums and the price; shifted: ns times; replaced: ids.
+    let e = &files[1]["data"]["items"][0];
+    assert_eq!((e["tradeType"].as_str(), e["side"].as_str(), e["liquidityRole"].as_str(), e["price"].as_str()), (Some("SPOT"), Some("BUY"), Some("TAKER"), Some("67000.1")));
+    assert_eq!(e["executionTime"], json!(1709712000123000000i64 - DAYS * 86_400_000_000_000));
+    assert_eq!(d["orderTime"], json!(1709712000100000000i64 - DAYS * 86_400_000_000_000));
+    assert_eq!((d["status"].as_u64(), d["sizeUnit"].as_str(), d["avgPrice"].as_str()), (Some(3), Some("QUOTECCY"), Some("67000.1")));
+    assert_ne!(e["tradeId"], "T1001");
+    // r2.3: each page's request carries the page before's (scrubbed) cursor, so a replay walks to the empty page.
+    let manifest = read_json(&set.join("manifest.json"));
+    let entry = |f: &str| manifest["files"].as_array().unwrap().iter().find(|e| e["file"] == f).unwrap().clone();
+    assert_eq!(entry("order_1_executions.2.json")["params"]["lastId"].as_str().unwrap(), files[1]["data"]["lastId"].to_string());
+    assert_eq!(entry("order_1_executions.3.json")["params"]["lastId"].as_str().unwrap(), files[2]["data"]["lastId"].to_string());
+    assert_eq!(entry("order_1_detail.json")["params"]["orderId"], d["orderId"]);
+    assert_eq!(entry("executions.1.json")["params"]["startAt"], json!((1709596800000i64 - DAYS * 86_400_000).to_string()));
+    // r1.1: a refusal is that route's recorded answer, its code and message kept.
+    assert_eq!(entry("accounts.json")["refused"], true);
+    assert_eq!(read_json(&set.join("accounts.json")), refusal());
+    for f in std::fs::read_dir(&set).unwrap() {
+        let text = std::fs::read_to_string(f.unwrap().path()).unwrap();
+        assert!(!text.contains(ORDER) && !text.contains("T1001") && !text.contains(KEY) && !text.contains("5c52e11203aa"), "{text}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn uta_phases_share_one_scrub_through_the_state_file() {
+    let (dir, keys_dir) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let state = keys_dir.path().join("kucoin-uta.state.json");
+    let (mut sc, factor) = uta::load_state(&state, true).unwrap();
+    assert!((2..=19).contains(&factor));
+    let t = ScriptedTransport::default();
+    script(&t, uta::Phase::Before);
+    uta::record_uta(&t, "https://x", uta::Phase::Before, &uta_window(), &[], &kc_keys(), &mut sc, factor, dir.path(), Some(&state)).await.unwrap();
+    assert!(uta::load_state(&keys_dir.path().join("none.json"), false).err().unwrap().contains("before phase first"));
+    let (mut sc, again) = uta::load_state(&state, false).unwrap();
+    assert_eq!(again, factor);
+    let t = ScriptedTransport::default();
+    script(&t, uta::Phase::Switched);
+    uta::record_uta(&t, "https://x", uta::Phase::Switched, &uta_window(), &[], &kc_keys(), &mut sc, factor, dir.path(), None).await.unwrap();
+    let fill = |phase: &str| read_json(&dir.path().join(format!("kucoin_uta/{phase}/hf_fills.1.json")))["data"]["items"][0].clone();
+    let (a, b) = (fill("before"), fill("switched"));
+    assert_eq!(a, b, "the same fill keeps the same scrubbed ids, time and amounts in both phases");
+    assert_ne!(a["orderId"], hf_fill()["orderId"]);
+    assert_eq!(a["size"], json!(scale("0.0001", factor).unwrap()));
+    assert!(uta::state_outside(&dir.path().join("x.json"), dir.path()).is_err());
+    assert!(uta::state_outside(&state, dir.path()).is_ok());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn uta_aborts_on_a_throttle_a_server_error_the_wrong_mode_or_a_trading_key() {
+    let run = |t: ScriptedTransport, phase: uta::Phase| async move {
+        let dir = tempfile::tempdir().unwrap();
+        let r = uta::record_uta(&t, "https://x", phase, &uta_window(), &[], &kc_keys(), &mut uta_scrubber(), FACTOR, dir.path(), None).await;
+        assert!(!dir.path().join("kucoin_uta").exists());
+        r.unwrap_err()
+    };
+    // A throttle on a route that may refuse is still no answer.
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General"})));
+    t.reply("GET /api/ua/v2/account/mode", 200, ok_data(json!({"selfAccountMode": "UNIFIED"})));
+    t.reply("GET /api/v1/hf/accounts/opened", 429, json!({"code": "429000", "msg": "Too Many Requests"}));
+    assert!(run(t, uta::Phase::Switched).await.contains("HTTP 429"));
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General"})));
+    t.reply("GET /api/ua/v2/account/mode", 500, json!({"code": "500000", "msg": "internal"}));
+    assert!(run(t, uta::Phase::Switched).await.contains("HTTP 500"));
+    // The before phase on an account already switched.
+    let t = ScriptedTransport::default();
+    script(&t, uta::Phase::Switched);
+    assert!(run(t, uta::Phase::Before).await.contains("mode"));
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General,Unified"})));
+    assert!(run(t, uta::Phase::Switched).await.contains("can trade"));
+    // A failed signature is the probe failing, not the route's refusal; so is an answer with no code.
+    for (status, body) in [(401, json!({"code": "400005", "msg": "Invalid KC-API-SIGN"})), (400, json!({"code": "400005", "msg": "Invalid KC-API-SIGN"})),
+                           (400, json!({"msg": "x"})), (400, json!({"code": "110188", "msg": "Too many requests"})), (200, json!({"code": "166115", "msg": "System busy"})), (200, json!({"code": "999999", "msg": "Server busy, please try again"}))] {
+        let t = ScriptedTransport::default();
+        t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General"})));
+        t.reply("GET /api/ua/v2/account/mode", 200, ok_data(json!({"selfAccountMode": "UNIFIED"})));
+        t.reply("GET /api/v1/hf/accounts/opened", status, body);
+        assert!(run(t, uta::Phase::Switched).await.contains("nothing written"));
+    }
+    // A page without an item list is never the walk's end.
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General"})));
+    t.reply("GET /api/ua/v2/account/mode", 200, ok_data(json!({"selfAccountMode": "CLASSIC"})));
+    t.reply("GET /api/v1/hf/accounts/opened", 200, ok_data(json!(true)));
+    t.reply("GET /api/v1/accounts", 200, ok_data(json!([])));
+    t.reply("GET /api/v1/hf/fills", 200, ok_data(json!({"lastId": 1})));
+    assert!(run(t, uta::Phase::Before).await.contains("no item list"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn uta_an_order_answered_for_another_id_is_named_not_passed() {
+    let dir = tempfile::tempdir().unwrap();
+    let t = ScriptedTransport::default();
+    script(&t, uta::Phase::Traded);
+    let other = "68a3e81d2a090d0007aaaaaa";
+    let report = uta::record_uta(&t, "https://x", uta::Phase::Traded, &uta_window(), &[other.into()], &kc_keys(), &mut uta_scrubber(), FACTOR, dir.path(), None).await.unwrap();
+    assert!(report.contains("order 1: the adapter cannot read"), "{report}");
+}
+
+#[test]
+fn uta_a_message_with_digits_or_an_address_is_replaced() {
+    let mut sc = uta_scrubber();
+    sc.extra = Some(uta::extra(FACTOR));
+    let out = sc.scrub("kucoin", "x.json", json!({"code": "400100", "msg": "account 1234 user@x.io is not supported"})).unwrap();
+    assert_ne!(out["msg"], "account 1234 user@x.io is not supported");
+    let out = sc.scrub("kucoin", "x.json", refusal()).unwrap();
+    assert_eq!(out, refusal());
+    assert!(sc.scrub("kucoin", "x.json", json!({"code": "200000", "data": {"size": "1e-5"}})).unwrap_err().contains("no plain decimal"));
+    assert!(sc.scrub("kucoin", "x.json", json!({"code": "200000", "data": {"balance": 0.5}})).unwrap_err().contains("fractional JSON number"));
+    assert_eq!(sc.scrub("kucoin", "x.json", json!({"code": "400100", "msg": "账户 张三"})).unwrap()["msg"], "(scrubbed)");
+    assert_eq!(sc.scrub("kucoin", "x.json", json!({"code": "200000", "data": {"items": [{"remark": "张三"}]}})).unwrap()["data"]["items"][0]["remark"], "(scrubbed)");
+    assert!(sc.scrub("kucoin", "x.json", json!({"code": "200000", "data": {"balance": 9000000000000000001u64}})).unwrap_err().contains("exact integer range"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn uta_classic_pages_walk_to_total_page_and_the_known_fill_must_be_on_the_symbol() {
+    let base = |t: &ScriptedTransport| {
+        t.reply("GET /api/v1/user/api-key", 200, ok_data(json!({"permission": "General"})));
+        t.reply("GET /api/ua/v2/account/mode", 200, ok_data(json!({"selfAccountMode": "CLASSIC"})));
+        t.reply("GET /api/v1/hf/accounts/opened", 200, ok_data(json!(false)));
+        t.reply("GET /api/v1/accounts", 200, ok_data(json!([])));
+        t.reply("GET /api/v1/hf/fills", 200, ok_data(json!({"items": [], "lastId": 0})));
+    };
+    let classic = |items: Vec<Value>, page: u64| ok_data(json!({"currentPage": page, "pageSize": 500, "totalNum": 2, "totalPage": "2", "items": items}));
+    let dir = tempfile::tempdir().unwrap();
+    let t = ScriptedTransport::default();
+    base(&t);
+    // A string totalPage of 2, its first page empty: both pages are read, as the ledger reads them.
+    t.reply("GET /api/v1/fills", 200, classic(vec![], 1));
+    t.reply("GET /api/v1/fills", 200, classic(vec![hf_fill()], 2));
+    for _ in 0..2 { t.reply("GET /api/v1/fills", 200, classic(vec![], 1)); }
+    uta::record_uta(&t, "https://x", uta::Phase::Before, &uta_window(), &[], &kc_keys(), &mut uta_scrubber(), FACTOR, dir.path(), None).await.unwrap();
+    assert!(dir.path().join("kucoin_uta/before/fills_symbol.2.json").exists());
+    assert_eq!(t.requests().iter().filter(|r| r.path == "/api/v1/fills").count(), 4);
+    // A fill on another symbol is no known fill.
+    let t = ScriptedTransport::default();
+    base(&t);
+    let mut other = hf_fill();
+    other["symbol"] = json!("ETH-USDT");
+    t.reply("GET /api/v1/fills", 200, ok_data(json!({"currentPage": 1, "totalPage": 1, "items": [other]})));
+    t.reply("GET /api/v1/fills", 200, ok_data(json!({"currentPage": 1, "totalPage": 1, "items": []})));
+    let err = uta::record_uta(&t, "https://x", uta::Phase::Before, &uta_window(), &[], &kc_keys(), &mut uta_scrubber(), FACTOR, tempfile::tempdir().unwrap().path(), None).await.unwrap_err();
+    assert!(err.contains("no fill on --symbol"), "{err}");
+}
+
+#[test]
+fn uta_export_is_scrubbed_with_the_session_state_and_still_reads() {
+    let csv = "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC+08:00),Remark,Type\n\
+               123456789,Unified Account,USDT,Withdrawal,6.70123,0,2024-03-06 16:00:00,,Spot\n\
+               123456789,Unified Account,BTC,Deposit,0.0001,0.0000001,2024-03-06 16:00:00,,Spot\n";
+    let mut sc = uta_scrubber();
+    let out = uta::scrub_csv(csv, &mut sc, FACTOR, &[]).unwrap();
+    assert!(!out.contains("123456789"), "{out}");
+    assert!(out.contains("\"Unified Account\",\"USDT\",\"Withdrawal\",\"20.10369\",\"0\",\"2023-11-27 16:00:00\",\"\",\"Spot\""), "{out}");
+    let rows = deltabadger::tracker::import::kucoin::read(&deltabadger::tracker::import::csv::Table::parse(&out).unwrap()).unwrap();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[1].fee.to_s_f(), "0.0000003");
+    // A worded remark that repeats the side is kept, not barred as an original.
+    let csv = "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type\n123456789,Funding Account,USDT,Deposit,10,0,2024-03-06 16:00:00,Deposit,Deposit\n";
+    assert!(uta::scrub_csv(csv, &mut uta_scrubber(), FACTOR, &[]).unwrap().contains("\"Deposit\",\"Deposit\""));
+    // A file without the export's header row (its first row would be copied as is) is refused.
+    let email = "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type\n1,Funding Account,USDT,Deposit,10,0,2024-03-06 16:00:00,alice@example.com,Deposit\n";
+    assert!(!uta::scrub_csv(email, &mut uta_scrubber(), FACTOR, &[]).unwrap().contains("alice@example.com"));
+    let name = email.replace("alice@example.com", "张三 123");
+    let out = uta::scrub_csv(&name, &mut uta_scrubber(), FACTOR, &[]).unwrap();
+    assert!(!out.contains("张三") && out.contains("(scrubbed)"), "{out}");
+    for odd in ["-", "0"] { assert!(uta::scrub_csv(&email.replace("alice@example.com", odd), &mut uta_scrubber(), FACTOR, &[]).is_ok(), "{odd}"); }
+    let person = uta::scrub_csv(&email.replace("alice@example.com", "Alice Smith"), &mut uta_scrubber(), FACTOR, &[]).unwrap();
+    assert!(!person.contains("Alice Smith"), "{person}");
+    // A credential in a column kept as is (here Type) is caught by the leak check.
+    let pass = email.replace(",Deposit\n", ",Hunter2pass\n");
+    assert!(uta::scrub_csv(&pass, &mut uta_scrubber(), FACTOR, &["Hunter2pass"]).unwrap_err().contains("credential"));
+    for bad in ["123456789,Unified Account,USDT\n", "RECORDER_KEY=abc\nRECORDER_SECRET=def\n",
+                "UID,Account Type,Currency,Side,Amount,Fee,Time(123456789),Remark,Type\n"] {
+        assert!(uta::scrub_csv(bad, &mut uta_scrubber(), FACTOR, &[]).unwrap_err().contains("not a KuCoin Account History export"));
+    }
 }
