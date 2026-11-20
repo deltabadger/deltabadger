@@ -152,6 +152,11 @@ es:
             check_now: 'Buscar actualizaciones'
             checking: 'Buscando…'
             check_failed: 'No se pudo buscar actualizaciones.'
+        email_alerts:
+            title: 'Alertas de bots por correo'
+            low_funds: 'Fondos bajos'
+            bot_errors: 'Errores del bot'
+            bot_stopped: 'Bot detenido'
         advanced_bots:
             title: Bots avanzados
             toggle_label: Mostrar bots avanzados

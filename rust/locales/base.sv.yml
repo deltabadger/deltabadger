@@ -152,6 +152,11 @@ sv:
             check_now: "Sök efter uppdateringar"
             checking: "Söker…"
             check_failed: "Det gick inte att söka efter uppdateringar."
+        email_alerts:
+            title: 'Botvarningar via e-post'
+            low_funds: 'Lågt saldo'
+            bot_errors: 'Botfel'
+            bot_stopped: 'Boten stoppad'
         advanced_bots:
             title: Avancerade bots
             toggle_label: Visa avancerade bots

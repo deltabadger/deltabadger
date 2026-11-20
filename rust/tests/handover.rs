@@ -16,7 +16,7 @@ fn job(q: &rusqlite::Connection, class: &str, gid: &str) {
     q.execute("INSERT INTO solid_queue_scheduled_executions (job_id, queue_name, priority, scheduled_at, created_at) VALUES (?1, 'kraken', 0, '2026-10-07 10:00:00', '2026-09-30 11:00:00')", [id]).unwrap();
 }
 fn count(c: &rusqlite::Connection, sql: &str) -> i64 { c.query_row(sql, [], |r| r.get(0)).unwrap() }
-const DROP_NAME: &str = "20261122000001";
+const DROP_NAME: &str = "20261122000002";
 /// (users has a name column, the name drop is recorded).
 fn name_state(c: &rusqlite::Connection) -> (bool, bool) {
     (count(c, "SELECT count(*) FROM pragma_table_xinfo('users') WHERE name = 'name'") == 1,

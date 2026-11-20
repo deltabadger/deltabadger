@@ -327,3 +327,19 @@ async fn the_desktop_settings_say_alerts_are_system_notifications() {
     assert_eq!(page.status, 200, "{}", page.body);
     assert!(page.body.contains("Deltabadger shows bot alerts as system notifications."), "{}", page.body);
 }
+
+/// #878 (D-ALERT-AT-SEND): the email switches are for mail; a desktop's system notification ignores a stored opt-out.
+#[tokio::test]
+async fn a_switched_off_email_alert_is_still_a_desktop_notice() {
+    let dir = install();
+    let c = db(&dir);
+    let me = user(&c, "desktop@deltabadger.invalid", true);
+    let _ = bot(&c, me, "Weekly BTC", "{}", stopped(FRESH));
+    c.execute_batch(include_str!("../migrations/20261122000001_email_alert_opt_outs.sql")).unwrap();
+    c.execute("INSERT INTO rust_email_alert_opt_outs (user_id, alert) VALUES (?1, 'bot_stopped')", [me]).unwrap();
+    let outbox = Arc::new(Outbox::default());
+    let (stop, run) = run_sender(&dir, outbox.clone(), me, Duration::from_secs(60));
+    until("offered", || !outbox.list(20).is_empty()).await;
+    stop.send(true).unwrap();
+    run.await.unwrap().unwrap();
+}

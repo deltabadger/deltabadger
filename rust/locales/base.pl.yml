@@ -154,6 +154,11 @@ pl:
             check_now: 'Sprawdź aktualizacje'
             checking: 'Sprawdzanie…'
             check_failed: 'Nie udało się sprawdzić aktualizacji.'
+        email_alerts:
+            title: 'Alerty botów e-mailem'
+            low_funds: 'Niskie saldo'
+            bot_errors: 'Błędy bota'
+            bot_stopped: 'Bot zatrzymany'
         advanced_bots:
             title: Zaawansowane boty
             toggle_label: Pokaż zaawansowane boty

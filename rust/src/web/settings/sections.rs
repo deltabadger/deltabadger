@@ -195,6 +195,17 @@ pub fn advanced(ctx: &Ctx, csrf: &str, on: bool) -> String {
     format!("<turbo-frame class=\"sitem\" id=\"advanced_bots\">\n  {}</turbo-frame>", row(&ctx.t("settings.advanced_bots.title"), Some(&label), "", "", None, Some(&control)))
 }
 
+/// #878 (D-ALERT-SETTINGS-ROW): one bot alert email's switch (`alert` one of notice::ALERTS).
+pub fn email_alert(ctx: &Ctx, csrf: &str, alert: &str, on: bool) -> String {
+    let label = ctx.t(&format!("settings.email_alerts.{alert}"));
+    let frame = format!("email_alert_{alert}");
+    let control = format!(
+        "\n    {}\n",
+        switch(csrf, &ctx.path("/settings/update_email_alerts"), &frame, "enabled", if on { "0" } else { "1" }, if on { "on" } else { "off" }, Some(&label), &[("alert", Some(alert))])
+    );
+    format!("<turbo-frame class=\"sitem\" id=\"{frame}\">\n  {}</turbo-frame>", row(&label, None, "", "", None, Some(&control)))
+}
+
 /// settings/widgets/_registration. D-NO-MAIL-SAYS-SO: open with no way to send mail, the row says new accounts cannot confirm.
 pub fn registration(ctx: &Ctx, csrf: &str, open: bool, mail_set_up: bool) -> String {
     let label = ctx.t("settings.index.registration_section");
@@ -236,6 +247,8 @@ pub struct Account<'a> {
     pub two_fa: String,
     pub advanced: String,
     pub wash: String,
+    /// #878: the bot alert email switches (empty on the desktop).
+    pub alerts: String,
     /// Registration, email notifications and the update row (settings/widgets/_app_update), for an admin.
     pub admin: Option<(&'a str, &'a str, &'a str)>,
 }
@@ -251,6 +264,7 @@ pub fn account(ctx: &Ctx, a: &Account) -> String {
         ("settings.sections.preferences", format!("{}\n{}", a.locale, a.time_zone)),
         ("settings.sections.security", a.two_fa.clone()),
         ("links.bots", format!("{}\n{}", a.advanced, a.wash)),
+        ("settings.email_alerts.title", a.alerts.clone()),
     ];
     let mut out = String::new();
     for (heading, rows) in sections.iter().filter(|(_, rows)| !rows.trim().is_empty()) {

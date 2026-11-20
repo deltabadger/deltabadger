@@ -152,6 +152,11 @@ it:
             check_now: 'Cerca aggiornamenti'
             checking: 'Ricerca…'
             check_failed: 'Impossibile cercare aggiornamenti.'
+        email_alerts:
+            title: 'Avvisi dei bot via e-mail'
+            low_funds: 'Fondi in esaurimento'
+            bot_errors: 'Errori del bot'
+            bot_stopped: 'Bot fermato'
         advanced_bots:
             title: Bot avanzati
             toggle_label: Mostra bot avanzati

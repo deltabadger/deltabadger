@@ -63,7 +63,18 @@ pub enum Notice {
     SetAside { reasons: String },
 }
 
+/// #878 (D-ALERT-MAP): the three switches under Settings > Account, as `rust_email_alert_opt_outs.alert` names them.
+pub const ALERTS: [&str; 3] = ["low_funds", "bot_errors", "bot_stopped"];
+
 impl Notice {
+    /// The switch (`ALERTS`) that lets this mail go out.
+    pub fn alert(&self) -> &'static str {
+        match self {
+            Notice::EndOfFunds { .. } => "low_funds",
+            Notice::Error { .. } => "bot_errors",
+            Notice::StoppedByError { .. } | Notice::StoppedByAmountLimit | Notice::StoppedByBaseAmountLimit | Notice::SetAside { .. } => "bot_stopped",
+        }
+    }
     /// The mailer action 2.x enqueues for it.
     pub fn mail(&self) -> &'static str {
         match self {

@@ -311,7 +311,7 @@ const ROUTES: &[(&str, bool)] = &[
 
 /// The settings actions the desktop does not serve; every other one is served.
 const HIDDEN_SETTINGS: &[&str] = &[
-    "/settings/update_registration", "/settings/update_email_notifications", "/settings/disconnect_email", "/settings/send_test_email",
+    "/settings/update_email_alerts", "/settings/update_registration", "/settings/update_email_notifications", "/settings/disconnect_email", "/settings/send_test_email",
     "/settings/update_email", "/settings/update_password", "/settings/update_two_fa", "/settings/edit_two_fa",
 ];
 

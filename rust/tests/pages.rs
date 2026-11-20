@@ -1003,6 +1003,30 @@ fn without_jobs_row(body: &mut Value) -> usize {
     taken
 }
 
+/// Named divergence D-ALERT-SETTINGS-ROW (#878): the account page has a "Bot alert emails" section, its heading and its
+/// three switch frames (`email_alert_*`); 2.x has none. Each frame and the heading right before the first, with the
+/// whitespace before each, are taken out of this crate's page; returns how many sections.
+fn without_email_alerts(body: &mut Value) -> usize {
+    let Value::Array(lines) = body else { return 0 };
+    let (mut taken, mut i) = (0, 0);
+    let frame = |l: &Value| l.as_str().is_some_and(|l| l.trim_start().starts_with("<turbo-frame ") && attr(l, "id").is_some_and(|id| id.starts_with("email_alert_")));
+    while i < lines.len() {
+        if !frame(&lines[i]) { i += 1; continue; }
+        let mut start = if i > 0 && is_space(&lines[i - 1]) { i - 1 } else { i };
+        // The heading closes just before the first frame: from its `<h3 class="sheet__heading">` to its `</h3>`.
+        if let Some(h3) = (0..start).rev().find(|&j| lines[j].as_str().is_some_and(|l| l.trim_start().starts_with("<h3 ") && attr(l, "class").as_deref() == Some("sheet__heading"))) {
+            if subtree_end(lines, h3) == start { start = if h3 > 0 && is_space(&lines[h3 - 1]) { h3 - 1 } else { h3 }; taken += 1; }
+        }
+        let mut end = subtree_end(lines, i);
+        while end < lines.len() && (frame(&lines[end]) || (is_space(&lines[end]) && lines.get(end + 1).is_some_and(frame))) {
+            end = if is_space(&lines[end]) { end + 1 } else { subtree_end(lines, end) };
+        }
+        lines.drain(start..end);
+        i = start;
+    }
+    taken
+}
+
 /// Named divergence D-MARKET-DATA-NO-SWITCH: the Market Data widget has no on/off switch (market data is on once a provider
 /// is connected), so its frame's contents are this build's own, pinned in tests/settings.rs; the frame itself, and every
 /// other line of the page, is still compared. Applied to both sides; returns how many frames were emptied.
@@ -1054,6 +1078,21 @@ fn only_the_market_data_frames_contents_are_left_out() {
     let mut other = json!(["      <turbo-frame id=\"api_keys\">", "        <div>", "        </div>", "      </turbo-frame>"]);
     let before = other.clone();
     assert_eq!((without_market_data_contents(&mut other), &other), (0, &before));
+}
+
+#[test]
+fn only_the_email_alert_section_is_left_out() {
+    let frame = |a: &str| [format!("  <turbo-frame class=\"sitem\" id=\"email_alert_{a}\">"), "    \"Low funds\"".into(), "  </turbo-frame>".into()];
+    let mut ours = vec![json!("  </turbo-frame>"), json!("  \" \""), json!("  <h3 class=\"sheet__heading\">"), json!("    \"Bot alert emails\""), json!("  </h3>")];
+    for a in ["low_funds", "bot_errors", "bot_stopped"] { ours.push(json!("  \" \"")); ours.extend(frame(a).map(Value::from)); }
+    ours.extend([json!("  \" \""), json!("  <h3 class=\"sheet__heading\">"), json!("    \"Instance\""), json!("  </h3>")]);
+    let mut ours = Value::Array(ours);
+    let v2 = json!(["  </turbo-frame>", "  \" \"", "  <h3 class=\"sheet__heading\">", "    \"Instance\"", "  </h3>"]);
+    assert_eq!((without_email_alerts(&mut ours), &ours), (1, &v2));
+    // Another frame, and a heading not followed by an alert frame, are still compared.
+    let mut other = json!(["  <h3 class=\"sheet__heading\">", "    \"Bots\"", "  </h3>", "  <turbo-frame class=\"sitem\" id=\"advanced_bots\">", "  </turbo-frame>"]);
+    let before = other.clone();
+    assert_eq!((without_email_alerts(&mut other), &other), (0, &before));
 }
 
 #[test]
@@ -2834,7 +2873,7 @@ async fn replay_page_shard(shard: usize) {
         let count = std::fs::read_dir("/proc/self/task").map_or(String::new(), |tasks| format!(", {} threads", tasks.count()));
         progress(format!("page shard {}: {name}/{scope} (+{:.1?}{count})", shard + 1, replay.elapsed()), false);
         let scenario = scenario(dir);
-        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers, mut locale_selects) = (0, 0, 0, 0, 0, 0, 0, 0, 0);
+        let (mut countdown_pages, mut broker_gate_pages, mut index_rule_pages, mut signal_rule_pages, mut split_menu_pages, mut jobs_rows, mut market_data_frames, mut small_tickers, mut locale_selects, mut alert_sections) = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         let recorded: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("expected.json")).unwrap()).unwrap();
         let mut answers: Vec<Value> = recorded["responses"].as_array().unwrap().iter().zip(scenario["steps"].as_array().unwrap()).map(|(answer, step)| v2_answer(answer, step)).collect();
         let v2_countdowns: Vec<Vec<String>> = if name.starts_with("countdown_") { answers.iter_mut().map(|answer| without_countdown(&mut answer["body"])).collect() } else { vec![] };
@@ -2869,6 +2908,7 @@ async fn replay_page_shard(shard: usize) {
             split_menu_pages += without_split_item(&mut answer["body"]);
             small_tickers += without_small_tickers(&mut answer["body"]);
             jobs_rows += without_jobs_row(&mut answer["body"]);
+            alert_sections += without_email_alerts(&mut answer["body"]);
             index_rule_pages += usize::from(!index_rules(&mut answer["body"]).is_empty());
             signal_rule_pages += usize::from(signal_rules(&mut answer["body"]).is_some());
         }
@@ -2876,6 +2916,7 @@ async fn replay_page_shard(shard: usize) {
                                              ("twin_signal_rules", signal_rule_pages, "D-COND-FORMS-SIGNAL"),
                                              ("twin_basket_member", split_menu_pages, "D-SPLIT-BOT-MENU"),
                                              ("settings_page_account_pt", jobs_rows, "D-JOBS-SETTINGS-LINK"),
+                                             ("settings_page_account_pt", alert_sections, "D-ALERT-SETTINGS-ROW"),
                                              ("settings_page_connect_en", market_data_frames, "D-MARKET-DATA-NO-SWITCH"),
                                              ("settings_error_edge_blank_current_de", locale_selects, "D-LOCALE-SELECT-SHOWS-PAGE"),
                                              ("asset_search_kraken", small_tickers, "D-LIST-TICKER-SMALL")] {

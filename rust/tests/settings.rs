@@ -4496,3 +4496,40 @@ async fn the_tracker_connect_steps_are_the_sheet(){
     assert!(refused.body.starts_with("<turbo-stream action=\"update\" target=\"modal_content\">"),"{}",refused.body);
     assert!(refused.body.contains("class=\"sform__error\"")&&refused.body.contains("sheet__track")&&!refused.body.contains("target=\"flash\""),"{}",refused.body);
 }
+
+/// #878 (D-ALERT-SETTINGS-ROW): the three bot alert email switches, on by default; each PATCH switches one alert of the
+/// signed-in user and answers with its row; anything malformed is a 400 that changes nothing; no CSRF token, no change.
+#[tokio::test(flavor = "current_thread")]
+async fn email_alert_switches_store_one_alert_per_user_and_refuse_anything_else() {
+    let server = MockServer::start().await;
+    let mut h = Harness::new(server.uri()).await;
+    let rows = |h: &Harness| -> Vec<(i64, String)> {
+        h.c.prepare("SELECT user_id, alert FROM rust_email_alert_opt_outs ORDER BY user_id, alert").unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+    };
+    let me = h.seed.user_id;
+    // Another user's switch is theirs alone.
+    h.c.execute("INSERT INTO rust_email_alert_opt_outs (user_id, alert) VALUES (?1, 'low_funds')", [me + 100]).unwrap();
+    let page = h.browser.send(&h.app, "GET", "/settings/account", None, Csrf::None, &[]).await;
+    for alert in ["low_funds", "bot_errors", "bot_stopped"] {
+        let frame = page.body.split(&format!("id=\"email_alert_{alert}\"")).nth(1).unwrap_or_else(|| panic!("{alert}: {}", page.body));
+        let frame = frame.split("</turbo-frame>").next().unwrap();
+        assert!(frame.contains("value=\"0\" type=\"hidden\" name=\"enabled\"") && frame.contains("checked "), "{alert} is on by default: {frame}");
+    }
+    for _ in 0..2 {
+        // A user id in the form is not read: the switch is the signed-in user's.
+        let off = h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "0"), ("user_id", "999")], Csrf::Header).await;
+        assert_eq!(off.status, 200, "{}", off.body);
+        assert!(off.body.contains("<turbo-stream action=\"replace\" target=\"email_alert_low_funds\">") && off.body.contains("value=\"1\" type=\"hidden\" name=\"enabled\""), "{}", off.body);
+    }
+    assert_eq!(rows(&h), [(me, "low_funds".to_string()), (me + 100, "low_funds".to_string())]);
+    for form in [vec![("alert", "low_funds")], vec![("alert", "low_funds"), ("enabled", "yes")], vec![("alert", "everything"), ("enabled", "1")], vec![("enabled", "1")]] {
+        assert_eq!(h.submit("PATCH", "/settings/update_email_alerts", &form, Csrf::Header).await.status, 400, "{form:?}");
+    }
+    assert_ne!(h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "1")], Csrf::None).await.status, 200);
+    assert_eq!(rows(&h).len(), 2, "nothing changed");
+    for _ in 0..2 {
+        assert_eq!(h.submit("PATCH", "/settings/update_email_alerts", &[("alert", "low_funds"), ("enabled", "1")], Csrf::Header).await.status, 200);
+    }
+    assert_eq!(rows(&h), [(me + 100, "low_funds".to_string())]);
+}

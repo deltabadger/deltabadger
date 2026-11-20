@@ -152,6 +152,11 @@ de:
             check_now: 'Nach Updates suchen'
             checking: 'Wird gesucht …'
             check_failed: 'Die Suche nach Updates ist fehlgeschlagen.'
+        email_alerts:
+            title: 'Bot-Warnungen per E-Mail'
+            low_funds: 'Wenig Guthaben'
+            bot_errors: 'Bot-Fehler'
+            bot_stopped: 'Bot gestoppt'
         advanced_bots:
             title: Erweiterte Bots
             toggle_label: Erweiterte Bots anzeigen

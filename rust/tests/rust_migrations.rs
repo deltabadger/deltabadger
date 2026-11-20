@@ -252,9 +252,9 @@ fn the_build_refuses_a_misnamed_or_repeated_version_a_v2_version_a_transaction_s
         // D-DROP-USERS-NAME: a column drop only at a listed version, and only as its one statement.
         ("an unlisted column drop", &[("20990101000001_t.sql", "ALTER TABLE bots DROP COLUMN label;")], "ALTER TABLE"),
         ("the listed drop at another version", &[("20990101000001_t.sql", "ALTER TABLE users DROP COLUMN name;")], "ALTER TABLE"),
-        ("the listed version, another column", &[("20261122000001_t.sql", "ALTER TABLE users DROP COLUMN email;")], "exactly"),
-        ("the listed version, a second statement", &[("20261122000001_t.sql", "ALTER TABLE users DROP COLUMN name; UPDATE users SET admin = 1;")], "exactly"),
-        ("the listed version, a rebuild", &[("20261122000001_t.sql", "CREATE TABLE u2 (id INTEGER); DROP TABLE users;")], "exactly"),
+        ("the listed version, another column", &[("20261122000002_t.sql", "ALTER TABLE users DROP COLUMN email;")], "exactly"),
+        ("the listed version, a second statement", &[("20261122000002_t.sql", "ALTER TABLE users DROP COLUMN name; UPDATE users SET admin = 1;")], "exactly"),
+        ("the listed version, a rebuild", &[("20261122000002_t.sql", "CREATE TABLE u2 (id INTEGER); DROP TABLE users;")], "exactly"),
         ("DROP of a double-quoted name", &[("20990101000001_t.sql", "DROP TABLE \"bots\";")], "no earlier Rust migration created"),
         ("DROP of a backquoted name", &[("20990101000001_t.sql", "DROP TABLE `bots`;")], "no earlier Rust migration created"),
         ("DROP of a bracketed name", &[("20990101000001_t.sql", "DROP TABLE [bots];")], "no earlier Rust migration created"),
@@ -665,11 +665,11 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
     let before = columns(&p);
     assert!(before.iter().any(|c| c == "name"));
     // Every migration before the drop first, so only the drop runs last.
-    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version < "20261122000001").collect();
+    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version < "20261122000002").collect();
     store::migrate_with(&p, &lock(&p), &Registry { migrations: &earlier, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap();
     let others = |p: &Paths| contents(p).into_iter().filter(|t| !t.starts_with("users:") && !t.contains("TABLE \"users\"") && !t.starts_with("rust_schema_migrations")).collect::<Vec<_>>();
     let untouched = others(&p);
-    assert_eq!(store::migrate(&p, &lock(&p)).unwrap(), vec!["20261122000001".to_string()]);
+    assert_eq!(store::migrate(&p, &lock(&p)).unwrap(), vec!["20261122000002".to_string()]);
     assert_eq!(columns(&p), before.into_iter().filter(|c| c != "name").collect::<Vec<_>>());
     assert_eq!(others(&p), untouched, "every other 2.x table as it was");
     let row: (String, i64) = Connection::open(&p.primary).unwrap().query_row("SELECT email, admin FROM users", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
@@ -685,7 +685,7 @@ fn a_listed_column_drop_with_anything_else_in_it_is_rolled_back() {
         let dir = common::v2_install_unmigrated();
         let p = paths(dir.path());
         let before = contents(&p);
-        let migrations = [Migration { version: "20261122000001", name: "drop_users_name", sql }];
+        let migrations = [Migration { version: "20261122000002", name: "drop_users_name", sql }];
         match store::migrate_with(&p, &lock(&p), &Registry { migrations: &migrations, tables: &[], retired: &[] }) {
             Err(StoreError::Migration { error, .. }) => assert!(error.contains("exactly"), "{sql}: {error}"),
             other => panic!("{sql}: expected the refusal, got {other:?}"),

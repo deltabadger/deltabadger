@@ -153,6 +153,11 @@ sk:
             check_now: "Skontrolovať aktualizácie"
             checking: "Kontroluje sa…"
             check_failed: "Kontrolu aktualizácií sa nepodarilo vykonať."
+        email_alerts:
+            title: 'Upozornenia na boty e-mailom'
+            low_funds: 'Nízky zostatok'
+            bot_errors: 'Chyby bota'
+            bot_stopped: 'Bot zastavený'
         advanced_bots:
             title: Pokročilí boti
             toggle_label: Zobraziť pokročilých botov

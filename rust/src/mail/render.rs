@@ -79,12 +79,20 @@ fn message(from: &str, reply_to: bool, to: &str, subject: String, urls: &Urls, b
     Message { from: from.to_string(), reply_to: reply_to.then(|| from.to_string()), to: to.to_string(), subject, html: layout(urls, body) }
 }
 
+/// D-ALERT-UNSUBSCRIBE-LINK (#878): every bot alert ends with a link to the account settings, where its switch is.
+pub fn unsubscribe(urls: &Urls, locale: &str) -> String { link(&urls.url(locale, "/settings/account"), &escape(&i18n::text(locale, "mailer.unsubscribe", &[]))) }
+
+/// A bot alert: `message` with the unsubscribe link after the view.
+fn alert(from: &str, to: &Recipient, subject: String, urls: &Urls, body: &str) -> Message {
+    message(from, false, &to.email, subject, urls, &format!("{body}{}", unsubscribe(urls, to.locale)))
+}
+
 /// BotAlertsMailer#end_of_funds. `exchange_name` as stored, `quote` the quote asset's symbol.
 pub fn end_of_funds(from: &str, urls: &Urls, to: &Recipient, exchange_name: &str, quote: &str) -> Message {
     let args = [("exchange_name", Arg::Text(exchange_name)), ("quote", Arg::Text(quote))];
     let subject = i18n::text(to.locale, "bot_alerts_mailer.end_of_funds.subject", &args);
     let body = format!("{}{}\n", opening(to.locale, &subject), i18n::t(to.locale, "bot_alerts_mailer.end_of_funds.template_html", &args));
-    message(from, false, &to.email, subject, urls, &body)
+    alert(from, to, subject, urls, &body)
 }
 
 /// BotAlertsMailer#notify_about_error (`stopped` false) and #stopped_by_error (`stopped` true). `error` is the sentence
@@ -97,7 +105,7 @@ pub fn failure(from: &str, urls: &Urls, to: &Recipient, stopped: bool, label: &s
                        &[("label", Arg::Text(label)), ("exchange_name", Arg::Text(&upcased)), ("errors", Arg::Text(error))]);
     // stopped_by_error.html.erb has no line feed at its end; notify_about_error.html.erb has one.
     let body = format!("{}{html}{}", opening(to.locale, &subject), if stopped { "" } else { "\n" });
-    message(from, false, &to.email, subject, urls, &body)
+    alert(from, to, subject, urls, &body)
 }
 
 /// D-UPGRADE-SET-ASIDE: a takeover stopped the bot, with the reasons in the owner's words (Rust-only text, web::i18n).
@@ -105,7 +113,7 @@ pub fn set_aside(from: &str, urls: &Urls, to: &Recipient, label: &str, reasons: 
     let subject = i18n::text(to.locale, "bot_alerts_mailer.set_aside.subject", &[("label", Arg::Text(label))]);
     let html = i18n::t(to.locale, "bot_alerts_mailer.set_aside.template_html", &[("label", Arg::Text(label)), ("reasons", Arg::Text(reasons))]);
     let body = format!("{}{html}", opening(to.locale, &subject));
-    message(from, false, &to.email, subject, urls, &body)
+    alert(from, to, subject, urls, &body)
 }
 
 /// BotAlertsMailer#stopped_by_amount_limit. `amount` is `quote_amount_limit.to_s`.
@@ -114,7 +122,7 @@ pub fn stopped_by_amount_limit(from: &str, urls: &Urls, to: &Recipient, label: &
     let html = i18n::t(to.locale, "bot_alerts_mailer.stopped_by_amount_limit.template_html",
                        &[("label", Arg::Text(label)), ("amount", Arg::Text(amount)), ("quote", Arg::Text(quote))]);
     let body = format!("{}{html}", opening(to.locale, &subject));
-    message(from, false, &to.email, subject, urls, &body)
+    alert(from, to, subject, urls, &body)
 }
 
 /// BotAlertsMailer#stopped_by_base_amount_limit. `amount` is D-6D-1's (`base_cap_amount`), `base` the one asset's symbol.
@@ -123,7 +131,7 @@ pub fn stopped_by_base_amount_limit(from: &str, urls: &Urls, to: &Recipient, lab
     let html = i18n::t(to.locale, "bot_alerts_mailer.stopped_by_base_amount_limit.template_html",
                        &[("label", Arg::Text(label)), ("amount", Arg::Text(amount)), ("base", Arg::Text(base))]);
     let body = format!("{}{html}", opening(to.locale, &subject));
-    message(from, false, &to.email, subject, urls, &body)
+    alert(from, to, subject, urls, &body)
 }
 
 /// D-6D-1: the base cap in the mail at the base's precision (`decimals[:base]`, 8 without one), zeros trimmed. 2.x hands

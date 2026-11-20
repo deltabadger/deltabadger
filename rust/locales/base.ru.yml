@@ -156,6 +156,11 @@ ru:
             check_now: 'Проверить обновления'
             checking: 'Проверка…'
             check_failed: 'Не удалось проверить обновления.'
+        email_alerts:
+            title: 'Оповещения о ботах по почте'
+            low_funds: 'Мало средств'
+            bot_errors: 'Ошибки бота'
+            bot_stopped: 'Бот остановлен'
         advanced_bots:
             title: Расширенные боты
             toggle_label: Показать расширенные боты
