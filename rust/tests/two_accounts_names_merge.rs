@@ -823,7 +823,8 @@ fn t14_a_duplicate_is_left_out_of_the_figures() {
     assert_eq!(walked.iter().map(|r| r.tx_id.clone()).collect::<Vec<_>>(), [Some("dep-a".to_string())], "the walk reads account 1's rows only");
     assert_eq!(snapshot::venues(c, user).unwrap(), [a], "no venue snapshot of the duplicate");
     let changed = backfill::history_version(c, user).unwrap();
-    assert_eq!(changed, format!("{version}_d{}:{}", b.id, a.id));
+    // The duplicate's row no longer counts, and the standing is appended.
+    assert!(changed.ends_with(&format!("_d{}:{}", b.id, a.id)) && changed != version, "{changed}");
     assert!(deltabadger::tracker::cache::version(c, user).unwrap() != cache, "the ledger cache re-walks");
     let status: i64 = c.query_row("SELECT status FROM bots WHERE id = ?1", [two.bots[1]], |r| r.get(0)).unwrap();
     assert_eq!(status, 1, "its bot keeps working: nothing in the engine reads the standing");
@@ -1435,4 +1436,139 @@ fn t27_every_locale_has_the_eight_keys() {
             if locale != "en" && key != "settings.accounts.merge" { assert_ne!(t, text("en", key), "{locale}.{key} is its own"); }
         }
     }
+}
+
+// ---- review round 1 ----
+
+/// R1 (KuCoin): a restored fill (no provenance) of the duplicate at a second the survivor holds an API fill of refuses the
+/// Merge, naming it: both would stay visible.
+#[test]
+fn r1_a_restored_kucoin_fill_beside_the_others_api_copy_refuses() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let kucoin = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    kucoin.fingerprint(c, 0, Some("fp"));
+    kucoin.fingerprint(c, 1, Some("fp"));
+    let api = kucoin.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
+    kucoin.row(c, 1, 0, "BTC", "1", None, None, "2026-09-01 10:00:00");
+    let before = dump(c);
+    match merge_now(c, &kucoin, kucoin.id(1)) { Err(Refusal::Conflict(rows)) => assert_eq!(rows, ["2026-09-01 buy 1 BTC"]), other => panic!("{other:?}") }
+    assert_eq!(dump(c), before);
+}
+
+/// R2: an unresolved KuCoin settlement on an order of either account, or a withdrawal intent under either account's key
+/// (a recorder's included), is in flight.
+#[test]
+fn r2_settlements_and_every_withdrawal_intent_are_in_flight() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let order = two.order(c, 1, "k-1", 1, Some(2));
+    deltabadger::app_config::set_plain(c, &format!("{}{order}", deltabadger::engine::reconcile::UNRESOLVED), "{\"why\":\"x\"}", chrono::Utc::now()).unwrap();
+    refused_unchanged(c, &two, "unresolved settlement");
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
+               VALUES ('recorder:s1', 'prepared', 'c', 'now', ?1, 'd', 'h', 's', 'k', 'p', 'f', 'b', 'f')", [two.keys[0]]).unwrap();
+    refused_unchanged(c, &two, "a recorder's intent on 1");
+}
+
+/// R3: overlap evidence counts only rows the venue returned: a restored copy of the other account's trades (a Deltabadger
+/// CSV restore stores no venue answer) is no evidence.
+#[test]
+fn r3_restored_rows_are_never_overlap_evidence() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    c.execute("UPDATE account_transactions SET raw_data = '{}' WHERE id IN (SELECT id FROM account_transactions ORDER BY id LIMIT 3)", []).unwrap();
+    assert!(!observe(c, &two, 1), "account 1's copies were restored");
+}
+
+/// R4: a chain whose known fingerprints differ along it (#3 B, #2 unknown, #1 A) is no duplicate.
+#[test]
+fn r4_a_chain_with_conflicting_fingerprints_is_no_duplicate() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let third = two.third(c).id.unwrap();
+    two.fingerprint(c, 0, Some("A"));
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'B' WHERE id = ?1", [third]).unwrap();
+    for (d, s) in [(two.id(1), two.id(0)), (third, two.id(1))] {
+        c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, 3, 'now')", [d, s]).unwrap();
+    }
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+}
+
+/// R5: a survivor's withdrawal linked to the duplicate's deposit reads unlinked once that deposit leaves the walk.
+#[test]
+fn r5_a_link_to_a_duplicates_row_reads_unlinked() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let w = two.row(c, 0, 5, "BTC", "1", Some("w"), None, "2026-09-01 10:00:00");
+    let d = two.row(c, 1, 4, "BTC", "1", Some("dep"), None, "2026-09-01 10:00:00");
+    two.row(c, 0, 4, "BTC", "1", Some("dep"), None, "2026-09-01 10:00:00");
+    link(c, w, d);
+    let rows = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap();
+    assert_eq!(rows.iter().find(|r| r.id == w).unwrap().linked_to, None);
+}
+
+/// R7/R8: a discovery reply and a job's later capture are refused once the key moved to another account.
+#[tokio::test(flavor = "current_thread")]
+async fn r7_r8_late_captures_on_another_account_are_refused() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let two = Two::kraken(c, &cipher);
+    let version = deltabadger::engine::model::credential_version_by_id(c, two.keys[1]).unwrap().unwrap();
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, redaction_values: vec![], key: "account-2-key".into(), secret: "account-2-secret".into(), passphrase: None };
+    let due = identity::Due { api_key_id: two.keys[1], exchange_type: "Exchanges::Kraken".into(), credentials: credentials.clone(), version: version.clone() };
+    move_key_to_one(c, two.keys[1]);
+    assert!(!identity::publish(c, &cipher, &due, &identity::Observed::Failed("x".into()), chrono::Utc::now()).unwrap(), "discovery");
+    let db = deltabadger::jobs::Db::new(Connection::open(_d.path().join("production.sqlite3")).unwrap(), cipher.clone());
+    let plain = deltabadger::sync::capture_bound_version(&db, two.keys[1], &credentials).await;
+    assert!(plain.is_ok(), "unbound, a capture is as before");
+    let bound = deltabadger::sync::bound(Some(two.id(1)), deltabadger::sync::capture_bound_version(&db, two.keys[1], &credentials)).await;
+    assert!(bound.is_err(), "bound to account 2, a capture on account 1 is refused");
+}
+
+/// R9: a live account 2+ refuses the handback with nothing else of it left; a Merge of 2 into 1 lets the handback through,
+/// 2.x reads the moved rule in its own columns, and a takeover keeps it on account 1.
+#[tokio::test(flavor = "current_thread")]
+async fn r9_t25_merge_handback_and_takeover() {
+    use deltabadger::engine::handover;
+    let now = chrono::Utc::now();
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = deltabadger::lease::lock(&p, now).unwrap();
+    let o = store::open(&p).unwrap();
+    let cipher = seed::cipher();
+    let two = Two::kraken(&o.primary, &cipher);
+    let c = &o.primary;
+    for b in two.bots { c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [b]).unwrap(); }
+    handover::take_over(&l, &o, &cipher, "0.2.0", now).unwrap();
+    let rule = two.rule(c, &cipher, 1, two.seeded.btc, 0);
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let third = two.third(c).id.unwrap();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let refused = handover::hand_back(&l, &o, &deltabadger::venue::fake::FakeFactory::default(), &cipher, &deltabadger::engine::FixedClock(now)).await;
+    assert!(matches!(&refused, Err(deltabadger::engine::EngineError::Ineligible(lines)) if lines.iter().any(|l| l.contains(handover::SECOND_ACCOUNT))), "{refused:?}");
+    c.execute("UPDATE exchange_accounts SET removed_at = 'now' WHERE id = ?1", [third]).unwrap();
+    handover::hand_back(&l, &o, &deltabadger::venue::fake::FakeFactory::default(), &cipher, &deltabadger::engine::FixedClock(now)).await.unwrap();
+    assert_eq!(c.query_row("SELECT exchange_id, status FROM rules WHERE id = ?1", [rule], |r| Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, i64>(1)?))).unwrap(), (Some(two.seeded.exchange_id), 0));
+    handover::take_over(&l, &o, &cipher, "0.2.0", now).unwrap();
+    assert_eq!(identity::account_of_rule(c, rule).unwrap(), Some(two.id(0)), "the rule is on account 1 again");
+}
+
+/// R10: a duplicate's own activity moves no history version.
+#[test]
+fn r10_a_duplicates_activity_moves_no_history_version() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let before = deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap();
+    two.row(c, 1, 4, "BTC", "1", Some("late"), None, "2026-09-25 10:00:00");
+    assert_eq!(deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap(), before);
 }

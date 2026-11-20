@@ -139,8 +139,12 @@ pub fn run(c: &Connection, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> 
         "SELECT EXISTS(SELECT 1 FROM rust_api_orders o LEFT JOIN rust_api_order_standalone x ON x.order_id = o.id WHERE o.state IN ('queued', 'taken', 'sending') \
            AND (x.account_id IN ({d}, {s}) OR o.bot_id IN {bots})) \
          OR EXISTS({}) OR EXISTS({}) \
-         OR EXISTS(SELECT 1 FROM rust_withdrawal_intents WHERE owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({d}, {s})))",
-        unsettled_standalone(d), unsettled_standalone(s)), [], |r| r.get(0))?;
+         OR EXISTS(SELECT 1 FROM rust_withdrawal_intents i WHERE i.owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({d}, {s})) \
+           OR i.api_key_id IN (SELECT k.id FROM api_keys k WHERE {} OR {})) \
+         OR EXISTS(SELECT 1 FROM app_configs x JOIN transactions t ON t.id = CAST(substr(x.key, instr(x.key, ':') + 1) AS INTEGER) \
+           WHERE (x.key LIKE '{}%' OR (x.key LIKE '{}%' AND json_extract(x.value, '$.origin') = 'unproven')) AND t.exchange_id = {exchange} AND ({} OR {}))",
+        unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
+        sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
     if waiting || settling(c, &ad)? || settling(c, &as_)? { return Err(Refusal::InFlight); }
 
     // 2. Conflicts, before any write.
@@ -158,6 +162,19 @@ pub fn run(c: &Connection, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> 
     let binance: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%' AND (instr(key, ?1) > 0 OR substr(key, -length(?2)) = ?2))",
                                     [format!(":{user}:{exchange}@{d}:"), format!(":{user}:{exchange}@{d}")], |r| r.get(0))?;
     if binance { conflicts.push("Binance CSV import".into()); }
+    // KuCoin: a restored fill (no provenance) of one account at a second the other holds an API fill of would leave both
+    // visible; the sync's reconciliation, which withholds the API copy, runs per account. Refused, naming the restored row.
+    let kucoin: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get(0)).optional()?.flatten();
+    if kucoin.as_deref() == Some(crate::venue::kucoin::KUCOIN) {
+        for (mine, theirs) in [(&sd, &ss), (&ss, &sd)] {
+            let mut q = c.prepare(&format!("SELECT a.id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} \
+                                            AND EXISTS (SELECT 1 FROM account_transactions b WHERE b.user_id = a.user_id AND b.exchange_id = a.exchange_id AND {} \
+                                              AND b.entry_type IN (0, 1) AND {} AND substr(b.transacted_at, 1, 19) = substr(a.transacted_at, 1, 19)) ORDER BY a.id",
+                                           mine.rows("a"), crate::sync::kucoin_hf::provenance_less_of("a"), theirs.rows("b"), crate::sync::kucoin_hf::api_row_of("b")))?;
+            let rows: Vec<i64> = q.query_map([user, exchange], |r| r.get(0))?.collect::<Result<_, _>>()?;
+            for row in rows { conflicts.push(named(c, row)?); }
+        }
+    }
     let plan = ledger(c, &sd, &ss)?;
     conflicts.extend(plan.conflicts.iter().cloned());
     if !conflicts.is_empty() { return Err(Refusal::Conflict(conflicts)); }

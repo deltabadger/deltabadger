@@ -115,8 +115,13 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bo
         crate::tracker::cache::State::Cold | crate::tracker::cache::State::Failed(_) => None,
     };
     let has_keys: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND status=1 AND key_type!=1)", [owner], |r| r.get(0))?;
-    let balances: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b WHERE b.user_id=?1 AND {} AND b.free+b.locked>0)", scope.store("b")), [owner], |r| r.get(0))?;
-    let marked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1 AND balances_synced_at IS NOT NULL)", [owner], |r| r.get(0))?;
+    // A duplicate's balances and sync time are not its survivor's (#710, PLAN-710-6 §5.2).
+    let duplicates = crate::identity::duplicate_ids(c, owner)?;
+    let balances: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM exchange_account_balances b WHERE b.user_id=?1 AND {} AND {} AND b.free+b.locked>0)", scope.store("b"),
+                                              crate::identity::not_duplicate("b.account_id", &duplicates)), [owner], |r| r.get(0))?;
+    let key_account = if duplicates.is_empty() { "NULL".to_string() } else { crate::identity::key_account_sql("k") };
+    let marked: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.user_id=?1 AND k.balances_synced_at IS NOT NULL AND {})",
+                                            crate::identity::not_duplicate(&key_account, &duplicates)), [owner], |r| r.get(0))?;
     Ok(Ok(Portfolio { warm, ledger, published, cold, has_keys, never_synced: has_keys && !balances && !marked }))
 }
 

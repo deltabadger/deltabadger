@@ -40,7 +40,9 @@ pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chron
 
 /// `PortfolioSnapshot.history_version`: what a stored history was swept from (every row, today's included).
 pub fn history_version(c: &Connection, user_id: i64) -> Result<String, FiguresError> {
-    let (count, latest): (i64, Option<String>) = c.query_row("SELECT count(*), max(updated_at) FROM account_transactions WHERE user_id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    // A duplicate account's rows (#710, PLAN-710-6 §5.2) count for nothing: its activity alone moves no version.
+    let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
+    let (count, latest): (i64, Option<String>) = c.query_row(&format!("SELECT count(*), max(t.updated_at) FROM account_transactions t WHERE t.user_id = ?1 AND {counted}"), [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let latest = latest.map(|t| crate::codec::parse_time(&t).map(|t| t.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string()))
         .transpose().map_err(|e| FiguresError::Data(format!("{e:?}")))?;
     Ok(format!("{HISTORY_VERSION}_{count}_{}{}", latest.unwrap_or_default(), standing_suffix(c, user_id)?))

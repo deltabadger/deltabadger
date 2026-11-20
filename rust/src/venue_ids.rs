@@ -205,7 +205,9 @@ pub fn order_by_id(c: &Connection, scope: &Scope, external: &str) -> rusqlite::R
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Facts { pub venue_id: String, pub entry_type: i64, pub base: Option<String>, pub base_amount: Option<String>, pub quote: Option<String>, pub quote_amount: Option<String>, pub at: String }
 /// The trade kinds (sync/activities.rs): BUY, SELL, SWAP_IN, SWAP_OUT. A transfer never counts, whatever its id.
-const TRADES: &str = "a.entry_type IN (0, 1, 2, 3)";
+/// And a row the venue returned to the account's own key: a restored or hand-entered row (a Deltabadger CSV restore, the
+/// one import that reaches these venues) stores no venue answer, `{}`, and is never evidence.
+const TRADES: &str = "a.entry_type IN (0, 1, 2, 3) AND COALESCE(a.raw_data, '{}') NOT IN ('{}', '', 'null')";
 const FACTS: &str = "a.entry_type, a.base_currency, CAST(a.base_amount AS TEXT), a.quote_currency, CAST(a.quote_amount AS TEXT), substr(a.transacted_at, 1, 19)";
 fn facts(r: &rusqlite::Row<'_>) -> rusqlite::Result<Facts> {
     Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: r.get(3)?, quote: r.get(4)?, quote_amount: r.get(5)?, at: r.get(6)? })

@@ -302,7 +302,8 @@ impl<C: Connect> Job for LedgerSync<C> {
             };
             let completion=async {
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
-            let result=async {
+            // A capture inside the job (each adapter re-reads its key) must be on the account captured here (#710 §6.4).
+            let result=crate::sync::bound(version.account(), async {
             let key = self.key_id.to_string();
             let at = cx.clock.now();
             if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
@@ -361,7 +362,7 @@ impl<C: Connect> Job for LedgerSync<C> {
             }
             outcome
 
-            }.await;
+            }).await;
             crate::engine::model::Produced::new(result,Some(version))
             }.await;
             if completion.value != Outcome::NothingNew { cx.db.notifications.sync_done(owner); }

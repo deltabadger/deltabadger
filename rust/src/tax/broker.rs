@@ -213,9 +213,11 @@ impl Rec {
 
 fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
     let zone: String = c.query_row("SELECT COALESCE(time_zone, 'UTC') FROM users WHERE id = ?1", [user], |r| r.get(0))?;
-    let mut s = c.prepare("SELECT t.id, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, t.fee_amount, t.transacted_at, t.raw_data, \
+    // A duplicate account's rows repeat its survivor's (#710, PLAN-710-6 §5.2).
+    let mut s = c.prepare(&format!("SELECT t.id, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, t.fee_amount, t.transacted_at, t.raw_data, \
                            t.api_key_id, ba.id, ba.external_id, ba.category FROM account_transactions t LEFT JOIN assets ba ON ba.id = t.base_asset_id \
-                           WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.transacted_at < ?3 ORDER BY t.transacted_at, t.id")?;
+                           WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.transacted_at < ?3 AND {} ORDER BY t.transacted_at, t.id",
+                          crate::identity::counted(c, user, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?))?;
     // Every row of the year in any zone; each kept by its own day's year.
     let until = format!("{}-01-02 12:00:00", year + 1);
     let mut rows = s.query(rusqlite::params![user, exchange, until])?;

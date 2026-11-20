@@ -677,21 +677,29 @@ fn overlaps_ready(c: &Connection) -> rusqlite::Result<bool> {
 /// to its lowest live end. One statement; none on an install without the observation table.
 pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
     if !overlaps_ready(c)? { return Ok(vec![]); }
-    let mut s = c.prepare("SELECT d.id, s.id FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
+    let mut s = c.prepare("SELECT d.id, s.id, d.fingerprint, s.fingerprint FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
                              AND s.number < d.number AND s.removed_at IS NULL
                            WHERE d.user_id = ?1 AND d.removed_at IS NULL AND (
                              (d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint)
                              OR (EXISTS (SELECT 1 FROM exchange_account_overlaps o WHERE o.account_id = d.id AND o.other_account_id = s.id)
                                  AND NOT (d.fingerprint IS NOT NULL AND s.fingerprint IS NOT NULL AND d.fingerprint <> s.fingerprint)))
                            ORDER BY d.id, s.number")?;
-    let links = s.query_map([user_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    type Link = (i64, i64, Option<String>, Option<String>);
+    let links = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<rusqlite::Result<Vec<Link>>>()?;
+    let mut prints: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for (d, s, fd, fs) in &links {
+        if let Some(f) = fd { prints.insert(*d, f.clone()); }
+        if let Some(f) = fs { prints.insert(*s, f.clone()); }
+    }
     // Each duplicate's lowest-numbered link, then its survivor's survivor until a non-duplicate (bounded by the accounts).
     let mut first: Vec<(i64, i64)> = vec![];
-    for (d, s) in links { if !first.iter().any(|(x, _)| *x == d) { first.push((d, s)); } }
+    for (d, s, _, _) in links { if !first.iter().any(|(x, _)| *x == d) { first.push((d, s)); } }
     let map: std::collections::HashMap<i64, i64> = first.iter().copied().collect();
-    Ok(first.iter().map(|&(d, mut s)| {
-        for _ in 0..map.len() { match map.get(&s) { Some(&next) => s = next, None => break } }
-        (d, s)
+    // A chain whose known fingerprints differ anywhere along it (#3 B, #2 unknown, #1 A) is two venue accounts: no duplicate.
+    Ok(first.iter().filter_map(|&(d, mut s)| {
+        let mut seen: Vec<&String> = prints.get(&d).into_iter().chain(prints.get(&s)).collect();
+        for _ in 0..map.len() { match map.get(&s) { Some(&next) => { s = next; seen.extend(prints.get(&s)); } None => break } }
+        seen.windows(2).all(|w| w[0] == w[1]).then_some((d, s))
     }).collect())
 }
 /// The ids of the user's duplicates (`duplicates`).
@@ -983,7 +991,9 @@ pub fn due(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Vec<Du
 /// Records a discovery read, under the credential fence: nothing when the key changed or went since it was read.
 pub fn publish(c: &Connection, cipher: &Cipher, due: &Due, observed: &Observed, now: DateTime<Utc>) -> Result<bool, String> {
     let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
-    if !crate::engine::model::credential_is_current(&tx, &due.version).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+    // The key's account too (#710): a reply read before a Merge moved the key is not its new account's.
+    if !crate::engine::model::credential_is_current(&tx, &due.version).map_err(|e| format!("{e:?}"))?
+        || !crate::engine::model::account_is_current(&tx, &due.version).map_err(|e| format!("{e:?}"))? { return Ok(false); }
     record(&tx, cipher, due.api_key_id, &due.credentials, &due.version, observed, now)?;
     tx.commit().map_err(|e: rusqlite::Error| e.to_string())?;
     Ok(true)

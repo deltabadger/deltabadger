@@ -94,7 +94,8 @@ impl Two {
     /// A trade row of account `n` (`entry_type` 0-3) with venue id `id` and its facts: `base_amount` of BTC for 100 EUR at `at`.
     pub fn trade(&self, c: &Connection, n: usize, entry_type: i64, id: &str, base_amount: &str, at: &str) -> i64 {
         let row = self.row(c, n, entry_type, "BTC", base_amount, Some(id), None, at);
-        c.execute("UPDATE account_transactions SET quote_currency = 'EUR', quote_amount = '100' WHERE id = ?1", [row]).unwrap();
+        // The venue's answer, as a sync stores it (a restored row stores none).
+        c.execute("UPDATE account_transactions SET quote_currency = 'EUR', quote_amount = '100', raw_data = json_object('refid', ?2) WHERE id = ?1", rusqlite::params![row, id]).unwrap();
         row
     }
 

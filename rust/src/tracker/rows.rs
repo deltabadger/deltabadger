@@ -213,6 +213,11 @@ fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
 pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> {
     let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
     let mut rows = read(c, &format!("t.user_id = ?1 AND {counted}"), rusqlite::params![user_id])?;
+    // A row linked to a duplicate's row (left out above) reads unlinked: its partner is not in the walk.
+    if counted != "1" {
+        let ids: std::collections::HashSet<i64> = rows.iter().map(|r| r.id).collect();
+        for r in rows.iter_mut().filter(|r| r.linked_to.is_some_and(|l| !ids.contains(&l))) { r.linked_to = None; r.to_venue = None; r.to_exchange_id = None; r.to_account = None; }
+    }
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
     rows.sort_by_key(|r| (r.at.0, r.id));
     price_cfees(&mut rows)?;

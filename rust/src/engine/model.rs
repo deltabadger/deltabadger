@@ -859,12 +859,14 @@ pub fn credentials_with_version(c: &Connection, cipher: &Cipher, bot: &Bot) -> R
 /// Diagnostic material comes from the same row snapshot as the credential digest.
 pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>,Vec<String>);
 pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
-    type KeyRow = ([Option<String>;7], Option<String>, i64);
-    let row: Option<KeyRow> = c.query_row(
-        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1",bot_keys(c,bot)?),
-        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
-    let Some((columns,exchange_type,id)) = row else { return Ok((None,None,Vec::new())) };
-    let version = ciphertext_version(id,&columns).with_account(crate::identity::account_of_key(c,id)?);
+    type KeyRow = ([Option<String>;7], Option<String>, i64, Option<i64>);
+    let keys = bot_keys(c,bot)?;
+    // The ciphertext and its owner in one statement (#710 §6.4).
+    let row: Option<KeyRow> = crate::identity::with_key_account("k", |account| c.query_row(
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id,{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {keys} AND k.key_type=0 ORDER BY k.id LIMIT 1"),
+        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?,r.get(9)?))).optional())?;
+    let Some((columns,exchange_type,id,owner)) = row else { return Ok((None,None,Vec::new())) };
+    let version = ciphertext_version(id,&columns).with_account(owner);
     let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
     // ApiKey#passphrase where the venue's client takes it: KuCoin signs with it, Alpaca reads its mode from it. Others never
     // read the field, so an unreadable leftover there does not stop their key.
