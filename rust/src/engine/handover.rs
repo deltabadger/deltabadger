@@ -710,7 +710,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
-        (Table, "kucoin_coverage", Refuses("KuCoin HF history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
+        (Table, "kucoin_coverage", Refuses("KuCoin HF and Unified account history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
         // API orders (D-ORDER-QUEUED): one placed through a bot is that bot's rust_placement (a wait). A standalone one is
         // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:
@@ -757,7 +757,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_snapshot_prices_pending_", Ignored),
         // KuCoin (reconcile.rs): an HF or UTA order record refuses; a Classic one is 2.x's own route. An obligation or an
         // unproven route sits on 2.x's own transaction row, which adopt_handback! polls while it is open.
-        (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF orders are Rust-only")),
+        (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF and Unified account orders are Rust-only")),
         (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
         (AppConfig, "rust_kucoin_hf_gap.", Ignored),
         // A user cancel's re-read: adopt_handback! polls every open order.
@@ -1131,7 +1131,7 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
         }
     }
     // D-KUCOIN-HF-LEDGER: 2.x reads neither HF fills nor the one-trade rule; the marker stays through a later ClassicLf.
-    if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF history is Rust-only".into()])); }
+    if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF and Unified account history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;
     if !hf.is_empty() { return Err(EngineError::Ineligible(hf)); }
     let found = rust_only_conditions(c)?;
