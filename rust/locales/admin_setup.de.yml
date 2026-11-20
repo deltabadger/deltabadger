@@ -3,9 +3,6 @@ de:
     title: "Willkommen bei Deltabadger"
     admin_account: "Admin-Konto"
     platform:
-      prompt: "Hast du ein Deltabadger.com-Abonnement?"
-      code: "Verbindungscode"
-      connect: "Verbinden"
       connected_with_proxies: "Verbunden ✓ — Marktdaten und Börsen-Proxys sind aktiv"
       connected_without_proxies: "Verbunden ✓ — Marktdaten sind aktiv; Börsen-Proxys sind nicht verfügbar"
     locked:
@@ -27,6 +24,9 @@ de:
         <li><b>Kopieren Sie den API-Schlüssel</b> und fügen Sie ihn oben ein</li>
       </ol>
     continue: "Weiter"
+    create: "Erstellen"
+    language:
+      greeting: "Hallo"
     submit: "Starten"
     success: "Setup erfolgreich abgeschlossen. Willkommen bei Deltabadger!"
     syncing_title: "Assets werden synchronisiert…"

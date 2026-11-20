@@ -13,6 +13,7 @@ fr:
             public_key_label: Clé API
             private_key_label: Secret API
             whitelist_ip_fallback_html: "l'adresse IP de la machine où Deltabadger est installé. Si vous utilisez un serveur, utilisez l'IP publique du serveur. Si c'est votre ordinateur personnel, <a href=\"https://whatismyipaddress.com\" target=\"_blank\">vérifiez votre IP ici</a>"
+            desktop_stable_ip_html: 'Votre IP locale change probablement tous les deux ou trois jours. <a href="%{url}" data-turbo-frame="_top">Obtenez une IP fixe avec un abonnement Deltabadger.</a>'
             alpaca:
                 instructions: 'Rends-toi sur le <a href="https://app.alpaca.markets/" target="_blank" rel="noopener">tableau de bord Alpaca</a> — choisis <b>Trading API</b>, pas Broker API — et trouve la section <b>API Keys</b> dans la barre latérale droite. Clique sur <b>Generate New Keys</b> et enregistre les identifiants API générés.'
             binance: &binance_config

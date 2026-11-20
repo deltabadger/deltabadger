@@ -3,9 +3,6 @@ sv:
     title: "Välkommen till Deltabadger"
     admin_account: "Administratörskonto"
     platform:
-      prompt: "Har du en Deltabadger.com-prenumeration?"
-      code: "Anslutningskod"
-      connect: "Anslut"
       connected_with_proxies: "Ansluten ✓ — marknadsdata och börsproxyservrar är aktiva"
       connected_without_proxies: "Ansluten ✓ — marknadsdata är aktiva; börsproxyservrar är inte tillgängliga"
     locked:
@@ -27,6 +24,9 @@ sv:
         <li><b>Copy API key</b> och klistra in den ovan</li>
       </ol>
     continue: "Fortsätt"
+    create: "Skapa"
+    language:
+      greeting: "Hej"
     submit: "Starta"
     success: "Installationen är klar. Välkommen till Deltabadger!"
     syncing_message: "Synkroniserar tillgångar…"
