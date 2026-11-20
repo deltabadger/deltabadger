@@ -157,7 +157,9 @@ async fn the_token_redirect_goes_the_way_the_gate_goes() {
 fn every_locale_has_the_new_keys() {
     for code in locale::LOCALES {
         for key in ["setup.language.greeting", "setup.create", "bot.api.desktop_stable_ip_html"] {
-            assert!(web::i18n::text_chain(code, &[key.to_string()], &[]).is_some_and(|t| !t.is_empty()), "{code}: {key}");
+            // The locale's own file, not the lookup (which falls back to English).
+            let own = format!("{code}.{key}");
+            assert!(web::i18n::all().iter().any(|(name, text)| *name == own && !text.is_empty()), "{own}");
         }
     }
 }

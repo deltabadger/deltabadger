@@ -30,7 +30,7 @@ The free plan covers about two years of price history. For a tax report on older
 
 Select this option, paste the **Connect code** from your Deltabadger.com Self-Hosted subscription and press **Connect**. The code configures market data and, where included, exchange proxies; the widget then reads "Connected to Deltabadger.com for market data and exchange proxies." (or "… Exchange proxies are unavailable."). An invalid or expired code is refused. **Disconnect** removes the connection, proxies included.
 
-The same code can be entered on the setup page (see [First run](06-first-run.md)) or supplied as `CLAIM_TOKEN` (see [Configuration](29-configuration.md)).
+The same code can also be supplied as `CLAIM_TOKEN` (see [Configuration](29-configuration.md)), which redeems it when the setup page first opens (see [First run](06-first-run.md)).
 
 ## Locked by the environment
 

@@ -309,7 +309,7 @@ fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 /// The status page's URL: the app's own origin, which serves ui/index.html at its root (frontendDist). Not read from the
 /// window, which may still be at about:blank right after it was created (WebView2 navigates asynchronously).
-fn status_page() -> tauri::Url {
+pub fn status_page() -> tauri::Url {
     let origin = if cfg!(windows) { "http://tauri.localhost/" } else { "tauri://localhost/" };
     origin.parse().expect("a fixed URL")
 }
@@ -371,8 +371,10 @@ pub enum Navigation {
 }
 
 pub fn navigation(url: &tauri::Url, engine_port: Option<u16>) -> Navigation {
-    // The status page's origin exactly: tauri://localhost (macOS, Linux) or http://tauri.localhost (Windows), no port.
-    let status = url.port().is_none() && ((url.scheme() == "tauri" && url.host_str() == Some("localhost")) || (url.scheme() == "http" && url.host_str() == Some("tauri.localhost")));
+    // The status page's origin exactly, as this platform serves it (`status_page`): tauri://localhost on macOS and Linux,
+    // http://tauri.localhost on Windows. Elsewhere the other one is an ordinary destination.
+    let own = status_page();
+    let status = url.scheme() == own.scheme() && url.host_str() == own.host_str() && url.port() == own.port();
     // Any query on its root is the picker's form (a form submitted without a row sends `/?`): read, never loaded.
     if status && url.path() == "/" && url.query().is_some() {
         let code = url.query_pairs().find(|(key, _)| key == "locale").map(|(_, code)| code.into_owned()).unwrap_or_default();

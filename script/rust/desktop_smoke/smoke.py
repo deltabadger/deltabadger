@@ -936,9 +936,10 @@ def scenario_language(name):
         for value in ("zz", ""):
             win.js("var i = document.querySelector('#langs-list input:checked'); i.value = arguments[0]; document.getElementById('go').click(); return true;", value)
             time.sleep(2)
+            # The row's value is the test's own edit, put back before the picker is compared with what it showed.
+            win.js("var i = document.querySelector('#langs-list input:checked'); if (i) { i.value = 'en'; } return true;")
             again = win.poll(f"the picker after {value!r}", 10, PICKER)
             check(again == shown and starts(data) == 0 and not (data / "first-language").exists(), f"after {value!r}: {again}, {starts(data)} starts")
-            win.js("var i = document.querySelector('#langs-list input:checked'); i.value = 'en'; return true;")
         say("an invalid and an empty choice leave the picker as it is; no engine")
         win.js("var i = document.querySelector('#langs-list input[value=de]'); i.click(); return document.getElementById('hello').textContent;")
         check(win.js("return document.getElementById('go').textContent;") == "Weiter", "the button is not in German")

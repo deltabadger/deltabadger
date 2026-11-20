@@ -28,7 +28,8 @@
     { "header": "de;q=0", "choice": ["ask", "en"] },
     { "header": "de;q=0,pl", "choice": ["use", "pl"] },
     { "header": "en;q=0.5,fr", "choice": ["use", "fr"] },
-    { "header": "*", "choice": ["ask", "en"] }
+    { "header": "*", "choice": ["ask", "en"] },
+    { "header": "de;q=0;q=1,en", "choice": ["ask", "en"] }
   ],
   "parse": [
     { "header": "", "languages": [] },
@@ -46,6 +47,8 @@
     { "header": "pl;q=abc,de", "languages": ["de"] },
     { "header": "pl;q=0.12345,de", "languages": ["de"] },
     { "header": "pl;q,de", "languages": ["de"] },
+    { "header": "de;q=0;q=1,en", "languages": ["en"] },
+    { "header": "de;q=1;q=0.5,pl", "languages": ["pl"] },
     { "header": "p_l,de", "languages": ["de"] },
     { "header": "toolongtag,de", "languages": ["de"] },
     { "header": "de-,pl", "languages": ["pl"] },

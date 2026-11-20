@@ -830,7 +830,7 @@ async fn the_connect_code_route_is_gone() {
 /// language step in the form's language; it asks for no autofill (a new account) and its button says Create.
 #[tokio::test(flavor = "current_thread")]
 async fn the_admin_form_has_no_language_choice_and_its_logo_leads_back() {
-    let (_dir, app) = fresh(&[]).await;
+    let (dir, app) = fresh(&[]).await;
     for (path, code) in [("/setup", "en"), ("/setup?locale=pl", "pl"), ("/setup?locale=el", "el")] {
         let body = Browser::default().get(&app, path).await.body;
         assert!(!body.contains("data-controller=\"dropdown\"") && !body.contains("<details") && !body.contains("claim_code"), "{path}");
@@ -851,9 +851,11 @@ async fn the_admin_form_has_no_language_choice_and_its_logo_leads_back() {
     assert_eq!(refused.status, 422);
     let at = |needle: &str| refused.body.find(needle).unwrap_or_else(|| panic!("{needle}"));
     assert!(at("devise__icon") < at("<h1>") && at("<h1>") < at("form__errors") && at("form__errors") < at("id=\"user_email\""));
-    // Other devise pages keep their layout: no modifier, no preload.
-    let login = Browser::default().get(&app, "/login").await.body;
-    assert!(!login.contains("devise--onboarding") && !login.contains("rel=\"preload\""));
+    // Other devise pages keep their layout: no modifier, no preload (the login page, once an admin exists).
+    rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap().execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+    let login = Browser::default().get(&app, "/login").await;
+    assert_eq!(login.status, 200);
+    assert!(login.body.contains("<div class=\"devise\">") && !login.body.contains("devise--onboarding") && !login.body.contains("rel=\"preload\""), "{}", login.body);
 }
 
 #[tokio::test(flavor = "current_thread")]

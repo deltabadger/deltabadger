@@ -935,9 +935,12 @@ fn a_respawn_after_a_failed_install_gives_way_to_a_quit() {
 #[test]
 fn the_window_goes_only_to_the_status_page_and_this_engine() {
     let url = |u: &str| u.parse::<tauri::Url>().unwrap();
-    for allowed in ["tauri://localhost/index.html#starting", "http://tauri.localhost/#updating", "http://127.0.0.1:3001/bots", "about:blank"] {
+    // The status page at this platform's own origin only; the other platform's is no status page here.
+    let (own, other) = if cfg!(windows) { ("http://tauri.localhost/#updating", "tauri://localhost/index.html#starting") } else { ("tauri://localhost/index.html#starting", "http://tauri.localhost/#updating") };
+    for allowed in [own, "http://127.0.0.1:3001/bots", "about:blank"] {
         assert_eq!(navigation(&url(allowed), Some(3001)), Navigation::Allow, "{allowed}");
     }
+    assert_ne!(navigation(&url(other), Some(3001)), Navigation::Allow, "{other}");
     for browser in ["http://127.0.0.1:3002/", "http://localhost:3001/", "https://deltabadger.com/", "http://127.0.0.2:3001/"] {
         assert_eq!(navigation(&url(browser), Some(3001)), Navigation::Browser, "{browser}");
     }
@@ -1252,10 +1255,14 @@ fn a_database_folder_that_cannot_be_looked_at_is_d5_and_never_a_first_start() {
     let launch = english("language-unreadable", "serve:app:500", &["en-US"]);
     fs::create_dir_all(launch.db()).unwrap();
     fs::set_permissions(launch.db(), fs::Permissions::from_mode(0o000)).unwrap();
+    // Run as root, every folder can be looked at: the launch would be a first start and wait at the picker.
+    if !matches!(fs::metadata(launch.primary()), Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied) {
+        fs::set_permissions(launch.db(), fs::Permissions::from_mode(0o755)).unwrap();
+        return;
+    }
     let view = Recorder::default();
     with_stub_script(&launch, || supervise(&launch, &Engine::default(), &view));
     fs::set_permissions(launch.db(), fs::Permissions::from_mode(0o755)).unwrap();
-    if view.states().is_empty() { return; } // run as root: every folder can be looked at
     assert_eq!(view.states().last().map(String::as_str), Some("not-started"), "{:?}", view.events());
     assert!(!view.states().contains(&"language".to_string()));
     assert_eq!(starts(&launch), 0);
@@ -1272,6 +1279,7 @@ fn a_quit_while_the_picker_waits_starts_nothing_and_a_late_choice_never_spawns()
         assert_eq!(starts(&launch), 0, "choice after the quit: {choose_after_quit}");
         assert_eq!(view.states(), vec!["language"], "{:?}", view.events());
         assert!(!launch.primary().exists(), "no database: the next launch asks again");
+        assert!(!launch.first_language().exists(), "a quit saves no choice (choice after the quit: {choose_after_quit})");
     }
 }
 
@@ -1280,26 +1288,25 @@ fn a_quit_while_the_picker_waits_starts_nothing_and_a_late_choice_never_spawns()
 #[test]
 fn a_choice_navigation_is_always_a_choice_and_never_loads() {
     let url = |u: &str| u.parse::<tauri::Url>().unwrap();
-    for (raw, code) in [("tauri://localhost/?locale=el", "el"), ("http://tauri.localhost/?locale=de", "de"), ("tauri://localhost/?locale=", ""),
-                        ("tauri://localhost/?locale=zz", "zz"), ("tauri://localhost/?x=1&locale=pl", "pl"), ("tauri://localhost/?", ""),
-                        ("tauri://localhost/?other=el", "")] {
-        assert_eq!(navigation(&url(raw), Some(3001)), Navigation::Choice(code.into()), "{raw}");
+    let origin = status_page().as_str().trim_end_matches('/').to_string();
+    let at = |rest: &str| url(&format!("{origin}{rest}"));
+    for (rest, code) in [("/?locale=el", "el"), ("/?locale=", ""), ("/?locale=zz", "zz"), ("/?x=1&locale=pl", "pl"), ("/?", ""), ("/?other=el", "")] {
+        assert_eq!(navigation(&at(rest), Some(3001)), Navigation::Choice(code.into()), "{rest}");
     }
-    for raw in ["tauri://localhost/index.html?locale=el", "tauri://localhost/", "http://tauri.localhost/#language&preselect=en"] {
-        assert_eq!(navigation(&url(raw), Some(3001)), Navigation::Allow, "{raw}");
+    for rest in ["/index.html?locale=el", "/", "/#language&preselect=en"] {
+        assert_eq!(navigation(&at(rest), Some(3001)), Navigation::Allow, "{rest}");
     }
-    for raw in ["tauri://evil/", "tauri://localhost:8080/?locale=el", "tauri://evil/?locale=el"] {
-        assert_eq!(navigation(&url(raw), Some(3001)), Navigation::Refuse, "{raw}");
+    // Another host or port is no status page, so no choice.
+    for raw in ["tauri://evil/?locale=el", "tauri://localhost:8080/?locale=el", "http://tauri.localhost:3001/?locale=el"] {
+        assert!(!matches!(navigation(&url(raw), Some(3001)), Navigation::Allow | Navigation::Choice(_)), "{raw}");
     }
-    assert_eq!(navigation(&url("http://tauri.localhost:3001/?locale=el"), Some(3001)), Navigation::Browser);
+    let other = if cfg!(windows) { "tauri://localhost/?locale=el" } else { "http://tauri.localhost/?locale=el" };
+    assert!(!matches!(navigation(&url(other), Some(3001)), Navigation::Allow | Navigation::Choice(_)), "{other}");
+    // Not waiting: a choice is taken by nobody.
     let engine = Engine::default();
-    let view = Recorder::default();
-    view.status("language&preselect=en");
-    let shown = view.events();
     for code in ["el", "", "zz"] {
         assert!(!engine.language().choose(code), "not waiting: {code:?}");
     }
-    assert_eq!(view.events(), shown);
 }
 
 #[test]

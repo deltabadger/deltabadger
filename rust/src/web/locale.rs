@@ -73,12 +73,16 @@ pub fn accept_language(header: &str) -> Vec<&str> {
         let mut parts = item.split(';');
         let tag = parts.next()?.trim();
         if !tag_ok(tag) { return None; }
-        let mut q = 1000;
-        for parameter in parts {
-            let (name, value) = parameter.split_once('=')?;
-            if !name.trim().eq_ignore_ascii_case("q") { return None; }
-            q = qvalue(value.trim())?;
-        }
+        // At most one parameter, a well-formed q: a second q makes the item malformed, not a reweighting.
+        let q = match (parts.next(), parts.next()) {
+            (None, _) => 1000,
+            (Some(parameter), None) => {
+                let (name, value) = parameter.split_once('=')?;
+                if !name.trim().eq_ignore_ascii_case("q") { return None; }
+                qvalue(value.trim())?
+            }
+            (Some(_), Some(_)) => return None,
+        };
         (q > 0).then_some((tag, q))
     }).collect();
     items.sort_by(|a, b| b.1.cmp(&a.1));

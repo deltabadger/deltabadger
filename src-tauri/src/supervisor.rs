@@ -503,16 +503,17 @@ impl LanguageStep {
 
     fn ask(&self) { *self.state() = Step::Waiting }
 
-    /// The choice once one is taken; None once `quitting` (re-checked every 100 ms) says the app is quitting first.
+    /// The choice once one is taken; None once `quitting` (re-checked every 100 ms) says the app is quitting. A quit wins
+    /// over a choice it finds taken: nothing is saved on the way out.
     fn wait(&self, quitting: &dyn Fn() -> bool) -> Option<&'static str> {
         let mut state = self.state();
         loop {
-            if let Step::Chosen(code) = *state {
-                return Some(code);
-            }
             if quitting() {
                 *state = Step::NotAsked;
                 return None;
+            }
+            if let Step::Chosen(code) = *state {
+                return Some(code);
             }
             state = self.changed.wait_timeout(state, Duration::from_millis(100)).unwrap_or_else(|e| e.into_inner()).0;
         }
