@@ -893,6 +893,11 @@ const MEMBERSHIP_DELETES: &[(&str, &str, &str)] = &[
     ("src/web/settings/keys.rs", "DELETE FROM api_keys", "delete: one key, then forget"),
     ("src/engine/rules.rs", "DELETE FROM exchange_account_rules", "refill: number-1 rules 2.x deleted; accounts 2+ are never touched"),
     ("src/engine/api_orders.rs", "DELETE FROM rust_api_order_standalone", "forget, orphans: the order's own row, its account inside it"),
+    // #710 Merge (PLAN-710-6 §6.2): the duplicate's subjects move to its survivor or go, in one transaction.
+    ("src/merge.rs", "DELETE FROM api_keys", "remove_key: a key of the duplicate the survivor's of its type replaces"),
+    ("src/merge.rs", "DELETE FROM exchange_account_keys", "move_key, remove_key: the moved key's row (written again for a survivor 2+), the removed key's"),
+    ("src/merge.rs", "DELETE FROM exchange_account_rules", "the staged swap: the survivor's deleted rule, inserted again under the duplicate with its id"),
+    ("src/venue_ids.rs", "DELETE FROM exchange_account_transactions", "move_orders: the duplicate's orders into a number 1, which takes their ids in 2.x's column"),
 ];
 
 #[test]

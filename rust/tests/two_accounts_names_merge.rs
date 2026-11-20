@@ -756,3 +756,448 @@ fn t16_every_credential_capture_is_one_of_the_five() {
     }
     assert_eq!(calls.len(), 5, "a new credential capture must fill its account (PLAN-710-6 §6.4): {calls:?}");
 }
+
+// ---- commit 6: Merge (§6, T15, T17-T27) ----
+
+use deltabadger::merge::{self, Refusal};
+
+/// Every table's rows, as text: what a refused Merge must leave as it was.
+fn dump(c: &Connection) -> Vec<String> {
+    let tables: Vec<String> = c.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let mut out = vec![];
+    for t in tables {
+        let mut s = c.prepare(&format!("SELECT * FROM \"{t}\"")).unwrap();
+        let n = s.column_count();
+        let rows: Vec<String> = s.query_map([], |r| Ok((0..n).map(|i| format!("{:?}", r.get::<_, rusqlite::types::Value>(i).unwrap())).collect::<Vec<_>>().join("|"))).unwrap().map(Result::unwrap).collect();
+        out.extend(rows.into_iter().map(|r| format!("{t}: {r}")));
+    }
+    out
+}
+/// Kraken with two accounts, 2 a duplicate of 1 by fingerprint.
+fn duplicate() -> (tempfile::TempDir, store::Opened, Two) {
+    let (d, o) = install();
+    let two = Two::kraken(&o.primary, &seed::cipher());
+    two.fingerprint(&o.primary, 0, Some("fp"));
+    two.fingerprint(&o.primary, 1, Some("fp"));
+    (d, o, two)
+}
+/// `merge::run` in one transaction, committed only when it merged.
+fn merge_now(c: &Connection, two: &Two, d: i64) -> Result<Option<merge::Merged>, Refusal> {
+    let tx = c.unchecked_transaction().unwrap();
+    let out = merge::run(&tx, two.seeded.user_id, d, chrono::Utc::now());
+    if matches!(out, Ok(Some(_))) { tx.commit().unwrap(); }
+    out
+}
+fn refused_unchanged(c: &Connection, two: &Two, what: &str) {
+    let before = dump(c);
+    match merge_now(c, two, two.id(1)) { Err(Refusal::InFlight) => {}, other => panic!("{what}: {other:?}") }
+    assert_eq!(dump(c), before, "{what}: nothing changed");
+}
+
+/// T15: in flight, a Merge refuses and writes nothing: a placement intent on 2's bot, an open polled order on 1's bot, a
+/// withdrawal intent of 2's rule, a queued, taken or sending standalone order, a placed one the pre-flight has not seen
+/// end (the fence). A filled one does not block, and keeps its log, on S.
+#[test]
+fn t15_anything_in_flight_refuses_the_merge() {
+    let cipher = seed::cipher();
+    type Setup = fn(&Connection, &Two, &deltabadger::crypto::Cipher);
+    let setups: [(&str, Setup); 7] = [
+        ("placement intent on 2", |c, two, _| { c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json('{\"x\":1}')) WHERE id = ?1", [two.bots[1]]).unwrap(); }),
+        ("open polled order on 1", |c, two, _| { two.order(c, 0, "open-1", 0, Some(1)); }),
+        ("withdrawal intent of 2's rule", |c, two, cipher| {
+            let rule = two.rule(c, cipher, 1, two.seeded.btc, 0);
+            c.execute("INSERT INTO rust_withdrawal_intents (owner, state, client_id, created_at, api_key_id, credential_digest, host, account_scope, key_identity, params_enc, fee_basis, budget, free_balance) \
+                       VALUES (?1, 'prepared', 'c', 'now', ?2, 'd', 'h', 's', 'k', 'p', 'f', 'b', 'f')", rusqlite::params![format!("rule:{rule}"), two.keys[1]]).unwrap();
+        }),
+        ("queued standalone", |c, two, _| { two.standalone(c, 1, "queued", None, None); }),
+        ("taken standalone", |c, two, _| { two.standalone(c, 0, "taken", None, None); }),
+        ("sending standalone", |c, two, _| { two.standalone(c, 1, "sending", None, None); }),
+        ("placed, not seen ended (the fence)", |c, two, _| { two.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"L-1"}"#), Some("L-1")); }),
+    ];
+    for (what, setup) in setups {
+        let (_d, o, two) = duplicate();
+        setup(&o.primary, &two, &cipher);
+        refused_unchanged(&o.primary, &two, what);
+    }
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let filled = two.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"F-1"}"#), Some("F-1"));
+    assert_eq!(merge::record_terminal(c, filled, "filled").unwrap(), 1);
+    // An uncertain outcome the API already read (and forgot) is no barrier either (r3).
+    let ambiguous = two.standalone(c, 1, "done", Some(r#"{"kind":"ambiguous","errors":[]}"#), None);
+    deltabadger::engine::api_orders::forget(c, ambiguous).unwrap();
+    assert!(merge_now(c, &two, two.id(1)).unwrap().is_some());
+    let log = deltabadger::engine::api_orders::log_order(c, two.seeded.user_id, two.seeded.exchange_id, "F-1").unwrap().unwrap();
+    assert_eq!(log.0.id, Some(two.id(0)), "the filled order's cancel log is S's");
+}
+
+/// T17/T18: both keys correct: 2's goes, 1's stays; 1's incorrect and 2's correct: 2's moves (no membership), 1's goes and
+/// its rows' key is the kept one; a withdrawal key only on 2 moves. No bot is stopped; 2's bots trade on 1, status kept.
+#[test]
+fn t17_t18_keys_and_bots_move_to_the_survivor() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [two.bots[1]]).unwrap();
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!((merged.deleted_keys.clone(), merged.kept_keys.clone()), (vec![two.keys[1]], vec![two.keys[0]]));
+    assert_eq!(identity::account_of_bot(c, two.bots[1]).unwrap(), Some(two.id(0)), "2's bot trades on 1");
+    let status: Vec<i64> = two.bots.iter().map(|b| c.query_row("SELECT status FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap()).collect();
+    assert_eq!(status, [1, 2], "statuses kept, none stopped");
+    assert_eq!(deltabadger::engine::model::credential_version(c, &deltabadger::engine::model::load_bot(c, two.bots[1]).unwrap()).unwrap().unwrap().id, two.keys[0], "with 1's kept key");
+
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[0]]).unwrap();
+    let row = two.row(c, 0, 4, "BTC", "1", Some("on-1"), None, "2026-09-01 10:00:00");
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'w', 'w', 1, 1, 'now', 'now')",
+              [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    let withdrawal = c.last_insert_rowid();
+    c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [withdrawal, two.id(1)]).unwrap();
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(merged.deleted_keys, [two.keys[0]]);
+    assert_eq!(identity::account_of_key(c, two.keys[1]).unwrap(), Some(two.id(0)), "2's key is 1's now");
+    assert_eq!(identity::account_of_key(c, withdrawal).unwrap(), Some(two.id(0)), "the withdrawal key moves");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_keys"), 0, "no membership into a number 1");
+    assert_eq!(c.query_row("SELECT api_key_id FROM account_transactions WHERE id = ?1", [row], |r| r.get::<_, i64>(0)).unwrap(), two.keys[1], "re-pointed");
+}
+
+fn rules_of(c: &Connection) -> Vec<(i64, i64, i64)> {
+    c.prepare("SELECT id, account_id, status FROM exchange_account_rules ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+}
+fn legacy(c: &Connection, id: i64) -> (Option<i64>, i64) { c.query_row("SELECT exchange_id, status FROM rules WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap() }
+
+/// T19: rules. S live, D live: S's stays, D's is deleted; S none: D's moves and is mirrored; S deleted: the staged swap;
+/// D deleted: it stays on D. Withdrawal ids move, a twin once, and `id_taken` holds on S.
+#[test]
+fn t19_rules_move_without_meeting_a_unique_index() {
+    let cipher = seed::cipher();
+    let (btc, eur) = (|t: &Two| t.seeded.btc, |t: &Two| t.seeded.quote);
+    let _ = eur;
+    // S live, D live.
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let (s, d) = (two.rule(c, &cipher, 0, btc(&two), 0), two.rule(c, &cipher, 1, btc(&two), 0));
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(rules_of(c), [(s, two.id(0), 0), (d, two.id(1), 3)]);
+    // S none, D live.
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let d = two.rule(c, &cipher, 1, btc(&two), 0);
+    assert_eq!(legacy(c, d), (None, 3), "a placeholder while on 2");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(rules_of(c), [(d, two.id(0), 0)]);
+    assert_eq!(legacy(c, d), (Some(two.seeded.exchange_id), 0), "mirrored");
+    // S deleted, D live: the staged swap.
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let (s, d) = (two.rule(c, &cipher, 0, btc(&two), 3), two.rule(c, &cipher, 1, btc(&two), 0));
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(rules_of(c), [(s, two.id(1), 3), (d, two.id(0), 0)]);
+    assert_eq!((legacy(c, s), legacy(c, d)), ((None, 3), (Some(two.seeded.exchange_id), 0)));
+    // S live / none, D deleted: D's stays on D.
+    for s_status in [Some(0), None] {
+        let (_d, o, two) = duplicate();
+        let c = &o.primary;
+        let s = s_status.map(|st| two.rule(c, &cipher, 0, btc(&two), st));
+        let d = two.rule(c, &cipher, 1, btc(&two), 3);
+        merge_now(c, &two, two.id(1)).unwrap().unwrap();
+        let mut want: Vec<(i64, i64, i64)> = s.map(|s| (s, two.id(0), 0)).into_iter().collect();
+        want.push((d, two.id(1), 3));
+        assert_eq!(rules_of(c), want);
+    }
+    // Withdrawal ids.
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    two.withdrawal_id(c, 0, "W-both", "rule:1");
+    two.withdrawal_id(c, 1, "W-both", "rule:2");
+    two.withdrawal_id(c, 1, "W-two", "rule:2");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let ids: Vec<(i64, String, String)> = c.prepare("SELECT account_id, venue_id, owner FROM rust_withdrawal_ids ORDER BY venue_id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(ids, [(two.id(0), "W-both".into(), "rule:1".into()), (two.id(0), "W-two".into(), "rule:2".into())]);
+}
+
+/// T20: 2's orders move to 1 (2.x's column takes the id, the membership goes); a shared bot-order id refuses naming both
+/// orders, and nothing changes; standalone orders move.
+#[test]
+fn t20_orders_move_and_a_shared_id_refuses() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let order = two.order(c, 1, "only-2", 0, Some(2));
+    let standalone = two.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"S-1","terminal":"filled"}"#), Some("S-1"));
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(c.query_row("SELECT external_id FROM transactions WHERE id = ?1", [order], |r| r.get::<_, String>(0)).unwrap(), "only-2");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_transactions"), 0);
+    assert_eq!(identity::Account::of_order(c, order).unwrap().unwrap().id, Some(two.id(0)));
+    assert_eq!(c.query_row("SELECT account_id FROM rust_api_order_standalone WHERE order_id = ?1", [standalone], |r| r.get::<_, i64>(0)).unwrap(), two.id(0));
+
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    two.order(c, 0, common::two_accounts::SHARED_ORDER, 0, Some(2));
+    two.order(c, 1, common::two_accounts::SHARED_ORDER, 0, Some(2));
+    let before = dump(c);
+    match merge_now(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert_eq!(rows.len(), 2, "{rows:?}"), other => panic!("{other:?}") }
+    assert_eq!(dump(c), before);
+}
+
+fn links(c: &Connection) -> Vec<(Option<String>, Option<String>)> {
+    let any = deltabadger::venue_ids::Scope::install(c).unwrap();
+    c.prepare(&format!("SELECT {}, (SELECT {} FROM account_transactions l WHERE l.id = a.linked_transaction_id) FROM account_transactions a WHERE a.linked_transaction_id IS NOT NULL ORDER BY a.id",
+                       any.row_id("a"), any.row_id("l"))).unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+fn link(c: &Connection, from: i64, to: i64) { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [from, to]).unwrap(); }
+
+/// T21: twins are deleted and the rest move (an id-less row too); SHARED_GROUP's legs make one group; metadata merges or
+/// refuses; links resolve as one graph, whatever order the rows were made in.
+#[test]
+fn t21_ledger_rows_dedup_by_venue_id_and_keep_their_metadata() {
+    use common::two_accounts::{SHARED_GROUP, SHARED_TX};
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let s_twin = two.row(c, 0, 4, "BTC", "1", Some(SHARED_TX), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+    two.row(c, 1, 4, "BTC", "1", Some(SHARED_TX), Some(SHARED_GROUP), "2026-09-01 10:00:00");
+    let moved = two.row(c, 1, 4, "BTC", "2", Some("only-2"), Some(SHARED_GROUP), "2026-09-02 10:00:00");
+    let idless = two.row(c, 1, 10, "BTC", "0.1", None, None, "2026-09-03 10:00:00");
+    c.execute("UPDATE account_transactions SET manual_values = '{\"price\":\"5\"}' WHERE tx_id IS NULL AND id = (SELECT max(id) - 2 FROM account_transactions)", []).unwrap();
+    let all_before = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap().len();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let ids: Vec<i64> = c.prepare("SELECT id FROM account_transactions ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(ids, [s_twin, moved, idless], "the twin went, the others moved");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_rows"), 0);
+    assert_eq!(c.query_row("SELECT tx_id FROM account_transactions WHERE id = ?1", [moved], |r| r.get::<_, String>(0)).unwrap(), "only-2");
+    assert_eq!(c.query_row("SELECT manual_values FROM account_transactions WHERE id = ?1", [s_twin], |r| r.get::<_, String>(0)).unwrap(), "{\"price\":\"5\"}", "D's price fills S's empty one");
+    let groups: Vec<Option<String>> = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap().into_iter().map(|r| r.group).collect();
+    assert_eq!(groups, [Some(SHARED_GROUP.to_string()), Some(SHARED_GROUP.to_string()), None], "one group");
+    assert_eq!(all_before, 1, "before, the duplicate's rows were left out of the walk");
+
+    // Metadata conflicts refuse, naming the row, and change nothing.
+    let conflict = |setup: &dyn Fn(&Connection, &Two, i64, i64)| {
+        let (_d, o, two) = duplicate();
+        let c = &o.primary;
+        let s = two.row(c, 0, 4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01 10:00:00");
+        let d = two.row(c, 1, 4, "BTC", "1", Some(SHARED_TX), None, "2026-09-01 10:00:00");
+        setup(c, &two, s, d);
+        let before = dump(c);
+        let out = merge_now(c, &two, two.id(1));
+        let refused = matches!(&out, Err(Refusal::Conflict(rows)) if rows.iter().any(|r| r.contains(" 1 BTC")));
+        if refused { assert_eq!(dump(c), before); }
+        refused
+    };
+    let manual = |c: &Connection, id: i64, v: &str| { c.execute("UPDATE account_transactions SET manual_values = ?2 WHERE id = ?1", rusqlite::params![id, v]).unwrap(); };
+    assert!(conflict(&|c, _, s, d| { manual(c, s, "{\"price\":\"5\"}"); manual(c, d, "{\"price\":\"6\"}"); }), "different prices");
+    assert!(!conflict(&|c, _, s, d| { manual(c, s, "{\"price\":\"5\"}"); manual(c, d, "{\"price\":\"5\"}"); }), "equal prices");
+    assert!(conflict(&|c, two, s, d| {
+        let (a, b) = (two.order(c, 0, "o-a", 0, Some(2)), two.order(c, 0, "o-b", 0, Some(2)));
+        c.execute("UPDATE account_transactions SET transaction_id = CASE id WHEN ?1 THEN ?3 ELSE ?4 END WHERE id IN (?1, ?2)", [s, d, a, b]).unwrap();
+    }), "two bot orders");
+    assert!(conflict(&|c, two, s, d| {
+        let (x, y) = (two.row(c, 0, 5, "BTC", "1", Some("x"), None, "2026-08-01 10:00:00"), two.row(c, 0, 5, "BTC", "1", Some("y"), None, "2026-08-01 10:00:00"));
+        link(c, x, s); link(c, y, d);
+    }), "two sources onto one target");
+    assert!(conflict(&|c, two, s, d| {
+        let x = two.row(c, 0, 5, "BTC", "1", Some("x"), None, "2026-08-01 10:00:00");
+        c.execute("UPDATE account_transactions SET transfer_link_rejected = 1 WHERE id = ?1", [d]).unwrap();
+        link(c, x, s);
+    }), "rejected on one side, linked on the other");
+
+    // Kept links: D's outgoing one, one into D, both sides twins; crossed links (r3) in both orders.
+    for deposits_first in [true, false] {
+        let (_d, o, two) = duplicate();
+        let c = &o.primary;
+        let pair = |id: &str, kind: i64| -> (i64, i64) {
+            (two.row(c, 0, kind, "BTC", "1", Some(id), None, "2026-09-01 10:00:00"), two.row(c, 1, kind, "BTC", "1", Some(id), None, "2026-09-01 10:00:00"))
+        };
+        let ((sd, dd), (sw, dw)) = if deposits_first { let d = pair("dep", 4); (d, pair("wd", 5)) } else { let w = pair("wd", 5); (pair("dep", 4), w) };
+        link(c, sw, dd);
+        link(c, dw, sd);
+        let out = two.row(c, 1, 5, "BTC", "1", Some("out-2"), None, "2026-09-05 10:00:00");
+        let ext = two.row(c, 0, 4, "BTC", "1", Some("in-1"), None, "2026-09-05 10:00:00");
+        link(c, out, ext);
+        merge_now(c, &two, two.id(1)).unwrap().unwrap();
+        assert_eq!(links(c), [(Some("wd".into()), Some("dep".into())), (Some("out-2".into()), Some("in-1".into()))], "deposits first: {deposits_first}");
+        let _ = (sd, sw);
+    }
+}
+
+/// T22/T23/T24: 2's balances go and 1's stay; snapshots and caches are cleared; no app_configs key names 2; KuCoin coverage
+/// and its HF marker move, withheld twins stored once; Binance A12 state on 2 refuses.
+#[test]
+fn t22_t23_t24_balances_kucoin_and_binance() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    hold(c, &two, 0, "1", "100");
+    hold(c, &two, 1, "1", "100");
+    c.execute("INSERT INTO portfolio_snapshots (user_id, date, value_usd, invested_usd, partial, created_at, updated_at) VALUES (?1, '2026-09-01', 1, 1, 0, 'now', 'now')", [two.seeded.user_id]).unwrap();
+    let b = identity::AccountRow::of(c, &two.accounts[1]).unwrap().unwrap();
+    deltabadger::app_config::set_plain(c, &deltabadger::sync::cache::balance_origin_key_of(&b), "{}", chrono::Utc::now()).unwrap();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM exchange_account_balances WHERE account_id = {}", two.id(1))), 0);
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM exchange_account_balances WHERE account_id = {}", two.id(0))), 1);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM portfolio_snapshots"), 0, "re-swept");
+    let named: i64 = c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE ?1", [format!("%:{}:{}%", two.seeded.exchange_id, two.id(1))], |r| r.get(0)).unwrap();
+    assert_eq!(named, 0, "no key names 2");
+
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let kucoin = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    kucoin.fingerprint(c, 0, Some("fp"));
+    kucoin.fingerprint(c, 1, Some("fp"));
+    for n in [0, 1] {
+        c.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (?1, 'hf_enabled', 'a', 'a', 'now')", [kucoin.id(n)]).unwrap();
+        c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'f-1', 'now', '{}', 'now')", [kucoin.id(n)]).unwrap();
+    }
+    c.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (?1, 'export', 'a', 'b', 'now')", [kucoin.id(1)]).unwrap();
+    c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'f-2', 'now', '{}', 'now')", [kucoin.id(1)]).unwrap();
+    merge_now(c, &kucoin, kucoin.id(1)).unwrap().unwrap();
+    let rows = |sql: &str| -> Vec<(i64, String)> { c.prepare(sql).unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect() };
+    assert_eq!(rows("SELECT account_id, source FROM kucoin_coverage ORDER BY id"), [(kucoin.id(0), "hf_enabled".into()), (kucoin.id(0), "export".into())]);
+    assert_eq!(rows("SELECT account_id, tx_id FROM kucoin_withheld_fills ORDER BY tx_id"), [(kucoin.id(0), "f-1".into()), (kucoin.id(0), "f-2".into())]);
+
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    deltabadger::app_config::set_plain(c, &format!("rust_binance_a12_v1:bucket:{}:{}@{}:x", two.seeded.user_id, two.seeded.exchange_id, two.id(1)), "1", chrono::Utc::now()).unwrap();
+    let before = dump(c);
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
+    assert_eq!(dump(c), before);
+}
+
+/// T13/T25: 2 is tombstoned (no fingerprint), 1 reads `Kraken`; `?account_id=<2>`, `pick` and `pick_switch` are 404s and
+/// the next number is 3; a third account observed against 2 now points at 1 and merges into it. Handback after a merge into
+/// 1 reports nothing for accounts 2+; merging 3 into 2 keeps 2's refusals.
+#[tokio::test(flavor = "current_thread")]
+async fn t13_t25_the_tombstone_chains_and_the_handback() {
+    let (dir, o, two) = duplicate();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let third = two.third(c).id.unwrap();
+    c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at) VALUES (?1, ?2, 3, 'now')", [third, two.id(1)]).unwrap();
+    two.rule(c, &cipher, 1, two.seeded.btc, 3);
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let (removed, fingerprint): (Option<String>, Option<String>) = c.query_row("SELECT removed_at, fingerprint FROM exchange_accounts WHERE id = ?1", [two.id(1)], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert!(removed.is_some() && fingerprint.is_none());
+    assert_eq!(one::<i64>(c, &format!("SELECT other_account_id FROM exchange_account_overlaps WHERE account_id = {third}")), two.id(0), "retargeted");
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(third, two.id(0))]);
+    assert_eq!(identity::pick(c, two.seeded.user_id, two.seeded.exchange_id, Some(two.id(1))).unwrap(), identity::Pick::NotFound);
+    assert_eq!(identity::pick_switch(c, two.seeded.user_id, two.bots[0], None, Some(two.id(1))).unwrap(), identity::Switch::NotFound);
+    let app = web_app(dir.path(), c);
+    assert_eq!(get(&app, c, two.seeded.user_id, &format!("/tracker?account_id={}", two.id(1))).await.status, 404);
+    assert!(deltabadger::engine::rules::handback_problems(c).unwrap().is_empty(), "a deleted rule of a tombstone does not refuse the handback");
+    merge_now(c, &two, third).unwrap().unwrap();
+    assert_eq!(identity::label(c, two.id(0)).unwrap().plain(), "Kraken", "one live account left");
+    let next: i64 = one(c, &format!("SELECT max(number) + 1 FROM exchange_accounts WHERE exchange_id = {}", two.seeded.exchange_id));
+    assert_eq!(next, 4, "numbers are never reused");
+
+    // 3 into 2: S is an account 2+, whose memberships remain and keep refusing.
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    two.fingerprint(c, 0, Some("other"));
+    let third = two.third(c);
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp' WHERE id = ?1", [third.id.unwrap()]).unwrap();
+    let row = two.row(c, 0, 4, "BTC", "1", Some("n1"), None, "2026-09-01 10:00:00");
+    let _ = row;
+    let s3 = deltabadger::venue_ids::Scope::of(c, &third).unwrap();
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+               VALUES (?1, ?2, 4, 'BTC', 1, NULL, '2026-09-02 10:00:00', '{}', '{}', 0, '2026-09-02 10:00:00', '2026-09-02 10:00:00')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    deltabadger::venue_ids::after_insert(c, &s3, c.last_insert_rowid(), Some("t3")).unwrap();
+    let tx = c.unchecked_transaction().unwrap();
+    merge::run(&tx, two.seeded.user_id, third.id.unwrap(), chrono::Utc::now()).unwrap().unwrap();
+    tx.commit().unwrap();
+    assert_eq!(one::<i64>(c, "SELECT account_id FROM exchange_account_rows"), two.id(1), "3's row is 2's");
+    // What the handback's account-2 refusals read (handover::refuse_rust_only_conditions).
+    let refusing: bool = one(c, "SELECT EXISTS(SELECT 1 FROM exchange_account_rows m JOIN exchange_accounts a ON a.id = m.account_id WHERE a.number <> 1) \
+                                 AND EXISTS(SELECT 1 FROM exchange_account_keys m JOIN exchange_accounts a ON a.id = m.account_id WHERE a.number <> 1)");
+    assert!(refusing, "2's memberships keep refusing");
+}
+
+/// T26: the Merge row shows only while a duplicate exists; the confirm posts; success replaces `api_keys` with the flash,
+/// a refusal is a 422 flash naming the rows.
+#[tokio::test(flavor = "current_thread")]
+async fn t26_settings_offers_merge_while_a_duplicate_exists() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    let app = web_app(dir.path(), c);
+    let page = get(&app, c, user, "/settings/api_keys").await;
+    assert!(!page.body.contains("merge_account"), "no duplicate, no row");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let page = get(&app, c, user, "/settings/api_keys").await;
+    assert!(page.body.contains("Kraken<sup>2</sup> is the same exchange account as Kraken<sup>1</sup>.") && page.body.contains(&format!("/settings/merge_account/{}", two.id(1))),
+            "{}", cut(&page.body, "api_keys", 1500));
+    // A conflict: a 422 flash naming the rows.
+    two.order(c, 0, common::two_accounts::SHARED_ORDER, 0, Some(2));
+    two.order(c, 1, common::two_accounts::SHARED_ORDER, 0, Some(2));
+    let mut b = on_settings(&app, c, user).await;
+    let path = format!("/settings/merge_account/{}", two.id(1));
+    let refused = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(refused.status, 422, "{}", &refused.body[..refused.body.len().min(600)]);
+    assert!(refused.body.contains("disagree on these records") && refused.body.contains("2026-09-02 buy"), "{}", refused.body);
+    c.execute("DELETE FROM transactions", []).unwrap();
+    c.execute("DELETE FROM exchange_account_transactions", []).unwrap();
+    let merged = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(merged.status, 200, "{}", &merged.body[..merged.body.len().min(600)]);
+    assert!(merged.body.contains("action=\"replace\" target=\"api_keys\"") && merged.body.contains("was merged into"), "{}", merged.body);
+    assert_eq!(b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[]).await.status, 404, "no longer a duplicate");
+}
+
+/// T15 (r2): the pre-flight reads a placed standalone order from its venue: resting (`new`) refuses with nothing changed;
+/// once the venue says `filled`, the order is recorded terminal and the Merge goes through, its log on S.
+#[tokio::test(flavor = "current_thread")]
+async fn t15_the_preflight_reads_a_resting_order_from_its_venue() {
+    use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    // The fixture's EUR-quoted bots cannot run on Alpaca (the eligibility guard refuses any write while they are scheduled).
+    for bot in alpaca.bots { c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [bot]).unwrap(); }
+    let order = alpaca.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"L-1"}"#), Some("L-1"));
+    let server = MockServer::start().await;
+    let answer = |status: &str| ResponseTemplate::new(200).set_body_json(serde_json::json!({"id": "L-1", "client_order_id": "c", "status": status, "symbol": "BTC/EUR",
+        "side": "buy", "type": "limit", "order_type": "limit", "qty": "0.001", "filled_qty": if status == "filled" { "0.001" } else { "0" }, "filled_avg_price": if status == "filled" { Some("60000") } else { None },
+        "limit_price": "60000", "asset_class": "crypto"}));
+    Mock::given(matchers::method("GET")).and(matchers::path("/v2/orders/L-1")).respond_with(answer("new")).up_to_n_times(1).mount(&server).await;
+    Mock::given(matchers::method("GET")).and(matchers::path("/v2/orders/L-1")).respond_with(answer("filled")).mount(&server).await;
+    c.execute("UPDATE users SET setup_completed = 1, confirmed_at = '2026-01-01'", []).unwrap();
+    let uri = server.uri();
+    let app = common::web::app(dir.path(), "engine-test-secret", common::web::TestClock::at("2026-09-20T12:00:00Z"))
+        .with_settings_key_boundary(deltabadger::venue::alpaca::Hosts { paper: uri.clone(), live: uri.clone(), data: uri }, deltabadger::web::settings::keys::logger()).unwrap();
+    app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
+    let mut b = on_settings(&app, c, alpaca.seeded.user_id).await;
+    let path = format!("/settings/merge_account/{}", alpaca.id(1));
+    let before = dump(c);
+    let resting = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(resting.status, 422, "{}", &resting.body[..resting.body.len().min(600)]);
+    assert!(resting.body.contains("still in flight"), "{}", resting.body);
+    assert_eq!(dump(c), before, "nothing changed");
+    let merged = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(merged.status, 200, "{}", merged.body.rsplit("</button>").next().unwrap_or_default());
+    let terminal: String = c.query_row("SELECT json_extract(outcome, '$.terminal') FROM rust_api_orders WHERE id = ?1", [order], |r| r.get(0)).unwrap();
+    assert_eq!(terminal, "filled");
+    assert_eq!(one::<i64>(c, &format!("SELECT account_id FROM rust_api_order_standalone WHERE order_id = {order}")), alpaca.id(0), "its log is S's");
+    common::drop_mock_server(server).await;
+}
+
+/// T27: the eight keys are in every locale, each its own, with the arguments it names.
+#[test]
+fn t27_every_locale_has_the_eight_keys() {
+    let keys = [("tracker.duplicate_account_html", &["duplicate", "survivor"][..]), ("tracker.merge_in_settings", &[][..]),
+                ("settings.accounts.duplicate_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge", &[][..]),
+                ("settings.accounts.confirm_merge_html", &["duplicate", "survivor"][..]), ("settings.accounts.merged_html", &["duplicate", "survivor"][..]),
+                ("settings.accounts.merge_in_flight_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge_conflict_html", &["duplicate", "survivor", "rows"][..])];
+    let all = deltabadger::web::i18n::all();
+    let text = |locale: &str, key: &str| all.iter().find(|(k, _)| *k == format!("{locale}.{key}")).map(|(_, v)| v.to_string()).unwrap_or_else(|| panic!("{locale}.{key} missing"));
+    for locale in deltabadger::web::locale::LOCALES {
+        for (key, args) in keys {
+            let t = text(locale, key);
+            for arg in args { assert!(t.contains(&format!("%{{{arg}}}")), "{locale}.{key}: {t}"); }
+            if locale != "en" && key != "settings.accounts.merge" { assert_ne!(t, text("en", key), "{locale}.{key} is its own"); }
+        }
+    }
+}

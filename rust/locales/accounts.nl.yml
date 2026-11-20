@@ -2,3 +2,11 @@ nl:
     tracker:
         duplicate_account_html: "%{duplicate} is hetzelfde exchange-account als %{survivor} en telt daarom niet mee in je totalen."
         merge_in_settings: "Voeg het samen in Instellingen"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} is hetzelfde exchange-account als %{survivor}."
+            merge: "Samenvoegen"
+            confirm_merge_html: "%{duplicate} samenvoegen met %{survivor}? De sleutels, bots, regels, orders en historie gaan naar %{survivor} en %{duplicate} wordt verwijderd. Dit kun je niet ongedaan maken."
+            merged_html: "%{duplicate} is samengevoegd met %{survivor}."
+            merge_in_flight_html: "Er loopt nog een order of opname van %{duplicate} of %{survivor}. Probeer het opnieuw zodra die is afgerond."
+            merge_conflict_html: "%{duplicate} en %{survivor} verschillen op deze posten, dus er is niets gewijzigd: %{rows}. Trek ze gelijk en voeg ze daarna opnieuw samen."

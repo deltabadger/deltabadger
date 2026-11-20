@@ -2,3 +2,11 @@ de:
     tracker:
         duplicate_account_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor} und wird deshalb nicht in deine Summen eingerechnet."
         merge_in_settings: "In den Einstellungen zusammenführen"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor}."
+            merge: "Zusammenführen"
+            confirm_merge_html: "%{duplicate} mit %{survivor} zusammenführen? Schlüssel, Bots, Regeln, Orders und Historie gehen auf %{survivor} über, und %{duplicate} wird entfernt. Das lässt sich nicht rückgängig machen."
+            merged_html: "%{duplicate} wurde mit %{survivor} zusammengeführt."
+            merge_in_flight_html: "Eine Order oder Auszahlung von %{duplicate} oder %{survivor} ist noch nicht abgeschlossen. Versuch es noch einmal, sobald sie durch ist."
+            merge_conflict_html: "%{duplicate} und %{survivor} weichen bei diesen Einträgen voneinander ab, deshalb wurde nichts geändert: %{rows}. Gleiche sie an und führe die Konten dann erneut zusammen."

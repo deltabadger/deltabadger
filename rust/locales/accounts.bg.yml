@@ -2,3 +2,11 @@ bg:
     tracker:
         duplicate_account_html: "%{duplicate} е същият акаунт в борсата като %{survivor}, затова не влиза в сумите ти."
         merge_in_settings: "Обедини го в Настройки"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} е същият акаунт в борсата като %{survivor}."
+            merge: "Обедини"
+            confirm_merge_html: "Да обединим ли %{duplicate} с %{survivor}? Ключовете, ботовете, правилата, поръчките и историята минават към %{survivor}, а %{duplicate} се премахва. Това не може да се отмени."
+            merged_html: "%{duplicate} е обединен с %{survivor}."
+            merge_in_flight_html: "Поръчка или теглене на %{duplicate} или %{survivor} още не е приключило. Опитай пак, когато приключи."
+            merge_conflict_html: "%{duplicate} и %{survivor} се разминават в тези записи, затова нищо не е променено: %{rows}. Изравни ги и обедини отново."

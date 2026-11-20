@@ -2,3 +2,11 @@ it:
     tracker:
         duplicate_account_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}, quindi non rientra nei tuoi totali."
         merge_in_settings: "Uniscilo nelle Impostazioni"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}."
+            merge: "Unisci"
+            confirm_merge_html: "Unire %{duplicate} a %{survivor}? Chiavi, bot, regole, ordini e storico passano a %{survivor} e %{duplicate} viene rimosso. L’operazione non si può annullare."
+            merged_html: "%{duplicate} è stato unito a %{survivor}."
+            merge_in_flight_html: "Un ordine o un prelievo di %{duplicate} o di %{survivor} è ancora in corso. Riprova quando si sarà concluso."
+            merge_conflict_html: "%{duplicate} e %{survivor} non coincidono su questi movimenti, quindi non è stato modificato nulla: %{rows}. Allineali e poi riprova a unirli."

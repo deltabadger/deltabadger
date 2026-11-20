@@ -2,3 +2,11 @@ ru:
     tracker:
         duplicate_account_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}, поэтому он не входит в итоги."
         merge_in_settings: "Объединить в настройках"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}."
+            merge: "Объединить"
+            confirm_merge_html: "Объединить %{duplicate} с %{survivor}? Ключи, боты, правила, ордера и история перейдут в %{survivor}, а %{duplicate} будет удалён. Это действие нельзя отменить."
+            merged_html: "%{duplicate} объединён с %{survivor}."
+            merge_in_flight_html: "Ордер или вывод по %{duplicate} или %{survivor} ещё не завершён. Попробуйте снова, когда он завершится."
+            merge_conflict_html: "У %{duplicate} и %{survivor} расходятся эти записи, поэтому ничего не изменено: %{rows}. Приведите их в соответствие и объедините снова."

@@ -31,18 +31,8 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 }
 /// K: no new tracking. Read the intent and the engine's actual polling rows under the write lock.
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
-/// The account's bots only (#710 §4.2).
-fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> {
-    let mut stmt = c.prepare(&format!("SELECT b.id FROM bots b WHERE {} ORDER BY b.id", account.bots("b")))?;
-    let ids = stmt.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-    for id in ids {
-        let bot = crate::engine::model::load_bot(c, id)?;
-        if bot.rust_placement().is_some() || !crate::engine::polling::waiting_ids(c, &bot)?.is_empty() {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
+/// The account's bots only (#710 §4.2); Merge asks the same (`merge::settling`).
+pub(crate) fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> { Ok(crate::merge::settling(c, account)?) }
 pub(crate) fn refusal_text(ctx: &Ctx, reason: &str) -> String {
     if reason == SETTLING { reason.to_string() }
     else { i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
@@ -433,7 +423,10 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
             super::sections::Key { id, name, name_id, read_only: kind == 2, withdrawal: kind == 1, instructions }
         })
         .collect();
-    Ok(super::sections::api_keys(ctx, csrf, &keys))
+    // #710 (PLAN-710-6 §6.1): one Merge row per duplicate, above the keys.
+    let duplicates = crate::identity::duplicates(c, user)?.into_iter()
+        .map(|(d, s)| Ok((crate::identity::label(c, d)?.html(), crate::identity::label(c, s)?.html(), d))).collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(super::sections::api_keys(ctx, csrf, &keys, &duplicates))
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
 /// `show_coingecko_form`: 2.x's `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: 2.x's
@@ -902,6 +895,103 @@ pub fn bound_status(c:&Connection,cipher:&crate::crypto::Cipher,id:i64,status:cr
 pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate::engine::model::Produced<i64>,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
     if !status.current_for(&c.producer_version()).is_fresh() || status.origin().as_ref().is_none_or(|producer|producer.id!=id){return Err(crate::sync::SyncError(crate::engine::model::CREDENTIALS_CHANGED.into()));}
     c.execute("UPDATE api_keys SET status=?1,updated_at=CASE WHEN status<>?1 THEN ?2 ELSE updated_at END WHERE id=?3",rusqlite::params![status.value,format_time(at),id])?;Ok(())
+}
+
+/// The pre-flight of a Merge (PLAN-710-6 §6.1), outside the lock: every placed standalone order of either account not yet
+/// known terminal is read from its venue under its account's current trading key, by its stored route. Each one found
+/// ended is recorded (`$.terminal`) in a credential-fenced write; false at the first one open or unreadable.
+async fn merge_preflight(app: &App, d: i64, s: i64) -> Result<bool, WebError> {
+    crate::web::bot::cancel::on_own_connection(app, move |c, app, runtime| {
+        use crate::venue::{OrderStatus, Venue};
+        let factory = crate::web::bot::cancel::live_factory(c, app);
+        let mut q = c.prepare(&format!("SELECT o.id, x.account_id, x.external_id, x.identity, x.order_snapshot FROM rust_api_orders o JOIN rust_api_order_standalone x ON x.order_id = o.id \
+                                         WHERE o.id IN ({} UNION {}) ORDER BY o.id", crate::merge::unsettled_standalone(d), crate::merge::unsettled_standalone(s)))?;
+        type Row = (i64, i64, Option<String>, Option<String>, Option<String>);
+        let orders: Vec<Row> = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?.collect::<Result<_, _>>()?;
+        drop(q);
+        for (id, account, external, identity, snapshot) in orders {
+            let (Some(external), Some(account)) = (external, Account::by_id(c, account)?) else { return Ok(false) };
+            // The cancel's route (bot_api::orders): the identity and snapshot stored at the claim.
+            let parse = |t: Option<String>| t.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+            let mut intent = parse(identity).unwrap_or_else(|| serde_json::json!({}));
+            let snapshot = parse(snapshot).unwrap_or_default();
+            for field in ["symbol", "side", "limit"] { intent[field] = snapshot[field].clone(); }
+            let order = crate::venue::OrderRef { external_id: external, record: crate::venue::kucoin::record_of(&intent) };
+            let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
+            // The handle's producer: the trading key's version the read is made under, which the record is fenced by.
+            let Some(version) = venue.producer() else { return Ok(false) };
+            let version = Some(version);
+            let read = runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.order_with(&order, |_, _, _| Ok(true))));
+            let status = match read { Ok(Ok((states, _))) => states.first().map(|o| o.status), _ => None };
+            let terminal = match status { Some(OrderStatus::Closed) => "filled", Some(OrderStatus::Cancelled) => "cancelled", Some(OrderStatus::Failed) => "rejected", _ => return Ok(false) };
+            match crate::engine::model::credential_write(c, &version, |tx| Ok(crate::merge::record_terminal(tx, id, terminal)?)) {
+                Ok(_) => {}
+                Err(crate::engine::EngineError::CredentialsChanged) => return Ok(false),
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Ok(true)
+    }).await
+}
+
+/// Settings' Merge (PLAN-710-6 §6.1): duplicate `<id>` joins its survivor (`merge::run`, one transaction on the engine's
+/// write path), answered as a delete: the key list replaced and a flash, or a 422 flash naming why nothing changed.
+pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = ctx.params.route_path.rsplit('/').next().and_then(|s| s.parse::<i64>().ok()) else { return Ok(crate::web::layout::missing()) };
+    let user_id = user.id;
+    let names = app.db(move |c| {
+        let Some((d, s)) = crate::identity::duplicates(c, user_id)?.into_iter().find(|(d, _)| *d == id) else { return Ok(None) };
+        Ok(Some((d, s, crate::identity::label(c, d)?.html(), crate::identity::label(c, s)?.html())))
+    }).await?;
+    let Some((d, s, duplicate, survivor)) = names else { return Ok(crate::web::layout::missing()) };
+    fn args<'a>(duplicate: &'a str, survivor: &'a str, rows: Option<&'a str>) -> Vec<(&'static str, i18n::Arg<'a>)> {
+        let mut out = vec![("duplicate", i18n::Arg::Html(duplicate)), ("survivor", i18n::Arg::Html(survivor))];
+        if let Some(rows) = rows { out.push(("rows", i18n::Arg::Text(rows))); }
+        out
+    }
+    let refused = |ctx: &Ctx, text: String| -> Result<Response, WebError> {
+        Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+            turbo::prepend_flash(flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?.trim_end())).into_response())
+    };
+    if !merge_preflight(&app, d, s).await? { return refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_in_flight_html", &args(&duplicate, &survivor, None))); }
+    let inner = app.clone();
+    let v = ctx.clone();
+    let csrf = ctx.csrf_token();
+    enum Done { Missing, Merged(crate::merge::Merged, String), InFlight, Conflict(Vec<String>), Refused(String) }
+    let done = app.db(move |c| {
+        let tx = crate::engine::model::immediate(c)?;
+        let merged = match crate::merge::run(&tx, user_id, id, inner.now()) {
+            Ok(None) => return Ok(Done::Missing),
+            Ok(Some(merged)) => merged,
+            Err(crate::merge::Refusal::InFlight) => return Ok(Done::InFlight),
+            Err(crate::merge::Refusal::Conflict(rows)) => return Ok(Done::Conflict(rows)),
+            Err(crate::merge::Refusal::Db(e)) => return Err(e.into()),
+        };
+        if let Err(refusal) = eligibility::guard(&tx, &inner.cipher, None) { return Ok(Done::Refused(refusal.reason())); }
+        let body = list(&tx, &v, &csrf, user_id)?;
+        tx.commit()?;
+        Ok(Done::Merged(merged, body))
+    }).await?;
+    match done {
+        Done::Missing => Ok(crate::web::layout::missing()),
+        Done::InFlight => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_in_flight_html", &args(&duplicate, &survivor, None))),
+        Done::Conflict(rows) => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_conflict_html", &args(&duplicate, &survivor, Some(&rows.join("; "))))),
+        Done::Refused(reason) => refused(&ctx, refusal_text(&ctx, &reason)),
+        Done::Merged(merged, body) => {
+            for key in &merged.deleted_keys { crate::venue::ibkr::forget(*key); }
+            app.wake_engine();
+            let jobs = app.job_wakers()?;
+            for key in &merged.kept_keys {
+                jobs.wake(crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), None);
+                jobs.wake(crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string()), None);
+            }
+            for job in [crate::tracker::jobs::TRACKER_LEDGER, crate::tracker::jobs::PORTFOLIO_BACKFILL] { jobs.wake(job, Some(&user_id.to_string()), None); }
+            let text = i18n::t(ctx.locale, "settings.accounts.merged_html", &args(&duplicate, &survivor, None));
+            Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+                format!("{}{}", turbo::stream("replace", "api_keys", &body), turbo::prepend_flash(flash::render(&[flash::Message { style: "primary", text }])?.trim_end()))).into_response())
+        }
+    }
 }
 
 #[cfg(test)]

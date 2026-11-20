@@ -2,3 +2,11 @@ da:
     tracker:
         duplicate_account_html: "%{duplicate} er den samme børskonto som %{survivor} og tælles derfor ikke med i dine totaler."
         merge_in_settings: "Flet den i Indstillinger"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} er den samme børskonto som %{survivor}."
+            merge: "Flet"
+            confirm_merge_html: "Flet %{duplicate} ind i %{survivor}? Nøgler, bots, regler, ordrer og historik flyttes til %{survivor}, og %{duplicate} fjernes. Det kan ikke fortrydes."
+            merged_html: "%{duplicate} er flettet ind i %{survivor}."
+            merge_in_flight_html: "En ordre eller en udbetaling på %{duplicate} eller %{survivor} er stadig i gang. Prøv igen, når den er afsluttet."
+            merge_conflict_html: "%{duplicate} og %{survivor} er uenige om disse poster, så intet er ændret: %{rows}. Få dem til at stemme overens, og flet dem så igen."

@@ -2,3 +2,11 @@ fr:
     tracker:
         duplicate_account_html: "%{duplicate} est le même compte d’exchange que %{survivor} : il n’est donc pas compté dans tes totaux."
         merge_in_settings: "Le fusionner dans les Paramètres"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} est le même compte d’exchange que %{survivor}."
+            merge: "Fusionner"
+            confirm_merge_html: "Fusionner %{duplicate} avec %{survivor} ? Ses clés, bots, règles, ordres et son historique passent sur %{survivor}, et %{duplicate} est supprimé. Cette action est irréversible."
+            merged_html: "%{duplicate} a été fusionné avec %{survivor}."
+            merge_in_flight_html: "Un ordre ou un retrait de %{duplicate} ou de %{survivor} est encore en cours. Réessaie une fois qu’il sera terminé."
+            merge_conflict_html: "%{duplicate} et %{survivor} ne concordent pas sur ces opérations, rien n’a donc été modifié : %{rows}. Mets-les en accord, puis relance la fusion."

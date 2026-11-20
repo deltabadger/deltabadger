@@ -2,3 +2,11 @@ en:
     tracker:
         duplicate_account_html: "%{duplicate} is the same exchange account as %{survivor}, so it is left out of your totals."
         merge_in_settings: "Merge it in Settings"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} is the same exchange account as %{survivor}."
+            merge: "Merge"
+            confirm_merge_html: "Merge %{duplicate} into %{survivor}? Its keys, bots, rules, orders and history move to %{survivor}, and %{duplicate} is removed. This cannot be undone."
+            merged_html: "%{duplicate} was merged into %{survivor}."
+            merge_in_flight_html: "An order or a withdrawal of %{duplicate} or %{survivor} is still in flight. Try again when it settles."
+            merge_conflict_html: "%{duplicate} and %{survivor} disagree on these records, so nothing was changed: %{rows}. Make them match, then merge again."

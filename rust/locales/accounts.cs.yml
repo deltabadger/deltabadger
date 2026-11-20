@@ -2,3 +2,11 @@ cs:
     tracker:
         duplicate_account_html: "%{duplicate} je stejný účet na burze jako %{survivor}, proto se nezapočítává do tvých součtů."
         merge_in_settings: "Sloučit v Nastavení"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} je stejný účet na burze jako %{survivor}."
+            merge: "Sloučit"
+            confirm_merge_html: "Sloučit %{duplicate} do %{survivor}? Klíče, boti, pravidla, příkazy a historie přejdou na %{survivor} a %{duplicate} bude odstraněn. Nelze to vrátit zpět."
+            merged_html: "%{duplicate} byl sloučen do %{survivor}."
+            merge_in_flight_html: "Příkaz nebo výběr na %{duplicate} nebo %{survivor} ještě probíhá. Zkus to znovu, až doběhne."
+            merge_conflict_html: "%{duplicate} a %{survivor} se v těchto záznamech liší, a proto se nic nezměnilo: %{rows}. Sjednoť je a slučuj znovu."

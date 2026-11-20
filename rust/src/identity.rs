@@ -846,6 +846,14 @@ pub fn forget(c: &Connection, api_key_id: i64, account: &Account) -> rusqlite::R
     Ok(())
 }
 
+/// #710 Merge (PLAN-710-6 §6.2 step 11): account `id` (a number 2+) is removed: its identity goes, its row stays as the
+/// tombstone that keeps its number from being reused. Every live lookup (`first_account`, `accounts_of`, `pick`) skips it.
+pub fn tombstone(c: &Connection, id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
+    c.execute("UPDATE exchange_accounts SET removed_at = ?2, fingerprint = NULL, account_id_enc = NULL, updated_at = ?2 WHERE id = ?1 AND number > 1",
+              params![id, format_time(now)])?;
+    Ok(())
+}
+
 /// An import for (user, exchange), inside the import's own transaction: the account row exists afterwards; a venue-native
 /// export's id fills its unknown fingerprint, and is recorded as an import observation either way.
 pub fn record_import(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, id: Option<&AccountId>, now: DateTime<Utc>) -> Result<(), String> {

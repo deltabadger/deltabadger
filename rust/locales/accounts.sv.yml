@@ -2,3 +2,11 @@ sv:
     tracker:
         duplicate_account_html: "%{duplicate} är samma börskonto som %{survivor} och räknas därför inte med i dina summor."
         merge_in_settings: "Slå ihop det i Inställningar"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} är samma börskonto som %{survivor}."
+            merge: "Slå ihop"
+            confirm_merge_html: "Slå ihop %{duplicate} med %{survivor}? Nycklar, botar, regler, order och historik flyttas till %{survivor}, och %{duplicate} tas bort. Det går inte att ångra."
+            merged_html: "%{duplicate} har slagits ihop med %{survivor}."
+            merge_in_flight_html: "En order eller ett uttag på %{duplicate} eller %{survivor} pågår fortfarande. Försök igen när det är klart."
+            merge_conflict_html: "%{duplicate} och %{survivor} skiljer sig åt i de här posterna, så inget har ändrats: %{rows}. Få dem att stämma överens och slå sedan ihop dem igen."

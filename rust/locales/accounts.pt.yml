@@ -2,3 +2,11 @@ pt:
     tracker:
         duplicate_account_html: "%{duplicate} é a mesma conta da exchange que %{survivor}, por isso fica fora dos teus totais."
         merge_in_settings: "Junta-a nas Definições"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} é a mesma conta da exchange que %{survivor}."
+            merge: "Juntar"
+            confirm_merge_html: "Juntar %{duplicate} a %{survivor}? As chaves, bots, regras, ordens e histórico passam para %{survivor}, e %{duplicate} é removida. Não é possível anular."
+            merged_html: "%{duplicate} foi junta a %{survivor}."
+            merge_in_flight_html: "Ainda há uma ordem ou um levantamento de %{duplicate} ou de %{survivor} em curso. Tenta outra vez quando terminar."
+            merge_conflict_html: "%{duplicate} e %{survivor} não coincidem nestes registos, por isso nada foi alterado: %{rows}. Acerta-os e volta a juntá-las."

@@ -2,3 +2,11 @@ es:
     tracker:
         duplicate_account_html: "%{duplicate} es la misma cuenta del exchange que %{survivor}, así que no se incluye en tus totales."
         merge_in_settings: "Fusiónala en Configuración"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} es la misma cuenta del exchange que %{survivor}."
+            merge: "Fusionar"
+            confirm_merge_html: "¿Fusionar %{duplicate} con %{survivor}? Sus claves, bots, reglas, órdenes e historial pasan a %{survivor} y %{duplicate} se elimina. No se puede deshacer."
+            merged_html: "%{duplicate} se ha fusionado con %{survivor}."
+            merge_in_flight_html: "Todavía hay una orden o un retiro de %{duplicate} o %{survivor} en curso. Vuelve a intentarlo cuando termine."
+            merge_conflict_html: "%{duplicate} y %{survivor} no coinciden en estos registros, así que no se ha cambiado nada: %{rows}. Haz que coincidan y vuelve a fusionarlas."

@@ -578,8 +578,16 @@ pub struct Key {
 }
 
 /// settings/widgets/_api_keys: the keys, a row each, under Trading keys and (when there are any) Withdrawal keys.
-pub fn api_keys(ctx: &Ctx, csrf: &str, keys: &[Key]) -> String {
+/// `duplicates` (#710, PLAN-710-6 §6.1): (duplicate label, survivor label, duplicate id) as HTML, a Merge row each above the
+/// keys; none with one account per exchange, so the section is as before.
+pub fn api_keys(ctx: &Ctx, csrf: &str, keys: &[Key], duplicates: &[(String, String, i64)]) -> String {
     let mut out = String::from("<turbo-frame id=\"api_keys\">");
+    for (duplicate, survivor, id) in duplicates {
+        let args = [("duplicate", crate::web::i18n::Arg::Html(duplicate)), ("survivor", crate::web::i18n::Arg::Html(survivor))];
+        let control = format!("\n        {}\n", super::dialog::confirm(csrf, &ctx.t("settings.accounts.merge"), &crate::web::i18n::t(ctx.locale, "settings.accounts.confirm_merge_html", &args),
+            &ctx.t("settings.accounts.merge"), &ctx.path(&format!("/settings/merge_account/{id}")), "post", &[]));
+        out.push_str(&format!("\n      {}", row(&crate::web::i18n::t(ctx.locale, "settings.accounts.duplicate_html", &args), None, "srow--key", &format!(" data-merge-account=\"{id}\""), None, Some(&control))));
+    }
     for (index, (heading, withdrawal)) in [("settings.index.trading_keys_section", false), ("settings.index.withdrawal_keys_section", true)].into_iter().enumerate() {
         let group: Vec<&Key> = keys.iter().filter(|key| key.withdrawal == withdrawal).collect();
         if index > 0 && group.is_empty() { continue; }

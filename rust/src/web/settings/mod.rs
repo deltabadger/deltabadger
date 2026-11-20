@@ -108,6 +108,7 @@ pub async fn write(
     {
         return keys::delete(app, ctx).await;
     }
+    if ctx.method == Method::POST && ctx.params.route_path.starts_with("/settings/merge_account/") { return keys::merge(app, ctx).await; }
     if app.desktop.is_some() && ctx.method == Method::POST && ctx.params.route_path == "/settings/browser_sign_in_code" {
         let Some(code) = crate::web::desktop::new_code(&app)? else { return Ok(layout::missing()) };
         let row = sections::browser_sign_in(&ctx, &ctx.csrf_token(), Some(&code));

@@ -223,3 +223,35 @@ pub fn overlap_match(c: &Connection, scope: &Scope, id: &str) -> rusqlite::Resul
     c.query_row(&format!("SELECT ?3, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} LIMIT 1",
                          scope.id_is("a", "?3")), params![scope.user_id, scope.exchange_id, id], facts).optional()
 }
+
+/// #710 Merge (PLAN-710-6 §6.2 step 6): duplicate `from`'s bot orders become `to`'s. Into a number 1 each takes its venue
+/// id back in 2.x's column and its membership goes; into an account 2+ the membership is re-pointed. A clash was refused
+/// before (`order_by_id`).
+pub fn move_orders(c: &Connection, from: &Scope, to: &Scope) -> rusqlite::Result<()> {
+    let Some(d) = from.member else { return Ok(()) };
+    match to.member {
+        Some(s) => { c.execute("UPDATE exchange_account_transactions SET account_id = ?2 WHERE account_id = ?1", [d, s])?; }
+        None => {
+            let mut q = c.prepare("SELECT transaction_id, venue_external_id FROM exchange_account_transactions WHERE account_id = ?1 ORDER BY transaction_id")?;
+            let moved: Vec<(i64, Option<String>)> = q.query_map([d], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            c.execute("DELETE FROM exchange_account_transactions WHERE account_id = ?1", [d])?;
+            for (row, id) in moved { c.execute("UPDATE transactions SET external_id = ?2 WHERE id = ?1", params![row, id])?; }
+        }
+    }
+    Ok(())
+}
+/// #710 Merge (step 7): duplicate `from`'s ledger rows (its twins already deleted) become `to`'s, as `move_orders`. An
+/// id-less row moves too: nothing proves it a repeat. The one path that deletes a living row's membership.
+pub fn move_rows(c: &Connection, from: &Scope, to: &Scope) -> rusqlite::Result<()> {
+    let Some(d) = from.member else { return Ok(()) };
+    match to.member {
+        Some(s) => { c.execute("UPDATE exchange_account_rows SET account_id = ?2 WHERE account_id = ?1", [d, s])?; }
+        None => {
+            let mut q = c.prepare("SELECT account_transaction_id, venue_tx_id FROM exchange_account_rows WHERE account_id = ?1 ORDER BY account_transaction_id")?;
+            let moved: Vec<(i64, Option<String>)> = q.query_map([d], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            c.execute("DELETE FROM exchange_account_rows WHERE account_id = ?1", [d])?;
+            for (row, id) in moved { c.execute("UPDATE account_transactions SET tx_id = ?2 WHERE id = ?1", params![row, id])?; }
+        }
+    }
+    Ok(())
+}
