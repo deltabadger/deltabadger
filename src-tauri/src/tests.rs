@@ -66,6 +66,8 @@ fn stub(label: &str, script: &str) -> Launch {
         first_port: Some(free_port()),
         locale: None,
         time_zone: None,
+        // A system the language step never asks (D-LANGUAGE-STEP): every test but the step's own starts at once.
+        languages: vec!["pl-PL".into()],
         updating: None,
     }
 }
@@ -77,7 +79,7 @@ fn sidecar() -> PathBuf {
 
 fn engine(label: &str) -> Launch {
     let data = temporary_directory(label);
-    Launch { exe: sidecar(), extra_args: Vec::new(), cwd: data.clone(), data: data.join("data"), notes: Vec::new(), first_port: Some(free_port()), locale: None, time_zone: None, updating: None }
+    Launch { exe: sidecar(), extra_args: Vec::new(), cwd: data.clone(), data: data.join("data"), notes: Vec::new(), first_port: Some(free_port()), locale: None, time_zone: None, languages: vec!["pl-PL".into()], updating: None }
 }
 
 fn log(launch: &Launch) -> String { fs::read_to_string(launch.log_file()).unwrap_or_default() }
@@ -116,6 +118,10 @@ fn stub_engine() {
     // PLAN-B6-3 §1: what each start was given, for the tests.
     let _ = OpenOptions::new().create(true).append(true).open("starts")
         .and_then(|mut f| writeln!(f, "{} {token}", std::env::var("DELTABADGER_DESKTOP_LAUNCHER").unwrap_or_default()));
+    // D-LANGUAGE-STEP: the language each start was given, and the saved choice on disk when it started.
+    let saved = std::env::var("STORAGE_DIR").ok().and_then(|db| fs::read_to_string(Path::new(&db).parent().unwrap().join("first-language")).ok());
+    let _ = OpenOptions::new().create(true).append(true).open("locales")
+        .and_then(|mut f| writeln!(f, "{} {}", std::env::var("DELTABADGER_DESKTOP_LOCALE").unwrap_or("-".into()), saved.as_deref().map_or("-", str::trim)));
     let serve = |body: &str, ms: u64, delay_first: u64| {
         let listener = TcpListener::bind(("127.0.0.1", port)).unwrap_or_else(|e| {
             eprintln!("stub: cannot bind port {port}: {e}");
@@ -1141,3 +1147,168 @@ fn the_release_installer_carries_no_test_hook() {
     assert_eq!(depth, 0);
     assert!(test_lines >= 3, "the barrier, the sleep and the quit hooks");
 }
+
+// ---- D-LANGUAGE-STEP: the first start's language (PLAN-ONBOARDING-LANGUAGE §3, §8) ----
+
+/// The engine's case table (rust/tests/fixtures/first_choice.json), read by both crates' tests.
+#[test]
+fn the_launchers_rule_matches_the_engines_cases() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!("../../rust/tests/fixtures/first_choice.json")).unwrap();
+    for case in fixture["preferences"].as_array().unwrap() {
+        let languages: Vec<String> = case["languages"].as_array().unwrap().iter().map(|l| l.as_str().unwrap().to_string()).collect();
+        let code = supervisor::LOCALES.iter().copied().find(|c| *c == case["choice"][1].as_str().unwrap()).unwrap();
+        let want = if case["choice"][0] == "use" { supervisor::Choice::Use(code) } else { supervisor::Choice::Ask(code) };
+        assert_eq!(supervisor::first_choice(&languages), want, "{case}");
+    }
+    for (languages, want) in [(vec!["en-US"], supervisor::Choice::Ask("en")), (vec!["ja-JP"], supervisor::Choice::Ask("en")), (vec![], supervisor::Choice::Ask("en")),
+                              (vec!["ja-JP", "pl-PL"], supervisor::Choice::Ask("pl")), (vec!["pl-PL", "en-US"], supervisor::Choice::Use("pl"))] {
+        let languages: Vec<String> = languages.into_iter().map(String::from).collect();
+        assert_eq!(supervisor::first_choice(&languages), want, "{languages:?}");
+    }
+}
+
+fn locales(launch: &Launch) -> Vec<String> {
+    fs::read_to_string(launch.cwd.join("locales")).unwrap_or_default().lines().map(str::to_string).collect()
+}
+
+/// A stub launch on a fresh data dir whose OS speaks `languages`, its OS locale the first of them.
+fn english(label: &str, script: &str, languages: &[&str]) -> Launch {
+    Launch { languages: languages.iter().map(|l| l.to_string()).collect(), locale: languages.first().map(|l| l.to_string()), ..stub(label, script) }
+}
+
+/// `supervise` on its own thread, with the stub's script set until it returns.
+fn spawn_supervisor(launch: Launch) -> (std::sync::Arc<Launch>, std::sync::Arc<Engine>, std::sync::Arc<Recorder>, std::thread::JoinHandle<()>) {
+    let (launch, engine, view) = (std::sync::Arc::new(launch), std::sync::Arc::new(Engine::default()), std::sync::Arc::new(Recorder::default()));
+    let (l, e, v) = (launch.clone(), engine.clone(), view.clone());
+    let thread = std::thread::spawn(move || with_stub_script(&l, || supervise(&l, &e, &*v)));
+    (launch, engine, view, thread)
+}
+
+#[test]
+fn a_first_start_on_an_english_system_asks_before_the_engine_and_starts_it_in_the_choice() {
+    let (launch, engine, view, thread) = spawn_supervisor(english("language-asked", "serve:app:1500", &["en-US", "pl-PL"]));
+    view.wait_for("status:language&preselect=pl", Duration::from_secs(10));
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(starts(&launch), 0, "no engine while the picker waits");
+    assert_eq!(view.states(), vec!["language"], "nothing else on screen: {:?}", view.events());
+    assert!(log(&launch).contains("desktop: waiting for the language choice"));
+    assert!(engine.language().waiting());
+    assert!(!engine.language().choose("zz") && !engine.language().choose("") && !engine.language().choose("EL"), "not one of the 15");
+    assert!(engine.language().choose("el"));
+    assert!(!engine.language().choose("de"), "the first choice wins");
+    thread.join().unwrap();
+    assert_eq!(fs::read_to_string(launch.first_language()).unwrap(), "el\n");
+    assert_eq!(locales(&launch), vec!["el el"], "saved before the spawn, passed to it");
+    assert_eq!(view.states()[..2], ["language".to_string(), "starting".to_string()], "{:?}", view.events());
+    // The next launch of the same data dir asks nothing and passes the saved choice.
+    let again = Launch { first_port: Some(free_port()), ..(*launch).clone() };
+    let view = Recorder::default();
+    with_stub_script(&again, || supervise(&again, &Engine::default(), &view));
+    assert!(!view.states().contains(&"language".to_string()), "{:?}", view.events());
+    assert_eq!(locales(&again), vec!["el el", "el el"]);
+}
+
+#[test]
+fn a_saved_choice_wins_with_or_without_a_database_and_a_database_alone_never_asks() {
+    for (label, saved, database) in [("saved-crash", true, true), ("saved-nodb", true, false), ("db-only", false, true)] {
+        let launch = english(label, "serve:app:500", &["en-US"]);
+        fs::create_dir_all(launch.db()).unwrap();
+        if saved { fs::write(launch.first_language(), "el\n").unwrap(); }
+        // The crash case: the engine made its database and stopped before the account.
+        if database { fs::File::create(launch.primary()).unwrap(); }
+        let view = Recorder::default();
+        with_stub_script(&launch, || supervise(&launch, &Engine::default(), &view));
+        assert!(!view.states().contains(&"language".to_string()), "{label}: {:?}", view.events());
+        let want = if saved { "el el" } else { "en-US -" };
+        assert_eq!(locales(&launch), vec![want], "{label}");
+    }
+}
+
+#[test]
+fn a_system_in_one_of_our_languages_is_never_asked() {
+    let launch = english("language-polish", "serve:app:500", &["pl-PL", "en-US"]);
+    let view = Recorder::default();
+    with_stub_script(&launch, || supervise(&launch, &Engine::default(), &view));
+    assert!(!view.states().contains(&"language".to_string()), "{:?}", view.events());
+    assert_eq!(locales(&launch), vec!["pl-PL -"]);
+    assert!(!launch.first_language().exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_database_folder_that_cannot_be_looked_at_is_d5_and_never_a_first_start() {
+    use std::os::unix::fs::PermissionsExt;
+    let launch = english("language-unreadable", "serve:app:500", &["en-US"]);
+    fs::create_dir_all(launch.db()).unwrap();
+    fs::set_permissions(launch.db(), fs::Permissions::from_mode(0o000)).unwrap();
+    let view = Recorder::default();
+    with_stub_script(&launch, || supervise(&launch, &Engine::default(), &view));
+    fs::set_permissions(launch.db(), fs::Permissions::from_mode(0o755)).unwrap();
+    if view.states().is_empty() { return; } // run as root: every folder can be looked at
+    assert_eq!(view.states().last().map(String::as_str), Some("not-started"), "{:?}", view.events());
+    assert!(!view.states().contains(&"language".to_string()));
+    assert_eq!(starts(&launch), 0);
+}
+
+#[test]
+fn a_quit_while_the_picker_waits_starts_nothing_and_a_late_choice_never_spawns() {
+    for choose_after_quit in [false, true] {
+        let (launch, engine, view, thread) = spawn_supervisor(english("language-quit", "serve:app:500", &["en-US"]));
+        view.wait_for("status:language&preselect=en", Duration::from_secs(10));
+        stop_engine(&engine);
+        if choose_after_quit { engine.language().choose("de"); }
+        thread.join().unwrap();
+        assert_eq!(starts(&launch), 0, "choice after the quit: {choose_after_quit}");
+        assert_eq!(view.states(), vec!["language"], "{:?}", view.events());
+        assert!(!launch.primary().exists(), "no database: the next launch asks again");
+    }
+}
+
+/// The picker's Continue is a navigation of the status page's root with `?locale=`: always cancelled (a choice), whatever
+/// it holds, and taken only while the picker waits. What the window shows is never touched by it.
+#[test]
+fn a_choice_navigation_is_always_a_choice_and_never_loads() {
+    let url = |u: &str| u.parse::<tauri::Url>().unwrap();
+    for (raw, code) in [("tauri://localhost/?locale=el", "el"), ("http://tauri.localhost/?locale=de", "de"), ("tauri://localhost/?locale=", ""),
+                        ("tauri://localhost/?locale=zz", "zz"), ("tauri://localhost/?x=1&locale=pl", "pl"), ("tauri://localhost/?", ""),
+                        ("tauri://localhost/?other=el", "")] {
+        assert_eq!(navigation(&url(raw), Some(3001)), Navigation::Choice(code.into()), "{raw}");
+    }
+    for raw in ["tauri://localhost/index.html?locale=el", "tauri://localhost/", "http://tauri.localhost/#language&preselect=en"] {
+        assert_eq!(navigation(&url(raw), Some(3001)), Navigation::Allow, "{raw}");
+    }
+    for raw in ["tauri://evil/", "tauri://localhost:8080/?locale=el", "tauri://evil/?locale=el"] {
+        assert_eq!(navigation(&url(raw), Some(3001)), Navigation::Refuse, "{raw}");
+    }
+    assert_eq!(navigation(&url("http://tauri.localhost:3001/?locale=el"), Some(3001)), Navigation::Browser);
+    let engine = Engine::default();
+    let view = Recorder::default();
+    view.status("language&preselect=en");
+    let shown = view.events();
+    for code in ["el", "", "zz"] {
+        assert!(!engine.language().choose(code), "not waiting: {code:?}");
+    }
+    assert_eq!(view.events(), shown);
+}
+
+#[test]
+fn the_status_page_draws_nothing_bare_the_icon_only_for_starting_and_the_picker_for_language() {
+    let page = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("ui/index.html")).unwrap();
+    for line in [
+        "var text = name ? PAGES[name](params) : [\"\", \"\"];",
+        "document.getElementById(\"logo\").hidden = !(name && text[0] === \"\");",
+        "var asking = parts[0] === \"language\";",
+        "<form id=\"language-form\" method=\"get\" action=\"/\">",
+        "url(\"Montserrat-VariableFont_wght.woff2\")",
+        "url(\"GoogleSans-greek.woff2\")",
+        "url(\"GoogleSans-greek-ext.woff2\")",
+    ] {
+        assert!(page.contains(line), "{line}");
+    }
+    assert_eq!(supervisor::Page::Language("pl").fragment(Path::new("")), "language&preselect=pl");
+    // build.rs copies the app's faces next to the page.
+    for font in ["Montserrat-VariableFont_wght.woff2", "GoogleSans-greek.woff2", "GoogleSans-greek-ext.woff2"] {
+        assert!(Path::new(env!("CARGO_MANIFEST_DIR")).join("ui").join(font).is_file(), "{font}");
+    }
+}
+
