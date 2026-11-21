@@ -11,5 +11,6 @@ da:
             merge_in_flight_html: "En ordre eller en udbetaling på %{duplicate} eller %{survivor} er stadig i gang. Prøv igen, når den er afsluttet."
             merge_conflict_html: "%{duplicate} og %{survivor} er uenige om disse poster, så intet er ændret: %{rows}. Få dem til at stemme overens, og flet dem så igen."
             merge_checking_html: "Deltabadger læser %{duplicate} og %{survivor} igen for at være sikker på, at det er den samme konto. Prøv igen om et minut."
-            merge_withdrawal_key_html: "Udbetalingsnøgler ville skifte konto: fjern udbetalingsnøglen for %{duplicate} eller %{survivor}, flet kontiene, og tilføj den så igen."
+            merge_withdrawal_key_html: "Efter fletningen ville disse udbetalingsregler bruge en anden udbetalingsnøgle: %{rules}. Fjern udbetalingsnøglen for %{duplicate} eller %{survivor}, flet kontiene, og tilføj den så igen."
+            merge_foreign_order: "en ordre, der allerede er registreret på denne børs"
             merge_unreadable_html: "%{account} har ingen fungerende nøgle, der kan læse saldiene, så Deltabadger kan ikke tjekke den. Ret eller tilføj en nøgle, og flet så igen."

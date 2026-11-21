@@ -11,5 +11,6 @@ pt:
             merge_in_flight_html: "Ainda há uma ordem ou um levantamento de %{duplicate} ou de %{survivor} em curso. Tenta outra vez quando terminar."
             merge_conflict_html: "%{duplicate} e %{survivor} não coincidem nestes registos, por isso nada foi alterado: %{rows}. Acerta-os e volta a juntá-las."
             merge_checking_html: "O Deltabadger está a ler de novo %{duplicate} e %{survivor} para confirmar que são a mesma conta. Tenta outra vez dentro de um minuto."
-            merge_withdrawal_key_html: "As chaves de levantamento mudariam de conta: remove a chave de levantamento de %{duplicate} ou de %{survivor}, junta as contas e volta a adicioná-la."
+            merge_withdrawal_key_html: "Depois de juntar as contas, estas regras de levantamento passariam a usar outra chave de levantamento: %{rules}. Remove a chave de levantamento de %{duplicate} ou de %{survivor}, junta as contas e volta a adicioná-la."
+            merge_foreign_order: "uma ordem já registada nesta corretora"
             merge_unreadable_html: "%{account} não tem nenhuma chave a funcionar que consiga ler os saldos, por isso o Deltabadger não a consegue verificar. Corrige uma ou adiciona outra e volta a juntá-las."

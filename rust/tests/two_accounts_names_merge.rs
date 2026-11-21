@@ -1126,6 +1126,8 @@ fn t17_t18_keys_and_bots_move_to_the_survivor() {
               [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
     let withdrawal = c.last_insert_rowid();
     c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [withdrawal, two.id(1)]).unwrap();
+    // Every live key observes the fingerprint (R7 #4).
+    for n in 0..2 { two.fingerprint(c, n, Some("fp")); }
     let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
     assert_eq!(merged.deleted_keys, [two.keys[0]]);
     assert_eq!(identity::account_of_key(c, two.keys[1]).unwrap(), Some(two.id(0)), "2's key is 1's now");
@@ -1481,7 +1483,8 @@ fn t27_every_locale_has_the_eight_keys() {
     let keys = [("tracker.duplicate_account_html", &["duplicate", "survivor"][..]), ("tracker.merge_in_settings", &[][..]),
                 ("settings.accounts.duplicate_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge", &[][..]),
                 ("settings.accounts.confirm_merge_html", &["duplicate", "survivor"][..]), ("settings.accounts.merged_html", &["duplicate", "survivor"][..]),
-                ("settings.accounts.merge_in_flight_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge_conflict_html", &["duplicate", "survivor", "rows"][..])];
+                ("settings.accounts.merge_in_flight_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge_conflict_html", &["duplicate", "survivor", "rows"][..]),
+                ("settings.accounts.merge_withdrawal_key_html", &["duplicate", "survivor", "rules"][..]), ("settings.accounts.merge_foreign_order", &[][..])];
     let all = deltabadger::web::i18n::all();
     let text = |locale: &str, key: &str| all.iter().find(|(k, _)| *k == format!("{locale}.{key}")).map(|(_, v)| v.to_string()).unwrap_or_else(|| panic!("{locale}.{key} missing"));
     for locale in deltabadger::web::locale::LOCALES {
@@ -2188,24 +2191,46 @@ fn l6_a_replaced_key_with_no_fresh_sync_refuses() {
     assert!(!matches!(merge_stale(c, &two, two.id(1)), Ok(Some(_))));
 }
 
-/// A withdrawal key on both accounts, or a live rule of the duplicate beside only the survivor's withdrawal key, refuses.
+/// A withdrawal key of account `n`, observed as the account's fingerprint like its other keys.
+fn withdrawal_key(c: &Connection, two: &Two, n: usize) -> i64 {
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, 'w', 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, format!("w-{n}")]).unwrap();
+    let key = c.last_insert_rowid();
+    two.accounts[n].add_key(c, key).unwrap();
+    two.fingerprint(c, n, Some("fp"));
+    key
+}
+/// R7 #1: Merge refuses when a live rule of either account would withdraw with another key afterwards (none to some
+/// included), naming the rule; with no rule a key would move under, it merges.
 #[test]
 fn l6_withdrawal_keys_that_would_change_hands_refuse() {
-    let withdrawal = |c: &Connection, two: &Two, n: usize| {
-        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, 'w', 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
-                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, format!("w-{n}")]).unwrap();
-        two.accounts[n].add_key(c, c.last_insert_rowid()).unwrap();
+    let refused = |c: &Connection, two: &Two, what: &str| {
+        let before = dump(c);
+        match merge_now(c, two, two.id(1)) { Err(Refusal::WithdrawalKeys(rules)) => assert!(rules.iter().any(|r| r.contains("BTC")), "{what}: {rules:?}"), other => panic!("{what}: {other:?}") }
+        assert_eq!(dump(c), before, "{what}");
     };
     let (_d, o, two) = duplicate();
     let c = &o.primary;
-    withdrawal(c, &two, 0);
-    withdrawal(c, &two, 1);
-    assert!(!matches!(merge_now(c, &two, two.id(1)), Ok(Some(_))), "both");
+    withdrawal_key(c, &two, 0);
+    two.rule(c, &seed::cipher(), 1, two.seeded.btc, 0);
+    refused(c, &two, "the duplicate's rule would take the survivor's key");
     let (_d, o, two) = duplicate();
     let c = &o.primary;
-    withdrawal(c, &two, 0);
+    withdrawal_key(c, &two, 1);
+    two.rule(c, &seed::cipher(), 0, two.seeded.btc, 0);
+    refused(c, &two, "the survivor's rule would take the duplicate's key");
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    withdrawal_key(c, &two, 0);
+    withdrawal_key(c, &two, 1);
     two.rule(c, &seed::cipher(), 1, two.seeded.btc, 0);
-    assert!(!matches!(merge_now(c, &two, two.id(1)), Ok(Some(_))), "the duplicate's rule would switch keys");
+    refused(c, &two, "the duplicate's rule would switch keys");
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let key = withdrawal_key(c, &two, 1);
+    two.rule(c, &seed::cipher(), 1, two.seeded.btc, 0);
+    assert!(merge_now(c, &two, two.id(1)).unwrap().is_some(), "the duplicate's rule keeps its key");
+    assert_eq!(identity::account_of_key(c, key).unwrap(), identity::Account::first(c, two.seeded.user_id, two.seeded.exchange_id).unwrap().id);
 }
 
 /// #4: a pair the direct comparison rejects is never produced through a chain.
@@ -2262,10 +2287,10 @@ fn r6_one_accounts_refresh_keeps_the_last_comparable_verdict() {
     assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "the day-old pair still stands");
 }
 
-/// #1: a replaced key's old rows count only once its new credential reads balances that agree; equal empty balances with
-/// no trade newer than the change do not count.
+/// R7 #3: a replaced key's rows from before its replacement never count, whatever its new credential reads: equal
+/// balances, empty or not, with no trade newer than the change are no duplicate.
 #[test]
-fn r6_a_replaced_keys_old_rows_need_its_new_reads() {
+fn r7_a_replaced_keys_old_rows_never_count() {
     let (_d, o) = install();
     let c = &o.primary;
     let cipher = seed::cipher();
@@ -2278,6 +2303,7 @@ fn r6_a_replaced_keys_old_rows_need_its_new_reads() {
     common::two_accounts::restamp(c, two.seeded.user_id, two.keys[0]);
     for k in 0..2 { common::two_accounts::read_balances(c, two.seeded.user_id, two.id(k), two.keys[k], &[], "2026-09-20 10:00:00"); }
     assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "equal empty reads, no newer trade");
+    assert!(!overlaps(c, &two, 1), "equal non-empty reads, no newer trade");
 }
 
 /// #2: a key whose identity read is masked beside a key that confirmed the fingerprint is no confirmation.
@@ -2336,4 +2362,188 @@ fn l6_an_account_no_key_can_read_refuses_naming_it() {
     common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[0]]).unwrap();
     match merge_stale(c, &two, two.id(1)) { Err(Refusal::Unreadable(a)) => assert_eq!(a, two.id(0)), other => panic!("{other:?}") }
+}
+
+// ---- review round 7 ----
+
+/// R7 #2: every credential write goes through `identity::write_credential`: the same material re-encrypted records no
+/// change; other material records it, resets the key's ledger watermark and sync state, and clears its identity
+/// observation (of the old material).
+#[test]
+fn r7_the_one_credential_write_records_a_real_change() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let key = two.keys[0];
+    let changed = format!("rust_key_credential_changed:{key}");
+    let material: (String, String) = c.query_row("SELECT key, secret FROM api_keys WHERE id = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    let (k, s) = (cipher.decrypt(&material.0).unwrap(), cipher.decrypt(&material.1).unwrap());
+    c.execute("UPDATE api_keys SET last_synced_at = '2026-09-01 00:00:00' WHERE id = ?1", [key]).unwrap();
+    assert!(!identity::write_credential(c, &cipher, key, Some(&cipher.encrypt(&k)), Some(&cipher.encrypt(&s)), None, chrono::Utc::now()).unwrap(), "the same material");
+    assert!(!deltabadger::app_config::exists(c, &changed).unwrap());
+    assert!(one::<Option<String>>(c, &format!("SELECT last_synced_at FROM api_keys WHERE id = {key}")).is_some());
+    assert!(identity::write_credential(c, &cipher, key, Some(&cipher.encrypt("another-wallet")), Some(&cipher.encrypt(&s)), None, chrono::Utc::now()).unwrap());
+    assert!(deltabadger::app_config::exists(c, &changed).unwrap());
+    assert!(one::<Option<String>>(c, &format!("SELECT last_synced_at FROM api_keys WHERE id = {key}")).is_none());
+    assert!(one::<Option<String>>(c, &format!("SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = {key}")).is_none(), "the old material's observation");
+    assert_eq!(key_material(c, &cipher, key), "another-wallet");
+}
+
+/// R7 #2: the JSON key save (POST /api/api_keys) replacing a key's material records the change as the Settings form does:
+/// its rows from before never count.
+#[tokio::test(flavor = "current_thread")]
+async fn r7_the_json_key_save_records_a_replacement() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    assert!(overlaps(c, &two, 1));
+    let app = web_app(dir.path(), c);
+    let mut b = on_settings(&app, c, two.seeded.user_id).await;
+    let saved = json_save(&app, &mut b, &two.seeded.exchange_id.to_string(), Some(&two.id(0).to_string())).await;
+    assert_eq!(saved.status, 201, "{}", saved.body);
+    assert!(deltabadger::app_config::exists(c, &format!("rust_key_credential_changed:{}", two.keys[0])).unwrap());
+    c.execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [two.keys[0]]).unwrap();
+    common::two_accounts::restamp(c, two.seeded.user_id, two.keys[0]);
+    assert!(!overlaps(c, &two, 1), "the old wallet's trades are no evidence of the new one");
+}
+
+/// R7 #4: fingerprint standing needs every live key of both accounts to confirm it: a key with no observation gives none.
+#[test]
+fn r7_an_unobserved_live_key_gives_no_fingerprint_standing() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    add_key(c, &two, two.id(0));
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+}
+
+/// R7 #5: the kept verdict survives a refresh under the same credential and key set (its first batch incomplete); a key
+/// added to either account drops it.
+#[test]
+fn r7_a_refresh_keeps_the_verdict_until_the_keys_change() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    assert!(overlaps(c, &two, 1));
+    assert!(identity::after_balance_read(c, two.keys[1], chrono::Utc::now()).unwrap().is_empty());
+    // The refresh's first batch: incomplete, a day later, the same version.
+    let a = identity::AccountRow::by_id(c, two.id(1)).unwrap().unwrap();
+    let origin = deltabadger::sync::cache::balance_origin_key_of(&a);
+    let mut stamp: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &origin).unwrap().unwrap()).unwrap();
+    stamp["complete"] = serde_json::Value::Bool(false);
+    deltabadger::app_config::set_plain(c, &origin, &stamp.to_string(), chrono::Utc::now()).unwrap();
+    c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-21 10:00:00' WHERE id = ?1", [two.keys[1]]).unwrap();
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "mid-refresh");
+    withdrawal_key(c, &two, 0);
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "another key set");
+}
+
+/// A buy of account `account` imported by its key `key` under venue id `id`: `amount` BTC for 100 EUR at `at`.
+fn trade_on(c: &Connection, two: &Two, account: i64, key: i64, id: &str, amount: &str, at: &str) {
+    let scope = deltabadger::venue_ids::Scope::of(c, &identity::Account::by_id(c, account).unwrap().unwrap()).unwrap();
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, transacted_at, \
+               raw_data, manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 'BTC', ?7, 'EUR', '100', ?4, ?5, json_object('refid', ?6), '{}', 0, ?5, ?5)",
+              rusqlite::params![two.seeded.user_id, key, two.seeded.exchange_id, scope.stored(Some(id)), at, id, amount]).unwrap();
+    deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some(id)).unwrap();
+}
+
+/// R7 #6: a shared trade id with other facts between 3 and 1 vetoes 3 being 1's duplicate through 2.
+#[test]
+fn r7_a_direct_trade_conflict_vetoes_every_chain() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let third = two.third(c).id.unwrap();
+    let key = add_key(c, &two, third);
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    trades_on(c, &two, third, key, 3);
+    trade_on(c, &two, two.id(0), two.keys[0], "x", "1", "2026-09-05 10:00:00");
+    trade_on(c, &two, third, key, "x", "2", "2026-09-05 10:00:00");
+    for (a, k) in [(two.id(0), two.keys[0]), (two.id(1), two.keys[1]), (third, key)] {
+        common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
+    }
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+}
+
+/// R7 #7: Kraken stores only the codes it could not name: while either account holds one, Merge refuses naming it.
+#[test]
+fn r7_an_unresolved_code_refuses_the_merge_naming_it() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
+    for k in two.keys { unresolved(c, k, &["XTOKEN"]); }
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "the same codes");
+    let before = dump(c);
+    match merge_stale(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert!(rows.iter().any(|r| r.contains("XTOKEN")), "{rows:?}"), other => panic!("{other:?}") }
+    assert_eq!(dump(c), before);
+}
+
+/// R7 #8: a venue answer beats a restore-shaped raw: the survivor's restored twin takes the duplicate's API answer.
+#[test]
+fn r7_the_kept_twin_takes_the_venue_answer_over_a_restore() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let kept = two.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"amounts\":{\"base\":\"1\"}}' WHERE id = ?1", [kept]).unwrap();
+    let api = two.row(c, 1, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<String>(c, &format!("SELECT raw_data FROM account_transactions WHERE id = {kept}")), "{\"createdAt\":1}");
+}
+
+/// R7 #10: an order of another user under the same venue id is named generically: no date, side, amount or asset.
+#[test]
+fn r7_another_users_order_is_named_generically() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    two.order(c, 0, common::two_accounts::SHARED_ORDER, 0, Some(2));
+    two.order(c, 1, common::two_accounts::SHARED_ORDER, 0, Some(2));
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("UPDATE bots SET user_id = ?2 WHERE id = ?1", [two.bots[0], c.last_insert_rowid()]).unwrap();
+    match merge_now(c, &two, two.id(1)) {
+        Err(Refusal::Conflict(rows)) => {
+            assert_eq!(rows.len(), 2, "{rows:?}");
+            assert!(rows.contains(&merge::FOREIGN_ORDER.to_string()), "{rows:?}");
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+/// R7 #9: on a single-account install, the read-only key's balance job giving way to the trading key ends with an outcome
+/// the scheduler records: it runs once, never woken again at once.
+#[tokio::test(flavor = "current_thread")]
+async fn r7_a_balance_job_giving_way_runs_once() {
+    let (dir, o, s) = common::install();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [s.api_key_id]).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, s.exchange_id, seed::cipher().encrypt("read-key"), seed::cipher().encrypt("read-secret")]).unwrap();
+    let reader = c.last_insert_rowid();
+    common::number_one(c, s.user_id, s.exchange_id);
+    assert!(!deltabadger::sync::balance_reading_keys(c).unwrap().contains(&reader), "the trading key reads");
+    let runs = std::rc::Rc::new(std::cell::Cell::new(0));
+    let counted = runs.clone();
+    let scheduler = deltabadger::jobs::Scheduler::new(store::open(&Paths::from_env(&|_| None, dir.path())).unwrap().primary, seed::cipher(),
+        vec![Box::new(deltabadger::sync::jobs::BalanceSync::new(NoVenue, std::rc::Rc::new(deltabadger::sync::balances::NoPrices), reader))], None)
+        .with_ran(Box::new(move |name, _| if name == deltabadger::sync::jobs::BALANCE_SYNC { counted.set(counted.get() + 1) }));
+    scheduler.wakers().wake(deltabadger::sync::jobs::BALANCE_SYNC, Some(&reader.to_string()), None);
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let (ended, ()) = tokio::join!(scheduler.run(stopped, &clock), async {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        let _ = stop.send(true);
+    });
+    ended.unwrap();
+    assert_eq!(runs.get(), 1);
+    let state = deltabadger::jobs::state::read(c, deltabadger::sync::jobs::BALANCE_SYNC, Some(&reader.to_string())).unwrap();
+    assert!(state.last_run_at.is_some() && state.last_error.is_none(), "{state:?}");
 }

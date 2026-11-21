@@ -11,5 +11,6 @@ it:
             merge_in_flight_html: "Un ordine o un prelievo di %{duplicate} o di %{survivor} è ancora in corso. Riprova quando si sarà concluso."
             merge_conflict_html: "%{duplicate} e %{survivor} non coincidono su questi movimenti, quindi non è stato modificato nulla: %{rows}. Allineali e poi riprova a unirli."
             merge_checking_html: "Deltabadger sta rileggendo %{duplicate} e %{survivor} per essere sicuro che siano lo stesso account. Riprova tra un minuto."
-            merge_withdrawal_key_html: "Le chiavi di prelievo cambierebbero account: rimuovi la chiave di prelievo di %{duplicate} o di %{survivor}, unisci gli account e poi aggiungila di nuovo."
+            merge_withdrawal_key_html: "Dopo l’unione, queste regole di prelievo userebbero un’altra chiave di prelievo: %{rules}. Rimuovi la chiave di prelievo di %{duplicate} o di %{survivor}, unisci gli account e poi aggiungila di nuovo."
+            merge_foreign_order: "un ordine già registrato su questo exchange"
             merge_unreadable_html: "%{account} non ha nessuna chiave funzionante in grado di leggerne i saldi, quindi Deltabadger non può verificarlo. Sistemane una o aggiungine una, poi riprova a unirli."

@@ -399,12 +399,13 @@ impl<C: Connect> Job for BalanceSync<C> {
                 for k in keys { if crate::identity::account_of_key(c, k).map_err(|e| e.to_string())? == Some(account) { return Ok(true); } }
                 Ok(false)
             }).await;
+            let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             match gives_way {
                 Ok(false) => {}
-                Ok(true) => return crate::engine::model::Produced::new(Outcome::NothingNew, None),
+                // A run that read nothing, under the key's current version: the scheduler records it, nothing wakes it again.
+                Ok(true) => return crate::engine::model::Produced::new(Outcome::NothingNew, Some(version)),
                 Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e), None),
             }
-            let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             let result=async {
             // As the ledger: from before the first write unit until a complete success, the key's balances may be half
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.

@@ -16,9 +16,8 @@ pub enum Refusal {
     /// The data a Merge is checked on is older than `identity::LIVE_SECS` or missing: the syncs to wake (job, key), then try
     /// again.
     Stale(Vec<(&'static str, i64)>),
-    /// A withdrawal key would change hands: both accounts hold one, or the duplicate's live rules would move onto the
-    /// survivor's key.
-    WithdrawalKeys,
+    /// A live rule of either account would withdraw with another key after the merge, each named by its account and asset.
+    WithdrawalKeys(Vec<String>),
     /// The account no key can read the balances of (`identity::Live::Unreadable`).
     Unreadable(i64),
     /// Records the two disagree on, each named by its date, type, amount and asset.
@@ -27,6 +26,9 @@ pub enum Refusal {
 }
 impl From<rusqlite::Error> for Refusal { fn from(e: rusqlite::Error) -> Self { Self::Db(e.into()) } }
 impl From<crate::engine::EngineError> for Refusal { fn from(e: crate::engine::EngineError) -> Self { Self::Db(e) } }
+
+/// The conflict line naming an order another user's bot holds under the same venue id (shown in the user's words).
+pub const FOREIGN_ORDER: &str = "\u{0}foreign_order";
 
 /// What a Merge did: the accounts, and the keys it deleted and kept (the caller's after-commit work).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -73,15 +75,17 @@ fn kind(entry_type: i64) -> &'static str {
 
 /// One ledger row of D, or its twin in S: the fields the merge keeps.
 #[derive(Clone, Debug)]
-/// `raw`: the venue's answer, when only the duplicate's twin has one (a restored row has none): the row kept carries it.
+/// `raw`: the venue's answer, when only the duplicate's twin has one (a restored row has none, or only a file's own fields):
+/// the row kept carries it. `synced`: whether the row's raw is a venue's answer (`not_synced`).
 /// `asset`, `group`: the duplicate's, written where the kept twin has none.
-struct Meta { manual: serde_json::Map<String, serde_json::Value>, order: Option<i64>, rejected: bool, raw: Option<String>, asset: Option<i64>, group: Option<String>,
-              description: Option<String> }
+struct Meta { manual: serde_json::Map<String, serde_json::Value>, order: Option<i64>, rejected: bool, raw: Option<String>, synced: bool, asset: Option<i64>,
+              group: Option<String>, description: Option<String> }
 fn meta(c: &Connection, row: i64) -> rusqlite::Result<Meta> {
-    c.query_row("SELECT manual_values, transaction_id, coalesce(transfer_link_rejected, 0), raw_data, base_asset_id, group_id, description FROM account_transactions WHERE id = ?1", [row], |r| {
+    c.query_row(&format!("SELECT x.manual_values, x.transaction_id, coalesce(x.transfer_link_rejected, 0), x.raw_data, x.base_asset_id, x.group_id, x.description, NOT {} \
+                          FROM account_transactions x WHERE x.id = ?1", not_synced("x")), [row], |r| {
         let manual = r.get::<_, Option<String>>(0)?.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
-        Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.trim(), "" | "{}" | "null")), asset: r.get(4)?,
-                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()) })
+        Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.trim(), "" | "{}" | "null")), synced: r.get(7)?,
+                  asset: r.get(4)?, group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()) })
     })
 }
 
@@ -146,7 +150,8 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         }
         match (sm.order, dm.order) { (Some(a), Some(b)) if a != b => clash = true, (None, Some(b)) => sm.order = Some(b), _ => {} }
         sm.rejected |= dm.rejected;
-        sm.raw = if sm.raw.is_none() { dm.raw.clone() } else { None };
+        // A venue answer always beats a restore's shape: the kept twin takes the duplicate's answer over its own restore.
+        sm.raw = if sm.raw.is_none() || (!sm.synced && dm.synced) { dm.raw.clone() } else { None };
         sm.asset = if sm.asset.is_none() { dm.asset } else { None };
         sm.description = if sm.description.is_none() { dm.description.clone() } else { None };
         // A group: D's where S's row has none and no other S row uses it (the group is S's then); two groups are a conflict.
@@ -214,17 +219,29 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
         sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
     if waiting || settling(c, &ad)? || settling(c, &as_)? || recorder_waiting(c, cipher, &[rd, rs])? { return Err(Refusal::InFlight); }
-    // Withdrawal keys: one per account kept, and never under a rule that would switch keys (remove it, merge, add it again).
-    let withdrawal = |a: &Account| -> rusqlite::Result<bool> { c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND k.key_type = 1)", a.keys("k")), [], |r| r.get(0)) };
-    let (wd, ws) = (withdrawal(&ad)?, withdrawal(&as_)?);
-    let d_rules: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rules WHERE account_id = ?1 AND status <> 3)", [d], |r| r.get(0))?;
-    if ws && (wd || d_rules) { return Err(Refusal::WithdrawalKeys); }
+    // Withdrawal keys: a live rule withdraws with its account's withdrawal key, and after the merge with the one step 3 keeps
+    // (S's while it is correct, else D's). A rule of either account whose key would change, none to some included, refuses,
+    // named; D's rules step 5 drops beside S's live one of their asset withdraw no more.
+    let (wd, ws) = (ad.key(c, 1)?, as_.key(c, 1)?);
+    let s_correct = match ws { Some(k) => c.query_row("SELECT status = 1 FROM api_keys WHERE id = ?1", [k], |r| r.get::<_, bool>(0))?, None => false };
+    let after = if wd.is_none() || s_correct { ws } else { wd };
+    let mut q = c.prepare("SELECT r.account_id, coalesce(a.symbol, '') FROM exchange_account_rules r LEFT JOIN assets a ON a.id = r.asset_id
+                           WHERE r.account_id IN (?1, ?2) AND r.status <> 3 AND NOT (r.account_id = ?1 AND EXISTS (SELECT 1 FROM exchange_account_rules x
+                             WHERE x.account_id = ?2 AND x.type = r.type AND x.asset_id IS r.asset_id AND x.status <> 3)) ORDER BY r.account_id, r.id")?;
+    let rules: Vec<(i64, String)> = q.query_map([d, s], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    drop(q);
+    let mut switching = vec![];
+    for (account, symbol) in rules {
+        if (if account == d { wd } else { ws }) != after { switching.push(format!("{}: {symbol}", identity::label(c, account)?.plain())); }
+    }
+    if !switching.is_empty() { return Err(Refusal::WithdrawalKeys(switching)); }
     // The live check: fresh syncs of both accounts, on which the pair still agrees.
     match identity::live_check(c, &rd, &rs, now)? {
         identity::Live::Fresh => {}
         identity::Live::Stale(wake) => return Err(Refusal::Stale(wake)),
         identity::Live::Differ => return Ok(None),
         identity::Live::Unreadable(account) => return Err(Refusal::Unreadable(account)),
+        identity::Live::Unresolved(held) => return Err(Refusal::Conflict(held)),
     }
 
     // 2. Conflicts, before any write.
@@ -236,7 +253,9 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         let Some(external) = external else { continue };
         if let Some(other) = venue_ids::order_by_id(c, &ss, external)?.filter(|o| o != order) {
             conflicts.push(order_named(c, *order)?);
-            conflicts.push(order_named(c, other)?);
+            // A number 1's index spans every user's bots: another user's order is named by nothing of its own.
+            let mine: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE t.id = ?1 AND b.user_id = ?2)", [other, user], |r| r.get(0))?;
+            conflicts.push(if mine { order_named(c, other)? } else { FOREIGN_ORDER.to_string() });
         }
     }
     // The A12 buckets and repair state, and the history repair's per-account completion (`rust_job.binance_history_repair_account:…@<D>`).

@@ -11,5 +11,6 @@ pl:
             merge_in_flight_html: "Zlecenie lub wypłata na %{duplicate} albo %{survivor} wciąż jest w toku. Spróbuj ponownie, gdy się zakończy."
             merge_conflict_html: "%{duplicate} i %{survivor} różnią się w tych wpisach, więc nic nie zmieniono: %{rows}. Ujednolij je i połącz konta ponownie."
             merge_checking_html: "Deltabadger ponownie odczytuje %{duplicate} i %{survivor}, aby upewnić się, że to to samo konto. Spróbuj ponownie za minutę."
-            merge_withdrawal_key_html: "Klucze do wypłat zmieniłyby konto: usuń klucz do wypłat z %{duplicate} albo %{survivor}, połącz konta, a potem dodaj go z powrotem."
+            merge_withdrawal_key_html: "Po połączeniu te reguły wypłat korzystałyby z innego klucza do wypłat: %{rules}. Usuń klucz do wypłat z %{duplicate} albo %{survivor}, połącz konta, a potem dodaj go z powrotem."
+            merge_foreign_order: "zlecenie już zapisane na tej giełdzie"
             merge_unreadable_html: "%{account} nie ma działającego klucza, który odczytuje salda, więc Deltabadger nie może go sprawdzić. Napraw albo dodaj klucz, a potem połącz konta ponownie."
