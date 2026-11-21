@@ -112,8 +112,8 @@ fn units(text: &str) -> Vec<(String, String)> {
 }
 
 /// `(clean, mask)` with every test item blanked where it stands (newlines kept): an item under `#[cfg(test)]`,
-/// `#[test]` or `#[tokio::test]`, from its attributes to its `;` or the `}` closing its first `{` (or a `}` closing
-/// the item around it). Code before or after it on the same lines stays.
+/// `#[test]` or `#[tokio::test]`, from its attributes to its `;` (a match arm's or a field's `,`) or the `}` closing its
+/// first `{` (or a `}` closing the item around it). Code before or after it on the same lines stays.
 fn without_tests((clean, mask): (String, String)) -> (String, String) {
     let (mut c, mut m): (Vec<char>, Vec<char>) = (clean.chars().collect(), mask.chars().collect());
     let text: String = m.iter().collect();
@@ -137,7 +137,8 @@ fn without_tests((clean, mask): (String, String)) -> (String, String) {
                 '}' => { braces -= 1; if braces <= 0 { break; } }
                 '(' | '[' => parens += 1,
                 ')' | ']' => parens -= 1,
-                ';' if braces == 0 && parens == 0 => break,
+                // A test-only match arm or field ends at its comma; an item at its `;`.
+                ';' | ',' if braces == 0 && parens == 0 => break,
                 _ => {}
             }
         }
@@ -284,4 +285,11 @@ fn the_scan_joins_method_chains_and_keeps_code_after_a_test_item() {
     assert_eq!(scan(&chain).keys().map(|(_, k, _)| *k).collect::<Vec<_>>(), ["literal"], "{:?}", scan(&chain));
     let same_line = file("tracker/s.rs", "#[cfg(test)] mod t { fn a() {} } fn later() { let s = \"SELECT base_currency FROM t\"; }\n");
     assert_eq!(scan(&same_line).len(), 1, "{:?}", scan(&same_line));
+}
+
+/// Codex PR0 r3 P3-11: a test-only match arm or field ends at its comma; the production arm after it is scanned.
+#[test]
+fn a_test_only_arm_hides_no_production_reader() {
+    let arm = vec![("tracker/m.rs".to_string(), "fn f(kind: i32, row: &Row) -> &str { match kind { #[cfg(test)] 0 => \"\", _ => &row.base_currency } }\n".to_string())];
+    assert_eq!(scan(&arm).len(), 1, "{:?}", scan(&arm));
 }
