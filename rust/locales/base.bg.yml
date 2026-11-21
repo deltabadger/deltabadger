@@ -95,6 +95,10 @@ bg:
         scheme_warm: 'Топла'
         scheme_ember: 'Жар'
         scheme_forest: 'Гора'
+        mode: 'Облик'
+        mode_system: 'Системна'
+        mode_light: 'Светла'
+        mode_dark: 'Тъмна'
         show_balances: 'Покажи балансите'
         about: За нас
         telegram: 'Telegram'

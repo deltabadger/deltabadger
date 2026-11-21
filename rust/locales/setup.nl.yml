@@ -13,7 +13,7 @@ nl:
                 brokers: "Brokers"
                 exchanges: "Exchanges"
             market_data:
-                intro: "Indexen hebben live marktgegevens nodig. Gebruik de officiële Deltabadger-data-API of een gratis CoinGecko-account."
+                intro: "Indexen hebben live marktgegevens nodig. Koppel de Deltabadger-data-API (aandelen en crypto) of een gratis CoinGecko-account (alleen crypto)."
                 providers: "Aanbieders van marktgegevens"
                 subscription:
                     lead_html: "Een <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a>-abonnement omvat:"

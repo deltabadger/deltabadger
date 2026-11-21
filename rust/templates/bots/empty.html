@@ -3,6 +3,6 @@
 
   <div class="welcome-screen"><canvas class="pixel-scene" data-controller="pixel-scene" data-pixel-scene-name-value="invest" data-pixel-scene aria-hidden="true"></canvas>
     <p>{{ v.t("bot.welcome.pick_exchange_first")|safe }}</p>
-    <a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" href="{{ v.path("/bots/new") }}">
+    <a class="sbutton sbutton--accent" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" href="{{ v.path("/bots/new") }}">
       {% include "svg/_24x24_plus.html" %}
 </a></div>

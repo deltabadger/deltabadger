@@ -95,6 +95,10 @@ de:
         scheme_warm: 'Warm'
         scheme_ember: 'Glut'
         scheme_forest: 'Wald'
+        mode: 'Darstellung'
+        mode_system: 'System'
+        mode_light: 'Hell'
+        mode_dark: 'Dunkel'
         show_balances: 'Guthaben einblenden'
         about: Über
         telegram: Telegram

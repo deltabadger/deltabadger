@@ -60,7 +60,7 @@
     <p class="text-inactive">{{ api_hint }}</p>
 {% if !working %}
     <div id="add-signal-button">
-      <form class="button_to" method="post" action="{{ path }}/bot_signals"><button class="sbutton sbutton--sky" type="submit">{{ v.t("bot.signal.add_signal")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+      <form class="button_to" method="post" action="{{ path }}/bot_signals"><button class="sbutton sbutton--accent" type="submit">{{ v.t("bot.signal.add_signal")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
     </div>
 {% endif %}
 {{ conditions|safe }}</div>

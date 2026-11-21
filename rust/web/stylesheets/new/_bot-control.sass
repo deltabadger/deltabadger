@@ -9,7 +9,7 @@
     .rbutton:not(.rbutton--small)
         min-width: 9rem
         &.rbutton--start
-            box-shadow: var(--shadow-strong)
+            box-shadow: var(--shadow-basic)
     // Orders are being set: the whole meter (progress, venue, status) breathes until the tick ends. Keyed off the status
     // bar's class, which its broadcast replaces, so the meter needs no re-render of its own.
     &__meter:has(.bot-control__status.executing)
