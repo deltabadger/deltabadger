@@ -394,16 +394,20 @@ impl<C: Connect> Job for BalanceSync<C> {
             // A key whose account reads with another key gives way to it; one whose account has no reading key runs as before.
             let gives_way = cx.db.run(move |c, _| {
                 let keys = crate::sync::balance_reading_keys(c).map_err(|e| e.0)?;
-                if keys.contains(&key_id) { return Ok(false); }
-                let Some(account) = crate::identity::account_of_key(c, key_id).map_err(|e| e.to_string())? else { return Ok(false) };
-                for k in keys { if crate::identity::account_of_key(c, k).map_err(|e| e.to_string())? == Some(account) { return Ok(true); } }
-                Ok(false)
+                if keys.contains(&key_id) { return Ok(None); }
+                let Some(account) = crate::identity::account_of_key(c, key_id).map_err(|e| e.to_string())? else { return Ok(None) };
+                for k in keys { if crate::identity::account_of_key(c, k).map_err(|e| e.to_string())? == Some(account) { return Ok(Some(k)); } }
+                Ok(None)
             }).await;
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             match gives_way {
-                Ok(false) => {}
+                Ok(None) => {}
                 // A run that read nothing, under the key's current version: the scheduler records it, nothing wakes it again.
-                Ok(true) => return crate::engine::model::Produced::new(Outcome::NothingNew, Some(version)),
+                // The reader's own job reads now (registered by the wake when the reader changed since the start).
+                Ok(Some(reader)) => {
+                    cx.wakers.wake(BALANCE_SYNC, Some(&reader.to_string()), None);
+                    return crate::engine::model::Produced::new(Outcome::NothingNew, Some(version));
+                }
                 Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e), None),
             }
             let result=async {

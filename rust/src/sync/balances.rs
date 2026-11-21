@@ -315,10 +315,13 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         (Ok(cash), Ok(held)) => (cash, held),
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
     };
-    let held = match complete_balances(&catalog, cash, held) {
-        Ok(rows) => rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(),
+    let (held, skipped) = match complete_balances_skipping(&catalog, cash, held) {
+        Ok((rows, skipped)) => (rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(), skipped),
         Err(why) => return fail(why, false).await,
     };
+    // Recorded with the read's last commit, cleared by a read that skipped none.
+    let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let record = Some((format!("rust_sync.alpaca_skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string())));
 
     let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
@@ -344,7 +347,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
             Err((text, false)) => errors.push(text),
         }
     }
-    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, None, &[]).await? {
+    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, record, &[]).await? {
         Ok(summary) => Ok(Ok(summary)),
         Err(why) => fail(why, false).await,
     }
@@ -1255,13 +1258,21 @@ pub(crate) fn position_spelling(native: &str) -> &str {
 /// `qty_available` what is left to sell: free is the second, locked the rest, so the holding stays whole. Both are
 /// required, as in 2.x (`a position without a quantity`).
 pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<Vec<(i64, BigDec, BigDec)>, String> {
+    complete_balances_skipping(catalog, cash, positions).map(|(rows, _)| rows)
+}
+/// `complete_balances`, and the symbols of the positions it skipped (#710: such a read is no complete account for the
+/// identity checks, `rust_sync.alpaca_skipped:<key>`).
+#[allow(clippy::type_complexity)]
+pub(crate) fn complete_balances_skipping(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<(Vec<(i64, BigDec, BigDec)>, Vec<String>), String> {
     let mut free: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut skipped = vec![];
     if let [usd] = catalog.cash_ids.as_slice() { free.insert(*usd, (cash, BigDec::zero())); }
     else if !cash.is_zero() { return Err("Unmapped or ambiguous Alpaca cash asset".into()); }
     for (category, symbol, raw) in positions {
-        let ids = catalog.by_symbol.get(&(category, symbol));
+        let ids = catalog.by_symbol.get(&(category, symbol.clone()));
         let Some(asset) = ids.filter(|ids| ids.len() == 1).and_then(|ids| ids.iter().next()).copied().filter(|id| catalog.asset_ids.contains(id)) else {
             crate::eline!("Alpaca position skipped: unmapped or ambiguous identity");
+            skipped.push(symbol);
             continue;
         };
         let position = Raw::from_node(&raw).map_err(|_| "unreadable position".to_string())?;
@@ -1271,7 +1282,7 @@ pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<
         let locked = &qty - &available;
         free.insert(asset, (available, locked));
     }
-    Ok(catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|(free, locked)| (*id, free, locked))).collect())
+    Ok((catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|(free, locked)| (*id, free, locked))).collect(), skipped))
 }
 
 fn assets(c: &Connection, ids: &[i64]) -> Result<Vec<Asset>, SyncError> {

@@ -13,4 +13,5 @@ sk:
             merge_checking_html: "Deltabadger znova načítava %{duplicate} a %{survivor}, aby si overil, že ide o ten istý účet. Skús to znova o minútu."
             merge_withdrawal_key_html: "Po zlúčení by tieto pravidlá na výbery používali iný kľúč na výbery: %{rules}. Odstráň kľúč na výbery pri %{duplicate} alebo %{survivor}, zlúč účty a potom ho pridaj znova."
             merge_foreign_order: "príkaz, ktorý je už na tejto burze zaznamenaný"
+            merge_order_unchecked_html: "Príkaz na %{account} bol zadaný skorším kľúčom, takže ho Deltabadger nemôže overiť tým súčasným: %{rows}. Ulož znova kľúč, ktorým bol zadaný, a potom účty zlúč."
             merge_unreadable_html: "%{account} nemá žiadny funkčný kľúč, ktorý by čítal jeho zostatky, takže ho Deltabadger nemôže overiť. Oprav alebo pridaj kľúč a potom účty zlúč znova."

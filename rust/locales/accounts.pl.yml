@@ -13,4 +13,5 @@ pl:
             merge_checking_html: "Deltabadger ponownie odczytuje %{duplicate} i %{survivor}, aby upewnić się, że to to samo konto. Spróbuj ponownie za minutę."
             merge_withdrawal_key_html: "Po połączeniu te reguły wypłat korzystałyby z innego klucza do wypłat: %{rules}. Usuń klucz do wypłat z %{duplicate} albo %{survivor}, połącz konta, a potem dodaj go z powrotem."
             merge_foreign_order: "zlecenie już zapisane na tej giełdzie"
+            merge_order_unchecked_html: "Zlecenie na %{account} złożono wcześniejszym kluczem, więc Deltabadger nie może go sprawdzić obecnym: %{rows}. Zapisz ponownie klucz, którym je złożono, a potem połącz konta."
             merge_unreadable_html: "%{account} nie ma działającego klucza, który odczytuje salda, więc Deltabadger nie może go sprawdzić. Napraw albo dodaj klucz, a potem połącz konta ponownie."

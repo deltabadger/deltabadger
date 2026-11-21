@@ -687,9 +687,9 @@ fn eng(e: crate::engine::EngineError) -> rusqlite::Error { rusqlite::Error::Inva
 ///   (`trades_match`); balances each read by its account's reading key within `READS_APART` and equal on every asset
 ///   (`reads`); and every live key of both taking part.
 ///
-/// A direct contradiction between two accounts (balances that differ at comparable reads, a shared trade id with other
-/// facts) vetoes the pair and every chain through both. Each chain is followed to its lowest live end; a chain whose known
-/// fingerprints differ is no duplicate.
+/// The accepted pairs make components (accounts connected by them); each member of one is a duplicate of its lowest
+/// number. A direct contradiction between any two members (balances that differ at comparable reads, a shared trade id
+/// with other facts), or known fingerprints that differ, leaves the whole component with no duplicate.
 pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
     if !numbered(c)? || !crate::venue_ids::ready(c)? || !crate::engine::rules::table_exists(c, "exchange_account_credentials")? { return Ok(vec![]); }
     let mut q = c.prepare(&format!("SELECT d.id, s.id, d.fingerprint, s.fingerprint, COALESCE(e.type, '') FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id
@@ -714,30 +714,48 @@ pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i6
         let keep = if fd.is_some() && fd == fs { true } else { overlap && read == Reads::Agree && trades_match(c, &rd, &rs)? };
         if keep { links.push((d, s, fd, fs)); }
     }
+    // Components: the accounts connected by accepted pairs. One with a vetoed pair inside, or whose known fingerprints
+    // differ, holds no duplicate; otherwise every member is a duplicate of its lowest number.
+    let mut group: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+    fn root(group: &mut std::collections::HashMap<i64, i64>, a: i64) -> i64 {
+        let up = *group.entry(a).or_insert(a);
+        if up == a { return a; }
+        let top = root(group, up);
+        group.insert(a, top);
+        top
+    }
     let mut prints: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for (d, s, fd, fs) in &links {
         if let Some(f) = fd { prints.insert(*d, f.clone()); }
         if let Some(f) = fs { prints.insert(*s, f.clone()); }
+        let (rd, rs) = (root(&mut group, *d), root(&mut group, *s));
+        group.insert(rd, rs);
     }
-    // Each duplicate's lowest-numbered link, then its survivor's survivor until a non-duplicate (bounded by the accounts).
-    let mut first: Vec<(i64, i64)> = vec![];
-    for (d, s, _, _) in links { if !first.iter().any(|(x, _)| *x == d) { first.push((d, s)); } }
-    let map: std::collections::HashMap<i64, i64> = first.iter().copied().collect();
-    // A chain whose known fingerprints differ anywhere along it (#3 B, #2 unknown, #1 A) is two venue accounts: no duplicate.
-    Ok(first.iter().filter_map(|&(d, mut s)| {
-        let mut chain = vec![d, s];
-        for _ in 0..map.len() { match map.get(&s) { Some(&next) => { s = next; chain.push(s); } None => break } }
-        let seen: Vec<&String> = chain.iter().filter_map(|a| prints.get(a)).collect();
-        // No two accounts along it that the direct comparison vetoed: a chain is one claim that all of them are one.
-        let vetoed = chain.iter().any(|x| chain.iter().any(|y| rejected.contains(&(*x, *y))));
-        (seen.windows(2).all(|w| w[0] == w[1]) && !vetoed).then_some((d, s))
-    }).collect())
+    let members: Vec<i64> = group.keys().copied().collect();
+    let mut components: std::collections::BTreeMap<i64, Vec<i64>> = std::collections::BTreeMap::new();
+    for a in members { let r = root(&mut group, a); components.entry(r).or_default().push(a); }
+    let mut out = vec![];
+    for accounts in components.values() {
+        let vetoed = accounts.iter().any(|x| accounts.iter().any(|y| rejected.contains(&(*x, *y))));
+        let mut seen: Vec<&String> = accounts.iter().filter_map(|a| prints.get(a)).collect();
+        seen.dedup();
+        if vetoed || seen.len() > 1 { continue; }
+        let mut numbered = vec![];
+        for a in accounts { if let Some(row) = AccountRow::by_id(c, *a)? { numbered.push((row.number, row.id)); } }
+        numbered.sort();
+        let Some(&(_, lowest)) = numbered.first() else { continue };
+        out.extend(numbered.iter().skip(1).map(|(_, d)| (*d, lowest)));
+    }
+    out.sort();
+    Ok(out)
 }
 /// Whether two accounts' balances agree: each read completely by its reading key at its current version
 /// (`sync::cache::balances_read_at`), the reads within `READS_APART` of each other, and every asset either holds at a
 /// non-zero amount the same within `ROUNDING`. Reads not both present, or too far apart, are not comparable.
 fn reads(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Reads> {
     let (Some(td), Some(ts)) = (crate::sync::cache::balances_read_at(c, d).map_err(eng)?, crate::sync::cache::balances_read_at(c, s).map_err(eng)?) else { return Ok(Reads::NotComparable) };
+    // A read that skipped a position is not the whole account.
+    if !skipped(c, d)?.is_empty() || !skipped(c, s)?.is_empty() { return Ok(Reads::NotComparable); }
     if (td - ts).num_seconds().abs() > READS_APART { return Ok(Reads::NotComparable); }
     let held = |a: i64| -> rusqlite::Result<std::collections::HashMap<i64, f64>> {
         let mut q = c.prepare("SELECT asset_id, sum(CAST(free AS REAL) + CAST(locked AS REAL)) FROM exchange_account_balances WHERE account_id = ?1 GROUP BY asset_id")?;
@@ -754,9 +772,13 @@ fn reads(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Rea
     Ok(Reads::Agree)
 }
 /// The codes account `a`'s reading key's last balance read held but could not name (`rust_sync.kraken_unresolved:<key>`).
-fn unresolved(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> {
+fn unresolved(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> { codes(c, a, "rust_sync.kraken_unresolved") }
+/// The positions account `a`'s reading key's last balance read skipped (Alpaca: unmapped or ambiguous,
+/// `rust_sync.alpaca_skipped:<key>`): a read with any is no complete account.
+fn skipped(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> { codes(c, a, "rust_sync.alpaca_skipped") }
+fn codes(c: &Connection, a: &AccountRow, prefix: &str) -> rusqlite::Result<Vec<String>> {
     let Some(key) = crate::sync::cache::reading_key(c, a).map_err(eng)? else { return Ok(vec![]) };
-    let raw = crate::app_config::get_plain(c, &format!("rust_sync.kraken_unresolved:{key}")).map_err(rusqlite::Error::InvalidParameterName)?;
+    let raw = crate::app_config::get_plain(c, &format!("{prefix}:{key}")).map_err(rusqlite::Error::InvalidParameterName)?;
     let mut codes: Vec<String> = raw.and_then(|t| serde_json::from_str::<Value>(&t).ok()).and_then(|v| v["codes"].as_array().cloned()).unwrap_or_default()
         .into_iter().filter_map(|c| c.as_str().map(str::to_string)).collect();
     codes.sort();
@@ -783,7 +805,7 @@ fn basis(c: &Connection, a: &AccountRow) -> rusqlite::Result<Option<Value>> {
 /// accounts' balances rest on the same basis (`basis`): only a change of either account's keys or credentials drops it.
 fn reads_or_kept(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Reads> {
     let now = reads(c, d, s)?;
-    if now != Reads::NotComparable { return Ok(now); }
+    if now != Reads::NotComparable || !skipped(c, d)?.is_empty() || !skipped(c, s)?.is_empty() { return Ok(now); }
     let kept = crate::app_config::get_plain(c, &kept_key(d.id, s.id)).map_err(rusqlite::Error::InvalidParameterName)?.and_then(|t| serde_json::from_str::<Value>(&t).ok());
     let Some(kept) = kept else { return Ok(Reads::NotComparable) };
     let (Some(bd), Some(bs)) = (basis(c, d)?, basis(c, s)?) else { return Ok(Reads::NotComparable) };
@@ -839,6 +861,7 @@ pub fn write_credential(c: &Connection, cipher: &Cipher, id: i64, key: Option<&s
         c.execute("UPDATE api_keys SET last_synced_at = NULL WHERE id = ?1", [id])?;
         c.execute("DELETE FROM app_configs WHERE key IN (?1, ?2, ?3, ?4)", params![format!("rust_sync.ledger:{id}"), format!("rust_sync.ledger_splits:{id}"),
                   format!("rust_sync.kraken_unresolved:{id}"), format!("rust_sync.kraken_repair_deferred:{id}")])?;
+        c.execute("DELETE FROM app_configs WHERE key = ?1", [format!("rust_sync.alpaca_skipped:{id}")])?;
         if ready(c)? {
             c.execute("UPDATE exchange_account_credentials SET material_digest = NULL, observed_credential_version = NULL, fingerprint = NULL, account_id_enc = NULL,
                        observed_at = NULL WHERE api_key_id = ?1", [id])?;
@@ -895,8 +918,8 @@ fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Res
 /// syncs to wake (job, key); or fresh reads that disagree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// `Unreadable`: an account no key can read the balances of (none correct but a withdrawal key): no sync can make it fresh.
-/// `Unresolved`: what either account holds but cannot name (Kraken's unresolved codes, stored without their amounts, so no
-/// read can show the two hold the same of it), each named by its account (`Kraken 2: XTOKEN`).
+/// `Unresolved`: what either account holds but cannot name (Kraken's unresolved codes, stored without their amounts; Alpaca's
+/// skipped positions), so no read can show the two hold the same of it, each named by its account (`Kraken 2: XTOKEN`).
 pub enum Live { Fresh, Stale(Vec<(&'static str, i64)>), Differ, Unreadable(i64), Unresolved(Vec<String>) }
 /// How fresh a Merge's data must be.
 pub const LIVE_SECS: i64 = 900;
@@ -926,10 +949,12 @@ pub fn live_check(c: &Connection, d: &AccountRow, s: &AccountRow, now: DateTime<
         }
     }
     if !wake.is_empty() { return Ok(Live::Stale(wake)); }
-    if reads(c, d, s)? != Reads::Agree { return Ok(Live::Differ); }
+    // What a read skipped or could not name: the reads cannot show the two hold the same.
     let mut held = vec![];
-    for a in [s, d] { for code in unresolved(c, a)? { held.push(format!("{}: {code}", label(c, a.id)?.plain())); } }
-    Ok(if held.is_empty() { Live::Fresh } else { Live::Unresolved(held) })
+    for a in [s, d] { for code in unresolved(c, a)?.into_iter().chain(skipped(c, a)?) { held.push(format!("{}: {code}", label(c, a.id)?.plain())); } }
+    if !held.is_empty() { return Ok(Live::Unresolved(held)); }
+    if reads(c, d, s)? != Reads::Agree { return Ok(Live::Differ); }
+    Ok(Live::Fresh)
 }
 
 /// SQL condition: account row `x`'s known fingerprint (if any) is what its keys still read: every live key's identity

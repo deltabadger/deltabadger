@@ -1484,7 +1484,8 @@ fn t27_every_locale_has_the_eight_keys() {
                 ("settings.accounts.duplicate_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge", &[][..]),
                 ("settings.accounts.confirm_merge_html", &["duplicate", "survivor"][..]), ("settings.accounts.merged_html", &["duplicate", "survivor"][..]),
                 ("settings.accounts.merge_in_flight_html", &["duplicate", "survivor"][..]), ("settings.accounts.merge_conflict_html", &["duplicate", "survivor", "rows"][..]),
-                ("settings.accounts.merge_withdrawal_key_html", &["duplicate", "survivor", "rules"][..]), ("settings.accounts.merge_foreign_order", &[][..])];
+                ("settings.accounts.merge_withdrawal_key_html", &["duplicate", "survivor", "rules"][..]), ("settings.accounts.merge_foreign_order", &[][..]),
+                ("settings.accounts.merge_order_unchecked_html", &["account", "rows"][..])];
     let all = deltabadger::web::i18n::all();
     let text = |locale: &str, key: &str| all.iter().find(|(k, _)| *k == format!("{locale}.{key}")).map(|(_, v)| v.to_string()).unwrap_or_else(|| panic!("{locale}.{key} missing"));
     for locale in deltabadger::web::locale::LOCALES {
@@ -1545,7 +1546,7 @@ fn r3_restored_rows_are_never_overlap_evidence() {
     assert!(!overlaps(c, &two, 1), "account 1's copies were restored");
 }
 
-/// R4: a chain whose known fingerprints differ along it (#3 B, #2 unknown, #1 A) is no duplicate.
+/// R4, R8: a component whose known fingerprints differ (#3 B, #2 unknown, #1 A) holds no duplicate.
 #[test]
 fn r4_a_chain_with_conflicting_fingerprints_is_no_duplicate() {
     let (_d, o) = install();
@@ -1559,8 +1560,9 @@ fn r4_a_chain_with_conflicting_fingerprints_is_no_duplicate() {
     trades(c, &two, 1, 3, 0, "1");
     trades_on(c, &two, third, key, 3);
     common::two_accounts::read_balances(c, two.seeded.user_id, third, key, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
-    assert!(overlaps(c, &two, 1));
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "3 (B) is no duplicate of 2, whose chain ends at 1 (A)");
+    // R8: 1, 2 and 3 are one component, and its known fingerprints differ: none of them is a duplicate.
+    assert!(!overlaps(c, &two, 1));
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "3 (B) and 1 (A) are linked through 2");
 }
 
 /// R5: a survivor's withdrawal linked to the duplicate's deposit reads unlinked once that deposit leaves the walk.
@@ -2244,7 +2246,8 @@ fn r6_a_chain_never_overrides_a_direct_veto() {
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     common::two_accounts::read_balances(c, two.seeded.user_id, third, key, &[(two.seeded.btc, "2")], "2026-09-20 10:01:00");
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-19 10:00:00");
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    // R8: 3 is linked to 2 and 2 to 1, so all three are one component, and the 3-1 veto clears it.
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
 }
 
 /// #7: a conflicting shared id anywhere in the history vetoes, not only in the sample; Coinbase's `-in`/`-out` legs of one
@@ -2451,7 +2454,7 @@ fn trade_on(c: &Connection, two: &Two, account: i64, key: i64, id: &str, amount:
     deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some(id)).unwrap();
 }
 
-/// R7 #6: a shared trade id with other facts between 3 and 1 vetoes 3 being 1's duplicate through 2.
+/// R7 #6, R8: a shared trade id with other facts between 3 and 1 vetoes the component 3-2-1 whole.
 #[test]
 fn r7_a_direct_trade_conflict_vetoes_every_chain() {
     let (_d, o) = install();
@@ -2467,7 +2470,7 @@ fn r7_a_direct_trade_conflict_vetoes_every_chain() {
     for (a, k) in [(two.id(0), two.keys[0]), (two.id(1), two.keys[1]), (third, key)] {
         common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     }
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
 }
 
 /// R7 #7: Kraken stores only the codes it could not name: while either account holds one, Merge refuses naming it.
@@ -2534,7 +2537,8 @@ async fn r7_a_balance_job_giving_way_runs_once() {
     let counted = runs.clone();
     let scheduler = deltabadger::jobs::Scheduler::new(store::open(&Paths::from_env(&|_| None, dir.path())).unwrap().primary, seed::cipher(),
         vec![Box::new(deltabadger::sync::jobs::BalanceSync::new(NoVenue, std::rc::Rc::new(deltabadger::sync::balances::NoPrices), reader))], None)
-        .with_ran(Box::new(move |name, _| if name == deltabadger::sync::jobs::BALANCE_SYNC { counted.set(counted.get() + 1) }));
+        .with_resolver(Box::new(|name, scope| Ok(Box::new(Ran(Box::leak(name.to_string().into_boxed_str()), scope.map(str::to_string))) as Box<dyn deltabadger::jobs::Job>)))
+        .with_ran(Box::new(move |name, scope| if name == deltabadger::sync::jobs::BALANCE_SYNC && scope == Some(reader.to_string().as_str()) { counted.set(counted.get() + 1) }));
     scheduler.wakers().wake(deltabadger::sync::jobs::BALANCE_SYNC, Some(&reader.to_string()), None);
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
@@ -2546,4 +2550,174 @@ async fn r7_a_balance_job_giving_way_runs_once() {
     assert_eq!(runs.get(), 1);
     let state = deltabadger::jobs::state::read(c, deltabadger::sync::jobs::BALANCE_SYNC, Some(&reader.to_string())).unwrap();
     assert!(state.last_run_at.is_some() && state.last_error.is_none(), "{state:?}");
+}
+
+// ---- review round 8 ----
+
+fn set_config(c: &Connection, key: &str, value: &str) { deltabadger::app_config::set_plain(c, key, value, chrono::Utc::now()).unwrap(); }
+
+/// Account number `number` of the exchange with a trading key of its own.
+fn account_numbered(c: &Connection, two: &Two, number: i64) -> (i64, i64) {
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, ?3, 'now', 'now')",
+              [two.seeded.user_id, two.seeded.exchange_id, number]).unwrap();
+    let account = c.last_insert_rowid();
+    (account, add_key(c, two, account))
+}
+
+/// R8 #4: duplicates are whole components of accepted pairs, each member a duplicate of the lowest number: 4-2, 4-3 and
+/// 3-1 make 2, 3 and 4 duplicates of 1.
+#[test]
+fn r8_a_component_resolves_to_its_lowest_number() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a1, k1, a2, k2) = (two.id(0), two.keys[0], two.id(1), two.keys[1]);
+    let (a3, k3) = account_numbered(c, &two, 3);
+    let (a4, k4) = account_numbered(c, &two, 4);
+    for (set, pairs) in [("a", [(a4, k4), (a2, k2)]), ("b", [(a4, k4), (a3, k3)]), ("c", [(a3, k3), (a1, k1)])] {
+        for i in 0..3 { for (a, k) in pairs { trade_on(c, &two, a, k, &format!("{set}{i}"), "1", &format!("2026-09-0{} 1{i}:00:00", 1 + set.len())); } }
+    }
+    for (a, k) in [(a1, k1), (a2, k2), (a3, k3), (a4, k4)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(a2, a1), (a3, a1), (a4, a1)]);
+}
+
+/// R8 #4: 2-1 and 3-1 accepted, 2 and 3 contradicting each other (a shared id with other facts): no duplicate at all.
+#[test]
+fn r8_a_veto_inside_a_component_clears_it() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a1, k1, a2, k2) = (two.id(0), two.keys[0], two.id(1), two.keys[1]);
+    let (a3, k3) = account_numbered(c, &two, 3);
+    for i in 0..3 {
+        for (a, k) in [(a2, k2), (a1, k1)] { trade_on(c, &two, a, k, &format!("c{i}"), "1", &format!("2026-09-02 1{i}:00:00")); }
+        for (a, k) in [(a3, k3), (a1, k1)] { trade_on(c, &two, a, k, &format!("d{i}"), "1", &format!("2026-09-03 1{i}:00:00")); }
+    }
+    trade_on(c, &two, a2, k2, "x", "1", "2026-09-04 10:00:00");
+    trade_on(c, &two, a3, k3, "x", "2", "2026-09-04 10:00:00");
+    for (a, k) in [(a1, k1), (a2, k2), (a3, k3)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+}
+
+/// R8 #5: a balance read that skipped a position (Alpaca: unmapped or ambiguous) is not complete: Merge refuses naming it.
+#[test]
+fn r8_a_read_that_skipped_a_position_refuses_naming_it() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
+    set_config(c, &format!("rust_sync.alpaca_skipped:{}", two.keys[1]), r#"{"codes":["XYZ"],"at":"now"}"#);
+    let before = dump(c);
+    match merge_stale(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert!(rows.iter().any(|r| r.contains("XYZ")), "{rows:?}"), other => panic!("{other:?}") }
+    assert_eq!(dump(c), before);
+}
+
+/// A job a wake resolves that only records that it ran. It ends failed: a venue job's success must carry the credential
+/// version it read under, which a stand-in has none of.
+struct Ran(&'static str, Option<String>);
+impl deltabadger::jobs::Job for Ran {
+    fn spec(&self) -> deltabadger::jobs::Spec {
+        deltabadger::jobs::Spec { name: self.0, scope: self.1.clone(), schedule: None, jitter: deltabadger::jobs::schedule::Jitter::NONE, retry: deltabadger::jobs::Retry::None,
+                                  deadline: deltabadger::jobs::DEADLINE }
+    }
+    fn run<'a>(&'a self, _: deltabadger::jobs::Cx<'a>, _: Vec<deltabadger::jobs::Wake>) -> deltabadger::jobs::JobFuture<'a> {
+        Box::pin(async { deltabadger::jobs::Outcome::Failed("stand-in".into()) })
+    }
+}
+
+/// R8 #7: on a single-account install, Kraken's trading key lacking a permission hands reading to the read-only key; the
+/// trading key's balance job gives way and wakes the reader's (registered by the wake), so balances still refresh.
+#[tokio::test(flavor = "current_thread")]
+async fn r8_a_balance_job_giving_way_wakes_the_reader() {
+    let (dir, o, s) = common::install();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET status = 1, last_sync_error = 'EGeneral:Permission denied' WHERE id = ?1", [s.api_key_id]).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, s.exchange_id, seed::cipher().encrypt("read-key"), seed::cipher().encrypt("read-secret")]).unwrap();
+    let reader = c.last_insert_rowid();
+    common::number_one(c, s.user_id, s.exchange_id);
+    assert!(deltabadger::sync::balance_reading_keys(c).unwrap().contains(&reader), "the read-only key reads");
+    type Runs = std::cell::RefCell<Vec<(String, Option<String>)>>;
+    let runs: std::rc::Rc<Runs> = Default::default();
+    let seen = runs.clone();
+    let scheduler = deltabadger::jobs::Scheduler::new(store::open(&Paths::from_env(&|_| None, dir.path())).unwrap().primary, seed::cipher(),
+        vec![Box::new(deltabadger::sync::jobs::BalanceSync::new(NoVenue, std::rc::Rc::new(deltabadger::sync::balances::NoPrices), s.api_key_id))], None)
+        .with_resolver(Box::new(|name, scope| Ok(Box::new(Ran(Box::leak(name.to_string().into_boxed_str()), scope.map(str::to_string))) as Box<dyn deltabadger::jobs::Job>)))
+        .with_ran(Box::new(move |name, scope| seen.borrow_mut().push((name.to_string(), scope.map(str::to_string)))));
+    scheduler.wakers().wake(deltabadger::sync::jobs::BALANCE_SYNC, Some(&s.api_key_id.to_string()), None);
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let (ended, ()) = tokio::join!(scheduler.run(stopped, &clock), async {
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        let _ = stop.send(true);
+    });
+    ended.unwrap();
+    let runs = runs.borrow();
+    let balance = |key: i64| runs.iter().filter(|(n, s)| n == deltabadger::sync::jobs::BALANCE_SYNC && s.as_deref() == Some(key.to_string().as_str())).count();
+    assert_eq!((balance(s.api_key_id), balance(reader)), (1, 1), "{runs:?}");
+}
+
+/// The Alpaca pair of `kraken`'s user, a duplicate by fingerprint, its EUR bots paused (the eligibility guard refuses
+/// any write while they are scheduled) unless `scheduled`.
+fn alpaca(c: &Connection, kraken: &Two, scheduled: bool) -> Two {
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    if !scheduled { for bot in alpaca.bots { c.execute("UPDATE bots SET status = 2 WHERE id = ?1", [bot]).unwrap(); } }
+    alpaca
+}
+
+/// R8 #3: a standalone order placed under another credential than the account's current trading key is never read
+/// with that key: Merge refuses as in flight, naming it, and the order is not marked terminal.
+#[tokio::test(flavor = "current_thread")]
+async fn r8_an_order_placed_under_another_credential_is_not_checked() {
+    use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = alpaca(c, &kraken, false);
+    let order = alpaca.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"L-1"}"#), Some("L-1"));
+    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![alpaca.keys[1], seed::cipher().encrypt("another-wallet")]).unwrap();
+    let server = MockServer::start().await;
+    Mock::given(matchers::method("GET")).and(matchers::path("/v2/orders/L-1")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id": "L-1",
+        "client_order_id": "c", "status": "filled", "symbol": "BTC/EUR", "side": "buy", "type": "limit", "order_type": "limit", "qty": "0.001", "filled_qty": "0.001",
+        "filled_avg_price": "60000", "limit_price": "60000", "asset_class": "crypto"}))).mount(&server).await;
+    c.execute("UPDATE users SET setup_completed = 1, confirmed_at = '2026-01-01'", []).unwrap();
+    let uri = server.uri();
+    let app = common::web::app(dir.path(), "engine-test-secret", common::web::TestClock::at("2026-09-20T12:00:00Z"))
+        .with_settings_key_boundary(deltabadger::venue::alpaca::Hosts { paper: uri.clone(), live: uri.clone(), data: uri }, deltabadger::web::settings::keys::logger()).unwrap();
+    app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
+    let mut b = on_settings(&app, c, alpaca.seeded.user_id).await;
+    let survivor = alpaca.id(0).to_string();
+    let answer = b.send(&app, "POST", &format!("/settings/merge_account/{}", alpaca.id(1)), Some(&[("survivor_id", &survivor)]), common::web::Csrf::Header,
+                        &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(answer.status, 422, "{}", &answer.body[..answer.body.len().min(600)]);
+    assert!(answer.body.contains("can&#39;t check it with its current key") || answer.body.contains("can't check it with its current key"), "{}", answer.body);
+    assert!(answer.body.contains("Alpaca 2"), "the account as text");
+    assert!(one::<Option<String>>(c, &format!("SELECT json_extract(outcome, '$.terminal') FROM rust_api_orders WHERE id = {order}")).is_none());
+    common::drop_mock_server(server).await;
+}
+
+/// R8 #8: the eligibility guard a Merge runs is scoped to the merging user's bots: another user's bot that this build
+/// cannot run neither blocks the Merge nor reaches its answer.
+#[tokio::test(flavor = "current_thread")]
+async fn r8_another_users_bot_never_blocks_or_reaches_a_merge() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = alpaca(c, &kraken, false);
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('other@example.com', 'x', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    let other = c.last_insert_rowid();
+    // The fixture's other EUR bot on Alpaca, scheduled, now another user's: this build cannot run it.
+    let foreign = seed::insert_bot(c, &alpaca.seeded, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("UPDATE bots SET user_id = ?2 WHERE id = ?1", [foreign, other]).unwrap();
+    let app = web_app(dir.path(), c);
+    common::two_accounts::fresh(c, alpaca.seeded.user_id, alpaca.seeded.exchange_id, "2026-09-20 11:59:00");
+    let mut b = on_settings(&app, c, alpaca.seeded.user_id).await;
+    let survivor = alpaca.id(0).to_string();
+    let answer = b.send(&app, "POST", &format!("/settings/merge_account/{}", alpaca.id(1)), Some(&[("survivor_id", &survivor)]), common::web::Csrf::Header,
+                        &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(answer.status, 200, "{}", answer.body.rsplit("</button>").next().unwrap_or_default());
+    assert!(!answer.body.contains(&format!("bot {foreign}")), "{}", answer.body);
+    assert!(answer.body.contains("Alpaca 2"), "the names as text in the flash");
+    assert!(deltabadger::engine::eligibility::guard(c, &seed::cipher(), None).is_err(), "the install-wide guard still refuses");
 }

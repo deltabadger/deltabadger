@@ -13,4 +13,5 @@ da:
             merge_checking_html: "Deltabadger læser %{duplicate} og %{survivor} igen for at være sikker på, at det er den samme konto. Prøv igen om et minut."
             merge_withdrawal_key_html: "Efter fletningen ville disse udbetalingsregler bruge en anden udbetalingsnøgle: %{rules}. Fjern udbetalingsnøglen for %{duplicate} eller %{survivor}, flet kontiene, og tilføj den så igen."
             merge_foreign_order: "en ordre, der allerede er registreret på denne børs"
+            merge_order_unchecked_html: "En ordre på %{account} blev lagt med en tidligere nøgle, så Deltabadger kan ikke tjekke den med den nuværende: %{rows}. Gem den nøgle, den blev lagt med, igen, og flet så kontiene."
             merge_unreadable_html: "%{account} har ingen fungerende nøgle, der kan læse saldiene, så Deltabadger kan ikke tjekke den. Ret eller tilføj en nøgle, og flet så igen."

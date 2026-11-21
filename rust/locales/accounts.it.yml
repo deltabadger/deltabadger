@@ -13,4 +13,5 @@ it:
             merge_checking_html: "Deltabadger sta rileggendo %{duplicate} e %{survivor} per essere sicuro che siano lo stesso account. Riprova tra un minuto."
             merge_withdrawal_key_html: "Dopo l’unione, queste regole di prelievo userebbero un’altra chiave di prelievo: %{rules}. Rimuovi la chiave di prelievo di %{duplicate} o di %{survivor}, unisci gli account e poi aggiungila di nuovo."
             merge_foreign_order: "un ordine già registrato su questo exchange"
+            merge_order_unchecked_html: "Un ordine di %{account} è stato inserito con una chiave precedente, quindi Deltabadger non può verificarlo con quella attuale: %{rows}. Salva di nuovo la chiave con cui è stato inserito, poi riprova a unire gli account."
             merge_unreadable_html: "%{account} non ha nessuna chiave funzionante in grado di leggerne i saldi, quindi Deltabadger non può verificarlo. Sistemane una o aggiungine una, poi riprova a unirli."

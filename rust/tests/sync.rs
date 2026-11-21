@@ -2350,3 +2350,24 @@ async fn a_venue_history_read_starts_at_the_first_missing_day() {
     assert!(q.history(&db, s.exchange_id, Some(s.api_key_id), segments, all, deadline).await.prices.is_empty());
     assert_eq!(wire.requests().len(), before, "a span stored whole asks nothing");
 }
+
+/// #710 R8: a balance read that skipped a position it cannot name (unmapped or ambiguous) records the symbols with the
+/// read (`rust_sync.alpaca_skipped:<key>`), so the identity and Merge's live checks do not take it as complete; a read
+/// that skipped none clears them.
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_read_that_skips_a_position_records_it() {
+    let (dir, db, s) = install();
+    let prices = || ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let mut script = balances_script();
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" },
+                                                   { "symbol": "ZZZZ", "asset_class": "us_equity", "qty": "1", "qty_available": "1" }]))]);
+    let (_, v) = venue(script);
+    balances::sync(&db, &v, &prices(), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let key = format!("rust_sync.alpaca_skipped:{}", s.api_key_id);
+    let recorded: Value = serde_json::from_str(&deltabadger::app_config::get_plain(&c, &key).unwrap().expect("recorded")).unwrap();
+    assert_eq!(recorded["codes"], json!(["ZZZZ"]));
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &prices(), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert!(deltabadger::app_config::get_plain(&c, &key).unwrap().is_none());
+}

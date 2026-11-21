@@ -173,8 +173,10 @@ impl Two {
 
     /// A standalone API order of account `n` in `state` with `outcome` (JSON text or None), placed as venue id `external`.
     pub fn standalone(&self, c: &Connection, n: usize, state: &str, outcome: Option<&str>, external: Option<&str>) -> i64 {
-        c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, created_at, send_by) \
-                   VALUES (?1, NULL, 'buy', '10', 'quote', '{}', ?2, ?3, '2026-09-20 10:00:00', '2026-09-20 10:01:00')", params![self.seeded.user_id, state, outcome]).unwrap();
+        // Placed under the account's trading key as it is now (its stored credential stamp).
+        let stamp = self.accounts[n].key(c, 0).unwrap().and_then(|k| deltabadger::engine::model::credential_version_by_id(c, k).unwrap()).map(|v| v.test_stamp().to_string());
+        c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, credential_version, state, outcome, created_at, send_by) \
+                   VALUES (?1, NULL, 'buy', '10', 'quote', '{}', ?4, ?2, ?3, '2026-09-20 10:00:00', '2026-09-20 10:01:00')", params![self.seeded.user_id, state, outcome, stamp]).unwrap();
         let id = c.last_insert_rowid();
         c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
                    VALUES (?1, ?2, ?3, ?4, 'limit', 'rest', ?5, '{\"symbol\":\"BTCEUR\",\"side\":\"buy\",\"limit\":true}')",
