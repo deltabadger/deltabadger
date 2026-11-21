@@ -212,7 +212,7 @@
     +palette-dark
 
 // The dark-only schemes start from the dark palette whatever the OS says; each block below makes it its own.
-\:root:is([data-scheme="space"], [data-scheme="ember"], [data-scheme="forest"])
+\:root:is([data-scheme="space"], [data-scheme="forest"])
   +palette-dark
   color-scheme: dark
 
@@ -256,46 +256,86 @@
   --widget-shadow-line: #000a
   --slider-track: #ffffff1a
 
-// Ember: the warm scheme's night only — deep brown greys and a burnt-orange accent (white labels 4.8:1).
-\:root[data-scheme="ember"]
-  --sky: #B4592C
-  --link: var(--white)
-  --ink: #F2E8DC
-  --ash: #B8AB9C
-  --stone: #85786B
-  --concrete: #5C5248
-  --steel: #3A332C
-  --silver: #0F0D0B
-  --zinc: #2B2621
-  --paper: #171411
-  --washed: #211D19
-  --paper-on-washed: #2B2621
-  --highlight: var(--white)
-  --autocomplete: #2B2621
-  --menulink: #6E6358
-  --menulink-active: #F2E8DC
-  --menuLogo: #F2E8DC
-  --pickExchangeItemBg: #2B2621
-  --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
-  --shadow-paper: inset 0.075rem 0.075rem #ffffff10
-  --benchmark: #5C5248
-  --insight-background: #B4592C66
-  --slider-track: #F2E8DC1a
-  --slider-progress: #B4592C
-  --label: #F2E8DCc0
-  --label-select-inactive: #F2E8DC66
-  --modal-backdrop: #0d0b09c8
-  --pick-bot-item-bg: #211D19
-  --big-header: #85786B
-  --input-text-inactive: #9A8D80
-  --input-border: #9A8D80
-  --sinput-background: #211D19
-  --tooltip-background: #B4592C
-  --dropdown-bg: #26211C
-  --dropdown-border: #3E362E
-  --dropdown-hover: #B4592C
-  --text-faded: #6E6358
-  --widget-shadow-line: #0008
+// Ember: neutral greys with no tint and a burnt-orange accent, in both modes (white labels on the accent 4.8:1).
+@media (prefers-color-scheme: light)
+  \:root[data-scheme="ember"]
+    --sky: #B4592C
+    --link: #B4592C
+    --ink: #141414
+    --ash: #5C5C5C
+    --stone: #808080
+    --concrete: #ABABAB
+    --steel: #D9D9D9
+    --silver: #EFEFEF
+    --zinc: #EFEFEF
+    --paper: #FCFCFC
+    --washed: #FFFFFF
+    --paper-on-washed: #F1F1F1
+    --autocomplete: #F1F1F1
+    --inputTextFocus: #141414
+    --menulink: #8A8A8A
+    --menulink-active: #B4592C
+    --menuLogo: #B4592C
+    --navbarLink: #B4592C
+    --pickExchangeItemBg: #F1F1F1
+    --benchmark: #ABABAB
+    --insight-background: #B4592C33
+    --insight-warning-background: #F6D9B8
+    --slider-track: #14141419
+    --slider-progress: #B4592C
+    --label: #141414ba
+    --label-select-inactive: #14141460
+    --close-hover: #F1F1F1
+    --modal-backdrop: #80808038
+    --big-header: var(--stone)
+    --input-text-inactive: #9A9A9A
+    --input-border: #9A9A9A
+    --sinput-text: #B4592C
+    --tooltip-text: #141414
+    --dropdown-hover: #EFEFEF66
+    --text-faded: #9A9A9A
+    --widget-shadow-line: #14141411
+
+@media (prefers-color-scheme: dark)
+  \:root[data-scheme="ember"]
+    --sky: #B4592C
+    --link: var(--white)
+    --ink: #E8E8E8
+    --ash: #AFAFAF
+    --stone: #7A7A7A
+    --concrete: #4D4D4D
+    --steel: #2E2E2E
+    --silver: #080808
+    --zinc: #242424
+    --paper: #0E0E0E
+    --washed: #1B1B1B
+    --paper-on-washed: #242424
+    --highlight: var(--white)
+    --autocomplete: #242424
+    --menulink: #666666
+    --menulink-active: #E8E8E8
+    --menuLogo: #E8E8E8
+    --pickExchangeItemBg: #242424
+    --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
+    --shadow-paper: inset 0.075rem 0.075rem #ffffff10
+    --benchmark: #4D4D4D
+    --insight-background: #B4592C66
+    --slider-track: #E8E8E81a
+    --slider-progress: #B4592C
+    --label: #E8E8E8c0
+    --label-select-inactive: #E8E8E866
+    --modal-backdrop: #000000c8
+    --pick-bot-item-bg: #1B1B1B
+    --big-header: #7A7A7A
+    --input-text-inactive: #8F8F8F
+    --input-border: #8F8F8F
+    --sinput-background: #1B1B1B
+    --tooltip-background: #B4592C
+    --dropdown-bg: #212121
+    --dropdown-border: #333333
+    --dropdown-hover: #B4592C
+    --text-faded: #666666
+    --widget-shadow-line: #0008
 
 // Forest: deep green greys and a leaf-green accent (white labels 5:1), dark only.
 \:root[data-scheme="forest"]
@@ -338,86 +378,86 @@
   --text-faded: #4D6B5A
   --widget-shadow-line: #0008
 
-// Warm: cream and warm greys with a clay accent, in both modes. The clay under white text is #AE5630 (5:1 for a white
+// Warm: neutral greys with a clay accent, in both modes. The clay under white text is #AE5630 (5:1 for a white
 // label), a lighter clay only where it is text or a line on the dark page.
 @media (prefers-color-scheme: light)
   \:root[data-scheme="warm"]
     --sky: #AE5630
     --link: #AE5630
-    --ink: #141413
-    --ash: #5E5D59
-    --stone: #83827D
-    --concrete: #A9A79F
-    --steel: #D4D1C6
-    --silver: #E8E6DC
-    --zinc: #E8E6DC
-    --paper: #FAF9F5
+    --ink: #141414
+    --ash: #5C5C5C
+    --stone: #808080
+    --concrete: #A8A8A8
+    --steel: #DCDCDC
+    --silver: #EEEEEE
+    --zinc: #EEEEEE
+    --paper: #FAFAFA
     --washed: #FFFFFF
-    --paper-on-washed: #F5F4EE
-    --autocomplete: #F0E6DC
-    --inputTextFocus: #141413
-    --menulink: #8A8780
+    --paper-on-washed: #F5F5F5
+    --autocomplete: #F2F2F2
+    --inputTextFocus: #141414
+    --menulink: #888888
     --menulink-active: #AE5630
     --menuLogo: #AE5630
     --navbarLink: #AE5630
-    --pickExchangeItemBg: #EFEBE1
-    --benchmark: #A9A79F
+    --pickExchangeItemBg: #F2F2F2
+    --benchmark: #A8A8A8
     --insight-background: #D9775744
     --insight-warning-background: #F6D9B8
-    --slider-track: #3D3A3019
+    --slider-track: #14141419
     --slider-progress: #AE5630
-    --label: #141413ba
-    --label-select-inactive: #14141360
-    --close-hover: #F0EEE6
-    --modal-backdrop: #8A877F38
+    --label: #141414ba
+    --label-select-inactive: #14141460
+    --close-hover: #F2F2F2
+    --modal-backdrop: #80808038
     --big-header: var(--stone)
-    --input-text-inactive: #9C9A92
-    --input-border: #9C9A92
+    --input-text-inactive: #9A9A9A
+    --input-border: #9A9A9A
     --sinput-text: #AE5630
-    --tooltip-text: #141413
-    --dropdown-hover: #EDEAE066
-    --text-faded: #9C9A92
-    --widget-shadow-line: #3D3A3011
+    --tooltip-text: #141414
+    --dropdown-hover: #EEEEEE66
+    --text-faded: #9A9A9A
+    --widget-shadow-line: #14141411
 
 @media (prefers-color-scheme: dark)
   \:root[data-scheme="warm"]
     --sky: #AE5630
     --link: var(--white)
-    --ink: #FAF9F5
-    --ash: #C2C0B6
-    --stone: #8D8B83
-    --concrete: #6B6A64
-    --steel: #3E3E38
-    --silver: #1F1E1D
-    --zinc: #353531
-    --paper: #262624
-    --washed: #30302E
-    --paper-on-washed: #3A3A37
+    --ink: #F1F1F1
+    --ash: #C2C2C2
+    --stone: #8C8C8C
+    --concrete: #6B6B6B
+    --steel: #474747
+    --silver: #1F1F1F
+    --zinc: #363636
+    --paper: #191919
+    --washed: #303030
+    --paper-on-washed: #404040
     --highlight: var(--white)
-    --autocomplete: #3A3A37
-    --menulink: #77756E
-    --menulink-active: #FAF9F5
-    --menuLogo: #FAF9F5
-    --pickExchangeItemBg: #3A3A37
+    --autocomplete: #404040
+    --menulink: #767676
+    --menulink-active: #F1F1F1
+    --menuLogo: #F1F1F1
+    --pickExchangeItemBg: #404040
     --shadow-widget: inset 0.075rem 0.075rem #ffffff12, inset -0.075rem -0.075rem #0005
     --shadow-paper: inset 0.075rem 0.075rem #ffffff12
-    --benchmark: #6B6A64
+    --benchmark: #6B6B6B
     --insight-background: #D9775766
-    --slider-track: #FAF9F51f
+    --slider-track: #F1F1F11f
     --slider-progress: #D97757
-    --label: #FAF9F5c0
-    --label-select-inactive: #FAF9F570
-    --modal-backdrop: #1a1918c0
-    --pick-bot-item-bg: #30302E
-    --big-header: #8D8B83
-    --input-text-inactive: #9C9A92
-    --input-border: #9C9A92
-    --sinput-background: #30302E
+    --label: #F1F1F1c0
+    --label-select-inactive: #F1F1F170
+    --modal-backdrop: #000000c0
+    --pick-bot-item-bg: #303030
+    --big-header: #8C8C8C
+    --input-text-inactive: #9A9A9A
+    --input-border: #9A9A9A
+    --sinput-background: #303030
     --tooltip-background: #AE5630
-    --dropdown-bg: #353531
-    --dropdown-border: #4A4943
+    --dropdown-bg: #363636
+    --dropdown-border: #4A4A4A
     --dropdown-hover: #AE5630
-    --text-faded: #77756E
+    --text-faded: #767676
     --widget-shadow-line: #0006
 
 $fontText: var(--font-family)
