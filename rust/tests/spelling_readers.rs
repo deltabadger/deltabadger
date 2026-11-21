@@ -1,7 +1,9 @@
 //! Delisted coins (plan r10 §3): every reader of a raw spelling in non-test code outside `sync/`, `venue/` and
 //! `tracker/import/`, per occurrence, with its decision (tests/spelling_readers.txt). PR0 marks every existing reader
 //! `legacy` and the new resolver's own lines `resolver`; PR1 moves each to its decision in the commit that changes it.
-//! A new reader, a second occurrence of a listed line, or a listed line gone fails.
+//! A new reader, a second occurrence of a listed unit, or a listed unit gone fails. A unit is a logical line of code: a
+//! line, or the lines an open `(` or `[` or a trailing operator join, comments out and string contents in; every test
+//! item (`#[cfg(test)]`, `#[test]`, `#[tokio::test]`) is out, wherever it sits in the file.
 //!
 //! Patterns: SQL `base_currency`, `quote_currency`, `fee_currency`, `t.base`/`tickers.base`, `t.quote`/`tickers.quote`,
 //! `a.symbol`/`assets.symbol`, `symbol = ?`, and `historical_prices … asset = ?`; and, inside `tax/`, `tracker/`,
@@ -21,38 +23,138 @@ const NEW: [&str; 2] = ["tracker/resolver.rs", "tracker/spellings.rs"];
 type Hits = BTreeMap<(String, &'static str, String), usize>;
 
 fn sql() -> Vec<regex::Regex> {
-    [r"\b(base|quote|fee)_currency\b", r"\b(t|tickers)\.(base|quote)\b", r"\b(a|assets)\.symbol\b", r"\bsymbol\s*=\s*\?", r"historical_prices.*\basset\s*=\s*\?"]
+    [r"\b(base|quote|fee)_currency\b", r"\b(t|tickers)\.(base|quote)\b", r"\b(a|assets)\.symbol\b", r"\bsymbol\s*=\s*\?", r"(?s)historical_prices.*\basset\s*=\s*\?"]
         .iter().map(|p| regex::Regex::new(p).unwrap()).collect()
 }
 
-/// The code of a file: up to its test module, comment lines left out.
-fn code(text: &str) -> Vec<&str> {
-    let lines: Vec<&str> = text.lines().collect();
-    let end = lines.windows(2).position(|w| w[0].trim() == "#[cfg(test)]" && w[1].trim_start().starts_with("mod ")).unwrap_or(lines.len());
-    lines[..end].iter().copied().filter(|l| !l.trim_start().starts_with("//")).collect()
+/// `text` with every comment blanked (newlines kept), and a mask of it in which string and char literals are blanked
+/// too: the mask shows the code's structure, the clean text its strings.
+fn lex(text: &str) -> (String, String) {
+    let b: Vec<char> = text.chars().collect();
+    let (mut clean, mut mask) = (String::with_capacity(b.len()), String::with_capacity(b.len()));
+    let blank = |c: char| if c == '\n' { '\n' } else { ' ' };
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        let next = b.get(i + 1).copied();
+        if c == '/' && next == Some('/') {
+            while i < b.len() && b[i] != '\n' { clean.push(' '); mask.push(' '); i += 1; }
+        } else if c == '/' && next == Some('*') {
+            let mut depth = 0;
+            while i < b.len() {
+                if b[i] == '/' && b.get(i + 1) == Some(&'*') { depth += 1; clean.push_str("  "); mask.push_str("  "); i += 2; continue; }
+                if b[i] == '*' && b.get(i + 1) == Some(&'/') { depth -= 1; clean.push_str("  "); mask.push_str("  "); i += 2; if depth == 0 { break; } continue; }
+                clean.push(blank(b[i])); mask.push(blank(b[i])); i += 1;
+            }
+        } else if c == 'r' && (next == Some('"') || next == Some('#')) && !b.get(i.wrapping_sub(1)).is_some_and(|p| p.is_alphanumeric() || *p == '_') {
+            // A raw string: r"…", r#"…"#.
+            let mut j = i + 1;
+            while b.get(j) == Some(&'#') { j += 1; }
+            let hashes = j - i - 1;
+            if b.get(j) != Some(&'"') { clean.push(c); mask.push(c); i += 1; continue; }
+            let closes = |k: usize| b[k] == '"' && (1..=hashes).all(|h| b.get(k + h) == Some(&'#'));
+            let mut end = j + 1;
+            while end < b.len() && !closes(end) { end += 1; }
+            for &ch in &b[i..=j] { clean.push(ch); mask.push(ch); }
+            for &ch in &b[j + 1..end.min(b.len())] { clean.push(ch); mask.push(blank(ch)); }
+            let stop = (end + 1 + hashes).min(b.len());
+            for &ch in &b[end.min(b.len())..stop] { clean.push(ch); mask.push(ch); }
+            i = stop;
+        } else if c == '"' {
+            clean.push(c); mask.push(c); i += 1;
+            while i < b.len() && b[i] != '"' {
+                if b[i] == '\\' && i + 1 < b.len() { clean.push(b[i]); clean.push(b[i + 1]); mask.push(' '); mask.push(blank(b[i + 1])); i += 2; continue; }
+                clean.push(b[i]); mask.push(blank(b[i])); i += 1;
+            }
+            if i < b.len() { clean.push('"'); mask.push('"'); i += 1; }
+        } else if c == '\'' && (b.get(i + 2) == Some(&'\'') || (next == Some('\\') && b.get(i + 3) == Some(&'\''))) {
+            // A char literal ('{', '\''); a lifetime has no closing quote two or three places on.
+            let n = if next == Some('\\') { 4 } else { 3 };
+            for (k, &ch) in b[i..i + n].iter().enumerate() { clean.push(ch); mask.push(if k == 0 || k == n - 1 { '\'' } else { ' ' }); }
+            i += n;
+        } else { clean.push(c); mask.push(c); i += 1; }
+    }
+    (clean, mask)
+}
+
+/// The code of a file as logical units (a line, or the lines an open `(` or `[` or a trailing operator joins), comments
+/// out, every test item out: one under `#[cfg(test)]`, `#[test]` or `#[tokio::test]`, attributes, signature and body.
+/// Each unit: (clean text, mask).
+fn units(text: &str) -> Vec<(String, String)> {
+    let (clean, mask) = lex(text);
+    let (cl, ml): (Vec<&str>, Vec<&str>) = (clean.lines().collect(), mask.lines().collect());
+    let mut out = vec![];
+    let (mut i, mut open, mut unit): (usize, Vec<char>, (String, String)) = (0, vec![], (String::new(), String::new()));
+    let test_attr = |m: &str| { let t = m.trim(); t.starts_with("#[cfg(test)]") || t.starts_with("#[test]") || t.starts_with("#[tokio::test") };
+    while i < ml.len() {
+        if unit.1.trim().is_empty() && test_attr(ml[i]) {
+            // Skip to the end of the item: its `;`, or the `}` closing its first `{`; a `}` closing the enclosing item
+            // ends it too.
+            let (mut braces, mut parens) = (0i64, 0i64);
+            'item: while i < ml.len() {
+                let line = ml[i];
+                // Past any leading attributes on the line (`#[cfg(test)] mod tests {`).
+                let mut from = 0;
+                let mut rest = line.trim_start();
+                while rest.starts_with("#[") {
+                    let mut d = 0;
+                    let Some(end) = rest.char_indices().find(|&(_, ch)| { match ch { '[' => d += 1, ']' => d -= 1, _ => {} } d == 0 }).map(|(k, _)| k + 1) else { break };
+                    from = line.len() - rest.len() + end;
+                    rest = line[from..].trim_start();
+                }
+                for ch in line[from..].chars() {
+                    match ch {
+                        '{' => braces += 1,
+                        '}' => { braces -= 1; if braces <= 0 { i += 1; break 'item; } }
+                        '(' | '[' => parens += 1,
+                        ')' | ']' => parens -= 1,
+                        ';' if braces == 0 && parens == 0 => { i += 1; break 'item; }
+                        _ => {}
+                    }
+                }
+                i += 1;
+            }
+            continue;
+        }
+        unit.0.push_str(cl[i]); unit.0.push('\n');
+        unit.1.push_str(ml[i]); unit.1.push('\n');
+        for ch in ml[i].chars() {
+            match ch {
+                '(' | '[' | '{' => open.push(ch),
+                ')' | ']' | '}' => { open.pop(); }
+                _ => {}
+            }
+        }
+        // A unit ends at a line's end outside a string, with no `(` or `[` open since the innermost `{`, and no operator
+        // trailing (a block's lines are units of their own).
+        let t = ml[i].trim_end();
+        let joined = ["==", "!=", "||", "&&", "|", ",", "=", "+"].iter().any(|op| t.ends_with(op));
+        let in_string = unit.1.matches('"').count() % 2 == 1;
+        if !in_string && !joined && open.last().is_none_or(|c| *c == '{') {
+            if !unit.1.trim().is_empty() { out.push(std::mem::take(&mut unit)); } else { unit = Default::default(); }
+        }
+        i += 1;
+    }
+    if !unit.1.trim().is_empty() { out.push(unit); }
+    out
 }
 
 /// Every hit in `files` ((path under src/, text)).
 fn scan(files: &[(String, String)]) -> Hits {
-    let (patterns, literal) = (sql(), regex::Regex::new(r#""[A-Z0-9]{2,7}""#).unwrap());
-    let upper = regex::Regex::new(r#""[0-9]*[A-Z][A-Z0-9]*""#).unwrap();
+    let patterns = sql();
+    let literal = regex::Regex::new(r#""([0-9]*[A-Z][A-Z0-9]*)""#).unwrap();
     let mut hits = Hits::new();
     for (path, text) in files {
         if SKIPPED.iter().any(|s| path.starts_with(s)) { continue; }
         let literals = LITERAL_DIRS.iter().any(|d| path.starts_with(d));
-        let mut in_const = false;
-        for line in code(text) {
-            let t = line.trim();
-            if ["const ", "pub const ", "pub(crate) const "].iter().any(|k| t.starts_with(k)) && !t.contains("const fn") { in_const = true; }
-            let normal = t.split_whitespace().collect::<Vec<_>>().join(" ");
-            for p in &patterns {
-                if p.is_match(line) { *hits.entry((path.clone(), "sql", normal.clone())).or_default() += 1; break; }
-            }
-            let used = in_const || ["==", "!=", "matches!", "contains("].iter().any(|op| line.contains(op));
-            if literals && used && literal.find_iter(line).any(|m| upper.is_match(m.as_str())) {
-                *hits.entry((path.clone(), "literal", normal.clone())).or_default() += 1;
-            }
-            if in_const && t.ends_with(';') { in_const = false; }
+        for (clean, mask) in units(text) {
+            let normal = clean.split_whitespace().collect::<Vec<_>>().join(" ");
+            if patterns.iter().any(|p| p.is_match(&normal)) { *hits.entry((path.clone(), "sql", normal.clone())).or_default() += 1; }
+            let t = mask.trim_start();
+            let constant = ["const ", "pub const ", "pub(crate) const ", "pub(super) const ", "static ", "pub static "].iter().any(|k| t.starts_with(k)) && !t.contains("const fn");
+            let used = constant || ["==", "!=", "matches!", "contains("].iter().any(|op| mask.contains(op));
+            let named = literal.captures_iter(&clean).any(|c| (2..=7).contains(&c[1].len()));
+            if literals && used && named { *hits.entry((path.clone(), "literal", normal)).or_default() += 1; }
         }
     }
     hits
@@ -103,7 +205,7 @@ fn problems(hits: &Hits, list: &BTreeMap<(String, String, String), (String, usiz
 }
 
 fn bless(hits: &Hits) -> String {
-    let mut text = String::from("# decision\tfile\tkind\tcount\tline (normalised); written by SPELLING_READERS_BLESS=1, reviewed by hand\n");
+    let mut text = String::from("# decision\tfile\tkind\tcount\tunit (normalised); written by SPELLING_READERS_BLESS=1, reviewed by hand\n");
     for ((file, kind, line), n) in hits {
         let decision = if NEW.contains(&file.as_str()) { "resolver" } else { "legacy" };
         text.push_str(&format!("{decision}\t{file}\t{kind}\t{n}\t{line}\n"));
@@ -141,7 +243,26 @@ fn a_second_occurrence_in_a_listed_file_fails() {
 fn a_new_literal_predicate_fails() {
     let files = vec![("tax/new.rs".to_string(), "fn emt(s: &str) -> bool { s == \"EURC\" }\nconst SET: [&str; 2] = [\n    \"USDP\", \"DAI\",\n];\nlet x = \"usd\" == y;\n".to_string())];
     let problems = problems(&scan(&files), &BTreeMap::new());
-    assert_eq!(problems, ["unlisted literal reader in tax/new.rs: \"USDP\", \"DAI\",", "unlisted literal reader in tax/new.rs: fn emt(s: &str) -> bool { s == \"EURC\" }"]);
+    assert_eq!(problems, ["unlisted literal reader in tax/new.rs: const SET: [&str; 2] = [ \"USDP\", \"DAI\", ];",
+                          "unlisted literal reader in tax/new.rs: fn emt(s: &str) -> bool { s == \"EURC\" }"]);
     let elsewhere = vec![("engine/new.rs".to_string(), files[0].1.clone())];
     assert!(scan(&elsewhere).is_empty(), "literals are scanned in tax, the tracker and figures only");
+}
+
+/// Codex PR0 P2-13: what a line-based scan missed: a `matches!` whose literal is on the next line, a `historical_prices`
+/// query whose `asset = ?` is on the next line of the string, and production code after a test module, while a standalone
+/// test function is not production code.
+#[test]
+fn the_scan_reads_expressions_sql_strings_and_test_items_structurally() {
+    let file = |path: &str, text: &str| vec![(path.to_string(), text.to_string())];
+    let kinds = |hits: &Hits| hits.keys().map(|(_, k, _)| *k).collect::<Vec<_>>();
+    let predicate = file("tax/dk.rs", "fn dk(s: &str) -> bool {\n    matches!(\n        s,\n        \"USDT\" | \"USDC\"\n    )\n}\n");
+    assert_eq!(kinds(&scan(&predicate)), ["literal"], "{:?}", scan(&predicate));
+    let query = file("tracker/q.rs", "fn q() -> &'static str {\n    \"SELECT price FROM historical_prices \\\n     WHERE asset = ?1\"\n}\n");
+    assert_eq!(kinds(&scan(&query)), ["sql"], "{:?}", scan(&query));
+    let after = file("tracker/a.rs", "#[cfg(test)]\nmod tests {\n    fn t() { let s = \"base_currency\"; }\n}\n\nfn later() { let s = \"SELECT base_currency FROM t\"; }\n");
+    let hits = scan(&after);
+    assert_eq!(hits.keys().map(|(_, _, l)| l.as_str()).collect::<Vec<_>>(), ["fn later() { let s = \"SELECT base_currency FROM t\"; }"], "{hits:?}");
+    let standalone = file("tracker/b.rs", "#[test]\nfn t() {\n    let s = \"SELECT base_currency FROM t\";\n}\n\n#[cfg(test)] mod more { fn u() { let s = \"quote_currency\"; } }\n");
+    assert!(scan(&standalone).is_empty(), "{:?}", scan(&standalone));
 }
