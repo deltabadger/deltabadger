@@ -57,6 +57,36 @@ fn key(account: i64, spelling: &str, h: &Holding) -> String {
 fn soft(h: &Holding) -> bool { matches!(h, Holding::Unknown(Why::Unclear)) }
 const UNCLEAR_HOLDING: Holding = Holding::Unknown(Why::Unclear);
 
+/// What each account holds, as a pass books its legs: the quantity of each lot key, the keys each (account, spelling)
+/// has carried, each key's first holding, and the reason the units outstanding under a lot carry (a spent unclear lot
+/// refilled by a conflicting deposit is a conflicting lot).
+#[derive(Default)]
+struct Books {
+    held: HashMap<(i64, String), Dec>,
+    carried: HashMap<(i64, String), BTreeSet<String>>,
+    of_key: HashMap<String, Holding>,
+    lot: HashMap<(i64, String), Holding>,
+}
+
+impl Books {
+    fn book(&mut self, account: i64, spelling: &str, k: &str, h: &Holding, amount: &Dec) -> Result<(), NumError> {
+        self.of_key.entry(k.to_string()).or_insert_with(|| h.clone());
+        let mine = if k == key(account, spelling, h) { h.clone() } else { self.of_key[k].clone() };
+        let q = self.held.entry((account, k.to_string())).or_insert_with(Dec::zero);
+        let empty = !q.is_positive();
+        *q = (&*q + amount)?;
+        let positive = q.is_positive();
+        let lk = (account, k.to_string());
+        if !positive { self.lot.remove(&lk); }
+        else if empty || !self.lot.contains_key(&lk) { self.lot.insert(lk, mine); }
+        else if amount.is_positive() {
+            if let (Some(Holding::Unknown(a)), Holding::Unknown(b)) = (self.lot.get_mut(&lk), &mine) { *a = (*a).min(*b); }
+        }
+        self.carried.entry((account, spelling.to_string())).or_default().insert(k.to_string());
+        Ok(())
+    }
+}
+
 /// One instant's legs (already in ledger order) in an order the transfers and the accounts allow: a transfer's source
 /// before its destination, each account's legs in ledger order, otherwise ledger order. Where those disagree (a cycle),
 /// the rest keep ledger order.
@@ -165,27 +195,27 @@ impl Spellings {
             if !soft(&eff[a]) && soft(&eff[b]) { eff[b] = eff[a].clone(); }
             sources.insert(a, (b, *link));
         }
-        // In order: what each account holds of each identity, and the identities each (account, spelling) has carried.
-        let mut held: HashMap<(i64, String), Dec> = HashMap::new();
-        let mut carried: HashMap<(i64, String), BTreeSet<String>> = HashMap::new();
-        let mut of_key: HashMap<String, Holding> = HashMap::new();
-        // What the units an account holds under a lot are: the reason travels with them (a spent unclear lot refilled by
-        // a conflicting deposit is a conflicting lot).
-        let mut lot: HashMap<(i64, String), Holding> = HashMap::new();
-        let mut keys: Vec<String> = Vec::with_capacity(legs.len());
+        // In order: what each account holds of each identity (`Books`). A linked deposit lands with its withdrawal, as the
+        // tracker books a transfer (backfill.rs `withdraw`): it is booked right after the withdrawal, and skipped when
+        // its own turn comes (an equal-time cycle cannot book it before the coin it carries is known).
+        let mut b = Books::default();
+        let pairs: HashMap<usize, usize> = sources.iter().map(|(a, (d, _))| (*a, *d)).collect();
+        let arrivals: HashMap<usize, usize> = pairs.iter().map(|(a, d)| (*d, *a)).collect();
+        let mut keys: Vec<Option<String>> = vec![None; legs.len()];
         for i in 0..legs.len() {
+            if keys[i].is_some() || arrivals.get(&i).is_some_and(|src| keys[*src].is_none()) { continue; }
             let l = &legs[i];
             let mut debit = None;
             if soft(&eff[i]) && l.amount.is_negative() {
-                let positive: Vec<&String> = carried.get(&(l.account, l.spelling.clone())).into_iter().flatten()
-                    .filter(|k| held.get(&(l.account, (*k).clone())).is_some_and(Dec::is_positive)).collect();
-                let reason = |k: &String| lot.get(&(l.account, k.clone())).or_else(|| of_key.get(k)).cloned().unwrap_or(UNCLEAR_HOLDING);
+                let positive: Vec<String> = b.carried.get(&(l.account, l.spelling.clone())).into_iter().flatten()
+                    .filter(|k| b.held.get(&(l.account, (*k).clone())).is_some_and(Dec::is_positive)).cloned().collect();
+                let reason = |k: &String| b.lot.get(&(l.account, k.clone())).or_else(|| b.of_key.get(k)).cloned().unwrap_or(UNCLEAR_HOLDING);
                 let mut linked = sources.get(&i).copied();
                 // A transfer out of an unclear leg moves the one lot its account holds under the spelling, when that lot is
                 // compatible with the deposit and covers the amount; otherwise (none, several, another coin, a refused
                 // lot, too little) the link is void (r10 P1-6), and the leg is an ordinary outflow.
                 if let (Some((to, link)), [one]) = (linked, positive.as_slice()) {
-                    if !links_compatible(&reason(one), &l.spelling, &eff[to], &legs[to].spelling, names) || (&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() {
+                    if !links_compatible(&reason(one), &l.spelling, &eff[to], &legs[to].spelling, names) || (&b.held[&(l.account, one.clone())] + &l.amount)?.is_negative() {
                         void.push(link);
                         sources.remove(&i);
                         linked = None;
@@ -194,7 +224,7 @@ impl Spellings {
                 match (linked, positive.as_slice()) {
                     (Some((to, _)), [one]) => {
                         let source = reason(one);
-                        debit = Some((*one).clone());
+                        debit = Some(one.clone());
                         if source.known() { eff[i] = source.clone(); if soft(&eff[to]) { eff[to] = source; } }
                         else if !soft(&eff[to]) { eff[i] = eff[to].clone(); }
                     }
@@ -202,26 +232,26 @@ impl Spellings {
                     // Outflow inheritance: X alone held under the spelling, and enough of it.
                     (None, [one]) => {
                         let h = reason(one);
-                        if h.known() && !(&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() { eff[i] = h; }
+                        if h.known() && !(&b.held[&(l.account, one.clone())] + &l.amount)?.is_negative() { eff[i] = h; }
                     }
                     (None, _) => {}
                 }
             }
             let k = debit.unwrap_or_else(|| key(l.account, &l.spelling, &eff[i]));
-            of_key.entry(k.clone()).or_insert_with(|| eff[i].clone());
-            let q = held.entry((l.account, k.clone())).or_insert_with(Dec::zero);
-            let empty = !q.is_positive();
-            *q = (&*q + &l.amount)?;
-            let mine = if k == key(l.account, &l.spelling, &eff[i]) { eff[i].clone() } else { of_key[&k].clone() };
-            let lk = (l.account, k.clone());
-            if !q.is_positive() { lot.remove(&lk); }
-            else if empty || !lot.contains_key(&lk) { lot.insert(lk, mine); }
-            else if l.amount.is_positive() {
-                if let (Some(Holding::Unknown(a)), Holding::Unknown(b)) = (lot.get_mut(&lk), &mine) { *a = (*a).min(*b); }
+            b.book(l.account, &l.spelling, &k, &eff[i], &l.amount)?;
+            keys[i] = Some(k);
+            // The deposit: with its withdrawal when the link holds; a voided link's deposit at its own turn (now, if that
+            // has passed).
+            if let Some(&to) = pairs.get(&i) {
+                if keys[to].is_none() && (sources.contains_key(&i) || to < i) {
+                    let d = &legs[to];
+                    let k = key(d.account, &d.spelling, &eff[to]);
+                    b.book(d.account, &d.spelling, &k, &eff[to], &d.amount)?;
+                    keys[to] = Some(k);
+                }
             }
-            carried.entry((l.account, l.spelling.clone())).or_default().insert(k.clone());
-            keys.push(k);
         }
+        let keys: Vec<String> = keys.into_iter().map(|k| k.expect("every leg is booked")).collect();
         // The identities and their spellings, balances included (a balance of Y under X's spelling makes it two).
         let mut ids: BTreeMap<String, Identity> = BTreeMap::new();
         for ((l, h), k) in legs.iter().zip(&eff).zip(&keys) {
@@ -649,5 +679,33 @@ mod tests {
                            base(4, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(5, 3, "S", UNCLEAR, "2024-01-02", "1")], &[ab, bc], &[], &Names::new());
         assert!(s.void_links().is_empty(), "{:?}", s.void_links());
         assert_eq!(s.leg_holding(5, Side::Base), Some(&coin("x")), "X reached C");
+    }
+
+    /// Codex PR0 r4 P1: a linked transfer lands where it was sent at the withdrawal, as the tracker books it: B, holding
+    /// Y, receives A's X at 10:00 (deposit booked 10:02), so B's unclear sale at 10:01 sees X and Y and inherits neither.
+    #[test]
+    fn a_transfer_lands_at_the_withdrawal() {
+        let t = |h: &str| -> DateTime<Utc> { format!("2024-01-02T{h}:00Z").parse().unwrap() };
+        let at = |mut l: LegIn, h: &str| { l.at = t(h); l };
+        let link = Link { from: (2, Side::Base), to: (4, Side::Base) };
+        let s = build(vec![base(1, 2, "S", coin("y"), "2024-01-01", "1"), base(5, 1, "S", coin("x"), "2024-01-01", "1"),
+                           at(base(2, 1, "S", coin("x"), "2024-01-02", "-1"), "10:00"), at(base(3, 2, "S", UNCLEAR, "2024-01-02", "-1"), "10:01"),
+                           at(base(4, 2, "S", UNCLEAR, "2024-01-02", "1"), "10:02")], &[link], &[], &Names::new());
+        assert!(s.void_links().is_empty());
+        assert_eq!(s.class(s.label(3, Side::Base).unwrap()), Class::Unknown, "X and Y both held at B");
+        assert_eq!(s.leg_holding(4, Side::Base), Some(&coin("x")));
+    }
+
+    /// Codex PR0 r4 P1: two transfers crossing at one instant (A sends S to B, B sends T to A; both deposits on lower rows)
+    /// book each deposit under the coin its withdrawal moved, label and holding alike.
+    #[test]
+    fn crossing_transfers_at_one_instant_book_their_coins() {
+        let (ab, ba) = (Link { from: (5, Side::Base), to: (4, Side::Base) }, Link { from: (6, Side::Base), to: (3, Side::Base) });
+        let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(2, 2, "T", coin("z"), "2024-01-01", "1"),
+                           base(3, 1, "T", UNCLEAR, "2024-01-02", "1"), base(4, 2, "S", UNCLEAR, "2024-01-02", "1"),
+                           base(5, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(6, 2, "T", UNCLEAR, "2024-01-02", "-1")], &[ab, ba], &[], &Names::new());
+        assert!(s.void_links().is_empty(), "{:?}", s.void_links());
+        assert_eq!((s.leg_holding(4, Side::Base), s.label(4, Side::Base)), (Some(&coin("x")), s.label(1, Side::Base)));
+        assert_eq!((s.leg_holding(3, Side::Base), s.label(3, Side::Base)), (Some(&coin("z")), s.label(2, Side::Base)));
     }
 }
