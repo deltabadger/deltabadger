@@ -10,3 +10,6 @@ cs:
             merged_html: "%{duplicate} byl sloučen do %{survivor}."
             merge_in_flight_html: "Příkaz nebo výběr na %{duplicate} nebo %{survivor} ještě probíhá. Zkus to znovu, až doběhne."
             merge_conflict_html: "%{duplicate} a %{survivor} se v těchto záznamech liší, a proto se nic nezměnilo: %{rows}. Sjednoť je a slučuj znovu."
+            merge_checking_html: "Deltabadger znovu načítá %{duplicate} a %{survivor}, aby si ověřil, že jde o stejný účet. Zkus to znovu za minutu."
+            merge_withdrawal_key_html: "Klíče pro výběry by změnily účet: odeber klíč pro výběry u %{duplicate} nebo %{survivor}, sluč účty a pak ho přidej znovu."
+            merge_unreadable_html: "%{account} nemá žádný funkční klíč, který by četl jeho zůstatky, takže ho Deltabadger nemůže ověřit. Oprav nebo přidej klíč a potom účty sluč znovu."

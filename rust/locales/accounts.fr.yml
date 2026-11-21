@@ -10,3 +10,6 @@ fr:
             merged_html: "%{duplicate} a été fusionné avec %{survivor}."
             merge_in_flight_html: "Un ordre ou un retrait de %{duplicate} ou de %{survivor} est encore en cours. Réessaie une fois qu’il sera terminé."
             merge_conflict_html: "%{duplicate} et %{survivor} ne concordent pas sur ces opérations, rien n’a donc été modifié : %{rows}. Mets-les en accord, puis relance la fusion."
+            merge_checking_html: "Deltabadger relit %{duplicate} et %{survivor} pour s’assurer qu’il s’agit du même compte. Réessaie dans une minute."
+            merge_withdrawal_key_html: "Des clés de retrait changeraient de compte : supprime la clé de retrait de %{duplicate} ou de %{survivor}, fusionne, puis rajoute-la."
+            merge_unreadable_html: "%{account} n’a aucune clé valide capable de lire ses soldes, Deltabadger ne peut donc pas le vérifier. Corrige-en une ou ajoutes-en une, puis relance la fusion."

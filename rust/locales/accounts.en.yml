@@ -10,3 +10,6 @@ en:
             merged_html: "%{duplicate} was merged into %{survivor}."
             merge_in_flight_html: "An order or a withdrawal of %{duplicate} or %{survivor} is still in flight. Try again when it settles."
             merge_conflict_html: "%{duplicate} and %{survivor} disagree on these records, so nothing was changed: %{rows}. Make them match, then merge again."
+            merge_checking_html: "Deltabadger is reading %{duplicate} and %{survivor} again to make sure they are the same account. Try again in a minute."
+            merge_withdrawal_key_html: "Withdrawal keys would change hands: remove the withdrawal key of %{duplicate} or %{survivor}, merge, then add it again."
+            merge_unreadable_html: "%{account} has no working key that can read its balances, so Deltabadger can't check it. Fix or add one, then merge again."

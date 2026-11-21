@@ -32,10 +32,13 @@ pub fn confirm(c: &Connection, account: i64, fingerprint: Option<&str>) {
 /// Each of `user`'s keys whose ledger import has no producer yet: stamped as imported by its current version (the stamp a
 /// complete ledger sync records, `sync::cache::record_ledger`), as after a sync.
 pub fn stamp_ledgers(c: &Connection, user: i64) {
-    let stamps = deltabadger::sync::cache::capture_read(c, user, &deltabadger::tracker::Scope::All).unwrap().producer_stamps();
-    for stamp in stamps.as_array().unwrap() {
-        let key = deltabadger::jobs::state::key("ledger_origin", Some(&stamp["key_id"].to_string()));
-        if !deltabadger::app_config::exists(c, &key).unwrap() { deltabadger::app_config::set_plain(c, &key, &stamp.to_string(), chrono::Utc::now()).unwrap(); }
+    let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND key_type != 1 ORDER BY id").unwrap();
+    let keys: Vec<i64> = s.query_map([user], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for id in keys {
+        let key = deltabadger::jobs::state::key("ledger_origin", Some(&id.to_string()));
+        if deltabadger::app_config::exists(c, &key).unwrap() { continue; }
+        let stamp = deltabadger::engine::model::credential_version_by_id(c, id).unwrap().unwrap().test_stamp();
+        deltabadger::app_config::set_plain(c, &key, &stamp.to_string(), chrono::Utc::now()).unwrap();
     }
 }
 /// Key `key`'s ledger import stamped as produced by its current version, whatever was stamped before (a sync's completion).
@@ -59,6 +62,31 @@ pub fn read_balances(c: &Connection, user: i64, account: i64, key: i64, held: &[
     let mut stamp: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &origin).unwrap().unwrap()).unwrap();
     stamp["complete"] = serde_json::Value::Bool(true);
     deltabadger::app_config::set_plain(c, &deltabadger::sync::cache::balance_origin_key_of(&a), &stamp.to_string(), chrono::Utc::now()).unwrap();
+}
+
+/// Every live key (correct, not a withdrawal key) of `user`'s accounts on `exchange` just completed a ledger sync at `at`
+/// under its current credential, and each account's reading key just read its balances completely at `at` (its rows as they
+/// are): what the syncs a Merge wakes leave behind.
+pub fn fresh(c: &Connection, user: i64, exchange: i64, at: &str) {
+    stamp_ledgers(c, user);
+    let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type != 1 AND status = 1 ORDER BY id").unwrap();
+    let keys: Vec<i64> = s.query_map([user, exchange], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let when: chrono::DateTime<chrono::Utc> = chrono::NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H:%M:%S").unwrap().and_utc();
+    for key in &keys {
+        let state = deltabadger::jobs::state::JobState { last_run_at: Some(when), last_success_at: Some(when), ..Default::default() };
+        deltabadger::jobs::state::write(c, "ledger_sync", Some(&key.to_string()), &state, when).unwrap();
+    }
+    let mut s = c.prepare("SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number").unwrap();
+    let accounts: Vec<i64> = s.query_map([user, exchange], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for account in accounts {
+        let a = deltabadger::identity::AccountRow::by_id(c, account).unwrap().unwrap();
+        let Some(key) = deltabadger::sync::cache::reading_key(c, &a).unwrap() else { continue };
+        c.execute("UPDATE api_keys SET balances_synced_at = ?2 WHERE id = ?1", params![key, at]).unwrap();
+        let origin = deltabadger::jobs::state::key("ledger_origin", Some(&key.to_string()));
+        let mut stamp: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &origin).unwrap().unwrap()).unwrap();
+        stamp["complete"] = serde_json::Value::Bool(true);
+        deltabadger::app_config::set_plain(c, &deltabadger::sync::cache::balance_origin_key_of(&a), &stamp.to_string(), when).unwrap();
+    }
 }
 
 impl Two {

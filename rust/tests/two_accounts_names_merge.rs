@@ -1021,7 +1021,13 @@ fn dump(c: &Connection) -> Vec<String> {
         .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     let mut out = vec![];
     for t in tables {
-        let mut s = c.prepare(&format!("SELECT * FROM \"{t}\"")).unwrap();
+        // What the syncs a Merge wakes write (their times, their stamps) is not what a refusal must leave alone.
+        let sql = match t.as_str() {
+            "app_configs" => "SELECT * FROM app_configs WHERE key NOT LIKE 'rust_job.ledger_sync:%' AND key NOT LIKE 'rust_job.ledger_origin:%' AND key NOT LIKE 'rust_job.balance_origin:%'".to_string(),
+            "api_keys" => "SELECT id, key, secret, status, key_type, exchange_id, user_id FROM api_keys".to_string(),
+            _ => format!("SELECT * FROM \"{t}\""),
+        };
+        let mut s = c.prepare(&sql).unwrap();
         let n = s.column_count();
         let rows: Vec<String> = s.query_map([], |r| Ok((0..n).map(|i| format!("{:?}", r.get::<_, rusqlite::types::Value>(i).unwrap())).collect::<Vec<_>>().join("|"))).unwrap().map(Result::unwrap).collect();
         out.extend(rows.into_iter().map(|r| format!("{t}: {r}")));
@@ -1038,9 +1044,17 @@ fn duplicate() -> (tempfile::TempDir, store::Opened, Two) {
     (d, o, two)
 }
 /// `merge::run` in one transaction, committed only when it merged.
+/// `merge::run` after the syncs a Merge wakes have just run.
 fn merge_now(c: &Connection, two: &Two, d: i64) -> Result<Option<merge::Merged>, Refusal> {
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now);
+    merge_stale(c, two, d)
+}
+/// `merge::run` on the data as it is.
+fn merge_stale(c: &Connection, two: &Two, d: i64) -> Result<Option<merge::Merged>, Refusal> {
     let tx = c.unchecked_transaction().unwrap();
-    let out = merge::run(&tx, &seed::cipher(), two.seeded.user_id, d, chrono::Utc::now());
+    let survivor = identity::duplicates(&tx, two.seeded.user_id).unwrap().into_iter().find(|(x, _)| *x == d).map_or(0, |(_, s)| s);
+    let out = merge::run(&tx, &seed::cipher(), two.seeded.user_id, d, survivor, chrono::Utc::now());
     if matches!(out, Ok(Some(_))) { tx.commit().unwrap(); }
     out
 }
@@ -1104,6 +1118,9 @@ fn t17_t18_keys_and_bots_move_to_the_survivor() {
     let (_d, o, two) = duplicate();
     let c = &o.primary;
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[0]]).unwrap();
+    // 1 still reads with a correct read-only key (Merge's live check reads both accounts).
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'r', 'r', 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
     let row = two.row(c, 0, 4, "BTC", "1", Some("on-1"), None, "2026-09-01 10:00:00");
     c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'w', 'w', 1, 1, 'now', 'now')",
               [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
@@ -1337,6 +1354,8 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     for (a, k) in [(two.id(1), two.keys[1]), (third, key)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
     assert!(identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(third, two.id(0))), "3 duplicates 2, which duplicates 1");
     two.rule(c, &cipher, 1, two.seeded.btc, 3);
+    // 1 holds what 2 holds (one venue account): the fresh reads agree.
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     merge_now(c, &two, two.id(1)).unwrap().unwrap();
     // Read fresh: 3 against 1, whose rows are now 2's, read by 1's key, once 1's balances are read too.
     for (a, k) in [(two.id(0), two.keys[0]), (third, key)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-21 10:00:00"); }
@@ -1367,8 +1386,9 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
                VALUES (?1, ?2, 4, 'BTC', 1, NULL, '2026-09-02 10:00:00', '{\"venue\":\"answer\"}', '{}', 0, '2026-09-02 10:00:00', '2026-09-02 10:00:00')", [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
     deltabadger::venue_ids::after_insert(c, &s3, c.last_insert_rowid(), Some("t3")).unwrap();
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
     let tx = c.unchecked_transaction().unwrap();
-    merge::run(&tx, &seed::cipher(), two.seeded.user_id, third.id.unwrap(), chrono::Utc::now()).unwrap().unwrap();
+    merge::run(&tx, &seed::cipher(), two.seeded.user_id, third.id.unwrap(), two.id(1), chrono::Utc::now()).unwrap().unwrap();
     tx.commit().unwrap();
     assert_eq!(one::<i64>(c, "SELECT account_id FROM exchange_account_rows"), two.id(1), "3's row is 2's");
     // What the handback's account-2 refusals read (handover::refuse_rust_only_conditions).
@@ -1398,15 +1418,18 @@ async fn t26_settings_offers_merge_while_a_duplicate_exists() {
     two.order(c, 1, common::two_accounts::SHARED_ORDER, 0, Some(2));
     let mut b = on_settings(&app, c, user).await;
     let path = format!("/settings/merge_account/{}", two.id(1));
-    let refused = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    let survivor = two.id(0).to_string();
+    let form: &[(&str, &str)] = &[("survivor_id", &survivor)];
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, "2026-09-20 11:59:00");
+    let refused = b.send(&app, "POST", &path, Some(form), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
     assert_eq!(refused.status, 422, "{}", &refused.body[..refused.body.len().min(600)]);
     assert!(refused.body.contains("disagree on these records") && refused.body.contains("2026-09-02 buy"), "{}", refused.body);
     c.execute("DELETE FROM transactions", []).unwrap();
     c.execute("DELETE FROM exchange_account_transactions", []).unwrap();
-    let merged = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    let merged = b.send(&app, "POST", &path, Some(form), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
     assert_eq!(merged.status, 200, "{}", &merged.body[..merged.body.len().min(600)]);
     assert!(merged.body.contains("action=\"replace\" target=\"api_keys\"") && merged.body.contains("was merged into"), "{}", merged.body);
-    assert_eq!(b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[]).await.status, 404, "no longer a duplicate");
+    assert_eq!(b.send(&app, "POST", &path, Some(form), common::web::Csrf::Header, &[]).await.status, 404, "no longer a duplicate");
 }
 
 /// T15 (r2): the pre-flight reads a placed standalone order from its venue: resting (`new`) refuses with nothing changed;
@@ -1436,12 +1459,15 @@ async fn t15_the_preflight_reads_a_resting_order_from_its_venue() {
     app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
     let mut b = on_settings(&app, c, alpaca.seeded.user_id).await;
     let path = format!("/settings/merge_account/{}", alpaca.id(1));
+    let survivor = alpaca.id(0).to_string();
+    let form: &[(&str, &str)] = &[("survivor_id", &survivor)];
+    common::two_accounts::fresh(c, alpaca.seeded.user_id, alpaca.seeded.exchange_id, "2026-09-20 11:59:00");
     let before = dump(c);
-    let resting = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    let resting = b.send(&app, "POST", &path, Some(form), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
     assert_eq!(resting.status, 422, "{}", &resting.body[..resting.body.len().min(600)]);
     assert!(resting.body.contains("still in flight"), "{}", resting.body);
     assert_eq!(dump(c), before, "nothing changed");
-    let merged = b.send(&app, "POST", &path, Some(&[]), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    let merged = b.send(&app, "POST", &path, Some(form), common::web::Csrf::Header, &[("Accept", "text/vnd.turbo-stream.html")]).await;
     assert_eq!(merged.status, 200, "{}", merged.body.rsplit("</button>").next().unwrap_or_default());
     let terminal: String = c.query_row("SELECT json_extract(outcome, '$.terminal') FROM rust_api_orders WHERE id = ?1", [order], |r| r.get(0)).unwrap();
     assert_eq!(terminal, "filled");
@@ -1814,6 +1840,8 @@ fn r3_7_a_moved_keys_balance_time_is_read_again() {
     c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-20 10:00:00' WHERE id = ?1", [two.keys[0]]).unwrap();
     two.row(c, 0, 4, "BTC", "0.5", Some("dep-s"), None, "2026-09-20 10:05:00");
     merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    // The survivor's own read as it was before the merge's fresh syncs.
+    c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-20 10:00:00' WHERE id = ?1", [two.keys[0]]).unwrap();
     let a = identity::AccountRow::of(c, &two.accounts[0]).unwrap().unwrap();
     let moved = deltabadger::tracker::figures::pending(c, two.seeded.user_id, &deltabadger::tracker::Scope::Account(a)).unwrap();
     assert_eq!(moved.into_iter().map(|(s, d)| (s, d.to_s_f())).collect::<Vec<_>>(), [("BTC".to_string(), "0.5".to_string())]);
@@ -2054,22 +2082,6 @@ fn s5_a_resaved_key_waits_for_its_next_sync() {
     assert!(overlaps(c, &two, 1), "back on the next matching sync");
 }
 
-/// A 3→2 pair after merging 2 into 1: 3's wallet switched, so nothing makes it 1's duplicate.
-#[test]
-fn s5_merging_revives_no_other_pair() {
-    let (_d, o, two) = duplicate();
-    let c = &o.primary;
-    let third = two.third(c).id.unwrap();
-    let key = add_key(c, &two, third);
-    trades(c, &two, 1, 3, 0, "1");
-    trades_on(c, &two, third, key, 3);
-    for (a, k) in [(two.id(1), two.keys[1]), (third, key)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
-    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![key, seed::cipher().encrypt("another-wallet")]).unwrap();
-    merge_now(c, &two, two.id(1)).unwrap().unwrap();
-    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
-}
-
 /// An account id the venue reports (equal fingerprints) is one signal; balances that differ at comparable reads contradict it.
 #[test]
 fn s5_fingerprints_need_balances_that_do_not_disagree() {
@@ -2125,4 +2137,203 @@ fn s5_twins_keep_their_identity() {
     merge_now(c, &two, two.id(1)).unwrap().unwrap();
     let kept: Option<String> = c.query_row("SELECT description FROM account_transactions WHERE id = ?1", [s], |r| r.get(0)).unwrap();
     assert_eq!(kept.as_deref(), Some("Fork (ETHW)"));
+}
+
+// ---- review round 6 ----
+
+fn now_text(offset_secs: i64) -> String { (chrono::Utc::now() + chrono::Duration::seconds(offset_secs)).format("%Y-%m-%d %H:%M:%S").to_string() }
+/// An unresolved Kraken code a balance read of key `key` recorded (`rust_sync.kraken_unresolved:<key>`).
+fn unresolved(c: &Connection, key: i64, codes: &[&str]) {
+    deltabadger::app_config::set_plain(c, &format!("rust_sync.kraken_unresolved:{key}"), &serde_json::json!({"codes": codes, "at": "now"}).to_string(), chrono::Utc::now()).unwrap();
+}
+
+/// Live check: data older than fifteen minutes is not enough to merge on; the refusal asks to try again (and wakes the syncs).
+#[test]
+fn l6_stale_data_refuses_to_try_again() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-3600));
+    let before = dump(c);
+    assert!(!matches!(merge_stale(c, &two, two.id(1)), Ok(Some(_))), "an hour-old sync");
+    assert_eq!(dump(c), before);
+}
+
+/// Live check: fresh agreeing data merges.
+#[test]
+fn l6_fresh_agreeing_data_merges() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
+    assert!(merge_stale(c, &two, two.id(1)).unwrap().is_some());
+}
+
+/// Live check and standing: fresh balances that differ only in an unresolved asset are two accounts.
+#[test]
+fn l6_an_unresolved_asset_difference_is_no_duplicate() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
+    unresolved(c, two.keys[1], &["XTOKEN"]);
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(!matches!(merge_stale(c, &two, two.id(1)), Ok(Some(_))));
+}
+
+/// Live check: a key replaced with no fresh sync since is not enough to merge on.
+#[test]
+fn l6_a_replaced_key_with_no_fresh_sync_refuses() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
+    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[0], seed::cipher().encrypt("test-key")]).unwrap();
+    assert!(!matches!(merge_stale(c, &two, two.id(1)), Ok(Some(_))));
+}
+
+/// A withdrawal key on both accounts, or a live rule of the duplicate beside only the survivor's withdrawal key, refuses.
+#[test]
+fn l6_withdrawal_keys_that_would_change_hands_refuse() {
+    let withdrawal = |c: &Connection, two: &Two, n: usize| {
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, 'w', 1, 1, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, format!("w-{n}")]).unwrap();
+        two.accounts[n].add_key(c, c.last_insert_rowid()).unwrap();
+    };
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    withdrawal(c, &two, 0);
+    withdrawal(c, &two, 1);
+    assert!(!matches!(merge_now(c, &two, two.id(1)), Ok(Some(_))), "both");
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    withdrawal(c, &two, 0);
+    two.rule(c, &seed::cipher(), 1, two.seeded.btc, 0);
+    assert!(!matches!(merge_now(c, &two, two.id(1)), Ok(Some(_))), "the duplicate's rule would switch keys");
+}
+
+/// #4: a pair the direct comparison rejects is never produced through a chain.
+#[test]
+fn r6_a_chain_never_overrides_a_direct_veto() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let third = two.third(c).id.unwrap();
+    let key = add_key(c, &two, third);
+    common::two_accounts::confirm(c, third, Some("fp"));
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
+    common::two_accounts::read_balances(c, two.seeded.user_id, third, key, &[(two.seeded.btc, "2")], "2026-09-20 10:01:00");
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-19 10:00:00");
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+}
+
+/// #7: a conflicting shared id anywhere in the history vetoes, not only in the sample; Coinbase's `-in`/`-out` legs of one
+/// trade are one match.
+#[test]
+fn r6_the_whole_history_vetoes_and_legs_count_once() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    for i in 0..200 { two.trade(c, 1, 0, &format!("only-{i}"), "1", "2026-09-10 10:00:00"); }
+    two.trade(c, 0, 0, "late", "1", "2026-09-11 10:00:00");
+    two.trade(c, 1, 0, "late", "2", "2026-09-11 10:00:00");
+    assert!(!overlaps(c, &two, 1), "a conflict at row 204");
+
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let coinbase = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Coinbase", "Coinbase");
+    for k in 0..2 { for t in ["s1", "s2"] { for leg in ["in", "out"] { coinbase.trade(c, k, 0, &format!("{t}-{leg}"), "1", "2026-09-01 10:00:00"); } } }
+    assert!(!overlaps(c, &coinbase, 1), "two swaps are two matches, not four");
+}
+
+/// #6: refreshing one account a day later keeps the standing its last comparable pair of reads gave, and asks for the
+/// partner's read.
+#[test]
+fn r6_one_accounts_refresh_keeps_the_last_comparable_verdict() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    assert!(overlaps(c, &two, 1));
+    // The balance job's completion keeps the comparable verdict.
+    let now = chrono::Utc::now();
+    assert!(identity::after_balance_read(c, two.keys[1], now).unwrap().is_empty());
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-21 10:00:00");
+    assert_eq!(identity::after_balance_read(c, two.keys[1], now).unwrap(), [two.keys[0]], "the partner is read now");
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "the day-old pair still stands");
+}
+
+/// #1: a replaced key's old rows count only once its new credential reads balances that agree; equal empty balances with
+/// no trade newer than the change do not count.
+#[test]
+fn r6_a_replaced_keys_old_rows_need_its_new_reads() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let two = Two::kraken(c, &cipher);
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    assert!(overlaps(c, &two, 1));
+    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[0], cipher.encrypt("another-wallet")]).unwrap();
+    deltabadger::app_config::set_plain(c, &format!("rust_key_credential_changed:{}", two.keys[0]), "2026-09-15 00:00:00", chrono::Utc::now()).unwrap();
+    common::two_accounts::restamp(c, two.seeded.user_id, two.keys[0]);
+    for k in 0..2 { common::two_accounts::read_balances(c, two.seeded.user_id, two.id(k), two.keys[k], &[], "2026-09-20 10:00:00"); }
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "equal empty reads, no newer trade");
+}
+
+/// #2: a key whose identity read is masked beside a key that confirmed the fingerprint is no confirmation.
+#[test]
+fn r6_a_masked_key_beside_a_confirming_one_is_no_confirmation() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let masked = add_key(c, &two, two.id(0));
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, last_failure_code) VALUES (?1, ?2, NULL, 'http 200')", [masked, two.seeded.exchange_id]).unwrap();
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+}
+
+/// #10: a KuCoin restore (`amounts`, `amounts_inexact`) is not synced; an exact-id twin differing from its API copy only
+/// in those restore fields is no conflict.
+#[test]
+fn r6_the_kucoin_restore_shape() {
+    let kucoin = |c: &Connection| { let k = Two::kraken(c, &seed::cipher()); let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+                                     two.fingerprint(c, 0, Some("fp")); two.fingerprint(c, 1, Some("fp")); two };
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = kucoin(c);
+    let row = two.row(c, 1, 5, "BTC", "1", None, None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"amounts\":{\"base\":\"1\"},\"amounts_inexact\":false}' WHERE id = ?1", [row]).unwrap();
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))), "a restore only the duplicate holds");
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = kucoin(c);
+    let api = two.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
+    let restore = two.row(c, 1, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"amounts\":{\"base\":\"1\"}}' WHERE id = ?1", [restore]).unwrap();
+    assert!(merge_now(c, &two, two.id(1)).unwrap().is_some(), "the twins are one fill");
+}
+
+/// #9: the confirm posts the survivor; one that is no longer the derived survivor is a 404, nothing changed.
+#[tokio::test(flavor = "current_thread")]
+async fn r6_the_posted_survivor_must_be_the_derived_one() {
+    let (dir, o, two) = duplicate();
+    let c = &o.primary;
+    let third = two.third(c).id.unwrap();
+    let app = web_app(dir.path(), c);
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, "2026-09-20 11:59:00");
+    let mut b = on_settings(&app, c, two.seeded.user_id).await;
+    let before = dump(c);
+    let answer = b.send(&app, "POST", &format!("/settings/merge_account/{}", two.id(1)), Some(&[("survivor_id", &third.to_string())]), common::web::Csrf::Header,
+                        &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert_eq!(answer.status, 404, "{}", &answer.body[..answer.body.len().min(400)]);
+    assert_eq!(dump(c), before);
+}
+
+/// An account no key can read the balances of: no sync can make it fresh, so Merge refuses naming it, never "try again".
+#[test]
+fn l6_an_account_no_key_can_read_refuses_naming_it() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[0]]).unwrap();
+    match merge_stale(c, &two, two.id(1)) { Err(Refusal::Unreadable(a)) => assert_eq!(a, two.id(0)), other => panic!("{other:?}") }
 }

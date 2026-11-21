@@ -10,3 +10,6 @@ de:
             merged_html: "%{duplicate} wurde mit %{survivor} zusammengeführt."
             merge_in_flight_html: "Eine Order oder Auszahlung von %{duplicate} oder %{survivor} ist noch nicht abgeschlossen. Versuch es noch einmal, sobald sie durch ist."
             merge_conflict_html: "%{duplicate} und %{survivor} weichen bei diesen Einträgen voneinander ab, deshalb wurde nichts geändert: %{rows}. Gleiche sie an und führe die Konten dann erneut zusammen."
+            merge_checking_html: "Deltabadger liest %{duplicate} und %{survivor} gerade neu ein, um sicherzugehen, dass es dasselbe Konto ist. Versuch es in einer Minute noch einmal."
+            merge_withdrawal_key_html: "Auszahlungsschlüssel würden die Hand wechseln: Entferne den Auszahlungsschlüssel von %{duplicate} oder %{survivor}, führe die Konten zusammen und füge ihn danach wieder hinzu."
+            merge_unreadable_html: "%{account} hat keinen funktionierenden Schlüssel, der seine Guthaben lesen kann, deshalb kann Deltabadger es nicht prüfen. Repariere einen oder füge einen hinzu und führe die Konten dann erneut zusammen."

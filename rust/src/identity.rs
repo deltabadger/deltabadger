@@ -698,12 +698,15 @@ pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i6
     type Pair = (i64, i64, Option<String>, Option<String>, String);
     let pairs = q.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?.collect::<rusqlite::Result<Vec<Pair>>>()?;
     drop(q);
-    let mut links = vec![];
+    let (mut links, mut rejected) = (vec![], std::collections::HashSet::new());
     for (d, s, fd, fs, kind) in pairs {
         let (Some(rd), Some(rs)) = (AccountRow::by_id(c, d)?, AccountRow::by_id(c, s)?) else { continue };
-        let keep = if fd.is_some() && fd == fs { reads(c, &rd, &rs)? != Reads::Differ }
-                   else { OVERLAP_VENUES.contains(&kind.as_str()) && reads(c, &rd, &rs)? == Reads::Agree && trades_match(c, &rd, &rs)? };
+        let read = reads_or_kept(c, &rd, &rs)?;
+        let keep = if fd.is_some() && fd == fs { read != Reads::Differ }
+                   else { OVERLAP_VENUES.contains(&kind.as_str()) && read == Reads::Agree && trades_match(c, &rd, &rs, !empty(c, &rd, &rs)?)? };
         if keep { links.push((d, s, fd, fs)); }
+        // A contradiction (balances that differ at comparable reads) is a veto no chain overrides.
+        if read == Reads::Differ { rejected.insert((d, s)); }
     }
     let mut prints: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for (d, s, fd, fs) in &links {
@@ -718,7 +721,8 @@ pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i6
     Ok(first.iter().filter_map(|&(d, mut s)| {
         let mut seen: Vec<&String> = prints.get(&d).into_iter().chain(prints.get(&s)).collect();
         for _ in 0..map.len() { match map.get(&s) { Some(&next) => { s = next; seen.extend(prints.get(&s)); } None => break } }
-        seen.windows(2).all(|w| w[0] == w[1]).then_some((d, s))
+        // A pair the direct comparison vetoed is never reached through a chain.
+        (seen.windows(2).all(|w| w[0] == w[1]) && !rejected.contains(&(d, s))).then_some((d, s))
     }).collect())
 }
 /// Whether two accounts' balances agree: each read completely by its reading key at its current version
@@ -737,14 +741,79 @@ fn reads(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Rea
         let (a, b) = (*hd.get(asset).unwrap_or(&0.0), *hs.get(asset).unwrap_or(&0.0));
         if (a - b).abs() > ROUNDING * a.abs().max(b.abs()) { return Ok(Reads::Differ); }
     }
+    // What a read holds but cannot name (Kraken's unresolved positive codes, recorded beside the rows) takes part too.
+    if unresolved(c, d)? != unresolved(c, s)? { return Ok(Reads::Differ); }
     Ok(Reads::Agree)
 }
+/// The codes account `a`'s reading key's last balance read held but could not name (`rust_sync.kraken_unresolved:<key>`).
+fn unresolved(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> {
+    let Some(key) = crate::sync::cache::reading_key(c, a).map_err(eng)? else { return Ok(vec![]) };
+    let raw = crate::app_config::get_plain(c, &format!("rust_sync.kraken_unresolved:{key}")).map_err(rusqlite::Error::InvalidParameterName)?;
+    let mut codes: Vec<String> = raw.and_then(|t| serde_json::from_str::<Value>(&t).ok()).and_then(|v| v["codes"].as_array().cloned()).unwrap_or_default()
+        .into_iter().filter_map(|c| c.as_str().map(str::to_string)).collect();
+    codes.sort();
+    Ok(codes)
+}
+/// Whether neither account holds anything (no asset at a non-zero amount): equal empty reads prove nothing.
+fn empty(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<bool> {
+    c.query_row("SELECT NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id IN (?1, ?2) AND CAST(free AS REAL) + CAST(locked AS REAL) <> 0)", [d.id, s.id], |r| r.get(0))
+}
+
+/// The app_configs key of a pair's last comparable reads (`after_balance_read`).
+fn kept_key(d: i64, s: i64) -> String { format!("rust_standing_reads:{d}:{s}") }
+/// Each account's balance provenance as stored (its reading key's version, complete or not).
+fn provenance(c: &Connection, a: &AccountRow) -> rusqlite::Result<Option<String>> {
+    crate::app_config::get_plain(c, &crate::sync::cache::balance_origin_key_of(a)).map_err(rusqlite::Error::InvalidParameterName)
+}
+/// `reads`, or while the two latest reads are too far apart the verdict of the last pair that was comparable, trusted only
+/// while both accounts' balances are still produced by the same keys at the same credential versions.
+fn reads_or_kept(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Reads> {
+    let now = reads(c, d, s)?;
+    if now != Reads::NotComparable { return Ok(now); }
+    let kept = crate::app_config::get_plain(c, &kept_key(d.id, s.id)).map_err(rusqlite::Error::InvalidParameterName)?.and_then(|t| serde_json::from_str::<Value>(&t).ok());
+    let Some(kept) = kept else { return Ok(Reads::NotComparable) };
+    if kept["d"].as_str() != provenance(c, d)?.as_deref() || kept["s"].as_str() != provenance(c, s)?.as_deref() { return Ok(Reads::NotComparable); }
+    if crate::sync::cache::balances_read_at(c, d).map_err(eng)?.is_none() || crate::sync::cache::balances_read_at(c, s).map_err(eng)?.is_none() { return Ok(Reads::NotComparable); }
+    Ok(if kept["verdict"] == "agree" { Reads::Agree } else { Reads::Differ })
+}
+/// After key `api_key_id`'s balance read completed: each pair of its account with another live account of its exchange
+/// that could be one venue account (equal fingerprints, or a shared trade id) keeps the verdict of comparable reads; when
+/// the partner's read is too far off, the partner's reading key is returned, to be read now (its reads stay comparable).
+pub fn after_balance_read(c: &Connection, api_key_id: i64, now: DateTime<Utc>) -> rusqlite::Result<Vec<i64>> {
+    if !numbered(c)? || !crate::venue_ids::ready(c)? { return Ok(vec![]); }
+    let Some(account) = AccountRow::of_key(c, api_key_id)? else { return Ok(vec![]) };
+    if !account.placed() { return Ok(vec![]); }
+    let mut q = c.prepare("SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND id <> ?3 AND removed_at IS NULL ORDER BY number")?;
+    let others: Vec<i64> = q.query_map([account.user_id, account.exchange_id, account.id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+    drop(q);
+    let mut wake = vec![];
+    for other in others {
+        let Some(other) = AccountRow::by_id(c, other)? else { continue };
+        let (d, s) = if account.number > other.number { (account, other) } else { (other, account) };
+        let prints: bool = c.query_row("SELECT d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint FROM exchange_accounts d, exchange_accounts s WHERE d.id = ?1 AND s.id = ?2",
+                                       [d.id, s.id], |r| r.get(0))?;
+        if !prints && !crate::venue_ids::any_shared_id(c, &d.venue_ids(), &s.venue_ids())? { continue; }
+        match reads(c, &d, &s)? {
+            Reads::NotComparable => { if let Some(k) = crate::sync::cache::reading_key(c, &other).map_err(eng)? { wake.push(k); } }
+            verdict => {
+                let kept = serde_json::json!({ "verdict": if verdict == Reads::Agree { "agree" } else { "differ" }, "d": provenance(c, &d)?, "s": provenance(c, &s)? });
+                crate::app_config::set_plain(c, &kept_key(d.id, s.id), &kept.to_string(), now).map_err(rusqlite::Error::InvalidParameterName)?;
+            }
+        }
+    }
+    Ok(wake)
+}
+
+/// The app_configs key holding when key `id`'s credential last changed (a settings save that replaced its material).
+pub fn credential_changed_key(id: i64) -> String { format!("rust_key_credential_changed:{id}") }
 
 /// The shared-trade signal: every live key of both accounts (correct, not a withdrawal key) has its ledger import from its
-/// current credential (`sync::cache::ledger_current_for`); among the rows those keys imported since they were made, the
-/// duplicate's earliest `SAMPLE` trades meet `MATCHES` of the survivor's under their venue-native ids with equal facts and
-/// none with other facts; and every one of those keys imported at least one of the matched rows.
-fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<bool> {
+/// current credential (`sync::cache::ledger_current_for`); among the rows those keys imported since they were made (a
+/// replaced key's rows from before its replacement only when `old_rows`: its new credential read balances that agree),
+/// the duplicate's earliest `SAMPLE` trades meet `MATCHES` distinct venue trades of the survivor's under their venue-native
+/// ids with equal facts (Coinbase's `-in`/`-out` legs are one trade); no shared id anywhere in their histories has other
+/// facts; and every one of those keys imported at least one of the matched rows.
+fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow, old_rows: bool) -> rusqlite::Result<bool> {
     let live = |a: &AccountRow| -> rusqlite::Result<Vec<i64>> {
         let mut q = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type != 1 AND k.status = 1 ORDER BY k.id", a.keys("k")))?;
         let out = q.query_map([], |r| r.get(0))?.collect();
@@ -754,28 +823,75 @@ fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Res
     if kd.is_empty() || ks.is_empty() { return Ok(false); }
     for k in kd.iter().chain(&ks) { if !crate::sync::cache::ledger_current_for(c, *k).map_err(eng)? { return Ok(false); } }
     // A row counts when one of the account's live keys imported it, no earlier than that key was made (a key's rows carry no
-    // credential version of their own: a replaced key's import is current only once its new credential completed one).
-    let counted = |keys: &[i64]| format!("EXISTS(SELECT 1 FROM api_keys k WHERE k.id = a.api_key_id AND k.id IN ({}) \
-                                          AND CAST(strftime('%s', a.created_at) AS INTEGER) >= CAST(strftime('%s', k.created_at) AS INTEGER))",
-                                         keys.iter().map(i64::to_string).collect::<Vec<_>>().join(","));
-    let sample = crate::venue_ids::overlap_sample(c, &d.venue_ids(), SAMPLE, &counted(&kd))?;
-    let (scope, theirs_counted) = (s.venue_ids(), counted(&ks));
-    let (mut strong, mut took) = (0, std::collections::HashSet::new());
+    // credential version of their own) and, unless `old_rows`, no earlier than its credential was last replaced.
+    let counted = |a: &str, keys: &[i64]| {
+        let secs = |e: &str| format!("CAST(strftime('%s', {e}) AS INTEGER)");
+        let changed = "(SELECT x.value FROM app_configs x WHERE x.key = 'rust_key_credential_changed:' || k.id)".to_string();
+        format!("EXISTS(SELECT 1 FROM api_keys k WHERE k.id = {a}.api_key_id AND k.id IN ({}) AND {} >= {} AND ({old_rows} OR {} IS NULL OR {} >= {}))",
+                keys.iter().map(i64::to_string).collect::<Vec<_>>().join(","), secs(&format!("{a}.created_at")), secs("k.created_at"),
+                changed, secs(&format!("{a}.created_at")), secs(&changed))
+    };
+    if crate::venue_ids::overlap_conflict(c, &d.venue_ids(), &s.venue_ids(), &counted("a", &kd), &counted("b", &ks))? { return Ok(false); }
+    let sample = crate::venue_ids::overlap_sample(c, &d.venue_ids(), SAMPLE, &counted("a", &kd))?;
+    let (scope, theirs_counted) = (s.venue_ids(), counted("a", &ks));
+    let (mut strong, mut took) = (std::collections::HashSet::new(), std::collections::HashSet::new());
     for (row, key) in &sample {
         match crate::venue_ids::overlap_match(c, &scope, &row.venue_id, &theirs_counted)? {
-            Some((theirs, k)) if theirs == *row => { strong += 1; took.insert(*key); took.insert(k); }
+            Some((theirs, k)) if theirs == *row => {
+                let trade = row.venue_id.strip_suffix("-in").or_else(|| row.venue_id.strip_suffix("-out")).unwrap_or(&row.venue_id).to_string();
+                strong.insert(trade); took.insert(*key); took.insert(k);
+            }
             Some(_) => return Ok(false),
             None => {}
         }
     }
-    Ok(strong >= MATCHES && kd.iter().chain(&ks).all(|k| took.contains(k)))
+    Ok(strong.len() >= MATCHES && kd.iter().chain(&ks).all(|k| took.contains(k)))
+}
+
+/// What a Merge's live check found (PLAN-710-6 §6): fresh data on which the pair agrees; data too old or missing, with the
+/// syncs to wake (job, key); or fresh reads that disagree.
+#[derive(Clone, Debug, PartialEq, Eq)]
+/// `Unreadable`: an account no key can read the balances of (none correct but a withdrawal key): no sync can make it fresh.
+pub enum Live { Fresh, Stale(Vec<(&'static str, i64)>), Differ, Unreadable(i64) }
+/// How fresh a Merge's data must be.
+pub const LIVE_SECS: i64 = 900;
+
+/// The live check of a Merge of `d` into `s`, inside its transaction: every live non-withdrawal key of both accounts
+/// completed a ledger sync under its current credential within `LIVE_SECS`, and each account's reading key read its
+/// balances completely under its current credential within `LIVE_SECS`; then those reads must agree.
+pub fn live_check(c: &Connection, d: &AccountRow, s: &AccountRow, now: DateTime<Utc>) -> rusqlite::Result<Live> {
+    let since = now - Duration::seconds(LIVE_SECS);
+    let mut wake = vec![];
+    for a in [d, s] {
+        let mut q = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type != 1 AND k.status = 1 ORDER BY k.id", a.keys("k")))?;
+        let keys: Vec<i64> = q.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
+        drop(q);
+        for key in keys {
+            let state = crate::jobs::state::read(c, crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string())).map_err(rusqlite::Error::InvalidParameterName)?;
+            let fresh = crate::sync::cache::ledger_current_for(c, key).map_err(eng)? && state.incomplete_since.is_none() && state.last_success_at.is_some_and(|t| t >= since);
+            if !fresh { wake.push((crate::sync::jobs::LEDGER_SYNC, key)); }
+        }
+        let read = crate::sync::cache::balances_read_at(c, a).map_err(eng)?;
+        if read.is_none_or(|t| t < since) {
+            match crate::sync::cache::reading_key(c, a).map_err(eng)? {
+                Some(key) => wake.push((crate::sync::jobs::BALANCE_SYNC, key)),
+                // No key reads this account's balances: nothing can make them fresh until one does.
+                None => return Ok(Live::Unreadable(a.id)),
+            }
+        }
+    }
+    if !wake.is_empty() { return Ok(Live::Stale(wake)); }
+    Ok(if reads(c, d, s)? == Reads::Agree { Live::Fresh } else { Live::Differ })
 }
 
 /// SQL condition: account row `x`'s known fingerprint (if any) is what its keys still read: one of its keys' identity
 /// observations confirms it and none reads another account. A stale or contradicted one is neither duplicate nor survivor.
 fn confirmed(x: &str) -> String {
     let keys = format!("(SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id AND o.fingerprint IS NOT NULL)", key_account_sql("k"));
-    format!("({x}.fingerprint IS NULL OR ({x}.fingerprint IN {keys} AND NOT EXISTS (SELECT 1 FROM {keys} f WHERE f.fingerprint <> {x}.fingerprint)))")
+    // A live key whose own read came back without an id (failed, masked) is no confirmation beside one that confirmed.
+    let masked = format!("EXISTS (SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id AND k.key_type != 1 AND k.status = 1 \
+                          AND o.fingerprint IS NULL)", key_account_sql("k"));
+    format!("({x}.fingerprint IS NULL OR ({x}.fingerprint IN {keys} AND NOT EXISTS (SELECT 1 FROM {keys} f WHERE f.fingerprint <> {x}.fingerprint) AND NOT {masked}))")
 }
 /// The ids of the user's duplicates (`duplicates`).
 pub fn duplicate_ids(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<i64>> { Ok(duplicates(c, user_id)?.into_iter().map(|(d, _)| d).collect()) }

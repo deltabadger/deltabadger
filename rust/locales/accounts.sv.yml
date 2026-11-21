@@ -10,3 +10,6 @@ sv:
             merged_html: "%{duplicate} har slagits ihop med %{survivor}."
             merge_in_flight_html: "En order eller ett uttag på %{duplicate} eller %{survivor} pågår fortfarande. Försök igen när det är klart."
             merge_conflict_html: "%{duplicate} och %{survivor} skiljer sig åt i de här posterna, så inget har ändrats: %{rows}. Få dem att stämma överens och slå sedan ihop dem igen."
+            merge_checking_html: "Deltabadger läser in %{duplicate} och %{survivor} igen för att vara säker på att det är samma konto. Försök igen om en minut."
+            merge_withdrawal_key_html: "Uttagsnycklar skulle byta konto: ta bort uttagsnyckeln för %{duplicate} eller %{survivor}, slå ihop kontona och lägg sedan till den igen."
+            merge_unreadable_html: "%{account} har ingen fungerande nyckel som kan läsa saldona, så Deltabadger kan inte kontrollera det. Laga eller lägg till en nyckel och slå sedan ihop kontona igen."

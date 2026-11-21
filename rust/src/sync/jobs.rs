@@ -459,6 +459,15 @@ impl<C: Connect> Job for BalanceSync<C> {
                 },
             };
             let outcome = outcome(done, |_| true);
+            // #710: a pair that may be one venue account keeps the verdict of its comparable reads; a partner whose read is too
+            // far off is read now, so the two stay comparable.
+            if outcome == Outcome::Done {
+                let (key, at) = (self.key_id, cx.clock.now());
+                match cx.db.run(move |c, _| crate::identity::after_balance_read(c, key, at).map_err(|e| e.to_string())).await {
+                    Ok(partners) => for partner in partners { cx.wakers.wake(BALANCE_SYNC, Some(&partner.to_string()), None); },
+                    Err(e) => crate::engine::log(&format!("[sync] balance standing of key {key} not kept: {e}")),
+                }
+            }
             // 2.x's AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
             // rewrites today's rows.
             if outcome == Outcome::NothingNew { cx.wakers.wake(BALANCE_SYNC, Some(&self.key_id.to_string()), None); }

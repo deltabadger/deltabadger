@@ -335,6 +335,8 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
   if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
    tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
+   // #710: when its material changed, the rows its old material imported are no evidence of its new one (identity::trades_match).
+   crate::app_config::set_plain(&tx,&crate::identity::credential_changed_key(id),&format_time(inner.now()),inner.now()).map_err(WebError::Config)?;
    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
   }
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE id=?6",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,id])?;
@@ -425,7 +427,7 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
         .collect();
     // #710 (PLAN-710-6 §6.1): one Merge row per duplicate, above the keys.
     let duplicates = crate::identity::duplicates(c, user)?.into_iter()
-        .map(|(d, s)| Ok((crate::identity::label(c, d)?.html(), crate::identity::label(c, s)?.html(), d))).collect::<rusqlite::Result<Vec<_>>>()?;
+        .map(|(d, s)| Ok((crate::identity::label(c, d)?.html(), crate::identity::label(c, s)?.html(), d, s))).collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(super::sections::api_keys(ctx, csrf, &keys, &duplicates))
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
@@ -946,11 +948,14 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let Some(id) = ctx.params.route_path.rsplit('/').next().and_then(|s| s.parse::<i64>().ok()) else { return Ok(crate::web::layout::missing()) };
     let user_id = user.id;
+    // The survivor the confirmation named: another one derived by now is no Merge the user confirmed.
+    let Some(posted) = ctx.params.form("survivor_id").and_then(|s| s.parse::<i64>().ok()) else { return Ok(crate::web::layout::missing()) };
     let names = app.db(move |c| {
         let Some((d, s)) = crate::identity::duplicates(c, user_id)?.into_iter().find(|(d, _)| *d == id) else { return Ok(None) };
         Ok(Some((d, s, crate::identity::label(c, d)?.html(), crate::identity::label(c, s)?.html())))
     }).await?;
     let Some((d, s, duplicate, survivor)) = names else { return Ok(crate::web::layout::missing()) };
+    if s != posted { return Ok(crate::web::layout::missing()); }
     fn args<'a>(duplicate: &'a str, survivor: &'a str, rows: Option<&'a str>) -> Vec<(&'static str, i18n::Arg<'a>)> {
         let mut out = vec![("duplicate", i18n::Arg::Html(duplicate)), ("survivor", i18n::Arg::Html(survivor))];
         if let Some(rows) = rows { out.push(("rows", i18n::Arg::Text(rows))); }
@@ -964,13 +969,19 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let inner = app.clone();
     let v = ctx.clone();
     let csrf = ctx.csrf_token();
-    enum Done { Missing, Merged(crate::merge::Merged, String, Vec<(i64, bool, bool)>), InFlight, Conflict(Vec<String>), Refused(String) }
+    enum Done { Missing, Merged(crate::merge::Merged, String, Vec<(i64, bool, bool)>, (String, String)), InFlight, Stale(Vec<(&'static str, i64)>), WithdrawalKeys, Unreadable(String),
+                Conflict(Vec<String>), Refused(String) }
     let done = app.db(move |c| {
         let tx = crate::engine::model::immediate(c)?;
-        let merged = match crate::merge::run(&tx, &inner.cipher, user_id, id, inner.now()) {
+        // The names as they read in the transaction, before the duplicate is removed.
+        let labels = (crate::identity::label(&tx, id)?.html(), crate::identity::label(&tx, posted)?.html());
+        let merged = match crate::merge::run(&tx, &inner.cipher, user_id, id, posted, inner.now()) {
             Ok(None) => return Ok(Done::Missing),
             Ok(Some(merged)) => merged,
             Err(crate::merge::Refusal::InFlight) => return Ok(Done::InFlight),
+            Err(crate::merge::Refusal::Stale(wake)) => return Ok(Done::Stale(wake)),
+            Err(crate::merge::Refusal::WithdrawalKeys) => return Ok(Done::WithdrawalKeys),
+            Err(crate::merge::Refusal::Unreadable(account)) => return Ok(Done::Unreadable(crate::identity::label(&tx, account)?.html())),
             Err(crate::merge::Refusal::Conflict(rows)) => return Ok(Done::Conflict(rows)),
             Err(crate::merge::Refusal::Db(e)) => return Err(e.into()),
         };
@@ -982,14 +993,22 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
         let balances = crate::sync::balance_reading_keys(&tx).map_err(|e| WebError::Config(e.0))?;
         let wakes: Vec<(i64, bool, bool)> = merged.kept_keys.iter().map(|k| (*k, ledger.contains(k), balances.contains(k))).collect();
         tx.commit()?;
-        Ok(Done::Merged(merged, body, wakes))
+        Ok(Done::Merged(merged, body, wakes, labels))
     }).await?;
     match done {
         Done::Missing => Ok(crate::web::layout::missing()),
         Done::InFlight => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_in_flight_html", &args(&duplicate, &survivor, None))),
+        Done::Stale(wake) => {
+            // The live check: the syncs that read both accounts again, then the user tries again.
+            let jobs = app.job_wakers()?;
+            for (job, key) in wake { jobs.wake(job, Some(&key.to_string()), None); }
+            refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_checking_html", &args(&duplicate, &survivor, None)))
+        }
+        Done::WithdrawalKeys => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_withdrawal_key_html", &args(&duplicate, &survivor, None))),
+        Done::Unreadable(account) => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_unreadable_html", &[("account", i18n::Arg::Html(&account))])),
         Done::Conflict(rows) => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_conflict_html", &args(&duplicate, &survivor, Some(&rows.join("; "))))),
         Done::Refused(reason) => refused(&ctx, refusal_text(&ctx, &reason)),
-        Done::Merged(merged, body, wakes) => {
+        Done::Merged(merged, body, wakes, (duplicate, survivor)) => {
             for key in &merged.deleted_keys { crate::venue::ibkr::forget(*key); }
             app.wake_engine();
             let jobs = app.job_wakers()?;

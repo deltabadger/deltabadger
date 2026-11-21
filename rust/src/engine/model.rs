@@ -667,6 +667,9 @@ impl CredentialVersion {
         let bytes=hex::decode(stamp["ciphertext_digest"].as_str()?).ok()?;
         Some(Self{id:stamp["key_id"].as_i64()?,digest:bytes.try_into().ok()?,account:None})
     }
+    /// The stamp a sync records (`cache_stamp`), for a test that writes what a sync leaves.
+    #[doc(hidden)]
+    pub fn test_stamp(&self) -> Value { self.cache_stamp() }
     /// This version as captured on account `account` (None: a number 1 with no row yet, which no Merge touches).
     pub fn with_account(mut self, account: Option<i64>) -> Self { self.account = account; self }
     pub fn account(&self) -> Option<i64> { self.account }

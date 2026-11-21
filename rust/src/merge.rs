@@ -13,6 +13,14 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 pub enum Refusal {
     /// An order or a withdrawal of either account is still in flight.
     InFlight,
+    /// The data a Merge is checked on is older than `identity::LIVE_SECS` or missing: the syncs to wake (job, key), then try
+    /// again.
+    Stale(Vec<(&'static str, i64)>),
+    /// A withdrawal key would change hands: both accounts hold one, or the duplicate's live rules would move onto the
+    /// survivor's key.
+    WithdrawalKeys,
+    /// The account no key can read the balances of (`identity::Live::Unreadable`).
+    Unreadable(i64),
     /// Records the two disagree on, each named by its date, type, amount and asset.
     Conflict(Vec<String>),
     Db(crate::engine::EngineError),
@@ -80,11 +88,11 @@ fn meta(c: &Connection, row: i64) -> rusqlite::Result<Meta> {
 /// SQL condition: ledger row `x` was not written by a venue sync. A sync stores the venue's answer with the row; what
 /// else writes rows stores none (`{}`: a Deltabadger CSV restore, a Binance CSV's dust and convert legs, a 2.x-era
 /// hand entry or restore) or only a file's own fields: KuCoin's CSV (`source: kucoin_csv`), Binance's CSV (`operation`),
-/// a restore routed to KuCoin (`amounts`, its exact decimals: `kucoin_hf::with_amounts`).
+/// a restore routed to KuCoin (`amounts` and `amounts_inexact`, its exact decimals: `kucoin_hf::with_amounts`).
 fn not_synced(x: &str) -> String {
     format!("COALESCE(COALESCE({x}.raw_data, '') IN ('', 'null', '{{}}') OR CASE WHEN json_valid({x}.raw_data) THEN \
              json_extract({x}.raw_data, '$.source') = 'kucoin_csv' OR (json_type({x}.raw_data) = 'object' \
-             AND NOT EXISTS (SELECT 1 FROM json_each({x}.raw_data) WHERE key NOT IN ('operation', 'amounts'))) ELSE 0 END, 0)")
+             AND NOT EXISTS (SELECT 1 FROM json_each({x}.raw_data) WHERE key NOT IN ('operation', 'amounts', 'amounts_inexact'))) ELSE 0 END, 0)")
 }
 
 /// The ledger plan of step 7: each D row's twin, the merged metadata of each twin, and the final transfer links.
@@ -104,13 +112,14 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     // A twin pair is one record only when every financial fact agrees (an API copy with another fee, a split aggregate
     // against one of its legs, are not): otherwise a conflict naming both rows.
     for (d, s) in &twin {
-        let same: bool = c.query_row("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND CAST(d.base_amount AS TEXT) IS CAST(s.base_amount AS TEXT) \
+        // The raw answers are compared only when both are venue answers (a restore's own fields are no venue's).
+        let same: bool = c.query_row(&format!("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND CAST(d.base_amount AS TEXT) IS CAST(s.base_amount AS TEXT) \
             AND d.quote_currency IS s.quote_currency AND CAST(d.quote_amount AS TEXT) IS CAST(s.quote_amount AS TEXT) AND d.fee_currency IS s.fee_currency \
             AND CAST(d.fee_amount AS TEXT) IS CAST(s.fee_amount AS TEXT) AND d.transacted_at IS s.transacted_at \
             AND (d.base_asset_id IS NULL OR s.base_asset_id IS NULL OR d.base_asset_id = s.base_asset_id) \
             AND (COALESCE(d.description, '') = '' OR COALESCE(s.description, '') = '' OR d.description = s.description) \
-            AND (COALESCE(d.raw_data, '{}') IN ('{}', '') OR COALESCE(s.raw_data, '{}') IN ('{}', '') OR json(d.raw_data) IS json(s.raw_data)) \
-            FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", [d, s], |r| r.get(0))?;
+            AND ({} OR {} OR json(d.raw_data) IS json(s.raw_data)) \
+            FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", not_synced("d"), not_synced("s")), [d, s], |r| r.get(0))?;
         if !same { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
     }
     // A row of D with no exact-id twin (an id-less one too) may be an event S holds under another spelling: another type,
@@ -181,9 +190,11 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
 
 /// Merge duplicate `duplicate_id` of `user` into its survivor, in the caller's write transaction (`engine::model::immediate`).
 /// None: it is no longer a duplicate of the user's (a 404). Any refusal leaves the transaction for the caller to roll back.
-pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_id: i64, now: DateTime<Utc>) -> Result<Option<Merged>, Refusal> {
+/// `survivor`: the account the confirmation named; another derived survivor is a 404 (None).
+pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_id: i64, survivor: i64, now: DateTime<Utc>) -> Result<Option<Merged>, Refusal> {
     // 0. Re-derived in the transaction.
     let Some(&(d, s)) = identity::duplicates(c, user)?.iter().find(|(d, _)| *d == duplicate_id) else { return Ok(None) };
+    if s != survivor { return Ok(None); }
     let (Some(rd), Some(rs)) = (AccountRow::by_id(c, d)?, AccountRow::by_id(c, s)?) else { return Ok(None) };
     let (ad, as_) = (rd.account(), rs.account());
     let (sd, ss) = (rd.venue_ids(), rs.venue_ids());
@@ -203,6 +214,18 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
         sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
     if waiting || settling(c, &ad)? || settling(c, &as_)? || recorder_waiting(c, cipher, &[rd, rs])? { return Err(Refusal::InFlight); }
+    // Withdrawal keys: one per account kept, and never under a rule that would switch keys (remove it, merge, add it again).
+    let withdrawal = |a: &Account| -> rusqlite::Result<bool> { c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE {} AND k.key_type = 1)", a.keys("k")), [], |r| r.get(0)) };
+    let (wd, ws) = (withdrawal(&ad)?, withdrawal(&as_)?);
+    let d_rules: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rules WHERE account_id = ?1 AND status <> 3)", [d], |r| r.get(0))?;
+    if ws && (wd || d_rules) { return Err(Refusal::WithdrawalKeys); }
+    // The live check: fresh syncs of both accounts, on which the pair still agrees.
+    match identity::live_check(c, &rd, &rs, now)? {
+        identity::Live::Fresh => {}
+        identity::Live::Stale(wake) => return Err(Refusal::Stale(wake)),
+        identity::Live::Differ => return Ok(None),
+        identity::Live::Unreadable(account) => return Err(Refusal::Unreadable(account)),
+    }
 
     // 2. Conflicts, before any write.
     let mut conflicts = vec![];

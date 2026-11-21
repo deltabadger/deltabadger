@@ -223,6 +223,25 @@ pub fn overlap_sample(c: &Connection, scope: &Scope, limit: i64, counted: &str) 
     let out = s.query_map(params![scope.user_id, scope.exchange_id, limit], |r| Ok((facts(r)?, r.get(7)?)))?.collect();
     out
 }
+/// `TRADES` over ledger row `x`.
+fn trades_of(x: &str) -> String { TRADES.replace("a.", &format!("{x}.")) }
+/// Whether any trade row of `d`'s (meeting `counted_d` over `a`) shares its venue id with a trade row of `s`'s (meeting
+/// `counted_s` over `b`) with other facts, anywhere in their histories: one statement, each lookup on the unique id index.
+pub fn overlap_conflict(c: &Connection, d: &Scope, s: &Scope, counted_d: &str, counted_s: &str) -> rusqlite::Result<bool> {
+    let same = "a.entry_type IS b.entry_type AND a.base_currency IS b.base_currency AND CAST(a.base_amount AS TEXT) IS CAST(b.base_amount AS TEXT) \
+                AND a.quote_currency IS b.quote_currency AND CAST(a.quote_amount AS TEXT) IS CAST(b.quote_amount AS TEXT) AND substr(a.transacted_at, 1, 19) IS substr(b.transacted_at, 1, 19)";
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} AND {counted_d} \
+                          AND b.user_id = ?1 AND b.exchange_id = ?2 AND {} AND {} AND {counted_s} AND NOT ({same}))",
+                         d.rows("a"), trades_of("a"), d.has_id("a"), s.id_is("b", &d.row_id("a")), trades_of("b")),
+                params![d.user_id, d.exchange_id], |r| r.get(0))
+}
+/// Whether `d` holds a trade row whose venue id `s` holds too (a candidate pair, `identity::after_balance_read`).
+pub fn any_shared_id(c: &Connection, d: &Scope, s: &Scope) -> rusqlite::Result<bool> {
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} \
+                          AND b.user_id = ?1 AND b.exchange_id = ?2 AND {} AND {})",
+                         d.rows("a"), trades_of("a"), d.has_id("a"), s.id_is("b", &d.row_id("a")), trades_of("b")),
+                params![d.user_id, d.exchange_id], |r| r.get(0))
+}
 /// The account's trade row with venue id `id`, if any: one seek on 2.x's unique index for a number 1, on the membership's
 /// for an account 2+.
 pub fn overlap_match(c: &Connection, scope: &Scope, id: &str, counted: &str) -> rusqlite::Result<Option<(Facts, i64)>> {

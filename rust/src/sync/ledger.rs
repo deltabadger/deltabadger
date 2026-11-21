@@ -1405,7 +1405,8 @@ fn link(c: &Connection, pairs: &[(i64, i64)], now: DateTime<Utc>) -> Result<usiz
     let mut linked = 0;
     for (deposit, withdrawal) in pairs {
         linked += c.execute("UPDATE account_transactions SET linked_transaction_id = ?1, updated_at = ?2 WHERE id = ?3 AND linked_transaction_id IS NULL \
-                             AND transfer_link_rejected = 0 AND NOT EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = ?1)",
+                             AND transfer_link_rejected = 0 AND NOT EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = ?1) \
+                             AND EXISTS (SELECT 1 FROM account_transactions d WHERE d.id = ?1)",
                             params![deposit, sql_time(now), withdrawal])?;
     }
     Ok(linked)
