@@ -630,18 +630,7 @@ pub struct TickerPlan {
     pub sweep: Vec<i64>,
     /// The written base_asset_ids, first-seen order (import_tickers!' return value).
     pub written: Vec<i64>,
-    /// Delisted coins PR0: the `listing_evidence` scope this import observes (its category, '' for all), when it observes
-    /// the venue, and a quote asset the importer imposes on every pair (Alpaca's `usd`): a quote spelled otherwise is no
-    /// binding the venue made.
-    pub scope: String,
-    pub observed: Observed,
-    pub imposed_quote: Option<&'static str>,
 }
-
-/// When an import observes its venue: at the run's clock, at the time its source verified the rows (IBKR's
-/// `generated_at`), or not at all (a catalogue snapshot's rows).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Observed { Now, At(DateTime<Utc>), Nothing }
 
 fn find(parent: &mut [usize], i: usize) -> usize {
     let mut r = i;
@@ -678,10 +667,9 @@ fn pair_sweep(c: &Connection, exchange_id: i64, pairs: &HashSet<(i64, i64)>) -> 
 /// `plan_tickers`, plus `sweep_pairs` (Ibkr plan R1, a complete payload): the sweep is pair-level, every available ticker
 /// of the venue whose (base, quote) pair no record carries, whatever its category; an empty payload sweeps them all.
 pub fn plan_tickers_with(c: &Connection, exchange_id: i64, rows: &[Value], sweep_category: Option<&str>, sweep_pairs: bool) -> R<TickerPlan> {
-    let scope = sweep_category.unwrap_or_default().to_string();
     let empty = |exchange_assets| -> R<TickerPlan> {
         let sweep = if sweep_pairs { pair_sweep(c, exchange_id, &HashSet::new())? } else { vec![] };
-        Ok(TickerPlan { exchange_assets, units: vec![], sweep, written: vec![], scope: scope.clone(), observed: Observed::Now, imposed_quote: None })
+        Ok(TickerPlan { exchange_assets, units: vec![], sweep, written: vec![] })
     };
     if rows.is_empty() { return empty(vec![]); }
     let exchange_assets: Vec<i64> = asset_ids(c, &external_ids(rows))?.into_iter().map(|(_, id)| id).collect();
@@ -779,7 +767,7 @@ pub fn plan_tickers_with(c: &Connection, exchange_id: i64, rows: &[Value], sweep
         }
         None => vec![],
     };
-    Ok(TickerPlan { exchange_assets, units, sweep, written, scope, observed: Observed::Now, imposed_quote: None })
+    Ok(TickerPlan { exchange_assets, units, sweep, written })
 }
 
 /// Publishes a ticker plan: the exchange assets, the tickers, then the sweep (committed last: never a sweep without its
@@ -791,33 +779,15 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
 /// `publish_tickers`, every unit of every phase first checking `fence`.
 pub async fn publish_tickers_fenced(db: &Db, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>, fence: Option<Fence>) -> R<Vec<i64>> {
     let t = format_time(now);
-    // Delisted coins PR0: the run's observation; each unit's evidence written right after the unit commits, on its call.
-    let observation = match plan.observed {
-        Observed::Now => super::evidence::begin(db, exchange_id, &plan.scope, now).await,
-        Observed::At(at) => super::evidence::begin(db, exchange_id, &plan.scope, at).await,
-        Observed::Nothing => None,
-    };
-    let t1 = t.clone();
-    publish_fenced(db, "exchange assets", chunks(&plan.exchange_assets), fence, move |c, ids: Vec<i64>| exchange_assets(c, exchange_id, ids, &t1)).await?;
-    for unit in plan.units {
-        let (seen, t2, o) = (bindings(&unit, plan.imposed_quote), t.clone(), observation.clone());
-        db.run(move |c, cipher| {
-            in_transaction(c, cipher, "tickers", |c| {
-                if let Some(f) = fence { f.check(c)?; }
-                ticker_unit(c, exchange_id, unit, &t2).map(|touched| ((), touched))
-            })?;
-            if let Some(o) = &o { super::evidence::record(c, cipher, o, &seen); }
-            Ok(())
-        }).await?;
-    }
+    let t2 = t.clone();
+    publish_fenced(db, "exchange assets", chunks(&plan.exchange_assets), fence, move |c, ids: Vec<i64>| exchange_assets(c, exchange_id, ids, &t)).await?;
+    publish_fenced(db, "tickers", plan.units, fence, move |c, unit: TickerUnit| ticker_unit(c, exchange_id, unit, &t2)).await?;
     publish_fenced(db, "sweep", chunks(&plan.sweep), fence, |c, ids: Vec<i64>| sweep(c, ids)).await?;
-    if let Some(o) = &observation { super::evidence::complete(db, o).await; }
     Ok(plan.written)
 }
 
 /// `publish_tickers` as one synchronous write unit in the caller's transaction (no BEGIN, no pacing, no fence, no guard):
-/// the same phases, units and statements, in the same order, but no `listing_evidence` (the seed's bundle is no
-/// observation of the venue). Returns the written base_asset_ids. The plan's new ids come
+/// the same phases, units and statements, in the same order. Returns the written base_asset_ids. The plan's new ids come
 /// from the table as it stood at plan time, so several venues' plans are each made right before their own write, on
 /// this same connection (`plan_tickers_with`, then `write_tickers`, venue after venue).
 pub fn write_tickers(c: &Connection, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>) -> R<Vec<i64>> {
@@ -836,24 +806,6 @@ fn exchange_assets(c: &Connection, exchange_id: i64, ids: Vec<i64>, t: &str) -> 
                    updated_at = excluded.updated_at").map_err(sql)?.execute(params![id, exchange_id, t]).map_err(sql)?;
     }
     Ok(Touched::None)
-}
-
-/// The bindings a ticker unit writes: a tombstone binds nothing, and a quote under an imposed asset only when it is
-/// spelled as that asset.
-fn bindings(unit: &TickerUnit, imposed_quote: Option<&str>) -> Vec<super::evidence::Binding> {
-    unit.writes.iter().flat_map(|w| match w {
-        TickerWrite::Upsert { existing, id, record: r } => {
-            let ticker = existing.unwrap_or(*id);
-            let quote = r.quote.clone().filter(|q| imposed_quote.is_none_or(|i| q == i));
-            [r.base.clone().map(|s| ("base", s, r.base_asset_id, ticker)), quote.map(|s| ("quote", s, r.quote_asset_id, ticker))]
-        }
-        TickerWrite::Tombstone { .. } => [None, None],
-    }).flatten().collect()
-}
-
-/// Every binding a plan would write (an evidence-only observation of rows already published).
-pub fn plan_bindings(plan: &TickerPlan) -> Vec<super::evidence::Binding> {
-    plan.units.iter().flat_map(|u| bindings(u, plan.imposed_quote)).collect()
 }
 
 /// One ticker unit.

@@ -244,11 +244,7 @@ async fn tickers<T: Transport>(api: &DataApi<T>, cx: &Cx<'_>) -> Outcome {
             Ok(body) => {
                 let now = cx.clock.now();
                 match cx.db.run(move |c, _| import::plan_tickers(c, id, take_data(body)?.as_array().map_or(&[][..], |a| a.as_slice()), None)).await {
-                    Ok(plan) if plan.units.is_empty() && plan.exchange_assets.is_empty() => {
-                        // Delisted coins PR0: an empty catalogue is an observation of nothing, which no interval spans.
-                        super::evidence::observe(&cx.db, id, &plan.scope, now, vec![]).await;
-                        Ok(())
-                    }
+                    Ok(plan) if plan.units.is_empty() && plan.exchange_assets.is_empty() => Ok(()),
                     Ok(plan) => {
                         refreshed |= !plan.units.is_empty();
                         match incomplete(cx, TICKERS, now).await {
@@ -541,8 +537,7 @@ async fn alpaca_crypto<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outco
             .then(|| format!("degraded ticker import: {written} written from {resolved} resolved assets (last good {}); ticker freshness kept", last_good.as_deref().unwrap_or("none")));
         Ok(Ok((alpaca, resolved, plan, insufficient, partial)))
     }).await;
-    let (alpaca, resolved, mut plan, insufficient, partial) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
-    (plan.observed, plan.imposed_quote) = (if feeds.catalogue() { import::Observed::Nothing } else { import::Observed::Now }, Some("USD"));
+    let (alpaca, resolved, plan, insufficient, partial) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = incomplete(cx, ALPACA_CRYPTO, now).await { return Outcome::Failed(m); }
     if let Err(m) = import::publish_tickers_fenced(&cx.db, alpaca, plan, now, rev.map(Rev::fence)).await { return fenced(m); }
     // Exchange assets may have refreshed, but only enough actually written tickers can renew ticker freshness.
@@ -750,22 +745,7 @@ async fn ibkr<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
     let venue = cx.db.run(|c, _| c.query_row("SELECT id FROM exchanges WHERE type = 'Exchanges::Ibkr' ORDER BY id LIMIT 1", [], |r| r.get::<_, i64>(0))
         .optional().map_err(|e| e.to_string())).await;
     let ibkr = match venue { Ok(Some(id)) => id, Ok(None) => return Outcome::NothingNew, Err(m) => return Outcome::Failed(m) };
-    let generated_at = r.generated_at;
-    let r = match gate(cx, r).await {
-        Ok(r) => r,
-        // Delisted coins PR0 (Codex r2 P2-7): newer upstream evidence of the same rows is an observation at its time; no
-        // ticker is rewritten.
-        Err(Outcome::Done) if !feeds.catalogue() => {
-            let rows = feed.rows;
-            let planned = cx.db.run(move |c, _| { let (rows, ..) = conid_rows(c, rows)?; import::plan_tickers_with(c, ibkr, &rows, None, false) }).await;
-            match planned {
-                Ok(plan) => super::evidence::observe(&cx.db, ibkr, &plan.scope, generated_at, import::plan_bindings(&plan)).await,
-                Err(m) => crate::engine::log(&format!("[reference] listing evidence for exchange {ibkr}: not planned: {m}")),
-            }
-            return Outcome::Done;
-        }
-        Err(out) => return out,
-    };
+    let r = match gate(cx, r).await { Ok(r) => r, Err(out) => return out };
     let step = cx.db.run(move |c, cipher| {
         import::in_transaction(c, cipher, "usd", |c| import::ensure_usd(c, false, now))?;
         let (rows, conids, moved, unresolved) = conid_rows(c, feed.rows)?;
@@ -773,9 +753,7 @@ async fn ibkr<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
         let plan = import::plan_tickers_with(c, ibkr, &rows, None, r.complete && unresolved == 0)?;
         Ok((plan, conids, moved, unresolved))
     }).await;
-    let (mut plan, conids, moved, unresolved) = match step { Ok(x) => x, Err(m) => return Outcome::Failed(m) };
-    // The time data-api verified the rows, not this publish's (Codex r2 P2-7).
-    plan.observed = if feeds.catalogue() { import::Observed::Nothing } else { import::Observed::At(generated_at) };
+    let (plan, conids, moved, unresolved) = match step { Ok(x) => x, Err(m) => return Outcome::Failed(m) };
     let revision = r.revision;
     if unresolved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {unresolved} listing(s) skipped, their assets are not on this install yet; partial, no sweep")); }
     if moved > 0 { crate::engine::log(&format!("[jobs] {IBKR}: revision {revision}: {moved} listing(s) skipped, their conid belongs to another asset (ibkr_conids)")); }
@@ -1161,8 +1139,7 @@ async fn stocks<T: Transport>(feeds: &Feeds<'_, T>, cx: &Cx<'_>) -> Outcome {
         if rev.is_some_and(|r| !r.complete) || partial { plan.sweep.clear(); } // an incomplete revision is no delisting
         Ok(Ok((alpaca, resolved, plan, partial)))
     }).await;
-    let (alpaca, resolved, mut plan, partial) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
-    (plan.observed, plan.imposed_quote) = (if feeds.catalogue() { import::Observed::Nothing } else { import::Observed::Now }, Some("USD"));
+    let (alpaca, resolved, plan, partial) = match step { Ok(Ok(x)) => x, Ok(Err(out)) => return out, Err(m) => return Outcome::Failed(m) };
     if let Err(m) = import::publish_tickers_fenced(&cx.db, alpaca, plan, now, rev.map(Rev::fence)).await { return fenced(m); }
     if let Err(m) = cx.db.run(move |c, cipher| app_config::set(c, cipher, ALPACA_LISTINGS_LAST_GOOD, &resolved.to_string(), now)).await { return Outcome::Failed(m); }
     finished(cx, rev, partial).await

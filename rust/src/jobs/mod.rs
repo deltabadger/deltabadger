@@ -19,7 +19,6 @@ pub mod asset_color;
 pub mod categories;
 pub mod coingecko;
 pub mod data_api;
-pub mod evidence;
 pub mod import;
 pub mod market;
 pub mod reference;

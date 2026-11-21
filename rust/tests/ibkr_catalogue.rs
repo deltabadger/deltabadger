@@ -328,25 +328,3 @@ async fn a_feed_without_evidence_yet_imports_nothing_and_is_not_an_error_but_row
     let st = sync(&d, &bad, &later(RUN, 2)).await;
     assert!(st.last_error.as_deref().is_some_and(|m| m.contains("not a time")), "{st:?}");
 }
-
-/// Codex PR0 r2 P2-7: IBKR's listing evidence is observed when data-api verified the feed (`generated_at`), not when it
-/// was published here: newer evidence of the same rows extends every binding to its time without rewriting a ticker, and
-/// a new revision carrying older evidence records no observation.
-#[tokio::test(flavor = "current_thread")]
-async fn ibkr_evidence_is_observed_at_generated_at() {
-    let d = install();
-    sync(&d, &fixture("feed"), RUN).await;
-    let ends = |d: &tempfile::TempDir| -> Vec<(String, String)> {
-        primary(d).prepare("SELECT DISTINCT first_seen, last_seen FROM listing_evidence ORDER BY 1, 2").unwrap()
-            .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
-    };
-    assert_eq!(ends(&d), [("2026-10-24 14:00:00".to_string(), "2026-10-24 14:00:00".to_string())]);
-    let tickers = dump(&primary(&d), "tickers");
-    sync(&d, &fixture("feed_newer_evidence_same_rows"), &later(RUN, 1)).await;
-    assert_eq!(dump(&primary(&d), "tickers"), tickers, "rows untouched");
-    assert_eq!(ends(&d), [("2026-10-24 14:00:00".to_string(), "2026-10-25 14:00:00".to_string())]);
-    sync(&d, &fixture("feed_revoked_no_evidence"), &later(RUN, 2)).await;
-    assert_eq!(ends(&d), [("2026-10-24 14:00:00".to_string(), "2026-10-25 14:00:00".to_string())], "older evidence observes nothing");
-    let observed: Vec<String> = primary(&d).prepare("SELECT at FROM listing_observations ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
-    assert_eq!(observed, ["2026-10-24 14:00:00", "2026-10-25 14:00:00"]);
-}

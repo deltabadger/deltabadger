@@ -235,14 +235,9 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // #878: the bot alert emails a user switched off.
     ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
         unique_indexes: &[&["user_id", "alert"]] }),
-    // Delisted coins PR0: coin prices by identity, and the observed ticker bindings.
+    // Delisted coins PR0: coin prices by identity.
     ("20261123000001", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),
-    ("20261123000001", TableContract { name: "listing_observations", columns: &[("id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("scope", "TEXT", true),
-        ("at", "TEXT", true), ("complete", "INTEGER", true)], unique_indexes: &[] }),
-    ("20261123000001", TableContract { name: "listing_evidence", columns: &[("id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("scope", "TEXT", true),
-        ("side", "TEXT", true), ("spelling", "TEXT", true), ("asset_id", "INTEGER", true), ("ticker_id", "INTEGER", true), ("first_seen", "TEXT", true),
-        ("last_seen", "TEXT", true), ("observation_id", "INTEGER", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.
