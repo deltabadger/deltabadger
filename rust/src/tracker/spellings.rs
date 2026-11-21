@@ -5,10 +5,11 @@
 //!
 //! A `Label` has no `&str` view: PR1's consumers compare labels, never spellings, and reach a raw spelling only through
 //! `Spellings::raw`.
-use super::resolver::{CashKind, Holding, Side, Why};
+use super::resolver::{other_units, CashKind, Holding, Side, Why};
 use crate::figures::dec::Dec;
+use crate::figures::num::NumError;
 use chrono::{DateTime, Utc};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 /// One identity's printed label and its identity key (`coin:<id>`, `cash:<spelling>`, `security:<id>`,
 /// `unknown:<account>:<spelling>`). Ordered by the printed string, ties broken by the identity (two accounts'
@@ -55,25 +56,30 @@ fn key(account: i64, spelling: &str, h: &Holding) -> String {
 
 fn soft(h: &Holding) -> bool { matches!(h, Holding::Unknown(Why::Unclear)) }
 
-/// §1.2: whether a link's two endpoints may carry one quantity. The same identity, or a known endpoint and an unclear
-/// one (the known one wins), or two unclear legs of one spelling (each keeps its account's key). Never into or out of a
-/// hard refusal (other units, a cut, a conflict), and never between two different known holdings.
+/// §1.2: whether a link's two endpoints may carry one quantity: the same holding, or a known endpoint and an unclear one
+/// (the known one wins) whose spellings are not each other's other units, or two unclear legs of one spelling (each
+/// keeps its account's key). Cash is its spelling, so it links only with the same cash. Never into or out of a hard
+/// refusal (other units, a cut, a conflict), and never between two different known holdings.
 pub fn links_compatible(a: &Holding, a_spelling: &str, b: &Holding, b_spelling: &str) -> bool {
     if a.hard() || b.hard() { return false; }
+    if matches!(a, Holding::Cash(_)) || matches!(b, Holding::Cash(_)) { return a == b && a_spelling == b_spelling; }
     match (soft(a), soft(b)) {
         (true, true) => a_spelling == b_spelling,
-        (true, false) | (false, true) => true,
-        (false, false) => a == b && (!matches!(a, Holding::Cash(_)) || a_spelling == b_spelling),
+        (true, false) | (false, true) => !other_units(a_spelling, b_spelling) && !other_units(b_spelling, a_spelling),
+        (false, false) => a == b,
     }
 }
 
 /// The owner's map, built once per pass.
 #[derive(Clone, Debug, Default)]
 pub struct Spellings {
-    legs: HashMap<(i64, Side), Label>,
+    /// Each leg: its label (the lot key its quantity is booked under) and its effective holding.
+    legs: HashMap<(i64, Side), (Label, Holding)>,
     holdings: HashMap<Label, Holding>,
     raw: HashMap<Label, Vec<String>>,
-    assets: HashMap<i64, Label>,
+    assets: HashMap<(i64, i64), Label>,
+    /// A valid link's source leg → (the label its quantity leaves, the label it arrives under).
+    transfers: HashMap<(i64, Side), (Label, Label)>,
     void: Vec<Link>,
 }
 
@@ -83,86 +89,116 @@ fn sanitise(s: &str) -> String {
     kept.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// Whether `s` may be printed as it is.
+fn fits(s: &str) -> bool { !s.is_empty() && s.len() <= MAX_LABEL && sanitise(s) == s }
+
 /// `<spelling> (<detail>)`, within the alphabet and MAX_LABEL.
 fn decorated(spelling: &str, detail: &str) -> String {
-    let spelling: String = sanitise(spelling).chars().take(MAX_LABEL / 2).collect();
+    let spelling: String = sanitise(spelling).chars().take(MAX_LABEL / 2).collect::<String>().trim().to_string();
     let room = MAX_LABEL.saturating_sub(spelling.len() + 3);
     let detail: String = sanitise(detail).chars().take(room).collect::<String>().trim().to_string();
     if spelling.is_empty() { format!("({detail})") } else { format!("{spelling} ({detail})") }
+}
+
+/// `base`, else `base 2`, `base 3` … within MAX_LABEL: the first `free` one.
+fn counted(base: String, free: impl Fn(&str) -> bool) -> String {
+    if free(&base) { return base; }
+    (2..).map(|n: usize| { let tail = format!(" {n}"); format!("{}{tail}", base.chars().take(MAX_LABEL - tail.len()).collect::<String>().trim_end()) })
+        .find(|s| free(s)).expect("a free counter")
 }
 
 struct Identity { holding: Holding, venue: String, uses: BTreeMap<String, usize> }
 
 impl Spellings {
     /// The map for one owner: every leg of the whole history (pending ones too), its stored links, its current
-    /// balances, and the catalogue's names.
-    pub fn build(mut legs: Vec<LegIn>, links: &[Link], balances: &[BalanceIn], names: &Names) -> Spellings {
-        legs.sort_by(|a, b| (a.at, a.row, a.side).cmp(&(b.at, b.row, b.side)));
+    /// balances, and the catalogue's names. A quantity the arithmetic cannot hold is an error, never a skipped update.
+    pub fn build(mut legs: Vec<LegIn>, links: &[Link], balances: &[BalanceIn], names: &Names) -> Result<Spellings, NumError> {
+        // In time order; at one instant a transfer's source before its destination.
+        let arrivals: HashSet<(i64, Side)> = links.iter().map(|l| l.to).collect();
+        legs.sort_by(|a, b| (a.at, arrivals.contains(&(a.row, a.side)), a.row, a.side).cmp(&(b.at, arrivals.contains(&(b.row, b.side)), b.row, b.side)));
         let index: HashMap<(i64, Side), usize> = legs.iter().enumerate().map(|(i, l)| ((l.row, l.side), i)).collect();
         let mut eff: Vec<Holding> = legs.iter().map(|l| l.holding.clone()).collect();
         let mut void = vec![];
-        let mut valid: HashMap<usize, usize> = HashMap::new(); // source leg → destination leg
-        // Links: the known endpoint's holding wins in either direction; an incompatible link is void for identity and
-        // quantity.
+        let mut sources: HashMap<usize, (usize, Link)> = HashMap::new();
         for link in links {
             let (Some(&a), Some(&b)) = (index.get(&link.from), index.get(&link.to)) else { continue };
             if !links_compatible(&eff[a], &legs[a].spelling, &eff[b], &legs[b].spelling) { void.push(*link); continue; }
-            if soft(&eff[a]) && !soft(&eff[b]) { eff[a] = eff[b].clone(); } else if soft(&eff[b]) && !soft(&eff[a]) { eff[b] = eff[a].clone(); }
-            valid.insert(a, b);
+            // A known source gives the deposit its holding now; an unclear source is settled at its instant (below).
+            if !soft(&eff[a]) && soft(&eff[b]) { eff[b] = eff[a].clone(); }
+            sources.insert(a, (b, *link));
         }
-        // Outflow inheritance, in order: an unclear outflow takes X when X is the only identity held under its spelling at
-        // its account, and covers it. What it then holds crosses its link.
-        let mut held: HashMap<(i64, String), BTreeMap<String, (Holding, Dec)>> = HashMap::new();
+        // In order: what each account holds of each identity, and the identities each (account, spelling) has carried.
+        let mut held: HashMap<(i64, String), Dec> = HashMap::new();
+        let mut carried: HashMap<(i64, String), BTreeSet<String>> = HashMap::new();
+        let mut of_key: HashMap<String, Holding> = HashMap::new();
+        let mut keys: Vec<String> = Vec::with_capacity(legs.len());
         for i in 0..legs.len() {
             let l = &legs[i];
-            let at = held.entry((l.account, l.spelling.clone())).or_default();
+            let mut debit = None;
             if soft(&eff[i]) && l.amount.is_negative() {
-                let positive: Vec<&(Holding, Dec)> = at.values().filter(|(_, q)| q.is_positive()).collect();
-                if let [(h, q)] = positive.as_slice() {
-                    if h.known() && (q + &l.amount).is_ok_and(|left| !left.is_negative()) { eff[i] = h.clone(); }
+                let positive: Vec<&String> = carried.get(&(l.account, l.spelling.clone())).into_iter().flatten()
+                    .filter(|k| held.get(&(l.account, (*k).clone())).is_some_and(Dec::is_positive)).collect();
+                match (sources.get(&i).copied(), positive.as_slice()) {
+                    // A transfer out of an unclear leg moves the one lot its account holds under the spelling; with
+                    // none or several, the link is void (r10 P1-6).
+                    (Some((to, _)), [one]) => {
+                        let source = of_key[*one].clone();
+                        debit = Some((*one).clone());
+                        if source.known() { eff[i] = source.clone(); if soft(&eff[to]) { eff[to] = source; } }
+                        else if !soft(&eff[to]) { eff[i] = eff[to].clone(); }
+                    }
+                    (Some((_, link)), _) => { void.push(link); sources.remove(&i); }
+                    // Outflow inheritance: X alone held under the spelling, and enough of it.
+                    (None, [one]) => {
+                        let h = &of_key[*one];
+                        if h.known() && !(&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() { eff[i] = h.clone(); }
+                    }
+                    (None, _) => {}
                 }
-                if let Some(&to) = valid.get(&i) { if soft(&eff[to]) && eff[i].known() { eff[to] = eff[i].clone(); } }
             }
-            let entry = at.entry(key(l.account, &l.spelling, &eff[i])).or_insert_with(|| (eff[i].clone(), Dec::zero()));
-            if let Ok(sum) = &entry.1 + &l.amount { entry.1 = sum; }
+            let k = debit.unwrap_or_else(|| key(l.account, &l.spelling, &eff[i]));
+            of_key.entry(k.clone()).or_insert_with(|| eff[i].clone());
+            let q = held.entry((l.account, k.clone())).or_insert_with(Dec::zero);
+            *q = (&*q + &l.amount)?;
+            carried.entry((l.account, l.spelling.clone())).or_default().insert(k.clone());
+            keys.push(k);
         }
         // The identities and their spellings, balances included (a balance of Y under X's spelling makes it two).
         let mut ids: BTreeMap<String, Identity> = BTreeMap::new();
-        let mut leg_keys = vec![];
-        for (l, h) in legs.iter().zip(&eff) {
-            let k = key(l.account, &l.spelling, h);
+        for ((l, h), k) in legs.iter().zip(&eff).zip(&keys) {
             let id = ids.entry(k.clone()).or_insert_with(|| Identity { holding: h.clone(), venue: l.venue.clone(), uses: BTreeMap::new() });
+            // An unknown lot's reason: the strongest of its legs', whatever their order (Units < Cut < Conflict < Unclear).
+            if let (Holding::Unknown(mine), Holding::Unknown(theirs)) = (&mut id.holding, h) { *mine = (*mine).min(*theirs); }
             *id.uses.entry(l.spelling.clone()).or_default() += 1;
-            leg_keys.push(((l.row, l.side), k));
         }
-        let mut asset_keys = vec![];
         for b in balances {
-            let k = key(b.account, &b.spelling, &b.holding);
-            ids.entry(k.clone()).or_insert_with(|| Identity { holding: b.holding.clone(), venue: String::new(), uses: BTreeMap::new() })
+            ids.entry(key(b.account, &b.spelling, &b.holding)).or_insert_with(|| Identity { holding: b.holding.clone(), venue: String::new(), uses: BTreeMap::new() })
                 .uses.entry(b.spelling.clone()).or_default();
-            asset_keys.push((b.asset_id, k));
         }
         let labels = allocate(&ids, names);
-        let label = |k: &String| labels[k].clone();
         let mut s = Spellings { void, ..Spellings::default() };
         for (k, id) in &ids {
-            s.holdings.insert(label(k), id.holding.clone());
-            s.raw.insert(label(k), id.uses.keys().cloned().collect());
+            s.holdings.insert(labels[k].clone(), id.holding.clone());
+            s.raw.insert(labels[k].clone(), id.uses.keys().cloned().collect());
         }
-        s.legs = leg_keys.into_iter().map(|(leg, k)| (leg, label(&k))).collect();
-        s.assets = asset_keys.into_iter().map(|(a, k)| (a, label(&k))).collect();
-        s
+        for (i, l) in legs.iter().enumerate() { s.legs.insert((l.row, l.side), (labels[&keys[i]].clone(), eff[i].clone())); }
+        for (a, (b, _)) in &sources { s.transfers.insert((legs[*a].row, legs[*a].side), (labels[&keys[*a]].clone(), labels[&keys[*b]].clone())); }
+        for b in balances { s.assets.insert((b.account, b.asset_id), labels[&key(b.account, &b.spelling, &b.holding)].clone()); }
+        Ok(s)
     }
 
-    /// The label of a leg (a row's base, quote or fee).
-    pub fn label(&self, row: i64, side: Side) -> Option<&Label> { self.legs.get(&(row, side)) }
-    /// What a label holds.
+    /// The label of a leg (a row's base, quote or fee): the lot its quantity is booked under.
+    pub fn label(&self, row: i64, side: Side) -> Option<&Label> { self.legs.get(&(row, side)).map(|(l, _)| l) }
+    /// What a leg holds after links and inheritance (a transfer out of an unclear lot holds what it was linked to, while
+    /// its label stays the lot it leaves).
+    pub fn leg_holding(&self, row: i64, side: Side) -> Option<&Holding> { self.legs.get(&(row, side)).map(|(_, h)| h) }
+    /// What a label holds; an unknown label, the strongest reason among its legs.
     pub fn holding(&self, label: &Label) -> Option<&Holding> { self.holdings.get(label) }
     /// The owner's raw spellings behind a label, sorted: candidates for SQL that gathers by spelling (each row is then
     /// filtered by its own leg's label).
     pub fn raw(&self, label: &Label) -> &[String] { self.raw.get(label).map_or(&[], Vec::as_slice) }
-    /// The label of a current balance's asset.
-    pub fn label_of_asset(&self, asset_id: i64) -> Option<&Label> { self.assets.get(&asset_id) }
+    /// The label of an account's current balance of an asset.
+    pub fn label_of_asset(&self, account: i64, asset_id: i64) -> Option<&Label> { self.assets.get(&(account, asset_id)) }
     pub fn class(&self, label: &Label) -> Class {
         match self.holdings.get(label) {
             Some(Holding::Cash(k)) => Class::Cash(*k),
@@ -171,47 +207,61 @@ impl Spellings {
             _ => Class::Unknown,
         }
     }
+    /// A valid link's quantity move: the label it leaves and the label it arrives under. None for a void link.
+    pub fn transfer(&self, link: &Link) -> Option<(&Label, &Label)> { self.transfers.get(&link.from).map(|(a, b)| (a, b)) }
     /// The links void for identity and quantity (`transfer_conflict`).
     pub fn void_links(&self) -> &[Link] { &self.void }
 }
 
-/// §1.4: one label per identity, deterministic. Cash and securities print their spelling. A coin prints its spelling
-/// when it has one that no other identity uses and that is no cash spelling; with several, the most used (tie: the
-/// catalogue symbol, then the first); a reserved one is printed `<spelling> (<name>)`, then with its external id, then
-/// with a counter, never equal to another label or to any raw spelling. An unidentified unit prints its spelling unless a
-/// known identity uses it, then `<spelling> (unidentified on <venue>)`.
+/// §1.4: one label per identity, deterministic, each within the alphabet and MAX_LABEL. Cash and securities print their
+/// spelling. A coin prints its spelling when it has one that no other identity uses and that is no cash spelling; with
+/// several, the most used (tie: the catalogue symbol, then the first). Otherwise, or when the spelling does not fit,
+/// `<spelling> (<name>)`, then with its external id, then a counter, never equal to another label or to any raw
+/// spelling. An unidentified lot prints its spelling unless a known identity uses it (or it does not fit), then
+/// `<spelling> (unidentified on <venue>)`: the lots of one spelling on one venue's accounts print alike, and never like
+/// a known label or another identity's spelling.
 fn allocate(ids: &BTreeMap<String, Identity>, names: &Names) -> HashMap<String, Label> {
     let mut users: HashMap<&str, BTreeSet<&str>> = HashMap::new();
     for (k, id) in ids { for s in id.uses.keys() { users.entry(s.as_str()).or_default().insert(k.as_str()); } }
     let raw: BTreeSet<&str> = users.keys().copied().collect();
     let mut taken: BTreeSet<String> = BTreeSet::new();
+    let mut unknown: HashMap<String, (String, String)> = HashMap::new(); // printed → (spelling, venue)
     let mut out = HashMap::new();
-    let first = |id: &Identity| id.uses.keys().next().cloned().unwrap_or_default();
     let rank = |h: &Holding| match h { Holding::Cash(_) | Holding::Security(_) => 0, Holding::Coin(_) => 1, Holding::Unknown(_) => 2 };
     let mut order: Vec<(&String, &Identity)> = ids.iter().collect();
     order.sort_by_key(|(k, id)| (rank(&id.holding), (*k).clone()));
     for (k, id) in order {
+        let free = |s: &str, own: &str| !taken.contains(s) && !unknown.contains_key(s) && (s == own || !raw.contains(s));
+        let ext = match &id.holding { Holding::Coin(e) | Holding::Security(e) => e.clone(), _ => String::new() };
+        let (symbol, name) = names.get(&ext).cloned().unwrap_or_default();
+        let generated = |best: &str| {
+            let detail = name.clone().filter(|n| !sanitise(n).is_empty()).unwrap_or_else(|| ext.clone());
+            let first = decorated(best, &detail);
+            if free(&first, "") { return first; }
+            counted(decorated(best, &format!("{detail} {ext}")), |s| free(s, ""))
+        };
         let printed = match &id.holding {
-            Holding::Cash(_) | Holding::Security(_) => id.uses.iter().max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(a.0))).map(|(s, _)| s.clone()).unwrap_or_default(),
-            Holding::Coin(ext) => {
-                let (symbol, name) = names.get(ext).cloned().unwrap_or_default();
+            Holding::Cash(_) | Holding::Security(_) => {
+                let best = id.uses.iter().max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(a.0))).map(|(s, _)| s.clone()).unwrap_or_default();
+                if fits(&best) && free(&best, &best) { best } else { generated(&best) }
+            }
+            Holding::Coin(_) => {
                 let best = id.uses.iter().max_by(|a, b| a.1.cmp(b.1).then((Some(a.0) == symbol.as_ref()).cmp(&(Some(b.0) == symbol.as_ref()))).then(b.0.cmp(a.0)))
                     .map(|(s, _)| s.clone()).unwrap_or_default();
-                let reserved = super::cash(&best) || users.get(best.as_str()).is_some_and(|u| u.len() > 1) || taken.contains(&best);
-                if !reserved { best } else {
-                    let base = decorated(&best, name.as_deref().filter(|n| !sanitise(n).is_empty()).unwrap_or(ext));
-                    let free = |s: &String| !taken.contains(s) && !raw.contains(s.as_str());
-                    let with_id = decorated(&best, &format!("{} {ext}", name.as_deref().unwrap_or(ext)));
-                    [base, with_id.clone()].into_iter().find(free).unwrap_or_else(|| (2..).map(|n| format!("{} {n}", with_id.chars().take(MAX_LABEL - 6).collect::<String>())).find(free).unwrap())
-                }
+                let reserved = super::cash(&best) || users.get(best.as_str()).is_some_and(|u| u.len() > 1);
+                if !reserved && fits(&best) && free(&best, &best) { best } else { generated(&best) }
             }
             Holding::Unknown(_) => {
-                let spelling = first(id);
+                let spelling = id.uses.keys().next().cloned().unwrap_or_default();
                 let known = users.get(spelling.as_str()).is_some_and(|u| u.iter().any(|o| !o.starts_with("unknown:")));
-                if known { decorated(&spelling, &format!("unidentified on {}", id.venue)) } else { spelling }
+                let mine = (spelling.clone(), id.venue.clone());
+                let ours = |s: &str| !taken.contains(s) && !raw.contains(s) && unknown.get(s).is_none_or(|o| *o == mine);
+                if !known && fits(&spelling) && !taken.contains(&spelling) && unknown.get(&spelling).is_none_or(|o| *o == mine) { spelling }
+                else { counted(decorated(&spelling, &format!("unidentified on {}", id.venue)), ours) }
             }
         };
-        if !matches!(id.holding, Holding::Unknown(_)) { taken.insert(printed.clone()); }
+        match id.holding { Holding::Unknown(_) => { unknown.insert(printed.clone(), (id.uses.keys().next().cloned().unwrap_or_default(), id.venue.clone())); }
+                           _ => { taken.insert(printed.clone()); } }
         out.insert(k.clone(), Label { printed, key: k.clone() });
     }
     out
@@ -231,6 +281,7 @@ mod tests {
     }
     fn base(row: i64, account: i64, spelling: &str, holding: Holding, day: &str, amount: &str) -> LegIn { leg(row, Side::Base, account, "Binance", spelling, holding, day, amount) }
     fn names(list: &[(&str, &str, &str)]) -> Names { list.iter().map(|(e, s, n)| (e.to_string(), (Some(s.to_string()), Some(n.to_string())))).collect() }
+    fn build(legs: Vec<LegIn>, links: &[Link], balances: &[BalanceIn], names: &Names) -> Spellings { Spellings::build(legs, links, balances, names).unwrap() }
     fn printed(s: &Spellings, row: i64) -> String { s.label(row, Side::Base).unwrap().to_string() }
     fn alphabet(label: &str) -> bool { label.len() <= MAX_LABEL && label.chars().all(|c| c.is_ascii_alphanumeric() || " .()-".contains(c)) }
 
@@ -245,7 +296,7 @@ mod tests {
                         // terra-luna under LUNA (before the rename) and LUNC (more often); terra-luna-2 under LUNA.
                         base(4, 1, "LUNA", coin("terra-luna"), "2021-01-01", "1"), base(5, 1, "LUNC", coin("terra-luna"), "2023-01-01", "1"),
                         base(6, 1, "LUNC", coin("terra-luna"), "2023-02-01", "1"), base(7, 1, "LUNA", coin("terra-luna-2"), "2023-03-01", "1")];
-        let s = Spellings::build(legs, &[], &[], &n);
+        let s = build(legs, &[], &[], &n);
         assert_eq!(printed(&s, 1), "BTC");
         assert_eq!((printed(&s, 2), printed(&s, 3)), ("BTG (Bitcoin Gold)".into(), "BTG (Openverse Network)".into()));
         assert_eq!((printed(&s, 4), printed(&s, 5)), ("LUNC".into(), "LUNC".into()), "one coin, one label: the most used spelling");
@@ -269,7 +320,7 @@ mod tests {
                         base(6, 3, "PLN", Holding::Cash(CashKind::Fiat), "2024-01-06", "100"), base(7, 4, "PLN", coin("pleasure-coin"), "2024-01-07", "1"),
                         base(8, 5, "COMP", Holding::Security("comp-stock".into()), "2024-01-08", "1"), base(9, 1, "COMP", coin("compound"), "2024-01-09", "1"),
                         base(10, 1, "W", coin("weird"), "2024-01-10", "1"), base(11, 1, "W", coin("weird-2"), "2024-01-11", "1")];
-        let s = Spellings::build(legs, &[], &[], &n);
+        let s = build(legs, &[], &[], &n);
         let all: Vec<String> = (1..=11).map(|r| printed(&s, r)).collect();
         assert_eq!(&all[0..2], ["TWIN (Same Name)", "TWIN (Same Name x-two)"], "the second same name takes its external id");
         assert_eq!(printed(&s, 3), "Y (Y Coin y-coin)", "a real spelling holds the first form");
@@ -285,7 +336,7 @@ mod tests {
             let own = s.raw(s.label(r as i64 + 1, Side::Base).unwrap());
             assert!(!raws.contains(&label.as_str()) || own.contains(label), "{label} is another identity's spelling");
         }
-        let long = Spellings::build(vec![base(1, 1, "S", coin("a"), "2024-01-01", "1"), base(2, 1, "S", coin("b"), "2024-01-01", "1")], &[], &[],
+        let long = build(vec![base(1, 1, "S", coin("a"), "2024-01-01", "1"), base(2, 1, "S", coin("b"), "2024-01-01", "1")], &[], &[],
                                     &names(&[("a", "S", &"N".repeat(200))]));
         assert!(alphabet(&printed(&long, 1)) && printed(&long, 1).ends_with(')'), "{}", printed(&long, 1));
     }
@@ -295,7 +346,7 @@ mod tests {
     #[test]
     fn label_ord_breaks_ties_by_identity() {
         let legs = vec![base(1, 1, "S", UNCLEAR, "2024-01-01", "1"), base(2, 2, "S", UNCLEAR, "2024-01-02", "1")];
-        let s = Spellings::build(legs.clone(), &[], &[], &Names::new());
+        let s = build(legs.clone(), &[], &[], &Names::new());
         let (a, b) = (s.label(1, Side::Base).unwrap().clone(), s.label(2, Side::Base).unwrap().clone());
         assert_eq!((a.to_string(), b.to_string()), ("S".into(), "S".into()));
         assert_ne!(a, b);
@@ -303,7 +354,7 @@ mod tests {
         assert_eq!(s.class(&a), Class::Unknown);
         let mut more = legs;
         more.push(base(3, 1, "S", coin("s-coin"), "2024-01-03", "1"));
-        let s = Spellings::build(more, &[], &[], &Names::new());
+        let s = build(more, &[], &[], &Names::new());
         assert_eq!((printed(&s, 1), printed(&s, 3)), ("S (unidentified on Binance)".into(), "S (s-coin)".into()));
         let json = serde_json::to_string(&a).unwrap();
         assert_eq!(serde_json::from_str::<Label>(&json).unwrap(), a);
@@ -313,7 +364,7 @@ mod tests {
     /// are two identities; on one account, one.
     #[test]
     fn the_unknown_key_is_per_account() {
-        let s = Spellings::build(vec![base(1, 1, "S", UNCLEAR, "2024-01-01", "1"), base(2, 2, "S", UNCLEAR, "2024-02-01", "-1"),
+        let s = build(vec![base(1, 1, "S", UNCLEAR, "2024-01-01", "1"), base(2, 2, "S", UNCLEAR, "2024-02-01", "-1"),
                                       base(3, 1, "S", UNCLEAR, "2024-03-01", "-1")], &[], &[], &Names::new());
         assert_ne!(s.label(1, Side::Base), s.label(2, Side::Base));
         assert_eq!(s.label(1, Side::Base), s.label(3, Side::Base));
@@ -339,10 +390,12 @@ mod tests {
                         base(3, 2, "S", UNCLEAR, "2024-01-02", "1"),
                         base(4, 1, "1000REKT", units.clone(), "2024-01-03", "-1"), base(5, 2, "REKT", coin("rekt"), "2024-01-03", "1")];
         let links = [Link { from: (2, Side::Base), to: (3, Side::Base) }, Link { from: (4, Side::Base), to: (5, Side::Base) }];
-        let s = Spellings::build(legs, &links, &[], &Names::new());
+        let s = build(legs, &links, &[], &Names::new());
         assert_eq!(s.label(3, Side::Base), s.label(1, Side::Base), "the deposit took the withdrawal's coin");
         assert_eq!(s.void_links(), &links[1..]);
         assert_eq!(s.holding(s.label(4, Side::Base).unwrap()), Some(&units));
+        assert!(s.transfer(&links[1]).is_none());
+        assert_eq!(s.transfer(&links[0]), Some((s.label(2, Side::Base).unwrap(), s.label(3, Side::Base).unwrap())));
     }
 
     /// §1.2 inheritance: an unclear outflow takes X only when X is the only identity held under its spelling at its
@@ -350,23 +403,23 @@ mod tests {
     /// refusal never inherits; an inflow never does; what it inherits crosses its link.
     #[test]
     fn inheritance_needs_exactly_one_source() {
-        let s = Spellings::build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"),
+        let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"),
                                       base(3, 1, "S", UNCLEAR, "2024-01-03", "-5"), base(4, 1, "S", UNCLEAR, "2024-01-04", "1")], &[], &[], &Names::new());
         assert_eq!(s.holding(s.label(2, Side::Base).unwrap()), Some(&coin("x")), "X alone covers it");
         assert_eq!(s.class(s.label(3, Side::Base).unwrap()), Class::Unknown, "more than X holds");
         assert_eq!(s.class(s.label(4, Side::Base).unwrap()), Class::Unknown, "an inflow");
-        let both = Spellings::build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 1, "S", coin("y"), "2024-01-02", "2"),
+        let both = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 1, "S", coin("y"), "2024-01-02", "2"),
                                          base(3, 1, "S", UNCLEAR, "2024-01-03", "-1")], &[], &[], &Names::new());
         assert_eq!(both.class(both.label(3, Side::Base).unwrap()), Class::Unknown, "X and Y both held");
-        let gone = Spellings::build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(2, 1, "S", coin("x"), "2024-01-02", "-1"),
+        let gone = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(2, 1, "S", coin("x"), "2024-01-02", "-1"),
                                          base(3, 1, "S", UNCLEAR, "2024-01-03", "1"), base(4, 1, "S", UNCLEAR, "2024-01-04", "-1")], &[], &[], &Names::new());
         assert_eq!(gone.class(gone.label(4, Side::Base).unwrap()), Class::Unknown, "only unidentified units are held");
-        let other = Spellings::build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 2, "S", UNCLEAR, "2024-01-02", "-1")], &[], &[], &Names::new());
+        let other = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 2, "S", UNCLEAR, "2024-01-02", "-1")], &[], &[], &Names::new());
         assert_eq!(other.class(other.label(2, Side::Base).unwrap()), Class::Unknown, "X is held at another account");
-        let cut = Spellings::build(vec![base(1, 1, "PHB", coin("x"), "2024-01-01", "2"), base(2, 1, "PHB", Holding::Unknown(Why::Cut), "2024-01-02", "-1")],
+        let cut = build(vec![base(1, 1, "PHB", coin("x"), "2024-01-01", "2"), base(2, 1, "PHB", Holding::Unknown(Why::Cut), "2024-01-02", "-1")],
                                    &[], &[], &Names::new());
         assert_eq!(cut.holding(cut.label(2, Side::Base).unwrap()), Some(&Holding::Unknown(Why::Cut)), "a hard refusal never inherits");
-        let linked = Spellings::build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"),
+        let linked = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "2"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"),
                                            base(3, 2, "S", UNCLEAR, "2024-01-02", "1")], &[Link { from: (2, Side::Base), to: (3, Side::Base) }], &[], &Names::new());
         assert_eq!(linked.holding(linked.label(3, Side::Base).unwrap()), Some(&coin("x")), "the inherited coin crosses the link");
     }
@@ -376,9 +429,91 @@ mod tests {
     #[test]
     fn a_balance_under_a_historys_spelling_splits_it() {
         let balances = [BalanceIn { account: 1, asset_id: 77, spelling: "S".into(), holding: coin("y") }];
-        let s = Spellings::build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1")], &[], &balances, &names(&[("x", "S", "Ex"), ("y", "S", "Why")]));
+        let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1")], &[], &balances, &names(&[("x", "S", "Ex"), ("y", "S", "Why")]));
         assert_eq!(printed(&s, 1), "S (Ex)");
-        assert_eq!(s.label_of_asset(77).unwrap().to_string(), "S (Why)");
-        assert_eq!(s.label_of_asset(78), None);
+        assert_eq!(s.label_of_asset(1, 77).unwrap().to_string(), "S (Why)");
+        assert_eq!(s.label_of_asset(1, 78), None);
+    }
+
+    /// Codex PR0 P2-9: what an account holds of an identity counts, whatever spelling moved it: one X bought under OLD and
+    /// sold under NEW leaves none for an unclear OLD outflow to inherit.
+    #[test]
+    fn inheritance_counts_what_the_account_holds_of_the_identity() {
+        let s = build(vec![base(1, 1, "OLD", coin("x"), "2024-01-01", "1"), base(2, 1, "NEW", coin("x"), "2024-01-02", "-1"),
+                                      base(3, 1, "OLD", UNCLEAR, "2024-01-03", "-1")], &[], &[], &Names::new());
+        assert_eq!(s.class(s.label(3, Side::Base).unwrap()), Class::Unknown);
+    }
+
+    /// Codex PR0 P2-10: a link never carries another unit's quantity (an unclear `1000REKT` against a known `REKT`), and
+    /// cash links only with the same cash: a known `USD` gives an unclear `S` nothing.
+    #[test]
+    fn links_check_units_and_cash_identity() {
+        assert!(!links_compatible(&UNCLEAR, "1000REKT", &coin("rekt"), "REKT"));
+        assert!(!links_compatible(&coin("rekt"), "REKT", &UNCLEAR, "1000REKT"));
+        assert!(!links_compatible(&Holding::Cash(CashKind::Fiat), "USD", &UNCLEAR, "S"));
+        assert!(links_compatible(&Holding::Cash(CashKind::Fiat), "USD", &Holding::Cash(CashKind::Fiat), "USD"));
+    }
+
+    /// Codex PR0 P2-12: every label is checked, not only decorated ones: a spelling outside the alphabet or over the bound
+    /// is sanitised, and an unidentified label never prints as another identity's raw spelling.
+    #[test]
+    fn every_label_fits_the_alphabet_and_collides_with_nothing() {
+        let long = "L".repeat(70);
+        let legs = vec![base(1, 1, "A/B", coin("ab"), "2024-01-01", "1"), base(2, 1, &long, coin("long"), "2024-01-02", "1"),
+                        base(3, 1, "S", coin("s-coin"), "2024-01-03", "1"), base(4, 1, "S", UNCLEAR, "2024-01-04", "1"),
+                        base(5, 1, "S (unidentified on Binance)", coin("tricky"), "2024-01-05", "1")];
+        let s = build(legs, &[], &[], &Names::new());
+        let all: Vec<String> = (1..=5).map(|r| printed(&s, r)).collect();
+        for l in &all { assert!(alphabet(l) && !l.is_empty(), "{l:?}"); }
+        assert_eq!(printed(&s, 5), "S (unidentified on Binance)", "a valid raw spelling of one coin is its label");
+        assert_ne!(printed(&s, 4), printed(&s, 5), "the unidentified label takes another form");
+        assert_eq!(all.iter().collect::<BTreeSet<_>>().len(), 5, "{all:?}");
+    }
+
+    /// Codex PR0 P2-11: an unknown label's holding does not depend on the order its legs came in.
+    #[test]
+    fn an_unknown_labels_holding_is_order_free() {
+        let legs = vec![base(1, 1, "S", Holding::Unknown(Why::Conflict), "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-01", "1")];
+        let mut flipped = legs.clone();
+        flipped.reverse();
+        flipped[0].row = 0; // the unclear leg now sorts first
+        let (a, b) = (build(legs, &[], &[], &Names::new()), build(flipped, &[], &[], &Names::new()));
+        assert_eq!(a.holding(a.label(1, Side::Base).unwrap()), b.holding(b.label(1, Side::Base).unwrap()));
+    }
+
+    /// Codex PR0 P1-5: a transfer out of an unclear leg moves the lot its account holds under the spelling, not the coin
+    /// it is linked to: A's unidentified S leaves A's unidentified lot and arrives at B as X. With X and Y both held under
+    /// S at A, or nothing held there, the link is void.
+    #[test]
+    fn link_unknown_to_known_moves_basis_from_source_key() {
+        let link = Link { from: (2, Side::Base), to: (3, Side::Base) };
+        let s = build(vec![base(1, 1, "S", UNCLEAR, "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(3, 2, "S", coin("x"), "2024-01-02", "1")],
+                      &[link], &[], &Names::new());
+        let (out, into) = s.transfer(&link).unwrap();
+        assert_eq!((out, into), (s.label(1, Side::Base).unwrap(), s.label(3, Side::Base).unwrap()), "from A's unidentified lot to X");
+        assert_eq!((s.class(out), s.class(into)), (Class::Unknown, Class::Coin));
+        assert_eq!(s.leg_holding(2, Side::Base), Some(&coin("x")), "the withdrawal holds what it was linked to");
+        assert!(s.void_links().is_empty());
+        for held in [vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(4, 1, "S", coin("y"), "2024-01-01", "1")], vec![]] {
+            let mut legs = held;
+            legs.extend([base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(3, 2, "S", coin("x"), "2024-01-02", "1")]);
+            let s = build(legs, &[link], &[], &Names::new());
+            assert_eq!(s.void_links(), &[link]);
+            assert!(s.transfer(&link).is_none());
+            assert_eq!(s.class(s.label(2, Side::Base).unwrap()), Class::Unknown, "no identity crosses a void link");
+        }
+    }
+
+    /// Codex PR0 P2-11: a balance is the account's: two accounts' unidentified balances of one asset are two labels; each
+    /// leg keeps its own holding while the unknown legs of one account and spelling share their lot.
+    #[test]
+    fn balances_by_account_and_holdings_per_leg() {
+        let b = |account| BalanceIn { account, asset_id: 77, spelling: "S".into(), holding: UNCLEAR };
+        let s = build(vec![], &[], &[b(1), b(2)], &Names::new());
+        assert_ne!(s.label_of_asset(1, 77), s.label_of_asset(2, 77));
+        let s = build(vec![base(1, 1, "S", Holding::Unknown(Why::Conflict), "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "1")], &[], &[], &Names::new());
+        assert_eq!(s.label(1, Side::Base), s.label(2, Side::Base), "one lot");
+        assert_eq!((s.leg_holding(1, Side::Base), s.leg_holding(2, Side::Base)), (Some(&Holding::Unknown(Why::Conflict)), Some(&UNCLEAR)));
+        assert_eq!(s.holding(s.label(2, Side::Base).unwrap()), Some(&Holding::Unknown(Why::Conflict)), "the lot: the strongest reason");
     }
 }
