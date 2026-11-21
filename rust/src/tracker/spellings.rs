@@ -9,7 +9,7 @@ use super::resolver::{other_units, CashKind, Holding, Side, Why};
 use crate::figures::dec::Dec;
 use crate::figures::num::NumError;
 use chrono::{DateTime, Utc};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// One identity's printed label and its identity key (`coin:<id>`, `cash:<spelling>`, `security:<id>`,
 /// `unknown:<account>:<spelling>`). Ordered by the printed string, ties broken by the identity (two accounts'
@@ -34,9 +34,9 @@ pub struct LegIn { pub row: i64, pub side: Side, pub account: i64, pub venue: St
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Link { pub from: (i64, Side), pub to: (i64, Side) }
 
-/// A current balance: the account, its asset, the asset's symbol and what it holds.
+/// A current balance: the account and its venue, its asset, the asset's symbol and what it holds.
 #[derive(Clone, Debug)]
-pub struct BalanceIn { pub account: i64, pub asset_id: i64, pub spelling: String, pub holding: Holding }
+pub struct BalanceIn { pub account: i64, pub venue: String, pub asset_id: i64, pub spelling: String, pub holding: Holding }
 
 /// The catalogue's symbol and name of each coin and security, by external id (a merged label's tie-break, a
 /// disambiguated label's name).
@@ -57,15 +57,21 @@ fn key(account: i64, spelling: &str, h: &Holding) -> String {
 fn soft(h: &Holding) -> bool { matches!(h, Holding::Unknown(Why::Unclear)) }
 
 /// §1.2: whether a link's two endpoints may carry one quantity: the same holding, or a known endpoint and an unclear one
-/// (the known one wins) whose spellings are not each other's other units, or two unclear legs of one spelling (each
-/// keeps its account's key). Cash is its spelling, so it links only with the same cash. Never into or out of a hard
-/// refusal (other units, a cut, a conflict), and never between two different known holdings.
-pub fn links_compatible(a: &Holding, a_spelling: &str, b: &Holding, b_spelling: &str) -> bool {
+/// (the known one wins) whose spelling is no other unit of the known one's spelling or catalogue symbol (Kraken's XBT is
+/// Bitcoin: `1000BTC` is another unit of it), or two unclear legs of one spelling (each keeps its account's key). Cash is
+/// its spelling, so it links only with the same cash. Never into or out of a hard refusal (other units, a cut, a
+/// conflict), and never between two different known holdings.
+pub fn links_compatible(a: &Holding, a_spelling: &str, b: &Holding, b_spelling: &str, names: &Names) -> bool {
     if a.hard() || b.hard() { return false; }
     if matches!(a, Holding::Cash(_)) || matches!(b, Holding::Cash(_)) { return a == b && a_spelling == b_spelling; }
+    let units = |unclear: &str, known: &Holding, spelled: &str| {
+        let symbol = match known { Holding::Coin(e) | Holding::Security(e) => names.get(e).and_then(|n| n.0.clone()), _ => None };
+        std::iter::once(spelled.to_string()).chain(symbol).any(|k| other_units(unclear, &k) || other_units(&k, unclear))
+    };
     match (soft(a), soft(b)) {
         (true, true) => a_spelling == b_spelling,
-        (true, false) | (false, true) => !other_units(a_spelling, b_spelling) && !other_units(b_spelling, a_spelling),
+        (true, false) => !units(a_spelling, b, b_spelling),
+        (false, true) => !units(b_spelling, a, a_spelling),
         (false, false) => a == b,
     }
 }
@@ -113,16 +119,24 @@ impl Spellings {
     /// The map for one owner: every leg of the whole history (pending ones too), its stored links, its current
     /// balances, and the catalogue's names. A quantity the arithmetic cannot hold is an error, never a skipped update.
     pub fn build(mut legs: Vec<LegIn>, links: &[Link], balances: &[BalanceIn], names: &Names) -> Result<Spellings, NumError> {
-        // In time order; at one instant a transfer's source before its destination.
-        let arrivals: HashSet<(i64, Side)> = links.iter().map(|l| l.to).collect();
-        legs.sort_by(|a, b| (a.at, arrivals.contains(&(a.row, a.side)), a.row, a.side).cmp(&(b.at, arrivals.contains(&(b.row, b.side)), b.row, b.side)));
+        // In time order, then ledger order; at one instant each transfer's source just before its own destination.
+        legs.sort_by(|a, b| (a.at, a.row, a.side).cmp(&(b.at, b.row, b.side)));
+        let position = |legs: &[LegIn], leg: (i64, Side)| legs.iter().position(|l| (l.row, l.side) == leg);
+        for _ in 0..=links.len() {
+            let mut moved = false;
+            for link in links {
+                let (Some(a), Some(b)) = (position(&legs, link.from), position(&legs, link.to)) else { continue };
+                if b < a && legs[a].at == legs[b].at { let d = legs.remove(b); legs.insert(a, d); moved = true; }
+            }
+            if !moved { break; }
+        }
         let index: HashMap<(i64, Side), usize> = legs.iter().enumerate().map(|(i, l)| ((l.row, l.side), i)).collect();
         let mut eff: Vec<Holding> = legs.iter().map(|l| l.holding.clone()).collect();
         let mut void = vec![];
         let mut sources: HashMap<usize, (usize, Link)> = HashMap::new();
         for link in links {
             let (Some(&a), Some(&b)) = (index.get(&link.from), index.get(&link.to)) else { continue };
-            if !links_compatible(&eff[a], &legs[a].spelling, &eff[b], &legs[b].spelling) { void.push(*link); continue; }
+            if !links_compatible(&eff[a], &legs[a].spelling, &eff[b], &legs[b].spelling, names) { void.push(*link); continue; }
             // A known source gives the deposit its holding now; an unclear source is settled at its instant (below).
             if !soft(&eff[a]) && soft(&eff[b]) { eff[b] = eff[a].clone(); }
             sources.insert(a, (b, *link));
@@ -139,8 +153,14 @@ impl Spellings {
                 let positive: Vec<&String> = carried.get(&(l.account, l.spelling.clone())).into_iter().flatten()
                     .filter(|k| held.get(&(l.account, (*k).clone())).is_some_and(Dec::is_positive)).collect();
                 match (sources.get(&i).copied(), positive.as_slice()) {
-                    // A transfer out of an unclear leg moves the one lot its account holds under the spelling; with
-                    // none or several, the link is void (r10 P1-6).
+                    // A transfer out of an unclear leg moves the one lot its account holds under the spelling, when that
+                    // lot is compatible with the deposit and covers the amount; otherwise (none, several, another
+                    // coin, too little) the link is void (r10 P1-6).
+                    (Some((to, link)), [one]) if !links_compatible(&of_key[*one], &l.spelling, &eff[to], &legs[to].spelling, names)
+                                                    || (&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() => {
+                        void.push(link);
+                        sources.remove(&i);
+                    }
                     (Some((to, _)), [one]) => {
                         let source = of_key[*one].clone();
                         debit = Some((*one).clone());
@@ -172,7 +192,7 @@ impl Spellings {
             *id.uses.entry(l.spelling.clone()).or_default() += 1;
         }
         for b in balances {
-            ids.entry(key(b.account, &b.spelling, &b.holding)).or_insert_with(|| Identity { holding: b.holding.clone(), venue: String::new(), uses: BTreeMap::new() })
+            ids.entry(key(b.account, &b.spelling, &b.holding)).or_insert_with(|| Identity { holding: b.holding.clone(), venue: b.venue.clone(), uses: BTreeMap::new() })
                 .uses.entry(b.spelling.clone()).or_default();
         }
         let labels = allocate(&ids, names);
@@ -376,15 +396,15 @@ mod tests {
     fn manual_link_same_spelling_unknowns_across_accounts() {
         let cut = Holding::Unknown(Why::Cut);
         let units = Holding::Unknown(Why::Units);
-        assert!(links_compatible(&UNCLEAR, "S", &UNCLEAR, "S"));
-        assert!(!links_compatible(&UNCLEAR, "S", &UNCLEAR, "T"));
-        assert!(links_compatible(&UNCLEAR, "S", &coin("x"), "S") && links_compatible(&coin("x"), "X", &UNCLEAR, "S"));
-        assert!(links_compatible(&coin("x"), "X", &coin("x"), "XX"), "one coin under two spellings");
-        assert!(!links_compatible(&coin("x"), "S", &coin("y"), "S"));
-        assert!(!links_compatible(&cut, "PHB", &coin("x"), "PHB") && !links_compatible(&UNCLEAR, "PHB", &cut, "PHB"));
-        assert!(!links_compatible(&units, "1000REKT", &coin("rekt"), "REKT"));
-        assert!(!links_compatible(&Holding::Unknown(Why::Conflict), "S", &coin("x"), "S"));
-        assert!(!links_compatible(&Holding::Cash(CashKind::Fiat), "EUR", &Holding::Cash(CashKind::Fiat), "USD"));
+        assert!(links_compatible(&UNCLEAR, "S", &UNCLEAR, "S", &Names::new()));
+        assert!(!links_compatible(&UNCLEAR, "S", &UNCLEAR, "T", &Names::new()));
+        assert!(links_compatible(&UNCLEAR, "S", &coin("x"), "S", &Names::new()) && links_compatible(&coin("x"), "X", &UNCLEAR, "S", &Names::new()));
+        assert!(links_compatible(&coin("x"), "X", &coin("x"), "XX", &Names::new()), "one coin under two spellings");
+        assert!(!links_compatible(&coin("x"), "S", &coin("y"), "S", &Names::new()));
+        assert!(!links_compatible(&cut, "PHB", &coin("x"), "PHB", &Names::new()) && !links_compatible(&UNCLEAR, "PHB", &cut, "PHB", &Names::new()));
+        assert!(!links_compatible(&units, "1000REKT", &coin("rekt"), "REKT", &Names::new()));
+        assert!(!links_compatible(&Holding::Unknown(Why::Conflict), "S", &coin("x"), "S", &Names::new()));
+        assert!(!links_compatible(&Holding::Cash(CashKind::Fiat), "EUR", &Holding::Cash(CashKind::Fiat), "USD", &Names::new()));
         // In the map: a known withdrawal makes its unclear deposit that coin; a void link is reported and carries nothing.
         let legs = vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(2, 1, "S", coin("x"), "2024-01-02", "-1"),
                         base(3, 2, "S", UNCLEAR, "2024-01-02", "1"),
@@ -428,7 +448,7 @@ mod tests {
     /// the balance's asset finds its label.
     #[test]
     fn a_balance_under_a_historys_spelling_splits_it() {
-        let balances = [BalanceIn { account: 1, asset_id: 77, spelling: "S".into(), holding: coin("y") }];
+        let balances = [BalanceIn { account: 1, venue: "Binance".into(), asset_id: 77, spelling: "S".into(), holding: coin("y") }];
         let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1")], &[], &balances, &names(&[("x", "S", "Ex"), ("y", "S", "Why")]));
         assert_eq!(printed(&s, 1), "S (Ex)");
         assert_eq!(s.label_of_asset(1, 77).unwrap().to_string(), "S (Why)");
@@ -448,10 +468,10 @@ mod tests {
     /// cash links only with the same cash: a known `USD` gives an unclear `S` nothing.
     #[test]
     fn links_check_units_and_cash_identity() {
-        assert!(!links_compatible(&UNCLEAR, "1000REKT", &coin("rekt"), "REKT"));
-        assert!(!links_compatible(&coin("rekt"), "REKT", &UNCLEAR, "1000REKT"));
-        assert!(!links_compatible(&Holding::Cash(CashKind::Fiat), "USD", &UNCLEAR, "S"));
-        assert!(links_compatible(&Holding::Cash(CashKind::Fiat), "USD", &Holding::Cash(CashKind::Fiat), "USD"));
+        assert!(!links_compatible(&UNCLEAR, "1000REKT", &coin("rekt"), "REKT", &Names::new()));
+        assert!(!links_compatible(&coin("rekt"), "REKT", &UNCLEAR, "1000REKT", &Names::new()));
+        assert!(!links_compatible(&Holding::Cash(CashKind::Fiat), "USD", &UNCLEAR, "S", &Names::new()));
+        assert!(links_compatible(&Holding::Cash(CashKind::Fiat), "USD", &Holding::Cash(CashKind::Fiat), "USD", &Names::new()));
     }
 
     /// Codex PR0 P2-12: every label is checked, not only decorated ones: a spelling outside the alphabet or over the bound
@@ -508,12 +528,51 @@ mod tests {
     /// leg keeps its own holding while the unknown legs of one account and spelling share their lot.
     #[test]
     fn balances_by_account_and_holdings_per_leg() {
-        let b = |account| BalanceIn { account, asset_id: 77, spelling: "S".into(), holding: UNCLEAR };
+        let b = |account| BalanceIn { account, venue: "Binance".into(), asset_id: 77, spelling: "S".into(), holding: UNCLEAR };
         let s = build(vec![], &[], &[b(1), b(2)], &Names::new());
         assert_ne!(s.label_of_asset(1, 77), s.label_of_asset(2, 77));
         let s = build(vec![base(1, 1, "S", Holding::Unknown(Why::Conflict), "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "1")], &[], &[], &Names::new());
         assert_eq!(s.label(1, Side::Base), s.label(2, Side::Base), "one lot");
         assert_eq!((s.leg_holding(1, Side::Base), s.leg_holding(2, Side::Base)), (Some(&Holding::Unknown(Why::Conflict)), Some(&UNCLEAR)));
         assert_eq!(s.holding(s.label(2, Side::Base).unwrap()), Some(&Holding::Unknown(Why::Conflict)), "the lot: the strongest reason");
+    }
+
+    /// Codex PR0 r2 P1-6: the lot an unclear transfer leaves must itself be compatible with the deposit and cover the
+    /// amount: A holding only Y under S never sends B's X; two units out of a one-unit lot void the link.
+    #[test]
+    fn an_unclear_transfer_never_links_two_known_coins_or_more_than_its_lot() {
+        let link = Link { from: (2, Side::Base), to: (3, Side::Base) };
+        let y = build(vec![base(1, 1, "S", coin("y"), "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(3, 2, "S", coin("x"), "2024-01-02", "1")],
+                      &[link], &[], &Names::new());
+        assert_eq!(y.void_links(), &[link]);
+        assert!(y.transfer(&link).is_none());
+        let short = build(vec![base(1, 1, "S", UNCLEAR, "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-2"), base(3, 2, "S", coin("x"), "2024-01-02", "2")],
+                          &[link], &[], &Names::new());
+        assert_eq!(short.void_links(), &[link]);
+    }
+
+    /// Codex PR0 r2 P2-11: the unit check knows a coin's own symbol (Kraken's XBT is Bitcoin, so `1000BTC` is another
+    /// unit of it); at one instant, each transfer's source comes before its own destination and other legs keep ledger
+    /// order, so A → B → C finds B's deposit before B's withdrawal.
+    #[test]
+    fn links_check_the_coins_symbol_and_keep_ledger_order() {
+        let link = Link { from: (2, Side::Base), to: (3, Side::Base) };
+        let n = names(&[("bitcoin", "BTC", "Bitcoin")]);
+        let s = build(vec![base(1, 1, "1000BTC", UNCLEAR, "2024-01-01", "1"), base(2, 1, "1000BTC", UNCLEAR, "2024-01-02", "-1"),
+                           base(3, 2, "XBT", coin("bitcoin"), "2024-01-02", "1")], &[link], &[], &n);
+        assert_eq!(s.void_links(), &[link]);
+        let (ab, bc) = (Link { from: (2, Side::Base), to: (3, Side::Base) }, Link { from: (4, Side::Base), to: (5, Side::Base) });
+        let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(3, 2, "S", UNCLEAR, "2024-01-02", "1"),
+                           base(4, 2, "S", UNCLEAR, "2024-01-02", "-1"), base(5, 3, "S", UNCLEAR, "2024-01-02", "1")], &[ab, bc], &[], &Names::new());
+        assert!(s.void_links().is_empty(), "{:?}", s.void_links());
+        assert_eq!(s.holding(s.label(5, Side::Base).unwrap()), Some(&coin("x")), "X reached C");
+    }
+
+    /// Codex PR0 r2 P3-13: an unidentified balance on an account with no history carries its venue into its label.
+    #[test]
+    fn a_balance_only_unknown_names_its_venue() {
+        let balances = [BalanceIn { account: 9, venue: "Kraken".into(), asset_id: 5, spelling: "S".into(), holding: UNCLEAR }];
+        let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1")], &[], &balances, &Names::new());
+        assert_eq!(s.label_of_asset(9, 5).unwrap().to_string(), "S (unidentified on Kraken)");
     }
 }
