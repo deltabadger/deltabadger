@@ -664,8 +664,8 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
     };
     let before = columns(&p);
     assert!(before.iter().any(|c| c == "name"));
-    // Every migration before the drop first, so only the drop runs last.
-    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version < "20261122000002").collect();
+    // Every other migration first, so only the drop runs last.
+    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version != "20261122000002").collect();
     store::migrate_with(&p, &lock(&p), &Registry { migrations: &earlier, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap();
     let others = |p: &Paths| contents(p).into_iter().filter(|t| !t.starts_with("users:") && !t.contains("TABLE \"users\"") && !t.starts_with("rust_schema_migrations")).collect::<Vec<_>>();
     let untouched = others(&p);
@@ -797,4 +797,25 @@ fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
                 vec![Integer(9), Integer(3), Integer(2), Integer(1), s("export"), s("2026-01-01"), s("2026-02-01"), s("u2")]]);
     assert_eq!(rows(&p, "SELECT account_id FROM kucoin_coverage WHERE id = 4"), [[Integer(30)]], "the existing number 1");
     assert!(store::check(&p).unwrap().pending_rust.is_empty());
+}
+
+/// Delisted coins PR0: `asset_prices` (coin prices by identity), `listing_evidence` (every observed ticker binding, as
+/// intervals) and `listing_evidence_gap` (an import unit whose evidence was not written) migrate once, keyed as the
+/// writers rely on: one price per (external id, currency, day).
+#[test]
+fn the_price_and_listing_evidence_tables_migrate_once_with_their_keys() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap();
+    for table in ["asset_prices", "listing_evidence", "listing_evidence_gap"] { assert!(has_table(&p, table), "{table}"); }
+    let c = Connection::open(&p.primary).unwrap();
+    let put = "INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin-gold', 'USD', '2019-01-02', '13.5') ON CONFLICT DO NOTHING";
+    assert_eq!(c.execute(put, []).unwrap(), 1);
+    assert_eq!(c.execute(put, []).unwrap(), 0, "one price per external id, currency and day");
+    c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen) \
+               VALUES (1, '', 'base', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00')", []).unwrap();
+    assert!(c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen) \
+                       VALUES (1, '', 'fee', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00')", []).is_err(), "a side is base or quote");
+    c.execute("INSERT INTO listing_evidence_gap (exchange_id, at) VALUES (1, '2026-11-21 10:00:00')", []).unwrap();
+    assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), Vec::<String>::new(), "a restart applies nothing");
 }
