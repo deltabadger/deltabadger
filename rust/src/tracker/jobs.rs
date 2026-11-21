@@ -143,28 +143,26 @@ impl Fetcher for Channel {
 async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&Feed<T>>, f: &Fetch, have: &HashSet<NaiveDate>, now: DateTime<Utc>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
     let Some(api) = api else { return Ok((vec![], 0)) };
     let (rows, answer) = prices::fetch_answer(api, f, have, now).await?;
-    let stored = legacy_store(db, f, rows).await;
-    // Delisted coins PR0: the whole answer by the coin, after the legacy write and whatever became of it; a failure is
-    // logged and changes nothing above.
-    if !answer.is_empty() {
-        let (coin, currency) = (f.coin.clone(), f.currency.clone());
-        let written = db.run(move |c, _| prices::store_asset_prices(c, &coin, &currency, &answer).map_err(message)).await;
-        if let Err(why) = written { crate::engine::log(&format!("[tracker] asset_prices for {} {} not stored: {why}", f.coin, f.currency)); }
-    }
-    stored
-}
-
-/// The `historical_prices` half of `fetch_and_store`, as before PR0.
-async fn legacy_store(db: &Db, f: &Fetch, rows: Vec<prices::PriceRow>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
-    if rows.is_empty() { return Ok((vec![], 0)); }
     let mut parsed = vec![];
     for (_, day, price) in &rows { parsed.push((*day, Dec::strict(price).map_err(|e| format!("{e:?}"))?)); }
-    let currency = f.currency.clone();
+    if rows.is_empty() && answer.is_empty() { return Ok((vec![], 0)); }
+    let (coin, currency) = (f.coin.clone(), f.currency.clone());
+    // One blocking call: the legacy write in its own transaction, as before PR0, then (delisted coins PR0) the whole answer
+    // by the coin in another, so a caller dropped between them cannot leave the second unattempted. Its failure is
+    // logged and never changes the legacy result.
     let stored = db.run(move |c, _| {
-        c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
-        let stored = prices::store_in(c, &currency, &rows).map_err(message);
-        let end = if stored.is_ok() { "COMMIT" } else { "ROLLBACK" };
-        c.execute_batch(end).map_err(|e| e.to_string())?;
+        let stored = if rows.is_empty() { Ok(0) } else {
+            c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+            let stored = prices::store_in(c, &currency, &rows).map_err(message);
+            let end = if stored.is_ok() { "COMMIT" } else { "ROLLBACK" };
+            c.execute_batch(end).map_err(|e| e.to_string())?;
+            stored
+        };
+        if !answer.is_empty() {
+            if let Err(why) = prices::store_asset_prices(c, &coin, &currency, &answer) {
+                crate::engine::log(&format!("[tracker] asset_prices for {coin} {currency} not stored: {}", message(why)));
+            }
+        }
         stored
     }).await?;
     Ok((parsed, stored))
