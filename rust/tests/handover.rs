@@ -1602,7 +1602,7 @@ const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdr
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
     "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
     "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone",
-    "exchange_account_rows", "exchange_account_balances", "exchange_account_snapshots", "exchange_accounts"];
+    "exchange_account_rows", "exchange_account_balances", "exchange_account_snapshots", "exchange_accounts", "exchange_account_standings"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
@@ -1726,6 +1726,11 @@ fn hold(name: &str, o: &store::Opened, s: &seed::Seeded, bot: i64) {
         "exchange_accounts" => {
             deltabadger::identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, now()).unwrap();
             o.primary.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+        }
+        // #710 slice 6: a stored duplicate standing (here of a second account since removed, so only the row refuses).
+        "exchange_account_standings" => {
+            o.primary.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (2, 1, ?1, ?2, 'now', '{}')",
+                              [s.user_id, s.exchange_id]).unwrap();
         }
         // #710 slice 4: a ledger row of the exchange's second account (its venue id is in the membership).
         "exchange_account_rows" => {

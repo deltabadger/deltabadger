@@ -1,4 +1,4 @@
-//! #710 slice 6 (PLAN-710-6 §6.2): Merge. A duplicate account D (`identity::duplicates`) joins its survivor S in one
+//! #710 slice 6 (PLAN-710-6 §6.2): Merge. A duplicate account D (its stored standing, `identity::duplicates`) joins its survivor S in one
 //! transaction on the engine's write path: its keys, bots, live rules, orders, ledger rows (deduplicated by venue id, their
 //! metadata kept) and KuCoin coverage move to S, its balances and the user's derived history go, and D is tombstoned.
 //! Anything in flight, or any record the two disagree on, refuses the whole Merge with nothing written.
@@ -197,8 +197,9 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
 /// None: it is no longer a duplicate of the user's (a 404). Any refusal leaves the transaction for the caller to roll back.
 /// `survivor`: the account the confirmation named; another derived survivor is a 404 (None).
 pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_id: i64, survivor: i64, now: DateTime<Utc>) -> Result<Option<Merged>, Refusal> {
-    // 0. Re-derived in the transaction.
-    let Some(&(d, s)) = identity::duplicates(c, user)?.iter().find(|(d, _)| *d == duplicate_id) else { return Ok(None) };
+    // 0. The stored standing, in the transaction: the survivor the confirmation named, its keys and credentials as at entry.
+    let Some((s, basis)) = identity::standing_of(c, user, duplicate_id)? else { return Ok(None) };
+    let d = duplicate_id;
     if s != survivor { return Ok(None); }
     let (Some(rd), Some(rs)) = (AccountRow::by_id(c, d)?, AccountRow::by_id(c, s)?) else { return Ok(None) };
     let (ad, as_) = (rd.account(), rs.account());
@@ -243,6 +244,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         identity::Live::Unreadable(account) => return Err(Refusal::Unreadable(account)),
         identity::Live::Unresolved(held) => return Err(Refusal::Conflict(held)),
     }
+    // The standing as entered: both accounts' keys and credentials unchanged since.
+    if basis != identity::standing_basis(c, d, s)? { return Ok(None); }
 
     // 2. Conflicts, before any write.
     let mut conflicts = vec![];
@@ -365,9 +368,10 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     c.execute("UPDATE app_configs SET value = json_remove(value, ?2) WHERE key = ?1 AND json_valid(value)",
               params![crate::sync::kucoin_hf::gap_key(user), format!("$.\"{exchange}:{d}\"")])?;
 
-    // 11. The tombstone.
-    // The standing is read fresh from current data every time (`identity::duplicates`): nothing to retarget.
+    // 11. The tombstone; the keys moved and removed cleared the standings of both (key events); the exchange's standing
+    // is reconsidered once, on the merged account.
     identity::tombstone(c, d, now)?;
+    identity::reconsider(c, user, exchange, now)?;
     Ok(Some(Merged { duplicate: d, survivor: s, deleted_keys: deleted, kept_keys: kept }))
 }
 
@@ -385,6 +389,8 @@ fn recorder_waiting(c: &Connection, cipher: &crate::crypto::Cipher, accounts: &[
 
 /// Key `id` of the duplicate joins `to` (its membership goes to `to`, none for a number 1).
 fn move_key(c: &Connection, id: i64, to: &Account) -> rusqlite::Result<()> {
+    // A key event of the account it leaves; `add_key` is the one of the account it joins.
+    identity::key_event_of_key(c, id)?;
     c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [id])?;
     // Its balance time was the duplicate's balances' (deleted): read again before it can bring S's movements forward.
     c.execute("UPDATE api_keys SET balances_synced_at = NULL WHERE id = ?1", [id])?;
@@ -392,6 +398,7 @@ fn move_key(c: &Connection, id: i64, to: &Account) -> rusqlite::Result<()> {
 }
 /// Key `id` goes as `keys::remove` removes one, no bot stopped: its rows' key is the kept key of its type (else none).
 fn remove_key(c: &Connection, id: i64, keep: Option<i64>) -> rusqlite::Result<()> {
+    identity::key_event_of_key(c, id)?;
     c.execute("UPDATE account_transactions SET api_key_id = ?2 WHERE api_key_id = ?1", params![id, keep])?;
     c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_sync.%' AND substr(key, -length(?1) - 1) = ':' || ?1", [id.to_string()])?;
     c.execute("DELETE FROM api_keys WHERE id = ?1", [id])?;

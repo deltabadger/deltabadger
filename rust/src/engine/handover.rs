@@ -702,6 +702,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
         // #710 slice 4: a ledger row of an account 2+ (its venue id is here; 2.x would read NULL).
         (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
+        // #710: a stored duplicate standing is of an account 2+, which refuses on its own; its row too.
+        (Table, "exchange_account_standings", Refuses(SECOND_ACCOUNT)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's
@@ -761,8 +763,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF orders are Rust-only")),
         (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
         (AppConfig, "rust_kucoin_hf_gap.", Ignored),
-        // #710: a pair's last comparable balance reads, and when a key's credential was last replaced: 2.x never reads them.
-        (AppConfig, "rust_standing_reads:", Ignored), (AppConfig, "rust_key_credential_changed:", Ignored),
+        // #710: when a key's credential was last replaced: 2.x never reads it.
+        (AppConfig, "rust_key_credential_changed:", Ignored),
         // A user cancel's re-read: adopt_handback! polls every open order.
         (AppConfig, "rust_cancel_reread:", Ignored),
         // The takeover's journals: the queue rows it handled are deleted first (finish_queue_work, finish_signal_import);
@@ -1143,6 +1145,11 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if super::rules::table_exists(c, "exchange_account_rows")?
         && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rows)", [], |r| r.get::<_, bool>(0))? {
         return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_HISTORY.into()]));
+    }
+    // #710 slice 6: a stored duplicate standing is of an account 2+ (2.x has no second account to read it of).
+    if super::rules::table_exists(c, "exchange_account_standings")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_standings)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT.into()]));
     }
     for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE),
                           ("exchange_account_balances", SECOND_ACCOUNT_BALANCES), ("exchange_account_snapshots", SECOND_ACCOUNT_BALANCES)] {

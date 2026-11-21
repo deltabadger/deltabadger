@@ -22,11 +22,14 @@ pub struct Two {
 }
 
 /// Account `account`'s fingerprint, as its keys' identity reads confirm it: the account's and each of its keys'
-/// observation (a fixture writes any; `identity::establish` fills only an unknown one).
+/// observation (a fixture writes any; `identity::establish` fills only an unknown one), then `identity::reconsider`.
 pub fn confirm(c: &Connection, account: i64, fingerprint: Option<&str>) {
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", params![account, fingerprint]).unwrap();
     c.execute(&format!("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) SELECT k.id, k.exchange_id, ?2, 'now' FROM api_keys k WHERE {} = ?1 \
                         ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint", deltabadger::identity::key_account_sql("k")), params![account, fingerprint]).unwrap();
+    // As the next sync's completion would: the exchange's stored standing is reconsidered on it.
+    let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1", [account], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    deltabadger::identity::reconsider(c, user, exchange, chrono::Utc::now()).unwrap();
 }
 
 /// Each of `user`'s keys whose ledger import has no producer yet: stamped as imported by its current version (the stamp a

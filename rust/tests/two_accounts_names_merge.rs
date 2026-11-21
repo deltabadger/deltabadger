@@ -697,7 +697,12 @@ fn add_key(c: &Connection, two: &Two, account: i64) -> i64 {
 /// Account `n`'s and account 1's balances read at one time, equal (1 BTC each): whether 2 now stands as 1's duplicate.
 fn overlaps(c: &Connection, two: &Two, n: usize) -> bool {
     for k in [0, n] { common::two_accounts::read_balances(c, two.seeded.user_id, two.id(k), two.keys[k], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
-    identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(two.id(n), two.id(0)))
+    standing(c, two).contains(&(two.id(n), two.id(0)))
+}
+/// The stored standing after `identity::reconsider` ran for the exchange, as a sync's completion runs it.
+fn standing(c: &Connection, two: &Two) -> Vec<(i64, i64)> {
+    identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).unwrap();
+    identity::duplicates(c, two.seeded.user_id).unwrap()
 }
 /// `n` buys of account `account` (any number) imported by its key `key`, under the shared trade ids `trade-0…`.
 fn trades_on(c: &Connection, two: &Two, account: i64, key: i64, n: usize) {
@@ -724,20 +729,20 @@ fn t11_equal_fingerprints_make_the_higher_number_a_duplicate() {
     let two = Two::kraken(c, &seed::cipher());
     let user = two.seeded.user_id;
     let (a, b) = (two.id(0), two.id(1));
-    assert!(identity::duplicates(c, user).unwrap().is_empty(), "NULL fingerprints");
+    assert!(standing(c, &two).is_empty(), "NULL fingerprints");
     two.fingerprint(c, 0, Some("fp-1"));
-    assert!(identity::duplicates(c, user).unwrap().is_empty(), "one NULL");
+    assert!(standing(c, &two).is_empty(), "one NULL");
     two.fingerprint(c, 1, Some("fp-2"));
-    assert!(identity::duplicates(c, user).unwrap().is_empty(), "different");
+    assert!(standing(c, &two).is_empty(), "different");
     two.fingerprint(c, 1, Some("fp-1"));
-    assert_eq!(identity::duplicates(c, user).unwrap(), [(b, a)]);
+    assert_eq!(standing(c, &two), [(b, a)]);
     let third = two.third(c).id.unwrap();
     c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k3', 's3', 1, 0, 'now', 'now')", [user, two.seeded.exchange_id]).unwrap();
     identity::Account::by_id(c, third).unwrap().unwrap().add_key(c, c.last_insert_rowid()).unwrap();
     common::two_accounts::confirm(c, third, Some("fp-1"));
-    assert_eq!(identity::duplicates(c, user).unwrap(), [(b, a), (third, a)]);
+    assert_eq!(standing(c, &two), [(b, a), (third, a)]);
     remove(c, a);
-    assert_eq!(identity::duplicates(c, user).unwrap(), [(third, b)], "a removed 1");
+    assert_eq!(standing(c, &two), [(third, b)], "a removed 1");
 }
 
 /// T12: overlap evidence on Kraken: 2 strong matches write nothing, 3 write the observation; a conflicting amount, side or
@@ -784,7 +789,7 @@ fn t12_unlisted_venues_reruns_and_old_installs_observe_nothing() {
     trades(c, &kraken, 0, 3, 0, "1");
     trades(c, &kraken, 1, 3, 0, "1");
     assert!(overlaps(c, &kraken, 1));
-    assert_eq!(identity::duplicates(c, kraken.seeded.user_id).unwrap(), [(kraken.id(1), kraken.id(0))], "read again, the same");
+    assert_eq!(standing(c, &kraken), [(kraken.id(1), kraken.id(0))], "read again, the same");
 }
 
 /// T13: 3 observed against 2 while 2 is 1's duplicate by fingerprint: both chains end at 1.
@@ -800,7 +805,7 @@ fn t13_chains_resolve_to_the_lowest_live_end() {
     for (a, k) in [(two.id(1), two.keys[1]), (third, key)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
     two.fingerprint(c, 0, Some("fp"));
     two.fingerprint(c, 1, Some("fp"));
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0)), (third, two.id(0))]);
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0)), (third, two.id(0))]);
 }
 
 /// A balance row of account `n` of `two`: `units` of BTC worth `value`.
@@ -1041,6 +1046,7 @@ fn duplicate() -> (tempfile::TempDir, store::Opened, Two) {
     common::two_accounts::stamp_ledgers(&o.primary, two.seeded.user_id);
     two.fingerprint(&o.primary, 0, Some("fp"));
     two.fingerprint(&o.primary, 1, Some("fp"));
+    identity::reconsider(&o.primary, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).unwrap();
     (d, o, two)
 }
 /// `merge::run` in one transaction, committed only when it merged.
@@ -1048,6 +1054,7 @@ fn duplicate() -> (tempfile::TempDir, store::Opened, Two) {
 fn merge_now(c: &Connection, two: &Two, d: i64) -> Result<Option<merge::Merged>, Refusal> {
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now);
+    identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).unwrap();
     merge_stale(c, two, d)
 }
 /// `merge::run` on the data as it is.
@@ -1354,7 +1361,7 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     trades(c, &two, 1, 3, 0, "1");
     trades_on(c, &two, third, key, 3);
     for (a, k) in [(two.id(1), two.keys[1]), (third, key)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(third, two.id(0))), "3 duplicates 2, which duplicates 1");
+    assert!(standing(c, &two).contains(&(third, two.id(0))), "3 duplicates 2, which duplicates 1");
     two.rule(c, &cipher, 1, two.seeded.btc, 3);
     // 1 holds what 2 holds (one venue account): the fresh reads agree.
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
@@ -1363,7 +1370,7 @@ async fn t13_t25_the_tombstone_chains_and_the_handback() {
     for (a, k) in [(two.id(0), two.keys[0]), (third, key)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-21 10:00:00"); }
     let (removed, fingerprint): (Option<String>, Option<String>) = c.query_row("SELECT removed_at, fingerprint FROM exchange_accounts WHERE id = ?1", [two.id(1)], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert!(removed.is_some() && fingerprint.is_none());
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(third, two.id(0))]);
+    assert_eq!(standing(c, &two), [(third, two.id(0))]);
     assert_eq!(identity::pick(c, two.seeded.user_id, two.seeded.exchange_id, Some(two.id(1))).unwrap(), identity::Pick::NotFound);
     assert_eq!(identity::pick_switch(c, two.seeded.user_id, two.bots[0], None, Some(two.id(1))).unwrap(), identity::Switch::NotFound);
     let app = web_app(dir.path(), c);
@@ -1562,7 +1569,7 @@ fn r4_a_chain_with_conflicting_fingerprints_is_no_duplicate() {
     common::two_accounts::read_balances(c, two.seeded.user_id, third, key, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     // R8: 1, 2 and 3 are one component, and its known fingerprints differ: none of them is a duplicate.
     assert!(!overlaps(c, &two, 1));
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "3 (B) and 1 (A) are linked through 2");
+    assert!(standing(c, &two).is_empty(), "3 (B) and 1 (A) are linked through 2");
 }
 
 /// R5: a survivor's withdrawal linked to the duplicate's deposit reads unlinked once that deposit leaves the walk.
@@ -1769,7 +1776,7 @@ fn r3_1_a_stale_fingerprint_makes_no_duplicate() {
     let (_d, o, two) = duplicate();
     let c = &o.primary;
     c.execute("UPDATE exchange_account_credentials SET fingerprint = 'another-uid' WHERE api_key_id = ?1", [two.keys[0]]).unwrap();
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
     assert!(merge_now(c, &two, two.id(1)).unwrap().is_none());
 }
 
@@ -1905,6 +1912,7 @@ fn binance() -> (tempfile::TempDir, store::Opened, Two) {
     let two = Two::venue(&o.primary, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
     two.fingerprint(&o.primary, 0, Some("fp"));
     two.fingerprint(&o.primary, 1, Some("fp"));
+    identity::reconsider(&o.primary, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).unwrap();
     (d, o, two)
 }
 fn refuses(c: &Connection, two: &Two, what: &str) {
@@ -1980,8 +1988,9 @@ fn r4_1_overlap_evidence_dies_with_its_keys() {
     trades(c, &two, 0, 3, 0, "1");
     trades(c, &two, 1, 3, 0, "1");
     assert!(overlaps(c, &two, 1));
-    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[0], seed::cipher().encrypt("another-kraken-account")]).unwrap();
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    let cipher = seed::cipher();
+    identity::write_credential(c, &cipher, two.keys[0], Some(&cipher.encrypt("another-kraken-account")), Some(&cipher.encrypt("s")), None, chrono::Utc::now()).unwrap();
+    assert!(standing(c, &two).is_empty());
     assert!(merge_now(c, &two, two.id(1)).unwrap().is_none());
 }
 
@@ -2037,11 +2046,11 @@ fn s5_the_standing_needs_trades_balances_and_every_key() {
     let read = |n: usize, units: &str, at: &str| common::two_accounts::read_balances(c, user, two.id(n), two.keys[n], &[(two.seeded.btc, units)], at);
     read(0, "1", "2026-09-20 10:00:00");
     read(1, "1", "2026-09-20 10:14:00");
-    assert_eq!(identity::duplicates(c, user).unwrap(), [(two.id(1), two.id(0))], "14 minutes apart, equal");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "14 minutes apart, equal");
     read(1, "1.5", "2026-09-20 10:05:00");
-    assert!(identity::duplicates(c, user).unwrap().is_empty(), "different at comparable reads");
+    assert!(standing(c, &two).is_empty(), "different at comparable reads");
     read(1, "1", "2026-09-20 10:16:00");
-    assert!(identity::duplicates(c, user).unwrap().is_empty(), "16 minutes apart: not yet");
+    assert!(standing(c, &two).is_empty(), "16 minutes apart: not yet");
 }
 
 /// The wallet behind account 2's key switched before its first complete sync: its rows were imported by an older version.
@@ -2053,8 +2062,9 @@ fn s5_a_wallet_switched_before_the_duplicates_sync_is_no_duplicate() {
     trades(c, &two, 0, 3, 0, "1");
     trades(c, &two, 1, 3, 0, "1");
     assert!(overlaps(c, &two, 1));
-    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[1], seed::cipher().encrypt("another-wallet")]).unwrap();
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    let cipher = seed::cipher();
+    identity::write_credential(c, &cipher, two.keys[1], Some(&cipher.encrypt("another-wallet")), Some(&cipher.encrypt("s")), None, chrono::Utc::now()).unwrap();
+    assert!(standing(c, &two).is_empty());
 }
 
 /// A trading key for another wallet added to account 1 takes no part in the shared trades: no duplicate.
@@ -2068,10 +2078,10 @@ fn s5_a_key_that_took_no_part_ends_the_standing() {
     assert!(overlaps(c, &two, 1));
     add_key(c, &two, two.id(0));
     common::two_accounts::stamp_ledgers(c, two.seeded.user_id);
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
 }
 
-/// Identical credentials saved again (re-encrypted): the standing waits for the next matching sync, then comes back.
+/// Identical credentials saved again (re-encrypted) are no key event: the stored standing stays.
 #[test]
 fn s5_a_resaved_key_waits_for_its_next_sync() {
     let (_d, o) = install();
@@ -2081,10 +2091,11 @@ fn s5_a_resaved_key_waits_for_its_next_sync() {
     trades(c, &two, 0, 3, 0, "1");
     trades(c, &two, 1, 3, 0, "1");
     assert!(overlaps(c, &two, 1));
-    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[0], cipher.encrypt("test-key")]).unwrap();
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "until the key syncs again");
+    let secret: String = c.query_row("SELECT secret FROM api_keys WHERE id = ?1", [two.keys[0]], |r| r.get(0)).unwrap();
+    assert!(!identity::write_credential(c, &cipher, two.keys[0], Some(&cipher.encrypt("test-key")), Some(&secret), None, chrono::Utc::now()).unwrap());
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "not comparable until the key syncs again: it stays");
     common::two_accounts::restamp(c, two.seeded.user_id, two.keys[0]);
-    assert!(overlaps(c, &two, 1), "back on the next matching sync");
+    assert!(overlaps(c, &two, 1), "and on the next matching sync");
 }
 
 /// An account id the venue reports (equal fingerprints) is one signal; balances that differ at comparable reads contradict it.
@@ -2094,7 +2105,7 @@ fn s5_fingerprints_need_balances_that_do_not_disagree() {
     let c = &o.primary;
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "2")], "2026-09-20 10:01:00");
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
 }
 
 /// A Deltabadger CSV restore on KuCoin (its amounts kept with it) is no venue sync's row: an id-less restored withdrawal an
@@ -2179,7 +2190,7 @@ fn l6_an_unresolved_asset_difference_is_no_duplicate() {
     let c = &o.primary;
     common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
     unresolved(c, two.keys[1], &["XTOKEN"]);
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
     assert!(!matches!(merge_stale(c, &two, two.id(1)), Ok(Some(_))));
 }
 
@@ -2246,8 +2257,9 @@ fn r6_a_chain_never_overrides_a_direct_veto() {
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     common::two_accounts::read_balances(c, two.seeded.user_id, third, key, &[(two.seeded.btc, "2")], "2026-09-20 10:01:00");
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-19 10:00:00");
-    // R8: 3 is linked to 2 and 2 to 1, so all three are one component, and the 3-1 veto clears it.
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    // 3 confirmed the fingerprint and entered beside 2 as 1's duplicate; the 3-1 contradiction falls inside that stored
+    // group, which leaves whole.
+    assert!(standing(c, &two).is_empty());
 }
 
 /// #7: a conflicting shared id anywhere in the history vetoes, not only in the sample; Coinbase's `-in`/`-out` legs of one
@@ -2287,7 +2299,7 @@ fn r6_one_accounts_refresh_keeps_the_last_comparable_verdict() {
     assert!(identity::after_balance_read(c, two.keys[1], now).unwrap().is_empty());
     common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-21 10:00:00");
     assert_eq!(identity::after_balance_read(c, two.keys[1], now).unwrap(), [two.keys[0]], "the partner is read now");
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "the day-old pair still stands");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "the day-old pair still stands");
 }
 
 /// R7 #3: a replaced key's rows from before its replacement never count, whatever its new credential reads: equal
@@ -2301,11 +2313,11 @@ fn r7_a_replaced_keys_old_rows_never_count() {
     trades(c, &two, 0, 3, 0, "1");
     trades(c, &two, 1, 3, 0, "1");
     assert!(overlaps(c, &two, 1));
-    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![two.keys[0], cipher.encrypt("another-wallet")]).unwrap();
+    identity::write_credential(c, &cipher, two.keys[0], Some(&cipher.encrypt("another-wallet")), Some(&cipher.encrypt("s")), None, chrono::Utc::now()).unwrap();
     deltabadger::app_config::set_plain(c, &format!("rust_key_credential_changed:{}", two.keys[0]), "2026-09-15 00:00:00", chrono::Utc::now()).unwrap();
     common::two_accounts::restamp(c, two.seeded.user_id, two.keys[0]);
     for k in 0..2 { common::two_accounts::read_balances(c, two.seeded.user_id, two.id(k), two.keys[k], &[], "2026-09-20 10:00:00"); }
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "equal empty reads, no newer trade");
+    assert!(standing(c, &two).is_empty(), "equal empty reads, no newer trade");
     assert!(!overlaps(c, &two, 1), "equal non-empty reads, no newer trade");
 }
 
@@ -2316,7 +2328,7 @@ fn r6_a_masked_key_beside_a_confirming_one_is_no_confirmation() {
     let c = &o.primary;
     let masked = add_key(c, &two, two.id(0));
     c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, last_failure_code) VALUES (?1, ?2, NULL, 'http 200')", [masked, two.seeded.exchange_id]).unwrap();
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
 }
 
 /// #10: a KuCoin restore (`amounts`, `amounts_inexact`) is not synced; an exact-id twin differing from its API copy only
@@ -2417,9 +2429,9 @@ async fn r7_the_json_key_save_records_a_replacement() {
 fn r7_an_unobserved_live_key_gives_no_fingerprint_standing() {
     let (_d, o, two) = duplicate();
     let c = &o.primary;
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
     add_key(c, &two, two.id(0));
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
 }
 
 /// R7 #5: the kept verdict survives a refresh under the same credential and key set (its first batch incomplete); a key
@@ -2440,9 +2452,9 @@ fn r7_a_refresh_keeps_the_verdict_until_the_keys_change() {
     stamp["complete"] = serde_json::Value::Bool(false);
     deltabadger::app_config::set_plain(c, &origin, &stamp.to_string(), chrono::Utc::now()).unwrap();
     c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-21 10:00:00' WHERE id = ?1", [two.keys[1]]).unwrap();
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "mid-refresh");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "mid-refresh");
     withdrawal_key(c, &two, 0);
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "another key set");
+    assert!(standing(c, &two).is_empty(), "another key set");
 }
 
 /// A buy of account `account` imported by its key `key` under venue id `id`: `amount` BTC for 100 EUR at `at`.
@@ -2470,7 +2482,7 @@ fn r7_a_direct_trade_conflict_vetoes_every_chain() {
     for (a, k) in [(two.id(0), two.keys[0]), (two.id(1), two.keys[1]), (third, key)] {
         common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00");
     }
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
 }
 
 /// R7 #7: Kraken stores only the codes it could not name: while either account holds one, Merge refuses naming it.
@@ -2480,7 +2492,7 @@ fn r7_an_unresolved_code_refuses_the_merge_naming_it() {
     let c = &o.primary;
     common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
     for k in two.keys { unresolved(c, k, &["XTOKEN"]); }
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))], "the same codes");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "the same codes");
     let before = dump(c);
     match merge_stale(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert!(rows.iter().any(|r| r.contains("XTOKEN")), "{rows:?}"), other => panic!("{other:?}") }
     assert_eq!(dump(c), before);
@@ -2578,7 +2590,7 @@ fn r8_a_component_resolves_to_its_lowest_number() {
         for i in 0..3 { for (a, k) in pairs { trade_on(c, &two, a, k, &format!("{set}{i}"), "1", &format!("2026-09-0{} 1{i}:00:00", 1 + set.len())); } }
     }
     for (a, k) in [(a1, k1), (a2, k2), (a3, k3), (a4, k4)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
-    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(a2, a1), (a3, a1), (a4, a1)]);
+    assert_eq!(standing(c, &two), [(a2, a1), (a3, a1), (a4, a1)]);
 }
 
 /// R8 #4: 2-1 and 3-1 accepted, 2 and 3 contradicting each other (a shared id with other facts): no duplicate at all.
@@ -2596,7 +2608,7 @@ fn r8_a_veto_inside_a_component_clears_it() {
     trade_on(c, &two, a2, k2, "x", "1", "2026-09-04 10:00:00");
     trade_on(c, &two, a3, k3, "x", "2", "2026-09-04 10:00:00");
     for (a, k) in [(a1, k1), (a2, k2), (a3, k3)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
-    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+    assert!(standing(c, &two).is_empty());
 }
 
 /// R8 #5: a balance read that skipped a position (Alpaca: unmapped or ambiguous) is not complete: Merge refuses naming it.
@@ -2720,4 +2732,130 @@ async fn r8_another_users_bot_never_blocks_or_reaches_a_merge() {
     assert!(!answer.body.contains(&format!("bot {foreign}")), "{}", answer.body);
     assert!(answer.body.contains("Alpaca 2"), "the names as text in the flash");
     assert!(deltabadger::engine::eligibility::guard(c, &seed::cipher(), None).is_err(), "the install-wide guard still refuses");
+}
+
+// ---- the stored standing (PLAN-710-6 §5.1 r9) ----
+
+fn standings(c: &Connection) -> Vec<(i64, i64)> {
+    c.prepare("SELECT duplicate_id, survivor_id FROM exchange_account_standings ORDER BY duplicate_id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+/// An overlap pair (Kraken, three shared trades) whose balances were read equal: entered.
+fn entered() -> (tempfile::TempDir, store::Opened, Two) {
+    let (d, o) = install();
+    let two = Two::kraken(&o.primary, &seed::cipher());
+    trades(&o.primary, &two, 0, 3, 0, "1");
+    trades(&o.primary, &two, 1, 3, 0, "1");
+    assert!(overlaps(&o.primary, &two, 1));
+    (d, o, two)
+}
+
+/// The standing is stored: signals alone make no duplicate until `reconsider` enters it, and entry needs every one of
+/// them (shared trades without comparable balances, or fingerprints a live key has not confirmed, are not enough).
+#[test]
+fn st_entry_needs_every_signal_and_is_stored() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    assert!(standing(c, &two).is_empty(), "no balances read");
+    for k in [0, 1] { common::two_accounts::read_balances(c, two.seeded.user_id, two.id(k), two.keys[k], &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty(), "read from the table: nothing entered yet");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    two.fingerprint(c, 0, Some("fp"));
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'n', 'n', 1, 2, '2026-01-01', '2026-01-01')",
+              [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [c.last_insert_rowid(), two.id(1)]).unwrap();
+    // 2's first key confirms the fingerprint; the second has no observation.
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fp' WHERE id = ?1", [two.id(1)]).unwrap();
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fp', 'now')", [two.keys[1], two.seeded.exchange_id]).unwrap();
+    assert!(standing(c, &two).is_empty(), "a live key of 2 has not confirmed the fingerprint");
+}
+
+/// A refresh that leaves the reads not comparable (one account read a day later) keeps the row: figures do not flip.
+#[test]
+fn st_a_non_comparable_refresh_keeps_the_row() {
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-21 10:00:00");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "5")], "2026-09-22 10:00:00");
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "different, but not comparable");
+}
+
+/// A positive contradiction clears it: balances that differ at comparable reads, a shared id with other facts.
+#[test]
+fn st_a_contradiction_clears_it() {
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "2")], "2026-09-20 10:05:00");
+    assert!(standing(c, &two).is_empty(), "balances differ");
+
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    two.trade(c, 0, 0, "late", "1", "2026-09-11 10:00:00");
+    two.trade(c, 1, 0, "late", "2", "2026-09-11 10:00:00");
+    assert!(standing(c, &two).is_empty(), "a conflicting shared id");
+}
+
+/// Every key event of either account deletes the row: a real credential change, a key added, a key removed, and the
+/// duplicate's removal. The same material saved again is no event.
+#[test]
+fn st_each_key_event_clears_it() {
+    let cipher = seed::cipher();
+    let now = chrono::Utc::now();
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    identity::write_credential(c, &cipher, two.keys[0], Some(&cipher.encrypt("test-key")), Some(&c.query_row("SELECT secret FROM api_keys WHERE id = ?1", [two.keys[0]], |r| r.get::<_, String>(0)).unwrap()), None, now).unwrap();
+    assert_eq!(standings(c), [(two.id(1), two.id(0))], "the same material");
+    identity::write_credential(c, &cipher, two.keys[0], Some(&cipher.encrypt("another-wallet")), None, None, now).unwrap();
+    assert!(standings(c).is_empty(), "a real change");
+
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    add_key(c, &two, two.id(1));
+    assert!(standings(c).is_empty(), "a key added");
+
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    identity::forget(c, two.keys[1], &two.accounts[1]).unwrap();
+    assert!(standings(c).is_empty(), "a key removed");
+
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    identity::tombstone(c, two.id(1), now).unwrap();
+    assert!(standings(c).is_empty(), "the account removed");
+}
+
+/// Merge refuses when the keys or credentials changed since the row was entered and nothing entered it again (here a
+/// live key the standing never saw, written past the key-event path, that has not confirmed the fingerprint).
+#[test]
+fn st_merge_refuses_when_the_basis_changed() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'w', 'w', 1, 1, '2026-01-01', '2026-01-01')",
+              [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [c.last_insert_rowid(), two.id(1)]).unwrap();
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    let before = dump(c);
+    assert!(matches!(merge_now(c, &two, two.id(1)), Ok(None)));
+    assert_eq!(dump(c), before);
+}
+
+/// A single-account install writes no row and changes no byte.
+#[test]
+fn st_a_single_account_install_writes_nothing() {
+    let (_d, o, s) = common::install();
+    let c = &o.primary;
+    common::number_one(c, s.user_id, s.exchange_id);
+    let before = dump(c);
+    identity::reconsider(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    assert!(identity::after_balance_read(c, s.api_key_id, chrono::Utc::now()).unwrap().is_empty());
+    assert_eq!(dump(c), before);
 }

@@ -559,7 +559,11 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   crate::identity::forget(&tx,id,&account)?;
   crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
-  let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
+  // #710: the account's reading key now reads its balances again, so its duplicate standing may re-enter on them.
+  let reader=match crate::identity::AccountRow::of(&tx,&account)? {Some(a)=>crate::sync::cache::reading_key(&tx,&a)?,None=>None};
+  let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();
+  if let (Some(k),Ok(jobs))=(reader,inner.job_wakers()){jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&k.to_string()),None);}
+  Ok(Some(Ok(out)))
 }
 
 /// `legacy`'s answers to a pick (§4.2): an account not the user's live one of this exchange, and which account.

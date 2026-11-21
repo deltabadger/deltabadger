@@ -355,6 +355,13 @@ impl<C: Connect> Job for LedgerSync<C> {
                 },
             };
             let outcome = outcome(done, |out| out.complete);
+            // #710: a complete import may enter or end its exchange's duplicate standing (identity::reconsider).
+            if outcome == Outcome::Done {
+                let (key, at) = (self.key_id, cx.clock.now());
+                if let Err(e) = cx.db.run(move |c, _| crate::identity::reconsider_for_key(c, key, at).map_err(|e| e.to_string())).await {
+                    crate::engine::log(&format!("[sync] standing of key {key} not reconsidered: {e}"));
+                }
+            }
             // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as 2.x's one job reads the
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
@@ -470,7 +477,7 @@ impl<C: Connect> Job for BalanceSync<C> {
                 let (key, at) = (self.key_id, cx.clock.now());
                 match cx.db.run(move |c, _| crate::identity::after_balance_read(c, key, at).map_err(|e| e.to_string())).await {
                     Ok(partners) => for partner in partners { cx.wakers.wake(BALANCE_SYNC, Some(&partner.to_string()), None); },
-                    Err(e) => crate::engine::log(&format!("[sync] balance standing of key {key} not kept: {e}")),
+                    Err(e) => crate::engine::log(&format!("[sync] standing of key {key} not reconsidered: {e}")),
                 }
             }
             // 2.x's AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker

@@ -392,6 +392,7 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Prefix("rust_kucoin_origin:"), "where a KuCoin order's record came from"),
     (Key::Prefix("rust_kucoin_unresolved:"), "a KuCoin order whose result is unknown"),
     (Key::Prefix("rust_cancel_reread:"), "a cancel whose result is re-read"),
+    (Key::Prefix("rust_key_credential_changed:"), "when a key's credential was last replaced (#710 duplicate evidence)"),
     (Key::Prefix("rust_binance_a12_v1:"), "the Binance history repair's journal and marker"),
     (Key::Prefix("rust_binance_repair_gaps."), "Binance history gaps"),
     (Key::Exact("rust_rules_fired_at"), "when rules last ran"),
