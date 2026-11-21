@@ -55,6 +55,38 @@ fn key(account: i64, spelling: &str, h: &Holding) -> String {
 }
 
 fn soft(h: &Holding) -> bool { matches!(h, Holding::Unknown(Why::Unclear)) }
+const UNCLEAR_HOLDING: Holding = Holding::Unknown(Why::Unclear);
+
+/// One instant's legs (already in ledger order) in an order the transfers and the accounts allow: a transfer's source
+/// before its destination, each account's legs in ledger order, otherwise ledger order. Where those disagree (a cycle),
+/// the rest keep ledger order.
+fn ordered(legs: Vec<LegIn>, links: &[Link]) -> Vec<LegIn> {
+    let mut out = Vec::with_capacity(legs.len());
+    let mut rest = legs.into_iter().peekable();
+    while let Some(first) = rest.next() {
+        let mut group = vec![first];
+        while rest.peek().is_some_and(|l| l.at == group[0].at) { group.extend(rest.next()); }
+        if group.len() < 2 { out.extend(group); continue; }
+        let at: HashMap<(i64, Side), usize> = group.iter().enumerate().map(|(i, l)| ((l.row, l.side), i)).collect();
+        let mut after: Vec<Vec<usize>> = vec![vec![]; group.len()];
+        let mut needs = vec![0usize; group.len()];
+        let mut edge = |a: usize, b: usize, after: &mut Vec<Vec<usize>>| { after[a].push(b); needs[b] += 1; };
+        for link in links { if let (Some(&a), Some(&b)) = (at.get(&link.from), at.get(&link.to)) { edge(a, b, &mut after); } }
+        let mut last: HashMap<i64, usize> = HashMap::new();
+        for (i, l) in group.iter().enumerate() { if let Some(p) = last.insert(l.account, i) { edge(p, i, &mut after); } }
+        let mut ready: BTreeSet<usize> = (0..group.len()).filter(|&i| needs[i] == 0).collect();
+        let mut order = vec![];
+        while let Some(i) = ready.pop_first() {
+            order.push(i);
+            for &j in &after[i] { needs[j] -= 1; if needs[j] == 0 { ready.insert(j); } }
+        }
+        let placed: BTreeSet<usize> = order.iter().copied().collect();
+        order.extend((0..group.len()).filter(|i| !placed.contains(i)));
+        let mut slots: Vec<Option<LegIn>> = group.into_iter().map(Some).collect();
+        out.extend(order.into_iter().filter_map(|i| slots[i].take()));
+    }
+    out
+}
 
 /// §1.2: whether a link's two endpoints may carry one quantity: the same holding, or a known endpoint and an unclear one
 /// (the known one wins) whose spelling is no other unit of the known one's spelling or catalogue symbol (Kraken's XBT is
@@ -119,17 +151,9 @@ impl Spellings {
     /// The map for one owner: every leg of the whole history (pending ones too), its stored links, its current
     /// balances, and the catalogue's names. A quantity the arithmetic cannot hold is an error, never a skipped update.
     pub fn build(mut legs: Vec<LegIn>, links: &[Link], balances: &[BalanceIn], names: &Names) -> Result<Spellings, NumError> {
-        // In time order, then ledger order; at one instant each transfer's source just before its own destination.
+        // In time order; at one instant, as the transfers and each account's ledger order require (`ordered`).
         legs.sort_by(|a, b| (a.at, a.row, a.side).cmp(&(b.at, b.row, b.side)));
-        let position = |legs: &[LegIn], leg: (i64, Side)| legs.iter().position(|l| (l.row, l.side) == leg);
-        for _ in 0..=links.len() {
-            let mut moved = false;
-            for link in links {
-                let (Some(a), Some(b)) = (position(&legs, link.from), position(&legs, link.to)) else { continue };
-                if b < a && legs[a].at == legs[b].at { let d = legs.remove(b); legs.insert(a, d); moved = true; }
-            }
-            if !moved { break; }
-        }
+        let legs = ordered(legs, links);
         let index: HashMap<(i64, Side), usize> = legs.iter().enumerate().map(|(i, l)| ((l.row, l.side), i)).collect();
         let mut eff: Vec<Holding> = legs.iter().map(|l| l.holding.clone()).collect();
         let mut void = vec![];
@@ -145,6 +169,9 @@ impl Spellings {
         let mut held: HashMap<(i64, String), Dec> = HashMap::new();
         let mut carried: HashMap<(i64, String), BTreeSet<String>> = HashMap::new();
         let mut of_key: HashMap<String, Holding> = HashMap::new();
+        // What the units an account holds under a lot are: the reason travels with them (a spent unclear lot refilled by
+        // a conflicting deposit is a conflicting lot).
+        let mut lot: HashMap<(i64, String), Holding> = HashMap::new();
         let mut keys: Vec<String> = Vec::with_capacity(legs.len());
         for i in 0..legs.len() {
             let l = &legs[i];
@@ -152,17 +179,21 @@ impl Spellings {
             if soft(&eff[i]) && l.amount.is_negative() {
                 let positive: Vec<&String> = carried.get(&(l.account, l.spelling.clone())).into_iter().flatten()
                     .filter(|k| held.get(&(l.account, (*k).clone())).is_some_and(Dec::is_positive)).collect();
-                match (sources.get(&i).copied(), positive.as_slice()) {
-                    // A transfer out of an unclear leg moves the one lot its account holds under the spelling, when that
-                    // lot is compatible with the deposit and covers the amount; otherwise (none, several, another
-                    // coin, too little) the link is void (r10 P1-6).
-                    (Some((to, link)), [one]) if !links_compatible(&of_key[*one], &l.spelling, &eff[to], &legs[to].spelling, names)
-                                                    || (&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() => {
+                let reason = |k: &String| lot.get(&(l.account, k.clone())).or_else(|| of_key.get(k)).cloned().unwrap_or(UNCLEAR_HOLDING);
+                let mut linked = sources.get(&i).copied();
+                // A transfer out of an unclear leg moves the one lot its account holds under the spelling, when that lot is
+                // compatible with the deposit and covers the amount; otherwise (none, several, another coin, a refused
+                // lot, too little) the link is void (r10 P1-6), and the leg is an ordinary outflow.
+                if let (Some((to, link)), [one]) = (linked, positive.as_slice()) {
+                    if !links_compatible(&reason(one), &l.spelling, &eff[to], &legs[to].spelling, names) || (&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() {
                         void.push(link);
                         sources.remove(&i);
+                        linked = None;
                     }
+                }
+                match (linked, positive.as_slice()) {
                     (Some((to, _)), [one]) => {
-                        let source = of_key[*one].clone();
+                        let source = reason(one);
                         debit = Some((*one).clone());
                         if source.known() { eff[i] = source.clone(); if soft(&eff[to]) { eff[to] = source; } }
                         else if !soft(&eff[to]) { eff[i] = eff[to].clone(); }
@@ -170,8 +201,8 @@ impl Spellings {
                     (Some((_, link)), _) => { void.push(link); sources.remove(&i); }
                     // Outflow inheritance: X alone held under the spelling, and enough of it.
                     (None, [one]) => {
-                        let h = &of_key[*one];
-                        if h.known() && !(&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() { eff[i] = h.clone(); }
+                        let h = reason(one);
+                        if h.known() && !(&held[&(l.account, (*one).clone())] + &l.amount)?.is_negative() { eff[i] = h; }
                     }
                     (None, _) => {}
                 }
@@ -179,7 +210,15 @@ impl Spellings {
             let k = debit.unwrap_or_else(|| key(l.account, &l.spelling, &eff[i]));
             of_key.entry(k.clone()).or_insert_with(|| eff[i].clone());
             let q = held.entry((l.account, k.clone())).or_insert_with(Dec::zero);
+            let empty = !q.is_positive();
             *q = (&*q + &l.amount)?;
+            let mine = if k == key(l.account, &l.spelling, &eff[i]) { eff[i].clone() } else { of_key[&k].clone() };
+            let lk = (l.account, k.clone());
+            if !q.is_positive() { lot.remove(&lk); }
+            else if empty || !lot.contains_key(&lk) { lot.insert(lk, mine); }
+            else if l.amount.is_positive() {
+                if let (Some(Holding::Unknown(a)), Holding::Unknown(b)) = (lot.get_mut(&lk), &mine) { *a = (*a).min(*b); }
+            }
             carried.entry((l.account, l.spelling.clone())).or_default().insert(k.clone());
             keys.push(k);
         }
@@ -574,5 +613,41 @@ mod tests {
         let balances = [BalanceIn { account: 9, venue: "Kraken".into(), asset_id: 5, spelling: "S".into(), holding: UNCLEAR }];
         let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1")], &[], &balances, &Names::new());
         assert_eq!(s.label_of_asset(9, 5).unwrap().to_string(), "S (unidentified on Kraken)");
+    }
+
+    /// Codex PR0 r3 P1-3: a transfer voided after its lot is chosen is still an outflow: A's one Y leaves with it (the
+    /// withdrawal inherits Y), so a later unclear sale at A finds nothing to inherit.
+    #[test]
+    fn a_void_transfer_spends_its_lot_as_an_ordinary_outflow() {
+        let link = Link { from: (2, Side::Base), to: (3, Side::Base) };
+        let s = build(vec![base(1, 1, "S", coin("y"), "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(3, 2, "S", coin("x"), "2024-01-02", "1"),
+                           base(4, 1, "S", UNCLEAR, "2024-01-03", "-1")], &[link], &[], &Names::new());
+        assert_eq!(s.void_links(), &[link]);
+        assert_eq!(s.leg_holding(2, Side::Base), Some(&coin("y")), "the withdrawal took A's Y");
+        assert_eq!(s.label(2, Side::Base), s.label(1, Side::Base));
+        assert_eq!(s.class(s.label(4, Side::Base).unwrap()), Class::Unknown, "nothing left to inherit");
+    }
+
+    /// Codex PR0 r3 P1-4: the refusal travels with the units outstanding: an unclear lot spent, then a conflicting unit
+    /// deposited under the same lot, then an unclear withdrawal linked to a known X: the link is void.
+    #[test]
+    fn a_refused_lot_never_crosses_a_link() {
+        let link = Link { from: (4, Side::Base), to: (5, Side::Base) };
+        let s = build(vec![base(1, 1, "S", UNCLEAR, "2024-01-01", "1"), base(2, 1, "S", UNCLEAR, "2024-01-02", "-1"),
+                           base(3, 1, "S", Holding::Unknown(Why::Conflict), "2024-01-03", "1"), base(4, 1, "S", UNCLEAR, "2024-01-04", "-1"),
+                           base(5, 2, "S", coin("x"), "2024-01-04", "1")], &[link], &[], &Names::new());
+        assert_eq!(s.void_links(), &[link]);
+        assert!(s.transfer(&link).is_none());
+    }
+
+    /// Codex PR0 r3 P2-8: at one instant the order follows the transfers and each account's ledger order: B's deposit
+    /// (row 2) before B's onward withdrawal (row 3), A's funding withdrawal (row 4) before B's deposit.
+    #[test]
+    fn equal_time_transfers_follow_their_dependencies() {
+        let (ab, bc) = (Link { from: (4, Side::Base), to: (2, Side::Base) }, Link { from: (3, Side::Base), to: (5, Side::Base) });
+        let s = build(vec![base(1, 1, "S", coin("x"), "2024-01-01", "1"), base(2, 2, "S", UNCLEAR, "2024-01-02", "1"), base(3, 2, "S", UNCLEAR, "2024-01-02", "-1"),
+                           base(4, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(5, 3, "S", UNCLEAR, "2024-01-02", "1")], &[ab, bc], &[], &Names::new());
+        assert!(s.void_links().is_empty(), "{:?}", s.void_links());
+        assert_eq!(s.leg_holding(5, Side::Base), Some(&coin("x")), "X reached C");
     }
 }
