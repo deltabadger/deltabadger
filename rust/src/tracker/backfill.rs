@@ -45,7 +45,14 @@ pub fn history_version(c: &Connection, user_id: i64) -> Result<String, FiguresEr
     let (count, latest): (i64, Option<String>) = c.query_row(&format!("SELECT count(*), max(t.updated_at) FROM account_transactions t WHERE t.user_id = ?1 AND {counted}"), [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let latest = latest.map(|t| crate::codec::parse_time(&t).map(|t| t.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string()))
         .transpose().map_err(|e| FiguresError::Data(format!("{e:?}")))?;
-    Ok(format!("{HISTORY_VERSION}_{count}_{}{}", latest.unwrap_or_default(), standing_suffix(c, user_id)?))
+    // Classification reads every row, a duplicate's included: with a duplicate, its rows' count and latest change too, so
+    // new class evidence sweeps again (none with no duplicate: the version is 2.x's then).
+    let suffix = standing_suffix(c, user_id)?;
+    let evidence = if suffix.is_empty() { String::new() } else {
+        let (all, newest): (i64, Option<String>) = c.query_row("SELECT count(*), max(updated_at) FROM account_transactions WHERE user_id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        format!("_c{all}_{}", newest.unwrap_or_default())
+    };
+    Ok(format!("{HISTORY_VERSION}_{count}_{}{evidence}{suffix}", latest.unwrap_or_default()))
 }
 
 /// #710 (PLAN-710-6 §5.2): the duplicate standing a history was swept under, `_d<duplicate>:<survivor>,…` by duplicate;

@@ -2457,8 +2457,10 @@ async fn a_balance_reads_time_is_when_its_answer_arrived() {
     balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
     assert!(time.get() > start, "the prices took their time");
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    // R19: the portfolio watermark is main's (the commit's time); the identity read time is kept apart.
     let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
-    assert_eq!(at, "2026-09-20 02:00:00");
+    assert_eq!(at, "2026-09-20 02:20:00", "the portfolio watermark, as on main");
+    assert_eq!(deltabadger::app_config::get_plain(&c, &format!("rust_sync.read_at:{}", s.api_key_id)).unwrap().as_deref(), Some("2026-09-20 02:00:00"));
 }
 
 /// A transport whose answers after the first take five minutes each (the clock moves before each later reply).
@@ -2482,6 +2484,30 @@ async fn a_multi_request_reads_time_is_its_first_answer() {
     let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
     balances::sync(&db, &AlpacaVenue::new(slow, Urls::for_passphrase(None)), &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    // R19: the portfolio watermark is main's (the commit's time, after the cash, positions and snapshot answers: a fill
+    // between the cash and the positions replies is in the positions and not pending again); the identity read time is
+    // the first answer's, kept apart.
     let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
-    assert_eq!(at, "2026-09-20 02:00:00");
+    assert_eq!(at, "2026-09-20 02:10:00", "the portfolio watermark, as on main");
+    assert_eq!(deltabadger::app_config::get_plain(&c, &format!("rust_sync.read_at:{}", s.api_key_id)).unwrap().as_deref(), Some("2026-09-20 02:00:00"));
+}
+
+/// #710 R19 #1: an Alpaca buy filled between the cash and the positions replies is in the positions read; brought
+/// forward from the ledger too, it would count twice. Main's watermark (the commit's time) counts it once.
+#[tokio::test(flavor = "current_thread")]
+async fn a_buy_between_the_cash_and_positions_replies_counts_once() {
+    let (dir, db, s) = install();
+    let start: chrono::DateTime<chrono::Utc> = "2026-09-20T02:00:00Z".parse().unwrap();
+    let time = Rc::new(Cell::new(start));
+    let slow = Slow { inner: ScriptedTransport::from_script(&balances_script()), clock: time.clone(), sent: Rc::new(Cell::new(0)) };
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    balances::sync(&db, &AlpacaVenue::new(slow, Urls::for_passphrase(None)), &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    // The buy filled at 02:03: after the cash answer (02:00), before the positions answer (02:05) that holds it.
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, \
+               transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, 0, 'AAPL', '1', 'USD', '227', 'fill-1', '2026-09-20 02:03:00', '{}', '{}', 0, '2026-09-20', '2026-09-20')",
+              [s.user_id, s.api_key_id, s.exchange_id]).unwrap();
+    let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All).unwrap();
+    assert!(moved.iter().all(|(symbol, _)| symbol != "AAPL" && symbol != "USD"), "{moved:?}");
 }

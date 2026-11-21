@@ -173,20 +173,29 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     // Earn payment under two names); (c) S holds a row of its type and asset within ten minutes (Coinbase's legacy ids).
     // Whole seconds, so each boundary is exact.
     let secs = |x: &str| format!("CAST(strftime('%s', {x}.transacted_at) AS INTEGER)");
-    // A moved row's group: one the survivor already uses for its own rows would join two groups into one. A conflict
-    // naming both.
+    // A moved row's group, composed as the walks compose it (`tracker::rows::account_group`) on S after the move: one
+    // another of the user's rows on the exchange already reads would join two groups into one. A conflict naming both,
+    // unless one of D's rows in it is the twin of S's row in it (its legs then make one group). Each set is read once.
+    let composed = |group: Option<String>, member: Option<i64>| crate::tracker::rows::account_group(group, member);
+    let shared: std::collections::HashSet<String> = {
+        let mut out = std::collections::HashSet::new();
+        for (dr, sr) in &twin {
+            let g = |id: &i64| c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0));
+            if let (Some(gd), Some(gs)) = (g(dr)?, g(sr)?) { if gd == gs { out.insert(gd); } }
+        }
+        out
+    };
+    let mut q = c.prepare(&format!("SELECT a.id, a.group_id, {} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND NOT ({}) AND a.group_id IS NOT NULL",
+                                   crate::venue_ids::Scope::install(c)?.member_sql("a"), sd.rows("a")))?;
+    let others: Vec<(i64, Option<String>, Option<i64>)> = q.query_map([ss.user_id, ss.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    drop(q);
+    let mut taken: HashMap<String, i64> = HashMap::new();
+    for (id, group, member) in others { if let Some(key) = composed(group, member) { taken.entry(key).or_insert(id); } }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let group: Option<String> = c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [row], |r| r.get(0))?;
         let Some(group) = group.filter(|g| !g.trim().is_empty()) else { continue };
-        // The same group when one of D's rows in it is the twin of S's row in it (its legs then make one group).
-        let shared = twin.iter().any(|(dr, sr)| {
-            let g = |id: &i64| c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).ok().flatten();
-            g(dr).as_deref() == Some(group.as_str()) && g(sr).as_deref() == Some(group.as_str())
-        });
-        if shared { continue; }
-        let theirs: Option<i64> = c.query_row(&format!("SELECT a.id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND a.group_id = ?3 ORDER BY a.id LIMIT 1", ss.rows("a")),
-                                              params![ss.user_id, ss.exchange_id, group], |r| r.get(0)).optional()?;
-        if let Some(theirs) = theirs { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
+        if shared.contains(&group) { continue; }
+        if let Some(theirs) = composed(Some(group), ss.member).and_then(|key| taken.get(&key).copied()) { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
     }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let refused: bool = c.query_row(&format!("SELECT {} OR EXISTS(SELECT 1 FROM account_transactions s WHERE s.user_id = ?1 AND s.exchange_id = ?2 AND {} \
@@ -511,6 +520,7 @@ fn move_key(c: &Connection, id: i64, to: &Account) -> rusqlite::Result<()> {
     c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [id])?;
     // Its balance time was the duplicate's balances' (deleted): read again before it can bring S's movements forward.
     c.execute("UPDATE api_keys SET balances_synced_at = NULL WHERE id = ?1", [id])?;
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [format!("rust_sync.read_at:{id}")])?;
     to.add_key(c, id)
 }
 /// Key `id` goes as `keys::remove` removes one, no bot stopped: its rows' key is the kept key of its type (else none).

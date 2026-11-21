@@ -53,7 +53,14 @@ pub fn balances_read_at(c: &Connection, a: &AccountRow) -> Result<Option<DateTim
         None => false,
     };
     if !fresh { return Ok(None); }
-    let at: Option<String> = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [id], |r| r.get(0)).optional()?.flatten();
+    Ok(read_time(c, id)?)
+}
+
+/// When key `id`'s last balance read began (its first answer, `rust_sync.read_at:<key>`; the identity checks' time),
+/// else its portfolio watermark (`balances_synced_at`, main's: the commit's time).
+pub fn read_time(c: &Connection, id: i64) -> rusqlite::Result<Option<DateTime<Utc>>> {
+    let read: Option<String> = app_config::get_plain(c, &format!("rust_sync.read_at:{id}")).map_err(rusqlite::Error::InvalidParameterName)?;
+    let at: Option<String> = match read { Some(t) => Some(t), None => c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [id], |r| r.get(0)).optional()?.flatten() };
     Ok(at.and_then(|t| crate::codec::parse_time(&t).ok()))
 }
 /// The scope's accounts with balances (`balances`) or a non-withdrawal key (`keys`), by id; a key's number 1 with no row

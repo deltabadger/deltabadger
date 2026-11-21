@@ -954,10 +954,7 @@ pub fn after_balance_read(c: &Connection, api_key_id: i64, now: DateTime<Utc>) -
         if reads(c, &d, &s)? != Reads::NotComparable { continue; }
         // Only a partner whose read is more than READS_APART older than this one, woken for this pair at most hourly.
         let Some(k) = crate::sync::cache::reading_key(c, &other).map_err(eng)? else { continue };
-        let read_at = |key: i64| -> rusqlite::Result<Option<DateTime<Utc>>> {
-            let at: Option<String> = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [key], |r| r.get(0)).optional()?.flatten();
-            Ok(at.and_then(|t| parse_time(&t).ok()))
-        };
+        let read_at = |key: i64| crate::sync::cache::read_time(c, key);
         let mine = read_at(api_key_id)?.unwrap_or(now);
         if read_at(k)?.is_some_and(|theirs| (mine - theirs).num_seconds() <= READS_APART) { continue; }
         let woke = crate::app_config::get_plain(c, &format!("rust_standing_wake:{}:{}", d.id, s.id)).map_err(rusqlite::Error::InvalidParameterName)?.and_then(|t| parse_time(&t).ok());
@@ -1002,7 +999,7 @@ pub fn write_credential(c: &Connection, cipher: &Cipher, id: i64, key: Option<&s
         c.execute("UPDATE api_keys SET last_synced_at = NULL WHERE id = ?1", [id])?;
         c.execute("DELETE FROM app_configs WHERE key IN (?1, ?2, ?3, ?4)", params![format!("rust_sync.ledger:{id}"), format!("rust_sync.ledger_splits:{id}"),
                   format!("rust_sync.kraken_unresolved:{id}"), format!("rust_sync.kraken_repair_deferred:{id}")])?;
-        c.execute("DELETE FROM app_configs WHERE key = ?1", [format!("rust_sync.skipped:{id}")])?;
+        c.execute("DELETE FROM app_configs WHERE key IN (?1, ?2)", [format!("rust_sync.skipped:{id}"), format!("rust_sync.read_at:{id}")])?;
         if ready(c)? {
             c.execute("UPDATE exchange_account_credentials SET material_digest = NULL, observed_credential_version = NULL, fingerprint = NULL, account_id_enc = NULL,
                        observed_at = NULL, last_failure_at = NULL, last_failure_code = NULL WHERE api_key_id = ?1", [id])?;

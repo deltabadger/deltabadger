@@ -1633,16 +1633,6 @@ async fn r9_t25_merge_handback_and_takeover() {
     assert_eq!(identity::account_of_rule(c, rule).unwrap(), Some(two.id(0)), "the rule is on account 1 again");
 }
 
-/// R10: a duplicate's own activity moves no history version.
-#[test]
-fn r10_a_duplicates_activity_moves_no_history_version() {
-    let (_d, o, two) = duplicate();
-    let c = &o.primary;
-    let before = deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap();
-    two.row(c, 1, 4, "BTC", "1", Some("late"), None, "2026-09-25 10:00:00");
-    assert_eq!(deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap(), before);
-}
-
 // ---- review round 2 ----
 
 /// A: twins merge only when every financial fact agrees; another fee, or another venue answer, refuses naming both rows.
@@ -3705,4 +3695,59 @@ fn r18_a_moved_rows_group_must_be_free() {
         synced(c, row);
     }
     match merge_now(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+}
+
+// ---- review round 19 ----
+
+/// R19 #3: the group collision check compares the walk's own composed group keys (`tracker::rows::account_group`) as they
+/// will be after the move: account 3's `swap` moving into account 2 reads `swap@<2>`, which account 1's restored group
+/// already is.
+#[test]
+fn r19_the_group_check_compares_composed_keys() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a3, k3) = account_numbered(c, &two, 3);
+    for (n, fp) in [(0, "other"), (1, "fp")] { two.fingerprint(c, n, Some(fp)); }
+    common::two_accounts::confirm(c, a3, Some("fp"));
+    assert_eq!(standings(c), [(a3, two.id(1))]);
+    two.row(c, 0, 2, "BTC", "1", Some("r-1"), Some(&format!("swap@{}", two.id(1))), "2026-09-01 10:00:00");
+    let scope = deltabadger::venue_ids::Scope::of(c, &identity::Account::by_id(c, a3).unwrap().unwrap()).unwrap();
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, group_id, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, 2, 'ETH', '1', ?4, '2026-09-10 10:00:00', json_object('refid', 's-1'), '{}', 0, 'swap', 'now', 'now')",
+              rusqlite::params![two.seeded.user_id, k3, two.seeded.exchange_id, scope.stored(Some("s-1"))]).unwrap();
+    deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
+    match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+}
+
+/// R19 #4: the history version covers classification evidence, a duplicate's rows included: its new row moves it.
+#[test]
+fn r19_a_duplicates_row_moves_the_history_version() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let before = deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap();
+    let row = two.row(c, 1, 0, "ABC", "1", Some("abc-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET updated_at = '2026-09-30 10:00:00' WHERE id = ?1", [row]).unwrap();
+    assert_ne!(deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap(), before);
+}
+
+/// R19 #5: the live figures' class set reads every balance, a duplicate's included: the survivor's stock ABC beside the
+/// duplicate's crypto ABC is ambiguous.
+#[test]
+fn r19_the_class_set_reads_a_duplicates_balances() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let asset = |category: &str, ext: &str| {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, 'ABC', 'ABC', ?2, 'now', 'now')", [ext, category]).unwrap();
+        c.last_insert_rowid()
+    };
+    let (stock, coin) = (asset("Stock", "ABC.US"), asset("Cryptocurrency", "abc-coin"));
+    for (n, id) in [(0, stock), (1, coin)] {
+        c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+                   VALUES (?1, ?2, ?3, 1, 0, 1, 1, '2026-09-20 10:00:00', '2026-09-20 10:00:00', '2026-09-20 10:00:00', '2026-09-20 10:00:00', ?4)", rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, id, two.id(n)]).unwrap();
+    }
+    let balances = deltabadger::tracker::figures::balances(c, two.seeded.user_id, &deltabadger::tracker::Scope::All).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
+    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::walk::Summary::empty(), &balances, &[], &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
+    assert!(out.is_err(), "ambiguous");
 }
