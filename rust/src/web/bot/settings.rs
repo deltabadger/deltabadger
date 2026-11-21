@@ -112,6 +112,19 @@ impl Forms<'_> {
         self.bot.working()
     }
 
+    /// D-HIDE-BALANCES-INPUTS: with balances hidden, a money INPUT is hidden only while the bot runs (and its fields are
+    /// locked anyway). A stopped bot's amounts are what the reader is there to edit; 2.x hid them, leaving nothing to type
+    /// into. Read-only money (the info lines) stays hidden either way.
+    fn hide_inputs(&self) -> bool {
+        self.hide_balances && self.locked()
+    }
+
+    /// The marker on a money input shown only because the bot is stopped (the 2.x comparison reads it as 2.x's hidden
+    /// field); nothing styles or scripts it.
+    fn revealed(&self, field: String) -> String {
+        if self.hide_balances && !self.hide_inputs() { field.replacen("<input ", "<input data-hidden-balance ", 1) } else { field }
+    }
+
     /// The side these forms are for: the explicit one, else the bot's direction.
     fn selling(&self) -> bool {
         self.selling.unwrap_or_else(|| self.bot.selling())
@@ -172,7 +185,7 @@ impl Forms<'_> {
 
     /// BotHelper#amount_field: a number field, or with balances hidden a hidden field that still posts the value.
     fn amount(&self, name: &str, value: Option<&str>, extra: &str) -> String {
-        if !self.hide_balances { return self.number(name, value, "any", extra, self.locked()); }
+        if !self.hide_inputs() { return self.revealed(self.number(name, value, "any", extra, self.locked())); }
         let key = self.key();
         let rejected = self.rejected(name);
         let value = rejected.as_deref().or(value).map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
@@ -204,12 +217,12 @@ impl Forms<'_> {
         let error = self.check.and_then(|check| check.smart_interval_quote_amount.as_deref());
         let key = self.key();
         let shown = value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
-        let mut field = if self.hide_balances {
+        let mut field = if self.hide_inputs() {
             format!("<input {shown}{}type=\"hidden\" name=\"{key}[smart_interval_quote_amount]\" id=\"{key}_smart_interval_quote_amount\" />", if error.is_some() { "class=\" is-invalid\" " } else { "" })
         } else {
             // The number field carries the floor and its message.
-            format!("<input {shown}min=\"{}\" class=\"sinput numeric-input{}\" step=\"any\" size=\"2\" {AUTOWIDTH}{message} {NARROW}{} type=\"number\" name=\"{key}[smart_interval_quote_amount]\" id=\"{key}_smart_interval_quote_amount\" />",
-                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some()))
+            self.revealed(format!("<input {shown}min=\"{}\" class=\"sinput numeric-input{}\" step=\"any\" size=\"2\" {AUTOWIDTH}{message} {NARROW}{} type=\"number\" name=\"{key}[smart_interval_quote_amount]\" id=\"{key}_smart_interval_quote_amount\" />",
+                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some())))
         };
         if let Some(error) = error { field.push_str(&error_line(error)); }
         let sentence = self.t("bot.settings.smart_intervals.sentence_html", &[("amount_html", Arg::Html(&format!("<div>              {field}\n</div>"))), ("quote", Arg::Text(self.quote()))]);
@@ -247,11 +260,11 @@ impl Forms<'_> {
         let key = self.key();
         let shown = value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default();
         let error = self.field_error("smart_interval_base_amount");
-        let mut field = if self.hide_balances {
+        let mut field = if self.hide_inputs() {
             format!("<input {shown}{}type=\"hidden\" name=\"{key}[smart_interval_base_amount]\" id=\"{key}_smart_interval_base_amount\" />", if error.is_some() { "class=\" is-invalid\" " } else { "" })
         } else {
-            format!("<input {shown}min=\"{}\" class=\"sinput numeric-input{}\" step=\"any\" size=\"2\" {AUTOWIDTH}{message} {NARROW}{} type=\"number\" name=\"{key}[smart_interval_base_amount]\" id=\"{key}_smart_interval_base_amount\" />",
-                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some()))
+            self.revealed(format!("<input {shown}min=\"{}\" class=\"sinput numeric-input{}\" step=\"any\" size=\"2\" {AUTOWIDTH}{message} {NARROW}{} type=\"number\" name=\"{key}[smart_interval_base_amount]\" id=\"{key}_smart_interval_base_amount\" />",
+                    minimum.value.to_s(), if error.is_some() { " is-invalid" } else { "" }, disabled_field(self.locked(), error.is_some())))
         };
         if let Some(error) = error { field.push_str(&error_line(&error)); }
         let sentence = self.t("bot.settings.smart_intervals.sell_sentence_html", &[("amount_html", Arg::Html(&format!("<div>              {field}\n</div>"))), ("base", Arg::Text(base))]);
@@ -808,8 +821,8 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let quote = bot.quote_symbol().unwrap_or(&rejected_quote);
     let quote_asset_id = bot.setting("quote_asset_id").and_then(Value::as_i64);
     let amount = forms.rejected("quote_amount").or_else(|| bot.number("quote_amount").as_ref().and_then(input_value)).unwrap_or_else(|| "100".to_string());
-    let mut amount_field = if forms.hide_balances { forms.amount("quote_amount", Some(&amount), "") } else {
-        format!("<input value=\"{}\" class=\"numeric-input\" step=\"any\" size=\"2\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[quote_amount]\" id=\"{key}_quote_amount\" />", escape(&amount), disabled(bot.working()), key = bot.param_key())
+    let mut amount_field = if forms.hide_inputs() { forms.amount("quote_amount", Some(&amount), "") } else {
+        forms.revealed(format!("<input value=\"{}\" class=\"numeric-input\" step=\"any\" size=\"2\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[quote_amount]\" id=\"{key}_quote_amount\" />", escape(&amount), disabled(bot.working()), key = bot.param_key()))
     };
     if let Some(error) = forms.field_error("quote_amount") {
         amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"").replace(" disabled=\"disabled\"", " disabled");
@@ -821,11 +834,11 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
         let name = if sell == 1 { "sell_amount" } else { "sell_quote_amount" };
         // A rejected submission shows what was posted, marked invalid with its error under it, as the buy amount does.
         let value = forms.rejected(name).or_else(|| bot.number(name).and_then(|n| n.to_d()).and_then(|d| input_value(&Num::Dec(d))));
-        amount_field = if forms.hide_balances { forms.amount(name, value.as_deref(), "") } else {
-            format!("<input {}class=\"numeric-input\" step=\"any\" size=\"2\" placeholder=\"0\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />",
-                    value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default(), if value.is_none() { " autofocus=\"autofocus\"" } else { "" }, key = bot.param_key())
+        amount_field = if forms.hide_inputs() { forms.amount(name, value.as_deref(), "") } else {
+            forms.revealed(format!("<input {}class=\"numeric-input\" step=\"any\" size=\"2\" placeholder=\"0\" {AUTOWIDTH}{} type=\"number\" name=\"{key}[{name}]\" id=\"{key}_{name}\" />",
+                    value.as_ref().map(|value| format!("value=\"{}\" ", escape(value))).unwrap_or_default(), if value.is_none() { " autofocus=\"autofocus\"" } else { "" }, key = bot.param_key()))
         };
-        if !forms.hide_balances {
+        if !forms.hide_inputs() {
             if let Some(error) = forms.field_error(name) {
                 amount_field = amount_field.replace("class=\"numeric-input\"", "class=\"numeric-input is-invalid\"");
                 amount_field.push_str(&error_line(&error));

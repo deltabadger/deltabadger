@@ -103,12 +103,15 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
             // D-LIQUIDATION-ONE-LINE: the bot--selling controller on the columns wrapper, each Sell link's target and its asset
             // id; 2.x has none of them.
             let sell = element.attr("data-bot--selling-target") == Some("sell");
+            // D-HIDE-BALANCES-INPUTS: a stopped bot's money input this build shows with balances hidden is 2.x's hidden field.
+            let revealed = element.attr("data-hidden-balance").is_some();
             let mut attributes: Vec<(&str, String)> = element.attrs()
                 .filter(|(name, value)| {
                     let ours = (sell && matches!(*name, "data-bot--selling-target" | "data-asset")) || (*name == "data-controller" && *value == "bot--selling");
-                    !ours
+                    !ours && (!revealed || matches!(*name, "id" | "name" | "value"))
                 })
                 .map(|(name, value)| (name, attribute(element, name, value))).collect();
+            if revealed { attributes.push(("type", "hidden".into())); }
             attributes.sort();
             let attributes: String = attributes.iter().map(|(name, value)| format!(" {name}={value:?}")).collect();
             lines.push(format!("{indent}<{}{attributes}>", element.name()));
