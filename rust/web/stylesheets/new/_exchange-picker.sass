@@ -21,10 +21,10 @@
     border: none
     cursor: pointer
     &:not(:disabled):hover
-      background: var(--sky)
+      background: var(--accent)
       svg
         *
-          fill: var(--white)
+          fill: var(--on-accent, #fff)
     &:disabled
       cursor: not-allowed
       opacity: .55

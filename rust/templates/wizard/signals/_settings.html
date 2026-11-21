@@ -52,6 +52,6 @@
 </form>
 {% endfor %}
     <div id="add-signal-button">
-      <form class="button_to" method="post" action="{{ add_url }}"><button class="sbutton sbutton--sky" type="submit">{{ v.t("bot.signal.add_signal")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+      <form class="button_to" method="post" action="{{ add_url }}"><button class="sbutton sbutton--accent" type="submit">{{ v.t("bot.signal.add_signal")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
     </div>
 </div>

@@ -389,10 +389,10 @@
 .salert .slider
     margin-top: 0.75rem
     .slider__style__progress
-        background-color: white
+        background-color: var(--on-accent, #fff)
     .slider__style__track
-        border-left-color: white
-        background: rgba(255, 255, 255, 0.2)
+        border-left-color: var(--on-accent, #fff)
+        background: color-mix(in srgb, var(--on-accent, #fff) 20%, transparent)
 
 // Robust hide that author CSS on the targets can't override.
 .is-hidden
@@ -425,10 +425,10 @@
             color: var(--berry)
 
     &__card--proposed-fund
-        border-left-color: var(--sky)
+        border-left-color: var(--accent)
 
         .fund-classification__eyebrow
-            color: var(--sky)
+            color: var(--accent)
 
     &__card--refused
         border-left-color: var(--warning)

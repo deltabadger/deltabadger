@@ -79,15 +79,24 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
     match node.value() {
         Node::Doctype(doctype) => lines.push(format!("{indent}<!DOCTYPE {}>", doctype.name())),
         Node::Comment(comment) => lines.push(format!("{indent}<!--{}-->", &**comment)),
+        // D-NO-MENU-LOGO: the whitespace after 2.x's sidebar logo goes with it, so the tiles compare line for line.
+        Node::Text(text) if text.trim().is_empty() && node.prev_sibling().and_then(|n| n.value().as_element()).is_some_and(|e| e.has_class("menu__section--logo", scraper::CaseSensitivity::CaseSensitive)) => {}
         Node::Text(text) => {
             let verbatim = node.ancestors().any(|a| a.value().as_element().is_some_and(|e| VERBATIM.contains(&e.name())));
             let shown = if verbatim { text.to_string() } else { collapse(text) };
             if !shown.is_empty() { lines.push(format!("{indent}{shown:?}")); }
         }
-        // Named divergences D-SCHEME-SWITCH (the Settings menu's colour scheme row) and D-PIXEL-SCENES (the empty states'
+        // Named divergences D-SCHEME-SWITCH (the Settings menu's colour scheme row), D-MODE-SWITCH (its System/Light/Dark row) and D-PIXEL-SCENES (the empty states'
         // pixel scenes on the bots, tracker and rules pages): this build's own elements, 2.x has neither. Each is written with no whitespace around it,
         // so the rest of the page still compares line for line.
-        Node::Element(element) if element.attr("data-scheme-switch").is_some() || element.attr("data-pixel-scene").is_some() => {}
+        Node::Element(element) if element.attr("data-scheme-switch").is_some() || element.attr("data-mode-switch").is_some() || element.attr("data-pixel-scene").is_some() => {}
+        // D-NO-MENU-LOGO: the sidebar has no logo above its tiles; 2.x drew one.
+        Node::Element(element) if element.has_class("menu__section--logo", scraper::CaseSensitivity::CaseSensitive) => {}
+        // D-VERSION-LINK: the Settings sheet's version links to the source repository; 2.x shows the bare text, so the link
+        // is unwrapped and its text compares as before.
+        Node::Element(element) if element.attr("data-version-link").is_some() => {
+            for child in node.children() { walk(child, depth, lines); }
+        }
         Node::Element(element) => {
             // D-LIQUIDATION-ONE-LINE: the bot--selling controller on the columns wrapper, each Sell link's target and its asset
             // id; 2.x has none of them.

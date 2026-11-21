@@ -95,6 +95,10 @@ en:
         scheme_warm: 'Warm'
         scheme_ember: 'Ember'
         scheme_forest: 'Forest'
+        mode: 'Appearance'
+        mode_system: 'System'
+        mode_light: 'Light'
+        mode_dark: 'Dark'
         show_balances: 'Show balances'
         about: About
         telegram: 'Telegram'

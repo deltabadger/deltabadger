@@ -95,6 +95,10 @@ sv:
         scheme_warm: 'Varm'
         scheme_ember: 'Glöd'
         scheme_forest: 'Skog'
+        mode: 'Utseende'
+        mode_system: 'System'
+        mode_light: 'Ljust'
+        mode_dark: 'Mörkt'
         show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'

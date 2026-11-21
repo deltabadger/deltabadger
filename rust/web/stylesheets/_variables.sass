@@ -1,3 +1,5 @@
+@use "mixins" as *
+
 // Font: Montserrat (default)
 @font-face
   font-family: 'Montserrat'
@@ -54,6 +56,12 @@
 [data-locale="el"]
   --font-family: 'Google Sans', sans-serif
 
+// D-MODE-SWITCH: a mode the reader chose also sets the native controls' (scrollbars, form fields).
+\:root[data-mode="light"]
+  color-scheme: light
+\:root[data-mode="dark"]
+  color-scheme: dark
+
 // Not a colour: in both schemes.
 \:root
   --sheet-side-padding: 2rem
@@ -62,8 +70,8 @@
 
 // D-SCHEME-SWITCH: the two palettes as mixins, so a scheme can take one whatever the OS says.
 @mixin palette-light
-  --sky: color(display-p3 0 0 1)
-  --link: var(--sky)
+  --accent: color(display-p3 0 0 1)
+  --link: var(--accent)
   --ink: #001933
   --ash: #506181
   --stone: #738197
@@ -77,7 +85,7 @@
   --white: #FFFFFF
   --grass: color(display-p3 0 0.65 0.425)
   --berry: #db0049
-  --highlight: var(--sky)
+  --highlight: var(--accent)
   --autocomplete: #cde
   --inputTextFocus: #0D223F
   --menulink: #789
@@ -88,7 +96,6 @@
 
   --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
   --shadow-widget: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-  --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
   --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
   --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
   --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
@@ -96,7 +103,7 @@
 
   --rinput-bg: var(--washed)
   --rinput-shadow: inset 0 0 0 0.125rem var(--zinc), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-  --rinput-focus: inset 0 0 0 0.125rem var(--sky), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --rinput-focus: inset 0 0 0 0.125rem var(--accent), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
 
   --warning: color(display-p3 1 0.5 0)
   --benchmark: #949db5
@@ -133,7 +140,7 @@
   --ticker-tooltip-secondary: var(--stone)
 
 @mixin palette-dark
-  --sky: color(display-p3 0 0 1)
+  --accent: color(display-p3 0 0 1)
   --link: #def
   --ink: #def
   --ash: #90aed7
@@ -159,7 +166,6 @@
 
   --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
   --shadow-widget: inset 0.075rem 0.075rem #88f2, inset -0.075rem -0.075rem #0006
-  --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
   --shadow-paper: inset 0.075rem 0.075rem #88f2
   --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
   --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
@@ -167,7 +173,7 @@
 
   --rinput-bg: var(--zinc)
   --rinput-shadow: inset 0 0 0 0.125rem var(--concrete), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
-  --rinput-focus: inset 0 0 0 0.125rem var(--sky), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+  --rinput-focus: inset 0 0 0 0.125rem var(--accent), 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
 
   --warning: color(display-p3 1 0.5 0)
   --benchmark: #465f81
@@ -203,64 +209,99 @@
   --ticker-tooltip-border: none
   --ticker-tooltip-secondary: var(--ash)
 
-@media (prefers-color-scheme: light)
-  \:root
+\:root
+  +light-root
     +palette-light
 
-@media (prefers-color-scheme: dark)
-  \:root
+\:root
+  +dark-root
     +palette-dark
 
-// The dark-only schemes start from the dark palette whatever the OS says; each block below makes it its own.
-\:root:is([data-scheme="space"], [data-scheme="forest"])
-  +palette-dark
-  color-scheme: dark
-
-// Space: neutral near-black greys instead of navy, a slate accent.
+// Space: neutral cool greys instead of navy and a slate accent, in both modes (white labels 8:1).
 \:root[data-scheme="space"]
-  --sky: #3f5569
-  --slider-progress: #3f5569
-  --insight-background: #3f556999
-  --tooltip-background: #3f5569
-  --dropdown-hover: #3f5569
-  --link: #e6e6ea
-  --ink: #e6e6ea
-  --ash: #a3a3ad
-  --stone: #6b6b76
-  --concrete: #4a4a53
-  --steel: #1f1f24
-  --silver: #000000
-  --zinc: #18181c
-  --paper: #050506
-  --washed: #0f0f12
-  --paper-on-washed: #18181c
-  --autocomplete: #18181c
-  --menulink: #4f4f5a
-  --menulink-active: #e6e6ea
-  --menuLogo: #e6e6ea
-  --pickExchangeItemBg: #18181c
-  --shadow-widget: inset 0.075rem 0.075rem #ffffff14, inset -0.075rem -0.075rem #0008
-  --shadow-paper: inset 0.075rem 0.075rem #ffffff14
-  --benchmark: #50505a
-  --label: #ffffffb8
-  --label-select-inactive: #ffffff66
-  --modal-backdrop: #000c
-  --pick-bot-item-bg: #0f0f12
-  --big-header: #707079
-  --input-text-inactive: #85858f
-  --input-border: #85858f
-  --sinput-background: #0f0f12
-  --dropdown-bg: #141417
-  --dropdown-border: #2c2c33
-  --text-faded: #55555f
-  --widget-shadow-line: #000a
-  --slider-track: #ffffff1a
+  +light-root
+    --accent: #3F5569
+    --link: #3F5569
+    --ink: #121216
+    --ash: #4F4F5A
+    --stone: #6B6B76
+    --concrete: #A3A3AD
+    --steel: #D0D0D6
+    --silver: #E6E6EA
+    --zinc: #E6E6EA
+    --paper: #F7F7F8
+    --washed: #FFFFFF
+    --paper-on-washed: #F0F0F2
+    --autocomplete: #F0F0F2
+    --inputTextFocus: #121216
+    --menulink: #8A8A94
+    --menulink-active: #3F5569
+    --menuLogo: #3F5569
+    --navbarLink: #3F5569
+    --pickExchangeItemBg: #F0F0F2
+    --benchmark: #A3A3AD
+    --insight-background: #3F556933
+    --insight-warning-background: #F6D9B8
+    --slider-track: #12121619
+    --slider-progress: #3F5569
+    --label: #121216ba
+    --label-select-inactive: #12121660
+    --close-hover: #F0F0F2
+    --modal-backdrop: #6B6B7638
+    --big-header: var(--stone)
+    --input-text-inactive: #9A9AA4
+    --input-border: #9A9AA4
+    --sinput-text: #3F5569
+    --tooltip-text: #121216
+    --dropdown-hover: #E6E6EA66
+    --text-faded: #9A9AA4
+    --widget-shadow-line: #12121611
 
-// Ember: neutral greys with no tint and a burnt-orange accent, in both modes (white labels on the accent 4.8:1).
-@media (prefers-color-scheme: light)
-  \:root[data-scheme="ember"]
-    --sky: #B4592C
-    --link: #B4592C
+\:root[data-scheme="space"]
+  +dark-root
+    --accent: #3f5569
+    --slider-progress: #3f5569
+    --insight-background: #3f556999
+    --tooltip-background: #3f5569
+    --dropdown-hover: #ffffff1f
+    --link: #e6e6ea
+    --ink: #e6e6ea
+    --ash: #a3a3ad
+    --stone: #6b6b76
+    --concrete: #4a4a53
+    --steel: #1f1f24
+    --silver: #000000
+    --zinc: #18181c
+    --paper: #050506
+    --washed: #0f0f12
+    --paper-on-washed: #18181c
+    --autocomplete: #18181c
+    --menulink: #4f4f5a
+    --menulink-active: #e6e6ea
+    --menuLogo: #e6e6ea
+    --pickExchangeItemBg: #18181c
+    --shadow-widget: inset 0.075rem 0.075rem #ffffff14, inset -0.075rem -0.075rem #0008
+    --shadow-paper: inset 0.075rem 0.075rem #ffffff14
+    --benchmark: #50505a
+    --label: #ffffffb8
+    --label-select-inactive: #ffffff66
+    --modal-backdrop: #000c
+    --pick-bot-item-bg: #0f0f12
+    --big-header: #707079
+    --input-text-inactive: #85858f
+    --input-border: #85858f
+    --sinput-background: #0f0f12
+    --dropdown-bg: #141417
+    --dropdown-border: #2c2c33
+    --text-faded: #55555f
+    --widget-shadow-line: #000a
+    --slider-track: #ffffff1a
+
+// Ember: neutral greys, a near-black accent in light mode and a white one in dark (its labels #111).
+\:root[data-scheme="ember"]
+  +light-root
+    --accent: #111111
+    --link: #111111
     --ink: #141414
     --ash: #5C5C5C
     --stone: #808080
@@ -274,15 +315,15 @@
     --autocomplete: #F1F1F1
     --inputTextFocus: #141414
     --menulink: #8A8A8A
-    --menulink-active: #B4592C
-    --menuLogo: #B4592C
-    --navbarLink: #B4592C
+    --menulink-active: #111111
+    --menuLogo: #111111
+    --navbarLink: #111111
     --pickExchangeItemBg: #F1F1F1
     --benchmark: #ABABAB
-    --insight-background: #B4592C33
+    --insight-background: #11111114
     --insight-warning-background: #F6D9B8
     --slider-track: #14141419
-    --slider-progress: #B4592C
+    --slider-progress: #111111
     --label: #141414ba
     --label-select-inactive: #14141460
     --close-hover: #F1F1F1
@@ -290,15 +331,16 @@
     --big-header: var(--stone)
     --input-text-inactive: #9A9A9A
     --input-border: #9A9A9A
-    --sinput-text: #B4592C
+    --sinput-text: #111111
     --tooltip-text: #141414
     --dropdown-hover: #EFEFEF66
     --text-faded: #9A9A9A
     --widget-shadow-line: #14141411
 
-@media (prefers-color-scheme: dark)
-  \:root[data-scheme="ember"]
-    --sky: #B4592C
+\:root[data-scheme="ember"]
+  +dark-root
+    --accent: #FFFFFF
+    --on-accent: #111111
     --link: var(--white)
     --ink: #E8E8E8
     --ash: #AFAFAF
@@ -319,9 +361,9 @@
     --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
     --shadow-paper: inset 0.075rem 0.075rem #ffffff10
     --benchmark: #4D4D4D
-    --insight-background: #B4592C66
+    --insight-background: #ffffff1f
     --slider-track: #E8E8E81a
-    --slider-progress: #B4592C
+    --slider-progress: #FFFFFF
     --label: #E8E8E8c0
     --label-select-inactive: #E8E8E866
     --modal-backdrop: #000000c8
@@ -330,59 +372,103 @@
     --input-text-inactive: #8F8F8F
     --input-border: #8F8F8F
     --sinput-background: #1B1B1B
-    --tooltip-background: #B4592C
+    --tooltip-background: #FFFFFF
+    --tooltip-text: #111111
     --dropdown-bg: #212121
     --dropdown-border: #333333
-    --dropdown-hover: #B4592C
+    --dropdown-hover: #ffffff1f
     --text-faded: #666666
     --widget-shadow-line: #0008
 
-// Forest: deep green greys and a leaf-green accent (white labels 5:1), dark only.
+// Forest: green greys and a leaf-green accent, in both modes (white labels 5:1). Success is the accent.
 \:root[data-scheme="forest"]
-  --sky: #2E7D57
-  --link: var(--white)
-  --ink: #E2F0E7
-  --ash: #9DBFAA
-  --stone: #668773
-  --concrete: #43604F
-  --steel: #213A2D
-  --silver: #050F0A
-  --zinc: #18291F
-  --paper: #0C1812
-  --washed: #13231A
-  --paper-on-washed: #1B2E23
-  --highlight: var(--white)
-  --autocomplete: #1B2E23
-  --menulink: #4D6B5A
-  --menulink-active: #E2F0E7
-  --menuLogo: #E2F0E7
-  --pickExchangeItemBg: #1B2E23
-  --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
-  --shadow-paper: inset 0.075rem 0.075rem #ffffff10
-  --benchmark: #43604F
-  --insight-background: #2E7D5766
-  --slider-track: #E2F0E71a
-  --slider-progress: #2E7D57
-  --label: #E2F0E7c0
-  --label-select-inactive: #E2F0E766
-  --modal-backdrop: #040a07c8
-  --pick-bot-item-bg: #13231A
-  --big-header: #668773
-  --input-text-inactive: #86A592
-  --input-border: #86A592
-  --sinput-background: #13231A
-  --tooltip-background: #2E7D57
-  --dropdown-bg: #15271D
-  --dropdown-border: #2A4536
-  --dropdown-hover: #2E7D57
-  --text-faded: #4D6B5A
-  --widget-shadow-line: #0008
+  +light-root
+    --accent: #2E7D57
+    --link: #2E7D57
+    --ink: #0E1616
+    --ash: #475B5C
+    --stone: #637779
+    --concrete: #92A5A7
+    --steel: #C5D1D2
+    --silver: #DEE6E7
+    --zinc: #DEE6E7
+    --paper: #F5F7F8
+    --washed: #FFFFFF
+    --paper-on-washed: #EEF2F2
+    --autocomplete: #EEF2F2
+    --inputTextFocus: #0E1616
+    --menulink: #809395
+    --menulink-active: #2E7D57
+    --menuLogo: #2E7D57
+    --navbarLink: #2E7D57
+    --pickExchangeItemBg: #EEF2F2
+    --benchmark: #92A5A7
+    --insight-background: #2E7D5733
+    --insight-warning-background: #C0EAEE
+    --slider-track: #0E161619
+    --slider-progress: #2E7D57
+    --label: #0E1616ba
+    --label-select-inactive: #0E161660
+    --close-hover: #EEF2F2
+    --modal-backdrop: #63777938
+    --big-header: var(--stone)
+    --input-text-inactive: #8A9FA1
+    --input-border: #8A9FA1
+    --sinput-text: #2E7D57
+    --tooltip-text: #0E1616
+    --dropdown-hover: #DEE6E766
+    --text-faded: #8A9FA1
+    --widget-shadow-line: #0E161611
+
+\:root[data-scheme="forest"]
+  +dark-root
+    --accent: #2E7D57
+    --link: var(--white)
+    --ink: #E4EDEE
+    --ash: #A1B9BB
+    --stone: #6A8183
+    --concrete: #475B5C
+    --steel: #243537
+    --silver: #060D0E
+    --zinc: #1A2627
+    --paper: #101A1B
+    --washed: #152021
+    --paper-on-washed: #1D2A2C
+    --highlight: var(--white)
+    --autocomplete: #1D2A2C
+    --menulink: #516567
+    --menulink-active: #E4EDEE
+    --menuLogo: #E4EDEE
+    --pickExchangeItemBg: #1D2A2C
+    --shadow-widget: inset 0.075rem 0.075rem #ffffff10, inset -0.075rem -0.075rem #0007
+    --shadow-paper: inset 0.075rem 0.075rem #ffffff10
+    --benchmark: #475B5C
+    --insight-background: #2E7D5766
+    --slider-track: #E4EDEE1a
+    --slider-progress: #2E7D57
+    --label: #E4EDEEc0
+    --label-select-inactive: #E4EDEE66
+    --modal-backdrop: #050909c8
+    --pick-bot-item-bg: #152021
+    --big-header: #6A8183
+    --input-text-inactive: #8A9FA1
+    --input-border: #8A9FA1
+    --sinput-background: #152021
+    --tooltip-background: #2E7D57
+    --dropdown-bg: #172425
+    --dropdown-border: #2D4042
+    --dropdown-hover: #284042
+    --text-faded: #516567
+    --widget-shadow-line: #0008
+
+\:root[data-scheme="forest"]
+  --grass: var(--accent)
 
 // Warm: neutral greys with a clay accent, in both modes. The clay under white text is #AE5630 (5:1 for a white
 // label), a lighter clay only where it is text or a line on the dark page.
-@media (prefers-color-scheme: light)
-  \:root[data-scheme="warm"]
-    --sky: #AE5630
+\:root[data-scheme="warm"]
+  +light-root
+    --accent: #AE5630
     --link: #AE5630
     --ink: #141414
     --ash: #5C5C5C
@@ -419,9 +505,9 @@
     --text-faded: #9A9A9A
     --widget-shadow-line: #14141411
 
-@media (prefers-color-scheme: dark)
-  \:root[data-scheme="warm"]
-    --sky: #AE5630
+\:root[data-scheme="warm"]
+  +dark-root
+    --accent: #AE5630
     --link: var(--white)
     --ink: #F1F1F1
     --ash: #C2C2C2
@@ -456,7 +542,7 @@
     --tooltip-background: #AE5630
     --dropdown-bg: #363636
     --dropdown-border: #4A4A4A
-    --dropdown-hover: #AE5630
+    --dropdown-hover: #ffffff1f
     --text-faded: #767676
     --widget-shadow-line: #0006
 

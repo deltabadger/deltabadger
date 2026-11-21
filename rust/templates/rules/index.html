@@ -2,14 +2,14 @@
 {% if empty %}
   <div class="welcome-screen"><canvas class="pixel-scene" data-controller="pixel-scene" data-pixel-scene-name-value="withdraw" data-pixel-scene aria-hidden="true"></canvas>
     <p>{{ v.t("rules.index.welcome.keep_coins_safe") }}</p>
-    <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ add }}">
+    <a class="sbutton sbutton--accent" data-turbo-frame="modal" href="{{ add }}">
       {% include "svg/_24x24_plus.html" %}
 </a>  </div>
 {% else %}
   <div class="page-head">
     <div></div>
     <div>
-      <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ add }}">
+      <a class="sbutton sbutton--accent" data-turbo-frame="modal" href="{{ add }}">
         <span class="d-none d-sm-inline">{{ v.t("button.add") }}</span>
         {% include "svg/_24x24_plus.html" %}
 </a>    </div>

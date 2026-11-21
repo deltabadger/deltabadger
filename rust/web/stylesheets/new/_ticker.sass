@@ -194,7 +194,7 @@
     border: none
     color: var(--white)
     font-weight: 600
-    box-shadow: var(--shadow-strong)
+    box-shadow: var(--shadow-basic)
     cursor: pointer
     display: flex
     align-items: center
@@ -216,11 +216,15 @@
 
 
     // Color variants (solid background)
-    &--sky, &--success, &--danger
+    &--accent, &--success, &--danger
         &:hover 
             color: var(--white) !important
-    &--sky
-        background: var(--sky)
+    &--accent
+        background: var(--accent)
+        &, &:hover
+            color: var(--on-accent, #fff) !important
+        svg, .fill--icon
+            fill: var(--on-accent, #fff)
     &--success
         background: var(--grass)
     &--danger

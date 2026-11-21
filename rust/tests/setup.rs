@@ -187,7 +187,7 @@ fn onboarding_form_as_rust(body: &str) -> String {
     assert_eq!(body.matches("autocomplete=\"username\"").count(), 1);
     body = body.replace("autocomplete=\"username\"", "autocomplete=\"off\"");
     let (next, create) = (web::i18n::text(&code, "setup.continue", &[]), web::i18n::text(&code, "setup.create", &[]));
-    let button = |label: &str| format!("name=\"commit\" value=\"{label}\" class=\"button button--sky button--large\" data-disable-with=\"{label}\"");
+    let button = |label: &str| format!("name=\"commit\" value=\"{label}\" class=\"button button--accent button--large\" data-disable-with=\"{label}\"");
     assert_eq!(body.matches(&button(&next)).count(), 1, "2.x's Continue");
     body = body.replace(&button(&next), &button(&create));
     // The form is a Turbo submission here, so the dashboard is a render of the same document (onboarding_transitions.js).

@@ -13,7 +13,7 @@ fr:
                 brokers: "Courtiers"
                 exchanges: "Exchanges"
             market_data:
-                intro: "Les indices nécessitent des données de marché en direct. Utilisez l’API de données officielle de Deltabadger ou un compte CoinGecko gratuit."
+                intro: "Les indices ont besoin de données de marché en direct. Connectez l’API de données Deltabadger (actions et cryptos) ou un compte CoinGecko gratuit (cryptos uniquement)."
                 providers: "Fournisseurs de données de marché"
                 subscription:
                     lead_html: "Un abonnement <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> comprend :"

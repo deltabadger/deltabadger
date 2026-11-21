@@ -255,7 +255,7 @@ export default class extends Controller {
     // menu, or the OS turning light or dark, builds it again in the new colours.
     this.repaint = () => this.#buildChart();
     this.schemes = new MutationObserver(this.repaint);
-    this.schemes.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme"] });
+    this.schemes.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme", "data-mode"] });
     this.dark = matchMedia("(prefers-color-scheme: dark)");
     this.dark.addEventListener("change", this.repaint);
   }

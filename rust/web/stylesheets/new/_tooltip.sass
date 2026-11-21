@@ -4,8 +4,8 @@
     opacity: 0
     position: absolute
     font-weight: 600
-    background: var(--sky)
-    color: #fff
+    background: var(--accent)
+    color: var(--on-accent, #fff)
     padding: 2rem 2.25rem
     border-radius: 1rem
     box-shadow: 0 0rem 5rem 0.5rem rgba(0, 0, 0, 0.1)
@@ -22,10 +22,10 @@
         left: 50%
         transform: translateX(-50%)
         border: 1rem solid transparent
-        border-bottom-color: var(--sky)
+        border-bottom-color: var(--accent)
         z-index: 1
     b
-        color: #fff !important
+        color: var(--on-accent, #fff) !important
         font-weight: 600 !important
 
 .tooltip-icon--off

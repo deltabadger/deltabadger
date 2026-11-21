@@ -76,16 +76,34 @@ $grid-breakpoints: ( xs: 0, sm: 576px, md: 768px, lg: 992px, xl: 1200px ) !defau
     @include media-breakpoint-down($name, $breakpoints)
       @content
 
-// D-SCHEME-SWITCH: a rule for dark pages. The OS's dark mode, and the dark-only schemes (Space, Forest) whatever the OS says. `:where` keeps the
-// rule's specificity what it was under the bare media query.
+// D-MODE-SWITCH: a rule for dark pages — the Settings menu's Dark (`<html data-mode="dark">`), or System and the OS in
+// dark mode. `:where` keeps each rule's specificity what it was under the bare media query.
 @mixin dark
   @media (prefers-color-scheme: dark)
-    @content
-  :where(:root:is([data-scheme="space"], [data-scheme="forest"])) &
+    :where(:root:not([data-mode="light"])) &
+      @content
+  :where(:root[data-mode="dark"]) &
     @content
 
-// A rule for light pages: the OS's light mode, unless a dark-only scheme is on.
+// A rule for light pages, the same way round.
 @mixin light
   @media (prefers-color-scheme: light)
-    :where(:root:not([data-scheme="space"], [data-scheme="forest"])) &
+    :where(:root:not([data-mode="dark"])) &
       @content
+  :where(:root[data-mode="light"]) &
+    @content
+
+// The two on `:root` itself, for the palettes.
+@mixin dark-root
+  @media (prefers-color-scheme: dark)
+    &:where(:not([data-mode="light"]))
+      @content
+  &:where([data-mode="dark"])
+    @content
+
+@mixin light-root
+  @media (prefers-color-scheme: light)
+    &:where(:not([data-mode="dark"]))
+      @content
+  &:where([data-mode="light"])
+    @content

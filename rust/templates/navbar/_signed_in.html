@@ -32,6 +32,24 @@
 <input data-form--segmented-field-target="field" type="hidden" value="{{ user.display_currency }}" name="user[display_currency]" />
 </form>
 {%- endmacro -%}
+{%- macro mode_picker(item_class) -%}
+{%- let current = v.mode_option() -%}
+<div class="{{ item_class }} {{ item_class }}--currency" data-dropdown-keep-open data-mode-switch data-controller="mode" data-action="segmented:change-&gt;mode#pick">
+<div class="segmented segmented--fluid" role="radiogroup" aria-label="{{ v.t("links.mode")|safe }}" data-controller="segmented" data-action="click-&gt;segmented#toggle">
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+{% for value in ["system", "light", "dark"] %}            <button type="button" class="segmented__option{% if current == *value %} is-on{% endif %}" role="radio" aria-checked="{% if current == *value %}true{% else %}false{% endif %}" tabindex="{% if current == *value %}0{% else %}-1{% endif %}" data-value="{{ value }}" data-segmented-target="option" data-action="segmented#select keydown-&gt;segmented#keys">{{ v.t(&format!("links.mode_{value}"))|safe }}</button>
+{% endfor %}      </div>
+    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    {% include "svg/_16x16_down.html" %}
+
+</span></div>
+<!--/mode--></div>
+{%- endmacro -%}
 {%- macro scheme_picker(item_class) -%}
 <div class="{{ item_class }} {{ item_class }}--scheme" data-dropdown-keep-open data-scheme-switch data-controller="scheme" role="radiogroup" aria-label="{{ v.t("links.scheme")|safe }}">
 {% for (value, stored) in [("default", ""), ("warm", "warm"), ("ember", "ember"), ("space", "space"), ("forest", "forest")] %}<button type="button" class="scheme-screen scheme-screen--{{ value }}{% if v.scheme == *stored %} is-on{% endif %}" role="radio" aria-checked="{% if v.scheme == *stored %}true{% else %}false{% endif %}" tabindex="{% if v.scheme == *stored %}0{% else %}-1{% endif %}" data-value="{{ value }}" data-scheme-target="option" data-action="scheme#pick keydown-&gt;scheme#keys" aria-label="{{ v.t(&format!("links.scheme_{value}"))|safe }}" title="{{ v.t(&format!("links.scheme_{value}"))|safe }}"><span class="scheme-screen__bar"></span><span class="scheme-screen__card"><span class="scheme-screen__line"></span><span class="scheme-screen__button"></span></span></button>
@@ -46,15 +64,11 @@
 </a><a class="menu-mobile__item menu-mobile__item--rules {% if v.current_page("/rules") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/rules") }}">{{ v.t("links.rules")|safe }}
 </a><a class="menu-mobile__item menu-mobile__item--settings" data-turbo-frame="modal" href="{{ v.path("/settings/account") }}">{{ v.t("links.settings")|safe }}
 </a>{% call hide_balances_toggle("menu-mobile__item") %}{% endcall %}
-{% call display_currency_picker("menu-mobile__item") %}{% endcall %}{% call scheme_picker("menu-mobile__item") %}{% endcall %}
+{% call display_currency_picker("menu-mobile__item") %}{% endcall %}{% call scheme_picker("menu-mobile__item") %}{% endcall %}{% call mode_picker("menu-mobile__item") %}{% endcall %}
 {% if !v.desktop() %}<div class="menu-mobile__divider"></div>
 <form class="button_to" method="post" action="{{ v.path("/logout") }}"><input type="hidden" name="_method" value="delete" /><button class="menu-mobile__item menu-mobile__button" data-turbo="false" type="submit">{{ v.t("links.log_out")|safe }}
 </button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>{% endif %}</div>
 <div class="menu">
-<div class="menu__section menu__section--top menu__section--logo">
-<a class="menu__logo" aria-label="Deltabadger" href="{{ v.path(shell.bots_path()) }}">{% include "svg/_40x30_logo.html" %}
-
-</a></div>
 <div class="menu__section menu__section--top menu__section--main-menu" data-controller="menu">
 <a class="menu__item menu__item--bots {% if (shell.single_bot.is_none() && on_bot_page) || v.current_page(shell.bots_path()) %}menu__item--active{% endif %}{% if shell.single_bot.is_none() && on_bot_page %} menu__item--back{% endif %}" aria-label="{{ v.t(shell.bots_label())|safe }}" data-action="click-&gt;menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path(shell.bots_path()) }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
   <text class="fill--icon" x="12" y="{{ bot_count_baseline }}" text-anchor="middle"
@@ -84,7 +98,7 @@
 <div class="dropdown">
 <a class="dropdown__item" data-turbo-frame="modal" href="{{ v.path("/settings/account") }}">{{ v.t("links.settings")|safe }}</a>
 {% call hide_balances_toggle("dropdown__item") %}{% endcall %}
-{% call display_currency_picker("dropdown__item") %}{% endcall %}{% call scheme_picker("dropdown__item") %}{% endcall %}
+{% call display_currency_picker("dropdown__item") %}{% endcall %}{% call scheme_picker("dropdown__item") %}{% endcall %}{% call mode_picker("dropdown__item") %}{% endcall %}
 {% if !v.desktop() %}<div class="dropdown__item dropdown__item--divider"></div>
 <form class="button_to" method="post" action="{{ v.path("/logout") }}"><input type="hidden" name="_method" value="delete" /><button class="dropdown__item dropdown__item--danger" data-turbo="false" type="submit">{{ v.t("links.log_out")|safe }}
 </button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>{% endif %}</div>
