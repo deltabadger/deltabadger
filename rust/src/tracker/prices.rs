@@ -567,33 +567,42 @@ pub fn covered(fetch: &Fetch, have: &HashSet<NaiveDate>) -> bool {
 /// (`Feed::history_starts`); a span wholly before it, or whose days inside it are all stored, asks nothing. 2.x asks the
 /// whole span, which CoinGecko refuses, storing nothing.
 pub async fn fetch_range<T: Transport>(feed: &Feed<T>, fetch: &Fetch, have: &HashSet<NaiveDate>, now: chrono::DateTime<chrono::Utc>) -> Result<Vec<PriceRow>, String> {
-    if covered(fetch, have) { return Ok(vec![]); }
+    fetch_answer(feed, fetch, have, now).await.map(|(rows, _)| rows)
+}
+
+/// `fetch_range`'s rows, and (delisted coins PR0) every day of the answer it priced in range, stored or not: what
+/// `store_asset_prices` keeps under the coin asked for.
+pub async fn fetch_answer<T: Transport>(feed: &Feed<T>, fetch: &Fetch, have: &HashSet<NaiveDate>, now: chrono::DateTime<chrono::Utc>) -> Result<(Vec<PriceRow>, Vec<(NaiveDate, String)>), String> {
+    if covered(fetch, have) { return Ok((vec![], vec![])); }
     let from = match feed.history_starts(now).await {
-        Ok(Some(start)) if fetch.to < start => return Ok(vec![]),
+        Ok(Some(start)) if fetch.to < start => return Ok((vec![], vec![])),
         Ok(start) => start.map_or(fetch.from, |start| fetch.from.max(start)),
         Err(ApiError::Transient(m)) => return Err(m),
-        Err(_) => return Ok(vec![]),
+        Err(_) => return Ok((vec![], vec![])),
     };
     let asked = Fetch { from, ..fetch.clone() };
-    if covered(&asked, have) { return Ok(vec![]); }
+    if covered(&asked, have) { return Ok((vec![], vec![])); }
     let midnight = |d: NaiveDate| d.and_hms_opt(0, 0, 0).map_or(chrono::DateTime::UNIX_EPOCH, |t| t.and_utc());
     let body = match feed.historical_range(&fetch.coin, &fetch.currency.to_lowercase(), midnight(asked.from), midnight(plus(fetch.to, 1))).await {
         Ok(body) => body,
         Err(ApiError::Transient(m)) => return Err(m),
-        Err(ApiError::Failed { .. } | ApiError::Refused(_)) => return Ok(vec![]),
+        Err(ApiError::Failed { .. } | ApiError::Refused(_)) => return Ok((vec![], vec![])),
     };
-    let Some(prices) = body["prices"].as_array() else { return Ok(vec![]) };
+    let Some(prices) = body["prices"].as_array() else { return Ok((vec![], vec![])) };
     let mut seen = have.clone();
-    let mut rows = vec![];
+    let mut answered = HashSet::new();
+    let (mut rows, mut all) = (vec![], vec![]);
     for pair in prices {
         let (Some(ms), Some(price)) = (pair.get(0).and_then(serde_json::Value::as_f64), pair.get(1)) else { continue };
         let Ok(price) = crate::figures::budget::within(|| Dec::to_d(price)) else { continue };
         if price.is_zero() { continue; }
         let Some(day) = chrono::DateTime::from_timestamp_millis(ms.floor() as i64).map(|t| t.date_naive()) else { continue };
-        if day < asked.from || day > fetch.to || !seen.insert(day) { continue; }
+        if day < asked.from || day > fetch.to { continue; }
+        if answered.insert(day) { all.push((day, price.to_s_f())); }
+        if !seen.insert(day) { continue; }
         rows.push((fetch.symbol.clone(), day, price.to_s_f()));
     }
-    Ok(rows)
+    Ok((rows, all))
 }
 
 /// HistoricalPrice.bulk_store in USD: insert-only. Returns how many rows it inserted.
@@ -604,6 +613,19 @@ pub fn store_in(c: &Connection, currency: &str, rows: &[PriceRow]) -> Result<usi
     let mut s = c.prepare_cached("INSERT INTO historical_prices (asset, currency, date, price) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (asset, currency, date) DO NOTHING")?;
     let mut stored = 0;
     for (asset, date, price) in rows { stored += s.execute(rusqlite::params![asset, currency, date.to_string(), price])?; }
+    Ok(stored)
+}
+
+/// Delisted coins PR0: a provider answer's days under the coin it was asked for (`asset_prices`, insert-only), in a
+/// write of its own after the `historical_prices` one. Nothing reads them until PR1. Returns how many rows it inserted.
+pub fn store_asset_prices(c: &Connection, coin: &str, currency: &str, days: &[(NaiveDate, String)]) -> Result<usize, FiguresError> {
+    let tx = c.unchecked_transaction()?;
+    let mut stored = 0;
+    {
+        let mut s = tx.prepare_cached("INSERT INTO asset_prices (external_id, currency, date, price) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (external_id, currency, date) DO NOTHING")?;
+        for (date, price) in days { stored += s.execute(rusqlite::params![coin, currency, date.to_string(), price])?; }
+    }
+    tx.commit()?;
     Ok(stored)
 }
 

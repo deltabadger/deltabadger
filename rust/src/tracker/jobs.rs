@@ -142,7 +142,20 @@ impl Fetcher for Channel {
 /// and nothing stored (MarketData's "No market data provider configured" failure).
 async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&Feed<T>>, f: &Fetch, have: &HashSet<NaiveDate>, now: DateTime<Utc>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
     let Some(api) = api else { return Ok((vec![], 0)) };
-    let rows = prices::fetch_range(api, f, have, now).await?;
+    let (rows, answer) = prices::fetch_answer(api, f, have, now).await?;
+    let stored = legacy_store(db, f, rows).await;
+    // Delisted coins PR0: the whole answer by the coin, after the legacy write and whatever became of it; a failure is
+    // logged and changes nothing above.
+    if !answer.is_empty() {
+        let (coin, currency) = (f.coin.clone(), f.currency.clone());
+        let written = db.run(move |c, _| prices::store_asset_prices(c, &coin, &currency, &answer).map_err(message)).await;
+        if let Err(why) = written { crate::engine::log(&format!("[tracker] asset_prices for {} {} not stored: {why}", f.coin, f.currency)); }
+    }
+    stored
+}
+
+/// The `historical_prices` half of `fetch_and_store`, as before PR0.
+async fn legacy_store(db: &Db, f: &Fetch, rows: Vec<prices::PriceRow>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
     if rows.is_empty() { return Ok((vec![], 0)); }
     let mut parsed = vec![];
     for (_, day, price) in &rows { parsed.push((*day, Dec::strict(price).map_err(|e| format!("{e:?}"))?)); }
