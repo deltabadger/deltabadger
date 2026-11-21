@@ -120,7 +120,7 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         let same: bool = c.query_row(&format!("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND CAST(d.base_amount AS TEXT) IS CAST(s.base_amount AS TEXT) \
             AND d.quote_currency IS s.quote_currency AND CAST(d.quote_amount AS TEXT) IS CAST(s.quote_amount AS TEXT) AND d.fee_currency IS s.fee_currency \
             AND CAST(d.fee_amount AS TEXT) IS CAST(s.fee_amount AS TEXT) AND d.transacted_at IS s.transacted_at \
-            AND (d.base_asset_id IS NULL OR s.base_asset_id IS NULL OR d.base_asset_id = s.base_asset_id) \
+            AND (NULLIF(d.base_asset_id, '') IS NULL OR NULLIF(s.base_asset_id, '') IS NULL OR d.base_asset_id = s.base_asset_id) \
             AND (COALESCE(d.description, '') = '' OR COALESCE(s.description, '') = '' OR d.description = s.description) \
             AND ({} OR {} OR json(d.raw_data) IS json(s.raw_data)) \
             FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", not_synced("d"), not_synced("s")), [d, s], |r| r.get(0))?;
@@ -220,22 +220,19 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
         sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
     if waiting || settling(c, &ad)? || settling(c, &as_)? || recorder_waiting(c, cipher, &[rd, rs])? { return Err(Refusal::InFlight); }
-    // Withdrawal keys: a live rule withdraws with its account's withdrawal key, and after the merge with the one step 3 keeps
-    // (S's while it is correct, else D's). A rule of either account whose key would change, none to some included, refuses,
-    // named; D's rules step 5 drops beside S's live one of their asset withdraw no more.
-    let (wd, ws) = (ad.key(c, 1)?, as_.key(c, 1)?);
-    let s_correct = match ws { Some(k) => c.query_row("SELECT status = 1 FROM api_keys WHERE id = ?1", [k], |r| r.get::<_, bool>(0))?, None => false };
-    let after = if wd.is_none() || s_correct { ws } else { wd };
-    let mut q = c.prepare("SELECT r.account_id, coalesce(a.symbol, '') FROM exchange_account_rules r LEFT JOIN assets a ON a.id = r.asset_id
+    // Withdrawal keys: each live rule withdraws with its account's key as the withdrawal engine picks it
+    // (`engine::model::withdrawal_key_id`); read now, and again on the merged key set below. D's rules step 5 drops beside
+    // S's live one of their asset withdraw no more.
+    let mut q = c.prepare("SELECT r.id, r.account_id, coalesce(a.symbol, '') FROM exchange_account_rules r LEFT JOIN assets a ON a.id = r.asset_id
                            WHERE r.account_id IN (?1, ?2) AND r.status <> 3 AND NOT (r.account_id = ?1 AND EXISTS (SELECT 1 FROM exchange_account_rules x
                              WHERE x.account_id = ?2 AND x.type = r.type AND x.asset_id IS r.asset_id AND x.status <> 3)) ORDER BY r.account_id, r.id")?;
-    let rules: Vec<(i64, String)> = q.query_map([d, s], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let live_rules: Vec<(i64, i64, String)> = q.query_map([d, s], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
     drop(q);
-    let mut switching = vec![];
-    for (account, symbol) in rules {
-        if (if account == d { wd } else { ws }) != after { switching.push(format!("{}: {symbol}", identity::label(c, account)?.plain())); }
+    let (wd, ws) = (crate::engine::model::withdrawal_key_id(c, &ad)?, crate::engine::model::withdrawal_key_id(c, &as_)?);
+    let mut withdrawing = vec![];
+    for (rule, account, symbol) in live_rules {
+        withdrawing.push((rule, if account == d { wd } else { ws }, format!("{}: {symbol}", identity::label(c, account)?.plain())));
     }
-    if !switching.is_empty() { return Err(Refusal::WithdrawalKeys(switching)); }
     // The live check: fresh syncs of both accounts, on which the pair still agrees.
     match identity::live_check(c, &rd, &rs, now)? {
         identity::Live::Fresh => {}
@@ -330,6 +327,11 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
             }
         }
     }
+    // A rule whose withdrawal key changed on the merged key set (none to some included) refuses, named: the whole Merge
+    // rolls back with the caller's transaction.
+    let after = crate::engine::model::withdrawal_key_id(c, &as_)?;
+    let switching: Vec<String> = withdrawing.into_iter().filter(|(_, before, _)| *before != after).map(|(_, _, line)| line).collect();
+    if !switching.is_empty() { return Err(Refusal::WithdrawalKeys(switching)); }
     // Withdrawal ids: D's move where S lacks the venue id; the rest are the same withdrawal seen twice.
     c.execute("UPDATE rust_withdrawal_ids SET account_id = ?2 WHERE account_id = ?1 AND venue_id NOT IN (SELECT venue_id FROM rust_withdrawal_ids WHERE account_id = ?2)", [d, s])?;
     c.execute("DELETE FROM rust_withdrawal_ids WHERE account_id = ?1", [d])?;
@@ -346,8 +348,9 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     for d_row in plan.twin.keys() { c.execute("DELETE FROM account_transactions WHERE id = ?1", [d_row])?; }
     venue_ids::move_rows(c, &sd, &ss)?;
     for (row, m) in &plan.merged {
-        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
-                   base_asset_id = COALESCE(base_asset_id, ?6), group_id = COALESCE(group_id, ?7), description = COALESCE(NULLIF(description, ''), ?8) WHERE id = ?1",
+        // A blank is no value, here as in the plan (`meta`): '' is NULL for each carried column.
+        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, NULLIF(raw_data, '')), \
+                   base_asset_id = COALESCE(NULLIF(base_asset_id, ''), ?6), group_id = COALESCE(NULLIF(group_id, ''), ?7), description = COALESCE(NULLIF(description, ''), ?8) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }

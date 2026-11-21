@@ -445,6 +445,8 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
     if let Some(mode) = mode {
         let now = clock.now();
         super::commit_for(db, version, move |c| {
+            // A reader its account no longer reads with writes nothing, its mode observation included.
+            if super::jobs::superseded(c, key_id)?.is_some() { return Ok(()); }
             let key = super::load_key_of(c, key_id, &[KUCOIN])?;
             if mode != crate::venue::kucoin_account::AccountMode::ClassicLf || super::kucoin_hf::enabled(c, &key.scope)? { super::kucoin_hf::observe_mode(c, &key, mode, now)?; }
             Ok(())
@@ -955,6 +957,8 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
             (Ok(free), Ok(locked)) => (free, locked),
             (Err(why), _) | (_, Err(why)) => return Ok(Err((why, vec![]))),
         };
+        // The merchant `locked` the holding does not count: no complete read of the asset (identity only).
+        if row.number("locked").ok().flatten().is_some_and(|n| !n.is_zero()) { skip(&row, coin.as_str().unwrap_or("?"), &["locked"]); }
         found.insert(*asset, (free, locked));
     }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
@@ -1744,6 +1748,14 @@ mod skipped_tests {
         assert_eq!(take_skipped(), ["BTC"]);
         ibkr_held(r#"{"positions":[{"conid":5,"position":-2}]}"#, &HashMap::from([("conid:5".to_string(), 1)]), &[1]).unwrap().unwrap();
         assert_eq!(take_skipped(), ["asset 1"]);
+    }
+    /// R12 #3: a mapped Bitget row whose merchant `locked` the holding does not count is recorded as skipped.
+    #[test]
+    fn a_bitget_merchant_lock_is_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        bitget_held(r#"{"code":"00000","data":[{"coin":"BTC","available":"0","frozen":"0","locked":"100"}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"]);
     }
     /// R10 #7: the trading readers' positions leave unsupported classes out; the balance read's carry them.
     #[test]

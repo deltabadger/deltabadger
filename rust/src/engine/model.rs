@@ -897,14 +897,21 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     Ok((credentials,Some(version),sensitive))
 }
 
+/// The withdrawal key `account`'s rules withdraw with: its lowest correct withdrawal key. The one selection, which Merge's
+/// guard reads too (#710).
+pub fn withdrawal_key_id(c:&Connection,account:&crate::identity::Account)->rusqlite::Result<Option<i64>>{
+    c.query_row(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),[],|r|r.get(0)).optional()
+}
+
 /// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,
 /// an absent, invalid or undecryptable key is never replaced by an empty signing key.
 /// `account`'s correct withdrawal key (#710: a rule withdraws with its own account's).
 pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::identity::Account)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,account)?;tx.commit()?;return Ok(result);}
+    let Some(id)=withdrawal_key_id(c,account)? else{return Ok(None)};
     let row:Option<([Option<String>;7],i64)>=c.query_row(
-        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),
-        [],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
+        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE k.id=?1",
+        [id],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
     let Some((columns,id))=row else{return Ok(None)};
     let open=|v:&Option<String>|v.as_ref().and_then(|v|cipher.decrypt(v).ok());
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};

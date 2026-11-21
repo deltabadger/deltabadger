@@ -82,13 +82,30 @@ pub fn groups(c: &Connection, user_id: i64, rows: &str, orders: &[Order], holdin
     groups_with(c, user_id, rows, &(string_pairs, asset_pairs, exchange_ids), holdings)
 }
 
-/// SQL condition on `account_transactions`: a ledger row of bot `bot_id`'s own account on its exchange (#710: another
-/// account's report of the same split is that account's, never this bot's); a row of another venue as before.
+/// SQL condition on `account_transactions` (unaliased): a ledger row of an account bot `bot_id` has held positions on,
+/// its current one and every one its orders were placed on (#710: another account's report of the same split is that
+/// account's, never this bot's; a bot switched to another account keeps the splits of the one it bought on).
 pub fn bot_rows(c: &Connection, bot_id: i64) -> Result<String, FiguresError> {
     // An install with no numbered accounts has one account per exchange: every row is the bot's account's.
     if !crate::identity::numbered(c)? { return Ok("1".into()); }
-    let scope = crate::identity::order_scope(c, bot_id)?;
-    Ok(format!("(exchange_id <> {} OR {})", scope.exchange_id, scope.rows("account_transactions")))
+    let mut scopes = vec![crate::identity::order_scope(c, bot_id)?];
+    let user: i64 = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+    let placed: Vec<(i64, Option<i64>)> = if crate::engine::rules::table_exists(c, "exchange_account_transactions")? {
+        let mut q = c.prepare("SELECT DISTINCT t.exchange_id, m.account_id FROM transactions t LEFT JOIN exchange_account_transactions m ON m.transaction_id = t.id
+                               WHERE t.bot_id = ?1 AND t.exchange_id IS NOT NULL")?;
+        let out = q.query_map([bot_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        out
+    } else { vec![] };
+    for (exchange, account) in placed {
+        let scope = match account.and_then(|a| crate::identity::Account::by_id(c, a).transpose()) {
+            Some(account) => crate::venue_ids::Scope::of(c, &account?)?,
+            None => crate::venue_ids::Scope::first(c, user, exchange)?,
+        };
+        scopes.push(scope);
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    let parts: Vec<String> = scopes.iter().map(|s| format!("(exchange_id = {} AND {})", s.exchange_id, s.rows("account_transactions"))).filter(|p| seen.insert(p.clone())).collect();
+    Ok(format!("({})", parts.join(" OR ")))
 }
 
 /// The (venue, name) and (venue, asset) pairs a bot is eligible for, and their venues, sorted.
@@ -110,7 +127,7 @@ pub fn groups_with(c: &Connection, user_id: i64, scope: &str, eligible: &Eligibi
     let mut symbols_seen: HashSet<String> = HashSet::new();
     for row in &rows { budget::charge(1, 0)?; if symbols_seen.insert(row.base_currency.clone()) { symbols.push(row.base_currency.clone()); } }
     let mut classes: HashMap<String, Vec<Option<String>>> = HashMap::new();
-    for (symbol, category) in db::account_classes(c, user_id, &symbols)? { classes.entry(symbol).or_default().push(category); }
+    for (symbol, category) in db::account_classes(c, user_id, scope, &symbols)? { classes.entry(symbol).or_default().push(category); }
     let mut categories: HashMap<i64, Option<String>> = HashMap::new();
     let category = |categories: &mut HashMap<i64, Option<String>>, id: i64| -> Result<Option<String>, FiguresError> {
         if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }

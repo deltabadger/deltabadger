@@ -3225,3 +3225,74 @@ fn r11_pending_splits_go_to_the_ledger_reading_key() {
     assert!(of(two.keys[0]).is_some_and(|v| v.contains("MSFT")), "the trading key owes it");
     assert!(of(two.keys[1]).is_none());
 }
+
+// ---- review round 12 ----
+
+/// R12 #1: the guard reads the withdrawal key a rule will use after Merge with the withdrawal engine's own selection, on
+/// the merged key set: the survivor's 10 (incorrect) and 11 (live), the duplicate's 12 (live) and its rule: Merge deletes
+/// 10 and keeps 11 and 12, the engine picks 11, so the duplicate's rule would switch keys: refused.
+#[test]
+fn r12_the_guard_uses_the_engines_withdrawal_key() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let key = |n: usize, status: i64| {
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'w', 'w', ?3, 1, '2026-01-01', '2026-01-01')",
+                  [two.seeded.user_id, two.seeded.exchange_id, status]).unwrap();
+        let id = c.last_insert_rowid();
+        two.accounts[n].add_key(c, id).unwrap();
+        id
+    };
+    let (ten, eleven, twelve) = (key(0, 2), key(0, 1), key(1, 1));
+    assert!(ten < eleven && eleven < twelve);
+    for n in 0..2 { two.fingerprint(c, n, Some("fp")); }
+    two.rule(c, &seed::cipher(), 1, two.seeded.btc, 0);
+    let before = dump(c);
+    match merge_now(c, &two, two.id(1)) { Err(Refusal::WithdrawalKeys(rules)) => assert!(!rules.is_empty()), other => panic!("{other:?}") }
+    assert_eq!(dump(c), before);
+}
+
+/// R12 #2: a bot's split rows are those of every account its orders were placed on: switched to another account after a
+/// split on the first, it keeps that split.
+#[test]
+fn r12_a_switched_bot_keeps_its_accounts_splits() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    two.order(c, 0, "bought-on-1", 1, Some(2));
+    let row = two.row(c, 0, 15, "BTC", "10", Some("split-1"), None, "2026-09-05 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"corporate_action\":\"split\"}' WHERE id = ?1", [row]).unwrap();
+    identity::place_bot(c, two.bots[0], two.seeded.user_id, two.seeded.exchange_id, Some(two.accounts[1]), chrono::Utc::now()).unwrap();
+    let rows = deltabadger::figures::db::split_rows(c, two.seeded.user_id, &deltabadger::figures::splits::bot_rows(c, two.bots[0]).unwrap(), &[two.seeded.exchange_id]).unwrap();
+    assert_eq!(rows.iter().map(|r| r.id).collect::<Vec<_>>(), [row]);
+}
+
+/// R12 #5: the split's asset-class lookup reads the bot's own accounts: a duplicate's row naming the symbol under
+/// another class is no ambiguity for the survivor's bot.
+#[test]
+fn r12_the_class_lookup_reads_the_bots_accounts() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    for (n, asset) in [(0, two.seeded.btc), (1, two.seeded.quote)] {
+        let row = two.row(c, n, 0, "BTC", "1", Some(&format!("t-{n}")), None, "2026-09-01 10:00:00");
+        c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [row, asset]).unwrap();
+    }
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let classes = deltabadger::figures::db::account_classes(c, two.seeded.user_id, &deltabadger::figures::splits::bot_rows(c, two.bots[0]).unwrap(), &["BTC".to_string()]).unwrap();
+    assert_eq!(classes, [("BTC".to_string(), Some("Cryptocurrency".to_string()))]);
+}
+
+/// R12 #6: a blank group is no group, planning and writing alike: the kept twin's '' takes the duplicate's group.
+#[test]
+fn r12_a_blank_group_takes_the_duplicates() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let kept = two.row(c, 0, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET group_id = '' WHERE id = ?1", [kept]).unwrap();
+    two.row(c, 1, 0, "BTC", "1", Some("t-1"), Some("usdt-leg"), "2026-09-01 10:00:00");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("usdt-leg"));
+}
