@@ -88,8 +88,9 @@ pub fn groups(c: &Connection, user_id: i64, rows: &str, orders: &[Order], holdin
 pub fn bot_rows(c: &Connection, bot_id: i64) -> Result<String, FiguresError> {
     // An install with no numbered accounts has one account per exchange: every row is the bot's account's.
     if !crate::identity::numbered(c)? { return Ok("1".into()); }
-    let mut scopes = vec![crate::identity::order_scope(c, bot_id)?];
-    let user: i64 = c.query_row("SELECT user_id FROM bots WHERE id = ?1", [bot_id], |r| r.get(0))?;
+    let (user, exchange): (i64, Option<i64>) = c.query_row("SELECT user_id, exchange_id FROM bots WHERE id = ?1", [bot_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    // A bot with no current exchange (a basket or index bot) reads its orders' accounts only.
+    let mut scopes = if exchange.is_some() { vec![crate::identity::order_scope(c, bot_id)?] } else { vec![] };
     let placed: Vec<(i64, Option<i64>)> = if crate::engine::rules::table_exists(c, "exchange_account_transactions")? {
         let mut q = c.prepare("SELECT DISTINCT t.exchange_id, m.account_id FROM transactions t LEFT JOIN exchange_account_transactions m ON m.transaction_id = t.id
                                WHERE t.bot_id = ?1 AND t.exchange_id IS NOT NULL")?;
@@ -105,7 +106,7 @@ pub fn bot_rows(c: &Connection, bot_id: i64) -> Result<String, FiguresError> {
     }
     let mut seen = std::collections::BTreeSet::new();
     let parts: Vec<String> = scopes.iter().map(|s| format!("(exchange_id = {} AND {})", s.exchange_id, s.rows("account_transactions"))).filter(|p| seen.insert(p.clone())).collect();
-    Ok(format!("({})", parts.join(" OR ")))
+    Ok(if parts.is_empty() { "0".into() } else { format!("({})", parts.join(" OR ")) })
 }
 
 /// The (venue, name) and (venue, asset) pairs a bot is eligible for, and their venues, sorted.
@@ -127,7 +128,7 @@ pub fn groups_with(c: &Connection, user_id: i64, scope: &str, eligible: &Eligibi
     let mut symbols_seen: HashSet<String> = HashSet::new();
     for row in &rows { budget::charge(1, 0)?; if symbols_seen.insert(row.base_currency.clone()) { symbols.push(row.base_currency.clone()); } }
     let mut classes: HashMap<String, Vec<Option<String>>> = HashMap::new();
-    for (symbol, category) in db::account_classes(c, user_id, scope, &symbols)? { classes.entry(symbol).or_default().push(category); }
+    for (symbol, category) in db::account_classes(c, user_id, &symbols)? { classes.entry(symbol).or_default().push(category); }
     let mut categories: HashMap<i64, Option<String>> = HashMap::new();
     let category = |categories: &mut HashMap<i64, Option<String>>, id: i64| -> Result<Option<String>, FiguresError> {
         if let std::collections::hash_map::Entry::Vacant(e) = categories.entry(id) { e.insert(db::asset_category(c, id)?); }

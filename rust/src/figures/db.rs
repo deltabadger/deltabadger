@@ -297,18 +297,18 @@ pub fn split_rows(c: &Connection, user_id: i64, rows: &str, exchange_ids: &[i64]
 
 /// Bot::Restatable#account_classes: `(symbol, category)` for each asset this user's ledger rows recorded under one of
 /// these names, then each asset their balances hold under it (assets.symbol), distinct per source.
-/// `rows` (SQL on unaliased `account_transactions`, `splits::bot_rows`): the ledger rows read; the balances read are
-/// every account's but a duplicate's (#710).
-pub fn account_classes(c: &Connection, user_id: i64, rows: &str, symbols: &[String]) -> Result<Vec<(String, Option<String>)>, FiguresError> {
+/// #710: every account's rows and balances but a duplicate's (`identity::counted`): a single-account install reads as
+/// before.
+pub fn account_classes(c: &Connection, user_id: i64, symbols: &[String]) -> Result<Vec<(String, Option<String>)>, FiguresError> {
     if symbols.is_empty() { return Ok(vec![]); }
     budget::charge(symbols.len() as u64, 0)?;
     let names = Value::from(symbols.to_vec()).to_string();
     let mut out = vec![];
-    let counted = crate::identity::counted(c, user_id, "b.account_id")?;
-    for sql in [format!("SELECT DISTINCT account_transactions.base_currency, a.category FROM account_transactions INNER JOIN assets a ON a.id = account_transactions.base_asset_id \
-                 WHERE account_transactions.user_id = ?1 AND account_transactions.base_currency IN (SELECT value FROM json_each(?2)) AND {rows}"),
+    let (rows, held) = (crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?, crate::identity::counted(c, user_id, "b.account_id")?);
+    for sql in [format!("SELECT DISTINCT t.base_currency, a.category FROM account_transactions t INNER JOIN assets a ON a.id = t.base_asset_id \
+                 WHERE t.user_id = ?1 AND t.base_currency IN (SELECT value FROM json_each(?2)) AND {rows}"),
                 format!("SELECT DISTINCT a.symbol, a.category FROM exchange_account_balances b INNER JOIN assets a ON a.id = b.asset_id \
-                 WHERE b.user_id = ?1 AND a.symbol IN (SELECT value FROM json_each(?2)) AND {counted}")] {
+                 WHERE b.user_id = ?1 AND a.symbol IN (SELECT value FROM json_each(?2)) AND {held}")] {
         let mut statement = c.prepare(&sql)?;
         for row in statement.query_map(params![user_id, names], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))? {
             budget::charge(1, 0)?;

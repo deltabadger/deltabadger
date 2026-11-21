@@ -158,6 +158,9 @@ pub fn revision(c:&Connection,user:i64,now:chrono::DateTime<chrono::Utc>)->Resul
     for entry in &resolved { read+=1; entry.hash(&mut hash); }
     "coin names".hash(&mut hash);
     for entry in &coin_named { read+=1; entry.hash(&mut hash); }
+    // #710: the user's duplicate standing decides which accounts' rows and balances are read.
+    "standing".hash(&mut hash);
+    crate::identity::duplicates(c,user)?.hash(&mut hash);
     let resolved=ids_source(resolved.values().flatten().copied());
     let bots="SELECT id FROM bots WHERE user_id=?1";
     // A split is matched through the listings of the venue each order was placed on (splits::groups), not only the
@@ -204,6 +207,8 @@ pub fn revision(c:&Connection,user:i64,now:chrono::DateTime<chrono::Utc>)->Resul
     let assets=format!("SELECT id FROM assets WHERE id IN ({assets}) UNION SELECT id FROM assets WHERE symbol IN (SELECT symbol FROM assets WHERE id IN ({assets}) \
         UNION SELECT upper(symbol) FROM assets WHERE id IN ({assets}) UNION SELECT 'USD' UNION SELECT upper(display_currency) FROM users WHERE id=?1)");
     let unread:&[&str]=&["updated_at","transient_data","ath","ath_updated_at","market_cap","market_cap_rank","circulating_supply"];
+    // An install before #710's account tables has no memberships to read.
+    let memberships=crate::engine::rules::table_exists(c,"exchange_account_transactions")?&&crate::engine::rules::table_exists(c,"exchange_account_bots")?;
     let sets=[
         ("SELECT * FROM users WHERE id=?1".to_string(),"users"),
         ("SELECT * FROM bots WHERE user_id=?1 ORDER BY id".to_string(),"bots"),
@@ -220,10 +225,16 @@ pub fn revision(c:&Connection,user:i64,now:chrono::DateTime<chrono::Utc>)->Resul
         (format!("SELECT * FROM assets WHERE id IN ({assets}) ORDER BY id"),"assets"),
         // The ledger is read for its split rows (db::split_rows: every field of them) and for the assets its rows name
         // under each symbol (db::account_classes); a row edited in place into or out of either changes these.
-        (format!("SELECT id,exchange_id,base_currency,base_asset_id,raw_data,transacted_at FROM account_transactions WHERE user_id=?1 AND entry_type={} \
-                  AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data,'$.corporate_action') END='split' ORDER BY id",crate::figures::db::ADJUSTMENT),"splits"),
-        ("SELECT DISTINCT base_currency,base_asset_id FROM account_transactions WHERE user_id=?1 ORDER BY 1,2".to_string(),"ledger classes"),
-        ("SELECT DISTINCT asset_id FROM exchange_account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
+        // #710: each split row's account too (a bot reads its accounts' rows, `splits::bot_rows`), and which accounts the
+        // bots and their orders are on; the classes and balances as `db::account_classes` reads them, a duplicate's out.
+        (format!("SELECT a.id,a.exchange_id,a.base_currency,a.base_asset_id,a.raw_data,a.transacted_at,{} FROM account_transactions a WHERE a.user_id=?1 AND a.entry_type={} \
+                  AND CASE WHEN json_valid(a.raw_data) THEN json_extract(a.raw_data,'$.corporate_action') END='split' ORDER BY a.id",
+                 crate::venue_ids::Scope::install(c)?.member_sql("a"),crate::figures::db::ADJUSTMENT),"splits"),
+        (format!("SELECT DISTINCT t.base_currency,t.base_asset_id FROM account_transactions t WHERE t.user_id=?1 AND {} ORDER BY 1,2",
+                 crate::identity::counted(c,user,&crate::venue_ids::Scope::install(c)?.member_sql("t"))?),"ledger classes"),
+        (format!("SELECT DISTINCT b.asset_id FROM exchange_account_balances b WHERE b.user_id=?1 AND {} ORDER BY 1",crate::identity::counted(c,user,"b.account_id")?),"balances"),
+        (if memberships {format!("SELECT m.transaction_id,m.account_id FROM exchange_account_transactions m WHERE m.transaction_id IN (SELECT id FROM transactions WHERE bot_id IN ({bots})) ORDER BY 1")} else {"SELECT NULL WHERE ?1 IS NULL".into()},"order accounts"),
+        (if memberships {format!("SELECT m.bot_id,m.account_id FROM exchange_account_bots m WHERE m.bot_id IN ({bots}) ORDER BY 1")} else {"SELECT NULL WHERE ?1 IS NULL".into()},"bot accounts"),
         // An index reads every tradable listing of its venue in its quote (db::tickers): their coarsest quote precision
         // rounds its chart (chart::quote_decimals), and their tickers are what it asks the market for (`symbols`). Per
         // quote on each index's venue, one aggregate over the venue's index: their coarsest and finest precision, and

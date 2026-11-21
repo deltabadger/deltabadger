@@ -3267,8 +3267,8 @@ fn r12_a_switched_bot_keeps_its_accounts_splits() {
     assert_eq!(rows.iter().map(|r| r.id).collect::<Vec<_>>(), [row]);
 }
 
-/// R12 #5: the split's asset-class lookup reads the bot's own accounts: a duplicate's row naming the symbol under
-/// another class is no ambiguity for the survivor's bot.
+/// R12 #5, R13: the split's asset-class lookup leaves a duplicate's rows out: its row naming the symbol under another
+/// class is no ambiguity for the survivor's bot.
 #[test]
 fn r12_the_class_lookup_reads_the_bots_accounts() {
     let (_d, o) = install();
@@ -3281,7 +3281,7 @@ fn r12_the_class_lookup_reads_the_bots_accounts() {
     }
     two.fingerprint(c, 0, Some("fp"));
     two.fingerprint(c, 1, Some("fp"));
-    let classes = deltabadger::figures::db::account_classes(c, two.seeded.user_id, &deltabadger::figures::splits::bot_rows(c, two.bots[0]).unwrap(), &["BTC".to_string()]).unwrap();
+    let classes = deltabadger::figures::db::account_classes(c, two.seeded.user_id, &["BTC".to_string()]).unwrap();
     assert_eq!(classes, [("BTC".to_string(), Some("Cryptocurrency".to_string()))]);
 }
 
@@ -3295,4 +3295,132 @@ fn r12_a_blank_group_takes_the_duplicates() {
     two.row(c, 1, 0, "BTC", "1", Some("t-1"), Some("usdt-leg"), "2026-09-01 10:00:00");
     merge_now(c, &two, two.id(1)).unwrap().unwrap();
     assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("usdt-leg"));
+}
+
+// ---- review round 13 ----
+
+/// A key of account `n` with `key_type` and `status`, observed as the account's fingerprint.
+fn typed_key(c: &Connection, two: &Two, n: usize, key_type: i64, status: i64) -> i64 {
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', ?3, ?4, '2026-01-01', '2026-01-01')",
+              [two.seeded.user_id, two.seeded.exchange_id, status, key_type]).unwrap();
+    let id = c.last_insert_rowid();
+    two.accounts[n].add_key(c, id).unwrap();
+    id
+}
+
+/// R13 #1: per key type Merge keeps the survivor's correct key, else a correct key of the duplicate's: never an incorrect
+/// one ahead of a correct one. The survivor reads with a read-only key; the duplicate's older trading key is incorrect,
+/// its newer one correct: the correct one moves.
+#[test]
+fn r13_merge_keeps_a_correct_key_first() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET key_type = 2 WHERE id = ?1", [two.keys[0]]).unwrap();
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[1]]).unwrap();
+    let correct = typed_key(c, &two, 1, 0, 1);
+    for n in 0..2 { two.fingerprint(c, n, Some("fp")); }
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert!(merged.kept_keys.contains(&correct) && merged.deleted_keys.contains(&two.keys[1]), "{merged:?}");
+    assert_eq!(identity::account_of_key(c, correct).unwrap(), identity::Account::first(c, two.seeded.user_id, two.seeded.exchange_id).unwrap().id);
+}
+
+/// R13 #2: restore-shaped twins compare their exact amounts: KuCoin's float columns can hide a difference.
+#[test]
+fn r13_restored_twins_compare_their_exact_amounts() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    for (n, exact) in [(0, "9007199254740992"), (1, "9007199254740993")] {
+        let row = two.row(c, n, 0, "BTC", "9007199254740992", Some("fill-1"), None, "2026-09-01 10:00:00");
+        c.execute("UPDATE account_transactions SET raw_data = json_object('amounts', json_object('base', ?2), 'amounts_inexact', json('false')) WHERE id = ?1", rusqlite::params![row, exact]).unwrap();
+    }
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
+}
+
+/// R13 #5: `kept` is every key left on the merged account, and pending splits go to the scheduler's own ledger reader:
+/// the survivor's 10 (incorrect) and 11 (correct), the duplicate's 12 (correct, with the pending split): 11 reads.
+#[test]
+fn r13_pending_splits_go_to_the_schedulers_reader() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [two.keys[0]]).unwrap();
+    let eleven = typed_key(c, &two, 0, 0, 1);
+    let twelve = typed_key(c, &two, 1, 0, 1);
+    c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [two.keys[1]]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE id = ?1", [two.keys[1]]).unwrap();
+    for n in 0..2 { two.fingerprint(c, n, Some("fp")); }
+    deltabadger::app_config::set_plain(c, &format!("rust_sync.ledger_splits:{twelve}"),
+        &serde_json::json!({"pending": [{"symbol": "MSFT", "exchange_id": two.seeded.exchange_id, "at": 1_900_000_000_000_000i64}]}).to_string(), chrono::Utc::now()).unwrap();
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert!(merged.kept_keys.contains(&two.keys[0]) && merged.kept_keys.contains(&eleven), "every key left: {merged:?}");
+    assert!(deltabadger::app_config::get_plain(c, &format!("rust_sync.ledger_splits:{eleven}")).unwrap().is_some_and(|v| v.contains("MSFT")));
+}
+
+/// R13 #7: blanks are judged alike in planning and writing: a kept twin's whitespace group takes the duplicate's.
+#[test]
+fn r13_a_whitespace_group_takes_the_duplicates() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let kept = two.row(c, 0, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET group_id = ' ' WHERE id = ?1", [kept]).unwrap();
+    two.row(c, 1, 0, "BTC", "1", Some("t-1"), Some("usdt-leg"), "2026-09-01 10:00:00");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("usdt-leg"));
+}
+
+/// R13 #3: the split's asset-class lookup reads the user's whole ledger and balances, a duplicate's left out: an
+/// asset-less Alpaca name that a Kraken row names as a coin stays ambiguous, as on main.
+#[test]
+fn r13_the_class_lookup_reads_every_account() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let row = kraken.row(c, 0, 0, "XYZ", "1", Some("k-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [row, kraken.seeded.btc]).unwrap();
+    let classes = deltabadger::figures::db::account_classes(c, kraken.seeded.user_id, &["XYZ".to_string()]).unwrap();
+    assert_eq!(classes, [("XYZ".to_string(), Some("Cryptocurrency".to_string()))]);
+}
+
+/// R13 #4: a bot with no current exchange (a basket or index bot) reads the split rows of its orders' accounts, and
+/// never fails for want of one.
+#[test]
+fn r13_a_bot_without_an_exchange_reads_its_orders_accounts() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    two.order(c, 0, "bought-on-1", 1, Some(2));
+    let row = two.row(c, 0, 15, "BTC", "10", Some("split-1"), None, "2026-09-05 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"corporate_action\":\"split\"}' WHERE id = ?1", [row]).unwrap();
+    c.execute("DELETE FROM exchange_account_bots WHERE bot_id = ?1", [two.bots[0]]).unwrap();
+    c.execute("UPDATE bots SET exchange_id = NULL WHERE id = ?1", [two.bots[0]]).unwrap();
+    let scope = deltabadger::figures::splits::bot_rows(c, two.bots[0]).unwrap();
+    let rows = deltabadger::figures::db::split_rows(c, two.seeded.user_id, &scope, &[two.seeded.exchange_id]).unwrap();
+    assert_eq!(rows.iter().map(|r| r.id).collect::<Vec<_>>(), [row]);
+}
+
+/// R13 #6: the figure cache's revision moves with what the calculation reads: the duplicate standing, and the account a
+/// split row belongs to.
+#[test]
+fn r13_the_figure_cache_moves_with_the_standing_and_the_scope() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    let rev = |c: &Connection| deltabadger::web::figure::loading::revision(c, two.seeded.user_id, chrono::Utc::now()).unwrap().0;
+    let row = two.row(c, 0, 15, "BTC", "10", Some("split-1"), None, "2026-09-05 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"corporate_action\":\"split\"}' WHERE id = ?1", [row]).unwrap();
+    let before = rev(c);
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    let entered = rev(c);
+    assert_ne!(entered, before, "the standing");
+    c.execute("UPDATE account_transactions SET tx_id = NULL WHERE id = ?1", [row]).unwrap();
+    let moved = rev(c);
+    c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id, venue_tx_id) VALUES (?1, ?2, 'split-1')", [row, two.id(1)]).unwrap();
+    assert_ne!(rev(c), moved, "the split row's account");
 }

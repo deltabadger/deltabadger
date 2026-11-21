@@ -116,13 +116,17 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     // A twin pair is one record only when every financial fact agrees (an API copy with another fee, a split aggregate
     // against one of its legs, are not): otherwise a conflict naming both rows.
     for (d, s) in &twin {
-        // The raw answers are compared only when both are venue answers (a restore's own fields are no venue's).
+        // The raw answers are compared only when both are venue answers (a restore's own fields are no venue's); two
+        // restores' exact amounts (KuCoin's, beside float columns that can hide a difference) are compared too.
         let same: bool = c.query_row(&format!("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND CAST(d.base_amount AS TEXT) IS CAST(s.base_amount AS TEXT) \
             AND d.quote_currency IS s.quote_currency AND CAST(d.quote_amount AS TEXT) IS CAST(s.quote_amount AS TEXT) AND d.fee_currency IS s.fee_currency \
             AND CAST(d.fee_amount AS TEXT) IS CAST(s.fee_amount AS TEXT) AND d.transacted_at IS s.transacted_at \
-            AND (NULLIF(d.base_asset_id, '') IS NULL OR NULLIF(s.base_asset_id, '') IS NULL OR d.base_asset_id = s.base_asset_id) \
-            AND (COALESCE(d.description, '') = '' OR COALESCE(s.description, '') = '' OR d.description = s.description) \
+            AND (NULLIF(TRIM(d.base_asset_id), '') IS NULL OR NULLIF(TRIM(s.base_asset_id), '') IS NULL OR d.base_asset_id = s.base_asset_id) \
+            AND (NULLIF(TRIM(d.description), '') IS NULL OR NULLIF(TRIM(s.description), '') IS NULL OR d.description = s.description) \
             AND ({} OR {} OR json(d.raw_data) IS json(s.raw_data)) \
+            AND (NOT (json_valid(d.raw_data) AND json_valid(s.raw_data)) OR json_extract(d.raw_data, '$.amounts') IS NULL OR json_extract(s.raw_data, '$.amounts') IS NULL \
+                 OR (json(json_extract(d.raw_data, '$.amounts')) IS json(json_extract(s.raw_data, '$.amounts')) \
+                     AND json_extract(d.raw_data, '$.amounts_inexact') IS json_extract(s.raw_data, '$.amounts_inexact'))) \
             FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", not_synced("d"), not_synced("s")), [d, s], |r| r.get(0))?;
         if !same { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
     }
@@ -273,23 +277,35 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     conflicts.extend(plan.conflicts.iter().cloned());
     if !conflicts.is_empty() { return Err(Refusal::Conflict(conflicts)); }
 
-    // 3. Keys, per key type.
-    let mut k = c.prepare(&format!("SELECT k.id, k.key_type, k.status FROM api_keys k WHERE {} ORDER BY k.id", ad.keys("k")))?;
-    let keys_d: Vec<(i64, i64, i64)> = k.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
-    drop(k);
-    let (mut deleted, mut kept) = (vec![], vec![]);
+    // 3. Keys, per key type: the survivor's correct key stays (its own keys all do); else a correct key of the duplicate's
+    // moves in, the survivor's incorrect ones of the type going; else the survivor's stays; else the duplicate's lowest
+    // moves. Never an incorrect key ahead of a correct one; among several, correct before incorrect, then the lowest id.
+    let keys_of = |a: &Account| -> rusqlite::Result<Vec<(i64, i64, i64)>> {
+        let mut k = c.prepare(&format!("SELECT k.id, k.key_type, k.status FROM api_keys k WHERE {} ORDER BY k.status <> 1, k.id", a.keys("k")))?;
+        let out = k.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect();
+        out
+    };
+    let (keys_d, keys_s) = (keys_of(&ad)?, keys_of(&as_)?);
+    let mut deleted = vec![];
     for key_type in [0, 1, 2] {
-        let mine: Vec<i64> = keys_d.iter().filter(|(_, t, _)| *t == key_type).map(|(id, _, _)| *id).collect();
-        let Some(&first) = mine.first() else { if let Some(k) = as_.key(c, key_type)? { kept.push(k) } continue };
-        let theirs: Option<(i64, i64)> = match as_.key(c, key_type)? { Some(id) => Some((id, c.query_row("SELECT status FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?)), None => None };
-        let (keep, gone): (i64, Vec<i64>) = match theirs {
-            Some((ks, 1)) => (ks, mine.clone()),
-            Some((ks, _)) => { move_key(c, first, &as_)?; (first, std::iter::once(ks).chain(mine.iter().skip(1).copied()).collect()) }
-            None => { move_key(c, first, &as_)?; (first, mine.iter().skip(1).copied().collect()) }
+        let of = |keys: &[(i64, i64, i64)]| -> Vec<(i64, i64)> { keys.iter().filter(|(_, t, _)| *t == key_type).map(|(id, _, st)| (*id, *st)).collect() };
+        let (mine, theirs) = (of(&keys_d), of(&keys_s));
+        if mine.is_empty() { continue; }
+        let (keep, gone): (i64, Vec<i64>) = match (theirs.iter().find(|(_, st)| *st == 1), mine.iter().find(|(_, st)| *st == 1)) {
+            (Some((ks, _)), _) => (*ks, mine.iter().map(|(id, _)| *id).collect()),
+            (None, Some((kd, _))) => {
+                move_key(c, *kd, &as_)?;
+                (*kd, mine.iter().map(|(id, _)| *id).filter(|id| id != kd).chain(theirs.iter().map(|(id, _)| *id)).collect())
+            }
+            (None, None) => match theirs.first() {
+                Some((ks, _)) => (*ks, mine.iter().map(|(id, _)| *id).collect()),
+                None => { let kd = mine[0].0; move_key(c, kd, &as_)?; (kd, mine.iter().skip(1).map(|(id, _)| *id).collect()) }
+            },
         };
         for id in gone { remove_key(c, id, Some(keep))?; deleted.push(id); }
-        kept.push(keep);
     }
+    // Every key left on the merged account.
+    let kept: Vec<i64> = keys_of(&as_)?.into_iter().map(|(id, _, _)| id).collect::<std::collections::BTreeSet<i64>>().into_iter().collect();
 
     // 4. Bots: status and settings unchanged.
     let mut b = c.prepare(&format!("SELECT b.id FROM bots b WHERE {} ORDER BY b.id", ad.bots("b")))?;
@@ -349,8 +365,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     venue_ids::move_rows(c, &sd, &ss)?;
     for (row, m) in &plan.merged {
         // A blank is no value, here as in the plan (`meta`): '' is NULL for each carried column.
-        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, NULLIF(raw_data, '')), \
-                   base_asset_id = COALESCE(NULLIF(base_asset_id, ''), ?6), group_id = COALESCE(NULLIF(group_id, ''), ?7), description = COALESCE(NULLIF(description, ''), ?8) WHERE id = ?1",
+        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, NULLIF(TRIM(raw_data), '')), \
+                   base_asset_id = COALESCE(NULLIF(TRIM(base_asset_id), ''), ?6), group_id = COALESCE(NULLIF(TRIM(group_id), ''), ?7), description = COALESCE(NULLIF(TRIM(description), ''), ?8) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
@@ -378,8 +394,9 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     // or one re-keyed to it from a deleted key) is shared-trade evidence for the merged account again.
     for k in &kept { crate::app_config::set_plain(c, &identity::credential_changed_key(*k), &crate::codec::format_time(now), now).map_err(rusqlite::Error::InvalidParameterName)?; }
     // Pending split restatements go to the key that runs the merged account's ledger sync (the scheduler's ledger key).
+    // The scheduler's own choice (`sync::ledger_reading_keys`), of the merged account's keys.
     let reader = crate::sync::ledger_reading_keys(c).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?.into_iter()
-        .find(|k| kept.contains(k));
+        .find(|k| identity::Account::of_key(c, *k).ok().flatten() == Some(as_));
     if let Some(reader) = reader {
         for k in kept.iter().filter(|k| **k != reader) { crate::sync::ledger::hand_owed(c, *k, reader).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?; }
     }
