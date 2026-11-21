@@ -852,6 +852,20 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
     }
     Ok(())
 }
+/// Whether accounts `x` and `y` of one exchange contradict each other (`reconsider`'s veto): balances that differ at
+/// comparable reads, known fingerprints that differ, a shared venue-native trade id with other facts (on an overlap venue),
+/// or either's fingerprint contradicted by one of its live keys. An account no longer there is a veto.
+pub fn vetoed(c: &Connection, x: i64, y: i64) -> rusqlite::Result<bool> {
+    let (Some(a), Some(b)) = (AccountRow::by_id(c, x)?, AccountRow::by_id(c, y)?) else { return Ok(true) };
+    let (d, s) = if a.number > b.number { (a, b) } else { (b, a) };
+    let kind: String = c.query_row("SELECT COALESCE(type, '') FROM exchanges WHERE id = ?1", [d.exchange_id], |r| r.get(0))?;
+    let row = |id: i64| -> rusqlite::Result<(Option<String>, bool)> {
+        c.query_row(&format!("SELECT x.fingerprint, {} FROM exchange_accounts x WHERE x.id = ?1", contradicted("x")), [id], |r| Ok((r.get(0)?, r.get(1)?)))
+    };
+    let ((fd, cd), (fs, cs)) = (row(d.id)?, row(s.id)?);
+    Ok(cd || cs || matches!((&fd, &fs), (Some(p), Some(q)) if p != q) || reads(c, &d, &s)? == Reads::Differ
+       || (OVERLAP_VENUES.contains(&kind.as_str()) && crate::venue_ids::overlap_conflict(c, &d.venue_ids(), &s.venue_ids(), "1", "1")?))
+}
 /// `reconsider` for the (user, exchange) of key `api_key_id`.
 pub fn reconsider_for_key(c: &Connection, api_key_id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
     let row: Option<(i64, i64)> = c.query_row("SELECT user_id, exchange_id FROM api_keys WHERE id = ?1", [api_key_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;

@@ -105,23 +105,28 @@ fn not_synced(x: &str) -> String {
 /// any other shape agree here.
 fn exact_amounts_agree(c: &Connection, d: i64, s: i64) -> rusqlite::Result<bool> {
     use crate::v2::BigDec;
-    let raw = |row: i64| -> rusqlite::Result<serde_json::Value> {
+    use serde_json::value::RawValue;
+    // Each field as written: a number's own text, never through a float (an API amount may be unquoted and wider).
+    type Fields = std::collections::HashMap<String, Box<RawValue>>;
+    let raw = |row: i64| -> rusqlite::Result<Option<Fields>> {
         let t: Option<String> = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [row], |r| r.get(0))?;
-        Ok(t.and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(serde_json::Value::Null))
+        Ok(t.and_then(|t| serde_json::from_str::<Fields>(&t).ok()))
     };
-    let (rd, rs) = (raw(d)?, raw(s)?);
-    let (restore, api) = match (rd.get("amounts").is_some(), rs.get("amounts").is_some()) {
-        (true, false) if rs.get("createdAt").is_some() => (&rd, &rs),
-        (false, true) if rd.get("createdAt").is_some() => (&rs, &rd),
+    let (Some(rd), Some(rs)) = (raw(d)?, raw(s)?) else { return Ok(true) };
+    let (restore, api) = match (rd.contains_key("amounts"), rs.contains_key("amounts")) {
+        (true, false) if rs.contains_key("createdAt") => (&rd, &rs),
+        (false, true) if rd.contains_key("createdAt") => (&rs, &rd),
         _ => return Ok(true),
     };
-    let decimal = |v: &serde_json::Value| -> Option<BigDec> {
-        match v { serde_json::Value::String(t) => BigDec::parse(t.trim()).ok(), serde_json::Value::Number(n) => BigDec::parse(&n.to_string()).ok(), _ => None }
+    let Some(amounts) = restore.get("amounts").and_then(|a| serde_json::from_str::<Fields>(a.get()).ok()) else { return Ok(true) };
+    let decimal = |v: &RawValue| -> Option<BigDec> {
+        let text = v.get().trim();
+        let text = if text.starts_with('"') { serde_json::from_str::<String>(text).ok()? } else { text.to_string() };
+        BigDec::parse(text.trim()).ok()
     };
     let abs = |d: BigDec| if d < BigDec::zero() { &BigDec::zero() - &d } else { d };
-    let amounts = &restore["amounts"];
     for (mine, theirs) in [("base", api.get("size").or_else(|| api.get("amount"))), ("quote", api.get("funds")), ("fee", api.get("fee"))] {
-        let (Some(a), Some(b)) = (decimal(&amounts[mine]), theirs.and_then(decimal)) else { continue };
+        let (Some(a), Some(b)) = (amounts.get(mine).and_then(|v| decimal(v)), theirs.and_then(|v| decimal(v))) else { continue };
         if abs(a) != abs(b) { return Ok(false); }
     }
     Ok(true)
@@ -277,6 +282,22 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         identity::Live::Unreadable(account) => return Err(Refusal::Unreadable(account)),
         identity::Live::Unresolved(held) => return Err(Refusal::Conflict(held)),
     }
+    // The whole stored component: every other member's fresh reads too, and no veto between any two of its accounts.
+    let mut q = c.prepare("SELECT duplicate_id FROM exchange_account_standings WHERE survivor_id = ?1 AND duplicate_id <> ?2 ORDER BY duplicate_id")?;
+    let others: Vec<i64> = q.query_map([s, d], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    drop(q);
+    for other in &others {
+        let Some(ro) = AccountRow::by_id(c, *other)? else { return Ok(None) };
+        match identity::live_check(c, &ro, &rs, now)? {
+            identity::Live::Fresh => {}
+            identity::Live::Stale(wake) => return Err(Refusal::Stale(wake)),
+            identity::Live::Differ => return Ok(None),
+            identity::Live::Unreadable(account) => return Err(Refusal::Unreadable(account)),
+            identity::Live::Unresolved(held) => return Err(Refusal::Conflict(held)),
+        }
+    }
+    let members: Vec<i64> = [d, s].into_iter().chain(others).collect();
+    for (i, x) in members.iter().enumerate() { for y in &members[i + 1..] { if identity::vetoed(c, *x, *y)? { return Ok(None); } } }
     // The standing as entered: both accounts' keys and credentials unchanged since.
     if basis != identity::standing_basis(c, d, s)? || identity::identity_changed_since(c, d, s, &since)? { return Ok(None); }
 
@@ -306,8 +327,7 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     drop(w);
     for tx in withheld { conflicts.push(format!("KuCoin fill {tx}")); }
     // A fill withheld on one account and visible on the other is one fill too: the same only when the visible row's
-    // venue answer and time are the withheld entry's. Its identical visible copy on D goes (S's withheld one stands); D's
-    // identical withheld copy of a fill S shows goes in step 8.
+    // venue answer and time are the withheld entry's. D's identical withheld copy of a fill S shows goes in step 8.
     let crossed = |withheld_on: i64, visible: &Scope| -> rusqlite::Result<Vec<(String, i64, bool)>> {
         let mut q = c.prepare(&format!("SELECT x.tx_id, a.id, json(x.entry) IS json(a.raw_data) AND x.transacted_at IS a.transacted_at FROM kucoin_withheld_fills x \
                                         JOIN account_transactions a ON a.user_id = ?2 AND a.exchange_id = ?3 AND {} AND {} WHERE x.account_id = ?1 ORDER BY x.tx_id",
@@ -317,11 +337,10 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     };
     let (on_s, on_d) = (crossed(s, &sd)?, crossed(d, &ss)?);
     for (tx, _, same) in on_s.iter().chain(&on_d) { if !same { conflicts.push(format!("KuCoin fill {tx}")); } }
+    // S's withheld copy of a fill D shows identically goes, and D's visible row moves as any other, with its metadata
+    // (manual values, order link, transfer links, rejected flag): the visible copy is the one that carries them.
     if conflicts.is_empty() {
-        for (_, row, _) in &on_s {
-            c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [row])?;
-            c.execute("DELETE FROM account_transactions WHERE id = ?1", [row])?;
-        }
+        for (tx, _, _) in &on_s { c.execute("DELETE FROM kucoin_withheld_fills WHERE account_id = ?1 AND tx_id = ?2", params![s, tx])?; }
     }
     let plan = ledger(c, &sd, &ss)?;
     conflicts.extend(plan.conflicts.iter().cloned());

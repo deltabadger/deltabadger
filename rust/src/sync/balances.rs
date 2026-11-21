@@ -603,8 +603,13 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
             Err(why) => Err(why),
         };
         let Some(asset) = names.asset_id(code) else {
-            // Any non-zero balance it cannot name, a debt included.
-            if entry.number("balance").ok().flatten().is_some_and(|b| !b.is_zero()) { unresolved.push(code.clone()); }
+            // A holding it cannot name is an unresolved code (compared, and the tracker's warning); a debt it cannot name is no
+            // complete read, recorded as skipped with its sign (never compared as a code, never a sync warning).
+            match entry.number("balance").ok().flatten() {
+                Some(b) if b.is_positive() => unresolved.push(code.clone()),
+                Some(b) if !b.is_zero() => SKIPPED.with(|s| s.borrow_mut().push(format!("{code} {}", b.to_s_f()))),
+                _ => {}
+            }
             continue;
         };
         let (balance, hold) = match (quantity("balance"), quantity("hold_trade")) {
@@ -711,7 +716,11 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         Ok(summary) => {
             if let Some(text) = kept_error {
                 let credentials = credentials.clone();
-                super::commit_for(db, version, move |c| record_sync_error(c, key_id, &text, &credentials)).await?;
+                super::commit_for(db, version, move |c| {
+                    // A reader its account no longer reads with writes nothing, this warning included.
+                    if super::jobs::superseded(c, key_id)?.is_some() { return Ok(String::new()); }
+                    record_sync_error(c, key_id, &text, &credentials)
+                }).await?;
             }
             Ok(Ok(summary))
         }

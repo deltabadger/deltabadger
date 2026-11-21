@@ -3570,3 +3570,64 @@ fn r15_withheld_and_visible_kucoin_fills_are_twins() {
     let copies = one::<i64>(c, "SELECT (SELECT count(*) FROM kucoin_withheld_fills WHERE tx_id = 'BTC-USDT-1') + (SELECT count(*) FROM account_transactions WHERE tx_id = 'BTC-USDT-1' OR id IN (SELECT account_transaction_id FROM exchange_account_rows WHERE venue_tx_id = 'BTC-USDT-1'))");
     assert_eq!(copies, 1, "kept once");
 }
+
+// ---- review round 16 ----
+
+/// R16 #1: the duplicate's visible KuCoin copy of a fill the survivor holds withheld keeps its metadata: a manual price
+/// and its bot order link survive the Merge.
+#[test]
+fn r16_a_visible_copy_of_a_withheld_fill_keeps_its_metadata() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'BTC-USDT-1', '2026-09-01 10:00:00', '{\"createdAt\":1,\"fee\":\"0.1\"}', 'now')",
+              [two.id(0)]).unwrap();
+    let order = two.order(c, 1, "o-1", 1, Some(2));
+    let row = two.row(c, 1, 0, "BTC", "1", Some("BTC-USDT-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1,\"fee\":\"0.1\"}', manual_values = '{\"price\":\"123\"}', transaction_id = ?2 WHERE id = ?1", [row, order]).unwrap();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let kept: Vec<(String, Option<i64>)> = c.prepare("SELECT manual_values, transaction_id FROM account_transactions WHERE manual_values LIKE '%123%'").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(kept.len(), 1, "the manual price survives");
+    assert_eq!(kept[0].1, Some(order), "and the order link");
+}
+
+/// R16 #2: Merge re-checks the whole stored component: 2 and 3 are duplicates of 1; account 2's new balance contradicts
+/// 1 (no reconsideration yet): merging 3 into 1 is refused.
+#[test]
+fn r16_merge_rechecks_the_whole_component() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let third = two.third(c).id.unwrap();
+    let key = add_key(c, &two, third);
+    common::two_accounts::confirm(c, third, Some("fp"));
+    assert_eq!(standings(c), [(two.id(1), two.id(0)), (third, two.id(0))]);
+    let at = now_text(-60);
+    common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &at);
+    for (a, k, units) in [(two.id(0), two.keys[0], "1"), (third, key, "1"), (two.id(1), two.keys[1], "7")] {
+        common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, units)], &at);
+    }
+    let before = dump(c);
+    assert!(matches!(merge_stale(c, &two, third), Ok(None)));
+    assert_eq!(dump(c), before);
+}
+
+/// R16 #4: a restore's exact amount against an API twin's unquoted number, never through a float: 100000000000000000001
+/// is not 100000000000000000000.
+#[test]
+fn r16_api_numbers_compare_from_their_text() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let api = two.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1,\"size\":100000000000000000001}' WHERE id = ?1", [api]).unwrap();
+    let restore = two.row(c, 1, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"amounts\":{\"base\":\"100000000000000000000\"}}' WHERE id = ?1", [restore]).unwrap();
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
+}
