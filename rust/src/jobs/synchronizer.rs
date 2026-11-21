@@ -143,8 +143,9 @@ pub struct Plan {
     sweep_exchange_assets: Vec<(i64, i64)>,
     /// A crypto asset was minted: the backfill wake's condition (create_missing_assets!'s new_crypto_assets).
     pub crypto_created: bool,
-    /// Delisted coins PR0: each written ticker's binding as the plan leaves it: id → (base, quote, base asset, quote asset).
-    bindings: HashMap<i64, (String, String, i64, i64)>,
+    /// Delisted coins PR0: each written ticker's bindings as the plan leaves them: id → its base and its quote (spelling,
+    /// asset), each None when the run's own crawl maps that spelling to another coin.
+    bindings: HashMap<i64, (Option<Bound>, Option<Bound>)>,
 }
 
 impl Plan {
@@ -154,6 +155,9 @@ impl Plan {
         self.assets.len().div_ceil(CHUNK) + writes.div_ceil(CHUNK) + self.sweep_tickers.len().div_ceil(CHUNK) + self.sweep_exchange_assets.len().div_ceil(CHUNK)
     }
 }
+
+/// One side of a ticker's binding: its spelling and asset.
+type Bound = (String, i64);
 
 /// A ticker of the venue as the loop sees it.
 struct Held { id: i64, base: String, quote: String, ticker: String, pair: (i64, i64), available: bool }
@@ -264,6 +268,8 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
     let (mut unresolved, mut refused) = (vec![], vec![]);
     // A row the database refuses: 2.x's sync raises out of the venue there and never reaches the sweep (D-CG-ROW-REFUSED).
     let mut aborted = false;
+    // Delisted coins PR0 (Codex r2 P1-5): (ticker, side) the crawl contradicts: confirmed by its spelling, mapped elsewhere.
+    let mut contradicted: HashSet<(i64, &'static str)> = HashSet::new();
     for row in rows {
         let (base, quote) = (string(&row["base"]).unwrap_or_default(), string(&row["quote"]).unwrap_or_default());
         let cols = match columns(row) { Ok(c) => c, Err(m) => { refused.push(m); aborted = true; continue } };
@@ -283,6 +289,9 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
                 continue;
             }
             apply(&mut held[i], &cols);
+            for (side, spelled, asset) in [("base", &base, held[i].pair.0), ("quote", &quote, held[i].pair.1)] {
+                if resolve.get(spelled.to_uppercase().as_str()).and_then(|ext| assets.get(*ext)).is_some_and(|a| *a != asset) { contradicted.insert((id, side)); }
+            }
             // `updated_tickers << ticker.ticker`: the name as assigned, written or not.
             confirmed.push(held[i].ticker.clone());
             plan.rows.push(vec![Write::Update { id, cols }]);
@@ -334,7 +343,9 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
     // The sweep, only when the catalogue confirmed some tickers and not every current one went missing, and no row was
     // refused by the database.
     let written: HashSet<i64> = plan.rows.iter().flatten().filter_map(|w| match w { Write::Update { id, .. } | Write::Create { id, .. } => Some(*id), _ => None }).collect();
-    plan.bindings = held.iter().filter(|h| written.contains(&h.id)).map(|h| (h.id, (h.base.clone(), h.quote.clone(), h.pair.0, h.pair.1))).collect();
+    let side = |h: &Held, side: &'static str, spelled: &str, asset: i64| (!contradicted.contains(&(h.id, side))).then(|| (spelled.to_string(), asset));
+    plan.bindings = held.iter().filter(|h| written.contains(&h.id))
+        .map(|h| (h.id, (side(h, "base", &h.base, h.pair.0), side(h, "quote", &h.quote, h.pair.1)))).collect();
     let confirmed: HashSet<String> = confirmed.into_iter().collect();
     let stale: HashSet<&String> = current.iter().filter(|t| !confirmed.contains(*t)).collect();
     if !aborted && !confirmed.is_empty() && stale.len() < current.len() {
@@ -381,14 +392,17 @@ pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: Dat
         units.last_mut().expect("pushed").extend(row);
     }
     // Delisted coins PR0: the run's observation of the venue (scope '', as data-api's), each unit's evidence after it commits.
-    let observation = super::evidence::begin(db, exchange_id, "", &t).await;
+    let observation = super::evidence::begin(db, exchange_id, "", now).await;
     for unit in units {
         let seen: Vec<super::evidence::Binding> = unit.iter()
             .filter_map(|w| match w { Write::Update { id, .. } | Write::Create { id, .. } => plan.bindings.get(id).map(|b| (*id, b)), _ => None })
-            .flat_map(|(id, (b, q, ba, qa))| [("base", b.clone(), *ba, id), ("quote", q.clone(), *qa, id)]).collect();
-        let t2 = t.clone();
-        import::publish(db, "venue tickers", vec![unit], move |c, writes: Vec<Write>| write_unit(c, exchange_id, &t2, writes)).await?;
-        if let Some(o) = &observation { super::evidence::record(db, o, seen).await; }
+            .flat_map(|(id, (b, q))| [b.clone().map(|(s, a)| ("base", s, a, id)), q.clone().map(|(s, a)| ("quote", s, a, id))]).flatten().collect();
+        let (t2, o) = (t.clone(), observation.clone());
+        db.run(move |c, cipher| {
+            import::in_transaction(c, cipher, "venue tickers", |c| write_unit(c, exchange_id, &t2, unit).map(|touched| ((), touched)))?;
+            if let Some(o) = &o { super::evidence::record(c, cipher, o, &seen); }
+            Ok(())
+        }).await?;
     }
     // update_all: updated_at stays.
     import::publish(db, "venue sweep", import::chunks(&plan.sweep_tickers), |c, ids: Vec<i64>| {
@@ -545,7 +559,7 @@ pub async fn run(cg: &Clients, catalogues: &Catalogues, cx: &Cx<'_>, setup: bool
         let plan = match planned { Ok(p) => p, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
         if plan.is_empty() {
             // Delisted coins PR0: an empty catalogue is an observation of nothing, which no interval spans.
-            super::evidence::observe_nothing(&cx.db, id, "", &format_time(now)).await;
+            super::evidence::observe(&cx.db, id, "", now, vec![]).await;
             continue;
         }
         let crypto = plan.crypto_created;

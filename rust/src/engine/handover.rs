@@ -733,7 +733,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // #878: the bot alert emails a user switched off; 2.x sends them all, and the switches hold again after a reclaim.
         (Table, "rust_email_alert_opt_outs", Ignored),
         // Delisted coins PR0: coin prices by identity, refetched on demand; the ticker bindings this engine observed and its
-        // runs (2.x's imports write none; the handback and the next claim each leave a barrier, so no interval spans 2.x's).
+        // runs (2.x's imports write none; an interval spans no more than jobs::evidence::MAX_OBSERVATION_GAP unobserved).
         (Table, "asset_prices", Cache), (Table, "listing_evidence", Ignored), (Table, "listing_observations", Ignored),
         // Withdrawal rules (rules::handback_problems): an intent or an unconsumed evaluation refuses.
         (Table, "rust_withdrawal_intents", Refuses("withdrawal work is unconsumed or unconfirmed")),

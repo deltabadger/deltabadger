@@ -1727,7 +1727,7 @@ fn intervals(c: &Connection, spelling: &str) -> Vec<(String, String, String)> {
 fn interval(ext: &str, from: &str, to: &str) -> (String, String, String) { (ext.into(), from.into(), to.into()) }
 /// Each observation's (kind, complete), in order.
 fn observations(c: &Connection) -> Vec<(String, i64)> {
-    c.prepare("SELECT kind, complete FROM listing_observations ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+    c.prepare("SELECT 'import', complete FROM listing_observations ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
 }
 
 /// Kraken with two EUR pairs, coin-0 and coin-1, whose payload names them `a` and `b`.
@@ -1789,17 +1789,16 @@ async fn a_unit_reappearing_after_an_absence_starts_a_new_interval() {
                                                         interval(&format!("coin-{}", n - 1), "2026-10-03 10:00:00", "2026-10-03 10:00:00")]);
 }
 
-/// Codex PR0 P1-4: an empty observation, a failed one, and an ownership change (a takeover or a handback) each break
-/// continuity: X, then one of them, then X is two intervals.
+/// Codex PR0 P1-4 / r2: an empty observation, a failed one, and an observation longer than MAX_OBSERVATION_GAP after
+/// the last each break continuity: X, then one of them, then X is two intervals. Within the gap, a run that recorded
+/// nothing (a missed run, a handback) is bridged: missing observations cost coverage, never correctness.
 #[tokio::test(flavor = "current_thread")]
-async fn x_then_empty_failed_or_ownership_change_then_x_is_two_intervals() {
-    for case in ["empty", "failed", "claim", "handback"] {
+async fn x_then_empty_failed_or_a_long_gap_then_x_is_two_intervals() {
+    for case in ["empty", "failed", "gap"] {
         let (d, c) = db();
         let (kraken, _) = renamed_venue(&c, 2);
         let db = Db::new(c, common::seed::cipher());
         import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-01T10:00:00Z").await.unwrap();
-        let (p, cipher) = (Paths::from_env(&|_| None, d.path()), common::seed::cipher());
-        let owner = || deltabadger::lease::lock(&p, at("2026-10-02T10:00:00Z")).unwrap();
         match case {
             "empty" => { import_tickers(&db, kraken, vec![], "2026-10-02T10:00:00Z").await.unwrap(); }
             "failed" => {
@@ -1808,13 +1807,82 @@ async fn x_then_empty_failed_or_ownership_change_then_x_is_two_intervals() {
                 import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-02T10:00:00Z").await.unwrap();
                 reopen(&d).execute_batch("DROP TRIGGER full_i; DROP TRIGGER full_u;").unwrap();
             }
-            "claim" => { deltabadger::lease::claim(&owner(), &reopen(&d), &cipher, "test", at("2026-10-02T10:00:00Z")).unwrap(); }
-            _ => { deltabadger::lease::hand_back(&owner(), &reopen(&d), &cipher, at("2026-10-02T10:00:00Z")).unwrap(); }
+            _ => {}
         }
-        import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-03T10:00:00Z").await.unwrap();
-        assert_eq!(intervals(&reopen(&d), "S"), [interval("coin-0", "2026-10-01 10:00:00", "2026-10-01 10:00:00"),
-                                                 interval("coin-0", "2026-10-03 10:00:00", "2026-10-03 10:00:00")], "{case}");
+        let next = if case == "gap" { "2026-10-04T10:00:01Z" } else { "2026-10-03T10:00:00Z" };
+        import_tickers(&db, kraken, two_pairs("S", "T"), next).await.unwrap();
+        let later = next.replace('T', " ").trim_end_matches('Z').to_string();
+        assert_eq!(intervals(&reopen(&d), "S"), [interval("coin-0", "2026-10-01 10:00:00", "2026-10-01 10:00:00"), interval("coin-0", &later, &later)], "{case}");
     }
+    // Exactly MAX_OBSERVATION_GAP later still extends.
+    let (d, c) = db();
+    let (kraken, _) = renamed_venue(&c, 2);
+    let db = Db::new(c, common::seed::cipher());
+    for now in ["2026-10-01T10:00:00Z", "2026-10-04T10:00:00Z"] { import_tickers(&db, kraken, two_pairs("S", "T"), now).await.unwrap(); }
+    assert_eq!(intervals(&reopen(&d), "S"), [interval("coin-0", "2026-10-01 10:00:00", "2026-10-04 10:00:00")]);
+}
+
+/// Codex PR0 r2 P1-2: an ownership change writes no listing evidence: a takeover and a handback succeed though
+/// listing_observations refuses every write.
+#[tokio::test(flavor = "current_thread")]
+async fn ownership_changes_never_depend_on_listing_evidence() {
+    let (d, c) = db();
+    c.execute_batch("CREATE TRIGGER refuse_o BEFORE INSERT ON listing_observations BEGIN SELECT RAISE(ROLLBACK, 'refused'); END;").unwrap();
+    let (p, cipher) = (Paths::from_env(&|_| None, d.path()), common::seed::cipher());
+    let owner = deltabadger::lease::lock(&p, at("2026-10-02T10:00:00Z")).unwrap();
+    deltabadger::lease::claim(&owner, &c, &cipher, "test", at("2026-10-02T10:00:00Z")).unwrap();
+    deltabadger::lease::hand_back(&owner, &c, &cipher, at("2026-10-02T11:00:00Z")).unwrap();
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_observations"), 0);
+}
+
+/// Codex PR0 r2 P2-8: a run whose clock is behind the scope's last observation records nothing, so no interval's end
+/// moves backward; the next run on a sound clock extends as before.
+#[tokio::test(flavor = "current_thread")]
+async fn a_regressed_clock_records_nothing_and_moves_no_endpoint() {
+    let (d, c) = db();
+    let (kraken, _) = renamed_venue(&c, 2);
+    let db = Db::new(c, common::seed::cipher());
+    for now in ["2026-10-21T10:00:00Z", "2026-10-23T10:00:00Z", "2026-10-20T10:00:00Z"] { import_tickers(&db, kraken, two_pairs("S", "T"), now).await.unwrap(); }
+    let c = reopen(&d);
+    assert_eq!(intervals(&c, "S"), [interval("coin-0", "2026-10-21 10:00:00", "2026-10-23 10:00:00")]);
+    assert_eq!(observations(&c).len(), 2, "the regressed run recorded no observation");
+}
+
+/// Codex PR0 r2 P2-9: one unit's failed evidence leaves its run incomplete but does not stop the next unit's evidence.
+#[tokio::test(flavor = "current_thread")]
+async fn a_units_failed_evidence_does_not_stop_the_next_units() {
+    let n = deltabadger::jobs::CHUNK + 100;
+    let (d, c) = db();
+    let (kraken, _) = renamed_venue(&c, n);
+    c.execute_batch("CREATE TRIGGER refuse_first BEFORE INSERT ON listing_evidence WHEN NEW.spelling = 'C0' BEGIN SELECT RAISE(ROLLBACK, 'full'); END;").unwrap();
+    let db = Db::new(c, common::seed::cipher());
+    import_tickers(&db, kraken, named(n, &[]), "2026-10-01T10:00:00Z").await.unwrap();
+    let c = reopen(&d);
+    assert!(intervals(&c, "C0").is_empty());
+    assert_eq!(intervals(&c, &format!("C{}", n - 1)).len(), 1, "the second unit's evidence was written");
+    assert_eq!(observations(&c), [("import".to_string(), -1)]);
+}
+
+/// Codex PR0 r2 P1-5: Alpaca's crypto import gives every pair the local `usd` quote asset; a quote spelled otherwise
+/// (ETH/BTC) is a synthetic binding, never recorded, while USD's is.
+#[tokio::test(flavor = "current_thread")]
+async fn a_synthetic_quote_is_no_evidence() {
+    let (d, c) = db();
+    exchange(&c, "Exchanges::Alpaca", true);
+    let mut rows: Vec<Value> = (1..=30).map(|i| {
+        asset(&c, &format!("coin-{i:02}"), &format!("C{i:02}"), "Cryptocurrency");
+        json!({ "base_asset_id": format!("crypto:coin-{i:02}"), "symbol": format!("C{i:02}/USD"), "base_decimals": 8, "quote_decimals": 2, "price_decimals": 2 })
+    }).collect();
+    asset(&c, "ethereum", "ETH", "Cryptocurrency");
+    rows.push(json!({ "base_asset_id": "crypto:ethereum", "symbol": "ETH/BTC", "base_decimals": 8, "quote_decimals": 8, "price_decimals": 6 }));
+    let t = ScriptedTransport::default();
+    t.reply("GET /api/v2/listings?venue=alpaca_crypto", 200, json!({ "data": rows }));
+    assert_eq!(run(reference::ALPACA_CRYPTO, scripted(&t), c, "2026-10-02T10:15:00Z").await, Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM tickers WHERE ticker = 'ETH/BTC'"), 1, "the legacy ticker is written");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'quote' AND spelling = 'BTC'"), 0);
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'quote' AND spelling = 'USD'"), 30);
+    assert_eq!(intervals(&c, "ETH").len(), 1, "its base is evidence");
 }
 
 /// Alpaca imports its stocks and its coins apart: each category is its own run of observations, so one never ends the

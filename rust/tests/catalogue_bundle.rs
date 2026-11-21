@@ -399,15 +399,14 @@ async fn after_a_handback_a_v2_refresh_counts_for_a_catalogue_fed_source() {
 }
 
 /// Delisted coins PR0 (Codex P2-8): a catalogue snapshot (the bundle, or the public one) is no observation of a venue:
-/// it records no listing evidence, and leaves a barrier no later observation extends across.
+/// it records no listing evidence and no observation.
 #[tokio::test(flavor = "current_thread")]
-async fn a_catalogue_snapshot_records_no_listing_evidence_and_breaks_continuity() {
+async fn a_catalogue_snapshot_records_no_listing_evidence() {
     let (d, _, _) = install();
     let [assets, listings] = stocks(1, T1);
     bundle(&d, &snapshot(&[assets, listings, crypto(1, T1), ("ibkr_listings", fixture("feed"))]));
     assert_eq!(run(&d, reference::BOOTSTRAP, &[], &Remote::default(), RUN).await.last_error, None);
     assert!(count(&d, "SELECT count(*) FROM tickers") > 0);
     assert_eq!(count(&d, "SELECT count(*) FROM listing_evidence"), 0);
-    assert_eq!(count(&d, "SELECT count(*) FROM listing_observations WHERE kind = 'import'"), 0);
-    assert!(count(&d, "SELECT count(*) FROM listing_observations WHERE kind = 'barrier' AND exchange_id IS NOT NULL") >= 3, "one per venue and category published");
+    assert_eq!(count(&d, "SELECT count(*) FROM listing_observations"), 0);
 }

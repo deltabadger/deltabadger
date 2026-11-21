@@ -434,3 +434,24 @@ async fn coingecko_refreshes_record_listing_evidence() {
     assert_eq!(seen("base", "RENDER"), span("2026-10-04 00:15:00", "2026-10-04 00:15:00"));
     assert_eq!(seen("quote", "B"), span("2026-10-02 00:15:00", "2026-10-04 00:15:00"));
 }
+
+/// Codex PR0 r2 P1-5: a held ticker the catalogue confirms by its spelling, while the crawl of the same run maps that
+/// spelling to another coin, is written as before but its base binding is contradicted: no evidence for it. Its quote,
+/// which the crawl agrees with, is.
+#[tokio::test(flavor = "current_thread")]
+async fn a_spelling_the_crawl_maps_to_another_coin_is_no_evidence() {
+    let (d, c, ids) = install(&[KRAKEN]);
+    let (x, b) = (asset(&c, "coin-x"), asset(&c, "coin-b"));
+    ticker(&c, ids[0], x, b, "SB", "S", "B");
+    let cats = Cats::default();
+    cats.set(KRAKEN, Ok(vec![row("SB", "S", "B"), row("NB", "N", "B")]));
+    let t = ScriptedTransport::default();
+    demo(&t).reply(&crawl_key("kraken", 1), 200, json!({ "tickers": [{ "base": "S", "coin_id": "coin-y", "target": "B", "target_coin_id": "coin-b" },
+                                                                    { "base": "N", "coin_id": "coin-n", "target": "B", "target_coin_id": "coin-b" }] }));
+    assert_eq!(tickers(c, &t, &cats, NOW).await, Outcome::Done);
+    let c = reopen(&d);
+    assert_eq!(count(&c, "SELECT count(*) FROM tickers WHERE ticker = 'SB' AND base_asset_id = (SELECT id FROM assets WHERE external_id = 'coin-x')"), 1, "the legacy row as before");
+    assert_eq!(count(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'base' AND spelling = 'S'"), 0);
+    assert_eq!(count(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'base' AND spelling = 'N'"), 1);
+    assert_eq!(count(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'quote' AND spelling = 'B'"), 2);
+}

@@ -1,20 +1,36 @@
 //! Delisted coins (plan r10 §1.5, PR0): `listing_evidence`, every ticker binding an import observed, as intervals.
 //!
-//! Each import run of a venue's catalogue (data-api's tickers, Alpaca's stocks or coins, IBKR's listings, CoinGecko's
-//! venue catalogue) is one `listing_observations` row of its (venue, scope), taken before its first unit. A binding seen
-//! by the run extends its interval only when the interval was last extended by the run's predecessor, and only when that
-//! predecessor completed with every unit's evidence written and no barrier came after it. So nothing is bridged across a
-//! run that did not observe it: one that failed, wrote no evidence, saw an empty catalogue, or a barrier (a takeover, a
-//! handback, a catalogue snapshot's publish, which observes no venue).
+//! Each import run of a venue's catalogue in a scope (data-api's tickers, Alpaca's stocks or coins, IBKR's listings,
+//! CoinGecko's venue catalogue) is one `listing_observations` row, taken before its first unit. A binding the run sees
+//! extends its interval only when the interval was last extended by the scope's previous recorded run, and that run
+//! (a) completed with every unit's evidence written, (b) was observed no later than this one, and (c) no more than
+//! MAX_OBSERVATION_GAP before it. Everything else starts a new interval: a run that failed, wrote no evidence, saw an
+//! empty catalogue, came too long after the last, or a clock gone backward (such a run records nothing at all). No barrier
+//! or other extra write is needed for this to hold: a run that records nothing (a missed run, one that stopped before
+//! publishing, a handback period, a catalogue snapshot, which observes no venue) only widens the gap. Missing observations
+//! cost coverage, never correctness: an interval is never extended across more than MAX_OBSERVATION_GAP unobserved.
 //!
-//! The evidence of a unit is written in a transaction of its own after the unit's commit: no evidence failure, an
-//! SQLITE_FULL that rolls the transaction back included, can undo or change the ticker write. Every failure is logged and
-//! leaves its run incomplete (in the table, and in memory when the table cannot be written either).
+//! A unit's evidence is written in a transaction of its own right after the unit's commit, on the same blocking call, so
+//! no evidence failure can undo or change a ticker write and a dropped caller cannot skip it. A failure is logged, marks
+//! the run failed (then it never completes), and the later units' evidence is still written.
+//!
+//! Accepted (Codex PR0 r2 P1-1): evidence takes database pages, so on a database at its page limit a later legacy unit
+//! can fail where it would have fit without them. No install sets `max_page_count`, and a full disk fails every write of
+//! every job alike; the table grows only when a binding changes (an unchanged one is an update in place), so it cannot be
+//! what fills a disk. No space reservation or retry is built for it.
 use super::import::{in_transaction, Touched};
 use super::Db;
+use crate::crypto::Cipher;
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
+/// The longest a binding is taken to hold unobserved between two runs. The catalogue imports run every 4 hours (venue
+/// tickers) or daily (Alpaca, IBKR), each with retries: three days tolerate a day or two of missed runs (an install that
+/// was off over a weekend) before an interval is cut. The residual is a venue renaming a spelling and reverting it inside
+/// that window unobserved, which venues do not do.
+pub const MAX_OBSERVATION_GAP: Duration = Duration::days(3);
 
 /// (side, spelling, asset id, ticker id): one binding a unit wrote.
 pub type Binding = (&'static str, String, i64, i64);
@@ -29,32 +45,35 @@ pub struct Observation { id: i64, exchange_id: i64, scope: String, at: String, c
 
 fn log(what: &str, exchange_id: i64, e: impl std::fmt::Display) { crate::engine::log(&format!("[reference] listing evidence {what} for exchange {exchange_id}: {e}")); }
 
-/// Opens a run of (venue, scope) at `at`. None when it cannot be recorded (logged): the run records nothing, and a
-/// barrier is attempted so the next run does not extend across it.
-pub async fn begin(db: &Db, exchange_id: i64, scope: &str, at: &str) -> Option<Observation> {
-    let (s, a) = (scope.to_string(), at.to_string());
-    let opened = db.run(move |c, cipher| in_transaction(c, cipher, "listing evidence", |c| open(c, exchange_id, &s, &a).map(|o| (o, Touched::None)).map_err(|e| e.to_string()))).await;
-    match opened {
-        Ok(o) => Some(o),
-        Err(e) => { log("not begun", exchange_id, e); barrier_for(db, exchange_id, scope, at).await; None }
-    }
+fn parse(at: &str) -> Option<DateTime<Utc>> {
+    NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H:%M:%S%.f").ok().map(|t| t.and_utc())
 }
 
-fn open(c: &Connection, exchange_id: i64, scope: &str, at: &str) -> rusqlite::Result<Observation> {
-    // The latest row of this (venue, scope), or any barrier after it: only a completed import there can be extended.
-    let last: Option<(i64, String, i64)> = c.query_row("SELECT id, kind, complete FROM listing_observations WHERE (exchange_id = ?1 AND scope = ?2) OR exchange_id IS NULL \
-                                                       ORDER BY id DESC LIMIT 1", params![exchange_id, scope], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
-    let continues = last.filter(|(_, kind, complete)| kind == "import" && *complete == 1).map(|(id, ..)| id);
-    c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (?1, ?2, 'import', ?3)", params![exchange_id, scope, at])?;
-    Ok(Observation { id: c.last_insert_rowid(), exchange_id, scope: scope.into(), at: at.into(), continues, failed: Arc::default() })
+/// Opens a run of (venue, scope) observed at `at`. None when it records nothing: its clock is not after the scope's
+/// last run (a regressed clock, or a feed whose evidence is older), or it cannot be written (logged).
+pub async fn begin(db: &Db, exchange_id: i64, scope: &str, at: DateTime<Utc>) -> Option<Observation> {
+    let s = scope.to_string();
+    let opened = db.run(move |c, cipher| in_transaction(c, cipher, "listing evidence", |c| open(c, exchange_id, &s, at).map(|o| (o, Touched::None)).map_err(|e| e.to_string()))).await;
+    opened.map_err(|e| log("not begun", exchange_id, e)).ok().flatten()
 }
 
-/// The bindings of a unit that committed, in a write unit of their own.
-pub async fn record(db: &Db, o: &Observation, bindings: Vec<Binding>) {
-    if bindings.is_empty() || o.failed.load(Ordering::SeqCst) { return; }
-    let mine = o.clone();
-    let written = db.run(move |c, cipher| in_transaction(c, cipher, "listing evidence", |c| write(c, &mine, &bindings).map(|()| ((), Touched::None)).map_err(|e| e.to_string()))).await;
-    if let Err(e) = written { fail(db, o, e).await; }
+fn open(c: &Connection, exchange_id: i64, scope: &str, at: DateTime<Utc>) -> rusqlite::Result<Option<Observation>> {
+    let last: Option<(i64, String, i64)> = c.query_row("SELECT id, at, complete FROM listing_observations WHERE exchange_id = ?1 AND scope = ?2 ORDER BY id DESC LIMIT 1",
+                                                       params![exchange_id, scope], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let before = last.as_ref().and_then(|(_, t, _)| parse(t));
+    if before.is_some_and(|t| t >= at) || (last.is_some() && before.is_none()) { return Ok(None); }
+    let continues = last.zip(before).filter(|((_, _, complete), t)| *complete == 1 && at - *t <= MAX_OBSERVATION_GAP).map(|((id, ..), _)| id);
+    let at = crate::codec::format_time(at);
+    c.execute("INSERT INTO listing_observations (exchange_id, scope, at) VALUES (?1, ?2, ?3)", params![exchange_id, scope, at])?;
+    Ok(Some(Observation { id: c.last_insert_rowid(), exchange_id, scope: scope.into(), at, continues, failed: Arc::default() }))
+}
+
+/// The bindings of a unit that just committed, in a write unit of their own, on the caller's connection (the unit's own
+/// blocking call). A failure is logged and marks the run failed.
+pub fn record(c: &Connection, cipher: &Cipher, o: &Observation, bindings: &[Binding]) {
+    if bindings.is_empty() { return; }
+    let written = in_transaction(c, cipher, "listing evidence", |c| write(c, o, bindings).map(|()| ((), Touched::None)).map_err(|e| e.to_string()));
+    if let Err(e) = written { fail(c, o, e); }
 }
 
 fn write(c: &Connection, o: &Observation, bindings: &[Binding]) -> rusqlite::Result<()> {
@@ -75,13 +94,11 @@ fn write(c: &Connection, o: &Observation, bindings: &[Binding]) -> rusqlite::Res
 }
 
 /// A unit's evidence was not written: the run is marked failed (complete = -1) and never completes.
-async fn fail(db: &Db, o: &Observation, why: String) {
+fn fail(c: &Connection, o: &Observation, why: String) {
     log("not written", o.exchange_id, &why);
     o.failed.store(true, Ordering::SeqCst);
-    let id = o.id;
-    let marked = db.run(move |c, _| c.execute("UPDATE listing_observations SET complete = -1 WHERE id = ?1", [id]).map_err(|e| e.to_string())).await;
-    // ponytail: unmarked, the run stays incomplete (0), which no later run extends from either.
-    if let Err(e) = marked { log("failure not marked", o.exchange_id, e); }
+    // ponytail: unmarked (the mark failing too), the run stays incomplete (0), which no later run extends from either.
+    if let Err(e) = c.execute("UPDATE listing_observations SET complete = -1 WHERE id = ?1", [o.id]) { log("failure not marked", o.exchange_id, e); }
 }
 
 /// The run published every unit and wrote every unit's evidence: the next run may extend from it.
@@ -92,21 +109,9 @@ pub async fn complete(db: &Db, o: &Observation) {
     if let Err(e) = done { log("not completed", o.exchange_id, e); }
 }
 
-/// A run that observed an empty catalogue: begun and completed with no binding, so the next run extends nothing.
-pub async fn observe_nothing(db: &Db, exchange_id: i64, scope: &str, at: &str) {
-    if let Some(o) = begin(db, exchange_id, scope, at).await { complete(db, &o).await; }
-}
-
-/// A barrier: no observation of (venue, scope) (None: of every venue) before it is extended after it.
-pub fn barrier(c: &Connection, venue: Option<(i64, &str)>, at: &str) -> rusqlite::Result<()> {
-    let present: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'listing_observations')", [], |r| r.get(0))?;
-    if !present { return Ok(()); } // an unmigrated copy (a parity scratch) observes nothing
-    c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (?1, ?2, 'barrier', ?3)", params![venue.map(|v| v.0), venue.map(|v| v.1), at])?;
-    Ok(())
-}
-
-/// `barrier` for one venue's scope, from the job (logged on failure).
-pub async fn barrier_for(db: &Db, exchange_id: i64, scope: &str, at: &str) {
-    let (scope, at) = (scope.to_string(), at.to_string());
-    if let Err(e) = db.run(move |c, _| barrier(c, Some((exchange_id, &scope)), &at).map_err(|e| e.to_string())).await { log("barrier not written", exchange_id, e); }
+/// A complete run of `bindings` alone, writing no ticker (IBKR's evidence-only revision, data-api's empty catalogue).
+pub async fn observe(db: &Db, exchange_id: i64, scope: &str, at: DateTime<Utc>, bindings: Vec<Binding>) {
+    let Some(o) = begin(db, exchange_id, scope, at).await else { return };
+    let mine = o.clone();
+    if db.run(move |c, cipher| { record(c, cipher, &mine, &bindings); Ok(()) }).await.is_ok() { complete(db, &o).await; }
 }

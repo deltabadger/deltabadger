@@ -800,7 +800,7 @@ fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
 }
 
 /// Delisted coins PR0: `asset_prices` (coin prices by identity), `listing_evidence` (every observed ticker binding, as
-/// intervals) and `listing_observations` (one row per import run, or a barrier) migrate once, keyed as the writers rely
+/// intervals) and `listing_observations` (one row per import run) migrate once, keyed as the writers rely
 /// on: one price per (external id, currency, day); the evidence writer's lookup of a binding's latest interval is one
 /// index search, never a scan or a sort (Codex P2-7).
 #[test]
@@ -814,9 +814,8 @@ fn the_price_and_listing_evidence_tables_migrate_once_with_their_keys() {
     let put = "INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin-gold', 'USD', '2019-01-02', '13.5') ON CONFLICT DO NOTHING";
     assert_eq!(c.execute(put, []).unwrap(), 1);
     assert_eq!(c.execute(put, []).unwrap(), 0, "one price per external id, currency and day");
-    c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (1, '', 'import', '2026-11-21 10:00:00')", []).unwrap();
-    c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (NULL, NULL, 'barrier', '2026-11-21 10:00:00')", []).unwrap();
-    assert!(c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (1, '', 'other', '2026-11-21 10:00:00')", []).is_err());
+    c.execute("INSERT INTO listing_observations (exchange_id, scope, at) VALUES (1, '', '2026-11-21 10:00:00')", []).unwrap();
+    assert!(c.execute("INSERT INTO listing_observations (exchange_id, scope, at) VALUES (NULL, '', '2026-11-21 10:00:00')", []).is_err(), "every run is a venue's");
     c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen, observation_id) \
                VALUES (1, '', 'base', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00', 1)", []).unwrap();
     assert!(c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen, observation_id) \

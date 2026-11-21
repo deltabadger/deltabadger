@@ -238,8 +238,8 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // Delisted coins PR0: coin prices by identity, and the observed ticker bindings.
     ("20261123000001", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),
-    ("20261123000001", TableContract { name: "listing_observations", columns: &[("id", "INTEGER", false), ("exchange_id", "INTEGER", false), ("scope", "TEXT", false),
-        ("kind", "TEXT", true), ("at", "TEXT", true), ("complete", "INTEGER", true)], unique_indexes: &[] }),
+    ("20261123000001", TableContract { name: "listing_observations", columns: &[("id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("scope", "TEXT", true),
+        ("at", "TEXT", true), ("complete", "INTEGER", true)], unique_indexes: &[] }),
     ("20261123000001", TableContract { name: "listing_evidence", columns: &[("id", "INTEGER", false), ("exchange_id", "INTEGER", true), ("scope", "TEXT", true),
         ("side", "TEXT", true), ("spelling", "TEXT", true), ("asset_id", "INTEGER", true), ("ticker_id", "INTEGER", true), ("first_seen", "TEXT", true),
         ("last_seen", "TEXT", true), ("observation_id", "INTEGER", true)], unique_indexes: &[] }),
