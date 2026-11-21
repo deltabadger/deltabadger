@@ -81,41 +81,11 @@ fn lex(text: &str) -> (String, String) {
 /// out, every test item out: one under `#[cfg(test)]`, `#[test]` or `#[tokio::test]`, attributes, signature and body.
 /// Each unit: (clean text, mask).
 fn units(text: &str) -> Vec<(String, String)> {
-    let (clean, mask) = lex(text);
+    let (clean, mask) = without_tests(lex(text));
     let (cl, ml): (Vec<&str>, Vec<&str>) = (clean.lines().collect(), mask.lines().collect());
     let mut out = vec![];
-    let (mut i, mut open, mut unit): (usize, Vec<char>, (String, String)) = (0, vec![], (String::new(), String::new()));
-    let test_attr = |m: &str| { let t = m.trim(); t.starts_with("#[cfg(test)]") || t.starts_with("#[test]") || t.starts_with("#[tokio::test") };
-    while i < ml.len() {
-        if unit.1.trim().is_empty() && test_attr(ml[i]) {
-            // Skip to the end of the item: its `;`, or the `}` closing its first `{`; a `}` closing the enclosing item
-            // ends it too.
-            let (mut braces, mut parens) = (0i64, 0i64);
-            'item: while i < ml.len() {
-                let line = ml[i];
-                // Past any leading attributes on the line (`#[cfg(test)] mod tests {`).
-                let mut from = 0;
-                let mut rest = line.trim_start();
-                while rest.starts_with("#[") {
-                    let mut d = 0;
-                    let Some(end) = rest.char_indices().find(|&(_, ch)| { match ch { '[' => d += 1, ']' => d -= 1, _ => {} } d == 0 }).map(|(k, _)| k + 1) else { break };
-                    from = line.len() - rest.len() + end;
-                    rest = line[from..].trim_start();
-                }
-                for ch in line[from..].chars() {
-                    match ch {
-                        '{' => braces += 1,
-                        '}' => { braces -= 1; if braces <= 0 { i += 1; break 'item; } }
-                        '(' | '[' => parens += 1,
-                        ')' | ']' => parens -= 1,
-                        ';' if braces == 0 && parens == 0 => { i += 1; break 'item; }
-                        _ => {}
-                    }
-                }
-                i += 1;
-            }
-            continue;
-        }
+    let (mut open, mut unit): (Vec<char>, (String, String)) = (vec![], (String::new(), String::new()));
+    for i in 0..ml.len() {
         unit.0.push_str(cl[i]); unit.0.push('\n');
         unit.1.push_str(ml[i]); unit.1.push('\n');
         for ch in ml[i].chars() {
@@ -125,18 +95,56 @@ fn units(text: &str) -> Vec<(String, String)> {
                 _ => {}
             }
         }
-        // A unit ends at a line's end outside a string, with no `(` or `[` open since the innermost `{`, and no operator
-        // trailing (a block's lines are units of their own).
+        // A unit ends at a line's end outside a string, with no `(` or `[` open since the innermost `{`, no operator
+        // trailing and none (nor a method call, `?` or `.`) leading the next code line: a block's lines are units of
+        // their own, an expression is one unit.
         let t = ml[i].trim_end();
         let joined = ["==", "!=", "||", "&&", "|", ",", "=", "+"].iter().any(|op| t.ends_with(op));
+        let next = ml[i + 1..].iter().map(|l| l.trim_start()).find(|l| !l.is_empty()).unwrap_or("");
+        let continued = [".", "?", "==", "!=", "&&", "||", "|"].iter().any(|op| next.starts_with(op)) && !next.starts_with("..");
         let in_string = unit.1.matches('"').count() % 2 == 1;
-        if !in_string && !joined && open.last().is_none_or(|c| *c == '{') {
+        if !in_string && !joined && !continued && open.last().is_none_or(|c| *c == '{') {
             if !unit.1.trim().is_empty() { out.push(std::mem::take(&mut unit)); } else { unit = Default::default(); }
         }
-        i += 1;
     }
     if !unit.1.trim().is_empty() { out.push(unit); }
     out
+}
+
+/// `(clean, mask)` with every test item blanked where it stands (newlines kept): an item under `#[cfg(test)]`,
+/// `#[test]` or `#[tokio::test]`, from its attributes to its `;` or the `}` closing its first `{` (or a `}` closing
+/// the item around it). Code before or after it on the same lines stays.
+fn without_tests((clean, mask): (String, String)) -> (String, String) {
+    let (mut c, mut m): (Vec<char>, Vec<char>) = (clean.chars().collect(), mask.chars().collect());
+    let text: String = m.iter().collect();
+    let mut starts: Vec<usize> = ["#[cfg(test)]", "#[test]", "#[tokio::test"].iter()
+        .flat_map(|a| text.match_indices(a).map(|(k, _)| text[..k].chars().count()).collect::<Vec<_>>()).collect();
+    starts.sort();
+    let mut done = 0;
+    for start in starts {
+        if start < done { continue; }
+        let (mut k, mut braces, mut parens, mut attr) = (start, 0i64, 0i64, 0i64);
+        while k < m.len() {
+            let ch = m[k];
+            k += 1;
+            if attr > 0 || (ch == '#' && m.get(k) == Some(&'[')) {
+                // Inside an attribute: its brackets only.
+                match ch { '[' => attr += 1, ']' => attr -= 1, _ => {} }
+                continue;
+            }
+            match ch {
+                '{' => braces += 1,
+                '}' => { braces -= 1; if braces <= 0 { break; } }
+                '(' | '[' => parens += 1,
+                ')' | ']' => parens -= 1,
+                ';' if braces == 0 && parens == 0 => break,
+                _ => {}
+            }
+        }
+        for (mc, cc) in m[start..k].iter_mut().zip(c[start..k].iter_mut()) { if *mc != '\n' { *mc = ' '; *cc = ' '; } }
+        done = k;
+    }
+    (c.into_iter().collect(), m.into_iter().collect())
 }
 
 /// Every hit in `files` ((path under src/, text)).
@@ -265,4 +273,15 @@ fn the_scan_reads_expressions_sql_strings_and_test_items_structurally() {
     assert_eq!(hits.keys().map(|(_, _, l)| l.as_str()).collect::<Vec<_>>(), ["fn later() { let s = \"SELECT base_currency FROM t\"; }"], "{hits:?}");
     let standalone = file("tracker/b.rs", "#[test]\nfn t() {\n    let s = \"SELECT base_currency FROM t\";\n}\n\n#[cfg(test)] mod more { fn u() { let s = \"quote_currency\"; } }\n");
     assert!(scan(&standalone).is_empty(), "{:?}", scan(&standalone));
+}
+
+/// Codex PR0 r2 P2-12: an array whose `.contains` is on the next line is one expression, and a production item on the
+/// same line after a test item's closing brace is production code.
+#[test]
+fn the_scan_joins_method_chains_and_keeps_code_after_a_test_item() {
+    let file = |path: &str, text: &str| vec![(path.to_string(), text.to_string())];
+    let chain = file("tax/c.rs", "fn c(s: &str) -> bool {\n    [\"USDT\", \"USDC\"]\n        .contains(&s)\n}\n");
+    assert_eq!(scan(&chain).keys().map(|(_, k, _)| *k).collect::<Vec<_>>(), ["literal"], "{:?}", scan(&chain));
+    let same_line = file("tracker/s.rs", "#[cfg(test)] mod t { fn a() {} } fn later() { let s = \"SELECT base_currency FROM t\"; }\n");
+    assert_eq!(scan(&same_line).len(), 1, "{:?}", scan(&same_line));
 }
