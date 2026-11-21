@@ -18,29 +18,36 @@ const VERSION: i64 = 3;
 
 pub fn key(owner: i64) -> String { format!("rust_snapshot_unpriced.{owner}") }
 
-/// Records what a sweep could not price, and the openings it could not value; empty maps are a sweep that priced everything.
-pub fn store(c: &Connection, owner: i64, unpriced: &ByVenue, openings: &ByVenue, now: DateTime<Utc>) -> Result<(), FiguresError> {
+/// What a sweep left partial, by account: the symbols it could not price, the openings it could not value, and the
+/// accounts with a cause it cannot name (an incomplete term that opens nothing, a balance below zero).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Record { pub venues: ByVenue, pub openings: ByVenue, pub unnamed: BTreeSet<i64> }
+
+/// Records what a sweep left partial; an empty record is a sweep that priced everything.
+pub fn store(c: &Connection, owner: i64, r: &Record, now: DateTime<Utc>) -> Result<(), FiguresError> {
     let map = |m: &ByVenue| m.iter().map(|(id, symbols)| (id.to_string(), json!(symbols))).collect::<serde_json::Map<String, Value>>();
-    crate::app_config::set_plain(c, &key(owner), &json!({ "v": VERSION, "venues": map(unpriced), "openings": map(openings) }).to_string(), now).map_err(FiguresError::Data)
+    let record = json!({ "v": VERSION, "venues": map(&r.venues), "openings": map(&r.openings), "unnamed": r.unnamed });
+    crate::app_config::set_plain(c, &key(owner), &record.to_string(), now).map_err(FiguresError::Data)
 }
 
 /// The last sweep's record; none when there is none yet (a history swept before it existed) or it cannot be read. A
 /// version-1 record (by exchange id) reads as the owner's number 1 of each exchange; an exchange with no account of the
 /// owner's is left out, as nothing can show it. The next sweep writes version 3.
-pub fn swept(c: &Connection, owner: i64) -> Result<ByVenue, FiguresError> { Ok(record(c, owner)?.0) }
+pub fn swept(c: &Connection, owner: i64) -> Result<ByVenue, FiguresError> { Ok(record(c, owner)?.venues) }
 
-/// `swept`, and the openings the sweep could not value (none in a version 1 or 2 record).
-pub fn record(c: &Connection, owner: i64) -> Result<(ByVenue, ByVenue), FiguresError> {
-    let Some(raw) = crate::app_config::get_plain(c, &key(owner)).map_err(FiguresError::Data)? else { return Ok(Default::default()) };
+/// The whole record (versions 1 and 2 have no openings and no unnamed accounts).
+pub fn record(c: &Connection, owner: i64) -> Result<Record, FiguresError> {
+    let Some(raw) = crate::app_config::get_plain(c, &key(owner)).map_err(FiguresError::Data)? else { return Ok(Record::default()) };
     let entries = |m: &Value| m.as_object().map(|venues| venues.iter().filter_map(|(id, symbols)| {
         Some((id.parse::<i64>().ok()?, symbols.as_array()?.iter().filter_map(|s| s.as_str().map(str::to_string)).collect::<BTreeSet<String>>()))
     }).collect::<Vec<_>>());
     let parsed = serde_json::from_str::<Value>(&raw).ok().filter(|v| v["v"] == VERSION || v["v"] == 2 || v["v"] == 1).and_then(|v| {
-        Some((v["v"] == 1, entries(&v["venues"])?, if v["openings"].is_null() { vec![] } else { entries(&v["openings"])? }))
+        let unnamed: BTreeSet<i64> = v["unnamed"].as_array().map(|a| a.iter().filter_map(Value::as_i64).collect()).unwrap_or_default();
+        Some((v["v"] == 1, entries(&v["venues"])?, if v["openings"].is_null() { vec![] } else { entries(&v["openings"])? }, unnamed))
     });
-    let Some((by_exchange, venues, openings)) = parsed else { crate::engine::log(&format!("[tracker] unpriced record for user {owner} not read")); return Ok(Default::default()) };
-    let mut out = (ByVenue::new(), ByVenue::new());
-    for (to, entries) in [(&mut out.0, venues), (&mut out.1, openings)] {
+    let Some((by_exchange, venues, openings, unnamed)) = parsed else { crate::engine::log(&format!("[tracker] unpriced record for user {owner} not read")); return Ok(Record::default()) };
+    let mut out = Record { unnamed, ..Record::default() };
+    for (to, entries) in [(&mut out.venues, venues), (&mut out.openings, openings)] {
         for (id, symbols) in entries {
             // An install without numbered accounts reads its number 1 as the stand-in (minus the exchange id).
             let account = if !by_exchange { Some(id) } else if crate::identity::numbered(c)? { crate::identity::AccountRow::first(c, owner, id)?.map(|a| a.id) } else { Some(-id) };
@@ -52,7 +59,9 @@ pub fn record(c: &Connection, owner: i64) -> Result<(ByVenue, ByVenue), FiguresE
 
 /// One account's gaps (its exchange's id and name); `exchange_id` None: holdings no account has reported yet.
 #[derive(Clone, Debug, PartialEq)]
-pub struct VenueGap { pub exchange_id: Option<i64>, pub venue: Option<String>, pub now: Vec<String>, pub history: Vec<String>, pub openings: Vec<String> }
+pub struct VenueGap { pub exchange_id: Option<i64>, pub venue: Option<String>, pub now: Vec<String>, pub history: Vec<String>, pub openings: Vec<String>,
+                      /// The account had a partial day the sweep could not name a cause of.
+                      pub unnamed: bool }
 
 /// Every account of the scope with a holding priced at nothing now, or an asset the stored history could not price,
 /// by its exchange's name; `arrived` (symbols held since the sync, with no balance row and no price) as an account-less
@@ -67,11 +76,12 @@ pub fn read(c: &Connection, owner: i64, scope: &super::Scope, arrived: &[String]
         if let Some(symbol) = r.get::<_, Option<String>>(1)? { now.entry(r.get(0)?).or_default().insert(symbol); }
     }
     let wanted = |id: i64| match scope { super::Scope::All => true, super::Scope::Account(a) => a.id == id, super::Scope::EmptyLegacyExchange(_) => false };
-    let (history, openings) = record(c, owner)?;
-    let history: ByVenue = history.into_iter().filter(|(id, _)| wanted(*id)).collect();
-    let openings: ByVenue = openings.into_iter().filter(|(id, _)| wanted(*id)).collect();
+    let r = record(c, owner)?;
+    let history: ByVenue = r.venues.into_iter().filter(|(id, _)| wanted(*id)).collect();
+    let openings: ByVenue = r.openings.into_iter().filter(|(id, _)| wanted(*id)).collect();
+    let unnamed: BTreeSet<i64> = r.unnamed.into_iter().filter(|id| wanted(*id)).collect();
     let mut gaps = vec![];
-    for id in now.keys().chain(history.keys()).chain(openings.keys()).copied().collect::<BTreeSet<i64>>() {
+    for id in now.keys().chain(history.keys()).chain(openings.keys()).chain(unnamed.iter()).copied().collect::<BTreeSet<i64>>() {
         // A stand-in (minus its exchange id) is its exchange's number 1.
         let venue: Option<(i64, String)> = rusqlite::OptionalExtension::optional(if id < 0 {
             c.query_row("SELECT id, name FROM exchanges WHERE id = -?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -79,12 +89,12 @@ pub fn read(c: &Connection, owner: i64, scope: &super::Scope, arrived: &[String]
             c.query_row(&format!("SELECT e.id, {} FROM exchange_accounts a JOIN exchanges e ON e.id = a.exchange_id WHERE a.id = ?1", crate::identity::plain_label_sql("e.name", "a.id")), [id], |r| Ok((r.get(0)?, r.get(1)?)))
         })?;
         let list = |m: &ByVenue| m.get(&id).map(|s| s.iter().cloned().collect()).unwrap_or_default();
-        gaps.push(VenueGap { exchange_id: venue.as_ref().map(|v| v.0), venue: venue.map(|v| v.1), now: list(&now), history: list(&history), openings: list(&openings) });
+        gaps.push(VenueGap { exchange_id: venue.as_ref().map(|v| v.0), venue: venue.map(|v| v.1), now: list(&now), history: list(&history), openings: list(&openings), unnamed: unnamed.contains(&id) });
     }
     let mut arrived: Vec<String> = arrived.to_vec();
     arrived.sort();
     arrived.dedup();
-    if !arrived.is_empty() { gaps.push(VenueGap { exchange_id: None, venue: None, now: arrived, history: vec![], openings: vec![] }); }
+    if !arrived.is_empty() { gaps.push(VenueGap { exchange_id: None, venue: None, now: arrived, history: vec![], openings: vec![], unnamed: false }); }
     Ok(gaps)
 }
 
@@ -125,12 +135,12 @@ mod tests {
         let c = install();
         let gaps = read(&c, 1, &Scope::All, &[]).unwrap();
         assert_eq!(gaps, vec![
-            VenueGap { exchange_id: Some(1), venue: Some("Alpaca".into()), now: vec!["BTC".into()], history: vec![], openings: vec![] },
-            VenueGap { exchange_id: Some(2), venue: Some("Kraken".into()), now: vec!["ETH".into()], history: vec![], openings: vec![] },
+            VenueGap { exchange_id: Some(1), venue: Some("Alpaca".into()), now: vec!["BTC".into()], history: vec![], openings: vec![], unnamed: false },
+            VenueGap { exchange_id: Some(2), venue: Some("Kraken".into()), now: vec!["ETH".into()], history: vec![], openings: vec![], unnamed: false },
         ], "a zero value is no price; an empty balance is not held");
         assert_eq!(read(&c, 1, &account(2), &[]).unwrap().iter().map(|g| g.exchange_id).collect::<Vec<_>>(), vec![Some(2)]);
         let arrived = read(&c, 1, &account(1), &["SOL".into(), "SOL".into()]).unwrap();
-        assert_eq!(arrived.last().unwrap(), &VenueGap { exchange_id: None, venue: None, now: vec!["SOL".into()], history: vec![], openings: vec![] });
+        assert_eq!(arrived.last().unwrap(), &VenueGap { exchange_id: None, venue: None, now: vec!["SOL".into()], history: vec![], openings: vec![], unnamed: false });
     }
 
     #[test]
@@ -138,11 +148,11 @@ mod tests {
         let c = install();
         let now = chrono::Utc::now();
         assert!(swept(&c, 1).unwrap().is_empty(), "never swept");
-        store(&c, 1, &ByVenue::from([(2, BTreeSet::from(["DOT".to_string()]))]), &ByVenue::new(), now).unwrap();
+        store(&c, 1, &Record { venues: ByVenue::from([(2, BTreeSet::from(["DOT".to_string()]))]), ..Default::default() }, now).unwrap();
         let gaps = read(&c, 1, &account(2), &[]).unwrap();
         assert_eq!(gaps[0].history, vec!["DOT".to_string()]);
         assert_eq!(gaps[0].now, vec!["ETH".to_string()]);
-        store(&c, 1, &ByVenue::new(), &ByVenue::new(), now).unwrap();
+        store(&c, 1, &Record::default(), now).unwrap();
         assert!(swept(&c, 1).unwrap().is_empty(), "a sweep that priced everything");
         c.execute("UPDATE app_configs SET value = '{\"v\":9}'", []).unwrap();
         assert!(swept(&c, 1).unwrap().is_empty());
@@ -154,12 +164,13 @@ mod tests {
     fn the_record_keeps_unvalued_openings_and_reads_a_version_2_one() {
         let c = install();
         let now = chrono::Utc::now();
-        store(&c, 1, &ByVenue::from([(2, BTreeSet::from(["DOT".to_string()]))]), &ByVenue::from([(1, BTreeSet::from(["BTC".to_string()]))]), now).unwrap();
-        assert_eq!(record(&c, 1).unwrap().1, ByVenue::from([(1, BTreeSet::from(["BTC".to_string()]))]));
+        let r = Record { venues: ByVenue::from([(2, BTreeSet::from(["DOT".to_string()]))]), openings: ByVenue::from([(1, BTreeSet::from(["BTC".to_string()]))]), unnamed: [2].into() };
+        store(&c, 1, &r, now).unwrap();
+        assert_eq!(record(&c, 1).unwrap(), r);
         let gaps = read(&c, 1, &account(1), &[]).unwrap();
         assert_eq!((gaps[0].history.clone(), gaps[0].openings.clone()), (vec![], vec!["BTC".to_string()]));
         crate::app_config::set_plain(&c, &key(1), r#"{"v":2,"venues":{"2":["DOT"]}}"#, now).unwrap();
-        assert_eq!(record(&c, 1).unwrap(), (ByVenue::from([(2, BTreeSet::from(["DOT".to_string()]))]), ByVenue::new()));
+        assert_eq!(record(&c, 1).unwrap(), Record { venues: ByVenue::from([(2, BTreeSet::from(["DOT".to_string()]))]), ..Default::default() });
     }
 
     #[test]

@@ -433,3 +433,16 @@ fn a_timed_cfee_is_its_fills_expense_and_the_note_waits_for_its_booking() {
         assert!(csv.contains(",BTC,0.49,15000.0,9996.0,"), "{today}: {csv}");
     }
 }
+
+/// Codex review 1: Italy values a coin bought for USDC (an e-money token exchange) at its own price; a timed fee folded
+/// into that buy leaves fewer units, not less cost: the 0.99 BTC sold still cost the purchase's 10,000 euros.
+#[test]
+fn a_fee_folded_into_a_usdc_buy_keeps_the_buys_cost_in_italy() {
+    let s = scenario("it_pre2023_cfee");
+    let mut tables = s["tables"].clone();
+    set(&mut tables, 1, "quote_currency", json!("USDC"));
+    set(&mut tables, 2, "raw_data", json!(json!({"activity_type": "CFEE", "created_at": "2022-06-01T15:00:04Z", "symbol": "BTCUSDC", "price": "10500"}).to_string()));
+    set(&mut tables, 1, "raw_data", json!(json!({"activity_type": "FILL", "symbol": "BTC/USDC", "price": "10500"}).to_string()));
+    let csv = report(&s, &tables, "IT");
+    assert!(csv.contains(",BTC,0.99,14850.0,10000.0,"), "{csv}");
+}

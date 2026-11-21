@@ -409,7 +409,12 @@ async fn a_timed_cfee_is_worth_alpacas_price_on_both_sides() {
     assert_eq!(rows::cfee_price(&c, owner, fee).unwrap(), None);
     let stored = rows::walk_rows(&all).unwrap();
     let deposits = stored.iter().map(|r| (r.id, r.amount.clone())).collect();
-    let (reference, table) = (Reference::default(), FxTable::default());
+    // A reference that names BTC's coin, and no stored close: any daily price asked for the fee would be fetched (and
+    // NoFetch fails the walk).
+    let mut reference = Reference::load(&c, &deltabadger::tracker::prices::Venue::alpaca(&c).unwrap(), &deltabadger::tracker::prices::symbols(&stored)).unwrap();
+    reference.record_coins(&c, owner).unwrap();
+    assert!(deltabadger::tracker::prices::coin_id(&reference, "BTC", None, chrono::NaiveDate::from_ymd_opt(2026, 9, 10)).is_some(), "BTC resolves");
+    let table = FxTable::default();
     let mut none = NoFetch;
     let mut ps = PriceService::new(&reference, &table, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap(), &mut none);
     let w = walk::walk_rows(&stored, &deposits, &mut ps).unwrap();

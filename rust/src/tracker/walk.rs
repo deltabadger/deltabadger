@@ -1846,18 +1846,25 @@ mod tests {
     fn placed(mut rows: Vec<Stored>) -> Vec<Stored> { crate::tracker::rows::place_cfees(&mut rows).unwrap(); rows }
     fn opens_nothing(w: &Walked) { assert!(w.terms.iter().all(|t| t.opens.is_none() && t.complete) && w.whole.openings.is_empty(), "{:?}", w.terms); }
 
-    /// The report's shape, anonymised: each fee booked at 00:00 of its day (one for a Saturday buy booked Monday), charged
-    /// seconds after its buy. Walked as placed: no opening, every term complete, the coin never below zero.
+    /// The report's shape, anonymised: the coin's first buy, and its fee booked at 00:00 of the day, charged five seconds
+    /// after it, with nothing held before. Walked as placed: no opening, every term complete, the coin never below zero.
     #[test]
     fn a_timed_cfee_opens_nothing_before_its_fill() {
-        let rows = placed(vec![btc_fee(1, "0.00000029", Some("84674.02"), "2026-09-21", "2026-09-21T23:08:55Z"), crypto(2, Kind::Buy, "0.0001", "84673.9", "2026-09-21 23:08:50"),
-                               crypto(3, Kind::Buy, "0.0001", "60000", "2026-09-19 15:00:00"), btc_fee(4, "0.0000002", Some("60000"), "2026-09-21", "2026-09-19T15:00:04Z")]);
+        let rows = placed(vec![btc_fee(1, "0.00000029", Some("84674.02"), "2026-09-21", "2026-09-21T23:08:55Z"), crypto(2, Kind::Buy, "0.0001", "84673.9", "2026-09-21 23:08:50")]);
         let w = walked_with(rows, &[], &Default::default());
         opens_nothing(&w);
-        assert_eq!(w.whole.positions.iter().find(|p| p.symbol == "BTC").unwrap().quantity.to_s_f(), "0.00019951");
+        assert_eq!(w.whole.positions.iter().find(|p| p.symbol == "BTC").unwrap().quantity.to_s_f(), "0.00009971");
         // Fees disputing one fill at its own instant: standalone, after it, still nothing opened.
         let rows = placed(vec![btc_fee(1, "0.0001", Some("100"), "2026-09-21", "2026-09-21T00:00:00.400Z"), btc_fee(2, "0.0001", Some("100"), "2026-09-21", "2026-09-21T00:00:00.400Z"),
                                crypto(3, Kind::Buy, "0.01", "100", "2026-09-21 00:00:00.400")]);
+        opens_nothing(&walked_with(rows, &[], &Default::default()));
+    }
+
+    /// A fee booked Monday for the coin's first buy on Saturday stays at Monday 00:00, after it: nothing opened either.
+    #[test]
+    fn a_weekend_booked_cfee_opens_nothing() {
+        let rows = placed(vec![crypto(3, Kind::Buy, "0.0001", "60000", "2026-09-19 15:00:00"), btc_fee(4, "0.0000002", Some("60000"), "2026-09-21", "2026-09-19T15:00:04Z")]);
+        assert_eq!(rows[1].cfee.fill, Some(3));
         opens_nothing(&walked_with(rows, &[], &Default::default()));
     }
 

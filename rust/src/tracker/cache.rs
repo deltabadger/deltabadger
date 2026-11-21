@@ -284,7 +284,8 @@ mod tests {
         // Another owner's key holding this owner's row: refused by the owner check, not for want of a row.
         app_config::set_plain(&c,&sales_key(2),&good,now()).unwrap();
         assert!(matches!(bot_sales(&c,2,now()).unwrap(),Sales::Cold));
-        for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace(&format!("\"schema\":{SALES_SCHEMA}"),&format!("\"schema\":{}",SALES_SCHEMA-1))] {
+        // `"schema":1`: the release before D-TAX-CFEE-MATCHED-FILL's sales.
+        for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace(&format!("\"schema\":{SALES_SCHEMA}"),"\"schema\":1")] {
             app_config::set_plain(&c,&sales_key(1),&bad,now()).unwrap();assert!(matches!(sales(&c),Sales::Cold));
         }
         app_config::set_plain(&c,&sales_key(1),&good,now()).unwrap();assert!(matches!(sales(&c),Sales::Warm{..}));
@@ -433,7 +434,8 @@ mod tests {
         let c=db();let v=version(&c,1).unwrap();publish(&c,1,&v,Some(&walked()),7,now()).unwrap();
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Warm(_)));
         let mut raw:serde_json::Value=serde_json::from_str(&app_config::get_plain(&c,&key(1)).unwrap().unwrap()).unwrap();
-        raw["schema"]=serde_json::json!(SCHEMA-1);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
+        // The release before D-TAX-CFEE-MATCHED-FILL wrote schema 9.
+        raw["schema"]=serde_json::json!(9);app_config::set_plain(&c,&key(1),&raw.to_string(),now()).unwrap();
         c.pragma_update(None,"query_only",true).unwrap();let before=c.total_changes();
         assert_eq!(version(&c,1).unwrap(),v,"neither the rows nor the prices moved");
         assert!(matches!(read(&c,1,None,now()).unwrap(),State::Cold));

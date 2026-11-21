@@ -289,8 +289,10 @@ pub fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<Pri
 
 /// A sweep's output: every day's whole-account row, and each account's rows once its history has begun (account id; an
 /// account with no row yet, minus its exchange id: `store` makes the row). `unpriced` (Rust only): per account, the
-/// symbols held on some swept day with no price that day; `openings`, the symbols whose opening had no value.
-pub struct Swept { pub whole: Vec<(NaiveDate, Day)>, pub venue: Vec<(i64, NaiveDate, Day)>, pub unpriced: super::unpriced::ByVenue, pub openings: super::unpriced::ByVenue }
+/// symbols held on some swept day with no price that day; `openings`, the symbols whose opening had no value; `unnamed`,
+/// the accounts with a partial day of no cause it can name.
+pub struct Swept { pub whole: Vec<(NaiveDate, Day)>, pub venue: Vec<(i64, NaiveDate, Day)>, pub unpriced: super::unpriced::ByVenue, pub openings: super::unpriced::ByVenue,
+                   pub unnamed: std::collections::BTreeSet<i64> }
 
 /// Quantities per location (an account, `walk::location`), by symbol.
 type Held = BTreeMap<String, BTreeMap<String, Dec>>;
@@ -333,7 +335,7 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
     let mut invested: BTreeMap<String, Dec> = BTreeMap::new();
     let mut incomplete: HashMap<String, bool> = HashMap::new();
     let (mut next_row, mut next_term) = (0usize, 0usize);
-    let mut out = Swept { whole: vec![], venue: vec![], unpriced: BTreeMap::new(), openings: BTreeMap::new() };
+    let mut out = Swept { whole: vec![], venue: vec![], unpriced: BTreeMap::new(), openings: BTreeMap::new(), unnamed: Default::default() };
     let mut day = first;
     while day <= last {
         crate::figures::budget::check()?;
@@ -368,7 +370,9 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
             if !term.complete {
                 incomplete.insert(term.exchange.clone(), true);
                 // D-TAX-CFEE-MATCHED-FILL: an opening with no value is named, by its account.
-                if let (Some((symbol, _)), Ok(id)) = (&term.opens, term.exchange.parse::<i64>()) { out.openings.entry(id).or_default().insert(symbol.clone()); }
+                if let Ok(id) = term.exchange.parse::<i64>() {
+                    match &term.opens { Some((symbol, _)) => { out.openings.entry(id).or_default().insert(symbol.clone()); } None => { out.unnamed.insert(id); } }
+                }
             }
             if let Some((symbol, quantity)) = &term.opens { add(&mut held, &term.exchange, symbol, quantity)?; }
         }
@@ -381,6 +385,7 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
             let lends = super::walk::LENDS_CASH.contains(&name(venue).as_str());
             let owed = |symbol: &str, q: &Dec| q.is_negative() && super::cash(symbol) && lends;
             let mut unpriced = balances.iter().any(|(s, q)| *q < dust.neg() && !owed(s, q));
+            if unpriced { if let Ok(id) = venue.parse::<i64>() { out.unnamed.insert(id); } }
             let (mut total, mut value_held) = (Dec::zero(), Dec::zero());
             for (symbol, quantity) in balances {
                 if !(quantity.is_positive() || owed(symbol, quantity)) { continue; }
@@ -481,13 +486,14 @@ pub fn store(c: &crate::engine::model::FencedTransaction<'_>, cipher: &Cipher, u
     }
     // Both records under the account each row was written for: a first sweep's stand-in (minus the exchange id) is the
     // account `placed` made.
-    let mut placed = |m: &super::unpriced::ByVenue| -> Result<super::unpriced::ByVenue, FiguresError> {
-        let mut out = super::unpriced::ByVenue::new();
-        for (account, symbols) in m { out.entry(place(*account)?.id).or_default().extend(symbols.iter().cloned()); }
-        Ok(out)
-    };
-    let (unpriced, openings) = (placed(&swept.unpriced)?, placed(&swept.openings)?);
-    super::unpriced::store(c, user_id, &unpriced, &openings, now)?;
+    let (mut venues, mut openings) = (super::unpriced::ByVenue::new(), super::unpriced::ByVenue::new());
+    for (to, from) in [(&mut venues, &swept.unpriced), (&mut openings, &swept.openings)] {
+        for (account, symbols) in from { to.entry(place(*account)?.id).or_default().extend(symbols.iter().cloned()); }
+    }
+    let mut unnamed = std::collections::BTreeSet::new();
+    for account in &swept.unnamed { unnamed.insert(place(*account)?.id); }
+    let record = super::unpriced::Record { venues, openings, unnamed };
+    super::unpriced::store(c, user_id, &record, now)?;
     crate::app_config::set(c, cipher, &history_key(user_id), version, now).map_err(FiguresError::Data)?;
     mark_calculated(c, cipher, user_id, now)?;
     crate::app_config::set(c, cipher, &price_key(user_id), &generation(c)?.to_string(), now).map_err(FiguresError::Data)
@@ -602,9 +608,14 @@ mod tests {
     fn the_sweep_records_an_opening_it_could_not_value() {
         let term = |complete: bool, opens: Option<&str>| super::super::walk::Term { at: At::from_sql("2026-09-02 10:00:00").unwrap(), amount: Dec::zero(), complete,
                                                                                     opens: opens.map(|s| (s.to_string(), Dec::one())), exchange: "1".into(), received: false };
-        let terms = [term(false, Some("BTC")), term(true, Some("ETH")), term(false, None)];
+        let terms = [term(false, Some("BTC")), term(true, Some("ETH"))];
         let swept = sweep(&Plan::default(), &Prices::new(), &[bought("USD")], &terms, day("2026-09-02"), day("2026-09-02"), &super::super::fx::FxTable::default()).unwrap();
         assert_eq!(swept.openings, super::super::unpriced::ByVenue::from([(1, ["BTC".to_string()].into())]));
+        assert!(swept.unnamed.is_empty());
+        // Codex review 7: an incomplete term that opens nothing (a transfer's) is a cause with no name, by its account.
+        let terms = [term(false, Some("BTC")), super::super::walk::Term { exchange: "2".into(), ..term(false, None) }];
+        let swept = sweep(&Plan::default(), &Prices::new(), &[bought("USD")], &terms, day("2026-09-02"), day("2026-09-02"), &super::super::fx::FxTable::default()).unwrap();
+        assert_eq!(swept.unnamed, std::collections::BTreeSet::from([2]));
     }
 
     /// D-TAX-CFEE-MATCHED-FILL: a fee booked Monday for a Saturday buy leaves Saturday's and Sunday's closing quantities as

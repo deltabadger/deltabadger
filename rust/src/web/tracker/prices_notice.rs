@@ -20,9 +20,10 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Sco
     let mut lines = String::new();
     for g in gaps.iter().filter(|g| !g.now.is_empty()) { lines.push_str(&line(ctx, "missing", &g.now, g.venue.as_deref())); }
     if chart {
-        // Named only from what the sweep recorded it could not price or open; any other partial day is the generic line.
+        // Named only from what the sweep recorded it could not price or open; a cause it could not name (on any account of
+        // the scope) is the generic line, beside the names.
         let named: Vec<&VenueGap> = gaps.iter().filter(|g| g.exchange_id.is_some() && !(g.history.is_empty() && g.openings.is_empty())).collect();
-        if named.is_empty() { lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_incomplete"))); }
+        if named.is_empty() || gaps.iter().any(|g| g.unnamed) { lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_incomplete"))); }
         for g in named {
             if !g.history.is_empty() { lines.push_str(&line(ctx, "chart_missing", &g.history, g.venue.as_deref())); }
             if !g.openings.is_empty() { lines.push_str(&line(ctx, "opening_unknown", &g.openings, g.venue.as_deref())); }
