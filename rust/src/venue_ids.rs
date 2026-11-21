@@ -208,12 +208,28 @@ pub struct Facts { pub venue_id: String, pub entry_type: i64, pub base: Option<S
 /// And a row the venue returned to the account's own key: a restored or hand-entered row (a Deltabadger CSV restore, the
 /// one import that reaches these venues) stores no venue answer, `{}`, and is never evidence.
 const TRADES: &str = "a.entry_type IN (0, 1, 2, 3) AND COALESCE(a.raw_data, '{}') NOT IN ('{}', '', 'null')";
-/// A venue id built from the venue's own ids, every part present: MEXC's and Bitrue's `{symbol}-{orderId}-{id}` with a
-/// part missing (`BTCEUR--`, `BTCEUR-1-`) is no trade's id.
-fn native(id: &str) -> String { format!("({id} NOT LIKE '%--%' AND {id} NOT LIKE '%-')") }
-const FACTS: &str = "a.entry_type, a.base_currency, CAST(a.base_amount AS TEXT), a.quote_currency, CAST(a.quote_amount AS TEXT), substr(a.transacted_at, 1, 19)";
+/// SQL: whether venue id expression `id` is a venue-native trade id, the one predicate the sample, the match and the
+/// conflict check use: built from the venue's own ids, every part present. MEXC's and Bitrue's `{symbol}-{orderId}-{id}`
+/// with a part missing (`BTCEUR--`, `BTCEUR-1-`) is none, nor is a Coinbase swap leg whose own id is missing (`-in`,
+/// `-out`: nothing before the suffix).
+fn native(id: &str) -> String { format!("({id} <> '' AND {id} NOT LIKE '%--%' AND {id} NOT LIKE '%-' AND {id} NOT LIKE '-%')") }
+/// The facts as stored (amounts read exactly: a REAL by its own digits, never through a cast to text).
+const FACTS: &str = "a.entry_type, a.base_currency, a.base_amount, a.quote_currency, a.quote_amount, substr(a.transacted_at, 1, 19)";
+/// A stored amount exactly: an integer or an integral REAL as its integer (as SQL's `IS` compares them), another REAL by
+/// its shortest exact digits, text as written.
+fn exact(v: rusqlite::types::ValueRef<'_>) -> Option<String> {
+    use rusqlite::types::ValueRef;
+    match v {
+        ValueRef::Null => None,
+        ValueRef::Integer(i) => Some(i.to_string()),
+        ValueRef::Real(f) if f.fract() == 0.0 && f.abs() < 9.0e15 => Some((f as i64).to_string()),
+        ValueRef::Real(f) => Some(format!("{f:?}")),
+        ValueRef::Text(t) => Some(String::from_utf8_lossy(t).into_owned()),
+        ValueRef::Blob(b) => Some(format!("x{}", hex::encode(b))),
+    }
+}
 fn facts(r: &rusqlite::Row<'_>) -> rusqlite::Result<Facts> {
-    Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: r.get(3)?, quote: r.get(4)?, quote_amount: r.get(5)?, at: r.get(6)? })
+    Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: exact(r.get_ref(3)?), quote: r.get(4)?, quote_amount: exact(r.get_ref(5)?), at: r.get(6)? })
 }
 /// The account's earliest `limit` trade rows that have a venue id and meet `counted` (over `a`), by row id, each with the key
 /// that imported it.
@@ -228,18 +244,19 @@ fn trades_of(x: &str) -> String { TRADES.replace("a.", &format!("{x}.")) }
 /// Whether any trade row of `d`'s (meeting `counted_d` over `a`) shares its venue id with a trade row of `s`'s (meeting
 /// `counted_s` over `b`) with other facts, anywhere in their histories: one statement, each lookup on the unique id index.
 pub fn overlap_conflict(c: &Connection, d: &Scope, s: &Scope, counted_d: &str, counted_s: &str) -> rusqlite::Result<bool> {
-    let same = "a.entry_type IS b.entry_type AND a.base_currency IS b.base_currency AND CAST(a.base_amount AS TEXT) IS CAST(b.base_amount AS TEXT) \
-                AND a.quote_currency IS b.quote_currency AND CAST(a.quote_amount AS TEXT) IS CAST(b.quote_amount AS TEXT) AND substr(a.transacted_at, 1, 19) IS substr(b.transacted_at, 1, 19)";
-    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} AND {counted_d} \
+    // The facts as stored, exactly (`IS`), over venue-native ids only (`native`).
+    let same = "a.entry_type IS b.entry_type AND a.base_currency IS b.base_currency AND a.base_amount IS b.base_amount \
+                AND a.quote_currency IS b.quote_currency AND a.quote_amount IS b.quote_amount AND substr(a.transacted_at, 1, 19) IS substr(b.transacted_at, 1, 19)";
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} AND {} AND {counted_d} \
                           AND b.user_id = ?1 AND b.exchange_id = ?2 AND {} AND {} AND {counted_s} AND NOT ({same}))",
-                         d.rows("a"), trades_of("a"), d.has_id("a"), s.id_is("b", &d.row_id("a")), trades_of("b")),
+                         d.rows("a"), trades_of("a"), d.has_id("a"), native(&d.row_id("a")), s.id_is("b", &d.row_id("a")), trades_of("b")),
                 params![d.user_id, d.exchange_id], |r| r.get(0))
 }
 /// Whether `d` holds a trade row whose venue id `s` holds too (a candidate pair, `identity::after_balance_read`).
 pub fn any_shared_id(c: &Connection, d: &Scope, s: &Scope) -> rusqlite::Result<bool> {
-    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} \
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} AND {} \
                           AND b.user_id = ?1 AND b.exchange_id = ?2 AND {} AND {})",
-                         d.rows("a"), trades_of("a"), d.has_id("a"), s.id_is("b", &d.row_id("a")), trades_of("b")),
+                         d.rows("a"), trades_of("a"), d.has_id("a"), native(&d.row_id("a")), s.id_is("b", &d.row_id("a")), trades_of("b")),
                 params![d.user_id, d.exchange_id], |r| r.get(0))
 }
 /// The account's trade row with venue id `id`, if any: one seek on 2.x's unique index for a number 1, on the membership's

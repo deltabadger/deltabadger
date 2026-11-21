@@ -603,7 +603,8 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
             Err(why) => Err(why),
         };
         let Some(asset) = names.asset_id(code) else {
-            if entry.number("balance").ok().flatten().is_some_and(|b| b.is_positive()) { unresolved.push(code.clone()); }
+            // Any non-zero balance it cannot name, a debt included.
+            if entry.number("balance").ok().flatten().is_some_and(|b| !b.is_zero()) { unresolved.push(code.clone()); }
             continue;
         };
         let (balance, hold) = match (quantity("balance"), quantity("hold_trade")) {
@@ -765,7 +766,7 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
             for (code, held) in rows {
                 match (names.get(&code).filter(|id| asset_ids.contains(id)), held) {
                     (Some(id), Some(held)) => { found.insert(*id, held); }
-                    (None, Some((free, locked))) if (&free + &locked).is_positive() => SKIPPED.with(|s| s.borrow_mut().push(code)),
+                    (None, Some((free, locked))) if !(&free + &locked).is_zero() => SKIPPED.with(|s| s.borrow_mut().push(code)),
                     // A liability (listed or not): its rows stay as they were, so this read is no complete account.
                     (_, None) => SKIPPED.with(|s| s.borrow_mut().push(code)),
                     _ => {}

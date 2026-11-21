@@ -1018,7 +1018,8 @@ fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Res
     for (row, key) in &sample {
         match crate::venue_ids::overlap_match(c, &scope, &row.venue_id, &theirs_counted)? {
             Some((theirs, k)) if theirs == *row => {
-                let trade = row.venue_id.strip_suffix("-in").or_else(|| row.venue_id.strip_suffix("-out")).unwrap_or(&row.venue_id).to_string();
+                // Coinbase's `-in`/`-out` legs are one trade; `native` admits no leg without its own id before the suffix.
+                let trade = row.venue_id.strip_suffix("-in").or_else(|| row.venue_id.strip_suffix("-out")).filter(|t| !t.is_empty()).unwrap_or(&row.venue_id).to_string();
                 strong.insert(trade); took.insert(*key); took.insert(k);
             }
             Some(_) => return Ok(false),

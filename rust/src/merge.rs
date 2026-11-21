@@ -84,8 +84,9 @@ fn meta(c: &Connection, row: i64) -> rusqlite::Result<Meta> {
     c.query_row(&format!("SELECT x.manual_values, x.transaction_id, coalesce(x.transfer_link_rejected, 0), x.raw_data, x.base_asset_id, x.group_id, x.description, NOT {} \
                           FROM account_transactions x WHERE x.id = ?1", not_synced("x")), [row], |r| {
         let manual = r.get::<_, Option<String>>(0)?.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
-        Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.trim(), "" | "{}" | "null")), synced: r.get(7)?,
-                  asset: r.get(4)?, group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()) })
+        Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.as_str(), "" | "{}" | "null")), synced: r.get(7)?,
+                  asset: match r.get_ref(4)? { rusqlite::types::ValueRef::Integer(i) => Some(i), _ => None },
+                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()) })
     })
 }
 
@@ -150,13 +151,15 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         let same: bool = c.query_row(&format!("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND d.base_amount IS s.base_amount \
             AND d.quote_currency IS s.quote_currency AND d.quote_amount IS s.quote_amount AND d.fee_currency IS s.fee_currency \
             AND d.fee_amount IS s.fee_amount AND d.transacted_at IS s.transacted_at \
-            AND (NULLIF(TRIM(d.base_asset_id), '') IS NULL OR NULLIF(TRIM(s.base_asset_id), '') IS NULL OR d.base_asset_id = s.base_asset_id) \
-            AND (NULLIF(TRIM(d.description), '') IS NULL OR NULLIF(TRIM(s.description), '') IS NULL OR d.description = s.description) \
             AND ({} OR {} OR json(d.raw_data) IS json(s.raw_data)) \
             AND (NOT (json_valid(d.raw_data) AND json_valid(s.raw_data)) OR json_extract(d.raw_data, '$.amounts') IS NULL OR json_extract(s.raw_data, '$.amounts') IS NULL \
                  OR (json(json_extract(d.raw_data, '$.amounts')) IS json(json_extract(s.raw_data, '$.amounts')) \
                      AND json_extract(d.raw_data, '$.amounts_inexact') IS json_extract(s.raw_data, '$.amounts_inexact'))) \
             FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", not_synced("d"), not_synced("s")), [d, s], |r| r.get(0))?;
+        // The asset and the description, blank as the plan judges it (`meta`): a blank one agrees with any.
+        let (md, ms) = (meta(c, *d)?, meta(c, *s)?);
+        let agree = |a: &Option<String>, b: &Option<String>| a.is_none() || b.is_none() || a == b;
+        let same = same && (md.asset.is_none() || ms.asset.is_none() || md.asset == ms.asset) && agree(&md.description, &ms.description);
         if !same || !exact_amounts_agree(c, *d, *s)? { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
     }
     // A row of D with no exact-id twin (an id-less one too) may be an event S holds under another spelling: another type,
@@ -302,6 +305,24 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     let withheld: Vec<String> = w.query_map([d, s], |r| r.get(0))?.collect::<Result<_, _>>()?;
     drop(w);
     for tx in withheld { conflicts.push(format!("KuCoin fill {tx}")); }
+    // A fill withheld on one account and visible on the other is one fill too: the same only when the visible row's
+    // venue answer and time are the withheld entry's. Its identical visible copy on D goes (S's withheld one stands); D's
+    // identical withheld copy of a fill S shows goes in step 8.
+    let crossed = |withheld_on: i64, visible: &Scope| -> rusqlite::Result<Vec<(String, i64, bool)>> {
+        let mut q = c.prepare(&format!("SELECT x.tx_id, a.id, json(x.entry) IS json(a.raw_data) AND x.transacted_at IS a.transacted_at FROM kucoin_withheld_fills x \
+                                        JOIN account_transactions a ON a.user_id = ?2 AND a.exchange_id = ?3 AND {} AND {} WHERE x.account_id = ?1 ORDER BY x.tx_id",
+                                       visible.rows("a"), visible.id_is("a", "x.tx_id")))?;
+        let out = q.query_map(params![withheld_on, user, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect();
+        out
+    };
+    let (on_s, on_d) = (crossed(s, &sd)?, crossed(d, &ss)?);
+    for (tx, _, same) in on_s.iter().chain(&on_d) { if !same { conflicts.push(format!("KuCoin fill {tx}")); } }
+    if conflicts.is_empty() {
+        for (_, row, _) in &on_s {
+            c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [row])?;
+            c.execute("DELETE FROM account_transactions WHERE id = ?1", [row])?;
+        }
+    }
     let plan = ledger(c, &sd, &ss)?;
     conflicts.extend(plan.conflicts.iter().cloned());
     if !conflicts.is_empty() { return Err(Refusal::Conflict(conflicts)); }
@@ -392,11 +413,10 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     venue_ids::move_rows(c, &sd, &ss)?;
     for (row, m) in &plan.merged {
         // A blank is no value, here as in the plan (`meta`): '' is NULL for each carried column.
-        // TRIM only decides whether a value is blank: a blank survivor value takes the duplicate's as it was written, a
-        // non-blank one stays as it is.
-        let blank = |x: &str, v: &str| format!("{x} = CASE WHEN TRIM(COALESCE({x}, '')) = '' AND {v} IS NOT NULL THEN {v} ELSE {x} END");
-        c.execute(&format!("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
-                   {}, {}, {} WHERE id = ?1", blank("base_asset_id", "?6"), blank("group_id", "?7"), blank("description", "?8")),
+        // Blankness was decided in the plan (`meta`, Rust's Unicode whitespace): each carried value is set only where the
+        // plan found the survivor's blank, as the duplicate wrote it; a non-blank survivor value stays as it is.
+        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
+                   base_asset_id = COALESCE(?6, base_asset_id), group_id = COALESCE(?7, group_id), description = COALESCE(?8, description) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
@@ -405,7 +425,11 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     c.execute("DELETE FROM kucoin_coverage WHERE account_id = ?1 AND source = ?3 AND EXISTS (SELECT 1 FROM kucoin_coverage WHERE account_id = ?2 AND source = ?3)",
               params![d, s, crate::sync::kucoin_hf::ENABLED])?;
     c.execute("UPDATE kucoin_coverage SET account_id = ?2 WHERE account_id = ?1", [d, s])?;
-    c.execute("UPDATE kucoin_withheld_fills SET account_id = ?2 WHERE account_id = ?1 AND tx_id NOT IN (SELECT tx_id FROM kucoin_withheld_fills WHERE account_id = ?2)", [d, s])?;
+    // D's withheld fill S shows visibly is that fill already (identical, step 2): it goes with the rest below.
+    let shown = ss.id_is("a", "kucoin_withheld_fills.tx_id");
+    c.execute(&format!("UPDATE kucoin_withheld_fills SET account_id = ?2 WHERE account_id = ?1 AND tx_id NOT IN (SELECT tx_id FROM kucoin_withheld_fills WHERE account_id = ?2) \
+                        AND NOT EXISTS (SELECT 1 FROM account_transactions a WHERE a.user_id = ?3 AND a.exchange_id = ?4 AND {} AND {shown})", ss.rows("a")),
+              params![d, s, user, exchange])?;
     // The rest are S's twins, equal in every fact (step 2 refused any other).
     c.execute("DELETE FROM kucoin_withheld_fills WHERE account_id = ?1", [d])?;
 

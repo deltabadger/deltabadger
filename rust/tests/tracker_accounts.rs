@@ -419,3 +419,12 @@ fn a_stand_ins_balances_are_its_owners_only() {
     let b_scope = Scope::of_exchange(c, b, Some(s.exchange_id)).unwrap();
     assert!(page::cold(c, b, &b_scope, true).unwrap().holdings.is_empty(), "B's scope holds none of A's balances");
 }
+
+/// #710 R15 D: a non-zero balance in a currency Kraken's read cannot name, a negative one included, is recorded.
+#[tokio::test(flavor = "current_thread")]
+async fn a_negative_unnamed_kraken_balance_is_recorded() {
+    let (_dir, c, db, two, _) = kraken();
+    sync(&db, &two, two.keys[0], json!({ "ZZZDEBT": { "balance": "-5", "hold_trade": "0" } })).await;
+    let recorded = deltabadger::app_config::get_plain(&c, &format!("rust_sync.kraken_unresolved:{}", two.keys[0])).unwrap().expect("recorded");
+    assert!(recorded.contains("ZZZDEBT"), "{recorded}");
+}

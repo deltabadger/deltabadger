@@ -3487,3 +3487,86 @@ fn r14_the_first_sweep_under_a_standing_is_a_change() {
     let version = deltabadger::tracker::backfill::history_version(c, single.seeded.user_id).unwrap();
     assert!(!deltabadger::tracker::backfill::standing_changed(c, &cipher, single.seeded.user_id, &version).unwrap());
 }
+
+// ---- review round 15 ----
+
+/// R15 A: shared-id facts compare as stored, exactly: 100000000.0000001 against 100000000.0000002 is a conflict.
+#[test]
+fn r15_shared_trades_compare_exactly() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    for (n, amount) in [(0, 100000000.0000001f64), (1, 100000000.0000002f64)] {
+        let row = two.trade(c, n, 0, "near", "1", "2026-09-05 10:00:00");
+        c.execute("UPDATE account_transactions SET base_amount = ?2 WHERE id = ?1", rusqlite::params![row, amount]).unwrap();
+    }
+    assert!(!overlaps(c, &two, 1), "a conflicting shared trade");
+}
+
+/// R15 B: one predicate decides a venue-native trade id: a synthetic MEXC id (`BTCUSDT--`) neither matches nor vetoes, and
+/// an id-less Coinbase swap (`-in`/`-out`) is no trade.
+#[test]
+fn r15_only_venue_native_ids_count() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let mexc = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Mexc", "MEXC");
+    for k in 0..2 { for i in 0..3 { mexc.trade(c, k, 0, &format!("BTCUSDT-{i}-{i}"), "1", &format!("2026-09-0{} 10:00:00", i + 1)); } }
+    mexc.trade(c, 0, 0, "BTCUSDT--", "1", "2026-09-05 10:00:00");
+    mexc.trade(c, 1, 0, "BTCUSDT--", "2", "2026-09-06 10:00:00");
+    assert!(overlaps(c, &mexc, 1), "the synthetic collision does not veto");
+
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let coinbase = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Coinbase", "Coinbase");
+    for k in 0..2 {
+        for t in ["s1", "s2"] { coinbase.trade(c, k, 0, t, "1", "2026-09-01 10:00:00"); }
+        for leg in ["-in", "-out"] { coinbase.trade(c, k, 0, leg, "1", "2026-09-02 10:00:00"); }
+    }
+    assert!(!overlaps(c, &coinbase, 1), "two matches and an id-less swap are not three");
+}
+
+/// R15 C: one definition of blank, Unicode whitespace included: a tab-only group takes the duplicate's.
+#[test]
+fn r15_a_tab_only_group_is_blank() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let kept = two.row(c, 0, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET group_id = char(9) WHERE id = ?1", [kept]).unwrap();
+    two.row(c, 1, 0, "BTC", "1", Some("t-1"), Some("usdt-leg"), "2026-09-01 10:00:00");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("usdt-leg"));
+}
+
+/// R15 E: a KuCoin fill withheld on one account and visible on the other is one fill: another fee is a conflict, an
+/// identical copy is kept once.
+#[test]
+fn r15_withheld_and_visible_kucoin_fills_are_twins() {
+    let pair = |c: &Connection| {
+        let k = Two::kraken(c, &seed::cipher());
+        let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+        two.fingerprint(c, 0, Some("fp"));
+        two.fingerprint(c, 1, Some("fp"));
+        c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, 'BTC-USDT-1', '2026-09-01 10:00:00', '{\"createdAt\":1,\"fee\":\"0.1\"}', 'now')",
+                  [two.id(0)]).unwrap();
+        two
+    };
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = pair(c);
+    let row = two.row(c, 1, 0, "BTC", "1", Some("BTC-USDT-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1,\"fee\":\"0.2\"}' WHERE id = ?1", [row]).unwrap();
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))), "another fee");
+
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = pair(c);
+    let row = two.row(c, 1, 0, "BTC", "1", Some("BTC-USDT-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1,\"fee\":\"0.1\"}' WHERE id = ?1", [row]).unwrap();
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let copies = one::<i64>(c, "SELECT (SELECT count(*) FROM kucoin_withheld_fills WHERE tx_id = 'BTC-USDT-1') + (SELECT count(*) FROM account_transactions WHERE tx_id = 'BTC-USDT-1' OR id IN (SELECT account_transaction_id FROM exchange_account_rows WHERE venue_tx_id = 'BTC-USDT-1'))");
+    assert_eq!(copies, 1, "kept once");
+}
