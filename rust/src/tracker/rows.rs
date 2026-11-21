@@ -207,13 +207,23 @@ pub fn charged_as_another_coin(base: &str, venue: &str, exchange_id: i64, charge
 /// Each candidate read, and the edges' bytes before they are stored, are charged to the open budget.
 pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i64>, FiguresError> {
     use std::collections::HashMap;
+    use std::mem::size_of;
+    // What the matcher holds, in 4-byte limbs, charged (with its steps) before each list is made.
+    let mut held = 0u64;
+    let mut hold = |steps: u64, bytes: usize| -> Result<(), FiguresError> {
+        held = held.saturating_add((bytes / 4) as u64);
+        Ok(crate::figures::budget::charge(steps, held)?)
+    };
+    let is_fill = |r: &Stored| matches!(r.kind, Kind::Buy | Kind::Sell) && r.amount.is_positive() && !r.borrowed();
+    let is_fee = |r: &Stored| r.cfee.charged.is_some() && r.cfee.fee && r.kind == Kind::Fee && r.amount.is_positive();
+    let (n_fills, n_fees) = rows.iter().fold((0usize, 0usize), |(a, b), r| (a + usize::from(is_fill(r)), b + usize::from(is_fee(r))));
+    hold(rows.len() as u64, n_fills * (size_of::<usize>() + size_of::<((i64, &str), Vec<usize>)>()))?;
     let mut fills: HashMap<(i64, &str), Vec<usize>> = HashMap::new();
-    for (i, r) in rows.iter().enumerate() {
-        if matches!(r.kind, Kind::Buy | Kind::Sell) && r.amount.is_positive() && !r.borrowed() { fills.entry((r.account, r.base.as_str())).or_default().push(i); }
-    }
+    for (i, r) in rows.iter().enumerate() { if is_fill(r) { fills.entry((r.account, r.base.as_str())).or_default().push(i); } }
     for v in fills.values_mut() { v.sort_by_key(|&i| (rows[i].at.0, rows[i].id)); }
+    hold(0, n_fees * size_of::<(usize, At, &'static str)>())?;
     let fees: Vec<(usize, At, &'static str)> = rows.iter().enumerate().filter_map(|(i, r)| {
-        let charged = r.cfee.charged.filter(|_| r.cfee.fee && r.kind == Kind::Fee && r.amount.is_positive())?;
+        let charged = r.cfee.charged.filter(|_| is_fee(r))?;
         Some((i, charged, pair_quote(&r.base, r.cfee.symbol.as_deref()?)?))
     }).collect();
     let crypto = |x: &Stored| match super::prices::recorded_class(x.base_asset.as_ref()) {
@@ -228,7 +238,9 @@ pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i6
         let alias = |day: NaiveDate| super::prices::alias_coin(&f.base, Some(&venue), Some(day));
         let coin = alias(charged.utc().date_naive());
         if alias(f.date()) != coin { return Ok(()); }
-        let price = f.cfee.price.as_ref().filter(|p| p.is_positive());
+        // A price of zero or less names no fill: no edge at all. No price (absent, unreadable): every candidate.
+        let price = f.cfee.price.as_ref();
+        if price.is_some_and(|p| !p.is_positive()) { return Ok(()); }
         // 0.1 % either side of the fee's price, once per fee.
         let band = match price { Some(p) => { let t = (p * &tolerance)?; Some(((p - &t)?, (p + &t)?)) } None => None };
         let from = charged.0.saturating_sub(CFEE_REACH_SECONDS * 1_000_000_000);
@@ -250,29 +262,31 @@ pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i6
         Ok(())
     };
     // Which candidates are a fee's edges: its exact ones, else those within 0.1 %, else (no price) all.
+    hold(0, fees.len() * size_of::<(usize, u8)>())?;
     let mut kinds: Vec<(usize, u8)> = Vec::with_capacity(fees.len());
     let mut total = 0usize;
     for &(i, charged, quote) in &fees {
         let (mut all, mut exact, mut near) = (0usize, 0usize, 0usize);
         candidates(i, charged, quote, &mut |_, e, n| { all += 1; exact += usize::from(e); near += usize::from(n); })?;
-        let priced = rows[i].cfee.price.as_ref().is_some_and(Dec::is_positive);
+        let priced = rows[i].cfee.price.is_some();
         let (count, kind) = if exact > 0 { (exact, 0) } else if priced { (near, 1) } else { (all, 2) };
         total += count;
         kinds.push((count, kind));
     }
-    // The edges (a place each), and per fill how many fees that may claim it have an edge to it: their bytes in 4-byte
-    // limbs, refused before anything is stored.
-    let bytes = |n: usize| (n.saturating_mul(std::mem::size_of::<usize>()) / 4) as u64;
-    crate::figures::budget::charge(1, bytes(total) + bytes(fees.len() * 4) + bytes(total.min(rows.len()) * 6))?;
+    // The edges (a place each, in a list per fee), and per fill how many fees that may claim it have an edge to it.
+    let claimed = total.min(n_fills);
+    hold(0, fees.len() * size_of::<Vec<usize>>() + total * size_of::<usize>() + claimed * 2 * size_of::<(usize, usize)>())?;
     let mut edges: Vec<Vec<usize>> = Vec::with_capacity(fees.len());
-    let mut claimants: HashMap<usize, usize> = HashMap::with_capacity(total.min(rows.len()));
+    let mut claimants: HashMap<usize, usize> = HashMap::with_capacity(claimed);
     for (n, &(i, charged, quote)) in fees.iter().enumerate() {
         let (count, kind) = kinds[n];
         let mut mine = Vec::with_capacity(count);
         candidates(i, charged, quote, &mut |j, e, near| { if match kind { 0 => e, 1 => near, _ => true } { mine.push(j); } })?;
+        crate::figures::budget::charge(mine.len() as u64, 0)?;
         for &j in &mine { if rows[j].date() <= rows[i].date() { *claimants.entry(j).or_default() += 1; } }
         edges.push(mine);
     }
+    hold(fees.len() as u64, fees.len().min(claimed) * 2 * size_of::<(i64, i64)>())?;
     let mut out = HashMap::new();
     for (n, &(i, _, _)) in fees.iter().enumerate() {
         if let [j] = edges[n][..] { if rows[j].date() <= rows[i].date() && claimants.get(&j) == Some(&1) { out.insert(rows[i].id, rows[j].id); } }
@@ -755,8 +769,8 @@ mod tests {
         assert_eq!(matched(&rows), [(2, 1)]);
     }
 
-    /// What is not unique stays standalone: two fees finding one fill (and that fill is out of the weaker passes), a fill
-    /// a buy and a sale share a price with, the same price spelled two ways.
+    /// What is not unique stays standalone: two fees finding one fill, a fill a buy and a sale share a price with, the
+    /// same price spelled two ways.
     #[test]
     fn a_fee_that_is_not_unique_stays_standalone() {
         let day = "2026-10-01";
@@ -776,6 +790,40 @@ mod tests {
         let rows = [fill(1, Kind::Buy, "0.01", "100", "2026-09-29 10:00:00"), fill(2, Kind::Sell, "0.005", "100", "2026-10-02 00:00:01"),
                     timed(3, "0.0001", Some("100"), day, "2026-10-02T00:00:05Z")];
         assert_eq!(matched(&rows), NONE);
+    }
+
+    /// Codex r3-1: a raw price of zero (or less) is a price that names no fill: the fee has no edge, matches nothing and
+    /// blocks nothing; a fee with no price at all still reads every candidate.
+    #[test]
+    fn a_zero_raw_price_names_no_fill() {
+        let day = "2026-10-01";
+        let buy = || fill(1, Kind::Buy, "0.01", "100", "2026-10-01 10:00:00");
+        assert_eq!(matched(&[buy(), timed(2, "0.0001", Some("0"), day, "2026-10-01T10:01:00Z")]), NONE);
+        assert_eq!(matched(&[buy(), timed(2, "0.0001", Some("0"), day, "2026-10-01T10:01:00Z"), timed(3, "0.0001", Some("100"), day, "2026-10-01T10:02:00Z")]), [(3, 1)]);
+        assert_eq!(matched(&[buy(), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z")]), [(2, 1)]);
+    }
+
+    /// Codex r3-2: everything the matcher holds is charged at its size: 1,000 fees with no fill to read still hold their
+    /// list, kinds and edge lists (about 18,000 limbs), refused under 12,000 (the earlier charge was 8,000).
+    #[test]
+    fn the_matchers_own_lists_are_charged() {
+        use crate::figures::budget;
+        let rows: Vec<Stored> = (0..1000).map(|n| timed(n + 1, "0.0001", Some("100"), "2026-10-01", "2026-10-01T10:00:00Z")).collect();
+        let (out, _) = budget::scope(budget::Limits { steps: budget::FIGURE.steps, held: 12_000 }, || cfee_matches(&rows));
+        assert!(matches!(out, Err(FiguresError::NotComputed(ref m)) if m == crate::figures::OVER_BUDGET), "{:?}", out.map(|m| m.len()));
+        assert_eq!(budget::scope(budget::FIGURE, || cfee_matches(&rows)).0.unwrap().len(), 0);
+    }
+
+    /// Codex r3-3: every edge read is a step, the claimants' count included: 2,000 unpriced fees after 2,000 sales
+    /// (4,000,000 edges, read three times) are refused under 9,000,000 steps.
+    #[test]
+    fn every_edge_read_is_a_step() {
+        use crate::figures::budget;
+        let t0 = At::from_sql("2026-10-01 00:00:00").unwrap().0;
+        let mut rows: Vec<Stored> = (0..2000).map(|n| Stored { at: At(t0 + n * 1_000_000_000), ..fill(n + 1, Kind::Sell, "1", "100", "2026-10-01 00:00:00") }).collect();
+        for n in 0..2000 { rows.push(timed(10_000 + n, "0.0001", None, "2026-10-01", &At(t0 + (3000 + n) * 1_000_000_000).utc().to_rfc3339())); }
+        let (out, _) = budget::scope(budget::Limits { steps: 9_000_000, held: budget::FIGURE.held }, || cfee_matches(&rows));
+        assert!(matches!(out, Err(FiguresError::NotComputed(ref m)) if m == crate::figures::OVER_BUDGET), "{:?}", out.map(|m| m.len()));
     }
 
     /// Mutual uniqueness, whatever the charge order: a match is a fee with one compatible fill that no other fee may
