@@ -34,10 +34,10 @@ fn value(v: rusqlite::types::ValueRef) -> String {
 }
 
 /// Two installs hold the same rows. The stamps of ar_internal_metadata and rust_schema_migrations are each install's
-/// creation time, not import output. listing_evidence (delisted coins PR0) is the async import's observation of the
-/// venue; the synchronous units write the seed's bundle, which observes nothing.
+/// creation time, not import output. listing_evidence and listing_observations (delisted coins PR0) are the async
+/// import's observation of the venue; the synchronous units write the seed's bundle, which observes nothing.
 fn assert_same(a: &Connection, b: &Connection) {
-    let strip = |s: Snapshot| s.into_iter().filter(|(t, _)| !["ar_internal_metadata", "rust_schema_migrations", "listing_evidence"].contains(&t.as_str())).collect::<Snapshot>();
+    let strip = |s: Snapshot| s.into_iter().filter(|(t, _)| !["ar_internal_metadata", "rust_schema_migrations", "listing_evidence", "listing_observations"].contains(&t.as_str())).collect::<Snapshot>();
     let (a, b) = (strip(snapshot(a)), strip(snapshot(b)));
     for ((ta, ra), (tb, rb)) in a.iter().zip(&b) {
         assert_eq!(ta, tb);

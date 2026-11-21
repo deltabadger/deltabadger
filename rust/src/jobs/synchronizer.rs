@@ -143,6 +143,8 @@ pub struct Plan {
     sweep_exchange_assets: Vec<(i64, i64)>,
     /// A crypto asset was minted: the backfill wake's condition (create_missing_assets!'s new_crypto_assets).
     pub crypto_created: bool,
+    /// Delisted coins PR0: each written ticker's binding as the plan leaves it: id → (base, quote, base asset, quote asset).
+    bindings: HashMap<i64, (String, String, i64, i64)>,
 }
 
 impl Plan {
@@ -331,6 +333,8 @@ pub fn plan(c: &Connection, exchange_id: i64, venue: &str, rows: &[Value], map: 
 
     // The sweep, only when the catalogue confirmed some tickers and not every current one went missing, and no row was
     // refused by the database.
+    let written: HashSet<i64> = plan.rows.iter().flatten().filter_map(|w| match w { Write::Update { id, .. } | Write::Create { id, .. } => Some(*id), _ => None }).collect();
+    plan.bindings = held.iter().filter(|h| written.contains(&h.id)).map(|h| (h.id, (h.base.clone(), h.quote.clone(), h.pair.0, h.pair.1))).collect();
     let confirmed: HashSet<String> = confirmed.into_iter().collect();
     let stale: HashSet<&String> = current.iter().filter(|t| !confirmed.contains(*t)).collect();
     if !aborted && !confirmed.is_empty() && stale.len() < current.len() {
@@ -376,8 +380,32 @@ pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: Dat
         if units.last().is_none_or(|u| u.len() + row.len() > CHUNK) { units.push(vec![]); }
         units.last_mut().expect("pushed").extend(row);
     }
-    let t2 = t.clone();
-    import::publish(db, "venue tickers", units, move |c, writes: Vec<Write>| {
+    // Delisted coins PR0: the run's observation of the venue (scope '', as data-api's), each unit's evidence after it commits.
+    let observation = super::evidence::begin(db, exchange_id, "", &t).await;
+    for unit in units {
+        let seen: Vec<super::evidence::Binding> = unit.iter()
+            .filter_map(|w| match w { Write::Update { id, .. } | Write::Create { id, .. } => plan.bindings.get(id).map(|b| (*id, b)), _ => None })
+            .flat_map(|(id, (b, q, ba, qa))| [("base", b.clone(), *ba, id), ("quote", q.clone(), *qa, id)]).collect();
+        let t2 = t.clone();
+        import::publish(db, "venue tickers", vec![unit], move |c, writes: Vec<Write>| write_unit(c, exchange_id, &t2, writes)).await?;
+        if let Some(o) = &observation { super::evidence::record(db, o, seen).await; }
+    }
+    // update_all: updated_at stays.
+    import::publish(db, "venue sweep", import::chunks(&plan.sweep_tickers), |c, ids: Vec<i64>| {
+        c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({})", vec!["?"; ids.len()].join(", ")), params_from_iter(&ids)).map_err(sql)?;
+        Ok(Touched::Tickers(ids))
+    }).await?;
+    import::publish(db, "venue sweep", import::chunks(&plan.sweep_exchange_assets), |c, rows: Vec<(i64, i64)>| {
+        let ids: Vec<i64> = rows.iter().map(|r| r.0).collect();
+        c.execute(&format!("UPDATE exchange_assets SET available = 0 WHERE id IN ({})", vec!["?"; ids.len()].join(", ")), params_from_iter(&ids)).map_err(sql)?;
+        Ok(Touched::Assets(rows.into_iter().map(|r| r.1).collect()))
+    }).await?;
+    if let Some(o) = &observation { super::evidence::complete(db, o).await; }
+    Ok(())
+}
+
+/// One unit of a venue's catalogue rows.
+fn write_unit(c: &Connection, exchange_id: i64, t2: &str, writes: Vec<Write>) -> R<Touched> {
         let mut touched = vec![];
         for w in writes {
             match w {
@@ -392,7 +420,7 @@ pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: Dat
                     let set: Vec<String> = cols.iter().enumerate().map(|(i, (k, _))| format!("{k} = ?{}", i + 3)).collect();
                     let same: Vec<String> = cols.iter().enumerate().map(|(i, (k, _))| format!("{k} IS ?{}", i + 3)).collect();
                     let statement = format!("UPDATE tickers SET {}, updated_at = ?2 WHERE id = ?1 AND NOT ({})", set.join(", "), same.join(" AND "));
-                    let binds = [Sql::Integer(id), Sql::Text(t2.clone())].into_iter().chain(cols.into_iter().map(|(_, v)| v));
+                    let binds = [Sql::Integer(id), Sql::Text(t2.to_string())].into_iter().chain(cols.into_iter().map(|(_, v)| v));
                     if c.execute(&statement, params_from_iter(binds)).map_err(sql)? > 0 { touched.push(id); }
                 }
                 Write::Create { id, base_asset, quote_asset, cols } => {
@@ -400,7 +428,7 @@ pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: Dat
                     let marks: Vec<String> = (0..cols.len()).map(|i| format!("?{}", i + 6)).collect();
                     let statement = format!("INSERT INTO tickers (id, exchange_id, base_asset_id, quote_asset_id, created_at, updated_at, {}) VALUES (?1, ?2, ?3, ?4, ?5, ?5, {})",
                                             names.join(", "), marks.join(", "));
-                    let binds = [Sql::Integer(id), Sql::Integer(exchange_id), Sql::Integer(base_asset), Sql::Integer(quote_asset), Sql::Text(t2.clone())]
+                    let binds = [Sql::Integer(id), Sql::Integer(exchange_id), Sql::Integer(base_asset), Sql::Integer(quote_asset), Sql::Text(t2.to_string())]
                         .into_iter().chain(cols.into_iter().map(|(_, v)| v));
                     c.execute(&statement, params_from_iter(binds)).map_err(sql)?;
                     touched.push(id);
@@ -408,17 +436,6 @@ pub async fn publish_rows(db: &super::Db, exchange_id: i64, plan: Plan, now: Dat
             }
         }
         Ok(Touched::Tickers(touched))
-    }).await?;
-    // update_all: updated_at stays.
-    import::publish(db, "venue sweep", import::chunks(&plan.sweep_tickers), |c, ids: Vec<i64>| {
-        c.execute(&format!("UPDATE tickers SET available = 0 WHERE id IN ({})", vec!["?"; ids.len()].join(", ")), params_from_iter(&ids)).map_err(sql)?;
-        Ok(Touched::Tickers(ids))
-    }).await?;
-    import::publish(db, "venue sweep", import::chunks(&plan.sweep_exchange_assets), |c, rows: Vec<(i64, i64)>| {
-        let ids: Vec<i64> = rows.iter().map(|r| r.0).collect();
-        c.execute(&format!("UPDATE exchange_assets SET available = 0 WHERE id IN ({})", vec!["?"; ids.len()].join(", ")), params_from_iter(&ids)).map_err(sql)?;
-        Ok(Touched::Assets(rows.into_iter().map(|r| r.1).collect()))
-    }).await
 }
 
 /// A venue's catalogue (Exchange#get_tickers_info(force: true)): 2.x's rows, or why it failed.
@@ -526,7 +543,11 @@ pub async fn run(cg: &Clients, catalogues: &Catalogues, cx: &Cx<'_>, setup: bool
         let label = name.clone();
         let planned = cx.db.run(move |c, _| plan(c, id, &label, &rows, map.as_deref())).await;
         let plan = match planned { Ok(p) => p, Err(m) => { failed.push(format!("{name}: {m}")); continue } };
-        if plan.is_empty() { continue; }
+        if plan.is_empty() {
+            // Delisted coins PR0: an empty catalogue is an observation of nothing, which no interval spans.
+            super::evidence::observe_nothing(&cx.db, id, "", &format_time(now)).await;
+            continue;
+        }
         let crypto = plan.crypto_created;
         if !marked {
             if let Err(m) = cx.db.run(move |c, _| state::mark_incomplete(c, reference::TICKERS, None, now)).await { return Outcome::Failed(m); }

@@ -560,19 +560,24 @@ async fn full_size_reference_writes_hold_neither_the_runtime_thread_nor_the_writ
     let db = Db::new(c, seed::cipher());
     let (gap, meter) = thread_gap_meter();
     let stocks = reference::run_once(reference::STOCKS, Some(api), Cx { db: db.clone(), clock: &FixedClock(at("2026-10-02T10:05:00Z")), wakers: Default::default() }).await;
+    // Delisted coins PR0 (Codex P2-7): a second full-size refresh, with every binding's evidence there to extend.
+    let again = reference::run_once(reference::STOCKS, Some(DataApi::live(Config { url: server.uri(), token: "tok".into() })),
+                                    Cx { db: db.clone(), clock: &FixedClock(at("2026-10-03T10:05:00Z")), wakers: Default::default() }).await;
     let prune = reference::run_once(reference::PRUNE, None::<DataApi<ScriptedTransport>>, Cx { db, clock: &FixedClock(at("2026-10-02T10:05:00Z")), wakers: Default::default() }).await;
     meter.abort();
     stop.store(true, Ordering::SeqCst);
     probe.join().unwrap();
-    assert_eq!((stocks, prune), (Outcome::Done, Outcome::Done));
+    assert_eq!((stocks, again, prune), (Outcome::Done, Outcome::Done, Outcome::Done));
     let c = reopen(&d);
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence WHERE last_seen = '2026-10-03 10:05:00' AND first_seen = '2026-10-02 10:05:00'"), 2 * 6_800,
+               "the second refresh extended every base and quote binding");
     assert_eq!(one::<i64>(&c, &format!("SELECT count(*) FROM tickers WHERE exchange_id = {alpaca} AND base LIKE '__stale_%'")), 100, "the delisted names were taken");
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM bot_activity_logs"), 0, "the backlog is gone");
     let holds = import::holds(&file);
     let (gap, wait) = (Duration::from_micros(gap.load(Ordering::Relaxed)), Duration::from_micros(longest_wait.load(Ordering::SeqCst)));
     eprintln!("measured: longest hold per phase {holds:?}; longest runtime-thread gap {gap:?}; longest wait of another writer {wait:?} (CHUNK = {})",
               deltabadger::jobs::CHUNK);
-    for phase in ["stock assets", "usd", "exchange assets", "tickers", "sweep", "prune"] {
+    for phase in ["stock assets", "usd", "exchange assets", "tickers", "listing evidence", "sweep", "prune"] {
         let held = holds.get(phase).unwrap_or_else(|| panic!("no {phase} phase ran"));
         assert!(*held < WRITE_LOCK_BOUND, "{phase} held the write lock {held:?}");
     }
@@ -1711,7 +1716,7 @@ async fn the_data_api_pull_retires_what_a_validated_payload_no_longer_lists() {
     assert_eq!(retired_lines(&c), [bot], "no second line");
 }
 
-// ---- delisted coins PR0: listing_evidence, written inside each ticker unit ----
+// ---- delisted coins PR0: listing_evidence, one observation per import run ----
 
 /// The base bindings `listing_evidence` holds for `spelling`: (asset's external id, first seen, last seen), in order.
 fn intervals(c: &Connection, spelling: &str) -> Vec<(String, String, String)> {
@@ -1720,9 +1725,22 @@ fn intervals(c: &Connection, spelling: &str) -> Vec<(String, String, String)> {
         .query_map([spelling], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
 }
 fn interval(ext: &str, from: &str, to: &str) -> (String, String, String) { (ext.into(), from.into(), to.into()) }
+/// Each observation's (kind, complete), in order.
+fn observations(c: &Connection) -> Vec<(String, i64)> {
+    c.prepare("SELECT kind, complete FROM listing_observations ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
 
 /// Kraken with two EUR pairs, coin-0 and coin-1, whose payload names them `a` and `b`.
 fn two_pairs(a: &str, b: &str) -> Vec<Value> { vec![pair("coin-0", &format!("{a}EUR"), a), pair("coin-1", &format!("{b}EUR"), b)] }
+/// `n` pairs, each under its own name `C<i>`, but those in `absent`.
+fn named(n: usize, absent: &[usize]) -> Vec<Value> {
+    (0..n).filter(|i| !absent.contains(i)).map(|i| pair(&format!("coin-{i}"), &format!("C{i}EUR"), &format!("C{i}"))).collect()
+}
+/// Plans and publishes `rows` for the venue under `category`, as the Alpaca jobs do.
+async fn import_category(db: &Db, exchange_id: i64, rows: Vec<Value>, category: &'static str, now: &str) {
+    let plan = db.run(move |c, _| import::plan_tickers(c, exchange_id, &rows, Some(category))).await.unwrap();
+    import::publish_tickers(db, exchange_id, plan, at(now)).await.unwrap();
+}
 
 /// Codex P1-2 (r9): two live pairs swap names in one import, with no tombstone: each name's binding changes, so each
 /// starts a new interval; the earlier one ends where it was last observed.
@@ -1753,9 +1771,73 @@ async fn x_y_x_three_intervals() {
     assert_eq!(quote, 2, "each pair's quote binding never changed: one interval each");
 }
 
+/// Codex PR0 P1-3: every unit of a run extends from the same previous observation. The pairs of T3's second unit, all
+/// absent at T2 and back at T3, start new intervals though T3's first unit has already moved every T2 binding on.
+#[tokio::test(flavor = "current_thread")]
+async fn a_unit_reappearing_after_an_absence_starts_a_new_interval() {
+    let n = deltabadger::jobs::CHUNK + 100;
+    let (d, c) = db();
+    let (kraken, _) = renamed_venue(&c, n);
+    let db = Db::new(c, common::seed::cipher());
+    let second: Vec<usize> = (deltabadger::jobs::CHUNK..n).collect();
+    for (absent, now) in [(vec![], "2026-10-01T10:00:00Z"), (second, "2026-10-02T10:00:00Z"), (vec![], "2026-10-03T10:00:00Z")] {
+        import_tickers(&db, kraken, named(n, &absent), now).await.unwrap();
+    }
+    let c = reopen(&d);
+    assert_eq!(intervals(&c, "C0"), [interval("coin-0", "2026-10-01 10:00:00", "2026-10-03 10:00:00")]);
+    assert_eq!(intervals(&c, &format!("C{}", n - 1)), [interval(&format!("coin-{}", n - 1), "2026-10-01 10:00:00", "2026-10-01 10:00:00"),
+                                                        interval(&format!("coin-{}", n - 1), "2026-10-03 10:00:00", "2026-10-03 10:00:00")]);
+}
+
+/// Codex PR0 P1-4: an empty observation, a failed one, and an ownership change (a takeover or a handback) each break
+/// continuity: X, then one of them, then X is two intervals.
+#[tokio::test(flavor = "current_thread")]
+async fn x_then_empty_failed_or_ownership_change_then_x_is_two_intervals() {
+    for case in ["empty", "failed", "claim", "handback"] {
+        let (d, c) = db();
+        let (kraken, _) = renamed_venue(&c, 2);
+        let db = Db::new(c, common::seed::cipher());
+        import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-01T10:00:00Z").await.unwrap();
+        let (p, cipher) = (Paths::from_env(&|_| None, d.path()), common::seed::cipher());
+        let owner = || deltabadger::lease::lock(&p, at("2026-10-02T10:00:00Z")).unwrap();
+        match case {
+            "empty" => { import_tickers(&db, kraken, vec![], "2026-10-02T10:00:00Z").await.unwrap(); }
+            "failed" => {
+                reopen(&d).execute_batch("CREATE TRIGGER full_i BEFORE INSERT ON listing_evidence BEGIN SELECT RAISE(ROLLBACK, 'full'); END; \
+                                          CREATE TRIGGER full_u BEFORE UPDATE ON listing_evidence BEGIN SELECT RAISE(ROLLBACK, 'full'); END;").unwrap();
+                import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-02T10:00:00Z").await.unwrap();
+                reopen(&d).execute_batch("DROP TRIGGER full_i; DROP TRIGGER full_u;").unwrap();
+            }
+            "claim" => { deltabadger::lease::claim(&owner(), &reopen(&d), &cipher, "test", at("2026-10-02T10:00:00Z")).unwrap(); }
+            _ => { deltabadger::lease::hand_back(&owner(), &reopen(&d), &cipher, at("2026-10-02T10:00:00Z")).unwrap(); }
+        }
+        import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-03T10:00:00Z").await.unwrap();
+        assert_eq!(intervals(&reopen(&d), "S"), [interval("coin-0", "2026-10-01 10:00:00", "2026-10-01 10:00:00"),
+                                                 interval("coin-0", "2026-10-03 10:00:00", "2026-10-03 10:00:00")], "{case}");
+    }
+}
+
+/// Alpaca imports its stocks and its coins apart: each category is its own run of observations, so one never ends the
+/// other's intervals.
+#[tokio::test(flavor = "current_thread")]
+async fn alpaca_stock_and_crypto_observe_apart() {
+    let (d, c) = db();
+    let alpaca = exchange(&c, "Exchanges::Alpaca", true);
+    asset(&c, "EUR.FOREX", "EUR", "Currency");
+    asset(&c, "coin-c", "C", "Cryptocurrency");
+    asset(&c, "stock-s", "S", "Stock");
+    let db = Db::new(c, common::seed::cipher());
+    for (i, now) in ["2026-10-01T10:00:00Z", "2026-10-02T10:00:00Z", "2026-10-03T10:00:00Z", "2026-10-04T10:00:00Z"].into_iter().enumerate() {
+        if i % 2 == 0 { import_category(&db, alpaca, vec![pair("coin-c", "CEUR", "C")], "Cryptocurrency", now).await; }
+        else { import_category(&db, alpaca, vec![pair("stock-s", "SEUR", "S")], "Stock", now).await; }
+    }
+    let c = reopen(&d);
+    assert_eq!(intervals(&c, "C"), [interval("coin-c", "2026-10-01 10:00:00", "2026-10-03 10:00:00")]);
+    assert_eq!(intervals(&c, "S"), [interval("stock-s", "2026-10-02 10:00:00", "2026-10-04 10:00:00")]);
+}
+
 /// Codex P1-3 (r10): units commit separately, and so does their evidence: a failed last unit keeps the first unit's
-/// tickers and their evidence, and leaves none for its own (no gap mark: its evidence was never written, its tickers
-/// neither).
+/// tickers and their evidence, none for its own, and its run never completes (nothing extends from it).
 #[tokio::test(flavor = "current_thread")]
 async fn evidence_survives_failed_last_unit() {
     let n = deltabadger::jobs::CHUNK + 100;
@@ -1769,11 +1851,12 @@ async fn evidence_survives_failed_last_unit() {
     let observed: i64 = one(&c, "SELECT count(*) FROM listing_evidence e JOIN tickers t ON t.id = e.ticker_id WHERE e.side = 'base' AND e.spelling = t.base");
     assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'base'"), observed, "every base binding recorded is the ticker's committed name");
     assert!(observed > 0 && observed < n as i64, "the first unit's evidence only: {observed}");
-    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence_gap"), 0);
+    assert_eq!(observations(&c), [("import".to_string(), 0)], "the run never completed");
 }
 
-/// PR0 inertness: an import whose evidence write fails writes the same tickers and ends the same way, with a gap mark
-/// per unit instead of evidence.
+/// Codex PR0 P1-1: the evidence write is its own transaction after the ticker unit's, so one SQLite rolls back whole
+/// (RAISE(ROLLBACK), as SQLITE_FULL does) leaves every ticker row, the sequence, the exchange assets and the outcome as
+/// a run whose evidence succeeded; the run is marked failed, so nothing extends from it.
 #[tokio::test(flavor = "current_thread")]
 async fn pr0_import_outcome_unchanged() {
     let n = deltabadger::jobs::CHUNK + 100;
@@ -1781,16 +1864,16 @@ async fn pr0_import_outcome_unchanged() {
     for refuse in [false, true] {
         let (d, c) = db();
         let (kraken, _) = renamed_venue(&c, n);
-        if refuse { c.execute_batch("CREATE TRIGGER refuse_evidence BEFORE INSERT ON listing_evidence BEGIN SELECT RAISE(ABORT, 'refused'); END;").unwrap(); }
+        if refuse { c.execute_batch("CREATE TRIGGER refuse_evidence BEFORE INSERT ON listing_evidence BEGIN SELECT RAISE(ROLLBACK, 'database or disk is full'); END;").unwrap(); }
         let db = Db::new(c, common::seed::cipher());
         let out = import_tickers(&db, kraken, renaming_payload(n), "2026-10-02T10:15:00Z").await;
         let c = reopen(&d);
-        let (evidence, gaps): (i64, i64) = (one(&c, "SELECT count(*) FROM listing_evidence"), one(&c, "SELECT count(*) FROM listing_evidence_gap"));
-        ends.push((out, tickers(&c), one::<i64>(&c, "SELECT count(*) FROM exchange_assets"), evidence > 0, gaps));
+        let sequence: i64 = one(&c, "SELECT seq FROM sqlite_sequence WHERE name = 'tickers'");
+        ends.push((out, tickers(&c), sequence, one::<i64>(&c, "SELECT count(*) FROM exchange_assets"), one::<i64>(&c, "SELECT count(*) FROM listing_evidence"), observations(&c)));
     }
     let (kept, refused) = (&ends[0], &ends[1]);
-    assert!(kept.0.is_ok() && refused.0.is_ok());
-    assert_eq!((&kept.0, &kept.1, kept.2), (&refused.0, &refused.1, refused.2), "the same tickers, exchange assets and outcome");
-    assert_eq!((kept.3, kept.4), (true, 0));
-    assert_eq!((refused.3, refused.4), (false, 2), "one gap mark per unit");
+    assert!(kept.0.is_ok() && refused.0.is_ok(), "{:?}", refused.0);
+    assert_eq!((&kept.0, &kept.1, kept.2, kept.3), (&refused.0, &refused.1, refused.2, refused.3), "the same outcome, tickers, sequence and exchange assets");
+    assert!(kept.4 > 0 && kept.5 == [("import".to_string(), 1)]);
+    assert_eq!((refused.4, refused.5.clone()), (0, vec![("import".to_string(), -1)]), "no evidence, and the run marked failed");
 }

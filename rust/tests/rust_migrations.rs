@@ -800,22 +800,29 @@ fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
 }
 
 /// Delisted coins PR0: `asset_prices` (coin prices by identity), `listing_evidence` (every observed ticker binding, as
-/// intervals) and `listing_evidence_gap` (an import unit whose evidence was not written) migrate once, keyed as the
-/// writers rely on: one price per (external id, currency, day).
+/// intervals) and `listing_observations` (one row per import run, or a barrier) migrate once, keyed as the writers rely
+/// on: one price per (external id, currency, day); the evidence writer's lookup of a binding's latest interval is one
+/// index search, never a scan or a sort (Codex P2-7).
 #[test]
 fn the_price_and_listing_evidence_tables_migrate_once_with_their_keys() {
     let dir = common::v2_install_unmigrated();
     let p = paths(dir.path());
     store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap();
-    for table in ["asset_prices", "listing_evidence", "listing_evidence_gap"] { assert!(has_table(&p, table), "{table}"); }
+    for table in ["asset_prices", "listing_evidence", "listing_observations"] { assert!(has_table(&p, table), "{table}"); }
+    assert!(!has_table(&p, "listing_evidence_gap"));
     let c = Connection::open(&p.primary).unwrap();
     let put = "INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin-gold', 'USD', '2019-01-02', '13.5') ON CONFLICT DO NOTHING";
     assert_eq!(c.execute(put, []).unwrap(), 1);
     assert_eq!(c.execute(put, []).unwrap(), 0, "one price per external id, currency and day");
-    c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen) \
-               VALUES (1, '', 'base', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00')", []).unwrap();
-    assert!(c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen) \
-                       VALUES (1, '', 'fee', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00')", []).is_err(), "a side is base or quote");
-    c.execute("INSERT INTO listing_evidence_gap (exchange_id, at) VALUES (1, '2026-11-21 10:00:00')", []).unwrap();
+    c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (1, '', 'import', '2026-11-21 10:00:00')", []).unwrap();
+    c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (NULL, NULL, 'barrier', '2026-11-21 10:00:00')", []).unwrap();
+    assert!(c.execute("INSERT INTO listing_observations (exchange_id, scope, kind, at) VALUES (1, '', 'other', '2026-11-21 10:00:00')", []).is_err());
+    c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen, observation_id) \
+               VALUES (1, '', 'base', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00', 1)", []).unwrap();
+    assert!(c.execute("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen, observation_id) \
+                       VALUES (1, '', 'fee', 'BTG', 7, 9, '2026-11-21 10:00:00', '2026-11-21 10:00:00', 1)", []).is_err(), "a side is base or quote");
+    let plan: Vec<String> = c.prepare(&format!("EXPLAIN QUERY PLAN {}", deltabadger::jobs::evidence::LATEST)).unwrap()
+        .query_map(rusqlite::params![1, "quote", "USD", "", 7, 9], |r| r.get::<_, String>(3)).unwrap().map(Result::unwrap).collect();
+    assert!(plan.iter().any(|d| d.contains("USING INDEX index_listing_evidence_on_binding")) && !plan.iter().any(|d| d.contains("TEMP B-TREE")), "{plan:?}");
     assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), Vec::<String>::new(), "a restart applies nothing");
 }

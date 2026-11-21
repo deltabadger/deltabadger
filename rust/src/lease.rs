@@ -191,6 +191,8 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
         // The table exists wherever Rust's migrations ran; a claim on an unmigrated copy (a parity scratch) has none.
         let ranked: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
         if ranked { primary.execute("DELETE FROM rust_index_rankings", [])?; }
+        // Delisted coins PR0: 2.x imported tickers unobserved while it owned the install; no listing interval spans that.
+        crate::jobs::evidence::barrier(primary, None, &crate::codec::format_time(now))?;
         // A17-4 r18: 2.x may have changed any bot's membership while it owned the install, so no composition marker
         // (engine::index::COMPOSED_KEY) survives either. Retirements (rust_index_retired) do.
         primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index') \
@@ -206,5 +208,6 @@ pub fn hand_back(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, now
         hand_back(_proof,&tx,cipher,now)?;tx.commit()?;return Ok(());
     }
     if crate::sync::binance_writer::written(primary)? {return Err(LeaseError::BinanceIdentityWritten)}
+    crate::jobs::evidence::barrier(primary, None, &crate::codec::format_time(now))?;
     write(primary, cipher, &json!({ "engine": "none", "released_by": "rust", "handed_back": true, "at": now.to_rfc3339() }), now)
 }
