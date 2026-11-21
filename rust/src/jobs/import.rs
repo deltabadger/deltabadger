@@ -630,6 +630,8 @@ pub struct TickerPlan {
     pub sweep: Vec<i64>,
     /// The written base_asset_ids, first-seen order (import_tickers!' return value).
     pub written: Vec<i64>,
+    /// Delisted coins PR0: the `listing_evidence` scope this import observes (its category, '' for all).
+    pub scope: String,
 }
 
 fn find(parent: &mut [usize], i: usize) -> usize {
@@ -667,9 +669,10 @@ fn pair_sweep(c: &Connection, exchange_id: i64, pairs: &HashSet<(i64, i64)>) -> 
 /// `plan_tickers`, plus `sweep_pairs` (Ibkr plan R1, a complete payload): the sweep is pair-level, every available ticker
 /// of the venue whose (base, quote) pair no record carries, whatever its category; an empty payload sweeps them all.
 pub fn plan_tickers_with(c: &Connection, exchange_id: i64, rows: &[Value], sweep_category: Option<&str>, sweep_pairs: bool) -> R<TickerPlan> {
+    let scope = sweep_category.unwrap_or_default().to_string();
     let empty = |exchange_assets| -> R<TickerPlan> {
         let sweep = if sweep_pairs { pair_sweep(c, exchange_id, &HashSet::new())? } else { vec![] };
-        Ok(TickerPlan { exchange_assets, units: vec![], sweep, written: vec![] })
+        Ok(TickerPlan { exchange_assets, units: vec![], sweep, written: vec![], scope: scope.clone() })
     };
     if rows.is_empty() { return empty(vec![]); }
     let exchange_assets: Vec<i64> = asset_ids(c, &external_ids(rows))?.into_iter().map(|(_, id)| id).collect();
@@ -767,7 +770,7 @@ pub fn plan_tickers_with(c: &Connection, exchange_id: i64, rows: &[Value], sweep
         }
         None => vec![],
     };
-    Ok(TickerPlan { exchange_assets, units, sweep, written })
+    Ok(TickerPlan { exchange_assets, units, sweep, written, scope })
 }
 
 /// Publishes a ticker plan: the exchange assets, the tickers, then the sweep (committed last: never a sweep without its
@@ -779,21 +782,22 @@ pub async fn publish_tickers(db: &Db, exchange_id: i64, plan: TickerPlan, now: D
 /// `publish_tickers`, every unit of every phase first checking `fence`.
 pub async fn publish_tickers_fenced(db: &Db, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>, fence: Option<Fence>) -> R<Vec<i64>> {
     let t = format_time(now);
-    let t2 = t.clone();
+    let (t2, scope) = (t.clone(), plan.scope);
     publish_fenced(db, "exchange assets", chunks(&plan.exchange_assets), fence, move |c, ids: Vec<i64>| exchange_assets(c, exchange_id, ids, &t)).await?;
-    publish_fenced(db, "tickers", plan.units, fence, move |c, unit: TickerUnit| ticker_unit(c, exchange_id, unit, &t2)).await?;
+    publish_fenced(db, "tickers", plan.units, fence, move |c, unit: TickerUnit| ticker_unit(c, exchange_id, unit, &t2, Some(&scope))).await?;
     publish_fenced(db, "sweep", chunks(&plan.sweep), fence, |c, ids: Vec<i64>| sweep(c, ids)).await?;
     Ok(plan.written)
 }
 
 /// `publish_tickers` as one synchronous write unit in the caller's transaction (no BEGIN, no pacing, no fence, no guard):
-/// the same phases, units and statements, in the same order. Returns the written base_asset_ids. The plan's new ids come
+/// the same phases, units and statements, in the same order, but no `listing_evidence` (the seed's bundle is no
+/// observation of the venue). Returns the written base_asset_ids. The plan's new ids come
 /// from the table as it stood at plan time, so several venues' plans are each made right before their own write, on
 /// this same connection (`plan_tickers_with`, then `write_tickers`, venue after venue).
 pub fn write_tickers(c: &Connection, exchange_id: i64, plan: TickerPlan, now: DateTime<Utc>) -> R<Vec<i64>> {
     let t = format_time(now);
     for ids in chunks(&plan.exchange_assets) { exchange_assets(c, exchange_id, ids, &t)?; }
-    for unit in plan.units { ticker_unit(c, exchange_id, unit, &t)?; }
+    for unit in plan.units { ticker_unit(c, exchange_id, unit, &t, None)?; }
     for ids in chunks(&plan.sweep) { sweep(c, ids)?; }
     Ok(plan.written)
 }
@@ -808,12 +812,19 @@ fn exchange_assets(c: &Connection, exchange_id: i64, ids: Vec<i64>, t: &str) -> 
     Ok(Touched::None)
 }
 
-/// One ticker unit.
-fn ticker_unit(c: &Connection, exchange_id: i64, unit: TickerUnit, t: &str) -> R<Touched> {
+/// One ticker unit; with `evidence` (the import's scope), the bindings it writes recorded beside it.
+fn ticker_unit(c: &Connection, exchange_id: i64, unit: TickerUnit, t: &str, evidence: Option<&str>) -> R<Touched> {
     let ids = unit.writes.iter().map(|w| match w {
         TickerWrite::Tombstone { id, .. } => *id,
         TickerWrite::Upsert { existing, id, .. } => existing.unwrap_or(*id),
     }).collect();
+    let bindings: Vec<Binding> = unit.writes.iter().flat_map(|w| match w {
+        TickerWrite::Upsert { existing, id, record: r } => {
+            let ticker = existing.unwrap_or(*id);
+            [r.base.clone().map(|s| ("base", s, r.base_asset_id, ticker)), r.quote.clone().map(|s| ("quote", s, r.quote_asset_id, ticker))]
+        }
+        TickerWrite::Tombstone { .. } => [None, None],
+    }).flatten().collect();
     for id in &unit.moving {
         c.execute("UPDATE tickers SET ticker = '__moving_' || id, base = '__moving_' || id WHERE id = ?1", [id]).map_err(sql)?;
     }
@@ -848,7 +859,52 @@ fn ticker_unit(c: &Connection, exchange_id: i64, unit: TickerUnit, t: &str) -> R
             c.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('tickers', ?1)", [seq]).map_err(sql)?;
         }
     }
+    if let Some(scope) = evidence { observe(c, exchange_id, scope, &bindings, t); }
     Ok(Touched::Tickers(ids))
+}
+
+/// (side, spelling, asset id, ticker id): one binding a unit wrote.
+type Binding = (&'static str, String, i64, i64);
+
+/// Delisted coins PR0 (plan r10 §1.5, Codex P1-3): the unit's bindings in `listing_evidence`, in the unit's own
+/// transaction. A binding seen by the scope's previous import (or earlier in this one) extends its interval; any other
+/// starts one, so a binding an import did not observe is never bridged. If that write fails, it is undone and a
+/// `listing_evidence_gap` mark is written instead (an unrecorded unit is no interval); the ticker write goes on either
+/// way, so the import ends as it did before PR0.
+fn observe(c: &Connection, exchange_id: i64, scope: &str, bindings: &[Binding], t: &str) {
+    let write = || -> rusqlite::Result<()> {
+        let previous: Option<String> = c.query_row("SELECT max(last_seen) FROM listing_evidence WHERE exchange_id = ?1 AND scope = ?2 AND last_seen < ?3",
+                                                   params![exchange_id, scope, t], |r| r.get(0))?;
+        for (side, spelling, asset, ticker) in bindings {
+            let latest: Option<(i64, String)> = c.prepare_cached("SELECT id, last_seen FROM listing_evidence WHERE exchange_id = ?1 AND side = ?2 AND spelling = ?3 \
+                                                                  AND scope = ?4 AND asset_id = ?5 AND ticker_id = ?6 ORDER BY last_seen DESC, id DESC LIMIT 1")?
+                .query_row(params![exchange_id, side, spelling, scope, asset, ticker], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+            match latest {
+                Some((_, last)) if last == t => {}
+                Some((id, last)) if previous.as_deref() == Some(last.as_str()) => {
+                    c.prepare_cached("UPDATE listing_evidence SET last_seen = ?1 WHERE id = ?2")?.execute(params![t, id])?;
+                }
+                _ => {
+                    c.prepare_cached("INSERT INTO listing_evidence (exchange_id, scope, side, spelling, asset_id, ticker_id, first_seen, last_seen) \
+                                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)")?.execute(params![exchange_id, scope, side, spelling, asset, ticker, t])?;
+                }
+            }
+        }
+        Ok(())
+    };
+    let marked = (|| -> rusqlite::Result<()> {
+        c.execute_batch("SAVEPOINT listing_evidence")?;
+        if let Err(e) = write() {
+            c.execute_batch("ROLLBACK TO listing_evidence; RELEASE listing_evidence")?;
+            crate::engine::log(&format!("[reference] listing evidence for exchange {exchange_id} not written: {e}"));
+            c.execute("INSERT INTO listing_evidence_gap (exchange_id, at) VALUES (?1, ?2)", params![exchange_id, t])?;
+            return Ok(());
+        }
+        c.execute_batch("RELEASE listing_evidence")
+    })();
+    // ponytail: a gap mark that cannot be written either (no table: an install not migrated) is logged; PR1's readers
+    // treat a venue with no evidence as unobserved.
+    if let Err(e) = marked { crate::engine::log(&format!("[reference] listing evidence gap for exchange {exchange_id} not written: {e}")); }
 }
 
 /// One chunk of the sweep. update_all: updated_at stays.

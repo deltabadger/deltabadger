@@ -1710,3 +1710,87 @@ async fn the_data_api_pull_retires_what_a_validated_payload_no_longer_lists() {
     assert!(retirements(&c).is_empty(), "listed again: un-retired");
     assert_eq!(retired_lines(&c), [bot], "no second line");
 }
+
+// ---- delisted coins PR0: listing_evidence, written inside each ticker unit ----
+
+/// The base bindings `listing_evidence` holds for `spelling`: (asset's external id, first seen, last seen), in order.
+fn intervals(c: &Connection, spelling: &str) -> Vec<(String, String, String)> {
+    c.prepare("SELECT a.external_id, e.first_seen, e.last_seen FROM listing_evidence e JOIN assets a ON a.id = e.asset_id \
+               WHERE e.side = 'base' AND e.spelling = ?1 ORDER BY e.first_seen, e.id").unwrap()
+        .query_map([spelling], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+}
+fn interval(ext: &str, from: &str, to: &str) -> (String, String, String) { (ext.into(), from.into(), to.into()) }
+
+/// Kraken with two EUR pairs, coin-0 and coin-1, whose payload names them `a` and `b`.
+fn two_pairs(a: &str, b: &str) -> Vec<Value> { vec![pair("coin-0", &format!("{a}EUR"), a), pair("coin-1", &format!("{b}EUR"), b)] }
+
+/// Codex P1-2 (r9): two live pairs swap names in one import, with no tombstone: each name's binding changes, so each
+/// starts a new interval; the earlier one ends where it was last observed.
+#[tokio::test(flavor = "current_thread")]
+async fn swap_in_one_import_two_intervals() {
+    let (_d, c) = db();
+    let (kraken, _) = renamed_venue(&c, 2);
+    let db = Db::new(c, common::seed::cipher());
+    import_tickers(&db, kraken, two_pairs("S", "T"), "2026-10-01T10:00:00Z").await.unwrap();
+    import_tickers(&db, kraken, two_pairs("T", "S"), "2026-10-02T10:00:00Z").await.unwrap();
+    let c = db.run(|c, _| Ok(intervals(c, "S"))).await.unwrap();
+    assert_eq!(c, [interval("coin-0", "2026-10-01 10:00:00", "2026-10-01 10:00:00"), interval("coin-1", "2026-10-02 10:00:00", "2026-10-02 10:00:00")]);
+}
+
+/// X→Y→X is three intervals, never one; an unchanged binding observed again extends its interval.
+#[tokio::test(flavor = "current_thread")]
+async fn x_y_x_three_intervals() {
+    let (_d, c) = db();
+    let (kraken, _) = renamed_venue(&c, 2);
+    let db = Db::new(c, common::seed::cipher());
+    for (names, now) in [(("S", "T"), "2026-10-01T10:00:00Z"), (("T", "S"), "2026-10-02T10:00:00Z"), (("S", "T"), "2026-10-03T10:00:00Z"), (("S", "T"), "2026-10-04T10:00:00Z")] {
+        import_tickers(&db, kraken, two_pairs(names.0, names.1), now).await.unwrap();
+    }
+    let seen = db.run(|c, _| Ok(intervals(c, "S"))).await.unwrap();
+    assert_eq!(seen, [interval("coin-0", "2026-10-01 10:00:00", "2026-10-01 10:00:00"), interval("coin-1", "2026-10-02 10:00:00", "2026-10-02 10:00:00"),
+                      interval("coin-0", "2026-10-03 10:00:00", "2026-10-04 10:00:00")]);
+    let quote: i64 = db.run(|c, _| c.query_row("SELECT count(*) FROM listing_evidence WHERE side = 'quote' AND spelling = 'EUR'", [], |r| r.get(0)).map_err(|e| e.to_string())).await.unwrap();
+    assert_eq!(quote, 2, "each pair's quote binding never changed: one interval each");
+}
+
+/// Codex P1-3 (r10): units commit separately, and so does their evidence: a failed last unit keeps the first unit's
+/// tickers and their evidence, and leaves none for its own (no gap mark: its evidence was never written, its tickers
+/// neither).
+#[tokio::test(flavor = "current_thread")]
+async fn evidence_survives_failed_last_unit() {
+    let n = deltabadger::jobs::CHUNK + 100;
+    let (d, c) = db();
+    let (kraken, _) = renamed_venue(&c, n);
+    c.execute_batch(&format!("CREATE TRIGGER late_failure BEFORE UPDATE OF ticker ON tickers WHEN NEW.ticker = 'C{}EUR' \
+                              BEGIN SELECT RAISE(ABORT, 'late failure'); END;", n - 2)).unwrap();
+    let db = Db::new(c, common::seed::cipher());
+    assert!(import_tickers(&db, kraken, renaming_payload(n), "2026-10-02T10:15:00Z").await.unwrap_err().contains("late failure"));
+    let c = reopen(&d);
+    let observed: i64 = one(&c, "SELECT count(*) FROM listing_evidence e JOIN tickers t ON t.id = e.ticker_id WHERE e.side = 'base' AND e.spelling = t.base");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence WHERE side = 'base'"), observed, "every base binding recorded is the ticker's committed name");
+    assert!(observed > 0 && observed < n as i64, "the first unit's evidence only: {observed}");
+    assert_eq!(one::<i64>(&c, "SELECT count(*) FROM listing_evidence_gap"), 0);
+}
+
+/// PR0 inertness: an import whose evidence write fails writes the same tickers and ends the same way, with a gap mark
+/// per unit instead of evidence.
+#[tokio::test(flavor = "current_thread")]
+async fn pr0_import_outcome_unchanged() {
+    let n = deltabadger::jobs::CHUNK + 100;
+    let mut ends = vec![];
+    for refuse in [false, true] {
+        let (d, c) = db();
+        let (kraken, _) = renamed_venue(&c, n);
+        if refuse { c.execute_batch("CREATE TRIGGER refuse_evidence BEFORE INSERT ON listing_evidence BEGIN SELECT RAISE(ABORT, 'refused'); END;").unwrap(); }
+        let db = Db::new(c, common::seed::cipher());
+        let out = import_tickers(&db, kraken, renaming_payload(n), "2026-10-02T10:15:00Z").await;
+        let c = reopen(&d);
+        let (evidence, gaps): (i64, i64) = (one(&c, "SELECT count(*) FROM listing_evidence"), one(&c, "SELECT count(*) FROM listing_evidence_gap"));
+        ends.push((out, tickers(&c), one::<i64>(&c, "SELECT count(*) FROM exchange_assets"), evidence > 0, gaps));
+    }
+    let (kept, refused) = (&ends[0], &ends[1]);
+    assert!(kept.0.is_ok() && refused.0.is_ok());
+    assert_eq!((&kept.0, &kept.1, kept.2), (&refused.0, &refused.1, refused.2), "the same tickers, exchange assets and outcome");
+    assert_eq!((kept.3, kept.4), (true, 0));
+    assert_eq!((refused.3, refused.4), (false, 2), "one gap mark per unit");
+}
