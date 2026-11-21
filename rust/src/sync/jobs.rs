@@ -378,6 +378,19 @@ impl<C: Connect> Job for LedgerSync<C> {
     }
 }
 
+/// A balance read whose key stopped being its account's reading key while it ran (`superseded`): nothing it read is
+/// committed, and the run ends as NothingNew under its version.
+pub const SUPERSEDED: &str = "superseded balance reader";
+/// Whether key `key_id` no longer reads its account's balances: another key of the same account is its reading key
+/// (sync::balance_reading_keys). An account none of whose keys reads keeps this key reading.
+pub(crate) fn superseded(c: &rusqlite::Connection, key_id: i64) -> Result<Option<i64>, SyncError> {
+    let keys = crate::sync::balance_reading_keys(c)?;
+    if keys.contains(&key_id) { return Ok(None); }
+    let Some(account) = crate::identity::Account::of_key(c, key_id)? else { return Ok(None) };
+    for k in keys { if crate::identity::Account::of_key(c, k)? == Some(account) { return Ok(Some(k)); } }
+    Ok(None)
+}
+
 /// `balance_sync`, scoped by the key: 2.x's `AccountBalance::SyncJob` for one key. It runs nightly at 02:30 UTC
 /// (`AccountBalance::SyncAllJob`'s fan-out, recurring key `sync_all_account_balances_job`), after the ledger, or on a
 /// manual wake. No retry. The price source is the scheduler's one data-api client, shared (2f S-10).
@@ -399,13 +412,7 @@ impl<C: Connect> Job for BalanceSync<C> {
             // writes the account's balances and their provenance (the freshness check names it).
             let key_id = self.key_id;
             // A key whose account reads with another key gives way to it; one whose account has no reading key runs as before.
-            let gives_way = cx.db.run(move |c, _| {
-                let keys = crate::sync::balance_reading_keys(c).map_err(|e| e.0)?;
-                if keys.contains(&key_id) { return Ok(None); }
-                let Some(account) = crate::identity::account_of_key(c, key_id).map_err(|e| e.to_string())? else { return Ok(None) };
-                for k in keys { if crate::identity::account_of_key(c, k).map_err(|e| e.to_string())? == Some(account) { return Ok(Some(k)); } }
-                Ok(None)
-            }).await;
+            let gives_way = cx.db.run(move |c, _| superseded(c, key_id).map_err(|e| e.0)).await;
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             match gives_way {
                 Ok(None) => {}
@@ -470,7 +477,15 @@ impl<C: Connect> Job for BalanceSync<C> {
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },
             };
-            let outcome = outcome(done, |_| true);
+            // Its key stopped reading while it ran: nothing was committed, and the reader's own job reads.
+            let outcome = match &done { Err(SyncError(e)) if e == SUPERSEDED => Outcome::NothingNew, _ => outcome(done, |_| true) };
+            if outcome == Outcome::NothingNew {
+                let key_id = self.key_id;
+                if let Ok(Some(reader)) = cx.db.run(move |c, _| superseded(c, key_id).map_err(|e| e.0)).await {
+                    cx.wakers.wake(BALANCE_SYNC, Some(&reader.to_string()), None);
+                    return outcome;
+                }
+            }
             // #710: a pair that may be one venue account keeps the verdict of its comparable reads; a partner whose read is too
             // far off is read now, so the two stay comparable.
             if outcome == Outcome::Done {

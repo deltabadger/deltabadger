@@ -827,28 +827,16 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
     for members in groups.values() {
         if vetoes(members) { for m in members { kept.remove(m); } }
     }
-    // ENTER: each component of accepted pairs no contradiction voids, as duplicates of its lowest number.
-    let components = components(&links);
-    let mut entered: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
-    for members in &components {
+    // ENTER: the union of the retained edges and the accepted pairs (a retained edge is never overwritten); each component
+    // of it that no veto falls inside, every member a duplicate of its lowest number.
+    let mut edges = links.clone();
+    edges.extend(kept.iter().map(|(d, s)| (*d, *s)));
+    let fresh: std::collections::HashSet<i64> = links.iter().flat_map(|(d, s)| [*d, *s]).collect();
+    let mut want: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+    for members in &components(&edges) {
         if vetoes(members) { continue; }
         let Some(&lowest) = members.iter().min_by_key(|a| number.get(a).copied().unwrap_or(i64::MAX)) else { continue };
-        for m in members.iter().filter(|m| **m != lowest) { entered.insert(*m, lowest); }
-    }
-    // The stored standings that stay, then the entered ones over them; a survivor that became a duplicate hands its own on.
-    let mut want = kept;
-    for (d, s) in &entered { want.insert(*d, *s); }
-    for _ in 0..want.len() {
-        let next: Vec<(i64, i64)> = want.iter().filter_map(|(d, s)| want.get(s).map(|t| (*d, *t))).collect();
-        if next.is_empty() { break; }
-        for (d, t) in next { want.insert(d, t); }
-    }
-    want.retain(|d, s| d != s);
-    // The final components (retained and entered rows flattened together): one any veto falls inside goes whole.
-    let mut finals: std::collections::BTreeMap<i64, Vec<i64>> = std::collections::BTreeMap::new();
-    for (d, s) in &want { finals.entry(*s).or_insert_with(|| vec![*s]).push(*d); }
-    for members in finals.values() {
-        if vetoes(members) { for m in members { want.remove(m); } }
+        for m in members.iter().filter(|m| **m != lowest) { want.insert(*m, lowest); }
     }
     for (d, s) in &stored {
         if want.get(d) != Some(s) { c.execute("DELETE FROM exchange_account_standings WHERE duplicate_id = ?1", [d])?; }
@@ -856,7 +844,7 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
     for (d, s) in &want {
         if stored.get(d) == Some(s) {
             // Entered again on every signal now: it rests on the keys as they are.
-            if entered.get(d) == Some(s) { c.execute("UPDATE exchange_account_standings SET basis = ?2 WHERE duplicate_id = ?1", params![d, standing_basis(c, *d, *s)?])?; }
+            if fresh.contains(d) { c.execute("UPDATE exchange_account_standings SET basis = ?2 WHERE duplicate_id = ?1", params![d, standing_basis(c, *d, *s)?])?; }
             continue;
         }
         c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -1086,11 +1074,14 @@ pub fn live_check(c: &Connection, d: &AccountRow, s: &AccountRow, now: DateTime<
 /// SQL condition: account row `x`'s known fingerprint (if any) is what its keys still read: every live key's identity
 /// observation confirms it and none reads another account. A stale or contradicted one is neither duplicate nor survivor.
 fn confirmed(x: &str) -> String {
-    let keys = format!("(SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id AND o.fingerprint IS NOT NULL)", key_account_sql("k"));
-    // Every live key confirms it: one with no observation of its current material, or whose read came back without an id
-    // (failed, masked), is no confirmation beside one that confirmed.
+    // Only live keys speak for it (a key incorrect, revoked or awaiting activation confirms nothing, whatever it read).
+    let keys = format!("(SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id AND k.status = 1 AND o.fingerprint IS NOT NULL)", key_account_sql("k"));
+    // Every live key confirms it: one with no observation of its current material, whose read came back without an id
+    // (failed, masked), or whose latest answer is a standing definite failure, is no confirmation beside one that did.
     let masked = format!("EXISTS (SELECT 1 FROM api_keys k WHERE {} = {x}.id AND k.status = 1 \
-                          AND NOT EXISTS (SELECT 1 FROM exchange_account_credentials o WHERE o.api_key_id = k.id AND o.fingerprint = {x}.fingerprint))", key_account_sql("k"));
+                          AND NOT EXISTS (SELECT 1 FROM exchange_account_credentials o WHERE o.api_key_id = k.id AND o.fingerprint = {x}.fingerprint \
+                            AND NOT (o.last_failure_at IS NOT NULL AND {} AND (o.observed_at IS NULL OR o.last_failure_at > o.observed_at))))",
+                         key_account_sql("k"), definite_sql("o.last_failure_code"));
     format!("({x}.fingerprint IS NULL OR ({x}.fingerprint IN {keys} AND NOT EXISTS (SELECT 1 FROM {keys} f WHERE f.fingerprint <> {x}.fingerprint) AND NOT {masked}))")
 }
 /// SQL condition: account row `x`'s known fingerprint is contradicted by a live key: its identity read names another
@@ -1184,8 +1175,13 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                 return Ok(());
             };
             let digest = key.material_digest(credentials);
-            let stored: Option<Option<String>> = c.query_row("SELECT material_digest FROM exchange_account_credentials WHERE api_key_id = ?1", [api_key_id], |r| r.get(0)).optional().map_err(db)?;
-            match stored {
+            let stored: Option<(Option<String>, Option<String>)> = c.query_row("SELECT material_digest, last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1",
+                                                                               [api_key_id], |r| Ok((r.get(0)?, r.get(1)?))).optional().map_err(db)?;
+            // A definite failure on this material is sticky: a transient one after it leaves it standing; only a successful
+            // read (Observed::Read) lifts it.
+            let sticky = !definite_failure(code) && stored.as_ref().and_then(|(_, last)| last.as_deref()).is_some_and(definite_failure);
+            match stored.map(|(digest, _)| digest) {
+                Some(Some(stored)) if stored == digest && sticky => Ok(0),
                 Some(Some(stored)) if stored == digest => c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
                                                               params![api_key_id, at, code]),
                 Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL, fingerprint = NULL,

@@ -2371,3 +2371,33 @@ async fn an_alpaca_read_that_skips_a_position_records_it() {
     balances::sync(&db, &v, &prices(), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
     assert!(deltabadger::app_config::get_plain(&c, &key).unwrap().is_none());
 }
+
+/// #710 R10 #4: a balance read by a key that is no longer its account's reading key (another key of the account reads)
+/// commits nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_superseded_reader_commits_nothing() {
+    let (dir, db, s) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) SELECT user_id, exchange_id, key, secret, passphrase, 1, 2, created_at, updated_at FROM api_keys WHERE id = ?1",
+              [s.api_key_id]).unwrap();
+    let reader = c.last_insert_rowid();
+    let before: i64 = c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get(0)).unwrap();
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let (_, v) = venue(balances_script());
+    let out = balances::sync(&db, &v, &prices, reader, &paper(), &clock()).await;
+    assert!(matches!(&out, Err(SyncError(e)) if e == deltabadger::sync::jobs::SUPERSEDED), "{out:?}");
+    let after: i64 = c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get(0)).unwrap();
+    assert_eq!(after, before, "nothing committed");
+}
+
+/// #710 R10 #7: an unsupported Alpaca position (a short option) is the balance read's skipped holding only: the trading
+/// readers' positions are the supported ones, as before, so a stock trade's reconciliation reads them unchanged.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unsupported_alpaca_position_stays_out_of_the_trading_positions() {
+    let script = json!({ "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" },
+                                                          { "symbol": "AAPL250117C00150000", "asset_class": "us_option", "qty": "-1", "qty_available": "-1" }]))] });
+    let (_, v) = venue(script);
+    let held = deltabadger::venue::Venue::positions(&v).await.unwrap();
+    assert_eq!(held.len(), 1);
+    assert_eq!(held.get("AAPL").map(|q| q.to_s_f()), Some("2.0".to_string()));
+}

@@ -3096,3 +3096,74 @@ async fn r9_listings_leave_a_duplicates_rows_out() {
     let exported = mcp(c, &app, user, "export_transactions_csv", serde_json::json!({}));
     assert!(!exported.to_string().contains("on-2"), "{exported}");
 }
+
+// ---- review round 10 ----
+
+/// R10 #1: entering a new pair never overwrites a retained edge: a retained 3 → 1 and a freshly accepted 3 - 2 (1's read
+/// too old to compare) make one component, every member a duplicate of 1.
+#[test]
+fn r10_new_pairs_join_retained_edges() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a1, k1, a2, k2) = (two.id(0), two.keys[0], two.id(1), two.keys[1]);
+    let (a3, k3) = account_numbered(c, &two, 3);
+    for i in 0..3 { for (a, k) in [(a3, k3), (a1, k1)] { trade_on(c, &two, a, k, &format!("a{i}"), "1", &format!("2026-09-02 1{i}:00:00")); } }
+    for (a, k) in [(a1, k1), (a3, k3)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
+    assert_eq!(standing(c, &two), [(a3, a1)]);
+    for i in 0..3 { for (a, k) in [(a3, k3), (a2, k2)] { trade_on(c, &two, a, k, &format!("b{i}"), "1", &format!("2026-09-03 1{i}:00:00")); } }
+    for (a, k) in [(a2, k2), (a3, k3)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-25 10:00:00"); }
+    assert_eq!(standing(c, &two), [(a2, a1), (a3, a1)]);
+}
+
+/// A KuCoin pair whose keys' identity reads succeeded (their material's digest stored) and named one account, entered.
+fn kucoin_observed(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    for key in two.keys { observe(c, key, &identity::Observed::Read(identity::AccountId::parse("777").unwrap())); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+              [two.keys[0], two.id(0), two.id(1)]).unwrap();
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    two
+}
+
+/// R10 #2: a definite failure is sticky: a later transient read does not lift it, only a successful read does.
+#[test]
+fn r10_a_definite_failure_stays_until_a_successful_read() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = kucoin_observed(c);
+    observe(c, two.keys[0], &identity::Observed::Failed("http 401; code 400003".into()));
+    assert!(standings(c).is_empty());
+    observe(c, two.keys[0], &identity::Observed::Failed("http 503".into()));
+    assert!(standing(c, &two).is_empty(), "a transient read does not lift the 401");
+    observe(c, two.keys[0], &identity::Observed::Read(identity::AccountId::parse("777").unwrap()));
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "a successful read does");
+}
+
+/// R10 #3: a key that is not live gives no confirmation, whatever its old fingerprint: an account whose only key turned
+/// incorrect does not enter again.
+#[test]
+fn r10_a_key_that_is_not_live_confirms_nothing() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    identity::write_status(c, two.keys[0], 2, "2026-09-21 10:00:00", true, false).unwrap();
+    assert!(standing(c, &two).is_empty());
+}
+
+/// R10 #8: Merge hands a deleted key's pending split restatements to the kept key, merged with its own.
+#[test]
+fn r10_merge_keeps_the_deleted_keys_pending_splits() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let set = |key: i64, symbol: &str| deltabadger::app_config::set_plain(c, &format!("rust_sync.ledger_splits:{key}"),
+        &serde_json::json!({"pending": [{"symbol": symbol, "exchange_id": two.seeded.exchange_id, "at": 1_900_000_000_000_000i64}]}).to_string(), chrono::Utc::now()).unwrap();
+    set(two.keys[0], "AAPL");
+    set(two.keys[1], "MSFT");
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(merged.deleted_keys, [two.keys[1]]);
+    let kept: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &format!("rust_sync.ledger_splits:{}", two.keys[0])).unwrap().unwrap()).unwrap();
+    let symbols: Vec<&str> = kept["pending"].as_array().unwrap().iter().map(|o| o["symbol"].as_str().unwrap()).collect();
+    assert_eq!(symbols, ["AAPL", "MSFT"]);
+}

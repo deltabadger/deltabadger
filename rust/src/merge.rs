@@ -402,6 +402,8 @@ fn remove_key(c: &Connection, id: i64, keep: Option<i64>) -> rusqlite::Result<()
     // Its rows become the kept key's: the kept key's change marker is the later of the two, so none of them becomes
     // evidence again under an earlier cutoff (`identity::trades_match`).
     if let Some(keep) = keep {
+        // Its pending split restatements become the kept key's, merged with its own (`sync::ledger` owes them by key).
+        crate::sync::ledger::hand_owed(c, id, keep).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
         let marker = |k: i64| crate::app_config::get_plain(c, &identity::credential_changed_key(k)).map_err(rusqlite::Error::InvalidParameterName);
         if let Some(theirs) = marker(id)? {
             if marker(keep)?.is_none_or(|mine| mine < theirs) {

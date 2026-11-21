@@ -188,6 +188,15 @@ fn save_owed(c: &Connection, key_id: i64, owed: &[Owed], now: DateTime<Utc>) -> 
     put_config(c, &splits_key(key_id), &json!({ "pending": pending }), now)
 }
 
+/// #710 Merge: key `from`'s owed split restatements join key `to`'s (one each), before `from` is deleted with its state.
+pub(crate) fn hand_owed(c: &Connection, from: i64, to: i64) -> Result<(), SyncError> {
+    let theirs = load_owed(c, from)?;
+    if theirs.is_empty() { return Ok(()); }
+    let mut mine = load_owed(c, to)?;
+    for o in theirs { if !mine.iter().any(|m| m.symbol == o.symbol && m.exchange_id == o.exchange_id && m.at == o.at) { mine.push(o); } }
+    save_owed(c, to, &mine, chrono::Utc::now())
+}
+
 /// Every bump owed at or before `now`, each a read unit (which bots the symbol names now, as the 2.x job reads them
 /// when it runs) and one guarded write unit that bumps them and removes the entry. A refusal fails the sync and leaves
 /// the entry owed.
