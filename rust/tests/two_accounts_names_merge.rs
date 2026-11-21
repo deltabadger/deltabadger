@@ -2617,7 +2617,7 @@ fn r8_a_read_that_skipped_a_position_refuses_naming_it() {
     let (_d, o, two) = duplicate();
     let c = &o.primary;
     common::two_accounts::fresh(c, two.seeded.user_id, two.seeded.exchange_id, &now_text(-60));
-    set_config(c, &format!("rust_sync.alpaca_skipped:{}", two.keys[1]), r#"{"codes":["XYZ"],"at":"now"}"#);
+    set_config(c, &format!("rust_sync.skipped:{}", two.keys[1]), r#"{"codes":["XYZ"],"at":"now"}"#);
     let before = dump(c);
     match merge_stale(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert!(rows.iter().any(|r| r.contains("XYZ")), "{rows:?}"), other => panic!("{other:?}") }
     assert_eq!(dump(c), before);
@@ -2688,7 +2688,10 @@ async fn r8_an_order_placed_under_another_credential_is_not_checked() {
     let kraken = Two::kraken(c, &seed::cipher());
     let alpaca = alpaca(c, &kraken, false);
     let order = alpaca.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"L-1"}"#), Some("L-1"));
-    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![alpaca.keys[1], seed::cipher().encrypt("another-wallet")]).unwrap();
+    let cipher = seed::cipher();
+    identity::write_credential(c, &cipher, alpaca.keys[1], Some(&cipher.encrypt("another-wallet")), Some(&cipher.encrypt("s")), None, chrono::Utc::now()).unwrap();
+    // The new key confirms the account again: its standing enters again (a key event ended it).
+    alpaca.fingerprint(c, 1, Some("fp"));
     let server = MockServer::start().await;
     Mock::given(matchers::method("GET")).and(matchers::path("/v2/orders/L-1")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id": "L-1",
         "client_order_id": "c", "status": "filled", "symbol": "BTC/EUR", "side": "buy", "type": "limit", "order_type": "limit", "qty": "0.001", "filled_qty": "0.001",
@@ -2858,4 +2861,218 @@ fn st_a_single_account_install_writes_nothing() {
     identity::reconsider(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
     assert!(identity::after_balance_read(c, s.api_key_id, chrono::Utc::now()).unwrap().is_empty());
     assert_eq!(dump(c), before);
+}
+
+// ---- review round 9 ----
+
+/// R9 #1: `reconsider` reads its evidence and writes its rows in one immediate write transaction: it takes the write lock
+/// first, even when it ends up writing nothing.
+#[test]
+fn r9_reconsider_takes_the_write_lock() {
+    let (dir, o, two) = entered();
+    let c = &o.primary;
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], "2026-09-21 10:00:00");
+    let other = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    other.execute_batch("BEGIN IMMEDIATE").unwrap();
+    c.busy_timeout(std::time::Duration::from_millis(50)).unwrap();
+    assert!(identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).is_err(), "another writer holds the lock");
+    other.execute_batch("ROLLBACK").unwrap();
+    assert!(identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).is_ok());
+}
+
+/// R9 #2: Merge gives the kept key the latest change marker of every key it deletes, so rows re-keyed to it never become
+/// evidence again.
+#[test]
+fn r9_the_kept_key_takes_the_deleted_keys_change_marker() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    deltabadger::app_config::set_plain(c, &identity::credential_changed_key(two.keys[1]), "2026-10-01 00:00:00", chrono::Utc::now()).unwrap();
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(merged.deleted_keys, [two.keys[1]]);
+    assert_eq!(deltabadger::app_config::get_plain(c, &identity::credential_changed_key(two.keys[0])).unwrap().as_deref(), Some("2026-10-01 00:00:00"));
+}
+
+/// A KuCoin pair (a venue whose keys report their account id), both accounts on fingerprint `fp`, entered.
+fn kucoin_pair(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    two
+}
+fn observe(c: &Connection, key: i64, observed: &identity::Observed) {
+    let cipher = seed::cipher();
+    let version = deltabadger::engine::model::credential_version_by_id(c, key).unwrap().unwrap();
+    let credentials = deltabadger::crypto::Credentials { key: "k".into(), secret: "s".into(), passphrase: None, redaction_values: vec![], ibkr: None };
+    identity::record(c, &cipher, key, &credentials, &version, observed, chrono::Utc::now()).unwrap();
+}
+
+/// R9 #3: an identity read naming another account than the standing's, or failing, deletes the standing at once; and
+/// Merge refuses while any live key's latest identity read failed or differs since the standing was entered.
+#[test]
+fn r9_identity_reads_that_contradict_end_the_standing() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = kucoin_pair(c);
+    observe(c, two.keys[1], &identity::Observed::Read(identity::AccountId::parse("424242").unwrap()));
+    assert!(standings(c).is_empty(), "another account's id");
+
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = kucoin_pair(c);
+    observe(c, two.keys[0], &identity::Observed::Failed("http 500".into()));
+    assert!(standings(c).is_empty(), "a failed read");
+
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = 'http 500' WHERE api_key_id = ?1", rusqlite::params![two.keys[0], now_text(1)]).unwrap();
+    assert!(matches!(merge_now(c, &two, two.id(1)), Ok(None)), "a read that failed since entry");
+}
+
+/// R9 #4: the veto runs over the final component: a retained 3 → 2 whose reads are no longer comparable and a new 2 → 1
+/// flatten into one component, which a 3-1 conflict voids whole.
+#[test]
+fn r9_the_veto_runs_over_the_final_component() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a1, k1, a2, k2) = (two.id(0), two.keys[0], two.id(1), two.keys[1]);
+    let (a3, k3) = account_numbered(c, &two, 3);
+    for i in 0..3 { for (a, k) in [(a3, k3), (a2, k2)] { trade_on(c, &two, a, k, &format!("b{i}"), "1", &format!("2026-09-02 1{i}:00:00")); } }
+    for (a, k) in [(a2, k2), (a3, k3)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
+    assert_eq!(standing(c, &two), [(a3, a2)]);
+    common::two_accounts::read_balances(c, two.seeded.user_id, a3, k3, &[(two.seeded.btc, "1")], "2026-09-25 10:00:00");
+    for i in 0..3 { for (a, k) in [(a2, k2), (a1, k1)] { trade_on(c, &two, a, k, &format!("c{i}"), "1", &format!("2026-09-03 1{i}:00:00")); } }
+    trade_on(c, &two, a3, k3, "x", "1", "2026-09-04 10:00:00");
+    trade_on(c, &two, a1, k1, "x", "2", "2026-09-04 10:00:00");
+    for (a, k) in [(a1, k1), (a2, k2)] { common::two_accounts::read_balances(c, two.seeded.user_id, a, k, &[(two.seeded.btc, "1")], "2026-09-20 10:00:00"); }
+    assert!(standing(c, &two).is_empty(), "{:?}", standings(c));
+}
+
+/// R9 #5: the rotation cutoff is compared at full precision, strictly: rows imported 0.8 s before the change are out.
+#[test]
+fn r9_the_rotation_cutoff_is_exact() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    c.execute("UPDATE account_transactions SET created_at = '2026-09-15 10:00:00.100'", []).unwrap();
+    deltabadger::app_config::set_plain(c, &identity::credential_changed_key(two.keys[0]), "2026-09-15 10:00:00.900", chrono::Utc::now()).unwrap();
+    assert!(!overlaps(c, &two, 1));
+}
+
+/// R9 #7: a live key's status transition and a passphrase-only change are key events; a status write that keeps a key
+/// live is none.
+#[test]
+fn r9_status_transitions_and_passphrases_are_key_events() {
+    let cipher = seed::cipher();
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    identity::write_status(c, two.keys[1], 1, "2026-09-21 10:00:00", true, false).unwrap();
+    assert_eq!(standings(c), [(two.id(1), two.id(0))], "still live");
+    identity::write_status(c, two.keys[1], 2, "2026-09-21 10:00:00", true, false).unwrap();
+    assert!(standings(c).is_empty(), "marked incorrect");
+
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    let (key, secret): (String, String) = c.query_row("SELECT key, secret FROM api_keys WHERE id = ?1", [two.keys[0]], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert!(identity::write_credential(c, &cipher, two.keys[0], Some(&key), Some(&secret), Some(&cipher.encrypt("another-passphrase")), chrono::Utc::now()).unwrap());
+    assert!(standings(c).is_empty(), "a passphrase-only change");
+}
+
+/// R9 #8: the pre-flight reads a standalone order placed before an identical re-save (a fresh envelope, the same
+/// material): its key's material has not changed since.
+#[tokio::test(flavor = "current_thread")]
+async fn r9_identical_material_keeps_its_ciphertext_and_its_orders_checkable() {
+    use wiremock::{matchers, Mock, MockServer, ResponseTemplate};
+    let cipher = seed::cipher();
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &cipher);
+    let alpaca = alpaca(c, &kraken, false);
+    let stored = |c: &Connection| c.query_row("SELECT key FROM api_keys WHERE id = ?1", [alpaca.keys[1]], |r| r.get::<_, String>(0)).unwrap();
+    let before = stored(c);
+    let order = alpaca.standalone(c, 1, "done", Some(r#"{"kind":"placed","order_id":"L-1"}"#), Some("L-1"));
+    // An identical save after the placement: the same material under a fresh envelope (R4 versions it), no change recorded.
+    let (secret, passphrase): (String, Option<String>) = c.query_row("SELECT secret, passphrase FROM api_keys WHERE id = ?1", [alpaca.keys[1]], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert!(!identity::write_credential(c, &cipher, alpaca.keys[1], Some(&cipher.encrypt(&cipher.decrypt(&before).unwrap())), Some(&secret), passphrase.as_deref(), chrono::Utc::now()).unwrap());
+    assert_ne!(stored(c), before, "a fresh envelope");
+    let server = MockServer::start().await;
+    Mock::given(matchers::method("GET")).and(matchers::path("/v2/orders/L-1")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id": "L-1",
+        "client_order_id": "c", "status": "filled", "symbol": "BTC/EUR", "side": "buy", "type": "limit", "order_type": "limit", "qty": "0.001", "filled_qty": "0.001",
+        "filled_avg_price": "60000", "limit_price": "60000", "asset_class": "crypto"}))).mount(&server).await;
+    c.execute("UPDATE users SET setup_completed = 1, confirmed_at = '2026-01-01'", []).unwrap();
+    let uri = server.uri();
+    let app = common::web::app(dir.path(), "engine-test-secret", common::web::TestClock::at("2026-09-20T12:00:00Z"))
+        .with_settings_key_boundary(deltabadger::venue::alpaca::Hosts { paper: uri.clone(), live: uri.clone(), data: uri }, deltabadger::web::settings::keys::logger()).unwrap();
+    app.attach_jobs(deltabadger::jobs::Wakers::default()).unwrap();
+    let mut b = on_settings(&app, c, alpaca.seeded.user_id).await;
+    let survivor = alpaca.id(0).to_string();
+    let answer = b.send(&app, "POST", &format!("/settings/merge_account/{}", alpaca.id(1)), Some(&[("survivor_id", &survivor)]), common::web::Csrf::Header,
+                        &[("Accept", "text/vnd.turbo-stream.html")]).await;
+    assert!(!answer.body.contains("current key"), "{}", answer.body);
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT json_extract(outcome, '$.terminal') FROM rust_api_orders WHERE id = {order}")).as_deref(), Some("filled"));
+    common::drop_mock_server(server).await;
+}
+
+/// R9 #9: a balance read wakes a candidate partner only when the partner's read is more than fifteen minutes older and it
+/// was not woken for this pair within the hour: a persistently skipped position (never comparable) loops nothing.
+#[test]
+fn r9_partner_wakes_are_throttled() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    trades(c, &two, 0, 3, 0, "1");
+    trades(c, &two, 1, 3, 0, "1");
+    let now = chrono::Utc::now();
+    let at = |offset: i64| (now + chrono::Duration::seconds(offset)).format("%Y-%m-%d %H:%M:%S").to_string();
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(0), two.keys[0], &[(two.seeded.btc, "1")], &at(0));
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], &at(-60));
+    deltabadger::app_config::set_plain(c, &format!("rust_sync.skipped:{}", two.keys[1]), r#"{"codes":["ZZZZ"],"at":"now"}"#, now).unwrap();
+    assert!(identity::after_balance_read(c, two.keys[0], now).unwrap().is_empty(), "its read is a minute old");
+    common::two_accounts::read_balances(c, two.seeded.user_id, two.id(1), two.keys[1], &[(two.seeded.btc, "1")], &at(-7200));
+    assert_eq!(identity::after_balance_read(c, two.keys[0], now).unwrap(), [two.keys[1]], "two hours old: read it now");
+    assert!(identity::after_balance_read(c, two.keys[0], now).unwrap().is_empty(), "woken within the hour");
+}
+
+/// R9 #10: the portable export clears the stored standings, as it clears credentials and identity observations.
+#[test]
+fn r9_the_portable_export_clears_the_standings() {
+    let (_d, o, _two) = entered();
+    let c = &o.primary;
+    let tx = c.unchecked_transaction().unwrap();
+    deltabadger::export::scrub(&tx, chrono::Utc::now()).unwrap();
+    assert!(standings(&tx).is_empty());
+}
+
+/// R9 #11: the missing-price notice leaves a duplicate's balances out of All.
+#[test]
+fn r9_the_unpriced_notice_leaves_a_duplicate_out() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, synced_at, created_at, updated_at, account_id) \
+               VALUES (?1, ?2, ?3, 1, 0, 'now', 'now', 'now', ?4)", rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, two.seeded.btc, two.id(1)]).unwrap();
+    let gaps = deltabadger::tracker::unpriced::read(c, two.seeded.user_id, &deltabadger::tracker::Scope::All, &[]).unwrap();
+    assert!(gaps.iter().all(|g| g.now.is_empty()), "{gaps:?}");
+}
+
+/// R9 #11: the ledger listings that read every account (the MCP/REST list and CSV export of account transactions) leave
+/// a duplicate's rows out; naming the duplicate's account still reads them.
+#[tokio::test(flavor = "current_thread")]
+async fn r9_listings_leave_a_duplicates_rows_out() {
+    let (dir, o, two) = duplicate();
+    let c = &o.primary;
+    let user = two.seeded.user_id;
+    two.row(c, 0, 4, "BTC", "1", Some("on-1"), None, "2026-09-10 10:00:00");
+    two.row(c, 1, 4, "BTC", "1", Some("on-2"), None, "2026-09-10 10:00:00");
+    let app = web_app(dir.path(), c);
+    let all = mcp(c, &app, user, "list_account_transactions", serde_json::json!({"exchange_id": two.seeded.exchange_id}));
+    assert!(all.to_string().contains("Account transactions (1)"), "{all}");
+    let named = mcp(c, &app, user, "list_account_transactions", serde_json::json!({"account_id": two.id(1)}));
+    assert!(named.to_string().contains("Account transactions (1)"), "{named}");
+    let exported = mcp(c, &app, user, "export_transactions_csv", serde_json::json!({}));
+    assert!(!exported.to_string().contains("on-2"), "{exported}");
 }

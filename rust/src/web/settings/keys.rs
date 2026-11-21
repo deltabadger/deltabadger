@@ -329,7 +329,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
    match current.id{
     Some(id)=>{
      crate::identity::write_credential(&tx,&inner.cipher,id,key.as_deref(),secret.as_deref(),passphrase.as_deref(),inner.now())?;
-     tx.execute("UPDATE api_keys SET status=?1,last_sync_error=NULL,updated_at=?2 WHERE id=?3 AND user_id=?4",rusqlite::params![status,&now,id,user_id])?;id},
+     crate::identity::write_status(&tx,id,status,&now,false,true)?;id},
     None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,kind,key,secret,passphrase,&now,status])?;
      let id=tx.last_insert_rowid();target.add_key(&tx,id)?;id}
    }
@@ -663,11 +663,11 @@ pub async fn legacy(
   let id=if let Some(id)=current.id{
    let stamp=if !same_keys||current.status!=0 {now.clone()} else {current.updated_at.clone().unwrap_or_else(||now.clone())};
    if same_keys {
-    tx.execute("UPDATE api_keys SET status=0,updated_at=?1 WHERE id=?2",(&stamp,id))?;
+    crate::identity::write_status(&tx,id,0,&stamp,false,false)?;
    } else {
     let encrypted=|v:Option<&String>|v.map(|s|inner.cipher.encrypt(s));
     crate::identity::write_credential(&tx,&inner.cipher,id,encrypted(key.as_ref()).as_deref(),encrypted(secret.as_ref()).as_deref(),encrypted(saved_passphrase).as_deref(),inner.now())?;
-    tx.execute("UPDATE api_keys SET status=0,last_sync_error=NULL,updated_at=?1 WHERE id=?2",(stamp,id))?;
+    crate::identity::write_status(&tx,id,0,&stamp,false,true)?;
    }
    id
   }else{
@@ -901,7 +901,7 @@ pub fn bound_status(c:&Connection,cipher:&crate::crypto::Cipher,id:i64,status:cr
 }
 pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate::engine::model::Produced<i64>,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
     if !status.current_for(&c.producer_version()).is_fresh() || status.origin().as_ref().is_none_or(|producer|producer.id!=id){return Err(crate::sync::SyncError(crate::engine::model::CREDENTIALS_CHANGED.into()));}
-    c.execute("UPDATE api_keys SET status=?1,updated_at=CASE WHEN status<>?1 THEN ?2 ELSE updated_at END WHERE id=?3",rusqlite::params![status.value,format_time(at),id])?;Ok(())
+    crate::identity::write_status(c,id,status.value,&format_time(at),true,false)?;Ok(())
 }
 
 /// The pre-flight of a Merge (PLAN-710-6 §6.1), outside the lock: every placed standalone order of either account not yet
@@ -915,13 +915,14 @@ async fn merge_preflight(app: &App, d: i64, s: i64) -> Result<Preflight, WebErro
     crate::web::bot::cancel::on_own_connection(app, move |c, app, runtime| {
         use crate::venue::{OrderStatus, Venue};
         let factory = crate::web::bot::cancel::live_factory(c, app);
-        let mut q = c.prepare(&format!("SELECT o.id, x.account_id, x.external_id, x.identity, x.order_snapshot, o.credential_version, substr(o.created_at, 1, 10), o.side, o.amount \
+        let mut q = c.prepare(&format!("SELECT o.id, x.account_id, x.external_id, x.identity, x.order_snapshot, o.credential_version, o.created_at, o.side, o.amount \
                                          FROM rust_api_orders o JOIN rust_api_order_standalone x ON x.order_id = o.id \
                                          WHERE o.id IN ({} UNION {}) ORDER BY o.id", crate::merge::unsettled_standalone(d), crate::merge::unsettled_standalone(s)))?;
         type Row = (i64, i64, Option<String>, Option<String>, Option<String>, Option<String>, String, String, String);
         let orders: Vec<Row> = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)))?.collect::<Result<_, _>>()?;
         drop(q);
-        for (id, account_id, external, identity, snapshot, placed_under, date, side, amount) in orders {
+        for (id, account_id, external, identity, snapshot, placed_under, placed_at, side, amount) in orders {
+            let date = placed_at.chars().take(10).collect::<String>();
             let (Some(external), Some(account)) = (external, Account::by_id(c, account_id)?) else { return Ok(Preflight::InFlight) };
             // The cancel's route (bot_api::orders): the identity and snapshot stored at the claim.
             let parse = |t: Option<String>| t.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
@@ -933,8 +934,13 @@ async fn merge_preflight(app: &App, d: i64, s: i64) -> Result<Preflight, WebErro
             // The handle's producer: the trading key's version the read is made under, which the record is fenced by.
             let Some(version) = venue.producer() else { return Ok(Preflight::InFlight) };
             // Only the credential it was placed under can speak for it.
+            // Its stamp names this key, and the key's material has not changed since it was placed (a re-encryption of the
+            // same material changes the stamp only: `identity::write_credential` records a real change).
             let placed = parse(placed_under).and_then(|v| crate::engine::model::CredentialVersion::from_stamp(&v));
-            if placed.is_none_or(|p| p.cache_stamp() != version.cache_stamp()) {
+            let changed: Option<String> = crate::app_config::get_plain(c, &crate::identity::credential_changed_key(version.id)).map_err(WebError::Config)?;
+            let same = placed.as_ref().is_some_and(|p| p.cache_stamp() == version.cache_stamp()
+                || (p.id == version.id && changed.as_deref().is_none_or(|t| t < placed_at.as_str())));
+            if !same {
                 return Ok(Preflight::Unchecked(crate::identity::label(c, account_id)?.plain(), format!("{date} {side} {amount}")));
             }
             let version = Some(version);

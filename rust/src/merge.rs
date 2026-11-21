@@ -198,7 +198,7 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
 /// `survivor`: the account the confirmation named; another derived survivor is a 404 (None).
 pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_id: i64, survivor: i64, now: DateTime<Utc>) -> Result<Option<Merged>, Refusal> {
     // 0. The stored standing, in the transaction: the survivor the confirmation named, its keys and credentials as at entry.
-    let Some((s, basis)) = identity::standing_of(c, user, duplicate_id)? else { return Ok(None) };
+    let Some((s, basis, since)) = identity::standing_of(c, user, duplicate_id)? else { return Ok(None) };
     let d = duplicate_id;
     if s != survivor { return Ok(None); }
     let (Some(rd), Some(rs)) = (AccountRow::by_id(c, d)?, AccountRow::by_id(c, s)?) else { return Ok(None) };
@@ -245,7 +245,7 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         identity::Live::Unresolved(held) => return Err(Refusal::Conflict(held)),
     }
     // The standing as entered: both accounts' keys and credentials unchanged since.
-    if basis != identity::standing_basis(c, d, s)? { return Ok(None); }
+    if basis != identity::standing_basis(c, d, s)? || identity::identity_changed_since(c, d, s, &since)? { return Ok(None); }
 
     // 2. Conflicts, before any write.
     let mut conflicts = vec![];
@@ -399,6 +399,16 @@ fn move_key(c: &Connection, id: i64, to: &Account) -> rusqlite::Result<()> {
 /// Key `id` goes as `keys::remove` removes one, no bot stopped: its rows' key is the kept key of its type (else none).
 fn remove_key(c: &Connection, id: i64, keep: Option<i64>) -> rusqlite::Result<()> {
     identity::key_event_of_key(c, id)?;
+    // Its rows become the kept key's: the kept key's change marker is the later of the two, so none of them becomes
+    // evidence again under an earlier cutoff (`identity::trades_match`).
+    if let Some(keep) = keep {
+        let marker = |k: i64| crate::app_config::get_plain(c, &identity::credential_changed_key(k)).map_err(rusqlite::Error::InvalidParameterName);
+        if let Some(theirs) = marker(id)? {
+            if marker(keep)?.is_none_or(|mine| mine < theirs) {
+                crate::app_config::set_plain(c, &identity::credential_changed_key(keep), &theirs, chrono::Utc::now()).map_err(rusqlite::Error::InvalidParameterName)?;
+            }
+        }
+    }
     c.execute("UPDATE account_transactions SET api_key_id = ?2 WHERE api_key_id = ?1", params![id, keep])?;
     c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_sync.%' AND substr(key, -length(?1) - 1) = ':' || ?1", [id.to_string()])?;
     c.execute("DELETE FROM api_keys WHERE id = ?1", [id])?;

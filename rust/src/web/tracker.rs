@@ -214,7 +214,8 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
     // #710 slice 5: the page's scope (an account; an old `exchange_id` link, its number 1): that account's rows.
     match scope::read(c, ctx, owner)? {
         Err(missing) => return Ok(missing),
-        Ok(crate::tracker::Scope::All) => {}
+        // #710: a duplicate account's rows are its survivor's, listed once.
+        Ok(crate::tracker::Scope::All) => sql.push_str(&format!(" AND {}", crate::identity::counted(c, owner, &crate::venue_ids::Scope::install(c)?.member_sql("account_transactions"))?)),
         Ok(scope) => sql.push_str(&format!(" AND {}", scope.rows("account_transactions"))),
     }
     if let Some(answer) = window::structured_exchange(c, ctx)? { return Ok(answer); }

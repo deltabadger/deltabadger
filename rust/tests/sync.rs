@@ -2352,7 +2352,7 @@ async fn a_venue_history_read_starts_at_the_first_missing_day() {
 }
 
 /// #710 R8: a balance read that skipped a position it cannot name (unmapped or ambiguous) records the symbols with the
-/// read (`rust_sync.alpaca_skipped:<key>`), so the identity and Merge's live checks do not take it as complete; a read
+/// read (`rust_sync.skipped:<key>`), so the identity and Merge's live checks do not take it as complete; a read
 /// that skipped none clears them.
 #[tokio::test(flavor = "current_thread")]
 async fn an_alpaca_read_that_skips_a_position_records_it() {
@@ -2364,7 +2364,7 @@ async fn an_alpaca_read_that_skips_a_position_records_it() {
     let (_, v) = venue(script);
     balances::sync(&db, &v, &prices(), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
     let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    let key = format!("rust_sync.alpaca_skipped:{}", s.api_key_id);
+    let key = format!("rust_sync.skipped:{}", s.api_key_id);
     let recorded: Value = serde_json::from_str(&deltabadger::app_config::get_plain(&c, &key).unwrap().expect("recorded")).unwrap();
     assert_eq!(recorded["codes"], json!(["ZZZZ"]));
     let (_, v) = venue(balances_script());

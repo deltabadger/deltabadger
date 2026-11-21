@@ -223,7 +223,7 @@ pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
 }
 
 /// The positions as #get_balances needs them: an array of at most `MAX_POSITIONS` objects (the reader stops at the
-/// next one). Unsupported classes are logged and individually excluded. A supported position with no symbol fails the
+/// next one). Unsupported classes are logged and carried as `Unsupported`, which no catalogue entry names (skipped, and recorded). A supported position with no symbol fails the
 /// response, here and in 2.x (`a position without a symbol`): skipped, its holding would read as 0 and its stored
 /// balance be deleted. For a supported identity a missing/unreadable quantity fails it too; it is never manufactured as zero.
 pub(crate) type Position = (String, String, Node);
@@ -234,20 +234,21 @@ pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unr
         other => other.map_err(|r| Unread::refused(r, "positions"))?,
     };
     let Node::Array(items) = node else { return Ok(Err("unreadable positions".into())) };
-    Ok(items.iter().filter_map(|item| {
-        let Node::Object(fields) = item else { return Some(Err("unreadable position".to_string())); };
+    Ok(items.iter().map(|item| {
+        let Node::Object(fields) = item else { return Err("unreadable position".to_string()); };
         let identity = |key: &str| fields.iter().find(|(name, _)| name == key).and_then(|(_, value)| {
             if let Node::Scalar(token) = value { serde_json::from_str::<String>(token).ok() } else { None }
         });
         let category = match identity("asset_class").as_deref() {
             Some("us_equity") => "Stock", Some("crypto") => "Cryptocurrency",
-            _ => { crate::eline!("Alpaca position skipped: unsupported class"); return None; }
+            // A class this build does not hold (an option): carried on, so the catalogue skips it and the read records it.
+            _ => { crate::eline!("Alpaca position skipped: unsupported class"); return Ok(("Unsupported".to_string(), identity("symbol").unwrap_or_else(|| "unnamed position".into()), item.clone())); }
         };
         let Some(symbol) = identity("symbol").filter(|s| !s.trim().is_empty()) else {
-            return Some(Err("a position without a symbol".to_string()));
+            return Err("a position without a symbol".to_string());
         };
         // Keep the whole row raw until the catalog resolves its class and native symbol.
-        Some(Ok((category.to_string(), symbol, item.clone())))
+        Ok((category.to_string(), symbol, item.clone()))
     }).collect())
 }
 
@@ -292,7 +293,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         async move {
             let error = super::commit_for(db, version, move |c| {
                 if condemn && text.contains("unauthorized") {
-                    c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
+                    crate::identity::write_status(c, key_id, 2, &sql_time(now), true, false)?;
                 }
                 record_sync_error(c, key_id, &text, &creds)
             }).await?;
@@ -321,7 +322,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
     };
     // Recorded with the read's last commit, cleared by a read that skipped none.
     let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
-    let record = Some((format!("rust_sync.alpaca_skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string())));
+    let record = vec![(format!("rust_sync.skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string()))];
 
     let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
@@ -654,7 +655,7 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         async move {
             let error = super::commit_for(db, version, move |c| {
                 if !messages.is_empty() && condemning(&venue_type, &messages) {
-                    c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
+                    crate::identity::write_status(c, key_id, 2, &sql_time(now), true, false)?;
                 }
                 record_sync_error(c, key_id, &text, &creds)
             }).await?;
@@ -666,12 +667,17 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         Err(text) => return fail(read_by_key((venue.failure_text)(&text))).await,
     };
     let (asset_ids, held, record, kept) = (catalog.asset_ids.clone(), venue.held, venue.record, venue.kept);
-    let read = tokio::task::spawn_blocking(move || match held(&text, &names, &asset_ids) {
-        Ok(Ok(rows)) => Ok(Ok((rows, record.map(|(prefix, codes)| (prefix, codes(&text, &names))), kept.map(|k| k(&text, &names, &asset_ids)).unwrap_or_default()))),
-        Ok(Err(failure)) => Ok(Err(failure)),
-        Err(unread) => Err((unread, text)),
+    let read = tokio::task::spawn_blocking(move || {
+        let _ = take_skipped();
+        let read = held(&text, &names, &asset_ids);
+        let skipped = take_skipped();
+        match read {
+            Ok(Ok(rows)) => Ok(Ok((rows, record.map(|(prefix, codes)| (prefix, codes(&text, &names))), kept.map(|k| k(&text, &names, &asset_ids)).unwrap_or_default(), skipped))),
+            Ok(Err(failure)) => Ok(Err(failure)),
+            Err(unread) => Err((unread, text)),
+        }
     }).await.unwrap_or_else(|_| Err((Unread::Raised("reading the venue's answer was interrupted".into()), String::new())));
-    let (held, record, (kept, kept_error)) = match read {
+    let (held, record, (kept, kept_error), skipped) = match read {
         Ok(Ok(held)) => held,
         Ok(Err(failed)) => return fail(failed).await,
         // A 2xx body that is not JSON: honeymaker's failure is the body itself, read as any failure is.
@@ -682,7 +688,8 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
     let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     let record = record.map(|(prefix, codes)| (format!("{prefix}:{key_id}"), (!codes.is_empty()).then(|| serde_json::json!({ "codes": codes, "at": at }).to_string())));
-    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record, &kept).await? {
+    let skipped = (format!("rust_sync.skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string()));
+    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record.into_iter().chain([skipped]).collect(), &kept).await? {
         // The rows it kept are named after the success commit; a balance sync never clears the error (the ledger does).
         Ok(summary) => {
             if let Some(text) = kept_error {
@@ -705,7 +712,9 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in &rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-        let Some(asset) = row.value["symbol"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = row.value["symbol"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, row.value["symbol"].as_str().unwrap_or("?"), &["available", "inOrder"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -736,7 +745,14 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         Some(Node::Scalar(token)) if token != "null" && code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
         Some(Node::Object(_)) if code.as_deref() == Some("200000") && body.value["data"]["accountType"] == "UNIFIED" => {
             let rows = match uta_currencies(&body) { Ok(rows) => rows, Err(failed) => return Ok(Err(failed)) };
-            let mut found: HashMap<i64, (BigDec, BigDec)> = rows.into_iter().filter_map(|(code, held)| Some((*names.get(&code).filter(|id| asset_ids.contains(id))?, held?))).collect();
+            let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+            for (code, held) in rows {
+                match (names.get(&code).filter(|id| asset_ids.contains(id)), held) {
+                    (Some(id), Some(held)) => { found.insert(*id, held); }
+                    (None, Some((free, locked))) if (&free + &locked).is_positive() => SKIPPED.with(|s| s.borrow_mut().push(code)),
+                    _ => {}
+                }
+            }
             return Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()));
         }
         Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
@@ -749,7 +765,9 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
-        let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, currency.as_str().unwrap_or("?"), &["available", "holds", "balance"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -855,7 +873,7 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
         let Some(currency) = currency.as_str() else { return Ok(Err(("unreadable balance currency".into(), vec![]))) };
-        let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { skip(&row, currency, &["amount"]); continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -908,7 +926,9 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(coin) = row.value.get("coin").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
-        let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, coin.as_str().unwrap_or("?"), &["available", "frozen", "locked"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -971,7 +991,9 @@ fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64])
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for row in &rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-        let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, row.value["coin"].as_str().unwrap_or("?"), &["total"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(n) => Ok(n.unwrap_or_else(BigDec::zero)),
@@ -1023,7 +1045,9 @@ fn account_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64], cod
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
     for entry in entries {
         let Ok(entry) = Raw::from_node(entry) else { return Ok(Err("unreadable balance".into())) };
-        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).filter(|id| asset_ids.contains(id)) else { continue };
+        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).filter(|id| asset_ids.contains(id)) else {
+            skip(&entry, entry.value["asset"].as_str().unwrap_or("?"), &["free", "locked"]); continue
+        };
         // number::json reads a blank string as 0 (String#to_d, which the Alpaca sync matches); here it is no number.
         let quantity = |key: &str| match entry.number(key) {
             _ if entry.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -1057,12 +1081,12 @@ fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
 /// AccountBalance::Sync#sync! from the venue's balances on: other cash at its exchange rate, the market's prices, the
 /// checks, then the rows `BATCH` at a time, what is gone, and the key's clock. `fresh` holds the venue's own quotes
 /// (Alpaca's stocks), `errors` why some could not be read. `Ok(Err(text))`: the sync fails with `text`, nothing written.
-/// `record`: an `app_configs` row the last commit sets to its value, or removes (None). `kept`: assets whose stored
+/// `records`: `app_configs` rows the last commit sets to their value, or removes (None). `kept`: assets whose stored
 /// rows stay as they are, never gone.
 #[allow(clippy::too_many_arguments)]
 async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<Held>, assets: Arc<Vec<Asset>>,
                 mut fresh: HashMap<String, Price>, mut errors: Vec<String>, prices: &dyn PriceSource, key_id: i64, clock: &dyn Clock, step: Option<&BalanceStep<'_>>,
-                record: Option<(String, Option<String>)>, kept: &[i64]) -> Result<Result<Summary, String>, SyncError> {
+                records: Vec<(String, Option<String>)>, kept: &[i64]) -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
     // Other cash is converted at the market API's exchange rates (cash_prices_for); a currency with no rate is left out
     // and goes stale or unpriced, never to the coin market (where 2.x sends it: `usd` and `eur` are coin ids there too).
@@ -1162,17 +1186,18 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     loop {
         let rest = gone.split_off(gone.len().min(BATCH));
         let last = rest.is_empty();
-        let (origin, record) = (version.clone(), record.clone());
+        let (origin, records) = (version.clone(), records.clone());
         super::commit_for(db, version, move |c| {
             for id in &gone { c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id])?; }
             if last {
                 c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
                 super::cache::record_account(c, &account, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
-                match &record {
-                    Some((key, Some(value))) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
-                                                             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
-                    Some((key, None)) => { c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?; }
-                    None => {}
+                for record in &records {
+                    match record {
+                        (key, Some(value)) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
+                                                           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
+                        (key, None) => { c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?; }
+                    }
                 }
             }
             Ok(())
@@ -1261,7 +1286,7 @@ pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<
     complete_balances_skipping(catalog, cash, positions).map(|(rows, _)| rows)
 }
 /// `complete_balances`, and the symbols of the positions it skipped (#710: such a read is no complete account for the
-/// identity checks, `rust_sync.alpaca_skipped:<key>`).
+/// identity checks, `rust_sync.skipped:<key>`).
 #[allow(clippy::type_complexity)]
 pub(crate) fn complete_balances_skipping(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<(Vec<(i64, BigDec, BigDec)>, Vec<String>), String> {
     let mut free: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
@@ -1441,7 +1466,9 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
         let Some(Node::Array(coins)) = account.member("coin") else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
         for coin in coins {
             let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-            let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+            let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+                skip(&row, row.value["coin"].as_str().unwrap_or("?"), &["walletBalance", "free", "locked"]); continue
+            };
             let amounts = || -> Result<(BigDec, BigDec), String> {
                 let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s)));
                 let locked = row.decimal("locked")?;
@@ -1478,7 +1505,9 @@ fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> 
         let mut found = HashMap::new();
         for row in rows {
             let raw = Raw::from_node(row)?;
-            let Some(id) = raw.value["asset"].as_str().and_then(|s| names.get(s)).filter(|id|asset_ids.contains(id)) else {continue};
+            let Some(id) = raw.value["asset"].as_str().and_then(|s| names.get(s)).filter(|id|asset_ids.contains(id)) else {
+                skip(&raw, raw.value["asset"].as_str().unwrap_or("?"), &["total_balance_crypto"]); continue
+            };
             let free = raw.number("available_to_trade_crypto")?.ok_or("KeyError: Key path available_to_trade_crypto not found")?;
             let total = raw.number("total_balance_crypto")?.ok_or("KeyError: Key path total_balance_crypto not found")?;
             found.insert(*id,(free.clone(), &total - &free));
@@ -1606,7 +1635,7 @@ pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids:
         for (currency, row) in ledger {
             if currency.eq_ignore_ascii_case("BASE") { continue; }
             let Ok(row) = Raw::from_node(row) else { continue };
-            let Some(asset) = names.get(&format!("cash:{}", currency.to_uppercase())).filter(|id| asset_ids.contains(id)) else { continue };
+            let Some(asset) = names.get(&format!("cash:{}", currency.to_uppercase())).filter(|id| asset_ids.contains(id)) else { skip(&row, currency, &["cashbalance"]); continue };
             match row.number("cashbalance") { Ok(Some(n)) => { found.insert(*asset, n); } Ok(None) => {} Err(why) => return Ok(Err(why)) }
         }
     }
@@ -1615,13 +1644,45 @@ pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids:
         for row in rows {
             let Ok(row) = Raw::from_node(row) else { return Ok(Err("unreadable IBKR position".into())) };
             let conid = match &row.value["conid"] { Value::Number(n) => n.to_string(), Value::String(s) => s.trim().to_string(), _ => String::new() };
-            let Some(asset) = names.get(&format!("conid:{conid}")).copied() else { unknown += 1; continue };
-            if !asset_ids.contains(&asset) { unknown += 1; continue; }
+            let Some(asset) = names.get(&format!("conid:{conid}")).copied().filter(|a| asset_ids.contains(a)) else { unknown += 1; skip(&row, &format!("conid {conid}"), &["position"]); continue };
             match row.number("position") { Ok(Some(n)) => { found.insert(asset, n); } Ok(None) => return Ok(Err("an IBKR position without a quantity".into())), Err(why) => return Ok(Err(why)) }
         }
     }
     if unknown > 0 { crate::engine::log(&format!("[IBKR] {unknown} position(s) skipped: their conids name no asset of the catalogue")); }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|free| (*id, free, BigDec::zero()))).collect()))
+}
+
+thread_local! { static SKIPPED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) }; }
+/// A balance row the read drops although it holds something (#710): no asset of the catalogue it names, here `code`.
+/// Collected per thread while a venue's answer is read (`sync_venue`), and recorded with the read
+/// (`rust_sync.skipped:<key>`): a read that dropped a holding is no complete account for the identity checks.
+fn skip(row: &Raw, code: &str, quantities: &[&str]) {
+    if quantities.iter().any(|q| row.number(q).ok().flatten().is_some_and(|n| n.is_positive())) {
+        // Bounded: a read outside `sync_venue` (an MCP read of the same answer) leaves its codes to the next take.
+        SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(code.to_string()); } });
+    }
+}
+fn take_skipped() -> Vec<String> { SKIPPED.with(|s| std::mem::take(&mut *s.borrow_mut())) }
+
+#[cfg(test)]
+mod skipped_tests {
+    use super::*;
+    /// R9 #6: a balance row the read drops while it holds something (no asset it names) is recorded as skipped; one that
+    /// holds nothing is not. Alpaca's unsupported classes too.
+    #[test]
+    fn dropped_holdings_are_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        bitvavo_held(r#"[{"symbol":"BTC","available":"1","inOrder":"0"},{"symbol":"ZZZ","available":"2","inOrder":"0"},{"symbol":"NIL","available":"0","inOrder":"0"}]"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["ZZZ"]);
+        account_held(r#"{"balances":[{"asset":"QQQ","free":"0","locked":"3"}]}"#, &names, &[1], str::to_string).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["QQQ"]);
+        let read = positions(r#"[{"symbol":"AAPL250117C00150000","asset_class":"us_option","qty":"1","qty_available":"1"}]"#).unwrap().unwrap();
+        let catalog = Catalog::new(vec![1], &[], vec![]);
+        let (rows, skipped) = complete_balances_skipping(&catalog, BigDec::zero(), read).unwrap();
+        assert!(rows.is_empty());
+        assert_eq!(skipped, ["AAPL250117C00150000"]);
+    }
 }
 
 #[cfg(test)]

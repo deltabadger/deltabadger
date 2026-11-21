@@ -764,7 +764,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
         (AppConfig, "rust_kucoin_hf_gap.", Ignored),
         // #710: when a key's credential was last replaced: 2.x never reads it.
-        (AppConfig, "rust_key_credential_changed:", Ignored),
+        (AppConfig, "rust_key_credential_changed:", Ignored), (AppConfig, "rust_standing_wake:", Ignored),
         // A user cancel's re-read: adopt_handback! polls every open order.
         (AppConfig, "rust_cancel_reread:", Ignored),
         // The takeover's journals: the queue rows it handled are deleted first (finish_queue_work, finish_signal_import);

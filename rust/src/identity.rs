@@ -179,6 +179,8 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     }
     c.execute_batch("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL;
                      DELETE FROM exchange_account_credentials; DELETE FROM exchange_account_imports;").map_err(db)?;
+    // Every known identity is gone: so are the standings that rested on them (every account's key event).
+    if standings_ready(c).map_err(db)? { c.execute("DELETE FROM exchange_account_standings", []).map_err(db)?; }
     crate::app_config::delete(c, KEY_CONFIG)?;
     let bytes: [u8; 32] = rand::random();
     crate::app_config::set(c, cipher, KEY_CONFIG, &hex::encode(bytes), now)?;
@@ -694,10 +696,20 @@ pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i6
     out
 }
 
-/// The stored standing of duplicate `duplicate` of user `user_id`: its survivor and basis (`standing_basis` at entry).
-pub fn standing_of(c: &Connection, user_id: i64, duplicate: i64) -> rusqlite::Result<Option<(i64, String)>> {
+/// The stored standing of duplicate `duplicate` of user `user_id`: its survivor, basis (`standing_basis` at entry) and
+/// when it was entered.
+pub fn standing_of(c: &Connection, user_id: i64, duplicate: i64) -> rusqlite::Result<Option<(i64, String, String)>> {
     if !standings_ready(c)? { return Ok(None); }
-    c.query_row("SELECT survivor_id, basis FROM exchange_account_standings WHERE user_id = ?1 AND duplicate_id = ?2", [user_id, duplicate], |r| Ok((r.get(0)?, r.get(1)?))).optional()
+    c.query_row("SELECT survivor_id, basis, since FROM exchange_account_standings WHERE user_id = ?1 AND duplicate_id = ?2", [user_id, duplicate],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()
+}
+/// Whether a live key of account `d` or `s` had an identity read fail, or name another account than its account's, since
+/// `since` (a standing's entry): Merge does not rest on it.
+pub fn identity_changed_since(c: &Connection, d: i64, s: i64, since: &str) -> rusqlite::Result<bool> {
+    if !ready(c)? { return Ok(false); }
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id JOIN exchange_accounts a ON a.id = {}
+                          WHERE k.status = 1 AND a.id IN (?1, ?2) AND (o.last_failure_at > ?3 OR (o.fingerprint IS NOT NULL AND a.fingerprint IS NOT NULL AND o.fingerprint <> a.fingerprint)))",
+                         key_account_sql("k")), params![d, s, since], |r| r.get(0))
 }
 
 /// A key event of account `account` (a real credential change, a key added or removed, a Merge moving keys, the account
@@ -710,6 +722,7 @@ pub fn key_event(c: &Connection, account: i64) -> rusqlite::Result<()> {
 }
 /// `key_event` of the account key `api_key_id` belongs to.
 pub fn key_event_of_key(c: &Connection, api_key_id: i64) -> rusqlite::Result<()> {
+    if !standings_ready(c)? { return Ok(()); }
     match account_of_key(c, api_key_id)? { Some(account) => key_event(c, account), None => Ok(()) }
 }
 
@@ -746,6 +759,13 @@ pub fn standing_basis(c: &Connection, d: i64, s: i64) -> rusqlite::Result<String
 /// other facts, fingerprints that differ, a live key's identity read failed or masked) removes the stored standings it
 /// falls inside. Nothing comparable changes nothing: a stored standing stays until a contradiction or a key event.
 pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
+    // One immediate write transaction: the evidence, the basis and the rows it writes are one state, which no key save can
+    // change in between.
+    if c.is_autocommit() {
+        let tx = rusqlite::Transaction::new_unchecked(c, rusqlite::TransactionBehavior::Immediate)?;
+        reconsider(&tx, user_id, exchange_id, now)?;
+        return tx.commit();
+    }
     if !standings_ready(c)? || !crate::venue_ids::ready(c)? || !crate::engine::rules::table_exists(c, "exchange_account_credentials")? { return Ok(()); }
     let mut q = c.prepare("SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number")?;
     let ids: Vec<i64> = q.query_map([user_id, exchange_id], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
@@ -811,6 +831,12 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
         for (d, t) in next { want.insert(d, t); }
     }
     want.retain(|d, s| d != s);
+    // The final components (retained and entered rows flattened together): one any veto falls inside goes whole.
+    let mut finals: std::collections::BTreeMap<i64, Vec<i64>> = std::collections::BTreeMap::new();
+    for (d, s) in &want { finals.entry(*s).or_insert_with(|| vec![*s]).push(*d); }
+    for members in finals.values() {
+        if vetoes(members) { for m in members { want.remove(m); } }
+    }
     for (d, s) in &stored {
         if want.get(d) != Some(s) { c.execute("DELETE FROM exchange_account_standings WHERE duplicate_id = ?1", [d])?; }
     }
@@ -867,9 +893,9 @@ fn reads(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Rea
 }
 /// The codes account `a`'s reading key's last balance read held but could not name (`rust_sync.kraken_unresolved:<key>`).
 fn unresolved(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> { codes(c, a, "rust_sync.kraken_unresolved") }
-/// The positions account `a`'s reading key's last balance read skipped (Alpaca: unmapped or ambiguous,
-/// `rust_sync.alpaca_skipped:<key>`): a read with any is no complete account.
-fn skipped(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> { codes(c, a, "rust_sync.alpaca_skipped") }
+/// What account `a`'s reading key's last balance read dropped although it held something (an asset the read names
+/// none of, a class this build does not hold: `rust_sync.skipped:<key>`): a read with any is no complete account.
+fn skipped(c: &Connection, a: &AccountRow) -> rusqlite::Result<Vec<String>> { codes(c, a, "rust_sync.skipped") }
 fn codes(c: &Connection, a: &AccountRow, prefix: &str) -> rusqlite::Result<Vec<String>> {
     let Some(key) = crate::sync::cache::reading_key(c, a).map_err(eng)? else { return Ok(vec![]) };
     let raw = crate::app_config::get_plain(c, &format!("{prefix}:{key}")).map_err(rusqlite::Error::InvalidParameterName)?;
@@ -896,35 +922,58 @@ pub fn after_balance_read(c: &Connection, api_key_id: i64, now: DateTime<Utc>) -
         let prints: bool = c.query_row("SELECT d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint FROM exchange_accounts d, exchange_accounts s WHERE d.id = ?1 AND s.id = ?2",
                                        [d.id, s.id], |r| r.get(0))?;
         if !prints && !crate::venue_ids::any_shared_id(c, &d.venue_ids(), &s.venue_ids())? { continue; }
-        if reads(c, &d, &s)? == Reads::NotComparable {
-            if let Some(k) = crate::sync::cache::reading_key(c, &other).map_err(eng)? { wake.push(k); }
-        }
+        if reads(c, &d, &s)? != Reads::NotComparable { continue; }
+        // Only a partner whose read is more than READS_APART older than this one, woken for this pair at most hourly.
+        let Some(k) = crate::sync::cache::reading_key(c, &other).map_err(eng)? else { continue };
+        let read_at = |key: i64| -> rusqlite::Result<Option<DateTime<Utc>>> {
+            let at: Option<String> = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [key], |r| r.get(0)).optional()?.flatten();
+            Ok(at.and_then(|t| parse_time(&t).ok()))
+        };
+        let mine = read_at(api_key_id)?.unwrap_or(now);
+        if read_at(k)?.is_some_and(|theirs| (mine - theirs).num_seconds() <= READS_APART) { continue; }
+        let woke = crate::app_config::get_plain(c, &format!("rust_standing_wake:{}:{}", d.id, s.id)).map_err(rusqlite::Error::InvalidParameterName)?.and_then(|t| parse_time(&t).ok());
+        if woke.is_some_and(|t| now - t < Duration::hours(1)) { continue; }
+        crate::app_config::set_plain(c, &format!("rust_standing_wake:{}:{}", d.id, s.id), &format_time(now), now).map_err(rusqlite::Error::InvalidParameterName)?;
+        wake.push(k);
     }
     Ok(wake)
 }
 
+
+/// The one write of a stored key's status (0 unchecked, 1 correct, 2 incorrect, 3 awaiting activation): `at` stamps
+/// updated_at (only when the status changes, if `on_change`), and `clear_error` clears its last sync error. A key turning
+/// live (correct) or no longer live is a key event of its account (`key_event`). Returns whether the status changed.
+pub fn write_status(c: &Connection, id: i64, status: i64, at: &str, on_change: bool, clear_error: bool) -> rusqlite::Result<bool> {
+    let Some(old) = c.query_row("SELECT status FROM api_keys WHERE id = ?1", [id], |r| r.get::<_, i64>(0)).optional()? else { return Ok(false) };
+    c.execute(&format!("UPDATE api_keys SET status = ?2, updated_at = CASE WHEN ?4 AND status = ?2 THEN updated_at ELSE ?3 END{} WHERE id = ?1",
+                       if clear_error { ", last_sync_error = NULL" } else { "" }), params![id, status, at, on_change])?;
+    if (old == 1) != (status == 1) { key_event_of_key(c, id)?; }
+    Ok(old != status)
+}
 /// The one write of a stored key's credential material: api_keys' key, secret and passphrase, as the ciphertext given (the
 /// version a validation was made under). Every path that replaces a stored key's material calls it (the Settings form and
 /// the wizards through `keys::submit_candidate`, the JSON save `POST /api/api_keys`).
 ///
-/// When the key or secret differs from the stored one (decrypted, compared in constant time), the key is another
+/// When the key, secret or passphrase differs from the stored one (decrypted, compared in constant time), the key is another
 /// credential (#497, #710): its ledger watermark and per-key sync state reset, its identity observation (of the old
 /// material) is cleared, and the change is recorded (`credential_changed_key`), so that no row its old material imported is
 /// evidence of the new one (`trades_match`). Returns whether it differed.
 pub fn write_credential(c: &Connection, cipher: &Cipher, id: i64, key: Option<&str>, secret: Option<&str>, passphrase: Option<&str>, now: DateTime<Utc>) -> rusqlite::Result<bool> {
-    let stored: (Option<String>, Option<String>) = c.query_row("SELECT key, secret FROM api_keys WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let stored: (Option<String>, Option<String>, Option<String>) = c.query_row("SELECT key, secret, passphrase FROM api_keys WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     let plain = |v: Option<&str>| v.filter(|v| !crate::v2::blank(v)).map(|v| cipher.decrypt(v).unwrap_or_else(|_| v.to_string()));
     let same = |a: Option<String>, b: Option<String>| match (a, b) {
         (Some(a), Some(b)) => bool::from(subtle::ConstantTimeEq::ct_eq(a.as_bytes(), b.as_bytes())),
         (a, b) => a.is_none() && b.is_none(),
     };
-    let changed = !(same(plain(stored.0.as_deref()), plain(key)) && same(plain(stored.1.as_deref()), plain(secret)));
+    let changed = !(same(plain(stored.0.as_deref()), plain(key)) && same(plain(stored.1.as_deref()), plain(secret)) && same(plain(stored.2.as_deref()), plain(passphrase)));
+    // Identical material is written too, under its fresh envelopes: the new ciphertext version fences any result read under
+    // the old one (R4). Only a real change is an event.
     c.execute("UPDATE api_keys SET key = ?2, secret = ?3, passphrase = ?4 WHERE id = ?1", params![id, key, secret, passphrase])?;
     if changed {
         c.execute("UPDATE api_keys SET last_synced_at = NULL WHERE id = ?1", [id])?;
         c.execute("DELETE FROM app_configs WHERE key IN (?1, ?2, ?3, ?4)", params![format!("rust_sync.ledger:{id}"), format!("rust_sync.ledger_splits:{id}"),
                   format!("rust_sync.kraken_unresolved:{id}"), format!("rust_sync.kraken_repair_deferred:{id}")])?;
-        c.execute("DELETE FROM app_configs WHERE key = ?1", [format!("rust_sync.alpaca_skipped:{id}")])?;
+        c.execute("DELETE FROM app_configs WHERE key = ?1", [format!("rust_sync.skipped:{id}")])?;
         if ready(c)? {
             c.execute("UPDATE exchange_account_credentials SET material_digest = NULL, observed_credential_version = NULL, fingerprint = NULL, account_id_enc = NULL,
                        observed_at = NULL, last_failure_at = NULL, last_failure_code = NULL WHERE api_key_id = ?1", [id])?;
@@ -953,13 +1002,13 @@ fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Res
     if kd.is_empty() || ks.is_empty() { return Ok(false); }
     for k in kd.iter().chain(&ks) { if !crate::sync::cache::ledger_current_for(c, *k).map_err(eng)? { return Ok(false); } }
     // A row counts when one of the account's live keys imported it, no earlier than that key was made (a key's rows carry no
-    // credential version of their own) and no earlier than its credential was last replaced (`write_credential`).
+    // credential version of their own) and strictly after its credential was last replaced (`write_credential`).
     let counted = |a: &str, keys: &[i64]| {
         let secs = |e: &str| format!("CAST(strftime('%s', {e}) AS INTEGER)");
         let changed = "(SELECT x.value FROM app_configs x WHERE x.key = 'rust_key_credential_changed:' || k.id)".to_string();
-        format!("EXISTS(SELECT 1 FROM api_keys k WHERE k.id = {a}.api_key_id AND k.id IN ({}) AND {} >= {} AND ({} IS NULL OR {} >= {}))",
-                keys.iter().map(i64::to_string).collect::<Vec<_>>().join(","), secs(&format!("{a}.created_at")), secs("k.created_at"),
-                changed, secs(&format!("{a}.created_at")), secs(&changed))
+        // The cutoff at full precision, strictly after: both are format_time text, whose order is their time's.
+        format!("EXISTS(SELECT 1 FROM api_keys k WHERE k.id = {a}.api_key_id AND k.id IN ({}) AND {} >= {} AND ({changed} IS NULL OR {a}.created_at > {changed}))",
+                keys.iter().map(i64::to_string).collect::<Vec<_>>().join(","), secs(&format!("{a}.created_at")), secs("k.created_at"))
     };
     if crate::venue_ids::overlap_conflict(c, &d.venue_ids(), &s.venue_ids(), &counted("a", &kd), &counted("b", &ks))? { return Ok(false); }
     let sample = crate::venue_ids::overlap_sample(c, &d.venue_ids(), SAMPLE, &counted("a", &kd))?;
@@ -1093,6 +1142,11 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             let (fingerprint, digest) = (key.fingerprint(&exchange_type, id), key.material_digest(credentials));
             let encrypted = cipher.encrypt(&id.0).into_bytes();
             let version = (version.id == api_key_id).then(|| version.cache_stamp().to_string());
+            // A read naming another account than its account's known one ends the account's standings now (a key event).
+            if let Some(account) = account_of_key(c, api_key_id).map_err(db)? {
+                let known: Option<String> = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional().map_err(db)?.flatten();
+                if known.is_some_and(|k| k != fingerprint) { key_event(c, account).map_err(db)?; }
+            }
             c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, observed_credential_version, fingerprint, account_id_enc, observed_at)
                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT (api_key_id) DO UPDATE SET exchange_id = excluded.exchange_id,
                        material_digest = excluded.material_digest, observed_credential_version = excluded.observed_credential_version, fingerprint = excluded.fingerprint,
@@ -1104,6 +1158,8 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             }
         }
         Observed::Failed(code) => {
+            // A failed read of its current material is a contradiction: the account's standings end now.
+            if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { key_event(c, account).map_err(db)?; }
             let Some(key) = existing_key(c, cipher) else {
                 c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, last_failure_at, last_failure_code) VALUES (?1, ?2, ?3, ?4)
                            ON CONFLICT (api_key_id) DO UPDATE SET exchange_id = excluded.exchange_id, last_failure_at = excluded.last_failure_at, last_failure_code = excluded.last_failure_code",

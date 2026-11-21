@@ -82,6 +82,9 @@ fn filter(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Res
         let Some(account) = live else { return Ok(Err(failure(Domain::NotFound, "account_not_found", "Account not found. Use 'list_exchanges' to see your accounts."))) };
         out.push("exchange_id=", Sql::Integer(account.exchange_id));
         out.sql.push_str(&format!(" AND {}", crate::tracker::Scope::Account(account).rows("account_transactions")));
+    } else {
+        // #710: every account's rows, a duplicate's left out (its survivor's are the same venue's).
+        out.sql.push_str(&format!(" AND {}", crate::identity::counted(c, user, &crate::venue_ids::Scope::install(c)?.member_sql("account_transactions"))?));
     }
     let (Ok(from), Ok(to)) = (day(arg("from_date")), day(arg("to_date"))) else { return Ok(Err(failure(Domain::ValidationFailed, "invalid_date", INVALID_DATE))) };
     let bound = |day: NaiveDate, clock: (u32, u32, u32, u32)| -> Result<Sql, WebError> {
