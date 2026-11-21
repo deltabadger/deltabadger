@@ -175,7 +175,8 @@ fn onboarding_form_as_rust(body: &str) -> String {
     ]);
     let code = lang.captures(body).map(|c| c[1].to_string()).expect("the page's language");
     assert_eq!(dropdown.find_iter(body).count(), 1, "2.x's form has its dropdown");
-    let mut body = dropdown.replace(body, "\n").into_owned();
+    // D-ACCENT-NAME: 2.x's button--sky is button--accent here.
+    let mut body = dropdown.replace(body, "\n").into_owned().replace("button--sky", "button--accent");
     let list = errors.find(&body).map(|m| m.as_str().to_string());
     if let Some(list) = &list {
         body = errors.replace(&body, "\n").into_owned();

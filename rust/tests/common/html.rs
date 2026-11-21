@@ -70,6 +70,8 @@ fn attribute(element: &scraper::node::Element, name: &str, value: &str) -> Strin
         ("meta", "content") if is("name", "csp-nonce") => "[nonce]".into(),
         (_, "nonce") => "[nonce]".into(),
         ("turbo-cable-stream-source", "signed-stream-name") => signed_name(value),
+        // D-ACCENT-NAME: 2.x's button--sky is this build's button--accent (the colour is the scheme's accent, not blue).
+        (_, "class") => mask_digest(&value.replace("button--sky", "button--accent")),
         _ => mask_digest(value),
     }
 }
