@@ -13,7 +13,7 @@ el:
                 brokers: "Μεσίτες"
                 exchanges: "Ανταλλακτήρια"
             market_data:
-                intro: "Οι δείκτες χρειάζονται ζωντανά δεδομένα αγοράς. Χρησιμοποιήστε το επίσημο API δεδομένων του Deltabadger ή έναν δωρεάν λογαριασμό CoinGecko."
+                intro: "Οι δείκτες χρειάζονται ζωντανά δεδομένα αγοράς. Συνδέστε το API δεδομένων του Deltabadger (μετοχές και κρυπτονομίσματα) ή έναν δωρεάν λογαριασμό CoinGecko (μόνο κρυπτονομίσματα)."
                 providers: "Πάροχοι δεδομένων αγοράς"
                 subscription:
                     lead_html: "Μια συνδρομή <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> περιλαμβάνει:"

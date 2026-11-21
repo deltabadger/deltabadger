@@ -3,10 +3,10 @@
 {{ v.stream_from(&sync)|safe }}
 {{ pending|safe }}  <div class="welcome-screen"><canvas class="pixel-scene" data-controller="pixel-scene" data-pixel-scene-name-value="track" data-pixel-scene aria-hidden="true"></canvas>
 {% if missing %}    <p>{{ v.t("tracker.welcome.needs_market_data")|safe }}</p>
-    <a class="sbutton sbutton--sky" data-turbo-frame="modal" href="{{ v.path("/tracker/connect_market_data") }}">
+    <a class="sbutton sbutton--accent" data-turbo-frame="modal" href="{{ v.path("/tracker/connect_market_data") }}">
       {{ connect|safe }}
 {% else %}    <p>{{ v.t("tracker.welcome.connect_and_track")|safe }}</p>
-    <a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("tracker.connect_exchange")|safe }}" href="{{ v.path("/tracker/pick_exchange/new") }}">
+    <a class="sbutton sbutton--accent" data-turbo-frame="modal" aria-label="{{ v.t("tracker.connect_exchange")|safe }}" href="{{ v.path("/tracker/pick_exchange/new") }}">
       {% include "svg/_24x24_plus.html" %}
 
 {% endif %}</a>  </div>

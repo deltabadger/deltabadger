@@ -36,9 +36,9 @@
     unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF; }
   @font-face { font-family: "Google Sans"; src: url("GoogleSans-greek-ext.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap;
     unicode-range: U+1F00-1FFF; }
-  :root { --paper: #F8F9FA; --washed: #FFFFFF; --ink: #001933; --sky: #0000ff; --highlight: var(--sky); --dropdown-hover: #D9E0E766;
+  :root { --paper: #F8F9FA; --washed: #FFFFFF; --ink: #001933; --accent: #0000ff; --highlight: var(--accent); --dropdown-hover: #D9E0E766;
     --shadow-widget: 1px 1px 2px rgba(0,0,0,0.07), 2px 2px 8px rgba(0,0,0,0.05); }
-  @supports (color: color(display-p3 0 0 1)) { :root { --sky: color(display-p3 0 0 1); } }
+  @supports (color: color(display-p3 0 0 1)) { :root { --accent: color(display-p3 0 0 1); } }
   @media (prefers-color-scheme: dark) { :root { --paper: #00152a; --washed: #0c1e37; --ink: #def; --highlight: #FFFFFF; --dropdown-hover: #3f5569;
     --shadow-widget: inset 0.6px 0.6px #88f2, inset -0.6px -0.6px #0006; } }
   #language { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; width: 100%; max-width: 320px;
@@ -65,7 +65,7 @@
   .langs__row:has(input:checked) { font-weight: 600; }
   .langs__row:has(input:checked) svg { opacity: 1; transform: none; }
   .langs__row:has(input:focus-visible) { outline: 2px solid var(--highlight); outline-offset: -2px; }
-  #go { display: grid; place-items: center; width: 100%; height: 56px; padding: 0 32px; border: 0; border-radius: 16px; corner-shape: squircle; background: var(--sky); color: #FFFFFF;
+  #go { display: grid; place-items: center; width: 100%; height: 56px; padding: 0 32px; border: 0; border-radius: 16px; corner-shape: squircle; background: var(--accent); color: #FFFFFF;
     font: 600 16px/16px "Montserrat", "Google Sans", sans-serif; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 </style>
 </head>

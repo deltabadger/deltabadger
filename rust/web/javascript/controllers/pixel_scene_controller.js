@@ -95,7 +95,7 @@ export default class extends Controller {
     }
     this.recolor = () => this.animation.recolor(themed(scene.colors))
     this.schemes = new MutationObserver(this.recolor)
-    this.schemes.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme"] })
+    this.schemes.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme", "data-mode"] })
     this.dark = matchMedia("(prefers-color-scheme: dark)")
     this.dark.addEventListener("change", this.recolor)
   }

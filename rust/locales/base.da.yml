@@ -95,6 +95,10 @@ da:
         scheme_warm: 'Varm'
         scheme_ember: 'Glød'
         scheme_forest: 'Skov'
+        mode: 'Udseende'
+        mode_system: 'System'
+        mode_light: 'Lyst'
+        mode_dark: 'Mørkt'
         show_balances: 'Vis saldi'
         about: Om
         telegram: 'Telegram'

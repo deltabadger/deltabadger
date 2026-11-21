@@ -75,3 +75,38 @@ fn the_normaliser_leaves_out_only_the_scheme_row() {
     let v2 = "<div class=\"welcome-screen\">\n<p>Start investing.</p></div>";
     assert_eq!(common::html::normalize(ours), common::html::normalize(v2));
 }
+
+/// D-MODE-SWITCH: the `mode` cookie is on `<html data-mode>` and picks System/Light/Dark in both menu copies; anything
+/// else is System, which is no attribute.
+#[tokio::test]
+async fn the_mode_cookie_is_on_the_page_and_chosen_in_both_menus() {
+    let (_d, app, mut browser) = signed_in().await;
+    for (cookie, attribute, option) in [
+        (None, "", "system"),
+        (Some("mode=light"), " data-mode=\"light\"", "light"),
+        (Some("scheme=ember; mode=dark"), " data-scheme=\"ember\" data-mode=\"dark\"", "dark"),
+        (Some("mode=bogus"), "", "system"),
+    ] {
+        let headers: Vec<(&str, &str)> = cookie.map(|c| ("cookie", c)).into_iter().collect();
+        let page = browser.send(&app, "GET", "/settings/account", None, Csrf::None, &headers).await;
+        assert_eq!(page.status, 200, "{cookie:?}");
+        assert!(html_tag(&page.body).ends_with(&format!("lang=\"en\"{attribute}>")), "{cookie:?}: {}", html_tag(&page.body));
+        let rows: Vec<String> = page.body.split("data-mode-switch").skip(1).map(|row| {
+            let row = row.split("<!--/mode-->").next().unwrap();
+            row.split("<button ").skip(1).filter(|b| b.contains(" is-on\"")).map(|b| b.split("data-value=\"").nth(1).unwrap().split('"').next().unwrap().to_string()).collect::<Vec<_>>().join(",")
+        }).collect();
+        assert_eq!(rows, [option, option], "{cookie:?}: the mobile menu and the dropdown");
+    }
+}
+
+/// The normalisers drop 2.x's sidebar logo (D-NO-MENU-LOGO) and unwrap the version's link (D-VERSION-LINK), so neither
+/// comparison would notice either coming back or going; this does.
+#[tokio::test]
+async fn the_sidebar_has_no_logo_and_the_version_links_to_the_source() {
+    let (_d, app, mut browser) = signed_in().await;
+    let page = browser.send(&app, "GET", "/settings/account", None, Csrf::None, &[]).await;
+    assert_eq!(page.status, 200);
+    assert!(!page.body.contains("menu__section--logo") && !page.body.contains("menu__logo"));
+    let version = format!("<div class=\"sheet__version\"><a href=\"https://github.com/deltabadger/deltabadger\" target=\"_blank\" rel=\"noopener\" data-version-link>{}</a></div>", deltabadger::VERSION);
+    assert!(page.body.contains(&version), "{}", page.body.split("sheet__version").nth(1).unwrap_or("no version"));
+}

@@ -25,12 +25,12 @@
 
     // Focus lives on the input inside, so the ring has to be drawn by the zone around it.
     &:focus-within
-        border-color: var(--sky)
+        border-color: var(--accent)
         color: var(--ash)
 
     // While a file is over it. The whole zone answers, not the edge under the cursor.
     &.is-over
-        border-color: var(--sky)
+        border-color: var(--accent)
         color: var(--ink)
         background: var(--washed)
 
@@ -44,7 +44,7 @@
     &.is-busy
         cursor: progress
         border-style: solid
-        border-color: var(--sky)
+        border-color: var(--accent)
         .dropzone__idle
             display: none
         .dropzone__busy

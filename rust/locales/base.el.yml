@@ -95,6 +95,10 @@ el:
         scheme_warm: 'Ζεστό'
         scheme_ember: 'Θράκα'
         scheme_forest: 'Δάσος'
+        mode: 'Εμφάνιση'
+        mode_system: 'Σύστημα'
+        mode_light: 'Φωτεινό'
+        mode_dark: 'Σκοτεινό'
         show_balances: 'Εμφάνιση υπολοίπων'
         about: Σχετικά
         telegram: 'Telegram'

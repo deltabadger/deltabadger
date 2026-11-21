@@ -95,6 +95,10 @@ it:
         scheme_warm: 'Caldo'
         scheme_ember: 'Brace'
         scheme_forest: 'Foresta'
+        mode: 'Aspetto'
+        mode_system: 'Sistema'
+        mode_light: 'Chiaro'
+        mode_dark: 'Scuro'
         show_balances: 'Mostra saldi'
         about: Chi siamo
         telegram: 'Telegram'

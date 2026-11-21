@@ -13,7 +13,7 @@ en:
                 brokers: "Brokers"
                 exchanges: "Exchanges"
             market_data:
-                intro: "Indexes require live market data. Use the official Deltabadger data API, or a free CoinGecko account."
+                intro: "Indexes need live market data. Connect the Deltabadger data API (stocks and crypto) or a free CoinGecko account (crypto only)."
                 providers: "Market data providers"
                 subscription:
                     lead_html: "The <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> subscription includes:"

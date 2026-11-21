@@ -165,6 +165,8 @@ application.register("segmented", SegmentedController)
 
 import SchemeController from "./scheme_controller"
 application.register("scheme", SchemeController)
+import ModeController from "./mode_controller"
+application.register("mode", ModeController)
 
 import PixelSceneController from "./pixel_scene_controller"
 application.register("pixel-scene", PixelSceneController)

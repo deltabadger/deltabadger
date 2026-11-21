@@ -1,6 +1,8 @@
 if (window.__IS_TAURI__) {
     (async () => {
         document.documentElement.classList.add('tauri');
+        // macOS draws the window's three buttons over the sidebar's top corner.
+        if (/Mac/.test(navigator.platform)) document.documentElement.classList.add('tauri--macos');
 
         // No browser context menu (Reload, Inspect, Back) over the app's chrome. Where one can
         // type it stays: that is where Paste lives.

@@ -13,7 +13,7 @@ ru:
                 brokers: "Брокеры"
                 exchanges: "Биржи"
             market_data:
-                intro: "Индексам нужны рыночные данные в реальном времени. Используйте официальный API данных Deltabadger или бесплатный аккаунт CoinGecko."
+                intro: "Индексам нужны рыночные данные в реальном времени. Подключите API данных Deltabadger (акции и криптовалюты) или бесплатный аккаунт CoinGecko (только криптовалюты)."
                 providers: "Поставщики рыночных данных"
                 subscription:
                     lead_html: "Подписка <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> включает:"

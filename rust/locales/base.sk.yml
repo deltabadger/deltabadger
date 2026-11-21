@@ -96,6 +96,10 @@ sk:
         scheme_warm: 'Teplá'
         scheme_ember: 'Žiar'
         scheme_forest: 'Les'
+        mode: 'Vzhľad'
+        mode_system: 'Systém'
+        mode_light: 'Svetlý'
+        mode_dark: 'Tmavý'
         show_balances: 'Zobraziť zostatky'
         about: O nás
         telegram: 'Telegram'
