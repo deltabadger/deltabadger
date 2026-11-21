@@ -484,3 +484,29 @@ async fn an_unpriced_holding_is_listed_and_named_in_the_banner() {
     let r = regions_of(&app, owner, |c| { c.execute("UPDATE exchange_account_balances SET usd_price=60000,usd_value=600 WHERE asset_id IN (SELECT id FROM assets WHERE symbol='BTC')", []).unwrap(); }).await;
     assert_eq!(r.notice, "", "nothing unpriced");
 }
+
+/// D-TAX-CFEE-MATCHED-FILL: a chart day left partial by an opening the sweep could not value names it, and its venue,
+/// in place of the generic line.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unvalued_opening_is_named_in_the_banner() {
+    use deltabadger::tracker::unpriced;
+    let (dir, app, owner, _) = warm_install(true).await;
+    let venue: String = Connection::open(dir.path().join("production.sqlite3")).unwrap().query_row("SELECT e.name FROM exchanges e JOIN api_keys k ON k.exchange_id=e.id WHERE k.user_id=?1", [owner], |q| q.get(0)).unwrap();
+    let r = regions_of(&app, owner, move |c| {
+        let exchange: i64 = c.query_row("SELECT exchange_id FROM api_keys WHERE user_id=?1", [owner], |q| q.get(0)).unwrap();
+        let account = deltabadger::identity::AccountRow::first(c, owner, exchange).unwrap().map_or(-exchange, |a| a.id);
+        c.execute("INSERT INTO portfolio_snapshots(user_id,date,partial,created_at,updated_at) VALUES (?1,'2026-09-02',1,'2026-09-03','2026-09-03')", [owner]).unwrap();
+        let record = unpriced::Record { openings: unpriced::ByVenue::from([(account, ["BTC".to_string()].into())]), ..Default::default() };
+        unpriced::store(c, owner, &record, AT.parse().unwrap()).unwrap();
+    }).await;
+    assert!(r.notice.contains(&format!("The opening value of BTC on {venue} is unknown.")), "{}", r.notice);
+    assert!(!r.notice.contains("Some days on the chart are incomplete."), "{}", r.notice);
+    // Codex review 7: another account's cause with no name keeps the generic line beside the named one.
+    let r = regions_of(&app, owner, move |c| {
+        let exchange: i64 = c.query_row("SELECT exchange_id FROM api_keys WHERE user_id=?1", [owner], |q| q.get(0)).unwrap();
+        let account = deltabadger::identity::AccountRow::first(c, owner, exchange).unwrap().map_or(-exchange, |a| a.id);
+        let record = unpriced::Record { openings: unpriced::ByVenue::from([(account, ["BTC".to_string()].into())]), unnamed: [account + 1000].into(), ..Default::default() };
+        unpriced::store(c, owner, &record, AT.parse().unwrap()).unwrap();
+    }).await;
+    assert!(r.notice.contains(&format!("The opening value of BTC on {venue} is unknown.")) && r.notice.contains("Some days on the chart are incomplete."), "{}", r.notice);
+}
