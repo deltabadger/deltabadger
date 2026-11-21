@@ -2909,8 +2909,10 @@ fn observe(c: &Connection, key: i64, observed: &identity::Observed) {
     identity::record(c, &cipher, key, &credentials, &version, observed, chrono::Utc::now()).unwrap();
 }
 
-/// R9 #3: an identity read naming another account than the standing's, or failing, deletes the standing at once; and
-/// Merge refuses while any live key's latest identity read failed or differs since the standing was entered.
+/// R9 #3: an identity read naming another account than the standing's, or a definite failure on the key's current
+/// material (auth refused: 401 or 403; a masked or error answer under a success status), deletes the standing at once
+/// and keeps it out while it is the key's latest answer; a transient one (5xx, 429, the transport, no egress) changes
+/// nothing. Merge refuses on the same split since the standing was entered.
 #[test]
 fn r9_identity_reads_that_contradict_end_the_standing() {
     let (_d, o) = install();
@@ -2922,13 +2924,31 @@ fn r9_identity_reads_that_contradict_end_the_standing() {
     let (_d, o) = install();
     let c = &o.primary;
     let two = kucoin_pair(c);
-    observe(c, two.keys[0], &identity::Observed::Failed("http 500".into()));
-    assert!(standings(c).is_empty(), "a failed read");
+    for transient in ["http 500", "http 429", "transport", "no egress"] {
+        observe(c, two.keys[0], &identity::Observed::Failed(transient.into()));
+        assert_eq!(standings(c), [(two.id(1), two.id(0))], "{transient}: nothing comparable changes nothing");
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "{transient}: nor does the next reconsideration");
+    }
+    observe(c, two.keys[0], &identity::Observed::Failed("http 401; code 400003".into()));
+    assert!(standings(c).is_empty(), "auth refused on its current material");
+    assert!(standing(c, &two).is_empty(), "and it stays out while that is the key's latest answer");
 
-    let (_d, o, two) = duplicate();
+    let (_d, o) = install();
     let c = &o.primary;
-    c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = 'http 500' WHERE api_key_id = ?1", rusqlite::params![two.keys[0], now_text(1)]).unwrap();
-    assert!(matches!(merge_now(c, &two, two.id(1)), Ok(None)), "a read that failed since entry");
+    let two = kucoin_pair(c);
+    observe(c, two.keys[1], &identity::Observed::Failed("http 200".into()));
+    assert!(standings(c).is_empty(), "a masked answer");
+
+    let fail = |code: &str| {
+        let (d, o, two) = duplicate();
+        o.primary.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
+                          rusqlite::params![two.keys[0], now_text(1), code]).unwrap();
+        (d, o, two)
+    };
+    let (_d, o, two) = fail("http 503");
+    assert!(merge_now(&o.primary, &two, two.id(1)).unwrap().is_some(), "a transient failure since entry");
+    let (_d, o, two) = fail("http 401");
+    assert!(matches!(merge_now(&o.primary, &two, two.id(1)), Ok(None)), "auth refused since entry");
 }
 
 /// R9 #4: the veto runs over the final component: a retained 3 → 2 whose reads are no longer comparable and a new 2 → 1

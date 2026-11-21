@@ -72,6 +72,19 @@ pub enum Observed {
     Failed(String),
 }
 
+/// Whether a failed identity read is the venue's definite answer on the key's current material (#710): its auth refused
+/// (401, 403), or an answer under a success status that names no account (masked, or an error envelope). A 5xx, a rate
+/// limit (429, 418), any other status and the reads that reached no venue (`transport`, `no egress`, `proxy
+/// unreadable`) say nothing about the account. `code` as `failure` writes it (`http <status>[; code <code>]`).
+pub fn definite_failure(code: &str) -> bool {
+    code.strip_prefix("http ").and_then(|rest| rest.split(';').next()).and_then(|s| s.trim().parse::<u16>().ok())
+        .is_some_and(|status| (200..300).contains(&status) || status == 401 || status == 403)
+}
+/// SQL condition: failure code expression `code` is a definite failure (`definite_failure`).
+fn definite_sql(code: &str) -> String {
+    format!("({code} LIKE 'http 2__' OR {code} LIKE 'http 2__;%' OR {code} LIKE 'http 401' OR {code} LIKE 'http 401;%' OR {code} LIKE 'http 403' OR {code} LIKE 'http 403;%')")
+}
+
 /// The failure of an answer: its status and the venue's numeric `code`, nothing else.
 fn failure(status: u16, body: &str) -> Observed {
     let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get("code") {
@@ -703,13 +716,13 @@ pub fn standing_of(c: &Connection, user_id: i64, duplicate: i64) -> rusqlite::Re
     c.query_row("SELECT survivor_id, basis, since FROM exchange_account_standings WHERE user_id = ?1 AND duplicate_id = ?2", [user_id, duplicate],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()
 }
-/// Whether a live key of account `d` or `s` had an identity read fail, or name another account than its account's, since
-/// `since` (a standing's entry): Merge does not rest on it.
+/// Whether a live key of account `d` or `s` had an identity read fail definitely (`definite_failure`), or name another
+/// account than its account's, since `since` (a standing's entry): Merge does not rest on it.
 pub fn identity_changed_since(c: &Connection, d: i64, s: i64, since: &str) -> rusqlite::Result<bool> {
     if !ready(c)? { return Ok(false); }
     c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id JOIN exchange_accounts a ON a.id = {}
-                          WHERE k.status = 1 AND a.id IN (?1, ?2) AND (o.last_failure_at > ?3 OR (o.fingerprint IS NOT NULL AND a.fingerprint IS NOT NULL AND o.fingerprint <> a.fingerprint)))",
-                         key_account_sql("k")), params![d, s, since], |r| r.get(0))
+                          WHERE k.status = 1 AND a.id IN (?1, ?2) AND ((o.last_failure_at > ?3 AND {}) OR (o.fingerprint IS NOT NULL AND a.fingerprint IS NOT NULL AND o.fingerprint <> a.fingerprint)))",
+                         key_account_sql("k"), definite_sql("o.last_failure_code")), params![d, s, since], |r| r.get(0))
 }
 
 /// A key event of account `account` (a real credential change, a key added or removed, a Merge moving keys, the account
@@ -1081,10 +1094,11 @@ fn confirmed(x: &str) -> String {
     format!("({x}.fingerprint IS NULL OR ({x}.fingerprint IN {keys} AND NOT EXISTS (SELECT 1 FROM {keys} f WHERE f.fingerprint <> {x}.fingerprint) AND NOT {masked}))")
 }
 /// SQL condition: account row `x`'s known fingerprint is contradicted by a live key: its identity read names another
-/// account, or failed on its current material (no id, a failure noted).
+/// account, or its latest answer (newer than its last success) is a definite failure (`definite_failure`).
 fn contradicted(x: &str) -> String {
     format!("({x}.fingerprint IS NOT NULL AND EXISTS (SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id \
-             AND k.status = 1 AND (o.fingerprint <> {x}.fingerprint OR (o.fingerprint IS NULL AND o.last_failure_at IS NOT NULL))))", key_account_sql("k"))
+             AND k.status = 1 AND (o.fingerprint <> {x}.fingerprint OR (o.last_failure_at IS NOT NULL AND {} AND (o.observed_at IS NULL OR o.last_failure_at > o.observed_at)))))",
+            key_account_sql("k"), definite_sql("o.last_failure_code"))
 }
 /// The ids of the user's duplicates (`duplicates`).
 pub fn duplicate_ids(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<i64>> { Ok(duplicates(c, user_id)?.into_iter().map(|(d, _)| d).collect()) }
@@ -1158,8 +1172,11 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             }
         }
         Observed::Failed(code) => {
-            // A failed read of its current material is a contradiction: the account's standings end now.
-            if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { key_event(c, account).map_err(db)?; }
+            // A definite failure on its current material is a contradiction: the account's standings end now. A transient
+            // one changes nothing.
+            if definite_failure(code) {
+                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { key_event(c, account).map_err(db)?; }
+            }
             let Some(key) = existing_key(c, cipher) else {
                 c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, last_failure_at, last_failure_code) VALUES (?1, ?2, ?3, ?4)
                            ON CONFLICT (api_key_id) DO UPDATE SET exchange_id = excluded.exchange_id, last_failure_at = excluded.last_failure_at, last_failure_code = excluded.last_failure_code",
@@ -1411,6 +1428,11 @@ mod tests {
         assert_ne!(key.material_digest(&c), key.material_digest(&shifted));
     }
 
+    #[test]
+    fn only_definite_failures_count() {
+        for code in ["http 401", "http 401; code 400003", "http 403", "http 200", "http 200; code -2015"] { assert!(definite_failure(code), "{code}"); }
+        for code in ["http 500", "http 502", "http 429", "http 418", "http 400; code -1021", "transport", "no egress", "proxy unreadable"] { assert!(!definite_failure(code), "{code}"); }
+    }
     #[test]
     fn answers_yield_the_id_or_a_failure_without_body_text() {
         let kucoin = r#"{"code":"200000","data":{"uid":165111215,"apiKey":"the-key","remark":"r"}}"#;
