@@ -1,8 +1,6 @@
 <img width="32" height="32" alt="Square310x310Logo" src="https://github.com/user-attachments/assets/43339f64-09e3-4d9d-aa25-3717ae0601da" />
 
-# Deltabadger
-
-[![Build](https://github.com/deltabadger/deltabadger/actions/workflows/rust.yml/badge.svg)](https://github.com/deltabadger/deltabadger/actions/workflows/rust.yml) [![Docker Image](https://img.shields.io/badge/ghcr.io-deltabadger%2Fdeltabadger-blue?logo=docker)](https://github.com/deltabadger/deltabadger/pkgs/container/deltabadger) [![License](https://img.shields.io/github/license/deltabadger/deltabadger)](LICENSE)
+---
 
 [Deltabadger](https://deltabadger.com) is a beautiful desktop app and online server that builds and manages your long-term portfolio.
 
