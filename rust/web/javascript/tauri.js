@@ -133,7 +133,10 @@ if (window.__IS_TAURI__) {
             if (!banner || !update) return;
             const t = banner.dataset;
             const shown = lines(update, t);
-            banner.classList.toggle('hidden', !shown);
+            // Sent away in the flash stack (flash_stack_controller.js): hidden until the state moves on.
+            if (banner.dataset.dismissed !== update.state) delete banner.dataset.dismissed;
+            banner.dataset.updateState = update.state;
+            banner.classList.toggle('hidden', !shown || 'dismissed' in banner.dataset);
             banner.classList.toggle('salert--danger', !!shown?.critical);
             banner.querySelector('[data-desktop-update-line]').textContent = shown?.line || '';
             banner.querySelector('[data-desktop-update-more]').textContent = shown?.more || '';

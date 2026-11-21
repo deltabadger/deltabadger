@@ -338,6 +338,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             let body = if body.contains("<style>.pl-carry{") { without_pl_carry(&body) } else { body };
             let v2_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
             let v2_body = if v2_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&v2_body) } else { v2_body };
+            let v2_body = common::html::flash_toasts_as_rust(&v2_body);
             assert_eq!(mask_csrf(&body),mask_csrf(&v2_body),"{name}: body bytes");
         } }
         else {
