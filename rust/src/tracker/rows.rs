@@ -81,17 +81,62 @@ pub struct Stored {
 /// D-TAX-CFEE-PREVIOUS-DAY: Alpaca books its crypto fee as a `CFEE` activity of its own, a coin amount dated 00:00 UTC
 /// of the day AFTER the trades it was charged on (posted at the end of their day: Alpaca's activities API names the UTC
 /// day after the trade). Its fills are its coin's buys on its venue that UTC day before, or its sales where it bought
-/// none; it is worth what those fills were traded at.
+/// none; it is worth what those fills were traded at. D-TAX-CFEE-MATCHED-FILL: a CFEE whose raw `created_at` says when it
+/// was charged (a timed fee) is the fee of one fill (`cfee_matches`), stands right after it (`place_cfees`), and is worth
+/// Alpaca's own price of it (`raw_price`); only a fee without `created_at` takes the day before.
 #[derive(Clone, Debug, Default)]
 pub struct Cfee {
     /// The row is an Alpaca `CFEE` activity.
     pub fee: bool,
+    /// On a timed CFEE: the instant it was charged (`charged`).
+    pub charged: Option<At>,
+    /// On a fill or a CFEE: its raw `price` (none when absent or unreadable) and `symbol`, the matcher's identity of it.
+    pub price: Option<Dec>,
+    pub symbol: Option<String>,
+    /// On a timed CFEE: its raw price where it is dollars (`raw_price`), and the fill it was charged on (`cfee_matches`).
+    pub raw_price: Option<Dec>,
+    pub fill: Option<i64>,
     /// On a CFEE: the price it was charged at (`fill_price`), and that price's currency (a stablecoin's is USD).
     pub fill_price: Option<(Dec, String)>,
     /// On a fill (the tax report's fold): its amount once its fees' shares are folded in. The row is valued on `amount`.
     pub folded: Option<Dec>,
     /// On a fill (SE, GB): the fees it carries as its expense, each valued as the fee's own row is.
     pub expenses: Vec<Expense>,
+}
+
+impl Cfee {
+    /// D-TAX-CFEE-MATCHED-FILL: the fee carries its charge instant; the D−1 reading is only for one that does not.
+    pub fn timed(&self) -> bool { self.charged.is_some() }
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: a CFEE's raw `created_at`, the instant it was charged. Alpaca may send it to the second: such
+/// an instant is read as the end of its second, so a fill a fraction later in that second precedes it.
+pub fn charged(raw: &Value) -> Option<At> {
+    if raw.get("activity_type").and_then(Value::as_str) != Some("CFEE") { return None; }
+    let text = raw.get("created_at")?.as_str()?;
+    let at = At::from_utc(chrono::DateTime::parse_from_rfc3339(text).ok()?.with_timezone(&chrono::Utc))?;
+    if text.contains('.') { Some(at) } else { at.0.checked_add(999_999_999).map(At) }
+}
+
+/// The quote of an Alpaca crypto pair `symbol` of `base` ("BTCUSD", "BTC/USD"): what is left after the base and an
+/// optional `/`, when it is one of Alpaca's crypto quotes.
+fn pair_quote(base: &str, symbol: &str) -> Option<&'static str> {
+    let rest = symbol.strip_prefix(base).filter(|_| !base.is_empty())?;
+    let rest = rest.strip_prefix('/').unwrap_or(rest);
+    crate::sync::ledger::CRYPTO_QUOTES.iter().find(|q| **q == rest).copied()
+}
+
+/// A raw `price`, none when absent or unreadable.
+fn raw_number(raw: &Value) -> Option<Dec> { json_number(raw.get("price")).ok().flatten() }
+
+/// D-TAX-CFEE-MATCHED-FILL: a timed CFEE's raw `price` in dollars, where it is one: its pair is the fee's coin against
+/// USD, USDT or USDC, and the price positive. A coin-quoted pair's price is in that coin, and a stablecoin's own fee is
+/// cash at face: none. The walk and the ledger table read it alike.
+pub fn raw_price(base: &str, raw: &Value) -> Option<Dec> {
+    if cash(base) { return None; }
+    let quote = pair_quote(base, raw.get("symbol")?.as_str()?)?;
+    if !matches!(quote, "USD" | "USDT" | "USDC") { return None; }
+    raw_number(raw).filter(Dec::is_positive)
 }
 
 /// A CFEE carried as a fill's expense: the fee's attribution (shared by its fills) and this fill's place in it.
@@ -114,11 +159,13 @@ pub fn cfee_fills<'a>(fee: &Stored, rows: impl IntoIterator<Item = &'a Stored>) 
 }
 
 /// The price `fills` were traded at, Σquote / Σbase, when every one is quoted in cash of one currency (a stablecoin reads
-/// as USD); None otherwise (a coin-quoted fill's price is a market estimate, so the fee keeps the daily close).
+/// as USD) at a positive amount; None otherwise (a coin-quoted fill's price is a market estimate, and sync stores a fill
+/// with no price as a zero quote: the fee keeps the daily close).
 pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresError> {
     let (mut currency, mut quote, mut base) = (None::<&str>, Dec::zero(), Dec::zero());
     for r in fills {
         let (Some(c), Some(paid)) = (r.quote.as_deref().filter(|_| r.quoted()), r.quote_amount.as_ref()) else { return Ok(None) };
+        if !paid.is_positive() { return Ok(None); }
         let c = if stable(c) { "USD" } else { c };
         if currency.is_some_and(|known| known != c) { return Ok(None); }
         currency = Some(c);
@@ -127,15 +174,143 @@ pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresErr
     match currency { Some(c) if base.is_positive() => Ok(Some((quote.div(&base)?, c.to_string()))), _ => Ok(None) }
 }
 
-/// Each CFEE of `rows` (time-ordered) with the places of its fills (`cfee_fills`), through one index of the trades.
+/// Each CFEE of `rows` (time-ordered) with the places of its fills (`cfee_fills`), through one index of the trades. A timed
+/// fee is not one of them (D-TAX-CFEE-MATCHED-FILL: `Cfee::fill`).
 pub fn cfee_places(rows: &[Stored]) -> Vec<(usize, Vec<usize>)> {
     let mut trades: std::collections::HashMap<(i64, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
     for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((r.account, &r.base, r.date())).or_default().push(i); } }
     let place: std::collections::HashMap<i64, usize> = trades.values().flatten().map(|&i| (rows[i].id, i)).collect();
-    rows.iter().enumerate().filter(|(_, r)| r.cfee.fee && r.kind == Kind::Fee).filter_map(|(i, fee)| {
+    rows.iter().enumerate().filter(|(_, r)| r.cfee.fee && r.kind == Kind::Fee && !r.cfee.timed()).filter_map(|(i, fee)| {
         let pool = trades.get(&(fee.account, fee.base.as_str(), fee.date().pred_opt()?))?;
         Some((i, cfee_fills(fee, pool.iter().map(|&j| &rows[j])).into_iter().map(|r| place[&r.id]).collect()))
     }).collect()
+}
+
+/// How far back a timed CFEE's fill can be.
+const CFEE_REACH_SECONDS: i64 = 72 * 3600;
+
+/// D-TAX-CFEE-MATCHED-FILL: each timed CFEE of `rows` (fee id → fill id) the one fill it was charged on, over each
+/// account's history of the coin. A candidate is a crypto buy or sale of the fee's account and coin (the same recorded
+/// asset where both rows recorded one, and the same alias on both days), quoted in the fee's pair's quote, not borrowed,
+/// at most 72 hours before the charge and not after it; a buy smaller than the fee is not one. In charge order, three
+/// passes, each claiming the ONE candidate left that it finds: (1) the fill whose raw price is the fee's, (2) the one
+/// within 0.1 % of it, (3) for a fee with no raw price, the only one. Two fees finding one fill at a pass both stay
+/// standalone, and that fill is out of every weaker pass. A fill after the fee's booking day vetoes, never matches.
+/// An exact claim on a fill an earlier fee's only candidate is skipped where the claiming fee has another within 0.1 %:
+/// the fill is kept for that fee.
+pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i64>, FiguresError> {
+    use std::collections::{HashMap, HashSet};
+    let mut fills: HashMap<(i64, &str), Vec<usize>> = HashMap::new();
+    for (i, r) in rows.iter().enumerate() {
+        if matches!(r.kind, Kind::Buy | Kind::Sell) && r.amount.is_positive() && !r.borrowed() { fills.entry((r.account, r.base.as_str())).or_default().push(i); }
+    }
+    for v in fills.values_mut() { v.sort_by_key(|&i| (rows[i].at.0, rows[i].id)); }
+    let mut fees: Vec<(usize, At, &'static str)> = rows.iter().enumerate().filter_map(|(i, r)| {
+        let charged = r.cfee.charged.filter(|_| r.cfee.fee && r.kind == Kind::Fee && r.amount.is_positive())?;
+        Some((i, charged, pair_quote(&r.base, r.cfee.symbol.as_deref()?)?))
+    }).collect();
+    fees.sort_by_key(|&(i, at, _)| (at.0, rows[i].id));
+    let crypto = |x: &Stored| match super::prices::recorded_class(x.base_asset.as_ref()) {
+        Some(security) => !security,
+        None => x.cfee.symbol.as_deref().is_some_and(|s| s.contains('/') || pair_quote(&x.base, s).is_some()),
+    };
+    // Every fee's candidates, by place in `rows`.
+    let mut candidates: Vec<Vec<usize>> = Vec::with_capacity(fees.len());
+    for &(i, charged, quote) in &fees {
+        let f = &rows[i];
+        let venue = super::prices::Venue { id: f.exchange_id, name_id: f.venue.clone(), stock: true };
+        let alias = |day: NaiveDate| super::prices::alias_coin(&f.base, Some(&venue), Some(day));
+        let from = charged.0.saturating_sub(CFEE_REACH_SECONDS * 1_000_000_000);
+        let pool = fills.get(&(f.account, f.base.as_str())).map_or(&[][..], Vec::as_slice);
+        let start = pool.partition_point(|&j| rows[j].at.0 < from);
+        let mut found = vec![];
+        for &j in &pool[start..] {
+            let x = &rows[j];
+            if x.at.0 > charged.0 { break; }
+            crate::figures::budget::charge(1, 0)?;
+            if x.kind == Kind::Buy && x.amount < f.amount { continue; }
+            if !crypto(x) || x.quote.as_deref() != Some(quote) { continue; }
+            if let (Some(a), Some(b)) = (&x.base_asset, &f.base_asset) { if a.0 != b.0 { continue; } }
+            if alias(x.date()) != alias(charged.utc().date_naive()) { continue; }
+            found.push(j);
+        }
+        candidates.push(found);
+    }
+    let near = |fee: &Dec, fill: &Dec| -> Result<bool, FiguresError> {
+        let gap = (fill - fee)?;
+        let gap = if gap.is_negative() { gap.neg() } else { gap };
+        Ok(gap <= (fee * &Dec::strict("0.001")?)?)
+    };
+    let (mut matched, mut claimed, mut disputed, mut blocked) = (HashMap::new(), HashSet::new(), HashSet::new(), HashSet::new());
+    let mut held: HashMap<usize, usize> = HashMap::new();
+    for pass in 0..3 {
+        loop {
+            // Each fee still open at this pass, with the one fill it finds.
+            let mut found: Vec<(usize, usize)> = vec![];
+            for (n, &(i, _, _)) in fees.iter().enumerate() {
+                let price = rows[i].cfee.price.as_ref();
+                if matched.contains_key(&n) || blocked.contains(&n) || (pass == 2) != price.is_none() { continue; }
+                let mut left = vec![];
+                for &j in &candidates[n] {
+                    if claimed.contains(&j) || disputed.contains(&j) || held.get(&j).is_some_and(|&e| e != n) { continue; }
+                    let fits = match (pass, price, rows[j].cfee.price.as_ref()) {
+                        (2, _, _) => true,
+                        (0, Some(p), Some(q)) => p == q,
+                        (1, Some(p), Some(q)) => near(p, q)?,
+                        _ => false,
+                    };
+                    if fits { left.push(j); }
+                }
+                if let [j] = left[..] { found.push((n, j)); }
+            }
+            let mut claims: HashMap<usize, usize> = HashMap::new();
+            for &(_, j) in &found { *claims.entry(j).or_default() += 1; }
+            let mut moved = false;
+            for (n, j) in found {
+                if claims[&j] > 1 { disputed.insert(j); blocked.insert(n); moved = true; continue; }
+                if rows[j].date() > rows[fees[n].0].date() { continue; }
+                if pass == 0 {
+                    let earlier = (0..n).find(|&e| !matched.contains_key(&e) && !blocked.contains(&e) && candidates[e] == [j]);
+                    if let Some(e) = earlier {
+                        let fee = rows[fees[n].0].cfee.price.as_ref();
+                        let mut other = false;
+                        for &y in candidates[n].iter().filter(|&&y| y != j) {
+                            if let (Some(p), Some(q)) = (fee, rows[y].cfee.price.as_ref()) { other |= near(p, q)?; }
+                        }
+                        if other { held.insert(j, e); moved = true; continue; }
+                    }
+                }
+                matched.insert(n, j);
+                claimed.insert(j);
+                moved = true;
+            }
+            if !moved { break; }
+        }
+    }
+    Ok(matched.into_iter().map(|(n, j)| (rows[fees[n].0].id, rows[j].id)).collect())
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: each timed CFEE its fill (`cfee_matches`) and its instant: its fill's when it matched, else
+/// its charge instant, only ever later than its stored instant and within its booking UTC day; an unmatched fee charged
+/// on a later day stands at its booking day's last nanosecond. Nothing moves back or across days. Then by (instant, id).
+pub fn place_cfees(rows: &mut [Stored]) -> Result<(), FiguresError> {
+    if !rows.iter().any(|r| r.cfee.timed()) { return Ok(()); }
+    let matches = cfee_matches(rows)?;
+    let at: std::collections::HashMap<i64, At> = rows.iter().filter(|r| matches!(r.kind, Kind::Buy | Kind::Sell)).map(|r| (r.id, r.at)).collect();
+    for r in rows.iter_mut() {
+        let Some(charged) = r.cfee.charged.filter(|_| r.cfee.fee && r.kind == Kind::Fee) else { continue };
+        r.cfee.fill = matches.get(&r.id).copied();
+        let day = r.date();
+        let to = r.cfee.fill.and_then(|f| at.get(&f).copied()).unwrap_or(charged);
+        let to_day = to.utc().date_naive();
+        if to_day == day && to.0 > r.at.0 { r.at = to; }
+        else if to_day > day && r.cfee.fill.is_none() {
+            let next = day.succ_opt().and_then(|d| At::from_utc(d.and_hms_opt(0, 0, 0)?.and_utc()));
+            if let Some(next) = next { r.at = At(next.0 - 1); }
+        }
+    }
+    rows.sort_by_key(|r| (r.at.0, r.id));
+    Ok(())
 }
 
 /// Each CFEE of `rows` its `fill_price`.
@@ -148,9 +323,9 @@ pub fn price_cfees(rows: &mut [Stored]) -> Result<(), FiguresError> {
 }
 
 /// The fill price of the user's CFEE row `id` (the tracker row's display): `price_cfees` over that fee and the rows of
-/// its coin around its day. None for any other row.
+/// its coin around its day. None for any other row, a timed fee's included.
 pub fn cfee_price(c: &Connection, user_id: i64, id: i64) -> Result<Option<(Dec, String)>, FiguresError> {
-    let Some(fee) = read(c, "t.user_id = ?1 AND t.id = ?2", rusqlite::params![user_id, id])?.pop().filter(|r| r.cfee.fee && r.kind == Kind::Fee) else { return Ok(None) };
+    let Some(fee) = read(c, "t.user_id = ?1 AND t.id = ?2", rusqlite::params![user_id, id])?.pop().filter(|r| r.cfee.fee && r.kind == Kind::Fee && !r.cfee.timed()) else { return Ok(None) };
     let Some(day) = fee.date().pred_opt() else { return Ok(None) };
     // A day's margin either side: the stored instant's text is compared, `charged_on` decides.
     let (from, to) = (day.pred_opt().unwrap_or(day), fee.date().succ_opt().unwrap_or(fee.date()));
@@ -213,6 +388,7 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
     let mut rows = read(c, "t.user_id = ?1", rusqlite::params![user_id])?;
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
     rows.sort_by_key(|r| (r.at.0, r.id));
+    place_cfees(&mut rows)?;
     price_cfees(&mut rows)?;
     Ok(rows)
 }
@@ -245,8 +421,9 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
         let manual = json_column(r.get(14)?)?;
         let venue_type: Option<String> = r.get(2)?;
         let to_type: Option<String> = r.get(16)?;
+        let base: String = r.get(4)?;
         rows.push(Stored {
-            id: r.get(0)?, exchange_id: r.get(1)?, venue: name_id(venue_type.as_deref().unwrap_or("")), kind, base: r.get(4)?,
+            id: r.get(0)?, exchange_id: r.get(1)?, venue: name_id(venue_type.as_deref().unwrap_or("")), kind, base: base.clone(),
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
             quote: r.get(6)?, quote_amount: Dec::from_sql(r.get_ref(7)?)?,
             fee_currency: r.get(8)?, fee_amount: Dec::from_sql(r.get_ref(9)?)?,
@@ -256,7 +433,13 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
             stated: json_number(manual.get("price"))?,
             linked_to: r.get(15)?, to_venue: to_type.as_deref().map(name_id), to_exchange_id: r.get(17)?,
             base_asset: r.get::<_, Option<i64>>(18)?.map(|id| -> rusqlite::Result<_> { Ok((id, r.get(19)?, r.get(20)?)) }).transpose()?,
-            cfee: Cfee { fee: raw.get("activity_type").and_then(Value::as_str) == Some("CFEE"), ..Cfee::default() },
+            cfee: Cfee {
+                fee: raw.get("activity_type").and_then(Value::as_str) == Some("CFEE"),
+                charged: (kind == Kind::Fee).then(|| charged(&raw)).flatten(),
+                raw_price: (kind == Kind::Fee && charged(&raw).is_some()).then(|| raw_price(&base, &raw)).flatten(),
+                price: raw_number(&raw), symbol: raw.get("symbol").and_then(Value::as_str).map(str::to_string),
+                ..Cfee::default()
+            },
             bot_order: r.get(21)?,
             account: r.get(23)?, to_account: r.get(24)?,
         });
@@ -324,13 +507,23 @@ pub fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Result<
 }
 
 /// Tax::PriceService.ordered: `[transacted_at, anchor, out-leg first, id]`, the anchor being the smallest id of the
-/// row's group (by exchange and group id), or its own id without a group.
+/// row's group (by exchange and group id), or its own id without a group. D-TAX-CFEE-MATCHED-FILL: a timed CFEE at its
+/// fill's instant takes its fill's place, right after it; any other timed CFEE is the last of its instant.
 pub fn ordered(mut rows: Vec<Stored>) -> Vec<Stored> {
     let mut anchors: std::collections::HashMap<(i64, Option<String>), i64> = std::collections::HashMap::new();
     for r in &rows { anchors.entry((r.exchange_id, r.group.clone())).and_modify(|a| *a = (*a).min(r.id)).or_insert(r.id); }
-    let key = |r: &Stored| {
+    let own = |r: &Stored| {
         let anchor = if r.group.is_some() { anchors.get(&(r.exchange_id, r.group.clone())).copied().unwrap_or(r.id) } else { r.id };
-        (r.at.0, anchor, if matches!(r.kind, Kind::Sell | Kind::SwapOut) { 0 } else { 1 }, r.id)
+        (r.at.0, anchor, if matches!(r.kind, Kind::Sell | Kind::SwapOut) { 0 } else { 1 }, r.id, 0)
+    };
+    let fills: std::collections::HashMap<i64, (i64, i64, u8, i64, u8)> =
+        rows.iter().filter(|r| matches!(r.kind, Kind::Buy | Kind::Sell)).map(|r| (r.id, own(r))).collect();
+    let key = |r: &Stored| {
+        if !r.cfee.timed() { return own(r); }
+        match r.cfee.fill.and_then(|f| fills.get(&f)).filter(|k| k.0 == r.at.0) {
+            Some(&(at, anchor, out, id, _)) => (at, anchor, out, id, 1),
+            None => (r.at.0, i64::MAX, 2, r.id, 0),
+        }
     };
     rows.sort_by_cached_key(key);
     rows
@@ -509,5 +702,223 @@ mod tests {
         let tight = crate::figures::budget::Limits { steps: 50_000, held: crate::figures::budget::FIGURE.held };
         let (out, _) = crate::figures::budget::scope(tight, || load(&c, 1));
         assert!(matches!(out, Err(FiguresError::NotComputed(ref m)) if m == crate::figures::OVER_BUDGET), "{:?}", out.err());
+    }
+
+    // ---- D-TAX-CFEE-MATCHED-FILL ----
+
+    const NONE: [(i64, i64); 0] = [];
+
+    fn dec(s: &str) -> Dec { Dec::strict(s).unwrap() }
+    /// A BTC/USD fill of account 1, its raw price as Alpaca sends it.
+    fn fill(id: i64, kind: Kind, amount: &str, price: &str, at: &str) -> Stored {
+        Stored { base: "BTC".into(), amount: dec(amount), quote: Some("USD".into()), quote_amount: Some((&dec(amount) * &dec(price)).unwrap()),
+                 cfee: Cfee { price: Some(dec(price)), symbol: Some("BTC/USD".into()), ..Cfee::default() }, ..stored(id, kind, None, at) }
+    }
+    /// A CFEE of `amount` BTC booked on `booked` (00:00 UTC), charged at `created`, as `read` lifts it.
+    fn timed(id: i64, amount: &str, price: Option<&str>, booked: &str, created: &str) -> Stored { cfee(id, "BTC", "BTCUSD", amount, price, booked, created) }
+    fn cfee(id: i64, base: &str, symbol: &str, amount: &str, price: Option<&str>, booked: &str, created: &str) -> Stored {
+        let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": created, "symbol": symbol, "price": price });
+        Stored { base: base.into(), amount: dec(amount),
+                 cfee: Cfee { fee: true, charged: charged(&raw), price: raw_number(&raw), symbol: Some(symbol.into()), raw_price: raw_price(base, &raw), ..Cfee::default() },
+                 ..stored(id, Kind::Fee, None, &format!("{booked} 00:00:00")) }
+    }
+    fn matched(rows: &[Stored]) -> Vec<(i64, i64)> { let mut m: Vec<(i64, i64)> = cfee_matches(rows).unwrap().into_iter().collect(); m.sort(); m }
+    fn placed(mut rows: Vec<Stored>) -> Vec<Stored> { place_cfees(&mut rows).unwrap(); ordered(rows) }
+    fn at(rows: &[Stored], id: i64) -> String { rows.iter().find(|r| r.id == id).unwrap().at.utc().format("%Y-%m-%d %H:%M:%S%.9f").to_string() }
+    fn ids(rows: &[Stored]) -> Vec<i64> { rows.iter().map(|r| r.id).collect() }
+
+    /// The report's shape: Alpaca books the fee at 00:00 of the day; it was charged five seconds after its buy. Matched, it
+    /// stands at the buy's instant right after it, the lower id notwithstanding.
+    #[test]
+    fn a_timed_cfee_stands_right_after_its_fill() {
+        let rows = vec![timed(1, "0.00000029", Some("84674.02"), "2026-10-01", "2026-10-01T23:08:55Z"), fill(2, Kind::Buy, "0.0001", "84674.02", "2026-10-01 23:08:50")];
+        assert_eq!(matched(&rows), [(1, 2)]);
+        let rows = placed(rows);
+        assert_eq!((ids(&rows), at(&rows, 1)), (vec![2, 1], "2026-10-01 23:08:50.000000000".to_string()));
+        assert_eq!(rows[1].cfee.fill, Some(2));
+    }
+
+    /// Booked Monday for a Saturday fill: matched, and it stays at Monday 00:00 (nothing moves back or across days).
+    #[test]
+    fn a_weekend_fee_matches_its_saturday_fill_and_keeps_its_monday() {
+        let rows = placed(vec![fill(1, Kind::Buy, "0.01", "60000", "2026-10-03 15:00:00"), timed(2, "0.00001", Some("60000"), "2026-10-05", "2026-10-03T15:00:04Z")]);
+        assert_eq!((rows[1].cfee.fill, at(&rows, 2)), (Some(1), "2026-10-05 00:00:00.000000000".to_string()));
+    }
+
+    /// Exact prices name their fills; an exact match comes before a rounding one, whoever was charged first; two partial
+    /// fills of one order, each with its exact fee, are one to one.
+    #[test]
+    fn exact_prices_name_their_fills() {
+        let day = "2026-10-01";
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), fill(2, Kind::Buy, "0.01", "101.00", "2026-10-01 10:30:00"),
+                    timed(3, "0.0001", Some("101.00"), day, "2026-10-01T11:00:00Z"), timed(4, "0.0001", Some("100.00"), day, "2026-10-01T11:00:01Z")];
+        assert_eq!(matched(&rows), [(3, 2), (4, 1)]);
+        // Fee 5, charged first, is within 0.1 % of buy 1 only; fee 6 is exactly its price: 6 takes it, 5 stays.
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(5, "0.0001", Some("100.05"), day, "2026-10-01T10:01:00Z"),
+                    timed(6, "0.0001", Some("100.00"), day, "2026-10-01T10:02:00Z")];
+        assert_eq!(matched(&rows), [(6, 1)]);
+        let rows = [fill(1, Kind::Buy, "0.5", "100.00", "2026-10-01 10:00:00.100"), fill(2, Kind::Buy, "0.5", "100.02", "2026-10-01 10:00:00.200"),
+                    timed(3, "0.0001", Some("100.00"), day, "2026-10-01T10:00:01Z"), timed(4, "0.0001", Some("100.02"), day, "2026-10-01T10:00:01Z")];
+        assert_eq!(matched(&rows), [(3, 1), (4, 2)]);
+        // A rounding match where it is the only fill within 0.1 %.
+        let rows = [fill(1, Kind::Buy, "0.01", "84673.9", "2026-10-01 10:00:00"), timed(2, "0.0001", Some("84674.02"), day, "2026-10-01T10:00:05Z")];
+        assert_eq!(matched(&rows), [(2, 1)]);
+    }
+
+    /// What is not unique stays standalone: two fees finding one fill (and that fill is out of the weaker passes), a fill
+    /// a buy and a sale share a price with, the same price spelled two ways.
+    #[test]
+    fn a_fee_that_is_not_unique_stays_standalone() {
+        let day = "2026-10-01";
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", Some("100.00"), day, "2026-10-01T10:01:00Z"),
+                    timed(3, "0.0001", Some("100.00"), day, "2026-10-01T10:01:00Z"), timed(4, "0.0001", None, day, "2026-10-01T10:02:00Z")];
+        assert_eq!(matched(&rows), NONE);
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), fill(2, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"),
+                    timed(3, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z"), timed(4, "0.0002", Some("100.00"), day, "2026-10-01T11:02:00Z")];
+        assert_eq!(matched(&rows), NONE, "neither takes the sale");
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), fill(2, Kind::Sell, "0.005", "100.00", "2026-10-01 11:00:00"),
+                    timed(3, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z")];
+        assert_eq!(matched(&rows), NONE);
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-09-29 10:00:00"), fill(2, Kind::Sell, "0.005", "100.0", "2026-09-30 10:00:00"),
+                    timed(3, "0.0001", Some("100.00"), day, "2026-10-01T09:00:00Z")];
+        assert_eq!(matched(&rows), NONE, "100.00 and 100.0 are one price");
+        // A same-price fill after the booking day vetoes the earlier one, and is not claimed itself.
+        let rows = [fill(1, Kind::Buy, "0.01", "100", "2026-09-29 10:00:00"), fill(2, Kind::Sell, "0.005", "100", "2026-10-02 00:00:01"),
+                    timed(3, "0.0001", Some("100"), day, "2026-10-02T00:00:05Z")];
+        assert_eq!(matched(&rows), NONE);
+    }
+
+    /// The stranding guard: a later fee does not take, by its exact price, the only fill an earlier fee could have, when
+    /// it has another within 0.1 %; the fill stays held for the earlier fee through the weaker passes.
+    #[test]
+    fn a_later_fee_does_not_strand_an_earlier_one() {
+        let day = "2026-10-01";
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
+                    fill(3, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"), timed(4, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z")];
+        assert_eq!(matched(&rows), [(2, 1), (4, 3)]);
+    }
+
+    /// Who is a candidate at all: a buy no smaller than the fee, on or before the booking day, a crypto fill (a recorded
+    /// security never, whatever its raw symbol), of the fee's pair's quote and spelling, the same recorded asset and alias,
+    /// at most 72 hours before the charge and not after it (a truncated `created_at` reads as the end of its second).
+    #[test]
+    fn only_the_fees_own_crypto_fills_are_candidates() {
+        let day = "2026-10-01";
+        let fee = || timed(9, "0.001", None, day, "2026-10-01T12:00:00Z");
+        let one = |x: Stored| matched(&[x, fee()]);
+        assert_eq!(one(fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00")), [(9, 1)], "the control");
+        assert_eq!(one(fill(1, Kind::Buy, "0.0009", "100", "2026-10-01 11:00:00")), NONE, "a buy smaller than the fee");
+        assert_eq!(one(fill(1, Kind::Sell, "0.0009", "100", "2026-10-01 11:00:00")), [(9, 1)], "a smaller sale is one");
+        assert_eq!(one(fill(1, Kind::Buy, "0.001", "100", "2026-09-28 11:59:59")), NONE, "more than 72 hours before");
+        assert_eq!(one(fill(1, Kind::Buy, "0.001", "100", "2026-10-01 12:00:01")), NONE, "after the charge");
+        let stock = |category: &str, symbol: &str| Stored { base_asset: Some((5, Some("BTC.US".into()), Some(category.into()))),
+                                                              cfee: Cfee { symbol: Some(symbol.into()), ..Cfee::default() }, ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") };
+        assert_eq!(one(stock("Stock", "BTC")), NONE, "the BTC security");
+        assert_eq!(one(stock("ETF", "BTC/USD")), NONE, "a recorded ETF with a pair-shaped symbol");
+        assert_eq!(one(Stored { cfee: Cfee { symbol: Some("BTC".into()), ..Cfee::default() }, ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") }), [],
+                   "no recorded asset and a security's symbol");
+        assert_eq!(one(Stored { quote: Some("USDT".into()), ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") }), NONE, "another quote");
+        assert_eq!(one(Stored { tx_id: Some("margin-interest-1".into()), ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") }), NONE, "borrowed");
+        assert_eq!(one(Stored { account: 2, ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") }), NONE, "another account");
+        assert_eq!(one(Stored { base: "XBT".into(), ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") }), NONE, "another spelling");
+        let coin = |id: i64| Some((id, Some("bitcoin".to_string()), Some("Cryptocurrency".to_string())));
+        assert_eq!(matched(&[Stored { base_asset: coin(1), ..fill(1, Kind::Buy, "0.001", "100", "2026-10-01 11:00:00") }, Stored { base_asset: coin(2), ..fee() }]), [],
+                   "another recorded asset");
+        // ETHBTC: a pair against a coin; its ETH/USD buy is not its fill.
+        let eth = Stored { base: "ETH".into(), cfee: Cfee { price: Some(dec("2000")), symbol: Some("ETH/USD".into()), ..Cfee::default() }, ..fill(1, Kind::Buy, "1", "2000", "2026-10-01 11:00:00") };
+        assert_eq!(matched(&[eth, cfee(2, "ETH", "ETHBTC", "0.001", Some("0.03"), day, "2026-10-01T11:00:01Z")]), NONE);
+        // A fill on a later UTC day than the booking is never its fill.
+        assert_eq!(matched(&[fill(1, Kind::Buy, "0.001", "100", "2026-10-02 00:01:00"), timed(2, "0.0001", None, day, "2026-10-02T00:05:00Z")]), NONE);
+        // A zero fee is no fee: it claims nothing, and disputes nothing.
+        let rows = [fill(1, Kind::Buy, "0.01", "100", "2026-10-01 10:00:00"), timed(2, "0", Some("100"), day, "2026-10-01T10:00:01Z"),
+                    timed(3, "0.0001", Some("100"), day, "2026-10-01T10:00:02Z")];
+        assert_eq!(matched(&rows), [(3, 1)]);
+        // Sub-second fills: a truncated `created_at` admits the fill a fraction later in its second; a fractional one does not
+        // admit one after it; an equal instant is a candidate.
+        assert_eq!(matched(&[fill(1, Kind::Buy, "0.01", "100", "2026-10-01 23:08:50.400"), timed(2, "0.0001", None, day, "2026-10-01T23:08:50Z")]), [(2, 1)]);
+        assert_eq!(matched(&[fill(1, Kind::Buy, "0.01", "100", "2026-10-01 12:00:01.100"), timed(2, "0.0001", None, day, "2026-10-01T12:00:00.900Z")]), NONE);
+        assert_eq!(matched(&[fill(1, Kind::Buy, "0.01", "100", "2026-10-01 12:00:00.400"), timed(2, "0.0001", None, "2026-10-02", "2026-10-01T12:00:00.400Z")]), [(2, 1)]);
+    }
+
+    /// A dated alias: LUNA bought on 27 May 2022 was Terra; a fee charged on the 29th is Terra 2's, whatever id both rows
+    /// recorded (sync names an id without the date).
+    #[test]
+    fn a_fee_and_a_fill_of_two_coins_under_one_alias_do_not_match() {
+        let luna = |asset: Option<i64>| Stored { base: "LUNA".into(), base_asset: asset.map(|id| (id, Some("terra-luna".to_string()), Some("Cryptocurrency".to_string()))),
+                                                 cfee: Cfee { price: Some(dec("0.5")), symbol: Some("LUNA/USD".into()), ..Cfee::default() }, ..fill(1, Kind::Buy, "100", "0.5", "2022-05-27 12:00:00") };
+        let fee = |asset: Option<i64>, created: &str| Stored { base_asset: asset.map(|id| (id, Some("terra-luna".to_string()), Some("Cryptocurrency".to_string()))),
+                                                                ..cfee(2, "LUNA", "LUNAUSD", "0.1", None, &created[..10], created) };
+        for asset in [None, Some(3)] {
+            assert_eq!(matched(&[luna(asset), fee(asset, "2022-05-29T01:00:00Z")]), NONE, "{asset:?}");
+            assert_eq!(matched(&[luna(asset), fee(asset, "2022-05-27T12:00:05Z")]), [(2, 1)], "{asset:?}: the same day's");
+        }
+    }
+
+    /// Instants: a fee charged past midnight still moves to its fill; one that matched nothing and was charged on a later
+    /// day stands at its booking day's last nanosecond, after every row of that day; fees disputing a fill stand after
+    /// it, the last of their instant.
+    #[test]
+    fn a_timed_fee_moves_forward_within_its_booking_day() {
+        let rows = placed(vec![timed(1, "0.0001", Some("100"), "2026-10-01", "2026-10-02T00:00:03Z"), fill(2, Kind::Buy, "0.01", "100", "2026-10-01 23:59:58")]);
+        assert_eq!((ids(&rows), at(&rows, 1)), (vec![2, 1], "2026-10-01 23:59:58.000000000".to_string()));
+        let rows = placed(vec![timed(1, "0.0001", Some("100"), "2026-10-01", "2026-10-02T00:00:02Z"), fill(2, Kind::Buy, "0.01", "100", "2026-10-01 23:00:00"),
+                               fill(3, Kind::Buy, "0.01", "100", "2026-10-01 23:30:00")]);
+        assert_eq!((ids(&rows), at(&rows, 1), rows[2].cfee.fill), (vec![2, 3, 1], "2026-10-01 23:59:59.999999999".to_string(), None));
+        let rows = placed(vec![timed(1, "0.0001", Some("100"), "2026-10-01", "2026-10-01T00:00:00.400Z"), timed(2, "0.0001", Some("100"), "2026-10-01", "2026-10-01T00:00:00.400Z"),
+                               fill(3, Kind::Buy, "0.01", "100", "2026-10-01 00:00:00.400")]);
+        assert_eq!((ids(&rows), at(&rows, 1), at(&rows, 2)), (vec![3, 1, 2], "2026-10-01 00:00:00.400000000".to_string(), "2026-10-01 00:00:00.400000000".to_string()));
+        assert!(rows.iter().all(|r| r.cfee.fill.is_none()));
+        // A charge before its booking day keeps the booking instant; an unmatched fee charged on its day moves to the charge.
+        let rows = placed(vec![timed(1, "0.0001", None, "2026-10-05", "2026-10-03T10:00:00Z")]);
+        assert_eq!(at(&rows, 1), "2026-10-05 00:00:00.000000000");
+        let rows = placed(vec![timed(1, "0.0001", None, "2026-10-05", "2026-10-05T10:00:00.250Z")]);
+        assert_eq!(at(&rows, 1), "2026-10-05 10:00:00.250000000");
+    }
+
+    /// A matched fee at its fill's instant takes its fill's place, before a sale the fill precedes; with its fill out of the
+    /// slice (a borrowed filter, the tax scope) it is the last of its instant, as a standalone fee; a legacy fee keeps v2's.
+    #[test]
+    fn a_matched_fee_takes_its_fills_place() {
+        let t = "2026-10-01 10:00:00";
+        let mut fee = timed(1, "0.1", Some("100"), "2026-10-01", "2026-10-01T10:00:01Z");
+        (fee.at, fee.cfee.fill) = (At::from_sql(t).unwrap(), Some(2));
+        let rows = vec![fill(3, Kind::Sell, "1", "100", t), fee.clone(), fill(2, Kind::Buy, "1", "100", t)];
+        assert_eq!(ids(&ordered(rows.clone())), [2, 1, 3]);
+        assert_eq!(ids(&ordered(rows.into_iter().filter(|r| r.id != 2).collect())), [3, 1]);
+        let legacy = Stored { cfee: Cfee { fee: true, ..Cfee::default() }, ..stored(1, Kind::Fee, None, t) };
+        assert_eq!(ids(&ordered(vec![fill(3, Kind::Sell, "1", "100", t), legacy, fill(2, Kind::Buy, "1", "100", t)])), [1, 2, 3]);
+    }
+
+    /// A timed fee's own price: dollars on a USD, USDT or USDC pair of its coin; none on a coin-quoted pair, for a
+    /// stablecoin's own fee (cash at face), at no price, or an unreadable one. A legacy fee's fills priced at nothing
+    /// price no fee.
+    #[test]
+    fn a_timed_fees_raw_price_is_dollars_only() {
+        let raw = |symbol: &str, price: serde_json::Value| serde_json::json!({ "activity_type": "CFEE", "symbol": symbol, "price": price });
+        assert_eq!(raw_price("BTC", &raw("BTCUSD", "84674.02".into())), Some(dec("84674.02")));
+        assert_eq!(raw_price("BTC", &raw("BTC/USDC", "1".into())), Some(dec("1")));
+        for (base, symbol, price) in [("ETH", "ETHBTC", "0.03"), ("USDC", "USDCUSD", "0.98"), ("BTC", "BTCUSD", "0"), ("BTC", "BTCUSD", "n/a"), ("BTC", "BTCEUR", "1")] {
+            assert_eq!(raw_price(base, &raw(symbol, price.into())), None, "{symbol} {price}");
+        }
+        assert_eq!(charged(&serde_json::json!({ "activity_type": "CFEE" })), None, "a legacy fee");
+        assert_eq!(charged(&serde_json::json!({ "activity_type": "FILL", "created_at": "2026-10-01T10:00:00Z" })), None);
+        assert_eq!(charged(&serde_json::json!({ "activity_type": "CFEE", "created_at": "2026-10-01T10:00:00Z" })).map(|a| a.0 % 1_000_000_000), Some(999_999_999));
+        let (a, b) = (fill(1, Kind::Buy, "1", "100", "2026-10-01 10:00:00"), fill(2, Kind::Buy, "1", "0", "2026-10-01 11:00:00"));
+        assert_eq!(fill_price(&[&a, &b]).unwrap(), None);
+        assert_eq!(fill_price(&[&a]).unwrap().map(|p| p.0.to_s_f()), Some("100.0".to_string()));
+    }
+
+    /// The legacy reading is for a fee without `created_at` only: a timed fee with a buy the day before is not its fill,
+    /// and is priced at nothing of that buy's.
+    #[test]
+    fn a_timed_fee_takes_no_previous_day_fill() {
+        let mut rows = vec![fill(1, Kind::Buy, "1", "90", "2026-09-30 10:00:00"), timed(2, "0.001", Some("100"), "2026-10-01", "2026-10-01T10:00:00Z")];
+        let legacy = Stored { cfee: Cfee { fee: true, ..Cfee::default() }, ..timed(3, "0.001", None, "2026-10-01", "2026-10-01T10:00:00Z") };
+        rows.push(legacy);
+        place_cfees(&mut rows).unwrap();
+        price_cfees(&mut rows).unwrap();
+        assert_eq!(cfee_places(&rows).into_iter().map(|(i, f)| (rows[i].id, f.into_iter().map(|j| rows[j].id).collect::<Vec<_>>())).collect::<Vec<_>>(), [(3, vec![1])]);
+        let fee = rows.iter().find(|r| r.id == 2).unwrap();
+        assert_eq!((fee.cfee.fill, fee.cfee.fill_price.clone(), fee.cfee.raw_price.clone()), (None, None, Some(dec("100"))));
     }
 }

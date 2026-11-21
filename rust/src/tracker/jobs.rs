@@ -293,7 +293,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
                 crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?;
                 backfill::mark_calculated(c, cipher, user_id, now)?;
                 // No history to sweep: nothing in it went unpriced.
-                super::unpriced::store(c, user_id, &super::unpriced::ByVenue::new(), now)?;
+                super::unpriced::store(c, user_id, &super::unpriced::ByVenue::new(), &super::unpriced::ByVenue::new(), now)?;
                 tx.commit()?;
                 Ok(None)
             }

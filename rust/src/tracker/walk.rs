@@ -275,6 +275,8 @@ fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &s
     }
     if let Some(v) = leg.and_then(|l| l.fiat_value.clone()) { return Ok(v); }
     if let Some(price) = &t.stated { return ps.convert_fiat(&(price * &t.amount)?, "USD", currency, t.at); }
+    // D-TAX-CFEE-MATCHED-FILL: a timed Alpaca CFEE at Alpaca's own price of it, in dollars.
+    if let Some(price) = &t.cfee.raw_price { return ps.convert_fiat(&(price * &t.amount)?, "USD", currency, t.at); }
     // D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE at what its fills were traded at.
     if let Some((price, unit)) = &t.cfee.fill_price { return ps.convert_fiat(&(price * &t.amount)?, unit, currency, t.at); }
     let price = ps.price_at_recorded(&t.base, currency, t.at, Some(&t.venue), t.base_asset.as_ref())?;
@@ -338,7 +340,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
     ps.record(stored);
     let legs = cash_leg_context(stored, ps, currency)?;
     // `(done.to_f / total * 21).to_i`
-    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()) || t.cfee.fill_price.is_some(), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
+    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()) || t.cfee.fill_price.is_some() || t.cfee.raw_price.is_some(), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
     let total = stored.len();
     let links: HashMap<i64, i64> = stored.iter().filter_map(|t| t.linked_to.map(|d| (t.id, d))).collect();
     let linked_deposits: HashSet<i64> = links.values().copied().collect();
@@ -1827,6 +1829,64 @@ mod tests {
     fn sales(rows: Vec<Stored>) -> Vec<BotSale> { walked_with(rows, &[], &Default::default()).bot_sales }
     fn sale(order: i64, at: &str, amount: &str, quote: &str, cost: &str, known: bool) -> BotSale {
         BotSale { order, at: At::from_sql(at).unwrap(), amount: d(amount), quote: quote.into(), cost: d(cost), known }
+    }
+
+    // D-TAX-CFEE-MATCHED-FILL: timed Alpaca CFEEs, placed as `load_all` places them.
+    fn crypto(id: i64, kind: Kind, amount: &str, price: &str, at: &str) -> Stored {
+        Stored { cfee: crate::tracker::rows::Cfee { price: Some(d(price)), symbol: Some("BTC/USD".into()), ..Default::default() },
+                 ..trade(id, "a", kind, amount, "USD", &(&d(amount) * &d(price)).unwrap().to_s_f(), at) }
+    }
+    fn timed(id: i64, base: &str, symbol: &str, amount: &str, price: Option<&str>, booked: &str, created: &str) -> Stored {
+        use crate::tracker::rows;
+        let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": created, "symbol": symbol, "price": price });
+        Stored { cfee: rows::Cfee { fee: true, charged: rows::charged(&raw), price: price.map(d), symbol: Some(symbol.into()), raw_price: rows::raw_price(base, &raw), ..Default::default() },
+                 ..st(id, "a", Kind::Fee, base, amount, &format!("{booked} 00:00:00")) }
+    }
+    fn btc_fee(id: i64, amount: &str, price: Option<&str>, booked: &str, created: &str) -> Stored { timed(id, "BTC", "BTCUSD", amount, price, booked, created) }
+    fn placed(mut rows: Vec<Stored>) -> Vec<Stored> { crate::tracker::rows::place_cfees(&mut rows).unwrap(); rows }
+    fn opens_nothing(w: &Walked) { assert!(w.terms.iter().all(|t| t.opens.is_none() && t.complete) && w.whole.openings.is_empty(), "{:?}", w.terms); }
+
+    /// The report's shape, anonymised: each fee booked at 00:00 of its day (one for a Saturday buy booked Monday), charged
+    /// seconds after its buy. Walked as placed: no opening, every term complete, the coin never below zero.
+    #[test]
+    fn a_timed_cfee_opens_nothing_before_its_fill() {
+        let rows = placed(vec![btc_fee(1, "0.00000029", Some("84674.02"), "2026-09-21", "2026-09-21T23:08:55Z"), crypto(2, Kind::Buy, "0.0001", "84673.9", "2026-09-21 23:08:50"),
+                               crypto(3, Kind::Buy, "0.0001", "60000", "2026-09-19 15:00:00"), btc_fee(4, "0.0000002", Some("60000"), "2026-09-21", "2026-09-19T15:00:04Z")]);
+        let w = walked_with(rows, &[], &Default::default());
+        opens_nothing(&w);
+        assert_eq!(w.whole.positions.iter().find(|p| p.symbol == "BTC").unwrap().quantity.to_s_f(), "0.00019951");
+        // Fees disputing one fill at its own instant: standalone, after it, still nothing opened.
+        let rows = placed(vec![btc_fee(1, "0.0001", Some("100"), "2026-09-21", "2026-09-21T00:00:00.400Z"), btc_fee(2, "0.0001", Some("100"), "2026-09-21", "2026-09-21T00:00:00.400Z"),
+                               crypto(3, Kind::Buy, "0.01", "100", "2026-09-21 00:00:00.400")]);
+        opens_nothing(&walked_with(rows, &[], &Default::default()));
+    }
+
+    /// A matched fee at its buy's instant is walked right after it, before a sale at that instant: the fee takes 0.1 of the
+    /// $10 lot (FIFO) and the sale 0.9 of it and 0.1 of the $100 lot, $19 (the fee last at the instant: $10).
+    #[test]
+    fn a_matched_fee_is_walked_where_its_fill_is() {
+        let t = "2026-09-02 10:00:00";
+        let rows = placed(vec![trade(4, "a", Kind::Buy, "1", "USD", "10", D1), crypto(2, Kind::Buy, "1", "100", t), sold(3, 7, "1", "USD", "200", t),
+                               btc_fee(1, "0.1", Some("100"), "2026-09-02", "2026-09-02T10:00:01Z")]);
+        assert_eq!(rows.iter().find(|r| r.id == 1).unwrap().cfee.fill, Some(2));
+        assert_eq!(sales(rows).iter().map(|s| s.cost.to_s_f()).collect::<Vec<_>>(), ["19.0"]);
+    }
+
+    /// A timed fee's value: a stated price, else Alpaca's price on a dollar pair (no daily close asked), else the daily
+    /// close; a coin-quoted pair's price is not dollars.
+    #[test]
+    fn a_timed_fee_is_worth_alpacas_price_of_it() {
+        let (r, fx) = (crate::tracker::prices::Reference::default(), crate::tracker::fx::FxTable::default());
+        let value = |t: &Stored| {
+            let mut none = crate::tracker::prices::Unfetched;
+            let mut ps = PriceService::new(&r, &fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut none);
+            let v = fiat_value(t, None, &mut ps, "USD").unwrap();
+            (v.to_s_f(), ps.warnings.is_empty())
+        };
+        let fee = btc_fee(1, "0.001", Some("84674.02"), "2026-09-21", "2026-09-21T10:00:00Z");
+        assert_eq!(value(&fee), ("84.67402".to_string(), true));
+        assert_eq!(value(&Stored { stated: Some(d("50000")), ..fee }), ("50.0".to_string(), true));
+        assert_eq!(value(&timed(1, "ETH", "ETHBTC", "0.01", Some("0.03"), "2026-09-21", "2026-09-21T10:00:00Z")), ("0.0".to_string(), false), "the daily close, none here");
     }
 
     /// Stored row `id` of account `account` on exchange `venue`.

@@ -558,6 +558,7 @@ it:
             missing: "Nessun prezzo di mercato per %{assets} su %{venue}."
             missing_anywhere: "Nessun prezzo di mercato per %{assets}."
             chart_missing: "Il grafico non mostra il valore di mercato di %{assets} su %{venue} nei giorni senza prezzo."
+            opening_unknown: "Il valore iniziale di %{assets} su %{venue} è sconosciuto."
             chart_incomplete: "Alcuni giorni del grafico sono incompleti."
             connect_coingecko: "Collega un account CoinGecko gratuito per ottenere i prezzi di mercato."
         sync: 'Sincronizza'

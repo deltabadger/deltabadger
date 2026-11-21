@@ -392,3 +392,44 @@ fn poland_and_the_wealth_reports_keep_a_cfee_a_row_of_its_own() {
     assert_eq!(report(&s, &tables, "NL"), report(&s, &plain, "NL"));
     assert!(report(&s, &tables, "PL").contains("0.0025"));
 }
+
+/// D-TAX-CFEE-MATCHED-FILL: a CFEE whose raw `created_at` says when it was charged, and the fills' raw prices.
+fn timed_cfee(tables: &mut Value, fee: i64, created: &str, price: &str, fills: &[(i64, &str)]) {
+    set(tables, fee, "raw_data", json!(json!({"activity_type": "CFEE", "created_at": created, "symbol": "BTCUSD", "price": price}).to_string()));
+    for (id, price) in fills { set(tables, *id, "raw_data", json!(json!({"activity_type": "FILL", "symbol": "BTC/USD", "price": price}).to_string())); }
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: a timed fee booked at 00:00 of its fill's day folds into that fill: the file 2.x wrote with
+/// the fee on its day (a sale), and the one reviewed for it (Italy's pre-2023 fold into the buy).
+#[test]
+fn a_timed_cfee_folds_into_its_matched_fill() {
+    let s = scenario("cfee_into_a_sale");
+    let mut tables = s["tables"].clone();
+    timed_cfee(&mut tables, 3, "2026-01-06T10:00:03Z", "600", &[(1, "100"), (2, "600")]);
+    let Outcome::Csv(want) = v2(&s) else { panic!() };
+    assert_eq!(report(&s, &tables, "US"), want);
+    let s = scenario("it_pre2023_cfee");
+    let mut tables = s["tables"].clone();
+    timed_cfee(&mut tables, 2, "2022-06-01T15:00:04Z", "10500", &[(1, "10500")]);
+    let want = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tax_cfee_day_of/it_pre2023_cfee.csv")).unwrap();
+    assert_eq!(report(&s, &tables, "IT"), want);
+}
+
+/// D-TAX-CFEE-MATCHED-FILL (GB): a timed fee is the expense of its one fill: the purchase the 30-day rule matches carries
+/// the whole fee, 9,996 pounds of cost (pro rata over the day's two purchases: 9,898). Booked four days late, the fee
+/// still revises the disposal while the provisional note is shown: through 10 May (5 April + 36 days), not on 11 May.
+#[test]
+fn a_timed_cfee_is_its_fills_expense_and_the_note_waits_for_its_booking() {
+    let s = scenario("gb_cfee_lookahead_end");
+    let mut tables = s["tables"].clone();
+    timed_cfee(&mut tables, 5, "2025-05-05T12:00:03Z", "25882.36", &[(6, "25882.36"), (7, "25882.36")]);
+    assert!(report(&s, &tables, "GB").contains(",BTC,0.49,15000.0,9996.0,"), "{}", report(&s, &tables, "GB"));
+    set(&mut tables, 5, "transacted_at", json!("2025-05-09 00:00:00"));
+    let c = install(&tables);
+    for (today, shown) in [("2025-05-10", true), ("2025-05-11", false)] {
+        let today = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").unwrap();
+        let Outcome::Csv(csv) = crypto_report(&c, s["user_id"].as_i64().unwrap(), "GB", 2024, false, today).unwrap() else { panic!() };
+        assert_eq!(csv.contains("BTC 2025-04-05"), shown, "{today}: {csv}");
+        assert!(csv.contains(",BTC,0.49,15000.0,9996.0,"), "{today}: {csv}");
+    }
+}

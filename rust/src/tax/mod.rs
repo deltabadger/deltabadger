@@ -9,6 +9,8 @@
 //!   which replaces 2.x's block of the Alpaca fees whose calendar day is ambiguous.
 //! - D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE dated D is the fee on the trades of the UTC day before (`fold_cfees`); 2.x
 //!   read day D, and only where the New York day agreed. It is worth what those trades were traded at (`rows::Cfee`).
+//! - D-TAX-CFEE-MATCHED-FILL: a CFEE that says when it was charged (raw `created_at`) is the fee of the one fill it was
+//!   charged on (`rows::cfee_matches`), worth Alpaca's price of it; a buy that cannot take a fee whole leaves it a row.
 //! - D-TAX-STABLE-CASH: where swaps are not taxable and the user treats stablecoins as fiat, a stablecoin row is cash
 //!   and reaches no engine (2.x sold the stablecoins again, at a zero basis, after the coin that bought them was sold).
 //! - D-TAX-COIN-QUOTE: a coin-for-coin trade booked as one row quoted in a coin is read as its two swap legs
@@ -1130,11 +1132,17 @@ fn sync_issues(c: &Connection, user_id: i64, locale: &str) -> Result<Vec<String>
 /// out, same proceeds), pro rata by amount, the last fill taking what is left; the fee's row leaves. The amounts the
 /// rows are valued on stay (`Cfee::folded` is what the walk moves). 2.x took the fee's own UTC day, and only when the
 /// New York day gave the same fills: a fee then went to the trades of the day after the right one, or to none.
+/// D-TAX-CFEE-MATCHED-FILL: a timed CFEE goes to its one fill (`Cfee::fill`), where the report has it. A fee a buy cannot
+/// take whole (it would leave the buy no units, or fewer than none) stays a row of its own; 2.x clamped the buy at zero.
 /// `expense` (SE, GB): the fee stays a row of its own (a coin paid as a fee is a disposal), and each fill carries its
 /// share of the fee's value as its expense instead. `folds(fee)`: whether this fee is attributed at all (IT: before 2023).
 fn fold_cfees(rows: &mut Vec<Stored>, expense: bool, folds: &dyn Fn(&Stored) -> bool) -> Result<(), FiguresError> {
+    let place: HashMap<i64, usize> = rows.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let mut places = rows::cfee_places(rows);
+    places.extend(rows.iter().enumerate().filter(|(_, r)| r.cfee.timed()).filter_map(|(i, r)| Some((i, vec![*place.get(&r.cfee.fill?)?]))));
+    places.sort_by_key(|(i, _)| *i);
     let mut gone = HashSet::new();
-    for (i, fills) in rows::cfee_places(rows) {
+    for (i, fills) in places {
         crate::figures::budget::check()?;
         let fee = &rows[i];
         if !(fee.amount.is_positive() && folds(fee)) { continue; }
@@ -1150,12 +1158,14 @@ fn fold_cfees(rows: &mut Vec<Stored>, expense: bool, folds: &dyn Fn(&Stored) -> 
             continue;
         }
         let mut left = fee.amount.clone();
+        let mut folded = Vec::with_capacity(fills.len());
         for (n, &j) in fills.iter().enumerate() {
             let share = if n == fills.len() - 1 { left.clone() } else { (&fee.amount * &weights[n])?.div(&total)? };
             left = (&left - &share)?;
-            let r = &mut rows[j];
-            r.cfee.folded = Some(if r.kind == Kind::Buy { let net = (&weights[n] - &share)?; if net.is_negative() { Dec::zero() } else { net } } else { (&weights[n] + &share)? });
+            folded.push(if rows[j].kind == Kind::Buy { (&weights[n] - &share)? } else { (&weights[n] + &share)? });
         }
+        if fills.iter().zip(&folded).any(|(&j, net)| rows[j].kind == Kind::Buy && !net.is_positive()) { continue; }
+        for (&j, net) in fills.iter().zip(folded) { rows[j].cfee.folded = Some(net); }
         gone.insert(fee.id);
     }
     rows.retain(|r| !gone.contains(&r.id));
@@ -1241,5 +1251,76 @@ mod tests {
         assert_eq!(disposals.len(), 1, "{csv}");
         // Quantity, then the cost: the 60,000 USD purchase at 1.08, not 11/21 of it.
         assert_eq!((disposals[0][2], disposals[0][3], disposals[0][5]), ("BTC", "1.0", "55555.56"), "{csv}");
+    }
+
+    // ---- D-TAX-CFEE-MATCHED-FILL: the fold ----
+    fn d(s: &str) -> Dec { Dec::strict(s).unwrap() }
+    fn btc(id: i64, kind: Kind, amount: &str, paid: Option<&str>, at: &str) -> Stored {
+        Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "BTC".into(), amount: d(amount), quote: paid.map(|_| "USD".into()), quote_amount: paid.map(d),
+                 fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql(at).unwrap(), per_share: None, stated: None, linked_to: None,
+                 to_venue: None, to_exchange_id: None, base_asset: None, bot_order: None, account: 1, to_account: None,
+                 cfee: rows::Cfee { price: paid.map(|p| d(p).div(&d(amount)).unwrap()), symbol: Some("BTC/USD".into()), ..Default::default() } }
+    }
+    fn legacy(id: i64, amount: &str, at: &str) -> Stored { Stored { cfee: rows::Cfee { fee: true, ..Default::default() }, ..btc(id, Kind::Fee, amount, None, at) } }
+    fn timed(id: i64, amount: &str, price: &str, booked: &str, created: &str) -> Stored {
+        let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": created, "symbol": "BTCUSD", "price": price });
+        Stored { cfee: rows::Cfee { fee: true, charged: rows::charged(&raw), price: Some(d(price)), symbol: Some("BTCUSD".into()), raw_price: rows::raw_price("BTC", &raw), ..Default::default() },
+                 ..btc(id, Kind::Fee, amount, None, &format!("{booked} 00:00:00")) }
+    }
+    fn folded(mut rows: Vec<Stored>, expense: bool) -> Vec<Stored> {
+        rows::place_cfees(&mut rows).unwrap();
+        fold_cfees(&mut rows, expense, &|_| true).unwrap();
+        rows
+    }
+    /// Each row left: id, the amount it is walked on, its quote, and how many fees it carries as its expense.
+    fn left(rows: &[Stored]) -> Vec<(i64, String, Option<String>, usize)> {
+        rows.iter().map(|r| (r.id, r.cfee.folded.clone().unwrap_or_else(|| r.amount.clone()).to_s_f(), r.quote_amount.as_ref().map(Dec::to_s_f), r.cfee.expenses.len())).collect()
+    }
+    fn row(id: i64, amount: &str, quote: Option<&str>, expenses: usize) -> (i64, String, Option<String>, usize) { (id, amount.into(), quote.map(String::from), expenses) }
+
+    /// A legacy and a timed fee on one buy, in either order: both leave it, 0.97 BTC for its 100 dollars. A fee that would
+    /// leave the buy nothing (or less) stays a row of its own, and the buy keeps what it had.
+    #[test]
+    fn a_buy_takes_a_legacy_and_a_timed_fee_whole_or_not_at_all() {
+        let timed_first = folded(vec![btc(1, Kind::Buy, "1", Some("100"), "2026-03-02 10:00:00"), timed(2, "0.02", "100", "2026-03-02", "2026-03-02T10:00:02Z"),
+                                      legacy(3, "0.01", "2026-03-03 00:00:00")], false);
+        let legacy_first = folded(vec![btc(1, Kind::Buy, "1", Some("100"), "2026-03-07 10:00:00"), legacy(3, "0.01", "2026-03-08 00:00:00"),
+                                       timed(2, "0.02", "100", "2026-03-09", "2026-03-07T10:00:02Z")], false);
+        for rows in [timed_first, legacy_first] { assert_eq!(left(&rows), [row(1, "0.97", Some("100.0"), 0)]); }
+        let rows = folded(vec![btc(1, Kind::Buy, "0.025", Some("2.5"), "2026-03-02 10:00:00"), timed(2, "0.02", "100", "2026-03-02", "2026-03-02T10:00:02Z"),
+                               legacy(3, "0.01", "2026-03-03 00:00:00")], false);
+        assert_eq!(left(&rows), [row(1, "0.005", Some("2.5"), 0), row(3, "0.01", None, 0)]);
+        let rows = folded(vec![btc(1, Kind::Buy, "0.02", Some("2"), "2026-03-02 10:00:00"), timed(2, "0.02", "100", "2026-03-02", "2026-03-02T10:00:02Z")], false);
+        assert_eq!(left(&rows), [row(1, "0.02", Some("2.0"), 0), row(2, "0.02", None, 0)], "matched for its time, a row of its own in tax");
+    }
+
+    /// A sale takes a fee larger than itself: a legacy 0.02 BTC fee on a 0.01 BTC sale of the day before disposes of 0.03
+    /// BTC for the sale's proceeds; SE and GB keep the fee a row and the sale carries it as its expense.
+    #[test]
+    fn a_sale_takes_a_fee_larger_than_itself() {
+        let rows = || vec![btc(1, Kind::Buy, "1", Some("100"), "2026-03-01 10:00:00"), btc(2, Kind::Sell, "0.01", Some("5"), "2026-03-02 10:00:00"), legacy(3, "0.02", "2026-03-03 00:00:00")];
+        assert_eq!(left(&folded(rows(), false)), [row(1, "1.0", Some("100.0"), 0), row(2, "0.03", Some("5.0"), 0)]);
+        assert_eq!(left(&folded(rows(), true)), [row(1, "1.0", Some("100.0"), 0), row(2, "0.01", Some("5.0"), 1), row(3, "0.02", None, 0)]);
+    }
+
+    /// SE and GB: a timed fee is the expense of its one fill, not of the day's others.
+    #[test]
+    fn a_timed_fee_is_the_expense_of_its_fill_only() {
+        let rows = folded(vec![btc(1, Kind::Buy, "0.5", Some("50"), "2026-03-02 10:00:00"), btc(2, Kind::Buy, "0.5", Some("51"), "2026-03-02 23:00:00"),
+                               timed(3, "0.001", "100", "2026-03-02", "2026-03-02T10:00:03Z")], true);
+        assert_eq!(left(&rows), [row(1, "0.5", Some("50.0"), 1), row(3, "0.001", None, 0), row(2, "0.5", Some("51.0"), 0)]);
+    }
+
+    /// A legacy fee on the day after a coin sale and a buy of the BTC security: the security is out of the crypto report
+    /// before the fold, so the fee goes to the coin's sale, as before.
+    #[test]
+    fn a_legacy_fee_beside_a_securitys_buy_folds_into_the_coins_sale() {
+        let c = shared_symbol();
+        c.execute_batch("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, base_asset_id, transacted_at, raw_data, created_at, updated_at) VALUES
+            (1, 1, 0, 'BTC', 5, 'USD', 150, 1, '2025-04-01 11:00:00', '{}', '2026-01-01', '2026-01-01'),
+            (1, 1, 10, 'BTC', 0.001, NULL, NULL, 2, '2025-04-02 00:00:00', '{\"activity_type\":\"CFEE\"}', '2026-01-01', '2026-01-01');").unwrap();
+        let Prepared::Report(report) = prepare(&c, 1, "DE", 2025, false).unwrap() else { panic!("refused") };
+        assert_eq!(report.scoped.iter().map(|r| (r.kind, r.cfee.folded.clone().unwrap_or_else(|| r.amount.clone()).to_s_f())).collect::<Vec<_>>(),
+                   [(Kind::Buy, "1.0".to_string()), (Kind::Sell, "1.001".to_string())]);
     }
 }

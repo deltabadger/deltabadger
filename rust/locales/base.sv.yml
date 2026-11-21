@@ -560,6 +560,7 @@ sv:
             missing: "Inget marknadspris för %{assets} på %{venue}."
             missing_anywhere: "Inget marknadspris för %{assets}."
             chart_missing: "Diagrammet visar inte marknadsvärdet för %{assets} på %{venue} för dagar utan pris."
+            opening_unknown: "Startvärdet för %{assets} på %{venue} är okänt."
             chart_incomplete: "Vissa dagar i diagrammet är ofullständiga."
             connect_coingecko: "Anslut ett gratis CoinGecko-konto för att få marknadspriser."
         sync: 'Synka'

@@ -560,6 +560,7 @@ el:
             missing: "Δεν υπάρχει τιμή αγοράς για %{assets} στο %{venue}."
             missing_anywhere: "Δεν υπάρχει τιμή αγοράς για %{assets}."
             chart_missing: "Το γράφημα δεν δείχνει την αγοραία αξία των %{assets} στο %{venue} για ημέρες χωρίς τιμή."
+            opening_unknown: "Η αρχική αξία των %{assets} στο %{venue} είναι άγνωστη."
             chart_incomplete: "Ορισμένες ημέρες στο γράφημα είναι ελλιπείς."
             connect_coingecko: "Σύνδεσε έναν δωρεάν λογαριασμό CoinGecko για να λαμβάνεις τιμές αγοράς."
         sync: 'Συγχρονισμός'

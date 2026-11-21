@@ -15,10 +15,12 @@ const TTL_DAYS: i64 = 30;
 /// funds, a swap-in's fee joins its lots once; 6: an Alpaca CFEE is valued at its fills' price, D-TAX-CFEE-PREVIOUS-DAY;
 /// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS; 8: a security's corporate
 /// action never restates a coin's lots under the symbol they share, #1061; 9: each scope's summary is an account's, keyed by
-/// account id, #710 slice 5).
-const SCHEMA: u64 = 9;
+/// account id, #710 slice 5; 10: a timed Alpaca CFEE stands after its one fill at Alpaca's price, and a fill quoted at
+/// nothing prices no fee, D-TAX-CFEE-MATCHED-FILL).
+const SCHEMA: u64 = 10;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
-const SALES_SCHEMA: u64 = 1;
+/// The bot sales' calculation (2: a timed Alpaca CFEE takes its fill's place, so a sale's basis moves, D-TAX-CFEE-MATCHED-FILL).
+const SALES_SCHEMA: u64 = 2;
 const MAX_SALES: usize = 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
@@ -282,7 +284,7 @@ mod tests {
         // Another owner's key holding this owner's row: refused by the owner check, not for want of a row.
         app_config::set_plain(&c,&sales_key(2),&good,now()).unwrap();
         assert!(matches!(bot_sales(&c,2,now()).unwrap(),Sales::Cold));
-        for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace("\"schema\":1","\"schema\":2")] {
+        for bad in ["not json".to_string(),good.replace("\"sales\":[[","\"sales\":[[1,"),good.replace(&format!("\"schema\":{SALES_SCHEMA}"),&format!("\"schema\":{}",SALES_SCHEMA-1))] {
             app_config::set_plain(&c,&sales_key(1),&bad,now()).unwrap();assert!(matches!(sales(&c),Sales::Cold));
         }
         app_config::set_plain(&c,&sales_key(1),&good,now()).unwrap();assert!(matches!(sales(&c),Sales::Warm{..}));

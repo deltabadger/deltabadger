@@ -567,6 +567,7 @@ sk:
             missing: "Pre %{assets} na %{venue} nie je k dispozícii trhová cena."
             missing_anywhere: "Pre %{assets} nie je k dispozícii trhová cena."
             chart_missing: "Graf nezobrazuje trhovú hodnotu %{assets} na %{venue} v dňoch bez ceny."
+            opening_unknown: "Počiatočná hodnota %{assets} na %{venue} nie je známa."
             chart_incomplete: "Niektoré dni v grafe sú neúplné."
             connect_coingecko: "Pripoj bezplatný účet CoinGecko a získaj trhové ceny."
         sync: 'Synchronizovať'

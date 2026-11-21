@@ -28,8 +28,9 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// a non-cash sale's own fee leaves (D-TRACKER-HISTORY-SELL-FEE). 3: the sweep records what it could not price
 /// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
 /// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK). 5: a security's corporate action
-/// never restates a coin's lots under the symbol they share (#1061).
-pub const CALCULATION: &str = "5";
+/// never restates a coin's lots under the symbol they share (#1061). 6: a timed Alpaca CFEE stands after its fill and an
+/// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL).
+pub const CALCULATION: &str = "6";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
 pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
@@ -288,8 +289,8 @@ pub fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<Pri
 
 /// A sweep's output: every day's whole-account row, and each account's rows once its history has begun (account id; an
 /// account with no row yet, minus its exchange id: `store` makes the row). `unpriced` (Rust only): per account, the
-/// symbols held on some swept day with no price that day.
-pub struct Swept { pub whole: Vec<(NaiveDate, Day)>, pub venue: Vec<(i64, NaiveDate, Day)>, pub unpriced: super::unpriced::ByVenue }
+/// symbols held on some swept day with no price that day; `openings`, the symbols whose opening had no value.
+pub struct Swept { pub whole: Vec<(NaiveDate, Day)>, pub venue: Vec<(i64, NaiveDate, Day)>, pub unpriced: super::unpriced::ByVenue, pub openings: super::unpriced::ByVenue }
 
 /// Quantities per location (an account, `walk::location`), by symbol.
 type Held = BTreeMap<String, BTreeMap<String, Dec>>;
@@ -332,7 +333,7 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
     let mut invested: BTreeMap<String, Dec> = BTreeMap::new();
     let mut incomplete: HashMap<String, bool> = HashMap::new();
     let (mut next_row, mut next_term) = (0usize, 0usize);
-    let mut out = Swept { whole: vec![], venue: vec![], unpriced: BTreeMap::new() };
+    let mut out = Swept { whole: vec![], venue: vec![], unpriced: BTreeMap::new(), openings: BTreeMap::new() };
     let mut day = first;
     while day <= last {
         crate::figures::budget::check()?;
@@ -364,7 +365,11 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
             next_term += 1;
             let v = invested.entry(term.exchange.clone()).or_insert_with(Dec::zero);
             *v = (&*v + &term.amount)?;
-            if !term.complete { incomplete.insert(term.exchange.clone(), true); }
+            if !term.complete {
+                incomplete.insert(term.exchange.clone(), true);
+                // D-TAX-CFEE-MATCHED-FILL: an opening with no value is named, by its account.
+                if let (Some((symbol, _)), Ok(id)) = (&term.opens, term.exchange.parse::<i64>()) { out.openings.entry(id).or_default().insert(symbol.clone()); }
+            }
             if let Some((symbol, quantity)) = &term.opens { add(&mut held, &term.exchange, symbol, quantity)?; }
         }
         let venues: std::collections::BTreeSet<&String> = held.keys().chain(invested.keys()).collect();
@@ -464,14 +469,25 @@ pub fn store(c: &crate::engine::model::FencedTransaction<'_>, cipher: &Cipher, u
         "INSERT INTO exchange_account_snapshots (user_id, exchange_id, date, value_usd, invested_usd, held_value_usd, held_cost_usd, partial, created_at, updated_at, account_id) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'), ?9) ON CONFLICT DO NOTHING")?;
     let mut accounts: HashMap<i64, crate::identity::AccountRow> = HashMap::new();
+    let mut place = |account: i64| -> Result<crate::identity::AccountRow, FiguresError> {
+        Ok(match accounts.get(&account) { Some(a) => *a, None => { let a = super::snapshot::placed(c, user_id, account, now)?; accounts.insert(account, a); a } })
+    };
     for (account, date, day) in &swept.venue {
         crate::figures::budget::charge(1, 0)?;
-        let a = match accounts.get(account) { Some(a) => *a, None => { let a = super::snapshot::placed(c, user_id, *account, now)?; accounts.insert(*account, a); a } };
+        let a = place(*account)?;
         let col = |d: &Option<Dec>| d.as_ref().map(super::snapshot::column).transpose();
         s.execute(rusqlite::params![a.user_id, a.exchange_id, date.to_string(), super::snapshot::column(&day.value)?, super::snapshot::column(&day.invested)?,
                                     col(&day.held_value)?, col(&day.held_cost)?, day.partial, a.id])?;
     }
-    super::unpriced::store(c, user_id, &swept.unpriced, now)?;
+    // Both records under the account each row was written for: a first sweep's stand-in (minus the exchange id) is the
+    // account `placed` made.
+    let mut placed = |m: &super::unpriced::ByVenue| -> Result<super::unpriced::ByVenue, FiguresError> {
+        let mut out = super::unpriced::ByVenue::new();
+        for (account, symbols) in m { out.entry(place(*account)?.id).or_default().extend(symbols.iter().cloned()); }
+        Ok(out)
+    };
+    let (unpriced, openings) = (placed(&swept.unpriced)?, placed(&swept.openings)?);
+    super::unpriced::store(c, user_id, &unpriced, &openings, now)?;
     crate::app_config::set(c, cipher, &history_key(user_id), version, now).map_err(FiguresError::Data)?;
     mark_calculated(c, cipher, user_id, now)?;
     crate::app_config::set(c, cipher, &price_key(user_id), &generation(c)?.to_string(), now).map_err(FiguresError::Data)
@@ -580,6 +596,35 @@ mod tests {
         assert_eq!(swept.unpriced, super::super::unpriced::ByVenue::from([(1, ["EUR".to_string()].into()), (2, ["DOGE".to_string()].into())]), "by account");
     }
 
+    /// D-TAX-CFEE-MATCHED-FILL: an opening the walk could not value is recorded by its account; a valued one, or a term
+    /// that opens nothing, is not.
+    #[test]
+    fn the_sweep_records_an_opening_it_could_not_value() {
+        let term = |complete: bool, opens: Option<&str>| super::super::walk::Term { at: At::from_sql("2026-09-02 10:00:00").unwrap(), amount: Dec::zero(), complete,
+                                                                                    opens: opens.map(|s| (s.to_string(), Dec::one())), exchange: "1".into(), received: false };
+        let terms = [term(false, Some("BTC")), term(true, Some("ETH")), term(false, None)];
+        let swept = sweep(&Plan::default(), &Prices::new(), &[bought("USD")], &terms, day("2026-09-02"), day("2026-09-02"), &super::super::fx::FxTable::default()).unwrap();
+        assert_eq!(swept.openings, super::super::unpriced::ByVenue::from([(1, ["BTC".to_string()].into())]));
+    }
+
+    /// D-TAX-CFEE-MATCHED-FILL: a fee booked Monday for a Saturday buy leaves Saturday's and Sunday's closing quantities as
+    /// they were (nothing moves across days); Monday's is the buy less the fee.
+    #[test]
+    fn a_weekend_booked_fee_leaves_the_weekend_as_it_was() {
+        let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": "2026-09-05T15:00:04Z", "symbol": "BTCUSD", "price": "1" });
+        let fee = Stored { cfee: super::super::rows::Cfee { fee: true, charged: super::super::rows::charged(&raw), price: Some(Dec::one()), symbol: Some("BTCUSD".into()),
+                                                            raw_price: super::super::rows::raw_price("BTC", &raw), ..Default::default() },
+                           ..leg(2, "alpaca", Kind::Fee, "BTC", "0.25", "2026-09-07 00:00:00") };
+        let buy = Stored { cfee: super::super::rows::Cfee { price: Some(Dec::one()), symbol: Some("BTC/USD".into()), ..Default::default() }, at: At::from_sql("2026-09-05 15:00:00").unwrap(), ..bought("BTC") };
+        let mut rows = vec![buy, fee];
+        super::super::rows::place_cfees(&mut rows).unwrap();
+        assert_eq!((rows[1].cfee.fill, rows[1].date()), (Some(1), day("2026-09-07")));
+        let plan = Plan { keys: HashMap::from([(("alpaca".to_string(), "BTC".to_string()), Some("BTC".to_string()))]), ..Plan::default() };
+        let prices: Prices = HashMap::from([("BTC".to_string(), (5..=7).map(|n| (day(&format!("2026-09-0{n}")), Dec::one())).collect())]);
+        let swept = sweep(&plan, &prices, &rows, &[], day("2026-09-05"), day("2026-09-07"), &super::super::fx::FxTable::default()).unwrap();
+        assert_eq!(swept.whole.iter().map(|(_, d)| d.held_value.as_ref().unwrap().to_s_f()).collect::<Vec<_>>(), ["1.0", "1.0", "0.75"]);
+    }
+
     /// §6 test 7 (#710 slice 5): an Alpaca account 2's stock is priced through the stock path (`stock:<symbol>`) as account
     /// 1's is, and its negative cash is owed to the broker (`LENDS_CASH`), not cash that was there.
     #[test]
@@ -630,6 +675,9 @@ mod tests {
         // #1061: a history swept before a security's corporate action stopped restating a coin's lots is swept again.
         crate::app_config::set(&c, &cipher, &calculation_key(1), "4", "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "the calculation before #1061");
+        // D-TAX-CFEE-MATCHED-FILL: a history swept before a timed CFEE stood after its fill is swept again, once.
+        crate::app_config::set(&c, &cipher, &calculation_key(1), "5", "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
+        assert!(wanted(&c, &cipher, 1, today).unwrap(), "the calculation before D-TAX-CFEE-MATCHED-FILL");
         mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),

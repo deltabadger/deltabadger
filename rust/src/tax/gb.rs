@@ -23,13 +23,18 @@ fn d(v: &str) -> Dec { Dec::strict(v).unwrap_or_else(|_| Dec::zero()) }
 fn max0(v: Dec) -> Dec { if v.is_negative() { Dec::zero() } else { v } }
 fn min(a: &Dec, b: &Dec) -> Dec { if a < b { a.clone() } else { b.clone() } }
 
+/// How long after a disposal's local day its result can still move: the 30-day purchase window (s. 106A(5)) and a booking
+/// allowance of up to 6 days, the lag Alpaca's crypto fee can be booked after the purchase it was charged on
+/// (D-TAX-CFEE-MATCHED-FILL; a fee booked later still revises the disposal, and a regenerated report shows it).
+const PROVISIONAL_DAYS: i64 = 36;
+
 /// The summary after the rows and the NOTE blocks at the file's end.
 pub(super) struct Year { pub summary: String, pub notes: String }
 
 /// D-TAX-GB-SA108 from the tax year's rows: a disposal is a coin's disposals of one local day (s. 105(1)(a)), its result
 /// the sum of its rows; the year's losses in full, then the annual exempt amount (s. 1(3), 1K(4)), off the 18/24% gains
-/// first in 2024/25. NOTE `gb_provisional` while a later purchase can still be matched (`today` up to the last
-/// disposal's local day + 32: the 30 days, and the two days the look-ahead reads past them for Alpaca's fees).
+/// first in 2024/25. NOTE `gb_provisional` while a later purchase can still be matched (`today` before the disposal's
+/// local day + `PROVISIONAL_DAYS`).
 pub(super) fn year(locale: &str, year: i32, results: &[Disposal], local: &dyn Fn(&Disposal) -> NaiveDate, today: NaiveDate) -> Result<Year, FiguresError> {
     let t = |k: &str| text(locale, &format!("tax_report.gb.{k}"), &[]);
     let rate_change = super::jurisdictions::ymd((2024, 10, 30));
@@ -85,14 +90,14 @@ pub(super) fn year(locale: &str, year: i32, results: &[Disposal], local: &dyn Fn
         if year < 2024 { line(&mut out, &[s(t("hint_before_2024"))]); }
     }
 
-    // A later purchase can still be matched: up to the disposal's local day + 32; listed with the first day it cannot.
+    // A later purchase can still be matched: before the disposal's local day + PROVISIONAL_DAYS; listed with the first day it cannot.
     let mut open: Vec<(String, NaiveDate)> = vec![];
     for r in results {
         let k = (r.asset.clone(), local(r));
         if !open.contains(&k) { open.push(k); }
     }
     let lines: Vec<Vec<Cell>> = open.into_iter().filter_map(|(asset, day)| {
-        let closed = day + chrono::Duration::days(33);
+        let closed = day + chrono::Duration::days(PROVISIONAL_DAYS);
         (today < closed).then(|| vec![s(format!("{asset} {}", day.format("%Y-%m-%d"))), s(closed.format("%Y-%m-%d").to_string())])
     }).collect();
     let mut notes = String::new();
@@ -126,15 +131,15 @@ mod tests {
         assert_eq!((tax_year(day("2025-04-05")), tax_year(day("2025-04-06")), tax_year(day("2026-01-01"))), (2024, 2025, 2025));
     }
 
-    /// r5: `gb_provisional` while today is up to the disposal's local day + 32: a disposal on 2026-04-01 → shown on
-    /// 2026-04-20 and 2026-05-03, not on 2026-05-04.
+    /// r5, D-TAX-CFEE-MATCHED-FILL: `gb_provisional` while today is before the disposal's local day + 36 (the 30 days and
+    /// Alpaca's booking allowance): a disposal on 2026-04-01 → shown on 2026-04-20 and 2026-05-06, not on 2026-05-07.
     #[test]
     fn the_provisional_note_follows_the_look_ahead() {
         let rows = [disposal("2026-04-01", "100")];
         let local = |r: &Disposal| r.at.utc().date_naive();
-        for (today, shown) in [("2026-04-20", true), ("2026-05-01", true), ("2026-05-03", true), ("2026-05-04", false)] {
+        for (today, shown) in [("2026-04-20", true), ("2026-05-01", true), ("2026-05-06", true), ("2026-05-07", false)] {
             let y = year("en", 2025, &rows, &local, day(today)).unwrap();
-            assert_eq!(y.notes.contains("2026-05-04"), shown, "{today}: {}", y.notes);
+            assert_eq!(y.notes.contains("2026-05-07"), shown, "{today}: {}", y.notes);
         }
     }
 
