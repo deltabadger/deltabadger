@@ -2015,9 +2015,11 @@ fn r4_4_the_kept_twin_takes_the_duplicates_asset_and_group() {
     refuses(c, &two, "a group a survivor row already uses");
 }
 
-/// 5: a duplicate's rows decide no asset class: the survivor's BTC crypto beside the duplicate's BTC equity is no ambiguity.
+/// 5, R18: classification reads a duplicate's rows too: its BTC equity beside the survivor's BTC coin is ambiguous.
 #[test]
 fn r4_5_a_duplicates_rows_decide_no_asset_class() {
+    // R18: classification reads every row, a duplicate's included (the same venue account): its BTC equity beside the
+    // survivor's BTC coin makes the name ambiguous, as on main.
     let (_d, o, two) = duplicate();
     let c = &o.primary;
     c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('BTC.US', 'BTC', 'BTC equity', 'Stock', 'now', 'now')", []).unwrap();
@@ -2025,10 +2027,8 @@ fn r4_5_a_duplicates_rows_decide_no_asset_class() {
     let s = two.row(c, 0, 4, "BTC", "1", Some("s-1"), None, "2026-09-01 10:00:00");
     let d = two.row(c, 1, 4, "BTC", "1", Some("d-1"), None, "2026-09-02 10:00:00");
     c.execute("UPDATE account_transactions SET base_asset_id = CASE id WHEN ?1 THEN ?3 ELSE ?4 END WHERE id IN (?1, ?2)", [s, d, two.seeded.btc, equity]).unwrap();
-    let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
-    let pending = [("BTC".to_string(), deltabadger::figures::dec::Dec::one())];
-    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::walk::Summary::empty(), &[], &pending, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
-    assert!(out.is_ok(), "{:?}", out.err());
+    let classes = deltabadger::figures::db::account_classes(c, two.seeded.user_id, &["BTC".to_string()]).unwrap();
+    assert!(classes.contains(&("BTC".to_string(), Some("Stock".to_string()))), "{classes:?}");
 }
 
 // ---- review round 5: the standing read fresh from several signals ----
@@ -3267,10 +3267,10 @@ fn r12_a_switched_bot_keeps_its_accounts_splits() {
     assert_eq!(rows.iter().map(|r| r.id).collect::<Vec<_>>(), [row]);
 }
 
-/// R12 #5, R13: the split's asset-class lookup leaves a duplicate's rows out: its row naming the symbol under another
-/// class is no ambiguity for the survivor's bot.
+/// R12 #5, R18: the split's asset-class lookup reads every account's rows, the duplicate's included.
 #[test]
 fn r12_the_class_lookup_reads_the_bots_accounts() {
+    // R18: classification reads every account's rows, a duplicate's included.
     let (_d, o) = install();
     let c = &o.primary;
     let kraken = Two::kraken(c, &seed::cipher());
@@ -3282,7 +3282,7 @@ fn r12_the_class_lookup_reads_the_bots_accounts() {
     two.fingerprint(c, 0, Some("fp"));
     two.fingerprint(c, 1, Some("fp"));
     let classes = deltabadger::figures::db::account_classes(c, two.seeded.user_id, &["BTC".to_string()]).unwrap();
-    assert_eq!(classes, [("BTC".to_string(), Some("Cryptocurrency".to_string()))]);
+    assert_eq!(classes, [("BTC".to_string(), Some("Cryptocurrency".to_string())), ("BTC".to_string(), Some("Currency".to_string()))]);
 }
 
 /// R12 #6: a blank group is no group, planning and writing alike: the kept twin's '' takes the duplicate's group.
@@ -3375,7 +3375,7 @@ fn r13_a_whitespace_group_takes_the_duplicates() {
     assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("usdt-leg"));
 }
 
-/// R13 #3: the split's asset-class lookup reads the user's whole ledger and balances, a duplicate's left out: an
+/// R13 #3: the split's asset-class lookup reads the user's whole ledger and balances: an
 /// asset-less Alpaca name that a Kraken row names as a coin stays ambiguous, as on main.
 #[test]
 fn r13_the_class_lookup_reads_every_account() {
@@ -3654,4 +3654,55 @@ fn r17_a_standing_change_clears_the_all_chart() {
     identity::write_status(c, two.keys[1], 2, "2026-09-21 10:00:00", true, false).unwrap();
     assert!(standings(c).is_empty());
     assert_eq!(points(c), 0, "the key event that ended it");
+}
+
+// ---- review round 18 ----
+
+/// R18 #2: classification reads every row, a duplicate's included: a stock's price key is the same with and without the
+/// standing, though the duplicate holds the only row recording a coin under its ticker.
+#[test]
+fn r18_classification_ignores_the_standing() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('ABC.US', 'ABC', 'ABC Inc', 'Stock', 'now', 'now')", []).unwrap();
+    let stock = c.last_insert_rowid();
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('abc-coin', 'ABC', 'ABC coin', 'Cryptocurrency', 'now', 'now')", []).unwrap();
+    let coin = c.last_insert_rowid();
+    for (n, asset) in [(0, stock), (1, coin)] {
+        let row = two.row(c, n, 0, "ABC", "1", Some(&format!("abc-{n}")), None, "2026-09-01 10:00:00");
+        c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [row, asset]).unwrap();
+    }
+    let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 8).unwrap();
+    let key = |c: &Connection| deltabadger::tracker::prices::row_price_key(c, two.seeded.user_id, two.seeded.exchange_id, "Exchanges::Alpaca", "ABC", None, day).unwrap();
+    let before = key(c);
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    assert_eq!(key(c), before);
+}
+
+/// R18 #1: creating the install's identity key the first time deletes no standing: a Kraken overlap standing survives.
+#[test]
+fn r18_the_first_identity_key_keeps_the_standings() {
+    let (_d, o, two) = entered();
+    let c = &o.primary;
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+}
+
+/// R18 #3: a moved row whose group the survivor already uses for another group is a conflict naming both: a restored swap
+/// on 1 and a later synced swap on 2 under one group id.
+#[test]
+fn r18_a_moved_rows_group_must_be_free() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    two.row(c, 0, 2, "BTC", "1", Some("r-1"), Some("g1"), "2026-09-01 10:00:00");
+    two.row(c, 0, 3, "USDT", "100", Some("r-2"), Some("g1"), "2026-09-01 10:00:00");
+    for (id, kind, cur, amount) in [("s-1", 2, "ETH", "1"), ("s-2", 3, "USDT", "50")] {
+        let row = two.row(c, 1, kind, cur, amount, Some(id), Some("g1"), "2026-09-10 10:00:00");
+        synced(c, row);
+    }
+    match merge_now(c, &two, two.id(1)) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
 }

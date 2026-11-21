@@ -173,6 +173,21 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     // Earn payment under two names); (c) S holds a row of its type and asset within ten minutes (Coinbase's legacy ids).
     // Whole seconds, so each boundary is exact.
     let secs = |x: &str| format!("CAST(strftime('%s', {x}.transacted_at) AS INTEGER)");
+    // A moved row's group: one the survivor already uses for its own rows would join two groups into one. A conflict
+    // naming both.
+    for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
+        let group: Option<String> = c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [row], |r| r.get(0))?;
+        let Some(group) = group.filter(|g| !g.trim().is_empty()) else { continue };
+        // The same group when one of D's rows in it is the twin of S's row in it (its legs then make one group).
+        let shared = twin.iter().any(|(dr, sr)| {
+            let g = |id: &i64| c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).ok().flatten();
+            g(dr).as_deref() == Some(group.as_str()) && g(sr).as_deref() == Some(group.as_str())
+        });
+        if shared { continue; }
+        let theirs: Option<i64> = c.query_row(&format!("SELECT a.id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND a.group_id = ?3 ORDER BY a.id LIMIT 1", ss.rows("a")),
+                                              params![ss.user_id, ss.exchange_id, group], |r| r.get(0)).optional()?;
+        if let Some(theirs) = theirs { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
+    }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let refused: bool = c.query_row(&format!("SELECT {} OR EXISTS(SELECT 1 FROM account_transactions s WHERE s.user_id = ?1 AND s.exchange_id = ?2 AND {} \
                                                     AND s.base_currency IS d.base_currency AND ((({}) AND abs({} - {}) <= 86400) \

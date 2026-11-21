@@ -267,9 +267,9 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
     for (symbol, _) in pending {
         // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
-        // A duplicate account's rows record no class here (#710, PLAN-710-6 §5.2).
-        let mut stmt = c.prepare(&format!("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
-                                  WHERE t.user_id = ?1 AND t.base_currency = ?2 AND {}", crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?))?;
+        // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
+        let mut stmt = c.prepare("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                                  WHERE t.user_id = ?1 AND t.base_currency = ?2")?;
         for category in stmt.query_map(rusqlite::params![user_id, symbol], |r| r.get::<_, Option<String>>(0))? {
             classes.entry(symbol).or_default().insert(class(category?));
         }

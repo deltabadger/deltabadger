@@ -193,8 +193,9 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     c.execute_batch("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL;
                      DELETE FROM exchange_account_credentials; DELETE FROM exchange_account_imports;").map_err(db)?;
     // Every known identity is gone: so are the standings that rested on them (every account's key event).
-    // Each standing user's whole-portfolio points go with the standings (`standing_changed`).
-    if standings_ready(c).map_err(db)? { c.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(db)?; }
+    // A real reset of an existing identity (a key stored but unreadable, or identities known without one): each standing
+    // user's whole-portfolio points go with the standings (`standing_changed`). The first key of an install resets nothing.
+    if (stored || accounts > 0) && standings_ready(c).map_err(db)? { c.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(db)?; }
     crate::app_config::delete(c, KEY_CONFIG)?;
     let bytes: [u8; 32] = rand::random();
     crate::app_config::set(c, cipher, KEY_CONFIG, &hex::encode(bytes), now)?;

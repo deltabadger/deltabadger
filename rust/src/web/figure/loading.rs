@@ -226,13 +226,12 @@ pub fn revision(c:&Connection,user:i64,now:chrono::DateTime<chrono::Utc>)->Resul
         // The ledger is read for its split rows (db::split_rows: every field of them) and for the assets its rows name
         // under each symbol (db::account_classes); a row edited in place into or out of either changes these.
         // #710: each split row's account too (a bot reads its accounts' rows, `splits::bot_rows`), and which accounts the
-        // bots and their orders are on; the classes and balances as `db::account_classes` reads them, a duplicate's out.
+        // bots and their orders are on; the classes and balances as `db::account_classes` reads them (every account's).
         (format!("SELECT a.id,a.exchange_id,a.base_currency,a.base_asset_id,a.raw_data,a.transacted_at,{} FROM account_transactions a WHERE a.user_id=?1 AND a.entry_type={} \
                   AND CASE WHEN json_valid(a.raw_data) THEN json_extract(a.raw_data,'$.corporate_action') END='split' ORDER BY a.id",
                  crate::venue_ids::Scope::install(c)?.member_sql("a"),crate::figures::db::ADJUSTMENT),"splits"),
-        (format!("SELECT DISTINCT t.base_currency,t.base_asset_id FROM account_transactions t WHERE t.user_id=?1 AND {} ORDER BY 1,2",
-                 crate::identity::counted(c,user,&crate::venue_ids::Scope::install(c)?.member_sql("t"))?),"ledger classes"),
-        (format!("SELECT DISTINCT b.asset_id FROM exchange_account_balances b WHERE b.user_id=?1 AND {} ORDER BY 1",crate::identity::counted(c,user,"b.account_id")?),"balances"),
+        ("SELECT DISTINCT base_currency,base_asset_id FROM account_transactions WHERE user_id=?1 ORDER BY 1,2".to_string(),"ledger classes"),
+        ("SELECT DISTINCT asset_id FROM exchange_account_balances WHERE user_id=?1 ORDER BY 1".to_string(),"balances"),
         (if memberships {format!("SELECT m.transaction_id,m.account_id FROM exchange_account_transactions m WHERE m.transaction_id IN (SELECT id FROM transactions WHERE bot_id IN ({bots})) ORDER BY 1")} else {"SELECT NULL WHERE ?1 IS NULL".into()},"order accounts"),
         (if memberships {format!("SELECT m.bot_id,m.account_id FROM exchange_account_bots m WHERE m.bot_id IN ({bots}) ORDER BY 1")} else {"SELECT NULL WHERE ?1 IS NULL".into()},"bot accounts"),
         // An index reads every tradable listing of its venue in its quote (db::tickers): their coarsest quote precision

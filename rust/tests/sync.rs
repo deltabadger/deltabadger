@@ -2460,3 +2460,28 @@ async fn a_balance_reads_time_is_when_its_answer_arrived() {
     let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
     assert_eq!(at, "2026-09-20 02:00:00");
 }
+
+/// A transport whose answers after the first take five minutes each (the clock moves before each later reply).
+#[derive(Clone)]
+struct Slow { inner: ScriptedTransport, clock: Rc<Cell<chrono::DateTime<chrono::Utc>>>, sent: Rc<Cell<usize>> }
+impl Transport for Slow {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if self.sent.get() > 0 { self.clock.set(self.clock.get() + chrono::Duration::minutes(5)); }
+        self.sent.set(self.sent.get() + 1);
+        self.inner.send(r).await
+    }
+}
+
+/// #710 R18 #5: a read of several requests is as old as its first answer (Alpaca's cash), not its last.
+#[tokio::test(flavor = "current_thread")]
+async fn a_multi_request_reads_time_is_its_first_answer() {
+    let (dir, db, s) = install();
+    let start: chrono::DateTime<chrono::Utc> = "2026-09-20T02:00:00Z".parse().unwrap();
+    let time = Rc::new(Cell::new(start));
+    let slow = Slow { inner: ScriptedTransport::from_script(&balances_script()), clock: time.clone(), sent: Rc::new(Cell::new(0)) };
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    balances::sync(&db, &AlpacaVenue::new(slow, Urls::for_passphrase(None)), &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
+    assert_eq!(at, "2026-09-20 02:00:00");
+}

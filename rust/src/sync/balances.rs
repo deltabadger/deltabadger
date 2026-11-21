@@ -313,7 +313,10 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
     // #get_balances: the account, then the positions. A failed request, or an answer that is not JSON, ends it there
     // (a failure the venue returned is its word on the key, `condemn`; a transport failure is not). Both answers are
     // then validated whole, the account first, as 2.x raises only once it uses them.
-    let cash = match venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await.value.map_err(venue_failure) {
+    let cash = venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await;
+    // The read's time: its first answer's (the cash), the earliest of its requests, before the quotes and prices.
+    let received = clock.now();
+    let cash = match cash.value.map_err(venue_failure) {
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, account).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
@@ -321,8 +324,6 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, balance_positions).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
-    // The read's time: when the venue's answer arrived, before the quotes and prices are looked up.
-    let received = clock.now();
     let (cash, held) = match (cash, held) {
         (Ok(cash), Ok(held)) => (cash, held),
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
@@ -691,12 +692,13 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
             Ok::<_, SyncError>(Err(Failure { error, raised: false }))
         }
     };
+    // The read's time: no later than its first answer (a read of several requests, KuCoin's mode then its balances, is as
+    // old as the earliest), before any price lookup; freshness and comparability read it.
+    let received = clock.now();
     let text = match read(exchange_type.clone()).await? {
         Ok(text) => text,
         Err(text) => return fail(read_by_key((venue.failure_text)(&text))).await,
     };
-    // The read's time: when the venue's answer arrived, before any price lookup (freshness and comparability read it).
-    let received = clock.now();
     let (asset_ids, held, record, kept) = (catalog.asset_ids.clone(), venue.held, venue.record, venue.kept);
     let read = tokio::task::spawn_blocking(move || {
         let _ = take_skipped();
@@ -1528,6 +1530,8 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
                            else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };
                 Ok((free, locked))
             };
+            // A coin listed twice in one answer: the later row stands, as on main; no complete read for the identity checks.
+            if found.contains_key(asset) { SKIPPED.with(|s| s.borrow_mut().push(row.value["coin"].as_str().unwrap_or("?").to_string())); }
             match amounts() { Ok(amounts) => { found.insert(*asset, amounts); }, Err(e) => return Ok(Err((e, vec![]))) }
         }
     }
@@ -1788,6 +1792,14 @@ mod skipped_tests {
         let _ = take_skipped();
         coinbase_held(r#"{"breakdown":{"spot_positions":[],"futures_positions":[{"product_id":"BIT-28NOV26"}],"perp_positions":[]}}"#, &names, &[1]).unwrap().unwrap();
         assert_eq!(take_skipped(), ["futures_positions"]);
+    }
+    /// R18 #4: two rows of one coin in one Bybit answer are no complete read (identity only).
+    #[test]
+    fn a_bybit_coin_listed_twice_is_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        bybit_held(r#"{"retCode":0,"result":{"list":[{"coin":[{"coin":"BTC","walletBalance":"1","locked":"0","spotBorrow":"0"},{"coin":"BTC","walletBalance":"2","locked":"0","spotBorrow":"0"}]}]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"]);
     }
     /// R10 #7: the trading readers' positions leave unsupported classes out; the balance read's carry them.
     #[test]
