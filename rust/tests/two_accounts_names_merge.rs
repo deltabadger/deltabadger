@@ -2880,16 +2880,18 @@ fn r9_reconsider_takes_the_write_lock() {
     assert!(identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).is_ok());
 }
 
-/// R9 #2: Merge gives the kept key the latest change marker of every key it deletes, so rows re-keyed to it never become
-/// evidence again.
+/// R9 #2, R11 #1: at Merge every kept key's change marker becomes the merge time: no row imported before the Merge is
+/// evidence for the merged account again.
 #[test]
 fn r9_the_kept_key_takes_the_deleted_keys_change_marker() {
     let (_d, o, two) = duplicate();
     let c = &o.primary;
     deltabadger::app_config::set_plain(c, &identity::credential_changed_key(two.keys[1]), "2026-10-01 00:00:00", chrono::Utc::now()).unwrap();
+    let before = now_text(-1);
     let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
     assert_eq!(merged.deleted_keys, [two.keys[1]]);
-    assert_eq!(deltabadger::app_config::get_plain(c, &identity::credential_changed_key(two.keys[0])).unwrap().as_deref(), Some("2026-10-01 00:00:00"));
+    let marker = deltabadger::app_config::get_plain(c, &identity::credential_changed_key(two.keys[0])).unwrap().unwrap();
+    assert!(marker >= before, "{marker} is the merge time");
 }
 
 /// A KuCoin pair (a venue whose keys report their account id), both accounts on fingerprint `fp`, entered.
@@ -3166,4 +3168,60 @@ fn r10_merge_keeps_the_deleted_keys_pending_splits() {
     let kept: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &format!("rust_sync.ledger_splits:{}", two.keys[0])).unwrap().unwrap()).unwrap();
     let symbols: Vec<&str> = kept["pending"].as_array().unwrap().iter().map(|o| o["symbol"].as_str().unwrap()).collect();
     assert_eq!(symbols, ["AAPL", "MSFT"]);
+}
+
+// ---- review round 11 ----
+
+/// R11 #3: a key that is not live cannot end a standing: its definite failure, or a read naming another account, is no
+/// key event and no contradiction.
+#[test]
+fn r11_a_key_that_is_not_live_cannot_end_a_standing() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = kucoin_observed(c);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'r', 'r', 2, 2, '2026-01-01', '2026-01-01')",
+              [two.seeded.user_id, two.seeded.exchange_id]).unwrap();
+    let spare = c.last_insert_rowid();
+    c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [spare, two.id(1)]).unwrap();
+    observe(c, spare, &identity::Observed::Failed("http 401".into()));
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    observe(c, spare, &identity::Observed::Read(identity::AccountId::parse("999").unwrap()));
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+}
+
+/// R11 #4: split reconciliation reads the bot's own account's ledger rows only: two accounts each importing the split
+/// (two real accounts, or a duplicate) leave each bot one report.
+#[test]
+fn r11_split_rows_are_the_bots_own_accounts() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    for n in 0..2 {
+        let row = two.row(c, n, 15, "BTC", "2", Some(&format!("split-{n}")), None, "2026-09-01 10:00:00");
+        c.execute("UPDATE account_transactions SET raw_data = '{\"corporate_action\":\"split\"}' WHERE id = ?1", [row]).unwrap();
+    }
+    let rows = |c: &Connection, bot: i64| deltabadger::figures::db::split_rows(c, two.seeded.user_id, &deltabadger::figures::splits::bot_rows(c, bot).unwrap(), &[two.seeded.exchange_id]).unwrap().len();
+    assert_eq!((rows(c, two.bots[0]), rows(c, two.bots[1])), (1, 1), "two real accounts");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    assert_eq!((rows(c, two.bots[0]), rows(c, two.bots[1])), (1, 1), "a duplicate");
+}
+
+/// R11 #6: Merge hands pending split restatements to the key that runs the merged account's ledger sync: the duplicate's
+/// read-only key held them, the survivor's trading key reads.
+#[test]
+fn r11_pending_splits_go_to_the_ledger_reading_key() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    c.execute("UPDATE api_keys SET key_type = 2 WHERE id = ?1", [two.keys[1]]).unwrap();
+    deltabadger::app_config::set_plain(c, &format!("rust_sync.ledger_splits:{}", two.keys[1]),
+        &serde_json::json!({"pending": [{"symbol": "MSFT", "exchange_id": two.seeded.exchange_id, "at": 1_900_000_000_000_000i64}]}).to_string(), chrono::Utc::now()).unwrap();
+    let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert!(merged.kept_keys.contains(&two.keys[1]), "the read-only key moves");
+    let of = |key: i64| deltabadger::app_config::get_plain(c, &format!("rust_sync.ledger_splits:{key}")).unwrap();
+    assert!(of(two.keys[0]).is_some_and(|v| v.contains("MSFT")), "the trading key owes it");
+    assert!(of(two.keys[1]).is_none());
 }

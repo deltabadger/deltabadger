@@ -214,9 +214,9 @@ fn a_split_of_a_security_never_restates_the_coin_that_shares_its_ticker() {
                               base: Some("BTC".into()), asset_id: Some(held), sell: false, buy: true, closed: true, kind: "REGULAR".into(), abandoned_request: None }];
         let holdings = [Holding { key: "BTC".into(), asset_id: Some(held), strings: vec!["BTC".into()] }];
         let case = (coin_held, recorded, both_classes);
-        let events = budget::within(|| v2::events(c, s.user_id, &orders, &holdings, now)).unwrap();
+        let events = budget::within(|| v2::events(c, s.user_id, "1", &orders, &holdings, now)).unwrap();
         assert_eq!(events.iter().map(|e| e.factor.to_s_f()).collect::<Vec<_>>(), factors, "{case:?}");
-        assert_eq!(budget::within(|| v2::unresolved(c, s.user_id, &orders, &holdings, now)).unwrap(), unresolved, "{case:?}");
+        assert_eq!(budget::within(|| v2::unresolved(c, s.user_id, "1", &orders, &holdings, now)).unwrap(), unresolved, "{case:?}");
     }
 }
 
@@ -271,9 +271,9 @@ fn a_holding_with_no_stored_asset_is_not_restated_under_a_name_a_coin_shares() {
         (d, o, s, b, stock)
     };
     let check = |c: &Connection, user_id, orders: &[Order], holdings: &[Holding], factors: Vec<&str>, unresolved: bool, name: &str| {
-        let events = budget::within(|| v2::events(c, user_id, orders, holdings, now)).unwrap();
+        let events = budget::within(|| v2::events(c, user_id, "1", orders, holdings, now)).unwrap();
         assert_eq!(events.iter().map(|e| e.factor.to_s_f()).collect::<Vec<_>>(), factors, "{name}");
-        assert_eq!(budget::within(|| v2::unresolved(c, user_id, orders, holdings, now)).unwrap(), unresolved, "{name}");
+        assert_eq!(budget::within(|| v2::unresolved(c, user_id, "1", orders, holdings, now)).unwrap(), unresolved, "{name}");
     };
     for case in &cases {
         let (_d, o, s, b, stock) = setup(case);
@@ -357,7 +357,7 @@ fn distinct_same_day_events_compose_bot_figures() {
             let now = "2026-09-10T14:00:00Z".parse().unwrap();
             let orders = db::orders(&o.primary, bot.id).unwrap();
             let holdings = [figures::Holding {key:"AAA".into(), asset_id:Some(asset), strings:vec!["AAA".into()]}];
-            let events = budget::within(|| figures::events(&o.primary, s.user_id, &orders, &holdings, At::from_utc(now).unwrap())).unwrap();
+            let events = budget::within(|| figures::events(&o.primary, s.user_id, "1", &orders, &holdings, At::from_utc(now).unwrap())).unwrap();
             assert_eq!(events.len(), 1);
             assert_eq!(events[0].factor.to_s_f(), "6.0");
             assert_eq!(basket::walk(&o.primary, &bot, now).unwrap().amounts[&asset], BigDec::from_i64(60));

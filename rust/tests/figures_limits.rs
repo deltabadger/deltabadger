@@ -39,7 +39,7 @@ fn distinct_unfilled_symbols_share_the_walk_budget() {
     assert!(used.steps >= 300_000 && used.steps <= enough.steps, "{used:?}");
     // Split and chart preparation must check the same meter even when every row is unfilled.
     let holdings = data.holdings().unwrap();
-    let (out, used) = budget::scope(small, || deltabadger::figures::splits::events(&c, 1, &s.orders, &holdings, At(100_000)));
+    let (out, used) = budget::scope(small, || deltabadger::figures::splits::events(&c, 1, "1", &s.orders, &holdings, At(100_000)));
     assert!(matches!(out, Err(FiguresError::NotComputed(reason)) if reason == OVER_BUDGET));
     assert!(used.steps <= small.steps);
     let (out, used) = budget::scope(small, || deltabadger::figures::chart::buy_marks(&s, &data));

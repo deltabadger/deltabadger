@@ -299,6 +299,8 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         let (creds, now) = (credentials.clone(), clock.now());
         async move {
             let error = super::commit_for(db, version, move |c| {
+                // A reader its account no longer reads with writes nothing, a failure included.
+                if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
                 if condemn && text.contains("unauthorized") {
                     crate::identity::write_status(c, key_id, 2, &sql_time(now), true, false)?;
                 }
@@ -324,7 +326,11 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
     };
     let (held, skipped) = match complete_balances_skipping(&catalog, cash, held) {
-        Ok((rows, skipped)) => (rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(), skipped),
+        Ok((rows, mut skipped)) => {
+            // A short (a mapped position below zero) is no complete read: recorded with it (identity only).
+            for (id, free, locked) in &rows { if (free + locked) < BigDec::zero() { skipped.push(format!("asset {id}")); } }
+            (rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(), skipped)
+        }
         Err(why) => return fail(why, false).await,
     };
     // Recorded with the read's last commit, cleared by a read that skipped none.
@@ -609,7 +615,7 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
     let mut rest: Vec<i64> = found.keys().copied().filter(|id| !asset_ids.contains(id)).collect();
     rest.sort_unstable();
     order.extend(rest);
-    let held = order.into_iter().filter_map(|id| found.remove(&id).map(|(free, locked)| (id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect();
+    let held = order.into_iter().filter_map(|id| found.remove(&id).map(|(free, locked)| (id, free, locked))).filter(holding).collect();
     Ok(Ok((held, unresolved)))
 }
 
@@ -661,6 +667,7 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         let (creds, now, venue_type) = (credentials.clone(), clock.now(), exchange_type.clone());
         async move {
             let error = super::commit_for(db, version, move |c| {
+                if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
                 if !messages.is_empty() && condemning(&venue_type, &messages) {
                     crate::identity::write_status(c, key_id, 2, &sql_time(now), true, false)?;
                 }
@@ -734,7 +741,7 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
         };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Exchanges::Kucoin#get_balances then AccountBalance::Sync's `nonzero`. Only the success code with `data` means balances,
@@ -762,7 +769,7 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
                     _ => {}
                 }
             }
-            return Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()));
+            return Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()));
         }
         Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
         _ => {
@@ -792,7 +799,7 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// D-KUCOIN-UTA-BALANCES: each currency of a UTA's unified account (`data.accounts[].currencies[]`). Holdings are
@@ -893,7 +900,7 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         let amount = match quantity("amount") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) };
         found.insert(*asset, (free.clone(), &amount - &free));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// One balance sync of one Bitget key, as AccountBalance::SyncJob runs it for that key: Exchanges::Bitget#get_balances
@@ -950,7 +957,7 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Exchanges::Bitget#get_balances' failure: "Failed to get Bitget balances: " and the envelope's code and msg, as present.
@@ -1014,7 +1021,7 @@ fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64])
         };
         found.insert(*asset, (&total - &hold, hold));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
@@ -1068,7 +1075,7 @@ fn account_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64], cod
         let locked = match quantity("locked") { Ok(n) => n, Err(why) => return Ok(Err(why)) };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Utilities::Currency#fiat?'s asset half: the first asset by that symbol is of category Currency.
@@ -1488,14 +1495,19 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
             let amounts = || -> Result<(BigDec, BigDec), String> {
                 let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s)));
                 let locked = row.decimal("locked")?;
-                let free = if present("walletBalance") { (&(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?).max(BigDec::zero()) }
+                let free = if present("walletBalance") {
+                    let free = &(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?;
+                    // Clamped at zero for the trading readers; a borrow beyond the wallet is no complete read (identity).
+                    if free < BigDec::zero() { SKIPPED.with(|s| s.borrow_mut().push(row.value["coin"].as_str().unwrap_or("?").to_string())); }
+                    free.max(BigDec::zero())
+                }
                            else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };
                 Ok((free, locked))
             };
             match amounts() { Ok(amounts) => { found.insert(*asset, amounts); }, Err(e) => return Ok(Err((e, vec![]))) }
         }
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Coinbase reads key_permissions for portfolio_uuid, then that portfolio's spot positions.
@@ -1528,7 +1540,7 @@ fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> 
             let total = raw.number("total_balance_crypto")?.ok_or("KeyError: Key path total_balance_crypto not found")?;
             found.insert(*id,(free.clone(), &total - &free));
         }
-        Ok(asset_ids.iter().filter_map(|id|found.remove(id).map(|(f,l)|(*id,f,l))).filter(|(_,f,l)|(f+l).is_positive()).collect())
+        Ok(asset_ids.iter().filter_map(|id|found.remove(id).map(|(f,l)|(*id,f,l))).filter(holding).collect())
     };
     Ok(parse().map_err(|e|(e, vec![])))
 }
@@ -1638,7 +1650,7 @@ pub(crate) fn ibkr_names(c: &Connection, _exchange_id: i64) -> Result<HashMap<St
 /// `ibkr_conids` does not map is skipped and counted. A quantity that is no number fails the sync. Stored balances are
 /// holdings only (positive); `ibkr_balances` is the live answer.
 pub(crate) fn ibkr_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
-    Ok(ibkr_balances(text, names, asset_ids)?.map(|all| all.into_iter().filter(|(_, free, _)| free.is_positive()).collect()))
+    Ok(ibkr_balances(text, names, asset_ids)?.map(|all| all.into_iter().filter(holding).collect()))
 }
 
 /// `ibkr_held` before the holdings filter: every balance the account states, a short position and a cash loan (negative)
@@ -1679,6 +1691,13 @@ fn skip(row: &Raw, code: &str, quantities: &[&str]) {
         SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(code.to_string()); } });
     }
 }
+/// Whether a mapped row is held (free + locked above zero); one below zero (a short, a debt) is no complete read and is
+/// recorded as skipped (`asset <id>`).
+fn holding(row: &Held) -> bool {
+    let total = &row.1 + &row.2;
+    if total < BigDec::zero() { SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(format!("asset {}", row.0)); } }); }
+    total.is_positive()
+}
 fn take_skipped() -> Vec<String> { SKIPPED.with(|s| std::mem::take(&mut *s.borrow_mut())) }
 
 #[cfg(test)]
@@ -1713,6 +1732,18 @@ mod skipped_tests {
         assert_eq!(take_skipped(), ["Q"]);
         ibkr_balances(r#"{"positions":[{"conid":99,"position":-3}]}"#, &names, &[1]).unwrap().unwrap();
         assert_eq!(take_skipped(), ["conid 99"]);
+    }
+    /// R11 #2: a mapped holding that is negative (a short, a debt) or clamped (Bybit's borrow) is recorded as skipped.
+    #[test]
+    fn negative_and_clamped_holdings_are_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        account_held(r#"{"balances":[{"asset":"BTC","free":"-1","locked":"0"}]}"#, &names, &[1], str::to_string).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["asset 1"]);
+        bybit_held(r#"{"retCode":0,"result":{"list":[{"coin":[{"coin":"BTC","walletBalance":"1","locked":"0","spotBorrow":"3"}]}]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"]);
+        ibkr_held(r#"{"positions":[{"conid":5,"position":-2}]}"#, &HashMap::from([("conid:5".to_string(), 1)]), &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["asset 1"]);
     }
     /// R10 #7: the trading readers' positions leave unsupported classes out; the balance read's carry them.
     #[test]

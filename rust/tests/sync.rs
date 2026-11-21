@@ -2401,3 +2401,34 @@ async fn an_unsupported_alpaca_position_stays_out_of_the_trading_positions() {
     assert_eq!(held.len(), 1);
     assert_eq!(held.get("AAPL").map(|q| q.to_s_f()), Some("2.0".to_string()));
 }
+
+/// #710 R11 #2: an Alpaca short (a mapped position below zero) is recorded as skipped with the read.
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_short_is_recorded_as_skipped() {
+    let (dir, db, s) = install();
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let mut script = balances_script();
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "-5", "qty_available": "-5" }]))]);
+    script.as_object_mut().unwrap().remove("GET /v2/stocks/snapshots");
+    let (_, v) = venue(script);
+    balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let recorded = deltabadger::app_config::get_plain(&c, &format!("rust_sync.skipped:{}", s.api_key_id)).unwrap().expect("recorded");
+    assert!(recorded.contains("asset "), "{recorded}");
+}
+
+/// #710 R11 #5: a superseded reader's failure writes nothing either (no sync error, no key marked incorrect).
+#[tokio::test(flavor = "current_thread")]
+async fn a_superseded_readers_failure_writes_nothing() {
+    let (dir, db, s) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) SELECT user_id, exchange_id, key, secret, passphrase, 1, 2, created_at, updated_at FROM api_keys WHERE id = ?1",
+              [s.api_key_id]).unwrap();
+    let reader = c.last_insert_rowid();
+    let script = json!({ "GET /v2/account": [{ "status": 401, "body": { "message": "unauthorized." } }] });
+    let (_, v) = venue(script);
+    let out = balances::sync(&db, &v, &NoPrices, reader, &paper(), &clock()).await;
+    assert!(matches!(&out, Err(SyncError(e)) if e == deltabadger::sync::jobs::SUPERSEDED), "{out:?}");
+    let (status, error): (i64, Option<String>) = c.query_row("SELECT status, last_sync_error FROM api_keys WHERE id = ?1", [reader], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, error), (1, None));
+}

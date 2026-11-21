@@ -38,6 +38,7 @@ pub fn asset_splits(c: &Connection, user_id: i64, bot_id: i64, pairs: &[(i64, i6
     let mut venues: BTreeMap<i64, std::collections::BTreeSet<i64>> = BTreeMap::new();
     for (venue, asset) in pairs { venues.entry(*venue).or_default().insert(*asset); }
     let at = At::from_utc(now).ok_or_else(|| data("split time out of range"))?;
+    let rows = v2::bot_rows(c, bot_id).map_err(data)?;
     figures::budget::within(|| {
         let mut out = CapSplits::default();
         for (venue, assets) in venues {
@@ -50,10 +51,10 @@ pub fn asset_splits(c: &Connection, user_id: i64, bot_id: i64, pairs: &[(i64, i6
             }
             let strings = holdings.iter().flat_map(|h| h.strings.iter().map(|s| (venue, s.as_str()))).collect();
             let eligible = (strings, assets.iter().map(|a| (venue, *a)).collect(), vec![venue]);
-            for e in v2::events_with(c, user_id, &eligible, &holdings, at).map_err(data)? {
+            for e in v2::events_with(c, user_id, &rows, &eligible, &holdings, at).map_err(data)? {
                 out.events.push((venue, SplitEvent { at_us: e.at.0 / 1000, asset_id: e.key.parse().map_err(data)?, factor: BigDec::parse(&e.factor.to_s_f()).map_err(data)? }));
             }
-            out.unresolved |= v2::unresolved_with(c, user_id, &eligible, &holdings, at).map_err(data)?;
+            out.unresolved |= v2::unresolved_with(c, user_id, &rows, &eligible, &holdings, at).map_err(data)?;
         }
         Ok(out)
     })
@@ -82,10 +83,11 @@ pub fn splits(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Splits, E
         for o in &orders { if let Some(id) = o.asset_id { held.entry(id).or_default().extend(o.base.clone()); } }
         let holdings: Vec<v2::Holding> = held.into_iter().map(|(id, strings)| v2::Holding { key: id.to_string(), asset_id: Some(id), strings }).collect();
         let now = At::from_utc(now).ok_or_else(|| data("split time out of range"))?;
-        let events = v2::events(c, bot.user_id, &orders, &holdings, now).map_err(data)?.into_iter().map(|e| {
+        let rows = v2::bot_rows(c, bot.id).map_err(data)?;
+        let events = v2::events(c, bot.user_id, &rows, &orders, &holdings, now).map_err(data)?.into_iter().map(|e| {
             Ok(SplitEvent { at_us: e.at.0 / 1000, asset_id: e.key.parse().map_err(data)?, factor: BigDec::parse(&e.factor.to_s_f()).map_err(data)? })
         }).collect::<Result<Vec<_>, EngineError>>()?;
-        Ok(Splits { events, unresolved: v2::unresolved(c, bot.user_id, &orders, &holdings, now).map_err(data)? })
+        Ok(Splits { events, unresolved: v2::unresolved(c, bot.user_id, &rows, &orders, &holdings, now).map_err(data)? })
     })
 }
 
@@ -126,7 +128,7 @@ fn row_refusal(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<S
     let holdings: Vec<_> = held.into_iter().map(|(id,strings)| v2::Holding {key:id.to_string(),asset_id:Some(id),strings}).collect();
     type ReportKey = (String, String, Option<(String, String)>);
     let mut groups: BTreeMap<ReportKey,Vec<Value>> = BTreeMap::new();
-    for group in v2::groups(c,bot.user_id,&orders,&holdings).map_err(data)? {
+    for group in v2::groups(c,bot.user_id,&v2::bot_rows(c,bot.id).map_err(data)?,&orders,&holdings).map_err(data)? {
         for row in group.rows {
             if row.at.utc()>now {continue;}
             let amount=c.query_row("SELECT base_amount FROM account_transactions WHERE id=?1",[row.id],|r| Ok(crate::v2::from_sql(r.get_ref(0)?)))?.map_err(data)?.ok_or_else(|| data("missing split amount"))?;

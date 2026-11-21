@@ -1147,8 +1147,10 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             let (fingerprint, digest) = (key.fingerprint(&exchange_type, id), key.material_digest(credentials));
             let encrypted = cipher.encrypt(&id.0).into_bytes();
             let version = (version.id == api_key_id).then(|| version.cache_stamp().to_string());
-            // A read naming another account than its account's known one ends the account's standings now (a key event).
-            if let Some(account) = account_of_key(c, api_key_id).map_err(db)? {
+            // A live key's read naming another account than its account's known one ends the account's standings now (a key
+            // event); a key that is not live speaks for nothing.
+            let live: bool = c.query_row("SELECT status = 1 FROM api_keys WHERE id = ?1", [api_key_id], |r| r.get(0)).map_err(db)?;
+            if let Some(account) = account_of_key(c, api_key_id).map_err(db)?.filter(|_| live) {
                 let known: Option<String> = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional().map_err(db)?.flatten();
                 if known.is_some_and(|k| k != fingerprint) { key_event(c, account).map_err(db)?; }
             }
@@ -1163,9 +1165,10 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             }
         }
         Observed::Failed(code) => {
-            // A definite failure on its current material is a contradiction: the account's standings end now. A transient
-            // one changes nothing.
-            if definite_failure(code) {
+            // A live key's definite failure on its current material is a contradiction: the account's standings end now. A
+            // transient one changes nothing; a key that is not live speaks for nothing (discovery still reads it, as before).
+            let live: bool = c.query_row("SELECT status = 1 FROM api_keys WHERE id = ?1", [api_key_id], |r| r.get(0)).map_err(db)?;
+            if definite_failure(code) && live {
                 if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { key_event(c, account).map_err(db)?; }
             }
             let Some(key) = existing_key(c, cipher) else {

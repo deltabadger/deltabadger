@@ -77,18 +77,27 @@ fn resolved_factor(rows: &[SplitRow]) -> Result<Option<Dec>, NumError> {
 /// of asset in the user's account (`account_classes`) — a name that is both is grouped under no date.
 /// D-SPLIT-ASSETLESS-SHARED-NAME (#478): a holding whose rows stored no asset is pooled by name across every venue the
 /// bot traded, so while any of those venues lists a coin under the name it may be the coin: grouped under no date.
-pub fn groups(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
+pub fn groups(c: &Connection, user_id: i64, rows: &str, orders: &[Order], holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let (string_pairs, asset_pairs, exchange_ids) = eligibility(orders)?;
-    groups_with(c, user_id, &(string_pairs, asset_pairs, exchange_ids), holdings)
+    groups_with(c, user_id, rows, &(string_pairs, asset_pairs, exchange_ids), holdings)
+}
+
+/// SQL condition on `account_transactions`: a ledger row of bot `bot_id`'s own account on its exchange (#710: another
+/// account's report of the same split is that account's, never this bot's); a row of another venue as before.
+pub fn bot_rows(c: &Connection, bot_id: i64) -> Result<String, FiguresError> {
+    // An install with no numbered accounts has one account per exchange: every row is the bot's account's.
+    if !crate::identity::numbered(c)? { return Ok("1".into()); }
+    let scope = crate::identity::order_scope(c, bot_id)?;
+    Ok(format!("(exchange_id <> {} OR {})", scope.exchange_id, scope.rows("account_transactions")))
 }
 
 /// The (venue, name) and (venue, asset) pairs a bot is eligible for, and their venues, sorted.
 pub type Eligibility<'a> = (HashSet<(i64, &'a str)>, HashSet<(i64, i64)>, Vec<i64>);
 
 /// `groups` with the eligibility given instead of read from orders (A14b: a seller's assets with no traded history).
-pub fn groups_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
+pub fn groups_with(c: &Connection, user_id: i64, scope: &str, eligible: &Eligibility<'_>, holdings: &[Holding]) -> Result<Vec<Group>, FiguresError> {
     let (string_pairs, asset_pairs, exchange_ids) = eligible;
-    let (rows, named, coin_named) = names(c, user_id, exchange_ids)?;
+    let (rows, named, coin_named) = names(c, user_id, scope, exchange_ids)?;
     if rows.is_empty() { return Ok(vec![]); }
     let mut holding_strings = Vec::new();
     for holding in holdings {
@@ -166,7 +175,7 @@ pub type CoinNamed = BTreeSet<(i64, String)>;
 /// under them. The figures' fingerprint reads it for the venues the account's orders are eligible on (`eligibility`),
 /// sorted; `CoinNamed` per venue, as each bot groups over its own venues.
 pub fn lookups(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names, CoinNamed), FiguresError> {
-    names(c, user_id, exchange_ids)
+    names(c, user_id, "1", exchange_ids)
 }
 
 /// The (venue, name) and (venue, asset) pairs these orders traded, and their venues, sorted.
@@ -190,11 +199,11 @@ fn eligibility(orders: &[Order]) -> Result<Eligibility<'_>, FiguresError> {
 
 /// The marked rows of these venues, what each row's name stands for on its venue (Ticker.asset_ids_by_name), and which
 /// venues list a coin under any row's name.
-fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names, CoinNamed), FiguresError> {
+fn names(c: &Connection, user_id: i64, scope: &str, exchange_ids: &[i64]) -> Result<(Vec<SplitRow>, Names, CoinNamed), FiguresError> {
     let mut named = Names::new();
     let mut coin_named = CoinNamed::new();
     if exchange_ids.is_empty() { return Ok((vec![], named, coin_named)); }
-    let rows = db::split_rows(c, user_id, exchange_ids)?;
+    let rows = db::split_rows(c, user_id, scope, exchange_ids)?;
     if rows.is_empty() { return Ok((rows, named, coin_named)); }
     let mut all: Vec<String> = vec![];
     let mut seen = HashSet::new();
@@ -220,11 +229,11 @@ fn names(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<(Vec<Spli
 
 /// Bot::Restatable#split_events: one composed event per holding and date whose reports agree within each action, timed at the
 /// earliest instant the group reports, already in effect at `now`, oldest first.
-pub fn events(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
-    events_of(groups(c, user_id, orders, holdings)?, now)
+pub fn events(c: &Connection, user_id: i64, rows: &str, orders: &[Order], holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
+    events_of(groups(c, user_id, rows, orders, holdings)?, now)
 }
-pub fn events_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
-    events_of(groups_with(c, user_id, eligible, holdings)?, now)
+pub fn events_with(c: &Connection, user_id: i64, rows: &str, eligible: &Eligibility<'_>, holdings: &[Holding], now: At) -> Result<Vec<Event>, FiguresError> {
+    events_of(groups_with(c, user_id, rows, eligible, holdings)?, now)
 }
 fn events_of(groups: Vec<Group>, now: At) -> Result<Vec<Event>, FiguresError> {
     let mut out: Vec<Event> = vec![];
@@ -242,11 +251,11 @@ fn events_of(groups: Vec<Group>, now: At) -> Result<Vec<Event>, FiguresError> {
 
 /// Bot::Restatable#unresolved_split?: a split in effect that this bot can see and cannot size, or whose name stands
 /// for more than one class of asset in the account.
-pub fn unresolved(c: &Connection, user_id: i64, orders: &[Order], holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
-    unresolved_of(groups(c, user_id, orders, holdings)?, now)
+pub fn unresolved(c: &Connection, user_id: i64, rows: &str, orders: &[Order], holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
+    unresolved_of(groups(c, user_id, rows, orders, holdings)?, now)
 }
-pub fn unresolved_with(c: &Connection, user_id: i64, eligible: &Eligibility<'_>, holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
-    unresolved_of(groups_with(c, user_id, eligible, holdings)?, now)
+pub fn unresolved_with(c: &Connection, user_id: i64, rows: &str, eligible: &Eligibility<'_>, holdings: &[Holding], now: At) -> Result<bool, FiguresError> {
+    unresolved_of(groups_with(c, user_id, rows, eligible, holdings)?, now)
 }
 fn unresolved_of(groups: Vec<Group>, now: At) -> Result<bool, FiguresError> {
     for group in groups {

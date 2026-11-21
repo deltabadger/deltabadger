@@ -371,6 +371,15 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     // 11. The tombstone; the keys moved and removed cleared the standings of both (key events); the exchange's standing
     // is reconsidered once, on the merged account.
     identity::tombstone(c, d, now)?;
+    // Evidence restarts: every kept key's change marker is the merge time, so no row imported before the Merge (its own,
+    // or one re-keyed to it from a deleted key) is shared-trade evidence for the merged account again.
+    for k in &kept { crate::app_config::set_plain(c, &identity::credential_changed_key(*k), &crate::codec::format_time(now), now).map_err(rusqlite::Error::InvalidParameterName)?; }
+    // Pending split restatements go to the key that runs the merged account's ledger sync (the scheduler's ledger key).
+    let reader = crate::sync::ledger_reading_keys(c).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?.into_iter()
+        .find(|k| kept.contains(k));
+    if let Some(reader) = reader {
+        for k in kept.iter().filter(|k| **k != reader) { crate::sync::ledger::hand_owed(c, *k, reader).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?; }
+    }
     identity::reconsider(c, user, exchange, now)?;
     Ok(Some(Merged { duplicate: d, survivor: s, deleted_keys: deleted, kept_keys: kept }))
 }
@@ -399,18 +408,9 @@ fn move_key(c: &Connection, id: i64, to: &Account) -> rusqlite::Result<()> {
 /// Key `id` goes as `keys::remove` removes one, no bot stopped: its rows' key is the kept key of its type (else none).
 fn remove_key(c: &Connection, id: i64, keep: Option<i64>) -> rusqlite::Result<()> {
     identity::key_event_of_key(c, id)?;
-    // Its rows become the kept key's: the kept key's change marker is the later of the two, so none of them becomes
-    // evidence again under an earlier cutoff (`identity::trades_match`).
-    if let Some(keep) = keep {
-        // Its pending split restatements become the kept key's, merged with its own (`sync::ledger` owes them by key).
-        crate::sync::ledger::hand_owed(c, id, keep).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
-        let marker = |k: i64| crate::app_config::get_plain(c, &identity::credential_changed_key(k)).map_err(rusqlite::Error::InvalidParameterName);
-        if let Some(theirs) = marker(id)? {
-            if marker(keep)?.is_none_or(|mine| mine < theirs) {
-                crate::app_config::set_plain(c, &identity::credential_changed_key(keep), &theirs, chrono::Utc::now()).map_err(rusqlite::Error::InvalidParameterName)?;
-            }
-        }
-    }
+    // Its pending split restatements become the kept key's, merged with its own (`sync::ledger` owes them by key); the
+    // run's end hands them on to the merged account's ledger key.
+    if let Some(keep) = keep { crate::sync::ledger::hand_owed(c, id, keep).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?; }
     c.execute("UPDATE account_transactions SET api_key_id = ?2 WHERE api_key_id = ?1", params![id, keep])?;
     c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_sync.%' AND substr(key, -length(?1) - 1) = ':' || ?1", [id.to_string()])?;
     c.execute("DELETE FROM api_keys WHERE id = ?1", [id])?;
