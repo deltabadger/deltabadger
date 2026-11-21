@@ -23,6 +23,7 @@ pub mod import;
 pub mod jobs;
 pub mod parity;
 pub mod prices;
+pub mod resolver;
 pub mod rows;
 pub mod snapshot;
 pub mod unpriced;
