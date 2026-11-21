@@ -156,12 +156,18 @@ fn distinct(assets: impl IntoIterator<Item = AssetRef>) -> Vec<AssetRef> {
 /// Step 3b: this venue's listing of the spelling on the leg's side(s), coins only: exact live, else stale (base only),
 /// else Kraken's own-symbol match. One coin, else unclear (a rebound spelling never reaches here).
 fn listed(f: &Facts, leg: &Leg) -> Option<Holding> {
-    let sides = sides(leg);
+    // Each side on its own (a fee reads both, and needs them to agree).
+    let answers: Vec<Holding> = sides(leg).iter().filter_map(|side| listed_on(f, leg, *side)).collect();
+    match answers.as_slice() { [] => None, [a, rest @ ..] if rest.iter().all(|b| b == a) => Some(a.clone()), _ => Some(Holding::Unknown(Why::Unclear)) }
+}
+
+/// One side's listing of the spelling: exact live, else stale (base), else Kraken's own-symbol match; coins only.
+fn listed_on(f: &Facts, leg: &Leg, side: Side) -> Option<Holding> {
     let coins = |v: Option<&Vec<AssetRef>>| distinct(v.into_iter().flatten().filter(|a| a.crypto()).cloned());
-    let live = distinct(sides.iter().flat_map(|s| coins(f.live.get(&(leg.venue.id, *s, leg.spelling.to_string())))));
-    let stale = if sides.contains(&Side::Base) { coins(f.stale.get(&(leg.venue.id, leg.spelling.to_string()))) } else { vec![] };
+    let live = coins(f.live.get(&(leg.venue.id, side, leg.spelling.to_string())));
+    let stale = if side == Side::Base { coins(f.stale.get(&(leg.venue.id, leg.spelling.to_string()))) } else { vec![] };
     let own = || {
-        let all = f.live.iter().filter(|((v, s, _), _)| *v == leg.venue.id && sides.contains(s)).flat_map(|(_, l)| l);
+        let all = f.live.iter().filter(|((v, s, _), _)| *v == leg.venue.id && *s == side).flat_map(|(_, l)| l);
         distinct(all.filter(|a| a.crypto() && a.symbol.as_deref() == Some(leg.spelling)).cloned())
     };
     let candidates = if !live.is_empty() { live } else if !stale.is_empty() { stale } else if leg.venue.name_id == "kraken" { own() } else { vec![] };
@@ -199,13 +205,25 @@ fn broker_unrecorded(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
 fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
     let recorded = leg.recorded.filter(|a| leg.side == Side::Base && (a.crypto() || a.category.is_none() || a.category.as_deref() == Some("Tokenized Stock")));
     if CUTS.iter().any(|(s, until)| *s == leg.spelling && within(*until, leg.at)) { return Some(Holding::Unknown(Why::Cut)); }
-    // A rebound spelling: only what the venue listed under it, recorded on the row, is a coin.
-    if leg.side != Side::Quote && rebound(f, leg.venue.id, leg.spelling) {
+    // A rebound spelling: only what the venue listed under it, recorded on the row, is a coin; but not an id sync's own
+    // alias could have recorded (it records main's alias whatever the venue listed), and never for a fiat spelling whose
+    // listings are securities alone (they never displace the cash).
+    let securities_only = base_listings(f, leg.venue.id, leg.spelling).iter().all(|a| a.security() || matches!(a.category.as_deref(), Some("Fiat" | "Currency")));
+    if leg.side != Side::Quote && rebound(f, leg.venue.id, leg.spelling) && (catalogue || !securities_only) {
+        let by_alias = |r: &AssetRef| {
+            let venue = super::prices::Venue { id: leg.venue.id, name_id: leg.venue.name_id.clone(), stock: leg.venue.broker };
+            r.external_id.is_some() && super::prices::alias_coin(leg.spelling, Some(&venue), Some(leg.at.date_naive())) == r.external_id
+        };
         return Some(match recorded {
+            Some(r) if by_alias(r) => Holding::Unknown(Why::Unclear),
             Some(r) if bound(f, leg, r) => coin(leg, r),
             Some(_) => Holding::Unknown(Why::Conflict),
             None => Holding::Unknown(Why::Unclear),
         });
+    }
+    // A broker's own instrument before any crypto alias (an IBKR LUNA stock is the stock).
+    if leg.venue.broker && recorded.is_none() {
+        if let Some(h @ Holding::Security(_)) = broker_unrecorded(f, leg, catalogue) { return Some(h); }
     }
     if let Some(h) = aliased(leg) { return Some(h); }
     if let Some(recorded) = recorded {
@@ -486,5 +504,44 @@ mod tests {
         assert_eq!(holding(&f, &leg(&ibkr, Side::Base, "USD", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
         list(&mut f, &ibkr, Side::Base, "USD", &coin_asset(82, "usd-coin-thing", "USD"));
         assert_eq!(holding(&f, &leg(&ibkr, Side::Base, "USD", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+    }
+
+    /// Codex PR0 r4 P1: sync records main's open-ended alias coin (Binance GAL → project-galaxy) whatever the venue lists,
+    /// so on a rebound GAL that recorded id is no evidence: the leg is unclear. Another recorded coin the venue listed
+    /// stands.
+    #[test]
+    fn a_recorded_alias_coin_on_a_rebound_spelling_is_no_evidence() {
+        let binance = venue(1, "binance", false);
+        let mut f = Facts::default();
+        let (old, new) = (coin_asset(40, "project-galaxy", "GAL"), coin_asset(41, "gal-new", "GAL"));
+        list(&mut f, &binance, Side::Base, "GAL", &new);
+        f.stale.entry((binance.id, "GAL".into())).or_default().push(old.clone());
+        assert_eq!(holding(&f, &leg(&binance, Side::Base, "GAL", "2026-01-01", Some(&old))), Holding::Unknown(Why::Unclear));
+        assert_eq!(holding(&f, &leg(&binance, Side::Base, "GAL", "2026-01-01", Some(&new))), coin_of("gal-new"));
+    }
+
+    /// Codex PR0 r4 P2: a fee leg resolves each side on its own and needs them to agree: a tombstoned base X and a live
+    /// quote Y are two answers.
+    #[test]
+    fn a_fee_resolves_each_side_and_needs_them_to_agree() {
+        let v = venue(2, "mexc", false);
+        let mut f = Facts::default();
+        f.stale.entry((v.id, "S".into())).or_default().push(coin_asset(50, "coin-x", "S"));
+        list(&mut f, &v, Side::Quote, "S", &coin_asset(51, "coin-y", "S"));
+        assert_eq!(holding(&f, &leg(&v, Side::Fee, "S", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        assert_eq!(holding(&f, &leg(&v, Side::Quote, "S", "2025-01-01", None)), coin_of("coin-y"));
+    }
+
+    /// Codex PR0 r4 P2: an unrecorded broker leg reads the broker's instruments before a crypto alias (an IBKR LUNA stock
+    /// before 28 May 2022 is the stock); a securities-only tombstone under a broker's USD leaves USD cash.
+    #[test]
+    fn broker_instruments_come_before_aliases_and_securities_never_rebind_cash() {
+        let (ibkr, alpaca) = (venue(6, "ibkr", true), venue(5, "alpaca", true));
+        let mut f = Facts::default();
+        list(&mut f, &ibkr, Side::Base, "LUNA", &asset(90, "luna-stock", "LUNA", Some("Stock")));
+        assert_eq!(holding(&f, &leg(&ibkr, Side::Base, "LUNA", "2022-01-01", None)), Holding::Security("luna-stock".into()));
+        list(&mut f, &alpaca, Side::Base, "USD", &asset(91, "usd-a", "USD", Some("Stock")));
+        f.stale.entry((alpaca.id, "USD".into())).or_default().push(asset(92, "usd-b", "USD", Some("Stock")));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "USD", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
     }
 }
