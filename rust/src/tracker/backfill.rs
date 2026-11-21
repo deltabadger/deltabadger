@@ -57,10 +57,11 @@ fn standing_suffix(c: &Connection, user_id: i64) -> Result<String, FiguresError>
 }
 /// The standing part of a history version (`standing_suffix`).
 fn standing_of(version: &str) -> &str { version.find("_d").map_or("", |at| &version[at..]) }
-/// Whether `version` was read under another standing than the stored history's (none stored: no change).
+/// Whether `version` was read under another standing than the stored history's. None stored: a change when it is read
+/// under any duplicate standing (points written before the first sweep counted the duplicate), none without one.
 pub fn standing_changed(c: &Connection, cipher: &Cipher, user_id: i64, version: &str) -> Result<bool, FiguresError> {
     let stored = crate::app_config::get(c, cipher, &history_key(user_id)).map_err(FiguresError::Data)?;
-    Ok(stored.is_some_and(|stored| standing_of(&stored) != standing_of(version)))
+    Ok(match stored { Some(stored) => standing_of(&stored) != standing_of(version), None => !standing_of(version).is_empty() })
 }
 
 /// `HistoricalPrice.generation`.

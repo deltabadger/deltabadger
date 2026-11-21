@@ -3340,8 +3340,9 @@ fn r13_restored_twins_compare_their_exact_amounts() {
     assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
 }
 
-/// R13 #5: `kept` is every key left on the merged account, and pending splits go to the scheduler's own ledger reader:
-/// the survivor's 10 (incorrect) and 11 (correct), the duplicate's 12 (correct, with the pending split): 11 reads.
+/// R13 #5, R14 #1: after Merge each key type has exactly one key on the merged account, and pending splits go to the
+/// scheduler's own ledger reader: the survivor's 10 (incorrect) and 11 (correct), the duplicate's 12 (correct, with the
+/// pending split): only 11 remains, owes the split, and the moved bot trades with it.
 #[test]
 fn r13_pending_splits_go_to_the_schedulers_reader() {
     let (_d, o, two) = duplicate();
@@ -3355,8 +3356,11 @@ fn r13_pending_splits_go_to_the_schedulers_reader() {
     deltabadger::app_config::set_plain(c, &format!("rust_sync.ledger_splits:{twelve}"),
         &serde_json::json!({"pending": [{"symbol": "MSFT", "exchange_id": two.seeded.exchange_id, "at": 1_900_000_000_000_000i64}]}).to_string(), chrono::Utc::now()).unwrap();
     let merged = merge_now(c, &two, two.id(1)).unwrap().unwrap();
-    assert!(merged.kept_keys.contains(&two.keys[0]) && merged.kept_keys.contains(&eleven), "every key left: {merged:?}");
+    assert_eq!(merged.kept_keys, [eleven], "{merged:?}");
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM api_keys WHERE user_id = {} AND exchange_id = {} AND key_type = 0", two.seeded.user_id, two.seeded.exchange_id)), 1);
     assert!(deltabadger::app_config::get_plain(c, &format!("rust_sync.ledger_splits:{eleven}")).unwrap().is_some_and(|v| v.contains("MSFT")));
+    let bot = deltabadger::engine::model::load_bot(c, two.bots[1]).unwrap();
+    assert_eq!(deltabadger::engine::model::credential_version(c, &bot).unwrap().unwrap().id, eleven, "the moved bot trades with 11");
 }
 
 /// R13 #7: blanks are judged alike in planning and writing: a kept twin's whitespace group takes the duplicate's.
@@ -3423,4 +3427,63 @@ fn r13_the_figure_cache_moves_with_the_standing_and_the_scope() {
     let moved = rev(c);
     c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id, venue_tx_id) VALUES (?1, ?2, 'split-1')", [row, two.id(1)]).unwrap();
     assert_ne!(rev(c), moved, "the split row's account");
+}
+
+// ---- review round 14 ----
+
+/// R14 #2: twins' amounts are compared as stored, exactly: 100000000.0000001 and 100000000.0000002 differ.
+#[test]
+fn r14_twin_amounts_compare_exactly() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    for (n, amount) in [(0, 100000000.0000001f64), (1, 100000000.0000002f64)] {
+        let row = two.row(c, n, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+        c.execute("UPDATE account_transactions SET base_amount = ?2 WHERE id = ?1", rusqlite::params![row, amount]).unwrap();
+    }
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
+}
+
+/// R14 #3: a restore twin's exact amounts against an API twin's fields, at full precision: 1.000000000000000001 is not
+/// 1.000000000000000002.
+#[test]
+fn r14_a_restore_and_an_api_twin_compare_at_full_precision() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    let api = two.row(c, 0, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1,\"size\":\"1.000000000000000001\"}' WHERE id = ?1", [api]).unwrap();
+    let restore = two.row(c, 1, 0, "BTC", "1", Some("fill-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{\"amounts\":{\"base\":\"1.000000000000000002\"}}' WHERE id = ?1", [restore]).unwrap();
+    assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
+}
+
+/// R14 #4: TRIM only decides blank: a survivor's " swap " legs keep their group, paired, when one of them has a twin.
+#[test]
+fn r14_a_padded_group_stays_as_it_is() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let leg = two.row(c, 0, 0, "BTC", "1", Some("t-1"), Some(" swap "), "2026-09-01 10:00:00");
+    let other = two.row(c, 0, 1, "USDT", "100", Some("t-2"), Some(" swap "), "2026-09-01 10:00:00");
+    two.row(c, 1, 0, "BTC", "1", Some("t-1"), None, "2026-09-01 10:00:00");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    for row in [leg, other] { assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {row}")).as_deref(), Some(" swap ")); }
+}
+
+/// R14 #5: with no stored history version, a history read under a duplicate standing is a standing change (the first
+/// sweep clears the stale whole-portfolio points); with no duplicate it is none.
+#[test]
+fn r14_the_first_sweep_under_a_standing_is_a_change() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let cipher = seed::cipher();
+    let version = deltabadger::tracker::backfill::history_version(c, two.seeded.user_id).unwrap();
+    assert!(deltabadger::tracker::backfill::standing_changed(c, &cipher, two.seeded.user_id, &version).unwrap());
+    let (_d, o) = install();
+    let c = &o.primary;
+    let single = Two::kraken(c, &cipher);
+    let version = deltabadger::tracker::backfill::history_version(c, single.seeded.user_id).unwrap();
+    assert!(!deltabadger::tracker::backfill::standing_changed(c, &cipher, single.seeded.user_id, &version).unwrap());
 }

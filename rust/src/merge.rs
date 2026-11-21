@@ -99,6 +99,33 @@ fn not_synced(x: &str) -> String {
              AND NOT EXISTS (SELECT 1 FROM json_each({x}.raw_data) WHERE key NOT IN ('operation', 'amounts', 'amounts_inexact'))) ELSE 0 END, 0)")
 }
 
+/// A restore twin's exact amounts (`amounts`: base, quote, fee) against an API twin's own fields (a fill's `size`,
+/// `funds`, `fee`; a transfer's `amount`, `fee`), as decimals at full precision; any difference is a conflict. Twins of
+/// any other shape agree here.
+fn exact_amounts_agree(c: &Connection, d: i64, s: i64) -> rusqlite::Result<bool> {
+    use crate::v2::BigDec;
+    let raw = |row: i64| -> rusqlite::Result<serde_json::Value> {
+        let t: Option<String> = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [row], |r| r.get(0))?;
+        Ok(t.and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(serde_json::Value::Null))
+    };
+    let (rd, rs) = (raw(d)?, raw(s)?);
+    let (restore, api) = match (rd.get("amounts").is_some(), rs.get("amounts").is_some()) {
+        (true, false) if rs.get("createdAt").is_some() => (&rd, &rs),
+        (false, true) if rd.get("createdAt").is_some() => (&rs, &rd),
+        _ => return Ok(true),
+    };
+    let decimal = |v: &serde_json::Value| -> Option<BigDec> {
+        match v { serde_json::Value::String(t) => BigDec::parse(t.trim()).ok(), serde_json::Value::Number(n) => BigDec::parse(&n.to_string()).ok(), _ => None }
+    };
+    let abs = |d: BigDec| if d < BigDec::zero() { &BigDec::zero() - &d } else { d };
+    let amounts = &restore["amounts"];
+    for (mine, theirs) in [("base", api.get("size").or_else(|| api.get("amount"))), ("quote", api.get("funds")), ("fee", api.get("fee"))] {
+        let (Some(a), Some(b)) = (decimal(&amounts[mine]), theirs.and_then(decimal)) else { continue };
+        if abs(a) != abs(b) { return Ok(false); }
+    }
+    Ok(true)
+}
+
 /// The ledger plan of step 7: each D row's twin, the merged metadata of each twin, and the final transfer links.
 struct Ledger { twin: HashMap<i64, i64>, merged: Vec<(i64, Meta)>, sources: BTreeSet<i64>, edges: BTreeMap<i64, i64>, conflicts: Vec<String> }
 
@@ -118,9 +145,11 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     for (d, s) in &twin {
         // The raw answers are compared only when both are venue answers (a restore's own fields are no venue's); two
         // restores' exact amounts (KuCoin's, beside float columns that can hide a difference) are compared too.
-        let same: bool = c.query_row(&format!("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND CAST(d.base_amount AS TEXT) IS CAST(s.base_amount AS TEXT) \
-            AND d.quote_currency IS s.quote_currency AND CAST(d.quote_amount AS TEXT) IS CAST(s.quote_amount AS TEXT) AND d.fee_currency IS s.fee_currency \
-            AND CAST(d.fee_amount AS TEXT) IS CAST(s.fee_amount AS TEXT) AND d.transacted_at IS s.transacted_at \
+        // The amounts as stored, exactly (`IS`: numbers by value, text by its characters), never through a cast to text,
+        // which rounds a REAL to 15 digits.
+        let same: bool = c.query_row(&format!("SELECT d.entry_type IS s.entry_type AND d.base_currency IS s.base_currency AND d.base_amount IS s.base_amount \
+            AND d.quote_currency IS s.quote_currency AND d.quote_amount IS s.quote_amount AND d.fee_currency IS s.fee_currency \
+            AND d.fee_amount IS s.fee_amount AND d.transacted_at IS s.transacted_at \
             AND (NULLIF(TRIM(d.base_asset_id), '') IS NULL OR NULLIF(TRIM(s.base_asset_id), '') IS NULL OR d.base_asset_id = s.base_asset_id) \
             AND (NULLIF(TRIM(d.description), '') IS NULL OR NULLIF(TRIM(s.description), '') IS NULL OR d.description = s.description) \
             AND ({} OR {} OR json(d.raw_data) IS json(s.raw_data)) \
@@ -128,7 +157,7 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
                  OR (json(json_extract(d.raw_data, '$.amounts')) IS json(json_extract(s.raw_data, '$.amounts')) \
                      AND json_extract(d.raw_data, '$.amounts_inexact') IS json_extract(s.raw_data, '$.amounts_inexact'))) \
             FROM account_transactions d, account_transactions s WHERE d.id = ?1 AND s.id = ?2", not_synced("d"), not_synced("s")), [d, s], |r| r.get(0))?;
-        if !same { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
+        if !same || !exact_amounts_agree(c, *d, *s)? { conflicts.push(named(c, *s)?); conflicts.push(named(c, *d)?); }
     }
     // A row of D with no exact-id twin (an id-less one too) may be an event S holds under another spelling: another type,
     // another time, no id. Refused, naming it, when (a) no venue sync wrote it (a CSV import, a restore); (b) S holds a row
@@ -277,9 +306,10 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     conflicts.extend(plan.conflicts.iter().cloned());
     if !conflicts.is_empty() { return Err(Refusal::Conflict(conflicts)); }
 
-    // 3. Keys, per key type: the survivor's correct key stays (its own keys all do); else a correct key of the duplicate's
-    // moves in, the survivor's incorrect ones of the type going; else the survivor's stays; else the duplicate's lowest
-    // moves. Never an incorrect key ahead of a correct one; among several, correct before incorrect, then the lowest id.
+    // 3. Keys, per key type (PLAN-710-6 §4.8: the other row is deleted): exactly one key of each type stays on the merged
+    // account, the survivor's correct key, else the duplicate's lowest correct one, else the survivor's, else the
+    // duplicate's lowest; every other key of the type goes through `remove_key` (its rows re-keyed, its pending work
+    // handed on).
     let keys_of = |a: &Account| -> rusqlite::Result<Vec<(i64, i64, i64)>> {
         let mut k = c.prepare(&format!("SELECT k.id, k.key_type, k.status FROM api_keys k WHERE {} ORDER BY k.status <> 1, k.id", a.keys("k")))?;
         let out = k.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect();
@@ -290,19 +320,16 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     for key_type in [0, 1, 2] {
         let of = |keys: &[(i64, i64, i64)]| -> Vec<(i64, i64)> { keys.iter().filter(|(_, t, _)| *t == key_type).map(|(id, _, st)| (*id, *st)).collect() };
         let (mine, theirs) = (of(&keys_d), of(&keys_s));
-        if mine.is_empty() { continue; }
-        let (keep, gone): (i64, Vec<i64>) = match (theirs.iter().find(|(_, st)| *st == 1), mine.iter().find(|(_, st)| *st == 1)) {
-            (Some((ks, _)), _) => (*ks, mine.iter().map(|(id, _)| *id).collect()),
-            (None, Some((kd, _))) => {
-                move_key(c, *kd, &as_)?;
-                (*kd, mine.iter().map(|(id, _)| *id).filter(|id| id != kd).chain(theirs.iter().map(|(id, _)| *id)).collect())
-            }
-            (None, None) => match theirs.first() {
-                Some((ks, _)) => (*ks, mine.iter().map(|(id, _)| *id).collect()),
-                None => { let kd = mine[0].0; move_key(c, kd, &as_)?; (kd, mine.iter().skip(1).map(|(id, _)| *id).collect()) }
-            },
+        // Each list is correct first, then by id: its first entry is its best.
+        let keep = match (theirs.first(), mine.first()) {
+            (Some(&(ks, 1)), _) => ks,
+            (_, Some(&(kd, 1))) => kd,
+            (Some(&(ks, _)), _) => ks,
+            (None, Some(&(kd, _))) => kd,
+            (None, None) => continue,
         };
-        for id in gone { remove_key(c, id, Some(keep))?; deleted.push(id); }
+        if mine.iter().any(|(id, _)| *id == keep) { move_key(c, keep, &as_)?; }
+        for (id, _) in theirs.iter().chain(&mine).filter(|(id, _)| *id != keep) { remove_key(c, *id, Some(keep))?; deleted.push(*id); }
     }
     // Every key left on the merged account.
     let kept: Vec<i64> = keys_of(&as_)?.into_iter().map(|(id, _, _)| id).collect::<std::collections::BTreeSet<i64>>().into_iter().collect();
@@ -365,8 +392,11 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     venue_ids::move_rows(c, &sd, &ss)?;
     for (row, m) in &plan.merged {
         // A blank is no value, here as in the plan (`meta`): '' is NULL for each carried column.
-        c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, NULLIF(TRIM(raw_data), '')), \
-                   base_asset_id = COALESCE(NULLIF(TRIM(base_asset_id), ''), ?6), group_id = COALESCE(NULLIF(TRIM(group_id), ''), ?7), description = COALESCE(NULLIF(TRIM(description), ''), ?8) WHERE id = ?1",
+        // TRIM only decides whether a value is blank: a blank survivor value takes the duplicate's as it was written, a
+        // non-blank one stays as it is.
+        let blank = |x: &str, v: &str| format!("{x} = CASE WHEN TRIM(COALESCE({x}, '')) = '' AND {v} IS NOT NULL THEN {v} ELSE {x} END");
+        c.execute(&format!("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
+                   {}, {}, {} WHERE id = ?1", blank("base_asset_id", "?6"), blank("group_id", "?7"), blank("description", "?8")),
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
