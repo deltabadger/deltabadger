@@ -430,6 +430,36 @@ async fn a_timed_cfee_is_worth_alpacas_price_on_both_sides() {
     assert!(!answer.body.contains("--fills"), "{}", answer.body);
 }
 
+/// Codex r2-6: a fee charged on 27 May 2022 (Terra's LUNA) and booked Monday 30 May (Terra 2's) has no price of its own:
+/// its value is unknown, in the walk (missing, warned) and on its row, never Terra 2's close of the booking day.
+#[tokio::test(flavor = "current_thread")]
+async fn a_timed_fee_charged_as_another_coin_has_no_known_value() {
+    use deltabadger::tracker::{fx::FxTable, prices::{self, NoFetch, PriceService, Reference}, rows, walk};
+    let (_dir, c, owner, app, mut b, _clock) = install_clocked();
+    c.execute("UPDATE users SET display_currency='USD'", []).unwrap();
+    c.execute_batch("INSERT INTO assets (external_id, symbol, name, category, market_cap_rank, created_at, updated_at) VALUES ('terra-luna-2', 'LUNA', 'Terra', 'Cryptocurrency', 300, 'now', 'now');
+                     INSERT INTO historical_prices (asset, currency, date, price) VALUES ('LUNA', 'USD', '2022-05-27', 80), ('LUNA', 'USD', '2022-05-30', 5);").unwrap();
+    // Bought before (no opening to price), its own quote valuing it.
+    fill(&c, owner, 0, "LUNA", "10", ("USD", "800"), "2022-05-27 10:00:00");
+    let fee = row(&c, owner, 10, "LUNA", "2", "2022-05-30 00:00:00");
+    let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": "2022-05-27T12:00:05Z", "symbol": "LUNAUSD", "price": null }).to_string();
+    c.execute("UPDATE account_transactions SET raw_data=?1 WHERE id=?2", (raw, fee)).unwrap();
+    let stored = rows::walk_rows(&rows::load_all(&c, owner).unwrap()).unwrap();
+    let deposits = stored.iter().map(|r| (r.id, r.amount.clone())).collect();
+    let mut reference = Reference::load(&c, &prices::Venue::alpaca(&c).unwrap(), &prices::symbols(&stored)).unwrap();
+    reference.record_coins(&c, owner).unwrap();
+    let table = FxTable::default();
+    let mut none = NoFetch;
+    let mut ps = PriceService::new(&reference, &table, chrono::NaiveDate::from_ymd_opt(2022, 6, 10).unwrap(), &mut none);
+    let w = walk::walk_rows(&stored, &deposits, &mut ps).unwrap();
+    let uid = stored.iter().position(|r| r.id == fee).unwrap();
+    let r = w.rows.iter().find(|r| r.uid == uid).unwrap();
+    assert_eq!((r.fiat_value.to_s_f(), r.price_missing), ("0.0".to_string(), true));
+    let answer = patch(&app, &mut b, fee, "").await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("tracker-row__price--none") && !answer.body.contains("placeholder=\"5"), "{}", answer.body);
+}
+
 /// The tracker row shows a priced CFEE's price as ours is shown, with its own explanation; a stated price still wins;
 /// with no fills it is the daily close, or waiting, as before.
 #[tokio::test(flavor = "current_thread")]

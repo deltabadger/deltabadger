@@ -189,130 +189,95 @@ pub fn cfee_places(rows: &[Stored]) -> Vec<(usize, Vec<usize>)> {
 /// How far back a timed CFEE's fill can be.
 const CFEE_REACH_SECONDS: i64 = 72 * 3600;
 
-/// D-TAX-CFEE-MATCHED-FILL: each timed CFEE of `rows` (fee id → fill id) the one fill it was charged on, over each
-/// account's history of the coin. A candidate is a crypto buy or sale of the fee's account and coin (the same recorded
-/// asset where both rows recorded one, and the same alias on the fill's day, the charge's and the booking's), quoted in
-/// the fee's pair's quote, not borrowed, at most 72 hours before the charge and not after it; a buy smaller than the fee
-/// is not one. In charge order, three passes, each claiming the ONE candidate left that it finds: (1) the fill whose raw
-/// price is the fee's, (2) the one within 0.1 % of it, (3) for a fee with no raw price, the only one. Two fees that may
-/// claim one fill at a pass both stay standalone, and that fill is out of every weaker pass. A fill after the fee's
-/// booking day vetoes, never matches, and disputes nothing. An exact claim on a fill that is an earlier open fee's only
-/// claimable candidate is skipped where the claiming fee has another claimable one within 0.1 %: that fee may not take
-/// the fill at any pass, and the earlier fees decide it among themselves. Each candidate stored, and each one read, is
-/// charged to the open budget.
+/// D-TAX-CFEE-MATCHED-FILL: whether a timed fee was charged on a day its symbol named another coin than on its booking
+/// day (a dated alias, LUNA across 27 May 2022): its booking day's prices are not its coin's.
+pub fn charged_as_another_coin(base: &str, venue: &str, exchange_id: i64, charged: At, booked: NaiveDate) -> bool {
+    let venue = super::prices::Venue { id: exchange_id, name_id: venue.to_string(), stock: true };
+    super::prices::alias_coin(base, Some(&venue), Some(charged.utc().date_naive())) != super::prices::alias_coin(base, Some(&venue), Some(booked))
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: each timed CFEE of `rows` (fee id → fill id) the one fill it was charged on. A fee's
+/// candidates are the crypto buys and sales of its account and coin (the same recorded asset where both rows recorded
+/// one; the same alias on the fill's, the charge's and the booking's day), quoted in its pair's quote, not borrowed, at
+/// most 72 hours before the charge and not after it; a buy smaller than the fee is none. Its edges are the candidates
+/// whose raw price is its own, else (none being) those within 0.1 % of it, else (it has no raw price) every candidate.
+/// A fee matches the fill of its one edge when that fill is on or before the fee's booking day and no other fee that
+/// may claim it (booked on or after its day) has an edge to it. A fill after the booking day is still an edge: it makes
+/// the fee's choice ambiguous, never a match. No order, no passes: what matches does not depend on which fee came first.
+/// Each candidate read, and the edges' bytes before they are stored, are charged to the open budget.
 pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i64>, FiguresError> {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     let mut fills: HashMap<(i64, &str), Vec<usize>> = HashMap::new();
     for (i, r) in rows.iter().enumerate() {
         if matches!(r.kind, Kind::Buy | Kind::Sell) && r.amount.is_positive() && !r.borrowed() { fills.entry((r.account, r.base.as_str())).or_default().push(i); }
     }
     for v in fills.values_mut() { v.sort_by_key(|&i| (rows[i].at.0, rows[i].id)); }
-    let mut fees: Vec<(usize, At, &'static str)> = rows.iter().enumerate().filter_map(|(i, r)| {
+    let fees: Vec<(usize, At, &'static str)> = rows.iter().enumerate().filter_map(|(i, r)| {
         let charged = r.cfee.charged.filter(|_| r.cfee.fee && r.kind == Kind::Fee && r.amount.is_positive())?;
         Some((i, charged, pair_quote(&r.base, r.cfee.symbol.as_deref()?)?))
     }).collect();
-    fees.sort_by_key(|&(i, at, _)| (at.0, rows[i].id));
     let crypto = |x: &Stored| match super::prices::recorded_class(x.base_asset.as_ref()) {
         Some(security) => !security,
         None => x.cfee.symbol.as_deref().is_some_and(|s| s.contains('/') || pair_quote(&x.base, s).is_some()),
     };
-    // Every fee's candidates, by place in `rows`, and each fill's fees (by place in `fees`) listing it.
-    let mut candidates: Vec<Vec<usize>> = Vec::with_capacity(fees.len());
-    let mut listing: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut stored = 0u64;
-    for (n, &(i, charged, quote)) in fees.iter().enumerate() {
+    let tolerance = Dec::strict("0.001")?;
+    // Each candidate of fee `i`, as (place, exact price, within 0.1 %), each read a step.
+    let candidates = |i: usize, charged: At, quote: &str, out: &mut dyn FnMut(usize, bool, bool)| -> Result<(), FiguresError> {
         let f = &rows[i];
         let venue = super::prices::Venue { id: f.exchange_id, name_id: f.venue.clone(), stock: true };
         let alias = |day: NaiveDate| super::prices::alias_coin(&f.base, Some(&venue), Some(day));
         let coin = alias(charged.utc().date_naive());
-        let mut found = vec![];
-        // A fee booked on a day its coin is another's: its row, kept on that day, would not be its fill's coin.
-        if alias(f.date()) == coin {
-            let from = charged.0.saturating_sub(CFEE_REACH_SECONDS * 1_000_000_000);
-            let pool = fills.get(&(f.account, f.base.as_str())).map_or(&[][..], Vec::as_slice);
-            let start = pool.partition_point(|&j| rows[j].at.0 < from);
-            for &j in &pool[start..] {
-                let x = &rows[j];
-                if x.at.0 > charged.0 { break; }
-                crate::figures::budget::charge(1, 0)?;
-                if x.kind == Kind::Buy && x.amount < f.amount { continue; }
-                if !crypto(x) || x.quote.as_deref() != Some(quote) { continue; }
-                if let (Some(a), Some(b)) = (&x.base_asset, &f.base_asset) { if a.0 != b.0 { continue; } }
-                if alias(x.date()) != coin { continue; }
-                // Held until the match is done, in both indexes: a limb's worth each, refused before it grows past the allowance.
-                stored += 2;
-                crate::figures::budget::charge(1, stored)?;
-                found.push(j);
-                listing.entry(j).or_default().push(n);
-            }
+        if alias(f.date()) != coin { return Ok(()); }
+        let price = f.cfee.price.as_ref().filter(|p| p.is_positive());
+        // 0.1 % either side of the fee's price, once per fee.
+        let band = match price { Some(p) => { let t = (p * &tolerance)?; Some(((p - &t)?, (p + &t)?)) } None => None };
+        let from = charged.0.saturating_sub(CFEE_REACH_SECONDS * 1_000_000_000);
+        let pool = fills.get(&(f.account, f.base.as_str())).map_or(&[][..], Vec::as_slice);
+        for &j in &pool[pool.partition_point(|&j| rows[j].at.0 < from)..] {
+            let x = &rows[j];
+            if x.at.0 > charged.0 { break; }
+            crate::figures::budget::charge(1, 0)?;
+            if x.kind == Kind::Buy && x.amount < f.amount { continue; }
+            if !crypto(x) || x.quote.as_deref() != Some(quote) { continue; }
+            if let (Some(a), Some(b)) = (&x.base_asset, &f.base_asset) { if a.0 != b.0 { continue; } }
+            if alias(x.date()) != coin { continue; }
+            let (exact, near) = match (price, &band, x.cfee.price.as_ref()) {
+                (Some(p), Some((lo, hi)), Some(q)) => (p == q, lo <= q && q <= hi),
+                _ => (false, false),
+            };
+            out(j, exact, near);
         }
-        candidates.push(found);
-    }
-    let near = |fee: &Dec, fill: &Dec| -> Result<bool, FiguresError> {
-        let gap = (fill - fee)?;
-        let gap = if gap.is_negative() { gap.neg() } else { gap };
-        Ok(gap <= (fee * &Dec::strict("0.001")?)?)
+        Ok(())
     };
-    let (mut matched, mut claimed, mut disputed, mut blocked) = (HashMap::new(), HashSet::new(), HashSet::new(), HashSet::new());
-    // (fee, fill): the fee may not take the fill (the stranding guard).
-    let mut barred: HashSet<(usize, usize)> = HashSet::new();
-    let booked_by = |n: usize, j: usize| rows[j].date() <= rows[fees[n].0].date();
-    let claimable = |n: usize, j: usize, claimed: &HashSet<usize>, disputed: &HashSet<usize>, barred: &HashSet<(usize, usize)>|
-        booked_by(n, j) && !claimed.contains(&j) && !disputed.contains(&j) && !barred.contains(&(n, j));
-    for pass in 0..3 {
-        loop {
-            // Each fee still open at this pass, with the one fill it finds.
-            let mut found: Vec<(usize, usize)> = vec![];
-            for (n, &(i, _, _)) in fees.iter().enumerate() {
-                let price = rows[i].cfee.price.as_ref();
-                if matched.contains_key(&n) || blocked.contains(&n) || (pass == 2) != price.is_none() { continue; }
-                crate::figures::budget::charge(candidates[n].len() as u64, 0)?;
-                let mut left = vec![];
-                for &j in &candidates[n] {
-                    // A fill after the booking day stays in the count (it vetoes) though it cannot be claimed.
-                    if claimed.contains(&j) || disputed.contains(&j) || barred.contains(&(n, j)) { continue; }
-                    let fits = match (pass, price, rows[j].cfee.price.as_ref()) {
-                        (2, _, _) => true,
-                        (0, Some(p), Some(q)) => p == q,
-                        (1, Some(p), Some(q)) => near(p, q)?,
-                        _ => false,
-                    };
-                    if fits { left.push(j); }
-                }
-                if let [j] = left[..] { if booked_by(n, j) { found.push((n, j)); } }
-            }
-            let mut claims: HashMap<usize, usize> = HashMap::new();
-            for &(_, j) in &found { *claims.entry(j).or_default() += 1; }
-            let mut moved = false;
-            for (n, j) in found {
-                if claims[&j] > 1 { disputed.insert(j); blocked.insert(n); moved = true; continue; }
-                if pass == 0 {
-                    // An earlier open fee whose only claimable candidate is this fill, and another claimable one for this fee.
-                    let mut earlier = false;
-                    for &e in listing.get(&j).map_or(&[][..], Vec::as_slice).iter().take_while(|&&e| e < n) {
-                        if matched.contains_key(&e) || blocked.contains(&e) { continue; }
-                        crate::figures::budget::charge(candidates[e].len() as u64, 0)?;
-                        let mut open = candidates[e].iter().filter(|&&y| claimable(e, y, &claimed, &disputed, &barred));
-                        if open.next() == Some(&j) && open.next().is_none() { earlier = true; break; }
-                    }
-                    if earlier {
-                        let fee = rows[fees[n].0].cfee.price.as_ref();
-                        crate::figures::budget::charge(candidates[n].len() as u64, 0)?;
-                        let mut other = false;
-                        for &y in candidates[n].iter().filter(|&&y| y != j && claimable(n, y, &claimed, &disputed, &barred)) {
-                            if let (Some(p), Some(q)) = (fee, rows[y].cfee.price.as_ref()) { other |= near(p, q)?; }
-                        }
-                        if other { barred.insert((n, j)); moved = true; continue; }
-                    }
-                }
-                matched.insert(n, j);
-                claimed.insert(j);
-                moved = true;
-            }
-            if !moved { break; }
-        }
+    // Which candidates are a fee's edges: its exact ones, else those within 0.1 %, else (no price) all.
+    let mut kinds: Vec<(usize, u8)> = Vec::with_capacity(fees.len());
+    let mut total = 0usize;
+    for &(i, charged, quote) in &fees {
+        let (mut all, mut exact, mut near) = (0usize, 0usize, 0usize);
+        candidates(i, charged, quote, &mut |_, e, n| { all += 1; exact += usize::from(e); near += usize::from(n); })?;
+        let priced = rows[i].cfee.price.as_ref().is_some_and(Dec::is_positive);
+        let (count, kind) = if exact > 0 { (exact, 0) } else if priced { (near, 1) } else { (all, 2) };
+        total += count;
+        kinds.push((count, kind));
     }
-    Ok(matched.into_iter().map(|(n, j)| (rows[fees[n].0].id, rows[j].id)).collect())
+    // The edges (a place each), and per fill how many fees that may claim it have an edge to it: their bytes in 4-byte
+    // limbs, refused before anything is stored.
+    let bytes = |n: usize| (n.saturating_mul(std::mem::size_of::<usize>()) / 4) as u64;
+    crate::figures::budget::charge(1, bytes(total) + bytes(fees.len() * 4) + bytes(total.min(rows.len()) * 6))?;
+    let mut edges: Vec<Vec<usize>> = Vec::with_capacity(fees.len());
+    let mut claimants: HashMap<usize, usize> = HashMap::with_capacity(total.min(rows.len()));
+    for (n, &(i, charged, quote)) in fees.iter().enumerate() {
+        let (count, kind) = kinds[n];
+        let mut mine = Vec::with_capacity(count);
+        candidates(i, charged, quote, &mut |j, e, near| { if match kind { 0 => e, 1 => near, _ => true } { mine.push(j); } })?;
+        for &j in &mine { if rows[j].date() <= rows[i].date() { *claimants.entry(j).or_default() += 1; } }
+        edges.push(mine);
+    }
+    let mut out = HashMap::new();
+    for (n, &(i, _, _)) in fees.iter().enumerate() {
+        if let [j] = edges[n][..] { if rows[j].date() <= rows[i].date() && claimants.get(&j) == Some(&1) { out.insert(rows[i].id, rows[j].id); } }
+    }
+    Ok(out)
 }
 
 /// D-TAX-CFEE-MATCHED-FILL: each timed CFEE its fill (`cfee_matches`) and its instant: its fill's when it matched, else
@@ -770,18 +735,18 @@ mod tests {
         assert_eq!((rows[1].cfee.fill, at(&rows, 2)), (Some(1), "2026-10-05 00:00:00.000000000".to_string()));
     }
 
-    /// Exact prices name their fills; an exact match comes before a rounding one, whoever was charged first; two partial
-    /// fills of one order, each with its exact fee, are one to one.
+    /// Exact prices name their fills (a fee with an exact candidate reads no other); a fill two fees find is neither's;
+    /// two partial fills of one order, each with its exact fee, are one to one.
     #[test]
     fn exact_prices_name_their_fills() {
         let day = "2026-10-01";
         let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), fill(2, Kind::Buy, "0.01", "101.00", "2026-10-01 10:30:00"),
                     timed(3, "0.0001", Some("101.00"), day, "2026-10-01T11:00:00Z"), timed(4, "0.0001", Some("100.00"), day, "2026-10-01T11:00:01Z")];
         assert_eq!(matched(&rows), [(3, 2), (4, 1)]);
-        // Fee 5, charged first, is within 0.1 % of buy 1 only; fee 6 is exactly its price: 6 takes it, 5 stays.
+        // Fee 5 is within 0.1 % of buy 1, fee 6 exactly its price: the buy is found by two fees, so it is neither's.
         let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(5, "0.0001", Some("100.05"), day, "2026-10-01T10:01:00Z"),
                     timed(6, "0.0001", Some("100.00"), day, "2026-10-01T10:02:00Z")];
-        assert_eq!(matched(&rows), [(6, 1)]);
+        assert_eq!(matched(&rows), NONE);
         let rows = [fill(1, Kind::Buy, "0.5", "100.00", "2026-10-01 10:00:00.100"), fill(2, Kind::Buy, "0.5", "100.02", "2026-10-01 10:00:00.200"),
                     timed(3, "0.0001", Some("100.00"), day, "2026-10-01T10:00:01Z"), timed(4, "0.0001", Some("100.02"), day, "2026-10-01T10:00:01Z")];
         assert_eq!(matched(&rows), [(3, 1), (4, 2)]);
@@ -813,14 +778,38 @@ mod tests {
         assert_eq!(matched(&rows), NONE);
     }
 
-    /// The stranding guard: a later fee does not take, by its exact price, the only fill an earlier fee could have, when
-    /// it has another within 0.1 %; the fill stays held for the earlier fee through the weaker passes.
+    /// Mutual uniqueness, whatever the charge order: a match is a fee with one compatible fill that no other fee may
+    /// claim. No fee ever attaches to a fill another fee's price names; a fill two fees find stays both fees' standalone.
     #[test]
-    fn a_later_fee_does_not_strand_an_earlier_one() {
+    fn no_fee_takes_a_fill_another_fee_finds() {
         let day = "2026-10-01";
+        let (a, b) = ("2026-10-01T11:01:00Z", "2026-10-01T11:02:00Z");
+        for (first, second) in [(a, b), (b, a)] {
+            // An unpriced fee and an exact fee both find the buy; the sale's exact fee alone finds the sale.
+            let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
+                        fill(3, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"), timed(4, "0.0001", Some("100.00"), day, first),
+                        timed(5, "0.0002", Some("100.04"), day, second)];
+            assert_eq!(matched(&rows), [(5, 3)], "{first}");
+            // A fee whose price names no candidate finds none, and disputes nothing.
+            let rows = [fill(1, Kind::Buy, "0.01", "100", "2026-10-01 10:00:00"), timed(2, "0.0001", Some("120"), day, first),
+                        fill(3, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"), timed(4, "0.0002", Some("100"), day, second)];
+            assert_eq!(matched(&rows), [(4, 1)], "{first}");
+            // Three fees find the buy (no price, exact, within 0.1 %); the sale is within 0.1 % of none of them.
+            let rows = [fill(1, Kind::Buy, "0.01", "100", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
+                        fill(3, Kind::Sell, "0.01", "100.09", "2026-10-01 11:00:00"), timed(4, "0.0002", Some("100"), day, first),
+                        timed(5, "0.0003", Some("99.95"), day, second)];
+            assert_eq!(matched(&rows), NONE, "{first}");
+        }
+        // The r15 shape: the unpriced fee and the exact fee both find the buy: neither takes it, and the exact fee, whose
+        // price names only the buy, does not take the sale either.
         let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
                     fill(3, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"), timed(4, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z")];
-        assert_eq!(matched(&rows), [(2, 1), (4, 3)]);
+        assert_eq!(matched(&rows), NONE);
+        // Two unpriced fees with the buy as their only candidate: neither, whatever their order.
+        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
+                    timed(3, "0.0002", None, day, "2026-10-01T10:02:00Z"), fill(4, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"),
+                    timed(5, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z")];
+        assert_eq!(matched(&rows), NONE);
     }
 
     /// Who is a candidate at all: a buy no smaller than the fee, on or before the booking day, a crypto fill (a recorded
@@ -887,28 +876,6 @@ mod tests {
         assert_eq!(matched(&rows), [(3, 1)]);
     }
 
-    /// Codex review 3: the stranding guard reads what is still claimable: a sale an exact fee already took is no
-    /// alternative, so the later exact 100.00 fee takes its buy.
-    #[test]
-    fn the_stranding_guard_counts_only_claimable_alternatives() {
-        let day = "2026-10-01";
-        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
-                    fill(3, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"), timed(5, "0.0001", Some("100.04"), day, "2026-10-01T11:00:30Z"),
-                    timed(4, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z")];
-        assert_eq!(matched(&rows), [(4, 1), (5, 3)]);
-    }
-
-    /// Codex review 4: a reservation never makes a match unique: two earlier unpriced fees with the buy as their only
-    /// candidate both stay standalone (charge order does not pick one); the exact fee still takes the sale.
-    #[test]
-    fn a_reservation_does_not_pick_between_two_earlier_fees() {
-        let day = "2026-10-01";
-        let rows = [fill(1, Kind::Buy, "0.01", "100.00", "2026-10-01 10:00:00"), timed(2, "0.0001", None, day, "2026-10-01T10:01:00Z"),
-                    timed(3, "0.0002", None, day, "2026-10-01T10:02:00Z"), fill(4, Kind::Sell, "0.01", "100.04", "2026-10-01 11:00:00"),
-                    timed(5, "0.0001", Some("100.00"), day, "2026-10-01T11:01:00Z")];
-        assert_eq!(matched(&rows), [(5, 4)]);
-    }
-
     /// Codex review 5: a fee booked on a day whose alias reads another coin than its fill's (a LUNA fee of 27 May 2022
     /// booked Monday 30 May) is not matched: its row, kept on its booking day, would be the other coin's.
     #[test]
@@ -926,8 +893,14 @@ mod tests {
         let at = |n: i64| (At::from_sql("2026-10-01 00:00:00").unwrap().0 + n * 1_000_000_000, n);
         let mut rows: Vec<Stored> = (0..2000).map(|n| Stored { at: At(at(n).0), ..fill(n + 1, Kind::Buy, "1", "100", "2026-10-01 00:00:00") }).collect();
         for n in 0..2000 { rows.push(timed(10_000 + n, "0.0001", Some("100"), "2026-10-01", &At(at(3000 + n).0).utc().to_rfc3339())); }
-        let (out, _) = budget::scope(budget::Limits { steps: budget::FIGURE.steps, held: 100_000 }, || cfee_matches(&rows));
+        // 4,000,000 edges of 8 bytes: 8,000,000 limbs of 4. Refused under less, before it is stored; under a figure's
+        // allowance it completes in linear work (each candidate read twice, its price compared), and every fill is two
+        // fees' at least: nothing matches.
+        let (out, _) = budget::scope(budget::Limits { steps: budget::FIGURE.steps, held: 7_900_000 }, || cfee_matches(&rows));
         assert!(matches!(out, Err(FiguresError::NotComputed(ref m)) if m == crate::figures::OVER_BUDGET), "{:?}", out.map(|m| m.len()));
+        let (out, used) = budget::scope(budget::FIGURE, || cfee_matches(&rows));
+        assert_eq!(out.unwrap().len(), 0);
+        assert!(used.steps < 100_000_000, "{} steps: linear in the 4,000,000 candidates, each read twice", used.steps);
         let mut rows = vec![];
         for n in 0..20_000i64 {
             let t = At::from_sql("2026-01-01 00:00:00").unwrap().0 + n * 3_600_000_000_000;
@@ -938,7 +911,7 @@ mod tests {
         }
         let (out, used) = budget::scope(budget::FIGURE, || cfee_matches(&rows));
         assert_eq!(out.unwrap().len(), 20_000);
-        assert!(used.steps < 10_000_000, "{} steps", used.steps);
+        assert!(used.steps < 20_000_000, "{} steps: linear in the 1,440,000 candidates (72 each), not the 400,000,000 pairs", used.steps);
     }
 
     /// Instants: a fee charged past midnight still moves to its fill; one that matched nothing and was charged on a later

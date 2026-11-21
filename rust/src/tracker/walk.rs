@@ -277,10 +277,18 @@ fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &s
     if let Some(price) = &t.stated { return ps.convert_fiat(&(price * &t.amount)?, "USD", currency, t.at); }
     // D-TAX-CFEE-MATCHED-FILL: a timed Alpaca CFEE at Alpaca's own price of it, in dollars.
     if let Some(price) = &t.cfee.raw_price { return ps.convert_fiat(&(price * &t.amount)?, "USD", currency, t.at); }
+    // A timed fee charged as another coin than its booking day's: no price of that day is its coin's.
+    if foreign_cfee(t) { ps.warnings.push(format!("{}/{currency} {}", t.base, t.date())); return Ok(Dec::zero()); }
     // D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE at what its fills were traded at.
     if let Some((price, unit)) = &t.cfee.fill_price { return ps.convert_fiat(&(price * &t.amount)?, unit, currency, t.at); }
     let price = ps.price_at_recorded(&t.base, currency, t.at, Some(&t.venue), t.base_asset.as_ref())?;
     Ok((&price * &t.amount)?)
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: a timed CFEE with no stated or raw price, charged as another coin than its booking day's.
+fn foreign_cfee(t: &Stored) -> bool {
+    t.stated.is_none() && t.cfee.raw_price.is_none()
+        && t.cfee.charged.is_some_and(|c| super::rows::charged_as_another_coin(&t.base, &t.venue, t.exchange_id, c, t.date()))
 }
 
 /// D-TAX-CFEE-PREVIOUS-DAY (SE, GB): a fill's share of a CFEE it carries as its expense: the fee valued as its own row is
@@ -340,7 +348,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
     ps.record(stored);
     let legs = cash_leg_context(stored, ps, currency)?;
     // `(done.to_f / total * 21).to_i`
-    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()) || t.cfee.fill_price.is_some() || t.cfee.raw_price.is_some(), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
+    if prefetch { ps.prefetch(stored, currency, &|t| legs.get(&t.id).is_some_and(|l| l.fiat_value.is_some()) || t.cfee.fill_price.is_some() || t.cfee.raw_price.is_some() || foreign_cfee(t), &mut |done, total| on_progress(if total > 0 { (done as f64 / total as f64 * 21.0) as u32 } else { 0 }))?; }
     let total = stored.len();
     let links: HashMap<i64, i64> = stored.iter().filter_map(|t| t.linked_to.map(|d| (t.id, d))).collect();
     let linked_deposits: HashSet<i64> = links.values().copied().collect();

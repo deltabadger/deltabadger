@@ -63,6 +63,8 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,Web
     if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
     if row.kind==10 && crate::tracker::rows::charged(&row.raw).is_some() {
         if let Some(usd)=crate::tracker::rows::raw_price(&row.base,&row.raw){return Ok(Source::Fills(usd))}
+        // Charged as another coin than its booking day's (D-TAX-CFEE-MATCHED-FILL): that day's close is not its coin's.
+        if crate::tracker::rows::charged(&row.raw).is_some_and(|at|crate::tracker::rows::charged_as_another_coin(&row.base,&crate::tracker::rows::name_id(&row.venue),row.exchange,at,row.at.date_naive())){return Ok(Source::None)}
     } else if row.kind==10 {
         let fills=crate::tracker::rows::cfee_price(c,row.owner,row.id).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
         if let Some((usd,_))=fills.filter(|(_,unit)|unit=="USD"){return Ok(Source::Fills(usd))}
