@@ -213,10 +213,14 @@ fn problems(hits: &Hits, list: &BTreeMap<(String, String, String), (String, usiz
     out
 }
 
-fn bless(hits: &Hits) -> String {
+/// The list for `hits`: an entry `previous` lists with the same (file, kind, unit) keeps its decision; a new one is
+/// `legacy` (`resolver` in the resolver's own files).
+fn bless(hits: &Hits, previous: &str) -> String {
+    let kept = listed(previous);
     let mut text = String::from("# decision\tfile\tkind\tcount\tunit (normalised); written by SPELLING_READERS_BLESS=1, reviewed by hand\n");
     for ((file, kind, line), n) in hits {
-        let decision = if NEW.contains(&file.as_str()) { "resolver" } else { "legacy" };
+        let fresh = if NEW.contains(&file.as_str()) { "resolver" } else { "legacy" };
+        let decision = kept.get(&(file.clone(), kind.to_string(), line.clone())).map_or(fresh, |(d, _)| d.as_str());
         text.push_str(&format!("{decision}\t{file}\t{kind}\t{n}\t{line}\n"));
     }
     text
@@ -227,7 +231,10 @@ fn list_file() -> std::path::PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).joi
 #[test]
 fn every_spelling_reader_is_listed() {
     let hits = scan(&sources());
-    if std::env::var_os("SPELLING_READERS_BLESS").is_some() { std::fs::write(list_file(), bless(&hits)).unwrap(); }
+    if std::env::var_os("SPELLING_READERS_BLESS").is_some() {
+        let previous = std::fs::read_to_string(list_file()).unwrap_or_default();
+        std::fs::write(list_file(), bless(&hits, &previous)).unwrap();
+    }
     let list = listed(&std::fs::read_to_string(list_file()).unwrap_or_default());
     let problems = problems(&hits, &list);
     assert!(problems.is_empty(), "{} problems:\n{}", problems.len(), problems.join("\n"));
@@ -238,7 +245,7 @@ fn every_spelling_reader_is_listed() {
 #[test]
 fn a_second_occurrence_in_a_listed_file_fails() {
     let files = vec![("tracker/x.rs".to_string(), "let s = \"SELECT base_currency FROM account_transactions\";\n".to_string())];
-    let list = listed(&bless(&scan(&files)));
+    let list = listed(&bless(&scan(&files), ""));
     assert!(problems(&scan(&files), &list).is_empty());
     let twice = vec![("tracker/x.rs".to_string(), format!("{0}{0}", files[0].1))];
     assert_eq!(problems(&scan(&twice), &list), ["tracker/x.rs: 2 occurrences of a line listed 1 times: let s = \"SELECT base_currency FROM account_transactions\";"]);
@@ -292,4 +299,14 @@ fn the_scan_joins_method_chains_and_keeps_code_after_a_test_item() {
 fn a_test_only_arm_hides_no_production_reader() {
     let arm = vec![("tracker/m.rs".to_string(), "fn f(kind: i32, row: &Row) -> &str { match kind { #[cfg(test)] 0 => \"\", _ => &row.base_currency } }\n".to_string())];
     assert_eq!(scan(&arm).len(), 1, "{:?}", scan(&arm));
+}
+
+/// Codex PR0 r4 P3: blessing keeps the decision of every unchanged (file, kind, unit) entry; only a new one is `legacy`.
+#[test]
+fn bless_keeps_reviewed_decisions() {
+    let files = vec![("tracker/x.rs".to_string(), "let a = \"SELECT base_currency FROM t\";\nlet b = \"SELECT quote_currency FROM t\";\n".to_string())];
+    let before = bless(&scan(&files), "").replace("legacy\ttracker/x.rs\tsql\t1\tlet a", "label\ttracker/x.rs\tsql\t1\tlet a");
+    let again = listed(&bless(&scan(&files), &before));
+    let decision = |unit: &str| again.iter().find(|((_, _, l), _)| l.starts_with(unit)).map(|(_, (d, _))| d.clone()).unwrap();
+    assert_eq!((decision("let a"), decision("let b")), ("label".to_string(), "legacy".to_string()));
 }
