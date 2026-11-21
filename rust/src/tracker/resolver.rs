@@ -203,16 +203,17 @@ fn catalogued(f: &Facts, leg: &Leg) -> Option<Holding> {
 /// The listing sides a leg reads: its own, or both for a fee (which has no ticker side).
 fn sides(leg: &Leg) -> &'static [Side] { if leg.side == Side::Fee { &[Side::Base, Side::Quote] } else if leg.side == Side::Base { &[Side::Base] } else { &[Side::Quote] } }
 
-/// A broker's unrecorded leg: its listing (both sides for a fee), else the catalogue when `catalogue` allows it; one
-/// security or coin among them is that holding, several are unclear, none is no evidence.
+/// A broker's unrecorded leg: its listing (both sides for a fee), else the catalogue when `catalogue` allows it. Cash
+/// assets aside, one security or coin is that holding; several, or one unclassified instrument, are unclear; none is no
+/// evidence.
 fn broker_unrecorded(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
     let listing = distinct(sides(leg).iter().flat_map(|s| f.live.get(&(leg.venue.id, *s, leg.spelling.to_string())).into_iter().flatten().cloned()));
     let pool = if !listing.is_empty() { listing } else if catalogue { distinct(f.catalogue.get(leg.spelling).into_iter().flatten().cloned()) } else { vec![] };
-    let held: Vec<&AssetRef> = pool.iter().filter(|a| a.security() || a.crypto()).collect();
+    let held: Vec<&AssetRef> = pool.iter().filter(|a| !matches!(a.category.as_deref(), Some("Fiat" | "Currency"))).collect();
     Some(match held.as_slice() {
         [] => return None,
         [one] if one.security() => one.external_id.clone().map_or(Holding::Unknown(Why::Unclear), Holding::Security),
-        [one] => coin(f, leg, one),
+        [one] if one.crypto() => coin(f, leg, one),
         _ => Holding::Unknown(Why::Unclear),
     })
 }
@@ -240,8 +241,9 @@ pub fn holding(f: &Facts, leg: &Leg) -> Holding {
     }
     if stable(leg.spelling) { return Holding::Cash(CashKind::Stable); }
     if fiat(leg.spelling) {
-        // This venue's evidence for the leg wins, a refusal or an unclear answer included: only none leaves it cash.
-        return evidence(f, leg, false).unwrap_or(Holding::Cash(CashKind::Fiat));
+        // This venue's coin evidence for the leg wins, a refusal or an unclear answer included; a listed security never
+        // makes a fiat spelling a security (Alpaca's USD.US under `USD`): only a recorded one does (above).
+        return match evidence(f, leg, false) { Some(h @ (Holding::Coin(_) | Holding::Unknown(_))) => h, _ => Holding::Cash(CashKind::Fiat) };
     }
     evidence(f, leg, true).unwrap_or(Holding::Unknown(Why::Unclear))
 }
@@ -467,5 +469,21 @@ mod tests {
         assert_eq!(holding(&f, &leg(&alpaca, Side::Quote, "USD", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
         list(&mut f, &alpaca, Side::Quote, "BTC", &coin_asset(10, "bitcoin", "BTC"));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "BTC", "2025-01-01", None)), coin_of("bitcoin"), "a broker's fee reads the quote side too");
+    }
+
+    /// Codex PR0 r2 P2-10: on a broker, a fiat spelling yields only to coin evidence or a refusal: Alpaca listing the
+    /// USD.US stock under the base `USD` leaves an unrecorded USD cash activity cash (a recorded USD.US is still the
+    /// security); a coin and an unclassified instrument sharing a spelling are two candidates, not one coin.
+    #[test]
+    fn broker_cash_and_ambiguous_instruments() {
+        let alpaca = venue(5, "alpaca", true);
+        let mut f = Facts::default();
+        let usd_us = asset(70, "usd-us-stock", "USD", Some("Stock"));
+        list(&mut f, &alpaca, Side::Base, "USD", &usd_us);
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "USD", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "USD", "2025-01-01", Some(&usd_us))), Holding::Security("usd-us-stock".into()));
+        list(&mut f, &alpaca, Side::Base, "ZED", &coin_asset(71, "zed-coin", "ZED"));
+        list(&mut f, &alpaca, Side::Base, "ZED", &asset(72, "zed-thing", "ZED", None));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "ZED", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
     }
 }
