@@ -119,9 +119,12 @@ async fn the_picker_puts_the_preselected_language_first_and_checked() {
         }
         let hello = web::i18n::text(preselected, "setup.language.greeting", &[]);
         let next = web::i18n::text(preselected, "setup.continue", &[]);
-        assert!(body.contains(&format!("<h1 class=\"language__hello\" data-language-picker-target=\"hello\">{hello}</h1>")), "{path}: {body}");
-        assert!(body.contains(&format!(">{next}</button>")), "{path}");
+        assert!(body.contains(&format!("<h1 class=\"language__hello crossfade\" data-language-picker-target=\"hello\"><span>{hello}</span></h1>")), "{path}: {body}");
+        assert!(body.contains(&format!("data-language-picker-target=\"button\"><span>{next}</span></span></button>")), "{path}");
         assert!(body.contains(&format!("<html lang=\"{preselected}\"")), "{path}");
+        // The step leaves through Turbo, so the admin form is a render of the same document (onboarding_transitions.js).
+        assert!(body.contains("data-controller=\"language-picker\" data-transition=\"setup\">"), "{path}");
+        assert!(body.contains("data-turbo-track=\"reload\" type=\"module\"></script>"), "{path}: the script loads as the application layout's");
         assert!(body.contains("<form action=\"/setup\" method=\"get\""), "{path}");
         assert!(!body.contains("devise__icon") && !body.contains("class=\"signet\""), "no logo");
         assert!(body.contains("devise--onboarding"), "{path}");
@@ -129,6 +132,19 @@ async fn the_picker_puts_the_preselected_language_first_and_checked() {
 }
 
 /// Each row's native name is the dropdown's label without its flag.
+/// Leaving the picker is not a guess at a connect code: the admin form under its language is never throttled, while a
+/// query that carries anything else still counts against the token limit (5).
+#[tokio::test(flavor = "current_thread")]
+async fn the_language_steps_own_link_is_not_throttled() {
+    let dir = install();
+    let app = app(dir.path(), &[]);
+    for round in 0..12 {
+        assert_eq!(get(&app, "/setup?locale=de", None).await.status, 200, "round {round}");
+    }
+    let statuses: Vec<u16> = { let mut all = Vec::new(); for _ in 0..6 { all.push(get(&app, "/setup?locale=de&x=1", None).await.status); } all };
+    assert_eq!(statuses.last(), Some(&429), "other input is still counted: {statuses:?}");
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn each_row_names_its_language_in_that_language() {
     let dir = install();

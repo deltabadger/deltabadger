@@ -1313,7 +1313,9 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     // rack-attack: after the session middleware, before everything else.
     let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
     let address = rate_limit::client_key(&app.config, request.headers(), peer);
-    let carries_input=request.uri().query().is_some_and(|q|!q.is_empty())
+    // D-LANGUAGE-STEP: a query that only names the page's language (the language step's own `/setup?locale=<code>`,
+    // followed every time the picker is left) is not input to the token check; anything else in it still is.
+    let carries_input=request.uri().query().is_some_and(|q|q.split('&').any(|pair|!pair.is_empty() && pair.split('=').next()!=Some("locale")))
         || request.headers().get(header::CONTENT_LENGTH).is_some_and(|v|v.to_str().is_ok_and(|v|v.parse::<u64>().is_ok_and(|n|n>0)))
         || request.headers().contains_key(header::TRANSFER_ENCODING);
     let limited=app.limiter.hit(request.method(), &params.route_path, &address, now)

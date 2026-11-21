@@ -1,5 +1,5 @@
-<form action="/setup" method="get" class="language__form" data-controller="language-picker">
-  <h1 class="language__hello" data-language-picker-target="hello">{{ v.t("setup.language.greeting") }}</h1>
+<form action="/setup" method="get" class="language__form" data-controller="language-picker" data-transition="setup">
+  <h1 class="language__hello crossfade" data-language-picker-target="hello"><span>{{ v.t("setup.language.greeting") }}</span></h1>
   <div class="language" data-language-picker-target="card">
     <fieldset class="language__list" aria-label="{{ v.t("settings.sections.language") }}" data-language-picker-target="list" data-action="change->language-picker#pick scroll->language-picker#scrolled">
 {%- for row in rows %}
@@ -11,5 +11,5 @@
 {%- endfor %}
     </fieldset>
   </div>
-  <button class="button button--sky button--large" data-language-picker-target="button">{{ v.t("setup.continue") }}</button>
+  <button class="button button--sky button--large"><span class="crossfade" data-language-picker-target="button"><span>{{ v.t("setup.continue") }}</span></span></button>
 </form>

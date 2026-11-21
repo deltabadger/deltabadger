@@ -1241,7 +1241,9 @@ fn the_desktop_pages_carry_the_launch_token_and_the_update_banner() {
         } else {
             // D-LOGIN-APP-ICON: the setup and sign-in pages show desktop-intro.png; the intro itself is `"desktop-intro…`.
             assert!(!page.contains("desktop-launch") && !page.contains("desktop_update") && !page.contains("\"desktop-intro"), "{platform}");
-            assert!(page.contains("data-turbo-track=\"reload\" defer=\"defer\"></script>"), "{platform}: today's script tag");
+            // An onboarding page loads the script as the application layout does, so the dashboard is a render of the
+            // same document (onboarding_transitions.js); the other devise pages keep `defer`.
+            assert!(page.contains("data-turbo-track=\"reload\" type=\"module\"></script>"), "{platform}: the onboarding pages' script tag");
         }
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));

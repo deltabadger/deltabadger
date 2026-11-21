@@ -190,6 +190,9 @@ fn onboarding_form_as_rust(body: &str) -> String {
     let button = |label: &str| format!("name=\"commit\" value=\"{label}\" class=\"button button--sky button--large\" data-disable-with=\"{label}\"");
     assert_eq!(body.matches(&button(&next)).count(), 1, "2.x's Continue");
     body = body.replace(&button(&next), &button(&create));
+    // The form is a Turbo submission here, so the dashboard is a render of the same document (onboarding_transitions.js).
+    assert_eq!(body.matches("<form data-turbo=\"false\" data-controller=\"form--html5-validations").count(), 1, "2.x's form opts out of Turbo");
+    body = body.replace("<form data-turbo=\"false\" data-controller=\"form--html5-validations", "<form data-transition=\"dashboard\" data-controller=\"form--html5-validations");
     frame.replace(&body, |c: &regex::Captures<'_>| if c[1].contains("<details") { String::new() } else { c[1].to_string() }).into_owned()
 }
 
@@ -198,12 +201,19 @@ fn onboarding_form_as_rust(body: &str) -> String {
 fn onboarding_layout_as_v2(body: &str) -> String {
     static PATTERNS: std::sync::OnceLock<[regex::Regex; 3]> = std::sync::OnceLock::new();
     let [logo, preload, modifier] = PATTERNS.get_or_init(|| [
-        regex::Regex::new(r#"<a href="/language\?locale=[a-z]{2}" title="[^"]*" data-turbo="false">(<img class="devise__icon"[^>]*>)</a>"#).unwrap(),
+        regex::Regex::new(r#"<a href="/language\?locale=[a-z]{2}" title="[^"]*" data-transition="language">(<img class="devise__icon"[^>]*>)</a>"#).unwrap(),
         regex::Regex::new(r#"\n    <link rel="preload" [^>]*>"#).unwrap(),
         regex::Regex::new(r#"<div class="devise devise--onboarding devise--[a-z]+">"#).unwrap(),
     ]);
     let body = logo.replace(body, "$1");
     let body = preload.replace_all(&body, "");
+    // The admin form's two fields ask password managers (Bitwarden, 1Password, LastPass) to leave them alone.
+    let ignored = " data-bwignore data-1p-ignore data-lpignore=\"true\"";
+    assert!(!body.contains("devise--setup") || body.matches(ignored).count() == 2, "both fields of the admin form");
+    let body = body.replace(ignored, "");
+    // An onboarding page loads the script as the application layout does (a module), so Turbo renders the dashboard
+    // instead of reloading for it.
+    let body = body.replace("data-turbo-track=\"reload\" type=\"module\"></script>", "data-turbo-track=\"reload\" defer=\"defer\"></script>");
     modifier.replace(&body, "<div class=\"devise\">").into_owned()
 }
 
@@ -835,7 +845,7 @@ async fn the_admin_form_has_no_language_choice_and_its_logo_leads_back() {
         let body = Browser::default().get(&app, path).await.body;
         assert!(!body.contains("data-controller=\"dropdown\"") && !body.contains("<details") && !body.contains("claim_code"), "{path}");
         let name = web::locale::native_name(code);
-        assert!(body.contains(&format!("<a href=\"/language?locale={code}\" title=\"{name}\" data-turbo=\"false\"><img class=\"devise__icon\"")), "{path}: {body}");
+        assert!(body.contains(&format!("<a href=\"/language?locale={code}\" title=\"{name}\" data-transition=\"language\"><img class=\"devise__icon\"")), "{path}: {body}");
         assert!(body.contains(&format!("<input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"{code}\" />")), "{path}");
         assert!(!body.contains("autocomplete=\"username\"") && !body.contains("current-password") && body.contains("autocomplete=\"off\"") && body.contains("autocomplete=\"new-password\""), "{path}");
         let create = web::i18n::text(code, "setup.create", &[]);
