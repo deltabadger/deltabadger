@@ -142,27 +142,16 @@ impl Fetcher for Channel {
 /// and nothing stored (MarketData's "No market data provider configured" failure).
 async fn fetch_and_store<T: Transport>(db: &Db, api: Option<&Feed<T>>, f: &Fetch, have: &HashSet<NaiveDate>, now: DateTime<Utc>) -> Result<(Vec<(NaiveDate, Dec)>, usize), String> {
     let Some(api) = api else { return Ok((vec![], 0)) };
-    let (rows, answer) = prices::fetch_answer(api, f, have, now).await?;
+    let rows = prices::fetch_range(api, f, have, now).await?;
+    if rows.is_empty() { return Ok((vec![], 0)); }
     let mut parsed = vec![];
     for (_, day, price) in &rows { parsed.push((*day, Dec::strict(price).map_err(|e| format!("{e:?}"))?)); }
-    if rows.is_empty() && answer.is_empty() { return Ok((vec![], 0)); }
-    let (coin, currency) = (f.coin.clone(), f.currency.clone());
-    // One blocking call: the legacy write in its own transaction, as before PR0, then (delisted coins PR0) the whole answer
-    // by the coin in another, so a caller dropped between them cannot leave the second unattempted. Its failure is
-    // logged and never changes the legacy result.
+    let currency = f.currency.clone();
     let stored = db.run(move |c, _| {
-        let stored = if rows.is_empty() { Ok(0) } else {
-            c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
-            let stored = prices::store_in(c, &currency, &rows).map_err(message);
-            let end = if stored.is_ok() { "COMMIT" } else { "ROLLBACK" };
-            c.execute_batch(end).map_err(|e| e.to_string())?;
-            stored
-        };
-        if !answer.is_empty() {
-            if let Err(why) = prices::store_asset_prices(c, &coin, &currency, &answer) {
-                crate::engine::log(&format!("[tracker] asset_prices for {coin} {currency} not stored: {}", message(why)));
-            }
-        }
+        c.execute_batch("BEGIN IMMEDIATE").map_err(|e| e.to_string())?;
+        let stored = prices::store_in(c, &currency, &rows).map_err(message);
+        let end = if stored.is_ok() { "COMMIT" } else { "ROLLBACK" };
+        c.execute_batch(end).map_err(|e| e.to_string())?;
         stored
     }).await?;
     Ok((parsed, stored))
