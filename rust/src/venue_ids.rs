@@ -215,18 +215,19 @@ const FACTS: &str = "a.entry_type, a.base_currency, CAST(a.base_amount AS TEXT),
 fn facts(r: &rusqlite::Row<'_>) -> rusqlite::Result<Facts> {
     Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: r.get(3)?, quote: r.get(4)?, quote_amount: r.get(5)?, at: r.get(6)? })
 }
-/// The account's earliest `limit` trade rows that have a venue id, by row id.
-pub fn overlap_sample(c: &Connection, scope: &Scope, limit: i64) -> rusqlite::Result<Vec<Facts>> {
-    let mut s = c.prepare(&format!("SELECT {}, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {} AND {} \
-                                    ORDER BY a.id LIMIT ?3", scope.row_id("a"), scope.rows("a"), scope.has_id("a"), native(&scope.row_id("a"))))?;
-    let out = s.query_map(params![scope.user_id, scope.exchange_id, limit], facts)?.collect();
+/// The account's earliest `limit` trade rows that have a venue id and meet `counted` (over `a`), by row id, each with the key
+/// that imported it.
+pub fn overlap_sample(c: &Connection, scope: &Scope, limit: i64, counted: &str) -> rusqlite::Result<Vec<(Facts, i64)>> {
+    let mut s = c.prepare(&format!("SELECT {}, {FACTS}, a.api_key_id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {} AND {} \
+                                    AND {counted} ORDER BY a.id LIMIT ?3", scope.row_id("a"), scope.rows("a"), scope.has_id("a"), native(&scope.row_id("a"))))?;
+    let out = s.query_map(params![scope.user_id, scope.exchange_id, limit], |r| Ok((facts(r)?, r.get(7)?)))?.collect();
     out
 }
 /// The account's trade row with venue id `id`, if any: one seek on 2.x's unique index for a number 1, on the membership's
 /// for an account 2+.
-pub fn overlap_match(c: &Connection, scope: &Scope, id: &str) -> rusqlite::Result<Option<Facts>> {
-    c.query_row(&format!("SELECT ?3, {FACTS} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} LIMIT 1",
-                         scope.id_is("a", "?3")), params![scope.user_id, scope.exchange_id, id], facts).optional()
+pub fn overlap_match(c: &Connection, scope: &Scope, id: &str, counted: &str) -> rusqlite::Result<Option<(Facts, i64)>> {
+    c.query_row(&format!("SELECT ?3, {FACTS}, a.api_key_id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {counted} LIMIT 1",
+                         scope.id_is("a", "?3")), params![scope.user_id, scope.exchange_id, id], |r| Ok((facts(r)?, r.get(7)?))).optional()
 }
 
 /// #710 Merge (PLAN-710-6 §6.2 step 6): duplicate `from`'s bot orders become `to`'s. Into a number 1 each takes its venue

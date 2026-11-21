@@ -235,9 +235,6 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // #878: the bot alert emails a user switched off.
     ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
         unique_indexes: &[&["user_id", "alert"]] }),
-    // #710 slice 6: an account 2+ observed as the same venue account as a lower one (identity::observe_overlap).
-    ("20261123000001", TableContract { name: "exchange_account_overlaps", columns: &[("account_id", "INTEGER", false), ("other_account_id", "INTEGER", true),
-        ("matches", "INTEGER", true), ("observed_at", "TEXT", true), ("evidence", "TEXT", false)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

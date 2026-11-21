@@ -359,16 +359,7 @@ impl<C: Connect> Job for LedgerSync<C> {
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
             // 2.x's SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
-            else {
-                // #710 slice 6 (PLAN-710-6 §5.1): a complete sync of an account 2+ may show it is a lower account's duplicate.
-                if outcome == Outcome::Done {
-                    let (key, at) = (self.key_id, cx.clock.now());
-                    if let Err(e) = cx.db.run(move |c, _| crate::identity::observe_overlap_of_key(c, key, at).map_err(|e| e.to_string())).await {
-                        crate::engine::log(&format!("[sync] account overlap of key {key} not observed: {e}"));
-                    }
-                }
-                if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
-            }
+            else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
             outcome
 
             }).await;
@@ -397,6 +388,22 @@ impl<C: Connect> Job for BalanceSync<C> {
     fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{ Box::pin(async move{self.run_attributed(cx,wakes).await.value}) }
     fn run_attributed<'a>(&'a self,cx:Cx<'a>,_wakes:Vec<Wake>)->AttributedJobFuture<'a>{
         Box::pin(async move {
+            // #710 Merge: a key moved beside its new account's reading key keeps its registered daily run; only the reading key
+            // writes the account's balances and their provenance (the freshness check names it).
+            let key_id = self.key_id;
+            // A key whose account reads with another key gives way to it; one whose account has no reading key runs as before.
+            let gives_way = cx.db.run(move |c, _| {
+                let keys = crate::sync::balance_reading_keys(c).map_err(|e| e.0)?;
+                if keys.contains(&key_id) { return Ok(false); }
+                let Some(account) = crate::identity::account_of_key(c, key_id).map_err(|e| e.to_string())? else { return Ok(false) };
+                for k in keys { if crate::identity::account_of_key(c, k).map_err(|e| e.to_string())? == Some(account) { return Ok(true); } }
+                Ok(false)
+            }).await;
+            match gives_way {
+                Ok(false) => {}
+                Ok(true) => return crate::engine::model::Produced::new(Outcome::NothingNew, None),
+                Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e), None),
+            }
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             let result=async {
             // As the ledger: from before the first write unit until a complete success, the key's balances may be half

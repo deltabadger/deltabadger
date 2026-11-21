@@ -38,11 +38,27 @@ pub fn stamp_ledgers(c: &Connection, user: i64) {
         if !deltabadger::app_config::exists(c, &key).unwrap() { deltabadger::app_config::set_plain(c, &key, &stamp.to_string(), chrono::Utc::now()).unwrap(); }
     }
 }
-/// An overlap observation of account `d` against `s` with the evidence `identity::observe_overlap` records.
-pub fn overlap(c: &Connection, user: i64, d: i64, s: i64) {
+/// Key `key`'s ledger import stamped as produced by its current version, whatever was stamped before (a sync's completion).
+pub fn restamp(c: &Connection, user: i64, key: i64) {
+    let k = deltabadger::jobs::state::key("ledger_origin", Some(&key.to_string()));
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [&k]).unwrap();
     stamp_ledgers(c, user);
-    let evidence = deltabadger::identity::overlap_evidence(c, &[d, s]).unwrap().expect("both accounts have a stamped key");
-    c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at, evidence) VALUES (?1, ?2, 3, 'now', ?3)", params![d, s, evidence]).unwrap();
+}
+/// A complete balance read of account `account` by its key `key` at `at`: its balance rows (asset, units), the key's
+/// balance time and the account's balance provenance (the key's current version, complete), as a balance sync leaves them.
+pub fn read_balances(c: &Connection, user: i64, account: i64, key: i64, held: &[(i64, &str)], at: &str) {
+    stamp_ledgers(c, user);
+    let a = deltabadger::identity::AccountRow::by_id(c, account).unwrap().unwrap();
+    c.execute("DELETE FROM exchange_account_balances WHERE account_id = ?1", [account]).unwrap();
+    for (asset, units) in held {
+        c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+                   VALUES (?1, ?2, ?3, ?4, 0, 1, ?4, ?5, ?5, ?5, ?5, ?6)", params![a.user_id, a.exchange_id, asset, units, at, account]).unwrap();
+    }
+    c.execute("UPDATE api_keys SET balances_synced_at = ?2 WHERE id = ?1", params![key, at]).unwrap();
+    let origin = deltabadger::jobs::state::key("ledger_origin", Some(&key.to_string()));
+    let mut stamp: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &origin).unwrap().unwrap()).unwrap();
+    stamp["complete"] = serde_json::Value::Bool(true);
+    deltabadger::app_config::set_plain(c, &deltabadger::sync::cache::balance_origin_key_of(&a), &stamp.to_string(), chrono::Utc::now()).unwrap();
 }
 
 impl Two {
@@ -60,7 +76,7 @@ impl Two {
                    minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
                    VALUES (?1, 'BTCEUR', 'BTC', 'EUR', ?2, ?3, 8, 2, 2, '0.00001', '1', 1, 1, 'now', 'now')", params![exchange_id, of.btc, of.quote]).unwrap();
         let ticker_id = c.last_insert_rowid();
-        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, 'now', 'now')",
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
                   params![of.user_id, exchange_id, cipher.encrypt("account-1-key"), cipher.encrypt("account-1-secret")]).unwrap();
         let seeded = Seeded { user_id: of.user_id, exchange_id, btc: of.btc, quote: of.quote, ticker_id, api_key_id: c.last_insert_rowid() };
         Self::on(c, cipher, seeded)
@@ -72,7 +88,7 @@ impl Two {
         c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')",
                   [seeded.user_id, seeded.exchange_id]).unwrap();
         let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
-        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, 'now', 'now')",
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
                   params![seeded.user_id, seeded.exchange_id, cipher.encrypt("account-2-key"), cipher.encrypt("account-2-secret")]).unwrap();
         let second_key = c.last_insert_rowid();
         second.add_key(c, second_key).unwrap();

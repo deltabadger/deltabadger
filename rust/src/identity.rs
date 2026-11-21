@@ -20,9 +20,9 @@ use serde_json::Value;
 /// The app_configs key of the install's identity key (32 random bytes, hex, in the credential envelope).
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql,
-/// 20261119000002_exchange_account_ownership.sql, 20261120000001_exchange_account_ids.sql, 20261123000001_exchange_account_overlaps.sql).
-pub const TABLES: [&str; 9] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
-                               "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows", "exchange_account_overlaps"];
+/// 20261119000002_exchange_account_ownership.sql, 20261120000001_exchange_account_ids.sql).
+pub const TABLES: [&str; 8] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
+                               "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
@@ -660,39 +660,51 @@ pub fn pick_switch(c: &Connection, owner: i64, bot_id: i64, posted_exchange: Opt
 /// BingX stays out until its trade id's scope is vetted.
 pub const OVERLAP_VENUES: [&str; 10] = ["Exchanges::Kraken", "Exchanges::Coinbase", "Exchanges::Bitvavo", "Exchanges::Gemini", "Exchanges::Bitget",
                                         "Exchanges::Mexc", "Exchanges::Hyperliquid", "Exchanges::Bybit", "Exchanges::Bitrue", "Exchanges::Alpaca"];
-/// Strong matches an observation needs.
+/// Shared trades two accounts need.
 // ponytail: one fixed bar of 3 (one identical fill under a venue-native id is near-certain; three guard against one
 // replayed import row); raise it per venue if a venue is found reusing ids.
 pub const MATCHES: usize = 3;
 /// The duplicate's earliest trade rows that are compared.
 pub const SAMPLE: i64 = 200;
+/// Two accounts' latest balance reads at most this many seconds apart are comparable.
+pub const READS_APART: i64 = 900;
+/// Two amounts agree within the venues' rounding: a relative difference at most this.
+// ponytail: one bar for every venue (eight decimals); per-venue rounding if one is found rounding coarser.
+const ROUNDING: f64 = 1e-8;
 
-/// Whether the install has the observation table (20261123000001).
-fn overlaps_ready(c: &Connection) -> rusqlite::Result<bool> {
-    c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'exchange_account_overlaps')", [], |r| r.get(0))
-}
+/// What two accounts' balances say.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Reads { Agree, Differ, NotComparable }
 
-/// The user's duplicates and their survivors, (duplicate, survivor), by duplicate id: a lower live account with the same
-/// known fingerprint, or one the duplicate was observed against whose fingerprint does not conflict; each chain followed
-/// to its lowest live end. One statement; none on an install without the observation table.
+fn eng(e: crate::engine::EngineError) -> rusqlite::Error { rusqlite::Error::InvalidParameterName(format!("{e:?}")) }
+
+/// The user's duplicates and their survivors, (duplicate, survivor), by duplicate id, read fresh from current data every
+/// time, nothing stored. A lower live account S and a higher one D of one exchange are one venue account when:
+/// - the venue reports an account id and both read the same one (equal confirmed fingerprints), and their balances do not
+///   differ at comparable reads; or
+/// - on a venue whose trade ids are venue-native (`OVERLAP_VENUES`), with no conflicting fingerprints, all of: `MATCHES`
+///   shared trade ids with equal facts among the rows each account's current keys imported, and no conflicting one
+///   (`trades_match`); balances each read by its account's reading key within `READS_APART` and equal on every asset
+///   (`reads`); and every live key of both taking part.
+///
+/// Each chain is followed to its lowest live end; a chain whose known fingerprints differ is no duplicate.
 pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
-    if !overlaps_ready(c)? { return Ok(vec![]); }
-    let mut s = c.prepare(&format!("SELECT d.id, s.id, d.fingerprint, s.fingerprint, d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint,
-                             (SELECT o.evidence FROM exchange_account_overlaps o WHERE o.account_id = d.id AND o.other_account_id = s.id) FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id AND s.exchange_id = d.exchange_id
-                             AND s.number < d.number AND s.removed_at IS NULL
-                           WHERE d.user_id = ?1 AND d.removed_at IS NULL AND {} AND {} AND (
-                             (d.fingerprint IS NOT NULL AND d.fingerprint = s.fingerprint)
-                             OR (EXISTS (SELECT 1 FROM exchange_account_overlaps o WHERE o.account_id = d.id AND o.other_account_id = s.id)
-                                 AND NOT (d.fingerprint IS NOT NULL AND s.fingerprint IS NOT NULL AND d.fingerprint <> s.fingerprint)))
+    if !numbered(c)? || !crate::venue_ids::ready(c)? || !crate::engine::rules::table_exists(c, "exchange_account_credentials")? { return Ok(vec![]); }
+    let mut q = c.prepare(&format!("SELECT d.id, s.id, d.fingerprint, s.fingerprint, COALESCE(e.type, '') FROM exchange_accounts d JOIN exchange_accounts s ON s.user_id = d.user_id
+                             AND s.exchange_id = d.exchange_id AND s.number < d.number AND s.removed_at IS NULL JOIN exchanges e ON e.id = d.exchange_id
+                           WHERE d.user_id = ?1 AND d.removed_at IS NULL AND {} AND {}
+                             AND NOT (d.fingerprint IS NOT NULL AND s.fingerprint IS NOT NULL AND d.fingerprint <> s.fingerprint)
                            ORDER BY d.id, s.number", confirmed("d"), confirmed("s")))?;
-    type Link = (i64, i64, Option<String>, Option<String>, bool, Option<String>);
-    let links = s.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)))?.collect::<rusqlite::Result<Vec<Link>>>()?;
-    // An observation stands only while its keys are the accounts' keys at the versions that imported the rows compared.
-    let mut kept = vec![];
-    for (d, s, fd, fs, by_print, evidence) in links {
-        if by_print || evidence.as_deref().map(|e| evidence_holds(c, e)).transpose()?.unwrap_or(false) { kept.push((d, s, fd, fs)); }
+    type Pair = (i64, i64, Option<String>, Option<String>, String);
+    let pairs = q.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))?.collect::<rusqlite::Result<Vec<Pair>>>()?;
+    drop(q);
+    let mut links = vec![];
+    for (d, s, fd, fs, kind) in pairs {
+        let (Some(rd), Some(rs)) = (AccountRow::by_id(c, d)?, AccountRow::by_id(c, s)?) else { continue };
+        let keep = if fd.is_some() && fd == fs { reads(c, &rd, &rs)? != Reads::Differ }
+                   else { OVERLAP_VENUES.contains(&kind.as_str()) && reads(c, &rd, &rs)? == Reads::Agree && trades_match(c, &rd, &rs)? };
+        if keep { links.push((d, s, fd, fs)); }
     }
-    let links = kept;
     let mut prints: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for (d, s, fd, fs) in &links {
         if let Some(f) = fd { prints.insert(*d, f.clone()); }
@@ -709,6 +721,56 @@ pub fn duplicates(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i6
         seen.windows(2).all(|w| w[0] == w[1]).then_some((d, s))
     }).collect())
 }
+/// Whether two accounts' balances agree: each read completely by its reading key at its current version
+/// (`sync::cache::balances_read_at`), the reads within `READS_APART` of each other, and every asset either holds at a
+/// non-zero amount the same within `ROUNDING`. Reads not both present, or too far apart, are not comparable.
+fn reads(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<Reads> {
+    let (Some(td), Some(ts)) = (crate::sync::cache::balances_read_at(c, d).map_err(eng)?, crate::sync::cache::balances_read_at(c, s).map_err(eng)?) else { return Ok(Reads::NotComparable) };
+    if (td - ts).num_seconds().abs() > READS_APART { return Ok(Reads::NotComparable); }
+    let held = |a: i64| -> rusqlite::Result<std::collections::HashMap<i64, f64>> {
+        let mut q = c.prepare("SELECT asset_id, sum(CAST(free AS REAL) + CAST(locked AS REAL)) FROM exchange_account_balances WHERE account_id = ?1 GROUP BY asset_id")?;
+        let out = q.query_map([a], |r| Ok((r.get(0)?, r.get(1)?)))?.collect();
+        out
+    };
+    let (hd, hs) = (held(d.id)?, held(s.id)?);
+    for asset in hd.keys().chain(hs.keys()) {
+        let (a, b) = (*hd.get(asset).unwrap_or(&0.0), *hs.get(asset).unwrap_or(&0.0));
+        if (a - b).abs() > ROUNDING * a.abs().max(b.abs()) { return Ok(Reads::Differ); }
+    }
+    Ok(Reads::Agree)
+}
+
+/// The shared-trade signal: every live key of both accounts (correct, not a withdrawal key) has its ledger import from its
+/// current credential (`sync::cache::ledger_current_for`); among the rows those keys imported since they were made, the
+/// duplicate's earliest `SAMPLE` trades meet `MATCHES` of the survivor's under their venue-native ids with equal facts and
+/// none with other facts; and every one of those keys imported at least one of the matched rows.
+fn trades_match(c: &Connection, d: &AccountRow, s: &AccountRow) -> rusqlite::Result<bool> {
+    let live = |a: &AccountRow| -> rusqlite::Result<Vec<i64>> {
+        let mut q = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type != 1 AND k.status = 1 ORDER BY k.id", a.keys("k")))?;
+        let out = q.query_map([], |r| r.get(0))?.collect();
+        out
+    };
+    let (kd, ks) = (live(d)?, live(s)?);
+    if kd.is_empty() || ks.is_empty() { return Ok(false); }
+    for k in kd.iter().chain(&ks) { if !crate::sync::cache::ledger_current_for(c, *k).map_err(eng)? { return Ok(false); } }
+    // A row counts when one of the account's live keys imported it, no earlier than that key was made (a key's rows carry no
+    // credential version of their own: a replaced key's import is current only once its new credential completed one).
+    let counted = |keys: &[i64]| format!("EXISTS(SELECT 1 FROM api_keys k WHERE k.id = a.api_key_id AND k.id IN ({}) \
+                                          AND CAST(strftime('%s', a.created_at) AS INTEGER) >= CAST(strftime('%s', k.created_at) AS INTEGER))",
+                                         keys.iter().map(i64::to_string).collect::<Vec<_>>().join(","));
+    let sample = crate::venue_ids::overlap_sample(c, &d.venue_ids(), SAMPLE, &counted(&kd))?;
+    let (scope, theirs_counted) = (s.venue_ids(), counted(&ks));
+    let (mut strong, mut took) = (0, std::collections::HashSet::new());
+    for (row, key) in &sample {
+        match crate::venue_ids::overlap_match(c, &scope, &row.venue_id, &theirs_counted)? {
+            Some((theirs, k)) if theirs == *row => { strong += 1; took.insert(*key); took.insert(k); }
+            Some(_) => return Ok(false),
+            None => {}
+        }
+    }
+    Ok(strong >= MATCHES && kd.iter().chain(&ks).all(|k| took.contains(k)))
+}
+
 /// SQL condition: account row `x`'s known fingerprint (if any) is what its keys still read: one of its keys' identity
 /// observations confirms it and none reads another account. A stale or contradicted one is neither duplicate nor survivor.
 fn confirmed(x: &str) -> String {
@@ -728,90 +790,6 @@ pub fn key_counted(c: &Connection, user_id: i64, alias: &str) -> rusqlite::Resul
 }
 /// SQL condition: account expression `account` is none of the user's duplicates. One statement.
 pub fn counted(c: &Connection, user_id: i64, account: &str) -> rusqlite::Result<String> { Ok(not_duplicate(account, &duplicate_ids(c, user_id)?)) }
-
-/// After a complete ledger sync of `account` (an account 2+ on a listed venue, not yet observed and not a duplicate by
-/// fingerprint): its earliest trade rows with a venue id are compared with each lower live account of its exchange whose
-/// fingerprint does not conflict; `MATCHES` strong matches and no conflict there write the observation. Whether one was
-/// written.
-pub fn observe_overlap(c: &Connection, account: &AccountRow, now: DateTime<Utc>) -> rusqlite::Result<bool> {
-    if account.number == 1 || !account.placed() || !overlaps_ready(c)? { return Ok(false); }
-    let kind: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [account.exchange_id], |r| r.get(0)).optional()?.flatten();
-    if !kind.is_some_and(|k| OVERLAP_VENUES.contains(&k.as_str())) { return Ok(false); }
-    let (observed, removed, fingerprint): (bool, bool, Option<String>) =
-        c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_overlaps WHERE account_id = ?1), removed_at IS NOT NULL, fingerprint FROM exchange_accounts WHERE id = ?1",
-                    [account.id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
-    if observed || removed { return Ok(false); }
-    let mut s = c.prepare("SELECT id, number, fingerprint FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number < ?3 AND removed_at IS NULL ORDER BY number")?;
-    let lower = s.query_map([account.user_id, account.exchange_id, account.number], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?)))?
-        .collect::<rusqlite::Result<Vec<_>>>()?;
-    // Already a duplicate by fingerprint: nothing to observe.
-    if fingerprint.is_some() && lower.iter().any(|(_, _, f)| *f == fingerprint) { return Ok(false); }
-    let sample = crate::venue_ids::overlap_sample(c, &account.venue_ids(), SAMPLE)?;
-    for (id, number, other) in lower {
-        if matches!((&fingerprint, &other), (Some(a), Some(b)) if a != b) { continue; }
-        let scope = AccountRow { id, user_id: account.user_id, exchange_id: account.exchange_id, number }.venue_ids();
-        let (mut strong, mut conflict) = (0, false);
-        for row in &sample {
-            match crate::venue_ids::overlap_match(c, &scope, &row.venue_id)? {
-                Some(theirs) if theirs == *row => strong += 1,
-                Some(_) => { conflict = true; break; }
-                None => {}
-            }
-        }
-        if !conflict && strong >= MATCHES {
-            // What it stands on: the keys whose imports were compared, at the versions that imported them.
-            let Some(evidence) = overlap_evidence(c, &[account.id, id])? else { continue };
-            c.execute("INSERT INTO exchange_account_overlaps (account_id, other_account_id, matches, observed_at, evidence) VALUES (?1, ?2, ?3, ?4, ?5)",
-                      params![account.id, id, strong as i64, format_time(now), evidence])?;
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-/// Whether an observation's evidence (`overlap_evidence`) still holds: every key named is still its account's, at the
-/// credential version that imported its rows. A replaced or moved key ends it.
-fn evidence_holds(c: &Connection, evidence: &str) -> rusqlite::Result<bool> {
-    let Some(entries) = serde_json::from_str::<Value>(evidence).ok().and_then(|v| v.as_array().cloned()) else { return Ok(false) };
-    if entries.is_empty() { return Ok(false); }
-    for e in entries {
-        let (Some(account), Some(key)) = (e[0].as_i64(), e[1].as_i64()) else { return Ok(false) };
-        if account_of_key(c, key)? != Some(account) { return Ok(false); }
-        let Some(version) = crate::engine::model::CredentialVersion::from_stamp(&e[2]) else { return Ok(false) };
-        if version.id != key || !crate::engine::model::credential_is_current(c, &version).map_err(|e| rusqlite::Error::InvalidParameterName(format!("{e:?}")))? { return Ok(false); }
-    }
-    Ok(true)
-}
-
-/// The evidence an observation of `accounts` stands on: each account's non-withdrawal keys whose ledger import names the
-/// credential version that produced it (`sync::cache::record_ledger`'s stamp), as `[[account, key, stamp], …]`. None when
-/// an account has no such key.
-pub fn overlap_evidence(c: &Connection, accounts: &[i64]) -> rusqlite::Result<Option<String>> {
-    let mut out = vec![];
-    for &account in accounts {
-        let mut s = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} = ?1 AND k.key_type != 1 ORDER BY k.id", key_account_sql("k")))?;
-        let keys: Vec<i64> = s.query_map([account], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-        let mut any = false;
-        for key in keys {
-            let stamp = crate::app_config::get_plain(c, &crate::jobs::state::key("ledger_origin", Some(&key.to_string()))).map_err(rusqlite::Error::InvalidParameterName)?
-                .and_then(|s| serde_json::from_str::<Value>(&s).ok());
-            if let Some(stamp) = stamp { out.push(serde_json::json!([account, key, stamp])); any = true; }
-        }
-        if !any { return Ok(None); }
-    }
-    Ok(Some(Value::Array(out).to_string()))
-}
-
-/// `observe_overlap` for api key `api_key_id`'s account, after its complete ledger sync, in its own transaction.
-pub fn observe_overlap_of_key(c: &Connection, api_key_id: i64, now: DateTime<Utc>) -> rusqlite::Result<bool> {
-    if !numbered(c)? { return Ok(false); }
-    let Some(account) = AccountRow::of_key(c, api_key_id)? else { return Ok(false) };
-    if account.number == 1 { return Ok(false); }
-    let tx = c.unchecked_transaction()?;
-    let written = observe_overlap(&tx, &account, now)?;
-    tx.commit()?;
-    Ok(written)
-}
 
 /// Fills an unknown account's fingerprint. A known one is never overwritten.
 fn establish(c: &Connection, account: i64, fingerprint: &str, encrypted: &[u8], now: DateTime<Utc>) -> rusqlite::Result<bool> {

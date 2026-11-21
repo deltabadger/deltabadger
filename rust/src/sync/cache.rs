@@ -43,6 +43,19 @@ pub fn reading_key(c: &Connection, account: &AccountRow) -> Result<Option<i64>, 
     Ok(rows.iter().find(|r| r.1 == 0 && !crate::tracker::import::run::missing_permission(&r.2, r.3.as_deref()))
         .or_else(|| rows.iter().find(|r| r.1 == 2)).or_else(|| rows.first()).map(|r| r.0))
 }
+/// When account `a`'s stored balances were read, if its current reading key read them completely at its current credential
+/// version (#710: one of the signals that two accounts are one). None otherwise.
+pub fn balances_read_at(c: &Connection, a: &AccountRow) -> Result<Option<DateTime<Utc>>, EngineError> {
+    let Some(id) = reading_key(c, a)? else { return Ok(None) };
+    let stamp = app_config::get_plain(c, &key(a)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
+    let fresh = match stamp.as_ref().and_then(|s| CredentialVersion::from_stamp(s).map(|p| (p, s))) {
+        Some((producer, stamp)) => producer.id == id && stamp["complete"] == Value::Bool(true) && model::credential_is_current(c, &producer)?,
+        None => false,
+    };
+    if !fresh { return Ok(None); }
+    let at: Option<String> = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [id], |r| r.get(0)).optional()?.flatten();
+    Ok(at.and_then(|t| crate::codec::parse_time(&t).ok()))
+}
 /// The scope's accounts with balances (`balances`) or a non-withdrawal key (`keys`), by id; a key's number 1 with no row
 /// yet as its stand-in (`AccountRow::unplaced`), after them.
 fn accounts(c: &Connection, user: i64, scope: &Scope, balances: bool, keys: bool) -> Result<Vec<AccountRow>, EngineError> {

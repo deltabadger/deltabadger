@@ -165,8 +165,9 @@ impl Reference {
 
     /// `record_assets`' `@recorded_coins`: every name the user's rows recorded a coin under, filtered or not.
     pub fn record_coins(&mut self, c: &Connection, user_id: i64) -> Result<(), FiguresError> {
-        let mut s = c.prepare("SELECT DISTINCT t.base_currency FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
-                               WHERE t.user_id = ?1 AND a.category = 'Cryptocurrency'")?;
+        // A duplicate account's rows record nothing here (#710, PLAN-710-6 §5.2).
+        let mut s = c.prepare(&format!("SELECT DISTINCT t.base_currency FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                               WHERE t.user_id = ?1 AND a.category = 'Cryptocurrency' AND {}", crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?))?;
         let mut q = s.query([user_id])?;
         while let Some(row) = q.next()? { crate::figures::budget::charge(1, 0)?; self.recorded_coins.insert(row.get(0)?); }
         Ok(())
@@ -265,8 +266,10 @@ pub fn row_price_key(c: &Connection, owner: i64, exchange_id: i64, venue_type: &
     };
     let mut candidates = match own {
         Some(id) => read("SELECT id, external_id, category FROM assets WHERE id = ?1", rusqlite::params![id])?,
-        None => read("SELECT a.id, a.external_id, a.category FROM assets a WHERE a.id IN (SELECT base_asset_id FROM account_transactions \
-                      WHERE user_id = ?1 AND exchange_id = ?2 AND base_currency = ?3) ORDER BY a.id", rusqlite::params![owner, exchange_id, symbol])?,
+        // A duplicate account's rows record no asset here (#710, PLAN-710-6 §5.2).
+        None => read(&format!("SELECT a.id, a.external_id, a.category FROM assets a WHERE a.id IN (SELECT t.base_asset_id FROM account_transactions t \
+                      WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.base_currency = ?3 AND {}) ORDER BY a.id",
+                      crate::identity::counted(c, owner, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?), rusqlite::params![owner, exchange_id, symbol])?,
     };
     if candidates.is_empty() {
         candidates = read("SELECT a.id, a.external_id, a.category FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.base = ?2 ORDER BY t.id",
