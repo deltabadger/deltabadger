@@ -26,6 +26,7 @@ pub mod prices;
 pub mod resolver;
 pub mod rows;
 pub mod snapshot;
+pub mod spellings;
 pub mod unpriced;
 pub mod walk;
 pub mod wash;
