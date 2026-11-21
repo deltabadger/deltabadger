@@ -432,3 +432,15 @@ async fn an_unnamed_kraken_debt_is_skipped_not_unresolved() {
     assert!(get(format!("rust_sync.kraken_unresolved:{}", two.keys[1])).is_none(), "a debt is no unresolved code");
     assert!(get(format!("rust_sync.skipped:{}", two.keys[1])).is_some_and(|v| v.contains("XTOKEN") && v.contains("-5")));
 }
+
+/// #710 R17 #1: Kraken's `credit_used` (a liability) is recorded as a skipped holding with its amount, identity only:
+/// the recorded `kraken-balances-full` answer (USD credit_used 20).
+#[tokio::test(flavor = "current_thread")]
+async fn a_kraken_credit_used_is_skipped() {
+    let (_dir, c, db, two, _) = kraken();
+    let scenario: Value = serde_json::from_str(include_str!("recorded/sync-grid/kraken-balances-full/scenario.json")).unwrap();
+    let result = scenario["steps"][0]["kraken"]["POST /0/private/BalanceEx"][0]["body"]["result"].clone();
+    sync(&db, &two, two.keys[0], result).await;
+    let skipped = deltabadger::app_config::get_plain(&c, &format!("rust_sync.skipped:{}", two.keys[0])).unwrap().expect("recorded");
+    assert!(skipped.contains("credit_used") && skipped.contains("20"), "{skipped}");
+}

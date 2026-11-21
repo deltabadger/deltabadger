@@ -193,7 +193,8 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     c.execute_batch("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL;
                      DELETE FROM exchange_account_credentials; DELETE FROM exchange_account_imports;").map_err(db)?;
     // Every known identity is gone: so are the standings that rested on them (every account's key event).
-    if standings_ready(c).map_err(db)? { c.execute("DELETE FROM exchange_account_standings", []).map_err(db)?; }
+    // Each standing user's whole-portfolio points go with the standings (`standing_changed`).
+    if standings_ready(c).map_err(db)? { c.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(db)?; }
     crate::app_config::delete(c, KEY_CONFIG)?;
     let bytes: [u8; 32] = rand::random();
     crate::app_config::set(c, cipher, KEY_CONFIG, &hex::encode(bytes), now)?;
@@ -730,7 +731,16 @@ pub fn identity_changed_since(c: &Connection, d: i64, s: i64, since: &str) -> ru
 /// on evidence of the keys as they are now.
 pub fn key_event(c: &Connection, account: i64) -> rusqlite::Result<()> {
     if !standings_ready(c)? { return Ok(()); }
-    c.execute("DELETE FROM exchange_account_standings WHERE duplicate_id = ?1 OR survivor_id = ?1", [account])?;
+    let user: Option<i64> = c.query_row("SELECT user_id FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional()?;
+    if c.execute("DELETE FROM exchange_account_standings WHERE duplicate_id = ?1 OR survivor_id = ?1", [account])? > 0 {
+        if let Some(user) = user { standing_changed(c, user)?; }
+    }
+    Ok(())
+}
+/// A change of user `user_id`'s standing: the whole-portfolio points counted under the old one go now, in the same
+/// transaction (the history sweep rebuilds them under the new standing; today's writer is woken by the sync that ran).
+fn standing_changed(c: &Connection, user_id: i64) -> rusqlite::Result<()> {
+    c.execute("DELETE FROM portfolio_snapshots WHERE user_id = ?1", [user_id])?;
     Ok(())
 }
 /// `key_event` of the account key `api_key_id` belongs to.
@@ -787,7 +797,7 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
     let stored: std::collections::HashMap<i64, i64> = q.query_map([user_id, exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<rusqlite::Result<_>>()?;
     drop(q);
     if ids.len() < 2 {
-        if !stored.is_empty() { c.execute("DELETE FROM exchange_account_standings WHERE user_id = ?1 AND exchange_id = ?2", [user_id, exchange_id])?; }
+        if !stored.is_empty() { c.execute("DELETE FROM exchange_account_standings WHERE user_id = ?1 AND exchange_id = ?2", [user_id, exchange_id])?; standing_changed(c, user_id)?; }
         return Ok(());
     }
     let kind: String = c.query_row("SELECT COALESCE(type, '') FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get(0))?;
@@ -838,8 +848,9 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
         let Some(&lowest) = members.iter().min_by_key(|a| number.get(a).copied().unwrap_or(i64::MAX)) else { continue };
         for m in members.iter().filter(|m| **m != lowest) { want.insert(*m, lowest); }
     }
+    let mut changed = false;
     for (d, s) in &stored {
-        if want.get(d) != Some(s) { c.execute("DELETE FROM exchange_account_standings WHERE duplicate_id = ?1", [d])?; }
+        if want.get(d) != Some(s) { c.execute("DELETE FROM exchange_account_standings WHERE duplicate_id = ?1", [d])?; changed = true; }
     }
     for (d, s) in &want {
         if stored.get(d) == Some(s) {
@@ -849,7 +860,9 @@ pub fn reconsider(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<
         }
         c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                   params![d, s, user_id, exchange_id, format_time(now), standing_basis(c, *d, *s)?])?;
+        changed = true;
     }
+    if changed { standing_changed(c, user_id)?; }
     Ok(())
 }
 /// Whether accounts `x` and `y` of one exchange contradict each other (`reconsider`'s veto): balances that differ at

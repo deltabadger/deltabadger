@@ -3631,3 +3631,27 @@ fn r16_api_numbers_compare_from_their_text() {
     c.execute("UPDATE account_transactions SET raw_data = '{\"amounts\":{\"base\":\"100000000000000000000\"}}' WHERE id = ?1", [restore]).unwrap();
     assert!(matches!(merge_now(c, &two, two.id(1)), Err(Refusal::Conflict(_))));
 }
+
+// ---- review round 17 ----
+
+/// R17 #4: a standing change removes the user's whole-portfolio points in its own transaction (the backfill rebuilds them
+/// under the new standing): entering, and a key event that ends it.
+#[test]
+fn r17_a_standing_change_clears_the_all_chart() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let point = |c: &Connection| c.execute("INSERT INTO portfolio_snapshots (user_id, date, value_usd, invested_usd, partial, created_at, updated_at) VALUES (?1, '2026-09-19', 200, 200, 0, 'now', 'now')",
+                                           [two.seeded.user_id]).unwrap();
+    let points = |c: &Connection| one::<i64>(c, &format!("SELECT count(*) FROM portfolio_snapshots WHERE user_id = {}", two.seeded.user_id));
+    point(c);
+    two.fingerprint(c, 0, Some("fp"));
+    assert_eq!(points(c), 1, "no standing yet");
+    two.fingerprint(c, 1, Some("fp"));
+    assert_eq!(standings(c), [(two.id(1), two.id(0))]);
+    assert_eq!(points(c), 0, "entering the standing");
+    point(c);
+    identity::write_status(c, two.keys[1], 2, "2026-09-21 10:00:00", true, false).unwrap();
+    assert!(standings(c).is_empty());
+    assert_eq!(points(c), 0, "the key event that ended it");
+}

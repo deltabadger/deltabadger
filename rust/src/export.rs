@@ -437,7 +437,7 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     tx.execute_batch("DELETE FROM exchange_account_credentials; DELETE FROM ibkr_reservations; \
                       DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'").map_err(&f)?;
     // #710: the duplicate standings rest on keys the export no longer carries; the next reconsideration decides again.
-    if crate::engine::rules::table_exists(tx, "exchange_account_standings").map_err(&f)? { tx.execute_batch("DELETE FROM exchange_account_standings").map_err(&f)?; }
+    if crate::engine::rules::table_exists(tx, "exchange_account_standings").map_err(&f)? { tx.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(&f)?; }
     crate::rotation::rebalancing_off(tx).map_err(&f)?;
     let engine = |e: crate::engine::EngineError| ExportError::Failed(format!("scrub: {e:?}"));
     let mut st = tx.prepare("SELECT id, transient_data FROM bots ORDER BY id").map_err(&f)?;

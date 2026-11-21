@@ -2432,3 +2432,31 @@ async fn a_superseded_readers_failure_writes_nothing() {
     let (status, error): (i64, Option<String>) = c.query_row("SELECT status, last_sync_error FROM api_keys WHERE id = ?1", [reader], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!((status, error), (1, None));
 }
+
+/// A clock a test moves by hand.
+struct HandClock(Rc<Cell<chrono::DateTime<chrono::Utc>>>);
+impl Clock for HandClock { fn now(&self) -> chrono::DateTime<chrono::Utc> { self.0.get() } }
+/// Prices that take twenty minutes to answer (a desktop asleep between the balances and the commit).
+struct SlowPrices { inner: ScriptedPrices, clock: Rc<Cell<chrono::DateTime<chrono::Utc>>> }
+impl PriceSource for SlowPrices {
+    fn prices<'a>(&'a self, ids: &'a [String], currency: &'a str) -> PriceFuture<'a> {
+        self.clock.set(self.clock.get() + chrono::Duration::minutes(20));
+        self.inner.prices(ids, currency)
+    }
+}
+
+/// #710 R17 #3: a balance read's time is when the venue's answer arrived, before its prices: an answer that came twenty
+/// minutes before its commit counts as twenty minutes old.
+#[tokio::test(flavor = "current_thread")]
+async fn a_balance_reads_time_is_when_its_answer_arrived() {
+    let (dir, db, s) = install();
+    let start: chrono::DateTime<chrono::Utc> = "2026-09-20T02:00:00Z".parse().unwrap();
+    let time = Rc::new(Cell::new(start));
+    let prices = SlowPrices { inner: ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] })), clock: time.clone() };
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
+    assert!(time.get() > start, "the prices took their time");
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
+    assert_eq!(at, "2026-09-20 02:00:00");
+}

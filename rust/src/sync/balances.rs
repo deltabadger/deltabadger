@@ -321,6 +321,8 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, balance_positions).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
+    // The read's time: when the venue's answer arrived, before the quotes and prices are looked up.
+    let received = clock.now();
     let (cash, held) = match (cash, held) {
         (Ok(cash), Ok(held)) => (cash, held),
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
@@ -361,7 +363,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
             Err((text, false)) => errors.push(text),
         }
     }
-    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, record, &[]).await? {
+    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, record, &[], received).await? {
         Ok(summary) => Ok(Ok(summary)),
         Err(why) => fail(why, false).await,
     }
@@ -602,6 +604,11 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
             Ok(None) => Err(format!("KeyError: Key path {key} not found")),
             Err(why) => Err(why),
         };
+        // Credit used (a liability BalanceEx reports beside the balance) is no complete read: recorded as skipped with its
+        // amount, for the identity checks only.
+        if let Some(used) = entry.number("credit_used").ok().flatten().filter(|u| !u.is_zero()) {
+            SKIPPED.with(|s| s.borrow_mut().push(format!("{code} credit_used {}", used.to_s_f())));
+        }
         let Some(asset) = names.asset_id(code) else {
             // A holding it cannot name is an unresolved code (compared, and the tracker's warning); a debt it cannot name is no
             // complete read, recorded as skipped with its sign (never compared as a code, never a sync warning).
@@ -688,6 +695,8 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         Ok(text) => text,
         Err(text) => return fail(read_by_key((venue.failure_text)(&text))).await,
     };
+    // The read's time: when the venue's answer arrived, before any price lookup (freshness and comparability read it).
+    let received = clock.now();
     let (asset_ids, held, record, kept) = (catalog.asset_ids.clone(), venue.held, venue.record, venue.kept);
     let read = tokio::task::spawn_blocking(move || {
         let _ = take_skipped();
@@ -711,7 +720,7 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     let record = record.map(|(prefix, codes)| (format!("{prefix}:{key_id}"), (!codes.is_empty()).then(|| serde_json::json!({ "codes": codes, "at": at }).to_string())));
     let skipped = (format!("rust_sync.skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string()));
-    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record.into_iter().chain([skipped]).collect(), &kept).await? {
+    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record.into_iter().chain([skipped]).collect(), &kept, received).await? {
         // The rows it kept are named after the success commit; a balance sync never clears the error (the ledger does).
         Ok(summary) => {
             if let Some(text) = kept_error {
@@ -1116,7 +1125,7 @@ fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
 #[allow(clippy::too_many_arguments)]
 async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<Held>, assets: Arc<Vec<Asset>>,
                 mut fresh: HashMap<String, Price>, mut errors: Vec<String>, prices: &dyn PriceSource, key_id: i64, clock: &dyn Clock, step: Option<&BalanceStep<'_>>,
-                records: Vec<(String, Option<String>)>, kept: &[i64]) -> Result<Result<Summary, String>, SyncError> {
+                records: Vec<(String, Option<String>)>, kept: &[i64], read_at: DateTime<Utc>) -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
     // Other cash is converted at the market API's exchange rates (cash_prices_for); a currency with no rate is left out
     // and goes stale or unpriced, never to the coin market (where 2.x sends it: `usd` and `eur` are coin ids there too).
@@ -1227,7 +1236,8 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
             reading(c)?;
             for id in &gone { c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id])?; }
             if last {
-                c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
+                // When the answer arrived (`read_at`), not when its prices did: what the freshness checks read.
+                c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(read_at), key_id])?;
                 super::cache::record_account(c, &account, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
                 for record in &records {
                     match record {
@@ -1542,6 +1552,10 @@ fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> 
     let parse = || -> Result<Vec<Held>, String> {
         let raw = Raw::from_node(&node)?;
         let breakdown = raw.object("breakdown")?.ok_or("KeyError: Key path breakdown not found")?;
+        // A portfolio holding derivatives besides its spot positions is no complete read (identity only).
+        for list in ["futures_positions", "perp_positions"] {
+            if matches!(breakdown.member(list), Some(Node::Array(items)) if !items.is_empty()) { SKIPPED.with(|s| s.borrow_mut().push(list.to_string())); }
+        }
         let rows = breakdown.member("spot_positions").ok_or("KeyError: Key path breakdown.spot_positions not found")?;
         let Node::Array(rows) = rows else { return Err("unreadable spot_positions".into()) };
         let mut found = HashMap::new();
@@ -1766,6 +1780,14 @@ mod skipped_tests {
         let _ = take_skipped();
         bitget_held(r#"{"code":"00000","data":[{"coin":"BTC","available":"0","frozen":"0","locked":"100"}]}"#, &names, &[1]).unwrap().unwrap();
         assert_eq!(take_skipped(), ["BTC"]);
+    }
+    /// R17 #2: a Coinbase portfolio holding derivatives (futures or perpetual positions) is recorded as skipped.
+    #[test]
+    fn coinbase_derivatives_are_recorded() {
+        let names: HashMap<String, i64> = [("ETH".to_string(), 1)].into();
+        let _ = take_skipped();
+        coinbase_held(r#"{"breakdown":{"spot_positions":[],"futures_positions":[{"product_id":"BIT-28NOV26"}],"perp_positions":[]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["futures_positions"]);
     }
     /// R10 #7: the trading readers' positions leave unsupported classes out; the balance read's carry them.
     #[test]
