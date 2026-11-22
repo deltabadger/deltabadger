@@ -283,6 +283,18 @@ def banner(win, line, seconds=180):
     return got
 
 
+# The banner is a toast in the flash stack (flash_stack_controller.js): it slides in after it shows, and one behind
+# another is covered by it. A click is aimed where the button is at that instant, so it waits until the button stands
+# still in front: taken in by the stack, no entrance or transition running, and the button itself at its centre.
+SETTLED = """
+var b = document.getElementById('desktop_update'), a = b && b.querySelector('[data-desktop-update-action]');
+if (!a || a.classList.contains('hidden') || !b.dataset.seq || b.dataset.state || b.hasAttribute('data-back')) { return null; }
+if (document.getAnimations().some(function (x) { var t = x.effect && x.effect.target; return t && b.contains(t); })) { return null; }
+var r = a.getBoundingClientRect(), e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+return !!e && a.contains(e);
+"""
+
+
 def install_click(win, data):
     """The banner's update button. WebKitWebDriver may drop a click's connection when the page navigates, and a click
     sent while the page loads (the start's exchange modal) is lost the same way: the app's own line says if it landed.
@@ -291,10 +303,11 @@ def install_click(win, data):
     for _ in range(3):
         n = s.lines(data).count(asked)
         try:
+            win.poll("the update button standing still in front", 10, SETTLED)
             win.click("[data-desktop-update-action]", leaves=True)
             return until("the click's install request", 10, lambda: s.lines(data).count(asked) > n)
-        except (Fail, OSError):
-            say("the click did not land (the page was busy); again")
+        except (Fail, OSError) as e:
+            say(f"the click did not land ({e}); again")
     raise Fail("the update button: 3 clicks, no install asked for")
 
 
