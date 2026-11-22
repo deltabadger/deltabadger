@@ -853,3 +853,30 @@ async fn s7_9_7_h2_an_hf_rewrite_keeps_what_b_s_export_put_on_a() {
     tx.commit().unwrap();
     assert_eq!((at(4, "2026-09-16 10:00:00"), at(0, "2026-09-16 10:00:01")), (1, 1), "B's deposit and buy still counted once, on A");
 }
+
+/// 7a rule R9: the HF rewrite keeps B's export rows on A in a second that also holds A's restored `kucoin-csv-*` entry (a
+/// Deltabadger CSV restore: the id without the importer's provenance). B's deposit is derived by the same provenance rule as
+/// every other rewrite reads, restored second or not: still there, counted once.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r9_an_hf_rewrite_keeps_b_s_export_in_a_second_holding_a_restored_entry() {
+    let fx = Fx::new();
+    let (_, _, key) = held_pair(&fx);
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &overlapping_api(500), false).await);
+    let a = key_id(&fx);
+    let at = |entry_type: i64, utc: &str| fx.count(&format!("SELECT count(*) FROM account_transactions WHERE entry_type = {entry_type} AND transacted_at LIKE '{utc}%'"));
+    assert_eq!(at(4, "2026-09-16 10:00:00"), 1, "B's deposit, held for B, on A");
+    // A's restored entry in that second: a withdrawal, so no fill of the second is withheld for it.
+    fx.c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, \
+                  transfer_link_rejected, created_at, updated_at) SELECT user_id, NULL, exchange_id, 5, 'USDT', 1, 'kucoin-csv-restored', transacted_at, '{}', '{}', 0, 'now', 'now' \
+                  FROM account_transactions WHERE entry_type = 4 AND transacted_at LIKE '2026-09-16 10:00:00%'", []).unwrap();
+    let a_key = deltabadger::sync::load_key_of(&fx.c, a, &[KUCOIN]).unwrap();
+    let tx = fx.c.unchecked_transaction().unwrap();
+    let fenced = deltabadger::engine::model::fence_versions(&tx, &[]).unwrap();
+    let t = |s: &str| s.parse::<DateTime<Utc>>().unwrap();
+    deltabadger::sync::kucoin_hf::add(&fenced, &a_key, deltabadger::sync::kucoin_hf::ENABLED, (t("2026-09-01T00:00:00Z"), t("2026-10-01T00:00:00Z")), now()).unwrap();
+    deltabadger::sync::kucoin_hf::flush(&fenced, &a_key, [t("2026-09-16T10:00:00Z")].into_iter().collect(), now()).unwrap();
+    drop(fenced);
+    tx.commit().unwrap();
+    assert_eq!((at(4, "2026-09-16 10:00:00"), at(5, "2026-09-16 10:00:00")), (1, 1), "B's deposit still counted once beside A's restored entry");
+}
