@@ -1255,7 +1255,9 @@ pub async fn reconcile_idle_intents<F: VenueFactory>(e: &mut Engine<F>, clock: &
             if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
             let now_us = clock.now().timestamp_micros();
             let at = if changed { credentials_retry(&e.primary, id, now_us)? } else { now_us + RECONCILE_EVERY_US };
-            e.reconcile_at.insert(id, model::Produced::new(at,None));
+            // Held under the bot's key as it is now, so the next wake keeps the wait (a key replaced since ends it at once).
+            let producer = model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)).ok().and_then(|(_, producer)| producer);
+            e.reconcile_at.insert(id, model::Produced::new(at,producer));
             *wake = (*wake).min(at);
         }
     }

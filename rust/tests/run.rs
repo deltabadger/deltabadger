@@ -609,3 +609,28 @@ async fn a_follow_up_poll_follows_a_row_moved_while_the_venue_answered() {
     run::step(&mut e, &at("2026-09-01T10:00:07Z")).await.unwrap();
     assert_eq!(row(&e), (to, 2), "settled under the new owner");
 }
+
+/// Codex branch r2 (run.rs:1258/:296): a stopped bot's idle reconciliation through a key found to open another account
+/// waits as a stale bot does, and the next wake keeps that wait: it asks the venue once, not on every pass.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fenced_key_s_idle_reconciliation_keeps_its_wait() {
+    let v = priced();
+    let (_d, mut e, id, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let ticker = model::ticker_for(&e.primary, &bot).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), &KRAKEN).unwrap() else { panic!() };
+    placement::begin(&e.primary, &bot, &plan, &at("2026-09-01T10:00:00.5Z")).unwrap();
+    e.primary.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    let key: i64 = e.primary.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
+    let account = deltabadger::identity::Account::first(&e.primary, s.user_id, s.exchange_id).unwrap().ensure(&e.primary, "2026-09-01T10:00:30Z".parse().unwrap()).unwrap();
+    e.primary.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    e.primary.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-01 10:00:30')", [key, s.exchange_id]).unwrap();
+    let lookups = std::rc::Rc::new(std::cell::Cell::new(0));
+    let counted = lookups.clone();
+    let _ = v.clone().on_lookup(move || counted.set(counted.get() + 1));
+    run::step(&mut e, &at("2026-09-01T10:05:00Z")).await.unwrap();
+    let first = lookups.get();
+    run::step(&mut e, &at("2026-09-01T10:05:01Z")).await.unwrap();
+    assert_eq!(lookups.get(), first, "the next wake keeps the wait");
+    assert!(v.sent().is_empty());
+}
