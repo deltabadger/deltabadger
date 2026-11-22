@@ -871,6 +871,10 @@ fn a_restored_bot_keeps_its_account_and_refuses_another() {
     assert_eq!(r.query_row("SELECT count(*) FROM exchange_account_credentials", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "observations of the old key go");
     // The owner deletes the connection and connects another IBKR account: the bot refuses it.
     deltabadger::venue::ibkr_account::forget(&r, s.api_key_id).unwrap();
+    // #710 7a §9.5: the account keeps its known IBKR account, so the connection itself refuses another one.
+    assert!(deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().is_err());
+    // Past that (the account's identity cleared), the bot still refuses it.
+    r.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
     deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().unwrap();
     let refused = deltabadger::venue::ibkr_account::check_bot_account(&r, &restored, bot).unwrap().unwrap_err();
     assert!(refused.starts_with("This bot belongs to IBKR account PLANTED-ibkr-account"), "{refused}");

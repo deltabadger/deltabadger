@@ -648,6 +648,7 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user))?;
   crate::identity::forget(&tx,id,&account,inner.now())?;
+  if crate::venue::ibkr_account::binding(&tx,id)?.is_some() { if let Some(retained)=account.ensure(&tx,inner.now())?.id {crate::venue::ibkr_account::retain(&tx,id,retained)?;} }
   crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
   // #710: the account's reading key now reads its balances again, so its duplicate standing may re-enter on them.

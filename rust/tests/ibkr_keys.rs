@@ -540,3 +540,23 @@ async fn an_inconclusive_startup_validation_keeps_a_correct_unbound_key_correct_
     assert_eq!(restarted.bound_account(restarted.s.api_key_id).as_deref(), Some("U1234567"));
     assert!(deltabadger::sync::jobs::unbound_ibkr_keys(&restarted.c).unwrap().is_empty());
 }
+
+/// #710 7a §9.5: Disconnect keeps the bound IBKR account as its exchange account's fingerprint; a reconnect whose login names
+/// another IBKR account is refused at bind (B's balances never land on A), the same account binds again.
+#[test]
+fn a_reconnect_naming_another_ibkr_account_than_the_disconnected_one_is_refused() {
+    let fx = Fx::new(1);
+    let (c, cipher, now) = (&fx.c, &fx.cipher, at("2026-10-01T00:00:00Z"));
+    assert_eq!(ibkr_account::bind(c, cipher, fx.s.api_key_id, "U1111111", now).unwrap(), Ok(()));
+    let account = deltabadger::identity::Account::of_key(c, fx.s.api_key_id).unwrap().unwrap().ensure(c, now).unwrap();
+    // Disconnect: the binding's account is retained, then the key and binding go.
+    ibkr_account::retain(c, fx.s.api_key_id, account.id.unwrap()).unwrap();
+    c.execute("DELETE FROM api_keys WHERE id = ?1", [fx.s.api_key_id]).unwrap();
+    ibkr_account::forget(c, fx.s.api_key_id).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, 'now', 'now')",
+              [fx.s.user_id, fx.s.exchange_id]).unwrap();
+    let fresh = c.last_insert_rowid();
+    assert!(ibkr_account::bind(c, cipher, fresh, "U2222222", now).unwrap().is_err(), "another IBKR account is refused");
+    assert!(fx.bindings().iter().all(|(k, _, _)| *k != fresh), "nothing bound");
+    assert_eq!(ibkr_account::bind(c, cipher, fresh, "U1111111", now).unwrap(), Ok(()));
+}
