@@ -39,9 +39,10 @@ pub enum Answer {
 /// #710 7a §3: an option of the import's question, posted back as `api_key_id`. `value`: a key id (that key's venue, the
 /// value 2.x posts), `v<exchange>` (a venue), `a<account>` (an account) or `n<exchange>` (a new account there). `key`: the
 /// venue's lone keyed account's reading key, the option 2.x offered; `new`: the "a new account" option (its label is the
-/// page's).
+/// page's). `venue`: the venue a key answer stands for (rule S5: the page keeps it, so the answer keeps its venue after
+/// its key is gone).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Choice { pub value: String, pub label: String, pub key: Option<i64>, pub new: bool }
+pub struct Choice { pub value: String, pub label: String, pub key: Option<i64>, pub new: bool, pub venue: Option<i64> }
 
 /// Tracker::ImportsController#resolve_offset for a fresh upload: `None` for a format that needs no zone, else the
 /// file's own zone (Import::BinanceCsv.offset_from), or `Some(None)` when it names none (`unknown_timezone`).
@@ -248,10 +249,11 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
     if !crate::identity::ready(c)? {
         // An install without the account tables (a `run` not migrated yet): 2.x's question over the venues' keys.
         let options: Vec<&Reading> = keys.iter().filter(|k| venues.contains(&k.exchange_type.as_str())).collect();
+        let chosen = chosen.map(|c| c.split_once('~').map_or(c, |(key, _)| key));
         return Ok(match (chosen.and_then(|id| options.iter().find(|k| k.id.to_string() == id)), options.as_slice()) {
             (Some(k), _) | (None, [k]) => Routed::Key((*k).clone()),
             (None, []) => Routed::None,
-            (None, _) => Routed::Ask(options.iter().map(|k| Choice { value: k.id.to_string(), label: k.exchange_name.clone(), key: Some(k.id), new: false }).collect()),
+            (None, _) => Routed::Ask(options.iter().map(|k| Choice { value: k.id.to_string(), label: k.exchange_name.clone(), key: Some(k.id), new: false, venue: Some(k.exchange_id) }).collect()),
         });
     }
     let exchanges: Vec<(i64, String, String)> = c.prepare("SELECT id, type, name FROM exchanges WHERE type IN (SELECT value FROM json_each(?1)) ORDER BY id")?
@@ -280,7 +282,7 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         let mut choices = vec![];
         for (id, _, name) in exchanges.iter().filter(|(id, _, _)| among.contains(id)) {
             let key = venue_key(*id)?;
-            choices.push(Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false });
+            choices.push(Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false, venue: Some(*id) });
         }
         Ok(Routed::Ask(choices))
     };
@@ -319,6 +321,13 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         } else if let Some(k) = key {
             // 7a rule R10: a key answer the venue question no longer offers keeps its venue, and is asked again there.
             (venue, stale) = (Some(k.exchange_id), true);
+        } else if body.parse::<i64>().is_ok() {
+            // Rule S5: a key answer whose key is gone is asked again on the venue it was given for (`~v<exchange>`, kept
+            // by the page); one that names no venue asks the venue again. Never "no venue", so never a fingerprint elsewhere.
+            match set.and_then(|s| s.strip_prefix('v')).and_then(|e| e.parse::<i64>().ok()).filter(|e| offered(*e).is_some()) {
+                Some(exchange) => (venue, stale) = (Some(exchange), true),
+                None => return Ok(ask_venue(&exchanges.iter().map(|(id, _, _)| *id).collect::<Vec<_>>())?),
+            }
         } else {
             venue = number("v").filter(|e| offered(*e).is_some());
         }
@@ -366,8 +375,8 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         [] if !stale => Routed::To(crate::identity::new_account(c, user_id, venue, now)?),
         [one] if !stale => Routed::To(*one),
         many => {
-            let mut choices = many.iter().map(|id| Ok(Choice { value: format!("a{id}~{set}"), label: crate::identity::label(c, *id)?.plain(), key: None, new: false })).collect::<rusqlite::Result<Vec<_>>>()?;
-            choices.push(Choice { value: format!("n{venue}~{set}"), label: String::new(), key: None, new: true });
+            let mut choices = many.iter().map(|id| Ok(Choice { value: format!("a{id}~{set}"), label: crate::identity::label(c, *id)?.plain(), key: None, new: false, venue: Some(venue) })).collect::<rusqlite::Result<Vec<_>>>()?;
+            choices.push(Choice { value: format!("n{venue}~{set}"), label: String::new(), key: None, new: true, venue: Some(venue) });
             Routed::Ask(choices)
         }
     })

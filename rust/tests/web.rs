@@ -263,6 +263,7 @@ mod sessions {
             bot_config: Some(serde_json::json!({ "flow": "asset_first", "settings": { "base_asset_ids": [3] } })),
             withdrawal_rule_config: Some(serde_json::json!({ "exchange_id": "3", "asset_id": "1" })),
             import_offsets: [("0123456789abcdef".to_string(), "+03:00".to_string())].into(),
+            import_venues: [("0123456789abcdef:7".to_string(), 3)].into(),
         }
     }
 

@@ -1830,3 +1830,27 @@ async fn s7a_s2_a_binance_us_read_naming_another_account_fences_even_when_the_pr
     assert!(server.received_requests().await.unwrap().iter().any(|r| r.method.as_str() == "DELETE"), "the probe was sent");
     assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "both of account 1's copies are fenced");
 }
+
+/// Rule S5 (Codex branch r4, run.rs:300/331): a key answer keeps its venue after its key is gone. The venue question offered
+/// Binance's key; the key is deleted and Binance.US takes the file's UID; "Binance" submitted is asked again on Binance,
+/// and nothing lands on Binance.US.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s5_a_key_answer_whose_key_is_gone_is_asked_again_on_its_venue() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let kb = key_on(c, s.user_id, binance, None);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
+    c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [kb]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE id = ?1", [kb]).unwrap();
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "777");
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    let values = options(&again.body);
+    assert!(!values.is_empty() && values.iter().all(|v| v.starts_with('a') || v.starts_with(&format!("n{binance}~"))), "Binance's accounts asked: {}", again.body);
+    assert_eq!((rows_on(c, on_us), one::<i64>(c, "SELECT count(*) FROM account_transactions")), (0, ledger), "nothing written, never on Binance.US");
+}

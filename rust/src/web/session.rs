@@ -68,6 +68,9 @@ pub struct SessionData {
     /// Tracker::ImportsController's `session[:import_offsets]`: the zone of each upload parked for the Binance/Binance.US
     /// question, by its token.
     pub import_offsets: std::collections::BTreeMap<String, String>,
+    /// #710 7a rule S5: the venue each key answer of a parked upload's question stands for, by `<token>:<key id>`, so an
+    /// answer whose key is gone meanwhile is asked again on its own venue.
+    pub import_venues: std::collections::BTreeMap<String, i64>,
 }
 
 impl SessionData {
@@ -89,6 +92,7 @@ impl SessionData {
             "bot_config": self.bot_config,
             "withdrawal_rule_config": self.withdrawal_rule_config,
             "import_offsets": self.import_offsets,
+            "import_venues": self.import_venues,
         })
     }
 
@@ -108,6 +112,7 @@ impl SessionData {
             bot_config: v.get("bot_config").filter(|config| !config.is_null()).cloned(),
             withdrawal_rule_config: v.get("withdrawal_rule_config").filter(|config| !config.is_null()).cloned(),
             import_offsets: v["import_offsets"].as_object().map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), text(v)?))).collect()).unwrap_or_default(),
+            import_venues: v["import_venues"].as_object().map(|o| o.iter().filter_map(|(k, v)| Some((k.clone(), v.as_i64()?))).collect()).unwrap_or_default(),
         }
     }
 }

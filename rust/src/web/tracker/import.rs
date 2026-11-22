@@ -64,6 +64,13 @@ fn parked_offsets(ctx: &Ctx, dir: &std::path::Path) -> std::collections::BTreeMa
     offsets
 }
 
+/// `import_venues` of the uploads still parked (as `parked_offsets`).
+fn parked_venues(ctx: &Ctx, dir: &std::path::Path) -> std::collections::BTreeMap<String, i64> {
+    let mut venues = ctx.session.lock().import_venues.clone();
+    venues.retain(|k, _| k.split_once(':').is_some_and(|(token, _)| dir.join(format!("{token}.csv")).is_file()));
+    venues
+}
+
 fn render(ctx: &Ctx, status: StatusCode, body: Body) -> Result<Response, WebError> {
     Ok(html(status, Create { ctx, form: matches!(body, Body::Ambiguous { .. }), body }.render()?))
 }
@@ -88,7 +95,11 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
         Some(Some(offset)) => Some(offset),
         Some(None) => return render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_unknown_timezone".into())),
     };
-    let chosen = present(ctx.params.form("api_key_id")).map(str::to_string);
+    // Rule S5: a key answer carries the venue its question offered it for (`<key>~v<exchange>`, `run::route_file`).
+    let chosen = present(ctx.params.form("api_key_id")).map(|answer| {
+        let venue = parked.as_ref().filter(|_| answer.parse::<i64>().is_ok()).and_then(|t| ctx.session.lock().import_venues.get(&format!("{t}:{answer}")).copied());
+        venue.map_or_else(|| answer.to_string(), |e| format!("{answer}~v{e}"))
+    });
     let (bytes, at, written_offset) = (text.clone(), ctx.app.now(), offset.clone());
     // Read on a blocking thread of its own; the shared connection is taken only for the write.
     let file = tokio::task::spawn_blocking(move || run::read(format, &bytes, written_offset.as_deref())).await.map_err(|e| WebError::Config(format!("reading an import: {e}")))?;
@@ -106,6 +117,11 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
             offsets.insert(token.clone(), offset.clone());
             ctx.session.lock().import_offsets = offsets;
         }
+        if let Answer::Ambiguous(choices) = &answer {
+            let mut venues = parked_venues(&ctx, &dir);
+            for c in choices { if let (Some(key), Some(venue)) = (c.key, c.venue) { venues.insert(format!("{token}:{key}"), venue); } }
+            if venues != ctx.session.lock().import_venues { ctx.session.lock().import_venues = venues; }
+        }
         sweep(&dir);
     } else if let Some(token) = &parked {
         // #release
@@ -113,6 +129,9 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
         let mut offsets = parked_offsets(&ctx, &dir);
         offsets.remove(token);
         ctx.session.lock().import_offsets = offsets;
+        let mut venues = parked_venues(&ctx, &dir);
+        venues.retain(|k, _| !k.starts_with(&format!("{token}:")));
+        if venues != ctx.session.lock().import_venues { ctx.session.lock().import_venues = venues; }
     }
     match answer {
         Answer::Written { imported, generic, unrouted, .. } if imported > 0 => {
