@@ -101,7 +101,8 @@ pub fn key_pane(card: &str) -> Result<String, WebError> { Ok(Form { search: Stri
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, String), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
-    let card = keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), keys::SHEET_FORM, &venue.name, &venue.class, live, instructions, error,
+    // #710 7a §2: the form posts the pick it rendered.
+    let card = keys::sheet_card(ctx, csrf, ctx.path(&format!("{}{}", namespace.action(), super::bound_query(config))), keys::SHEET_FORM, &venue.name, &venue.class, live, instructions, error,
                                Some(ctx.path(&namespace.action().replace("/add_api_key", "/pick_exchange/new"))))?;
     if namespace == Namespace::Index {
         let track = super::index_track(ctx, csrf, config, super::At::Key, &super::index::index_name(c, config, ctx.locale)?, Some(venue.name.clone()))?;
@@ -183,6 +184,8 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
 async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let config = ctx.session.lock().bot_config.clone();
+    // #710 7a §2: a form rendered for another pick than the session's now (two tabs) is refused before any check.
+    if !super::still_bound(&ctx, config.as_ref()) { return Ok(super::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{}/new", namespace.action()))))) }
     let (inner, held) = (app.clone(), config.clone());
     let (venue, key) = match app.db(move |c| route(c, &inner, user.id, held.as_ref(), namespace, false)).await? {
         Route::To(path) => return Ok(layout::redirect(StatusCode::FOUND, &ctx.path(path))),

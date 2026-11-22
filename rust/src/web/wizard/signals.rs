@@ -290,8 +290,9 @@ fn settings(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>, rules
 struct Button<'a> { action: String, csrf: &'a str, start: String, starting: String, disabled: bool }
 
 /// bots/signals/_create_bot_button. Its form posts to `bots_signals_path(bot)`, where the unsaved bot is the locale: no prefix.
-fn button(ctx: &Ctx, csrf: &str, rules: &[Rule]) -> Result<String, WebError> {
-    Ok(Button { action: "/bots/signals".into(), csrf, start: ctx.t("button.start"), starting: ctx.t("busy.starting"), disabled: !rules.iter().all(Rule::valid) }.render()?)
+/// #710 7a §2: it posts the pick it rendered.
+fn button(ctx: &Ctx, csrf: &str, config: Option<&Value>, rules: &[Rule]) -> Result<String, WebError> {
+    Ok(Button { action: format!("/bots/signals{}", super::bound_query(config)), csrf, start: ctx.t("button.start"), starting: ctx.t("busy.starting"), disabled: !rules.iter().all(Rule::valid) }.render()?)
 }
 
 #[derive(Template)]
@@ -316,7 +317,7 @@ pub async fn confirm_new(State(app): State<App>, Extension(ctx): Extension<Ctx>)
         let rules = rules(&session_rules(config.as_ref())?)?;
         keys::venue(c, exchange_id(config.as_ref()))?.ok_or_else(|| missing("exchange"))?;
         let csrf = ctx.csrf_token();
-        let content = Confirm { button: button(ctx, &csrf, &rules)?, settings: settings(c, ctx, &csrf, config.as_ref(), &rules)? }.render()?;
+        let content = Confirm { button: button(ctx, &csrf, config.as_ref(), &rules)?, settings: settings(c, ctx, &csrf, config.as_ref(), &rules)? }.render()?;
         Ok((super::sheet(ctx, &track(c, ctx, config.as_ref(), Stage::Confirm)?, &content)?, false))
     }).await
 }
@@ -341,7 +342,7 @@ pub async fn confirm_create(State(app): State<App>, Extension(ctx): Extension<Ct
     let body = app.db(move |c| {
         let csrf = view.csrf_token();
         Ok([turbo::stream("replace", "new-settings", &format!("{}\n", settings(c, &view, &csrf, config.as_ref(), &[])?)),
-            turbo::stream("replace", "create-bot-button", &format!("{}\n", button(&view, &csrf, &[])?)),
+            turbo::stream("replace", "create-bot-button", &format!("{}\n", button(&view, &csrf, config.as_ref(), &[])?)),
             turbo::prepend_flash("")].join("\n") + "\n")
     }).await?;
     Ok(stream_response(body))
@@ -415,6 +416,8 @@ enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unporte
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let config = ctx.session.lock().bot_config.clone();
+    // #710 7a §2: a Start rendered for another pick than the session's now (two tabs) makes nothing.
+    if !super::still_bound(&ctx, config.as_ref()) { return Ok(super::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(CONFIRM_NEW)))) }
     let signals = dig(config.as_ref(), &["signals"]).filter(|v| !v.is_null()).and_then(Value::as_array).cloned().unwrap_or_else(|| vec![json!({"direction": "buy", "amount": 100})]);
     let built = rules(&signals)?;
     if !built.iter().all(Rule::valid) {

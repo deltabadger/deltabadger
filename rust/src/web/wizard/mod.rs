@@ -306,6 +306,28 @@ pub fn keep_pick(config: &mut Value, picked: Picked) {
     }
 }
 
+/// What a wizard form posts to say which pick it rendered (#710 7a §2): `?exchange_id=E&account_id=N` or
+/// `?exchange_id=E&untargeted=1`; nothing for a 2.x session (no pick kept), whose forms stay as they were.
+pub fn bound_query(config: Option<&Value>) -> String {
+    let Some(exchange) = exchange_id(config) else { return String::new() };
+    match dig(config, &["account_id"]).and_then(Value::as_i64) {
+        Some(account) => format!("?exchange_id={exchange}&account_id={account}"),
+        None if untargeted(config) => format!("?exchange_id={exchange}&untargeted=1"),
+        None => String::new(),
+    }
+}
+
+/// Whether a wizard form's post still matches the session (another tab may have picked another venue or account since): a
+/// form that names nothing (a 2.x one) does; one that names a pick, only that same pick.
+pub fn still_bound(ctx: &crate::web::layout::Ctx, config: Option<&Value>) -> bool {
+    let named = |name: &str| ctx.params.query(name);
+    let Some(exchange) = named("exchange_id") else { return true };
+    let account = named("account_id").map(str::to_string);
+    Some(exchange.parse::<i64>().unwrap_or(0)) == exchange_id(config)
+        && account == dig(config, &["account_id"]).and_then(Value::as_i64).map(|a| a.to_string())
+        && named("untargeted").is_some() == untargeted(config)
+}
+
 /// Whether the venue step was an Exchanges tile not yet given a key (§2: its key step always asks).
 pub fn untargeted(config: Option<&Value>) -> bool { dig(config, &["untargeted"]).and_then(Value::as_bool) == Some(true) }
 

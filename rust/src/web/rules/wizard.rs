@@ -24,6 +24,8 @@ use serde_json::Value;
 struct Settings<'a> {
     v: &'a Ctx,
     action: String,
+    /// #710 7a §2: the account the form was rendered for (a 2.x session: none, the form as it was).
+    bound: Option<i64>,
     csrf: String,
     preview: String,
 }
@@ -553,6 +555,10 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         rule.settings["address"] = json!(rule.address);
     }
     if is_create {
+        // #710 7a §2: a confirmation rendered for another account than the session's now (two tabs) makes nothing.
+        if ctx.params.form("account_id").is_some_and(|a| Some(a.parse::<i64>().unwrap_or(0)) != config(ctx)["account_id"].as_i64()) {
+            return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/confirm_settings/new")))));
+        }
         let patch=service::Patch {
             address:Some(rule.address.clone()),settings:rule.settings.clone(),destination:posted,
         };
@@ -624,6 +630,7 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
     let content = Settings {
         v: ctx,
         action: ctx.path(&format!("{BASE}/confirm_settings")),
+        bound: config(ctx)["account_id"].as_i64(),
         csrf: ctx.csrf_token(),
         preview,
     }
