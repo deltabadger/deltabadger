@@ -725,6 +725,14 @@ pub async fn legacy(
         )
             .into_response());
     };
+    // #710 7a (D-JSON-KEY-IDENTITY): an identity venue's key is read for its account first (the permission check stays
+    // asynchronous), so the save routes like every other.
+    let venue_type:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
+    let material=crate::crypto::Credentials{redaction_values:vec![],key:key.clone().unwrap_or_default(),secret:secret.clone().unwrap_or_default(),passphrase:passphrase.clone(),ibkr:None};
+    let observed=match venue_type.as_deref().filter(|t|crate::identity::VENUES.contains(t)) {
+        Some(venue) if key.is_some() => json_identity(&app,venue,&material).await?,
+        _ => None,
+    };
     let jobs = app.job_wakers()?;
     let inner = app.clone();
     let saved=app.db(move|c|{
@@ -740,6 +748,23 @@ pub async fn legacy(
     return Ok(Err(Some(format!("{AMBIGUOUS}{}",crate::identity::Pick::required(&name,&accounts)))));
    }
   }.ensure(&tx,inner.now())?;
+  // #710 7a (§1.1): the named account is the target; the key goes where `route_key` routes it. The named account's own
+  // key posted again is that key (a status reset), whatever the read says.
+  let named=Key::read(&tx,&inner,account,kind)?;
+  let mut read=None;
+  let account=if venue==crate::venue::ibkr::IBKR||(same(&named.key,&key)&&same(&named.secret,&secret)) {account} else {
+   let reading=match (crate::identity::VENUES.contains(&venue.as_str()),&observed) {
+    (false,_)=>crate::identity::Reading::NotAnIdentityVenue,
+    (true,Some(crate::identity::Observed::Read(id)))=>{read=Some(id.clone());crate::identity::Reading::Read(id)},
+    (true,_)=>crate::identity::Reading::Unread,
+   };
+   let dest=match crate::identity::route_key(&tx,&inner.cipher,user.id,exchange,&venue,kind,account.id,&reading,&material,None,inner.now()).map_err(WebError::Config)? {
+    crate::identity::Route::To(id)=>id,
+    crate::identity::Route::New=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
+    crate::identity::Route::Unconfirmed=>return Ok(Err(Some(UNCONFIRMED.into()))),
+   };
+   Account::by_id(&tx,dest)?.ok_or_else(||WebError::Config("routed account missing".into()))?.ensure(&tx,inner.now())?
+  };
   let current=Key::read(&tx,&inner,account,kind)?;
   if current.id.is_some() && settling(&tx,&inner.cipher,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
@@ -765,6 +790,16 @@ pub async fn legacy(
    tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,0,?7,?7)",(user.id,exchange,kind,key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),passphrase.as_ref().map(|s|inner.cipher.encrypt(s)),&now))?;
    let id=tx.last_insert_rowid();account.add_key(&tx,id)?;id
   };
+  if venue!=crate::venue::ibkr::IBKR {
+   if let (Some(read),Some(routed))=(&read,account.id) {
+    // As `submit_candidate`: the routed account takes the fingerprint; other copies of the key are fenced (§9.1).
+    crate::identity::establish_read(&tx,&inner.cipher,routed,&venue,read,inner.now()).map_err(WebError::Config)?;
+    for other in crate::identity::copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,id).map_err(WebError::Config)? {
+     crate::identity::record_copy(&tx,&inner.cipher,other,&venue,read,inner.now()).map_err(WebError::Config)?;
+    }
+   }
+   if !same_keys {crate::identity::write_digest(&tx,&inner.cipher,id,exchange,&material).map_err(WebError::Config)?;}
+  }
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;
@@ -774,10 +809,25 @@ pub async fn legacy(
         Ok(()) => (StatusCode::CREATED, serde_json::json!({"data":true})),
         Err(None) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false})),
         // An exchange with 2+ live accounts and no account named: which one, in the services' words (§4.2).
+        Err(Some(reason)) if reason==UNCONFIRMED => (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
         Err(Some(reason)) if reason.starts_with(AMBIGUOUS) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":&reason[AMBIGUOUS.len()..]})),
         Err(Some(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
     };
     Ok((status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], data.to_string()).into_response())
+}
+
+/// An identity venue's account read of `material` for the JSON save (D-JSON-KEY-IDENTITY), through the venue's key-check
+/// egress as the key check sends it. None when nothing was sent.
+async fn json_identity(app:&App,venue:&str,material:&crate::crypto::Credentials)->Result<Option<crate::identity::Observed>,WebError>{
+    let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return Ok(None)};
+    let base=app.venue_key_url(venue);
+    let cipher=app.cipher.clone();
+    let name=name.to_string();
+    let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),&name,&crate::venue::http::client()))).await?;
+    Ok(match egress {
+        Ok((client,_))=>crate::identity::read_live(venue,&base,client,material).await,
+        Err(_)=>Some(crate::identity::Observed::Failed("no egress".into())),
+    })
 }
 
 /// Recheck a committed slot without rewriting its credentials. Q binds the result to the captured digest.

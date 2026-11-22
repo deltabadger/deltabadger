@@ -275,6 +275,32 @@ async fn a_routed_replacement_waits_for_the_destination_s_open_standalone_order(
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
 }
 
+/// §1.1, D-JSON-KEY-IDENTITY: the legacy JSON save reads an identity venue's account first, then routes like every save. A
+/// key of account 2 posted for account 1 lands on 2 (201, account 1 untouched); a key whose read fails, with two live
+/// accounts, is refused to retry (409) and saves nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn the_json_save_reads_the_account_and_routes_the_key() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    let (exchange_s, first) = (exchange.to_string(), accounts[0].to_string());
+    let json = |key: &'static str| vec![("api_key[exchange_id]", exchange_s.clone()), ("api_key[account_id]", first.clone()), ("api_key[key_type]", "read_only".into()),
+                                        ("api_key[key]", key.into()), ("api_key[secret]", "secret".into()), ("api_key[passphrase]", "phrase".into())];
+    async fn post(app: &deltabadger::web::App, b: &mut common::web::Browser, fields: Vec<(&'static str, String)>) -> common::web::Answer {
+        let form: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        b.send(app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await
+    }
+    let routed = post(&app, &mut b, json("key-b2")).await;
+    assert_eq!((routed.status, routed.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())], "saved on account 2, account 1 untouched");
+    let failed = post(&app, &mut b, json("key-fail")).await;
+    assert_eq!(failed.status, 409, "{}", failed.body);
+    assert!(failed.body.contains("We could not confirm which account this key belongs to"), "{}", failed.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
+}
+
 /// §4: removing a key never removes history. Account 2 with a balance row keeps its row (shown broken) when its last key
 /// goes; with nothing naming it, removing its last key tombstones it, and the next new account is 3 (numbers are never
 /// reused). Number 1 is never tombstoned by a key removal.
