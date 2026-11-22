@@ -51,13 +51,18 @@ pub fn reading_key(c: &Connection, account: &AccountRow) -> Result<Option<i64>, 
 /// version (#710: one of the signals that two accounts are one). None otherwise.
 pub fn balances_read_at(c: &Connection, a: &AccountRow) -> Result<Option<DateTime<Utc>>, EngineError> {
     let Some(id) = reading_key(c, a)? else { return Ok(None) };
-    let stamp = app_config::get_plain(c, &key(a)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
-    let fresh = match stamp.as_ref().and_then(|s| CredentialVersion::from_stamp(s).map(|p| (p, s))) {
-        Some((producer, stamp)) => producer.id == id && stamp["complete"] == Value::Bool(true) && model::credential_is_current(c, &producer)?,
-        None => false,
-    };
-    if !fresh { return Ok(None); }
+    if !fresh(c, a, id)? { return Ok(None); }
     Ok(read_time(c, id)?)
+}
+/// Whether account `a`'s stored balances are key `id`'s complete read at its current credential version, the key still
+/// reading its account (#710 7a rule S8: a fenced key's balances are never fresh; with no other key they are stale).
+fn fresh(c: &Connection, a: &AccountRow, id: i64) -> Result<bool, EngineError> {
+    let stamp = app_config::get_plain(c, &key(a)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
+    Ok(match stamp.as_ref().and_then(|s| CredentialVersion::from_stamp(s).map(|p| (p, s))) {
+        Some((producer, stamp)) => { let producer = &producer;
+            producer.id == id && stamp["complete"] == Value::Bool(true) && model::credential_is_current(c,producer)? && model::key_reads_its_account(c, producer)? }
+        None => false,
+    })
 }
 
 /// When key `id`'s last balance read began (its first answer, `rust_sync.read_at:<key>`; the identity checks' time),
@@ -90,14 +95,7 @@ pub fn stale(c: &Connection, user: i64, scope: &Scope) -> Result<bool, EngineErr
         // An account whose key cannot read yet (an IBKR key pending activation) and that holds no balances has nothing stale.
         // The owner's own: a stand-in's id (minus the exchange id) is every user's on that exchange.
         if id.is_none() && !c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id=?1 AND user_id=?2)", [account.id, user], |r| r.get::<_, bool>(0))? { continue; }
-        let stamp = app_config::get_plain(c, &key(&account)).map_err(EngineError::Data)?
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok());
-        let producer=stamp.as_ref().and_then(CredentialVersion::from_stamp);
-        let fresh=match (&producer,id,&stamp) {
-            (Some(producer),Some(id),Some(stamp)) if producer.id==id && stamp["complete"]==Value::Bool(true)=>model::credential_is_current(c,producer)?,
-            _=>false,
-        };
-        if !fresh { return Ok(true); }
+        if !match id { Some(id) => fresh(c, &account, id)?, None => false } { return Ok(true); }
     }
     Ok(false)
 }

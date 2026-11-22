@@ -1350,3 +1350,19 @@ fn s7a_s3_a_takeover_fences_a_key_2x_added_to_a_fingerprinted_account() {
     identity::after_v2(&fx.c, &fx.cipher).unwrap();
     assert!(fenced(&fx.c), "the takeover fences the key 2.x added");
 }
+
+/// Rule S8 (Codex branch r4, cache.rs:48/97): a fenced key's balances are never fresh. The sole reading key publishes a
+/// complete read, then is found to open another account: no key can refresh them, so they are stale, and they no longer
+/// say when they were read.
+#[test]
+fn s7a_s8_balances_a_fenced_key_read_are_never_fresh() {
+    use deltabadger::{engine::model, sync::cache, tracker::Scope};
+    let (fx, trading) = established();
+    let version = fx.version(trading);
+    let tx = fx.c.unchecked_transaction().unwrap();
+    cache::record(&model::fence_versions(&tx, std::slice::from_ref(&version)).unwrap(), fx.user, fx.exchange(KUCOIN), &version, true, now()).unwrap();
+    tx.commit().unwrap();
+    assert!(!cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "the complete read is current");
+    fx.observe(trading, read(B));
+    assert!(cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "fenced, its balances are stale");
+}
