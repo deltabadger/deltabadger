@@ -566,7 +566,8 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
     }
     if is_create {
         // #710 7a §2: a confirmation rendered for another account than the session's now (two tabs) makes nothing.
-        if ctx.params.form("account_id").is_some_and(|a| Some(a.parse::<i64>().unwrap_or(0)) != config(ctx)["account_id"].as_i64()) {
+        // Rule H5: one naming no account (a 2.x pick) only while the session still has none.
+        if ctx.params.form("account_id").map(|a| a.parse::<i64>().unwrap_or(0)) != config(ctx)["account_id"].as_i64() {
             return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/confirm_settings/new")))));
         }
         let patch=service::Patch {

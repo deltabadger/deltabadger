@@ -318,10 +318,12 @@ pub fn bound_query(config: Option<&Value>) -> String {
 }
 
 /// Whether a wizard form's post still matches the session (another tab may have picked another venue or account since): a
-/// form that names nothing (a 2.x one) does; one that names a pick, only that same pick.
+/// form that names a pick, only that same pick; one that names nothing (a 2.x one, rendered for no pick: a 2.x session, a
+/// single-account venue, the sole-broker shortcut) only while the session still has no pick (rule H5: every pick, the
+/// automatic ones included, binds the forms rendered for it, and a single-account install's forms keep their bytes).
 pub fn still_bound(ctx: &crate::web::layout::Ctx, config: Option<&Value>) -> bool {
     let named = |name: &str| ctx.params.query(name);
-    let Some(exchange) = named("exchange_id") else { return true };
+    let Some(exchange) = named("exchange_id") else { return dig(config, &["account_id"]).is_none() && !untargeted(config) };
     let account = named("account_id").map(str::to_string);
     Some(exchange.parse::<i64>().unwrap_or(0)) == exchange_id(config)
         && account == dig(config, &["account_id"]).and_then(Value::as_i64).map(|a| a.to_string())
