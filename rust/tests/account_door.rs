@@ -741,3 +741,30 @@ async fn a_stock_basket_on_a_broker_with_two_accounts_asks_which_and_makes_its_b
     let bot: i64 = one(c, "SELECT max(id) FROM bots");
     assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(accounts[1]), "the bot trades on the picked account");
 }
+
+/// §2, two tabs: a signal wizard's Start rendered for account 2, posted after another tab picked account 1, makes no bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_signal_start_from_another_tab_makes_no_bot() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    let (exchange, btc, quote) = (s.exchange_id.to_string(), s.btc.to_string(), s.quote.to_string());
+    let pick = |account: i64| format!("/bots/signals/pick_exchange?account_id={account}");
+    b.get(&app, "/bots/new").await;
+    b.send(&app, "POST", "/bots/signals/pick_buyable_asset", Some(&[("bots_signal[base_asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(b.send(&app, "POST", &pick(accounts[1]), Some(&[("bots_signal[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(b.get(&app, "/bots/signals/add_api_key/new").await.status, 302, "account 2's key is correct");
+    b.send(&app, "POST", "/bots/signals/pick_spendable_asset", Some(&[("bots_signal[quote_asset_id]", quote.as_str())]), common::web::Csrf::Header, &[]).await;
+    let confirm = b.get(&app, "/bots/signals/confirm_settings/new").await;
+    let action = format!("/bots/signals?exchange_id={exchange}&account_id={}", accounts[1]);
+    assert!(links(&confirm.body, "/bots/signals?").contains(&action), "Start names account 2: {:?}", links(&confirm.body, "/bots/signals"));
+    // Tab B picks account 1.
+    assert_eq!(b.send(&app, "POST", &pick(accounts[0]), Some(&[("bots_signal[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let bots: i64 = one(c, "SELECT count(*) FROM bots");
+    let stale = b.send(&app, "POST", &action, Some(&[]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 409, "{}", stale.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM bots"), bots, "no bot");
+}
+
