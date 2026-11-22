@@ -594,6 +594,26 @@ async fn each_mode_validates_on_its_own_host_and_saves() {
         unused.verify().await;
     }
 }
+/// D-ALPACA-ONE-KEY: Alpaca's key has no permissions, so a tracker key there is the trading key the bots read: a save that
+/// asks for the read-only slot, on the card or the JSON route, writes the account's trading key and adds no second key.
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_tracker_key_is_the_trading_key() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    let mut h = Harness::new(server.uri()).await;
+    let keys = |h: &Harness| -> Vec<(i64, i64, String)> {
+        h.c.prepare("SELECT id, key_type, key FROM api_keys WHERE exchange_id=1 ORDER BY id").unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, h.app.cipher.decrypt(&r.get::<_, String>(2)?).unwrap()))).unwrap().collect::<Result<_, _>>().unwrap()
+    };
+    assert_eq!(h.browser.send(&h.app, "GET", "/tracker/add_api_key/new?exchange_id=1&key_type=read_only", None, Csrf::None, &[]).await.status, 200);
+    let card = h.submit("POST", "/tracker/add_api_key", &[("exchange_id", "1"), ("key_type", "read_only"), ("api_key[key]", "card-key"), ("api_key[secret]", "card-secret"), ("api_key[passphrase]", "paper")], Csrf::Header).await;
+    assert_eq!(card.status, 200, "{}", card.body);
+    assert_eq!(keys(&h), vec![(h.seed.api_key_id, 0, "card-key".to_string())]);
+    let json = h.submit("POST", "/api/api_keys", &[("api_key[exchange_id]", "1"), ("api_key[key_type]", "read_only"), ("api_key[key]", "json-key"), ("api_key[secret]", "json-secret"), ("api_key[passphrase]", "paper")], Csrf::Header).await;
+    assert_eq!(json.status, 201, "{}", json.body);
+    assert_eq!(keys(&h), vec![(h.seed.api_key_id, 0, "json-key".to_string())]);
+}
 #[tokio::test(flavor = "current_thread")]
 async fn rejected_replacement_preserves_encrypted_credential_and_ledger_links() {
     let server = MockServer::start().await;
@@ -1927,7 +1947,7 @@ async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_res
         let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */
         let mut synced=false;
         while tokio::time::Instant::now()<deadline {
-            synced=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN api_keys k ON k.id=t.api_key_id WHERE k.user_id=?1 AND k.key_type=2 AND t.tx_id='new-slot-interest' AND k.last_synced_at IS NOT NULL)",[h.seed.user_id],|r|r.get(0)).unwrap();
+            synced=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN api_keys k ON k.id=t.api_key_id WHERE k.user_id=?1 AND k.key_type=0 AND t.tx_id='new-slot-interest' AND k.last_synced_at IS NOT NULL)",[h.seed.user_id],|r|r.get(0)).unwrap();
             if synced {break}tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
         stop.send(true).unwrap();(response.status,synced)
@@ -2039,7 +2059,7 @@ async fn a_first_reading_key_wakes_its_real_tracker_in_the_running_scheduler() {
         let deadline=tokio::time::Instant::now()+std::time::Duration::from_secs(20); /* exits at the condition; the bound only fails a hang */
         let mut synced=false;
         while tokio::time::Instant::now()<deadline {
-            synced=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN api_keys k ON k.id=t.api_key_id WHERE k.user_id=?1 AND k.key_type=2 AND t.tx_id='new-slot-interest' AND k.last_synced_at IS NOT NULL)",[h.seed.user_id],|r|r.get(0)).unwrap();
+            synced=h.c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN api_keys k ON k.id=t.api_key_id WHERE k.user_id=?1 AND k.key_type=0 AND t.tx_id='new-slot-interest' AND k.last_synced_at IS NOT NULL)",[h.seed.user_id],|r|r.get(0)).unwrap();
             synced &= state::read(&h.c,deltabadger::tracker::jobs::TRACKER_LEDGER,Some(&h.seed.user_id.to_string())).unwrap().last_success_at.is_some();
             if synced {break}tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
@@ -2585,30 +2605,26 @@ async fn validator_status_commit_wakes_the_running_engine(){
     server.verify().await;
 }
 
+/// Alpaca's reading check (positions and cash, D-ALPACA-ONE-KEY: only an account's legacy read-only key still takes it).
+fn alpaca_reading(key:&str)->deltabadger::crypto::Credentials{deltabadger::crypto::Credentials{key:key.into(),secret:"secret".into(),passphrase:Some("paper".into()),redaction_values:vec![],ibkr:None}}
+
 #[tokio::test(flavor="current_thread")]
 async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v2(){
-    use wiremock::matchers::header;
+    use deltabadger::web::settings::validator::{check,Validity};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&server).await;
-    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","bad-account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized"}))).mount(&server).await;
-    let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
-    let bad=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","trading"),("api_key[key]","bad-account"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    let read=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","positions-bad"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(bad.status,422);assert_eq!(read.status,422);
-    // The sheet's card says why under its fields (D-TRACKER-SHEET); the two cards differ by their key type, the reasons must not.
-    let reason=|body:&str|body.split("class=\"sform__error\"").nth(1).and_then(|s|s.split("</p>").next()).map(str::to_string);
-    assert!(reason(&bad.body).is_some(),"{}",bad.body);
-    assert_eq!(reason(&read.body),reason(&bad.body),"a positions 401 must be the same incorrect-key error, not an inconclusive validation error");assert_eq!(h.snapshot(),before);
+    let read=check(&server.uri(),&alpaca_reading("positions-bad"),2).await.unwrap();
+    assert!(matches!(read,Validity::Incorrect),"a positions 401 must be an incorrect key, not an inconclusive validation error");
 }
 
 #[tokio::test(flavor="current_thread")]
 async fn reading_key_bare_401_is_inconclusive_and_does_not_condemn_a_stored_key(){
+    use deltabadger::web::settings::validator::{check,Validity};
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
-    let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
-    let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","candidate"),("api_key[secret]","candidate-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,422);assert!(answer.body.contains("Failed to validate API key permissions"),"2.x does not condemn an unattributed reading-key 401");assert_eq!(h.snapshot(),before);
+    let read=check(&server.uri(),&alpaca_reading("candidate"),2).await.unwrap();
+    assert!(matches!(read,Validity::Pending(_)),"2.x does not condemn an unattributed reading-key 401");
     server.verify().await;
 }
 
@@ -3360,7 +3376,7 @@ async fn r2_json_api_key_create_and_validation_failure(){
         let response=h.browser.send_body(&h.app,"POST","/api/api_keys",Some(body.to_string()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
         assert_eq!(response.status,status,"2.x accepts nested JSON parameters with CSRF header");
         assert_eq!(response.body,format!("{{\"data\":{}}}",status==201));
-        if status==422{assert_eq!(h.snapshot(),before);}else{let saved:(String,String)=h.c.query_row("SELECT key,secret FROM api_keys WHERE key_type=2",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();assert_eq!(h.app.cipher.decrypt(&saved.0).unwrap(),"json-key");assert_eq!(h.app.cipher.decrypt(&saved.1).unwrap(),"json-secret");}
+        if status==422{assert_eq!(h.snapshot(),before);}else{let saved:(String,String)=h.c.query_row("SELECT key,secret FROM api_keys WHERE key_type=0",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();assert_eq!(h.app.cipher.decrypt(&saved.0).unwrap(),"json-key");assert_eq!(h.app.cipher.decrypt(&saved.1).unwrap(),"json-secret");}
     }
 }
 
@@ -3919,6 +3935,7 @@ async fn r9_setup_token_reads_count_query_and_head_but_bare_reads_stay_free(){
 
 #[tokio::test(flavor="current_thread")]
 async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_positions(){
+    use deltabadger::web::settings::validator::{check,Validity};
     for (account,positions,accepted) in [
         (serde_json::json!({"status":"ACTIVE"}),serde_json::json!([]),false),
         (serde_json::json!({"status":"ACTIVE","cash":null}),serde_json::json!([]),false),
@@ -3928,10 +3945,8 @@ async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_posi
         let server=MockServer::start().await;
         Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account)).expect(1).mount(&server).await;
         Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).expect(1).mount(&server).await;
-        let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
-        let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","read_only"),("api_key[key]","reading-key"),("api_key[secret]","reading-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-        assert_eq!(answer.status,if accepted{200}else{422},"R9 read-only validation matches the malformed-balance oracle");
-        if !accepted{assert_eq!(h.snapshot(),before,"R9 malformed validation leaves stored rows unchanged");}
+        let read=check(&server.uri(),&alpaca_reading("reading-key"),2).await.unwrap();
+        assert_eq!(matches!(read,Validity::Correct),accepted,"R9 read-only validation matches the malformed-balance oracle");
         server.verify().await;
     }
 }
@@ -4103,7 +4118,7 @@ async fn d5b_the_session_exchange_never_reaches_another_users_key(){
         assert_eq!(saved.status,200,"{kind}: {}",saved.body);assert_eq!(d5b_connect(&h),None,"a saved key ends the connect flow");
     }
     assert_eq!(theirs(&h.c),before,"exchange_id is a catalogue id: the slot is always the signed-in user's");
-    assert_eq!(h.c.query_row("SELECT COUNT(*) FROM api_keys WHERE user_id=?1",[h.seed.user_id],|r|r.get::<_,i64>(0)).unwrap(),2);
+    assert_eq!(h.c.query_row("SELECT COUNT(*) FROM api_keys WHERE user_id=?1",[h.seed.user_id],|r|r.get::<_,i64>(0)).unwrap(),1,"D-ALPACA-ONE-KEY: both saves wrote Alpaca's one key");
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_tracker_replacement_restarts_only_the_replaced_credentials_ledger_progress(){
@@ -4159,7 +4174,8 @@ async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(
         "read_only"|"trading"=>{let r=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type",request),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;assert_eq!(r.status,200,"{}",r.body);(request,0)}
         _=>{let r=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[]).await;assert_eq!(r.status,200);("trading",1)}
     };
-    let id=h.c.query_row("SELECT id FROM api_keys WHERE key_type=?1",[if kind=="trading"{0}else{2}],|r|r.get::<_,i64>(0)).unwrap();
+    // D-ALPACA-ONE-KEY: either request writes Alpaca's one (trading) key.
+    let _=kind;let id=h.c.query_row("SELECT id FROM api_keys WHERE key_type=0",[],|r|r.get::<_,i64>(0)).unwrap();
     assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).unwrap(),1,"{status}: the key is correct now");
     let after=d5b_slots(&mut running,&h);
     let fresh=d5b_slots(&mut d5b_scheduler(&h,&server.uri()),&h);
@@ -4175,9 +4191,9 @@ async fn d5b_a_first_key_registers_every_slot_a_restart_would_including_the_user
     assert_eq!(after,fresh,"the running scheduler holds exactly what a restart registers");
 }
 #[tokio::test(flavor="current_thread")]
-async fn d5b_a_tracker_key_beside_a_working_trading_key_registers_nothing_a_restart_would_not(){
+async fn d5b_an_alpaca_tracker_key_replaces_the_trading_key_in_place_and_keeps_the_registered_slots(){
     let (started,after,fresh,_,_)=d5b_slots_after("existing","read_only").await;
-    assert_eq!(after,fresh,"the trading key stays the venue's reading key");assert_eq!(after,started);
+    assert_eq!(after,fresh);assert_eq!(after,started);
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_replacing_the_trading_key_in_place_keeps_the_registered_slots(){
@@ -4487,7 +4503,7 @@ async fn the_tracker_connect_steps_are_the_sheet(){
     assert_eq!(step.status,200,"{}",step.body);
     let page=sheet(&step.body);
     assert_eq!(track(&page),["Alpaca:done /tracker/pick_exchange/new","Connect:current plain"]);
-    assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=read_only\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
+    assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=trading\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
     // D-KEY-LOGO-BACK: the venue's logo and name are Back, to the venue step.
     assert_eq!(page.select(&select("a.set-api__back[href=\"/tracker/pick_exchange/new\"][data-wizard-dir=\"back\"][data-turbo-frame=\"modal_content\"] .set-api__mark + h2.set-api__title")).count(),1);
     // Refused: the sheet's frame again, the reason under the fields, nothing flashed.

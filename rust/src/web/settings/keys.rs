@@ -203,10 +203,11 @@ pub async fn save(
             // A bot's sheet saves into the bot's account; the tracker's into the exchange's (#710 slice 7: the one picked).
             let account = match bot_account { Some(account) => account, None => Account::first(c, id, exchange)? };
             let label = crate::identity::label_or(c, account.id, venue.as_ref().map_or("", |(_, name)| name.as_str()))?.plain();
-            Ok((venue, label, Key::read(c, &inner, account, kind)?))
+            let kind = venue.as_ref().map_or(kind, |(class, _)| slot(class, kind));
+            Ok((venue, label, kind, Key::read(c, &inner, account, kind)?))
         })
         .await?;
-    let (venue, label, original) = found;
+    let (venue, label, kind, original) = found;
     if !bot_request && venue.as_ref().is_some_and(|(class, _)| crate::web::bot::retired_type(class)) {
         ctx.session.lock().tracker_connect=Some(exchange);
         return Ok(retired_answer(&ctx));
@@ -389,7 +390,7 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
         let reason=if key.permission(){Some("missing_permission")}else if key.status==2{Some("dead")}else{None};
         if let Some(reason)=reason{
             let args=[("exchange",i18n::Arg::Text(&key.name))];let label=|name:&str|i18n::t(v.locale,name,&args);
-            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
+            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0&&key.venue!=crate::sync::ALPACA,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label(if key.kind==0{"tracker.replace_trading_key"}else{"tracker.replace_tracker_key"})});
         }
     }
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
@@ -640,6 +641,7 @@ pub async fn legacy(
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
+  let kind=slot(&venue,kind);
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
   let account=match crate::identity::pick(&tx,user.id,exchange,posted_account)?{
    crate::identity::Pick::One(account)=>account,
@@ -750,6 +752,9 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     }
     Ok(out)
 }
+/// D-ALPACA-ONE-KEY: Alpaca's key has no permissions, so the tracker's key there is the trading key the bots read (one key
+/// per account, whichever page saved it); every other venue keeps the slot asked for.
+pub(crate) fn slot(class:&str,kind:i64)->i64{if class==crate::sync::ALPACA&&kind==2{0}else{kind}}
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
 /// The venue's connect card as the sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`)
@@ -785,7 +790,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
         return crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]});
     }
     let requested=ctx.params.query("key_type").filter(|s|matches!(*s,"trading"|"read_only"));
-    let kind=if requested==Some("trading"){0}else{2};
+    let kind=slot(class.as_deref().unwrap_or_default(),if requested==Some("trading"){0}else{2});
     let inner=app.clone();let owner=user.clone();
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;

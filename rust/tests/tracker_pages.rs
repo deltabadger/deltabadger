@@ -15,6 +15,7 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
     // The export modal's setup branch is deliberately outside D5. This route probe
     // exercises the configured page; the refusal is a separate contract.
     let connection = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    connection.execute("INSERT INTO exchanges (type, name, available, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', 1, '2026-01-01', '2026-01-01')", []).unwrap();
     for (key,value) in [("market_data_provider","deltabadger"),("market_data_url","http://127.0.0.1:1"),("market_data_token","synthetic-d5-token")] {
         deltabadger::app_config::set(&connection,&app.cipher,key,value,app.now()).unwrap();
     }
@@ -41,9 +42,11 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
         assert_eq!(picker.status,200,"D5b: the redirect lands on the picker");assert!(picker.body.contains("id=\"exchange-picker\""));
         assert_eq!(snapshot(&connection),before,"the picker is a pure view");
         assert_eq!(snapshot(&connection),before,"credential form redirect must not mutate rows");
-        let path=format!("{prefix}/tracker/add_api_key/new?exchange_id={}&key_type=read_only",seeded.exchange_id);
+        // A venue with a tracker slot of its own (Alpaca's tracker key is its trading key, D-ALPACA-ONE-KEY).
+        let kraken:i64=connection.query_row("SELECT id FROM exchanges WHERE type='Exchanges::Kraken'",[],|r|r.get(0)).unwrap();
+        let path=format!("{prefix}/tracker/add_api_key/new?exchange_id={kraken}&key_type=read_only");
         let answer=credential_browser.send(&app,"GET",&path,None,Csrf::None,&[("turbo-frame","modal")]).await;
-        assert_eq!(answer.status,200,"selected Alpaca credential form {path}");
+        assert_eq!(answer.status,200,"selected credential form {path}");
         assert!(answer.body.contains("<form")&&answer.body.contains("api_key[key]"));
         assert_eq!(snapshot(&connection),before,"credential form must be a pure view");
         // The tax report routes are served (PLAN-A12 A12-1): tests/tax_job.rs and the d5_tax_ grid.
