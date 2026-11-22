@@ -12,6 +12,22 @@ import { stackLayout } from "../lib/toast_stack.js"
 
 // Arrival order, across visits: #flash is turbo-permanent, so its toasts keep their numbers when this stack reconnects.
 let seq = 0
+// D-SYNC-DONE-TOAST: a stream's page refresh replaces the body, and this stack reconnects as a new controller; what waits
+// on that refresh's load waits here, outside any one of them.
+// Only a page visit begun after that refresh, and rendered, shows its numbers: a load of one already under way (Turbo then
+// skips the refresh) or of a frame (an account switch: no page render) asks again.
+let refreshing = 0, visited = "", pending = null
+addEventListener("turbo:visit", () => { if (refreshing) visited = "started" })
+addEventListener("turbo:before-render", () => { if (visited === "started") visited = "rendered" })
+addEventListener("turbo:load", () => {
+  if (!pending) return
+  // After Turbo has finished the visit that loaded (it forgets its current visit after this event).
+  if (visited !== "rendered") return setTimeout(() => { if (pending && visited !== "started") window.Turbo?.visit(location.href, { action: "replace" }) })
+  refreshing = 0
+  const p = pending
+  pending = null
+  p()
+})
 const GLYPH = '<svg class="toast__glyph" viewBox="0 0 24 24" aria-hidden="true"><circle class="toast__track" cx="12" cy="12" r="9"/>' +
   '<circle class="toast__ring" cx="12" cy="12" r="9"/><circle class="toast__dot" cx="12" cy="12" r="4.5"/></svg>'
 const EVENTS = ["mouseenter", "mouseleave", "focusin", "focusout", "animationend", "keydown", "mousedown", "pointerdown", "pointermove", "pointerup", "pointercancel",
@@ -28,6 +44,7 @@ export default class extends Controller {
     this.observer.observe(this.element, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] })
     EVENTS.forEach((type) => this.element.addEventListener(type, this))
     addEventListener("resize", this.layout)
+    document.addEventListener("turbo:before-stream-render", this.streamed)
     this.refresh([])
   }
 
@@ -35,6 +52,39 @@ export default class extends Controller {
     this.observer.disconnect()
     EVENTS.forEach((type) => this.element.removeEventListener(type, this))
     removeEventListener("resize", this.layout)
+    document.removeEventListener("turbo:before-stream-render", this.streamed)
+  }
+
+  // A stream's remove of a toast (an import or the setup sync ending) leaves the way a toast leaves, not at once. An import
+  // that succeeded (D-SYNC-DONE-TOAST: its remove carries data-done) turns into its success message instead, which then
+  // leaves on its own timer; it loses its id, so a later answer to the same id has nothing to act on. It says so once the
+  // page refresh sent just before it has rendered the new numbers (Turbo debounces and fetches that refresh).
+  streamed = (e) => {
+    const stream = e.target
+    if (stream.getAttribute("action") === "refresh") { refreshing = Date.now(); visited = ""; return }
+    if (stream.getAttribute("action") !== "remove") return
+    const t = document.getElementById(stream.getAttribute("target"))
+    if (!t?.matches(".salert") || !this.element.contains(t)) return
+    const end = (done = stream.hasAttribute("data-done")) => {
+      if (!t.isConnected) return
+      // Being sent away right now: it ends once its leaving has (hidden, it still shows how it ended).
+      if (t.dataset.state === "out") return setTimeout(() => end(done), 300)
+      if (done && t.dataset.done) {
+        t.removeAttribute("id")
+        t.classList.replace("salert--syncing", "salert--success")
+        t.classList.remove("hidden")
+        delete t.dataset.dismissed
+        const text = t.querySelector(".toast__text") || t
+        text.textContent = t.dataset.done
+      } else if (t.classList.contains("hidden")) t.remove()
+      else this.dismiss(t, false, true)
+    }
+    e.detail.render = () => {
+      if (!(Date.now() - refreshing < 15000) || !stream.hasAttribute("data-done")) return end()
+      // A refresh that never renders cannot vouch for the numbers: the toast goes, without its success message.
+      const timer = setTimeout(() => { if (pending === wait) { pending = null; end(false) } }, 15000)
+      const wait = pending = () => { clearTimeout(timer); end() }
+    }
   }
 
   toasts() {
@@ -116,13 +166,14 @@ export default class extends Controller {
     this.element.style.height = height + "px"
   }
 
-  dismiss(t, dx) {
+  // `gone`: removed for good, even one still at work under an id (its stream said so).
+  dismiss(t, dx, gone) {
     if (t.dataset.state === "out") return
     t.dataset.state = "out"
     t.style.setProperty(dx ? "--dx" : "--y", dx ? "120%" : `calc(${t.style.getPropertyValue("--y") || "0px"} + 12px)`)
     if (t.contains(document.activeElement)) document.activeElement.blur()
     // Still at work under an id: a stream will answer it, so it is hidden, not removed.
-    const kept = t.id && t.matches(BUSY)
+    const kept = !gone && t.id && t.matches(BUSY)
     if (kept) { t.dataset.dismissed = ""; t.dispatchEvent(new CustomEvent("toast:dismissed", { bubbles: true })) }
     setTimeout(() => {
       if (!kept) return t.remove()

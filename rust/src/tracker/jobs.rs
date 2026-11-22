@@ -463,20 +463,42 @@ impl<T: Transport> Job for LedgerWalk<T> {
     }
     fn run<'a>(&'a self, cx: Cx<'a>, _wakes: Vec<Wake>) -> JobFuture<'a> {
         Box::pin(async move {
+            // D-SYNC-DONE-TOAST: taken before the ledger is read, so the walk that ends a page's import toast has read all of it.
+            let owner = self.user_id;
+            let at = cx.clock.now();
+            // Unread, it may have been this walk's to end: any toast goes now, without its success message.
+            let import = cx.db.run(move |c, _| crate::sync::jobs::progress::take(c, owner, at)).await.unwrap_or_else(|e| {
+                crate::engine::log(&format!("[tracker] import progress of user {owner} unread: {e}"));
+                cx.db.notifications.sync_done(owner);
+                false
+            });
             match cached_ledger_run(&cx, (*self.api).as_ref(), self.ecb.as_ref(), self.user_id, self.wall.clone()).await {
                 // The page reloads only for a ledger it can now read: a run that left the cache cold (no current
                 // import yet) would reload a page that wakes it again, with nothing new to walk.
                 Ok(published) => {
-                    if published { cx.db.notifications.ledger_done(self.user_id); }
+                    // D-SYNC-DONE-TOAST: an import's toast says "imported" with the refresh that shows its numbers; one that
+                    // published nothing only goes.
+                    let end = import && !newer(&cx, owner).await;
+                    match (published, end) {
+                        (true, true) => cx.db.notifications.imported(owner),
+                        (true, false) => cx.db.notifications.ledger_done(owner),
+                        (false, true) => cx.db.notifications.sync_done(owner),
+                        (false, false) => {}
+                    }
                     // After today's refresh, never before it: the history-gap step, its own budget and row (tracker::gaps).
                     // A second refresh only when it wrote a gap to show; its failure is a log line, and a deadline here loses only that.
                     if published && super::gaps::derive_logged(&cx.db, self.user_id, self.wall.clone()).await { cx.db.notifications.ledger_done(self.user_id); }
                     limited(&self.api).unwrap_or(Outcome::Done)
                 }
-                Err(e) => Outcome::Failed(e),
+                Err(e) => { if import && !newer(&cx, owner).await { cx.db.notifications.sync_done(owner); } Outcome::Failed(e) }
             }
         })
     }
+}
+
+/// D-SYNC-DONE-TOAST: another import began while this walk ran; the toast on screen is that one's, and its walk ends it.
+async fn newer(cx: &Cx<'_>, owner: i64) -> bool {
+    cx.db.run(move |c, _| crate::sync::jobs::progress::pending(c, owner)).await.unwrap_or(false)
 }
 
 /// D-CG-429-STOPS-PRICES: a run whose price requests met a 429 kept what it wrote and records RateLimited; the gaps are

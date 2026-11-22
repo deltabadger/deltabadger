@@ -664,7 +664,8 @@ fn the_step_has_one_caller() {
     assert_eq!(callers.len(), 1, "{callers:?}");
     assert!(callers[0].ends_with("tracker/jobs.rs"));
     let jobs = &all.iter().find(|(p, _)| p.ends_with("tracker/jobs.rs")).unwrap().1;
-    let refresh = jobs.find("if published { cx.db.notifications.ledger_done(self.user_id); }").unwrap();
+    // D-SYNC-DONE-TOAST: today's refresh is `ledger_done`, or `imported` when it ends an import's toast.
+    let refresh = jobs.find("(true, false) => cx.db.notifications.ledger_done(owner)").unwrap().max(jobs.find("(true, true) => cx.db.notifications.imported(owner)").unwrap());
     assert!(refresh < jobs.find("derive_logged(").unwrap(), "today's refresh first");
 }
 

@@ -575,6 +575,7 @@ cs:
         sync: 'Synchronizovat'
         sync_started: 'Synchronizace transakcí z vašich burz...'
         importing_from: 'Import dat z %{exchange}…'
+        imported_from: 'Data z %{exchange} importována.'
         get_report: 'Daňový přehled'
         filter: 'Filtr'
         bot: 'Bot'

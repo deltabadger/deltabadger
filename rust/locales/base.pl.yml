@@ -568,6 +568,7 @@ pl:
         sync: 'Synchronizuj'
         sync_started: 'Synchronizacja transakcji z twoich giełd...'
         importing_from: 'Importowanie danych z %{exchange}…'
+        imported_from: 'Zaimportowano dane z %{exchange}.'
         get_report: 'Raport podatkowy'
         filter: 'Filtruj'
         no_results: 'Nie znaleziono transakcji dla wybranych filtrów.'

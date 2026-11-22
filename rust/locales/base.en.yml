@@ -568,6 +568,7 @@ en:
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
         importing_from: 'Importing data from %{exchange}…'
+        imported_from: 'Imported data from %{exchange}.'
         get_report: 'Tax Report'
         filter: 'Filter'
         bot: 'Bot'

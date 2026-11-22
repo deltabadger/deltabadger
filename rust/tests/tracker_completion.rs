@@ -22,9 +22,13 @@ impl Connect for Venues {
     }
 }
 fn fixture(name: &str) -> Value {
-    serde_json::from_str::<Value>(include_str!("fixtures/tracker_completion.json")).unwrap()
-        ["records"][name]
-        .clone()
+    serde_json::from_str::<Value>(include_str!("fixtures/tracker_completion.json")).unwrap()["records"][name].clone()
+}
+/// D-SYNC-DONE-TOAST: a walk that ends an import sends 2.x's refresh and its remove in one message, the remove marked `data-done`.
+fn imported(owner: i64) -> Value {
+    let (ledger, sync) = (fixture(&format!("ledger_{owner}")), fixture(&format!("sync_{owner}_success")));
+    let done = sync[0][1].as_str().unwrap().replace(r#"target="sync-progress">"#, r#"target="sync-progress" data-done>"#);
+    json!([[ledger[0][0], format!("{}{done}", ledger[0][1].as_str().unwrap())]])
 }
 fn clock() -> FixedClock {
     FixedClock("2026-09-20T02:00:00Z".parse().unwrap())
@@ -109,12 +113,10 @@ async fn completion_sync_success_and_failure_publish_once_after_commit() {
                     Outcome::Done
                 }
             );
+            // D-SYNC-DONE-TOAST: a complete import's toast is ended by the tracker walk it wakes, not here.
             assert_eq!(
                 json!(*heard.lock().unwrap()),
-                fixture(&format!(
-                    "sync_{owner}_{}",
-                    if failure { "failure" } else { "success" }
-                ))
+                if failure { fixture(&format!("sync_{owner}_failure")) } else { json!([]) }
             );
         }
     }
@@ -178,15 +180,37 @@ async fn completion_ledger_refreshes_once_after_commit_and_not_on_failure() {
             Arc::new(move || now),
         )
         .unwrap();
+        // D-SYNC-DONE-TOAST: a walk with no import waiting on it (a cold page, a bot's order) leaves any toast as it is.
         assert_eq!(job.run(cx(&db, &clock()), vec![]).await, Outcome::Done);
         assert_eq!(json!(*heard.lock().unwrap()), fixture("ledger_1"));
         heard.lock().unwrap().clear();
+        // One key still importing: not yet.
+        let (owner, key) = (seed.user_id, seed.api_key_id);
+        db.run(move |c, _| deltabadger::sync::jobs::progress::started(c, owner, &[key], clock().0)).await.unwrap();
+        assert_eq!(job.run(cx(&db, &clock()), vec![]).await, Outcome::Done);
+        assert_eq!(json!(*heard.lock().unwrap()), fixture("ledger_1"));
+        heard.lock().unwrap().clear();
+        // Its import landed: after the refresh, the toast turns into its success message, once; a failed walk takes it away.
+        db.run(move |c, _| deltabadger::sync::jobs::progress::landed(c, owner, key, clock().0)).await.unwrap();
+        assert_eq!(job.run(cx(&db, &clock()), vec![]).await, Outcome::Done);
+        let expected = imported(seed.user_id);
+        assert_eq!(json!(*heard.lock().unwrap()), json!(expected));
+        heard.lock().unwrap().clear();
+        assert_eq!(job.run(cx(&db, &clock()), vec![]).await, Outcome::Done);
+        assert_eq!(json!(*heard.lock().unwrap()), fixture("ledger_1"), "the next walk has no import to end");
+        heard.lock().unwrap().clear();
+        // A key deleted while its import waited never lands: the walk no longer waits on it.
+        db.run(move |c, _| deltabadger::sync::jobs::progress::started(c, owner, &[key + 1000], clock().0)).await.unwrap();
+        assert_eq!(job.run(cx(&db, &clock()), vec![]).await, Outcome::Done);
+        assert_eq!(json!(*heard.lock().unwrap()), json!(expected), "a deleted key is not waited on");
+        heard.lock().unwrap().clear();
+        db.run(move |c, _| deltabadger::sync::jobs::progress::started(c, owner, &[], clock().0)).await.unwrap();
         db.run(|c, _| c.execute_batch("CREATE TRIGGER refuse_snapshot BEFORE UPDATE ON portfolio_snapshots BEGIN SELECT RAISE(ABORT,'refuse'); END;").map_err(|e| e.to_string())).await.unwrap();
         assert!(matches!(
             job.run(cx(&db, &clock()), vec![]).await,
             Outcome::Failed(_)
         ));
-        assert!(heard.lock().unwrap().is_empty());
+        assert_eq!(json!(*heard.lock().unwrap()), fixture("sync_1_failure"));
     }
 }
 
@@ -227,11 +251,8 @@ async fn completion_empty_success_finishes_but_capped_import_keeps_progress() {
         );
         assert_eq!(
             json!(*heard.lock().unwrap()),
-            if capped {
-                json!([])
-            } else {
-                fixture("sync_1_success")
-            }
+            // D-SYNC-DONE-TOAST: neither ends the toast here (a complete import's walk does).
+            json!([])
         );
     }
 }
