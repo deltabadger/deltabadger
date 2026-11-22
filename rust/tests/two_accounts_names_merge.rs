@@ -3777,3 +3777,41 @@ fn s7_0_1_an_inherited_group_is_checked_like_a_moved_one() {
     deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
     match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
 }
+
+/// 7a §0.2: the pricing walk's per-venue asset map is classification: a duplicate's row recording ABC as a stock decides
+/// the survivor's unrecorded ABC on Alpaca (the catalogue alone holds a stock and a coin ABC), as the table's key does.
+#[test]
+fn s7_0_2_the_walks_asset_map_reads_a_duplicates_rows() {
+    use deltabadger::tracker::prices::{NoFetch, PriceService, Reference, Venue};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).unwrap();
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    let asset = |category: &str, ext: &str| {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, 'ABC', 'ABC', ?2, 'now', 'now')", [ext, category]).unwrap();
+        c.last_insert_rowid()
+    };
+    let stock = asset("Stock", "ABC.US");
+    asset("Cryptocurrency", "abc-coin");
+    two.row(c, 0, 0, "ABC", "1", Some("a-1"), None, "2026-09-01 10:00:00");
+    let d = two.row(c, 1, 0, "ABC", "1", Some("a-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [d, stock]).unwrap();
+    c.execute("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:ABC', 'USD', '2026-09-01', '12')", []).unwrap();
+    let user = two.seeded.user_id;
+    let all = deltabadger::tracker::rows::load_all(c, user).unwrap();
+    assert_eq!(all.iter().filter(|r| r.base == "ABC").count(), 1, "the duplicate's row is left out of the walk");
+    let table = deltabadger::tracker::prices::row_price_key(c, user, two.seeded.exchange_id, "Exchanges::Alpaca", "ABC", None, chrono::NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()).unwrap();
+    assert_eq!(table.as_deref(), Some("stock:ABC"), "the table's key reads the duplicate's row");
+    let mut r = Reference::load(c, &Venue::alpaca(c).unwrap(), &deltabadger::tracker::prices::symbols(&all)).unwrap();
+    r.record_coins(c, user).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::default();
+    let mut none = NoFetch;
+    let mut ps = PriceService::new(&r, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 2).unwrap(), &mut none);
+    ps.record(&all);
+    let at = deltabadger::figures::at::At::from_sql("2026-09-01 12:00:00").unwrap();
+    assert_eq!(ps.price_at("ABC", "USD", at, Some("alpaca")).unwrap().to_s_f(), "12.0", "{:?}", ps.warnings);
+}
