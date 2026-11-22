@@ -1526,12 +1526,14 @@ pub enum Standing {
 
 /// The distinct fingerprints of (user, exchange)'s current credentials (keys still stored) and of its imported exports,
 /// and the account's own.
+/// #710 7a §3: of the exchange's number-1 account only, so a file or key routed to another account is no conflict here.
 fn seen(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<(Option<String>, Vec<String>)> {
-    let account = first_account(c, user_id, exchange_id)?.and_then(|(_, fingerprint)| fingerprint);
-    let mut s = c.prepare("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
-                           WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL
-                           UNION SELECT fingerprint FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY 1")?;
-    let observed = s.query_map([user_id, exchange_id], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
+    let first = first_account(c, user_id, exchange_id)?;
+    let account = first.as_ref().and_then(|(_, fingerprint)| fingerprint.clone());
+    let mut s = c.prepare(&format!("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                           WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL AND {} IS ?3
+                           UNION SELECT fingerprint FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 AND coalesce(account_id, ?3) IS ?3 ORDER BY 1", key_account_sql("k")))?;
+    let observed = s.query_map(params![user_id, exchange_id, first.map(|(id, _)| id)], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
     Ok((account, observed))
 }
 

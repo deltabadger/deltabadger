@@ -768,3 +768,132 @@ async fn a_signal_start_from_another_tab_makes_no_bot() {
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM bots"), bots, "no bot");
 }
 
+// ---- §3: an import goes to the file's account ----
+
+const BINANCE_NAME: &str = "Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv";
+fn binance_file(uid: &str) -> String { format!("User ID,Time,Account,Operation,Coin,Change,Remark\n{uid},2026-08-01 10:00:46,Spot,Deposit,USDT,1000,\n") }
+fn kucoin_file(uid: &str) -> String { include_str!("fixtures/kucoin/trading_account.csv").replace("123456789,", &format!("{uid},")) }
+fn venue(c: &Connection, exchange_type: &str, name: &str) -> i64 {
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, ?2, '0.1', '0.1', '2026-01-01', '2026-01-01')", [exchange_type, name]).unwrap();
+    c.last_insert_rowid()
+}
+/// A correct trading key of `user` on `exchange`, on `account` (None: its number 1).
+fn key_on(c: &Connection, user: i64, exchange: i64, account: Option<i64>) -> i64 {
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![user, exchange, e(&format!("k{}", rand::random::<u32>())), e("s")]).unwrap();
+    let key = c.last_insert_rowid();
+    match account { Some(a) => identity::Account::by_id(c, a).unwrap().unwrap().add_key(c, key).unwrap(), None => { identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap(); } }
+    key
+}
+fn fingerprint(c: &Connection, account: i64, exchange_type: &str, uid: &str) {
+    identity::establish_read(c, &seed::cipher(), account, exchange_type, &identity::AccountId::parse(uid).unwrap(), chrono::Utc::now()).unwrap();
+}
+/// The ledger rows of `account`.
+fn rows_on(c: &Connection, account: i64) -> i64 {
+    let scope = deltabadger::venue_ids::Scope::of(c, &identity::Account::by_id(c, account).unwrap().unwrap()).unwrap();
+    one(c, &format!("SELECT count(*) FROM account_transactions a WHERE a.exchange_id = {} AND {}", scope.exchange_id, scope.rows("a")))
+}
+async fn upload(app: &deltabadger::web::App, b: &mut common::web::Browser, format: &str, text: &str) -> common::web::Answer {
+    assert_eq!(b.get(app, "/settings/api_keys").await.status, 200);
+    let (content_type, body) = common::web::multipart(&[("format", format)], &[("file", BINANCE_NAME, text.as_bytes())]);
+    b.send_bytes(app, "POST", "/tracker/import", Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await
+}
+/// The question's options (`value`s) and the answer `value` posted back with the parked file.
+fn options(body: &str) -> Vec<String> {
+    regex::Regex::new(r#"data-value="([^"]+)""#).unwrap().captures_iter(body).map(|m| m[1].to_string()).collect()
+}
+async fn answer(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str, value: &str) -> common::web::Answer {
+    let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap_or_else(|| panic!("parked: {}", asked.body))[1].to_string();
+    b.send(app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", format), ("api_key_id", value)]), common::web::Csrf::Header, &[]).await
+}
+/// A Binance write needs this process to own the install (the lease), as `serve` does.
+fn own(dir: &std::path::Path, c: &Connection, app: &deltabadger::web::App) -> deltabadger::lease::EngineLock {
+    let lock = deltabadger::lease::lock(&Paths::from_env(&|_| None, dir), app.now()).unwrap();
+    deltabadger::lease::claim(&lock, c, &app.cipher, "test", app.now()).unwrap();
+    lock
+}
+fn imported(answer: &common::web::Answer) -> bool { answer.body.contains("turbo-stream") && answer.body.contains("/tracker") && answer.status == 200 }
+
+/// §3, D-IMPORT-WITHOUT-KEY: with no key at all, a KuCoin file makes a keyless account and lands there; a Binance-format file
+/// asks the venue first (nothing written), then makes Binance.US's account on that answer.
+#[tokio::test(flavor = "current_thread")]
+async fn an_import_with_no_key_makes_a_keyless_account_asking_a_binance_file_s_venue_first() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (_binance, us, kucoin) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"), venue(c, "Exchanges::Kucoin", "KuCoin"));
+    let mut b = browser(&app, c, s.user_id);
+    let done = upload(&app, &mut b, "kucoin", &kucoin_file("111")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    let accounts = identity::accounts_of(c, s.user_id, kucoin).unwrap();
+    assert_eq!(accounts.len(), 1, "one keyless account");
+    assert!(rows_on(c, accounts[0].0) > 0);
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM account_transactions WHERE exchange_id = {kucoin} AND api_key_id IS NOT NULL")), 0, "no key named");
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(asked.status, 200);
+    assert_eq!(options(&asked.body).len(), 2, "Binance or Binance.US: {}", asked.body);
+    assert_eq!((one::<i64>(c, "SELECT count(*) FROM account_transactions"), identity::accounts_of(c, s.user_id, us).unwrap().len()), (ledger, 0), "nothing written yet");
+    let done = answer(&app, &mut b, &asked, "binance", &format!("v{us}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    let accounts = identity::accounts_of(c, s.user_id, us).unwrap();
+    assert_eq!(accounts.len(), 1);
+    assert_eq!(rows_on(c, accounts[0].0), 1);
+}
+
+/// §3: a Binance file whose UID is account 2's lands on 2, never asking; a Binance.US UID matching a keyless Binance.US
+/// account lands there although the only key is Binance's.
+#[tokio::test(flavor = "current_thread")]
+async fn a_file_whose_account_is_known_lands_there_in_either_binance_venue() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    key_on(c, s.user_id, binance, Some(second));
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let keyless_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, keyless_us, "Exchanges::BinanceUs", "333");
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let done = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 1), "account 2's file");
+    let done = upload(&app, &mut b, "binance", &binance_file("333")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(rows_on(c, keyless_us), 1, "the keyless Binance.US account");
+    assert_eq!(identity::accounts_of(c, s.user_id, binance).unwrap().len(), 2, "nothing made");
+    assert_eq!(identity::standing(c, s.user_id, binance).unwrap(), identity::Standing::Unknown, "a file routed to account 2 is no conflict of account 1");
+}
+
+/// §3 / §9.6: two unfingerprinted accounts (keyed or holding history) make a KuCoin file ask which, "a new account" offered;
+/// nothing is written until then. A parked answer naming an account given another fingerprint meanwhile is asked again,
+/// never routed elsewhere; the new-account answer makes account 3.
+#[tokio::test(flavor = "current_thread")]
+async fn two_unfingerprinted_accounts_make_the_import_ask_and_a_stale_answer_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert_eq!(options(&asked.body), [format!("a{first}"), format!("a{second}"), format!("n{kucoin}")], "{}", asked.body);
+    assert!(asked.body.contains("This file could be from more than one account here. Which one?"), "{}", asked.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
+    // Account 2 is read as another account meanwhile: the answer naming it is asked again.
+    fingerprint(c, second, "Exchanges::Kucoin", "555");
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}")).await;
+    assert_eq!(options(&again.body), [format!("a{first}"), format!("n{kucoin}")], "asked again, account 2 no longer offered: {}", again.body);
+    assert!(rows_on(c, first) == 0 && rows_on(c, second) == 0, "never routed to another account");
+    // The new-account answer.
+    let done = answer(&app, &mut b, &again, "kucoin", &format!("n{kucoin}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 3, "a new account 3");
+    assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 0));
+}
+

@@ -658,6 +658,8 @@ en:
             drop: 'Drop your CSV here'
             drop_hint: 'or click to choose a file'
             which_account: 'This file could be from either Binance account. Which one?'
+            which_of_accounts: 'This file could be from more than one account here. Which one?'
+            new_account: 'A new account'
             unrouted: 'No account connected for: %{exchanges}. Those rows were left out.'
             error_no_account_for_format: 'No matching account is connected for this format.'
             format: 'Format'

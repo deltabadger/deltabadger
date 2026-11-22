@@ -771,7 +771,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
                 "INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
              fee_currency, fee_amount, tx_id, group_id, description, transacted_at, raw_data, manual_values, base_asset_id, transaction_id, \
              transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, '{}', ?16, ?17, 0, ?18, ?18)",
-                params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
+                params![key.user_id, key.api_key_id(), key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
                     if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)) }, key.scope.stored(tx_id), e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
             let row = c.last_insert_rowid();

@@ -666,6 +666,8 @@ cs:
             drop: 'Přetáhni sem soubor CSV'
             drop_hint: 'nebo klikni a vyber soubor'
             which_account: 'Tento soubor může být z obou účtů Binance. Ze kterého?'
+            which_of_accounts: 'Tento soubor může být z více účtů zde. Ze kterého?'
+            new_account: 'Nový účet'
             unrouted: 'Pro %{exchanges} není připojen účet. Tyto řádky byly vynechány.'
             error_no_account_for_format: 'Pro tento formát není připojen odpovídající účet.'
             format: 'Formát'

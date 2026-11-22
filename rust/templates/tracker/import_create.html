@@ -15,11 +15,11 @@
       <p class="tracker-empty">{{ ctx.t(error)|safe }}</p>
 {%- when Body::Refused with (message) %}
       <p class="tracker-empty">{{ message }}</p>
-{%- when Body::Ambiguous with { csrf, token, format, accounts, first } %}
+{%- when Body::Ambiguous with { csrf, token, format, accounts, first, question } %}
       <form class="form" data-turbo-frame="modal_content" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
         <input type="hidden" name="token" id="token" value="{{ token }}" />
         <input type="hidden" name="format" id="format" value="{{ format }}" />
-        <p>{{ ctx.t("tracker.import.which_account")|safe }}</p>
+        <p>{{ ctx.t(question)|safe }}</p>
         <div class="filters" data-controller="form--segmented-field"
              data-action="segmented:change->form--segmented-field#set">
           

@@ -9,7 +9,7 @@ use crate::sync::{ledger, Key, SyncError};
 use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::kucoin::KUCOIN;
 use chrono::{DateTime, Utc};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 /// Import::Run::FORMATS, in their order, and Import::Run::DEFAULT_FORMAT. `kucoin` is Rust's own (D-IMPORT-FORMATS).
 pub const FORMATS: [&str; 3] = ["deltabadger", "binance", "kucoin"];
@@ -25,8 +25,8 @@ pub struct Reading { pub id: i64, pub exchange_id: i64, pub account_id: Option<i
 pub enum Answer {
     /// `error:` — "unreadable", "malformed" or "no_account_for_format"; nothing written.
     Error(&'static str),
-    /// `ambiguous: true` and the accounts the file could be from; nothing written.
-    Ambiguous(Vec<Reading>),
+    /// `ambiguous: true` and the venues or accounts the file could be from (#710 7a §3); nothing written.
+    Ambiguous(Vec<Choice>),
     /// A named Binance identity refusal, returned only after the entire write has rolled back.
     Refused(String),
     /// The counts of the one write, with the readers' unrecognised operations and the venues no account takes.
@@ -35,6 +35,13 @@ pub enum Answer {
     /// #710 7a: the file's export account was imported on this account (plain label) as a conflict before; nothing written.
     ImportedElsewhere(String),
 }
+
+/// #710 7a §3: an option of the import's question, posted back as `api_key_id`. `value`: a key id (that key's venue, the
+/// value 2.x posts), `v<exchange>` (a venue), `a<account>` (an account) or `n<exchange>` (a new account there). `key`: the
+/// venue's lone keyed account's reading key, the option 2.x offered; `new`: the "a new account" option (its label is the
+/// page's).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Choice { pub value: String, pub label: String, pub key: Option<i64>, pub new: bool }
 
 /// Tracker::ImportsController#resolve_offset for a fresh upload: `None` for a format that needs no zone, else the
 /// file's own zone (Import::BinanceCsv.offset_from), or `Some(None)` when it names none (`unknown_timezone`).
@@ -149,36 +156,40 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     let tx = model::immediate(c)?;
     let keys = reading(&tx, user_id)?;
     // #route: [account, its entries] in the order the rows first name them, and the venues nothing here takes.
-    let mut routed: Vec<(Reading, Vec<Entry>)> = vec![];
+    let mut routed: Vec<(Key, Vec<Entry>)> = vec![];
     let mut unrouted: Vec<String> = vec![];
     // A venue's own export goes to that venue's account.
     let venues: &[&str] = match format { "binance" => &[BINANCE, BINANCE_US], "kucoin" => &[KUCOIN], _ => &[] };
     if !venues.is_empty() {
-        let options: Vec<Reading> = keys.into_iter().filter(|k| venues.contains(&k.exchange_type.as_str())).collect();
-        let picked = match chosen.and_then(|id| options.iter().find(|k| k.id.to_string() == id)) {
-            Some(key) => key.clone(),
-            None if options.is_empty() => return Ok(Answer::Error("no_account_for_format")),
-            None if options.len() > 1 => return Ok(Answer::Ambiguous(options)),
-            None => options[0].clone(),
+        let account = match route_file(&tx, cipher, user_id, venues, account_id.as_ref(), chosen, &keys, now)? {
+            Routed::To(account) => writer(&tx, &keys, account)?,
+            Routed::Key(k) => Key { id: k.id, user_id, exchange_id: k.exchange_id, status: 1, key_type: k.key_type, last_synced_at: None, last_sync_error: None,
+                                    exchange_type: k.exchange_type, scope: crate::sync::key_scope(&tx, k.id)? },
+            Routed::None => return Ok(Answer::Error("no_account_for_format")),
+            Routed::Ask(choices) => return Ok(Answer::Ambiguous(choices)),
+            Routed::Elsewhere(on) => return Ok(Answer::ImportedElsewhere(crate::identity::label(&tx, on)?.plain())),
         };
-        // An upgraded install's file of another account, imported here as a conflict before 7a, is not imported again.
-        if let Some(id) = &account_id {
-            if let Some(on) = crate::identity::imported_as_conflict(&tx, cipher, user_id, picked.exchange_id, id, now).map_err(SyncError)? {
-                return Ok(Answer::ImportedElsewhere(crate::identity::label(&tx, on)?.plain()));
-            }
-        }
-        routed.push((picked, entries.into_iter().map(|(_, e)| e).collect()));
+        routed.push((account, entries.into_iter().map(|(_, e)| e).collect()));
     } else {
         // `index_by(name_id)`: of two venues of one kind, the later key; #710: of the account the row's number names (an
         // account this install does not have is unrouted, named as plain text names it: `kraken 2`).
-        let numbered: Vec<(&Reading, i64)> = keys.iter().map(|k| Ok((k, match k.account_id {
-            Some(id) => tx.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0))?,
-            None => 1,
-        }))).collect::<Result<_, rusqlite::Error>>()?;
-        let by_name = |name: &str, number: u32| numbered.iter().rev().find(|(k, n)| crate::tracker::rows::name_id(&k.exchange_type) == name && *n == i64::from(number)).map(|(k, _)| *k);
+        // #710 7a §3: a keyless account (one an import made) takes its rows too; an account whose keys none reads stays unrouted.
+        let mut numbered: Vec<(Key, i64)> = vec![];
+        for k in &keys {
+            let number = match k.account_id { Some(id) => tx.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0))?, None => 1 };
+            numbered.push((Key { id: k.id, user_id, exchange_id: k.exchange_id, status: 1, key_type: k.key_type, last_synced_at: None, last_sync_error: None,
+                                 exchange_type: k.exchange_type.clone(), scope: crate::sync::key_scope(&tx, k.id)? }, number));
+        }
+        if crate::identity::ready(&tx)? {
+            let keyless: Vec<(i64, i64)> = tx.prepare(&format!("SELECT a.id, a.number FROM exchange_accounts a WHERE a.user_id = ?1 AND a.removed_at IS NULL \
+                AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE k.user_id = a.user_id AND k.exchange_id = a.exchange_id AND {} = a.id) ORDER BY a.id", crate::identity::key_account_sql("k")))?
+                .query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            for (account, number) in keyless { numbered.push((writer(&tx, &keys, account)?, number)); }
+        }
+        let by_name = |name: &str, number: u32| numbered.iter().rev().find(|(k, n)| crate::tracker::rows::name_id(&k.exchange_type) == name && *n == i64::from(number)).map(|(k, _)| k);
         for (venue, entry) in entries {
             match venue.as_ref().and_then(|(name, number)| by_name(name, *number)) {
-                Some(key) => match routed.iter_mut().find(|(k, _)| k.id == key.id) { Some((_, rows)) => rows.push(entry), None => routed.push((key.clone(), vec![entry])) },
+                Some(key) => match routed.iter_mut().find(|(k, _)| (k.exchange_id, k.scope.account, k.id) == (key.exchange_id, key.scope.account, key.id)) { Some((_, rows)) => rows.push(entry), None => routed.push((key.clone(), vec![entry])) },
                 None => if let Some((venue, number)) = venue {
                     let venue = if number == 1 { venue } else { format!("{venue} {number}") };
                     if !unrouted.contains(&venue) { unrouted.push(venue); }
@@ -191,10 +202,8 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     // (the venue's API is never called), so no credential change can make what it writes stale.
     let fenced = model::fence_versions(&tx, &[])?;
     let (mut imported, mut duplicates, mut skipped, mut generic) = (0, 0, 0, 0);
-    for (reading, rows) in routed {
-        let key = Key { id: reading.id, user_id, exchange_id: reading.exchange_id, status: 1, key_type: reading.key_type, last_synced_at: None,
-                        last_sync_error: None, exchange_type: reading.exchange_type, scope: crate::sync::key_scope(&tx, reading.id)? };
-        let routed_account = key.scope.account;
+    for (key, rows) in routed {
+        let (routed_account, exchange_id) = (key.scope.account, key.exchange_id);
         if format == "kucoin" {
             // #710 slice 7: the source rows are stored by (user, exchange), whatever account the file was routed to; routing
             // imports by account is slice 7's.
@@ -216,11 +225,104 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
         }
         // Recorded only: the rows went where they always go, whatever account the file names.
         // #710: the file's identity is the account its key belongs to (the one the rows went to).
-        crate::identity::record_import_to(&fenced, cipher, user_id, reading.exchange_id, routed_account, account_id.as_ref(), now).map_err(SyncError)?;
+        crate::identity::record_import_to(&fenced, cipher, user_id, exchange_id, routed_account, account_id.as_ref(), now).map_err(SyncError)?;
     }
     drop(fenced);
     tx.commit()?;
     Ok(Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, generic })
+}
+
+/// Where a venue's own export goes (#710 7a §3).
+enum Routed { To(i64), Ask(Vec<Choice>), Elsewhere(i64), Key(Reading), None }
+
+/// The file's account, under the write lock: 1. a live account of `venues` with the file's fingerprint; else, the venue
+/// known (one venue, or the one chosen), 2. its one unfingerprinted live account, 3. none: a new keyless account; two or
+/// more: the question, "a new account" offered too. A Binance-format file matched nowhere asks the venue first. A parked
+/// answer is taken only while it still holds (an account removed, merged or given another fingerprint is asked again).
+#[allow(clippy::too_many_arguments)]
+fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venues: &[&str], file: Option<&crate::identity::AccountId>, chosen: Option<&str>,
+              keys: &[Reading], now: DateTime<Utc>) -> Result<Routed, SyncError> {
+    if !crate::identity::ready(c)? {
+        // An install without the account tables (a `run` not migrated yet): 2.x's question over the venues' keys.
+        let options: Vec<&Reading> = keys.iter().filter(|k| venues.contains(&k.exchange_type.as_str())).collect();
+        return Ok(match (chosen.and_then(|id| options.iter().find(|k| k.id.to_string() == id)), options.as_slice()) {
+            (Some(k), _) | (None, [k]) => Routed::Key((*k).clone()),
+            (None, []) => Routed::None,
+            (None, _) => Routed::Ask(options.iter().map(|k| Choice { value: k.id.to_string(), label: k.exchange_name.clone(), key: Some(k.id), new: false }).collect()),
+        });
+    }
+    let exchanges: Vec<(i64, String, String)> = c.prepare("SELECT id, type, name FROM exchanges WHERE type IN (SELECT value FROM json_each(?1)) ORDER BY id")?
+        .query_map([serde_json::json!(venues).to_string()], |r| Ok((r.get(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, Option<String>>(2)?.unwrap_or_default())))?.collect::<Result<_, _>>()?;
+    let identity = crate::identity::key(c, cipher, now).map_err(SyncError)?;
+    let fingerprint = |exchange_type: &str| file.map(|id| identity.fingerprint(exchange_type, id));
+    // (account, number, fingerprint) of each live account of `exchange`.
+    let live = |exchange: i64| -> rusqlite::Result<Vec<(i64, i64, Option<String>)>> {
+        c.prepare("SELECT id, number, fingerprint FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number")?
+            .query_map([user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect()
+    };
+    let offered = |exchange: i64| exchanges.iter().find(|(id, _, _)| *id == exchange);
+    // The parked answer.
+    let (mut venue, mut stale) = (None, false);
+    if let Some(chosen) = chosen {
+        let number = |prefix: &str| chosen.strip_prefix(prefix).and_then(|n| n.parse::<i64>().ok());
+        // A key id (2.x's answer, the parity runner's): that key's account.
+        let keyed = chosen.parse::<i64>().ok().and_then(|id| keys.iter().find(|k| k.id == id))
+            .map(|k| k.account_id.map_or_else(|| crate::identity::ensure_account(c, user_id, k.exchange_id, now), Ok)).transpose()?;
+        if let Some(account) = number("a").or(keyed) {
+            let row: Option<(i64, i64, Option<String>, bool)> = c.query_row("SELECT exchange_id, user_id, fingerprint, removed_at IS NOT NULL FROM exchange_accounts WHERE id = ?1", [account],
+                                                                            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
+            if let Some((exchange, owner, held, removed)) = row {
+                if let Some((_, exchange_type, _)) = offered(exchange).filter(|_| owner == user_id) {
+                    if !removed && (held.is_none() || held == fingerprint(exchange_type)) { return Ok(Routed::To(account)) }
+                    // Removed, merged or read as another account since the question: asked again, never routed elsewhere.
+                    (venue, stale) = (Some(exchange), true);
+                }
+            }
+        } else if let Some(exchange) = number("n").filter(|e| offered(*e).is_some()) {
+            return Ok(Routed::To(crate::identity::new_account(c, user_id, exchange, now)?));
+        } else {
+            venue = number("v").filter(|e| offered(*e).is_some());
+        }
+    }
+    // 1. The file's fingerprint.
+    for (exchange, exchange_type, _) in exchanges.iter().filter(|_| !stale) {
+        if venue.is_some_and(|v| v != *exchange) { continue }
+        if let Some((account, _, _)) = live(*exchange)?.into_iter().find(|(_, _, held)| held.is_some() && *held == fingerprint(exchange_type)) { return Ok(Routed::To(account)) }
+    }
+    let venue = match (venue, exchanges.as_slice()) {
+        (Some(v), _) => v,
+        // No venue of the format on this install: nothing could hold the file.
+        (None, []) => return Ok(Routed::None),
+        (None, [(only, _, _)]) => *only,
+        (None, _) => return Ok(Routed::Ask(exchanges.iter().map(|(id, _, name)| {
+            let keyed: Vec<&Reading> = keys.iter().filter(|k| k.exchange_id == *id).collect();
+            let key = (keyed.len() == 1).then(|| keyed[0].id);
+            Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false }
+        }).collect())),
+    };
+    if let Some(id) = file {
+        if let Some(on) = crate::identity::imported_as_conflict(c, cipher, user_id, venue, id, now).map_err(SyncError)? { return Ok(Routed::Elsewhere(on)) }
+    }
+    // 2 and 3: the venue's unfingerprinted accounts.
+    let owners: Vec<i64> = live(venue)?.into_iter().filter(|(_, _, held)| held.is_none()).map(|(id, _, _)| id).collect();
+    Ok(match owners.as_slice() {
+        [] if !stale => Routed::To(crate::identity::new_account(c, user_id, venue, now)?),
+        [one] if !stale => Routed::To(*one),
+        many => {
+            let mut choices = many.iter().map(|id| Ok(Choice { value: format!("a{id}"), label: crate::identity::label(c, *id)?.plain(), key: None, new: false })).collect::<rusqlite::Result<Vec<_>>>()?;
+            choices.push(Choice { value: format!("n{venue}"), label: String::new(), key: None, new: true });
+            Routed::Ask(choices)
+        }
+    })
+}
+
+/// The writer's key for `account`: its reading key, or none (`sync::NO_KEY`: a keyless account's rows have no api_key_id).
+fn writer(c: &Connection, keys: &[Reading], account: i64) -> Result<Key, SyncError> {
+    let target = crate::identity::Account::by_id(c, account)?.ok_or_else(|| SyncError(format!("import account {account} is gone")))?;
+    let reading = keys.iter().find(|k| k.exchange_id == target.exchange_id && k.account_id == Some(account));
+    let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [target.exchange_id], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default();
+    Ok(Key { id: reading.map_or(crate::sync::NO_KEY, |k| k.id), user_id: target.user_id, exchange_id: target.exchange_id, status: 1, key_type: reading.map_or(0, |k| k.key_type),
+             last_synced_at: None, last_sync_error: None, exchange_type, scope: crate::venue_ids::Scope::of(c, &target)? })
 }
 
 #[cfg(test)]

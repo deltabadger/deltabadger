@@ -209,7 +209,7 @@ fn generations(c: &Connection) -> Result<Vec<(i64, i64)>, SyncError> {
 /// A step of kind `import`, as the recording harness's `run_import` reports it: the controller's zone step, the key the
 /// step's `answer` names (the user's first key on that exchange type), then the run.
 fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: DateTime<Utc>) -> Result<Value, SyncError> {
-    use crate::tracker::import::run::{self, Answer};
+    use crate::tracker::import::run;
     let (format, bytes) = (step["format"].as_str().unwrap_or_default(), step["text"].as_str().unwrap_or_default().as_bytes());
     let none = json!({ "imported": 0, "duplicates": 0, "skipped": 0, "unrecognised": [], "unrouted": [], "error": null, "ambiguous": null });
     let offset = match run::offset(format, step["filename"].as_str(), bytes) {
@@ -222,17 +222,22 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
                                                                        rusqlite::params![user_id, kind], |r| r.get(0)))?,
         None => None,
     };
-    let mut out = none;
     let answer=run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)?;
+    Ok(import_out(none, answer))
+}
+
+fn import_out(none: Value, answer: crate::tracker::import::run::Answer) -> Value {
+    use crate::tracker::import::run::Answer;
+    let mut out = none;
     match answer {
         Answer::Error(error) => out["error"] = json!(error),
         Answer::Refused(reason) => out["error"] = json!(format!("Binance A12 unresolved: {reason}")),
         Answer::ImportedElsewhere(account) => out["error"] = json!(format!("imported elsewhere: {account}")),
-        Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
+        Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.key.map_or_else(|| json!(k.value), |id| json!(id))).collect::<Vec<_>>()),
         Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, .. } =>
             out = json!({ "imported": imported, "duplicates": duplicates, "skipped": skipped, "unrecognised": unrecognised, "unrouted": unrouted, "error": null, "ambiguous": null }),
     }
-    Ok(out)
+    out
 }
 
 /// Runs the scenario in `dir` (a scratch copy the recording harness built) and reports what 2.x's `record` reports.

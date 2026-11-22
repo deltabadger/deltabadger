@@ -239,6 +239,14 @@ pub struct Key {
     pub scope: crate::venue_ids::Scope,
 }
 
+/// #710 7a §3: the writer's key id for a keyless account's import: its rows are written with no `api_key_id`.
+pub const NO_KEY: i64 = 0;
+
+impl Key {
+    /// The `api_key_id` its rows are written with.
+    pub fn api_key_id(&self) -> Option<i64> { (self.id != NO_KEY).then_some(self.id) }
+}
+
 /// The venues whose balances this build syncs (`registry::Row::balances`).
 pub fn balance_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.balances.is_some()) }
 

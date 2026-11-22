@@ -1,5 +1,5 @@
 //! Tracker::ImportsController: the dialog, and a file read into the ledger (tracker::import::run). The one question it
-//! can ask (which of two Binance accounts a file came from) parks the upload at `<tmp>/imports/<user>/<token>.csv` and
+//! can ask (which venue or account a file came from, #710 7a §3) parks the upload at `<tmp>/imports/<user>/<token>.csv` and
 //! its zone in `session["import_offsets"][token]`, the paths and keys 2.x uses, until the answer comes back.
 use super::{auth, Ctx, WebError};
 use crate::tracker::import::run::{self, Answer};
@@ -22,7 +22,7 @@ struct New<'a> { ctx: &'a Ctx, csrf: String, formats: String, default_format: &'
 enum Body {
     Error(String),
     Refused(String),
-    Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String },
+    Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String, question: &'static str },
     NothingNew { skipped: Option<String>, unrouted: Option<String>, unrecognised: Option<String> },
 }
 
@@ -138,10 +138,13 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
             Body::Refused(i18n::text(ctx.locale, "tracker.import.imported_elsewhere", &[("account", i18n::Arg::Text(&account))]))),
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
         Answer::Ambiguous(keys) => {
-            let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.id.to_string().into(), label: k.exchange_name.clone(), active: i == 0, href: None }).collect();
+            let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.value.clone().into(), label: if k.new { ctx.t("tracker.import.new_account") } else { k.label.clone() },
+                                                                                 active: i == 0, href: None }).collect();
             let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false, frame: None }.render()?;
             render(&ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, accounts,
-                                                           first: keys.first().map(|k| k.id.to_string()).unwrap_or_default() })
+                                                           first: keys.first().map(|k| k.value.clone()).unwrap_or_default(),
+                                                           // The venue question keeps 2.x's text; the account question (#710 7a §3) has its own.
+                                                           question: if keys.iter().any(|k| k.new) { "tracker.import.which_of_accounts" } else { "tracker.import.which_account" } })
         }
     }
 }

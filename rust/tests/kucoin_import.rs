@@ -286,12 +286,17 @@ fn an_import_records_its_account_and_another_accounts_file_is_a_conflict_in_eith
         observe(&fx, OTHER);
         assert_eq!(fx.standing(), Standing::Conflicted);
     }
-    // Key then file: the key established the account, the file names another. It imports all the same.
+    // Key then file: the key established the account, the file names another. It imports all the same, on purpose on a new
+    // keyless account (#710 7a §3); its observation is recorded there, so account 1's standing holds.
     let fx = Fx::new();
     observe(&fx, OTHER);
     assert_eq!(fx.standing(), Standing::Bound);
     assert_eq!(fx.imported(TRADING).0, 163, "recorded, never refused");
-    assert_eq!(fx.standing(), Standing::Conflicted);
+    let accounts = identity::accounts_of(&fx.c, fx.user, fx.exchange).unwrap();
+    assert_eq!(accounts.iter().map(|(_, n)| *n).collect::<Vec<_>>(), [1, 2], "a new account");
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {}", accounts[1].0)), 1, "the observation, on account 2");
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE api_key_id IS NOT NULL"), 0, "the rows name no key");
+    assert_eq!(fx.standing(), Standing::Bound);
 }
 
 // ---- Chart effect --------------------------------------------------------------------------------------------------
@@ -649,8 +654,11 @@ async fn s7_0_6_a_cutoff_is_its_accounts() {
 #[test]
 fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
     let fx = Fx::new();
+    // As before 7a: the file imported on account 1, whose key then reads another account (7a routes such a file to a new
+    // account instead).
+    assert_eq!(fx.imported(TRADING).0, 163);
+    fx.c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
     observe(&fx, OTHER);
-    assert_eq!(fx.imported(TRADING).0, 163, "imported as a conflict, as before 7a");
     assert_eq!(fx.standing(), Standing::Conflicted);
     let (rows, observations) = (fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports"));
     let again = fx.import(TRADING);

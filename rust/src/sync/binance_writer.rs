@@ -223,7 +223,7 @@ fn insert(c: &FencedTransaction<'_>, key: &Key, e: &Entry, now: DateTime<Utc>) -
     let amount=|d:&BigDec|ledger::amount_sql(&key.exchange_type,d);
     let fee=e.fee_amount.as_ref().filter(|d|!d.is_zero());
     c.execute("INSERT INTO account_transactions (user_id,api_key_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,tx_id,group_id,description,transacted_at,raw_data,manual_values,base_asset_id,transfer_link_rejected,created_at,updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,'{}',?16,0,?17,?17)",
-        params![key.user_id,key.id,key.exchange_id,e.entry_type,coin,amount(&e.base_amount),e.quote_currency,e.quote_amount.as_ref().map(amount),fee.and(e.fee_currency.as_deref()),fee.map(amount),key.scope.stored(e.tx_id.as_deref()),e.group_id,e.description,super::sql_time(at),e.raw.text(),asset,super::sql_time(now)])?;
+        params![key.user_id,key.api_key_id(),key.exchange_id,e.entry_type,coin,amount(&e.base_amount),e.quote_currency,e.quote_amount.as_ref().map(amount),fee.and(e.fee_currency.as_deref()),fee.map(amount),key.scope.stored(e.tx_id.as_deref()),e.group_id,e.description,super::sql_time(at),e.raw.text(),asset,super::sql_time(now)])?;
     let row=c.last_insert_rowid();
     crate::venue_ids::after_insert(c,&key.scope,row,e.tx_id.as_deref())?;
     Ok(row)
