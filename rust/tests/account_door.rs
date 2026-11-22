@@ -1789,3 +1789,44 @@ async fn s7a_r11_a_stale_withdrawal_confirmation_or_preview_copies_nothing_into_
     assert!(!confirm.body.contains("0.777"), "account 1's session took none of account 2's fields: {}", confirm.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_rules"), 0, "no rule");
 }
+
+/// Rule S2 (Codex branch r4, key_check.rs:363/836): an identity read is recorded the moment it is read, whatever the
+/// probes after it answer. Binance.US's account read names B's account for a key stored on A, then its trading probe
+/// fails: the save is not made, and A's stored copies of that material are fenced all the same.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s2_a_binance_us_read_naming_another_account_fences_even_when_the_probe_fails() {
+    let server = MockServer::start().await;
+    let path_ = deltabadger::web::settings::key_check::BINANCE_US_ACCOUNT_PATH;
+    for (key, uid) in [("key-a", 111), ("key-b", 222)] {
+        Mock::given(method("GET")).and(path(path_)).and(header("X-MBX-APIKEY", key))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"uid": uid, "canTrade": true, "balances": []}))).mount(&server).await;
+    }
+    let (_d, o) = install();
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let s = seed::seed_alpaca(c, &cipher);
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::BinanceUs', 'Binance.US', '0.1', '0.1', 'now', 'now')", []).unwrap();
+    let exchange = c.last_insert_rowid();
+    let app = web_app(_d.path(), c).with_venue_key_url("Exchanges::BinanceUs", &server.uri()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let fields = |key: &'static str| [("api_key[key]", key), ("api_key[secret]", "secret")];
+    for key in ["key-a", "key-b"] { let a = save(&app, &mut b, exchange, None, &fields(key)).await; assert!(a.status < 400, "{} {}", a.status, a.body); }
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    assert_eq!(accounts.len(), 2);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![s.user_id, exchange, cipher.encrypt("key-a"), cipher.encrypt("secret")]).unwrap();
+    let trading = c.last_insert_rowid();
+    let read_only = identity::key_of(c, accounts[0], 2).unwrap().unwrap();
+    let fenced = |c: &Connection, k: i64| one::<bool>(c, &format!("SELECT {} FROM api_keys k WHERE k.id = {k}", identity::fenced_sql(c, "k").unwrap()));
+    assert_eq!((fenced(c, read_only), fenced(c, trading)), (false, false));
+    Mock::given(method("GET")).and(path(path_)).and(header("X-MBX-APIKEY", "key-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"uid": 222, "canTrade": true, "balances": []}))).with_priority(1).mount(&server).await;
+    Mock::given(method("DELETE")).respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let target = accounts[0].to_string();
+    let exchange_s = exchange.to_string();
+    let form = [("exchange_id", exchange_s.as_str()), ("key_type", "trading"), ("account_id", target.as_str()), ("api_key[key]", "key-a"), ("api_key[secret]", "secret")];
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let answer = b.send(&app, "POST", "/tracker/add_api_key", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status >= 400, "the failed probe saves nothing: {} {}", answer.status, answer.body);
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.method.as_str() == "DELETE"), "the probe was sent");
+    assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "both of account 1's copies are fenced");
+}

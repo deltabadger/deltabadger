@@ -341,11 +341,13 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     let snap_app=app.clone();
     let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,kind)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
-    match &validated.result.value {
-        Validity::Incorrect => return Ok(Submitted::Incorrect),
+    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),validated.handle.credentials().clone())),_=>None};
+    // #710 7a rule S2: a verdict that saves nothing still records what the account read taught (`learn_refused`).
+    let refused=match &validated.result.value {
+        Validity::Incorrect => Some(Submitted::Incorrect),
         Validity::Permissions { missing, forbidden } => {
             app.settings_key_logger.warn(&format!("[{venue_name}] API key validation: permissions do not match the steps"));
-            return Ok(Submitted::Permissions(missing.clone(), forbidden.clone()));
+            Some(Submitted::Permissions(missing.clone(), forbidden.clone()))
         }
         Validity::Pending(diagnostic) => {
             let mut values = vec![
@@ -362,9 +364,13 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
                 "[{venue_name}] API key validation failed: {}",
                 scrub(&diagnostic.log_text(),&redaction_material)
             ));
-            return Ok(Submitted::Failed);
+            Some(Submitted::Failed)
         }
-        Validity::Correct | Validity::Account(_) | Validity::PendingActivation => {}
+        Validity::Correct | Validity::Account(_) | Validity::PendingActivation => None,
+    };
+    if let Some(refused)=refused {
+        if let Some((read,material))=taught { learn_refused(app,original.account.user_id,snap_exchange,venue,material,read).await?; }
+        return Ok(refused);
     }
     // ApiKey#validate_credentials!: IBKR's activation wait is saved too (status pending_activation, its clock restarted).
     let pending=matches!(validated.result.value,Validity::PendingActivation);
@@ -373,7 +379,6 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     let inner = app.clone();
     let user_id=original.account.user_id;
     let venue_s=venue.to_string();
-    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),validated.handle.credentials().clone())),_=>None};
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   if !crate::engine::model::account_is_current(&tx,validated.handle.producer())? {return Ok(Some("credential changed during validation".into()));}

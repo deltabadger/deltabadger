@@ -833,7 +833,8 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
         let (answer, verdict, identity) = binance_us_check_identified(&transport, &venue, kind, kind == 2).await;
-        if verdict == Verdict::Valid(true) { observed = Some(identity); }
+        // #710 7a rule S2: an account read that named its account is recorded whatever the probe after it answered.
+        if verdict == Verdict::Valid(true) || matches!(identity, crate::identity::Observed::Read(_)) { observed = Some(identity); }
         (answer, verdict)
     } else if scheme == Some(KeyCheck::Coinbase) {
         let transport = ReqwestTransport::coinbase(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
