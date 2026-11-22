@@ -1855,6 +1855,28 @@ async fn s7a_s5_a_key_answer_whose_key_is_gone_is_asked_again_on_its_venue() {
     assert_eq!((rows_on(c, on_us), one::<i64>(c, "SELECT count(*) FROM account_transactions")), (0, ledger), "nothing written, never on Binance.US");
 }
 
+/// Rule S9 (Codex branch r4, run.rs:302/379), a single-account install: a legacy Binance reading key with no account row
+/// yet, answered by its key id, writes its rows with that key's id, as main does (the answer makes number 1's row after
+/// the readers were read).
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s9_a_legacy_key_answer_keeps_its_key_on_the_rows() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, binance, e("legacy"), e("s")]).unwrap();
+    let kb = c.last_insert_rowid();
+    assert_eq!(numbers(c, binance), Vec::<i64>::new(), "no account row yet");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("555")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
+    let done = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM account_transactions WHERE exchange_id = {binance} AND api_key_id = {kb}")), 1, "the row keeps its key");
+}
+
 /// Rule S6 (Codex branch r4, keys.rs:208, validator.rs:75), a single-account install: a bot's key sheet is drawn for its
 /// exchange and account. The sheet opened while the bot was on Kraken, the bot moved to Alpaca since: its submit is a 404
 /// and Alpaca is never sent the secret. The sheet's bytes are as before (the binding rides in its masked CSRF token).

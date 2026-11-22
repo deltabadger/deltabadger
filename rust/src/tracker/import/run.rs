@@ -385,7 +385,13 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
 /// The writer's key for `account`: its reading key, or none (`sync::NO_KEY`: a keyless account's rows have no api_key_id).
 fn writer(c: &Connection, keys: &[Reading], account: i64) -> Result<Key, SyncError> {
     let target = crate::identity::Account::by_id(c, account)?.ok_or_else(|| SyncError(format!("import account {account} is gone")))?;
-    let reading = keys.iter().find(|k| k.exchange_id == target.exchange_id && k.account_id == Some(account));
+    // #710 7a rule S9: a reader read before its account had a row (a legacy key, the answer making number 1's row) is
+    // matched by its account now, so its rows keep its key as main's do.
+    let mut reading = None;
+    for k in keys.iter().filter(|k| k.exchange_id == target.exchange_id) {
+        let of = match k.account_id { Some(a) => Some(a), None => crate::identity::account_of_key(c, k.id)? };
+        if of == Some(account) { reading = Some(k); break; }
+    }
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [target.exchange_id], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default();
     Ok(Key { id: reading.map_or(crate::sync::NO_KEY, |k| k.id), user_id: target.user_id, exchange_id: target.exchange_id, status: 1, key_type: reading.map_or(0, |k| k.key_type),
              last_synced_at: None, last_sync_error: None, exchange_type, scope: crate::venue_ids::Scope::of(c, &target)? })
