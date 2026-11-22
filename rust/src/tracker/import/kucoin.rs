@@ -339,14 +339,7 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         return Ok(out);
     }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
-    let cutoffs = cutoffs(c, key)?;
-    // #710 7a §9.7: rows of another account's export, imported here as a conflict: no cutoff of this account's API covers them.
-    let foreign: BTreeSet<String> = if cutoffs.is_empty() { BTreeSet::new() } else {
-        let account = key.scope.account_sql();
-        c.prepare(&format!("SELECT row_id FROM import_rows WHERE account_id = {account} AND created_at IN (SELECT observed_at FROM exchange_account_imports \
-                            WHERE account_id = {account} AND fingerprint <> (SELECT fingerprint FROM exchange_accounts WHERE id = {account}))"))?
-            .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?
-    };
+    let cut = Cutoff::load(c, key)?;
     let mut writer = ledger::FileWriter::new(c, key)?;
     for at in touched {
         // A second holding a restored entry (a `kucoin-csv-*` id without this importer's provenance) is the restored
@@ -354,13 +347,34 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if restored_at(c, key, at)? { continue; }
         let held = held_rows(c, key, at)?;
         // What the API took over (at or after its class's cutoff) is the API's: its rows stay stored, nothing is derived.
-        let derived: Vec<Derived> = derive(&held, &catalogue).into_iter()
-            .filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| at < *cut)
-                    || d.entry.raw.value["source_rows"].as_array().is_some_and(|ids| ids.iter().all(|id| id.as_str().is_some_and(|id| foreign.contains(id))))).collect();
+        let derived: Vec<Derived> = derive(&held, &catalogue).into_iter().filter(|d| cut.keeps(d, at)).collect();
         let stored = rewrite_second(c, key, at, derived, &mut writer, now)?;
         (out.imported, out.duplicates, out.skipped, out.generic) = (out.imported + stored.imported, out.duplicates + stored.duplicates, out.skipped + stored.skipped, out.generic + stored.generic);
     }
     Ok(out)
+}
+
+/// What a takeover leaves to the file (plan KI §5): the entries before their class's cutoff, and (#710 7a §9.7 rule H2) every
+/// entry derived only from rows of another account's export imported here as a conflict, which no cutoff of this
+/// account's API covers. Every rewrite of a second reads it: the classic `store` and the HF rule (`kucoin_hf::rederive`).
+pub(crate) struct Cutoff { cutoffs: HashMap<String, DateTime<Utc>>, foreign: BTreeSet<String> }
+
+impl Cutoff {
+    pub(crate) fn load(c: &rusqlite::Connection, key: &Key) -> Result<Self, SyncError> {
+        let account = key.scope.account_sql();
+        let foreign = c.prepare(&format!("SELECT row_id FROM import_rows WHERE account_id = {account} AND created_at IN (SELECT observed_at FROM exchange_account_imports \
+                                          WHERE account_id = {account} AND fingerprint <> (SELECT fingerprint FROM exchange_accounts WHERE id = {account}))"))?
+            .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        Ok(Self { cutoffs: cutoffs(c, key)?, foreign })
+    }
+    /// Derived only from rows of another account's export.
+    pub(crate) fn foreign(&self, d: &Derived) -> bool {
+        d.entry.raw.value["source_rows"].as_array().is_some_and(|ids| !ids.is_empty() && ids.iter().all(|id| id.as_str().is_some_and(|id| self.foreign.contains(id))))
+    }
+    /// The file keeps `d` at `at`.
+    pub(crate) fn keeps(&self, d: &Derived, at: DateTime<Utc>) -> bool {
+        d.entry.raw.value["class"].as_str().and_then(|class| self.cutoffs.get(class)).is_none_or(|cut| at < *cut) || self.foreign(d)
+    }
 }
 
 /// A second holding a restored entry: a `kucoin-csv-*` id without this importer's provenance.

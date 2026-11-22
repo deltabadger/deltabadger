@@ -818,3 +818,29 @@ async fn s7_9_7_h1_kucoin_fills_are_held_by_their_sum_or_not_at_all() {
     assert_eq!(b_rows(&fx, second, 0).len(), 2, "0.0011 is not the export's 0.001: neither held");
     assert!(identity::held_unmatched(&fx.c, second, first).unwrap());
 }
+
+/// 7a §9.7 rule H2: on an HF-enabled history too, reprocessing a second never deletes what B's export put on A. A's
+/// deposits are taken over before day B (as in the classic test), A's history then turns HF and day B's seconds are judged
+/// again: B's deposit and buy, held for B, stay on A, counted once.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_h2_an_hf_rewrite_keeps_what_b_s_export_put_on_a() {
+    let fx = Fx::new();
+    let (_, _, key) = held_pair(&fx);
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &overlapping_api(500), false).await);
+    let a = key_id(&fx);
+    let mine = Api { fills: Rc::new(vec![]), deposits: Rc::new(vec![transfer("a1", "1", "0", "2026-09-14T11:00:00Z")]), withdrawals: Rc::new(vec![]), per_page: 500 };
+    fx.watermark_of(a, WATERMARK);
+    assert!(fx.sync_of(a, &mine, false).await);
+    let at = |entry_type: i64, utc: &str| fx.count(&format!("SELECT count(*) FROM account_transactions WHERE entry_type = {entry_type} AND transacted_at LIKE '{utc}%'"));
+    assert_eq!((at(4, "2026-09-16 10:00:00"), at(0, "2026-09-16 10:00:01")), (1, 1));
+    let a_key = deltabadger::sync::load_key_of(&fx.c, a, &[KUCOIN]).unwrap();
+    let tx = fx.c.unchecked_transaction().unwrap();
+    let fenced = deltabadger::engine::model::fence_versions(&tx, &[]).unwrap();
+    let t = |s: &str| s.parse::<DateTime<Utc>>().unwrap();
+    deltabadger::sync::kucoin_hf::add(&fenced, &a_key, deltabadger::sync::kucoin_hf::ENABLED, (t("2026-09-01T00:00:00Z"), t("2026-10-01T00:00:00Z")), now()).unwrap();
+    deltabadger::sync::kucoin_hf::flush(&fenced, &a_key, [t("2026-09-16T10:00:00Z"), t("2026-09-16T10:00:01Z")].into_iter().collect(), now()).unwrap();
+    drop(fenced);
+    tx.commit().unwrap();
+    assert_eq!((at(4, "2026-09-16 10:00:00"), at(0, "2026-09-16 10:00:01")), (1, 1), "B's deposit and buy still counted once, on A");
+}
