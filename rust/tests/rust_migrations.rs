@@ -679,6 +679,36 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
     assert!(!store::migrate(&p, &lock(&p)).unwrap().contains(&"20261122000002".to_string()), "the drop runs once");
 }
 
+/// D-ALPACA-ONE-KEY: an Alpaca tracker key becomes its account's trading key unless that account already has one; other
+/// venues' tracker keys and other accounts stay as they were.
+#[test]
+fn an_alpaca_tracker_key_becomes_the_trading_key() {
+    const V: &str = "20261124000001";
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let earlier: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version < V).collect();
+    store::migrate_with(&p, &lock(&p), &Registry { migrations: &earlier, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap();
+    // Users 1-3 on Alpaca (1: a tracker key alone; 2: both kinds; 3: a tracker key on account 2, a trading key on number 1),
+    // user 4 a Kraken tracker key.
+    exec(&p.primary, "INSERT INTO users (id, email, admin, created_at, updated_at) VALUES (1, 'a@example.com', 0, '2026-01-01', '2026-01-01'),
+                        (2, 'b@example.com', 0, '2026-01-01', '2026-01-01'), (3, 'c@example.com', 0, '2026-01-01', '2026-01-01'),
+                        (4, 'd@example.com', 0, '2026-01-01', '2026-01-01');
+                      INSERT INTO exchanges (id, type, name, created_at, updated_at) VALUES (901, 'Exchanges::Alpaca', 'Alpaca', '2026-01-01', '2026-01-01'),
+                        (902, 'Exchanges::Kraken', 'Kraken', '2026-01-01', '2026-01-01');
+                      INSERT INTO api_keys (id, user_id, exchange_id, key_type, status, created_at, updated_at) VALUES
+                        (1, 1, 901, 2, 1, '2026-01-01', '2026-01-01'),
+                        (2, 2, 901, 0, 1, '2026-01-01', '2026-01-01'), (3, 2, 901, 2, 1, '2026-01-01', '2026-01-01'),
+                        (4, 3, 901, 0, 1, '2026-01-01', '2026-01-01'), (5, 3, 901, 2, 1, '2026-01-01', '2026-01-01'),
+                        (6, 4, 902, 2, 1, '2026-01-01', '2026-01-01');
+                      INSERT INTO exchange_accounts (id, user_id, exchange_id, number, created_at, updated_at) VALUES (77, 3, 901, 2, '2026-01-01', '2026-01-01');
+                      INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (5, 77);");
+    let through: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version <= V).collect();
+    assert_eq!(store::migrate_with(&p, &lock(&p), &Registry { migrations: &through, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap(), vec![V.to_string()]);
+    let c = Connection::open(&p.primary).unwrap();
+    let kinds: Vec<(i64, i64)> = c.prepare("SELECT id, key_type FROM api_keys ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap();
+    assert_eq!(kinds, vec![(1, 0), (2, 0), (3, 2), (4, 0), (5, 0), (6, 2)]);
+}
+
 /// D-DROP-USERS-NAME timing: on an install this engine does not own yet, `migrate_unowned` applies every other migration
 /// and leaves the listed column drop pending (not an error), so 2.x keeps users.name; owned, the same call drops it.
 #[test]

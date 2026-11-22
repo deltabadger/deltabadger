@@ -34,6 +34,7 @@ pub struct AssetRef { pub id: i64, pub external_id: Option<String>, pub symbol: 
 impl AssetRef {
     fn security(&self) -> bool { self.category.as_deref().is_some_and(|c| super::prices::STOCK_CATEGORIES.contains(&c)) }
     fn crypto(&self) -> bool { self.category.as_deref() == Some("Cryptocurrency") }
+    fn currency(&self) -> bool { matches!(self.category.as_deref(), Some("Fiat" | "Currency")) }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -158,12 +159,27 @@ fn distinct(assets: impl IntoIterator<Item = AssetRef>) -> Vec<AssetRef> {
 fn listed(f: &Facts, leg: &Leg) -> Option<Holding> {
     // Each side on its own (a fee reads both, and needs them to agree).
     let answers: Vec<Holding> = sides(leg).iter().filter_map(|side| listed_on(f, leg, *side)).collect();
-    match answers.as_slice() { [] => None, [a, rest @ ..] if rest.iter().all(|b| b == a) => Some(a.clone()), _ => Some(Holding::Unknown(Why::Unclear)) }
+    // Sides that disagree name two holdings: a conflict, which inherits no lot (`agreed`).
+    agreed(&answers)
 }
 
-/// One side's listing of the spelling: exact live, else stale (base), else Kraken's own-symbol match; coins only.
+/// What a leg's listing sides say together: the one answer they share; two definite answers are a conflict (hard: a
+/// fee in złoty never inherits the PLEARN lot booked under `PLN`); a side's hard refusal stands; a side otherwise
+/// unclear leaves the leg unclear.
+fn agreed(answers: &[Holding]) -> Option<Holding> {
+    match answers {
+        [] => None,
+        [a, rest @ ..] if rest.iter().all(|b| b == a) => Some(a.clone()),
+        all => Some(all.iter().find(|a| a.hard()).cloned().unwrap_or(Holding::Unknown(
+            if all.iter().any(|a| matches!(a, Holding::Unknown(_))) { Why::Unclear } else { Why::Conflict }))),
+    }
+}
+
+/// One side's listing of the spelling: exact live, else stale (base), else Kraken's own-symbol match; coins, and under
+/// a fiat spelling the currency itself (a venue listing PLEARN as base `PLN` and the złoty as quote `PLN`: a `PLN` fee
+/// has two answers).
 fn listed_on(f: &Facts, leg: &Leg, side: Side) -> Option<Holding> {
-    let coins = |v: Option<&Vec<AssetRef>>| distinct(v.into_iter().flatten().filter(|a| a.crypto()).cloned());
+    let coins = |v: Option<&Vec<AssetRef>>| distinct(v.into_iter().flatten().filter(|a| a.crypto() || (fiat(leg.spelling) && a.currency())).cloned());
     let live = coins(f.live.get(&(leg.venue.id, side, leg.spelling.to_string())));
     let stale = if side == Side::Base { coins(f.stale.get(&(leg.venue.id, leg.spelling.to_string()))) } else { vec![] };
     let own = || {
@@ -171,7 +187,12 @@ fn listed_on(f: &Facts, leg: &Leg, side: Side) -> Option<Holding> {
         distinct(all.filter(|a| a.crypto() && a.symbol.as_deref() == Some(leg.spelling)).cloned())
     };
     let candidates = if !live.is_empty() { live } else if !stale.is_empty() { stale } else if leg.venue.name_id == "kraken" { own() } else { vec![] };
-    match candidates.as_slice() { [] => None, [one] => Some(coin(leg, one)), _ => Some(Holding::Unknown(Why::Unclear)) }
+    match candidates.as_slice() {
+        [] => None,
+        [one] if one.currency() => Some(Holding::Cash(CashKind::Fiat)),
+        [one] => Some(coin(leg, one)),
+        _ => Some(Holding::Unknown(Why::Unclear)),
+    }
 }
 
 /// Step 4: the catalogue.
@@ -185,20 +206,37 @@ fn catalogued(f: &Facts, leg: &Leg) -> Option<Holding> {
 /// The listing sides a leg reads: its own, or both for a fee (which has no ticker side).
 fn sides(leg: &Leg) -> &'static [Side] { if leg.side == Side::Fee { &[Side::Base, Side::Quote] } else if leg.side == Side::Base { &[Side::Base] } else { &[Side::Quote] } }
 
-/// A broker's unrecorded leg: its listing (both sides for a fee), else the catalogue when `catalogue` allows it. Cash
-/// assets aside, one security or coin is that holding; several, or one unclassified instrument, are unclear; none is no
-/// evidence. For a fiat spelling (`catalogue` false) securities alone are no evidence either: the leg stays cash.
-fn broker_unrecorded(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
-    let listing = distinct(sides(leg).iter().flat_map(|s| f.live.get(&(leg.venue.id, *s, leg.spelling.to_string())).into_iter().flatten().cloned()));
-    let pool = if !listing.is_empty() { listing } else if catalogue { distinct(f.catalogue.get(leg.spelling).into_iter().flatten().cloned()) } else { vec![] };
-    let held: Vec<&AssetRef> = pool.iter().filter(|a| !matches!(a.category.as_deref(), Some("Fiat" | "Currency"))).collect();
-    if !catalogue && held.iter().all(|a| a.security()) { return None; }
-    Some(match held.as_slice() {
-        [] => return None,
-        [one] if one.security() => one.external_id.clone().map_or(Holding::Unknown(Why::Unclear), Holding::Security),
-        [one] if one.crypto() => coin(leg, one),
-        _ => Holding::Unknown(Why::Unclear),
-    })
+/// A broker's unrecorded leg, and whether the broker's own listings answered: each listing side on its own (both for a
+/// fee; live, else the base side's tombstones), needing them to agree; with no listing at all, the catalogue when
+/// `catalogue` allows it. Cash assets aside, one security or coin is that holding; several, or one unclassified
+/// instrument, are unclear; none is no evidence. For a fiat spelling (`catalogue` false) securities alone are no
+/// evidence either: the leg stays cash.
+fn broker_unrecorded(f: &Facts, leg: &Leg, catalogue: bool) -> (bool, Option<Holding>) {
+    let answer = |pool: Vec<AssetRef>| {
+        let held: Vec<&AssetRef> = pool.iter().filter(|a| !a.currency()).collect();
+        // Under a fiat spelling the currency itself, listed, is this side's answer (securities beside it are none).
+        if fiat(leg.spelling) && held.len() < pool.len() {
+            return Some(if held.iter().all(|a| a.security()) { Holding::Cash(CashKind::Fiat) } else { Holding::Unknown(Why::Unclear) });
+        }
+        if !catalogue && held.iter().all(|a| a.security()) { return None; }
+        Some(match held.as_slice() {
+            [] => return None,
+            [one] if one.security() => one.external_id.clone().map_or(Holding::Unknown(Why::Unclear), Holding::Security),
+            [one] if one.crypto() => coin(leg, one),
+            _ => Holding::Unknown(Why::Unclear),
+        })
+    };
+    let listings: Vec<Vec<AssetRef>> = sides(leg).iter().map(|side| {
+        let live = distinct(f.live.get(&(leg.venue.id, *side, leg.spelling.to_string())).into_iter().flatten().cloned());
+        if live.is_empty() && *side == Side::Base { distinct(f.stale.get(&(leg.venue.id, leg.spelling.to_string())).into_iter().flatten().cloned()) } else { live }
+    }).filter(|l| !l.is_empty()).collect();
+    if listings.is_empty() {
+        return (false, if catalogue { answer(distinct(f.catalogue.get(leg.spelling).into_iter().flatten().cloned())) } else { None });
+    }
+    let answers: Vec<Holding> = listings.into_iter().filter_map(answer).collect();
+    // Sides that disagree name two holdings: a conflict, which inherits nothing (an unclear fee would take whatever
+    // lot the account books under the spelling, a third instrument included).
+    (true, agreed(&answers))
 }
 
 /// Steps 2–4 for a leg that is not cash by spelling (or a fiat spelling looking for coin evidence: `catalogue` false).
@@ -206,13 +244,19 @@ fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
     let recorded = leg.recorded.filter(|a| leg.side == Side::Base && (a.crypto() || a.category.is_none() || a.category.as_deref() == Some("Tokenized Stock")));
     if CUTS.iter().any(|(s, until)| *s == leg.spelling && within(*until, leg.at)) { return Some(Holding::Unknown(Why::Cut)); }
     // A rebound spelling: only what the venue listed under it, recorded on the row, is a coin; but not an id sync's own
-    // alias could have recorded (it records main's alias whatever the venue listed), and never for a fiat spelling whose
+    // alias could have recorded (it records main's alias whatever the venue listed; never on a broker, whose rows are
+    // recorded from its own activity and listings, sync/ledger.rs `asset_ids`), and never for a fiat spelling whose
     // listings are securities alone (they never displace the cash).
-    let securities_only = base_listings(f, leg.venue.id, leg.spelling).iter().all(|a| a.security() || matches!(a.category.as_deref(), Some("Fiat" | "Currency")));
+    // A fee whose listing sides name two holdings is that conflict whatever else the spelling is (rebound included).
+    if leg.side == Side::Fee {
+        let sides = if leg.venue.broker { broker_unrecorded(f, leg, catalogue).1 } else { listed(f, leg) };
+        if sides == Some(Holding::Unknown(Why::Conflict)) { return sides; }
+    }
+    let securities_only = base_listings(f, leg.venue.id, leg.spelling).iter().all(|a| a.security() || a.currency());
     if leg.side != Side::Quote && rebound(f, leg.venue.id, leg.spelling) && (catalogue || !securities_only) {
         let by_alias = |r: &AssetRef| {
             let venue = super::prices::Venue { id: leg.venue.id, name_id: leg.venue.name_id.clone(), stock: leg.venue.broker };
-            r.external_id.is_some() && super::prices::alias_coin(leg.spelling, Some(&venue), Some(leg.at.date_naive())) == r.external_id
+            !leg.venue.broker && r.external_id.is_some() && super::prices::alias_coin(leg.spelling, Some(&venue), Some(leg.at.date_naive())) == r.external_id
         };
         return Some(match recorded {
             Some(r) if by_alias(r) => Holding::Unknown(Why::Unclear),
@@ -221,21 +265,42 @@ fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
             None => Holding::Unknown(Why::Unclear),
         });
     }
-    // A broker's own instrument before any crypto alias (an IBKR LUNA stock is the stock).
-    if leg.venue.broker && recorded.is_none() {
-        if let Some(h @ Holding::Security(_)) = broker_unrecorded(f, leg, catalogue) { return Some(h); }
+    // A broker's own instruments before any crypto alias: what its listings say stands, unclear included (an IBKR LUNA
+    // stock is the stock; a stock and a coin listed under LUNA are unclear), and so does a recorded coin they bind.
+    // With no listing, only a catalogue security comes before the alias.
+    if leg.venue.broker {
+        match recorded {
+            Some(r) if bound(f, leg, r) => return Some(coin(leg, r)),
+            // Recorded, unbound: the broker's listing stands, and another coin listed is a conflict (never the alias).
+            Some(r) => if let (true, Some(h)) = broker_unrecorded(f, leg, catalogue) {
+                return Some(match h {
+                    Holding::Coin(other) if r.external_id.as_deref() != Some(other.as_str()) => Holding::Unknown(Why::Conflict),
+                    // A recorded cryptocurrency is never the security listed under its spelling (Alpaca's BTC, an ETF's tombstone).
+                    Holding::Security(_) if r.crypto() => Holding::Unknown(Why::Conflict),
+                    h => h,
+                });
+            },
+            None => match broker_unrecorded(f, leg, catalogue) {
+                // Alpaca's row from a file under a name its curated map trades as a coin: sync leaves it unrecorded
+                // because it could be either (sync/ledger.rs `asset_id`), so the security listed is not an answer.
+                (_, Some(Holding::Security(_))) if leg.recorded.is_none() && leg.side == Side::Base && leg.venue.name_id == "alpaca"
+                    && crate::sync::ledger::CRYPTO_COINGECKO_IDS.iter().any(|(k, _)| *k == leg.spelling) => return Some(Holding::Unknown(Why::Unclear)),
+                (true, Some(h)) | (false, Some(h @ Holding::Security(_))) => return Some(h),
+                _ => {}
+            },
+        }
     }
     if let Some(h) = aliased(leg) { return Some(h); }
     if let Some(recorded) = recorded {
         if bound(f, leg, recorded) { return Some(coin(leg, recorded)); }
         // Not bound here: what the venue's listing (or the catalogue) says, a conflict when it names another coin.
-        let rest = if leg.venue.broker { broker_unrecorded(f, leg, catalogue) } else { listed(f, leg).or_else(|| if catalogue { catalogued(f, leg) } else { None }) };
+        let rest = if leg.venue.broker { broker_unrecorded(f, leg, catalogue).1 } else { listed(f, leg).or_else(|| if catalogue { catalogued(f, leg) } else { None }) };
         return match rest {
             Some(Holding::Coin(other)) if recorded.external_id.as_deref() != Some(other.as_str()) => Some(Holding::Unknown(Why::Conflict)),
             other => other,
         };
     }
-    if leg.venue.broker { return broker_unrecorded(f, leg, catalogue); }
+    if leg.venue.broker { return broker_unrecorded(f, leg, catalogue).1; }
     listed(f, leg).or_else(|| if catalogue { catalogued(f, leg) } else { None })
 }
 
@@ -304,6 +369,9 @@ mod tests {
         assert_eq!(holding(&f, &leg(&v, Side::Base, "1000REKT", "2025-01-01", Some(&rekt))), Holding::Unknown(Why::Units));
         assert_eq!(holding(&f, &leg(&v, Side::Base, "1000REKT", "2025-01-01", None)), Holding::Unknown(Why::Units));
         assert!(holding(&f, &leg(&v, Side::Base, "1000REKT", "2025-01-01", None)).hard());
+        // Codex PR1a r5: a fee's other side naming another coin never softens the refusal.
+        list(&mut f, &v, Side::Quote, "1000REKT", &coin_asset(77, "thousand-rekt", "1000REKT"));
+        assert_eq!(holding(&f, &leg(&v, Side::Fee, "1000REKT", "2025-01-01", None)), Holding::Unknown(Why::Units));
         for (spelling, symbol, other) in [("1MBABYDOGE", "BABYDOGE", true), ("10000SATS", "SATS", true), ("1000000MOG", "MOG", true), ("BTCUP", "BTC", true),
                                           ("ETH3L", "ETH", true), ("ETHBEAR", "ETH", true), ("REKT", "REKT", false), ("2000REKT", "REKT", false),
                                           ("1INCH", "INCH", false), ("BTCB", "BTC", false)] {
@@ -528,7 +596,7 @@ mod tests {
         let mut f = Facts::default();
         f.stale.entry((v.id, "S".into())).or_default().push(coin_asset(50, "coin-x", "S"));
         list(&mut f, &v, Side::Quote, "S", &coin_asset(51, "coin-y", "S"));
-        assert_eq!(holding(&f, &leg(&v, Side::Fee, "S", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        assert_eq!(holding(&f, &leg(&v, Side::Fee, "S", "2025-01-01", None)), Holding::Unknown(Why::Conflict), "two answers: inherits no lot");
         assert_eq!(holding(&f, &leg(&v, Side::Quote, "S", "2025-01-01", None)), coin_of("coin-y"));
     }
 
@@ -543,5 +611,93 @@ mod tests {
         list(&mut f, &alpaca, Side::Base, "USD", &asset(91, "usd-a", "USD", Some("Stock")));
         f.stale.entry((alpaca.id, "USD".into())).or_default().push(asset(92, "usd-b", "USD", Some("Stock")));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "USD", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
+    }
+
+    /// Codex PR0 r5 P2: a broker listing a stock and a coin under LUNA keeps an unrecorded trade unclear before the
+    /// alias's last day (the alias is no broker evidence); a broker's sole listed coin stands against the alias too.
+    #[test]
+    fn a_brokers_ambiguous_listing_beats_the_alias() {
+        let (ibkr, alpaca) = (venue(6, "ibkr", true), venue(5, "alpaca", true));
+        let mut f = Facts::default();
+        list(&mut f, &ibkr, Side::Base, "LUNA", &asset(90, "luna-stock", "LUNA", Some("Stock")));
+        list(&mut f, &ibkr, Side::Base, "LUNA", &coin_asset(91, "terra-luna-2", "LUNA"));
+        assert_eq!(holding(&f, &leg(&ibkr, Side::Base, "LUNA", "2022-01-01", None)), Holding::Unknown(Why::Unclear));
+        list(&mut f, &alpaca, Side::Base, "LUNA", &coin_asset(91, "terra-luna-2", "LUNA"));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "LUNA", "2022-01-01", None)), coin_of("terra-luna-2"), "what the broker lists");
+        let unlisted = venue(8, "ibkr", true);
+        catalogue(&mut f, &coin_asset(91, "terra-luna-2", "LUNA"));
+        assert_eq!(holding(&f, &leg(&unlisted, Side::Base, "LUNA", "2022-01-01", None)), coin_of("terra-luna"), "a catalogue coin yields to the alias");
+    }
+
+    /// Codex PR0 r5 P2: a broker's fee reads each listing side on its own, the base side's tombstones included: a
+    /// tombstoned base X and a live quote Y are two answers.
+    #[test]
+    fn a_brokers_fee_keeps_tombstoned_base_evidence() {
+        let alpaca = venue(5, "alpaca", true);
+        let mut f = Facts::default();
+        f.stale.entry((alpaca.id, "S".into())).or_default().push(coin_asset(50, "coin-x", "S"));
+        list(&mut f, &alpaca, Side::Quote, "S", &coin_asset(51, "coin-y", "S"));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "S", "2025-01-01", None)), Holding::Unknown(Why::Conflict), "two sides, two coins: inherits nothing");
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "S", "2025-01-01", None)), coin_of("coin-x"), "the base leg: its tombstone");
+    }
+
+    /// Codex PR0 r5 P2: a venue listing PLEARN as base `PLN` and the złoty as quote `PLN`: each leg is what its side
+    /// lists, and a `PLN` fee, with two answers, is unclear (a fee paid in złoty never spends the coin).
+    #[test]
+    fn an_explicit_fiat_quote_is_a_fee_sides_answer() {
+        let v = venue(2, "mexc", false);
+        let mut f = Facts::default();
+        list(&mut f, &v, Side::Base, "PLN", &coin_asset(2227, "pleasure-coin", "PLN"));
+        list(&mut f, &v, Side::Quote, "PLN", &asset(3, "pln", "PLN", Some("Fiat")));
+        assert_eq!(holding(&f, &leg(&v, Side::Base, "PLN", "2025-01-01", None)), coin_of("pleasure-coin"));
+        assert_eq!(holding(&f, &leg(&v, Side::Quote, "PLN", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
+        assert_eq!(holding(&f, &leg(&v, Side::Fee, "PLN", "2025-01-01", None)), Holding::Unknown(Why::Conflict), "inherits no lot");
+        // Codex PR1a r4: the conflict stands on a rebound spelling too.
+        f.stale.entry((v.id, "PLN".into())).or_default().push(coin_asset(2226, "old-pln-coin", "PLN"));
+        assert_eq!(holding(&f, &leg(&v, Side::Fee, "PLN", "2025-01-01", None)), Holding::Unknown(Why::Conflict));
+        let other = venue(3, "kraken", false);
+        list(&mut f, &other, Side::Quote, "PLN", &asset(3, "pln", "PLN", Some("Fiat")));
+        assert_eq!(holding(&f, &leg(&other, Side::Fee, "PLN", "2025-01-01", None)), Holding::Cash(CashKind::Fiat), "the złoty alone");
+    }
+
+    /// Codex PR0 r5 P2: a broker records its fills from its own activity and listings, never through the alias: on a
+    /// rebound Alpaca MATIC, a fill recorded as matic-network and bound by the tombstone keeps its coin.
+    #[test]
+    fn a_brokers_recorded_coin_on_a_rebound_spelling_stands() {
+        let alpaca = venue(5, "alpaca", true);
+        let mut f = Facts::default();
+        let (old, new) = (coin_asset(40, "matic-network", "MATIC"), coin_asset(41, "matic-new", "MATIC"));
+        list(&mut f, &alpaca, Side::Base, "MATIC", &new);
+        f.stale.entry((alpaca.id, "MATIC".into())).or_default().push(old.clone());
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2023-01-01", Some(&old))), coin_of("matic-network"));
+    }
+
+    /// Codex PR1a r1 P2: a broker's explicit fiat listing is a fee side's answer too; with no broker listing, catalogue
+    /// ambiguity never beats a dated alias; a recorded coin the broker's listing binds stands against an alias.
+    #[test]
+    fn broker_fiat_sides_catalogue_ambiguity_and_bound_recorded_coins() {
+        let (alpaca, ibkr) = (venue(5, "alpaca", true), venue(6, "ibkr", true));
+        let mut f = Facts::default();
+        list(&mut f, &alpaca, Side::Base, "PLN", &coin_asset(2227, "pleasure-coin", "PLN"));
+        list(&mut f, &alpaca, Side::Quote, "PLN", &asset(3, "pln", "PLN", Some("Fiat")));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "PLN", "2025-01-01", None)), Holding::Unknown(Why::Conflict));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Quote, "PLN", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "PLN", "2025-01-01", None)), coin_of("pleasure-coin"));
+        catalogue(&mut f, &coin_asset(91, "terra-luna-2", "LUNA"));
+        catalogue(&mut f, &coin_asset(92, "luna-other", "LUNA"));
+        assert_eq!(holding(&f, &leg(&ibkr, Side::Base, "LUNA", "2022-01-01", None)), coin_of("terra-luna"), "no listing: the alias");
+        let x = coin_asset(41, "matic-x", "MATIC");
+        list(&mut f, &alpaca, Side::Base, "MATIC", &x);
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", None)), coin_of("matic-x"));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&x))), coin_of("matic-x"), "recorded and bound: the same coin");
+        let y = coin_asset(42, "matic-y", "MATIC");
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&y))), Holding::Unknown(Why::Conflict), "recorded Y, listed X: never the alias");
+        // Codex PR1a r3: a recorded cryptocurrency against the tombstone of an ETF under its spelling is neither.
+        f.stale.entry((alpaca.id, "BTC".into())).or_default().push(asset(60, "BTC.ARCX", "BTC", Some("ETF")));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", Some(&coin_asset(1, "bitcoin", "BTC")))), Holding::Unknown(Why::Conflict));
+        // Codex PR1a r4: unrecorded (a file's row), under a name Alpaca's curated map trades as a coin: either.
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        let etf = asset(60, "BTC.ARCX", "BTC", Some("ETF"));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", Some(&etf))), Holding::Security("BTC.ARCX".into()), "recorded as the ETF");
     }
 }
