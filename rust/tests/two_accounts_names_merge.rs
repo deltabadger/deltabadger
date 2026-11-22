@@ -3051,6 +3051,7 @@ fn r9_partner_wakes_are_throttled() {
 }
 
 /// R9 #10: the portable export clears the stored standings, as it clears credentials and identity observations.
+#[cfg(unix)] // the portable export is a unix-only module
 #[test]
 fn r9_the_portable_export_clears_the_standings() {
     let (_d, o, _two) = entered();
