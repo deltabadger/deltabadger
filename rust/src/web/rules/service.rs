@@ -547,7 +547,7 @@ pub async fn call(
         let tx=crate::engine::model::immediate(c)?;
         if let Some(version)=version {
             let eligible:bool=tx.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.id=?1 AND {} AND k.key_type=1 AND k.status=1)",r.account.keys("k")),[version.id],|r|r.get(0))?;
-            if !eligible || !crate::engine::model::credential_is_current(&tx,&version)? {return Ok(Err(refuse(Status::Conflict,"credential_changed","The withdrawal key changed. Try again.")))}
+            if !eligible || !crate::engine::model::key_is_current(&tx,&version)? {return Ok(Err(refuse(Status::Conflict,"credential_changed","The withdrawal key changed. Try again.")))}
         }
         if original.id!=0 {
             let Some(current)=model::load(&tx,&inner,user,original.id)? else {return Ok(Err(missing()))};

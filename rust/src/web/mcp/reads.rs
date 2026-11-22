@@ -305,6 +305,8 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
             }
             // #710 §6.4: a key whose account changed (a Merge moved it, or removed its account) reads for no account now.
             if !crate::engine::model::account_is_current(c,&version)? { return Ok(failed(Domain::NotFound,"account_not_found","Account not found.")); }
+            // #710 7a: a key found to open another account reads that account, never this one's figures.
+            if !crate::engine::model::key_reads_its_account(c,&version)? { return Ok(unported("Figures unavailable: the API key reads another account; reconnect this account's key",false)); }
         }
         return finish_in(c,*inner)
     }
