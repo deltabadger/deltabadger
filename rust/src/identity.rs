@@ -1430,25 +1430,30 @@ pub fn forget(c: &Connection, api_key_id: i64, account: &Account, now: DateTime<
     // #710 7a §4: an account 2+ nothing names any more is tombstoned (its number never reused); one with history stays.
     let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).optional()?.unwrap_or(1);
     // Anything else naming it keeps it live, and with it its fingerprint: a reconnect of another wallet never inherits
-    // the bot, rule or order that stays (it routes to a new account, §1.1).
+    // the bot, rule or order that stays (it routes to a new account, §1.1). One predicate, for every number.
     let named = named(c, id)?;
     if number > 1 && !named { return tombstone(c, id, now); }
-    // A number 1's bots name it without a membership row.
-    let named = named || c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM bots b WHERE {} AND b.status != {})", account.bots("b"), crate::enums::BotStatus::Deleted as i64), [], |r| r.get(0))?;
     if named { return Ok(()); }
-    c.execute(&format!("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1
-               AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
-               AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE {})
-               AND NOT EXISTS (SELECT 1 FROM account_transactions WHERE user_id = ?2 AND exchange_id = ?3)
-               AND NOT EXISTS (SELECT 1 FROM exchange_account_balances WHERE account_id = ?1)
-               AND NOT EXISTS (SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)", account.keys("k")),
-              [id, account.user_id, account.exchange_id])?;
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1 AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)", [id])?;
     Ok(())
 }
 
-/// Whether anything names placed account `id` (#710 7a §4, one presence rule): a key, a bot on it, a bot order or ledger
-/// row placed under it, a balance, a snapshot, an import row, observation or cutoff, a rule or a standalone order.
+/// Whether anything names placed account `id` (#710 7a §4, one presence rule; rule F6): a key, a bot on it (any status),
+/// a bot order or ledger row placed under it, a balance, a snapshot, an import row, observation or cutoff, a rule or a
+/// standalone order. A number 1's keys, bots, bot orders and ledger rows name it without a membership row.
 pub fn named(c: &Connection, id: i64) -> rusqlite::Result<bool> {
+    let first: Option<(i64, i64)> = c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1 AND number = 1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    if let Some((user, exchange)) = first {
+        let implicit: bool = c.query_row(
+            "SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND NOT EXISTS(SELECT 1 FROM exchange_account_keys m WHERE m.api_key_id = k.id))
+             OR EXISTS(SELECT 1 FROM bots b WHERE b.user_id = ?1 AND b.exchange_id = ?2 AND NOT EXISTS(SELECT 1 FROM exchange_account_bots m WHERE m.bot_id = b.id))
+             OR EXISTS(SELECT 1 FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE b.user_id = ?1 AND t.exchange_id = ?2
+                       AND NOT EXISTS(SELECT 1 FROM exchange_account_transactions m WHERE m.transaction_id = t.id))
+             OR EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2
+                       AND NOT EXISTS(SELECT 1 FROM exchange_account_rows m WHERE m.account_transaction_id = a.id))",
+            [user, exchange], |r| r.get(0))?;
+        if implicit { return Ok(true); }
+    }
     c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_keys WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_bots WHERE account_id = ?1)
                  OR EXISTS(SELECT 1 FROM exchange_account_transactions WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_rows WHERE account_id = ?1)
                  OR EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)

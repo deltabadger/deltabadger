@@ -1181,3 +1181,45 @@ fn s7a_a_pending_or_incorrect_key_stays_fenced() {
     assert!(fenced(&fx, key), "a failed read on a pending key keeps the sentinel");
     assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&key));
 }
+
+/// Rule F6 (Codex branch r2, identity.rs:1434, venue_ids.rs:184): removing an account's last key never clears its
+/// fingerprint while anything references it, by one predicate (`identity::named`). Number 1's bot orders have no
+/// membership row: its bot moved to account 2 after a fill, the order still names number 1, so number 1 keeps its
+/// fingerprint; so does a deleted bot of number 1. An account 2 an order of a moved bot still names is kept, not
+/// tombstoned. With nothing left, number 1's fingerprint goes.
+#[test]
+fn s7a_removing_the_last_key_keeps_the_fingerprint_while_an_order_or_any_bot_names_the_account() {
+    let remove = |c: &Connection, key: i64| {
+        let account = identity::Account::of_key(c, key).unwrap().unwrap();
+        c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+        identity::forget(c, key, &account, now()).unwrap();
+    };
+    let order = |c: &Connection, bot: i64, exchange: i64| {
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, status, created_at, updated_at) VALUES (?1, ?2, 1, 'now', 'now')", [bot, exchange]).unwrap();
+        c.last_insert_rowid()
+    };
+    for keeper in ["moved bot's order", "deleted bot", "nothing"] {
+        let t = two();
+        let c = &t.fx.c;
+        c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-' || number WHERE id IN (?1, ?2)", [t.first, t.second]).unwrap();
+        match keeper {
+            "moved bot's order" => {
+                order(c, t.bot1, t.exchange);
+                c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [t.bot1, t.second]).unwrap();
+            }
+            "deleted bot" => { c.execute("UPDATE bots SET status = ?2 WHERE id = ?1", [t.bot1, deltabadger::enums::BotStatus::Deleted as i64]).unwrap(); }
+            _ => { c.execute("DELETE FROM bots WHERE id = ?1", [t.bot1]).unwrap(); }
+        }
+        remove(c, t.key1);
+        assert_eq!(fingerprints(&t).0.is_some(), keeper != "nothing", "{keeper}");
+    }
+    // Account 2: its bot moved back to number 1 after an order on 2 (a membership row names 2): kept, not tombstoned.
+    let t = two();
+    let c = &t.fx.c;
+    let placed = order(c, t.bot2, t.exchange);
+    c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [placed, t.second]).unwrap();
+    c.execute("DELETE FROM exchange_account_bots WHERE bot_id = ?1", [t.bot2]).unwrap();
+    remove(c, t.key2);
+    assert_eq!(one_removed(c, t.second), None, "account 2 stays live");
+}
+fn one_removed(c: &Connection, id: i64) -> Option<String> { c.query_row("SELECT removed_at FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap() }
