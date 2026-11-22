@@ -1044,3 +1044,37 @@ async fn the_tracker_says_when_an_account_s_export_is_held_on_another() {
     assert_eq!(page.status, 200);
     assert_eq!(page.body.matches("history was imported on KuCoin<sup class=").count() + page.body.matches("history was imported on KuCoin<sup>").count(), 1, "{}", page.body);
 }
+
+// ---- §6: export and re-import on another install ----
+
+/// §3 / §6: a Deltabadger CSV exported from an install with two Alpaca accounts, imported on a fresh install seeded only with
+/// the account mapping (keyless accounts 1 and 2), puts each row on the account of the same number.
+#[tokio::test(flavor = "current_thread")]
+async fn a_csv_export_restores_on_another_install_by_account_number() {
+    let name = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let examples = deltabadger::web::tracker::gap::examples(&name);
+    let split = examples.len() / 2;
+    let rows: Vec<String> = examples.iter().enumerate().map(|(i, r)| format!("{r},{}", if i < split { 1 } else { 2 })).collect();
+    let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
+    // The source: account 1 keyed, account 2 from a tile; each holds its half.
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let source: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    assert!(imported(&upload(&app, &mut b, "deltabadger", &file).await));
+    let held: Vec<i64> = source.iter().map(|a| rows_on(c, *a)).collect();
+    assert_eq!(held, [split as i64, (examples.len() - split) as i64]);
+    let export = b.get(&app, "/tracker/export").await;
+    assert_eq!(export.status, 200, "{}", export.body);
+    // The destination: the same accounts by number, keyless, nothing else.
+    let (_d2, o2, s2, _server2, app2) = alpaca().await;
+    let c2 = &o2.primary;
+    c2.execute_batch("DELETE FROM exchange_account_keys; DELETE FROM api_keys;").unwrap();
+    let second = identity::new_account(c2, s2.user_id, s2.exchange_id, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c2, s2.user_id, s2.exchange_id).unwrap().id.unwrap();
+    let mut b2 = browser(&app2, c2, s2.user_id);
+    let done = upload(&app2, &mut b2, "deltabadger", &export.body).await;
+    assert!(imported(&done), "{}: {}\n{}", done.status, done.body, export.body);
+    assert_eq!([rows_on(c2, first), rows_on(c2, second)], [held[0], held[1]], "each row on its number: {}", export.body);
+}
