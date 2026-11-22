@@ -13,7 +13,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Condvar, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -33,6 +33,7 @@ const DETAIL_LINES: usize = 20;
 const STDERR_TAIL: usize = 100;
 
 /// What starts the engine, and the data dir it runs on.
+#[derive(Clone)]
 pub struct Launch {
     /// `deltabadger-engine`, next to the app's executable.
     pub exe: PathBuf,
@@ -48,6 +49,8 @@ pub struct Launch {
     /// The OS's language (`pl-PL`) and IANA time zone, for the one account a fresh data dir gets (PLAN-B6-3 §2.1).
     pub locale: Option<String>,
     pub time_zone: Option<String>,
+    /// The OS's languages in preference order, for the language step of a first start (D-LANGUAGE-STEP).
+    pub languages: Vec<String>,
     /// Windows: `<exe dir>\.updating`, the mark the installer keeps open while it copies (PLAN-B7 r2.3, r3.3; hooks.nsh).
     pub updating: Option<PathBuf>,
 }
@@ -63,6 +66,8 @@ impl Launch {
     pub fn secrets(&self) -> PathBuf { self.data.join(".secrets") }
     /// The engine's lock (lease.rs: next to the primary).
     pub fn lock_file(&self) -> PathBuf { self.db().join(".engine.lock") }
+    /// D-LANGUAGE-STEP: the language picked on the first start, one line, kept for good.
+    pub fn first_language(&self) -> PathBuf { self.data.join(FIRST_LANGUAGE) }
 
     /// What the child gets on top of the app's own environment (PLAN-B6 §1.2, r1.4, r4.4): the 2.x desktop's paths and
     /// platform, the bind address and the stop on stdin's end, this start's ready token, the engine's log file, and the
@@ -96,9 +101,13 @@ impl Launch {
     }
 }
 
-/// The engine that runs now, if one does. Shared by the supervisor and every quit.
+/// The engine that runs now, if one does, and the language step of a first start. Shared by the supervisor, every quit,
+/// and the window's navigation handler.
 #[derive(Default)]
-pub struct Engine(Mutex<Slot>);
+pub struct Engine {
+    slot: Mutex<Slot>,
+    language: LanguageStep,
+}
 
 #[derive(Default)]
 struct Slot {
@@ -123,7 +132,10 @@ pub enum Stopped {
 }
 
 impl Engine {
-    fn slot(&self) -> MutexGuard<'_, Slot> { self.0.lock().unwrap_or_else(|e| e.into_inner()) }
+    fn slot(&self) -> MutexGuard<'_, Slot> { self.slot.lock().unwrap_or_else(|e| e.into_inner()) }
+
+    /// The language step the window's choice goes to (D-LANGUAGE-STEP).
+    pub fn language(&self) -> &LanguageStep { &self.language }
 
     pub fn quitting(&self) -> bool { self.slot().quitting }
 
@@ -257,6 +269,8 @@ pub enum Page {
     BeingUpdated,
     /// U10 (r2.3): the installer's mark is left with no installer: the copy was interrupted.
     UpdateUnfinished,
+    /// D-LANGUAGE-STEP: the language picker of a first start, this language preselected.
+    Language(&'static str),
 }
 
 impl Page {
@@ -271,6 +285,7 @@ impl Page {
             Page::NotResponding => "not-responding",
             Page::BeingUpdated => "being-updated",
             Page::UpdateUnfinished => "update-unfinished",
+            Page::Language(_) => "language",
         }
     }
 
@@ -282,6 +297,10 @@ impl Page {
             fragment.push_str(&encode(&log_dir.to_string_lossy()));
             fragment.push_str("&details=");
             fragment.push_str(&encode(details));
+        }
+        if let Page::Language(preselect) = self {
+            fragment.push_str("&preselect=");
+            fragment.push_str(preselect);
         }
         fragment
     }
@@ -357,6 +376,12 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
     }
     // Before any wait for the lock too, so a test (or support) can tell which data dir this is from the start (r4.3).
     let _ = note(&log, &data_line(launch));
+    // D-LANGUAGE-STEP: the language this launch passes, decided once and kept for every spawn of this supervisor.
+    let launch = &match language_step(launch, engine, &show) {
+        Ok(Some(locale)) => Launch { locale, ..launch.clone() },
+        Ok(None) => return,
+        Err(error) => return show(Page::NotStarted(error)),
+    };
     let (mut first_port, mut base, mut retried_port) = (launch.first_port, PORT_BASE, false);
     loop {
         match wait_for_lock(launch, engine, &show) {
@@ -409,6 +434,140 @@ pub fn supervise(launch: &Launch, engine: &Engine, view: &dyn View) {
         let details = this_start(launch, &token);
         return show(if served { Page::Stopped(details) } else { Page::NotStarted(details) });
     }
+}
+
+/// D-LANGUAGE-STEP: the file that keeps a first start's choice (`Launch::first_language`).
+pub const FIRST_LANGUAGE: &str = "first-language";
+
+/// The engine's locales (rust/src/web/locale.rs LOCALES), in its order.
+pub const LOCALES: [&str; 15] = ["en", "pl", "es", "de", "nl", "fr", "pt", "ru", "it", "bg", "el", "sv", "da", "cs", "sk"];
+
+/// What a first start does with the OS's languages (D-LANGUAGE-STEP).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Choice {
+    /// The first preference is one of ours and not English: used unasked.
+    Use(&'static str),
+    /// English or a language we don't have: the picker asks, this one preselected.
+    Ask(&'static str),
+}
+
+fn known(code: &str) -> Option<&'static str> { LOCALES.iter().copied().find(|l| *l == code) }
+
+/// A language tag's primary subtag, when it is one of ours (`pl-PL`, `pl_PL` and `PL` are `pl`).
+fn primary(tag: &str) -> Option<&'static str> { known(&tag.split(['-', '_']).next().unwrap_or("").to_ascii_lowercase()) }
+
+/// The engine's rule (rust/src/web/locale.rs `first_choice`), over the OS's languages in preference order: the first one
+/// decides whether to ask; the picker preselects the first one we have, else English. Both are tested against
+/// rust/tests/fixtures/first_choice.json.
+pub fn first_choice(preferences: &[String]) -> Choice {
+    match preferences.first().and_then(|first| primary(first)) {
+        Some(code) if code != "en" => Choice::Use(code),
+        _ => Choice::Ask(preferences.iter().find_map(|tag| primary(tag)).unwrap_or("en")),
+    }
+}
+
+/// Where the language step stands. The supervisor waits on it; the window's navigation handler moves it.
+#[derive(Default)]
+pub struct LanguageStep {
+    state: Mutex<Step>,
+    changed: Condvar,
+}
+
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
+enum Step {
+    #[default]
+    NotAsked,
+    Waiting,
+    Chosen(&'static str),
+}
+
+impl LanguageStep {
+    fn state(&self) -> MutexGuard<'_, Step> { self.state.lock().unwrap_or_else(|e| e.into_inner()) }
+
+    /// The window's choice: taken only while the picker waits, and only for one of the 15; the first one taken wins.
+    /// Nothing else changes (no window call is made here).
+    pub fn choose(&self, code: &str) -> bool {
+        let Some(code) = known(code) else { return false };
+        let mut state = self.state();
+        if *state != Step::Waiting {
+            return false;
+        }
+        *state = Step::Chosen(code);
+        drop(state);
+        self.changed.notify_all();
+        true
+    }
+
+    /// Whether the picker is waiting for a choice now.
+    pub fn waiting(&self) -> bool { *self.state() == Step::Waiting }
+
+    fn ask(&self) { *self.state() = Step::Waiting }
+
+    /// The choice once one is taken; None once `quitting` (re-checked every 100 ms) says the app is quitting. A quit wins
+    /// over a choice it finds taken: nothing is saved on the way out.
+    fn wait(&self, quitting: &dyn Fn() -> bool) -> Option<&'static str> {
+        let mut state = self.state();
+        loop {
+            if quitting() {
+                *state = Step::NotAsked;
+                return None;
+            }
+            if let Step::Chosen(code) = *state {
+                return Some(code);
+            }
+            state = self.changed.wait_timeout(state, Duration::from_millis(100)).unwrap_or_else(|e| e.into_inner()).0;
+        }
+    }
+}
+
+/// The saved choice, when `first-language` holds one of ours. An unreadable file is a start failure, never "no choice".
+fn saved_language(launch: &Launch) -> Result<Option<&'static str>, String> {
+    match fs::read_to_string(launch.first_language()) {
+        Ok(text) => Ok(known(text.trim())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!("Failed to read {:?}: {error}", launch.first_language())),
+    }
+}
+
+/// Written to a temporary name, synced, then renamed: the file is whole or absent.
+fn save_language(launch: &Launch, code: &str) -> Result<(), String> {
+    let path = launch.first_language();
+    let temporary = launch.data.join(format!(".{FIRST_LANGUAGE}.{}", std::process::id()));
+    File::create(&temporary)
+        .and_then(|mut file| file.write_all(format!("{code}\n").as_bytes()).and_then(|_| file.sync_all()))
+        .and_then(|_| fs::rename(&temporary, &path))
+        .map_err(|error| {
+            let _ = fs::remove_file(&temporary);
+            format!("Failed to write {:?}: {error}", path)
+        })
+}
+
+/// D-LANGUAGE-STEP, before the first spawn: the language this launch passes as `DELTABADGER_DESKTOP_LOCALE`. A saved
+/// choice wins; else a data dir with a database file (anything there: an upgraded 2.x, or a start that crashed before the
+/// account) passes the OS's; else, when the OS's first language is English or not one of ours, the picker asks
+/// (`#language`), the engine not started, and the choice is saved before it is. `Ok(None)`: a quit came in while asking.
+fn language_step(launch: &Launch, engine: &Engine, show: &dyn Fn(Page)) -> Result<Option<Option<String>>, String> {
+    if let Some(code) = saved_language(launch)? {
+        return Ok(Some(Some(code.to_string())));
+    }
+    let primary = launch.primary();
+    match fs::metadata(&primary) {
+        Ok(_) => return Ok(Some(launch.locale.clone())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(format!("Failed to look at {:?}: {error}", primary)),
+    }
+    let Choice::Ask(preselect) = first_choice(&launch.languages) else { return Ok(Some(launch.locale.clone())) };
+    let log = launch.log_file();
+    engine.language.ask();
+    let _ = note(&log, "desktop: waiting for the language choice");
+    show(Page::Language(preselect));
+    let Some(code) = engine.language.wait(&|| engine.quitting()) else {
+        let _ = note(&log, "desktop: quit while the language was asked");
+        return Ok(None);
+    };
+    save_language(launch, code)?;
+    let _ = note(&log, &format!("desktop: the language chosen is {code}"));
+    Ok(Some(Some(code.to_string())))
 }
 
 /// U13 is re-checked this often (PLAN-B7 r2.3).

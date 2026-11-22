@@ -13,7 +13,7 @@ pl:
                 brokers: "Brokerzy"
                 exchanges: "Giełdy"
             market_data:
-                intro: "Indeksy wymagają danych rynkowych na żywo. Skorzystaj z oficjalnego API danych Deltabadger lub darmowego konta CoinGecko."
+                intro: "Indeksy potrzebują danych rynkowych na żywo. Podłącz API danych Deltabadger (akcje i kryptowaluty) lub darmowe konto CoinGecko (tylko kryptowaluty)."
                 providers: "Dostawcy danych rynkowych"
                 subscription:
                     lead_html: "Subskrypcja <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> obejmuje:"

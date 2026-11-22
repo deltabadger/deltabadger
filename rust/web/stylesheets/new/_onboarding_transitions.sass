@@ -1,0 +1,82 @@
+// The onboarding transitions (onboarding_transitions.js sets data-leave / data-enter on <html>). One easing for all of
+// it; only opacity, transform and filter move, but for the password rules, whose height opens.
+$ease: cubic-bezier(0.2, 0.8, 0.2, 1)
+
+@keyframes onboarding-in
+    from
+        opacity: 0
+        transform: scale(var(--from-scale, 1)) translateX(var(--from-x, 0))
+        filter: blur(var(--from-blur, 0))
+
+// Two texts in one cell while one fades into the other (the picker's greeting and button).
+.crossfade
+    display: grid
+    place-items: center
+    > *
+        grid-area: 1 / 1
+
+// Language picker → admin account: the whole view goes, then the admin form's column comes in as one piece.
+html[data-leave="setup"] .devise__col
+    opacity: 0
+    transition: opacity 100ms $ease
+html[data-enter="setup"] .devise--setup .devise__col
+    --from-scale: .97
+    --from-blur: 4px
+    animation: onboarding-in 200ms $ease backwards
+
+// Back to the picker (the logo): the forward one, mirrored.
+html[data-leave="language"] .devise__col
+    opacity: 0
+    transform: scale(.97)
+    transition: opacity 100ms $ease, transform 100ms $ease
+html[data-enter="language"] .devise--language .devise__col
+    --from-scale: 1.03
+    animation: onboarding-in 200ms $ease backwards
+
+// Admin account → dashboard: the form goes; the sidebar, the scene and the "+" come in one after another.
+html[data-leave="dashboard"] .devise--setup form
+    opacity: 0
+    transform: scale(1.03)
+    transition: opacity 150ms $ease, transform 150ms $ease
+html[data-enter="dashboard"]
+    .menu
+        --from-x: -1rem
+        animation: onboarding-in 250ms $ease backwards
+    .welcome-screen > :is(canvas, p)
+        --from-scale: .98
+        --from-blur: .5rem
+        animation: onboarding-in 250ms $ease 60ms backwards
+    .welcome-screen > .sbutton
+        --from-scale: .9
+        animation: onboarding-in 250ms $ease 140ms backwards
+
+// The password rules: closed until the first character, then open for good (password_strength_controller.js). The
+// height opens, pushing what is below down, and the text follows 50ms later. A rule's met state only changes colour.
+.reveal
+    display: grid
+    grid-template-rows: 0fr
+    transition: grid-template-rows 150ms $ease
+    > *
+        min-height: 0
+        overflow: hidden
+        opacity: 0
+        transition: opacity 150ms $ease 50ms
+    &.is-open
+        grid-template-rows: 1fr
+        > *
+            opacity: 1
+.password-requirements li
+    transition: color 150ms $ease
+    &:before
+        transition: opacity 150ms $ease
+// In a devise form the rules' gap is inside them, so the closed block adds nothing between the field and the button.
+// (On the list's first rule: padding on the collapsing block itself would keep it open.)
+.devise form .reveal
+    margin-top: -2.5rem
+    li:first-child
+        margin-top: 2.5rem
+
+@media (prefers-reduced-motion: reduce)
+    html[data-leave] :is(.devise__col, form), html[data-enter] *, .reveal, .reveal > *, .password-requirements li, .password-requirements li:before
+        transition: none
+        animation: none

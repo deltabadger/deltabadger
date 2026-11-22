@@ -140,6 +140,12 @@ INST = Path(os.environ.get("LOCALAPPDATA", "/nonexistent")) / "Deltabadger"
 HOOKS = Path(os.environ.get("LOCALAPPDATA", "/nonexistent")) / "deltabadger-test-hooks"
 
 
+def seed_language(data):
+    """D-LANGUAGE-STEP: CI's systems are English; the choice saved as the picker saves it, so no start waits at the
+    picker. Every data dir an app launch uses goes through this."""
+    (data / "first-language").write_text("en\n")
+
+
 def install_n(name, debug=False):
     """A fresh N and a fresh data dir. Windows: N's installer, silent, into the runner's account; an AppImage: a copy of N
     in its own folder."""
@@ -147,6 +153,7 @@ def install_n(name, debug=False):
     if data.exists():
         shutil.rmtree(data)
     data.mkdir(parents=True)
+    seed_language(data)
     if WIN:
         shutil.rmtree(HOOKS, ignore_errors=True)
         HOOKS.mkdir(parents=True)
@@ -820,6 +827,7 @@ def scenario_deb(name):
     data = data_dir(name)
     shutil.rmtree(data, ignore_errors=True)
     data.mkdir(parents=True)
+    seed_language(data)
     publish()
     win = window(data)
     try:

@@ -4,7 +4,7 @@
 /422.html
 /500.html
 /assets/application-*.js
-/assets/application-243fd12e272ae191.css
+/assets/application-e52b544062faf029.css
 /assets/application.js-*.map
 /assets/desktop-intro-87e9942556c4ecdc.png
 /assets/favicon-86f2871a97f495f3.ico
@@ -38,7 +38,6 @@
 /fonts/GoogleSans-greek.woff2
 /fonts/GoogleSans-latin.woff2
 /fonts/Montserrat-VariableFont_wght.woff2
-/fonts/Tiny5.woff2
 /icon.png
 /logo_email_app.png
 /robots.txt

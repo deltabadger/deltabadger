@@ -95,6 +95,10 @@ nl:
         scheme_warm: 'Warm'
         scheme_ember: 'Gloed'
         scheme_forest: 'Bos'
+        mode: 'Weergave'
+        mode_system: 'Systeem'
+        mode_light: 'Licht'
+        mode_dark: 'Donker'
         show_balances: 'Saldi tonen'
         about: 'Over ons'
         telegram: 'Telegram'
@@ -554,6 +558,7 @@ nl:
             missing: "Geen marktprijs voor %{assets} op %{venue}."
             missing_anywhere: "Geen marktprijs voor %{assets}."
             chart_missing: "De grafiek toont de marktwaarde van %{assets} op %{venue} niet voor dagen zonder prijs."
+            opening_unknown: "De beginwaarde van %{assets} op %{venue} is onbekend."
             chart_incomplete: "Sommige dagen in de grafiek zijn onvolledig."
             connect_coingecko: "Koppel een gratis CoinGecko-account om marktprijzen te krijgen."
         sync: 'Synchroniseren'

@@ -309,7 +309,7 @@ fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
 
 /// The status page's URL: the app's own origin, which serves ui/index.html at its root (frontendDist). Not read from the
 /// window, which may still be at about:blank right after it was created (WebView2 navigates asynchronously).
-fn status_page() -> tauri::Url {
+pub fn status_page() -> tauri::Url {
     let origin = if cfg!(windows) { "http://tauri.localhost/" } else { "tauri://localhost/" };
     origin.parse().expect("a fixed URL")
 }
@@ -360,16 +360,26 @@ impl View for WindowView {
 }
 
 /// Where the main window may go (PLAN-B7 r1.8): the status page and this launch's engine; any other web page opens in
-/// the browser; nothing else loads.
+/// the browser; nothing else loads. D-LANGUAGE-STEP: the picker's Continue (the status page's root with its `locale`
+/// query) is a choice, never a page to load.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Navigation {
     Allow,
     Browser,
     Refuse,
+    Choice(String),
 }
 
 pub fn navigation(url: &tauri::Url, engine_port: Option<u16>) -> Navigation {
-    let status = url.scheme() == "tauri" || (url.scheme() == "http" && url.host_str() == Some("tauri.localhost"));
+    // The status page's origin exactly, as this platform serves it (`status_page`): tauri://localhost on macOS and Linux,
+    // http://tauri.localhost on Windows. Elsewhere the other one is an ordinary destination.
+    let own = status_page();
+    let status = url.scheme() == own.scheme() && url.host_str() == own.host_str() && url.port() == own.port();
+    // Any query on its root is the picker's form (a form submitted without a row sends `/?`): read, never loaded.
+    if status && url.path() == "/" && url.query().is_some() {
+        let code = url.query_pairs().find(|(key, _)| key == "locale").map(|(_, code)| code.into_owned()).unwrap_or_default();
+        return Navigation::Choice(code);
+    }
     let engine = url.scheme() == "http" && url.host_str() == Some(supervisor::HOST) && engine_port.is_some_and(|p| url.port() == Some(p));
     if status || engine || url.as_str() == "about:blank" {
         Navigation::Allow
@@ -610,6 +620,7 @@ fn launch(app: &tauri::App) -> Result<Launch, String> {
         first_port: None,
         locale: sys_locale::get_locale(),
         time_zone: iana_time_zone::get_timezone().ok(),
+        languages: sys_locale::get_locales().collect(),
         updating,
     })
 }
@@ -668,6 +679,13 @@ pub fn run() {
                 .initialization_script(initialization_script())
                 .on_navigation(move |url| match navigation(url, engine.launch().map(|(port, _)| port)) {
                     Navigation::Allow => true,
+                    // D-LANGUAGE-STEP: always cancelled, taken or not; nothing loads, the picker stays as drawn.
+                    Navigation::Choice(code) => {
+                        if engine.language().choose(&code) {
+                            log_line(&handle, &format!("desktop: the language {code} was picked"));
+                        }
+                        false
+                    }
                     Navigation::Browser => {
                         #[allow(deprecated)] // the plugin tauri.js already opens links with
                         let _ = tauri_plugin_shell::ShellExt::shell(&handle).open(url.as_str(), None);

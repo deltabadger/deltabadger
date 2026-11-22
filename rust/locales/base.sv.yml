@@ -95,6 +95,10 @@ sv:
         scheme_warm: 'Varm'
         scheme_ember: 'Glöd'
         scheme_forest: 'Skog'
+        mode: 'Utseende'
+        mode_system: 'System'
+        mode_light: 'Ljust'
+        mode_dark: 'Mörkt'
         show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'
@@ -556,6 +560,7 @@ sv:
             missing: "Inget marknadspris för %{assets} på %{venue}."
             missing_anywhere: "Inget marknadspris för %{assets}."
             chart_missing: "Diagrammet visar inte marknadsvärdet för %{assets} på %{venue} för dagar utan pris."
+            opening_unknown: "Startvärdet för %{assets} på %{venue} är okänt."
             chart_incomplete: "Vissa dagar i diagrammet är ofullständiga."
             connect_coingecko: "Anslut ett gratis CoinGecko-konto för att få marknadspriser."
         sync: 'Synka'

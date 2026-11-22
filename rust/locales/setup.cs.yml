@@ -13,7 +13,7 @@ cs:
                 brokers: "Brokeři"
                 exchanges: "Burzy"
             market_data:
-                intro: "Indexy potřebují živá tržní data. Použijte oficiální datové API Deltabadger nebo bezplatný účet CoinGecko."
+                intro: "Indexy potřebují živá tržní data. Připojte datové API Deltabadger (akcie i kryptoměny) nebo bezplatný účet CoinGecko (jen kryptoměny)."
                 providers: "Poskytovatelé tržních dat"
                 subscription:
                     lead_html: "Předplatné <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a> zahrnuje:"

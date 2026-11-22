@@ -40,7 +40,11 @@
         svg, .fill--icon
             fill: var(--white)
     &--primary
-        background: var(--sky)
+        background: var(--accent)
+        &, &:hover
+            color: var(--on-accent, #fff)
+        svg, .fill--icon
+            fill: var(--on-accent, #fff)
     &--secondary
         box-shadow: var(--shadow-rbutton-outline)
         +dark
@@ -372,8 +376,8 @@
     path
         fill: currentColor
 .segmented.is-submenu .segmented__option--action
-    color: #fff
-    background: var(--sky)
+    color: var(--on-accent, #fff)
+    background: var(--accent)
 
 // The control collapses when its options outgrow the room its PARENT gives it, so that parent
 // needs a width of its own — a shrink-wrapped one only ever reports the width already in use.

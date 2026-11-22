@@ -385,6 +385,81 @@ fn the_walk_values_a_cfee_at_its_fills_price_without_fetching() {
     assert!(ps.warnings.is_empty(), "{:?}", ps.warnings);
 }
 
+/// A timed CFEE booked at 00:00 of its charge's day.
+fn timed_cfee(c: &Connection, user: i64, base: &str, symbol: &str, amount: &str, price: &str, created: &str) -> i64 {
+    let id = row(c, user, 10, base, amount, &format!("{} 00:00:00", &created[..10]));
+    let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": created, "symbol": symbol, "price": price }).to_string();
+    c.execute("UPDATE account_transactions SET raw_data=?1 WHERE id=?2", (raw, id)).unwrap();
+    id
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: a timed CFEE is not read through the day before: beside a buy of another price that day, the
+/// walk values it, and the row shows it, at Alpaca's own price, with nothing fetched; a coin-quoted pair's price is not
+/// dollars (neither side reads it).
+#[tokio::test(flavor = "current_thread")]
+async fn a_timed_cfee_is_worth_alpacas_price_on_both_sides() {
+    use deltabadger::tracker::{fx::FxTable, prices::{NoFetch, PriceService, Reference}, rows, walk};
+    let (_dir, c, owner, app, mut b, _clock) = install_clocked();
+    c.execute("UPDATE users SET display_currency='USD'", []).unwrap();
+    fill(&c, owner, 0, "BTC", "0.5", ("USD", "30000"), "2026-09-09 10:00:00");
+    let fee = timed_cfee(&c, owner, "BTC", "BTCUSD", "0.001", "61000", "2026-09-10T08:00:00Z");
+    let all = rows::load_all(&c, owner).unwrap();
+    let mine = all.iter().find(|r| r.id == fee).unwrap();
+    assert_eq!((mine.cfee.fill, mine.cfee.fill_price.clone(), mine.cfee.raw_price.as_ref().map(|p| p.to_s_f())), (None, None, Some("61000.0".to_string())));
+    assert_eq!(rows::cfee_price(&c, owner, fee).unwrap(), None);
+    let stored = rows::walk_rows(&all).unwrap();
+    let deposits = stored.iter().map(|r| (r.id, r.amount.clone())).collect();
+    // A reference that names BTC's coin, and no stored close: any daily price asked for the fee would be fetched (and
+    // NoFetch fails the walk).
+    let mut reference = Reference::load(&c, &deltabadger::tracker::prices::Venue::alpaca(&c).unwrap(), &deltabadger::tracker::prices::symbols(&stored)).unwrap();
+    reference.record_coins(&c, owner).unwrap();
+    assert!(deltabadger::tracker::prices::coin_id(&reference, "BTC", None, chrono::NaiveDate::from_ymd_opt(2026, 9, 10)).is_some(), "BTC resolves");
+    let table = FxTable::default();
+    let mut none = NoFetch;
+    let mut ps = PriceService::new(&reference, &table, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap(), &mut none);
+    let w = walk::walk_rows(&stored, &deposits, &mut ps).unwrap();
+    let uid = stored.iter().position(|r| r.id == fee).unwrap();
+    assert_eq!(w.rows.iter().find(|r| r.uid == uid).unwrap().fiat_value.to_s_f(), "61.0");
+    let answer = patch(&app, &mut b, fee, "").await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("tracker-row__price--fills") && answer.body.contains("placeholder=\"61000.0\""), "{}", answer.body);
+    assert!(answer.body.contains("<td class=\"tracker-row__value\">61.00</td>"), "{}", answer.body);
+    let coin = timed_cfee(&c, owner, "ETH", "ETHBTC", "0.01", "0.03", "2026-09-10T08:00:00Z");
+    assert_eq!(rows::load_all(&c, owner).unwrap().iter().find(|r| r.id == coin).unwrap().cfee.raw_price, None);
+    let answer = patch(&app, &mut b, coin, "").await;
+    assert!(!answer.body.contains("--fills"), "{}", answer.body);
+}
+
+/// Codex r2-6: a fee charged on 27 May 2022 (Terra's LUNA) and booked Monday 30 May (Terra 2's) has no price of its own:
+/// its value is unknown, in the walk (missing, warned) and on its row, never Terra 2's close of the booking day.
+#[tokio::test(flavor = "current_thread")]
+async fn a_timed_fee_charged_as_another_coin_has_no_known_value() {
+    use deltabadger::tracker::{fx::FxTable, prices::{self, NoFetch, PriceService, Reference}, rows, walk};
+    let (_dir, c, owner, app, mut b, _clock) = install_clocked();
+    c.execute("UPDATE users SET display_currency='USD'", []).unwrap();
+    c.execute_batch("INSERT INTO assets (external_id, symbol, name, category, market_cap_rank, created_at, updated_at) VALUES ('terra-luna-2', 'LUNA', 'Terra', 'Cryptocurrency', 300, 'now', 'now');
+                     INSERT INTO historical_prices (asset, currency, date, price) VALUES ('LUNA', 'USD', '2022-05-27', 80), ('LUNA', 'USD', '2022-05-30', 5);").unwrap();
+    // Bought before (no opening to price), its own quote valuing it.
+    fill(&c, owner, 0, "LUNA", "10", ("USD", "800"), "2022-05-27 10:00:00");
+    let fee = row(&c, owner, 10, "LUNA", "2", "2022-05-30 00:00:00");
+    let raw = serde_json::json!({ "activity_type": "CFEE", "created_at": "2022-05-27T12:00:05Z", "symbol": "LUNAUSD", "price": null }).to_string();
+    c.execute("UPDATE account_transactions SET raw_data=?1 WHERE id=?2", (raw, fee)).unwrap();
+    let stored = rows::walk_rows(&rows::load_all(&c, owner).unwrap()).unwrap();
+    let deposits = stored.iter().map(|r| (r.id, r.amount.clone())).collect();
+    let mut reference = Reference::load(&c, &prices::Venue::alpaca(&c).unwrap(), &prices::symbols(&stored)).unwrap();
+    reference.record_coins(&c, owner).unwrap();
+    let table = FxTable::default();
+    let mut none = NoFetch;
+    let mut ps = PriceService::new(&reference, &table, chrono::NaiveDate::from_ymd_opt(2022, 6, 10).unwrap(), &mut none);
+    let w = walk::walk_rows(&stored, &deposits, &mut ps).unwrap();
+    let uid = stored.iter().position(|r| r.id == fee).unwrap();
+    let r = w.rows.iter().find(|r| r.uid == uid).unwrap();
+    assert_eq!((r.fiat_value.to_s_f(), r.price_missing), ("0.0".to_string(), true));
+    let answer = patch(&app, &mut b, fee, "").await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("tracker-row__price--none") && !answer.body.contains("placeholder=\"5"), "{}", answer.body);
+}
+
 /// The tracker row shows a priced CFEE's price as ours is shown, with its own explanation; a stated price still wins;
 /// with no fills it is the daily close, or waiting, as before.
 #[tokio::test(flavor = "current_thread")]

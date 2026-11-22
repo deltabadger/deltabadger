@@ -13,12 +13,12 @@
     padding: 0 2rem
     gap: 0.5rem
     text-decoration: none !important
-    box-shadow: var(--shadow-strong)
+    box-shadow: var(--shadow-basic)
     &:not(.button--link)
         min-width: 8rem
     &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
         outline: none
-    &--sky, &--success, &--danger
+    &--accent, &--success, &--danger
         &:hover, &:focus, &:active, &[disabled="disabled"],&[disabled]
             color: var(--white)
     svg
@@ -28,8 +28,12 @@
         padding: 0 4rem
         height: var(--ui-height-xl)
         margin: 0 auto
-    &--sky
-        background: var(--sky)
+    &--accent
+        background: var(--accent)
+        &, &:hover, &:focus, &:active
+            color: var(--on-accent, var(--white))
+        svg
+            fill: var(--on-accent, #fff)
     &--success
         background: var(--grass)
     &--danger

@@ -97,6 +97,10 @@ ru:
         scheme_warm: 'Тёплая'
         scheme_ember: 'Угли'
         scheme_forest: 'Лес'
+        mode: 'Оформление'
+        mode_system: 'Системная'
+        mode_light: 'Светлая'
+        mode_dark: 'Тёмная'
         show_balances: 'Показать балансы'
         about: 'О нас'
         telegram: 'Телеграм'
@@ -557,6 +561,7 @@ ru:
             missing: "Нет рыночной цены для %{assets} на %{venue}."
             missing_anywhere: "Нет рыночной цены для %{assets}."
             chart_missing: "График не показывает рыночную стоимость %{assets} на %{venue} в дни без цены."
+            opening_unknown: "Начальная стоимость %{assets} на %{venue} неизвестна."
             chart_incomplete: "Некоторые дни на графике неполные."
             connect_coingecko: "Подключите бесплатный аккаунт CoinGecko, чтобы получать рыночные цены."
         sync: 'Синхронизировать'

@@ -4,7 +4,7 @@
 {% match state %}
 {% when State::None %}
     <p>{{ v.t("settings.ibkr.intro")|safe }}</p>
-    <form class="button_to" method="post" action="{{ path }}"><button class="button button--sky button--large" type="submit">{{ v.t("settings.ibkr.start")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    <form class="button_to" method="post" action="{{ path }}"><button class="button button--accent button--large" type="submit">{{ v.t("settings.ibkr.start")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
 {% when State::Connected %}
     <p class="text-success">{{ v.t("settings.ibkr.connected")|safe }}</p>
     <p class="text-danger">{{ v.t("settings.ibkr.single_key_warning")|safe }}</p>
@@ -18,7 +18,7 @@
       {{ duration|safe }}
     </p>
     <p>{{ v.t("settings.ibkr.activation_failed_fix")|safe }}</p>
-    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button button--sky button--large" type="submit">{{ v.t("settings.ibkr.start_over")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+    <form class="button_to" method="post" action="{{ path }}"><input type="hidden" name="_method" value="delete" /><button class="button button--accent button--large" type="submit">{{ v.t("settings.ibkr.start_over")|safe }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
 {% include "settings/ibkr_credentials_form.html" %}
 {% when State::Pending %}
     <p>{{ v.t("settings.ibkr.activation_pending")|safe }}</p>

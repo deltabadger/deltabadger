@@ -724,7 +724,7 @@ fn routes(app: App) -> Router {
         .route("/password/edit", only(get(password::edit)))
         .route("/password", only(post(password::create).patch(password::update).put(password::update)))
         .route("/setup", only(get(setup::new).post(setup::create)))
-        .route("/setup/platform_connection", only(post(setup::connect_platform)))
+        .route("/language", only(get(setup::language)))
         // `/setup.<format>` reaches the setup action in 2.x; any other single segment is this build's refusal.
         .route("/{page}", any(setup::formatted))
         // A26: the legacy routes 2.x still draws (web::legacy, wizard::stale).
@@ -1082,7 +1082,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
     let broadcast_json = json_method == Method::POST && route_path.starts_with("/broadcasts/");
     let setup_json = json_method == Method::POST && path_locale.is_none()
-        && matches!(route_path.as_str(), "/setup" | "/setup.html" | "/setup/platform_connection");
+        && matches!(route_path.as_str(), "/setup" | "/setup.html");
     // POST /hook/*: its body is read whatever its type (bounded, so a stalled body spends no claim) and parsed only as
     // Rack parses it (web::hook::body).
     let hook_post = original_method == Method::POST && (route_path == "/hook" || route_path.starts_with("/hook/"));
@@ -1163,7 +1163,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
     let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json, upload };
-    if params.path_locale.is_none() && (matches!(params.route_path.as_str(), "/setup" | "/setup/platform_connection")
+    if params.path_locale.is_none() && (params.route_path == "/setup"
         || params.route_path.strip_prefix("/setup.").is_some_and(|format| !format.contains('/'))) {
         // 2.x shallow-merges query keys over body keys. Normalize once before the
         // pipeline so locale, CSRF, the setup-token gate and permitted user fields agree.
@@ -1313,7 +1313,9 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     // rack-attack: after the session middleware, before everything else.
     let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
     let address = rate_limit::client_key(&app.config, request.headers(), peer);
-    let carries_input=request.uri().query().is_some_and(|q|!q.is_empty())
+    // D-LANGUAGE-STEP: a query that only names the page's language (the language step's own `/setup?locale=<code>`,
+    // followed every time the picker is left) is not input to the token check; anything else in it still is.
+    let carries_input=request.uri().query().is_some_and(|q|q.split('&').any(|pair|!pair.is_empty() && pair.split('=').next()!=Some("locale")))
         || request.headers().get(header::CONTENT_LENGTH).is_some_and(|v|v.to_str().is_ok_and(|v|v.parse::<u64>().is_ok_and(|n|n>0)))
         || request.headers().contains_key(header::TRANSFER_ENCODING);
     let limited=app.limiter.hit(request.method(), &params.route_path, &address, now)
@@ -1349,7 +1351,7 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     } else if !matches!(*request.method(), Method::GET | Method::HEAD) && !context.csrf_verified(request.headers()) {
         layout::unverified_request(&context, request.headers())
     } else if to_setup {
-        setup::to_setup()
+        setup::to_setup(request.headers())
     } else if let Some(inactive) = auth::inactive(&context) {
         inactive
     } else if bot::action_params::action(&context.params.route_path, request.method())

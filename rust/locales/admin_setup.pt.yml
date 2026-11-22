@@ -3,9 +3,6 @@ pt:
     title: "Bem-vindo ao Deltabadger"
     admin_account: "Conta de administrador"
     platform:
-      prompt: "Tem uma subscrição Deltabadger.com?"
-      code: "Código de ligação"
-      connect: "Ligar"
       connected_with_proxies: "Ligado ✓ — os dados de mercado e os proxies das corretoras estão ativos"
       connected_without_proxies: "Ligado ✓ — os dados de mercado estão ativos; os proxies das corretoras não estão disponíveis"
     locked:
@@ -27,6 +24,9 @@ pt:
         <li><b>Copie a chave API</b> e cole-a acima</li>
       </ol>
     continue: "Continuar"
+    create: "Criar"
+    language:
+      greeting: "Olá"
     submit: "Começar"
     success: "Configuração concluída com sucesso. Bem-vindo ao Deltabadger!"
     syncing_title: "A sincronizar recursos…"

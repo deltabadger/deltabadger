@@ -83,7 +83,7 @@ impl Answer {
 }
 
 /// One browser: its session cookie and the last page it loaded.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Browser {
     pub cookie: Option<String>,
     /// The body of the last response that carried a CSRF meta tag.

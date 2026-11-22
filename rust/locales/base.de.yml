@@ -95,6 +95,10 @@ de:
         scheme_warm: 'Warm'
         scheme_ember: 'Glut'
         scheme_forest: 'Wald'
+        mode: 'Darstellung'
+        mode_system: 'System'
+        mode_light: 'Hell'
+        mode_dark: 'Dunkel'
         show_balances: 'Guthaben einblenden'
         about: Über
         telegram: Telegram
@@ -554,6 +558,7 @@ de:
             missing: "Kein Marktpreis für %{assets} auf %{venue}."
             missing_anywhere: "Kein Marktpreis für %{assets}."
             chart_missing: "Das Diagramm zeigt den Marktwert von %{assets} auf %{venue} an Tagen ohne Preis nicht."
+            opening_unknown: "Der Anfangswert von %{assets} auf %{venue} ist unbekannt."
             chart_incomplete: "Einige Tage im Diagramm sind unvollständig."
             connect_coingecko: "Verbinde ein kostenloses CoinGecko-Konto, um Marktpreise zu erhalten."
         sync: 'Synchronisieren'

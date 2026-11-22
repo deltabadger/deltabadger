@@ -1780,9 +1780,9 @@ async fn refused(dir: &tempfile::TempDir, o: &deltabadger::store::Opened, want: 
 #[tokio::test(flavor = "current_thread")]
 async fn r08_hf_orders_intents_and_unproven_rows_refuse_the_handback() {
     let (dir, o, bot, _t, _v, _id, _ext) = placed("KEY-A", false).await;
-    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF and Unified account orders are Rust-only", bot.id)).await;
     let (dir, o, bot, _t, _v, _intent) = ambiguous_intent("KEY-A").await;
-    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF and Unified account orders are Rust-only", bot.id)).await;
     let (dir, o, bot, _plan) = engine_setup();
     let id = open_row(&o.primary, &bot, "A1", "2026-10-01 10:00:00", json!({}));
     let now = at("2026-10-30T13:00:00Z");
@@ -2553,7 +2553,7 @@ async fn u3a_known_fills_of_a_uta_row_are_the_uta_familys() {
 async fn u3a_uta_orders_and_intents_refuse_the_handback() {
     use deltabadger::engine::{placement, FixedClock};
     let (dir, o, bot, _t, _v, _id, _ext) = uta_placed(false).await;
-    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF and Unified account orders are Rust-only", bot.id)).await;
     let at0 = at("2026-10-30T12:00:00Z");
     let (dir, o, bot, plan) = engine_setup();
     let t = ScriptedTransport::default(); t.set_now(at0);
@@ -2561,7 +2561,7 @@ async fn u3a_uta_orders_and_intents_refuse_the_handback() {
     let placement::Begun::Intent(intent) = placement::begin_held(&o.primary, &bot, &plan, v.placement_identity(), None, &FixedClock(at0)).unwrap() else { panic!() };
     t.reply("POST /api/ua/v2/unified/order/place", 504, json!({"code":"504000","msg":"Gateway timeout."}));
     assert!(matches!(placement::send_recorded(&o.primary, &v, &bot, &intent, &FixedClock(at0)).await.unwrap(), placement::Sent::Ambiguous(_)));
-    refused(&dir, &o, &format!("bot {}: KuCoin HF orders are Rust-only", bot.id)).await;
+    refused(&dir, &o, &format!("bot {}: KuCoin HF and Unified account orders are Rust-only", bot.id)).await;
 }
 
 /// U3a, r1.4: recovery of a UTA intent takes an answer only for an order of the intent's type.

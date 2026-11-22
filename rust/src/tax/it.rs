@@ -56,7 +56,8 @@ pub(super) fn value_received(rows: &mut [Entry], stored: &[Stored], ps: &mut Pri
     for (ins, _) in emt_groups(rows) {
         for i in ins {
             let (r, t) = (&mut rows[i].row, &stored[i]);
-            r.fiat_value = (&ps.price_at_recorded(&r.base, currency, r.at, Some(&t.venue), t.base_asset.as_ref())? * &r.amount)?;
+            // At the units bought (`t.amount`): a CFEE folded into the buy leaves fewer units (`r.amount`), not less cost.
+            r.fiat_value = (&ps.price_at_recorded(&r.base, currency, r.at, Some(&t.venue), t.base_asset.as_ref())? * &t.amount)?;
             let missing = r.fiat_value.is_zero();
             (r.price_missing, r.value_missing) = (missing, Some(missing));
         }

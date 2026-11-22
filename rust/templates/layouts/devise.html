@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ v.locale }}"{% if !v.scheme.is_empty() %} data-scheme="{{ v.scheme }}"{% endif %}>
+<html lang="{{ v.locale }}"{% if !v.scheme.is_empty() %} data-scheme="{{ v.scheme }}"{% endif %}{% if !v.mode.is_empty() %} data-mode="{{ v.mode }}"{% endif %}>
   <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -9,8 +9,14 @@
     <title>{{ v.t("meta.title")|safe }}</title>
     {% include "layouts/_favicon.html" %}
 
+    {% if !onboarding.is_empty() %}
+    <link rel="preload" href="/fonts/Montserrat-VariableFont_wght.woff2" as="font" type="font/woff2" crossorigin>
+    {% if v.locale == "el" %}
+    <link rel="preload" href="/fonts/GoogleSans-greek.woff2" as="font" type="font/woff2" crossorigin>
+    {% endif %}
+    {% endif %}
     <link rel="stylesheet" href="{{ v.asset("application.css") }}" media="all" data-turbo-track="reload" />
-    {% if v.desktop() %}<script src="{{ v.asset("application.js") }}" data-turbo-track="reload" type="module"></script>{% else %}<script src="{{ v.asset("application.js") }}" data-turbo-track="reload" defer="defer"></script>{% endif %}
+    {% if v.desktop() || !onboarding.is_empty() %}<script src="{{ v.asset("application.js") }}" data-turbo-track="reload" type="module"></script>{% else %}<script src="{{ v.asset("application.js") }}" data-turbo-track="reload" defer="defer"></script>{% endif %}
 
     <meta name="csrf-param" content="authenticity_token" />
 <meta name="csrf-token" content="{{ csrf }}" />
@@ -22,7 +28,7 @@
   <body data-controller="hotwire-animations">
     {% if v.desktop() %}{% include "layouts/_desktop_intro.html" %}{% endif -%}
     <div data-tauri-drag-region class="titlebar-drag-region"></div>
-    <div class="devise">
+    <div class="devise{% if !onboarding.is_empty() %} devise--onboarding devise--{{ onboarding }}{% endif %}">
 
       <div class="devise__row">
         <div class="devise__col">

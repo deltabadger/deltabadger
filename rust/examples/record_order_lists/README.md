@@ -106,3 +106,41 @@ Then:
 4. `git diff --stat` and `git add tests/fixtures/order_lists/<venue>`, then commit by hand.
 
 Revoke the read-only key when you are done.
+
+## 5. KuCoin Unified Trading Account (`kucoin-uta`, PLAN-841 U5-0)
+
+One spare KuCoin account (not the canary), read in three phases around its switch to UTA. All three share one scrub:
+the same id gets the same fake, times shift by the same days and every amount is multiplied by the same factor (prices
+are kept, so value / size still gives them). The state file holding that scrub maps fakes back to originals, so it
+lives beside the keys and the tool refuses a path inside the repo.
+
+Two keys on the account: **General** only for this tool (it refuses any other), **General + Unified** for the bot.
+
+```
+set -a; . ~/recorder-keys/kucoin-uta.env; set +a      # the General key
+export RECORDER_STATE=~/recorder-keys/kucoin-uta.state.json
+W=(--since 2026-11-21T08:00:00Z --until 2026-11-21T20:00:00Z --symbol BTC-USDT)
+cargo run --example record_order_lists -- kucoin-uta --phase before   "${W[@]}"   # Classic/HF, a known fill in the window
+#   switch the account to UTA on KuCoin, before moving any funds
+cargo run --example record_order_lists -- kucoin-uta --phase switched "${W[@]}"
+#   move the funds to the unified account, run the bot's market buy and the cancelled limit order
+cargo run --example record_order_lists -- kucoin-uta --phase traded   "${W[@]}" --order <filled id> --order <cancelled id>
+# next day, after 09:00 UTC+8: Account History export for the session's days
+cargo run --example record_order_lists -- kucoin-uta-csv --file ~/Downloads/<export>.csv
+unset RECORDER_KEY RECORDER_SECRET RECORDER_PASSPHRASE
+```
+
+The window is at most 7 days and holds the known fill. Read the cancelled order in the traded phase within two hours:
+after that KuCoin no longer answers for an unfilled cancelled order.
+
+Each phase writes `tests/fixtures/order_lists/kucoin_uta/<phase>/`, and the export goes to `kucoin_uta/export/`.
+Execution and fill reads are recorded page by page (`name.1.json`, `name.2.json` …): `lastId` walks through the empty
+last page, classic `currentPage` walks through `totalPage`, as the sync reads them.
+Classic and HF routes on a UTA may refuse. A refusal is recorded as that route's answer (`"refused": true` in the
+manifest) and listed in the report. A throttle, a 5xx, or a refusal on a UTA route the adapter reads aborts the run,
+and nothing is written. The run also aborts when the mode doesn't match the phase, or when the before phase finds no
+fill on `--symbol`. For each `--order`, the tool runs the adapter's own evidence check: detail plus executions,
+Σ size = `filledSize`. If the scrub would break that check, nothing is written. If the raw answers already fail it,
+the report names the order: that is U5-1's first failing test.
+
+Delete the state file when the session's recordings are committed.
