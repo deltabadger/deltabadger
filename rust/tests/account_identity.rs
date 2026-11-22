@@ -1262,3 +1262,44 @@ fn s7a_r2_discovery_fences_every_copy_of_the_key_it_read() {
     assert_eq!((fenced(read_only), fenced(trading)), (true, true), "both copies fenced");
     assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&trading));
 }
+
+/// Rule R3 (Codex branch r3, identity.rs:1457, kucoin_hf_ledger.rs:250): a row of ANY Rust-owned table with an
+/// `account_id` column keeps its account named, so forgetting the account's last key keeps its fingerprint. The tables are
+/// read from the migrated schema: a table added later with the column and not counted fails here.
+#[test]
+fn s7a_r3_every_rust_owned_table_naming_an_account_keeps_it() {
+    let fx = Fx::new();
+    let owned = deltabadger::store::REGISTRY.live_tables();
+    let mut s = fx.c.prepare("SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND p.name = 'account_id' ORDER BY m.name").unwrap();
+    let schema: Vec<String> = s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).filter(|t: &String| owned.contains(&t.as_str())).collect();
+    drop(s);
+    for t in ["kucoin_coverage", "kucoin_withheld_fills", "exchange_account_rules", "rust_api_order_standalone", "import_rows"] {
+        assert!(schema.iter().any(|s| s == t), "{t} names an account: {schema:?}");
+    }
+    let exchange = fx.exchange(KUCOIN);
+    // Placeholder rows: no foreign key or trigger of this throwaway install checks them.
+    fx.c.execute_batch("PRAGMA foreign_keys = OFF; PRAGMA ignore_check_constraints = ON").unwrap();
+    let triggers: Vec<String> = fx.c.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for t in triggers { fx.c.execute(&format!("DROP TRIGGER \"{t}\""), []).unwrap(); }
+    for table in &schema {
+        fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) SELECT ?1, ?2, coalesce(max(number), 0) + 1, 'now', 'now' FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
+                     [fx.user, exchange]).unwrap();
+        let account = fx.c.last_insert_rowid();
+        assert!(!identity::named(&fx.c, account).unwrap(), "{table}: a fresh account names nothing");
+        // One row naming the account, every other required column filled with a placeholder of its type.
+        let mut s = fx.c.prepare("SELECT name, type, \"notnull\", dflt_value, pk FROM pragma_table_info(?1)").unwrap();
+        let columns: Vec<(String, String, bool, Option<String>, i64)> = s.query_map([table], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).unwrap().map(Result::unwrap).collect();
+        drop(s);
+        let (mut names, mut values) = (vec![], vec![]);
+        for (name, kind, notnull, default, pk) in columns {
+            let value = if name == "account_id" { account.to_string() }
+                        else if pk > 0 { format!("{}", account * 1000 + names.len() as i64) }
+                        else if notnull && default.is_none() { if kind.to_uppercase().contains("INT") || kind.to_uppercase().contains("REAL") || kind.to_uppercase().contains("NUM") { "1".into() } else { format!("'{table}-{account}'") } }
+                        else { continue };
+            names.push(format!("\"{name}\""));
+            values.push(value);
+        }
+        fx.c.execute(&format!("INSERT INTO \"{table}\" ({}) VALUES ({})", names.join(", "), values.join(", ")), []).unwrap_or_else(|e| panic!("{table}: {e}"));
+        assert!(identity::named(&fx.c, account).unwrap(), "{table}: its row names the account");
+    }
+}

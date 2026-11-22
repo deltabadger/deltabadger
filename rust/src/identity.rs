@@ -1461,13 +1461,20 @@ pub fn named(c: &Connection, id: i64) -> rusqlite::Result<bool> {
             [user, exchange], |r| r.get(0))?;
         if implicit { return Ok(true); }
     }
-    c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_keys WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_bots WHERE account_id = ?1)
-                 OR EXISTS(SELECT 1 FROM exchange_account_transactions WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_rows WHERE account_id = ?1)
-                 OR EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)
-                 OR EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM import_cutoffs WHERE account_id = ?1)
-                 OR EXISTS(SELECT 1 FROM exchange_account_imports WHERE account_id = ?1)
-                 OR EXISTS(SELECT 1 FROM exchange_account_rules WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM rust_api_order_standalone WHERE account_id = ?1)",
-                [id], |r| r.get(0))
+    // #710 7a rule R3: every row of a Rust-owned table that names the account (KuCoin's coverage windows and withheld fills
+    // as much as keys, bots, rows, balances, snapshots, imports, rules and standalone orders), read from the schema.
+    let tables = naming_tables(c)?;
+    if tables.is_empty() { return Ok(false); }
+    let any = tables.iter().map(|t| format!("EXISTS(SELECT 1 FROM \"{t}\" WHERE account_id = ?1)")).collect::<Vec<_>>().join(" OR ");
+    c.query_row(&format!("SELECT {any}"), [id], |r| r.get(0))
+}
+/// #710 7a rule R3: the Rust-owned tables (`store::REGISTRY`) whose rows name an account: every one with an `account_id`
+/// column in this install's schema, so a table added later counts without being listed.
+pub fn naming_tables(c: &Connection) -> rusqlite::Result<Vec<String>> {
+    let owned = crate::store::REGISTRY.live_tables();
+    let mut s = c.prepare("SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND p.name = 'account_id' ORDER BY m.name")?;
+    let names = s.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(names.into_iter().filter(|n| owned.contains(&n.as_str())).collect())
 }
 
 /// #710 7a §4, the tracker's presence rule: the user's live accounts numbered 2+ that `named` keeps, as (exchange, account).
