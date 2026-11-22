@@ -284,6 +284,63 @@ async fn a_routed_replacement_waits_for_the_destination_s_open_standalone_order(
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
 }
 
+/// §1.1: the in-flight check is the destination account's, by account, not by venue order id. Accounts 1 and 2 both log a
+/// standalone order `ord-1` (a venue id two wallets can share): account 1's is open, account 2's ended. A Reconnect of
+/// account 1 with account 2's fresh key replaces account 2's key (account 1's open order is not account 2's); the same
+/// open order on account 2 instead refuses it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_routed_replacement_checks_the_destination_s_orders_not_another_s_with_the_same_venue_id() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    let mut orders = vec![];
+    for account in &accounts {
+        c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, created_at, send_by) \
+                   VALUES (?1, NULL, 'buy', '10', 'quote', '{}', 'done', '{\"kind\":\"placed\"}', '2026-09-20 10:00:00', '2026-09-20 10:01:00')", [user]).unwrap();
+        orders.push(c.last_insert_rowid());
+        c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+                   VALUES (?1, ?2, ?3, 1, 'limit', 'rest', 'ord-1', '{}')", rusqlite::params![c.last_insert_rowid(), account, exchange]).unwrap();
+    }
+    deltabadger::merge::record_terminal(c, orders[1], "filled").unwrap();
+    let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b2")).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
+    // Swapped: account 2's ord-1 open, account 1's ended. The save of account 2's key waits.
+    c.execute("UPDATE rust_api_orders SET outcome = '{\"kind\":\"placed\"}' WHERE id = ?1", [orders[1]]).unwrap();
+    deltabadger::merge::record_terminal(c, orders[0], "filled").unwrap();
+    let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b")).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("An open order still uses the current key."), "{}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
+}
+
+/// §1.1: the destination's slot is fenced. A Reconnect of account 1 with a key of account 2 is still being read when another
+/// request replaces account 2's key: under the write lock account 2's slot is no longer what it was, so the delayed save is
+/// refused to retry and leaves both accounts' keys as they are.
+#[tokio::test(flavor = "current_thread")]
+async fn a_delayed_save_aimed_at_one_account_is_refused_when_its_destination_s_key_was_replaced_meanwhile() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    let key_b = identity::key_of(c, accounts[1], 2).unwrap().unwrap();
+    let db = c.path().unwrap().to_string();
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-b2")).respond_with(move |_: &wiremock::Request| {
+        // Another request replaces account 2's key while this one validates.
+        let other = Connection::open(&db).unwrap();
+        let cipher = seed::cipher();
+        identity::write_credential(&other, &cipher, key_b, Some(&cipher.encrypt("key-b3")), Some(&cipher.encrypt("secret")), Some(&cipher.encrypt("phrase")), chrono::Utc::now()).unwrap();
+        ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_B, "permission":"General,Spot"}}))
+    }).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b2")).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("credential changed during validation"), "{}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b3".into())]);
+}
+
 /// §1.1, D-JSON-KEY-IDENTITY: the legacy JSON save reads an identity venue's account first, then routes like every save. A
 /// key of account 2 posted for account 1 lands on 2 (201, account 1 untouched); a key whose read fails, with two live
 /// accounts, is refused to retry (409) and saves nothing.
