@@ -1,0 +1,17 @@
+it:
+    tracker:
+        duplicate_account_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}, quindi non rientra nei tuoi totali."
+        merge_in_settings: "Uniscilo nelle Impostazioni"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}."
+            merge: "Unisci"
+            confirm_merge_html: "Unire %{duplicate} a %{survivor}? Chiavi, bot, regole, ordini e storico passano a %{survivor} e %{duplicate} viene rimosso. L’operazione non si può annullare."
+            merged_html: "%{duplicate} è stato unito a %{survivor}."
+            merge_in_flight_html: "Un ordine o un prelievo di %{duplicate} o di %{survivor} è ancora in corso. Riprova quando si sarà concluso."
+            merge_conflict_html: "%{duplicate} e %{survivor} non coincidono su questi movimenti, quindi non è stato modificato nulla: %{rows}. Allineali e poi riprova a unirli."
+            merge_checking_html: "Deltabadger sta rileggendo %{duplicate} e %{survivor} per essere sicuro che siano lo stesso account. Riprova tra un minuto."
+            merge_withdrawal_key_html: "Dopo l’unione, queste regole di prelievo userebbero un’altra chiave di prelievo: %{rules}. Rimuovi la chiave di prelievo di %{duplicate} o di %{survivor}, unisci gli account e poi aggiungila di nuovo."
+            merge_foreign_order: "un ordine già registrato su questo exchange"
+            merge_order_unchecked_html: "Un ordine di %{account} è stato inserito con una chiave precedente, quindi Deltabadger non può verificarlo con quella attuale: %{rows}. Salva di nuovo la chiave con cui è stato inserito, poi riprova a unire gli account."
+            merge_unreadable_html: "%{account} non ha nessuna chiave funzionante in grado di leggerne i saldi, quindi Deltabadger non può verificarlo. Sistemane una o aggiungine una, poi riprova a unirli."

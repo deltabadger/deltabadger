@@ -199,3 +199,101 @@ pub fn order_by_id(c: &Connection, scope: &Scope, external: &str) -> rusqlite::R
                                params![n, external], |r| r.get(0)).optional(),
     }
 }
+
+/// A trade row's facts that two accounts' copies of one venue trade share (PLAN-710-6 §5.1): its venue id, side, both legs
+/// as stored decimal text, and its time to the second.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Facts { pub venue_id: String, pub entry_type: i64, pub base: Option<String>, pub base_amount: Option<String>, pub quote: Option<String>, pub quote_amount: Option<String>, pub at: String }
+/// The trade kinds (sync/activities.rs): BUY, SELL, SWAP_IN, SWAP_OUT. A transfer never counts, whatever its id.
+/// And a row the venue returned to the account's own key: a restored or hand-entered row (a Deltabadger CSV restore, the
+/// one import that reaches these venues) stores no venue answer, `{}`, and is never evidence.
+const TRADES: &str = "a.entry_type IN (0, 1, 2, 3) AND COALESCE(a.raw_data, '{}') NOT IN ('{}', '', 'null')";
+/// SQL: whether venue id expression `id` is a venue-native trade id, the one predicate the sample, the match and the
+/// conflict check use: built from the venue's own ids, every part present. MEXC's and Bitrue's `{symbol}-{orderId}-{id}`
+/// with a part missing (`BTCEUR--`, `BTCEUR-1-`) is none, nor is a Coinbase swap leg whose own id is missing (`-in`,
+/// `-out`: nothing before the suffix).
+fn native(id: &str) -> String { format!("({id} <> '' AND {id} NOT LIKE '%--%' AND {id} NOT LIKE '%-' AND {id} NOT LIKE '-%')") }
+/// The facts as stored (amounts read exactly: a REAL by its own digits, never through a cast to text).
+const FACTS: &str = "a.entry_type, a.base_currency, a.base_amount, a.quote_currency, a.quote_amount, substr(a.transacted_at, 1, 19)";
+/// A stored amount exactly: an integer or an integral REAL as its integer (as SQL's `IS` compares them), another REAL by
+/// its shortest exact digits, text as written.
+fn exact(v: rusqlite::types::ValueRef<'_>) -> Option<String> {
+    use rusqlite::types::ValueRef;
+    match v {
+        ValueRef::Null => None,
+        ValueRef::Integer(i) => Some(i.to_string()),
+        ValueRef::Real(f) if f.fract() == 0.0 && f.abs() < 9.0e15 => Some((f as i64).to_string()),
+        ValueRef::Real(f) => Some(format!("{f:?}")),
+        ValueRef::Text(t) => Some(String::from_utf8_lossy(t).into_owned()),
+        ValueRef::Blob(b) => Some(format!("x{}", hex::encode(b))),
+    }
+}
+fn facts(r: &rusqlite::Row<'_>) -> rusqlite::Result<Facts> {
+    Ok(Facts { venue_id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, base_amount: exact(r.get_ref(3)?), quote: r.get(4)?, quote_amount: exact(r.get_ref(5)?), at: r.get(6)? })
+}
+/// The account's earliest `limit` trade rows that have a venue id and meet `counted` (over `a`), by row id, each with the key
+/// that imported it.
+pub fn overlap_sample(c: &Connection, scope: &Scope, limit: i64, counted: &str) -> rusqlite::Result<Vec<(Facts, i64)>> {
+    let mut s = c.prepare(&format!("SELECT {}, {FACTS}, a.api_key_id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {} AND {} \
+                                    AND {counted} ORDER BY a.id LIMIT ?3", scope.row_id("a"), scope.rows("a"), scope.has_id("a"), native(&scope.row_id("a"))))?;
+    let out = s.query_map(params![scope.user_id, scope.exchange_id, limit], |r| Ok((facts(r)?, r.get(7)?)))?.collect();
+    out
+}
+/// `TRADES` over ledger row `x`.
+fn trades_of(x: &str) -> String { TRADES.replace("a.", &format!("{x}.")) }
+/// Whether any trade row of `d`'s (meeting `counted_d` over `a`) shares its venue id with a trade row of `s`'s (meeting
+/// `counted_s` over `b`) with other facts, anywhere in their histories: one statement, each lookup on the unique id index.
+pub fn overlap_conflict(c: &Connection, d: &Scope, s: &Scope, counted_d: &str, counted_s: &str) -> rusqlite::Result<bool> {
+    // The facts as stored, exactly (`IS`), over venue-native ids only (`native`).
+    let same = "a.entry_type IS b.entry_type AND a.base_currency IS b.base_currency AND a.base_amount IS b.base_amount \
+                AND a.quote_currency IS b.quote_currency AND a.quote_amount IS b.quote_amount AND substr(a.transacted_at, 1, 19) IS substr(b.transacted_at, 1, 19)";
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} AND {} AND {counted_d} \
+                          AND b.user_id = ?1 AND b.exchange_id = ?2 AND {} AND {} AND {counted_s} AND NOT ({same}))",
+                         d.rows("a"), trades_of("a"), d.has_id("a"), native(&d.row_id("a")), s.id_is("b", &d.row_id("a")), trades_of("b")),
+                params![d.user_id, d.exchange_id], |r| r.get(0))
+}
+/// Whether `d` holds a trade row whose venue id `s` holds too (a candidate pair, `identity::after_balance_read`).
+pub fn any_shared_id(c: &Connection, d: &Scope, s: &Scope) -> rusqlite::Result<bool> {
+    c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a, account_transactions b WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {} AND {} AND {} \
+                          AND b.user_id = ?1 AND b.exchange_id = ?2 AND {} AND {})",
+                         d.rows("a"), trades_of("a"), d.has_id("a"), native(&d.row_id("a")), s.id_is("b", &d.row_id("a")), trades_of("b")),
+                params![d.user_id, d.exchange_id], |r| r.get(0))
+}
+/// The account's trade row with venue id `id`, if any: one seek on 2.x's unique index for a number 1, on the membership's
+/// for an account 2+.
+pub fn overlap_match(c: &Connection, scope: &Scope, id: &str, counted: &str) -> rusqlite::Result<Option<(Facts, i64)>> {
+    c.query_row(&format!("SELECT ?3, {FACTS}, a.api_key_id FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND {TRADES} AND {counted} LIMIT 1",
+                         scope.id_is("a", "?3")), params![scope.user_id, scope.exchange_id, id], |r| Ok((facts(r)?, r.get(7)?))).optional()
+}
+
+/// #710 Merge (PLAN-710-6 §6.2 step 6): duplicate `from`'s bot orders become `to`'s. Into a number 1 each takes its venue
+/// id back in 2.x's column and its membership goes; into an account 2+ the membership is re-pointed. A clash was refused
+/// before (`order_by_id`).
+pub fn move_orders(c: &Connection, from: &Scope, to: &Scope) -> rusqlite::Result<()> {
+    let Some(d) = from.member else { return Ok(()) };
+    match to.member {
+        Some(s) => { c.execute("UPDATE exchange_account_transactions SET account_id = ?2 WHERE account_id = ?1", [d, s])?; }
+        None => {
+            let mut q = c.prepare("SELECT transaction_id, venue_external_id FROM exchange_account_transactions WHERE account_id = ?1 ORDER BY transaction_id")?;
+            let moved: Vec<(i64, Option<String>)> = q.query_map([d], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            c.execute("DELETE FROM exchange_account_transactions WHERE account_id = ?1", [d])?;
+            for (row, id) in moved { c.execute("UPDATE transactions SET external_id = ?2 WHERE id = ?1", params![row, id])?; }
+        }
+    }
+    Ok(())
+}
+/// #710 Merge (step 7): duplicate `from`'s ledger rows (its twins already deleted) become `to`'s, as `move_orders`. An
+/// id-less row moves too: nothing proves it a repeat. The one path that deletes a living row's membership.
+pub fn move_rows(c: &Connection, from: &Scope, to: &Scope) -> rusqlite::Result<()> {
+    let Some(d) = from.member else { return Ok(()) };
+    match to.member {
+        Some(s) => { c.execute("UPDATE exchange_account_rows SET account_id = ?2 WHERE account_id = ?1", [d, s])?; }
+        None => {
+            let mut q = c.prepare("SELECT account_transaction_id, venue_tx_id FROM exchange_account_rows WHERE account_id = ?1 ORDER BY account_transaction_id")?;
+            let moved: Vec<(i64, Option<String>)> = q.query_map([d], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+            c.execute("DELETE FROM exchange_account_rows WHERE account_id = ?1", [d])?;
+            for (row, id) in moved { c.execute("UPDATE account_transactions SET tx_id = ?2 WHERE id = ?1", params![row, id])?; }
+        }
+    }
+    Ok(())
+}

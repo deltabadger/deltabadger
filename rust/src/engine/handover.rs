@@ -692,7 +692,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
     &[
         // ---- tables ----
         // The user's imported accounts and rows (tracker): 2.x never reads them.
-        (Table, "exchange_accounts", Ignored), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
+        // #710: a live account 2+ refuses, whatever it holds (removed ones are tombstones 2.x never reads).
+        (Table, "exchange_accounts", Refuses(SECOND_ACCOUNT)), (Table, "exchange_account_credentials", Ignored), (Table, "exchange_account_imports", Ignored),
         // #710: a key or a bot of an account 2+ refuses: 2.x would trade it with the first account's key.
         (Table, "exchange_account_keys", Refuses(SECOND_ACCOUNT_KEY)), (Table, "exchange_account_bots", Refuses(SECOND_ACCOUNT_BOT)),
         // #710: withdrawal rules by account. 2.x's `rules` mirrors the number-1 ones (written again in the handback); a rule
@@ -701,6 +702,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "exchange_account_transactions", Refuses(SECOND_ACCOUNT_ORDER)),
         // #710 slice 4: a ledger row of an account 2+ (its venue id is here; 2.x would read NULL).
         (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
+        // #710: a stored duplicate standing is of an account 2+, which refuses on its own; its row too.
+        (Table, "exchange_account_standings", Refuses(SECOND_ACCOUNT)),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's
@@ -762,6 +765,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_kucoin_order:", Refuses("KuCoin HF and Unified account orders are Rust-only")),
         (AppConfig, "rust_kucoin_unresolved:", Ignored), (AppConfig, "rust_kucoin_evidence:", Ignored), (AppConfig, "rust_kucoin_origin:", Ignored),
         (AppConfig, "rust_kucoin_hf_gap.", Ignored),
+        // #710: when a key's credential was last replaced: 2.x never reads it.
+        (AppConfig, "rust_key_credential_changed:", Ignored), (AppConfig, "rust_standing_wake:", Ignored),
         // A user cancel's re-read: adopt_handback! polls every open order.
         (AppConfig, "rust_cancel_reread:", Ignored),
         // The takeover's journals: the queue rows it handled are deleted first (finish_queue_work, finish_signal_import);
@@ -833,6 +838,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     }
     let problems=super::rules::handback_problems(&o.primary)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
+    refuse_live_accounts(&o.primary)?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
@@ -870,6 +876,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     refuse_commands(&tx)?;
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
+    refuse_live_accounts(&tx)?;
     // #710: 2.x's withdrawal rules are Rust's number-1 rules (a rule Rust deleted or stopped never runs again on 2.x).
     if super::rules::table_exists(&tx, "exchange_account_rules")? { super::rules::mirror(&tx, None)?; }
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
@@ -1129,6 +1136,8 @@ pub const SECOND_ACCOUNT_STANDALONE: &str = "a standalone order of an exchange's
 pub const SECOND_ACCOUNT_HISTORY: &str = "history of a second account is Rust-only";
 /// #710 slice 5: a balance or a venue snapshot of an account 2+.
 pub const SECOND_ACCOUNT_BALANCES: &str = "balances of a second account are Rust-only";
+/// #710: a live account numbered 2+, whatever it holds: 2.x knows one account per exchange.
+pub const SECOND_ACCOUNT: &str = "an exchange's second account is Rust-only";
 
 fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if super::rules::table_exists(c, "exchange_account_transactions")?
@@ -1138,6 +1147,11 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if super::rules::table_exists(c, "exchange_account_rows")?
         && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rows)", [], |r| r.get::<_, bool>(0))? {
         return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT_HISTORY.into()]));
+    }
+    // #710 slice 6: a stored duplicate standing is of an account 2+ (2.x has no second account to read it of).
+    if super::rules::table_exists(c, "exchange_account_standings")?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_standings)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT.into()]));
     }
     for (table, line) in [("exchange_account_keys", SECOND_ACCOUNT_KEY), ("exchange_account_bots", SECOND_ACCOUNT_BOT), ("rust_api_order_standalone", SECOND_ACCOUNT_STANDALONE),
                           ("exchange_account_balances", SECOND_ACCOUNT_BALANCES), ("exchange_account_snapshots", SECOND_ACCOUNT_BALANCES)] {
@@ -1155,6 +1169,15 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     Err(EngineError::Ineligible(found.into_iter().map(|(id, key)| format!("bot {id}: {key} is on, and only this engine runs it on that kind of bot; switch it off before handing back")).collect()))
 }
 
+
+/// #710: a live account 2+ refuses, whatever it holds (checked after every refusal its state names, which say more).
+fn refuse_live_accounts(c: &Connection) -> Result<(), EngineError> {
+    if crate::identity::numbered(c)?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_accounts WHERE number <> 1 AND removed_at IS NULL)", [], |r| r.get::<_, bool>(0))? {
+        return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT.into()]));
+    }
+    Ok(())
+}
 
 fn refuse_commands(c: &Connection) -> Result<(),EngineError> {
     let mut s=c.prepare("SELECT id,json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL FROM bots WHERE json_type(transient_data,'$.liquidation_selling_since.holdings') IS NOT NULL OR json_type(transient_data,'$.rust_redeploy_request')='object' ORDER BY id")?;

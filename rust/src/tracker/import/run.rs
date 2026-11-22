@@ -186,7 +186,10 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     for (reading, rows) in routed {
         let key = Key { id: reading.id, user_id, exchange_id: reading.exchange_id, status: 1, key_type: reading.key_type, last_synced_at: None,
                         last_sync_error: None, exchange_type: reading.exchange_type, scope: crate::sync::key_scope(&tx, reading.id)? };
+        let routed_account = key.scope.account;
         if format == "kucoin" {
+            // #710 slice 7: the source rows are stored by (user, exchange), whatever account the file was routed to; routing
+            // imports by account is slice 7's.
             let out = kucoin::store(&fenced, &key, &kucoin_rows, now)?;
             (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);
         } else {
@@ -204,7 +207,8 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
             (imported, duplicates, skipped) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped);
         }
         // Recorded only: the rows went where they always go, whatever account the file names.
-        crate::identity::record_import(&fenced, cipher, user_id, reading.exchange_id, account_id.as_ref(), now).map_err(SyncError)?;
+        // #710: the file's identity is the account its key belongs to (the one the rows went to).
+        crate::identity::record_import_to(&fenced, cipher, user_id, reading.exchange_id, routed_account, account_id.as_ref(), now).map_err(SyncError)?;
     }
     drop(fenced);
     tx.commit()?;

@@ -560,6 +560,7 @@ da:
             missing: "Ingen markedspris for %{assets} på %{venue}."
             missing_anywhere: "Ingen markedspris for %{assets}."
             chart_missing: "Diagrammet viser ikke markedsværdien af %{assets} på %{venue} på dage uden pris."
+            opening_unknown: "Startværdien af %{assets} på %{venue} er ukendt."
             chart_incomplete: "Nogle dage i diagrammet er ufuldstændige."
             connect_coingecko: "Forbind en gratis CoinGecko-konto for at få markedspriser."
         sync: 'Synkronisér'

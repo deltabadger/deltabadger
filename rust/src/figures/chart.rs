@@ -424,7 +424,7 @@ fn at_market(c: &Connection, s: &Subject, live: &Metrics, market: &dyn MarketDat
     let window = Window { s, metrics: &data, market, since, timeframe, now };
     let grids = window.candle_grids(&symbols, false)?;
     if grids.is_empty() { return Ok((data, false)); }
-    let events = splits::events(c, s.bot.user_id, &s.orders, &data.holdings()?, now)?;
+    let events = splits::events(c, s.bot.user_id, &splits::bot_rows(c, s.bot.id)?, &s.orders, &data.holdings()?, now)?;
     let grids = split_pinned(backfilled(grids, &symbols, first, last, &events, s, &data)?, &events)?;
 
     // The price overlay is read off each restating holding's history as its venue reads it today, one basis end

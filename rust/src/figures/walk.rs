@@ -380,7 +380,7 @@ fn walked(c: &Connection, s: &Subject, now: At) -> Result<Metrics, FiguresError>
     let mut tax_pnl: Vec<(i64, Dec)> = vec![];
     let mut loss_lot: Vec<(i64, Option<bool>)> = vec![];
     // Corporate actions are events in this walk like any fill: applied before the first order at or after them.
-    let mut pending = splits::events(c, s.bot.user_id, &s.orders, &data.holdings()?, now)?;
+    let mut pending = splits::events(c, s.bot.user_id, &splits::bot_rows(c, s.bot.id)?, &s.orders, &data.holdings()?, now)?;
 
     for (order,fill) in s.orders.iter().zip(fills) {
         budget::charge(1, 0)?;

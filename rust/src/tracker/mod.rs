@@ -52,6 +52,15 @@ pub fn refused(why: &str) -> crate::figures::FiguresError {
 
 pub mod cache;
 
+/// The user's derived history and tracker caches go, to be computed again (a Binance CSV import's rewrite, a Merge).
+pub(crate) fn invalidate_user(c: &rusqlite::Connection, owner: i64) -> rusqlite::Result<()> {
+    for key in [cache::key(owner), cache::sales_key(owner), backfill::history_key(owner), backfill::price_key(owner)] {
+        c.execute("DELETE FROM app_configs WHERE key=?1", [key])?;
+    }
+    c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1", [owner])?;
+    crate::sync::balance_store::forget_snapshots(c, owner)
+}
+
 /// #710 slice 5 (PLAN-710-5 §5.1, §8 Q7): what a tracker figure reads. The account is the unit: the whole portfolio, or
 /// one account; no figure combines an exchange's accounts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

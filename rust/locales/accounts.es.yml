@@ -1,0 +1,17 @@
+es:
+    tracker:
+        duplicate_account_html: "%{duplicate} es la misma cuenta del exchange que %{survivor}, así que no se incluye en tus totales."
+        merge_in_settings: "Fusiónala en Configuración"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} es la misma cuenta del exchange que %{survivor}."
+            merge: "Fusionar"
+            confirm_merge_html: "¿Fusionar %{duplicate} con %{survivor}? Sus claves, bots, reglas, órdenes e historial pasan a %{survivor} y %{duplicate} se elimina. No se puede deshacer."
+            merged_html: "%{duplicate} se ha fusionado con %{survivor}."
+            merge_in_flight_html: "Todavía hay una orden o un retiro de %{duplicate} o %{survivor} en curso. Vuelve a intentarlo cuando termine."
+            merge_conflict_html: "%{duplicate} y %{survivor} no coinciden en estos registros, así que no se ha cambiado nada: %{rows}. Haz que coincidan y vuelve a fusionarlas."
+            merge_checking_html: "Deltabadger está volviendo a leer %{duplicate} y %{survivor} para asegurarse de que son la misma cuenta. Vuelve a intentarlo en un minuto."
+            merge_withdrawal_key_html: "Tras la fusión, estas reglas de retiro usarían otra clave de retiro: %{rules}. Elimina la clave de retiro de %{duplicate} o de %{survivor}, fusiona y después vuelve a añadirla."
+            merge_foreign_order: "una orden ya registrada en este exchange"
+            merge_order_unchecked_html: "Una orden de %{account} se colocó con una clave anterior, así que Deltabadger no puede comprobarla con la actual: %{rows}. Vuelve a guardar la clave con la que se colocó y fusiona de nuevo."
+            merge_unreadable_html: "%{account} no tiene ninguna clave que funcione y pueda leer sus saldos, así que Deltabadger no puede comprobarla. Arregla una o añade otra y vuelve a fusionarlas."

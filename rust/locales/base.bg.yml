@@ -560,6 +560,7 @@ bg:
             missing: "Няма пазарна цена за %{assets} в %{venue}."
             missing_anywhere: "Няма пазарна цена за %{assets}."
             chart_missing: "Графиката не показва пазарната стойност на %{assets} в %{venue} за дните без цена."
+            opening_unknown: "Началната стойност на %{assets} в %{venue} е неизвестна."
             chart_incomplete: "Някои дни в графиката са непълни."
             connect_coingecko: "Свържи безплатен акаунт в CoinGecko, за да получаваш пазарни цени."
         sync: 'Синхронизирай'

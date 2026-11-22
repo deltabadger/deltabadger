@@ -81,13 +81,7 @@ fn ownership(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key) -> Result<()
 pub(super) fn mark(c: &FencedTransaction<'_>, now: DateTime<Utc>) -> Result<(),SyncError> {
     if !written(c)? {app_config::set_plain(c,MARKER,"1",now).map_err(SyncError)?;} Ok(())
 }
-fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> {
-    for key in [crate::tracker::cache::key(owner),crate::tracker::cache::sales_key(owner),crate::tracker::backfill::history_key(owner),crate::tracker::backfill::price_key(owner)] {
-        c.execute("DELETE FROM app_configs WHERE key=?1",[key])?;
-    }
-    c.execute("DELETE FROM portfolio_snapshots WHERE user_id=?1",[owner])?;
-    super::balance_store::forget_snapshots(c,owner)?; Ok(())
-}
+fn invalidate(c: &Connection, owner: i64) -> Result<(),SyncError> { crate::tracker::invalidate_user(c,owner)?; Ok(()) }
 /// A row as the writer and the repair compare it: its columns, `tx_id` its venue id wherever its account keeps it, and
 /// for an account 2+'s row `account_id` its account (#710).
 pub(super) fn image(c: &Connection, id: i64) -> Result<Value,rusqlite::Error> {

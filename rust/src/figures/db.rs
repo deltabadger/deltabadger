@@ -274,11 +274,12 @@ pub const ADJUSTMENT: i64 = 15;
 #[derive(Clone, Debug)]
 pub struct SplitRow { pub id: i64, pub exchange_id: i64, pub base_currency: String, pub base_asset_id: Option<i64>, pub raw_data: Value, pub at: At }
 
-/// The `adjustment` rows marked `corporate_action: split` on these venues (Bot::Restatable#grouped_split_rows).
-pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<Vec<SplitRow>, FiguresError> {
+/// The `adjustment` rows marked `corporate_action: split` on these venues (Bot::Restatable#grouped_split_rows), of the
+/// rows `rows` admits (SQL on `account_transactions`: a bot's own account, `splits::bot_rows`; `"1"` every account).
+pub fn split_rows(c: &Connection, user_id: i64, rows: &str, exchange_ids: &[i64]) -> Result<Vec<SplitRow>, FiguresError> {
     let mut statement = c.prepare(&format!(
         "SELECT exchange_id, base_currency, raw_data, transacted_at, id, base_asset_id FROM account_transactions \
-         WHERE user_id = ?1 AND entry_type = ?2 AND exchange_id IN ({}) \
+         WHERE user_id = ?1 AND entry_type = ?2 AND exchange_id IN ({}) AND {rows} \
          AND CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END = 'split'", id_list(exchange_ids)?))?;
     let mut rows = statement.query(params![user_id, ADJUSTMENT])?;
     let mut out = vec![];
@@ -296,6 +297,7 @@ pub fn split_rows(c: &Connection, user_id: i64, exchange_ids: &[i64]) -> Result<
 
 /// Bot::Restatable#account_classes: `(symbol, category)` for each asset this user's ledger rows recorded under one of
 /// these names, then each asset their balances hold under it (assets.symbol), distinct per source.
+/// #710: classification reads every row and balance, a duplicate's included (it is the same venue account), as on main.
 pub fn account_classes(c: &Connection, user_id: i64, symbols: &[String]) -> Result<Vec<(String, Option<String>)>, FiguresError> {
     if symbols.is_empty() { return Ok(vec![]); }
     budget::charge(symbols.len() as u64, 0)?;
