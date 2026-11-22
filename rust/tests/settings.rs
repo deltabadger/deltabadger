@@ -601,6 +601,7 @@ async fn an_alpaca_tracker_key_is_the_trading_key() {
     let server = MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h = Harness::new(server.uri()).await;
     let keys = |h: &Harness| -> Vec<(i64, i64, String)> {
         h.c.prepare("SELECT id, key_type, key FROM api_keys WHERE exchange_id=1 ORDER BY id").unwrap()
@@ -2605,26 +2606,30 @@ async fn validator_status_commit_wakes_the_running_engine(){
     server.verify().await;
 }
 
-/// Alpaca's reading check (positions and cash, D-ALPACA-ONE-KEY: only an account's legacy read-only key still takes it).
-fn alpaca_reading(key:&str)->deltabadger::crypto::Credentials{deltabadger::crypto::Credentials{key:key.into(),secret:"secret".into(),passphrase:Some("paper".into()),redaction_values:vec![],ibkr:None}}
-
 #[tokio::test(flavor="current_thread")]
 async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v2(){
-    use deltabadger::web::settings::validator::{check,Validity};
+    use wiremock::matchers::header;
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","bad-account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).with_priority(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized"}))).mount(&server).await;
-    let read=check(&server.uri(),&alpaca_reading("positions-bad"),2).await.unwrap();
-    assert!(matches!(read,Validity::Incorrect),"a positions 401 must be an incorrect key, not an inconclusive validation error");
+    let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
+    let bad=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","trading"),("api_key[key]","bad-account"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    let read=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","positions-bad"),("api_key[secret]","bad-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(bad.status,422);assert_eq!(read.status,422);
+    // The sheet's card says why under its fields (D-TRACKER-SHEET); the two cards differ by their key type, the reasons must not.
+    let reason=|body:&str|body.split("class=\"sform__error\"").nth(1).and_then(|s|s.split("</p>").next()).map(str::to_string);
+    assert!(reason(&bad.body).is_some(),"{}",bad.body);
+    assert_eq!(reason(&read.body),reason(&bad.body),"a positions 401 must be the same incorrect-key error, not an inconclusive validation error");assert_eq!(h.snapshot(),before);
 }
 
 #[tokio::test(flavor="current_thread")]
 async fn reading_key_bare_401_is_inconclusive_and_does_not_condemn_a_stored_key(){
-    use deltabadger::web::settings::validator::{check,Validity};
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
-    let read=check(&server.uri(),&alpaca_reading("candidate"),2).await.unwrap();
-    assert!(matches!(read,Validity::Pending(_)),"2.x does not condemn an unattributed reading-key 401");
+    let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
+    let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","candidate"),("api_key[secret]","candidate-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    assert_eq!(answer.status,422);assert!(answer.body.contains("Failed to validate API key permissions"),"2.x does not condemn an unattributed reading-key 401");assert_eq!(h.snapshot(),before);
     server.verify().await;
 }
 
@@ -3935,7 +3940,6 @@ async fn r9_setup_token_reads_count_query_and_head_but_bare_reads_stay_free(){
 
 #[tokio::test(flavor="current_thread")]
 async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_positions(){
-    use deltabadger::web::settings::validator::{check,Validity};
     for (account,positions,accepted) in [
         (serde_json::json!({"status":"ACTIVE"}),serde_json::json!([]),false),
         (serde_json::json!({"status":"ACTIVE","cash":null}),serde_json::json!([]),false),
@@ -3945,8 +3949,10 @@ async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_posi
         let server=MockServer::start().await;
         Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account)).expect(1).mount(&server).await;
         Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).expect(1).mount(&server).await;
-        let read=check(&server.uri(),&alpaca_reading("reading-key"),2).await.unwrap();
-        assert_eq!(matches!(read,Validity::Correct),accepted,"R9 read-only validation matches the malformed-balance oracle");
+        let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
+        let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","read_only"),("api_key[key]","reading-key"),("api_key[secret]","reading-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+        assert_eq!(answer.status,if accepted{200}else{422},"R9 read-only validation matches the malformed-balance oracle");
+        if !accepted{assert_eq!(h.snapshot(),before,"R9 malformed validation leaves stored rows unchanged");}
         server.verify().await;
     }
 }
@@ -4503,7 +4509,7 @@ async fn the_tracker_connect_steps_are_the_sheet(){
     assert_eq!(step.status,200,"{}",step.body);
     let page=sheet(&step.body);
     assert_eq!(track(&page),["Alpaca:done /tracker/pick_exchange/new","Connect:current plain"]);
-    assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=trading\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
+    assert_eq!(page.select(&select("form[action=\"/tracker/add_api_key?exchange_id=1&key_type=read_only\"][data-turbo-frame=\"modal_content\"] input.rinput[name=\"api_key[key]\"]")).count(),1);
     // D-KEY-LOGO-BACK: the venue's logo and name are Back, to the venue step.
     assert_eq!(page.select(&select("a.set-api__back[href=\"/tracker/pick_exchange/new\"][data-wizard-dir=\"back\"][data-turbo-frame=\"modal_content\"] .set-api__mark + h2.set-api__title")).count(),1);
     // Refused: the sheet's frame again, the reason under the fields, nothing flashed.
