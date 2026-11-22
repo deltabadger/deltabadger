@@ -3895,3 +3895,30 @@ fn s7_0_9_the_broker_report_walks_each_account_on_its_own() {
     assert!(sale.contains("200") && sale.contains("50") && !sale.contains("150"), "{sale}\n{csv}");
 }
 
+/// 7a §0.10: a live key whose identity read names another account than its account's known one is fenced: no sync
+/// reads with it, no withdrawal goes out with it and its bot places nothing (the tick waits); its rows stay.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_0_10_a_key_reading_another_account_is_fenced() {
+    use deltabadger::engine::tick::{self, Attempts, TickOutcome};
+    let (_d, o, s) = common::install_alpaca();
+    let c = &o.primary;
+    let bot = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?3, 1, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, s.exchange_id, seed::cipher().encrypt("withdrawal")]).unwrap();
+    let withdrawal = c.last_insert_rowid();
+    common::two_accounts::confirm(c, account.id.unwrap(), Some("fp"));
+    assert!(deltabadger::sync::balance_reading_keys(c).unwrap().contains(&s.api_key_id), "before: the key reads");
+    assert_eq!(deltabadger::engine::model::withdrawal_key_id(c, &account).unwrap(), Some(withdrawal), "before: the key withdraws");
+    // Both keys' latest identity reads now name another account.
+    c.execute("UPDATE exchange_account_credentials SET fingerprint = 'other'", []).unwrap();
+    assert!(!deltabadger::sync::balance_reading_keys(c).unwrap().contains(&s.api_key_id), "no balance sync");
+    assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&s.api_key_id), "no ledger sync");
+    assert_eq!(deltabadger::engine::model::withdrawal_key_id(c, &account).unwrap(), None, "no withdrawal");
+    let transport = common::scripted::script(serde_json::json!({}));
+    let venue = common::scripted::venue(&transport);
+    let out = tick::tick(c, &venue, bot, &deltabadger::engine::FixedClock("2026-09-01T10:00:00Z".parse().unwrap()), &mut Attempts::default()).await;
+    assert!(matches!(out, Ok(TickOutcome::Stale { source: "api_key_contradicted", .. })), "{out:?}");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM transactions"), 0, "nothing placed");
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM api_keys WHERE id IN ({}, {withdrawal})", s.api_key_id)), 2, "the keys stay");
+}

@@ -1296,7 +1296,7 @@ async fn run_command<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, kind
             if matches!(bot.status,crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) {
                 return refuse(&e.primary,id,serde_json::json!("archived"));
             }
-            if model::key_pending(&e.primary,&bot)? {
+            if model::key_pending(&e.primary,&bot)? || model::key_fenced(&e.primary,&bot)? {
                 return refuse(&e.primary,id,serde_json::json!("api_key_pending"));
             }
             let (venue,version)=e.venue_for(&bot)?;

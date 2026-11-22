@@ -289,7 +289,7 @@ pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { read
 fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
     let rows = crate::identity::with_key_account("k", |account| c.prepare(&format!(
         "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id"))?
+         WHERE k.status = 1 AND k.key_type != 1 AND NOT {} ORDER BY k.id", crate::identity::fenced_sql(c, "k")?))?
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
                                       r.get::<_, Option<String>>(5)?, r.get::<_, Option<i64>>(6)?)))?
         .collect::<Result<Vec<_>, _>>())?;

@@ -845,6 +845,14 @@ pub fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
                                           [], |r| r.get(0)).optional()?;
     Ok(status == Some(crate::enums::ApiKeyStatus::PendingActivation as i64))
 }
+/// Whether `bot`'s trading key is fenced (`identity::fenced_sql`): every job that would place for the bot asks first, as
+/// for `key_pending`.
+pub fn key_fenced(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    let fenced = crate::identity::fenced_sql(c, "k")?;
+    if fenced == "0" { return Ok(false); }
+    let row: Option<bool> = c.query_row(&format!("SELECT {fenced} FROM api_keys k WHERE {} AND k.key_type = 0 ORDER BY k.id LIMIT 1", bot_keys(c, bot)?), [], |r| r.get(0)).optional()?;
+    Ok(row == Some(true))
+}
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
     let keys = bot_keys(c, bot)?;
     Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id,{account} FROM api_keys k WHERE {keys} AND key_type=0 ORDER BY id LIMIT 1"),
@@ -900,7 +908,8 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
 /// The withdrawal key `account`'s rules withdraw with: its lowest correct withdrawal key. The one selection, which Merge's
 /// guard reads too (#710).
 pub fn withdrawal_key_id(c:&Connection,account:&crate::identity::Account)->rusqlite::Result<Option<i64>>{
-    c.query_row(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),[],|r|r.get(0)).optional()
+    // A fenced key withdraws nothing (#710 7a).
+    c.query_row(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 AND NOT {} ORDER BY k.id LIMIT 1",account.keys("k"),crate::identity::fenced_sql(c,"k")?),[],|r|r.get(0)).optional()
 }
 
 /// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,

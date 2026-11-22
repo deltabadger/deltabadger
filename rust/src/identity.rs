@@ -1131,6 +1131,15 @@ pub fn key_counted(c: &Connection, user_id: i64, alias: &str) -> rusqlite::Resul
 /// SQL condition: account expression `account` is none of the user's duplicates. One statement.
 pub fn counted(c: &Connection, user_id: i64, account: &str) -> rusqlite::Result<String> { Ok(not_duplicate(account, &duplicate_ids(c, user_id)?)) }
 
+/// SQL condition: api key row `k` is fenced (#710 7a): a live key whose latest identity read names another account than
+/// its account's known one. It places nothing, withdraws nothing and syncs nothing until a read matches again; its rows
+/// stay. `"0"` on an install without the account tables.
+pub fn fenced_sql(c: &Connection, k: &str) -> rusqlite::Result<String> {
+    if !crate::venue_ids::ready(c)? { return Ok("0".into()); }
+    Ok(format!("({k}.status = 1 AND EXISTS (SELECT 1 FROM exchange_account_credentials fo JOIN exchange_accounts fx ON fx.id = {} \
+                WHERE fo.api_key_id = {k}.id AND fo.fingerprint IS NOT NULL AND fx.fingerprint IS NOT NULL AND fo.fingerprint <> fx.fingerprint))", key_account_sql(k)))
+}
+
 /// Fills an unknown account's fingerprint. A known one is never overwritten.
 fn establish(c: &Connection, account: i64, fingerprint: &str, encrypted: &[u8], now: DateTime<Utc>) -> rusqlite::Result<bool> {
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2, account_id_enc = ?3, updated_at = ?4 WHERE id = ?1 AND fingerprint IS NULL",

@@ -308,6 +308,8 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
     };
     // 1. Taken past its send deadline: nothing is sent.
     if clock.now() > request.send_by { return answer(Outcome::Busy); }
+    // #710 7a: a key whose identity read names another account is no valid key of this account.
+    if model::key_fenced(c, &model::Bot::key_holder(s.account))? { return key_missing(); }
     // 3. The venue's context (KuCoin's account mode), while still taken; r1 §5: a key replaced meanwhile is the request's own refusal.
     match placement::prepare(c, venue).await {
         Ok(Ok(())) => {}
