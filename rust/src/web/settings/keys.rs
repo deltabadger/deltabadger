@@ -718,7 +718,7 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, expecte
 
 /// A key row's stored ciphertext, every encrypted column: any save of the slot changes it (#710 7a rule R6).
 pub(crate) type Stored = [Option<String>; 7];
-fn stored_ciphertext(c: &Connection, id: i64) -> Result<Stored, WebError> { Ok(crate::sync::credential_columns(c, id)?) }
+pub(crate) fn stored_ciphertext(c: &Connection, id: i64) -> Result<Stored, WebError> { Ok(crate::sync::credential_columns(c, id)?) }
 
 /// `legacy`'s answers to a pick (§4.2): an account not the user's live one of this exchange, and which account.
 const MISSING: &str = "\0account not found";
