@@ -112,6 +112,8 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
     let link = |key_type: &str, label: &str| KeyFix { href: escape(&ctx.path(&format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type={key_type}"))), label: i18n::t(ctx.locale, label, &named) };
     let fixes = if eligible { vec![] } else {
         match trading {
+            // D-ALPACA-ONE-KEY: Alpaca's one key is the trading key; there is no second key to add beside it.
+            Some(true) if kind == crate::sync::ALPACA => vec![link("trading", "tracker.replace_trading_key")],
             Some(true) => vec![link("trading", "tracker.replace_trading_key"), link("read_only", "tracker.add_tracker_key")],
             Some(false) => vec![link("read_only", "tracker.replace_tracker_key")],
             None => vec![link("read_only", "tracker.add_tracker_key")],

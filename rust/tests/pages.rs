@@ -3046,7 +3046,7 @@ async fn replay_page_shard(shard: usize) {
                 }
             }
         }
-        if let Err(error)=index_shortfall_difference(&name,&scenario,&v2,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut v2)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut v2)).and_then(|()|tax_api_difference(&name,&mut v2)).and_then(|()|no_user_name_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|account_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|market_data_divergences(&name,&mut v2,&mut rust)).and_then(|()|a18_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20c_divergences(&name,&mut v2,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut v2,&mut rust)) {
+        if let Err(error)=index_shortfall_difference(&name,&scenario,&v2,&mut rust).and_then(|()|liquidation_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|redeploy_request_difference(&name,&scenario,&mut v2,&mut rust)).and_then(|()|rebalance_resolution_difference(&name,&mut rust)).and_then(|()|rules_differences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|bot_csv_difference(&name,&mut v2)).and_then(|()|without_history_generation(&name,&mut rust)).and_then(|()|tracker_api_difference(&name,&mut v2)).and_then(|()|tax_api_difference(&name,&mut v2)).and_then(|()|no_user_name_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|account_divergences(&name,&scenario,&mut v2,&mut rust)).and_then(|()|market_data_divergences(&name,&mut v2,&mut rust)).and_then(|()|a18_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20_divergences(&name,&mut v2,&mut rust)).and_then(|()|a20c_divergences(&name,&mut v2,&rust)).and_then(|()|merge_repeat_divergence(&name,&mut v2,&mut rust)).and_then(|()|alpaca_one_key_divergence(&name,&mut v2)) {
             failures.push(format!("{name}/{scope}: {error}")); continue;
         }
         match unknown_origin_ring(&name, &v2, &rust).or_else(||desktop_divergence(&name, &scenario, &v2, &rust)).or_else(||action_divergence(&name, &scenario, &v2, &rust)).or_else(||liquidation_gone_divergence(&name, &v2, &rust)).or_else(||listed_divergence(&name, &scenario, &v2, &rust)) {
@@ -3330,6 +3330,26 @@ fn a20c_divergences(name: &str, v2: &mut Value, rust: &Value) -> Result<(), Stri
 
 /// D-NO-USER-NAME (PLAN-NO-USER-NAME §2), past the name rows and fields v2_answer already drops: the name write is
 /// unrouted, and a sign-up 2.x refused only for its name is accepted. Each with a witness that 2.x still does as described.
+/// D-ALPACA-ONE-KEY: Alpaca's key has no permissions, so a tracker key there is the trading key the bots read. Where 2.x
+/// saved a second, read-only row beside the account's trading key, this build writes the credential into the trading row
+/// (its id and created_at kept). Only the scenarios named, and each must show exactly that 2.x shape.
+fn alpaca_one_key_divergence(name: &str, v2: &mut Value) -> Result<(), String> {
+    const SAVES: [&str; 3] = ["settings_key_save_read_only", "settings_key_legacy_create", "settings_r2_json_key_create"];
+    if !SAVES.iter().any(|s| name.trim_end_matches('/') == *s) { return Ok(()) }
+    let mut folded = false;
+    for answer in v2["responses"].as_array_mut().into_iter().flatten() {
+        let Some(keys) = answer.pointer_mut("/settings_rows/api_keys").and_then(Value::as_array_mut) else { continue };
+        let Some(reading) = keys.iter().position(|k| k["key_type"] == 2) else { continue };
+        let row = keys.remove(reading);
+        let trading = keys.iter_mut().find(|k| k["key_type"] == 0 && k["user_id"] == row["user_id"] && k["exchange_id"] == row["exchange_id"])
+            .ok_or_else(|| format!("D-ALPACA-ONE-KEY {name}: 2.x's read-only row has no trading row beside it"))?;
+        for column in ["key", "secret", "passphrase", "status", "updated_at", "last_sync_error", "last_synced_at", "balances_synced_at"] { trading[column] = row[column].clone(); }
+        folded = true;
+    }
+    if !folded { return Err(format!("D-ALPACA-ONE-KEY {name}: 2.x saved no read-only row")) }
+    Ok(())
+}
+
 fn no_user_name_divergences(name: &str, scenario: &Value, v2: &mut Value, rust: &mut Value) -> Result<(), String> {
     let last = |v: &Value| v["responses"].as_array().and_then(|r| r.last()).cloned().ok_or_else(|| format!("{name}: no responses"));
     let (theirs, ours) = (last(v2)?, last(rust)?);

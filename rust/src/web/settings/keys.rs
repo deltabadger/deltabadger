@@ -203,7 +203,8 @@ pub async fn save(
             // A bot's sheet saves into the bot's account; the tracker's into the exchange's (#710 slice 7: the one picked).
             let account = match bot_account { Some(account) => account, None => Account::first(c, id, exchange)? };
             let label = crate::identity::label_or(c, account.id, venue.as_ref().map_or("", |(_, name)| name.as_str()))?.plain();
-            Ok((venue, label, Key::read(c, &inner, account, kind)?))
+            let stored = venue.as_ref().map_or(kind, |(class, _)| slot(class, kind));
+            Ok((venue, label, Key::read(c, &inner, account, stored)?))
         })
         .await?;
     let (venue, label, original) = found;
@@ -277,7 +278,9 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, 
 
 /// `submit` of a candidate made by the caller over the stored key (`original`): the IBKR connect page's activation.
 pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
+    // D-ALPACA-ONE-KEY: validated as the slot asked for (a tracker key passes the reading check), stored where `slot` puts it.
     let validated=validate(app,&candidate,&original,kind,venue).await?;
+    let stored=slot(venue,kind);
     match &validated.result.value {
         Validity::Incorrect => return Ok(Submitted::Incorrect),
         Validity::Permissions { missing, forbidden } => {
@@ -314,7 +317,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   if !crate::engine::model::account_is_current(&tx,validated.handle.producer())? {return Ok(Some("credential changed during validation".into()));}
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
   let target=original.account.ensure(&tx,inner.now())?;
-  let current=Key::read(&tx,&inner,target,kind)?;
+  let current=Key::read(&tx,&inner,target,stored)?;
   if !original.same(&current){return Ok(Some("credential changed during validation".into()));}
   if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
   let candidate=&validated.key;
@@ -330,7 +333,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     Some(id)=>{
      crate::identity::write_credential(&tx,&inner.cipher,id,key.as_deref(),secret.as_deref(),passphrase.as_deref(),inner.now())?;
      crate::identity::write_status(&tx,id,status,&now,false,true)?;id},
-    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,kind,key,secret,passphrase,&now,status])?;
+    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,stored,key,secret,passphrase,&now,status])?;
      let id=tx.last_insert_rowid();target.add_key(&tx,id)?;id}
    }
   };
@@ -346,7 +349,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   tx.commit()?;
-  if kind==0 {inner.wake_engine();}
+  if stored==0 {inner.wake_engine();}
   if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
   if balances {jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&id.to_string()),None);}
   if ledger||balances {
@@ -389,7 +392,7 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
         let reason=if key.permission(){Some("missing_permission")}else if key.status==2{Some("dead")}else{None};
         if let Some(reason)=reason{
             let args=[("exchange",i18n::Arg::Text(&key.name))];let label=|name:&str|i18n::t(v.locale,name,&args);
-            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
+            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0&&key.venue!=crate::sync::ALPACA,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label(if key.kind==0{"tracker.replace_trading_key"}else{"tracker.replace_tracker_key"})});
         }
     }
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
@@ -640,6 +643,7 @@ pub async fn legacy(
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
+  let kind=slot(&venue,kind);
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
   let account=match crate::identity::pick(&tx,user.id,exchange,posted_account)?{
    crate::identity::Pick::One(account)=>account,
@@ -750,6 +754,9 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     }
     Ok(out)
 }
+/// D-ALPACA-ONE-KEY: Alpaca's key has no permissions, so the tracker's key there is the trading key the bots read (one key
+/// per account, whichever page saved it); every other venue keeps the slot asked for.
+pub(crate) fn slot(class:&str,kind:i64)->i64{if class==crate::sync::ALPACA&&kind==2{0}else{kind}}
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
 /// The venue's connect card as the sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`)
@@ -785,7 +792,9 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
         return crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]});
     }
     let requested=ctx.params.query("key_type").filter(|s|matches!(*s,"trading"|"read_only"));
-    let kind=if requested==Some("trading"){0}else{2};
+    // The card keeps the slot asked for (its action and walkthrough); the key it shows is the slot saves write (`slot`).
+    let asked=if requested==Some("trading"){0}else{2};
+    let kind=slot(class.as_deref().unwrap_or_default(),asked);
     let inner=app.clone();let owner=user.clone();
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
@@ -800,7 +809,8 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     if crate::web::bot::retired_type(&class){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
     if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
     ctx.session.lock().tracker_connect=Some(exchange);
-    if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::v2::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::v2::blank(s)){
+    // A GET rechecks the slot it shows; Alpaca's tracker card shows the trading key, which its own card rechecks.
+    if asked==kind&&!(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::v2::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::v2::blank(s)){
         if let Some(id)=key.id{
             if let Some(reason)=revalidate(&app,id).await?{
                 let body=turbo::prepend_flash(&flash::render(&flash::take(&ctx.session,&[(flash::ALERT,refusal_text(&ctx,&reason))]))?);
@@ -813,7 +823,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     if requested.is_none()&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
     let csrf=ctx.csrf_token();
     let (inner,v,live)=(app.clone(),ctx.clone(),key.passphrase.as_deref()==Some("live"));
-    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,&class,&name,kind,live,None)).await?;
+    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,&class,&name,asked,live,None)).await?;
     let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
