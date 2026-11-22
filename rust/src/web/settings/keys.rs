@@ -33,8 +33,12 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
 /// #710 7a: an identity venue's account read failed or was masked, and the key could land on the wrong account.
 pub const UNCONFIRMED: &str = "\u{0}identity_unconfirmed";
-/// The account's bots only (#710 §4.2); Merge asks the same (`merge::settling`).
-pub(crate) fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> { Ok(crate::merge::settling(c, account)?) }
+/// Whether the account has anything in flight, as Merge asks it (`merge::in_flight`, #710 7a §1.1): its key is neither
+/// replaced nor removed meanwhile, so no settlement or cancel runs through another key.
+pub(crate) fn settling(c: &Connection, cipher: &crate::crypto::Cipher, account: &Account) -> Result<bool, WebError> {
+    let Some(row) = crate::identity::AccountRow::of(c, account)? else { return Ok(false) };
+    crate::merge::in_flight(c, cipher, account.user_id, &[row]).map_err(|e| match e { crate::merge::Refusal::Db(e) => e.into(), other => WebError::Config(format!("{other:?}")) })
+}
 pub(crate) fn refusal_text(ctx: &Ctx, reason: &str) -> String {
     if reason == SETTLING { reason.to_string() }
     else if reason == UNCONFIRMED { ctx.t("settings.accounts.identity_unconfirmed") }
@@ -381,7 +385,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   let status=if pending {3} else {1};
   // A submission awaiting activation always moves updated_at (activation_stalled? reads it as the last submission).
   let changed=pending||!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret)&&same(&candidate.passphrase,&current.passphrase)&&candidate.extras.iter().zip(&current.extras).all(|(a,b)|same(a,b))&&candidate.realm==current.realm&&current.status==1&&current.last_error.is_none());
-  if current.id.is_some() && settling(&tx,&target)? { return Ok(Some(SETTLING.into())); }
+  if current.id.is_some() && settling(&tx,&inner.cipher,&target)? { return Ok(Some(SETTLING.into())); }
   let id={
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
    let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
@@ -635,7 +639,7 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   let kind:Option<i64>=tx.query_row("SELECT key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|r.get(0)).optional()?;let Some(kind)=kind else{return Ok(None);};
   // Before the delete: the key's account is read through its row.
   let Some(account)=Account::of_key(&tx,id)? else{return Ok(None);};
-  if settling(&tx,&account)? { return Ok(Some(Err(SETTLING.into()))); }
+  if settling(&tx,&inner.cipher,&account)? { return Ok(Some(Err(SETTLING.into()))); }
   let now=format_time(inner.now());
   if kind==0{
    let mut s=tx.prepare(&format!("SELECT b.id FROM bots b WHERE {} AND b.status IN(1,4,5,6) ORDER BY b.id",account.bots("b")))?;let ids=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;drop(s);
@@ -737,7 +741,7 @@ pub async fn legacy(
    }
   }.ensure(&tx,inner.now())?;
   let current=Key::read(&tx,&inner,account,kind)?;
-  if current.id.is_some() && settling(&tx,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
+  if current.id.is_some() && settling(&tx,&inner.cipher,&account)? { return Ok(Err(Some(SETTLING.to_string()))); }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
   if venue=="Exchanges::Hyperliquid"{
    let address=crate::v2::validation_regex(r"\A0x[0-9a-fA-F]{40}\z").map_err(|_|WebError::Config("invalid wallet pattern".into()))?;

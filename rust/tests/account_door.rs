@@ -136,7 +136,7 @@ const UID_B: &str = "999000111";
 /// reads B, any other key's read fails (a 503).
 async fn kucoin() -> (tempfile::TempDir, store::Opened, i64, i64, MockServer, deltabadger::web::App) {
     let server = MockServer::start().await;
-    for (key, uid) in [("key-a", UID_A), ("key-b", UID_B)] {
+    for (key, uid) in [("key-a", UID_A), ("key-b", UID_B), ("key-b2", UID_B)] {
         Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", key))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": uid, "permission":"General,Spot"}}))).mount(&server).await;
     }
@@ -247,4 +247,30 @@ async fn a_key_routed_to_another_account_stays_fenced_on_its_old_one() {
     assert!(fixed.status < 400, "{}: {}", fixed.status, fixed.body);
     assert!(deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&a_key), "a key that reads A lifts it");
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())]);
+}
+
+/// §1.1: a routed destination that holds a key is checked as Merge checks it. Account 2 has a placed standalone order not
+/// found terminal; a Reconnect of account 1 with a fresh key of account 2 is refused (to retry once it settles), account
+/// 2's key unchanged, so the order's cancel never goes through a key it was not placed with.
+#[tokio::test(flavor = "current_thread")]
+async fn a_routed_replacement_waits_for_the_destination_s_open_standalone_order() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, created_at, send_by) \
+               VALUES (?1, NULL, 'buy', '10', 'quote', '{}', 'done', '{\"kind\":\"placed\"}', '2026-09-20 10:00:00', '2026-09-20 10:01:00')", [user]).unwrap();
+    let order = c.last_insert_rowid();
+    c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+               VALUES (?1, ?2, ?3, 1, 'limit', 'rest', 'ord-1', '{}')", rusqlite::params![order, accounts[1], exchange]).unwrap();
+    let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b2")).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("An order is still being settled"), "{}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())]);
+    // Settled (found terminal), the same save replaces account 2's key.
+    deltabadger::merge::record_terminal(c, order, "filled").unwrap();
+    let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b2")).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
 }

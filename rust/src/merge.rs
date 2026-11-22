@@ -278,19 +278,7 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     let exchange = rd.exchange_id;
 
     // 1. In flight.
-    let bots = format!("(SELECT b.id FROM bots b WHERE {} OR {})", ad.bots("b"), as_.bots("b"));
-    let waiting: bool = c.query_row(&format!(
-        "SELECT EXISTS(SELECT 1 FROM rust_api_orders o LEFT JOIN rust_api_order_standalone x ON x.order_id = o.id WHERE o.state IN ('queued', 'taken', 'sending') \
-           AND (x.account_id IN ({d}, {s}) OR o.bot_id IN {bots})) \
-         OR EXISTS({}) OR EXISTS({}) \
-         OR EXISTS(SELECT 1 FROM rust_withdrawal_intents i WHERE i.owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({d}, {s})) \
-           OR i.api_key_id IN (SELECT k.id FROM api_keys k WHERE {} OR {})) \
-         OR EXISTS(SELECT 1 FROM app_configs x JOIN transactions t ON t.id = CAST(substr(x.key, instr(x.key, ':') + 1) AS INTEGER) \
-           JOIN bots ob ON ob.id = t.bot_id AND ob.user_id = {user} \
-           WHERE (x.key LIKE '{}%' OR (x.key LIKE '{}%' AND json_extract(x.value, '$.origin') = 'unproven')) AND t.exchange_id = {exchange} AND ({} OR {}))",
-        unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
-        sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
-    if waiting || settling(c, &ad)? || settling(c, &as_)? || recorder_waiting(c, cipher, &[rd, rs])? { return Err(Refusal::InFlight); }
+    if in_flight(c, cipher, user, &[rd, rs])? { return Err(Refusal::InFlight); }
     // Withdrawal keys: each live rule withdraws with its account's key as the withdrawal engine picks it
     // (`engine::model::withdrawal_key_id`); read now, and again on the merged key set below. D's rules step 5 drops beside
     // S's live one of their asset withdraw no more.
@@ -519,6 +507,32 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     }
     identity::reconsider(c, user, exchange, now)?;
     Ok(Some(Merged { duplicate: d, survivor: s, deleted_keys: deleted, kept_keys: kept }))
+}
+
+/// Whether anything of `accounts` is in flight: a queued or sending order (a bot's or a standalone one), a placed standalone
+/// order not found terminal, a withdrawal intent of its rules or keys, an unrecorded order still being recovered, a bot
+/// settling an order, or a recorder's withdrawal. Merge refuses on it; a key's replacement or removal too (#710 7a §1.1),
+/// so no settlement runs through another wallet's key.
+pub fn in_flight(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, accounts: &[AccountRow]) -> Result<bool, Refusal> {
+    let ids = accounts.iter().map(|a| a.id.to_string()).collect::<Vec<_>>().join(", ");
+    let all = |f: &dyn Fn(&Account) -> String| accounts.iter().map(|a| f(&a.account())).collect::<Vec<_>>().join(" OR ");
+    let bots = format!("(SELECT b.id FROM bots b WHERE {})", all(&|a| a.bots("b")));
+    let standalone = accounts.iter().map(|a| format!("EXISTS({})", unsettled_standalone(a.id))).collect::<Vec<_>>().join(" OR ");
+    let orders = accounts.iter().map(|a| a.venue_ids().orders("t")).collect::<Vec<_>>().join(" OR ");
+    let exchange = accounts.first().map_or(0, |a| a.exchange_id);
+    let waiting: bool = c.query_row(&format!(
+        "SELECT EXISTS(SELECT 1 FROM rust_api_orders o LEFT JOIN rust_api_order_standalone x ON x.order_id = o.id WHERE o.state IN ('queued', 'taken', 'sending') \
+           AND (x.account_id IN ({ids}) OR o.bot_id IN {bots})) \
+         OR {standalone} \
+         OR EXISTS(SELECT 1 FROM rust_withdrawal_intents i WHERE i.owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({ids})) \
+           OR i.api_key_id IN (SELECT k.id FROM api_keys k WHERE {})) \
+         OR EXISTS(SELECT 1 FROM app_configs x JOIN transactions t ON t.id = CAST(substr(x.key, instr(x.key, ':') + 1) AS INTEGER) \
+           JOIN bots ob ON ob.id = t.bot_id AND ob.user_id = {user} \
+           WHERE (x.key LIKE '{}%' OR (x.key LIKE '{}%' AND json_extract(x.value, '$.origin') = 'unproven')) AND t.exchange_id = {exchange} AND ({orders}))",
+        all(&|a| a.keys("k")), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN), [], |r| r.get(0))?;
+    if waiting { return Ok(true); }
+    for a in accounts { if settling(c, &a.account())? { return Ok(true); } }
+    recorder_waiting(c, cipher, accounts)
 }
 
 /// Whether a recorder's withdrawal intent is on one of `accounts`. Its account is its request's (user, exchange)'s number 1
