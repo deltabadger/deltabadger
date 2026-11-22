@@ -1960,10 +1960,10 @@ async fn v2_unrecorded_candidates_are_collected_per_v2_ownership_only() {
 }
 
 /// #710 7a §1.1, §9.2: 2.x replaced a fingerprinted account's key material in place. The takeover fences that key until a
-/// fresh identity read matches (from the first tick, before discovery runs) and drops every stored material digest, which
-/// the discovery job rebuilds; a key whose material 2.x left alone keeps its observation.
+/// fresh identity read matches (from the first tick, before discovery runs); a key whose material 2.x left alone keeps its
+/// observation. Rule R5: the stored material digests stay, so the next takeover compares again.
 #[test]
-fn takeover_fences_a_key_2x_replaced_in_place_and_drops_every_material_digest() {
+fn takeover_fences_a_key_2x_replaced_in_place_and_keeps_the_material_digests() {
     use deltabadger::identity;
     let dir = common::v2_install();
     let p = Paths::from_env(&|_| None, dir.path());
@@ -1991,6 +1991,6 @@ fn takeover_fences_a_key_2x_replaced_in_place_and_drops_every_material_digest() 
     let fenced = |id: i64| count(c, &format!("SELECT count(*) FROM api_keys k WHERE k.id = {id} AND {}", identity::fenced_sql(c, "k").unwrap())) == 1;
     assert!(fenced(s.api_key_id), "the replaced key places, withdraws and syncs nothing until it reads its account again");
     assert!(!fenced(reader), "a key 2.x left alone is not fenced");
-    assert_eq!(count(c, "SELECT count(*) FROM exchange_account_credentials WHERE material_digest IS NOT NULL"), 0, "every digest goes");
+    assert_eq!(count(c, "SELECT count(*) FROM exchange_account_credentials WHERE material_digest IS NOT NULL"), 2, "the digests stay for the next takeover");
 }
 fn count_text(c: &rusqlite::Connection, id: i64, column: &str) -> String { c.query_row(&format!("SELECT {column} FROM api_keys WHERE id = ?1"), [id], |r| r.get(0)).unwrap() }

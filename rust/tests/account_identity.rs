@@ -1322,3 +1322,16 @@ fn s7a_r4_balance_freshness_reads_the_key_that_can_sync() {
     assert!(!cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "the read-only key's complete read is current");
 }
 
+/// Rule R5 (Codex branch r3, identity.rs:1267/1276): a takeover compares each key's stored material with the digest it was
+/// read with and keeps the digests. Take over with A's key unchanged, hand back before discovery reads it again, let 2.x
+/// replace A's key with B's material in place, take over again: the key is fenced.
+#[test]
+fn s7a_r5_a_second_takeover_fences_a_key_2x_replaced_after_the_first() {
+    let (fx, key) = established();
+    let fenced = |c: &Connection| c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(c, "k").unwrap()), [key], |r| r.get::<_, bool>(0)).unwrap();
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(!fenced(&fx.c), "the first takeover: unchanged, not fenced");
+    fx.replace(key, "kc-b");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(fenced(&fx.c), "the second takeover sees the replacement");
+}
