@@ -1645,3 +1645,41 @@ async fn s7a_r2_a_refused_save_still_fences_the_copies_its_read_contradicts() {
     assert_eq!((identity::key_of(c, accounts[1], 2).unwrap(), material(held)), (Some(held), "key-b".to_string()), "account 2 keeps key-b");
     assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "both of account 1's copies are fenced");
 }
+
+/// Answers Alpaca's order read as filled and, as it answers, replaces the install's read-only key in place: another
+/// request settled the order and saved a new key while the delete's pre-flight read the venue.
+struct ReplaceWhileRead(std::path::PathBuf, i64);
+impl wiremock::Respond for ReplaceWhileRead {
+    fn respond(&self, _: &wiremock::Request) -> ResponseTemplate {
+        let c = Connection::open(&self.0).unwrap();
+        c.execute("UPDATE api_keys SET key = ?2, updated_at = 'later' WHERE id = ?1", rusqlite::params![self.1, seed::cipher().encrypt("replacement-key")]).unwrap();
+        ResponseTemplate::new(200).set_body_json(serde_json::json!({ "id": "x", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "buy", "qty": "0.001",
+            "notional": null, "filled_qty": "0.001", "filled_avg_price": "60000", "limit_price": null }))
+    }
+}
+
+/// Rule R6 (Codex branch r3, keys.rs:628/673), a single-account install: a key deletion takes its key's version before the
+/// standalone-order pre-flight reads the venue, and deletes only that version under the lock. A key replaced in place while
+/// the read was out is kept, and the delete asks to retry.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r6_a_delete_never_removes_a_key_replaced_while_its_preflight_read_the_venue() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, 'now', 'now')",
+              rusqlite::params![s.user_id, s.exchange_id, cipher.encrypt("first-key"), cipher.encrypt("s"), cipher.encrypt("paper")]).unwrap();
+    let read_only = c.last_insert_rowid();
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    let version = deltabadger::engine::model::credential_version_by_id(c, s.api_key_id).unwrap().unwrap().test_stamp().to_string();
+    c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, credential_version, created_at, send_by) \
+               VALUES (?1, NULL, 'buy', '0.001', 'base', '{}', 'done', '{\"kind\":\"placed\"}', ?2, '2026-09-20 10:00:00', '2026-09-20 10:01:00')", rusqlite::params![s.user_id, version]).unwrap();
+    let order = c.last_insert_rowid();
+    c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+               VALUES (?1, ?2, ?3, ?4, 'market', 'rest', 'ord-race', '{\"symbol\":\"BTC/USD\",\"side\":\"buy\",\"limit\":false}')", rusqlite::params![order, account, s.exchange_id, s.ticker_id]).unwrap();
+    Mock::given(method("GET")).and(path("/v2/orders/ord-race")).respond_with(ReplaceWhileRead(o.primary.path().unwrap().into(), read_only)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let removed = b.send(&app, "DELETE", &format!("/settings/destroy_api_key/{read_only}"), None, common::web::Csrf::Header, &[]).await;
+    assert_eq!(removed.status, 422, "{}", removed.body);
+    let kept: Option<String> = rusqlite::OptionalExtension::optional(c.query_row("SELECT key FROM api_keys WHERE id = ?1", [read_only], |r| r.get(0))).unwrap();
+    assert_eq!(kept.map(|k| cipher.decrypt(&k).unwrap()).as_deref(), Some("replacement-key"), "the replacement stays");
+}

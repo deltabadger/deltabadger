@@ -247,7 +247,7 @@ pub async fn destroy(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let exchange = key.as_ref().map(|key| key.exchange);
     if let Some(key) = key {
         let inner = app.clone();
-        let outcome = app.db(move |c| keys::remove(c, &inner, user.id, key.id, |_| Ok(()))).await?;
+        let outcome = app.db(move |c| keys::remove(c, &inner, user.id, key.id, None, |_| Ok(()))).await?;
         if let Some(Err(reason)) = outcome {
             flash::set(&ctx.session, flash::ALERT, keys::refusal_text(&ctx, &reason));
             // Refused, the key kept: the sheet again, the reason in it.

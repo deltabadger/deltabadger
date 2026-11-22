@@ -638,13 +638,17 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     else {
         return Ok(crate::web::layout::missing());
     };
-    let exchange:Option<i64>=app.db(move|c|Ok(c.query_row("SELECT exchange_id FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id),|r|r.get(0)).optional()?)).await?;
-    if let Some(exchange)=exchange {settle_standalone(&app,user.id,exchange).await?;}
+    // #710 7a rule R6: the key's version before the standalone pre-flight reads the venue; only that version is deleted.
+    let found:Option<(i64,Stored)>=app.db(move|c|{
+        let exchange:Option<i64>=c.query_row("SELECT exchange_id FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id),|r|r.get(0)).optional()?;
+        Ok(match exchange {Some(exchange)=>Some((exchange,stored_ciphertext(c,id)?)),None=>None})
+    }).await?;
+    let expected=match found {Some((exchange,stored))=>{settle_standalone(&app,user.id,exchange).await?;Some(stored)},None=>None};
     let inner = app.clone();
     let v = ctx.clone();
     let csrf = ctx.csrf_token();
     let outcome=app.db(move|c|{
-  remove(c,&inner,user.id,id,|tx|list(tx,&v,&csrf,user.id))
+  remove(c,&inner,user.id,id,expected.as_ref(),|tx|list(tx,&v,&csrf,user.id))
  }).await?;
     match outcome {
         None => Ok(crate::web::layout::missing()),
@@ -671,10 +675,15 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
 /// on its account stopped first when it trades, its ledger rows kept (unlinked), its account identity and IBKR binding dropped.
 /// `then` runs inside the transaction after the delete, before the commit. None when the user has no such key (or one whose
 /// account resolves to none); refused with nothing written while a bot of the account settles an order, or when the
-/// eligibility guard objects.
-pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: impl FnOnce(&Connection) -> Result<T, WebError>) -> Result<Option<Result<T, String>>, WebError> {
+/// eligibility guard objects. `expected`: the key's version the request saw before any venue read; a key replaced since
+/// (another request saved a new one in place) is kept and the delete refused to retry (#710 7a rule R6).
+pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, expected: Option<&Stored>,
+                        then: impl FnOnce(&Connection) -> Result<T, WebError>) -> Result<Option<Result<T, String>>, WebError> {
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let kind:Option<i64>=tx.query_row("SELECT key_type FROM api_keys WHERE id=?1 AND user_id=?2",(id,user),|r|r.get(0)).optional()?;let Some(kind)=kind else{return Ok(None);};
+  if let Some(expected)=expected {
+   if &stored_ciphertext(&tx,id)?!=expected {return Ok(Some(Err("credential changed during validation".into())));}
+  }
   // Before the delete: the key's account is read through its row.
   let Some(account)=Account::of_key(&tx,id)? else{return Ok(None);};
   if let Some(r)=settling(&tx,&inner.cipher,&account)? { return Ok(Some(Err(r.into()))); }
@@ -695,6 +704,10 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   if let (Some(k),Ok(jobs))=(reader,inner.job_wakers()){jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&k.to_string()),None);}
   Ok(Some(Ok(out)))
 }
+
+/// A key row's stored ciphertext, every encrypted column: any save of the slot changes it (#710 7a rule R6).
+pub(crate) type Stored = [Option<String>; 7];
+fn stored_ciphertext(c: &Connection, id: i64) -> Result<Stored, WebError> { Ok(crate::sync::credential_columns(c, id)?) }
 
 /// `legacy`'s answers to a pick (§4.2): an account not the user's live one of this exchange, and which account.
 const MISSING: &str = "\0account not found";
