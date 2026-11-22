@@ -967,3 +967,18 @@ async fn a_partly_routed_csv_imports_the_rest_and_names_the_accounts_it_left_out
     assert_eq!(rows_on(c, first), last as i64, "account 1's rows imported");
     assert!(done.body.contains(&format!("No account connected for: {name} 2. Those rows were left out.")), "{}", done.body);
 }
+
+/// §3, D-TRACKER-EMPTY-IMPORT: the empty tracker's welcome screen offers Import beside Connect, so a user with no key can
+/// start from a venue's export (the import makes the keyless account).
+#[tokio::test(flavor = "current_thread")]
+async fn the_empty_tracker_offers_import_beside_connect() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    c.execute_batch("DELETE FROM exchange_account_keys; DELETE FROM api_keys;").unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let page = b.get(&app, "/tracker").await;
+    assert_eq!(page.status, 200);
+    assert!(page.body.contains("<div class=\"welcome-screen\">"), "{}", page.body);
+    assert!(!links(&page.body, "/tracker/pick_exchange/new").is_empty(), "Connect: {}", page.body);
+    assert_eq!(links(&page.body, "/tracker/import/new").len(), 1, "Import: {}", page.body);
+}
