@@ -8,6 +8,7 @@ sk:
             duplicate_html: "%{duplicate} je ten istý účet na burze ako %{survivor}."
             key_elsewhere_html: "Tento kľúč patrí k účtu %{account}. %{target} sa nezmenil."
             identity_unconfirmed: "Nepodarilo sa overiť, ku ktorému účtu tento kľúč patrí. Skúste to znova."
+            key_reads_elsewhere: "Tento kľúč otvára iný účet na burze ako tento, preto sa tu neuložil. Uložte kľúč tohto účtu."
             key_order_waits: "Otvorený príkaz stále používa aktuálny kľúč. Zruš ho alebo počkaj, kým sa vyplní, a skús to znova."
             key_withdrawal_waits: "Výber stále používa aktuálny kľúč. Počkaj, kým sa dokončí, a skús to znova."
             ibkr_other_account: "Toto prihlásenie do IBKR otvára iný účet než ten, ktorý tu bol pripojený predtým. Prihlás sa do toho účtu a pripoj ho znova."

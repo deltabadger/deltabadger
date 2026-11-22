@@ -34,6 +34,8 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
 /// #710 7a: an identity venue's account read failed or was masked, and the key could land on the wrong account.
 pub const UNCONFIRMED: &str = "\u{0}identity_unconfirmed";
+/// The JSON save of an account's own key again, whose fresh read says it opens another account (#710 7a).
+pub const KEY_READS_ELSEWHERE: &str = "\u{0}key_reads_elsewhere";
 /// D-KEY-REPLACE-WAITS: an open order or a withdrawal still goes through the key being replaced or removed.
 pub const ORDER_WAITS: &str = "\u{0}key_order_waits";
 pub const WITHDRAWAL_WAITS: &str = "\u{0}key_withdrawal_waits";
@@ -751,6 +753,13 @@ pub async fn legacy(
     // #710 7a (D-JSON-KEY-IDENTITY): an identity venue's key is read for its account first (the permission check stays
     // asynchronous), so the save routes like every other.
     let venue_type:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
+    // As the form save (`submit_candidate`): the named account's slot and every live account's of this type, before the
+    // identity read; the slot the save writes must still be as it was under the write lock.
+    let snap_app=app.clone();
+    let snapshot=app.db(move|c|{
+        let named=match crate::identity::pick(c,user.id,exchange,posted_account)? {crate::identity::Pick::One(a)=>Some(slot(&Key::read(c,&snap_app,a,kind)?)),_=>None};
+        Ok((named,slots(c,&snap_app,user.id,exchange,kind)?))
+    }).await?;
     let material=crate::crypto::Credentials{redaction_values:vec![],key:key.clone().unwrap_or_default(),secret:secret.clone().unwrap_or_default(),passphrase:passphrase.clone(),ibkr:None};
     let observed=match venue_type.as_deref().filter(|t|crate::identity::VENUES.contains(t)) {
         Some(venue) if key.is_some() => json_identity(&app,venue,&material).await?,
@@ -774,14 +783,22 @@ pub async fn legacy(
   // #710 7a (§1.1): the named account is the target; the key goes where `route_key` routes it. The named account's own
   // key posted again is that key (a status reset), whatever the read says.
   let named=Key::read(&tx,&inner,account,kind)?;
+  let reposted=same(&named.key,&key)&&same(&named.secret,&secret);
   let mut read=None;
-  let account=if venue==crate::venue::ibkr::IBKR||(same(&named.key,&key)&&same(&named.secret,&secret)) {account} else {
-   let reading=match (crate::identity::VENUES.contains(&venue.as_str()),&observed) {
-    (false,_)=>crate::identity::Reading::NotAnIdentityVenue,
-    (true,Some(crate::identity::Observed::Read(id)))=>{read=Some(id.clone());crate::identity::Reading::Read(id)},
-    (true,_)=>crate::identity::Reading::Unread,
-   };
+  let reading=match (crate::identity::VENUES.contains(&venue.as_str()),&observed) {
+   (false,_)=>crate::identity::Reading::NotAnIdentityVenue,
+   (true,Some(crate::identity::Observed::Read(id)))=>{read=Some(id.clone());crate::identity::Reading::Read(id)},
+   (true,_)=>crate::identity::Reading::Unread,
+  };
+  // The named account's own key posted again is that key (a status reset), unless a fresh read says it opens another
+  // account: then that read is recorded on it (fencing it, §9.1) and nothing is saved.
+  let account=if venue==crate::venue::ibkr::IBKR||(reposted&&read.is_none()) {account} else {
    let dest=match crate::identity::route_key(&tx,&inner.cipher,user.id,exchange,&venue,kind,account.id,&reading,&material,None,inner.now()).map_err(WebError::Config)? {
+    crate::identity::Route::To(id) if !reposted||Some(id)==account.id=>id,
+    crate::identity::Route::To(_)|crate::identity::Route::New if reposted=>{
+     if let (Some(id),Some(read))=(named.id,&read) {crate::identity::record_copy(&tx,&inner.cipher,id,&venue,read,inner.now()).map_err(WebError::Config)?;}
+     tx.commit()?;return Ok(Err(Some(KEY_READS_ELSEWHERE.into())));
+    }
     crate::identity::Route::To(id)=>id,
     crate::identity::Route::New=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
     crate::identity::Route::Unconfirmed=>return Ok(Err(Some(UNCONFIRMED.into()))),
@@ -789,6 +806,11 @@ pub async fn legacy(
    Account::by_id(&tx,dest)?.ok_or_else(||WebError::Config("routed account missing".into()))?.ensure(&tx,inner.now())?
   };
   let current=Key::read(&tx,&inner,account,kind)?;
+  let before=if account.id==named.account.id {snapshot.0.clone().unwrap_or(None)} else {snapshot.1.iter().find(|(a,_)|Some(*a)==account.id).map(|(_,s)|s.clone()).unwrap_or(None)};
+  if slot(&current)!=before&&!current.id.is_some_and(|k|crate::identity::is_material(&tx,&inner.cipher,k,&venue,&material)) {
+   // Replaced (or added) by another request while this one read the key's account: retried, never overwritten.
+   return Ok(Err(Some("credential changed during validation".into())));
+  }
   if current.id.is_some() { if let Some(r)=settling(&tx,&inner.cipher,&account)? { return Ok(Err(Some(r.to_string()))); } }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);
   if venue=="Exchanges::Hyperliquid"{
@@ -832,7 +854,7 @@ pub async fn legacy(
         Ok(()) => (StatusCode::CREATED, serde_json::json!({"data":true})),
         Err(None) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false})),
         // An exchange with 2+ live accounts and no account named: which one, in the services' words (§4.2).
-        Err(Some(reason)) if reason==UNCONFIRMED => (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
+        Err(Some(reason)) if reason==UNCONFIRMED||reason==KEY_READS_ELSEWHERE => (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
         Err(Some(reason)) if reason.starts_with(AMBIGUOUS) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":&reason[AMBIGUOUS.len()..]})),
         Err(Some(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
     };

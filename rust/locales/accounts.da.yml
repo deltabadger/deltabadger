@@ -8,6 +8,7 @@ da:
             duplicate_html: "%{duplicate} er den samme børskonto som %{survivor}."
             key_elsewhere_html: "Denne nøgle hører til %{account}. %{target} blev ikke ændret."
             identity_unconfirmed: "Vi kunne ikke bekræfte, hvilken konto denne nøgle hører til. Prøv igen."
+            key_reads_elsewhere: "Denne nøgle åbner en anden konto på børsen end denne, så den blev ikke gemt her. Gem denne kontos egen nøgle."
             key_order_waits: "En åben ordre bruger stadig den nuværende nøgle. Annullér den eller vent, til den er gennemført, og prøv så igen."
             key_withdrawal_waits: "En udbetaling bruger stadig den nuværende nøgle. Vent, til den er gennemført, og prøv så igen."
             ibkr_other_account: "Dette IBKR-login åbner en anden konto end den, der var forbundet her før. Log ind med den konto for at forbinde den igen."

@@ -8,6 +8,7 @@ pl:
             duplicate_html: "%{duplicate} to to samo konto na giełdzie co %{survivor}."
             key_elsewhere_html: "Ten klucz należy do %{account}. %{target} nie zostało zmienione."
             identity_unconfirmed: "Nie udało się potwierdzić, do którego konta należy ten klucz. Spróbuj ponownie."
+            key_reads_elsewhere: "Ten klucz otwiera inne konto na giełdzie niż to, więc nie został tu zapisany. Zapisz klucz tego konta."
             key_order_waits: "Otwarte zlecenie nadal korzysta z obecnego klucza. Anuluj je albo poczekaj na jego realizację, a potem spróbuj ponownie."
             key_withdrawal_waits: "Wypłata nadal korzysta z obecnego klucza. Poczekaj, aż się zakończy, a potem spróbuj ponownie."
             ibkr_other_account: "To logowanie IBKR otwiera inne konto niż to, które było tu wcześniej połączone. Zaloguj się na tamto konto, aby połączyć je ponownie."

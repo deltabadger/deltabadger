@@ -1078,3 +1078,58 @@ async fn a_csv_export_restores_on_another_install_by_account_number() {
     assert!(imported(&done), "{}: {}\n{}", done.status, done.body, export.body);
     assert_eq!([rows_on(c2, first), rows_on(c2, second)], [held[0], held[1]], "each row on its number: {}", export.body);
 }
+
+/// A JSON save (`POST /api/api_keys`) of `fields` (with `kucoin_fields`'s secret and passphrase) for `account`'s read-only slot.
+async fn json_save(app: &deltabadger::web::App, b: &mut common::web::Browser, exchange: i64, account: i64, key: &str) -> common::web::Answer {
+    let (exchange, account) = (exchange.to_string(), account.to_string());
+    let form = [("api_key[exchange_id]", exchange.as_str()), ("api_key[account_id]", account.as_str()), ("api_key[key_type]", "read_only"),
+                ("api_key[key]", key), ("api_key[secret]", "secret"), ("api_key[passphrase]", "phrase")];
+    b.send(app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await
+}
+
+/// Codex branch r1 (keys.rs:756): the JSON save fences its destination as the form does. A key of account 2 posted for
+/// account 1 is still being read when another request replaces account 2's key: the slot is no longer what it was before
+/// the read, so the delayed save is refused to retry and never overwrites the newer key.
+#[tokio::test(flavor = "current_thread")]
+async fn a_delayed_json_save_never_overwrites_a_key_replaced_while_it_read_the_account() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    let key_b = identity::key_of(c, accounts[1], 2).unwrap().unwrap();
+    let db = c.path().unwrap().to_string();
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-b2")).respond_with(move |_: &wiremock::Request| {
+        let other = Connection::open(&db).unwrap();
+        let cipher = seed::cipher();
+        identity::write_credential(&other, &cipher, key_b, Some(&cipher.encrypt("key-b3")), Some(&cipher.encrypt("secret")), Some(&cipher.encrypt("phrase")), chrono::Utc::now()).unwrap();
+        ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_B, "permission":"General,Spot"}}))
+    }).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let answer = json_save(&app, &mut b, exchange, accounts[0], "key-b2").await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("credential changed during validation"), "{}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b3".into())], "the newer key stays");
+}
+
+/// Codex branch r1 (keys.rs:778): account 1's own key posted again through the JSON save, whose fresh read now names account
+/// 2: the read is recorded (account 1's key is fenced, §9.1) and the save answers that the key opens another account,
+/// never a 201 status reset. Nothing is saved.
+#[tokio::test(flavor = "current_thread")]
+async fn a_json_repost_whose_read_names_another_account_records_it_and_is_refused() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    let key_a = identity::key_of(c, accounts[0], 2).unwrap().unwrap();
+    let fenced = |c: &Connection| one::<bool>(c, &format!("SELECT {} FROM api_keys k WHERE k.id = {key_a}", identity::fenced_sql(c, "k").unwrap()));
+    assert!(!fenced(c));
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_B, "permission":"General,Spot"}})))
+        .with_priority(1).mount(&server).await;
+    let answer = json_save(&app, &mut b, exchange, accounts[0], "key-a").await;
+    assert_eq!(answer.status, 409, "{}", answer.body);
+    assert!(answer.body.contains("This key opens a different exchange account than this one"), "{}", answer.body);
+    assert!(fenced(c), "the read naming account 2 is recorded on account 1's key");
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())], "nothing saved");
+}
