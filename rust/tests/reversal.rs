@@ -666,3 +666,27 @@ async fn s7a_r1_a_fenced_key_sends_no_reversal_cancel() {
     assert!(v.sent().is_empty());
     assert_eq!(reversal::work(&bot(&e.primary, id)).1, vec![tx], "the cancel waits");
 }
+
+/// Rule S1 (Codex branch r4, venue.rs:221): the fence is read when a request is sent, not when the handle is built. A
+/// handle built before discovery commits the fence (here: while the reversal's account-mode read is out) sends no cancel.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s1_a_key_fenced_after_its_handle_was_built_sends_no_reversal_cancel() {
+    let v = priced();
+    let (d, mut e, id, s) = engine(buyer(), v.clone());
+    let tx = open_buy(&e.primary, &s, id, "OBUY");
+    assert!(matches!(reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z"), Reversal::Reversed));
+    let c = &e.primary;
+    let key: i64 = c.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
+    let account = deltabadger::identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, t("2026-09-03T12:00:00Z")).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    let primary = Paths::from_env(&|_| None, d.path()).primary;
+    let exchange = s.exchange_id;
+    let v = v.order("OBUY", kraken_cancelled("0", "0")).on_mode(move || {
+        let c = rusqlite::Connection::open(&primary).unwrap();
+        c.execute("INSERT OR IGNORE INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-03 12:00:00')", rusqlite::params![key, exchange]).unwrap();
+    });
+    let _ = run::step(&mut e, &at("2026-09-03T12:00:01Z")).await;
+    let _ = run::step(&mut e, &at("2026-09-03T12:10:00Z")).await;
+    assert_eq!(v.calls("/0/private/CancelOrder"), 0, "no cancel through a key fenced after its handle was built");
+    assert_eq!(reversal::work(&bot(&e.primary, id)).1, vec![tx], "the cancel waits");
+}

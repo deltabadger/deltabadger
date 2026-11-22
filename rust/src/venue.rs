@@ -208,20 +208,42 @@ pub struct PlacementHold {
 /// The raw transport is private: production consumers use the attributed methods below.
 /// #710 7a rule R1: a handle built for a key found to open another account (`model::key_reads_its_account`) sends nothing:
 /// every call answers `FENCED` before any request. A key's identity read and its validation never go through a handle.
-pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion>, fenced:bool }
+/// Rule S1: the fence is read again when each request is sent (`Fence::Live`: the install's database, read afresh), so a
+/// fence committed after the handle was built stops the next request.
+pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion>, fence:Fence }
+/// How a handle knows its key's fence: not checked (no producer, or a handle wrapping one that checks), fenced at build, or
+/// read from the database file at `path` before every request (an in-memory database is checked at build only).
+enum Fence { Open, Fenced, Live(String) }
 /// The refusal of every call through a fenced handle.
 pub const FENCED: &str = "the API key reads another account";
 impl<V:Venue> Handle<V> {
     pub(crate) fn new(venue:V,producer:Option<crate::engine::model::CredentialVersion>)->Self {
         let producer = venue.producer().or(producer);
-        Self{venue,producer,fenced:false}
+        Self{venue,producer,fence:Fence::Open}
     }
-    /// This handle, fenced when its producer's key reads another account now.
+    /// This handle, fenced when its producer's key reads another account now, and checked again before every request.
     pub(crate) fn fenced_by(mut self,c:&rusqlite::Connection)->Result<Self,crate::engine::EngineError>{
-        if let Some(version)=&self.producer { self.fenced = !crate::engine::model::key_reads_its_account(c,version)?; }
+        if let Some(version)=&self.producer {
+            self.fence = if !crate::engine::model::key_reads_its_account(c,version)? { Fence::Fenced }
+                         else { c.path().filter(|p| !p.is_empty()).map_or(Fence::Open, |p| Fence::Live(p.to_string())) };
+        }
         Ok(self)
     }
-    fn gate(&self)->Result<(),VenueError>{ if self.fenced { Err(VenueError::Transient(FENCED.into())) } else { Ok(()) } }
+    fn gate(&self)->Result<(),VenueError>{
+        let fenced = || Err(VenueError::Transient(FENCED.into()));
+        match (&self.fence, &self.producer) {
+            (Fence::Fenced, _) => fenced(),
+            (Fence::Live(path), Some(version)) => {
+                // A read that cannot be made sends nothing either: the request waits for the next attempt.
+                let reads = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
+                    .and_then(|c| { c.busy_timeout(std::time::Duration::from_secs(5))?; Ok(c) })
+                    .map_err(crate::engine::EngineError::from)
+                    .and_then(|c| crate::engine::model::key_reads_its_account(&c, version));
+                if reads.unwrap_or(false) { Ok(()) } else { fenced() }
+            }
+            _ => Ok(()),
+        }
+    }
     /// Tests only: a venue that carries its own producer (a KuCoin venue with account context), so no answer is attributed
     /// to anything but the credentials it captured.
     #[doc(hidden)]
