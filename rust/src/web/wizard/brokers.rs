@@ -33,9 +33,25 @@ fn brokers(c: &Connection, config: Option<&Value>) -> Result<Vec<(i64, String)>,
 #[template(path = "wizard/pick_stock_broker.html")]
 struct New { table: Table }
 
-fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, String)>) -> Result<String, WebError> {
+/// #710 7a §2: the broker's tiles, one per usable account (a correct trading key) when it has two; one plain tile otherwise,
+/// carrying its account only when that one is numbered (2+ live accounts), so a single-account broker keeps 2.x's tile.
+pub fn tiles(c: &Connection, user: i64, broker: i64) -> rusqlite::Result<Vec<(Option<i64>, Option<i64>)>> {
+    let usable: Vec<_> = super::exchanges::connected(c, user, &[0])?.into_iter().filter(|o| o.exchange == broker).collect();
+    Ok(match usable.as_slice() {
+        [one] if one.number.is_some() => vec![(one.account, one.number)],
+        [] | [_] => vec![(None, None)],
+        many => many.iter().map(|o| (o.account, o.number)).collect(),
+    })
+}
+
+fn page(c: &Connection, ctx: &Ctx, user: i64, config: Option<&Value>, brokers: Vec<(i64, String)>) -> Result<String, WebError> {
     let order = StepOrder::new(BotType::Multi, current_variant(config));
-    let venues = brokers.into_iter().map(|(id, class)| Venue { id, account: None, number: None, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false }).collect();
+    let mut venues = vec![];
+    for (id, class) in brokers {
+        for (account, number) in tiles(c, user, id)? {
+            venues.push(Venue { id, account, number, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false });
+        }
+    }
     let table = Table { action: ctx.path("/bots/dca_multi_assets/pick_stock_broker"), csrf: ctx.csrf_token(), param_name: FIELD.into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
     // 2.x draws no sentence here: the track says where the flow stands and does nothing (D-WIZARD-TRACK r5).
@@ -45,7 +61,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, St
 }
 
 /// What the step answers, decided with the session as it stands.
-enum Answer { Repick, Page(String, Shell), Chosen(i64, Option<i64>) }
+enum Answer { Repick, Missing, Page(String, Shell), Chosen(i64, Option<i64>, super::Picked) }
 
 async fn answer(app: &App, ctx: &Ctx, chosen: Option<String>) -> Result<Answer, WebError> {
     let user = ctx.user().cloned().ok_or_else(|| WebError::Config("the broker step without a user".into()))?;
@@ -56,9 +72,10 @@ async fn answer(app: &App, ctx: &Ctx, chosen: Option<String>) -> Result<Answer, 
         let brokers = brokers(c, config.as_ref())?;
         if chosen.is_none() && brokers.is_empty() { return Ok(Answer::Repick) }
         if let Some(id) = chosen.as_deref().and_then(|wanted| brokers.iter().find(|(id, _)| id.to_string() == wanted).map(|(id, _)| *id)) {
-            return Ok(Answer::Chosen(id, super::usd_asset(c)?));
+            let Some(picked) = super::picked(c, &view, user.id, id)? else { return Ok(Answer::Missing) };
+            return Ok(Answer::Chosen(id, super::usd_asset(c)?, picked));
         }
-        Ok(Answer::Page(page(c, &view, config.as_ref(), brokers)?, Shell::load(c, &inner, &user)?))
+        Ok(Answer::Page(page(c, &view, user.id, config.as_ref(), brokers)?, Shell::load(c, &inner, &user)?))
     }).await
 }
 
@@ -80,18 +97,19 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     match answer(&app, &ctx, Some(chosen)).await? {
         Answer::Repick => Ok(layout::redirect(StatusCode::FOUND, &ctx.path(REPICK))),
         Answer::Page(body, shell) => shell::application(&ctx, &ctx.csrf_token(), &user, &shell, Page { status: StatusCode::UNPROCESSABLE_ENTITY, body, flash_now: vec![] }),
-        Answer::Chosen(broker, usd) => {
-            finalize(ctx.session.lock().bot_config.get_or_insert_with(|| json!({})), broker, usd);
+        Answer::Missing => Ok(layout::missing()),
+        Answer::Chosen(broker, usd, picked) => {
+            finalize(ctx.session.lock().bot_config.get_or_insert_with(|| json!({})), broker, usd, picked);
             Ok(layout::redirect(StatusCode::FOUND, &ctx.path("/bots/dca_multi_assets/add_api_key/new")))
         }
     }
 }
 
 /// Bots::StockBrokerRoutable#finalize_stock_broker!: the broker's id, and the USD quote deep-merged into the settings.
-pub fn finalize(config: &mut Value, broker: i64, usd: Option<i64>) {
+pub fn finalize(config: &mut Value, broker: i64, usd: Option<i64>, picked: super::Picked) {
     if !config.is_object() { *config = json!({}); }
     config["exchange_id"] = json!(broker);
-    super::keep_pick(config, super::Picked::Legacy);
+    super::keep_pick(config, picked);
     if let Some(usd) = usd {
         let settings = &mut config["settings"];
         if !settings.is_object() { *settings = json!({}); }

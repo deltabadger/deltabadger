@@ -704,3 +704,40 @@ async fn a_withdrawal_confirmation_from_another_tab_makes_no_rule() {
     assert_eq!(stale.status, 409, "{}", stale.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_rules"), 0, "no rule");
 }
+
+/// §2 stock basket: the sole broker listing the basket has two usable accounts, so the asset step does not take its shortcut;
+/// the broker step draws one tile per account (corner numbers), and the bot is made on the picked one, account 2's key read.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stock_basket_on_a_broker_with_two_accounts_asks_which_and_makes_its_bot_there() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let pair = serde_json::json!({ "base_decimals": 9, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.000027", "minimum_quote_size": "1" });
+    let (stock, _) = seed::add_alpaca_crypto(c, &s, "AAPL", &pair);
+    c.execute("UPDATE assets SET category = 'Stock' WHERE id = ?1", [stock]).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    assert_eq!(accounts.len(), 2);
+    b.get(&app, "/bots/new").await;
+    b.send(&app, "POST", "/bots/dca_single_assets/order", Some(&[("flow", "asset_first")]), common::web::Csrf::Header, &[]).await;
+    let stock_s = stock.to_string();
+    b.send(&app, "POST", "/bots/dca_single_assets/pick_buyable_asset", Some(&[("bots_dca_single_asset[base_asset_id]", stock_s.as_str())]), common::web::Csrf::Header, &[]).await;
+    let advanced = b.send(&app, "POST", "/bots/dca_single_assets/pick_buyable_asset/advance", Some(&[]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(location(&advanced), "/bots/dca_multi_assets/pick_stock_broker/new", "two accounts: no shortcut");
+    let step = b.get(&app, "/bots/dca_multi_assets/pick_stock_broker/new").await;
+    assert_eq!(step.status, 200);
+    for account in &accounts { assert!(step.body.contains(&format!("pick_stock_broker?account_id={account}\"")), "a tile for account {account}: {}", step.body); }
+    assert!(step.body.contains("<sup class=\"exchange-grid__account\">2</sup>"), "{}", step.body);
+    let exchange = s.exchange_id.to_string();
+    // A forged account is a 404.
+    let forged = b.send(&app, "POST", "/bots/dca_multi_assets/pick_stock_broker?account_id=999999", Some(&[("bots_dca_multi_asset[exchange_id]", exchange.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(forged.status, 404);
+    let path = format!("/bots/dca_multi_assets/pick_stock_broker?account_id={}", accounts[1]);
+    assert_eq!(b.send(&app, "POST", &path, Some(&[("bots_dca_multi_asset[exchange_id]", exchange.as_str())]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(b.get(&app, "/bots/dca_multi_assets/add_api_key/new").await.status, 302, "account 2's key is correct");
+    let quote = s.quote.to_string();
+    let made = b.send(&app, "POST", "/bots/dca_multi_assets/pick_spendable_asset", Some(&[("bots_dca_multi_asset[quote_asset_id]", quote.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert!(made.status < 400, "{}: {}", made.status, made.body);
+    let bot: i64 = one(c, "SELECT max(id) FROM bots");
+    assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(accounts[1]), "the bot trades on the picked account");
+}

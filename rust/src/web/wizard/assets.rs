@@ -208,7 +208,7 @@ pub async fn remove(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
 }
 
 /// Where `advance` goes, decided with the session as it stood.
-enum Exit { To(&'static str), NoCommonExchange, Broker(Option<(i64, Option<i64>)>, &'static str) }
+enum Exit { To(&'static str), NoCommonExchange, Broker(Option<(i64, Option<i64>, super::Picked)>, &'static str) }
 
 /// POST .../pick_buyable_asset/advance: the one way out of the step, committing the basket in its canonical shape first. The
 /// exchange chip (`to=exchange`) goes to the exchange step; Next to the first step of the order still missing input, a stock
@@ -237,7 +237,11 @@ pub async fn advance(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> 
             let brokers = stock_brokers(c, &basket, usd)?;
             if !basket.exchange_id.is_some_and(|id| brokers.contains(&id)) {
                 return Ok(match brokers.as_slice() {
-                    [one] => Exit::Broker(Some((*one, usd)), "/bots/dca_multi_assets/add_api_key/new"),
+                    // #710 7a §2: the shortcut only while the broker has one usable account (its tile then names it, if numbered).
+                    [one] => match super::brokers::tiles(c, user.id, *one)?.as_slice() {
+                        [(account, _)] => Exit::Broker(Some((*one, usd, account.map_or(super::Picked::Legacy, super::Picked::Account))), "/bots/dca_multi_assets/add_api_key/new"),
+                        _ => Exit::Broker(None, "/bots/dca_multi_assets/pick_stock_broker/new"),
+                    },
                     [] => Exit::Broker(None, NEW),
                     _ => Exit::Broker(None, "/bots/dca_multi_assets/pick_stock_broker/new"),
                 });
@@ -257,7 +261,7 @@ pub async fn advance(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> 
             let config = data.bot_config.get_or_insert_with(|| json!({}));
             match chosen {
                 // finalize_stock_broker!: the one broker and the USD quote default.
-                Some((broker, usd)) => super::brokers::finalize(config, broker, usd),
+                Some((broker, usd, picked)) => super::brokers::finalize(config, broker, usd, picked),
                 None => if let Some(entries) = config.as_object_mut() { entries.remove(EXCHANGE_KEY[0]); },
             }
             drop(data);
