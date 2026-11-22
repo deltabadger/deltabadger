@@ -219,13 +219,15 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         sm.raw = if sm.raw.is_none() || (!sm.synced && dm.synced) { dm.raw.clone() } else { None };
         sm.asset = if sm.asset.is_none() { dm.asset } else { None };
         sm.description = if sm.description.is_none() { dm.description.clone() } else { None };
-        // A group: D's where S's row has none and no other S row uses it (the group is S's then); two groups are a conflict.
+        // A group: D's where S's row has none and no other row reads its key on S (the group is S's then), by the same key
+        // as a moved row's; two groups are a conflict.
         sm.group = match (&sm.group, &dm.group) {
             (Some(a), Some(b)) => { if a != b { clash = true; } None }
             (None, Some(g)) => {
-                let used: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND a.group_id = ?3)", ss.rows("a")),
-                                             params![ss.user_id, ss.exchange_id, g], |r| r.get(0))?;
-                if used { clash = true; None } else { Some(g.clone()) }
+                match composed(Some(g.clone()), ss.member).and_then(|key| taken.get(&key).copied()) {
+                    Some(theirs) => { conflicts.push(named(c, theirs)?); clash = true; None }
+                    None => Some(g.clone()),
+                }
             }
             _ => None,
         };

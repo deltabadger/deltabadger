@@ -3751,3 +3751,29 @@ fn r19_the_class_set_reads_a_duplicates_balances() {
     let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::walk::Summary::empty(), &balances, &[], &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
     assert!(out.is_err(), "ambiguous");
 }
+
+// ---- slice 7a §0: 6b follow-ups ----
+
+/// 7a §0.1: a kept twin that INHERITS the duplicate's group is checked by the same group key as a moved row: account 3's
+/// `swap` on the twin of account 2's row reads as 2's `swap`, which account 1's restored group already is.
+#[test]
+fn s7_0_1_an_inherited_group_is_checked_like_a_moved_one() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a3, k3) = account_numbered(c, &two, 3);
+    for (n, fp) in [(0, "other"), (1, "fp")] { two.fingerprint(c, n, Some(fp)); }
+    common::two_accounts::confirm(c, a3, Some("fp"));
+    assert_eq!(standings(c), [(a3, two.id(1))]);
+    two.row(c, 0, 2, "BTC", "1", Some("r-1"), Some(&format!("swap@{}", two.id(1))), "2026-09-01 10:00:00");
+    // The survivor's (2's) row, no group; its twin on 3 carries `swap`.
+    let kept = two.row(c, 1, 2, "ETH", "1", Some("s-1"), None, "2026-09-10 10:00:00");
+    synced(c, kept);
+    c.execute("UPDATE account_transactions SET raw_data = json_object('refid', 's-1') WHERE id = ?1", [kept]).unwrap();
+    let scope = deltabadger::venue_ids::Scope::of(c, &identity::Account::by_id(c, a3).unwrap().unwrap()).unwrap();
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, group_id, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, 2, 'ETH', '1', ?4, '2026-09-10 10:00:00', json_object('refid', 's-1'), '{}', 0, 'swap', '2026-09-10 10:00:00', '2026-09-10 10:00:00')",
+              rusqlite::params![two.seeded.user_id, k3, two.seeded.exchange_id, scope.stored(Some("s-1"))]).unwrap();
+    deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
+    match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+}
