@@ -6,14 +6,22 @@ pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
     // #710 slice 5: no balances of an account without a key.
     Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM api_keys k LEFT JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND (e.type IS NULL OR e.type!='Exchanges::Alpaca' OR COALESCE(k.status,-1)!=1 OR COALESCE(k.key_type,-1) NOT IN(0,2) OR COALESCE(k.last_sync_error,'')!=''))
-    AND (SELECT COUNT(DISTINCT exchange_id) FROM api_keys WHERE user_id=?1)=1
+    AND {}
     AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?2)
     AND EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
     AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1 AND account_id NOT IN(SELECT {} FROM api_keys k WHERE k.user_id=?1))",
-    if crate::identity::numbered(c)? {format!("COALESCE({}, -k.exchange_id)",crate::identity::key_account_sql("k"))} else {"-k.exchange_id".into()}),rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
+    one_account(c)?,key_account(c)?),rusqlite::params![owner,crate::tracker::cache::key(owner)],|r|r.get(0))?)
+}
+/// SQL: key row `k`'s account (an install without the account tables: its exchange, one account each).
+fn key_account(c:&Connection)->rusqlite::Result<String>{
+    Ok(if crate::identity::numbered(c)? {format!("COALESCE({}, -k.exchange_id)",crate::identity::key_account_sql("k"))} else {"-k.exchange_id".into()})
+}
+/// SQL: user ?1's keys are on one account (#710 7a §3: the first-sync and cold pages stand for one, not one exchange).
+pub(super) fn one_account(c:&Connection)->rusqlite::Result<String>{
+    Ok(format!("(SELECT COUNT(DISTINCT {}) FROM api_keys k WHERE k.user_id=?1)=1",key_account(c)?))
 }
 pub struct Presentation {pub value:String,pub card:String,pub sync:String,pub classes:Vec<&'static str>}
 pub struct Arc {pub color:String,pub dash:String,pub offset:String,pub label:String}

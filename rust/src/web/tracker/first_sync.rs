@@ -7,15 +7,15 @@ use rusqlite::Connection;
 /// Any persisted key-scoped sync state counts, regardless of its value or current page filters.
 pub fn supported(c:&Connection,owner:i64)->Result<bool,WebError>{
     use crate::{jobs::state, sync::jobs::{LEDGER_SYNC, BALANCE_SYNC}};
-    Ok(c.query_row("SELECT
-      EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1)
+    Ok(c.query_row(&format!("SELECT
+      EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1) AND {}
       AND NOT EXISTS(SELECT 1 FROM api_keys k LEFT JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND (e.type IS NULL OR e.type!='Exchanges::Alpaca' OR COALESCE(k.status,-1)!=1 OR COALESCE(k.key_type,-1) NOT IN (0,2) OR k.last_synced_at IS NOT NULL OR k.balances_synced_at IS NOT NULL OR COALESCE(k.last_sync_error,'')!=''))
       AND NOT EXISTS(SELECT 1 FROM app_configs job JOIN api_keys synced_key ON job.key IN (?2 || synced_key.id, ?3 || synced_key.id) WHERE synced_key.user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM app_configs WHERE key=?4)
       AND NOT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM exchange_account_balances WHERE user_id=?1)
       AND NOT EXISTS(SELECT 1 FROM portfolio_snapshots WHERE user_id=?1)
-      AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)",rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
+      AND NOT EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE user_id=?1)",super::holdings::one_account(c)?),rusqlite::params![owner,state::key(LEDGER_SYNC,Some("")),state::key(BALANCE_SYNC,Some("")),crate::tracker::cache::key(owner)],|r|r.get(0))?)
 }
 
 

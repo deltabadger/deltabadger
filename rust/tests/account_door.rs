@@ -923,3 +923,28 @@ async fn the_gap_dialog_reads_its_account_and_its_example_lands_on_it() {
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, third), rows.len() as i64, "on account 3");
 }
+
+// ---- §3: the tracker's shortcuts count accounts ----
+
+/// §3: the first-sync and cold first-day pages stand for one account; two Alpaca accounts, never synced and then holding
+/// only balances, get the full page with a chip per account.
+#[tokio::test(flavor = "current_thread")]
+async fn two_accounts_of_one_exchange_skip_the_first_sync_and_cold_pages() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap();
+    let chip = format!("/tracker?account_id={}", accounts[1].0);
+    let page = b.get(&app, "/tracker").await;
+    assert_eq!(page.status, 200);
+    assert!(links(&page.body, "/tracker?").contains(&chip), "never synced: account 2's chip: {}", page.body);
+    for (account, _) in &accounts {
+        c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+                   VALUES (?1, ?2, ?3, 1, 0, 60000, 60000, '2026-09-20 11:00:00', '2026-09-20 11:00:00', '2026-09-20 11:00:00', '2026-09-20 11:00:00', ?4)",
+                  rusqlite::params![s.user_id, s.exchange_id, s.btc, account]).unwrap();
+    }
+    let page = b.get(&app, "/tracker").await;
+    assert_eq!(page.status, 200);
+    assert!(links(&page.body, "/tracker?").contains(&chip), "balances only: account 2's chip: {}", page.body);
+}
