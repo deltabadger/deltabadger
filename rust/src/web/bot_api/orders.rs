@@ -540,20 +540,20 @@ pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
             Target::Row { bot, tx, external } => page::send_for_row(c, app, &factory, runtime, &model::load_bot(c, bot)?, tx, &external)?,
             Target::Log { account, order } => {
                 let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
-                page::send(runtime, &venue, &order)
+                page::send(c, runtime, &venue, &order, account)?
             }
             Target::Key { account, external, row } => {
                 let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
                 match row {
                     Some((bot, tx)) => {
                         let order = crate::venue::OrderRef::load(c, tx, &external)?;
-                        let sent = page::send(runtime, &venue, &order);
-                        page::leave_reread(c, app, bot, tx)?;
+                        let sent = page::send(c, runtime, &venue, &order, account)?;
+                        page::reread(c, app, bot, tx, &sent)?;
                         sent
                     }
                     None => {
                         if let Some(why) = foreign_refusal(runtime, &venue, &external) { return Ok(cancel_failed(&why)) }
-                        page::send(runtime, &venue, &crate::venue::OrderRef { external_id: external, record: None })
+                        page::send(c, runtime, &venue, &crate::venue::OrderRef { external_id: external, record: None }, account)?
                     }
                 }
             }
