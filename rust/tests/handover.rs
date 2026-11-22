@@ -1958,3 +1958,39 @@ async fn v2_unrecorded_candidates_are_collected_per_v2_ownership_only() {
     assert!(matches!(t.claim, Claim::FromV2));
     assert_eq!(unrecorded_refs(&o.primary), [first, v2], "only 2.x's new line; never the engine's own {own}");
 }
+
+/// #710 7a §1.1, §9.2: 2.x replaced a fingerprinted account's key material in place. The takeover fences that key until a
+/// fresh identity read matches (from the first tick, before discovery runs) and drops every stored material digest, which
+/// the discovery job rebuilds; a key whose material 2.x left alone keeps its observation.
+#[test]
+fn takeover_fences_a_key_2x_replaced_in_place_and_drops_every_material_digest() {
+    use deltabadger::identity;
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let s = seed::seed_kraken(c, &cipher);
+    // A second, read-only key of the same account.
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, 'now', 'now')",
+              rusqlite::params![s.user_id, s.exchange_id, cipher.encrypt("reader"), cipher.encrypt("reader-secret")]).unwrap();
+    let reader = c.last_insert_rowid();
+    let key = identity::key(c, &cipher, now()).unwrap();
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap().id.unwrap();
+    let fingerprint = key.fingerprint_text("Exchanges::Kraken", "uid-1");
+    c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", rusqlite::params![account, fingerprint]).unwrap();
+    for id in [s.api_key_id, reader] {
+        let material = deltabadger::crypto::Credentials { redaction_values: vec![], key: cipher.decrypt(&count_text(c, id, "key")).unwrap(),
+            secret: cipher.decrypt(&count_text(c, id, "secret")).unwrap(), passphrase: None, ibkr: None };
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, fingerprint, observed_at) VALUES (?1, ?2, ?3, ?4, '2026-09-29 12:00:00')",
+                  rusqlite::params![id, s.exchange_id, key.material_digest(&material), fingerprint]).unwrap();
+    }
+    // 2.x's settings form: the same row, another key.
+    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![s.api_key_id, cipher.encrypt("replaced-in-place")]).unwrap();
+    handover::take_over(&l, &o, &cipher, "0.2.0", now()).unwrap();
+    let fenced = |id: i64| count(c, &format!("SELECT count(*) FROM api_keys k WHERE k.id = {id} AND {}", identity::fenced_sql(c, "k").unwrap())) == 1;
+    assert!(fenced(s.api_key_id), "the replaced key places, withdraws and syncs nothing until it reads its account again");
+    assert!(!fenced(reader), "a key 2.x left alone is not fenced");
+    assert_eq!(count(c, "SELECT count(*) FROM exchange_account_credentials WHERE material_digest IS NOT NULL"), 0, "every digest goes");
+}
+fn count_text(c: &rusqlite::Connection, id: i64, column: &str) -> String { c.query_row(&format!("SELECT {column} FROM api_keys WHERE id = ?1"), [id], |r| r.get(0)).unwrap() }

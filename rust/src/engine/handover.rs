@@ -207,6 +207,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         // #710: what 2.x added names exchanges with no account yet; rows stay eager. Its withdrawal rules are the number-1
         // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
+        crate::identity::after_v2(&tx, cipher)?;
         super::rules::refill(&tx)?;
         // #710 slice 5: 2.x's balances and venue snapshots are the number-1 rows of Rust's stores again.
         crate::sync::balance_store::refill_number_one(&tx)?;

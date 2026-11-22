@@ -1252,6 +1252,28 @@ pub fn record_copy(c: &Connection, cipher: &Cipher, other: i64, exchange_type: &
     if let Some(account) = account_of_key(c, other).map_err(db)? { key_event(c, account).map_err(db)?; }
     Ok(())
 }
+/// The observation fingerprint of a key whose material 2.x replaced in place under a known account (§9.2): it names no
+/// account, so the key is fenced on its account (`fenced_sql`) until a fresh read records what it reads.
+pub const UNCONFIRMED_AFTER_V2: &str = "unconfirmed-after-2.x";
+/// At a takeover after 2.x's window (#710 7a §1.1, §9.2): 2.x can replace a key's material in place, so every stored digest
+/// goes (the discovery job re-reads each identity key, rebuilding them). Before that, a key under a fingerprinted account
+/// whose material no longer matches its digest is fenced until a fresh identity read matches.
+pub fn after_v2(c: &Connection, cipher: &Cipher) -> rusqlite::Result<()> {
+    if !ready(c)? { return Ok(()); }
+    if let Some(key) = existing_key(c, cipher) {
+        let mut s = c.prepare(&format!("SELECT o.api_key_id, o.material_digest FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                                        JOIN exchange_accounts a ON a.id = {} WHERE o.material_digest IS NOT NULL AND a.fingerprint IS NOT NULL ORDER BY o.api_key_id", key_account_sql("k")))?;
+        let rows: Vec<(i64, String)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        drop(s);
+        for (id, digest) in rows {
+            if stored_material(c, cipher, id).is_some_and(|m| key.material_digest(&m) == digest) { continue; }
+            c.execute("UPDATE exchange_account_credentials SET fingerprint = ?2, account_id_enc = NULL, observed_credential_version = NULL WHERE api_key_id = ?1",
+                      params![id, UNCONFIRMED_AFTER_V2])?;
+        }
+    }
+    c.execute("UPDATE exchange_account_credentials SET material_digest = NULL", [])?;
+    Ok(())
+}
 /// Whether stored key `id`'s material is `material`'s (`compared`).
 pub fn is_material(c: &Connection, cipher: &Cipher, id: i64, exchange_type: &str, material: &Credentials) -> bool {
     stored_material(c, cipher, id).is_some_and(|stored| compared(exchange_type, &stored) == compared(exchange_type, material))
