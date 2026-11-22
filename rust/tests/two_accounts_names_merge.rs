@@ -209,7 +209,9 @@ async fn t4_a_bot_sheet_save_on_account_2_changes_only_its_key() {
     let app = web_app(dir.path(), c).with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()), std::sync::Arc::new(Quiet)).unwrap();
     let mut b = browser(&app, c, kraken.seeded.user_id);
     assert_eq!(b.get(&app, &format!("/bots/{}", alpaca.bots[1])).await.status, 200);
-    let saved = b.send(&app, "POST", &format!("/bots/{}/add_api_key", alpaca.bots[1]), Some(&[("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", "paper")]),
+    // 7a rule R11: the sheet names the bot's account (a nameless one is number 1's).
+    let account = deltabadger::identity::account_of_bot(c, alpaca.bots[1]).unwrap().unwrap();
+    let saved = b.send(&app, "POST", &format!("/bots/{}/add_api_key?account_id={account}", alpaca.bots[1]), Some(&[("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", "paper")]),
                        common::web::Csrf::Header, &[]).await;
     assert!(saved.status < 400, "{}: {}", saved.status, saved.body);
     assert_eq!((key_material(c, &cipher, alpaca.keys[0]), key_material(c, &cipher, alpaca.keys[1])), ("account-1-key".into(), "new-key".into()));

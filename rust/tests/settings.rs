@@ -1226,7 +1226,9 @@ async fn a_bots_key_sheet_saves_into_the_bots_account() {
     h.c.execute("UPDATE bots SET status=2",[]).unwrap();
     let first:String=h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
     assert_eq!(h.browser.send(&h.app,"GET",&format!("/bots/{second_bot}/add_api_key/new"),None,Csrf::None,&[]).await.status,200);
-    let answer=h.submit("POST",&format!("/bots/{second_bot}/add_api_key"),&[("api_key[key]","second-key"),("api_key[secret]","second-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    // 7a rule R11: the sheet names the bot's account (a nameless one is number 1's).
+    let account=deltabadger::identity::account_of_bot(&h.c,second_bot).unwrap().unwrap();
+    let answer=h.submit("POST",&format!("/bots/{second_bot}/add_api_key?account_id={account}"),&[("api_key[key]","second-key"),("api_key[secret]","second-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(answer.status,200,"{}",answer.body);
     let saved:(i64,i64,String)=h.c.query_row("SELECT k.id,m.account_id,k.key FROM api_keys k JOIN exchange_account_keys m ON m.api_key_id=k.id",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
     assert_eq!(h.app.cipher.decrypt(&saved.2).unwrap(),"second-key");
