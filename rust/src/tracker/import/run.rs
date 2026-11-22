@@ -173,7 +173,8 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     } else {
         // `index_by(name_id)`: of two venues of one kind, the later key; #710: of the account the row's number names (an
         // account this install does not have is unrouted, named as plain text names it: `kraken 2`).
-        // #710 7a §3: a keyless account (one an import made) takes its rows too; an account whose keys none reads stays unrouted.
+        // #710 7a §3: every live account takes its rows: one with no reading key (keyless, one an import made, or keyed only
+        // for withdrawals or with an invalid key) writes them naming no key.
         let mut numbered: Vec<(Key, i64)> = vec![];
         for k in &keys {
             let number = match k.account_id { Some(id) => tx.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0))?, None => 1 };
@@ -181,10 +182,12 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
                                  exchange_type: k.exchange_type.clone(), scope: crate::sync::key_scope(&tx, k.id)? }, number));
         }
         if crate::identity::ready(&tx)? {
-            let keyless: Vec<(i64, i64)> = tx.prepare(&format!("SELECT a.id, a.number FROM exchange_accounts a WHERE a.user_id = ?1 AND a.removed_at IS NULL \
-                AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE k.user_id = a.user_id AND k.exchange_id = a.exchange_id AND {} = a.id) ORDER BY a.id", crate::identity::key_account_sql("k")))?
-                .query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
-            for (account, number) in keyless { numbered.push((writer(&tx, &keys, account)?, number)); }
+            let accounts: Vec<(i64, i64, i64)> = tx.prepare("SELECT id, exchange_id, number FROM exchange_accounts WHERE user_id = ?1 AND removed_at IS NULL ORDER BY id")?
+                .query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+            for (account, exchange, number) in accounts {
+                if numbered.iter().any(|(k, n)| k.exchange_id == exchange && *n == number) { continue }
+                numbered.push((writer(&tx, &[], account)?, number));
+            }
         }
         let by_name = |name: &str, number: u32| numbered.iter().rev().find(|(k, n)| crate::tracker::rows::name_id(&k.exchange_type) == name && *n == i64::from(number)).map(|(k, _)| k);
         for (venue, entry) in entries {
@@ -268,11 +271,21 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
             .query_map([user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect()
     };
     let offered = |exchange: i64| exchanges.iter().find(|(id, _, _)| *id == exchange);
-    // The parked answer.
-    let (mut venue, mut stale) = (None, false);
+    // The venue question: per venue, its lone account's lone reading key as 2.x answered it (one account), else the venue.
+    let ask_venue = |among: &[i64]| -> rusqlite::Result<Routed> {
+        let mut choices = vec![];
+        for (id, _, name) in exchanges.iter().filter(|(id, _, _)| among.contains(id)) {
+            let keyed: Vec<&Reading> = keys.iter().filter(|k| k.exchange_id == *id).collect();
+            let key = (keyed.len() == 1 && live(*id)?.len() <= 1).then(|| keyed[0].id);
+            choices.push(Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false });
+        }
+        Ok(Routed::Ask(choices))
+    };
+    // The parked answer: an account (`a<id>`, or a key id: 2.x's answer, the parity runner's), a new account (`n<exchange>`),
+    // or a venue (`v<exchange>`). It is read here and taken only after the file's fingerprint (1.), which it never overrides.
+    let (mut venue, mut stale, mut chose_venue, mut parked) = (None, false, false, None::<Result<i64, i64>>);
     if let Some(chosen) = chosen {
         let number = |prefix: &str| chosen.strip_prefix(prefix).and_then(|n| n.parse::<i64>().ok());
-        // A key id (2.x's answer, the parity runner's): that key's account.
         let keyed = chosen.parse::<i64>().ok().and_then(|id| keys.iter().find(|k| k.id == id))
             .map(|k| k.account_id.map_or_else(|| crate::identity::ensure_account(c, user_id, k.exchange_id, now), Ok)).transpose()?;
         if let Some(account) = number("a").or(keyed) {
@@ -280,32 +293,41 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
                                                                             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
             if let Some((exchange, owner, held, removed)) = row {
                 if let Some((_, exchange_type, _)) = offered(exchange).filter(|_| owner == user_id) {
-                    if !removed && (held.is_none() || held == fingerprint(exchange_type)) { return Ok(Routed::To(account)) }
                     // Removed, merged or read as another account since the question: asked again, never routed elsewhere.
-                    (venue, stale) = (Some(exchange), true);
+                    if !removed && (held.is_none() || held == fingerprint(exchange_type)) { parked = Some(Ok(account)) } else { stale = true }
+                    venue = Some(exchange);
                 }
             }
         } else if let Some(exchange) = number("n").filter(|e| offered(*e).is_some()) {
-            return Ok(Routed::To(crate::identity::new_account(c, user_id, exchange, now)?));
+            (venue, parked) = (Some(exchange), Some(Err(exchange)));
         } else {
             venue = number("v").filter(|e| offered(*e).is_some());
+            chose_venue = venue.is_some();
         }
     }
-    // 1. The file's fingerprint.
-    for (exchange, exchange_type, _) in exchanges.iter().filter(|_| !stale) {
-        if venue.is_some_and(|v| v != *exchange) { continue }
-        if let Some((account, _, _)) = live(*exchange)?.into_iter().find(|(_, _, held)| held.is_some() && *held == fingerprint(exchange_type)) { return Ok(Routed::To(account)) }
+    // 1. The file's fingerprint, under this lock: it wins over any parked account answer (another tab may have bound the
+    // file's account meanwhile, or an earlier "a new account" answer made it). Matched in both venues: the venue is asked.
+    let mut matched: Vec<(i64, i64)> = vec![];
+    for (exchange, exchange_type, _) in &exchanges {
+        if chose_venue && venue != Some(*exchange) { continue }
+        if let Some((account, _, _)) = live(*exchange)?.into_iter().find(|(_, _, held)| held.is_some() && *held == fingerprint(exchange_type)) { matched.push((*exchange, account)) }
+    }
+    match matched.as_slice() {
+        [] => {}
+        [(_, account)] => return Ok(Routed::To(*account)),
+        many => return Ok(ask_venue(&many.iter().map(|(e, _)| *e).collect::<Vec<_>>())?),
+    }
+    match parked {
+        Some(Ok(account)) => return Ok(Routed::To(account)),
+        Some(Err(exchange)) => return Ok(Routed::To(crate::identity::new_account(c, user_id, exchange, now)?)),
+        None => {}
     }
     let venue = match (venue, exchanges.as_slice()) {
         (Some(v), _) => v,
         // No venue of the format on this install: nothing could hold the file.
         (None, []) => return Ok(Routed::None),
         (None, [(only, _, _)]) => *only,
-        (None, _) => return Ok(Routed::Ask(exchanges.iter().map(|(id, _, name)| {
-            let keyed: Vec<&Reading> = keys.iter().filter(|k| k.exchange_id == *id).collect();
-            let key = (keyed.len() == 1).then(|| keyed[0].id);
-            Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false }
-        }).collect())),
+        (None, _) => return Ok(ask_venue(&exchanges.iter().map(|(id, _, _)| *id).collect::<Vec<_>>())?),
     };
     // 2 and 3: the venue's unfingerprinted accounts.
     let owners: Vec<i64> = live(venue)?.into_iter().filter(|(_, _, held)| held.is_none()).map(|(id, _, _)| id).collect();

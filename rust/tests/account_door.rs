@@ -897,6 +897,75 @@ async fn two_unfingerprinted_accounts_make_the_import_ask_and_a_stale_answer_is_
     assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 0));
 }
 
+/// §3: a Binance-format UID that a live account holds in BOTH Binance and Binance.US asks the venue (never the first by id);
+/// the answer lands it on that venue's account.
+#[tokio::test(flavor = "current_thread")]
+async fn a_uid_known_in_both_binance_venues_asks_which_venue() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let on_binance = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_binance, "Exchanges::Binance", "222");
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [format!("v{binance}"), format!("v{us}")], "{}", asked.body);
+    assert_eq!((rows_on(c, on_binance), rows_on(c, on_us)), (0, 0), "nothing written yet");
+    let done = answer(&app, &mut b, &asked, "binance", &format!("v{us}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, on_binance), rows_on(c, on_us)), (0, 1));
+}
+
+/// §3: with two unfingerprinted Binance accounts (one keyed, one keyless), the venue question names the venue, never the
+/// keyed account's key, so "Binance" leads to the account question instead of the keyed account.
+#[tokio::test(flavor = "current_thread")]
+async fn the_venue_question_names_the_venue_when_it_has_two_accounts() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    let keyless = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [format!("v{binance}"), format!("v{us}")], "{}", asked.body);
+    let which = answer(&app, &mut b, &asked, "binance", &format!("v{binance}")).await;
+    assert_eq!(options(&which.body), [format!("a{first}"), format!("a{keyless}"), format!("n{binance}")], "{}", which.body);
+    assert_eq!((rows_on(c, first), rows_on(c, keyless)), (0, 0), "nothing written yet");
+}
+
+/// §3: a parked answer is checked against the file's account under the import's lock. Account 2 bound to the file's UID in
+/// another tab wins over a parked "account 1"; two parked "a new account" answers for one UID make one account.
+#[tokio::test(flavor = "current_thread")]
+async fn a_parked_answer_never_beats_the_file_s_account() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert_eq!(options(&asked.body).len(), 3, "{}", asked.body);
+    fingerprint(c, second, "Exchanges::Kucoin", "444");
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(rows_on(c, first), 0, "never on account 1");
+    assert!(rows_on(c, second) > 0, "on the file's account");
+    // Two tabs, each asked (accounts 1 and 3 unfingerprinted), each answering "a new account".
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let (one, two) = (upload(&app, &mut b, "kucoin", &kucoin_file("888")).await, upload(&app, &mut b, "kucoin", &kucoin_file("888")).await);
+    for asked in [&one, &two] {
+        let done = answer(&app, &mut b, asked, "kucoin", &format!("n{kucoin}")).await;
+        assert_eq!(done.status, 200, "{}", done.body);
+    }
+    assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 4, "one new account for the UID");
+}
+
 /// §3: the gap dialog reads the line's account: account 1's healthy key does not hide account 2's reconnect; a keyless
 /// account (one an import made) is offered Import, and its CSV example names its number, so re-imported it lands there.
 #[tokio::test(flavor = "current_thread")]
@@ -1043,6 +1112,25 @@ async fn the_tracker_says_when_an_account_s_export_is_held_on_another() {
     let page = b.get(&app, "/tracker").await;
     assert_eq!(page.status, 200);
     assert_eq!(page.body.matches("history was imported on KuCoin<sup class=").count() + page.body.matches("history was imported on KuCoin<sup>").count(), 1, "{}", page.body);
+}
+
+/// §3: a Deltabadger CSV row naming a live account that holds only a withdrawal key lands there (no key named).
+#[tokio::test(flavor = "current_thread")]
+async fn a_csv_row_naming_an_account_with_only_a_withdrawal_key_lands_there() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let second = identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 1, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, s.exchange_id, e("withdrawal-only"), e("s")]).unwrap();
+    identity::Account::by_id(c, second).unwrap().unwrap().add_key(c, c.last_insert_rowid()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let name = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let rows: Vec<String> = deltabadger::web::tracker::gap::examples(&name).into_iter().map(|r| format!("{r},2")).collect();
+    let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
+    let done = upload(&app, &mut b, "deltabadger", &file).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(rows_on(c, second), rows.len() as i64, "on account 2");
 }
 
 // ---- §6: export and re-import on another install ----

@@ -618,14 +618,15 @@ impl Fx {
     }
 }
 
-/// One export imported on each of two accounts: each account stores its rows (the same row ids) and derives its entries.
+/// One export's rows imported on each of two accounts (each its own UID, as 7a routes by it): each account stores its rows
+/// (the same row ids) and derives its entries.
 #[test]
 fn s7_0_6_each_account_holds_its_own_export_rows() {
     let fx = Fx::new();
     let first = key_id(&fx);
     let (second, key) = fx.second_account();
     assert!(matches!(fx.import_on(first, TRADING), run::Answer::Written { imported: 163, .. }));
-    let answer = fx.import_on(key, TRADING);
+    let answer = fx.import_on(key, &TRADING.replace("123456789,", "987654321,"));
     assert!(matches!(answer, run::Answer::Written { imported: 163, .. }), "{answer:?}");
     assert_eq!(fx.count("SELECT count(*) FROM import_rows"), 654);
     assert_eq!(fx.rows_of(second), 163);
@@ -642,7 +643,7 @@ async fn s7_0_6_a_cutoff_is_its_accounts() {
     let (second, key) = fx.second_account();
     fx.watermark(WATERMARK);
     assert!(fx.sync(&overlapping_api(500), false).await);
-    let answer = fx.import_on(key, &overlapping_export());
+    let answer = fx.import_on(key, &overlapping_export().replace("123456789,", "987654321,"));
     assert!(matches!(answer, run::Answer::Written { imported, .. } if imported == all), "{answer:?}: {all}");
     assert_eq!(fx.rows_of(second), all as i64);
     let first = key_id(&fx);
