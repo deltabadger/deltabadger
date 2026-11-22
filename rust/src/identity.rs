@@ -1280,16 +1280,22 @@ pub fn after_v2(c: &Connection, cipher: &Cipher) -> rusqlite::Result<()> {
 pub fn is_material(c: &Connection, cipher: &Cipher, id: i64, exchange_type: &str, material: &Credentials) -> bool {
     stored_material(c, cipher, id).is_some_and(|stored| compared(exchange_type, &stored) == compared(exchange_type, material))
 }
-/// A save's fresh read of `material` named account `read` (§9.1, #710 7a rule F5): every stored copy of that material of
-/// (user, exchange), in every slot, on any account but `holder` (the account that read is, when one has it) is recorded
-/// as reading `read` (`record_copy`), so each is fenced on its own account at once. A save that lands, and one refused
-/// because the read contradicts its account, both come here.
+/// #710 7a rules F5 and R2: what a successful identity read of `material` (as account `read`) taught, whoever made it:
+/// discovery, a validation, a key save, the JSON save, and a save refused after its read. Every stored copy of that
+/// material of (user, exchange), in every slot, but `skip` (the key the read was made with, which `record` records itself)
+/// whose account knows another fingerprint is recorded as reading `read` (`record_copy`), so each is fenced on its own
+/// account at once. A copy that agrees, or whose account knows none, is left as it is.
 #[allow(clippy::too_many_arguments)]
 pub fn fence_copies(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, material: &Credentials, read: &AccountId,
-                    holder: Option<i64>, now: DateTime<Utc>) -> Result<(), String> {
-    for other in all_material(c, cipher, user_id, exchange_id, exchange_type, material, None)? {
-        if holder.is_some() && account_of_key(c, other).map_err(|e| format!("account identity: {e}"))? == holder { continue; }
-        record_copy(c, cipher, other, exchange_type, read, now)?;
+                    skip: Option<i64>, now: DateTime<Utc>) -> Result<(), String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, read);
+    for other in all_material(c, cipher, user_id, exchange_id, exchange_type, material, skip)? {
+        let known: Option<String> = match account_of_key(c, other).map_err(db)? {
+            Some(account) => c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional().map_err(db)?.flatten(),
+            None => None,
+        };
+        if known.is_some_and(|k| k != fingerprint) { record_copy(c, cipher, other, exchange_type, read, now)?; }
     }
     Ok(())
 }
@@ -1377,6 +1383,7 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             if reading_key(c, user_id, api_key_id)? {
                 if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { establish(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
             }
+            fence_copies(c, cipher, user_id, exchange_id, &exchange_type, credentials, id, Some(api_key_id), now)?;
         }
         Observed::Failed(code) => {
             // A live key's definite failure on its current material is a contradiction: the account's standings end now. A

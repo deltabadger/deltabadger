@@ -1613,3 +1613,35 @@ async fn s7a_a_contradicting_read_fences_every_copy_of_the_key_on_the_account() 
     assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
     assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "the form save fences both copies too");
 }
+
+/// Rule R2 (Codex branch r3, keys.rs:407): a key save refused after its account read still records what it learned. Account
+/// 1 holds key-a as its read-only and its trading key; a tile save of key-a reads account 2, whose read-only slot an open
+/// standalone order holds: the save is refused, and both of account 1's copies are fenced all the same.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r2_a_refused_save_still_fences_the_copies_its_read_contradicts() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("key-a"), cipher.encrypt("secret"), cipher.encrypt("phrase")]).unwrap();
+    let trading = c.last_insert_rowid();
+    let read_only = identity::key_of(c, accounts[0], 2).unwrap().unwrap();
+    let ticker: i64 = c.query_row("SELECT id FROM tickers LIMIT 1", [], |r| r.get(0)).unwrap();
+    let held = identity::key_of(c, accounts[1], 2).unwrap().unwrap();
+    let material = |k: i64| -> String { cipher.decrypt(&one::<String>(c, &format!("SELECT key FROM api_keys WHERE id = {k}"))).unwrap() };
+    c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, credential_version, created_at, send_by) \
+               VALUES (?1, NULL, 'buy', '0.001', 'base', '{}', 'done', '{\"kind\":\"placed\"}', 'null', '2026-09-20 10:00:00', '2026-09-20 10:01:00')", [user]).unwrap();
+    let order = c.last_insert_rowid();
+    c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+               VALUES (?1, ?2, ?3, ?4, 'market', 'rest', 'ord-open', '{\"symbol\":\"BTC-USDT\",\"side\":\"buy\",\"limit\":false}')", rusqlite::params![order, accounts[1], exchange, ticker]).unwrap();
+    let fenced = |c: &Connection, k: i64| one::<bool>(c, &format!("SELECT {} FROM api_keys k WHERE k.id = {k}", identity::fenced_sql(c, "k").unwrap()));
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_B, "permission":"General,Spot"}})))
+        .with_priority(1).mount(&server).await;
+    let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await;
+    assert!(answer.status >= 400 || answer.body.contains("wait"), "refused: {} {}", answer.status, answer.body);
+    assert_eq!((identity::key_of(c, accounts[1], 2).unwrap(), material(held)), (Some(held), "key-b".to_string()), "account 2 keeps key-b");
+    assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "both of account 1's copies are fenced");
+}

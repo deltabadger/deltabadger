@@ -1247,3 +1247,18 @@ fn s7a_the_tracker_watermark_reads_the_key_that_can_sync() {
     let tx = fx.c.unchecked_transaction().unwrap();
     assert!(cache::fence_read(&tx, &origin).is_ok(), "the figures from stored rows still publish");
 }
+
+/// Rule R2 (Codex branch r3, identity.rs:1661): discovery's read of a key fences every copy of that material on its
+/// account. Account A holds kc-a as its trading and its read-only key; discovery reads the read-only one as B's: the
+/// trading copy, never read itself, is fenced at once too.
+#[test]
+fn s7a_r2_discovery_fences_every_copy_of_the_key_it_read() {
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a");
+    let fenced = |k: i64| fx.c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(&fx.c, "k").unwrap()), [k], |r| r.get::<_, bool>(0)).unwrap();
+    assert!(!fenced(trading) && !fenced(read_only));
+    let due = identity::due(&fx.c, &fx.cipher, now()).unwrap().into_iter().find(|d| d.api_key_id == read_only).expect("the read-only key is due");
+    assert!(identity::publish(&fx.c, &fx.cipher, &due, &read(B), now()).unwrap());
+    assert_eq!((fenced(read_only), fenced(trading)), (true, true), "both copies fenced");
+    assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&trading));
+}

@@ -367,6 +367,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     let inner = app.clone();
     let user_id=original.account.user_id;
     let venue_s=venue.to_string();
+    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),validated.handle.credentials().clone())),_=>None};
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   if !crate::engine::model::account_is_current(&tx,validated.handle.producer())? {return Ok(Some("credential changed during validation".into()));}
@@ -427,10 +428,9 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),validated.handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
   if venue_s!=crate::venue::ibkr::IBKR {
    if let (Some(crate::identity::Observed::Read(read)),Some(account))=(&validated.identity,target.id) {
-    // The routed account takes the fingerprint (every key type); every other copy of this key, on another account, is
-    // recorded as reading this account, so it is fenced there at once (§9.1).
+    // The routed account takes the fingerprint (every key type); every other copy of this key, on another account, was
+    // recorded as reading this account by `identity::record` above, so it is fenced there at once (§9.1).
     crate::identity::establish_read(&tx,&inner.cipher,account,&venue_s,read,inner.now()).map_err(WebError::Config)?;
-    crate::identity::fence_copies(&tx,&inner.cipher,user_id,target.exchange_id,&venue_s,validated.handle.credentials(),read,Some(account),inner.now()).map_err(WebError::Config)?;
    }
    crate::identity::write_digest(&tx,&inner.cipher,id,target.exchange_id,validated.handle.credentials()).map_err(WebError::Config)?;
   }
@@ -447,6 +447,9 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   }
   Ok(Some(match moved {Some((to,from))=>format!("\u{0}moved:{to}:{from}"),None=>format!("\u{0}saved:{}",target.id.map_or(String::new(),|a|a.to_string()))}))
  }).await?;
+    if let (Some(r),Some((read,material)))=(&outcome,taught) {
+        if !r.starts_with("\u{0}saved:")&&!r.starts_with("\u{0}moved:") { learn_refused(app,user_id,snap_exchange,venue,material,read).await?; }
+    }
     Ok(match outcome {
         Some(m) if m.starts_with("\u{0}saved:") => Submitted::Correct(m.trim_start_matches("\u{0}saved:").parse().ok()),
         Some(m) if m.starts_with("\u{0}moved:") => { let mut p=m.trim_start_matches("\u{0}moved:").split(':').map(|x|x.parse::<i64>().unwrap_or(0)); Submitted::Moved{to:p.next().unwrap_or(0),from:p.next().unwrap_or(0)} }
@@ -455,6 +458,17 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     })
 }
 
+/// #710 7a rule R2: a key save refused after its account read (an open order holding the slot, the slot changed meanwhile,
+/// the JSON save's refusals) still records what the read taught: every stored copy of the material on an account that
+/// knows another fingerprint is fenced there (`identity::fence_copies`), in a transaction of its own.
+async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate::crypto::Credentials,read:crate::identity::AccountId)->Result<(),WebError>{
+    let (inner,venue)=(app.clone(),venue.to_string());
+    app.db(move|c|{
+        let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
+        crate::identity::fence_copies(&tx,&inner.cipher,user,exchange,&venue,&material,&read,None,inner.now()).map_err(WebError::Config)?;
+        tx.commit()?;Ok(())
+    }).await
+}
 /// A slot of an account: its key's id and ciphertext version (None: absent).
 type Slot = Option<(i64, Option<String>)>;
 fn slot(k: &Key) -> Slot { k.id.map(|id| (id, k.version.as_ref().map(|v| v.cache_stamp().to_string()))) }
@@ -765,6 +779,7 @@ pub async fn legacy(
         Some(venue) if key.is_some() => json_identity(&app,venue,&material).await?,
         _ => None,
     };
+    let taught=match (&observed,venue_type.as_deref()) {(Some(crate::identity::Observed::Read(read)),Some(venue)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),venue.to_string(),material.clone())),_=>None};
     let jobs = app.job_wakers()?;
     let inner = app.clone();
     let saved=app.db(move|c|{
@@ -795,10 +810,9 @@ pub async fn legacy(
   let account=if venue==crate::venue::ibkr::IBKR||(reposted&&read.is_none()) {account} else {
    let dest=match crate::identity::route_key(&tx,&inner.cipher,user.id,exchange,&venue,kind,account.id,&reading,&material,None,inner.now()).map_err(WebError::Config)? {
     crate::identity::Route::To(id) if !reposted||Some(id)==account.id=>id,
-    route@(crate::identity::Route::To(_)|crate::identity::Route::New) if reposted=>{
+    crate::identity::Route::To(_)|crate::identity::Route::New if reposted=>{
      // Every copy of this material off the account the read names is fenced, the posted slot's and the account's others.
-     let holder=match route {crate::identity::Route::To(id)=>Some(id),_=>None};
-     if let Some(read)=&read {crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,holder,inner.now()).map_err(WebError::Config)?;}
+     if let Some(read)=&read {crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,None,inner.now()).map_err(WebError::Config)?;}
      tx.commit()?;return Ok(Err(Some(KEY_READS_ELSEWHERE.into())));
     }
     crate::identity::Route::To(id)=>id,
@@ -841,13 +855,14 @@ pub async fn legacy(
    if let (Some(read),Some(routed))=(&read,account.id) {
     // As `submit_candidate`: the routed account takes the fingerprint; other copies of the key are fenced (§9.1).
     crate::identity::establish_read(&tx,&inner.cipher,routed,&venue,read,inner.now()).map_err(WebError::Config)?;
-    crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,Some(routed),inner.now()).map_err(WebError::Config)?;
+    crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,Some(id),inner.now()).map_err(WebError::Config)?;
    }
    if !same_keys {crate::identity::write_digest(&tx,&inner.cipher,id,exchange,&material).map_err(WebError::Config)?;}
   }
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
   tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
  }).await?;
+    if let (Err(Some(_)),Some((read,venue,material)))=(&saved,taught) { learn_refused(&app,user.id,exchange,&venue,material,read).await?; }
     if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
     if matches!(&saved,Err(Some(reason)) if reason==MISSING){return Ok(layout::missing());}
     let (status, data) = match saved {
