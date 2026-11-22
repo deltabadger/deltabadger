@@ -948,3 +948,22 @@ async fn two_accounts_of_one_exchange_skip_the_first_sync_and_cold_pages() {
     assert_eq!(page.status, 200);
     assert!(links(&page.body, "/tracker?").contains(&chip), "balances only: account 2's chip: {}", page.body);
 }
+
+/// §3: a Deltabadger CSV whose rows partly name an account this install lacks imports the rest and still says which
+/// accounts it left out (D-IMPORT-REPORTS-UNROUTED; before, only a file that imported nothing said so).
+#[tokio::test(flavor = "current_thread")]
+async fn a_partly_routed_csv_imports_the_rest_and_names_the_accounts_it_left_out() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let name = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let examples = deltabadger::web::tracker::gap::examples(&name);
+    let last = examples.len() - 1;
+    let rows: Vec<String> = examples.iter().enumerate().map(|(i, r)| format!("{r},{}", if i == last { 2 } else { 1 })).collect();
+    let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
+    let done = upload(&app, &mut b, "deltabadger", &file).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    let first = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    assert_eq!(rows_on(c, first), last as i64, "account 1's rows imported");
+    assert!(done.body.contains(&format!("No account connected for: {name} 2. Those rows were left out.")), "{}", done.body);
+}

@@ -115,11 +115,13 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
         ctx.session.lock().import_offsets = offsets;
     }
     match answer {
-        Answer::Written { imported, generic, .. } if imported > 0 => {
+        Answer::Written { imported, generic, unrouted, .. } if imported > 0 => {
             // Prepended AND redirected, in that order: #flash is data-turbo-permanent, so a visit keeps it.
             let mut notice = i18n::text(ctx.locale, "tracker.import.imported", &[("count", i18n::Arg::Count(imported as i64))]);
             // D-IMPORT-WARNINGS: a KuCoin file's entries it could only label generically, in one more line.
             if generic > 0 { notice = format!("{notice} {}", i18n::text(ctx.locale, "tracker.import.generic", &[("count", i18n::Arg::Count(generic as i64))])); }
+            // D-IMPORT-REPORTS-UNROUTED (#710 7a §3): rows naming an account this install lacks are said to be left out, not dropped silently.
+            if !unrouted.is_empty() { notice = format!("{notice} {}", i18n::text(ctx.locale, "tracker.import.unrouted", &[("exchanges", i18n::Arg::Text(&unrouted.join(", ")))])); }
             let markup = flash::render(&flash::take(&ctx.session, &[(flash::NOTICE, notice)]))?;
             let body = turbo::prepend_flash(markup.strip_prefix('\n').unwrap_or(&markup).trim_end()) + &turbo::redirect(&ctx.path("/tracker"));
             Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], body).into_response())
