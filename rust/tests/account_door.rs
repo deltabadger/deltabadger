@@ -982,3 +982,41 @@ async fn the_empty_tracker_offers_import_beside_connect() {
     assert!(!links(&page.body, "/tracker/pick_exchange/new").is_empty(), "Connect: {}", page.body);
     assert_eq!(links(&page.body, "/tracker/import/new").len(), 1, "Import: {}", page.body);
 }
+
+/// Per currency, what `account`'s ledger rows move (base and quote sums): the figures a double import would inflate.
+fn totals(c: &Connection, account: i64) -> Vec<(String, String)> {
+    let scope = deltabadger::venue_ids::Scope::of(c, &identity::Account::by_id(c, account).unwrap().unwrap()).unwrap();
+    c.prepare(&format!("SELECT currency, printf('%.10f', SUM(amount)) FROM (SELECT base_currency AS currency, base_amount AS amount FROM account_transactions a WHERE a.exchange_id = {e} AND {r} \
+                        UNION ALL SELECT quote_currency, quote_amount FROM account_transactions a WHERE a.exchange_id = {e} AND {r} AND quote_currency IS NOT NULL) GROUP BY currency ORDER BY currency",
+                       e = scope.exchange_id, r = scope.rows("a")))
+        .unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+
+/// §9.6: after a reset clears every fingerprint, both KuCoin accounts holding history are possible owners of a re-imported
+/// file: the import asks (a new account offered), nothing is written until then, and the answer re-imports nothing new, so
+/// each account's totals stay as they were; the other file then goes to the one account left unread, again adding nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_re_import_after_a_reset_asks_which_account_and_keeps_the_totals() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    let mut b = browser(&app, c, s.user_id);
+    for uid in ["111", "222"] { let done = upload(&app, &mut b, "kucoin", &kucoin_file(uid)).await; assert!(imported(&done), "{uid}: {}: {}", done.status, done.body); }
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, kucoin).unwrap().into_iter().map(|(id, _)| id).collect();
+    assert_eq!(accounts.len(), 2, "one account per file");
+    let before: Vec<_> = accounts.iter().map(|a| totals(c, *a)).collect();
+    assert!(before.iter().all(|t| !t.is_empty()));
+    deltabadger::rotation::clear(c, chrono::Utc::now()).unwrap();
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("111")).await;
+    assert_eq!(options(&asked.body), [format!("a{}", accounts[0]), format!("a{}", accounts[1]), format!("n{kucoin}")], "{}", asked.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written before the answer");
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{}", accounts[0])).await;
+    assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "{}: {}", done.status, done.body);
+    let done = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
+    assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "the one unread account: {}: {}", done.status, done.body);
+    assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 2, "no account made");
+    assert_eq!(accounts.iter().map(|a| totals(c, *a)).collect::<Vec<_>>(), before, "the totals hold");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger);
+}
