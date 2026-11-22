@@ -17,6 +17,33 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct Label { printed: String, key: String }
 
+/// PR1 step 1, identity mode: `Stored` and `walk::Row` carry a `Label` that is their row's own spelling (an empty
+/// identity key, so a spelled label allocates nothing beyond its text), and every output stays byte-identical. The
+/// spelling view below (`Deref<Target = str>`, equality with strings, `ToSql`/`FromSql`, the `From` impls) exists only for
+/// spelled labels: string equality is not transitive across two allocated labels that print alike. Step 2 builds the
+/// labels from `Spellings` and deletes that view, so the compiler names every reader still reading a label as a spelling.
+impl Label {
+    pub fn spelled(s: impl Into<String>) -> Label { Label { printed: s.into(), key: String::new() } }
+    pub fn as_str(&self) -> &str { &self.printed }
+}
+impl From<&str> for Label { fn from(s: &str) -> Label { Label::spelled(s) } }
+impl From<String> for Label { fn from(s: String) -> Label { Label::spelled(s) } }
+impl From<&String> for Label { fn from(s: &String) -> Label { Label::spelled(s.as_str()) } }
+impl From<Label> for String { fn from(l: Label) -> String { l.printed } }
+impl rusqlite::types::ToSql for Label {
+    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> { self.printed.to_sql() }
+}
+impl rusqlite::types::FromSql for Label {
+    fn column_result(v: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Label> { String::column_result(v).map(Label::spelled) }
+}
+impl Default for Label { fn default() -> Label { Label::spelled("") } }
+impl std::ops::Deref for Label { type Target = str; fn deref(&self) -> &str { &self.printed } }
+impl PartialEq<str> for Label { fn eq(&self, o: &str) -> bool { self.printed == o } }
+impl PartialEq<&str> for Label { fn eq(&self, o: &&str) -> bool { self.printed == *o } }
+impl PartialEq<String> for Label { fn eq(&self, o: &String) -> bool { &self.printed == o } }
+impl PartialEq<Label> for String { fn eq(&self, o: &Label) -> bool { *self == o.printed } }
+impl PartialEq<Label> for &str { fn eq(&self, o: &Label) -> bool { *self == o.printed } }
+
 impl std::fmt::Display for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(&self.printed) }
 }
@@ -392,6 +419,24 @@ mod tests {
     fn at(day: &str) -> DateTime<Utc> { format!("{day}T12:00:00Z").parse().unwrap() }
     fn d(s: &str) -> Dec { Dec::strict(s).unwrap() }
     fn coin(ext: &str) -> Holding { Holding::Coin(ext.into()) }
+
+    /// PR1 step 1: a spelled label orders, prints, compares and stores as its spelling, so identity mode changes no
+    /// output.
+    #[test]
+    fn identity_mode_label_is_its_spelling() {
+        let mut v: Vec<Label> = ["eth", "BTC", "USD", "BTCB", ""].map(Label::from).to_vec();
+        v.sort();
+        assert_eq!(v.iter().map(|l| l.to_string()).collect::<Vec<_>>(), ["", "BTC", "BTCB", "USD", "eth"]);
+        let (l, owned) = (Label::from("BTG"), String::from("BTG"));
+        assert_eq!(l, "BTG");
+        assert_eq!("BTG", l);
+        assert_eq!(l, owned);
+        assert_eq!(l.as_str(), "BTG");
+        assert_eq!(String::from(l.clone()), owned);
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        let back: Label = c.query_row("SELECT ?1", [&l], |r| r.get(0)).unwrap();
+        assert_eq!(back, l);
+    }
     const UNCLEAR: Holding = Holding::Unknown(Why::Unclear);
     #[allow(clippy::too_many_arguments)] // a leg's fields
     fn leg(row: i64, side: Side, account: i64, venue: &str, spelling: &str, holding: Holding, day: &str, amount: &str) -> LegIn {
