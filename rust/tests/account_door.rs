@@ -897,3 +897,29 @@ async fn two_unfingerprinted_accounts_make_the_import_ask_and_a_stale_answer_is_
     assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 0));
 }
 
+/// §3: the gap dialog reads the line's account: account 1's healthy key does not hide account 2's reconnect; a keyless
+/// account (one an import made) is offered Import, and its CSV example names its number, so re-imported it lands there.
+#[tokio::test(flavor = "current_thread")]
+async fn the_gap_dialog_reads_its_account_and_its_example_lands_on_it() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let second = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap()[1].0;
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [identity::key_of(c, second, 0).unwrap().unwrap()]).unwrap();
+    let gap = b.get(&app, &format!("/tracker/history_gap?account_id={second}")).await;
+    assert_eq!(gap.status, 200, "{}", gap.body);
+    assert!(links(&gap.body, "/tracker/import/new").is_empty() && !links(&gap.body, "/tracker/add_api_key/new").is_empty(), "account 2 gets its reconnect: {}", gap.body);
+    let third = identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    let gap = b.get(&app, &format!("/tracker/history_gap?account_id={third}")).await;
+    assert_eq!(gap.status, 200, "{}", gap.body);
+    assert!(!links(&gap.body, "/tracker/import/new").is_empty(), "a keyless account imports: {}", gap.body);
+    let name = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let rows: Vec<String> = deltabadger::web::tracker::gap::examples(&name).into_iter().map(|r| format!("{r},3")).collect();
+    assert!(gap.body.contains("group_id,description,account"), "{}", gap.body);
+    for row in &rows { assert!(gap.body.contains(row.as_str()), "{row} in {}", gap.body); }
+    let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
+    let done = upload(&app, &mut b, "deltabadger", &file).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(rows_on(c, third), rows.len() as i64, "on account 3");
+}
