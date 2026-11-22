@@ -1,4 +1,5 @@
 //! Credential saves validate outside the write lock, recheck ownership/state inside it, and guard before commit.
+use crate::web::wizard::Picked;
 use crate::{
     codec::format_time,
     engine::eligibility,
@@ -217,8 +218,10 @@ pub async fn save(
     let id = user.id;
     // #710 7a: the form names its account (`account_id`, a Reconnect) or none (`untargeted`, a venue tile); a 2.x form
     // names neither and saves into number 1, as before.
-    let posted = if bot_request { None } else { ctx.params.form("account_id").map(|a| a.parse::<i64>().unwrap_or(0)) };
-    let untargeted = !bot_request && posted.is_none() && ctx.params.form("untargeted").is_some();
+    // The tracker's card names them in its action (§2).
+    let posted = if bot_request { None } else { ctx.params.form("account_id").or_else(|| ctx.params.query("account_id")).map(|a| a.parse::<i64>().unwrap_or(0)) };
+    let untargeted = !bot_request && posted.is_none() && ctx.params.form("untargeted").or_else(|| ctx.params.query("untargeted")).is_some();
+    let pick = match (posted, untargeted) { (Some(a), _) => Picked::Account(a), (None, true) => Picked::Untargeted, _ => Picked::Legacy };
     let found = app
         .db(move |c| {
             let venue = c
@@ -265,7 +268,7 @@ pub async fn save(
     if let Some(message) = message {
         let (inner, v) = (app.clone(), ctx.clone());
         let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, &class, &name, live, Some(&message))?)) }
-                                              else { tracker_step(c, &inner, &v, exchange, &class, &name, kind, live, Some(&message)) }).await?;
+                                              else { tracker_step(c, &inner, &v, exchange, pick, &class, &name, kind, live, Some(&message)) }).await?;
         let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
         return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
     }
@@ -274,7 +277,7 @@ pub async fn save(
         // 2.x's page refresh; the card's form closes the sheet on success (`modal--base#submitEnd`).
         return Ok(([(header::CONTENT_TYPE,turbo::CONTENT_TYPE)],turbo::refresh()).into_response());
     }
-    ctx.session.lock().tracker_connect=None;
+    { let mut data=ctx.session.lock(); data.tracker_connect=None; data.tracker_pick=None; }
     // The warnings widget is rebuilt from persisted rows, as in Tracker::AddApiKeysController.
     let v=ctx.clone();let owner=ctx.user().ok_or_else(||WebError::Config("missing warning owner".into()))?.id;
     let warnings = app.db(move|c|warnings(c,&v,owner)).await?;
@@ -943,16 +946,26 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     }
     let requested=ctx.params.query("key_type").filter(|s|matches!(*s,"trading"|"read_only"));
     let kind=if requested==Some("trading"){0}else{2};
-    let inner=app.clone();let owner=user.clone();
+    let (inner,owner,view,kept)=(app.clone(),user.clone(),ctx.clone(),ctx.session.lock().tracker_pick.clone());
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
-        let account=Account::first(c,owner.id,exchange)?;
+        // #710 7a §2: a Reconnect link's `account_id`, else the venue step's pick of this exchange, else number 1 (a 2.x form).
+        let pick=if view.params.query("account_id").is_some(){crate::web::wizard::picked(c,&view,owner.id,exchange)?}
+            else{Some(kept_pick(kept.as_ref(),exchange))};
+        let Some(pick)=pick else{return Ok(None)};
+        let account=match pick{
+            Picked::Account(id)=>match crate::identity::pick(c,owner.id,exchange,Some(id))?{crate::identity::Pick::One(a)=>a,_=>return Ok(None)},
+            _=>Account::first(c,owner.id,exchange)?,
+        };
         // healthy_trading_key: a correct bot key that lacks no permission the sync needs.
         let errors=c.prepare(&format!("SELECT last_sync_error FROM api_keys k WHERE {} AND key_type=0 AND status=1 ORDER BY id LIMIT 1",account.keys("k")))?.query_map([],|r|r.get::<_,Option<String>>(0))?.collect::<Result<Vec<_>,_>>()?;
-        let healthy=venue.as_ref().is_some_and(|(class,_)|errors.iter().any(|error|!crate::tracker::import::run::missing_permission(class,error.as_deref())));
-        Ok((venue,healthy,Key::read(c,&inner,account,kind)?,crate::web::shell::Shell::load(c,&inner,&owner)?))
+        // A venue tile always asks for a key, from a blank candidate.
+        let untargeted=pick==Picked::Untargeted;
+        let healthy=!untargeted&&venue.as_ref().is_some_and(|(class,_)|errors.iter().any(|error|!crate::tracker::import::run::missing_permission(class,error.as_deref())));
+        let key=if untargeted{Key::untargeted(account)}else{Key::read(c,&inner,account,kind)?};
+        Ok(Some((venue,healthy,key,crate::web::shell::Shell::load(c,&inner,&owner)?,pick)))
     }).await?;
-    let (venue,healthy,mut key,shell)=found;
+    let Some((venue,healthy,mut key,shell,pick))=found else{return Ok(crate::web::layout::missing())};
     let Some((class,name))=venue else {return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/pick_exchange/new")))};
     if crate::web::bot::retired_type(&class){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
     if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
@@ -967,10 +980,10 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
             key=app.db(move|c|Key::read(c,&inner,account,kind)).await?;
         }
     }
-    if requested.is_none()&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
+    if requested.is_none()&&pick!=Picked::Untargeted&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
     let csrf=ctx.csrf_token();
     let (inner,v,live)=(app.clone(),ctx.clone(),key.passphrase.as_deref()==Some("live"));
-    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,&class,&name,kind,live,None)).await?;
+    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,pick,&class,&name,kind,live,None)).await?;
     let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }
@@ -979,10 +992,13 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
 /// sync-warning or gap link straight to it): the track (the venue done, its link back to the venue step; Connect current) and
 /// the venue's card, `error` under its fields.
 #[allow(clippy::too_many_arguments)]
-fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,class:&str,name:&str,kind:i64,live:bool,error:Option<&str>)->Result<(String,String),WebError>{
+/// The card's action names the pick (#710 7a §2): `account_id` (a Connected tile or a Reconnect), `untargeted` (a venue tile),
+/// neither for a 2.x form.
+fn tracker_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,pick:Picked,class:&str,name:&str,kind:i64,live:bool,error:Option<&str>)->Result<(String,String),WebError>{
     use crate::web::wizard::{self, Stop};
     let instructions=key_instructions(c,app,ctx,class,name,kind)?;
-    let action=ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}",if kind==0{"trading"}else{"read_only"}));
+    let target=match pick{Picked::Account(id)=>format!("&account_id={id}"),Picked::Untargeted=>"&untargeted=1".into(),Picked::Legacy=>String::new()};
+    let action=ctx.path(&format!("/tracker/add_api_key?exchange_id={exchange}&key_type={}{target}",if kind==0{"trading"}else{"read_only"}));
     let card=sheet_card(ctx,&ctx.csrf_token(),action,SHEET_FORM,name,class,live,instructions,error,Some(ctx.path("/tracker/pick_exchange/new")))?;
     let track=wizard::track(ctx,1,vec![Stop::new("exchange").name(Some(name.to_string())).back(ctx.path("/tracker/pick_exchange/new")),Stop::new("connect")])?;
     Ok((track,wizard::keys::key_pane(&card)?))
@@ -1010,12 +1026,24 @@ pub async fn pick_save(axum::extract::State(app):axum::extract::State<App>,axum:
     if ctx.user().is_none() {return Ok(auth::unauthenticated(&ctx))}
     // A missing or non-numeric id finds no row: RecordNotFound, 2.x's 404.
     let Some(Ok(id))=ctx.params.form("exchange_id").or_else(||ctx.params.query("exchange_id")).map(str::parse::<i64>) else {return Ok(crate::web::layout::missing())};
-    let found=app.db(move|c|Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get::<_,bool>(0))?)).await?;
-    if !found {return Ok(crate::web::layout::missing())}
-    ctx.session.lock().tracker_connect=Some(id);
+    let (view,user)=(ctx.clone(),ctx.user().map_or(0,|u|u.id));
+    let found=app.db(move|c|Ok(if c.query_row("SELECT EXISTS(SELECT 1 FROM exchanges WHERE id=?1)",[id],|r|r.get::<_,bool>(0))?{crate::web::wizard::picked(c,&view,user,id)?}else{None})).await?;
+    // #710 7a §2: a forged, merged or removed account is a 404 too.
+    let Some(pick)=found else {return Ok(crate::web::layout::missing())};
+    let mut kept=serde_json::json!({"exchange_id":id});
+    crate::web::wizard::keep_pick(&mut kept,pick);
+    let mut data=ctx.session.lock();
+    data.tracker_connect=Some(id);
+    data.tracker_pick=(pick!=Picked::Legacy).then_some(kept);
+    drop(data);
     Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/add_api_key/new")))
 }
 
+/// The tracker venue step's kept pick, for `exchange` only (another exchange's is a 2.x pick).
+fn kept_pick(kept:Option<&serde_json::Value>,exchange:i64)->Picked{
+    let Some(kept)=kept.filter(|k|k["exchange_id"].as_i64()==Some(exchange)) else{return Picked::Legacy};
+    match kept["account_id"].as_i64(){Some(id)=>Picked::Account(id),None if crate::web::wizard::untargeted(Some(kept))=>Picked::Untargeted,None=>Picked::Legacy}
+}
 /// The account of the user's bot this request names (#710: its sheet reads and saves that account's key).
 async fn owned_bot_account(app:&App,ctx:&Ctx)->Result<Option<Account>,WebError>{
     let Some(user)=ctx.user() else{return Ok(None)};let owner=user.id;

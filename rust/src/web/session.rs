@@ -59,6 +59,8 @@ pub struct SessionData {
     pub return_to: Option<String>,
     /// The tracker remembers the venue chosen before submitting its key form.
     pub tracker_connect: Option<i64>,
+    /// #710 7a §2: how the tracker's venue step picked it, `{exchange_id, account_id | untargeted}` (a 2.x form keeps none).
+    pub tracker_pick: Option<Value>,
     /// The SETUP_TOKEN this browser presented to /setup (SetupController#require_setup_token).
     pub setup_token: Option<String>,
     /// The subscriber's email from a redeemed platform claim, prefilled on /setup until the admin is made.
@@ -81,6 +83,7 @@ impl SessionData {
             "pending": self.pending.as_ref().map(|p| json!([p.user_id, p.started_at, p.salt])),
             "return_to": self.return_to,
             "tracker_connect": self.tracker_connect,
+            "tracker_pick": self.tracker_pick,
             "setup_token": self.setup_token,
             "platform_identity": self.platform_identity,
             "bot_config": self.bot_config,
@@ -98,6 +101,7 @@ impl SessionData {
             pending: v["pending"].as_array().and_then(|a| Some(Pending { user_id: a.first()?.as_i64()?, started_at: a.get(1)?.as_i64()?, salt: text(a.get(2)?)? })),
             return_to: text(&v["return_to"]),
             tracker_connect: v["tracker_connect"].as_i64(),
+            tracker_pick: v.get("tracker_pick").filter(|pick| !pick.is_null()).cloned(),
             setup_token: text(&v["setup_token"]),
             // An earlier build stored [name, email]: its email.
             platform_identity: text(&v["platform_identity"]).or_else(|| v["platform_identity"].as_array().and_then(|a| a.get(1)).and_then(text)),

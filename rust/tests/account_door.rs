@@ -524,3 +524,44 @@ async fn the_rule_wizard_makes_its_rule_on_the_picked_account_with_its_addresses
     let (account, address): (i64, String) = c.query_row("SELECT account_id, address FROM exchange_account_rules", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!((account, cipher.decrypt(&address).unwrap().as_str()), (second, ADDRESS_B), "account 2's rule, to account 2's wallet");
 }
+
+// ---- §2: the tracker's venue step takes the pick ----
+
+/// §2: the tracker's venue step draws a tile per account; picking account 2's opens a key form bound to account 2, whose save
+/// replaces account 2's reading key only. A venue tile always asks for a key, even with a healthy one, and its form saves
+/// untargeted.
+#[tokio::test(flavor = "current_thread")]
+async fn the_tracker_venue_step_binds_its_key_form_to_the_picked_account() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let second = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap()[1].0;
+    let before = keys(c, &cipher, s.exchange_id);
+    let step = b.get(&app, "/tracker/pick_exchange/new").await;
+    assert!(step.body.contains(&format!("account_id={second}\"")), "a tile for account 2: {}", step.body);
+    let exchange = s.exchange_id.to_string();
+    let picked = b.send(&app, "POST", &format!("/tracker/pick_exchange?account_id={second}"), Some(&[("exchange_id", exchange.as_str()), ("untargeted", "1")]),
+                        common::web::Csrf::Header, &[]).await;
+    assert_eq!((picked.status, location(&picked)), (302, "/tracker/add_api_key/new"), "{}", picked.body);
+    let form = b.get(&app, "/tracker/add_api_key/new?key_type=read_only").await;
+    assert_eq!(form.status, 200, "{}", location(&form));
+    let action = format!("/tracker/add_api_key?exchange_id={exchange}&#38;key_type=read_only&#38;account_id={second}");
+    assert!(form.body.contains(&action), "the form names account 2: {}", form.body);
+    let saved = b.send(&app, "POST", &action.replace("&#38;", "&"), Some(&[("api_key[key]", "reader-2"), ("api_key[secret]", "reader-2-secret"), ("api_key[passphrase]", "paper")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert!(saved.status < 400, "{}: {}", saved.status, saved.body);
+    let mut want = before.clone();
+    want.push((2, "reader-2".into()));
+    assert_eq!(keys(c, &cipher, s.exchange_id), want, "account 2's reading key; account 1 untouched");
+    // A venue tile: the form always asks, and posts untargeted.
+    b.get(&app, "/tracker/pick_exchange/new").await;
+    let tile = b.send(&app, "POST", "/tracker/pick_exchange", Some(&[("exchange_id", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(tile.status, 302);
+    let asks = b.get(&app, "/tracker/add_api_key/new").await;
+    assert_eq!(asks.status, 200, "a venue tile asks for a key: {}", location(&asks));
+    assert!(asks.body.contains("&#38;untargeted=1"), "{}", asks.body);
+    // A forged account is a 404.
+    let forged = b.send(&app, "POST", "/tracker/pick_exchange?account_id=999999", Some(&[("exchange_id", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(forged.status, 404);
+}
