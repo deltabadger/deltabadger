@@ -1055,6 +1055,30 @@ async fn a_parked_answer_never_beats_the_file_s_account() {
     assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 4, "one new account for the UID");
 }
 
+/// Rule H4: a conflict is looked up in the file's venue. A Binance file of UID 123 held on Binance's account 1 as a conflict
+/// never refuses a Binance.US export of UID 123, which lands on the Binance.US account that UID names.
+#[tokio::test(flavor = "current_thread")]
+async fn h4_a_binance_conflict_never_refuses_a_binance_us_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("123")).await;
+    let done = answer(&app, &mut b, &asked, "binance", &options(&asked.body)[0]).await;
+    assert!(imported(&done) && rows_on(c, first) == 1, "{}: {}", done.status, done.body);
+    // As before 7a: Binance's account 1 then read another account; its copy of 123's file is a conflict there.
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
+    fingerprint(c, first, "Exchanges::Binance", "111");
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "123");
+    let done = upload(&app, &mut b, "binance", &binance_file("123")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, first), rows_on(c, on_us)), (1, 1));
+}
+
 /// §3: the gap dialog reads the line's account: account 1's healthy key does not hide account 2's reconnect; a keyless
 /// account (one an import made) is offered Import, and its CSV example names its number, so re-imported it lands there.
 #[tokio::test(flavor = "current_thread")]

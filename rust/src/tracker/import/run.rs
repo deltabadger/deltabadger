@@ -256,13 +256,12 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
     }
     let exchanges: Vec<(i64, String, String)> = c.prepare("SELECT id, type, name FROM exchanges WHERE type IN (SELECT value FROM json_each(?1)) ORDER BY id")?
         .query_map([serde_json::json!(venues).to_string()], |r| Ok((r.get(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, Option<String>>(2)?.unwrap_or_default())))?.collect::<Result<_, _>>()?;
-    // #710 7a §0.11: a file another account holds as a conflict (imported there before 7a) is never imported again, whoever
-    // now owns its fingerprint and whatever a parked answer says.
-    if let Some(id) = file {
-        for (exchange, _, _) in &exchanges {
-            if let Some(on) = crate::identity::imported_as_conflict(c, cipher, user_id, *exchange, id, now).map_err(SyncError)? { return Ok(Routed::Elsewhere(on)) }
-        }
-    }
+    // #710 7a §0.11, rule H4: a file another account of ITS venue holds as a conflict (imported there before 7a) is never
+    // imported again, whoever now owns its fingerprint and whatever a parked answer says; a Binance conflict is no
+    // Binance.US file's. Read once the venue is known, before any account is made.
+    let conflict = |exchange: i64| -> Result<Option<i64>, SyncError> {
+        match file { Some(id) => crate::identity::imported_as_conflict(c, cipher, user_id, exchange, id, now).map_err(SyncError), None => Ok(None) }
+    };
     let identity = crate::identity::key(c, cipher, now).map_err(SyncError)?;
     let fingerprint = |exchange_type: &str| file.map(|id| identity.fingerprint(exchange_type, id));
     // (account, number, fingerprint) of each live account of `exchange`.
@@ -314,9 +313,11 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
     }
     match matched.as_slice() {
         [] => {}
-        [(_, account)] => return Ok(Routed::To(*account)),
+        [(exchange, account)] => return Ok(conflict(*exchange)?.map_or(Routed::To(*account), Routed::Elsewhere)),
         many => return Ok(ask_venue(&many.iter().map(|(e, _)| *e).collect::<Vec<_>>())?),
     }
+    let known = venue.or(match exchanges.as_slice() { [(only, _, _)] => Some(*only), _ => None });
+    if let Some(on) = known.map(conflict).transpose()?.flatten() { return Ok(Routed::Elsewhere(on)) }
     match parked {
         Some(Ok(account)) => return Ok(Routed::To(account)),
         Some(Err(exchange)) => return Ok(Routed::To(crate::identity::new_account(c, user_id, exchange, now)?)),
