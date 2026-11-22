@@ -494,10 +494,12 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
                                                o = crate::venue_ids::order_id(c, "t")?, mine = picked.orders(c, "t")?),
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text, picked.id).map_err(|e| WebError::Config(format!("{e:?}")))?
-                                     .filter(|(account, _, _)| account.id == picked.id || picked.id.is_none()) } else { None };
+                                     .filter(|(account, _, _, _)| account.id == picked.id || picked.id.is_none()) } else { None };
+    // #710 7a §9.4: an order the venue already ended (recorded by a pre-flight) is not sent a cancel, whatever key is there now.
+    if let Some((_, _, _, Some(terminal))) = &log { return Ok(Cancel::Done(cancel_failed(&format!("the order is already {terminal}")))); }
     let account = match (&row, &log) {
         (Some((_, tx)), _) => crate::identity::Account::of_order(c, *tx)?,
-        (None, Some((account, _, _))) => Some(*account),
+        (None, Some((account, _, _, _))) => Some(*account),
         (None, None) => Some(picked),
     };
     let Some(account) = account else { return Ok(Cancel::Done(api_key_missing(&crate::identity::label_or(c, picked.id, &name)?.plain()))) };
@@ -505,7 +507,7 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
     let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
     if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
-    if let Some((_, identity, snapshot)) = log {
+    if let Some((_, identity, snapshot, _)) = log {
         // r1 §4: the route from what was stored at the claim, never from the ticker row (it may be gone or renamed since).
         let mut intent = identity.unwrap_or_else(|| json!({}));
         for key in ["symbol", "side", "limit"] { intent[key] = snapshot[key].clone(); }

@@ -638,3 +638,27 @@ async fn a_numeric_order_id_named_for_another_account_is_not_that_accounts_row()
     assert_eq!(sent[0].0, "account-2-key", "account 2's key, never account 1's row");
     assert!(sent[0].1.ends_with(&format!("/{}", rows[2])), "the id as a bare venue id: {sent:?}");
 }
+
+/// #710 7a §9.4: a standalone order the pre-flight recorded terminal never sends a cancel, after a key replacement too: the
+/// cancel ends locally, saying so.
+#[tokio::test(flavor = "current_thread")]
+async fn a_standalone_order_recorded_terminal_sends_no_cancel() {
+    use deltabadger::{engine::api_orders, identity::Account};
+    let server = MockServer::start().await;
+    let (d, o, _bot, _rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange, ticker): (i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let first = Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    let (amount, pair) = (deltabadger::v2::BigDec::parse("0.001").unwrap(), serde_json::Map::new());
+    let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
+        standalone: api_orders::Standalone { account: first, exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::v2::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+    api_orders::take(c, id, at(T0)).unwrap().unwrap();
+    assert!(api_orders::claim(c, id, "cl", None, &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());
+    api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: "SCL-9".into() }).unwrap();
+    deltabadger::merge::record_terminal(c, id, "filled").unwrap();
+    kucoin_mode(&server, &o, "classic").await;
+    let (status, body) = rest_cancel(&kucoin_app(&d, &server), "SCL-9?exchange_name=kucoin").await;
+    assert_ne!(status, 200, "{body}");
+    assert!(body.to_string().contains("already filled"), "{body}");
+    assert!(server.received_requests().await.unwrap().iter().all(|r| r.method.as_str() != "DELETE"), "nothing sent");
+}
