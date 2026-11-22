@@ -1388,7 +1388,9 @@ async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orde
         if now > request.send_by { return api_orders::finish(&e.primary, request.id, &Outcome::Busy); }
         let bot = model::load_bot(&e.primary, bot_id)?;
         let (venue, producer) = e.venue_for(&bot)?;
-        if producer.is_none() || producer != request.credential_version {
+        // A key found to open another account (#710 7a) is the same key on every pass: refused here, never retried until
+        // the send deadline (whatever `signal::late_refusal` says).
+        if producer.is_none() || producer != request.credential_version || model::key_fenced(&e.primary, &bot)? {
             let exchange = model::exchange_name(&e.primary, &bot)?;
             return api_orders::finish(&e.primary, request.id, &Outcome::Refused { code: "api_key_missing".into(),
                 message: format!("No valid API key found for {exchange}. Please add an API key in Settings.") });
