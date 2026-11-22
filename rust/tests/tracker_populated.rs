@@ -112,6 +112,26 @@ fn withheld_page(name: &str, body: &str) -> String {
     out
 }
 
+/// D-TRACKER-MENU-LISTS-CONNECTED (#710 7a §2): the connect menu lists the user's own venues too, each a venue tile (its link
+/// says `untargeted`); 2.x left them out. They are cut from Rust's page (at least one wherever the menu is drawn), so the rest compares byte for
+/// byte.
+fn menu_lists_connected(name: &str, page: &str) -> String {
+    const ITEM: &str = "            <a class=\"dropdown__item\" data-turbo-frame=\"modal\" href=\"";
+    let mut out = page.to_string();
+    let mut cut = 0;
+    let mut from = 0;
+    while let Some(at) = out[from..].find(ITEM).map(|i| i + from) {
+        let href_end = at + ITEM.len() + out[at + ITEM.len()..].find('"').unwrap();
+        if !out[at + ITEM.len()..href_end].ends_with("untargeted=1") { from = href_end; continue; }
+        let end = href_end + out[href_end..].find("</a>").unwrap() + 4;
+        out.replace_range(at..end, "");
+        cut += 1;
+    }
+    // The menu is drawn beside the chips only; there it names the user's own venues.
+    assert!(cut > 0 || !page.contains("segmented__submenu"), "{name}: the user's own venue in the connect menu");
+    out
+}
+
 /// The request's context, as the router builds it for a signed-in GET of `path`.
 fn ctx(app: &deltabadger::web::App, c: &Connection, owner: i64, path: &str, token: &str) -> deltabadger::web::layout::Ctx {
     let (route, query) = path.split_once('?').unwrap_or((path, ""));
@@ -225,7 +245,7 @@ async fn populated_regions_match_v2() {
             let end = start + v2_body[start..].find("</tr>\n\n").unwrap() + 7;
             v2_body.replace_range(start..end, "");
         }
-        let ours = grid::masked(&answer.body, Some(&app), Some(&token));
+        let ours = grid::masked(&menu_lists_connected(&name, &answer.body), Some(&app), Some(&token));
         let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, &v2_body)).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
         let (ours, theirs) = if name == "populated_unpriced" { unpriced_card(&name, &ours, &theirs) } else { (ours, theirs) };
         if ours != theirs {

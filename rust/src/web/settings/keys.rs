@@ -954,7 +954,9 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
         // #710 7a §2: a Reconnect link's `account_id`, else the venue step's pick of this exchange, else number 1 (a 2.x form).
+        // The tracker menu's venue tile (`untargeted`) always asks.
         let pick=if view.params.query("account_id").is_some(){crate::web::wizard::picked(c,&view,owner.id,exchange)?}
+            else if view.params.query("untargeted").is_some(){Some(Picked::Untargeted)}
             else{Some(kept_pick(kept.as_ref(),exchange))};
         let Some(pick)=pick else{return Ok(None)};
         let account=match pick{

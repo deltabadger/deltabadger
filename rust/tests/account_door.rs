@@ -607,3 +607,24 @@ async fn reconnect_links_and_the_bot_sheet_name_their_account() {
     assert_eq!(stale.status, 404, "{}", stale.body);
     assert_eq!(keys(c, &cipher, s.exchange_id), before);
 }
+
+/// §2, D-TRACKER-MENU-LISTS-CONNECTED: the tracker's connect menu lists a venue the user already holds too, as a venue tile:
+/// its link asks for a key whatever keys there are, and the form saves untargeted.
+#[tokio::test(flavor = "current_thread")]
+async fn the_tracker_menu_lists_connected_venues_as_venue_tiles() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    c.execute("UPDATE exchanges SET available = 1", []).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    // Two accounts (the menu is drawn beside the chips), synced once: the populated page, not the first-sync one.
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    c.execute("UPDATE api_keys SET last_synced_at = '2026-09-20 00:00:00', balances_synced_at = '2026-09-20 00:00:00'", []).unwrap();
+    let page = b.get(&app, "/tracker").await;
+    assert!(page.body.contains("dropdown--exchanges"), "the populated page: {}", page.body);
+    assert_eq!(page.status, 200);
+    let link = format!("/tracker/add_api_key/new?exchange_id={}&untargeted=1", s.exchange_id);
+    assert!(links(&page.body, "/tracker/add_api_key/new").contains(&link), "Alpaca in the menu: {:?}", links(&page.body, "/tracker/add_api_key/new"));
+    let form = b.get(&app, &link).await;
+    assert_eq!(form.status, 200, "a venue tile asks for a key: {}", location(&form));
+    assert!(links(&form.body, "/tracker/add_api_key?").iter().any(|l| l.ends_with("&untargeted=1")), "{}", form.body);
+}

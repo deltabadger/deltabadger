@@ -20,9 +20,9 @@ pub struct Regions { pub pending: String, pub filters: String, pub notice: Strin
 pub enum Built { Regions(Regions), Refused(String) }
 
 struct Venue { id: i64, name: String, kind: String }
-fn venues(c: &Connection, sql: &str, owner: i64) -> Result<Vec<Venue>, WebError> {
+fn venues(c: &Connection, sql: &str) -> Result<Vec<Venue>, WebError> {
     let mut s = c.prepare(sql)?;
-    let rows = s.query_map([owner], |r| Ok(Venue { id: r.get(0)?, name: r.get(1)?, kind: r.get(2)? }))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = s.query_map([], |r| Ok(Venue { id: r.get(0)?, name: r.get(1)?, kind: r.get(2)? }))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 fn name_id(kind: &str) -> String { crate::tracker::rows::name_id(kind) }
@@ -395,7 +395,9 @@ fn accounts(c: &Connection, owner: i64) -> Result<Vec<Switched>, WebError> {
 
 fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool, sync: String) -> Result<(String, String), WebError> {
     let accounts = accounts(c, owner)?;
-    let connectable = venues(c, "SELECT id,name,type FROM exchanges WHERE available=1 AND type!='Exchanges::Bitmart' AND id NOT IN (SELECT exchange_id FROM api_keys WHERE user_id=?1 UNION SELECT exchange_id FROM account_transactions WHERE user_id=?1) ORDER BY name", owner)?;
+    // D-TRACKER-MENU-LISTS-CONNECTED (#710 7a §2): every connectable venue, the user's own too, whose link is a venue tile
+    // (`untargeted`: it always asks for a key, and the key goes where it routes, a new account included).
+    let connectable = venues(c, "SELECT id,name,type FROM exchanges WHERE available=1 AND type!='Exchanges::Bitmart' ORDER BY name")?;
     let (brokers, rest): (Vec<Venue>, Vec<Venue>) = connectable.into_iter().partition(|v| stock_venue(&v.kind));
     // The accounts with a correct reading key ("broken": none, as an exchange without a valid key was).
     let valid: Vec<i64> = {
@@ -425,7 +427,8 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
             });
         }
     }
-    let menu = brokers.iter().chain(rest.iter()).map(|v| MenuItem { label: escape(&v.name), icon: crate::web::bot::exchange_svg(&name_id(&v.kind)), href: escape(&with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))])) }).collect();
+    let menu = brokers.iter().chain(rest.iter()).map(|v| MenuItem { label: escape(&v.name), icon: crate::web::bot::exchange_svg(&name_id(&v.kind)), href: escape(&with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string())),
+        ("untargeted", accounts.iter().any(|a| a.venue.id == v.id).then_some("1"))])) }).collect();
     let pairs = super::scope::passed(ctx);
     let query = crate::web::locale::switch_query(&pairs);
     let export_path = escape(&ctx.path(&format!("/tracker/export{}", if query.is_empty() { String::new() } else { format!("?{query}") })));
