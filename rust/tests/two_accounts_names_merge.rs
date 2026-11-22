@@ -3875,3 +3875,23 @@ fn s7_0_6_merge_moves_the_duplicates_import_observations() {
     assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {}", two.id(0))), 1);
 }
 
+/// 7a §0.9: the Alpaca broker report's FIFO is per account (per depot, BMF Rn. 97), whatever the rows' keys: with both
+/// keys deleted, account 2's sale consumes account 2's own lot (cost 200, gain 50), never account 1's earlier one (100).
+#[test]
+fn s7_0_9_the_broker_report_walks_each_account_on_its_own() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES ('ACME.US', 'ACME', 'ACME', 'Stock', 'stock', 'now', 'now')", []).unwrap();
+    let mut day = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+    while chrono::Datelike::year(&day) == 2025 { c.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, '1')", [day.to_string()]).unwrap(); day = day.succ_opt().unwrap(); }
+    for (n, kind, usd, at) in [(0, 0, "100", "2025-01-10 15:00:00"), (1, 0, "200", "2025-02-10 15:00:00"), (1, 1, "250", "2025-03-10 15:00:00")] {
+        let row = two.row(c, n, kind, "ACME", "1", Some(&format!("t-{at}")), None, at);
+        c.execute("UPDATE account_transactions SET quote_currency = 'USD', quote_amount = ?2, api_key_id = NULL WHERE id = ?1", rusqlite::params![row, usd]).unwrap();
+    }
+    let csv = deltabadger::tax::broker::report(c, two.seeded.user_id, 2025, &std::collections::HashSet::new()).unwrap();
+    let sale = csv.lines().find(|l| l.contains("2025-03-10")).unwrap_or_else(|| panic!("{csv}"));
+    assert!(sale.contains("200") && sale.contains("50") && !sale.contains("150"), "{sale}\n{csv}");
+}
+
