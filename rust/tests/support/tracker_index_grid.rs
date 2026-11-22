@@ -58,7 +58,7 @@ pub fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->
         assert_eq!(body.matches(" data-empty-import ").count(),1,"D-TRACKER-EMPTY-IMPORT: one Import on the welcome screen");
     }
     let ours=regex::Regex::new(r#"(?s)<div class="[^"]*--scheme" data-dropdown-keep-open data-scheme-switch[^>]*>.*?</div>|<div class="[^"]*--currency" data-dropdown-keep-open data-mode-switch[^>]*>.*?<!--/mode--></div>|<canvas class="pixel-scene"[^>]*></canvas>|<a class="sbutton sbutton--link" data-empty-import [^>]*>[^<]*</a>|<div class="menu__section menu__section--top menu__section--logo">.*?</a></div>\n"#).unwrap();
-    let body=&*ours.replace_all(body,"");
+    let body=common::html::flash_toasts_as_rust(body);let body=&*ours.replace_all(&body,"");
     let values=common::html::masked_values(body);let mut out=body.to_string();
     for v in values.tokens {if let Some(t)=token{assert!(csrf::valid(t,&v));}out=out.replace(&v,"[csrf]");}
     if let Some(rest)=body.split("<meta name=\"csp-nonce\" content=\"").nth(1){

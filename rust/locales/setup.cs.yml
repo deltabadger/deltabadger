@@ -33,6 +33,7 @@ cs:
                 spendable: "Měna"
                 api: "Připojit burzu"
                 connect: "Připojit"
+                market_data: "Tržní data"
                 coingecko: "Připojit CoinGecko"
                 index: "Vybrat index"
                 pick_asset: "Vybrat aktivum"

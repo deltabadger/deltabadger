@@ -762,12 +762,19 @@ pub fn key_cards(path: &str, method: &str, posted: &Value, v2: &mut Value, rust:
     let (their_end, our_end) = (subtree_end(theirs, their_frame), subtree_end(ours, our_frame));
     // The export modal with market data configured is not a card: compared as it is.
     if positions(ours, our_frame, our_end, |l| has_class(l, "turbo-frame", "sheet__frame")).len() != 1 { return if route == "/tracker/export_modal" { Ok(0) } else { Err(format!("{route}: no sheet where 2.x draws its card")) } }
-    if !positions(ours, our_frame, our_end, |l| has_class(l, "ol", "sheet__track")).is_empty() { return Err(format!("{route}: the card's sheet has a track")) }
+    // D-TRACKER-MARKET-DATA-PICK: the tracker's market-data sheet has the exchange step's track (Market data, Connect).
+    if !coingecko && !positions(ours, our_frame, our_end, |l| has_class(l, "ol", "sheet__track")).is_empty() { return Err(format!("{route}: the card's sheet has a track")) }
     let close = positions(ours, our_frame, our_end, |l| opens(l, "dialog")).first().and_then(|d| attr(text(&ours[*d]), "data-modal--base-close-url-value")).ok_or("the sheet has no close URL")?;
     let want = bot.map_or("/tracker".to_string(), |(id, _)| format!("/bots/{id}"));
     if route_of(&close) != want { return Err(format!("{route}: the sheet closes to {close}, not {want}")) }
     let ours_forms = form_contracts(ours, our_frame, our_end);
     for form in form_contracts(theirs, their_frame, their_end) {
+        // D-TRACKER-MARKET-DATA-PICK: where 2.x's tracker posts a CoinGecko key, ours offers the wizard's providers' tiles.
+        if coingecko && route_of(&form.action) == "/tracker/setup_coingecko" {
+            let tile = |key: &str| !positions(ours, our_frame, our_end, |l| opens(l, "a") && attr(text(l), "href").is_some_and(|h| h.ends_with(&format!("/tracker/connect_market_data?provider={key}")))).is_empty();
+            if tile("coingecko") && tile("deltabadger") { continue }
+            return Err(format!("{route}: 2.x's CoinGecko form, and the sheet offers no providers' tiles"))
+        }
         let Some(mine) = ours_forms.iter().find(|f| f.action == form.action) else { return Err(format!("{route}: 2.x's card posts to {}, the sheet does not", form.action)) };
         if mine != &form { return Err(format!("{route}: the sheet's form {mine:?} is not 2.x's {form:?}")) }
     }

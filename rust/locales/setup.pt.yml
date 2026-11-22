@@ -33,6 +33,7 @@ pt:
                 spendable: "Moeda"
                 api: "Conectar exchange"
                 connect: "Conectar"
+                market_data: "Dados de mercado"
                 coingecko: "Conectar CoinGecko"
                 index: "Escolher índice"
                 pick_asset: "Escolher ativo"

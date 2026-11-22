@@ -33,6 +33,7 @@ es:
                 spendable: "Moneda"
                 api: "Conectar exchange"
                 connect: "Conectar"
+                market_data: "Datos de mercado"
                 coingecko: "Conectar CoinGecko"
                 index: "Elegir índice"
                 pick_asset: "Elegir activo"

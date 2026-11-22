@@ -116,6 +116,8 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
     // D-CG-SETTINGS-KEY-CHECKED: a key posted here is checked as the tracker's and the wizard's are; nothing is written for a
     // key CoinGecko refuses. The stored key a switch back uses is not checked again (2.x).
     if provider.as_deref() == Some("coingecko") {
+        // The tracker's card asks for a key: a blank one is refused, never a switch to the stored key unchecked.
+        if posted.is_none() && from_tracker(&ctx) { return invalid_key(&ctx); }
         if let Some(key) = &posted {
             if !key_valid(&app, key).await { return invalid_key(&ctx); }
         }
@@ -174,11 +176,16 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
     widget_and_flash(&ctx, &widget, notice)
 }
 
-/// D-INDEX-CONNECT-IN-VIEW: a write from the index wizard's Index view (`wizard=1`).
-pub(super) fn in_wizard(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("1") }
+/// D-INDEX-CONNECT-IN-VIEW: a write from the index wizard's Index view (`wizard=1`) or the tracker's sheet (`wizard=tracker`).
+pub(super) fn in_wizard(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("1") || from_tracker(ctx) }
 
-/// The write that connected market data from the Index view goes on to it, inside the sheet.
-pub(super) fn to_index_view(ctx: &Ctx) -> Response { stream(turbo::redirect(&ctx.path(crate::web::wizard::INDEX_VIEW))) }
+/// D-TRACKER-MARKET-DATA-PICK: the tracker's sheet drew the card, or its write posted from there.
+pub(super) fn from_tracker(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("tracker") || ctx.params.route_path.starts_with("/tracker") }
+
+/// The write that connected market data from the Index view goes on to it, inside the sheet; from the tracker, to the tracker.
+pub(super) fn to_index_view(ctx: &Ctx) -> Response {
+    stream(turbo::redirect(&ctx.path(if from_tracker(ctx) { "/tracker" } else { crate::web::wizard::INDEX_VIEW })))
+}
 
 /// D-CG-DISCONNECT-KEEPS-PLATFORM: the provider and the key, not a claimed platform's `market_data_url`/`_token`
 /// (2.x's clear_market_data_settings! drops them too).
@@ -210,7 +217,7 @@ async fn resync(app: App, ctx: Ctx) -> Result<Response, WebError> {
     })
     .await?;
     let syncing = format!(
-        "{}\n<div id=\"flash-syncing\" class=\"salert salert--syncing\" role=\"alert\">\n  <div class=\"loader--syncing\"></div>\n  {}\n</div>",
+        "{}\n<div id=\"flash-syncing\" class=\"salert salert--syncing\" role=\"alert\">\n  {}\n</div>",
         ctx.stream_from("settings_sync"),
         ctx.t("setup.syncing_message")
     );

@@ -33,6 +33,7 @@ sv:
                 spendable: "Valuta"
                 api: "Anslut börs"
                 connect: "Anslut"
+                market_data: "Marknadsdata"
                 coingecko: "Anslut CoinGecko"
                 index: "Välj index"
                 pick_asset: "Välj tillgång"

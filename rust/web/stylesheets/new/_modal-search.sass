@@ -179,8 +179,6 @@ html:has(#modal dialog[open])
             height: 2.5rem
         path
             fill: var(--stone)
-            .flash__message &
-                fill: var(--on-accent, #fff)
         &:focus-visible
             outline: none !important
         &:hover
@@ -356,13 +354,6 @@ html:has(#modal dialog[open])
         flex-direction: row
         padding: 10rem
         gap: 8rem
-
-.flash__message
-    .modal__close
-        right: 1rem
-        top: 1rem
-        &:hover
-            background: #fff2
 
 // A table inside a modal is not a card on a page. The widget shell is still what carries every row
 // rule — padding, alignment, the logo gutter — so it stays, but it drops the lift and the rounding,

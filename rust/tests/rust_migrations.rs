@@ -800,3 +800,18 @@ fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
     assert_eq!(rows(&p, "SELECT account_id FROM kucoin_coverage WHERE id = 4"), [[Integer(30)]], "the existing number 1");
     assert!(store::check(&p).unwrap().pending_rust.is_empty());
 }
+
+/// Delisted coins PR0: `asset_prices` (coin prices by identity) migrates once, keyed as its writer relies on: one price
+/// per (external id, currency, day).
+#[test]
+fn the_asset_prices_table_migrates_once_with_its_key() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap();
+    assert!(has_table(&p, "asset_prices"));
+    let c = Connection::open(&p.primary).unwrap();
+    let put = "INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin-gold', 'USD', '2019-01-02', '13.5') ON CONFLICT DO NOTHING";
+    assert_eq!(c.execute(put, []).unwrap(), 1);
+    assert_eq!(c.execute(put, []).unwrap(), 0, "one price per external id, currency and day");
+    assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), Vec::<String>::new(), "a restart applies nothing");
+}

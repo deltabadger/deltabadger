@@ -31,8 +31,8 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Sco
     }
     if lines.is_empty() { return Ok(String::new()); }
     let connect = if crate::web::bots::market_data(c, &ctx.app)?.1 { String::new() } else {
-        format!("    <p class=\"notice__line\">{} <a data-turbo-frame=\"modal\" href=\"{}\">{}</a></p>\n", ctx.t("tracker.prices.connect_coingecko"),
-            ctx.path("/tracker/connect_market_data"), i18n::t(ctx.locale, "bot.setup.connect_to", &[("name", Arg::Text("CoinGecko"))]))
+        format!("    <p class=\"notice__line\">{} <a data-turbo-frame=\"modal\" href=\"{}\">{}</a></p>\n", ctx.t("tracker.prices.connect_market_data"),
+            ctx.path("/tracker/connect_market_data"), ctx.t("button.connect"))
     };
     Ok(format!("<div class=\"widget notice\" role=\"status\">\n{lines}{connect}</div>\n"))
 }

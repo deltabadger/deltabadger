@@ -77,23 +77,41 @@ pub async fn export_modal(State(app):State<App>,Extension(ctx):Extension<Ctx>)->
     let Some(owner)=ctx.user().map(|u|u.id)else{return Ok(auth::unauthenticated(&ctx))};
     app.db(move|c|{
         // `render :setup_coingecko, layout: false` until market data is configured.
-        if !crate::web::bots::market_data(c,&ctx.app)?.1{return setup_page(&ctx)}
+        if !crate::web::bots::market_data(c,&ctx.app)?.1{return setup_page(c,&ctx)}
         Ok(([(header::CONTENT_TYPE,"text/html; charset=utf-8")],render(c,&ctx,owner)?).into_response())
     }).await
 }
 
-/// D-TRACKER-COINGECKO-SHEET: the CoinGecko card in the sheet closing to the tracker, no track: the key form for an admin, for
+/// D-TRACKER-MARKET-DATA-PICK: market data connected as the index wizard connects it, in the sheet closing to the tracker, no
+/// track: for an admin the providers' tiles, a tile (`?provider=`) opening its connect card, which answers the tracker; for
 /// anyone else who to ask.
-fn setup_page(ctx:&Ctx)->Result<Response,WebError>{
-    let card=crate::web::settings::sections::tracker_coingecko_card(ctx,&ctx.csrf_token(),ctx.user().is_some_and(|u|u.admin),None);
-    let page=crate::web::wizard::sheet_to(ctx,"/tracker","",&crate::web::wizard::keys::key_pane(&card)?)?;
+fn setup_page(c:&Connection,ctx:&Ctx)->Result<Response,WebError>{
+    use crate::web::{settings::{keys,sections},wizard::{self,Stop}};
+    let csrf=ctx.csrf_token();
+    let admin=ctx.user().is_some_and(|u|u.admin);
+    let provider=ctx.params.query("provider").filter(|p|matches!(*p,"coingecko"|"deltabadger"));
+    // As the tracker's exchange step: Market data, then Connect; a picked provider is named, its link back to the tiles.
+    let back=ctx.path("/tracker/connect_market_data");
+    let track=match provider {
+        Some(p) if admin=>wizard::track(ctx,1,vec![Stop::new("market_data").name(Some((if p=="coingecko"{"CoinGecko"}else{"Deltabadger"}).to_string())).back(back),Stop::new("connect")])?,
+        _=>wizard::track(ctx,0,vec![Stop::new("market_data"),Stop::new("connect")])?,
+    };
+    let pane=match provider {
+        _ if !admin=>format!("<p class=\"sheet__empty\">{}</p>",ctx.t("tracker.prices.ask_admin")),
+        Some(provider)=>wizard::keys::key_pane(&keys::market_data(c,&ctx.app,ctx,&csrf,false,None,Some(provider))?)?,
+        None=>format!("<div class=\"bot-creation-layout\">\n  <div class=\"vt-step-body\">\n    <p class=\"index-view__intro\">{}</p>\n    {}\n  </div>\n</div>",
+            ctx.t("tracker.prices.providers_intro"),sections::market_data_providers(ctx,"modal_content",|key|ctx.path(&format!("/tracker/connect_market_data?provider={key}")))),
+    };
+    let page=wizard::sheet_to(ctx,"/tracker",&track,&pane)?;
     Ok(([(header::CONTENT_TYPE,"text/html; charset=utf-8")],page).into_response())
 }
 
 /// GET /tracker/connect_market_data (TrackerController#connect_market_data).
-pub async fn connect_market_data(Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
+pub async fn connect_market_data(State(app):State<App>,Extension(ctx):Extension<Ctx>)->Result<Response,WebError>{
     if ctx.user().is_none(){return Ok(auth::unauthenticated(&ctx))}
-    setup_page(&ctx)
+    // Market data already in place (a hosted install's MARKET_DATA_URL, or a provider connected since): a stale link to the
+    // providers goes to the tracker instead of offering a second feed.
+    app.db(move|c|if crate::web::bots::market_data(c,&ctx.app)?.1{Ok(crate::web::layout::redirect(axum::http::StatusCode::SEE_OTHER,&ctx.path("/tracker")))}else{setup_page(c,&ctx)}).await
 }
 
 /// POST /tracker/setup_coingecko (TrackerController#setup_coingecko): admin only; a key CoinGecko refuses is answered with the

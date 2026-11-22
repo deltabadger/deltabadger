@@ -560,7 +560,9 @@ nl:
             chart_missing: "De grafiek toont de marktwaarde van %{assets} op %{venue} niet voor dagen zonder prijs."
             opening_unknown: "De beginwaarde van %{assets} op %{venue} is onbekend."
             chart_incomplete: "Sommige dagen in de grafiek zijn onvolledig."
-            connect_coingecko: "Koppel een gratis CoinGecko-account om marktprijzen te krijgen."
+            connect_market_data: "Koppel een marktdataleverancier om marktprijzen te krijgen."
+            providers_intro: "Portfoliotracking en belastingrapporten hebben historische prijzen en wisselkoersen nodig. Koppel de Deltabadger data-API (aandelen en crypto) of een gratis CoinGecko-account (alleen crypto). Een gratis CoinGecko-account dekt alleen de prijzen van het afgelopen jaar."
+            ask_admin: "Marktgegevens worden ingesteld door de beheerder van je instantie. Vraag hem een aanbieder te verbinden onder Instellingen → Verbinden."
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
         importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'

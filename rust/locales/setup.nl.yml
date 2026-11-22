@@ -33,6 +33,7 @@ nl:
                 spendable: "Valuta"
                 api: "Verbind exchange"
                 connect: "Verbinden"
+                market_data: "Marktdata"
                 coingecko: "Verbind CoinGecko"
                 index: "Kies index"
                 pick_asset: "Kies asset"

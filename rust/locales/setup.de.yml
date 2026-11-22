@@ -33,6 +33,7 @@ de:
                 spendable: "Währung"
                 api: "Börse verbinden"
                 connect: "Verbinden"
+                market_data: "Marktdaten"
                 coingecko: "CoinGecko verbinden"
                 index: "Index wählen"
                 pick_asset: "Asset wählen"
