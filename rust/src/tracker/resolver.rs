@@ -251,7 +251,10 @@ fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
     if leg.venue.broker {
         match recorded {
             Some(r) if bound(f, leg, r) => return Some(coin(leg, r)),
-            Some(_) => {}
+            // Recorded, unbound: the broker's listing stands, and another coin listed is a conflict (never the alias).
+            Some(r) => if let (true, Some(h)) = broker_unrecorded(f, leg, catalogue) {
+                return Some(match h { Holding::Coin(other) if r.external_id.as_deref() != Some(other.as_str()) => Holding::Unknown(Why::Conflict), h => h });
+            },
             None => match broker_unrecorded(f, leg, catalogue) {
                 (true, Some(h)) | (false, Some(h @ Holding::Security(_))) => return Some(h),
                 _ => {}
@@ -652,5 +655,7 @@ mod tests {
         list(&mut f, &alpaca, Side::Base, "MATIC", &x);
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", None)), coin_of("matic-x"));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&x))), coin_of("matic-x"), "recorded and bound: the same coin");
+        let y = coin_asset(42, "matic-y", "MATIC");
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&y))), Holding::Unknown(Why::Conflict), "recorded Y, listed X: never the alias");
     }
 }

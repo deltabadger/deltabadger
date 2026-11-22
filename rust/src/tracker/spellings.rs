@@ -31,7 +31,7 @@ pub enum Class { Cash(CashKind), Coin, Security, Unknown }
 pub struct LegIn { pub row: i64, pub side: Side, pub account: i64, pub venue: String, pub spelling: String, pub holding: Holding, pub at: DateTime<Utc>, pub amount: Dec }
 
 /// A stored transfer link: the withdrawal's leg and the deposit's.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Link { pub from: (i64, Side), pub to: (i64, Side) }
 
 /// A current balance: the account and its venue, its asset, the asset's symbol and what it holds.
@@ -256,17 +256,26 @@ impl Spellings {
         // A link that cannot be a transfer never was one: the walk starts over without it, so nothing it ordered or
         // deferred survives (three rows at one instant: a deposit of X, an unclear sale, an unclear withdrawal linked
         // back to the deposit; the sale spends the X once the link is gone). A link dropped only because another, later
-        // dropped, stood in its way comes back when the walk holds with it.
-        // ponytail: one whole walk per void link, and one more to offer each back (they are rare); replay from the
-        // link's instant if histories ever carry many.
-        let mut live: Vec<Link> = links.to_vec();
+        // dropped, stood in its way comes back when the walk holds with it: each void link is offered back, in the
+        // order it was dropped, until a round restores none.
+        // ponytail: one whole walk per void link, and one per offer (void links are rare); replay from the link's
+        // instant if histories ever carry many.
+        let mut out: std::collections::HashSet<Link> = Default::default();
         let mut void: Vec<Link> = vec![];
+        let live = |out: &std::collections::HashSet<Link>| -> Vec<Link> { links.iter().filter(|l| !out.contains(l)).copied().collect() };
         let mut done = loop {
-            match walk(&legs, &live, names)? { Ok(w) => break w, Err(link) => { live.retain(|l| *l != link); void.push(link); } }
+            match walk(&legs, &live(&out), names)? { Ok(w) => break w, Err(link) => { out.insert(link); void.push(link); } }
         };
-        for link in void.clone() {
-            let with: Vec<Link> = links.iter().filter(|l| live.contains(l) || **l == link).copied().collect();
-            if let Ok(w) = walk(&legs, &with, names)? { live = with; void.retain(|l| *l != link); done = w; }
+        loop {
+            let mut restored = false;
+            for link in void.clone() {
+                out.remove(&link);
+                match walk(&legs, &live(&out), names)? {
+                    Ok(w) => { void.retain(|l| *l != link); done = w; restored = true; }
+                    Err(_) => { out.insert(link); }
+                }
+            }
+            if !restored { break; }
         }
         let Walked { legs, eff, keys, sources } = done;
         // The identities and their spellings, balances included (a balance of Y under X's spelling makes it two).
@@ -785,5 +794,20 @@ mod tests {
         assert_eq!(s.void_links(), &[ba]);
         assert_eq!(s.leg_holding(2, Side::Base), Some(&coin("x")), "A's withdrawal carried its X");
         assert!(s.transfer(&ab).is_some());
+    }
+
+    /// Codex PR1a r2 P1: the offer goes round until nothing comes back. A holds one X; at one instant under `S`: C
+    /// deposits Y (1), C withdraws (2 → 5), B withdraws (3 → 7), A sells (4), B deposits (5), B withdraws (6 → 1), A
+    /// deposits Y (7). Only 6 → 1 is void; Y travels C → B → A before A's sale, which then sees X and Y and takes neither.
+    #[test]
+    fn void_links_are_offered_back_until_none_returns() {
+        let l = |a, b| Link { from: (a, Side::Base), to: (b, Side::Base) };
+        let links = [l(6, 1), l(2, 5), l(3, 7)];
+        let s = build(vec![base(9, 1, "S", coin("x"), "2024-01-01", "1"), base(1, 3, "S", coin("y"), "2024-01-02", "1"), base(2, 3, "S", UNCLEAR, "2024-01-02", "-1"),
+                           base(3, 2, "S", UNCLEAR, "2024-01-02", "-1"), base(4, 1, "S", UNCLEAR, "2024-01-02", "-1"), base(5, 2, "S", UNCLEAR, "2024-01-02", "1"),
+                           base(6, 2, "S", UNCLEAR, "2024-01-02", "-1"), base(7, 1, "S", coin("y"), "2024-01-02", "1")], &links, &[], &Names::new());
+        assert_eq!(s.void_links(), &links[..1]);
+        assert!(s.transfer(&links[1]).is_some() && s.transfer(&links[2]).is_some());
+        assert_eq!(s.class(s.label(4, Side::Base).unwrap()), Class::Unknown, "X and Y both held at A");
     }
 }
