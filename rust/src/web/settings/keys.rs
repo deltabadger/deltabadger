@@ -68,6 +68,13 @@ pub(crate) struct Key {
     pub(crate) untargeted: bool,
 }
 impl Key {
+    /// A venue tile's candidate (#710 7a): blank, inheriting nothing from a stored key, saved where §1 routes it.
+    pub(crate) fn untargeted(account: Account) -> Key {
+        Key { id: None, key: None, secret: None, passphrase: None, status: 0, last_error: None, updated_at: None, extras: [None, None, None, None],
+              realm: None, version: None, account, untargeted: true }
+    }
+}
+impl Key {
     pub(crate) fn read(
         c: &Connection,
         app: &App,
@@ -228,8 +235,7 @@ pub async fn save(
             };
             let label = crate::identity::label_or(c, account.id, venue.as_ref().map_or("", |(_, name)| name.as_str()))?.plain();
             let mut key = Key::read(c, &inner, account, kind)?;
-            if untargeted { key = Key { id: None, key: None, secret: None, passphrase: None, status: 0, last_error: None, updated_at: None, extras: [None, None, None, None],
-                                        realm: None, version: None, account, untargeted: true }; }
+            if untargeted { key = Key::untargeted(account); }
             Ok(Some((venue, label, key)))
         })
         .await?;
@@ -249,7 +255,7 @@ pub async fn save(
     let outcome = submit(&app, &ctx, &class, &name, kind, original).await?;
     // D-TRACKER-SHEET, D-BOT-KEY-SHEET: a refused key says why under the sheet's fields.
     let message = match &outcome {
-        Submitted::Correct | Submitted::Moved { .. } => None,
+        Submitted::Correct(_) | Submitted::Moved { .. } => None,
         Submitted::Incorrect => Some(i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[])),
         // ApplicationController#incorrect_api_key_message: the flags the venue named.
         Submitted::Permissions(missing, forbidden) => Some(super::key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&class), &label, kind, missing, forbidden)),
@@ -278,7 +284,8 @@ pub async fn save(
 }
 
 /// What a credential submission came to: ApiKey#validate_credentials!, then, for a correct key, its save.
-pub(crate) enum Submitted { Correct, Incorrect, Permissions(Vec<String>, Vec<String>), Failed, Refused(String),
+/// `Correct(account)`: saved, on `account` (where §1 routed it; None on an install without the account tables).
+pub(crate) enum Submitted { Correct(Option<i64>), Incorrect, Permissions(Vec<String>, Vec<String>), Failed, Refused(String),
     /// #710 7a: saved, but to the key's own account `to`, not to the account `from` the form named (left unchanged).
     Moved { to: i64, from: i64 } }
 
@@ -307,7 +314,7 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, 
         Submitted::Moved{to,from} => {
             let (saved,unchanged)=app.db(move|c|Ok((crate::identity::label(c,to)?.html(),crate::identity::label(c,from)?.html()))).await?;
             flash::set(&ctx.session,flash::NOTICE,i18n::t(ctx.locale,"settings.accounts.key_elsewhere_html",&[("account",i18n::Arg::Html(&saved)),("target",i18n::Arg::Html(&unchanged))]));
-            Ok(Submitted::Correct)
+            Ok(Submitted::Correct(Some(to)))
         }
         other => Ok(other),
     }
@@ -433,12 +440,13 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   if ledger||balances {
    for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user_id.to_string()),None);}
   }
-  Ok(moved.map(|(to,from)|format!("\u{0}moved:{to}:{from}")))
+  Ok(Some(match moved {Some((to,from))=>format!("\u{0}moved:{to}:{from}"),None=>format!("\u{0}saved:{}",target.id.map_or(String::new(),|a|a.to_string()))}))
  }).await?;
     Ok(match outcome {
-        None=>Submitted::Correct,
+        Some(m) if m.starts_with("\u{0}saved:") => Submitted::Correct(m.trim_start_matches("\u{0}saved:").parse().ok()),
         Some(m) if m.starts_with("\u{0}moved:") => { let mut p=m.trim_start_matches("\u{0}moved:").split(':').map(|x|x.parse::<i64>().unwrap_or(0)); Submitted::Moved{to:p.next().unwrap_or(0),from:p.next().unwrap_or(0)} }
         Some(r)=>Submitted::Refused(r),
+        None=>Submitted::Correct(None),
     })
 }
 

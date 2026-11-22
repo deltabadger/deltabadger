@@ -249,7 +249,8 @@ pub fn validate(bot: &Built, locale: &str) -> Vec<String> {
 
 /// The before_save and before_create callbacks and the insert, on `c` inside the caller's write transaction. Returns the
 /// new bot's id.
-pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Result<i64, WebError> {
+/// `account`: the account the bot trades on (#710 7a §2), None for its exchange's number 1.
+pub fn insert(c: &Connection, user: i64, bot: Built, account: Option<crate::identity::Account>, now: DateTime<Utc>) -> Result<i64, WebError> {
     let at = format_time(now);
     let position: i64 = c.query_row("SELECT COALESCE(MAX(position), 0) + 1 FROM bots WHERE user_id = ?1", [user], |r| r.get(0))?;
     let transient = json!({"missed_quote_amount": 0, "missed_quote_amount_was_set": null});
@@ -258,8 +259,7 @@ pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Resu
               // The settings column as ActiveRecord's JSON coder writes it (ActiveSupport escapes <, > and &: an index's name may hold them).
               rusqlite::params![user, bot.exchange_id, bot.label, position, crate::web::bots::json(&Value::Object(bot.settings)), transient.to_string(), at])?;
     let id = c.last_insert_rowid();
-    // #710: on its exchange's number 1 (the wizard, REST and MCP name no other account before slice 7).
-    if let Some(exchange) = bot.exchange_id { crate::identity::place_bot(c, id, user, exchange, None, now)?; }
+    if let Some(exchange) = bot.exchange_id { crate::identity::place_bot(c, id, user, exchange, account, now)?; }
     Ok(id)
 }
 

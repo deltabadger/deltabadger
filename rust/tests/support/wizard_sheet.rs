@@ -324,13 +324,22 @@ fn ungroup(theirs: &[Value], step: usize, ours: &mut Vec<Value>, ours_step: usiz
     let groups_end = subtree_end(ours, groups);
     let (mut drawn, mut titles) = (vec![], vec![]);
     let mut connected: Option<Vec<Vec<Value>>> = None;
-    for (index, group) in children(ours, groups, groups_end, depth(&ours[groups])).into_iter().enumerate() {
+    // D-VENUE-TILE-ASKS-KEY: the form's `untargeted` input sits among the groups; it is no group.
+    for (index, group) in children(ours, groups, groups_end, depth(&ours[groups])).into_iter().filter(|g| opens(&ours[*g], "section")).enumerate() {
         let end = subtree_end(ours, group);
         if has_class(&ours[group], "section", "exchange-group--connected") {
             let heading = positions(ours, group, end, |l| has_class(l, "h3", "label")).first().and_then(|h| words(&ours[h + 1])).unwrap_or_default();
             let grid = positions(ours, group, end, |l| has_class(l, "div", "exchange-grid")).first().copied().ok_or("the Connected group without its grid")?;
             if index != 0 || heading != deltabadger::web::i18n::text(locale, "bot.setup.venue_groups.connected", &[]) { return Err(format!("the Connected group is not first under its heading: {heading:?} at {index}")) }
-            connected = Some(options(ours, grid));
+            // D-VENUE-TILE-ASKS-KEY: a Connected tile posts its account (`formaction`), its number in a corner with 2+ live
+            // accounts (never on a recorded, one-account install); otherwise it is the ordinary tile.
+            connected = Some(options(ours, grid).into_iter().map(|tile| tile.into_iter().map(|l| match l.as_str() {
+                Some(t) if opens(&l, "button") => Value::String(match t.find(" formaction=\"") {
+                    Some(f) => { let v = f + " formaction=\"".len(); format!("{}{}", &t[..f], &t[v + t[v..].find('"').map_or(0, |e| e + 1)..]) }
+                    None => t.to_string(),
+                }),
+                _ => l,
+            }).collect()).collect());
             continue;
         }
         let heading = positions(ours, group, end, |l| has_class(l, "h3", "label")).first().and_then(|h| words(&ours[h + 1])).unwrap_or_default();
@@ -1026,6 +1035,13 @@ mod tests {
         let (mut theirs, mut drawn) = (v2(), ours(with(connected(&["3", "14"]), rest())));
         assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
         assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
+        // D-VENUE-TILE-ASKS-KEY: a Connected tile posts its account, and the form says `untargeted` among the groups.
+        let account = |ids: &[&str]| connected(ids).replace("value=\"3\"", "value=\"3\" formaction=\"/p?account_id=7\"");
+        let marked = |first: String, rest: String| format!("<div class=\"exchange-groups\"><input type=\"hidden\" name=\"untargeted\" value=\"1\" />{first}{rest}</div>");
+        let (mut theirs, mut drawn) = (v2(), ours(marked(account(&["3", "14"]), rest())));
+        assert_eq!(wizard_sheet(EXCHANGES, None, &mut theirs, &mut drawn), Ok(1));
+        assert!(same(&theirs, &drawn), "{theirs:#}\n{drawn:#}");
+        assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(marked(account(&["3"]).replace("class=\"exchange-grid__item\"", "class=\"other\""), rest()))).is_err(), "a Connected tile otherwise unlike its venue's");
         for wrong in [with(connected(&["9"]), rest()), with(connected(&[]), rest()), with(rest(), connected(&["3"])),
                       with(connected(&["3"]).replace("Connected", "Linked"), rest()), with(connected(&["3"]), group("Exchanges", &["1", "3"]))] {
             assert!(wizard_sheet(EXCHANGES, None, &mut v2(), &mut ours(wrong.clone())).is_err(), "{wrong}");

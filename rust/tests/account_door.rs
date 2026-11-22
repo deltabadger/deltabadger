@@ -399,3 +399,69 @@ async fn removing_an_account_s_last_key_tombstones_it_only_when_nothing_names_it
     assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-b")).await.status < 400);
     assert_eq!(numbers(c, exchange), [1, 2, 3], "the next new account is 3");
 }
+
+// ---- §2: the venue step offers accounts ----
+
+/// A trading key saved from a venue tile (the tracker form, `untargeted`).
+async fn trading_tile(app: &deltabadger::web::App, b: &mut common::web::Browser, exchange: i64, key: &str) -> common::web::Answer {
+    let exchange = exchange.to_string();
+    assert_eq!(b.get(app, "/settings/api_keys").await.status, 200);
+    b.send(app, "POST", "/tracker/add_api_key", Some(&[("exchange_id", exchange.as_str()), ("key_type", "trading"), ("untargeted", "1"), ("api_key[key]", key),
+                                                    ("api_key[secret]", "second-secret"), ("api_key[passphrase]", "paper")]), common::web::Csrf::Header, &[]).await
+}
+fn location(answer: &common::web::Answer) -> &str { answer.headers.iter().find(|(n, _)| n == "location").map_or("", |(_, v)| v.as_str()) }
+
+/// §2, D-VENUE-TILE-ASKS-KEY: the Connected group draws one tile per account (a corner number with 2+), each posting its
+/// `account_id`; picking one completes the key step with that account's key, and the DCA bot the wizard makes trades on it.
+/// An Exchanges tile of the same venue always asks for a key; the saved key goes where §1 routes it and the wizard takes that
+/// account.
+#[tokio::test(flavor = "current_thread")]
+async fn connected_tiles_are_accounts_and_the_wizard_makes_its_bot_on_the_picked_one() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let tile = trading_tile(&app, &mut b, s.exchange_id, "second-key").await;
+    assert!(tile.status < 400, "{}: {}", tile.status, tile.body);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    assert_eq!(accounts.len(), 2);
+    b.get(&app, "/bots/new").await;
+    let step = b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(step.status, 200);
+    for account in &accounts { assert!(step.body.contains(&format!("account_id={account}\"")), "a tile for account {account}: {}", step.body); }
+    assert!(step.body.contains("<sup class=\"exchange-grid__account\">2</sup>"), "{}", step.body);
+    assert!(step.body.contains("name=\"untargeted\""), "{}", step.body);
+    // A Connected tile: account 2's key is correct, so the key step is done.
+    let exchange = s.exchange_id.to_string();
+    let pick = |account: Option<i64>| (account.map_or("/bots/dca_single_assets/pick_exchange".into(), |a| format!("/bots/dca_single_assets/pick_exchange?account_id={a}")), exchange.clone());
+    let (path, e) = pick(Some(accounts[1]));
+    let picked = b.send(&app, "POST", &path, Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(picked.status, 302, "{}", picked.body);
+    let key_step = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(key_step.status, 302, "the picked account's key is correct: {}", key_step.body);
+    // The bot: BTC bought with USD, on account 2.
+    let btc = s.btc.to_string();
+    b.send(&app, "POST", "/bots/dca_single_assets/pick_buyable_asset", Some(&[("bots_dca_single_asset[base_asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    let quote = s.quote.to_string();
+    let made = b.send(&app, "POST", "/bots/dca_multi_assets/pick_spendable_asset", Some(&[("bots_dca_multi_asset[quote_asset_id]", quote.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert!(made.status < 400, "{}: {}", made.status, made.body);
+    let bot: i64 = one(c, "SELECT max(id) FROM bots");
+    assert_eq!(identity::account_of_bot(c, bot).unwrap(), Some(accounts[1]), "the bot trades on the picked account");
+    // An Exchanges tile of the same venue asks for a key, even though both accounts hold a correct one.
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    let (path, e) = pick(None);
+    assert_eq!(b.send(&app, "POST", &path, Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let asks = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(asks.status, 200, "{}", location(&asks));
+    // The key it is given is account 2's material: saved there, and the wizard goes on with account 2.
+    let saved = b.send(&app, "POST", "/bots/dca_single_assets/add_api_key", Some(&[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret"), ("api_key[passphrase]", "paper")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert!(saved.status < 400, "{}: {}", saved.status, saved.body);
+    assert_eq!(numbers(c, s.exchange_id), [1, 2], "no third account");
+    assert_eq!(b.get(&app, "/bots/dca_single_assets/add_api_key/new").await.status, 302, "the session took account 2");
+    // A 2.x form (exchange alone) keeps number 1's shortcut.
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str())]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(b.get(&app, "/bots/dca_single_assets/add_api_key/new").await.status, 302);
+}

@@ -183,7 +183,13 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(exchange) = field(&ctx, EXCHANGE_FIELD) else { return Ok(layout::bad_request()) };
     if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
-    config_mut(&mut ctx.session.lock().bot_config).insert("exchange_id".into(), json!(exchange));
+    let (view, user, id) = (ctx.clone(), ctx.user().map_or(0, |u| u.id), super::to_i(&json!(exchange)));
+    let Some(picked) = app.db(move |c| Ok(super::picked(c, &view, user, id)?)).await? else { return Ok(layout::missing()) };
+    {
+        let mut data = ctx.session.lock();
+        config_mut(&mut data.bot_config).insert("exchange_id".into(), json!(exchange));
+        if let Some(config) = data.bot_config.as_mut() { super::keep_pick(config, picked); }
+    }
     Ok(redirect(&ctx, KEY_NEW))
 }
 
@@ -429,7 +435,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             saved.push(signal_write::NewRule { sell: rule.sell, percentage: rule.percentage, amount, enabled: rule.enabled });
         }
         let settings = dig(config, &["settings"]).cloned().unwrap_or_else(|| json!({}));
-        let id = signal_write::insert_created(&tx, user.id, exchange, &settings, None, &saved, view.locale, view.now)?;
+        let account = super::account(&tx, user.id, config)?.filter(|a| a.id.is_some());
+        let id = signal_write::insert_created(&tx, user.id, exchange, account, &settings, None, &saved, view.locale, view.now)?;
         let started = signal_write::start_created(&tx, &view, user.id, id)?;
         // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
         // wash-sale question is unanswered, say) is not made at all. 2.x saves it and asks the question on its page; here it

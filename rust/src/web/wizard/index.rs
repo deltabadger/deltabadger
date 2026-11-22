@@ -320,11 +320,14 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     if let Some(path) = app.db(move |c| gate(c, &inner, config.as_ref())).await? { return Ok(redirect(&ctx, path)) }
     let Some(exchange) = ctx.params.form(EXCHANGE_FIELD).or_else(|| ctx.params.query(EXCHANGE_FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
     if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
+    let (view, user, id) = (ctx.clone(), ctx.user().map_or(0, |u| u.id), super::to_i(&json!(exchange)));
+    let Some(picked) = app.db(move |c| Ok(super::picked(c, &view, user, id)?)).await? else { return Ok(layout::missing()) };
     {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));
         if !config.is_object() { *config = json!({}); }
         config["exchange_id"] = json!(exchange);
+        super::keep_pick(config, picked);
     }
     Ok(redirect(&ctx, KEY_NEW))
 }
@@ -470,7 +473,8 @@ pub async fn quote_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
         let bot = create::build(&tx, &config, locale)?;
         let errors = create::validate(&bot, locale);
         if !errors.is_empty() { return Ok(Saved::Invalid(crate::web::bot::draft::sentence(&errors.iter().map(String::as_str).collect::<Vec<_>>(), locale))) }
-        let id = create::insert(&tx, user.id, bot, inner.now())?;
+        let account = super::account(&tx, user.id, Some(&config))?.filter(|a| a.id.is_some());
+        let id = create::insert(&tx, user.id, bot, account, inner.now())?;
         if let Err(refusal) = eligibility::guard(&tx, &inner.cipher, Some(id)) {
             return Ok(Saved::Invalid(i18n::text(locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))])));
         }

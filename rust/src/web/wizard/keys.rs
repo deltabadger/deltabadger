@@ -130,7 +130,9 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
     if namespace == Namespace::Index && super::index::refusal(c, app, &venue.class)?.is_some() { return Ok(Route::Refused) }
     if namespace == Namespace::Signal && crate::engine::eligibility::signal_admission(Some(&venue.class)).is_some() { return Ok(Route::Refused) }
-    let key = keys::Key::read(c, app, crate::identity::Account::first(c, user, venue.id)?, 0)?;
+    // #710 7a §2: the picked account's key; an Exchanges tile's is a blank candidate, saved where it routes.
+    let Some(account) = super::account(c, user, config)? else { return Ok(Route::To(missing_exchange_path(c, config, namespace)?)) };
+    let key = if super::untargeted(config) { keys::Key::untargeted(account) } else { keys::Key::read(c, app, account, 0)? };
     Ok(Route::Ready(venue, Box::new(key)))
 }
 
@@ -191,17 +193,28 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     // `params.require(:api_key)`.
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) { return Ok(layout::bad_request()) }
     let live = ctx.params.form("api_key[passphrase]").map_or(key.passphrase.as_deref() == Some("live"), |mode| mode == "live");
-    let message = match keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await? {
-        keys::Submitted::Correct | keys::Submitted::Moved { .. } => {
+    let outcome = keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await?;
+    let message = match &outcome {
+        keys::Submitted::Correct(_) | keys::Submitted::Moved { .. } => {
+            let saved = match outcome { keys::Submitted::Correct(a) => a, keys::Submitted::Moved { to, .. } => Some(to), _ => None };
+            // The session takes the account the key was saved on (§2).
+            let config = {
+                let mut data = ctx.session.lock();
+                // A 2.x session (neither kept) stays as it was.
+                if let (Some(config), Some(account)) = (data.bot_config.as_mut(), saved) {
+                    if config.get("account_id").is_some() || super::untargeted(Some(config)) { super::keep_pick(config, super::Picked::Account(account)); }
+                }
+                data.bot_config.clone()
+            };
             let path = app.db(move |c| after_api_key_path(c, user.id, config.as_ref(), namespace)).await?;
             return Ok(super::stream(StatusCode::OK, turbo::redirect(&ctx.path(path))));
         }
         keys::Submitted::Incorrect => i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[]),
         keys::Submitted::Permissions(missing, forbidden) => {
-            key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&venue.class), &venue.name, 0, &missing, &forbidden)
+            key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&venue.class), &venue.name, 0, missing, forbidden)
         }
         keys::Submitted::Failed => i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[]),
-        keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]),
+        keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]),
     };
     let (inner, view, reason) = (app.clone(), ctx.clone(), message);
     let content = app.db(move |c| {

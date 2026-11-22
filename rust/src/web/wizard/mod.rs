@@ -179,11 +179,10 @@ pub fn current_variant(config: Option<&Value>) -> Variant {
 pub fn step_complete(c: &Connection, user_id: i64, config: Option<&Value>, step: Step) -> rusqlite::Result<bool> {
     match step {
         Step::Api => {
-            let exchange = dig(config, EXCHANGE_KEY).and_then(|id| id.as_i64().or_else(|| id.as_str().and_then(|text| text.trim().parse().ok())));
-            // `user.api_keys.find_by(exchange_id:, key_type: :trading)`, then `correct?`: the exchange's account's (#710 slice 7:
-            // the one picked).
-            let Some(exchange) = exchange else { return Ok(false) };
-            let account = crate::identity::Account::first(c, user_id, exchange)?;
+            // `user.api_keys.find_by(exchange_id:, key_type: :trading)`, then `correct?`: the picked account's (#710 7a §2); an
+            // Exchanges tile not yet given a key always asks.
+            if untargeted(config) { return Ok(false) }
+            let Some(account) = account(c, user_id, config)? else { return Ok(false) };
             let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", account.keys("k")),
                                                   [], |r| r.get(0)).optional()?;
             Ok(status == Some(1))
@@ -276,6 +275,47 @@ pub fn exchange_id(config: Option<&Value>) -> Option<i64> {
         Value::String(text) if text.trim().is_empty() => None,
         value @ (Value::String(_) | Value::Number(_)) => Some(to_i(value)),
         _ => None,
+    }
+}
+
+/// #710 7a §2: how the venue was picked. `Account`: a Connected tile (its account); `Untargeted`: a Brokers/Exchanges tile,
+/// whose key step always asks and saves where the key routes; `Legacy`: a 2.x form, the exchange's number 1 as before.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Picked { Account(i64), Untargeted, Legacy }
+
+/// The pick a venue step's form posted for `exchange` (`account_id` on a Connected tile, `untargeted` on the form). None: the
+/// posted account is not a live account of this user and exchange (a 404).
+pub fn picked(c: &Connection, ctx: &crate::web::layout::Ctx, user: i64, exchange: i64) -> rusqlite::Result<Option<Picked>> {
+    let posted = ctx.params.query("account_id").or_else(|| ctx.params.form("account_id"));
+    if let Some(posted) = posted {
+        return Ok(match crate::identity::pick(c, user, exchange, Some(posted.parse().unwrap_or(0)))? {
+            crate::identity::Pick::One(account) => account.id.map(Picked::Account),
+            _ => None,
+        });
+    }
+    Ok(Some(if ctx.params.form("untargeted").is_some() { Picked::Untargeted } else { Picked::Legacy }))
+}
+
+/// The session keeps the pick: `account_id`, or `untargeted`, neither for a 2.x form.
+pub fn keep_pick(config: &mut Value, picked: Picked) {
+    if let Some(map) = config.as_object_mut() { map.remove("account_id"); map.remove("untargeted"); }
+    match picked {
+        Picked::Account(id) => config["account_id"] = json!(id),
+        Picked::Untargeted => config["untargeted"] = json!(true),
+        Picked::Legacy => {}
+    }
+}
+
+/// Whether the venue step was an Exchanges tile not yet given a key (§2: its key step always asks).
+pub fn untargeted(config: Option<&Value>) -> bool { dig(config, &["untargeted"]).and_then(Value::as_bool) == Some(true) }
+
+/// The account the bot built from the session trades on: the picked one (or the one its key was saved on), else its exchange's
+/// number 1. None: no exchange, or a picked account no longer a live account of this user and exchange.
+pub fn account(c: &Connection, user: i64, config: Option<&Value>) -> rusqlite::Result<Option<crate::identity::Account>> {
+    let Some(exchange) = exchange_id(config) else { return Ok(None) };
+    match dig(config, &["account_id"]).and_then(Value::as_i64) {
+        Some(id) => Ok(match crate::identity::pick(c, user, exchange, Some(id))? { crate::identity::Pick::One(account) => Some(account), _ => None }),
+        None => Ok(Some(crate::identity::Account::first(c, user, exchange)?)),
     }
 }
 

@@ -35,7 +35,7 @@ struct New { table: Table }
 
 fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, brokers: Vec<(i64, String)>) -> Result<String, WebError> {
     let order = StepOrder::new(BotType::Multi, current_variant(config));
-    let venues = brokers.into_iter().map(|(id, class)| Venue { id, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false }).collect();
+    let venues = brokers.into_iter().map(|(id, class)| Venue { id, account: None, number: None, mark: exchange_wordmark(&crate::tracker::rows::name_id(&class)), unavailable: false }).collect();
     let table = Table { action: ctx.path("/bots/dca_multi_assets/pick_stock_broker"), csrf: ctx.csrf_token(), param_name: FIELD.into(), venues,
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
     // 2.x draws no sentence here: the track says where the flow stands and does nothing (D-WIZARD-TRACK r5).
@@ -91,6 +91,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
 pub fn finalize(config: &mut Value, broker: i64, usd: Option<i64>) {
     if !config.is_object() { *config = json!({}); }
     config["exchange_id"] = json!(broker);
+    super::keep_pick(config, super::Picked::Legacy);
     if let Some(usd) = usd {
         let settings = &mut config["settings"];
         if !settings.is_object() { *settings = json!({}); }

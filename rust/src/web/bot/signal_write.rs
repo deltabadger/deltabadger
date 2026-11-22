@@ -693,7 +693,7 @@ fn lifecycle_write(c: &Connection, locale: &str, heard: &Ctx, bot: &Bot, action:
 /// in `created`: Automation::Labelable's name (the given one, else the base's name, else "New bot"), Bot#assign_position.
 /// The wizard saves its session's rules; the API none. Returns the new bot's id.
 #[allow(clippy::too_many_arguments)]
-pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Value, label: Option<&str>, rules: &[NewRule], locale: &str, now: chrono::DateTime<chrono::Utc>) -> Result<i64, WebError> {
+pub fn insert_created(c: &Connection, owner: i64, exchange: i64, account: Option<crate::identity::Account>, settings: &Value, label: Option<&str>, rules: &[NewRule], locale: &str, now: chrono::DateTime<chrono::Utc>) -> Result<i64, WebError> {
     let at = crate::codec::format_time(now);
     let base = settings.get("base_asset_id").and_then(Value::as_i64);
     let label = match label.filter(|l| !crate::v2::blank(l)) {
@@ -709,7 +709,7 @@ pub fn insert_created(c: &Connection, owner: i64, exchange: i64, settings: &Valu
               rusqlite::params![owner, exchange, model::SIGNAL_TYPE, label, position, settings.to_string(), at])?;
     let id = c.last_insert_rowid();
     // #710: on its exchange's number 1 (the wizard, REST and MCP name no other account before slice 7).
-    crate::identity::place_bot(c, id, owner, exchange, None, now)?;
+    crate::identity::place_bot(c, id, owner, exchange, account, now)?;
     for rule in rules {
         c.execute("INSERT INTO bot_signals (bot_id, direction, amount_type, amount, enabled, token, last_triggered_at, created_at, updated_at) \
                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?7)",

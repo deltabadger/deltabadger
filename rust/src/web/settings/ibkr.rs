@@ -222,7 +222,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
     } else {
         let candidate = original.with_ibkr_credentials(consumer, token, secret);
         match keys::submit_candidate(&app, crate::venue::ibkr::IBKR, "Interactive Brokers", 0, original, candidate).await? {
-            Submitted::Correct | Submitted::Moved { .. } => {
+            Submitted::Correct(_) | Submitted::Moved { .. } => {
                 let id = key.id;
                 let status: i64 = app.db(move |c| Ok(c.query_row("SELECT status FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?)).await?;
                 connected = status == 1;
