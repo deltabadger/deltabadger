@@ -1406,3 +1406,33 @@ async fn an_account_2s_hf_migration_takes_no_number_1_import() {
     assert_eq!((rows(first.id.unwrap()), rows(second.id.unwrap())), before, "no imported trade lands in account 2's ledger");
     assert!(before.0 > 0, "the import is number 1's");
 }
+
+/// 7a rule R8 on an HF history: B's export (123456789) imported on account 1 (A) before 7a, A then read as another account,
+/// B connected as account 2. B's HF fills of one second sum to the export's buy, but one is the last of page 1 and the other
+/// the first of page 2: the second waits for the next page, so both are held whole and the buy is counted once, on A.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r8_an_hf_second_split_across_pages_is_held_whole() {
+    use deltabadger::identity;
+    let mut fx = Fx::new();
+    fx.import(&file(&[buy_legs("3", "330", "0", "2026-10-29 10:00:00")]));
+    let first = identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().id.unwrap();
+    fx.c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    identity::establish_read(&fx.c, &fx.cipher, first, KUCOIN, &identity::AccountId::parse("555").unwrap(), t(NOW)).unwrap();
+    let second = identity::new_account(&fx.c, fx.user, fx.exchange, t(NOW)).unwrap();
+    fx.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",
+                 rusqlite::params![fx.user, fx.exchange, fx.cipher.encrypt("b-key"), fx.cipher.encrypt("secret"), fx.cipher.encrypt("phrase")]).unwrap();
+    let b_key = fx.c.last_insert_rowid();
+    identity::Account::by_id(&fx.c, second).unwrap().unwrap().add_key(&fx.c, b_key).unwrap();
+    identity::establish_read(&fx.c, &fx.cipher, second, KUCOIN, &identity::AccountId::parse("123456789").unwrap(), t(NOW)).unwrap();
+    assert_eq!(identity::held(&fx.c, fx.user).unwrap(), [(second, first)]);
+    fx.key = b_key;
+    fx.watermark();
+    let api = Api::new("hf", &["BTC-USDT"]);
+    // Ids follow time, pages go newest first: the 99 later fills and the second's later fill on page 1, its earlier one on page 2.
+    let mut fills = vec![hf_fill("BTC-USDT", "buy", "1", "100", "0", "2026-10-29T10:00:00Z"), hf_fill("BTC-USDT", "buy", "2", "230", "0", "2026-10-29T10:00:00Z")];
+    fills.extend((0..99).map(|i| hf_fill("BTC-USDT", "buy", "1", "1", "0", &format!("2026-10-29T11:{:02}:{:02}Z", i / 60, i % 60))));
+    api.hf(fills);
+    assert!(fx.sync(&api).await.is_ok());
+    let at_second = fx.trades().into_iter().filter(|t| t.5 == "2026-10-29 10:00:00").count();
+    assert_eq!(at_second, 1, "the export's buy on A only, B's two fills held: {:?}", fx.trades());
+}

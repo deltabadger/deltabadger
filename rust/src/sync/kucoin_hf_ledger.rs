@@ -284,12 +284,21 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, rout
         }
     };
     let reserve = crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + wait * THROTTLE_RETRIES as u32 + super::continuation::FINALIZE_FLOOR;
+    // #710 7a rule R8: while a hold applies, a page's last second waits for the next page (`carry`), and the cursor saved
+    // stays before the page it began on (`anchor`), so a cut re-reads it; a pause stores it with what is known.
+    let holding = { let k = key.clone(); phase(db, move |c| Ok(ledger::held_by(c, &k)?.is_some())).await? };
+    let (mut carry, mut anchor): (Vec<Entry>, Option<Unit>) = (vec![], None);
     let mut first = true;
     while unit.index < symbols.len() {
         if clock.now() - RETENTION >= span.0 {
             return fail(format!("the {} unit left KuCoin's retention before it finished; what it did not read shows as a gap", route.name)).await;
         }
-        if !first && run.stopwatch.elapsed() + reserve >= budget { return Ok(Ended::Paused); }
+        if !first && run.stopwatch.elapsed() + reserve >= budget {
+            if !carry.is_empty() {
+                if let Err(text) = publish(db, version, route, &key, std::mem::take(&mut carry), unit.clone(), stamp.clone(), now).await? { return fail(text).await; }
+            }
+            return Ok(Ended::Paused);
+        }
         first = false;
         let symbol = &symbols[unit.index];
         let first_param = if route.by_symbol { ("symbol", symbol.clone()) } else { ("tradeType", "SPOT".to_string()) };
@@ -303,7 +312,11 @@ pub(super) async fn run<T: Transport>(db: &Db, version: &CredentialVersion, rout
             Ok(Some(_)) if unit.pages >= MAX_PAGES => return fail(format!("Too many pages of KuCoin {}{}", route.path, if route.by_symbol { format!(" for {symbol}") } else { String::new() })).await,
             Ok(Some((entries, last))) => (entries, Unit { last_id: Some(last), pages: unit.pages + 1, ..unit.clone() }),
         };
-        if let Err(text) = publish(db, version, route, &key, entries, next.clone(), stamp.clone(), now).await? { return fail(text).await; }
+        let mut entries = entries;
+        entries.splice(0..0, std::mem::take(&mut carry));
+        if holding && next.index == unit.index { carry = ledger::defer_last_second(&mut entries); }
+        let saved = if carry.is_empty() { anchor = None; next.clone() } else { anchor.get_or_insert_with(|| unit.clone()).clone() };
+        if let Err(text) = publish(db, version, route, &key, entries, saved, stamp.clone(), now).await? { return fail(text).await; }
         unit = next;
     }
     // Complete: the mode read again (r2.1: certified only if it is still this family's; the reading is recorded), and
@@ -388,10 +401,24 @@ pub(super) async fn backfill<T: Transport>(db: &Db, version: &CredentialVersion,
     windows[index].retry_after = None;
     let budget = run.deadline / 2;
     let reserve = crate::venue::http::TOTAL_TIMEOUT * (1 + THROTTLE_RETRIES as u32) + wait * THROTTLE_RETRIES as u32 + super::continuation::FINALIZE_FLOOR;
+    // #710 7a rule R8, as the unit's walk: a page's last second waits for the next page while a hold applies.
+    let holding = { let k = key.clone(); phase(db, move |c| Ok(ledger::held_by(c, &k)?.is_some())).await? };
+    let (mut carry, mut anchor): (Vec<Entry>, Option<Window>) = (vec![], None);
     loop {
         // Paused (or never begun, when the units took the half): the window's progress is saved with its last page; the
-        // next run resumes it.
-        if run.stopwatch.elapsed() + reserve >= budget { return Ok(()); }
+        // next run resumes it. A carried second is stored first, with what is known.
+        if run.stopwatch.elapsed() + reserve >= budget {
+            if carry.is_empty() { return Ok(()); }
+            let (k, s, saved, entries) = (key.clone(), stamp.clone(), windows.clone(), std::mem::take(&mut carry));
+            return match commit_for(db, version, move |c| {
+                if let Err(why) = store_page(c, &k, entries, now)? { return Ok(Err(why)); }
+                save_windows(c, k.id, &saved, &s, now)?;
+                Ok(Ok(()))
+            }).await? {
+                Ok(()) => Ok(()),
+                Err(text) => { if let Some(a) = anchor { windows[index] = a; } retry_later(db, version, &key, windows, index, &stamp, now, text).await }
+            };
+        }
         let w = windows[index].clone();
         let mut query = vec![("tradeType", "SPOT".to_string()), ("startAt", w.start.timestamp_millis().to_string()), ("endAt", (w.end.timestamp_millis() - 1).to_string()),
                              (route.limit.0, route.limit.1.to_string())];
@@ -406,23 +433,35 @@ pub(super) async fn backfill<T: Transport>(db: &Db, version: &CredentialVersion,
         let (k, s) = (key.clone(), stamp.clone());
         match outcome {
             Ok(None) => {
-                windows.remove(index);
-                let rest = windows.clone();
-                return commit_for(db, version, move |c| { hf::add(c, &k, hf::UTA_READ, (w.start, w.end), now)?; save_windows(c, k.id, &rest, &s, now) }).await;
+                let mut rest = windows.clone();
+                rest.remove(index);
+                let entries = std::mem::take(&mut carry);
+                return match commit_for(db, version, move |c| {
+                    if !entries.is_empty() { if let Err(why) = store_page(c, &k, entries, now)? { return Ok(Err(why)); } }
+                    hf::add(c, &k, hf::UTA_READ, (w.start, w.end), now)?;
+                    save_windows(c, k.id, &rest, &s, now)?;
+                    Ok(Ok(()))
+                }).await? {
+                    Ok(()) => Ok(()),
+                    Err(text) => { if let Some(a) = anchor { windows[index] = a; } retry_later(db, version, &key, windows, index, &stamp, now, text).await }
+                };
             }
-            Ok(Some((entries, last))) => {
+            Ok(Some((mut entries, last))) => {
+                entries.splice(0..0, std::mem::take(&mut carry));
+                if holding { carry = ledger::defer_last_second(&mut entries); }
                 windows[index] = Window { last_id: Some(last), pages: w.pages + 1, ..w.clone() };
-                let saved = windows.clone();
+                let mut saved = windows.clone();
+                if carry.is_empty() { anchor = None } else { saved[index] = anchor.get_or_insert_with(|| w.clone()).clone() }
                 match commit_for(db, version, move |c| {
                     if let Err(why) = store_page(c, &k, entries, now)? { return Ok(Err(why)); }
                     save_windows(c, k.id, &saved, &s, now)?;
                     Ok(Ok(()))
                 }).await? {
                     Ok(()) => {}
-                    Err(text) => { windows[index] = w; return retry_later(db, version, &key, windows, index, &stamp, now, text).await; }
+                    Err(text) => { windows[index] = anchor.unwrap_or(w); return retry_later(db, version, &key, windows, index, &stamp, now, text).await; }
                 }
             }
-            Err(text) => return retry_later(db, version, &key, windows, index, &stamp, now, text).await,
+            Err(text) => { if let Some(a) = anchor { windows[index] = a; } return retry_later(db, version, &key, windows, index, &stamp, now, text).await }
         }
     }
 }

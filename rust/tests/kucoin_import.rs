@@ -880,3 +880,46 @@ async fn s7a_r9_an_hf_rewrite_keeps_b_s_export_in_a_second_holding_a_restored_en
     tx.commit().unwrap();
     assert_eq!((at(4, "2026-09-16 10:00:00"), at(5, "2026-09-16 10:00:00")), (1, 1), "B's deposit still counted once beside A's restored entry");
 }
+
+/// B's API (`deposits`, `fills`) served `per_page` rows a page, synced on B's key.
+async fn sync_b_paged(fx: &Fx, key: i64, deposits: Vec<Value>, fills: Vec<Value>, per_page: usize) {
+    let api = Api { fills: Rc::new(fills), deposits: Rc::new(deposits), withdrawals: Rc::new(vec![]), per_page };
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &api, false).await);
+}
+
+/// 7a rule R8: an exported row is the copy of one held API event at most, across pages. Two 50 USDT deposits of one second
+/// on two pages against the export's one: the second's entries are matched together (a second at a page boundary waits for
+/// the next page), so neither is held, as on one page, and the tracker says the match failed.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r8_two_equal_deposits_on_two_pages_never_both_claim_the_one_exported() {
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    sync_b_paged(&fx, key, vec![transfer("d1", "50", "0", "2026-09-16T10:00:00Z"), transfer("d2", "50", "0", "2026-09-16T10:00:00Z")], vec![], 1).await;
+    assert_eq!(b_rows(&fx, second, 4).len(), 2, "neither held: {:?}", b_rows(&fx, second, 4));
+    assert!(identity::held_unmatched(&fx.c, second, first).unwrap());
+}
+
+/// R8: a second's fills split across two pages are matched once the whole second is read: their sum is the export's fill,
+/// so both are held, nothing counted twice.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r8_a_second_s_fills_split_across_pages_are_held_by_their_whole_sum() {
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    sync_b_paged(&fx, key, vec![], vec![fill("a", "0.0004", "28", "0.028", "2026-09-16T10:00:01Z"), fill("b", "0.0006", "42", "0.042", "2026-09-16T10:00:01Z")], 1).await;
+    assert!(b_rows(&fx, second, 0).is_empty(), "both held: {:?}", b_rows(&fx, second, 0));
+    assert!(!identity::held_unmatched(&fx.c, second, first).unwrap());
+}
+
+/// R8: the claim persists across syncs. B's first sync holds its 50 USDT deposit against the export's; a later sync reads it
+/// again beside another 50 USDT deposit of that second: the exported row stays the first's, so the first stays held and the
+/// new one is written.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r8_a_claim_holds_across_syncs() {
+    let fx = Fx::new();
+    let (_, second, key) = held_pair(&fx);
+    sync_b(&fx, key, vec![transfer("d1", "50", "0", "2026-09-16T10:00:00Z")], vec![]).await;
+    assert!(b_rows(&fx, second, 4).is_empty(), "held");
+    sync_b(&fx, key, vec![transfer("d1", "50", "0", "2026-09-16T10:00:00Z"), transfer("d2", "50", "0", "2026-09-16T10:00:00Z")], vec![]).await;
+    assert_eq!(b_rows(&fx, second, 4).len(), 1, "d1 still held, d2 written: {:?}", b_rows(&fx, second, 4));
+}

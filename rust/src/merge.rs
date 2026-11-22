@@ -483,6 +483,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
               params![d, s, user, exchange])?;
     // The rest are S's twins, equal in every fact (step 2 refused any other).
     c.execute("DELETE FROM kucoin_withheld_fills WHERE account_id = ?1", [d])?;
+    // 7a rule R8: D's claims on held export rows are S's (its sync holds those events now).
+    c.execute("UPDATE exchange_account_hold_claims SET account_id = ?2 WHERE account_id = ?1", [d, s])?;
 
     // 9. Balances, the user's derived history, D's provenance.
     c.execute("DELETE FROM exchange_account_balances WHERE account_id = ?1", [d])?;

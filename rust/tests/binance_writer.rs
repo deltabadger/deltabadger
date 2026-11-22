@@ -1101,3 +1101,33 @@ fn h1_a_deposit_of_another_amount_is_written_and_named_unmatched() {
     assert_eq!(out.imported,1);
     assert!(deltabadger::identity::held_unmatched(c,second,first).unwrap());
 }
+
+/// 7a rule R8 on Binance: a buy is the export's only by base AND quote asset and both amounts. B's export has 1 BTC bought
+/// for 60000 USDT; B's API buy of 1 BTC for 55000 EUR in that second is written; the USDT one is held.
+#[test]
+fn s7a_r8_a_buy_for_another_quote_is_not_the_export_s() {
+    let (dir,o,s)=common::install();let c=&o.primary;let _lock=claim(c,dir.path());
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n222,2026-08-17 10:00:00,Spot,Transaction Buy,BTC,1,\n222,2026-08-17 10:00:00,Spot,Transaction Spend,USDT,-60000,\n";
+    let (_,_,b)=held_pair(c,&s,file);
+    let buy=|id:&str,quote:&str,amount:&str| Entry { entry_type:0,base_currency:Some("BTC".into()),base_amount:deltabadger::v2::BigDec::parse("1").unwrap(),quote_currency:Some(quote.into()),
+        quote_amount:Some(deltabadger::v2::BigDec::parse(amount).unwrap()),fee_currency:None,fee_amount:None,tx_id:Some(id.into()),group_id:None,description:None,
+        transacted_at:Some("2026-08-17T10:00:00Z".parse().unwrap()),raw:Raw::from_value(json!({"id":id})) };
+    let store=|e:Entry| { let tx=model::immediate(c).unwrap(); let out=sync::ledger::store_file(&model::fence_versions(&tx,&[]).unwrap(),&b,vec![e],now()).unwrap(); tx.commit().unwrap(); out };
+    assert_eq!(store(buy("t1","EUR","55000")).imported,1,"another quote: written");
+    let held=store(buy("t2","USDT","60000"));
+    assert_eq!((held.imported,held.duplicates),(0,1),"the export's own buy: held");
+}
+
+/// R8: a conversion's legs are held only against ONE exported conversion. B's export has two (BTC for 0.05 BNB, ETH for 0.09
+/// BNB); B's API conversion gives 1 BTC for 0.09 BNB net: its BTC leg is the first's, its BNB leg the second's, so neither is
+/// held.
+#[test]
+fn s7a_r8_a_conversion_s_legs_never_match_two_exported_conversions() {
+    let (dir,o,s)=common::install();let c=&o.primary;let _lock=claim(c,dir.path());
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n222,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BTC,-1,BTC\n222,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.05,BTC\n\
+222,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,ETH,-1,ETH\n222,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.09,ETH\n";
+    let (_,_,b)=held_pair(c,&s,file);
+    let before=count(c);
+    let out=write(c,&b,&pair("p","BTC")).unwrap();
+    assert_eq!((out.imported,count(c)),(2,before+2),"neither leg held: {out:?}");
+}

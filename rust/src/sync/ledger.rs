@@ -920,7 +920,7 @@ pub(crate) fn held_by(c: &Connection, key: &Key) -> Result<Option<(venue_ids::Sc
 
 /// A row of the holder's copy of this account's export, as a hold compares it (amounts as stored, read back exactly).
 #[derive(Clone)]
-struct FileRow { id: i64, entry_type: i64, base: Option<String>, amount: BigDec, quote: Option<String>, quote_amount: Option<BigDec> }
+struct FileRow { id: i64, entry_type: i64, base: Option<String>, amount: BigDec, quote: Option<String>, quote_amount: Option<BigDec>, group: Option<String> }
 
 /// An amount as the ledger stores it (a double), so an API amount and its stored export copy compare exactly.
 fn as_stored(d: &BigDec) -> BigDec { BigDec::from_f64(d.to_f()).unwrap_or_else(|_| d.clone()) }
@@ -946,19 +946,29 @@ impl Holds {
 
     pub(crate) fn of(c: &Connection, key: &Key, holder: Option<&(venue_ids::Scope, String)>, batch: &[&Entry], now: DateTime<Utc>) -> Result<Holds, SyncError> {
         let mut held = HashSet::new();
-        let Some((holder, fingerprint)) = holder else { return Ok(Holds(held)) };
+        let (Some((holder, fingerprint)), Some(account)) = (holder, key.scope.account) else { return Ok(Holds(held)) };
         let kucoin = key.exchange_type == crate::venue::kucoin::KUCOIN;
-        // Each entry the hold may concern: whether it is compared by sum, and the export rows near it and exactly its.
+        // Rule R8: each entry's identity as a claim names it, and the export rows near the batch already claimed.
+        let events: Vec<String> = batch.iter().map(|e| present(&e.tx_id).map_or_else(|| format!("{}|{}|{}|{}", e.entry_type, e.base_currency.as_deref().unwrap_or(""),
+                                                                                          e.base_amount.to_s_f(), e.transacted_at.map_or(0, |t| t.timestamp_micros())), str::to_string)).collect();
+        let mut rows_of: Vec<Option<Vec<FileRow>>> = Vec::with_capacity(batch.len());
+        for e in batch { rows_of.push(near_rows(c, key, holder, fingerprint, e)?); }
+        let claims = claims_on(c, rows_of.iter().flatten().flatten().map(|r| r.id))?;
+        // A row claimed by another event is no entry's to hold; an event that holds a claim keeps exactly its claimed rows.
+        let own = |id: i64, i: usize| claims.get(&id).is_some_and(|(a, who)| *a == account && who.split('\n').any(|w| w == events[i]));
+        // Each entry the hold may concern: whether it is compared by sum, the export rows near it and exactly its.
         let mut near: Vec<Option<Near>> = Vec::with_capacity(batch.len());
-        for e in batch {
-            let rows = near_rows(c, key, holder, fingerprint, e)?;
+        for (i, (e, rows)) in batch.iter().zip(rows_of).enumerate() {
             near.push(rows.map(|rows| {
+                let rows: Vec<FileRow> = rows.into_iter().filter(|r| !claims.contains_key(&r.id) || own(r.id, i)).collect();
                 let sum = kucoin && matches!(e.entry_type, BUY | SELL);
-                let exact: Vec<FileRow> = rows.iter().filter(|r| r.entry_type == e.entry_type && r.base == e.base_currency && exactly(key, e, r, sum)).cloned().collect();
+                let mut exact: Vec<FileRow> = rows.iter().filter(|r| r.entry_type == e.entry_type && r.base == e.base_currency && exactly(key, e, r, sum)).cloned().collect();
+                if exact.iter().any(|r| own(r.id, i)) { exact.retain(|r| own(r.id, i)); }
                 (sum, rows.iter().map(|r| r.id).collect(), exact)
             }));
         }
         let ids = |rows: &[FileRow]| -> Vec<i64> { let mut v: Vec<i64> = rows.iter().map(|r| r.id).collect(); v.sort_unstable(); v };
+        let mut rivals_of: HashMap<usize, Vec<usize>> = HashMap::new();
         for (i, n) in near.iter().enumerate() {
             let Some((sum, _, exact)) = n else { continue };
             if exact.is_empty() { continue; }
@@ -975,18 +985,71 @@ impl Holds {
                 same && total(&|j| as_stored(&batch[j].base_amount)) == file(&|r| r.amount.clone())
                     && total(&|j| batch[j].quote_amount.as_ref().map(as_stored).unwrap_or_else(BigDec::zero)) == file(&|r| r.quote_amount.clone().unwrap_or_else(BigDec::zero))
             } else { same && rivals.len() == exact.len() };
-            if ok { held.insert(i); }
+            if ok { held.insert(i); rivals_of.insert(i, rivals); }
         }
-        // One conversion's legs together or not at all.
+        // One conversion's legs together or not at all, and (rule R8) all against ONE exported conversion.
         let groups: HashSet<&str> = (0..batch.len()).filter(|i| !held.contains(i)).filter_map(|i| batch[i].group_id.as_deref()).collect();
         held.retain(|i| batch[*i].group_id.as_deref().is_none_or(|g| !groups.contains(g)));
+        let mut legs: HashMap<&str, Vec<usize>> = HashMap::new();
+        for i in &held { if let Some(g) = batch[*i].group_id.as_deref() { legs.entry(g).or_default().push(*i); } }
+        for legs in legs.values() {
+            let file: HashSet<Option<&str>> = legs.iter().filter_map(|i| near[*i].as_ref()).flat_map(|(_, _, x)| x.iter().map(|r| r.group.as_deref())).collect();
+            if file.len() != 1 || file.contains(&None) { for i in legs { held.remove(i); } }
+        }
         // Ambiguous: an export row near an entry written that no held entry is the copy of.
         let claimed: HashSet<i64> = held.iter().filter_map(|i| near[*i].as_ref()).flat_map(|(_, _, x)| x.iter().map(|r| r.id)).collect();
         if near.iter().enumerate().any(|(i, n)| !held.contains(&i) && n.as_ref().is_some_and(|(_, close, _)| close.iter().any(|id| !claimed.contains(id)))) {
-            if let (Some(account), Some(h)) = (key.scope.account, holder.account) { crate::identity::mark_held_unmatched(c, account, h, now).map_err(SyncError)?; }
+            if let Some(h) = holder.account { crate::identity::mark_held_unmatched(c, account, h, now).map_err(SyncError)?; }
+        }
+        // The claims: a summed second's rows by all its fills together; one for one, the k-th rival (by identity) the k-th row.
+        for i in &held {
+            let (Some((sum, _, exact)), Some(rivals)) = (near[*i].as_ref(), rivals_of.get(i)) else { continue };
+            let mut who: Vec<&str> = rivals.iter().map(|j| events[*j].as_str()).collect();
+            who.sort_unstable();
+            let rows = ids(exact);
+            let mine: Vec<(i64, String)> = if *sum { rows.iter().map(|r| (*r, who.join("\n"))).collect() }
+                else { who.iter().position(|w| *w == events[*i]).and_then(|k| rows.get(k)).map(|r| vec![(*r, events[*i].clone())]).unwrap_or_default() };
+            for (row, claimant) in mine {
+                c.execute("INSERT INTO exchange_account_hold_claims (transaction_id, account_id, claimant, created_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (transaction_id) DO NOTHING",
+                          params![row, account, claimant, sql_time(now)])?;
+            }
         }
         Ok(Holds(held))
     }
+}
+
+/// Rule R8: a second's API entries are matched once all of them are known. While a hold applies (`held_by`), a page whose
+/// UTC seconds run on into the next page is joined with it, so each second is stored
+/// whole; the run's last page is matched with what is known.
+pub(super) fn whole_seconds<C>(pages: Vec<(Vec<Entry>, C)>) -> Vec<(Vec<Entry>, C)> {
+    let second = |e: &Entry| e.transacted_at.map(|t| t.timestamp());
+    let mut out: Vec<(Vec<Entry>, C)> = vec![];
+    for (rows, cursor) in pages {
+        match out.last_mut() {
+            Some((prev, at)) if rows.iter().filter_map(second).any(|s| prev.iter().filter_map(second).any(|p| p == s)) => { prev.extend(rows); *at = cursor; }
+            _ => out.push((rows, cursor)),
+        }
+    }
+    out
+}
+
+/// Rule R8: while a hold applies, the entries of a page's last UTC second wait for the next page (a cursor-paged walk, whose
+/// pages follow time): they are taken out of `entries` and returned.
+pub(super) fn defer_last_second(entries: &mut Vec<Entry>) -> Vec<Entry> {
+    let second = |e: &Entry| e.transacted_at.map(|t| t.timestamp());
+    let Some(last) = entries.last().and_then(second) else { return vec![] };
+    let (carry, keep): (Vec<Entry>, Vec<Entry>) = std::mem::take(entries).into_iter().partition(|e| second(e) == Some(last));
+    *entries = keep;
+    carry
+}
+
+/// Rule R8: the claims on these export rows: (account, claimant) by row.
+fn claims_on(c: &Connection, ids: impl Iterator<Item = i64>) -> Result<HashMap<i64, (i64, String)>, SyncError> {
+    let ids: Vec<i64> = ids.collect();
+    if ids.is_empty() { return Ok(HashMap::new()); }
+    let mut s = c.prepare("SELECT transaction_id, account_id, claimant FROM exchange_account_hold_claims WHERE transaction_id IN (SELECT value FROM json_each(?1))")?;
+    let rows = s.query_map([serde_json::json!(ids).to_string()], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?))))?.collect::<Result<_, _>>()?;
+    Ok(rows)
 }
 
 /// Whether export row `r` (of the entry's type and currency) is the entry's copy: a summed KuCoin fill of its pair; else
@@ -999,6 +1062,8 @@ fn exactly(key: &Key, e: &Entry, r: &FileRow, sum: bool) -> bool {
         let gap = &net - &r.amount;
         return gap <= unit && &BigDec::zero() - &gap <= unit;
     }
+    // Rule R8: a trade is its copy by base AND quote asset and both amounts.
+    if matches!(e.entry_type, BUY | SELL) && (r.quote != e.quote_currency || e.quote_amount.as_ref().map(as_stored) != r.quote_amount) { return false; }
     let amount = match key.exchange_type != crate::venue::kucoin::KUCOIN && api_transfer(e.entry_type, &e.raw.value) {
         true => e.transacted_at.and_then(|at| file_side(e.entry_type, &e.raw.value, at)).map(|(a, ..)| a),
         false => Some(e.base_amount.clone()),
@@ -1015,10 +1080,10 @@ fn near_rows(c: &Connection, key: &Key, holder: &venue_ids::Scope, fingerprint: 
     let at_ = "account_transactions";
     let export = from_export(holder, "= ?7");
     let read = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<FileRow>, SyncError> {
-        let mut s = c.prepare(&format!("SELECT id, entry_type, base_currency, base_amount, quote_currency, quote_amount FROM account_transactions {BY_TIME} \
+        let mut s = c.prepare(&format!("SELECT id, entry_type, base_currency, base_amount, quote_currency, quote_amount, group_id FROM account_transactions {BY_TIME} \
                                         WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {export} AND {sql}", holder.rows(at_)))?;
         let d = |v: Option<f64>| v.map(|f| BigDec::from_f64(f).unwrap_or_else(|_| BigDec::zero()));
-        let rows = s.query_map(p, |r| Ok(FileRow { id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, amount: d(r.get(3)?).unwrap_or_else(BigDec::zero), quote: r.get(4)?, quote_amount: d(r.get(5)?) }))?
+        let rows = s.query_map(p, |r| Ok(FileRow { id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, amount: d(r.get(3)?).unwrap_or_else(BigDec::zero), quote: r.get(4)?, quote_amount: d(r.get(5)?), group: r.get(6)? }))?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     };
