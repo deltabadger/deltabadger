@@ -82,7 +82,8 @@ fn attribute(element: &scraper::node::Element, name: &str, value: &str) -> Strin
 /// the whitespace before them, so the messages still compare line for line.
 fn flash_toast_extra(node: ego_tree::NodeRef<'_, Node>) -> bool {
     let class = |n: ego_tree::NodeRef<'_, Node>, name: &str| n.value().as_element().is_some_and(|e| e.has_class(name, scraper::CaseSensitivity::CaseSensitive));
-    class(node, "loader--syncing") || (class(node, "modal__close") && node.parent().is_some_and(|p| class(p, "flash__message")))
+    let within = |name: &str| node.parent().is_some_and(|p| class(p, name));
+    (class(node, "loader--syncing") && within("salert")) || (class(node, "modal__close") && within("flash__message"))
 }
 
 fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>) {
@@ -117,7 +118,9 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
             let mut attributes: Vec<(&str, String)> = element.attrs()
                 .filter(|(name, value)| {
                     let ours = (sell && matches!(*name, "data-bot--selling-target" | "data-asset")) || (*name == "data-controller" && *value == "bot--selling")
-                        || (*name == "data-controller" && matches!(*value, "removals" | "flash-stack")); // D-FLASH-TOASTS
+                        // D-FLASH-TOASTS: 2.x's controller on a message, this build's on the stack; nowhere else.
+                        || (*name == "data-controller" && ((*value == "removals" && element.has_class("flash__message", scraper::CaseSensitivity::CaseSensitive))
+                            || (*value == "flash-stack" && element.has_class("flash-stack", scraper::CaseSensitivity::CaseSensitive))));
 
                     !ours
                 })
@@ -139,7 +142,7 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
 pub fn flash_toasts_as_rust(v2: &str) -> String {
     let close = regex::Regex::new(r#"(?s)\n([ ]*)<button[^>]*class="modal__close" data-action="removals#remove">.*?</button>\s*"#).unwrap();
     let loader = regex::Regex::new(r#"\n([ ]*)<div class="loader--syncing"></div>\s*"#).unwrap();
-    let v2 = v2.replace(" data-controller=\"removals\"", "").replace(" data-controller=\"flash-stack\"", "");
+    let v2 = v2.replace(" data-controller=\"removals\" role=\"alert\"", " role=\"alert\"").replace("class=\"flash-stack\" data-controller=\"flash-stack\"", "class=\"flash-stack\"");
     loader.replace_all(&close.replace_all(&v2, "\n$1"), "\n$1").into_owned()
 }
 

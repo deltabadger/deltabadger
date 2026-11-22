@@ -114,6 +114,9 @@ if (window.__IS_TAURI__) {
         signInWindow();
         document.addEventListener('turbo:load', signInWindow);
         let update = null;
+        // The state the update banner was sent away in (flash_stack_controller.js): it stays away, on every page, until the state moves on.
+        let dismissed = null;
+        document.addEventListener('toast:dismissed', (e) => { if (e.target.id === 'desktop_update' && update) dismissed = update.state; });
         let checkedHere = false;
 
         const lines = (s, t) => {
@@ -133,10 +136,8 @@ if (window.__IS_TAURI__) {
             if (!banner || !update) return;
             const t = banner.dataset;
             const shown = lines(update, t);
-            // Sent away in the flash stack (flash_stack_controller.js): hidden until the state moves on.
-            if (banner.dataset.dismissed !== update.state) delete banner.dataset.dismissed;
-            banner.dataset.updateState = update.state;
-            banner.classList.toggle('hidden', !shown || 'dismissed' in banner.dataset);
+            if (dismissed !== update.state) { dismissed = null; delete banner.dataset.dismissed; }
+            banner.classList.toggle('hidden', !shown || dismissed !== null);
             banner.classList.toggle('salert--danger', !!shown?.critical);
             banner.querySelector('[data-desktop-update-line]').textContent = shown?.line || '';
             banner.querySelector('[data-desktop-update-more]').textContent = shown?.more || '';
@@ -174,6 +175,7 @@ if (window.__IS_TAURI__) {
             await listen('update-state', (event) => show(event.payload));
             try { show(await call('update_state')); } catch (error) { console.error('Update state:', error); }
             document.addEventListener('turbo:load', render);
+            document.addEventListener('turbo:render', render); // a cached preview's banner too
             document.addEventListener('turbo:frame-load', render);
         }
 

@@ -59,9 +59,16 @@
   cursor: grab
   user-select: none
   will-change: transform
-  // Not taken in by the stack yet: nothing to see until it enters.
+  // Not taken in by the stack yet: nothing to see until it enters. Should the script never come, it shows anyway.
+  // Unstacked, they then stand one above the other.
   &:not([data-seq])
+    position: relative
+    margin-top: 1rem
     opacity: 0
+    animation: toast-unscripted 0s 2s forwards
+  &:focus-visible
+    outline: 2px solid var(--accent)
+    outline-offset: 2px
   &[data-state="in"]
     --y: calc(100% + 2rem) !important
     --o: 0 !important
@@ -76,10 +83,10 @@
   .slider
     display: none
   // An error shakes its head once as it lands. `translate` composes with the stack's own transform.
-  &.salert--danger:not([data-settled])
+  &.salert--danger[data-seq]:not([data-settled])
     animation: toast-shake .4s .3s cubic-bezier(.36,.07,.19,.97) both
   // A success overshoots: it rides the entrance up past its place in one motion, then drops back with a small bounce.
-  &.salert--success:not([data-settled])
+  &.salert--success[data-seq]:not([data-settled])
     animation: toast-hop .8s both
 
 .toast__body
@@ -145,7 +152,7 @@
     stroke-dashoffset: calc(var(--c) * (1 - var(--p, 0)))
     transition: stroke-dashoffset .3s
 
-.flash-stack:is(:hover, :focus-within) .toast__glyph[data-ring="timer"] .toast__ring
+.flash-stack:is(:hover, :focus-within) .toast__glyph[data-ring="timer"] .toast__ring, .salert[data-waiting] .toast__glyph[data-ring="timer"] .toast__ring
   animation-play-state: paused
 
 @keyframes toast-shake
@@ -176,6 +183,10 @@
   100%
     translate: 0 0
 
+@keyframes toast-unscripted
+  to
+    opacity: 1
+
 @keyframes toast-drain
   to
     stroke-dashoffset: var(--c)
@@ -191,5 +202,9 @@
     transition: opacity .2s, height 0s
     &[data-state="in"]
       --y: 0px !important
-    &.salert--danger:not([data-settled]), &.salert--success:not([data-settled])
+    &.salert--danger[data-seq]:not([data-settled]), &.salert--success[data-seq]:not([data-settled])
       animation: none
+  // The reset (new/_reset.sass) cuts every animation to nothing: the timer's ring is a clock, not motion, and keeps its
+  // time. The spinner stands still, as 2.x's loader did.
+  .toast__glyph[data-ring="timer"] .toast__ring
+    animation-duration: var(--dur) !important
