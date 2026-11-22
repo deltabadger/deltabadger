@@ -14,6 +14,10 @@
 //! - D-TAX-BROKER-VAP-DISTRIBUTIONS: the fund's distributions of the whole year count for every lot (§ 18 Abs. 1 S. 1).
 //! - D-TAX-BROKER-VAP-NO-PRICE: a year with no positive Basiszins asks for no price.
 //! - D-TAX-BROKER-2023-LINES: the 2023 report has no Vorabpauschale rows (KAP-INV 2023 lines 9–13 "frei").
+//! - D-BROKER-ONE-DEPOT-PER-ACCOUNT (#710): FIFO runs per Alpaca account (one depot, BMF Rn. 97), each account's rows
+//!   walked on their own and the report joining them. One account whose rows two keys wrote (a read-only key, later a
+//!   trading key) is one depot: 2.x's `several_accounts` warning, which counted key ids, is gone, and with it the
+//!   report's "incomplete" flag it raised.
 //! - D-TAX-BROKER-PANEL: the classification panel shows an uncovered sale and a missing Basiszins too (`classification_rows`);
 //!   a missing close or ECB rate stays the report's (the run fetches both before its walk).
 use super::{line, Cell, CryptoScope};
@@ -1052,6 +1056,26 @@ mod tests {
     fn row(c: &Connection, kind: i64, amount: &str, usd: &str, at: &str) {
         c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, transacted_at, raw_data, created_at, updated_at) \
                    VALUES (1, 1, ?1, 'FNDX', ?2, 'USD', ?3, ?4, '{}', '2026-01-01', '2026-01-01')", rusqlite::params![kind, amount, usd, at]).unwrap();
+    }
+
+    /// D-BROKER-ONE-DEPOT-PER-ACCOUNT (Codex branch r3, broker.rs:374): one account whose rows were written by two keys,
+    /// its read-only key first and its trading key later, is one depot: one walk over both keys' rows, FIFO across them,
+    /// and no warning, so the report stays complete. 2.x warned `several_accounts` (two key ids) and called it incomplete.
+    #[test]
+    fn one_account_with_two_keys_is_one_depot_and_its_report_stays_complete() {
+        let c = install();
+        row(&c, 0, "10", "100", "2024-02-01 10:00:00");
+        row(&c, 0, "10", "300", "2024-03-01 10:00:00");
+        row(&c, 1, "15", "600", "2024-06-03 10:00:00");
+        c.execute("UPDATE account_transactions SET api_key_id = CASE WHEN id = 1 THEN 1 ELSE 2 END", []).unwrap();
+        let failed = HashSet::new();
+        let closes = Closes::Stored { c: &c, failed: &failed };
+        let all = walks(&c, 1, 1, 2024, &closes).unwrap();
+        assert_eq!(all.len(), 1, "one depot");
+        let w = &all[0];
+        assert_eq!(w.recs.len(), 3, "both keys' rows");
+        assert_eq!(w.disposals.len(), 1);
+        assert!(w.warnings.is_empty(), "complete: {:?}", w.warnings.iter().map(|w| w.code).collect::<Vec<_>>());
     }
 
     /// D-TAX-BROKER-VAP-START: 2 January 2023 was an NYSE holiday; the 3rd is the year's first close and makes the window fresh.
