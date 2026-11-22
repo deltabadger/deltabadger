@@ -1,6 +1,6 @@
 //! TrackerController#index: the early views, the first-sync and cold pages, and the populated page.
 use super::{auth,layout,Ctx,App,WebError};
-use crate::web::{shell::{self,Shell},i18n::{self,Arg}};
+use crate::web::shell::{self,Shell};
 use axum::{extract::{Extension,State},http::StatusCode,response::Response};
 use askama::Template;
 use rusqlite::Connection;
@@ -39,7 +39,7 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
         let settings:serde_json::Value=match settings {Some(text)=>serde_json::from_str(&text).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
         super::populated::pending_report(c,ctx,owner,&settings)?
     };
-    let connect=i18n::t(ctx.locale,"bot.setup.connect_to",&[("name",Arg::Text("CoinGecko"))]);
+    let connect=ctx.t("button.connect");
     let body=Early{v:ctx,preferences:format!("user_{owner}:preferences"),tax_report:format!("user_{owner}:tax_report"),sync:format!("user_{owner}:sync"),missing,connect,pending}.render()?;
     let page=layout::Page{status:StatusCode::OK,body,flash_now:vec![]};
     if ctx.turbo_frame.is_some() {return layout::frame(&ctx.csrf_token(),&page);}

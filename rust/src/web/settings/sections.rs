@@ -497,8 +497,10 @@ pub fn market_data_card(ctx: &Ctx, csrf: &str, provider: &str, m: &Market, wizar
         format!("<h3 class=\"set-api__eyebrow\">{}</h3>\n      {}", crate::web::i18n::t(ctx.locale, "bot.setup.how_to_get_keys", &[("exchange", crate::web::i18n::Arg::Text("CoinGecko"))]), m.coingecko_instructions)
     };
     let connect = ctx.t("button.connect");
-    // The logo is Back: the Index view's providers, or Connect's.
-    let (back, frame, mark_wizard) = if wizard { (crate::web::wizard::INDEX_VIEW, "modal_content", "<input type=\"hidden\" name=\"wizard\" value=\"1\" />") }
+    // The logo is Back: the Index view's providers, the tracker's, or Connect's.
+    let tracker = wizard && super::market_data::from_tracker(ctx);
+    let (back, frame, mark_wizard) = if tracker { ("/tracker/connect_market_data", "modal_content", "<input type=\"hidden\" name=\"wizard\" value=\"tracker\" />") }
+                                     else if wizard { (crate::web::wizard::INDEX_VIEW, "modal_content", "<input type=\"hidden\" name=\"wizard\" value=\"1\" />") }
                                      else { ("/settings/connect", "settings_pane", "") };
     let (back, back_label) = (escape(&ctx.path(back)), ctx.t("button.back"));
     // In Settings the wizard's key-step layout goes around it, as the Index view's does (the card's styles are scoped to it).

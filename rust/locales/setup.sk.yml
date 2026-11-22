@@ -33,6 +33,7 @@ sk:
                 spendable: "Mena"
                 api: "Pripojit burzu"
                 connect: "Pripojiť"
+                market_data: "Trhové dáta"
                 coingecko: "Pripojit CoinGecko"
                 index: "Vybrat index"
                 pick_asset: "Vybrat aktivum"

@@ -569,7 +569,9 @@ cs:
             chart_missing: "Graf neukazuje tržní hodnotu %{assets} na %{venue} ve dnech bez ceny."
             opening_unknown: "Počáteční hodnota %{assets} na %{venue} není známa."
             chart_incomplete: "Některé dny v grafu jsou neúplné."
-            connect_coingecko: "Připoj bezplatný účet CoinGecko a získej tržní ceny."
+            connect_market_data: "Připoj poskytovatele tržních dat a získej tržní ceny."
+            providers_intro: "Sledování portfolia a daňové reporty potřebují historické ceny a směnné kurzy. Připoj datové API Deltabadger (akcie a krypto) nebo bezplatný účet CoinGecko (jen krypto). Bezplatný účet CoinGecko pokrývá ceny jen za poslední rok."
+            ask_admin: "Tržní data nastavuje správce vaší instance. Požádejte ho, aby připojil poskytovatele v Nastavení → Připojit."
         sync: 'Synchronizovat'
         sync_started: 'Synchronizace transakcí z vašich burz...'
         importing_from: 'Import dat z %{exchange}…'

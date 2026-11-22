@@ -562,7 +562,9 @@ sv:
             chart_missing: "Diagrammet visar inte marknadsvärdet för %{assets} på %{venue} för dagar utan pris."
             opening_unknown: "Startvärdet för %{assets} på %{venue} är okänt."
             chart_incomplete: "Vissa dagar i diagrammet är ofullständiga."
-            connect_coingecko: "Anslut ett gratis CoinGecko-konto för att få marknadspriser."
+            connect_market_data: "Anslut en leverantör av marknadsdata för att få marknadspriser."
+            providers_intro: "Portföljspårning och skatterapporter behöver historiska priser och växelkurser. Anslut Deltabadgers data-API (aktier och krypto) eller ett gratis CoinGecko-konto (endast krypto). Ett gratis CoinGecko-konto täcker bara priser för det senaste året."
+            ask_admin: "Marknadsdata ställs in av instansens administratör. Be hen ansluta en leverantör under Inställningar → Anslut."
         sync: 'Synka'
         sync_started: 'Synkroniserar transaktioner från dina börser...'
         importing_from: 'Importerar data från %{exchange}…'

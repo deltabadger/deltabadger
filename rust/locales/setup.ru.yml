@@ -33,6 +33,7 @@ ru:
                 spendable: "Валюта"
                 api: "Подключить биржу"
                 connect: "Подключить"
+                market_data: "Рыночные данные"
                 coingecko: "Подключить CoinGecko"
                 index: "Выбрать индекс"
                 pick_asset: "Выбрать актив"
