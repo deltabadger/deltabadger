@@ -316,6 +316,9 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         } else if let Some(exchange) = number("n").filter(|e| offered(*e).is_some()) {
             venue = Some(exchange);
             if bound(exchange)? { parked = Some(Err(exchange)) } else { stale = true }
+        } else if let Some(k) = key {
+            // 7a rule R10: a key answer the venue question no longer offers keeps its venue, and is asked again there.
+            (venue, stale) = (Some(k.exchange_id), true);
         } else {
             venue = number("v").filter(|e| offered(*e).is_some());
         }
@@ -330,7 +333,16 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
     }
     match matched.as_slice() {
         [] => {}
-        [(exchange, account)] => return Ok(conflict(*exchange)?.map_or(Routed::To(*account), Routed::Elsewhere)),
+        // R10: with no venue chosen, a file another venue holds as a conflict is never routed here on a fingerprint match:
+        // the venue is asked (that venue answered, it is refused there).
+        [(exchange, account)] => {
+            if !chose_venue {
+                for (other, _, _) in exchanges.iter().filter(|(e, _, _)| e != exchange) {
+                    if conflict(*other)?.is_some() { return Ok(ask_venue(&exchanges.iter().map(|(id, _, _)| *id).collect::<Vec<_>>())?) }
+                }
+            }
+            return Ok(conflict(*exchange)?.map_or(Routed::To(*account), Routed::Elsewhere))
+        }
         many => return Ok(ask_venue(&many.iter().map(|(e, _)| *e).collect::<Vec<_>>())?),
     }
     let known = venue.or(match exchanges.as_slice() { [(only, _, _)] => Some(*only), _ => None });

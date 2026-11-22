@@ -1155,7 +1155,9 @@ async fn h3_a_key_answer_rendered_for_one_account_is_asked_again_once_the_venue_
     identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
     let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
     let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
-    assert_eq!(options(&again.body), [format!("v{binance}"), format!("v{us}")], "asked again: {}", again.body);
+    // R10: asked again on its own venue, Binance's accounts offered.
+    let values = options(&again.body);
+    assert!(values.len() == 3 && values[..2].iter().all(|v| v.starts_with('a')) && values[2].starts_with(&format!("n{binance}~")), "asked again on Binance: {}", again.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
 }
 
@@ -1219,7 +1221,9 @@ async fn h4_a_binance_conflict_never_refuses_a_binance_us_file() {
     c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
     fingerprint(c, first, "Exchanges::Binance", "111");
     fingerprint(c, on_us, "Exchanges::BinanceUs", "123");
-    let done = upload(&app, &mut b, "binance", &binance_file("123")).await;
+    // R10: the file is held as a conflict on Binance, so the venue is asked first; Binance.US answered, it lands there.
+    let asked = upload(&app, &mut b, "binance", &binance_file("123")).await;
+    let done = answer(&app, &mut b, &asked, "binance", &format!("v{us}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!((rows_on(c, first), rows_on(c, on_us)), (1, 1));
 }
@@ -1682,4 +1686,53 @@ async fn s7a_r6_a_delete_never_removes_a_key_replaced_while_its_preflight_read_t
     assert_eq!(removed.status, 422, "{}", removed.body);
     let kept: Option<String> = rusqlite::OptionalExtension::optional(c.query_row("SELECT key FROM api_keys WHERE id = ?1", [read_only], |r| r.get(0))).unwrap();
     assert_eq!(kept.map(|k| cipher.decrypt(&k).unwrap()).as_deref(), Some("replacement-key"), "the replacement stays");
+}
+
+/// 7a rule R10: an answer's venue is fixed once given. The venue question offered Binance's key while Binance had one
+/// account; Binance gains a second, and the file's UID turns up on a Binance.US account meanwhile. The stale key answer is
+/// asked again on Binance (its accounts offered), never routed to Binance.US.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r10_a_stale_key_answer_is_asked_again_on_its_own_venue() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let kb = key_on(c, s.user_id, binance, None);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
+    identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "777");
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    let values = options(&again.body);
+    assert!(values.len() == 3 && values.iter().all(|v| v.starts_with('a') || v == &format!("n{binance}~{}", values[0].split('~').nth(1).unwrap())), "Binance's accounts asked: {}", again.body);
+    assert_eq!((rows_on(c, on_us), one::<i64>(c, "SELECT count(*) FROM account_transactions")), (0, ledger), "nothing written, never on Binance.US");
+}
+
+/// R10: a fresh upload of a Binance file held on Binance's account 1 as a conflict is never routed to Binance.US because the
+/// UID matches an account there: the venue is asked; Binance.US answered, it lands there.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r10_a_fresh_upload_of_a_held_file_asks_before_another_venue_takes_it() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let kb = key_on(c, s.user_id, binance, None);
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("123")).await;
+    let done = answer(&app, &mut b, &asked, "binance", &options(&asked.body)[0]).await;
+    assert!(imported(&done) && rows_on(c, first) == 1, "{}: {}", done.status, done.body);
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
+    fingerprint(c, first, "Exchanges::Binance", "111");
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "123");
+    let fresh = upload(&app, &mut b, "binance", &binance_file("123")).await;
+    assert_eq!(options(&fresh.body), [kb.to_string(), format!("v{us}")], "the venue is asked: {}", fresh.body);
+    assert_eq!(rows_on(c, on_us), 0, "nothing on Binance.US yet");
+    let done = answer(&app, &mut b, &fresh, "binance", &format!("v{us}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, first), rows_on(c, on_us)), (1, 1));
 }
