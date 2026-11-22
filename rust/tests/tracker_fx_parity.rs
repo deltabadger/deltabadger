@@ -172,7 +172,7 @@ async fn compare(cases: &[&str]) {
             for rendered in common::html::masked_values(&answer.body).tokens {
                 assert!(csrf::valid(&token,&rendered),"invalid rendered CSRF");
             }
-            assert_eq!(mask_csrf(&answer.body),mask_csrf(expected["body"].as_str().unwrap()),"{name}: body bytes");
+            assert_eq!(mask_csrf(&answer.body),mask_csrf(&common::html::flash_toasts_as_rust(expected["body"].as_str().unwrap())),"{name}: body bytes");
         } }
         else {
             // Existing web-foundation exception contract: public error file and below-controller

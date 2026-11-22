@@ -1,8 +1,4 @@
-  <div class="flash__message salert salert--danger" data-controller="removals" role="alert">
-    <button class="modal__close" data-action="removals#remove">
-      {% include "svg/_24x24_close.html" %}
-
-    </button>
+  <div class="flash__message salert salert--danger" role="alert">
     {{ title|safe }}
 {% for fix in fixes %}      <p class="key-fix__line">
         {{ fix.message|safe }}

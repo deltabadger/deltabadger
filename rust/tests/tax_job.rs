@@ -342,6 +342,8 @@ async fn the_web_download_sends_once_and_a_reload_shows_a_failed_request() {
     queued(&open(&i), i.user, R1, "US", "failed");
     let page = browser.get(&app, "/tracker").await;
     assert!(page.body.contains("salert--danger"), "{}", page.body);
+    // D-FLASH-TOASTS: the page's stack is the toasts' controller's (the parity suites take the attribute out).
+    assert!(page.body.contains("class=\"flash-stack\" data-controller=\"flash-stack\""), "{}", page.body);
 }
 
 #[tokio::test]

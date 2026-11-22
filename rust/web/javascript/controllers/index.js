@@ -151,8 +151,8 @@ application.register("pnl-spark", PnlSparkController)
 import ProgressBarController from "./progress_bar_controller"
 application.register("progress-bar", ProgressBarController)
 
-import RemovalsController from "./removals_controller"
-application.register("removals", RemovalsController)
+import FlashStackController from "./flash_stack_controller"
+application.register("flash-stack", FlashStackController)
 
 import RevealChromeController from "./reveal_chrome_controller"
 application.register("reveal-chrome", RevealChromeController)

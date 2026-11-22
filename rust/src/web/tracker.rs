@@ -182,7 +182,7 @@ pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
         };
         if names.is_empty() { return Ok(Prepared { response:StatusCode::NO_CONTENT.into_response(),jobs }); }
         let text = super::i18n::t(ctx.locale,"tracker.importing_from",&[("exchange",super::i18n::Arg::Text(&names.join(", ")))]);
-        let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\">\n    <div class=\"loader--syncing\"></div>\n    {text}\n  </div>\n");
+        let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\">\n    {text}\n  </div>\n");
         Ok(Prepared { response:([(header::CONTENT_TYPE,super::turbo::CONTENT_TYPE)],super::turbo::stream("append","flash",&content)).into_response(),jobs })
     })).await
 }
