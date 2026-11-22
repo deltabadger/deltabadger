@@ -173,10 +173,11 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     // Earn payment under two names); (c) S holds a row of its type and asset within ten minutes (Coinbase's legacy ids).
     // Whole seconds, so each boundary is exact.
     let secs = |x: &str| format!("CAST(strftime('%s', {x}.transacted_at) AS INTEGER)");
-    // A moved row's group, composed as the walks compose it (`tracker::rows::account_group`) on S after the move: one
-    // another of the user's rows on the exchange already reads would join two groups into one. A conflict naming both,
-    // unless one of D's rows in it is the twin of S's row in it (its legs then make one group). Each set is read once.
-    let composed = |group: Option<String>, member: Option<i64>| crate::tracker::rows::account_group(group, member);
+    // A moved row's group, keyed as every reader keys it ((account, group id), `tracker::rows::group_id`) on S after the
+    // move: one S already uses for another group would join two groups into one. A conflict naming both, unless one of D's
+    // rows in it is the twin of S's row in it (its legs then make one group). Each set is read once.
+    let survivor = ss.account.unwrap_or(0);
+    let composed = |group: Option<String>, account: Option<i64>| crate::tracker::rows::group_id(group).map(|g| (account.unwrap_or(0), g));
     let shared: std::collections::HashSet<String> = {
         let mut out = std::collections::HashSet::new();
         for (dr, sr) in &twin {
@@ -186,16 +187,16 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         out
     };
     let mut q = c.prepare(&format!("SELECT a.id, a.group_id, {} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND NOT ({}) AND a.group_id IS NOT NULL",
-                                   crate::venue_ids::Scope::install(c)?.member_sql("a"), sd.rows("a")))?;
+                                   crate::venue_ids::Scope::install(c)?.row_account("a"), sd.rows("a")))?;
     let others: Vec<(i64, Option<String>, Option<i64>)> = q.query_map([ss.user_id, ss.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
     drop(q);
-    let mut taken: HashMap<String, i64> = HashMap::new();
+    let mut taken: HashMap<(i64, String), i64> = HashMap::new();
     for (id, group, member) in others { if let Some(key) = composed(group, member) { taken.entry(key).or_insert(id); } }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let group: Option<String> = c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [row], |r| r.get(0))?;
         let Some(group) = group.filter(|g| !g.trim().is_empty()) else { continue };
         if shared.contains(&group) { continue; }
-        if let Some(theirs) = composed(Some(group), ss.member).and_then(|key| taken.get(&key).copied()) { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
+        if let Some(theirs) = composed(Some(group), Some(survivor)).and_then(|key| taken.get(&key).copied()) { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
     }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let refused: bool = c.query_row(&format!("SELECT {} OR EXISTS(SELECT 1 FROM account_transactions s WHERE s.user_id = ?1 AND s.exchange_id = ?2 AND {} \
@@ -224,7 +225,7 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         sm.group = match (&sm.group, &dm.group) {
             (Some(a), Some(b)) => { if a != b { clash = true; } None }
             (None, Some(g)) => {
-                match composed(Some(g.clone()), ss.member).and_then(|key| taken.get(&key).copied()) {
+                match composed(Some(g.clone()), Some(survivor)).and_then(|key| taken.get(&key).copied()) {
                     Some(theirs) => { conflicts.push(named(c, theirs)?); clash = true; None }
                     None => Some(g.clone()),
                 }

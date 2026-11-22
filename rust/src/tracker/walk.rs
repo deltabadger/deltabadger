@@ -35,7 +35,7 @@ fn binance_a12_recorded_accounting_baselines() {
                 fiat_value:d("fiat_value"),fee_fiat_value:d("fee_fiat_value"),fee_currency:r["fee_currency"].as_str().map(str::to_owned),fee_amount:r["fee_amount"].as_str().map(|s|Dec::parse(s).unwrap()),
                 at:At::from_sql(r["transacted_at"].as_str().unwrap()).unwrap(),group:r["group_id"].as_str().map(str::to_owned),
                 price_missing:false,value_missing:None,exchange:"binance".into(),linked:false,transfer_fee:None,swap_fiat_cost:None,
-                swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
+                swap_stable_cost:None,per_share:None,to_exchange:None,account:0,to_account:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
         }).collect();
         let mut engine=Engine::new(false); engine.calculate(&rows).unwrap();
         let lots: serde_json::Map<String,Value>=engine.lots.iter().map(|((_,asset),ls)|
@@ -82,6 +82,10 @@ pub struct Row {
     pub swap_stable_cost: Option<Dec>,
     pub per_share: Option<Dec>,
     pub to_exchange: Option<String>,
+    /// #710: the row's account and its linked deposit's (`rows::Stored::account`): with the group id the key of its group,
+    /// and the tax report's wallet. `exchange` stays the venue where a reader prices or names it.
+    pub account: i64,
+    pub to_account: Option<i64>,
     pub orphan: bool,
     /// An opening balance the walk booked (`open_with_what_must_have_been_held`), not a stored row.
     pub opening: bool,
@@ -219,7 +223,7 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService, currency: &str) -> R
     let mut groups: HashMap<(i64, String), Vec<&Stored>> = HashMap::new();
     for t in rows {
         let Some(g) = &t.group else { continue };
-        let key = (t.exchange_id, g.clone());
+        let key = (t.account, g.clone());
         let legs = groups.entry(key.clone()).or_default();
         if legs.is_empty() { order.push(key); }
         legs.push(t);
@@ -372,7 +376,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
             group: t.group.clone(), price_missing, value_missing: Some(value_missing), exchange: t.venue.clone(),
             linked: links.contains_key(&t.id) || linked_deposits.contains(&t.id), transfer_fee,
             swap_fiat_cost: leg.and_then(|l| l.swap_fiat.clone()), swap_stable_cost: leg.and_then(|l| l.swap_stable.clone()),
-            per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), orphan: false, opening: false,
+            per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), account: t.account, to_account: t.to_account, orphan: false, opening: false,
             stated_value: t.stated.is_some() && !(t.quoted() || leg.is_some_and(|l| l.fiat_value.is_some())), fee_missing,
             class: super::prices::recorded_class(t.base_asset.as_ref()),
         });
@@ -384,8 +388,8 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
 
 /// `attribute_quote_row_fees`: a fee on a group's one fiat leg moves to its one coin trade leg, when that leg has none.
 fn attribute_quote_row_fees(rows: &mut [Row]) {
-    let mut groups: BTreeMap<(String, String), Vec<usize>> = BTreeMap::new();
-    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.exchange.clone(), g.clone())).or_default().push(i); } }
+    let mut groups: BTreeMap<(i64, String), Vec<usize>> = BTreeMap::new();
+    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.account, g.clone())).or_default().push(i); } }
     for members in groups.values() {
         if members.len() < 2 { continue; }
         let donors: Vec<usize> = members.iter().copied().filter(|&i| fiat(&rows[i].base) && rows[i].fee_amount.is_some()).collect();
@@ -408,12 +412,12 @@ fn direction(kind: Kind) -> Option<bool> { match kind { Kind::SwapIn | Kind::Buy
 
 /// `mark_orphans`: a swap leg with no leg going the other way in its group, or no group.
 fn mark_orphans(rows: &mut [Row]) {
-    let mut directions: HashMap<(String, Option<String>), HashSet<bool>> = HashMap::new();
-    for r in rows.iter() { if let Some(d) = direction(r.kind) { directions.entry((r.exchange.clone(), r.group.clone())).or_default().insert(d); } }
+    let mut directions: HashMap<(i64, Option<String>), HashSet<bool>> = HashMap::new();
+    for r in rows.iter() { if let Some(d) = direction(r.kind) { directions.entry((r.account, r.group.clone())).or_default().insert(d); } }
     for r in rows.iter_mut() {
         let Some(d) = direction(r.kind) else { continue };
         if !matches!(r.kind, Kind::SwapIn | Kind::SwapOut) { continue; }
-        r.orphan = r.group.is_none() || !directions.get(&(r.exchange.clone(), r.group.clone())).is_some_and(|s| s.contains(&!d));
+        r.orphan = r.group.is_none() || !directions.get(&(r.account, r.group.clone())).is_some_and(|s| s.contains(&!d));
     }
 }
 
@@ -602,7 +606,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         before.entry(i).or_default().push(Row {
             uid, kind: Kind::Deposit, base: symbol, fiat_value: (&price * &quantity)?, fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None,
             amount: quantity, quote: None, quote_amount: None, at, group: None, price_missing: price.is_zero(), value_missing: None, exchange: venue,
-            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, orphan: false, opening: true, stated_value: false, fee_missing: false, class: None,
+            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, account: row.account, to_account: None, orphan: false, opening: true, stated_value: false, fee_missing: false, class: None,
         });
     }
     if before.is_empty() { return Ok(rows); }
@@ -1696,7 +1700,7 @@ mod tests {
         Row { uid, kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None, fiat_value: Dec::zero(), fee_fiat_value: Dec::zero(),
               fee_currency: None, fee_amount: None, at: At::from_sql(at).unwrap(), group: None, price_missing: false, value_missing: None,
               exchange: exchange.into(), linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None,
-              to_exchange: None, orphan: false, opening: false, stated_value: false, fee_missing: false, class: None }
+              to_exchange: None, account: exchange.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None, orphan: false, opening: false, stated_value: false, fee_missing: false, class: None }
     }
     /// A 1 BTC withdrawal from `from` linked to a deposit on `to`.
     fn send(uid: usize, from: &str, to: &str) -> Row { Row { linked: true, to_exchange: Some(to.into()), ..row(uid, Kind::Withdrawal, "BTC", "1", T, from) } }

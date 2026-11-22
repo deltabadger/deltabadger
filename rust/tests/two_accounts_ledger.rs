@@ -412,7 +412,10 @@ fn readers_keep_each_accounts_groups_and_ids() {
     let rows = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap();
     let group = |id: i64| rows.iter().find(|r| r.id == id).unwrap().group.clone();
     assert_eq!(group(a).as_deref(), Some(SHARED_GROUP), "number 1's group as before");
-    assert_ne!(group(a), group(b), "two accounts' legs of one group id are two groups");
+    // 7a: a group is (account, group id): the id is stored as written, and the accounts keep the legs apart.
+    let account = |id: i64| rows.iter().find(|r| r.id == id).unwrap().account;
+    assert_eq!(group(b).as_deref(), Some(SHARED_GROUP), "the id as written");
+    assert_ne!((account(a), group(a)), (account(b), group(b)), "two accounts' legs of one group id are two groups");
     assert!(rows.iter().find(|r| r.id == fut).unwrap().borrowed(), "account 2's futures row is read by its relocated id");
     assert_eq!(rows.iter().find(|r| r.id == b).unwrap().tx_id.as_deref(), Some("b-coin"));
     let price = |id: i64| deltabadger::web::tracker::row::Row::load(c, two.seeded.user_id, id).unwrap().unwrap().counterpart(c).unwrap();

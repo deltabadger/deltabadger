@@ -1128,7 +1128,7 @@ mod tests {
         }
         let failed = HashSet::new();
         let closes = Closes::Stored { c: &c, failed: &failed };
-        let mut w = walks(&c, 1, 1, 2025, &closes).unwrap().remove(0);
+        let w = walks(&c, 1, 1, 2025, &closes).unwrap().remove(0);
         assert_eq!(w.recs.iter().map(|r| r.id).collect::<Vec<_>>(), [2, 3, 5], "the coin's rows are not walked");
         let lots = &w.states["BTC"].ledger.lots;
         assert_eq!(lots.iter().map(|l| l.units.clone()).collect::<Vec<_>>(), [n("15")]);

@@ -606,9 +606,9 @@ impl Report {
                                             fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
                                             cash_group: false })).collect();
         // Groups with a fiat leg, read before the fiat rows leave.
-        let cash_groups: HashSet<(String, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
-            .filter_map(|e| e.row.group.clone().map(|g| (e.row.exchange.clone(), g))).collect();
-        for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.exchange.clone(), g.clone()))); }
+        let cash_groups: HashSet<(i64, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
+            .filter_map(|e| e.row.group.clone().map(|g| (e.row.account, g))).collect();
+        for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.account, g.clone()))); }
         Ok((taxable, entries.into_iter().map(|(_, t)| t).collect()))
     }
 
@@ -920,8 +920,8 @@ fn assume_airdrops(rows: &mut [Entry]) {
 /// crypto for crypto. 2.x taxed the leg given as sold.
 /// D-TAX-IT-SWAPS (`italy`): a group with an e-money token leg is left as booked (a sale and a purchase).
 fn swap_coin_for_stablecoin_groups(rows: &mut [Entry], italy: bool) {
-    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
-    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.exchange.clone(), g.clone())).or_default().push(i); } }
+    let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
+    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.account, g.clone())).or_default().push(i); } }
     for legs in groups.values() {
         if legs.iter().any(|&i| fiat(&rows[i].row.base) || !matches!(rows[i].row.kind, Kind::Buy | Kind::Sell)) { continue; }
         if !(legs.iter().any(|&i| rows[i].row.kind == Kind::Buy) && legs.iter().any(|&i| rows[i].row.kind == Kind::Sell)) { continue; }
@@ -964,11 +964,11 @@ fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> {
 /// unpriced), the last taking the rest; set on this report's copy of the rows before the engine. Returns each group so
 /// valued, listed.
 fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Option<bool>) -> Result<Vec<String>, FiguresError> {
-    let mut order: Vec<(String, String)> = vec![];
-    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
+    let mut order: Vec<(i64, String)> = vec![];
+    let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
     for (i, e) in rows.iter().enumerate() {
         let Some(g) = &e.row.group else { continue };
-        let k = (e.row.exchange.clone(), g.clone());
+        let k = (e.row.account, g.clone());
         if !groups.contains_key(&k) { order.push(k.clone()); }
         groups.entry(k).or_default().push(i);
     }
@@ -1015,7 +1015,7 @@ fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Op
 /// sees the Portuguese immediate fiat exit there. The tracker's enrichment is untouched.
 fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
     let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
-    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.exchange_id, g.clone())).or_default().push(i); } }
+    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.account, g.clone())).or_default().push(i); } }
     let direction = |k: Kind| if k.in_leg() { Some(true) } else if k.out_leg() { Some(false) } else { None };
     for legs in groups.values() {
         let (coins, cash): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| stable(&rows[i].base));

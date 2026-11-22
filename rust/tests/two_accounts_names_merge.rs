@@ -3699,9 +3699,8 @@ fn r18_a_moved_rows_group_must_be_free() {
 
 // ---- review round 19 ----
 
-/// R19 #3: the group collision check compares the walk's own composed group keys (`tracker::rows::account_group`) as they
-/// will be after the move: account 3's `swap` moving into account 2 reads `swap@<2>`, which account 1's restored group
-/// already is.
+/// R19 #3, 7a §0.7: groups are (account, group id), so account 3's `swap` moving into account 2 is 2's `swap`, never
+/// account 1's restored `swap@<2>`: no collision, and the two groups stay apart.
 #[test]
 fn r19_the_group_check_compares_composed_keys() {
     let (_d, o) = install();
@@ -3717,7 +3716,9 @@ fn r19_the_group_check_compares_composed_keys() {
                VALUES (?1, ?2, ?3, 2, 'ETH', '1', ?4, '2026-09-10 10:00:00', json_object('refid', 's-1'), '{}', 0, 'swap', 'now', 'now')",
               rusqlite::params![two.seeded.user_id, k3, two.seeded.exchange_id, scope.stored(Some("s-1"))]).unwrap();
     deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
-    match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+    merge_now(c, &two, a3).unwrap().unwrap();
+    let groups: Vec<Option<String>> = c.prepare("SELECT group_id FROM account_transactions ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(groups, [Some(format!("swap@{}", two.id(1))), Some("swap".into())]);
 }
 
 /// R19 #4: the history version covers classification evidence, a duplicate's rows included: its new row moves it.
@@ -3754,8 +3755,9 @@ fn r19_the_class_set_reads_a_duplicates_balances() {
 
 // ---- slice 7a §0: 6b follow-ups ----
 
-/// 7a §0.1: a kept twin that INHERITS the duplicate's group is checked by the same group key as a moved row: account 3's
-/// `swap` on the twin of account 2's row reads as 2's `swap`, which account 1's restored group already is.
+/// 7a §0.1, §0.7: a kept twin that INHERITS the duplicate's group is checked by the same group key as a moved row,
+/// (account, group id): account 3's `swap` on the twin of account 2's row is 2's `swap`, never account 1's `swap@<2>`; a
+/// `swap` account 2 already holds refuses.
 #[test]
 fn s7_0_1_an_inherited_group_is_checked_like_a_moved_one() {
     let (_d, o) = install();
@@ -3775,7 +3777,11 @@ fn s7_0_1_an_inherited_group_is_checked_like_a_moved_one() {
                VALUES (?1, ?2, ?3, 2, 'ETH', '1', ?4, '2026-09-10 10:00:00', json_object('refid', 's-1'), '{}', 0, 'swap', '2026-09-10 10:00:00', '2026-09-10 10:00:00')",
               rusqlite::params![two.seeded.user_id, k3, two.seeded.exchange_id, scope.stored(Some("s-1"))]).unwrap();
     deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
+    let taken = two.row(c, 1, 2, "BTC", "1", Some("s-0"), Some("swap"), "2026-08-01 10:00:00");
     match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+    c.execute("UPDATE account_transactions SET group_id = NULL WHERE id = ?1", [taken]).unwrap();
+    merge_now(c, &two, a3).unwrap().unwrap();
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("swap"), "inherited");
 }
 
 /// 7a §0.2: the pricing walk's per-venue asset map is classification: a duplicate's row recording ABC as a stock decides
@@ -3922,3 +3928,42 @@ async fn s7_0_10_a_key_reading_another_account_is_fenced() {
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM transactions"), 0, "nothing placed");
     assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM api_keys WHERE id IN ({}, {withdrawal})", s.api_key_id)), 2, "the keys stay");
 }
+
+/// 7a §0.7: a group is (account, group id), never a composed string: account 1's `g@<2>` and account 2's `g` are two
+/// groups, so the swap legs in them are each an orphan.
+#[test]
+fn s7_0_7_a_group_is_its_accounts_and_its_id() {
+    use deltabadger::tracker::prices::{PriceService, Reference, Unfetched, Venue};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    two.row(c, 0, 3, "BTC", "1", Some("x-1"), Some(&format!("g@{}", two.id(1))), "2026-09-01 10:00:00");
+    two.row(c, 1, 2, "ETH", "10", Some("x-2"), Some("g"), "2026-09-01 10:00:00");
+    let user = two.seeded.user_id;
+    let all = deltabadger::tracker::rows::load_all(c, user).unwrap();
+    let r = Reference::load(c, &Venue::alpaca(c).unwrap(), &deltabadger::tracker::prices::symbols(&all)).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::default();
+    let mut none = Unfetched;
+    let mut ps = PriceService::new(&r, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 2).unwrap(), &mut none);
+    let deposits = all.iter().map(|t| (t.id, t.amount.clone())).collect();
+    let rows = deltabadger::tracker::walk::enrich(&all, &deposits, &mut ps).unwrap();
+    assert_eq!(rows.iter().map(|r| r.orphan).collect::<Vec<_>>(), [true, true], "two groups, one leg each");
+}
+
+/// 7a §0.7: tax FIFO by wallet (D-TAX-US-WALLET, from 2025) is per account: account 2's sale consumes account 2's lot
+/// (cost 200, gain 50), never account 1's earlier one (100); the venue column still reads the exchange.
+#[test]
+fn s7_0_7_the_tax_wallet_is_the_account() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    for (n, kind, usd, at) in [(0, 0, "100", "2025-01-10 15:00:00"), (1, 0, "200", "2025-02-10 15:00:00"), (1, 1, "250", "2025-03-10 15:00:00")] {
+        let row = two.row(c, n, kind, "BTC", "1", Some(&format!("t-{at}")), None, at);
+        c.execute("UPDATE account_transactions SET quote_currency = 'USD', quote_amount = ?2 WHERE id = ?1", rusqlite::params![row, usd]).unwrap();
+    }
+    let out = deltabadger::tax::crypto_report(c, two.seeded.user_id, "US", 2025, false, chrono::NaiveDate::from_ymd_opt(2026, 1, 15).unwrap()).unwrap();
+    let deltabadger::tax::Outcome::Csv(csv) = out else { panic!("refused") };
+    let sale = csv.lines().find(|l| l.starts_with("2025-03-10")).unwrap_or_else(|| panic!("{csv}"));
+    assert!(sale.starts_with("2025-03-10T15:00:00Z,2025-02-10T15:00:00Z,BTC,1.0,250.0,200.0,50.0,") && sale.contains(",kraken,"), "{sale}\n{csv}");
+}
+

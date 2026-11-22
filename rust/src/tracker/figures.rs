@@ -118,7 +118,7 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         rows.push(super::rows::Stored {
             id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
-            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::account_group(r.get(11)?, r.get(12)?),
+            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::group_id(r.get(11)?),
             at,
             per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None,
             account, to_account: None,
