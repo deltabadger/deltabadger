@@ -1410,12 +1410,15 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
 /// too when it has no other key, the user no history on its exchange (ledger rows carry no account before #710 slice
 /// 4, so every one counts), and the account no stored balance or venue snapshot of its own (#710 slice 5). The account row stays (numbers are never reused); it is tombstoned only from #710 slice 7 on,
 /// since a tombstone followed by a reconnect would make number 2 before the slices that carry one.
-pub fn forget(c: &Connection, api_key_id: i64, account: &Account) -> rusqlite::Result<()> {
+pub fn forget(c: &Connection, api_key_id: i64, account: &Account, now: DateTime<Utc>) -> rusqlite::Result<()> {
     if !ready(c)? { return Ok(()); }
     if let Some(id) = account.id { key_event(c, id)?; }
     c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [api_key_id])?;
     c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [api_key_id])?;
     let Some(id) = account.id else { return Ok(()) };
+    // #710 7a §4: an account 2+ nothing names any more is tombstoned (its number never reused); one with history stays.
+    let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).optional()?.unwrap_or(1);
+    if number > 1 && !named(c, id)? { return tombstone(c, id, now); }
     c.execute(&format!("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1
                AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
                AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE {})
@@ -1424,6 +1427,18 @@ pub fn forget(c: &Connection, api_key_id: i64, account: &Account) -> rusqlite::R
                AND NOT EXISTS (SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)", account.keys("k")),
               [id, account.user_id, account.exchange_id])?;
     Ok(())
+}
+
+/// Whether anything names placed account `id` (#710 7a §4, one presence rule): a key, a bot on it, a bot order or ledger
+/// row placed under it, a balance, a snapshot, an import row, observation or cutoff, a rule or a standalone order.
+pub fn named(c: &Connection, id: i64) -> rusqlite::Result<bool> {
+    c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_keys WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_bots WHERE account_id = ?1)
+                 OR EXISTS(SELECT 1 FROM exchange_account_transactions WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_rows WHERE account_id = ?1)
+                 OR EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)
+                 OR EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM import_cutoffs WHERE account_id = ?1)
+                 OR EXISTS(SELECT 1 FROM exchange_account_imports WHERE account_id = ?1)
+                 OR EXISTS(SELECT 1 FROM exchange_account_rules WHERE account_id = ?1) OR EXISTS(SELECT 1 FROM rust_api_order_standalone WHERE account_id = ?1)",
+                [id], |r| r.get(0))
 }
 
 /// #710 Merge (PLAN-710-6 §6.2 step 11): account `id` (a number 2+) is removed: its identity goes, its row stays as the

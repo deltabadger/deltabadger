@@ -286,7 +286,7 @@ fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise(
     let kucoin = fx.exchange(KUCOIN);
     let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap();
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
-    identity::forget(&fx.c, key, &account).unwrap();
+    identity::forget(&fx.c, key, &account, chrono::Utc::now()).unwrap();
     assert_eq!(account.exchange_id, kucoin);
     assert_eq!((fx.count("exchange_account_credentials"), fx.account(KUCOIN).is_some()), (0, true), "history keeps the account");
     let again = fx.key(KUCOIN, 0, "kc-a");
@@ -297,7 +297,7 @@ fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise(
     fx.observe(binance_key, read(B));
     let account = identity::Account::of_key(&fx.c, binance_key).unwrap().unwrap();
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [binance_key]).unwrap();
-    identity::forget(&fx.c, binance_key, &account).unwrap();
+    identity::forget(&fx.c, binance_key, &account, chrono::Utc::now()).unwrap();
     // #710: numbers are never reused, so the row stays, its identity cleared (what delete-then-recreate left before).
     let row: (i64, Option<String>, Option<Vec<u8>>, Option<String>) = fx.c.query_row("SELECT number, fingerprint, account_id_enc, removed_at FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
         [fx.user, fx.exchange(BINANCE)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
@@ -786,7 +786,7 @@ fn forget_drops_the_keys_membership_and_keeps_every_account() {
     let before = accounts(&t.fx.c);
     let account = identity::Account::of_key(&t.fx.c, t.key2).unwrap().unwrap();
     t.fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [t.key2]).unwrap();
-    identity::forget(&t.fx.c, t.key2, &account).unwrap();
+    identity::forget(&t.fx.c, t.key2, &account, chrono::Utc::now()).unwrap();
     assert_eq!((count(&t.fx.c, "exchange_account_keys"), accounts(&t.fx.c)), (0, before));
 }
 
@@ -833,7 +833,7 @@ fn forgetting_a_key_clears_its_own_accounts_identity_only() {
     let delete = |key: i64| {
         let account = identity::Account::of_key(c, key).unwrap().unwrap();
         c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
-        identity::forget(c, key, &account).unwrap();
+        identity::forget(c, key, &account, chrono::Utc::now()).unwrap();
     };
     delete(t.key2);
     assert_eq!(fingerprints(&t), (Some("fp-1".into()), None), "account 2 had no other key; account 1 keeps its own");
@@ -972,7 +972,7 @@ fn deleting_one_accounts_subjects_leaves_the_other_accounts_memberships() {
     assert_eq!(Account::of_order(c, orders[0]).unwrap(), Some(first), "no membership row: number 1");
     // Account 1's key deleted, as the settings delete does it.
     c.execute("DELETE FROM api_keys WHERE id = ?1", [s.api_key_id]).unwrap();
-    identity::forget(c, s.api_key_id, &first).unwrap();
+    identity::forget(c, s.api_key_id, &first, chrono::Utc::now()).unwrap();
     check("account 1's key deleted");
     assert_eq!(Account::of_key(c, key).unwrap(), Some(second), "account 2's key");
     // Account 1's bot deleted (bots are kept as deleted) and its order gone (an order's membership cascades with it).

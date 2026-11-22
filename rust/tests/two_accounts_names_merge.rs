@@ -2817,7 +2817,7 @@ fn st_each_key_event_clears_it() {
 
     let (_d, o, two) = entered();
     let c = &o.primary;
-    identity::forget(c, two.keys[1], &two.accounts[1]).unwrap();
+    identity::forget(c, two.keys[1], &two.accounts[1], now).unwrap();
     assert!(standings(c).is_empty(), "a key removed");
 
     let (_d, o, two) = entered();

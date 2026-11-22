@@ -274,3 +274,36 @@ async fn a_routed_replacement_waits_for_the_destination_s_open_standalone_order(
     assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
 }
+
+/// §4: removing a key never removes history. Account 2 with a balance row keeps its row (shown broken) when its last key
+/// goes; with nothing naming it, removing its last key tombstones it, and the next new account is 3 (numbers are never
+/// reused). Number 1 is never tombstoned by a key removal.
+#[tokio::test(flavor = "current_thread")]
+async fn removing_an_account_s_last_key_tombstones_it_only_when_nothing_names_it() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    let live = |c: &Connection| one::<i64>(c, &format!("SELECT count(*) FROM exchange_accounts WHERE exchange_id = {exchange} AND removed_at IS NULL"));
+    let delete = |id: i64| format!("/settings/destroy_api_key/{id}");
+    // A balance names account 2: its key goes, the account stays.
+    c.execute("INSERT INTO exchange_account_balances (account_id, asset_id, user_id, exchange_id, free, created_at, synced_at, updated_at) VALUES (?1, 1, ?2, ?3, '1', 'now', 'now', 'now')",
+              rusqlite::params![accounts[1], user, exchange]).unwrap();
+    let key_b = identity::key_of(c, accounts[1], 2).unwrap().unwrap();
+    assert!(b.send(&app, "DELETE", &delete(key_b), None, common::web::Csrf::Header, &[]).await.status < 400);
+    assert_eq!(live(c), 2, "an account with history stays (broken)");
+    // Nothing names it: a fresh key, then its removal, tombstones it.
+    c.execute("DELETE FROM exchange_account_balances WHERE account_id = ?1", [accounts[1]]).unwrap();
+    assert!(save(&app, &mut b, exchange, Some(accounts[1]), &kucoin_fields("key-b")).await.status < 400);
+    let key_b = identity::key_of(c, accounts[1], 2).unwrap().unwrap();
+    let removed = b.send(&app, "DELETE", &delete(key_b), None, common::web::Csrf::Header, &[]).await;
+    assert!(removed.status < 400, "{}: {}", removed.status, removed.body);
+    assert_eq!(live(c), 1, "an account nothing names is tombstoned");
+    let key_a = identity::key_of(c, accounts[0], 2).unwrap().unwrap();
+    assert!(b.send(&app, "DELETE", &delete(key_a), None, common::web::Csrf::Header, &[]).await.status < 400);
+    assert_eq!(live(c), 1, "number 1 stays");
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-b")).await.status < 400);
+    assert_eq!(numbers(c, exchange), [1, 2, 3], "the next new account is 3");
+}
