@@ -903,29 +903,52 @@ fn same_event(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str
     Ok(same_events(c, key, e, entry_type, scope)?.iter().filter(|r| !stored_now.contains(&r.id) && !governed(r)).count() > repeat)
 }
 
-/// #710 7a §9.7: the account holding a KuCoin key's account's export as a conflict (`identity::held_by`), as its scope.
-fn held_by(c: &Connection, key: &Key) -> Result<Option<venue_ids::Scope>, SyncError> {
-    if key.exchange_type != crate::venue::kucoin::KUCOIN { return Ok(None); }
+/// #710 7a §9.7: the account holding this key's account's export as a conflict (`identity::held_by`), as its scope, and
+/// that export's fingerprint (the key's account's own). KuCoin, Binance and Binance.US: the venues whose exports name
+/// their account.
+pub(crate) fn held_by(c: &Connection, key: &Key) -> Result<Option<(venue_ids::Scope, String)>, SyncError> {
+    use crate::venue::binance::{BINANCE, BINANCE_US};
+    if ![crate::venue::kucoin::KUCOIN, BINANCE, BINANCE_US].contains(&key.exchange_type.as_str()) { return Ok(None); }
     let Some(account) = key.scope.account else { return Ok(None) };
     let Some(holder) = crate::identity::held_by(c, account)? else { return Ok(None) };
     let Some(holder) = crate::identity::Account::by_id(c, holder)? else { return Ok(None) };
-    Ok(Some(venue_ids::Scope::of(c, &holder)?))
+    let Some(fingerprint) = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get::<_, Option<String>>(0)).optional()?.flatten() else { return Ok(None) };
+    Ok(Some((venue_ids::Scope::of(c, &holder)?, fingerprint)))
 }
 
-/// An API entry `holder` already has from the file: an entry of its class derived at the same UTC second (the file and the
-/// API date one event alike, as the takeover's cutoffs rely on). Held, never written: the file's rows stay where they are.
-fn held_on(c: &Connection, key: &Key, holder: &venue_ids::Scope, e: &Entry) -> Result<bool, SyncError> {
-    use crate::tracker::import::kucoin::FILE_ROW;
+/// An API entry `holder` already has from this account's own export (`from_export`, never the holder's own rows): of its
+/// type and currency at the time the export dates it. KuCoin: a derived entry of its class at the same UTC second whose
+/// currency is one the entry moves (the file aggregates a second's fills, so amounts need not agree). Binance: an id-less
+/// row of its type, currency and amount within a second, or a transfer where its export copy falls (`file_side`). Held,
+/// never written: the export's rows stay where they are.
+// ponytail: Binance dust and Convert legs pair by their own gross/net rules (api_dust_twin); held only when they agree
+// to the cent within a second. Add those pairings here if a held account ever shows one twice.
+pub(crate) fn held_on(c: &Connection, key: &Key, (holder, fingerprint): &(venue_ids::Scope, String), e: &Entry) -> Result<bool, SyncError> {
+    use crate::tracker::import::kucoin::{from_export, FILE_ROW};
     use chrono::Timelike;
-    if e.raw.value.get("createdAt").is_none() { return Ok(false); }
-    let class = match e.entry_type { BUY | SELL => "fills", DEPOSIT => "deposits", WITHDRAWAL => "withdrawals", _ => return Ok(false) };
     let Some(at) = e.transacted_at else { return Ok(false) };
-    let from = at.with_nanosecond(0).unwrap_or(at);
-    let to = from + Duration::seconds(1);
     let at_ = "account_transactions";
-    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {FILE_ROW} \
-                             AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4 AND transacted_at < ?5)", holder.rows(at_)),
-                   params![key.user_id, holder.exchange_id, class, sql_time(from), sql_time(to)], |r| r.get(0))?)
+    let export = from_export(holder, "= ?8");
+    if key.exchange_type == crate::venue::kucoin::KUCOIN {
+        if e.raw.value.get("createdAt").is_none() { return Ok(false); }
+        let class = match e.entry_type { BUY | SELL => "fills", DEPOSIT => "deposits", WITHDRAWAL => "withdrawals", _ => return Ok(false) };
+        let from = at.with_nanosecond(0).unwrap_or(at);
+        return Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {FILE_ROW} \
+                                        AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4 AND transacted_at < ?5 AND base_currency IN (?6, ?7) AND {export})", holder.rows(at_)),
+                              params![key.user_id, holder.exchange_id, class, sql_time(from), sql_time(from + Duration::seconds(1)), e.base_currency, e.quote_currency, fingerprint],
+                              |r| r.get(0))?);
+    }
+    if present(&e.tx_id).is_none() { return Ok(false); }
+    let second = Duration::seconds(1);
+    let (amount, from, to, open) = match api_transfer(e.entry_type, &e.raw.value).then(|| file_side(e.entry_type, &e.raw.value, at)) {
+        Some(Some(side)) => side,
+        Some(None) => return Ok(false),
+        None => match (at.checked_sub_signed(second), at.checked_add_signed(second)) { (Some(f), Some(t)) => (e.base_amount.clone(), f, t, false), _ => return Ok(false) },
+    };
+    let window = if open { "transacted_at > ?4 AND transacted_at < ?5" } else { "transacted_at >= ?4 AND transacted_at <= ?5" };
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} AND entry_type = ?3 \
+                             AND {window} AND base_currency IS ?6 AND base_amount = ?7 AND {export})", holder.rows(at_), holder.id_less(at_)),
+                   params![key.user_id, holder.exchange_id, e.entry_type, sql_time(from), sql_time(to), e.base_currency, real(&amount), fingerprint], |r| r.get(0))?)
 }
 
 /// A leg of a stored merged split, or a stored row with this id.

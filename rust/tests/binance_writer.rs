@@ -1025,3 +1025,34 @@ async fn repair_update_install_completion_rechecks_each_accounts_scope() {
     assert!(deltabadger::jobs::state::read(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap().last_success_at.is_none());
     assert_eq!(run_repair(&job,c).await,deltabadger::jobs::Outcome::Done);
 }
+
+/// #710 7a §9.7 on Binance: B's export (222) imported on account 1 (A) before 7a, A then read as 111, B connected as account
+/// 2. B's API deposit of BTC, which A holds from B's export, is held (counted once, on A); B's ETH deposit in that second is
+/// written although A's own export (111) has an ETH deposit then: only B's own export holds B's entries.
+#[test]
+fn a_held_account_s_api_deposit_is_not_written_twice_and_a_s_own_rows_hold_nothing() {
+    use deltabadger::identity;
+    let (dir,o,s)=common::install();let c=&o.primary;let a=key(c,&s);let _lock=claim(c,dir.path());
+    let file=|uid:&str,coin:&str|format!("User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n{uid},2026-08-17 10:00:00,Spot,Deposit,{coin},1,\n");
+    assert!(matches!(import(c,&a,"binance",&file("222","BTC")).unwrap(),deltabadger::tracker::import::run::Answer::Written{imported:1,..}));
+    let cipher=common::seed::cipher();
+    let first=identity::Account::first(c,s.user_id,s.exchange_id).unwrap().id.unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint=NULL,account_id_enc=NULL",[]).unwrap();
+    identity::establish_read(c,&cipher,first,"Exchanges::Binance",&identity::AccountId::parse("111").unwrap(),now()).unwrap();
+    let later:DateTime<Utc>="2026-08-18T01:00:00Z".parse().unwrap();
+    let own=deltabadger::tracker::import::run::import(c,&cipher,s.user_id,"binance",file("111","ETH").as_bytes(),Some("+00:00"),None,later).unwrap();
+    assert!(matches!(own,deltabadger::tracker::import::run::Answer::Written{imported:1,..}),"A's own file lands on A: {own:?}");
+    let second=identity::new_account(c,s.user_id,s.exchange_id,now()).unwrap();
+    c.execute("INSERT INTO api_keys (user_id,exchange_id,key_type,key,secret,status,created_at,updated_at) VALUES (?1,?2,0,?3,?4,1,'2026-01-01','2026-01-01')",
+              params![s.user_id,s.exchange_id,cipher.encrypt("b-key"),cipher.encrypt("b-secret")]).unwrap();
+    let b_key=c.last_insert_rowid();
+    identity::Account::by_id(c,second).unwrap().unwrap().add_key(c,b_key).unwrap();
+    identity::establish_read(c,&cipher,second,"Exchanges::Binance",&identity::AccountId::parse("222").unwrap(),now()).unwrap();
+    assert_eq!(identity::held(c,s.user_id).unwrap(),[(second,first)]);
+    let b=sync::load_key_of(c,b_key,&["Exchanges::Binance"]).unwrap();
+    let held=write(c,&b,&[input(Source::Deposit,"d1","","BTC")]).unwrap();
+    assert_eq!((held.imported,held.duplicates),(0,1),"BTC: A holds it from B's export");
+    let written=write(c,&b,&[input(Source::Deposit,"d2","","ETH")]).unwrap();
+    assert_eq!(written.imported,1,"ETH: A's own deposit holds nothing of B's");
+    assert_eq!(count(c),3);
+}

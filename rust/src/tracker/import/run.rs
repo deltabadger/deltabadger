@@ -253,6 +253,13 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
     }
     let exchanges: Vec<(i64, String, String)> = c.prepare("SELECT id, type, name FROM exchanges WHERE type IN (SELECT value FROM json_each(?1)) ORDER BY id")?
         .query_map([serde_json::json!(venues).to_string()], |r| Ok((r.get(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, Option<String>>(2)?.unwrap_or_default())))?.collect::<Result<_, _>>()?;
+    // #710 7a §0.11: a file another account holds as a conflict (imported there before 7a) is never imported again, whoever
+    // now owns its fingerprint and whatever a parked answer says.
+    if let Some(id) = file {
+        for (exchange, _, _) in &exchanges {
+            if let Some(on) = crate::identity::imported_as_conflict(c, cipher, user_id, *exchange, id, now).map_err(SyncError)? { return Ok(Routed::Elsewhere(on)) }
+        }
+    }
     let identity = crate::identity::key(c, cipher, now).map_err(SyncError)?;
     let fingerprint = |exchange_type: &str| file.map(|id| identity.fingerprint(exchange_type, id));
     // (account, number, fingerprint) of each live account of `exchange`.
@@ -300,9 +307,6 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
             Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false }
         }).collect())),
     };
-    if let Some(id) = file {
-        if let Some(on) = crate::identity::imported_as_conflict(c, cipher, user_id, venue, id, now).map_err(SyncError)? { return Ok(Routed::Elsewhere(on)) }
-    }
     // 2 and 3: the venue's unfingerprinted accounts.
     let owners: Vec<i64> = live(venue)?.into_iter().filter(|(_, _, held)| held.is_none()).map(|(id, _, _)| id).collect();
     Ok(match owners.as_slice() {

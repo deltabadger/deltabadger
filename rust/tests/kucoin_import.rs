@@ -698,3 +698,70 @@ async fn s7_9_7_b_s_first_sync_holds_what_a_conflicting_import_put_on_a() {
     assert!((total("BTC") - (file_total("BTC") + 0.002)).abs() < 1e-9, "BTC: {} vs {}", total("BTC"), file_total("BTC"));
     assert!((total("USDT") - (file_total("USDT") + 130.0 + 10.0 + 3.0)).abs() < 1e-9, "USDT: {} vs {}", total("USDT"), file_total("USDT"));
 }
+
+/// The §9.7 pair: B's export (UID) imported on account 1 (A) as before 7a, A's key reading OTHER, and B (account 2) keyed
+/// and read as UID. (A, B, B's key).
+fn held_pair(fx: &Fx) -> (i64, i64, i64) {
+    fx.import(&overlapping_export());
+    fx.c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    observe(fx, OTHER);
+    let first = identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().id.unwrap();
+    let (second, key) = fx.second_account();
+    identity::establish_read(&fx.c, &fx.cipher, second, KUCOIN, &identity::AccountId::parse(UID).unwrap(), now()).unwrap();
+    assert_eq!(identity::held(&fx.c, fx.user).unwrap(), [(second, first)]);
+    (first, second, key)
+}
+
+/// 7a §9.7: only rows of B's own export hold B's API entries, never A's own. A's own export (OTHER, imported later) has a BTC
+/// deposit, an ETH-BTC buy and a USDT deposit at the very seconds B's API has a USDT deposit, a BTC-USDT buy and a USDT
+/// deposit of the same amount: none of B's is held, each account keeps its own.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_a_s_own_rows_in_the_same_second_hold_nothing_of_b_s() {
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    let later: DateTime<Utc> = "2026-10-22T11:00:00Z".parse().unwrap();
+    let own = export(OTHER, &["BTC,Deposit,0.5,0,2026-09-17 13:00:00,Deposit", "ETH,Deposit,1,0,2026-09-17 13:00:01,Spot", "BTC,Withdrawal,0.05,0,2026-09-17 13:00:01,Spot",
+                              "USDT,Deposit,7,0,2026-09-17 13:00:02,Deposit"]);
+    let answer = run::import(&fx.c, &fx.cipher, fx.user, "kucoin", own.as_bytes(), None, None, later).unwrap();
+    assert!(matches!(answer, run::Answer::Written { imported: 3, .. }), "A's own file lands on A: {answer:?}");
+    let a_rows = fx.rows_of(first);
+    let mut api = overlapping_api(500);
+    api.deposits = Rc::new(vec![transfer("d7", "11", "0", "2026-09-17T10:00:00Z"), transfer("d8", "7", "0", "2026-09-17T10:00:02Z")]);
+    api.fills = Rc::new(vec![fill("f7", "0.003", "200", "0.2", "2026-09-17T10:00:01Z")]);
+    api.withdrawals = Rc::new(vec![]);
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &api, false).await);
+    assert_eq!(fx.rows_of(first), a_rows, "A's rows as they were");
+    assert_eq!(fx.rows_of(second), 3, "B's deposits and buy, all written");
+}
+
+/// 7a §9.7: A's own API takeover never deletes what B's export put on A. B's day-B deposit is held for B because its copy is
+/// on A; A's first sync then has an earlier deposit of its own (its cutoff before day B), and the copy stays: the deposit is
+/// counted once.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_a_s_takeover_keeps_what_b_s_export_put_on_a() {
+    let fx = Fx::new();
+    let (first, _, key) = held_pair(&fx);
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &overlapping_api(500), false).await);
+    let day_b = "SELECT count(*) FROM account_transactions WHERE entry_type = 4 AND transacted_at LIKE '2026-09-16 10:00:00%'";
+    assert_eq!(fx.count(day_b), 1, "held for B, on A");
+    let a = key_id(&fx);
+    let mine = Api { fills: Rc::new(vec![]), deposits: Rc::new(vec![transfer("a1", "1", "0", "2026-09-14T11:00:00Z")]), withdrawals: Rc::new(vec![]), per_page: 500 };
+    fx.watermark_of(a, WATERMARK);
+    assert!(fx.sync_of(a, &mine, false).await);
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM import_cutoffs WHERE class = 'deposits' AND account_id = {first}")), 1, "A's deposits taken over");
+    assert_eq!(fx.count(day_b), 1, "B's deposit still counted once, on A");
+    assert!(fx.rows_of(first) > 0);
+}
+
+/// 7a §0.11: once B is connected, re-uploading B's file still finds the copy A holds first: refused, nothing written twice.
+#[test]
+fn s7_0_11_a_held_file_re_uploaded_once_its_account_is_connected_is_refused() {
+    let fx = Fx::new();
+    let (_, second, _) = held_pair(&fx);
+    let rows = fx.count("SELECT count(*) FROM account_transactions");
+    let again = fx.import(&overlapping_export());
+    assert!(format!("{again:?}").starts_with("ImportedElsewhere(\"KuCoin 1\")"), "{again:?}");
+    assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.rows_of(second)), (rows, 0));
+}

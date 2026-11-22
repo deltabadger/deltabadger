@@ -128,6 +128,8 @@ fn buckets(c: &Connection, key: &Key) -> Result<Vec<Bucket>,SyncError> {
 pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Input], now: DateTime<Utc>) -> Result<Outcome,SyncError> {
     ownership(c,cipher,key)?;
     let retained=buckets(c,key)?;
+    // #710 7a §9.7: what another account already holds from this account's export, imported there as a conflict.
+    let holder=ledger::held_by(c,key)?;
     let mut groups:BTreeMap<String,(usize,Vec<&Input>)>=BTreeMap::new();
     for (n,i) in input.iter().enumerate() {if i.event.key().is_none() {return Err(refused("missing stable identity"))}
         let at=i.entry.transacted_at.ok_or_else(||refused("missing time"))?;
@@ -195,6 +197,7 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
             let (id,inserted)=match decision {
                 Decision::Existing(id)=>{out.duplicates+=1;(id,false)},
                 Decision::Missing=>{
+                    if let Some(holder)=&holder { if ledger::held_on(c,key,holder,&e)? {out.duplicates+=1;continue} }
                     if occupied.contains(e.tx_id.as_deref().unwrap()) {e.tx_id=i.event.sibling_id();}
                     if let Some(group)=i.event.group_id(){
                         let existing:usize=c.query_row(&format!("SELECT count(*) FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3",mine(key)),params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
