@@ -3,6 +3,7 @@ ru:
         duplicate_account_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}, поэтому он не входит в итоги."
         merge_in_settings: "Объединить в настройках"
         held_on_account_html: "Часть истории %{account} была импортирована из её выгрузки в %{holder}. Она остаётся там и не учитывается дважды."
+        held_unmatched_on_account_html: "Часть истории %{account} была импортирована из её выгрузки в %{holder}. Часть операций не удалось сопоставить с собственной историей %{account}, поэтому они могут учитываться дважды."
     settings:
         accounts:
             duplicate_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}."

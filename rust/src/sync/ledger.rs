@@ -722,7 +722,9 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     // D-KUCOIN-HF-LEDGER: on an HF-enabled KuCoin history the fill-class entries are allocated by exact key, never by
     // the inherited same-event heuristic.
     let hf = super::kucoin_hf::Allocation::new(c, key, &batch, range.clone(), now)?;
-    let holder = held_by(c, key)?;
+    // ponytail: the hold reads the whole page once per unit (only on an account with a held export); cache it in Progress
+    // if such a page ever shows in a profile.
+    let holds = Holds::of(c, key, held_by(c, key)?.as_ref(), &batch.iter().collect::<Vec<_>>(), now)?;
     for (n, index) in range.enumerate() {
         let original = &batch[index];
         let (entry, update, unchanged) = if split(original) && original.raw.value["rust_split_legs"].is_array() {
@@ -744,7 +746,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
             }
         }
         // #710 7a §9.7: what another account already holds from this account's export, imported there as a conflict.
-        if let Some(holder) = &holder { if held_on(c, key, holder, e)? { p.out.duplicates += 1; continue; } }
+        if holds.held(index) { p.out.duplicates += 1; continue; }
         let tx_id = present(&e.tx_id);
         let decided = hf.as_ref().and_then(|a| a.0.get(&index).copied());
         if decided == Some(true) { p.out.duplicates += 1; continue; }
@@ -916,39 +918,127 @@ pub(crate) fn held_by(c: &Connection, key: &Key) -> Result<Option<(venue_ids::Sc
     Ok(Some((venue_ids::Scope::of(c, &holder)?, fingerprint)))
 }
 
-/// An API entry `holder` already has from this account's own export (`from_export`, never the holder's own rows): of its
-/// type and currency at the time the export dates it. KuCoin: a derived entry of its class at the same UTC second whose
-/// currency is one the entry moves (the file aggregates a second's fills, so amounts need not agree). Binance: an id-less
-/// row of its type, currency and amount within a second, or a transfer where its export copy falls (`file_side`). Held,
-/// never written: the export's rows stay where they are.
-// ponytail: Binance dust and Convert legs pair by their own gross/net rules (api_dust_twin); held only when they agree
-// to the cent within a second. Add those pairings here if a held account ever shows one twice.
-pub(crate) fn held_on(c: &Connection, key: &Key, (holder, fingerprint): &(venue_ids::Scope, String), e: &Entry) -> Result<bool, SyncError> {
+/// A row of the holder's copy of this account's export, as a hold compares it (amounts as stored, read back exactly).
+#[derive(Clone)]
+struct FileRow { id: i64, entry_type: i64, base: Option<String>, amount: BigDec, quote: Option<String>, quote_amount: Option<BigDec> }
+
+/// An amount as the ledger stores it (a double), so an API amount and its stored export copy compare exactly.
+fn as_stored(d: &BigDec) -> BigDec { BigDec::from_f64(d.to_f()).unwrap_or_else(|_| d.clone()) }
+
+/// #710 7a §9.7 rule H1: the entries of `batch` (an API store's) that `holder` already has from this account's own export
+/// (`from_export`, never the holder's own rows), held, never written. A hold is exact or nothing:
+/// - a KuCoin fill: the export sums a second's fills of a pair and direction, so the fills of `batch` of that pair,
+///   direction and UTC second are held, all of them, when their size and funds sum to the export's;
+/// - anything else, one for one: the export rows of its type, currency and amount where its copy falls (a KuCoin second;
+///   Binance within a second, a transfer where `file_side` puts it, a dust receipt net of its charge to the 8th
+///   decimal). Every entry competing for those rows must name the same rows, and as many as there are;
+/// - the legs of one conversion (a shared group id) are held together or not at all.
+///
+/// An entry not held is written. When an export row near it (its class or type, a currency it moves, its window: any
+/// amount) is the copy of no held entry, the hold was ambiguous, and the tracker's held notice says the export could not
+/// be matched.
+pub(crate) struct Holds(HashSet<usize>);
+/// An entry a hold concerns: compared by sum, the export rows near it, and those exactly its.
+type Near = (bool, Vec<i64>, Vec<FileRow>);
+
+impl Holds {
+    pub(crate) fn held(&self, index: usize) -> bool { self.0.contains(&index) }
+
+    pub(crate) fn of(c: &Connection, key: &Key, holder: Option<&(venue_ids::Scope, String)>, batch: &[&Entry], now: DateTime<Utc>) -> Result<Holds, SyncError> {
+        let mut held = HashSet::new();
+        let Some((holder, fingerprint)) = holder else { return Ok(Holds(held)) };
+        let kucoin = key.exchange_type == crate::venue::kucoin::KUCOIN;
+        // Each entry the hold may concern: whether it is compared by sum, and the export rows near it and exactly its.
+        let mut near: Vec<Option<Near>> = Vec::with_capacity(batch.len());
+        for e in batch {
+            let rows = near_rows(c, key, holder, fingerprint, e)?;
+            near.push(rows.map(|rows| {
+                let sum = kucoin && matches!(e.entry_type, BUY | SELL);
+                let exact: Vec<FileRow> = rows.iter().filter(|r| r.entry_type == e.entry_type && r.base == e.base_currency && exactly(key, e, r, sum)).cloned().collect();
+                (sum, rows.iter().map(|r| r.id).collect(), exact)
+            }));
+        }
+        let ids = |rows: &[FileRow]| -> Vec<i64> { let mut v: Vec<i64> = rows.iter().map(|r| r.id).collect(); v.sort_unstable(); v };
+        for (i, n) in near.iter().enumerate() {
+            let Some((sum, _, exact)) = n else { continue };
+            if exact.is_empty() { continue; }
+            let mine = ids(exact);
+            // The entries competing for any of these rows, as the rule compares them.
+            let rivals: Vec<usize> = near.iter().enumerate().filter_map(|(j, m)| match m {
+                Some((s, _, x)) if s == sum && ids(x).iter().any(|id| mine.contains(id)) => Some(j),
+                _ => None,
+            }).collect();
+            let same = rivals.iter().all(|j| near[*j].as_ref().is_some_and(|(_, _, x)| ids(x) == mine));
+            let ok = if *sum {
+                let total = |f: &dyn Fn(usize) -> BigDec| rivals.iter().fold(BigDec::zero(), |a, j| &a + &f(*j));
+                let file = |f: &dyn Fn(&FileRow) -> BigDec| exact.iter().fold(BigDec::zero(), |a, r| &a + &f(r));
+                same && total(&|j| as_stored(&batch[j].base_amount)) == file(&|r| r.amount.clone())
+                    && total(&|j| batch[j].quote_amount.as_ref().map(as_stored).unwrap_or_else(BigDec::zero)) == file(&|r| r.quote_amount.clone().unwrap_or_else(BigDec::zero))
+            } else { same && rivals.len() == exact.len() };
+            if ok { held.insert(i); }
+        }
+        // One conversion's legs together or not at all.
+        let groups: HashSet<&str> = (0..batch.len()).filter(|i| !held.contains(i)).filter_map(|i| batch[i].group_id.as_deref()).collect();
+        held.retain(|i| batch[*i].group_id.as_deref().is_none_or(|g| !groups.contains(g)));
+        // Ambiguous: an export row near an entry written that no held entry is the copy of.
+        let claimed: HashSet<i64> = held.iter().filter_map(|i| near[*i].as_ref()).flat_map(|(_, _, x)| x.iter().map(|r| r.id)).collect();
+        if near.iter().enumerate().any(|(i, n)| !held.contains(&i) && n.as_ref().is_some_and(|(_, close, _)| close.iter().any(|id| !claimed.contains(id)))) {
+            if let (Some(account), Some(h)) = (key.scope.account, holder.account) { crate::identity::mark_held_unmatched(c, account, h, now).map_err(SyncError)?; }
+        }
+        Ok(Holds(held))
+    }
+}
+
+/// Whether export row `r` (of the entry's type and currency) is the entry's copy: a summed KuCoin fill of its pair; else
+/// its amount (a Binance dust receipt net of its charge, one unit of the 8th decimal either way: DUST_ROUNDING).
+fn exactly(key: &Key, e: &Entry, r: &FileRow, sum: bool) -> bool {
+    if sum { return r.quote == e.quote_currency; }
+    if key.exchange_type != crate::venue::kucoin::KUCOIN && e.entry_type == SWAP_IN && e.tx_id.as_deref().is_some_and(|t| api_dust(e, t)) {
+        let net = &as_stored(&e.base_amount) - &e.fee_amount.as_ref().map(as_stored).unwrap_or_else(BigDec::zero);
+        let unit = BigDec::parse("0.00000001").expect("a decimal");
+        let gap = &net - &r.amount;
+        return gap <= unit && &BigDec::zero() - &gap <= unit;
+    }
+    let amount = match key.exchange_type != crate::venue::kucoin::KUCOIN && api_transfer(e.entry_type, &e.raw.value) {
+        true => e.transacted_at.and_then(|at| file_side(e.entry_type, &e.raw.value, at)).map(|(a, ..)| a),
+        false => Some(e.base_amount.clone()),
+    };
+    amount.is_some_and(|a| as_stored(&a) == r.amount)
+}
+
+/// The export rows `holder` has from this account's export near API entry `e` (None: an entry no hold concerns): of its
+/// class (KuCoin) or type (Binance, id-less), a currency it moves, where its copy falls; any amount.
+fn near_rows(c: &Connection, key: &Key, holder: &venue_ids::Scope, fingerprint: &str, e: &Entry) -> Result<Option<Vec<FileRow>>, SyncError> {
     use crate::tracker::import::kucoin::{from_export, FILE_ROW};
     use chrono::Timelike;
-    let Some(at) = e.transacted_at else { return Ok(false) };
+    let Some(at) = e.transacted_at else { return Ok(None) };
     let at_ = "account_transactions";
-    let export = from_export(holder, "= ?8");
+    let export = from_export(holder, "= ?7");
+    let read = |sql: &str, p: &[&dyn rusqlite::ToSql]| -> Result<Vec<FileRow>, SyncError> {
+        let mut s = c.prepare(&format!("SELECT id, entry_type, base_currency, base_amount, quote_currency, quote_amount FROM account_transactions {BY_TIME} \
+                                        WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {export} AND {sql}", holder.rows(at_)))?;
+        let d = |v: Option<f64>| v.map(|f| BigDec::from_f64(f).unwrap_or_else(|_| BigDec::zero()));
+        let rows = s.query_map(p, |r| Ok(FileRow { id: r.get(0)?, entry_type: r.get(1)?, base: r.get(2)?, amount: d(r.get(3)?).unwrap_or_else(BigDec::zero), quote: r.get(4)?, quote_amount: d(r.get(5)?) }))?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    };
     if key.exchange_type == crate::venue::kucoin::KUCOIN {
-        if e.raw.value.get("createdAt").is_none() { return Ok(false); }
-        let class = match e.entry_type { BUY | SELL => "fills", DEPOSIT => "deposits", WITHDRAWAL => "withdrawals", _ => return Ok(false) };
+        if e.raw.value.get("createdAt").is_none() { return Ok(None); }
+        let class = match e.entry_type { BUY | SELL => "fills", DEPOSIT => "deposits", WITHDRAWAL => "withdrawals", _ => return Ok(None) };
         let from = at.with_nanosecond(0).unwrap_or(at);
-        return Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {FILE_ROW} \
-                                        AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4 AND transacted_at < ?5 AND base_currency IN (?6, ?7) AND {export})", holder.rows(at_)),
-                              params![key.user_id, holder.exchange_id, class, sql_time(from), sql_time(from + Duration::seconds(1)), e.base_currency, e.quote_currency, fingerprint],
-                              |r| r.get(0))?);
+        return Ok(Some(read(&format!("{FILE_ROW} AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4 AND transacted_at < ?5 AND base_currency IN (?6, ?8)"),
+                            params![key.user_id, holder.exchange_id, class, sql_time(from), sql_time(from + Duration::seconds(1)), e.base_currency, fingerprint, e.quote_currency])?));
     }
-    if present(&e.tx_id).is_none() { return Ok(false); }
+    if present(&e.tx_id).is_none() { return Ok(None); }
     let second = Duration::seconds(1);
-    let (amount, from, to, open) = match api_transfer(e.entry_type, &e.raw.value).then(|| file_side(e.entry_type, &e.raw.value, at)) {
-        Some(Some(side)) => side,
-        Some(None) => return Ok(false),
-        None => match (at.checked_sub_signed(second), at.checked_add_signed(second)) { (Some(f), Some(t)) => (e.base_amount.clone(), f, t, false), _ => return Ok(false) },
+    let (from, to, open) = match api_transfer(e.entry_type, &e.raw.value).then(|| file_side(e.entry_type, &e.raw.value, at)) {
+        Some(Some((_, from, to, open))) => (from, to, open),
+        Some(None) => return Ok(None),
+        None => match (at.checked_sub_signed(second), at.checked_add_signed(second)) { (Some(f), Some(t)) => (f, t, false), _ => return Ok(None) },
     };
     let window = if open { "transacted_at > ?4 AND transacted_at < ?5" } else { "transacted_at >= ?4 AND transacted_at <= ?5" };
-    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} AND entry_type = ?3 \
-                             AND {window} AND base_currency IS ?6 AND base_amount = ?7 AND {export})", holder.rows(at_), holder.id_less(at_)),
-                   params![key.user_id, holder.exchange_id, e.entry_type, sql_time(from), sql_time(to), e.base_currency, real(&amount), fingerprint], |r| r.get(0))?)
+    Ok(Some(read(&format!("{} AND entry_type = ?3 AND {window} AND base_currency IS ?6", holder.id_less(at_)),
+                 params![key.user_id, holder.exchange_id, e.entry_type, sql_time(from), sql_time(to), e.base_currency, fingerprint])?))
 }
 
 /// A leg of a stored merged split, or a stored row with this id.

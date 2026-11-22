@@ -1056,3 +1056,48 @@ fn a_held_account_s_api_deposit_is_not_written_twice_and_a_s_own_rows_hold_nothi
     assert_eq!(written.imported,1,"ETH: A's own deposit holds nothing of B's");
     assert_eq!(count(c),3);
 }
+
+/// The §9.7 pair on Binance: `file` (B's export, UID 222) imported on account 1 (A) before 7a, A then read as 111, B
+/// connected as account 2 and read as 222. (A, B, B's key.)
+fn held_pair(c:&Connection,s:&common::seed::Seeded,file:&str)->(i64,i64,sync::Key) {
+    use deltabadger::identity;
+    let a=key(c,s);
+    assert!(matches!(import(c,&a,"binance",file).unwrap(),deltabadger::tracker::import::run::Answer::Written{..}));
+    let cipher=common::seed::cipher();
+    let first=identity::Account::first(c,s.user_id,s.exchange_id).unwrap().id.unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint=NULL,account_id_enc=NULL",[]).unwrap();
+    identity::establish_read(c,&cipher,first,"Exchanges::Binance",&identity::AccountId::parse("111").unwrap(),now()).unwrap();
+    let second=identity::new_account(c,s.user_id,s.exchange_id,now()).unwrap();
+    c.execute("INSERT INTO api_keys (user_id,exchange_id,key_type,key,secret,status,created_at,updated_at) VALUES (?1,?2,0,?3,?4,1,'2026-01-01','2026-01-01')",
+              params![s.user_id,s.exchange_id,cipher.encrypt("b-key"),cipher.encrypt("b-secret")]).unwrap();
+    let b_key=c.last_insert_rowid();
+    identity::Account::by_id(c,second).unwrap().unwrap().add_key(c,b_key).unwrap();
+    identity::establish_read(c,&cipher,second,"Exchanges::Binance",&identity::AccountId::parse("222").unwrap(),now()).unwrap();
+    assert_eq!(identity::held(c,s.user_id).unwrap(),[(second,first)]);
+    (first,second,sync::load_key_of(c,b_key,&["Exchanges::Binance"]).unwrap())
+}
+
+/// 7a §9.7 rule H1 on Binance dust: B's export has the conversion's BTC leg and its BNB net of the charge (0.09); B's API
+/// has the BNB gross (0.1) less a 0.01 charge. Compared net, both legs are the export's: held together, nothing written.
+#[test]
+fn h1_a_held_dust_conversion_is_compared_net_and_held_whole() {
+    let (dir,o,s)=common::install();let c=&o.primary;let _lock=claim(c,dir.path());
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n222,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BTC,-1,\n222,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.09,\n";
+    let (first,second,b)=held_pair(c,&s,file);
+    let before=count(c);
+    let out=write(c,&b,&pair("p","BTC")).unwrap();
+    assert_eq!((out.imported,count(c)),(0,before),"both legs held: {out:?}");
+    assert!(!deltabadger::identity::held_unmatched(c,second,first).unwrap());
+}
+
+/// H1: same asset, same second, another amount: B's 1 BTC deposit is not the export's 2 BTC one. Written on B, and the
+/// tracker says the export could not be matched.
+#[test]
+fn h1_a_deposit_of_another_amount_is_written_and_named_unmatched() {
+    let (dir,o,s)=common::install();let c=&o.primary;let _lock=claim(c,dir.path());
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n222,2026-08-17 10:00:00,Spot,Deposit,BTC,2,\n";
+    let (first,second,b)=held_pair(c,&s,file);
+    let out=write(c,&b,&[input(Source::Deposit,"d1","","BTC")]).unwrap();
+    assert_eq!(out.imported,1);
+    assert!(deltabadger::identity::held_unmatched(c,second,first).unwrap());
+}

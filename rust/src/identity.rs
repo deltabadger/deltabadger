@@ -1526,6 +1526,14 @@ pub fn held(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
                AND x.fingerprint IS NOT NULL AND x.fingerprint <> b.fingerprint ORDER BY b.id, x.number")?
         .query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
 }
+/// #710 7a §9.7 rule H1: `account`'s API sync met entries near what `holder` holds from its export that it could not match
+/// exactly, and wrote them (`rust_sync.held_unmatched:<account>-<holder>`, never ending in `:<id>`, which a key's removal
+/// clears). The tracker's held notice then says so.
+fn unmatched_key(account: i64, holder: i64) -> String { format!("rust_sync.held_unmatched:{account}-{holder}") }
+pub fn held_unmatched(c: &Connection, account: i64, holder: i64) -> Result<bool, String> { crate::app_config::exists(c, &unmatched_key(account, holder)) }
+pub fn mark_held_unmatched(c: &Connection, account: i64, holder: i64, now: DateTime<Utc>) -> Result<(), String> {
+    crate::app_config::set_plain(c, &unmatched_key(account, holder), "1", now)
+}
 /// The account holding `account`'s conflicting import (`held`), if any.
 pub fn held_by(c: &Connection, account: i64) -> rusqlite::Result<Option<i64>> {
     let user: Option<i64> = c.query_row("SELECT user_id FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional()?;

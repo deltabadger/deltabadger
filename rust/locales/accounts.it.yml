@@ -3,6 +3,7 @@ it:
         duplicate_account_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}, quindi non rientra nei tuoi totali."
         merge_in_settings: "Uniscilo nelle Impostazioni"
         held_on_account_html: "Parte dello storico di %{account} è stata importata su %{holder} dal suo export. Resta lì e non viene contata due volte."
+        held_unmatched_on_account_html: "Parte dello storico di %{account} è stata importata su %{holder} dal suo export. Alcune voci non è stato possibile abbinarle allo storico di %{account}, quindi potrebbero essere contate due volte."
     settings:
         accounts:
             duplicate_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}."

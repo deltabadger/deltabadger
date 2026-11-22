@@ -3,6 +3,7 @@ en:
         duplicate_account_html: "%{duplicate} is the same exchange account as %{survivor}, so it is left out of your totals."
         merge_in_settings: "Merge it in Settings"
         held_on_account_html: "Part of %{account}'s history was imported on %{holder} from its export. It stays there and is not counted twice."
+        held_unmatched_on_account_html: "Part of %{account}'s history was imported on %{holder} from its export. Some of it could not be matched with %{account}'s own history, so it may be counted twice."
     settings:
         accounts:
             duplicate_html: "%{duplicate} is the same exchange account as %{survivor}."

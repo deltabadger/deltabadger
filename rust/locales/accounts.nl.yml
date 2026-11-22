@@ -3,6 +3,7 @@ nl:
         duplicate_account_html: "%{duplicate} is hetzelfde exchange-account als %{survivor} en telt daarom niet mee in je totalen."
         merge_in_settings: "Voeg het samen in Instellingen"
         held_on_account_html: "Een deel van de geschiedenis van %{account} is vanuit de export geïmporteerd op %{holder}. Het blijft daar staan en telt niet dubbel mee."
+        held_unmatched_on_account_html: "Een deel van de geschiedenis van %{account} is vanuit de export geïmporteerd op %{holder}. Een deel daarvan kon niet aan de eigen geschiedenis van %{account} worden gekoppeld en telt daardoor misschien dubbel mee."
     settings:
         accounts:
             duplicate_html: "%{duplicate} is hetzelfde exchange-account als %{survivor}."

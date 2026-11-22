@@ -766,3 +766,55 @@ fn s7_0_11_a_held_file_re_uploaded_once_its_account_is_connected_is_refused() {
     assert!(format!("{again:?}").starts_with("ImportedElsewhere(\"KuCoin 1\")"), "{again:?}");
     assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.rows_of(second)), (rows, 0));
 }
+
+/// B's API with only `deposits` and `fills` (no withdrawals), synced on B's key.
+async fn sync_b(fx: &Fx, key: i64, deposits: Vec<Value>, fills: Vec<Value>) {
+    let api = Api { fills: Rc::new(fills), deposits: Rc::new(deposits), withdrawals: Rc::new(vec![]), per_page: 500 };
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &api, false).await);
+}
+/// B's rows of `entry_type`, as (amount, time).
+fn b_rows(fx: &Fx, account: i64, entry_type: i64) -> Vec<(f64, String)> {
+    let mut s = fx.c.prepare(&format!("SELECT base_amount, transacted_at FROM account_transactions a WHERE a.user_id = ?1 AND {} = ?2 AND entry_type = ?3 ORDER BY 2, 1",
+                                       deltabadger::venue_ids::row_account("a"))).unwrap();
+    s.query_map(rusqlite::params![fx.user, account, entry_type], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<Result<_, _>>().unwrap()
+}
+
+/// 7a §9.7 rule H1: a deposit is held only against the export's deposit of its amount, one for one. A holds B's 50 USDT
+/// deposit (day B, 10:00:00); B's API has that deposit and a 9 USDT one in the same second: the 50 is held, the 9 is B's.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_h1_a_deposit_of_another_amount_in_the_held_second_is_written() {
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    sync_b(&fx, key, vec![transfer("d50", "50", "0", "2026-09-16T10:00:00Z"), transfer("d9", "9", "0", "2026-09-16T10:00:00Z")], vec![]).await;
+    assert_eq!(b_rows(&fx, second, 4), [(9.0, "2026-09-16 10:00:00".to_string())], "the 9 is B's; the 50 is A's copy");
+    assert!(!identity::held_unmatched(&fx.c, second, first).unwrap(), "every exported deposit matched");
+}
+
+/// H1: counts agree or nothing is held. B's API has two 50 USDT deposits in the second the export has one: which is the
+/// export's cannot be told, so both are written and the tracker says the match failed.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_h1_two_deposits_against_one_exported_hold_nothing() {
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    sync_b(&fx, key, vec![transfer("d1", "50", "0", "2026-09-16T10:00:00Z"), transfer("d2", "50", "0", "2026-09-16T10:00:00Z")], vec![]).await;
+    assert_eq!(b_rows(&fx, second, 4).len(), 2, "neither held");
+    assert!(identity::held_unmatched(&fx.c, second, first).unwrap());
+}
+
+/// H1: the export sums a second's fills of a pair, so B's API fills are held when their sum is the export's fill (0.001 BTC
+/// for 70 USDT), all of them; otherwise none, and the tracker says the match failed.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_h1_kucoin_fills_are_held_by_their_sum_or_not_at_all() {
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    sync_b(&fx, key, vec![], vec![fill("a", "0.0004", "28", "0.028", "2026-09-16T10:00:01Z"), fill("b", "0.0006", "42", "0.042", "2026-09-16T10:00:01Z")]).await;
+    assert!(b_rows(&fx, second, 0).is_empty(), "the sum is the export's fill: both held");
+    assert!(!identity::held_unmatched(&fx.c, second, first).unwrap());
+
+    let fx = Fx::new();
+    let (first, second, key) = held_pair(&fx);
+    sync_b(&fx, key, vec![], vec![fill("a", "0.0004", "28", "0.028", "2026-09-16T10:00:01Z"), fill("b", "0.0007", "49", "0.049", "2026-09-16T10:00:01Z")]).await;
+    assert_eq!(b_rows(&fx, second, 0).len(), 2, "0.0011 is not the export's 0.001: neither held");
+    assert!(identity::held_unmatched(&fx.c, second, first).unwrap());
+}

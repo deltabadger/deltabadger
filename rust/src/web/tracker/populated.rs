@@ -475,8 +475,10 @@ fn held_notice(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope) -> Result<S
     if shown.is_empty() { return Ok(String::new()); }
     let mut lines = String::new();
     for (b, h) in shown {
+        // Rule H1: an account whose sync could not match the export exactly says so.
+        let text = if crate::identity::held_unmatched(c, *b, *h).map_err(WebError::Config)? { "tracker.held_unmatched_on_account_html" } else { "tracker.held_on_account_html" };
         let (b, h) = (crate::identity::label(c, *b)?.html(), crate::identity::label(c, *h)?.html());
-        lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", i18n::t(ctx.locale, "tracker.held_on_account_html", &[("account", Arg::Html(&b)), ("holder", Arg::Html(&h))])));
+        lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", i18n::t(ctx.locale, text, &[("account", Arg::Html(&b)), ("holder", Arg::Html(&h))])));
     }
     Ok(format!("<div class=\"widget notice\" role=\"status\">\n{lines}</div>\n"))
 }
