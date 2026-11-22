@@ -1391,13 +1391,18 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             // A definite failure on this material is sticky: a transient one after it leaves it standing; only a successful
             // read (Observed::Read) lifts it.
             let sticky = !definite_failure(code) && stored.as_ref().and_then(|(_, last)| last.as_deref()).is_some_and(definite_failure);
+            // #710 7a §9.1/§9.2: a read that names nobody never lifts a fence (a read of another account, the takeover's
+            // `UNCONFIRMED_AFTER_V2`), even when the material is unknown (digests dropped at a takeover) or changed: only a
+            // successful read naming the account does.
+            let fences: bool = c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", fenced_sql(c, "k").map_err(db)?), [api_key_id], |r| r.get(0)).optional().map_err(db)?.unwrap_or(false);
             match stored.map(|(digest, _)| digest) {
                 Some(Some(stored)) if stored == digest && sticky => Ok(0),
                 Some(Some(stored)) if stored == digest => c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
                                                               params![api_key_id, at, code]),
-                Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL, fingerprint = NULL,
-                                      account_id_enc = NULL, observed_at = NULL, last_failure_at = ?4, last_failure_code = ?5 WHERE api_key_id = ?1",
-                                     params![api_key_id, exchange_id, digest, at, code]),
+                Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL,
+                                      fingerprint = CASE WHEN ?6 THEN fingerprint END, account_id_enc = CASE WHEN ?6 THEN account_id_enc END,
+                                      observed_at = NULL, last_failure_at = ?4, last_failure_code = ?5 WHERE api_key_id = ?1",
+                                     params![api_key_id, exchange_id, digest, at, code, fences]),
                 None => c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, last_failure_at, last_failure_code) VALUES (?1, ?2, ?3, ?4, ?5)",
                                   params![api_key_id, exchange_id, digest, at, code]),
             }.map_err(db)?;
@@ -1418,7 +1423,13 @@ pub fn forget(c: &Connection, api_key_id: i64, account: &Account, now: DateTime<
     let Some(id) = account.id else { return Ok(()) };
     // #710 7a §4: an account 2+ nothing names any more is tombstoned (its number never reused); one with history stays.
     let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).optional()?.unwrap_or(1);
-    if number > 1 && !named(c, id)? { return tombstone(c, id, now); }
+    // Anything else naming it keeps it live, and with it its fingerprint: a reconnect of another wallet never inherits
+    // the bot, rule or order that stays (it routes to a new account, §1.1).
+    let named = named(c, id)?;
+    if number > 1 && !named { return tombstone(c, id, now); }
+    // A number 1's bots name it without a membership row.
+    let named = named || c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM bots b WHERE {} AND b.status != {})", account.bots("b"), crate::enums::BotStatus::Deleted as i64), [], |r| r.get(0))?;
+    if named { return Ok(()); }
     c.execute(&format!("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1
                AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
                AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE {})

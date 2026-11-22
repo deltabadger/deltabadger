@@ -1098,3 +1098,54 @@ fn s7a_a_key_found_to_open_another_account_fails_every_final_check() {
     let tx = fx.c.unchecked_transaction().unwrap();
     assert!(model::check_credential_record(&tx, &Some(captured)).is_ok(), "its own record still commits");
 }
+
+/// Codex branch r1 (identity.rs:1398): 2.x replaced account A's key in place; the takeover fences it with its sentinel and
+/// drops every digest. A failed or timed-out first read (the material unknown, so "changed") never lifts the fence; only
+/// a read naming A does. A key fenced by a read of another account keeps that fence through a failed read too.
+#[test]
+fn s7a_a_failed_read_never_lifts_a_fence() {
+    let (fx, key) = established();
+    let reads = |c: &Connection| deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key);
+    fx.replace(key, "kc-replaced-by-2x");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(!reads(&fx.c), "fenced at takeover");
+    fx.observe(key, Observed::Failed("transport".into()));
+    assert!(!reads(&fx.c), "a timed-out read keeps the takeover's fence");
+    fx.observe(key, Observed::Failed("http 401".into()));
+    assert!(!reads(&fx.c), "a definite failure keeps it too");
+    fx.observe(key, read(A));
+    assert!(reads(&fx.c), "a read naming A lifts it");
+    fx.observe(key, read(B));
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    fx.observe(key, Observed::Failed("transport".into()));
+    assert!(!reads(&fx.c), "a read of another account stays the fence after a failed read");
+}
+
+/// Codex branch r1 (identity.rs:1422): removing the last key of an account that a stopped bot or a withdrawal rule still
+/// keeps never clears its fingerprint, so another wallet connected later is a new account, never the heir of that bot.
+/// With nothing keeping it, the fingerprint goes as before.
+#[test]
+fn s7a_removing_the_last_key_keeps_the_fingerprint_of_an_account_a_bot_or_rule_keeps() {
+    let print = |fx: &Fx| fx.account(KUCOIN).flatten();
+    let remove = |fx: &Fx, key: i64| {
+        let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap();
+        fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+        identity::forget(&fx.c, key, &account, now()).unwrap();
+    };
+    for keeper in ["bot", "rule", "nothing"] {
+        let fx = Fx::new();
+        let key = fx.key(KUCOIN, 0, "kc-a");
+        fx.observe(key, read(A));
+        assert!(print(&fx).is_some(), "{keeper}: fingerprinted");
+        let (exchange, account) = (fx.exchange(KUCOIN), identity::account_of_key(&fx.c, key).unwrap().unwrap());
+        match keeper {
+            "bot" => fx.c.execute("INSERT INTO bots (user_id, exchange_id, status, type, settings, transient_data, created_at, updated_at) VALUES (?1, ?2, 2, 'Bots::DcaSingleAsset', '{}', '{}', 'now', 'now')",
+                                  [fx.user, exchange]).map(|_| ()).unwrap(),
+            "rule" => fx.c.execute("INSERT INTO exchange_account_rules (account_id, user_id, type, status, exchange_id, settings, created_at, updated_at) VALUES (?1, ?2, 'Rules::Withdrawal', 0, ?3, '{}', 'now', 'now')",
+                                   [account, fx.user, exchange]).map(|_| ()).unwrap(),
+            _ => {}
+        }
+        remove(&fx, key);
+        assert_eq!(print(&fx).is_some(), keeper != "nothing", "{keeper}");
+    }
+}
