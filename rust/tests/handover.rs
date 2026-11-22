@@ -913,7 +913,7 @@ async fn an_hf_order_recorded_during_the_handback_is_caught_inside_the_ownership
         "vol": "60", "vol_exec": "0.0012", "cost": "60", "oflags": "viqc", "descr": { "type": "buy", "ordertype": "market", "price": "0" } } } } });
     let venue = FakeVenue::from_script(&json!({ "http": { "/0/private/ClosedOrders": [closed] } })).on_lookup(record.clone()).on_query(record);
     let r = handover::hand_back(&l, &o, &FakeFactory(venue), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
-    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p.iter().any(|m| m == &format!("bot {index}: KuCoin HF orders are Rust-only"))), "{r:?}");
+    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p.iter().any(|m| m == &format!("bot {index}: KuCoin HF and Unified account orders are Rust-only"))), "{r:?}");
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
 }
 
@@ -1104,7 +1104,7 @@ async fn an_hf_enabled_kucoin_history_refuses_the_handback_and_a_classic_only_on
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     o.primary.execute("INSERT INTO kucoin_coverage (account_id, source, start_at, end_at, updated_at) VALUES (9, 'hf_enabled', '2026-09-30 12:00:00', '2026-09-30 12:00:00', '2026-09-30 12:00:00')", []).unwrap();
     let refused = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
-    assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF history is Rust-only".to_string()]), "{refused:?}");
+    assert!(matches!(refused, Err(EngineError::Ineligible(ref p)) if p == &["KuCoin HF and Unified account history is Rust-only".to_string()]), "{refused:?}");
     o.primary.execute("DELETE FROM kucoin_coverage", []).unwrap();
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
 }

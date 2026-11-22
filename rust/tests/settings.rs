@@ -4533,3 +4533,14 @@ async fn email_alert_switches_store_one_alert_per_user_and_refuse_anything_else(
     }
     assert_eq!(rows(&h), [(me + 100, "low_funds".to_string())]);
 }
+
+/// D-DESKTOP-STABLE-IP-NOTE is the desktop's: the web build's key walkthrough has no note, proxy or not.
+#[tokio::test(flavor = "current_thread")]
+async fn the_web_key_walkthrough_has_no_stable_ip_note() {
+    let server = wiremock::MockServer::start().await;
+    let mut h = Harness::new(server.uri()).await;
+    let answer = h.browser.send(&h.app, "GET", &format!("/settings/api_key_permissions/{}", h.seed.api_key_id), None, Csrf::None, &[]).await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    assert!(answer.body.contains("sheet__prose"), "the walkthrough's pane");
+    assert!(!answer.body.contains("data-turbo-frame=\"_top\">Get a stable IP"), "{}", answer.body);
+}

@@ -177,7 +177,7 @@ fn an_account_scope_reads_its_own_balances_and_an_unknown_exchange_scope_reads_n
 }
 
 /// §6 test 7: a sweep's unpriced record written before the record was keyed by account (v1, by exchange id) reads as the
-/// owner's number 1 of that exchange, whose account id is not the exchange id; the next sweep writes v2.
+/// owner's number 1 of that exchange, whose account id is not the exchange id; the next sweep writes v3.
 #[test]
 fn an_unpriced_record_keyed_by_exchange_reads_as_its_number_one() {
     let (_d, o) = install();
@@ -193,10 +193,35 @@ fn an_unpriced_record_keyed_by_exchange_reads_as_its_number_one() {
     let history = |scope: Scope| unpriced::read(c, user, &scope, &[]).unwrap().into_iter().flat_map(|g| g.history).collect::<Vec<_>>();
     assert_eq!(history(Scope::Account(a)), ["XYZ"]);
     assert!(history(Scope::Account(b)).is_empty());
-    unpriced::store(c, user, &unpriced::ByVenue::from([(b.id, ["ABC".to_string()].into())]), chrono::Utc::now()).unwrap();
+    unpriced::store(c, user, &unpriced::Record { venues: unpriced::ByVenue::from([(b.id, ["ABC".to_string()].into())]), ..Default::default() }, chrono::Utc::now()).unwrap();
     let raw: String = c.query_row("SELECT value FROM app_configs WHERE key = ?1", [unpriced::key(user)], |r| r.get(0)).unwrap();
-    assert_eq!(serde_json::from_str::<Value>(&raw).unwrap()["v"], 2);
+    assert_eq!(serde_json::from_str::<Value>(&raw).unwrap()["v"], 3);
     assert_eq!(history(Scope::Account(b)), ["ABC"]);
+}
+
+/// D-TAX-CFEE-MATCHED-FILL: a first sweep of an exchange with no account row yet records what it could not price and the
+/// openings it could not value under the account it makes, not the stand-in (minus the exchange id).
+#[test]
+fn a_first_sweep_records_both_maps_under_the_account_it_makes() {
+    use deltabadger::tracker::{backfill, snapshot::Day};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let user = two.seeded.user_id;
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Alpaca', 'Alpaca', '0.1', '0.1', 'now', 'now')", []).unwrap();
+    let exchange = c.last_insert_rowid();
+    assert!(AccountRow::first(c, user, exchange).unwrap().is_none());
+    let day = chrono::NaiveDate::from_ymd_opt(2026, 9, 2).unwrap();
+    let by = |s: &str| unpriced::ByVenue::from([(-exchange, [s.to_string()].into())]);
+    let d = deltabadger::figures::dec::Dec::zero();
+    let swept = backfill::Swept { whole: vec![], venue: vec![(-exchange, day, Day { value: d.clone(), invested: d.clone(), held_value: None, held_cost: None, partial: true })],
+                                  unpriced: by("XYZ"), openings: by("BTC"), unnamed: [-exchange].into() };
+    let tx = c.unchecked_transaction().unwrap();
+    backfill::store(&deltabadger::engine::model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), user, &swept, day, "v", chrono::Utc::now()).unwrap();
+    tx.commit().unwrap();
+    let made = AccountRow::first(c, user, exchange).unwrap().unwrap().id;
+    let at = |s: &str| unpriced::ByVenue::from([(made, [s.to_string()].into())]);
+    assert_eq!(unpriced::record(c, user).unwrap(), unpriced::Record { venues: at("XYZ"), openings: at("BTC"), unnamed: [made].into() });
 }
 
 // ---- §6 tests 8-10: chips, the scope parameter, REST/MCP, history-gap lines ----

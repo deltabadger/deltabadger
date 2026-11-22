@@ -58,7 +58,8 @@ fn serve_resumes_unfinished_connected_setup_sync() {
     }
 }
 
-/// A prepared install with no admin user yet is served: every page sends the first visitor to /setup.
+/// A prepared install with no admin user yet is served: every page sends the first visitor to the onboarding
+/// (D-LANGUAGE-STEP: the language step, for a request that names no language of ours).
 #[test]
 fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
     let dir = common::baseline_install();
@@ -70,7 +71,8 @@ fn serve_sends_the_first_visitor_of_an_install_with_no_admin_user_to_setup() {
         assert!(started.elapsed() < Duration::from_secs(10) && server.0.try_wait().unwrap().is_none(), "serve did not come up");
         std::thread::sleep(Duration::from_millis(50));
     };
-    assert!(answer.starts_with("HTTP/1.1 302") && answer.to_ascii_lowercase().contains("location: /setup\r\n"), "{answer}");
+    assert!(answer.starts_with("HTTP/1.1 302") && answer.to_ascii_lowercase().contains("location: /language\r\n"), "{answer}");
+    assert!(http_get(port, "/language").is_some_and(|page| page.starts_with("HTTP/1.1 200")), "the language step is served");
     assert!(http_get(port, "/setup").is_some_and(|page| page.starts_with("HTTP/1.1 200")), "the setup page is served");
 }
 

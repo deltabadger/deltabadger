@@ -95,6 +95,10 @@ es:
         scheme_warm: 'Cálido'
         scheme_ember: 'Brasa'
         scheme_forest: 'Bosque'
+        mode: 'Apariencia'
+        mode_system: 'Sistema'
+        mode_light: 'Claro'
+        mode_dark: 'Oscuro'
         show_balances: 'Mostrar saldos'
         about: 'Acerca de'
         telegram: 'Telegram'
@@ -554,6 +558,7 @@ es:
             missing: "No hay precio de mercado para %{assets} en %{venue}."
             missing_anywhere: "No hay precio de mercado para %{assets}."
             chart_missing: "El gráfico no muestra el valor de mercado de %{assets} en %{venue} los días sin precio."
+            opening_unknown: "El valor inicial de %{assets} en %{venue} es desconocido."
             chart_incomplete: "Algunos días del gráfico están incompletos."
             connect_coingecko: "Conecta una cuenta gratuita de CoinGecko para obtener precios de mercado."
         sync: 'Sincronizar'

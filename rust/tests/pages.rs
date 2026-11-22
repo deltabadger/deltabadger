@@ -102,7 +102,7 @@ fn without_countdown(body: &mut Value) -> Vec<String> {
 fn empty_dashboard_button(body: &str) -> String {
     let Some(at) = body.find("<div class=\"welcome-screen\">") else { return body.to_string() };
     let form = regex::Regex::new(r#"(?s)<form class="button_to" method="get" action="([^"]*/bots/new)"><button class="rbutton rbutton--primary" data-turbo-frame="modal" aria-label="([^"]*)" type="submit">(.*?)</button></form>"#).unwrap();
-    format!("{}{}", &body[..at], form.replace(&body[at..], r#"<a class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="$2" href="$1">$3</a>"#))
+    format!("{}{}", &body[..at], form.replace(&body[at..], r#"<a class="sbutton sbutton--accent" data-turbo-frame="modal" aria-label="$2" href="$1">$3</a>"#))
 }
 
 /// D-FULL-PAGE-DIALOG-BACKDROP-CLOSES: a click on the backdrop of a full-page dialog (the new-bot wizard, the tracker's

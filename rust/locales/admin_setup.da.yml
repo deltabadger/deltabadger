@@ -3,9 +3,6 @@ da:
     title: "Velkommen til Deltabadger"
     admin_account: "Administratorkonto"
     platform:
-      prompt: "Har du et Deltabadger.com-abonnement?"
-      code: "Forbindelseskode"
-      connect: "Opret forbindelse"
       connected_with_proxies: "Forbundet ✓ — markedsdata og børsproxyer er aktive"
       connected_without_proxies: "Forbundet ✓ — markedsdata er aktive; børsproxyer er ikke tilgængelige"
     locked:
@@ -27,6 +24,9 @@ da:
         <li><b>Copy API key</b> og indsæt den ovenfor</li>
       </ol>
     continue: "Fortsæt"
+    create: "Opret"
+    language:
+      greeting: "Hej"
     submit: "Start"
     success: "Opsætningen er fuldført. Velkommen til Deltabadger!"
     syncing_message: "Synkroniserer aktiver…"

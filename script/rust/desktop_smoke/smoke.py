@@ -539,12 +539,17 @@ def check_install_unchanged(before, app_pid):
 
 # ---------- scenarios ----------
 
-def fresh_dir(name):
+def fresh_dir(name, language="en"):
+    """A new data dir for `name`. D-LANGUAGE-STEP: CI's systems are English, so a first start would wait at the language
+    picker; every scenario but the picker's own starts with the choice already saved (`first-language`), as a launch after
+    the picker does. `language=None`: a genuinely fresh dir."""
     d = ARGS.work / name / "data"
     check(ARGS.work in d.parents, f"{d} is outside the work dir")
     if d.parent.exists():
         shutil.rmtree(d.parent)
     d.mkdir(parents=True)
+    if language:
+        (d / "first-language").write_text(f"{language}\n")
     return d
 
 
@@ -893,7 +898,73 @@ def scenario_downloads(name):
         win.close()
 
 
+PICKER = """
+var picker = document.getElementById('language');
+if (!picker || picker.hidden || location.hash.indexOf('#language') !== 0) { return null; }
+return { rows: document.querySelectorAll('#langs-list input[name=locale]').length, logo: !document.getElementById('logo').hidden,
+         first: document.querySelector('#langs-list input:checked').value, hello: document.getElementById('hello').textContent };
+"""
+
+
+def scenario_language(name):
+    """D-LANGUAGE-STEP: a first start on an English system asks before the engine starts. macOS (no WebDriver): the
+    launcher logs that it waits, starts no engine within 10 s, and quits cleanly. Windows, Linux: the bare page draws no
+    logo; the picker shows 15 rows and no logo; an invalid and an empty choice leave it as it is; a German choice starts
+    the engine in German; a second launch of the dir asks nothing."""
+    data = fresh_dir(name, language=None)
+    if MAC:
+        launch(data)
+        check_data_line(data)
+        until("the launcher waiting for the language", 60, lambda: "desktop: waiting for the language choice" in lines(data))
+        time.sleep(10)
+        check(starts(data) == 0 and not engine_pids(), f"an engine started while the picker waits: {starts(data)} {engine_pids()}")
+        check(not (data / "db" / "production.sqlite3").exists(), "a database while the picker waits")
+        run(["osascript", "-e", f'quit app id "{TEST_ID}"'])
+        until("the app gone", 30, lambda: not app_pids())
+        check(not engine_pids() and not (data / "first-language").exists(), "the quit left an engine or a choice")
+        say("the launcher waited for the language, started no engine, and quit cleanly")
+        return
+    win = Window(data)
+    try:
+        check_data_line(data)
+        bare = win.js("return location.hash === '' ? !document.getElementById('logo').hidden : null;")
+        check(bare is not True, "the bare status page draws the logo")
+        shown = win.poll("the language picker", 60, PICKER)
+        check(shown["rows"] == 15 and not shown["logo"] and shown["first"] == "en" and shown["hello"] == "Hello", f"the picker: {shown}")
+        check("desktop: waiting for the language choice" in lines(data), "no waiting line")
+        say(f"the picker: {shown}")
+        for value in ("zz", ""):
+            win.js("var i = document.querySelector('#langs-list input:checked'); i.value = arguments[0]; document.getElementById('go').click(); return true;", value)
+            time.sleep(2)
+            # The row's value is the test's own edit, put back before the picker is compared with what it showed.
+            win.js("var i = document.querySelector('#langs-list input:checked'); if (i) { i.value = 'en'; } return true;")
+            again = win.poll(f"the picker after {value!r}", 10, PICKER)
+            check(again == shown and starts(data) == 0 and not (data / "first-language").exists(), f"after {value!r}: {again}, {starts(data)} starts")
+        say("an invalid and an empty choice leave the picker as it is; no engine")
+        win.js("var i = document.querySelector('#langs-list input[value=de]'); i.click(); return document.getElementById('hello').textContent;")
+        # The label crossfades: the new text is the button's last child.
+        check(win.js("return document.getElementById('go').lastElementChild.textContent;") == "Weiter", "the button is not in German")
+        win.click("#go")
+        start = wait_start(data, 0)
+        app_page_shown(win, start)
+        lang = win.poll("the app in German", 60, "return document.documentElement.lang === 'de' && document.documentElement.lang;")
+        check((data / "first-language").read_text().strip() == "de", "the choice was not saved")
+        users = sqlite3.connect(data / "db" / "production.sqlite3", timeout=30).execute("SELECT locale FROM users").fetchall()
+        check(users == [("de",)], f"users: {users}")
+        say(f"the German choice: the app's page is lang={lang}, the account's locale de")
+        stop_hard_and_drain(data, start, "after the choice")
+    finally:
+        win.close()
+    launch(data)
+    start = wait_start(data, 1)
+    waits = [x for x in lines(data) if x == "desktop: waiting for the language choice"]
+    check(len(waits) == 1, f"the second launch asked again: {waits}")
+    say("a second launch asks nothing")
+    stop_hard_and_drain(data, start, "end")
+
+
 SCENARIOS = {
+    "language": scenario_language,
     "fresh": scenario_fresh,
     "quit": scenario_quit,
     "app-killed": scenario_app_killed,

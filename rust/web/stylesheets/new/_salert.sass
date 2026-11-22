@@ -41,12 +41,14 @@
 
 .salert
   position: relative
-  background-color: var(--sky)
-  color: white
+  background-color: var(--accent)
+  color: var(--on-accent, #fff)
   padding: 2rem 6.5rem 2rem 2.5rem
   border-radius: 2rem
   width: 50rem
   max-width: calc(100vw - 2rem)
+  &--danger, &--success, &--warning
+    color: #fff
   &--danger
     background-color: var(--berry)
   &--success
@@ -75,6 +77,6 @@
   height: 2rem
   min-width: 2rem
   border-radius: 50%
-  border: 0.25rem solid rgba(255, 255, 255, 0.3)
-  border-top-color: white
+  border: 0.25rem solid color-mix(in srgb, var(--on-accent, #fff) 30%, transparent)
+  border-top-color: var(--on-accent, #fff)
   animation: rotate 1s linear infinite

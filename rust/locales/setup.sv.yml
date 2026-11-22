@@ -13,7 +13,7 @@ sv:
                 brokers: "Mäklare"
                 exchanges: "Börser"
             market_data:
-                intro: "Index kräver marknadsdata i realtid. Använd Deltabadgers officiella data-API eller ett gratis CoinGecko-konto."
+                intro: "Index behöver marknadsdata i realtid. Anslut Deltabadgers data-API (aktier och krypto) eller ett gratis CoinGecko-konto (bara krypto)."
                 providers: "Leverantörer av marknadsdata"
                 subscription:
                     lead_html: "En <a href=\"https://deltabadger.com\" target=\"_blank\" rel=\"noopener\">Deltabadger API</a>-prenumeration omfattar:"

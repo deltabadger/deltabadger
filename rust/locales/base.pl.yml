@@ -97,6 +97,10 @@ pl:
         scheme_warm: 'Ciepły'
         scheme_ember: 'Żar'
         scheme_forest: 'Las'
+        mode: 'Wygląd'
+        mode_system: 'System'
+        mode_light: 'Jasny'
+        mode_dark: 'Ciemny'
         show_balances: 'Pokaż salda'
         about: 'O nas'
         telegram: 'Telegram'
@@ -556,6 +560,7 @@ pl:
             missing: "Brak ceny rynkowej dla %{assets} na %{venue}."
             missing_anywhere: "Brak ceny rynkowej dla %{assets}."
             chart_missing: "Wykres nie pokazuje wartości rynkowej %{assets} na %{venue} w dniach bez ceny."
+            opening_unknown: "Wartość początkowa %{assets} na %{venue} jest nieznana."
             chart_incomplete: "Niektóre dni na wykresie są niekompletne."
             connect_coingecko: "Połącz darmowe konto CoinGecko, aby otrzymywać ceny rynkowe."
         sync: 'Synchronizuj'

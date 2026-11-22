@@ -3,9 +3,6 @@ bg:
     title: "Добре дошли в Deltabadger"
     admin_account: "Администраторски акаунт"
     platform:
-      prompt: "Имате абонамент за Deltabadger.com?"
-      code: "Код за свързване"
-      connect: "Свързване"
       connected_with_proxies: "Свързано ✓ — пазарните данни и прокси сървърите за борсите са активни"
       connected_without_proxies: "Свързано ✓ — пазарните данни са активни; прокси сървърите за борсите не са налични"
     locked:
@@ -27,6 +24,9 @@ bg:
         <li><b>Копирайте API ключа</b> и го поставете по-горе</li>
       </ol>
     continue: "Продължи"
+    create: "Създай"
+    language:
+      greeting: "Здравей"
     submit: "Стартирай"
     success: "Настройката е завършена успешно. Добре дошли в Deltabadger!"
     syncing_message: "Синхронизиране на активите…"

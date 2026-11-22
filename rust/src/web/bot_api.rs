@@ -79,7 +79,7 @@ pub(crate) fn service_ctx(app: &App, owner: &super::auth::User) -> Ctx {
     Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
             query: vec![], form: vec![], json: None, upload: None }),
         session: super::session::Session::new(Default::default()), current: super::auth::Current::SignedIn(Arc::new(owner.clone())),
-        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false, scheme: "" }
+        method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false, scheme: "", mode: "" }
 }
 
 /// A10: BotApi::Bots::Create, CreateIndex and CreateSignal (bot::create), as the owner, in English. `params` are the

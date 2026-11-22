@@ -107,7 +107,7 @@ fn v2_answer(name: &str, recorded: &Value, launchpad: Option<&str>) -> Value {
     let headers = recorded["headers"].as_object().unwrap().iter()
         .filter(|(name, _)| changed || name.as_str() != "set-cookie")
         .map(|(name, value)| (name.clone(), value.as_str().unwrap().to_string())).collect();
-    let mut body = without_name(&masked_launchpad(recorded["body"].as_str().unwrap(), launchpad));
+    let mut body = onboarding_form_as_rust(&without_name(&masked_launchpad(recorded["body"].as_str().unwrap(), launchpad)));
     if recorded["status"] == 422 {
         // Named security divergence: retain 2.x's recorded answers, but require a fixed message
         // in place of the upstream error text/URL. All surrounding markup and effects still match.
@@ -155,7 +155,67 @@ fn without_name(body: &str) -> String {
 
 fn rust_answer(answer: &Answer, launchpad: Option<&str>) -> Value {
     let headers = answer.headers.iter().fold(BTreeMap::new(), |mut all, (name, value)| { all.entry(name.clone()).or_insert_with(|| value.clone()); all });
-    comparable(answer.status.into(), &headers, &masked_launchpad(&answer.body, launchpad))
+    comparable(answer.status.into(), &headers, &onboarding_layout_as_v2(&masked_launchpad(&answer.body, launchpad)))
+}
+
+/// The admin form's named divergences, applied to 2.x's page (PLAN-ONBOARDING-LANGUAGE §4-§6): D-SETUP-LOGO-BACK (no
+/// language dropdown; the email field asks for no autofill; the button says Create), D-SETUP-NO-CONNECT-CODE (no
+/// connect-code fold-out; the "Connected ✓" line without the frame only the claim's stream replaced; the identity fields
+/// without the wrapper only that stream replaced) and D-DEVISE-STABLE-TOP (the error list below the logo and the title).
+/// Only the admin form is touched (the locked page is compared as recorded); everything else is compared whole.
+fn onboarding_form_as_rust(body: &str) -> String {
+    if !body.contains("id=\"setup_identity_fields\"") || body.starts_with("<turbo-stream") { return body.to_string(); }
+    static PATTERNS: std::sync::OnceLock<[regex::Regex; 5]> = std::sync::OnceLock::new();
+    let [dropdown, errors, identity, frame, lang] = PATTERNS.get_or_init(|| [
+        regex::Regex::new(r#"(?s)\n  <div data-controller="dropdown".*?\n  </div>\n</div>\n"#).unwrap(),
+        regex::Regex::new(r#"(?s)\n    <div class="form__errors">\n.*?\n    </div>\n"#).unwrap(),
+        regex::Regex::new(r#"(?s)<div id="setup_identity_fields" style="display: contents;">\n(.*?for="user_email">[^<]*</label>\n  </div>\n)</div>\n"#).unwrap(),
+        regex::Regex::new(r#"(?s)<turbo-frame style="width: 100%;" id="setup_platform_connection">(.*?)</turbo-frame>"#).unwrap(),
+        regex::Regex::new(r#"<html lang="([a-z]{2})""#).unwrap(),
+    ]);
+    let code = lang.captures(body).map(|c| c[1].to_string()).expect("the page's language");
+    assert_eq!(dropdown.find_iter(body).count(), 1, "2.x's form has its dropdown");
+    // D-ACCENT-NAME: 2.x's button--sky is button--accent here.
+    let mut body = dropdown.replace(body, "\n").into_owned().replace("button--sky", "button--accent");
+    let list = errors.find(&body).map(|m| m.as_str().to_string());
+    if let Some(list) = &list {
+        body = errors.replace(&body, "\n").into_owned();
+        let title = body.find("</h1>\n").expect("the form's title") + "</h1>\n".len();
+        body.insert_str(title, &list[1..]);
+    }
+    assert_eq!(identity.find_iter(&body).count(), 1, "2.x's identity fields");
+    body = identity.replace(&body, "$1").into_owned();
+    assert_eq!(body.matches("autocomplete=\"username\"").count(), 1);
+    body = body.replace("autocomplete=\"username\"", "autocomplete=\"off\"");
+    let (next, create) = (web::i18n::text(&code, "setup.continue", &[]), web::i18n::text(&code, "setup.create", &[]));
+    let button = |label: &str| format!("name=\"commit\" value=\"{label}\" class=\"button button--accent button--large\" data-disable-with=\"{label}\"");
+    assert_eq!(body.matches(&button(&next)).count(), 1, "2.x's Continue");
+    body = body.replace(&button(&next), &button(&create));
+    // The form is a Turbo submission here, so the dashboard is a render of the same document (onboarding_transitions.js).
+    assert_eq!(body.matches("<form data-turbo=\"false\" data-controller=\"form--html5-validations").count(), 1, "2.x's form opts out of Turbo");
+    body = body.replace("<form data-turbo=\"false\" data-controller=\"form--html5-validations", "<form data-transition=\"dashboard\" data-controller=\"form--html5-validations");
+    frame.replace(&body, |c: &regex::Captures<'_>| if c[1].contains("<details") { String::new() } else { c[1].to_string() }).into_owned()
+}
+
+/// This build's onboarding pages as 2.x's layout has them: D-SETUP-LOGO-BACK's link around the logo unwrapped, and
+/// D-DEVISE-STABLE-TOP's root modifier and font preload left out (tests/language.rs and the form test assert them).
+fn onboarding_layout_as_v2(body: &str) -> String {
+    static PATTERNS: std::sync::OnceLock<[regex::Regex; 3]> = std::sync::OnceLock::new();
+    let [logo, preload, modifier] = PATTERNS.get_or_init(|| [
+        regex::Regex::new(r#"<a href="/language\?locale=[a-z]{2}" title="[^"]*" data-transition="language">(<img class="devise__icon"[^>]*>)</a>"#).unwrap(),
+        regex::Regex::new(r#"\n    <link rel="preload" [^>]*>"#).unwrap(),
+        regex::Regex::new(r#"<div class="devise devise--onboarding devise--[a-z]+">"#).unwrap(),
+    ]);
+    let body = logo.replace(body, "$1");
+    let body = preload.replace_all(&body, "");
+    // The admin form's two fields ask password managers (Bitwarden, 1Password, LastPass) to leave them alone.
+    let ignored = " data-bwignore data-1p-ignore data-lpignore=\"true\"";
+    assert!(!body.contains("devise--setup") || body.matches(ignored).count() == 2, "both fields of the admin form");
+    let body = body.replace(ignored, "");
+    // An onboarding page loads the script as the application layout does (a module), so Turbo renders the dashboard
+    // instead of reloading for it.
+    let body = body.replace("data-turbo-track=\"reload\" type=\"module\"></script>", "data-turbo-track=\"reload\" defer=\"defer\"></script>");
+    modifier.replace(&body, "<div class=\"devise\">").into_owned()
 }
 
 /// Each side's fake launchpad listens on its own port, and a message may name the claim URL.
@@ -363,10 +423,26 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
     let mut failures = vec![];
     let scenarios = vectors()["scenarios"].as_object().unwrap();
     assert_eq!(scenarios.len(), 137, "a scenario was dropped or added without this count");
+    // D-LANGUAGE-STEP needs the browser's language; no recorded request names one, so every recorded redirect to a bare
+    // /setup is this build's /language (a request that names a locale keeps 2.x's /setup?locale=…).
+    for scenario in scenarios.values() {
+        for step in scenario["steps"].as_array().unwrap() {
+            assert!(step["headers"].as_object().into_iter().flatten().all(|(name, _)| !name.eq_ignore_ascii_case("accept-language")), "{step}");
+        }
+    }
+    let mut mapped = std::collections::BTreeSet::new();
     for (name, scenario) in scenarios {
         if only.as_deref().is_some_and(|prefixes| !prefixes.split(',').any(|p| name.starts_with(p))) { continue; }
         let mut played = play(name, scenario).await;
         let mut v2: Vec<Value> = scenario["responses"].as_array().unwrap().iter().map(|r| v2_answer(name, r, scenario["launchpad_url"].as_str())).collect();
+        for answer in v2.iter_mut().filter(|a| a["headers"]["location"] == "/setup") {
+            answer["headers"]["location"] = json!("/language");
+            mapped.insert(name.as_str());
+        }
+        if let Some(at) = scenario["steps"].as_array().unwrap().iter().position(|step| step["path"].as_str().unwrap().starts_with("/setup/platform_connection")) {
+            if let Some(message) = without_connect_code(name, scenario, at, &v2, &played) { failures.push(message); }
+            continue;
+        }
         if name == "invalid_missing_user" || name == "followup_json_empty_user" {
             // ActionController::ParameterMissing. 2.x's test environment shows its exception page for it; in
             // production it is a bare 400. Here: 400 with public/400.html, made below the controllers.
@@ -421,6 +497,49 @@ async fn v2_and_rust_answer_the_setup_grid_alike() {
         if let Some(message) = app_configs_difference(&played.app, scenario["app_configs"].as_array().unwrap(), &table(played.dir.path(), "app_configs")) { failures.push(format!("{name}: {message}")); }
     }
     assert!(failures.is_empty(), "{} scenarios differ:\n{}", failures.len(), failures.join("\n\n"));
+    if only.is_none() {
+        // The gate's redirects (gate_*) and the token cleanup's (§8: the five that unlock without naming a locale).
+        let expected = ["claim_token_unlock", "followup_json_wrong_token_in_session", "gate_head", "gate_member_signed_in_post", "gate_pages",
+                        "precedence_json_wrong_query_token_session", "token_rotated", "token_unlock"];
+        assert_eq!(mapped.into_iter().collect::<Vec<_>>(), expected, "D-LANGUAGE-STEP's mapped redirects");
+    }
+}
+
+/// D-SETUP-NO-CONNECT-CODE on the 24 scenarios that post a connect code (step `at`). Before it, every answer is 2.x's.
+/// The post answers as this build answers a path nothing routes: without the claim form there is no form token, so a
+/// form post is an unverified request (back to the root); a post with the page's header token meets the gate (or, once an
+/// admin exists, the 501 page naming it); the locked install's post meets the gate too, which stands before the token
+/// check. The platform is asked nothing, no sync is woken, no configuration is written. After it, the install is as it was:
+/// the form without a prefilled email and without the "Connected ✓" line, and an account form submitted creates the admin
+/// 2.x created.
+fn without_connect_code(name: &str, scenario: &Value, at: usize, v2: &[Value], played: &Played) -> Option<String> {
+    if let Some(message) = first_difference(name, &v2[..at], &played.responses[..at]) { return Some(message); }
+    let step = &scenario["steps"][at];
+    let ours = &played.responses[at];
+    let csrf = step["csrf"].as_str().unwrap_or_default();
+    let admin = !scenario["seed"]["users"].as_array().unwrap().is_empty();
+    let unrouted = match (csrf, admin) {
+        ("form", _) => ours["status"] == 302 && ours["headers"]["location"] == "/",
+        (_, false) => ours["status"] == 302 && ours["headers"]["location"] == "/language",
+        (_, true) => ours["status"] == 501 && ours["body"].to_string().contains("POST /setup/platform_connection"),
+    };
+    if !unrouted { return Some(format!("{name}: expected the unrouted answer to a {csrf} post (admin: {admin}), got {ours}")); }
+    if !played.requests.is_empty() || played.woken != 0 { return Some(format!("{name}: the platform was asked ({:?}) or the sync woken ({})", played.requests, played.woken)); }
+    let seeded: Vec<Value> = scenario["seed"]["app_configs"].as_array().unwrap().clone();
+    let rows: Vec<Value> = table(played.dir.path(), "app_configs").into_iter().map(Value::Object).collect();
+    let same = rows.len() == seeded.len() && rows.iter().zip(&seeded).all(|(row, seed)| seed.as_object().unwrap().iter().all(|(k, v)| &row[k] == v));
+    if !same { return Some(format!("{name}: app_configs written: {rows:?}")); }
+    for (index, (step, ours)) in scenario["steps"].as_array().unwrap().iter().zip(&played.responses).enumerate().skip(at + 1) {
+        let body = ours["body"].to_string();
+        let ok = match step["method"].as_str().unwrap() {
+            "GET" => ours["status"] == 200 && body.contains(r#"id=\"user_email\""#) && body.contains(r#"value=\"\""#)
+                && !body.contains("Connected ✓") && !body.contains("Połączono ✓") && !body.contains("Verbunden ✓"),
+            _ => ours["status"] == v2[index]["status"] && ours["headers"]["location"] == v2[index]["headers"]["location"],
+        };
+        if !ok { return Some(format!("{name} step {index}: expected the unconnected install's answer, got {ours}")); }
+    }
+    let users = table(played.dir.path(), "users");
+    users_difference(&played.app, scenario, scenario["users"].as_array().unwrap(), &users).map(|message| format!("{name}: {message}"))
 }
 
 async fn fresh(env: &[(&str, &str)]) -> (tempfile::TempDir, App) {
@@ -492,7 +611,8 @@ async fn only_the_exact_setup_token_unlocks() {
     }
     let (_dir, app) = fresh(&[("SETUP_TOKEN", "expected-token")]).await;
     let mut browser = Browser::default();
-    assert_eq!(browser.get(&app, "/setup?token=expected-token").await.header("location"), Some("/setup"));
+    // D-LANGUAGE-STEP: a browser that names no language of ours goes on to the language step, the token in its session.
+    assert_eq!(browser.get(&app, "/setup?token=expected-token").await.header("location"), Some("/language"));
     assert_eq!(browser.get(&app, "/setup").await.status, 200);
 }
 
@@ -538,20 +658,21 @@ async fn setup_closes_once_an_admin_exists() {
     assert_eq!(admins(dir.path()), 1);
 }
 
-/// While no admin exists every page answers 302 to /setup, error routes and unknown paths included; what 2.x
-/// keeps outside ApplicationController is untouched. With an admin, the gate is gone.
+/// While no admin exists every page answers 302 to the first onboarding page (D-LANGUAGE-STEP: /language for a browser
+/// that names no language of ours), error routes and unknown paths included; what 2.x keeps outside
+/// ApplicationController is untouched. With an admin, the gate is gone.
 #[tokio::test(flavor = "current_thread")]
 async fn the_gate_covers_the_app_zone_and_nothing_else() {
     let (dir, app) = fresh(&[]).await;
     let mut browser = Browser::default();
     for path in ["/", "/no/such/page", "/de/setup", "/404", "/422", "/500", "/bots/new", "/settings/connect", "/jobs", "/api/remove_invalid_keys"] {
         let answer = browser.get(&app, path).await;
-        assert_eq!((answer.status, answer.header("location")), (302, Some("/setup")), "{path}");
+        assert_eq!((answer.status, answer.header("location")), (302, Some("/language")), "{path}");
     }
     for (path, status) in [("/up", 200), ("/health-check", 200), ("/ui-ready", 200), ("/api/v1/bots", 401), ("/settings", 302)] {
         let answer = browser.get(&app, path).await;
         assert_eq!(answer.status, status, "{path}");
-        assert_ne!(answer.header("location"), Some("/setup"), "{path}");
+        assert!(!answer.header("location").is_some_and(|l| l == "/language" || l.starts_with("/setup")), "{path}");
     }
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     c.execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
@@ -653,11 +774,11 @@ async fn the_setup_sync_runs_the_reference_syncs_and_completes() {
 #[tokio::test(flavor = "current_thread")]
 async fn claim_secrets_are_not_echoed() {
     let (url, _) = fake_launchpad("ok").await;
-    let (dir, app) = fresh(&[("LAUNCHPAD_URL", &url)]).await;
+    let (dir, app) = fresh(&[("LAUNCHPAD_URL", &url), ("CLAIM_TOKEN", "dbc_secret_code")]).await;
     let mut browser = Browser::default();
-    browser.get(&app, "/setup").await;
-    let answer = browser.send(&app, "POST", "/setup/platform_connection?code=dbc_secret_code", Some(&[("claim_code", "dbc_secret_code")]), Csrf::Header, &[]).await;
+    let answer = browser.get(&app, "/setup?code=dbc_secret_code").await;
     assert_eq!(answer.status, 200);
+    assert!(answer.body.contains(&web::i18n::text("en", "setup.platform.connected_with_proxies", &[])), "the claim was redeemed");
     for secret in ["dbc_secret_code", "md-token-123"] {
         assert!(!answer.body.contains(secret) && answer.headers.iter().all(|(_, v)| !v.contains(secret)), "{secret}");
     }
@@ -670,7 +791,7 @@ const JSON_HEADERS: &[(&str, &str)] = &[("content-type", "application/json"), ("
 
 #[tokio::test(flavor = "current_thread")]
 async fn regression_setup_query_token_wins_over_body() {
-    for path in ["/setup", "/setup.html", "/setup/platform_connection"] {
+    for path in ["/setup", "/setup.html"] {
         for json_body in [true, false] {
             let (url, requests) = fake_launchpad("ok").await;
             let (dir, app) = fresh(&[("SETUP_TOKEN", "expected-token"), ("LAUNCHPAD_URL", &url)]).await;
@@ -694,24 +815,58 @@ async fn regression_setup_query_token_wins_over_body() {
     }
 }
 
+/// D-SETUP-NO-CONNECT-CODE: the connect-code route is gone. A POST to it answers as a path nothing routes (the gate while
+/// no admin exists, a refusal after), asks the platform nothing, wakes no sync and writes no configuration.
 #[tokio::test(flavor = "current_thread")]
-async fn regression_claim_query_code_wins_over_body() {
-    for json_body in [true, false] {
+async fn the_connect_code_route_is_gone() {
+    for admin in [false, true] {
         let (url, requests) = fake_launchpad("ok").await;
-        let (_dir, app) = fresh(&[("LAUNCHPAD_URL", &url)]).await;
+        let (dir, app) = fresh(&[("LAUNCHPAD_URL", &url)]).await;
+        let wakers = deltabadger::jobs::Wakers::default();
+        app.attach_jobs(wakers.clone()).unwrap();
+        if admin {
+            rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap().execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+        }
         let mut browser = Browser::default();
-        browser.get(&app, "/setup").await;
-        let path = "/setup/platform_connection?claim_code=dbc_query";
-        let answer = if json_body {
-            browser.send_body(&app, "POST", path, Some(json!({"claim_code": "dbc_body"}).to_string()), Csrf::Header, JSON_HEADERS).await
-        } else {
-            browser.send(&app, "POST", path, Some(&[("claim_code", "dbc_body")]), Csrf::Header, &[]).await
-        };
-        assert_eq!(answer.status, 200);
-        let requests = requests.lock().unwrap();
-        assert_eq!(requests.len(), 1);
-        assert_eq!(serde_json::from_str::<Value>(requests[0]["body"].as_str().unwrap()).unwrap(), json!({"code": "dbc_query"}));
+        browser.get(&app, if admin { "/login" } else { "/setup" }).await;
+        let gone = browser.clone().send(&app, "POST", "/setup/platform_connection", Some(&[("claim_code", "dbc_code")]), Csrf::Header, &[]).await;
+        let unrouted = browser.clone().send(&app, "POST", "/setup/no_such_route", Some(&[("claim_code", "dbc_code")]), Csrf::Header, &[]).await;
+        assert_eq!((gone.status, gone.header("location")), (unrouted.status, unrouted.header("location")), "admin: {admin}");
+        assert_eq!(gone.body.replace("/setup/platform_connection", "/setup/no_such_route"), unrouted.body, "admin: {admin}");
+        assert!(requests.lock().unwrap().is_empty() && wakers.pending().is_empty() && table(dir.path(), "app_configs").is_empty(), "admin: {admin}");
     }
+}
+
+/// D-SETUP-LOGO-BACK: the admin form has no language dropdown and no connect-code fold-out; its logo leads back to the
+/// language step in the form's language; it asks for no autofill (a new account) and its button says Create.
+#[tokio::test(flavor = "current_thread")]
+async fn the_admin_form_has_no_language_choice_and_its_logo_leads_back() {
+    let (dir, app) = fresh(&[]).await;
+    for (path, code) in [("/setup", "en"), ("/setup?locale=pl", "pl"), ("/setup?locale=el", "el")] {
+        let body = Browser::default().get(&app, path).await.body;
+        assert!(!body.contains("data-controller=\"dropdown\"") && !body.contains("<details") && !body.contains("claim_code"), "{path}");
+        let name = web::locale::native_name(code);
+        assert!(body.contains(&format!("<a href=\"/language?locale={code}\" title=\"{name}\" data-transition=\"language\"><img class=\"devise__icon\"")), "{path}: {body}");
+        assert!(body.contains(&format!("<input type=\"hidden\" name=\"locale\" id=\"locale\" value=\"{code}\" />")), "{path}");
+        assert!(!body.contains("autocomplete=\"username\"") && !body.contains("current-password") && body.contains("autocomplete=\"off\"") && body.contains("autocomplete=\"new-password\""), "{path}");
+        let create = web::i18n::text(code, "setup.create", &[]);
+        assert!(body.contains(&format!("name=\"commit\" value=\"{create}\"")), "{path}");
+        assert!(body.contains("class=\"devise devise--onboarding devise--setup\""), "{path}");
+        assert!(body.contains("<link rel=\"preload\" href=\"/fonts/Montserrat-VariableFont_wght.woff2\""), "{path}");
+        assert_eq!(body.contains("GoogleSans-greek.woff2\" as=\"font\""), code == "el", "{path}");
+    }
+    // The error list sits below the logo and the title, above the first field.
+    let mut browser = Browser::default();
+    browser.get(&app, "/setup").await;
+    let refused = submit(&mut browser, &app, "/setup?locale=en", vec![("locale", "en"), ("user[email]", ""), ("user[password]", "")]).await;
+    assert_eq!(refused.status, 422);
+    let at = |needle: &str| refused.body.find(needle).unwrap_or_else(|| panic!("{needle}"));
+    assert!(at("devise__icon") < at("<h1>") && at("<h1>") < at("form__errors") && at("form__errors") < at("id=\"user_email\""));
+    // Other devise pages keep their layout: no modifier, no preload (the login page, once an admin exists).
+    rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap().execute("INSERT INTO users (email, encrypted_password, admin, confirmed_at, created_at, updated_at) VALUES ('o@example.com', 'x', 1, '2026-01-01', '2026-01-01', '2026-01-01')", []).unwrap();
+    let login = Browser::default().get(&app, "/login").await;
+    assert_eq!(login.status, 200);
+    assert!(login.body.contains("<div class=\"devise\">") && !login.body.contains("devise--onboarding") && !login.body.contains("rel=\"preload\""), "{}", login.body);
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -743,7 +898,7 @@ async fn regression_launchpad_error_secrets_never_reach_response_or_flash() {
             let server = MockServer::start().await;
             Mock::given(wiremock::matchers::method("POST")).and(wiremock::matchers::path("/api/claim"))
                 .respond_with(ResponseTemplate::new(status).set_body_raw(body, content_type)).mount(&server).await;
-            for automatic in [false, true] {
+            for automatic in [true] {
                 let url = server.uri();
                 let mut env = vec![("LAUNCHPAD_URL", url.as_str())];
                 if automatic { env.push(("CLAIM_TOKEN", TOKEN)); }
@@ -790,14 +945,16 @@ async fn claim_cannot_write_after_an_admin_is_created_while_launchpad_replies() 
         let body = vectors()["launchpad_answers"]["ok"]["body"].as_str().unwrap();
         stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).as_bytes()).await.unwrap();
     });
+    // CLAIM_TOKEN's redeem on GET /setup holds at the platform while the owner, served by an app on the same install
+    // without CLAIM_TOKEN, creates the admin.
     let (dir, app) = fresh(&[("LAUNCHPAD_URL", &url)]).await;
+    let claiming = self::app(dir.path(), &HashMap::from([("LAUNCHPAD_URL".to_string(), url.clone()), ("CLAIM_TOKEN".to_string(), "dbc_delayed".to_string())]), TestClock::at("2026-09-10T12:00:30.123456Z"));
     let wakers = deltabadger::jobs::Wakers::default();
-    app.attach_jobs(wakers.clone()).unwrap();
+    claiming.attach_jobs(wakers.clone()).unwrap();
     let mut claimant = Browser::default();
     let mut owner = Browser::default();
-    claimant.get(&app, "/setup").await;
     owner.get(&app, "/setup").await;
-    let claim = claimant.send(&app, "POST", "/setup/platform_connection", Some(&[("claim_code", "dbc_delayed")]), Csrf::Header, &[]);
+    let claim = claimant.get(&claiming, "/setup");
     let create = async {
         arrived_rx.await.unwrap();
         assert_eq!(submit(&mut owner, &app, "/setup?locale=en", account("owner@example.com")).await.header("location"), Some("/bots"));
@@ -807,8 +964,9 @@ async fn claim_cannot_write_after_an_admin_is_created_while_launchpad_replies() 
     upstream.await.unwrap();
     assert!(table(dir.path(), "app_configs").is_empty(), "a late claim must not write configuration");
     assert!(wakers.pending().is_empty(), "a refused claim must not enqueue setup sync");
-    assert_eq!(answer.status, 422);
-    assert!(!answer.body.contains("setup_identity_fields"), "a refused claim cannot set platform identity");
+    // The claimant's form is answered with the refusal shown; its identity is not prefilled.
+    assert_eq!(answer.status, 200);
+    assert!(answer.body.contains("Setup is already complete. The connection was not changed.") && !answer.body.contains("value=\"owner@example.com\""), "{}", answer.body);
     assert_eq!(admins(dir.path()), 1);
 }
 

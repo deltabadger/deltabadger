@@ -95,6 +95,10 @@ fr:
         scheme_warm: 'Chaud'
         scheme_ember: 'Braise'
         scheme_forest: 'Forêt'
+        mode: 'Apparence'
+        mode_system: 'Système'
+        mode_light: 'Clair'
+        mode_dark: 'Sombre'
         show_balances: 'Afficher les soldes'
         about: 'À propos'
         telegram: 'Telegram'
@@ -554,6 +558,7 @@ fr:
             missing: "Aucun prix de marché pour %{assets} sur %{venue}."
             missing_anywhere: "Aucun prix de marché pour %{assets}."
             chart_missing: "Le graphique n'affiche pas la valeur de marché de %{assets} sur %{venue} les jours sans prix."
+            opening_unknown: "La valeur d'ouverture de %{assets} sur %{venue} est inconnue."
             chart_incomplete: "Certains jours du graphique sont incomplets."
             connect_coingecko: "Connectez un compte CoinGecko gratuit pour obtenir les prix du marché."
         sync: 'Synchroniser'

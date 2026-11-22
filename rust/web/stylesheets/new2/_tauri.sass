@@ -5,8 +5,13 @@
   // PLAN-B6-3 §2.2: the window never shows the browser's code form; tauri.js signs it in.
   [data-desktop-sign-in]
     visibility: hidden
-  .menu__section--logo
-    opacity: 0
+  // macOS's three window buttons sit over the sidebar's top corner (tauri.js sets the class).
+  &.tauri--macos .menu
+    padding-top: 4.5rem
+  // Windows and Linux keep their native title bar (src-tauri lib.rs): no strip to drag by, and it would cover the
+  // sidebar's first tile.
+  &:not(.tauri--macos) .titlebar-drag-region
+    display: none
   .titlebar-drag-region
     width: 100vw
     height: 3.5rem

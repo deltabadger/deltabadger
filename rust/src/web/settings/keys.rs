@@ -740,7 +740,15 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     let proxy=crate::venue::http::proxy_for(&name_id,crate::app_config::get(c,&app.cipher,&format!("proxy_{name_id}")).map_err(WebError::Config)?,&|k|std::env::var(k).ok());
     let ip=super::key_check::whitelist_ip_html(ctx.locale,proxy.as_deref());
     let html=|prefix:&str|super::key_check::instructions_html(ctx.locale,prefix,&name_id,name,&ip);
-    Ok(match kind{1=>html("withdrawal_api"),2=>html("read_only_api").or_else(||html("bot.api")),_=>html("bot.api")}.unwrap_or_default())
+    let mut out=match kind{1=>html("withdrawal_api"),2=>html("read_only_api").or_else(||html("bot.api")),_=>html("bot.api")}.unwrap_or_default();
+    // D-DESKTOP-STABLE-IP-NOTE: a desktop's own IP is what the key gets bound to when no proxy stands in front of the venue,
+    // and a home connection's IP changes; a subscription's proxies don't. The link is a full-page navigation: the card is
+    // drawn inside the wizard sheet's frame and inside Settings' pane.
+    if ctx.desktop()&&proxy.is_none()&&auth::app_config(c,&app.cipher,"platform_connected_at")?.is_none_or(|at|crate::v2::blank(&at)){
+        let url=ctx.path("/settings/connect?provider=deltabadger");
+        out.push_str(&format!("<p class=\"key-note\">{}</p>",i18n::t(ctx.locale,"bot.api.desktop_stable_ip_html",&[("url",i18n::Arg::Text(&url))])));
+    }
+    Ok(out)
 }
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}

@@ -19,11 +19,11 @@ export default class extends Controller {
   checkPasswordStrength() {
     const password = this.inputTarget.value
 
-    if (password.length > 0) {
-      this.requirementsListTarget.classList.remove("hidden")
-    } else {
-      this.requirementsListTarget.classList.add("hidden")
-    }
+    // The rules open under the field with the first character and stay: only their met state changes after that.
+    // (`.reveal` in new/_onboarding_transitions.sass; the markup's `hidden` covers the time before this runs.)
+    this.requirementsListTarget.classList.replace("hidden", "reveal")
+    this.requirementsListTarget.offsetHeight // the closed state is drawn before it opens
+    if (password.length > 0) this.requirementsListTarget.classList.add("is-open")
 
     this.#updateValidation(this.lengthTarget, this.lengthPatternValue)
     this.#updateValidation(this.uppercaseTarget, this.uppercasePatternValue)

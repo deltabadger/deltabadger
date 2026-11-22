@@ -13,6 +13,7 @@ sk:
             public_key_label: API kľúč
             private_key_label: API tajný kľúč
             whitelist_ip_fallback_html: 'IP adresu počítača, na ktorom je Deltabadger nainštalovaný. Ak beží na serveri, použite verejnú IP servera. Ak ide o váš lokálny počítač, <a href="https://whatismyipaddress.com" target="_blank">zistite svoju IP tu</a>'
+            desktop_stable_ip_html: 'Vaša lokálna IP sa pravdepodobne mení každých pár dní. <a href="%{url}" data-turbo-frame="_top">Stálu IP získate s predplatným Deltabadger.</a>'
             alpaca:
                 instructions: 'Prejdi na <a href="https://app.alpaca.markets/" target="_blank" rel="noopener">Alpaca dashboard</a> — zvoľ <b>Trading API</b>, nie Broker API — a nájdi sekciu <b>API Keys</b> v pravom paneli. Klikni na <b>Generate New Keys</b> a ulož si vygenerované prihlasovacie údaje.'
             binance: &binance_config

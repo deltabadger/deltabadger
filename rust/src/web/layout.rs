@@ -32,15 +32,26 @@ pub struct Ctx {
     /// D-SCHEME-SWITCH: the colour scheme the `scheme` cookie names ("space", "warm", "ember" or "forest"), "" for the default. The menu sets
     /// the cookie in the browser; the layouts put it on `<html data-scheme>` so the page paints in it at once.
     pub scheme: &'static str,
+    /// D-MODE-SWITCH: "light" or "dark" when the `mode` cookie names one, "" for System (the OS decides). On `<html data-mode>`.
+    pub mode: &'static str,
 }
 
 /// The `scheme` cookie's value when it is one this build draws; anything else is the default.
 pub fn scheme(headers: &HeaderMap) -> &'static str {
+    cookie(headers, "scheme=", &["space", "warm", "ember", "forest"])
+}
+
+/// The `mode` cookie's value when it is "light" or "dark"; anything else is System.
+pub fn mode(headers: &HeaderMap) -> &'static str {
+    cookie(headers, "mode=", &["light", "dark"])
+}
+
+fn cookie(headers: &HeaderMap, prefix: &str, known: &[&'static str]) -> &'static str {
     headers.get_all(header::COOKIE).iter()
         .filter_map(|line| line.to_str().ok())
         .flat_map(|line| line.split(';'))
-        .find_map(|pair| pair.trim().strip_prefix("scheme="))
-        .and_then(|value| ["space", "warm", "ember", "forest"].into_iter().find(|known| *known == value))
+        .find_map(|pair| pair.trim().strip_prefix(prefix))
+        .and_then(|value| known.iter().copied().find(|k| *k == value))
         .unwrap_or("")
 }
 
@@ -50,7 +61,7 @@ pub struct Language {
 }
 
 /// layouts/_language_dropdown.html.erb: the names are not translated, and English comes first.
-const LANGUAGES: [(&str, &str); 15] = [
+pub(super) const LANGUAGES: [(&str, &str); 15] = [
     ("en", "🇬🇧 English"), ("de", "🇩🇪 Deutsch"), ("nl", "🇳🇱 Nederlands"), ("fr", "🇫🇷 Français"), ("es", "🇪🇸 Español"),
     ("pt", "🇵🇹 Português"), ("it", "🇮🇹 Italiano"), ("pl", "🇵🇱 Polski"), ("ru", "🇷🇺 Русский"), ("cs", "🇨🇿 Čeština"),
     ("sk", "🇸🇰 Slovenčina"), ("da", "🇩🇰 Dansk"), ("sv", "🇸🇪 Svenska"), ("el", "🇬🇷 Ελληνικά"), ("bg", "🇧🇬 Български"),
@@ -61,8 +72,13 @@ impl Ctx {
         let locale = locale::switch(params.locale(), current.user().and_then(|u| u.locale.as_deref()));
         let turbo_frame = turbo::frame(request.headers()).map(str::to_string);
         let stream = turbo::accepts_stream(request.headers());
-        let scheme = scheme(request.headers());
-        Self { app, params, session, current, method: request.method().clone(), locale, nonce, now, turbo_frame, stream, scheme }
+        let (scheme, mode) = (scheme(request.headers()), mode(request.headers()));
+        Self { app, params, session, current, method: request.method().clone(), locale, nonce, now, turbo_frame, stream, scheme, mode }
+    }
+
+    /// The Settings menu's chosen System/Light/Dark option (D-MODE-SWITCH).
+    pub fn mode_option(&self) -> &'static str {
+        if self.mode.is_empty() { "system" } else { self.mode }
     }
 
     pub fn user(&self) -> Option<&User> {
@@ -166,7 +182,7 @@ impl Ctx {
 
     /// layouts/_language_dropdown_full.html.erb's label: the name of the locale in effect, without its flag.
     pub fn language_name(&self) -> &'static str {
-        LANGUAGES.iter().find(|(code, _)| *code == self.locale).and_then(|(_, label)| label.split_once(' ')).map_or("English", |(_, name)| name)
+        locale::native_name(self.locale)
     }
 }
 
@@ -221,6 +237,8 @@ struct DeviseLayout<'a> {
     csrf: &'a str,
     flash: &'a str,
     body: &'a str,
+    /// D-DEVISE-STABLE-TOP: an onboarding page's name (`language`, `setup`), "" for every other devise page.
+    onboarding: &'a str,
 }
 
 #[derive(Template)]
@@ -268,11 +286,17 @@ pub(crate) fn frame(csrf: &str, page: &Page) -> Result<Response, WebError> {
 
 /// layouts/devise.html.erb.
 pub fn devise(ctx: &Ctx, csrf: &str, page: Page) -> Result<Response, WebError> {
+    onboarding(ctx, csrf, page, "")
+}
+
+/// The devise layout for an onboarding page (D-DEVISE-STABLE-TOP): `devise--onboarding devise--<name>` on its root, which
+/// anchors the block's top where its untouched height would be centred, and Montserrat preloaded (the step is a first visit).
+pub fn onboarding(ctx: &Ctx, csrf: &str, page: Page, name: &str) -> Result<Response, WebError> {
     if ctx.turbo_frame.is_some() {
         return frame(csrf, &page);
     }
     let flash = flash::render(&flash::take(&ctx.session, &page.flash_now))?;
-    Ok(html(page.status, DeviseLayout { v: ctx, csrf, flash: &flash, body: &page.body }.render()?))
+    Ok(html(page.status, DeviseLayout { v: ctx, csrf, flash: &flash, body: &page.body, onboarding: name }.render()?))
 }
 
 /// The answer for everything 2.x serves and this build does not yet: 501, naming the request.

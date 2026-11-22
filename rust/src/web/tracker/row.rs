@@ -11,19 +11,20 @@ pub struct Row {
     pub id:i64, pub owner:i64, pub exchange:i64, pub kind:i64, pub base:String, pub amount:Dec,
     pub quote:Option<String>, pub quoted:Option<Dec>, pub fee:Option<Dec>, pub fee_currency:Option<String>,
     pub at:chrono::DateTime<chrono::Utc>, pub group:Option<String>, pub manual:Value, pub manual_null:bool, pub linked:Option<i64>, pub inverse:Option<i64>,
-    pub asset:Option<i64>, pub bot:Option<i64>, pub venue:String,
+    pub asset:Option<i64>, pub bot:Option<i64>, pub venue:String, pub raw:Value,
 }
 impl Row {
     pub fn load(c:&Connection, owner:i64,id:i64)->Result<Option<Self>,WebError> {
-        let mut s=c.prepare("SELECT t.id,t.exchange_id,t.entry_type,t.base_currency,t.base_amount,t.quote_currency,t.quote_amount,t.fee_amount,t.fee_currency,t.transacted_at,t.group_id,t.manual_values,t.linked_transaction_id,(SELECT id FROM account_transactions WHERE linked_transaction_id=t.id),t.base_asset_id,(SELECT bot_id FROM transactions WHERE id=t.transaction_id),COALESCE(e.type,'') FROM account_transactions t LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE t.user_id=?1 AND t.id=?2")?;
+        let mut s=c.prepare("SELECT t.id,t.exchange_id,t.entry_type,t.base_currency,t.base_amount,t.quote_currency,t.quote_amount,t.fee_amount,t.fee_currency,t.transacted_at,t.group_id,t.manual_values,t.linked_transaction_id,(SELECT id FROM account_transactions WHERE linked_transaction_id=t.id),t.base_asset_id,(SELECT bot_id FROM transactions WHERE id=t.transaction_id),COALESCE(e.type,''),t.raw_data FROM account_transactions t LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE t.user_id=?1 AND t.id=?2")?;
         let mut rows=s.query((owner,id))?;
         let Some(r)=rows.next()? else {return Ok(None)};
         let manual:Option<String>=r.get(11)?;
         let manual_null=manual.is_none();
         let manual=match manual {Some(s)=>serde_json::from_str(&s).map_err(|_|invalid())?,None=>serde_json::json!({})};
+        let raw=r.get::<_,Option<String>>(17)?.and_then(|s|serde_json::from_str(&s).ok()).unwrap_or(Value::Null);
         Ok(Some(Self {id:r.get(0)?,owner,exchange:r.get(1)?,kind:r.get(2)?,base:r.get(3)?,amount:number(Dec::from_sql(r.get_ref(4)?))?.ok_or_else(invalid)?,
             quote:r.get(5)?,quoted:number(Dec::from_sql(r.get_ref(6)?))?,fee:number(Dec::from_sql(r.get_ref(7)?))?,fee_currency:r.get(8)?,
-            at:codec::parse_time(&r.get::<_,String>(9)?).map_err(|_|invalid())?,group:r.get(10)?,manual,manual_null,linked:r.get(12)?,inverse:r.get(13)?,asset:r.get(14)?,bot:r.get(15)?,venue:r.get(16)?}))
+            at:codec::parse_time(&r.get::<_,String>(9)?).map_err(|_|invalid())?,group:r.get(10)?,manual,manual_null,linked:r.get(12)?,inverse:r.get(13)?,asset:r.get(14)?,bot:r.get(15)?,venue:r.get(16)?,raw}))
     }
     pub fn linked(&self)->bool { self.linked.is_some() || self.inverse.is_some() }
     pub fn counterpart(&self,c:&Connection)->Result<Option<(Dec,String)>,WebError> {
@@ -51,7 +52,8 @@ impl Row {
 /// Where a row's price comes from, in USD or the venue's own unit; display conversion is the caller's.
 pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Fills(Dec), Ours(Dec), Waiting, None }
 /// The price precedence: cash, then a zero amount (unpriced), the venue's counterpart, the owner's stated price, an
-/// Alpaca CFEE's fills' price in dollars (D-TAX-CFEE-PREVIOUS-DAY: the walk values it so too), our stored daily USD price
+/// Alpaca CFEE's own price in dollars where it was timed (D-TAX-CFEE-MATCHED-FILL), else its fills' price in dollars
+/// (D-TAX-CFEE-PREVIOUS-DAY; the walk values both so too), our stored daily USD price
 /// for the row's UTC date. D-PRICE-WAITING: no stored price yet, and the row's UTC day is not
 /// over (`today` from the app clock), for a key we have priced before → `Waiting`, not open to a stated price yet.
 pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,WebError>{
@@ -59,7 +61,11 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,Web
     if row.amount.is_zero(){return Ok(Source::None)}
     if let Some(counterpart)=row.counterpart(c)?{return Ok(Source::Exchange(counterpart))}
     if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
-    if row.kind==10 {
+    if row.kind==10 && crate::tracker::rows::charged(&row.raw).is_some() {
+        if let Some(usd)=crate::tracker::rows::raw_price(&row.base,&row.raw){return Ok(Source::Fills(usd))}
+        // Charged as another coin than its booking day's (D-TAX-CFEE-MATCHED-FILL): that day's close is not its coin's.
+        if crate::tracker::rows::charged(&row.raw).is_some_and(|at|crate::tracker::rows::charged_as_another_coin(&row.base,&crate::tracker::rows::name_id(&row.venue),row.exchange,at,row.at.date_naive())){return Ok(Source::None)}
+    } else if row.kind==10 {
         let fills=crate::tracker::rows::cfee_price(c,row.owner,row.id).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})?;
         if let Some((usd,_))=fills.filter(|(_,unit)|unit=="USD"){return Ok(Source::Fills(usd))}
     }

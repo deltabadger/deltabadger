@@ -161,7 +161,7 @@ async fn the_menu_opens_the_split_modal_of_this_one_bot() {
     let token = page.split("name=\"authenticity_token\" value=\"").nth(1).unwrap().split('"').next().unwrap().to_string();
     let ctx = web::layout::Ctx { app: i.app.clone(), params: Arc::new(web::Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
         session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut, method: axum::http::Method::GET, locale: "en", nonce: String::new(),
-        now: common::web::at(NOW), turbo_frame: None, stream: false, scheme: "" };
+        now: common::web::at(NOW), turbo_frame: None, stream: false, scheme: "", mode: "" };
     let Ok(Loaded::Split(mut split)) = Split::load(&i.c, &ctx, i.s.user_id, vec![i.bots[0]], vec![]) else { panic!("load") };
     let fragment = modal(&i.c, &ctx, &mut split, &token).unwrap().unwrap();
     assert!(fragment.starts_with("<turbo-frame complete=\"\" id=\"modal\">") && page.contains(&fragment), "{page}");

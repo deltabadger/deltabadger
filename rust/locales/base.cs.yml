@@ -96,6 +96,10 @@ cs:
         scheme_warm: 'Teplé'
         scheme_ember: 'Žár'
         scheme_forest: 'Les'
+        mode: 'Vzhled'
+        mode_system: 'Systém'
+        mode_light: 'Světlý'
+        mode_dark: 'Tmavý'
         show_balances: 'Zobrazit zůstatky'
         about: O nás
         telegram: 'Telegram'
@@ -563,6 +567,7 @@ cs:
             missing: "Pro %{assets} na %{venue} není k dispozici tržní cena."
             missing_anywhere: "Pro %{assets} není k dispozici tržní cena."
             chart_missing: "Graf neukazuje tržní hodnotu %{assets} na %{venue} ve dnech bez ceny."
+            opening_unknown: "Počáteční hodnota %{assets} na %{venue} není známa."
             chart_incomplete: "Některé dny v grafu jsou neúplné."
             connect_coingecko: "Připoj bezplatný účet CoinGecko a získej tržní ceny."
         sync: 'Synchronizovat'

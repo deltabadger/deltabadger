@@ -17,7 +17,7 @@
     <tr>
       <td>{{ g.name }}</td><td>{{ r.scope }}</td><td>{{ r.cadence }}</td><td>{{ r.last_run }}</td><td>{{ r.last_refresh }}</td>
       <td>{{ r.latest_error }}</td><td>{% if let Some(f) = r.failing %}{{ f }}{% endif %}</td><td>{{ r.incomplete }}</td><td>{{ r.state }}</td>
-      <td>{% if r.runnable %}{% if let Some(scope) = r.form_scope %}<form method="post" action="/jobs"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="job" value="{{ g.name }}" /><input type="hidden" name="scope" value="{{ scope }}" /><button class="sbutton sbutton--sky" type="submit">Run now</button></form>{% endif %}{% endif %}</td>
+      <td>{% if r.runnable %}{% if let Some(scope) = r.form_scope %}<form method="post" action="/jobs"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="job" value="{{ g.name }}" /><input type="hidden" name="scope" value="{{ scope }}" /><button class="sbutton sbutton--accent" type="submit">Run now</button></form>{% endif %}{% endif %}</td>
     </tr>
 {% endfor %}
 {% endfor %}
