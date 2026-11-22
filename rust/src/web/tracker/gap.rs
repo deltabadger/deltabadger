@@ -109,7 +109,9 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
     let eligible = reading.iter().any(|k| k.exchange_id == exchange);
     // As tracker/_key_fix_buttons picks them: a trading key is replaced, or a tracker key added beside it; a tracker
     // key is replaced; a venue with no key gets one.
-    let link = |key_type: &str, label: &str| KeyFix { href: escape(&ctx.path(&format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type={key_type}"))), label: i18n::t(ctx.locale, label, &named) };
+    // #710 7a §2: the line's account, named while its exchange has 2+ live accounts.
+    let target = crate::web::settings::keys::target_query(c, scope.account().filter(|a| a.placed()).map(|a| a.id))?;
+    let link = |key_type: &str, label: &str| KeyFix { href: escape(&ctx.path(&format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type={key_type}{target}"))), label: i18n::t(ctx.locale, label, &named) };
     let fixes = if eligible { vec![] } else {
         match trading {
             Some(true) => vec![link("trading", "tracker.replace_trading_key"), link("read_only", "tracker.add_tracker_key")],

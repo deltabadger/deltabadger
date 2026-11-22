@@ -417,7 +417,10 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
             let (key, value, id) = if a.number == 1 { ("exchange_id", v.id.to_string(), v.id.to_string()) } else { ("account_id", format!("a{}", a.account), a.account.to_string()) };
             chips.push(Chip {
                 value, label: crate::identity::Label { name: v.name.clone(), number: a.shown }.html(), active: ok && scope.account().is_some_and(|s| s.id == a.account),
-                href: escape(&if ok { with_query(ctx, "/tracker", &[(key, Some(&id)), window[0], window[1]]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
+                href: escape(&if ok { with_query(ctx, "/tracker", &[(key, Some(&id)), window[0], window[1]]) } else {
+                    // #710 7a §2: a broken chip's Reconnect names its account while the exchange has 2+ live accounts.
+                    let account = a.account.to_string();
+                    with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string())), ("account_id", a.shown.map(|_| account.as_str()))]) }),
                 broken: !ok,
             });
         }

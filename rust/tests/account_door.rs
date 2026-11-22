@@ -565,3 +565,45 @@ async fn the_tracker_venue_step_binds_its_key_form_to_the_picked_account() {
     let forged = b.send(&app, "POST", "/tracker/pick_exchange?account_id=999999", Some(&[("exchange_id", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
     assert_eq!(forged.status, 404);
 }
+
+// ---- §2: Reconnect is bound to the account it showed ----
+
+/// Every `href`/`action` of `body` that contains `needle`, `&#38;`/`&amp;` read as `&`.
+fn links(body: &str, needle: &str) -> Vec<String> {
+    body.split(['"', '\'']).filter(|s| s.contains(needle)).map(|s| s.replace("&#38;", "&").replace("&amp;", "&")).collect()
+}
+
+/// §2: with two accounts, the sync warning's fixes, the broken chip, the history-gap fixes and the bot's key sheet name the
+/// account they show; the bot's sheet refuses a post naming another account than the bot's.
+#[tokio::test(flavor = "current_thread")]
+async fn reconnect_links_and_the_bot_sheet_name_their_account() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    let (first, second) = (accounts[0], accounts[1]);
+    c.execute("UPDATE api_keys SET status = 2, last_sync_error = 'Unauthorized'", []).unwrap();
+    let page = b.get(&app, "/tracker").await;
+    assert_eq!(page.status, 200);
+    let fixes = links(&page.body, "/tracker/add_api_key/new");
+    for account in [first, second] {
+        assert!(fixes.iter().any(|l| l.contains("key_type=trading") && l.ends_with(&format!("account_id={account}"))), "a fix for account {account}: {fixes:?}");
+    }
+    assert!(fixes.iter().any(|l| l == &format!("/tracker/add_api_key/new?account_id={second}&exchange_id={}", s.exchange_id)), "account 2's broken chip: {fixes:?}");
+    let gap = b.get(&app, &format!("/tracker/history_gap?account_id={second}")).await;
+    assert_eq!(gap.status, 200, "{}", gap.body);
+    let gap_fixes = links(&gap.body, "/tracker/add_api_key/new");
+    assert!(!gap_fixes.is_empty() && gap_fixes.iter().all(|l| l.ends_with(&format!("account_id={second}"))), "{gap_fixes:?}");
+    // The bot's sheet: account 2's bot names account 2; a post naming account 1 (the bot switched meanwhile) is refused.
+    let bot = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [bot, second]).unwrap();
+    let sheet = b.get(&app, &format!("/bots/{bot}/add_api_key/new")).await;
+    assert_eq!(sheet.status, 200, "{}", sheet.body);
+    assert!(links(&sheet.body, "/add_api_key?").contains(&format!("/bots/{bot}/add_api_key?account_id={second}")), "{}", sheet.body);
+    let before = keys(c, &cipher, s.exchange_id);
+    let stale = b.send(&app, "POST", &format!("/bots/{bot}/add_api_key?account_id={first}"), Some(&[("api_key[key]", "other"), ("api_key[secret]", "other-secret"), ("api_key[passphrase]", "paper")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 404, "{}", stale.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), before);
+}

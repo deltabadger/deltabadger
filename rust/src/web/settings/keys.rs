@@ -199,6 +199,8 @@ pub async fn save(
     let bot_request=ctx.params.route_path.starts_with("/bots/");
     let bot_account=if bot_request {owned_bot_account(&app,&ctx).await?} else {None};
     if bot_request && bot_account.is_none(){return Ok(crate::web::layout::missing())}
+    // #710 7a §2: a bot sheet posts the account it showed; the bot on another one since is a 404, nothing saved.
+    if bot_request && ctx.params.query("account_id").is_some_and(|a|Some(a.parse::<i64>().unwrap_or(0))!=bot_account.and_then(|a|a.id)){return Ok(crate::web::layout::missing())}
     let exchange=if bot_request{bot_account.map(|a|a.exchange_id)}else{tracker_exchange(&app,&ctx).await?};
     let Some(exchange) = exchange else {
         return Ok(crate::web::layout::redirect(
@@ -267,7 +269,7 @@ pub async fn save(
     };
     if let Some(message) = message {
         let (inner, v) = (app.clone(), ctx.clone());
-        let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, &class, &name, live, Some(&message))?)) }
+        let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, bot_account.and_then(|a| a.id), &class, &name, live, Some(&message))?)) }
                                               else { tracker_step(c, &inner, &v, exchange, pick, &class, &name, kind, live, Some(&message)) }).await?;
         let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
         return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
@@ -498,7 +500,9 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
         let reason=if key.permission(){Some("missing_permission")}else if key.status==2{Some("dead")}else{None};
         if let Some(reason)=reason{
             let args=[("exchange",i18n::Arg::Text(&key.name))];let label=|name:&str|i18n::t(v.locale,name,&args);
-            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
+            // #710 7a §2: a fix names the account it is for.
+            let target=target_query(c,key.account)?;
+            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading{target}",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only{target}",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
         }
     }
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
@@ -1039,6 +1043,11 @@ pub async fn pick_save(axum::extract::State(app):axum::extract::State<App>,axum:
     Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker/add_api_key/new")))
 }
 
+/// `&account_id=N` for a link or action that targets `account` while its exchange has 2+ live accounts (#710 7a §2); with
+/// one, the link names its exchange alone, as before (it means that account).
+pub(crate) fn target_query(c:&Connection,account:Option<i64>)->rusqlite::Result<String>{
+    Ok(match account{Some(id) if crate::identity::label(c,id)?.number.is_some()=>format!("&account_id={id}"),_=>String::new()})
+}
 /// The tracker venue step's kept pick, for `exchange` only (another exchange's is a 2.x pick).
 fn kept_pick(kept:Option<&serde_json::Value>,exchange:i64)->Picked{
     let Some(kept)=kept.filter(|k|k["exchange_id"].as_i64()==Some(exchange)) else{return Picked::Legacy};
@@ -1060,10 +1069,13 @@ pub(crate) const SHEET_FORM:&str="data-controller=\"form--label-animations form-
 fn bot_base(ctx:&Ctx)->String{ctx.params.route_path.trim_end_matches("/new").trim_end_matches("/add_api_key").to_string()}
 /// D-BOT-KEY-SHEET: the bot page's key step ("Add new keys", the status bar's Connect) as the sheet's card with no track: the
 /// venue's name a plain header (no venue step to go back to), `error` under its fields.
-fn bot_step(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
+/// #710 7a §2: the card's action names the bot's account (`account_id`) while its exchange has 2+ live accounts.
+#[allow(clippy::too_many_arguments)]
+fn bot_step(c:&Connection,app:&App,ctx:&Ctx,account:Option<i64>,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
     let instructions=key_instructions(c,app,ctx,class,name,0)?;
     let form_data=format!("{SHEET_FORM} data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"");
-    let card=sheet_card(ctx,&ctx.csrf_token(),ctx.path(&format!("{}/add_api_key",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
+    let target=target_query(c,account)?.replacen('&',"?",1);
+    let card=sheet_card(ctx,&ctx.csrf_token(),ctx.path(&format!("{}/add_api_key{target}",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
     crate::web::wizard::keys::key_pane(&card)
 }
 pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
@@ -1075,7 +1087,7 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
         let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[account.exchange_id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
         if !ported(&class){return Ok((None,crate::web::shell::Shell::load(c,&inner,&owner)?))}
         let live=Key::read(c,&inner,account,0)?.passphrase.as_deref()==Some("live");
-        Ok((Some(bot_step(c,&inner,&v,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
+        Ok((Some(bot_step(c,&inner,&v,account.id,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let Some(content)=content else{return Ok(crate::web::layout::not_ported_for(&ctx))};
     let csrf=ctx.csrf_token();
