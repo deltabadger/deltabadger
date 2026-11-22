@@ -385,12 +385,17 @@ fn accounts(c: &Connection, owner: i64) -> Result<Vec<Switched>, WebError> {
     let key = if numbered { crate::identity::key_account_sql("k") } else { "NULL".into() };
     let numbers = if numbered { "LEFT JOIN exchange_accounts a ON a.id = n.account" } else { "LEFT JOIN (SELECT NULL AS id, NULL AS number) a ON 0" };
     let shown = crate::identity::label_number_sql(if numbered { "a.id" } else { "NULL" });
+    let kept = if numbered { " UNION SELECT x.exchange_id, x.id FROM exchange_accounts x WHERE x.user_id=?1 AND x.number>1 AND x.removed_at IS NULL" } else { "" };
     let mut s = c.prepare(&format!(
         "SELECT n.account, COALESCE(a.number, 1), e.id, e.name, e.type, {shown} FROM (SELECT k.exchange_id AS exchange, COALESCE({key}, -k.exchange_id) AS account FROM api_keys k WHERE k.user_id=?1 \
-         UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1) n JOIN exchanges e ON e.id = n.exchange \
+         UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1{kept}) n JOIN exchanges e ON e.id = n.exchange \
          {numbers} ORDER BY e.name, COALESCE(a.number, 1), n.account", any.row_account("t")))?;
     let rows = s.query_map([owner], |r| Ok(Switched { account: r.get(0)?, number: r.get(1)?, shown: r.get(5)?, venue: Venue { id: r.get(2)?, name: r.get(3)?, kind: r.get(4)? } }))?.collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+    // #710 7a §4: one presence rule (`identity::named`, as the empty state reads it): an account 2+ is listed while something
+    // names it, a key or not.
+    let mut out = vec![];
+    for row in rows { if row.number == 1 || row.account < 0 || crate::identity::named(c, row.account)? { out.push(row); } }
+    Ok(out)
 }
 
 fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool, sync: String) -> Result<(String, String), WebError> {

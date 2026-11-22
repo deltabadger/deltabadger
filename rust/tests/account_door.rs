@@ -628,3 +628,24 @@ async fn the_tracker_menu_lists_connected_venues_as_venue_tiles() {
     assert_eq!(form.status, 200, "a venue tile asks for a key: {}", location(&form));
     assert!(links(&form.body, "/tracker/add_api_key?").iter().any(|l| l.ends_with("&untargeted=1")), "{}", form.body);
 }
+
+// ---- §4: one presence rule for the tracker ----
+
+/// §4: an account kept only by a snapshot (its keys removed, nothing else left of the user's) is on the tracker page as a
+/// broken account, not the empty welcome screen.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_kept_by_a_snapshot_alone_shows_as_broken_on_the_tracker() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let second = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap()[1].0;
+    c.execute("INSERT INTO exchange_account_snapshots(user_id,exchange_id,date,created_at,updated_at,account_id) VALUES(?1,?2,'2026-09-19','2026-09-19','2026-09-19',?3)",
+              rusqlite::params![s.user_id, s.exchange_id, second]).unwrap();
+    c.execute_batch("DELETE FROM exchange_account_keys; DELETE FROM api_keys;").unwrap();
+    assert!(identity::named(c, second).unwrap(), "the snapshot names account 2");
+    let page = b.get(&app, "/tracker").await;
+    assert_eq!(page.status, 200);
+    let chip = format!("/tracker/add_api_key/new?account_id={second}&exchange_id={}", s.exchange_id);
+    assert!(links(&page.body, "/tracker/add_api_key/new").contains(&chip), "account 2's broken chip: {}", page.body);
+}

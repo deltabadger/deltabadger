@@ -1441,6 +1441,17 @@ pub fn named(c: &Connection, id: i64) -> rusqlite::Result<bool> {
                 [id], |r| r.get(0))
 }
 
+/// #710 7a §4, the tracker's presence rule: the user's live accounts numbered 2+ that `named` keeps, as (exchange, account).
+/// A number 1 is present by its keys and rows, which name it without a membership row.
+pub fn kept(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    if !numbered(c)? { return Ok(vec![]); }
+    let mut s = c.prepare("SELECT exchange_id, id FROM exchange_accounts WHERE user_id = ?1 AND number > 1 AND removed_at IS NULL ORDER BY id")?;
+    let rows = s.query_map([user_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut out = vec![];
+    for (exchange, id) in rows { if named(c, id)? { out.push((exchange, id)); } }
+    Ok(out)
+}
+
 /// #710 Merge (PLAN-710-6 §6.2 step 11): account `id` (a number 2+) is removed: its identity goes, its row stays as the
 /// tombstone that keeps its number from being reused. Every live lookup (`first_account`, `accounts_of`, `pick`) skips it.
 pub fn tombstone(c: &Connection, id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
