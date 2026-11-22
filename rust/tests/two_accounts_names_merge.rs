@@ -3748,7 +3748,7 @@ fn r19_the_class_set_reads_a_duplicates_balances() {
     }
     let balances = deltabadger::tracker::figures::balances(c, two.seeded.user_id, &deltabadger::tracker::Scope::All).unwrap();
     let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
-    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::walk::Summary::empty(), &balances, &[], &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
+    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::Scope::All, &deltabadger::tracker::walk::Summary::empty(), &balances, &[], &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
     assert!(out.is_err(), "ambiguous");
 }
 
@@ -3814,4 +3814,36 @@ fn s7_0_2_the_walks_asset_map_reads_a_duplicates_rows() {
     ps.record(&all);
     let at = deltabadger::figures::at::At::from_sql("2026-09-01 12:00:00").unwrap();
     assert_eq!(ps.price_at("ABC", "USD", at, Some("alpaca")).unwrap().to_s_f(), "12.0", "{:?}", ps.warnings);
+}
+
+/// An asset `ABC` of `category` (external id `ext`).
+fn abc(c: &Connection, category: &str, ext: &str) -> i64 {
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, 'ABC', 'ABC', ?2, 'now', 'now')", [ext, category]).unwrap();
+    c.last_insert_rowid()
+}
+/// Account `account`'s balance of one `asset`.
+fn holds(c: &Connection, user: i64, exchange: i64, account: i64, asset: i64) {
+    c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+               VALUES (?1, ?2, ?3, 1, 0, 1, 1, '2026-09-20 10:00:00', '2026-09-20 10:00:00', '2026-09-20 10:00:00', '2026-09-20 10:00:00', ?4)", rusqlite::params![user, exchange, asset, account]).unwrap();
+}
+fn figures_of(c: &Connection, user: i64, scope: &deltabadger::tracker::Scope, pending: &[(String, deltabadger::figures::dec::Dec)]) -> Result<deltabadger::tracker::figures::Figures, deltabadger::figures::FiguresError> {
+    let balances = deltabadger::tracker::figures::balances(c, user, scope).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
+    deltabadger::tracker::figures::compute_on(c, user, scope, &deltabadger::tracker::walk::Summary::empty(), &balances, pending, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap())
+}
+
+/// 7a §0.4: an account chip's class evidence reads duplicates of its own exchange only: Kraken's duplicate's crypto ABC
+/// makes Binance's stock ABC no ambiguity on Binance's chip (it still does on All).
+#[test]
+fn s7_0_4_a_chips_class_evidence_reads_its_own_exchanges_duplicates() {
+    let (_d, o, kraken) = duplicate();
+    let c = &o.primary;
+    let user = kraken.seeded.user_id;
+    let binance = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let (stock, coin) = (abc(c, "Stock", "ABC.US"), abc(c, "Cryptocurrency", "abc-coin"));
+    holds(c, user, binance.seeded.exchange_id, binance.id(0), stock);
+    holds(c, user, kraken.seeded.exchange_id, kraken.id(1), coin);
+    let chip = deltabadger::tracker::Scope::Account(identity::AccountRow::by_id(c, binance.id(0)).unwrap().unwrap());
+    assert!(figures_of(c, user, &chip, &[]).is_ok(), "{:?}", figures_of(c, user, &chip, &[]).err());
+    assert!(figures_of(c, user, &deltabadger::tracker::Scope::All, &[]).is_err(), "All reads every duplicate");
 }

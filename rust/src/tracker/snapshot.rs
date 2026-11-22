@@ -50,7 +50,7 @@ pub fn today_row_on(c: &Connection, user_id: i64, scope: &Scope, ledger: &Summar
     let rows: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND {} AND {counted})", scope.rows("a")), [user_id], |r| r.get(0))?;
     if balances.is_empty() && !rows { return Ok(None); }
     let pending = figures::pending(c, user_id, scope)?;
-    let f = figures::compute_on(c, user_id, ledger, &balances, &pending, fx, today)?;
+    let f = figures::compute_on(c, user_id, scope, ledger, &balances, &pending, fx, today)?;
     let (held_value, held_cost) = f.without_cash()?;
     // A holding valued without a market price (other cash at par) marks the day partial too (PLAN-venue-prices S1):
     // the chart says so for as long as this point is stored.

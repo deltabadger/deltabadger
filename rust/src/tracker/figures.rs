@@ -252,27 +252,30 @@ fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> 
 /// `Figures.for(user, ledger:, balances:, pending:)`. Every symbol's balances, pending move and position are found
 /// through an index, each lookup a step.
 pub fn compute(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)]) -> Result<Figures, FiguresError> {
-    compute_on(c, user_id, ledger, balances, pending, &FxTable::load(c)?, chrono::Utc::now().date_naive())
+    compute_on(c, user_id, &super::Scope::All, ledger, balances, pending, &FxTable::load(c)?, chrono::Utc::now().date_naive())
 }
 
 /// The refusal when one symbol names two asset classes and nothing says which a row is.
 pub const AMBIGUOUS_CLASS: &str = "Tracker figures unavailable: ambiguous asset class for a shared symbol";
 
 /// `compute` with the ECB table read and today's date.
-pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)], fx: &FxTable, today: NaiveDate) -> Result<Figures, FiguresError> {
+/// `scope`: the figures' own scope, whose duplicates' balances are classification evidence (#710).
+#[allow(clippy::too_many_arguments)]
+pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)], fx: &FxTable, today: NaiveDate) -> Result<Figures, FiguresError> {
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
     let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
     // Fiat and Currency are both cash, and a tokenized share tracks its company's share: one class each.
     let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), Some("Tokenized Stock") => Some("Stock".to_string()), _ => c };
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
     // Classification (#710): a duplicate's balances are evidence of what its held assets are, though they count for no
-    // amount (`balances` leaves them out).
+    // amount (`balances` leaves them out). An account's chip reads only its own exchange's duplicates.
+    let exchange = match scope { super::Scope::All => None, super::Scope::Account(a) => Some(a.exchange_id), super::Scope::EmptyLegacyExchange(id) => Some(*id) };
     let duplicates = crate::identity::duplicate_ids(c, user_id)?;
     if !duplicates.is_empty() {
         let list = duplicates.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
         let mut stmt = c.prepare(&format!("SELECT a.symbol, a.category FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
-                                           WHERE b.user_id = ?1 AND b.account_id IN ({list}) AND b.free + b.locked > 0"))?;
-        let held: Vec<(Option<String>, Option<String>)> = stmt.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+                                           WHERE b.user_id = ?1 AND b.account_id IN ({list}) AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0"))?;
+        let held: Vec<(Option<String>, Option<String>)> = stmt.query_map(rusqlite::params![user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
         for (symbol, category) in held {
             let Some(symbol) = symbol else { continue };
             if let Some(set) = classes.iter_mut().find(|(s, _)| **s == symbol.as_str()).map(|(_, set)| set) { set.insert(class(category)); }
@@ -463,7 +466,7 @@ mod tests {
                          CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
                          CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
                          INSERT INTO assets VALUES (1, 'BTC', 'Cryptocurrency'), (2, 'SOL', 'Cryptocurrency'), (3, 'EUR', 'Fiat');").unwrap();
-        let f = crate::figures::budget::within(|| compute_on(&c, 1, &Summary::empty(), balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();
+        let f = crate::figures::budget::within(|| compute_on(&c, 1, &crate::tracker::Scope::All, &Summary::empty(), balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();
         let mut out: Vec<(String, bool)> = f.holdings.iter().map(|h| (h.symbol.clone(), h.priced)).collect();
         out.sort();
         out
