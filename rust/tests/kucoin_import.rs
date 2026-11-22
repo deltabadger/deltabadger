@@ -380,8 +380,8 @@ fn transfer(id: &str, amount: &str, fee: &str, utc: &str) -> Value {
 
 impl Fx {
     /// The user's KuCoin key with a watermark it produced (an incremental sync from WATERMARK less the overlap).
-    fn watermark(&self, utc: &str) {
-        let key = key_id(self);
+    fn watermark(&self, utc: &str) { self.watermark_of(key_id(self), utc) }
+    fn watermark_of(&self, key: i64, utc: &str) {
         self.c.execute("UPDATE api_keys SET last_synced_at = ?1 WHERE id = ?2", rusqlite::params![deltabadger::sync::sql_time(utc.parse().unwrap()), key]).unwrap();
         let producer = deltabadger::engine::model::credential_version_by_id(&self.c, key).unwrap().unwrap();
         let tx = self.c.unchecked_transaction().unwrap();
@@ -390,11 +390,11 @@ impl Fx {
         tx.commit().unwrap();
     }
     /// One run of the key's ledger sync; whether it completed.
-    async fn sync(&self, api: &Api, paused: bool) -> bool {
+    async fn sync(&self, api: &Api, paused: bool) -> bool { self.sync_of(key_id(self), api, paused).await }
+    async fn sync_of(&self, key: i64, api: &Api, paused: bool) -> bool {
         let c = Connection::open(self._dir.path().join("production.sqlite3")).unwrap();
         deltabadger::store::configure(&c).unwrap();
         let db = deltabadger::jobs::Db::new(c, common::seed::cipher());
-        let key = key_id(self);
         let credentials = deltabadger::sync::validation_material(&self.c, &self.cipher, key).unwrap().0;
         let pace = Pace { paused };
         let run = Run { deadline: std::time::Duration::from_secs(3600), chain_runs: usize::MAX, stopwatch: &pace };
@@ -665,4 +665,36 @@ fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
     assert!(format!("{again:?}").starts_with("ImportedElsewhere(\"KuCoin\")"), "{again:?}");
     assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports")), (rows, observations));
     assert_eq!(fx.standing(), Standing::Conflicted, "the conflict is kept");
+}
+
+/// 7a §9.7: a file of account B's imported on account A as a conflict before 7a; B's key, connected under 7a, lands on its
+/// own account. B's first API sync holds what A already has from that file (same class, same second): never written, so
+/// the user's totals count day B's deposit, buy and withdrawal once; what the file lacks (the API's 2026-09-14 rows) is
+/// B's. The pair is what the tracker's notice reads (`identity::held`).
+#[tokio::test(flavor = "current_thread")]
+async fn s7_9_7_b_s_first_sync_holds_what_a_conflicting_import_put_on_a() {
+    let fx = Fx::new();
+    // As before 7a: B's export (UID) imported on account 1, whose key reads OTHER.
+    fx.import(&overlapping_export());
+    fx.c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    observe(&fx, OTHER);
+    let first = identity::Account::first(&fx.c, fx.user, fx.exchange).unwrap().id.unwrap();
+    let (second, key) = fx.second_account();
+    identity::establish_read(&fx.c, &fx.cipher, second, KUCOIN, &identity::AccountId::parse(UID).unwrap(), now()).unwrap();
+    assert_eq!(identity::held(&fx.c, fx.user).unwrap(), [(second, first)], "B's history partly on A");
+    let file = fx.rows_of(first);
+    fx.watermark_of(key, WATERMARK);
+    assert!(fx.sync_of(key, &overlapping_api(500), false).await);
+    assert_eq!(fx.rows_of(first), file, "A's rows as they were");
+    assert_eq!(fx.rows_of(second), 3, "B: the API's 2026-09-14 rows only");
+    for (entry_type, at) in [(4, "2026-09-16 10:00:00"), (0, "2026-09-16 10:00:01"), (5, "2026-09-16 10:00:02")] {
+        assert_eq!(fx.count(&format!("SELECT count(*) FROM account_transactions WHERE entry_type = {entry_type} AND transacted_at LIKE '{at}%'")), 1, "{entry_type} at {at} once");
+    }
+    // The user's totals: every currency moved by the file plus the API's 2026-09-14 rows, nothing twice.
+    let total = |currency: &str| -> f64 { fx.c.query_row("SELECT COALESCE(SUM(CASE WHEN base_currency = ?1 THEN base_amount ELSE 0 END), 0) + COALESCE(SUM(CASE WHEN quote_currency = ?1 THEN quote_amount ELSE 0 END), 0) FROM account_transactions", [currency], |r| r.get(0)).unwrap() };
+    let file_only = Fx::new();
+    file_only.import(&overlapping_export());
+    let file_total = |currency: &str| -> f64 { file_only.c.query_row("SELECT COALESCE(SUM(CASE WHEN base_currency = ?1 THEN base_amount ELSE 0 END), 0) + COALESCE(SUM(CASE WHEN quote_currency = ?1 THEN quote_amount ELSE 0 END), 0) FROM account_transactions", [currency], |r| r.get(0)).unwrap() };
+    assert!((total("BTC") - (file_total("BTC") + 0.002)).abs() < 1e-9, "BTC: {} vs {}", total("BTC"), file_total("BTC"));
+    assert!((total("USDT") - (file_total("USDT") + 130.0 + 10.0 + 3.0)).abs() < 1e-9, "USDT: {} vs {}", total("USDT"), file_total("USDT"));
 }

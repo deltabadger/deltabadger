@@ -2,6 +2,7 @@ fr:
     tracker:
         duplicate_account_html: "%{duplicate} est le même compte d’exchange que %{survivor} : il n’est donc pas compté dans tes totaux."
         merge_in_settings: "Le fusionner dans les Paramètres"
+        held_on_account_html: "Une partie de l’historique de %{account} a été importée sur %{holder} depuis son export. Elle y reste et n’est pas comptée deux fois."
     settings:
         accounts:
             duplicate_html: "%{duplicate} est le même compte d’exchange que %{survivor}."

@@ -2,6 +2,7 @@ el:
     tracker:
         duplicate_account_html: "Ο %{duplicate} είναι ο ίδιος λογαριασμός ανταλλακτηρίου με τον %{survivor}, γι’ αυτό δεν μετράει στα σύνολά σου."
         merge_in_settings: "Συγχώνευσέ τον στις Ρυθμίσεις"
+        held_on_account_html: "Μέρος του ιστορικού του %{account} εισήχθη στο %{holder} από την εξαγωγή του. Παραμένει εκεί και δεν μετράει δύο φορές."
     settings:
         accounts:
             duplicate_html: "Ο %{duplicate} είναι ο ίδιος λογαριασμός ανταλλακτηρίου με τον %{survivor}."

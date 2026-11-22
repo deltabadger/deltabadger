@@ -722,6 +722,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     // D-KUCOIN-HF-LEDGER: on an HF-enabled KuCoin history the fill-class entries are allocated by exact key, never by
     // the inherited same-event heuristic.
     let hf = super::kucoin_hf::Allocation::new(c, key, &batch, range.clone(), now)?;
+    let holder = held_by(c, key)?;
     for (n, index) in range.enumerate() {
         let original = &batch[index];
         let (entry, update, unchanged) = if split(original) && original.raw.value["rust_split_legs"].is_array() {
@@ -742,6 +743,8 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
                 continue;
             }
         }
+        // #710 7a §9.7: what another account already holds from this account's export, imported there as a conflict.
+        if let Some(holder) = &holder { if held_on(c, key, holder, e)? { p.out.duplicates += 1; continue; } }
         let tx_id = present(&e.tx_id);
         let decided = hf.as_ref().and_then(|a| a.0.get(&index).copied());
         if decided == Some(true) { p.out.duplicates += 1; continue; }
@@ -898,6 +901,31 @@ fn kucoin_source_scope(key: &Key, e: &Entry) -> String {
 #[allow(clippy::too_many_arguments)]
 fn same_event(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str, stored_now: &HashSet<i64>, repeat: usize, governed: &dyn Fn(&Stored) -> bool) -> Result<bool, SyncError> {
     Ok(same_events(c, key, e, entry_type, scope)?.iter().filter(|r| !stored_now.contains(&r.id) && !governed(r)).count() > repeat)
+}
+
+/// #710 7a §9.7: the account holding a KuCoin key's account's export as a conflict (`identity::held_by`), as its scope.
+fn held_by(c: &Connection, key: &Key) -> Result<Option<venue_ids::Scope>, SyncError> {
+    if key.exchange_type != crate::venue::kucoin::KUCOIN { return Ok(None); }
+    let Some(account) = key.scope.account else { return Ok(None) };
+    let Some(holder) = crate::identity::held_by(c, account)? else { return Ok(None) };
+    let Some(holder) = crate::identity::Account::by_id(c, holder)? else { return Ok(None) };
+    Ok(Some(venue_ids::Scope::of(c, &holder)?))
+}
+
+/// An API entry `holder` already has from the file: an entry of its class derived at the same UTC second (the file and the
+/// API date one event alike, as the takeover's cutoffs rely on). Held, never written: the file's rows stay where they are.
+fn held_on(c: &Connection, key: &Key, holder: &venue_ids::Scope, e: &Entry) -> Result<bool, SyncError> {
+    use crate::tracker::import::kucoin::FILE_ROW;
+    use chrono::Timelike;
+    if e.raw.value.get("createdAt").is_none() { return Ok(false); }
+    let class = match e.entry_type { BUY | SELL => "fills", DEPOSIT => "deposits", WITHDRAWAL => "withdrawals", _ => return Ok(false) };
+    let Some(at) = e.transacted_at else { return Ok(false) };
+    let from = at.with_nanosecond(0).unwrap_or(at);
+    let to = from + Duration::seconds(1);
+    let at_ = "account_transactions";
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {FILE_ROW} \
+                             AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4 AND transacted_at < ?5)", holder.rows(at_)),
+                   params![key.user_id, holder.exchange_id, class, sql_time(from), sql_time(to)], |r| r.get(0))?)
 }
 
 /// A leg of a stored merged split, or a stored row with this id.

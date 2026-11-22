@@ -1494,6 +1494,23 @@ pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, excha
                 params![user_id, exchange_id, fingerprint], |r| r.get(0)).optional().map_err(db)
 }
 
+/// #710 7a §9.7: (account, holder) pairs of `user_id`: a live account whose export was imported on another live account
+/// of its exchange as a conflict (before 7a: the holder's own fingerprint is another). The holder keeps those rows; the
+/// account's API sync holds what they cover (`held_by`), and the tracker says so.
+pub fn held(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    if !ready(c)? { return Ok(vec![]); }
+    c.prepare("SELECT DISTINCT b.id, x.id FROM exchange_accounts b JOIN exchange_account_imports i ON i.user_id = b.user_id AND i.exchange_id = b.exchange_id AND i.fingerprint = b.fingerprint \
+               JOIN exchange_accounts x ON x.id = i.account_id WHERE b.user_id = ?1 AND b.removed_at IS NULL AND x.id <> b.id AND x.removed_at IS NULL \
+               AND x.fingerprint IS NOT NULL AND x.fingerprint <> b.fingerprint ORDER BY b.id, x.number")?
+        .query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect()
+}
+/// The account holding `account`'s conflicting import (`held`), if any.
+pub fn held_by(c: &Connection, account: i64) -> rusqlite::Result<Option<i64>> {
+    let user: Option<i64> = c.query_row("SELECT user_id FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional()?;
+    let Some(user) = user else { return Ok(None) };
+    Ok(held(c, user)?.into_iter().find(|(b, _)| *b == account).map(|(_, a)| a))
+}
+
 /// The account id of a venue-native export, read over every record before any is skipped: the first of `columns` the
 /// header row has. Ok(None) for a file with no record at all (its import answers as before). A missing column, a blank,
 /// masked or otherwise unreadable id on any record, or two different ids, is a malformed export. A line with no cells
