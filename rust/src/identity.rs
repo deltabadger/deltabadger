@@ -1261,18 +1261,20 @@ pub const UNCONFIRMED_AFTER_V2: &str = "unconfirmed-after-2.x";
 /// under a fingerprinted account is compared by decrypting its stored material against the digest of the material it was
 /// read with; one that differs, or whose digest is unknown (nothing proves it unchanged), is fenced until a fresh identity
 /// read matches. #710 7a rule R5: the digests stay, so a later takeover compares again: a hand-back, a replacement in 2.x
-/// and a second takeover fence a key the first takeover saw unchanged.
+/// and a second takeover fence a key the first takeover saw unchanged. Rule S3: every key of a fingerprinted account is
+/// weighed, an observation or not: one 2.x added (no observation, no digest) is fenced the same way until a read.
 pub fn after_v2(c: &Connection, cipher: &Cipher) -> rusqlite::Result<()> {
     if !ready(c)? { return Ok(()); }
     let Some(key) = existing_key(c, cipher) else { return Ok(()) };
-    let mut s = c.prepare(&format!("SELECT o.api_key_id, o.material_digest FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
-                                    JOIN exchange_accounts a ON a.id = {} WHERE a.fingerprint IS NOT NULL AND (o.material_digest IS NOT NULL OR o.fingerprint IS NOT NULL) ORDER BY o.api_key_id", key_account_sql("k")))?;
-    let rows: Vec<(i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let mut s = c.prepare(&format!("SELECT k.id, k.exchange_id, o.material_digest FROM api_keys k LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id
+                                    JOIN exchange_accounts a ON a.id = {} WHERE a.fingerprint IS NOT NULL ORDER BY k.id", key_account_sql("k")))?;
+    let rows: Vec<(i64, i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
     drop(s);
-    for (id, digest) in rows {
+    for (id, exchange, digest) in rows {
         if digest.is_some_and(|digest| stored_material(c, cipher, id).is_some_and(|m| key.material_digest(&m) == digest)) { continue; }
-        c.execute("UPDATE exchange_account_credentials SET fingerprint = ?2, account_id_enc = NULL, observed_credential_version = NULL WHERE api_key_id = ?1",
-                  params![id, UNCONFIRMED_AFTER_V2])?;
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint) VALUES (?1, ?2, ?3)
+                   ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint, account_id_enc = NULL, observed_credential_version = NULL",
+                  params![id, exchange, UNCONFIRMED_AFTER_V2])?;
     }
     Ok(())
 }

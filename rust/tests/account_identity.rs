@@ -1335,3 +1335,18 @@ fn s7a_r5_a_second_takeover_fences_a_key_2x_replaced_after_the_first() {
     identity::after_v2(&fx.c, &fx.cipher).unwrap();
     assert!(fenced(&fx.c), "the second takeover sees the replacement");
 }
+
+/// Rule S3 (Codex branch r4, identity.rs:1268): a takeover weighs every key of a fingerprinted account, not only the keys
+/// it has an observation of. Hand back, let 2.x delete A's trading key and add B's as a new row, take over: the new key
+/// has no observation and no digest, so nothing proves what it reads, and it is fenced until a read.
+#[test]
+fn s7a_s3_a_takeover_fences_a_key_2x_added_to_a_fingerprinted_account() {
+    let (fx, key) = established();
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+    let added = fx.key(KUCOIN, 0, "kc-b");
+    let fenced = |c: &Connection| c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(c, "k").unwrap()), [added], |r| r.get::<_, bool>(0)).unwrap();
+    assert!(!fenced(&fx.c), "before the takeover nothing has read it");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(fenced(&fx.c), "the takeover fences the key 2.x added");
+}
