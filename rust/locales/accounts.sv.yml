@@ -9,6 +9,7 @@ sv:
             identity_unconfirmed: "Vi kunde inte bekräfta vilket konto den här nyckeln hör till. Försök igen."
             key_order_waits: "En öppen order använder fortfarande den nuvarande nyckeln. Avbryt den eller vänta tills den har genomförts och försök sedan igen."
             key_withdrawal_waits: "Ett uttag använder fortfarande den nuvarande nyckeln. Vänta tills det är klart och försök sedan igen."
+            ibkr_other_account: "Den här IBKR-inloggningen öppnar ett annat konto än det som var anslutet här tidigare. Logga in med det kontot för att ansluta det igen."
             merge: "Slå ihop"
             confirm_merge_html: "Slå ihop %{duplicate} med %{survivor}? Nycklar, botar, regler, order och historik flyttas till %{survivor}, och %{duplicate} tas bort. Det går inte att ångra."
             merged_html: "%{duplicate} har slagits ihop med %{survivor}."

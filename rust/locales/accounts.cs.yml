@@ -9,6 +9,7 @@ cs:
             identity_unconfirmed: "Nepodařilo se ověřit, ke kterému účtu tento klíč patří. Zkuste to znovu."
             key_order_waits: "Otevřený příkaz stále používá aktuální klíč. Zruš ho nebo počkej, až se vyplní, a zkus to znovu."
             key_withdrawal_waits: "Výběr stále používá aktuální klíč. Počkej, až doběhne, a zkus to znovu."
+            ibkr_other_account: "Toto přihlášení do IBKR otevírá jiný účet než ten, který tu byl připojený dřív. Přihlas se k tomu účtu a připoj ho znovu."
             merge: "Sloučit"
             confirm_merge_html: "Sloučit %{duplicate} do %{survivor}? Klíče, boti, pravidla, příkazy a historie přejdou na %{survivor} a %{duplicate} bude odstraněn. Nelze to vrátit zpět."
             merged_html: "%{duplicate} byl sloučen do %{survivor}."

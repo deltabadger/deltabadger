@@ -9,6 +9,7 @@ pl:
             identity_unconfirmed: "Nie udało się potwierdzić, do którego konta należy ten klucz. Spróbuj ponownie."
             key_order_waits: "Otwarte zlecenie nadal korzysta z obecnego klucza. Anuluj je albo poczekaj na jego realizację, a potem spróbuj ponownie."
             key_withdrawal_waits: "Wypłata nadal korzysta z obecnego klucza. Poczekaj, aż się zakończy, a potem spróbuj ponownie."
+            ibkr_other_account: "To logowanie IBKR otwiera inne konto niż to, które było tu wcześniej połączone. Zaloguj się na tamto konto, aby połączyć je ponownie."
             merge: "Połącz"
             confirm_merge_html: "Połączyć %{duplicate} z %{survivor}? Klucze, boty, reguły, zlecenia i historia przejdą na %{survivor}, a %{duplicate} zostanie usunięte. Tego nie da się cofnąć."
             merged_html: "Połączono %{duplicate} z %{survivor}."

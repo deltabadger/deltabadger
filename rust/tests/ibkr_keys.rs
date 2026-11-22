@@ -556,7 +556,7 @@ fn a_reconnect_naming_another_ibkr_account_than_the_disconnected_one_is_refused(
     c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, 'k', 's', 1, 0, 'now', 'now')",
               [fx.s.user_id, fx.s.exchange_id]).unwrap();
     let fresh = c.last_insert_rowid();
-    assert!(ibkr_account::bind(c, cipher, fresh, "U2222222", now).unwrap().is_err(), "another IBKR account is refused");
+    assert_eq!(ibkr_account::bind(c, cipher, fresh, "U2222222", now).unwrap(), Err(ibkr_account::OTHER_ACCOUNT.into()), "another IBKR account is refused");
     assert!(fx.bindings().iter().all(|(k, _, _)| *k != fresh), "nothing bound");
     assert_eq!(ibkr_account::bind(c, cipher, fresh, "U1111111", now).unwrap(), Ok(()));
 }

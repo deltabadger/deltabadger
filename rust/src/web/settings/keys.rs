@@ -406,7 +406,9 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   // D-IBKR-ACCOUNT: the key binds to the account it names, or is refused (nothing saved) when bound to another.
   if let Some(account)=&account {
-   if let Err(refusal)=crate::venue::ibkr_account::bind(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {return Ok(Some(refusal));}
+   if let Err(refusal)=crate::venue::ibkr_account::bind(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {
+    return Ok(Some(if refusal==crate::venue::ibkr_account::OTHER_ACCOUNT {"\u{0}ibkr_other_account".into()} else {refusal}));
+   }
   }
   if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),validated.handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
   if venue_s!=crate::venue::ibkr::IBKR {

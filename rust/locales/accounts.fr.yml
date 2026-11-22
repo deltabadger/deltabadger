@@ -9,6 +9,7 @@ fr:
             identity_unconfirmed: "Impossible de confirmer à quel compte appartient cette clé. Réessayez."
             key_order_waits: "Un ordre ouvert utilise encore la clé actuelle. Annule-le ou attends qu’il soit exécuté, puis réessaie."
             key_withdrawal_waits: "Un retrait utilise encore la clé actuelle. Attends qu’il soit terminé, puis réessaie."
+            ibkr_other_account: "Cette connexion IBKR ouvre un autre compte que celui qui était connecté ici. Connecte-toi avec ce compte pour le reconnecter."
             merge: "Fusionner"
             confirm_merge_html: "Fusionner %{duplicate} avec %{survivor} ? Ses clés, bots, règles, ordres et son historique passent sur %{survivor}, et %{duplicate} est supprimé. Cette action est irréversible."
             merged_html: "%{duplicate} a été fusionné avec %{survivor}."
