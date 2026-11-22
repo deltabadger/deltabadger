@@ -1396,3 +1396,29 @@ async fn s7a_a_json_save_never_overwrites_a_key_saved_while_its_preflight_read_t
     assert_eq!(saved, ["other-request-key"], "form {form}: the other request's key stays");
     }
 }
+
+/// Rule F5 (Codex branch r2, keys.rs:803): a contradicting read fences every copy of that material, in every slot. Account
+/// 1 holds key-a as its read-only and its trading key; a JSON repost of the read-only one reads account 2: both copies are
+/// fenced, the trading one included. Then a tile save of key-a (the form path) lands on account 2 and fences them again.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_a_contradicting_read_fences_every_copy_of_the_key_on_the_account() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["key-a", "key-b"] { assert!(save(&app, &mut b, exchange, None, &kucoin_fields(key)).await.status < 400); }
+    let accounts: Vec<i64> = identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("key-a"), cipher.encrypt("secret"), cipher.encrypt("phrase")]).unwrap();
+    let trading = c.last_insert_rowid();
+    assert_eq!(identity::account_of_key(c, trading).unwrap(), Some(accounts[0]));
+    let read_only = identity::key_of(c, accounts[0], 2).unwrap().unwrap();
+    let fenced = |c: &Connection, k: i64| one::<bool>(c, &format!("SELECT {} FROM api_keys k WHERE k.id = {k}", identity::fenced_sql(c, "k").unwrap()));
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_B, "permission":"General,Spot"}})))
+        .with_priority(1).mount(&server).await;
+    assert_eq!(json_save(&app, &mut b, exchange, accounts[0], "key-a").await.status, 409);
+    assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "the JSON refusal fences both copies");
+    c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id IN (?1, ?2)", [read_only, trading]).unwrap();
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    assert_eq!((fenced(c, read_only), fenced(c, trading)), (true, true), "the form save fences both copies too");
+}

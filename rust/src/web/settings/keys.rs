@@ -430,9 +430,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     // The routed account takes the fingerprint (every key type); every other copy of this key, on another account, is
     // recorded as reading this account, so it is fenced there at once (§9.1).
     crate::identity::establish_read(&tx,&inner.cipher,account,&venue_s,read,inner.now()).map_err(WebError::Config)?;
-    for other in crate::identity::copies(&tx,&inner.cipher,user_id,target.exchange_id,&venue_s,validated.handle.credentials(),id).map_err(WebError::Config)? {
-     crate::identity::record_copy(&tx,&inner.cipher,other,&venue_s,read,inner.now()).map_err(WebError::Config)?;
-    }
+    crate::identity::fence_copies(&tx,&inner.cipher,user_id,target.exchange_id,&venue_s,validated.handle.credentials(),read,Some(account),inner.now()).map_err(WebError::Config)?;
    }
    crate::identity::write_digest(&tx,&inner.cipher,id,target.exchange_id,validated.handle.credentials()).map_err(WebError::Config)?;
   }
@@ -797,8 +795,10 @@ pub async fn legacy(
   let account=if venue==crate::venue::ibkr::IBKR||(reposted&&read.is_none()) {account} else {
    let dest=match crate::identity::route_key(&tx,&inner.cipher,user.id,exchange,&venue,kind,account.id,&reading,&material,None,inner.now()).map_err(WebError::Config)? {
     crate::identity::Route::To(id) if !reposted||Some(id)==account.id=>id,
-    crate::identity::Route::To(_)|crate::identity::Route::New if reposted=>{
-     if let (Some(id),Some(read))=(named.id,&read) {crate::identity::record_copy(&tx,&inner.cipher,id,&venue,read,inner.now()).map_err(WebError::Config)?;}
+    route@(crate::identity::Route::To(_)|crate::identity::Route::New) if reposted=>{
+     // Every copy of this material off the account the read names is fenced, the posted slot's and the account's others.
+     let holder=match route {crate::identity::Route::To(id)=>Some(id),_=>None};
+     if let Some(read)=&read {crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,holder,inner.now()).map_err(WebError::Config)?;}
      tx.commit()?;return Ok(Err(Some(KEY_READS_ELSEWHERE.into())));
     }
     crate::identity::Route::To(id)=>id,
@@ -841,9 +841,7 @@ pub async fn legacy(
    if let (Some(read),Some(routed))=(&read,account.id) {
     // As `submit_candidate`: the routed account takes the fingerprint; other copies of the key are fenced (§9.1).
     crate::identity::establish_read(&tx,&inner.cipher,routed,&venue,read,inner.now()).map_err(WebError::Config)?;
-    for other in crate::identity::copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,id).map_err(WebError::Config)? {
-     crate::identity::record_copy(&tx,&inner.cipher,other,&venue,read,inner.now()).map_err(WebError::Config)?;
-    }
+    crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,Some(routed),inner.now()).map_err(WebError::Config)?;
    }
    if !same_keys {crate::identity::write_digest(&tx,&inner.cipher,id,exchange,&material).map_err(WebError::Config)?;}
   }

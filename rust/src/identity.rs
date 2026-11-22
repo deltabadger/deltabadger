@@ -1280,14 +1280,18 @@ pub fn after_v2(c: &Connection, cipher: &Cipher) -> rusqlite::Result<()> {
 pub fn is_material(c: &Connection, cipher: &Cipher, id: i64, exchange_type: &str, material: &Credentials) -> bool {
     stored_material(c, cipher, id).is_some_and(|stored| compared(exchange_type, &stored) == compared(exchange_type, material))
 }
-/// The other copies of key `id`'s material on other accounts of (user, exchange), still stored (§9.1).
-pub fn copies(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, material: &Credentials, id: i64) -> Result<Vec<i64>, String> {
-    let own = account_of_key(c, id).map_err(|e| format!("account identity: {e}"))?;
-    let mut out = vec![];
-    for other in all_material(c, cipher, user_id, exchange_id, exchange_type, material, Some(id))? {
-        if account_of_key(c, other).map_err(|e| format!("account identity: {e}"))? != own { out.push(other); }
+/// A save's fresh read of `material` named account `read` (§9.1, #710 7a rule F5): every stored copy of that material of
+/// (user, exchange), in every slot, on any account but `holder` (the account that read is, when one has it) is recorded
+/// as reading `read` (`record_copy`), so each is fenced on its own account at once. A save that lands, and one refused
+/// because the read contradicts its account, both come here.
+#[allow(clippy::too_many_arguments)]
+pub fn fence_copies(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, material: &Credentials, read: &AccountId,
+                    holder: Option<i64>, now: DateTime<Utc>) -> Result<(), String> {
+    for other in all_material(c, cipher, user_id, exchange_id, exchange_type, material, None)? {
+        if holder.is_some() && account_of_key(c, other).map_err(|e| format!("account identity: {e}"))? == holder { continue; }
+        record_copy(c, cipher, other, exchange_type, read, now)?;
     }
-    Ok(out)
+    Ok(())
 }
 
 /// A new account of (user, exchange): `max(number) + 1` over every row, tombstones included, so no number is reused.
