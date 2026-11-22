@@ -201,6 +201,10 @@ fn sides(leg: &Leg) -> &'static [Side] { if leg.side == Side::Fee { &[Side::Base
 fn broker_unrecorded(f: &Facts, leg: &Leg, catalogue: bool) -> (bool, Option<Holding>) {
     let answer = |pool: Vec<AssetRef>| {
         let held: Vec<&AssetRef> = pool.iter().filter(|a| !a.currency()).collect();
+        // Under a fiat spelling the currency itself, listed, is this side's answer (securities beside it are none).
+        if fiat(leg.spelling) && held.len() < pool.len() {
+            return Some(if held.iter().all(|a| a.security()) { Holding::Cash(CashKind::Fiat) } else { Holding::Unknown(Why::Unclear) });
+        }
         if !catalogue && held.iter().all(|a| a.security()) { return None; }
         Some(match held.as_slice() {
             [] => return None,
@@ -241,12 +245,17 @@ fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
             None => Holding::Unknown(Why::Unclear),
         });
     }
-    // A broker's own instruments before any crypto alias: an IBKR LUNA stock is the stock, a stock and a coin listed
-    // under LUNA are unclear, and whatever its listings alone say stands. Only a catalogue coin yields to the alias.
-    if leg.venue.broker && recorded.is_none() {
-        match broker_unrecorded(f, leg, catalogue) {
-            (_, Some(h @ (Holding::Security(_) | Holding::Unknown(_)))) | (true, Some(h)) => return Some(h),
-            _ => {}
+    // A broker's own instruments before any crypto alias: what its listings say stands, unclear included (an IBKR LUNA
+    // stock is the stock; a stock and a coin listed under LUNA are unclear), and so does a recorded coin they bind.
+    // With no listing, only a catalogue security comes before the alias.
+    if leg.venue.broker {
+        match recorded {
+            Some(r) if bound(f, leg, r) => return Some(coin(leg, r)),
+            Some(_) => {}
+            None => match broker_unrecorded(f, leg, catalogue) {
+                (true, Some(h)) | (false, Some(h @ Holding::Security(_))) => return Some(h),
+                _ => {}
+            },
         }
     }
     if let Some(h) = aliased(leg) { return Some(h); }
@@ -623,5 +632,25 @@ mod tests {
         list(&mut f, &alpaca, Side::Base, "MATIC", &new);
         f.stale.entry((alpaca.id, "MATIC".into())).or_default().push(old.clone());
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2023-01-01", Some(&old))), coin_of("matic-network"));
+    }
+
+    /// Codex PR1a r1 P2: a broker's explicit fiat listing is a fee side's answer too; with no broker listing, catalogue
+    /// ambiguity never beats a dated alias; a recorded coin the broker's listing binds stands against an alias.
+    #[test]
+    fn broker_fiat_sides_catalogue_ambiguity_and_bound_recorded_coins() {
+        let (alpaca, ibkr) = (venue(5, "alpaca", true), venue(6, "ibkr", true));
+        let mut f = Facts::default();
+        list(&mut f, &alpaca, Side::Base, "PLN", &coin_asset(2227, "pleasure-coin", "PLN"));
+        list(&mut f, &alpaca, Side::Quote, "PLN", &asset(3, "pln", "PLN", Some("Fiat")));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "PLN", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Quote, "PLN", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "PLN", "2025-01-01", None)), coin_of("pleasure-coin"));
+        catalogue(&mut f, &coin_asset(91, "terra-luna-2", "LUNA"));
+        catalogue(&mut f, &coin_asset(92, "luna-other", "LUNA"));
+        assert_eq!(holding(&f, &leg(&ibkr, Side::Base, "LUNA", "2022-01-01", None)), coin_of("terra-luna"), "no listing: the alias");
+        let x = coin_asset(41, "matic-x", "MATIC");
+        list(&mut f, &alpaca, Side::Base, "MATIC", &x);
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", None)), coin_of("matic-x"));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&x))), coin_of("matic-x"), "recorded and bound: the same coin");
     }
 }
