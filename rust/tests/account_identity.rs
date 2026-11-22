@@ -1057,3 +1057,25 @@ fn a_native_export_fingerprints_the_account_its_key_belongs_to() {
     let first_account = deltabadger::identity::account_of_key(&fx.c, first).unwrap().unwrap();
     assert_eq!((print(first_account).is_some(), print(second_account).is_some()), (false, true), "the file's account is its key's");
 }
+
+/// 7a §0.10, the fence's exit: the identity discovery job still reads a fenced key (identity only: `due` takes every key of
+/// an identity venue, fenced or not, and `publish` commits the observation alone). While its read names another account
+/// it syncs nothing; the next read naming its account's again lifts the fence. Its material changing makes it due at once;
+/// otherwise it is due again after `observe_every`.
+#[test]
+fn s7_0_10_the_identity_read_still_runs_for_a_fenced_key_and_lifts_the_fence() {
+    let (fx, key) = established();
+    let reads = |c: &Connection| deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key);
+    assert!(reads(&fx.c));
+    fx.replace(key, "kc-b");
+    assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().iter().any(|d| d.api_key_id == key), "a material change is due at once");
+    fx.observe(key, read(B));
+    assert!(!reads(&fx.c), "fenced: no sync");
+    assert!(!identity::due(&fx.c, &fx.cipher, now()).unwrap().iter().any(|d| d.api_key_id == key), "just read");
+    let later = now() + identity::observe_every() + Duration::seconds(1);
+    let due = identity::due(&fx.c, &fx.cipher, later).unwrap().into_iter().find(|d| d.api_key_id == key).expect("a fenced key is read again");
+    let rows = fx.count("account_transactions");
+    assert!(identity::publish(&fx.c, &fx.cipher, &due, &read(A), later).unwrap());
+    assert!(reads(&fx.c), "a read naming its account's lifts the fence");
+    assert_eq!(fx.count("account_transactions"), rows, "the identity read writes no rows");
+}
