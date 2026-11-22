@@ -333,6 +333,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     // the slot routing picks must still be as it was under the write lock.
     let (snap_user,snap_exchange)=(original.account.user_id,original.account.exchange_id);
     let snap_app=app.clone();
+    settle_standalone(app,snap_user,snap_exchange).await?;
     let snapshot=app.db(move|c|slots(c,&snap_app,snap_user,snap_exchange,kind)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     match &validated.result.value {
@@ -626,6 +627,8 @@ pub async fn delete(app: App, ctx: Ctx) -> Result<Response, WebError> {
     else {
         return Ok(crate::web::layout::missing());
     };
+    let exchange:Option<i64>=app.db(move|c|Ok(c.query_row("SELECT exchange_id FROM api_keys WHERE id=?1 AND user_id=?2",(id,user.id),|r|r.get(0)).optional()?)).await?;
+    if let Some(exchange)=exchange {settle_standalone(&app,user.id,exchange).await?;}
     let inner = app.clone();
     let v = ctx.clone();
     let csrf = ctx.csrf_token();
@@ -755,6 +758,7 @@ pub async fn legacy(
     let venue_type:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
     // As the form save (`submit_candidate`): the named account's slot and every live account's of this type, before the
     // identity read; the slot the save writes must still be as it was under the write lock.
+    settle_standalone(&app,user.id,exchange).await?;
     let snap_app=app.clone();
     let snapshot=app.db(move|c|{
         let named=match crate::identity::pick(c,user.id,exchange,posted_account)? {crate::identity::Pick::One(a)=>Some(slot(&Key::read(c,&snap_app,a,kind)?)),_=>None};
@@ -1140,6 +1144,20 @@ pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate
 /// (`InFlight`), or one placed under another credential than its account's current trading key (`Unchecked`: the current
 /// key may be another wallet, whose answer is never taken for it), named by its account and its order.
 enum Preflight { Clear, InFlight, Unchecked(String, String) }
+/// D-KEY-REPLACE-WAITS waits only on what is still open (#710 7a): before a key of (`user`, `exchange`) is replaced or
+/// removed, every placed standalone order of its live accounts not yet known terminal is read as Merge's pre-flight reads
+/// it, and one found ended is recorded. One still open or unread keeps the key waiting (`settling`).
+async fn settle_standalone(app: &App, user: i64, exchange: i64) -> Result<(), WebError> {
+    let accounts = app.db(move |c| {
+        let mut out = vec![];
+        for (id, _) in crate::identity::accounts_of(c, user, exchange)? {
+            if c.query_row(&format!("SELECT EXISTS({})", crate::merge::unsettled_standalone(id)), [], |r| r.get::<_, bool>(0))? { out.push(id); }
+        }
+        Ok(out)
+    }).await?;
+    for a in accounts { merge_preflight(app, a, a).await?; }
+    Ok(())
+}
 async fn merge_preflight(app: &App, d: i64, s: i64) -> Result<Preflight, WebError> {
     crate::web::bot::cancel::on_own_connection(app, move |c, app, runtime| {
         use crate::venue::{OrderStatus, Venue};

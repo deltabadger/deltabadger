@@ -1133,3 +1133,50 @@ async fn a_json_repost_whose_read_names_another_account_records_it_and_is_refuse
     assert!(fenced(c), "the read naming account 2 is recorded on account 1's key");
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())], "nothing saved");
 }
+
+/// Codex branch r1 (merge.rs:524), D-KEY-REPLACE-WAITS: a key's replacement reads what it waits on first, as Merge's
+/// pre-flight does. A single account's standalone order the venue reports filled is recorded so, and the key is replaced;
+/// one the venue still reports open keeps the key waiting.
+#[tokio::test(flavor = "current_thread")]
+async fn a_key_replacement_waits_only_on_a_standalone_order_still_open_at_its_venue() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    let version = deltabadger::engine::model::credential_version_by_id(c, s.api_key_id).unwrap().unwrap().test_stamp().to_string();
+    let order = |external: &str| {
+        c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, state, outcome, credential_version, created_at, send_by) \
+                   VALUES (?1, NULL, 'buy', '0.001', 'base', '{}', 'done', '{\"kind\":\"placed\"}', ?2, '2026-09-20 10:00:00', '2026-09-20 10:01:00')", rusqlite::params![s.user_id, version]).unwrap();
+        let id = c.last_insert_rowid();
+        c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+                   VALUES (?1, ?2, ?3, ?4, 'market', 'rest', ?5, '{\"symbol\":\"BTC/USD\",\"side\":\"buy\",\"limit\":false}')", rusqlite::params![id, account, s.exchange_id, s.ticker_id, external]).unwrap();
+        id
+    };
+    let answer = |status: &str| serde_json::json!({ "id": "x", "status": status, "symbol": "BTC/USD", "type": "market", "side": "buy", "qty": "0.001", "notional": null,
+                                                   "filled_qty": if status == "filled" { "0.001" } else { "0" }, "filled_avg_price": if status == "filled" { serde_json::json!("60000") } else { serde_json::Value::Null }, "limit_price": null });
+    Mock::given(method("GET")).and(path("/v2/orders/ord-filled")).respond_with(ResponseTemplate::new(200).set_body_json(answer("filled"))).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/orders/ord-open")).respond_with(ResponseTemplate::new(200).set_body_json(answer("new"))).with_priority(1).mount(&server).await;
+    let filled = order("ord-filled");
+    let b = browser(&app, c, s.user_id);
+    let reconnect = |key: &'static str| {
+        let (exchange, target) = (s.exchange_id.to_string(), account.to_string());
+        let mut b = b.clone();
+        let app = app.clone();
+        async move {
+            assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+            b.send(&app, "POST", "/tracker/add_api_key", Some(&[("exchange_id", exchange.as_str()), ("key_type", "trading"), ("account_id", target.as_str()),
+                                                               ("api_key[key]", key), ("api_key[secret]", "replacement-secret"), ("api_key[passphrase]", "paper")]), common::web::Csrf::Header, &[]).await
+        }
+    };
+    let replaced = reconnect("replacement-key").await;
+    assert!(replaced.status < 400, "{}: {}", replaced.status, replaced.body);
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT json_extract(outcome, '$.terminal') FROM rust_api_orders WHERE id = {filled}")).as_deref(), Some("filled"));
+    let key: String = one(c, &format!("SELECT key FROM api_keys WHERE id = {}", s.api_key_id));
+    assert_eq!(cipher.decrypt(&key).unwrap(), "replacement-key", "replaced once its order is done");
+    // An order the venue still reports open, placed under the current key: the key waits.
+    let version = deltabadger::engine::model::credential_version_by_id(c, s.api_key_id).unwrap().unwrap().test_stamp().to_string();
+    let open = order("ord-open");
+    c.execute("UPDATE rust_api_orders SET credential_version = ?1 WHERE id = ?2", rusqlite::params![version, open]).unwrap();
+    let waiting = reconnect("another-key").await;
+    assert_eq!(waiting.status, 422, "{}", waiting.body);
+    assert!(waiting.body.contains("An open order still uses the current key."), "{}", waiting.body);
+}
