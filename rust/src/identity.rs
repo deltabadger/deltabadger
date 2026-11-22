@@ -1401,9 +1401,9 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                 Some(Some(stored)) if stored == digest => c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
                                                               params![api_key_id, at, code]),
                 Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL,
-                                      fingerprint = CASE WHEN ?6 THEN fingerprint END, account_id_enc = CASE WHEN ?6 THEN account_id_enc END,
+                                      fingerprint = CASE WHEN ?6 THEN ?7 END, account_id_enc = NULL,
                                       observed_at = NULL, last_failure_at = ?4, last_failure_code = ?5 WHERE api_key_id = ?1",
-                                     params![api_key_id, exchange_id, digest, at, code, fences]),
+                                     params![api_key_id, exchange_id, digest, at, code, fences, UNCONFIRMED_AFTER_V2]),
                 None => c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, last_failure_at, last_failure_code) VALUES (?1, ?2, ?3, ?4, ?5)",
                                   params![api_key_id, exchange_id, digest, at, code]),
             }.map_err(db)?;

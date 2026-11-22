@@ -1188,7 +1188,8 @@ async fn deleting_one_accounts_key_stops_and_waits_for_that_accounts_bots_only()
     assert_eq!(answer.status,200,"{}",answer.body);
     let status=|bot:i64|->i64{h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap()};
     assert_eq!((status(first_bot),status(second_bot)),(1,2),"account 2's bot stopped, account 1's kept working");
-    assert_eq!(fingerprints(&h),[Some("fp-1".to_string()),None]);
+    // #710 7a (Codex branch r1): account 2's stopped bot keeps the account, and with it its fingerprint.
+    assert_eq!(fingerprints(&h),[Some("fp-1".to_string()),Some("fp-2".to_string())]);
     assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_keys",[],|r|r.get::<_,i64>(0)).unwrap(),0);
     let answer=h.submit("DELETE",&format!("/settings/destroy_api_key/{}",h.seed.api_key_id),&[],Csrf::Header).await;
     assert_eq!(answer.status,422);

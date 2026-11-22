@@ -402,8 +402,11 @@ fn replacing_the_stray_key_with_new_material_clears_the_conflict() {
     let (fx, _, stray) = conflicted();
     fx.replace(stray, "kc-c");
     fx.observe(stray, Observed::Failed("http 500".into()));
-    assert_eq!((identity::credential_standing(&fx.c, stray).unwrap(), fx.standing(KUCOIN)), (CredentialStanding::Unobserved, Standing::Bound),
-               "a replacement's failed read drops the old observation");
+    // #710 7a (Codex branch r1): the fence stays, unconfirmed, until a read names the account.
+    assert_eq!((identity::credential_standing(&fx.c, stray).unwrap(), fx.standing(KUCOIN)), (CredentialStanding::Conflict, Standing::Conflicted),
+               "a replacement's failed read leaves the key unconfirmed, still fenced");
+    fx.observe(stray, read(A));
+    assert_eq!(fx.standing(KUCOIN), Standing::Bound, "a read naming the account lifts it");
 }
 
 #[test]
@@ -830,6 +833,8 @@ fn forgetting_a_key_clears_its_own_accounts_identity_only() {
     let t = two();
     let c = &t.fx.c;
     c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-' || number WHERE id IN (?1, ?2)", [t.first, t.second]).unwrap();
+    // No bot keeps either account (a bot that does keeps its fingerprint: s7a_removing_the_last_key_keeps_...).
+    c.execute_batch("DELETE FROM exchange_account_bots; DELETE FROM bots;").unwrap();
     let delete = |key: i64| {
         let account = identity::Account::of_key(c, key).unwrap().unwrap();
         c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
