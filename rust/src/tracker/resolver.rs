@@ -164,13 +164,14 @@ fn listed(f: &Facts, leg: &Leg) -> Option<Holding> {
 }
 
 /// What a leg's listing sides say together: the one answer they share; two definite answers are a conflict (hard: a
-/// fee in złoty never inherits the PLEARN lot booked under `PLN`); a side itself unclear leaves the leg unclear.
+/// fee in złoty never inherits the PLEARN lot booked under `PLN`); a side's hard refusal stands; a side otherwise
+/// unclear leaves the leg unclear.
 fn agreed(answers: &[Holding]) -> Option<Holding> {
     match answers {
         [] => None,
         [a, rest @ ..] if rest.iter().all(|b| b == a) => Some(a.clone()),
-        all if all.iter().any(|a| matches!(a, Holding::Unknown(_))) => Some(Holding::Unknown(Why::Unclear)),
-        _ => Some(Holding::Unknown(Why::Conflict)),
+        all => Some(all.iter().find(|a| a.hard()).cloned().unwrap_or(Holding::Unknown(
+            if all.iter().any(|a| matches!(a, Holding::Unknown(_))) { Why::Unclear } else { Why::Conflict }))),
     }
 }
 
@@ -368,6 +369,9 @@ mod tests {
         assert_eq!(holding(&f, &leg(&v, Side::Base, "1000REKT", "2025-01-01", Some(&rekt))), Holding::Unknown(Why::Units));
         assert_eq!(holding(&f, &leg(&v, Side::Base, "1000REKT", "2025-01-01", None)), Holding::Unknown(Why::Units));
         assert!(holding(&f, &leg(&v, Side::Base, "1000REKT", "2025-01-01", None)).hard());
+        // Codex PR1a r5: a fee's other side naming another coin never softens the refusal.
+        list(&mut f, &v, Side::Quote, "1000REKT", &coin_asset(77, "thousand-rekt", "1000REKT"));
+        assert_eq!(holding(&f, &leg(&v, Side::Fee, "1000REKT", "2025-01-01", None)), Holding::Unknown(Why::Units));
         for (spelling, symbol, other) in [("1MBABYDOGE", "BABYDOGE", true), ("10000SATS", "SATS", true), ("1000000MOG", "MOG", true), ("BTCUP", "BTC", true),
                                           ("ETH3L", "ETH", true), ("ETHBEAR", "ETH", true), ("REKT", "REKT", false), ("2000REKT", "REKT", false),
                                           ("1INCH", "INCH", false), ("BTCB", "BTC", false)] {
