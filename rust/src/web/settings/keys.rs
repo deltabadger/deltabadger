@@ -333,8 +333,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     // the slot routing picks must still be as it was under the write lock.
     let (snap_user,snap_exchange)=(original.account.user_id,original.account.exchange_id);
     let snap_app=app.clone();
-    settle_standalone(app,snap_user,snap_exchange).await?;
-    let snapshot=app.db(move|c|slots(c,&snap_app,snap_user,snap_exchange,kind)).await?;
+    let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,kind)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     match &validated.result.value {
         Validity::Incorrect => return Ok(Submitted::Incorrect),
@@ -758,9 +757,8 @@ pub async fn legacy(
     let venue_type:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
     // As the form save (`submit_candidate`): the named account's slot and every live account's of this type, before the
     // identity read; the slot the save writes must still be as it was under the write lock.
-    settle_standalone(&app,user.id,exchange).await?;
     let snap_app=app.clone();
-    let snapshot=app.db(move|c|{
+    let snapshot=snapshot_then_settle(&app,user.id,exchange,move|c|{
         let named=match crate::identity::pick(c,user.id,exchange,posted_account)? {crate::identity::Pick::One(a)=>Some(slot(&Key::read(c,&snap_app,a,kind)?)),_=>None};
         Ok((named,slots(c,&snap_app,user.id,exchange,kind)?))
     }).await?;
@@ -1147,6 +1145,14 @@ enum Preflight { Clear, InFlight, Unchecked(String, String) }
 /// D-KEY-REPLACE-WAITS waits only on what is still open (#710 7a): before a key of (`user`, `exchange`) is replaced or
 /// removed, every placed standalone order of its live accounts not yet known terminal is read as Merge's pre-flight reads
 /// it, and one found ended is recorded. One still open or unread keeps the key waiting (`settling`).
+/// A key save's destination snapshot (`snap`), taken BEFORE any venue read the save makes (the pre-flight's
+/// `settle_standalone` here; the identity read and validation after it), so a slot another request changes meanwhile is
+/// found changed under the write lock and never overwritten (#710 7a rule F4). Every key save starts here.
+async fn snapshot_then_settle<T: Send + 'static>(app: &App, user: i64, exchange: i64, snap: impl FnOnce(&Connection) -> Result<T, WebError> + Send + 'static) -> Result<T, WebError> {
+    let snapshot = app.db(snap).await?;
+    settle_standalone(app, user, exchange).await?;
+    Ok(snapshot)
+}
 async fn settle_standalone(app: &App, user: i64, exchange: i64) -> Result<(), WebError> {
     let accounts = app.db(move |c| {
         let mut out = vec![];
