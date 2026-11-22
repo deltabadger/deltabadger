@@ -13,5 +13,6 @@ en:
             merge_checking_html: "Deltabadger is reading %{duplicate} and %{survivor} again to make sure they are the same account. Try again in a minute."
             merge_withdrawal_key_html: "After the merge, these withdrawal rules would send with a different withdrawal key: %{rules}. Remove the withdrawal key of %{duplicate} or %{survivor}, merge, then add it again."
             merge_foreign_order: "an order already recorded on this exchange"
+            merge_kucoin_import: "%{account} holds an imported KuCoin export, which Merge can't join"
             merge_order_unchecked_html: "An order of %{account} was placed with an earlier key, so Deltabadger can't check it with its current key: %{rows}. Save the key it was placed with again, then merge."
             merge_unreadable_html: "%{account} has no working key that can read its balances, so Deltabadger can't check it. Fix or add one, then merge again."

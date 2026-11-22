@@ -13,5 +13,6 @@ nl:
             merge_checking_html: "Deltabadger leest %{duplicate} en %{survivor} opnieuw in om zeker te weten dat het hetzelfde account is. Probeer het over een minuut nog eens."
             merge_withdrawal_key_html: "Na het samenvoegen zouden deze opnameregels een andere opnamesleutel gebruiken: %{rules}. Verwijder de opnamesleutel van %{duplicate} of %{survivor}, voeg de accounts samen en voeg de sleutel daarna weer toe."
             merge_foreign_order: "een order die al op deze exchange is vastgelegd"
+            merge_kucoin_import: "%{account} bevat een geïmporteerde KuCoin-export, die samenvoegen niet kan overnemen"
             merge_order_unchecked_html: "Een order van %{account} is met een eerdere sleutel geplaatst, dus Deltabadger kan die niet controleren met de huidige sleutel: %{rows}. Sla de sleutel waarmee hij is geplaatst opnieuw op en voeg de accounts daarna samen."
             merge_unreadable_html: "%{account} heeft geen werkende sleutel die de saldi kan lezen, dus Deltabadger kan het niet controleren. Herstel er een of voeg er een toe en voeg de accounts daarna opnieuw samen."

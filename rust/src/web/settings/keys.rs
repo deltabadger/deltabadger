@@ -1035,7 +1035,8 @@ pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
         Done::Unreadable(account) => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_unreadable_html", &[("account", i18n::Arg::Text(&account))])),
         Done::Conflict(rows) => {
             // Another user's order, in the user's words (`merge::FOREIGN_ORDER`).
-            let rows: Vec<String> = rows.into_iter().map(|r| if r == crate::merge::FOREIGN_ORDER { i18n::t(ctx.locale, "settings.accounts.merge_foreign_order", &[]) } else { r }).collect();
+            let rows: Vec<String> = rows.into_iter().map(|r| if r == crate::merge::FOREIGN_ORDER { i18n::t(ctx.locale, "settings.accounts.merge_foreign_order", &[]) }
+                else if let Some(account) = r.strip_prefix(crate::merge::KUCOIN_IMPORT) { i18n::t(ctx.locale, "settings.accounts.merge_kucoin_import", &[("account", i18n::Arg::Text(account))]) } else { r }).collect();
             refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_conflict_html", &args(&duplicate, &survivor, Some(&rows.join("; ")))))
         }
         Done::Refused(reason) => refused(&ctx, refusal_text(&ctx, &reason)),

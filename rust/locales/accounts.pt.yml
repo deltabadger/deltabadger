@@ -13,5 +13,6 @@ pt:
             merge_checking_html: "O Deltabadger está a ler de novo %{duplicate} e %{survivor} para confirmar que são a mesma conta. Tenta outra vez dentro de um minuto."
             merge_withdrawal_key_html: "Depois de juntar as contas, estas regras de levantamento passariam a usar outra chave de levantamento: %{rules}. Remove a chave de levantamento de %{duplicate} ou de %{survivor}, junta as contas e volta a adicioná-la."
             merge_foreign_order: "uma ordem já registada nesta corretora"
+            merge_kucoin_import: "%{account} tem uma exportação da KuCoin importada, que a fusão não consegue juntar"
             merge_order_unchecked_html: "Uma ordem de %{account} foi colocada com uma chave anterior, por isso o Deltabadger não a consegue verificar com a atual: %{rows}. Volta a guardar a chave com que foi colocada e junta as contas outra vez."
             merge_unreadable_html: "%{account} não tem nenhuma chave a funcionar que consiga ler os saldos, por isso o Deltabadger não a consegue verificar. Corrige uma ou adiciona outra e volta a juntá-las."

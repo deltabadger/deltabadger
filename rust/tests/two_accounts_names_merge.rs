@@ -3967,3 +3967,46 @@ fn s7_0_7_the_tax_wallet_is_the_account() {
     assert!(sale.starts_with("2025-03-10T15:00:00Z,2025-02-10T15:00:00Z,BTC,1.0,250.0,200.0,50.0,") && sale.contains(",kraken,"), "{sale}\n{csv}");
 }
 
+/// A KuCoin duplicate: account 2 (a duplicate of 1) on a KuCoin exchange of the Kraken fixture's user.
+fn kucoin_duplicate() -> (tempfile::TempDir, store::Opened, Two) {
+    let (d, o) = install();
+    let kraken = Two::kraken(&o.primary, &seed::cipher());
+    let two = Two::venue(&o.primary, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(&o.primary, 0, Some("fp"));
+    two.fingerprint(&o.primary, 1, Some("fp"));
+    (d, o, two)
+}
+fn source_row(c: &Connection, two: &Two, n: usize) {
+    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at, account_id) \
+               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'Deposit', '1', '0', '2026-09-01 10:00:00', '', 'Deposit', 'now', ?3)", [two.seeded.user_id, two.seeded.exchange_id, two.id(n)]).unwrap();
+}
+
+/// 7a §0.8: Merge refuses while either account holds a KuCoin export's source rows, naming the account.
+#[test]
+fn s7_0_8_a_kucoin_export_import_refuses_merge() {
+    for n in [1, 0] {
+        let (_d, o, two) = kucoin_duplicate();
+        let c = &o.primary;
+        source_row(c, &two, n);
+        match merge_now(c, &two, two.id(1)) {
+            Err(Refusal::Conflict(rows)) => assert!(rows.iter().any(|r| r.starts_with("\u{0}kucoin_import:") && r.ends_with(&format!("KuCoin {}", n + 1))), "{rows:?}"),
+            other => panic!("account {}: {other:?}", n + 1),
+        }
+    }
+}
+
+/// 7a §0.8: cutoffs alone (an API sync's) do not refuse: the survivor keeps the earlier cutoff per class, the duplicate's go.
+#[test]
+fn s7_0_8_cutoffs_alone_merge_keeping_the_earlier() {
+    let (_d, o, two) = kucoin_duplicate();
+    let c = &o.primary;
+    for (n, class, at) in [(0, "fills", "2026-09-10 00:00:00"), (1, "fills", "2026-09-05 00:00:00"), (1, "deposits", "2026-09-07 00:00:00"), (0, "withdrawals", "2026-09-08 00:00:00")] {
+        c.execute("INSERT INTO import_cutoffs (user_id, exchange_id, class, cutoff_at, updated_at, account_id) VALUES (?1, ?2, ?3, ?4, 'now', ?5)",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, class, at, two.id(n)]).unwrap();
+    }
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let cutoffs: Vec<(i64, String, String)> = c.prepare("SELECT account_id, class, cutoff_at FROM import_cutoffs ORDER BY class").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    let s = two.id(0);
+    assert_eq!(cutoffs, [(s, "deposits".into(), "2026-09-07 00:00:00".into()), (s, "fills".into(), "2026-09-05 00:00:00".into()), (s, "withdrawals".into(), "2026-09-08 00:00:00".into())]);
+}

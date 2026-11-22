@@ -13,5 +13,6 @@ cs:
             merge_checking_html: "Deltabadger znovu načítá %{duplicate} a %{survivor}, aby si ověřil, že jde o stejný účet. Zkus to znovu za minutu."
             merge_withdrawal_key_html: "Po sloučení by tato pravidla pro výběry používala jiný klíč pro výběry: %{rules}. Odeber klíč pro výběry u %{duplicate} nebo %{survivor}, sluč účty a pak ho přidej znovu."
             merge_foreign_order: "příkaz, který už je na této burze zaznamenaný"
+            merge_kucoin_import: "%{account} obsahuje importovaný export z KuCoinu, který sloučení nedokáže převzít"
             merge_order_unchecked_html: "Příkaz na %{account} byl zadán dřívějším klíčem, takže ho Deltabadger nemůže ověřit tím současným: %{rows}. Ulož znovu klíč, kterým byl zadán, a pak účty sluč."
             merge_unreadable_html: "%{account} nemá žádný funkční klíč, který by četl jeho zůstatky, takže ho Deltabadger nemůže ověřit. Oprav nebo přidej klíč a potom účty sluč znovu."

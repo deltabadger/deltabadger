@@ -29,6 +29,9 @@ impl From<crate::engine::EngineError> for Refusal { fn from(e: crate::engine::En
 
 /// The conflict line naming an order another user's bot holds under the same venue id (shown in the user's words).
 pub const FOREIGN_ORDER: &str = "\u{0}foreign_order";
+/// The conflict line naming an account that holds a KuCoin export's source rows, the account's plain label after it (#710
+/// 7a: Merge does not join two accounts' KuCoin export imports; shown in the user's words).
+pub const KUCOIN_IMPORT: &str = "\u{0}kucoin_import:";
 
 /// What a Merge did: the accounts, and the keys it deleted and kept (the caller's after-commit work).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -369,6 +372,12 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     if conflicts.is_empty() {
         for (tx, _, _) in &on_s { c.execute("DELETE FROM kucoin_withheld_fills WHERE account_id = ?1 AND tx_id = ?2", params![s, tx])?; }
     }
+    // A KuCoin export's source rows on either account (7a): its derived entries cannot be re-derived on the survivor without
+    // losing edits and links, so Merge refuses rather than guess. Cutoffs alone (an API sync's) do not refuse.
+    for account in [s, d] {
+        let held: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1)", [account], |r| r.get(0))?;
+        if held { conflicts.push(format!("{KUCOIN_IMPORT}{}", identity::label(c, account)?.plain())); }
+    }
     let plan = ledger(c, &sd, &ss)?;
     conflicts.extend(plan.conflicts.iter().cloned());
     if !conflicts.is_empty() { return Err(Refusal::Conflict(conflicts)); }
@@ -469,6 +478,12 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
 
     // The duplicate's import observations are the survivor's.
     c.execute("UPDATE exchange_account_imports SET account_id = ?2 WHERE account_id = ?1", [d, s])?;
+    // The API's takeover cutoffs: the survivor keeps the earlier of each class, and the duplicate's go.
+    c.execute("UPDATE import_cutoffs SET cutoff_at = (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class), updated_at = ?3 \
+               WHERE account_id = ?2 AND cutoff_at > (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class)",
+              params![d, s, crate::codec::format_time(now)])?;
+    c.execute("UPDATE import_cutoffs SET account_id = ?2 WHERE account_id = ?1 AND class NOT IN (SELECT class FROM import_cutoffs WHERE account_id = ?2)", [d, s])?;
+    c.execute("DELETE FROM import_cutoffs WHERE account_id = ?1", [d])?;
     // 8. KuCoin coverage (the HF marker once) and withheld fills (a twin once).
     c.execute("DELETE FROM kucoin_coverage WHERE account_id = ?1 AND source = ?3 AND EXISTS (SELECT 1 FROM kucoin_coverage WHERE account_id = ?2 AND source = ?3)",
               params![d, s, crate::sync::kucoin_hf::ENABLED])?;
