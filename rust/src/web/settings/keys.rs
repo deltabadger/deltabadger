@@ -203,6 +203,12 @@ pub async fn save(
     if bot_request && bot_account.is_none(){return Ok(crate::web::layout::missing())}
     // #710 7a §2: a bot sheet posts the account it showed; the bot on another one since is a 404, nothing saved.
     if bot_request && ctx.params.query("account_id").is_some_and(|a|Some(a.parse::<i64>().unwrap_or(0))!=bot_account.and_then(|a|a.id)){return Ok(crate::web::layout::missing())}
+    // 7a rule R11: a sheet naming no account was rendered for the exchange's number 1 (`bot_step`), so it saves only while the
+    // bot is still there; a bot moved since is a 404 too. A single-account install's sheet keeps its bytes.
+    if bot_request && ctx.params.query("account_id").is_none() {
+        let account=bot_account.and_then(|a|a.id);
+        if !app.db(move|c|Ok(number_one(c,account)?)).await? {return Ok(crate::web::layout::missing())}
+    }
     let exchange=if bot_request{bot_account.map(|a|a.exchange_id)}else{tracker_exchange(&app,&ctx).await?};
     let Some(exchange) = exchange else {
         return Ok(crate::web::layout::redirect(
@@ -1115,6 +1121,11 @@ async fn owned_bot_account(app:&App,ctx:&Ctx)->Result<Option<Account>,WebError>{
         Ok(match exchange {Some(_)=>Account::of_bot(c,id)?,None=>None})
     }).await
 }
+/// Whether `account` is its exchange's number 1 (None: the number 1 with no row yet).
+fn number_one(c:&Connection,account:Option<i64>)->rusqlite::Result<bool>{
+    let Some(id)=account else{return Ok(true)};
+    Ok(c.query_row("SELECT number FROM exchange_accounts WHERE id=?1",[id],|r|r.get::<_,i64>(0)).optional()?==Some(1))
+}
 /// The form attributes of every card the sheet draws: answered in its frame (`modal_content`).
 pub(crate) const SHEET_FORM:&str="data-controller=\"form--label-animations form--html5-validations\" data-turbo-frame=\"modal_content\"";
 /// `/bots/:id`, from this request's `/bots/:id/add_api_key[/new]`.
@@ -1126,7 +1137,8 @@ fn bot_base(ctx:&Ctx)->String{ctx.params.route_path.trim_end_matches("/new").tri
 fn bot_step(c:&Connection,app:&App,ctx:&Ctx,account:Option<i64>,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
     let instructions=key_instructions(c,app,ctx,class,name,0)?;
     let form_data=format!("{SHEET_FORM} data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"");
-    let target=target_query(c,account)?.replacen('&',"?",1);
+    // R11: a sheet names its account unless it is the exchange's sole number 1 (a nameless sheet means number 1).
+    let target=match account{Some(id) if !number_one(c,Some(id))?=>format!("?account_id={id}"),_=>target_query(c,account)?.replacen('&',"?",1)};
     let card=sheet_card(ctx,&ctx.csrf_token(),ctx.path(&format!("{}/add_api_key{target}",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
     crate::web::wizard::keys::key_pane(&card)
 }

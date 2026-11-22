@@ -1736,3 +1736,56 @@ async fn s7a_r10_a_fresh_upload_of_a_held_file_asks_before_another_venue_takes_i
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!((rows_on(c, first), rows_on(c, on_us)), (1, 1));
 }
+
+/// 7a rule R11: the bot's key sheet, rendered while its account was the exchange's only one (its action names no account),
+/// saves nothing once the bot moved to account 2: a nameless sheet is account 1's.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r11_a_bot_sheet_rendered_for_the_sole_account_saves_nothing_once_the_bot_moved() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, s.user_id);
+    let bot = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let sheet = b.get(&app, &format!("/bots/{bot}/add_api_key/new")).await;
+    assert_eq!(sheet.status, 200, "{}", sheet.body);
+    assert!(links(&sheet.body, "/add_api_key").contains(&format!("/bots/{bot}/add_api_key")), "a single-account sheet names no account: {}", sheet.body);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let second = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap()[1].0;
+    c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [bot, second]).unwrap();
+    let before = keys(c, &cipher, s.exchange_id);
+    let stale = b.send(&app, "POST", &format!("/bots/{bot}/add_api_key"), Some(&[("api_key[key]", "other"), ("api_key[secret]", "other-secret"), ("api_key[passphrase]", "paper")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 404, "{}", stale.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), before, "account 2's key untouched");
+}
+
+/// R11, the withdrawal wizard: a confirmation or a preview rendered for account 2, posted after another tab picked account 1,
+/// is refused before any of its fields reaches the session: account 1's confirmation shows none of them.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r11_a_stale_withdrawal_confirmation_or_preview_copies_nothing_into_the_session() {
+    let (_d, o, s, second, _server, app) = gemini_two_accounts().await;
+    let c = &o.primary;
+    let first = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let exchange = s.exchange_id.to_string();
+    let pick = |account: i64| format!("/rules/withdrawals/pick_exchange?account_id={account}");
+    let btc = s.btc.to_string();
+    b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", &pick(second), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    b.get(&app, "/rules/withdrawals/add_api_key/new").await;
+    assert_eq!(b.get(&app, "/rules/withdrawals/confirm_settings/new").await.status, 200);
+    // Tab B picks account 1.
+    assert_eq!(b.send(&app, "POST", &pick(first), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    b.get(&app, "/rules/withdrawals/add_api_key/new").await;
+    let second_s = second.to_string();
+    for path in ["/rules/withdrawals/confirm_settings", "/rules/withdrawals/confirm_settings/preview"] {
+        let stale = b.send(&app, "POST", path, Some(&[("account_id", second_s.as_str()), ("network", "bitcoin"), ("min_amount", "0.777"), ("threshold_type", "min_amount")]),
+                           common::web::Csrf::Header, &[]).await;
+        assert_eq!(stale.status, 409, "{path}: {}", stale.body);
+    }
+    let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
+    assert_eq!(confirm.status, 200, "{}", confirm.body);
+    assert!(!confirm.body.contains("0.777"), "account 1's session took none of account 2's fields: {}", confirm.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_rules"), 0, "no rule");
+}

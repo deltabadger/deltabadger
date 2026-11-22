@@ -565,11 +565,6 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         rule.settings["address"] = json!(rule.address);
     }
     if is_create {
-        // #710 7a §2: a confirmation rendered for another account than the session's now (two tabs) makes nothing.
-        // Rule H5: one naming no account (a 2.x pick) only while the session still has none.
-        if ctx.params.form("account_id").map(|a| a.parse::<i64>().unwrap_or(0)) != config(ctx)["account_id"].as_i64() {
-            return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/confirm_settings/new")))));
-        }
         let patch=service::Patch {
             address:Some(rule.address.clone()),settings:rule.settings.clone(),destination:posted,
         };
@@ -666,6 +661,12 @@ pub async fn step(
         return exchange(&app, &ctx).await;
     }
     if name == "confirm_settings" && ctx.method == axum::http::Method::POST {
+        // #710 7a §2, rule R11: a confirmation or its preview rendered for another account than the session's now (two
+        // tabs) is refused before any of its fields reaches the session. Rule H5: one naming no account (a 2.x pick) only
+        // while the session still has none.
+        if ctx.params.form("account_id").map(|a| a.parse::<i64>().unwrap_or(0)) != config(&ctx)["account_id"].as_i64() {
+            return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/confirm_settings/new")))));
+        }
         let mut conf = config(&ctx);
         for field in [
             "withdrawal_percentage",
