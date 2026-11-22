@@ -562,7 +562,8 @@ en:
             chart_missing: "The chart doesn't show the market value of %{assets} on %{venue} for days without a price."
             chart_incomplete: "Some days on the chart are incomplete."
             connect_market_data: "Connect a market data provider to get market prices."
-            providers_intro: "Portfolio tracking and tax reports need historical prices and exchange rates. Connect the Deltabadger data API (stocks and crypto) or a free CoinGecko account (crypto only)."
+            providers_intro: "Portfolio tracking and tax reports need historical prices and exchange rates. Connect the Deltabadger data API (stocks and crypto) or a free CoinGecko account (crypto only). A free CoinGecko account covers the past year of prices only."
+            ask_admin: "Market data is set up by your instance admin. Ask them to connect a provider under Settings → Connect."
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
         importing_from: 'Importing data from %{exchange}…'

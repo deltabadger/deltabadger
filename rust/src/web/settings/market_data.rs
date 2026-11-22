@@ -116,6 +116,8 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
     // D-CG-SETTINGS-KEY-CHECKED: a key posted here is checked as the tracker's and the wizard's are; nothing is written for a
     // key CoinGecko refuses. The stored key a switch back uses is not checked again (2.x).
     if provider.as_deref() == Some("coingecko") {
+        // The tracker's card asks for a key: a blank one is refused, never a switch to the stored key unchecked.
+        if posted.is_none() && from_tracker(&ctx) { return invalid_key(&ctx); }
         if let Some(key) = &posted {
             if !key_valid(&app, key).await { return invalid_key(&ctx); }
         }

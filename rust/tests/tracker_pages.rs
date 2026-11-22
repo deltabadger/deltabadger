@@ -98,6 +98,16 @@ async fn tracker_d5a_routes_and_modal_destinations_are_self_contained() {
     // A tile's card is the wizard's, answering the tracker: Back to the tiles, its write marked as the tracker's.
     let answer=browser.send(&app,"GET","/tracker/connect_market_data?provider=coingecko",None,Csrf::None,&[("turbo-frame","modal")]).await;
     assert!(answer.body.contains("action=\"/settings/update_market_data\"")&&answer.body.contains("name=\"wizard\" value=\"tracker\"")&&answer.body.contains("href=\"/tracker/connect_market_data\""),"{}",answer.body);
+    // Its blank key is refused, never a switch to a stored key unchecked.
+    deltabadger::app_config::set(&connection,&app.cipher,"coingecko_api_key","stored-unchecked",app.now()).unwrap();
+    let form=[("market_data_provider","coingecko"),("coingecko_api_key","  "),("wizard","tracker")];
+    let answer=browser.send(&app,"PATCH","/settings/update_market_data",Some(&form),Csrf::Header,&[("origin","http://localhost:3000"),("accept","text/vnd.turbo-stream.html")]).await;
+    assert_eq!(answer.status,422,"{}",answer.body);
+    assert_eq!(deltabadger::app_config::get(&connection,&app.cipher,"market_data_provider").unwrap().as_deref(),Some(""));
+    // Market data in place (here the platform; a hosted install's environment alike): a stale link goes to the tracker.
+    deltabadger::app_config::set(&connection,&app.cipher,"market_data_provider","deltabadger",app.now()).unwrap();
+    let answer=browser.send(&app,"GET","/tracker/connect_market_data?provider=deltabadger",None,Csrf::None,&[("turbo-frame","modal")]).await;
+    assert_eq!((answer.status,answer.header("location")),(303,Some("/tracker")),"{}",answer.body);
 }
 
 #[tokio::test(flavor = "current_thread")]

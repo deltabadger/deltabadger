@@ -560,7 +560,8 @@ es:
             chart_missing: "El gráfico no muestra el valor de mercado de %{assets} en %{venue} los días sin precio."
             chart_incomplete: "Algunos días del gráfico están incompletos."
             connect_market_data: "Conecta un proveedor de datos de mercado para obtener precios de mercado."
-            providers_intro: "El seguimiento de la cartera y los informes fiscales necesitan precios históricos y tipos de cambio. Conecta la API de datos de Deltabadger (acciones y cripto) o una cuenta gratuita de CoinGecko (solo cripto)."
+            providers_intro: "El seguimiento de la cartera y los informes fiscales necesitan precios históricos y tipos de cambio. Conecta la API de datos de Deltabadger (acciones y cripto) o una cuenta gratuita de CoinGecko (solo cripto). Una cuenta gratuita de CoinGecko solo cubre los precios del último año."
+            ask_admin: "Los datos de mercado los configura el administrador de tu instancia. Pídele que conecte un proveedor en Configuración → Conectar."
         sync: 'Sincronizar'
         sync_started: 'Sincronizando transacciones de tus exchanges...'
         importing_from: 'Importando datos de %{exchange}…'

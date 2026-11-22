@@ -569,7 +569,8 @@ sk:
             chart_missing: "Graf nezobrazuje trhovú hodnotu %{assets} na %{venue} v dňoch bez ceny."
             chart_incomplete: "Niektoré dni v grafe sú neúplné."
             connect_market_data: "Pripoj poskytovateľa trhových dát a získaj trhové ceny."
-            providers_intro: "Sledovanie portfólia a daňové reporty potrebujú historické ceny a výmenné kurzy. Pripoj dátové API Deltabadger (akcie a krypto) alebo bezplatný účet CoinGecko (len krypto)."
+            providers_intro: "Sledovanie portfólia a daňové reporty potrebujú historické ceny a výmenné kurzy. Pripoj dátové API Deltabadger (akcie a krypto) alebo bezplatný účet CoinGecko (len krypto). Bezplatný účet CoinGecko pokrýva ceny len za posledný rok."
+            ask_admin: "Trhové dáta nastavuje správca vašej inštancie. Požiadajte ho, aby pripojil poskytovateľa v Nastavenia → Pripojiť."
         sync: 'Synchronizovať'
         sync_started: 'Synchronizácia transakcií z vašich búrz...'
         importing_from: 'Import dát z %{exchange}…'
