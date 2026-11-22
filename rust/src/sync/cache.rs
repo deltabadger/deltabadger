@@ -112,8 +112,10 @@ impl ReadOrigin {
         for account in accounts(c,self.user,&self.scope,false,true)? {
             // The scheduler imports one healthy reading slot per account, trading before read-only.
             // Keep the complete captured set for rotation fencing, but do not demand a watermark
-            // from an unused invalid slot which did not produce this account's import.
-            let id:Option<i64>=c.query_row(&format!("SELECT k.id FROM api_keys k WHERE k.status=1 AND k.key_type!=1 AND {} ORDER BY CASE WHEN k.key_type=0 THEN 0 ELSE 1 END,k.id LIMIT 1",account.keys("k")),[],|r|r.get(0)).optional()?;
+            // from an unused invalid slot which did not produce this account's import. A fenced slot syncs nothing (#710 7a,
+            // `sync::reading_keys_of`): the slot that can sync speaks first; a fenced one only when no other can.
+            let id:Option<i64>=c.query_row(&format!("SELECT k.id FROM api_keys k WHERE k.status=1 AND k.key_type!=1 AND {} ORDER BY {},CASE WHEN k.key_type=0 THEN 0 ELSE 1 END,k.id LIMIT 1",
+                account.keys("k"),crate::identity::fenced_sql(c,"k")?),[],|r|r.get(0)).optional()?;
             let Some(id)=id else {
                 let rows:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id=?1 AND {})",Scope::Account(account).rows("a")),[self.user],|r|r.get(0))?;
                 if rows {return Ok(false)} else {continue}

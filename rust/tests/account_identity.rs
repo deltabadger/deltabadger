@@ -1223,3 +1223,24 @@ fn s7a_removing_the_last_key_keeps_the_fingerprint_while_an_order_or_any_bot_nam
     assert_eq!(one_removed(c, t.second), None, "account 2 stays live");
 }
 fn one_removed(c: &Connection, id: i64) -> Option<String> { c.query_row("SELECT removed_at FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap() }
+
+/// Codex branch r2 (sync/cache.rs:116): the tracker's ledger watermark asks the key that can sync. An account whose
+/// trading key was fenced mid-import (its run left incomplete) and whose read-only key syncs is current once the read-only
+/// key's import is; the tracker's publication still reads the fenced key's stored rows (`fence_read`).
+#[test]
+fn s7a_the_tracker_watermark_reads_the_key_that_can_sync() {
+    use deltabadger::sync::cache;
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    common::two_accounts::stamp_ledgers(&fx.c, fx.user);
+    deltabadger::jobs::state::mark_incomplete(&fx.c, "ledger_sync", Some(&trading.to_string()), now()).unwrap();
+    let current = |fx: &Fx| cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap().ledger_is_current(&fx.c).unwrap();
+    assert!(!current(&fx), "the trading key syncs, and its import is incomplete");
+    fx.observe(trading, read(B));
+    assert!(deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&read_only), "the read-only key syncs");
+    assert!(current(&fx), "the read-only key's complete import is the watermark");
+    let origin = cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap();
+    let tx = fx.c.unchecked_transaction().unwrap();
+    assert!(cache::fence_read(&tx, &origin).is_ok(), "the figures from stored rows still publish");
+}
