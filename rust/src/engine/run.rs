@@ -861,7 +861,9 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     for (tx,state) in entries {
         if e.stopping() { break; }
         let (id,at,mut attempts)=state.value;
-        let (venue,producer)=match model::load_bot(&e.primary,id).and_then(|bot|e.venue_for(&bot)){
+        // #710 7a §9.1: a key whose identity read names another account polls nothing; the order waits, as on any failure here.
+        let built=model::load_bot(&e.primary,id).and_then(|bot|if model::key_fenced(&e.primary,&bot)? {Err(EngineError::Data("its key reads another account".into()))} else {e.venue_for(&bot)});
+        let (venue,producer)=match built{
             Ok(value)=>value,
             Err(err)=>{super::log(&format!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}"));e.polls.insert(tx,model::Produced::new((id,clock.now().timestamp_micros()+RECONCILE_EVERY_US,attempts),state.origin().clone()));continue;}
         };

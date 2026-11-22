@@ -50,6 +50,11 @@ pub(crate) fn send_for_row<F: VenueFactory>(c: &rusqlite::Connection, app: &App,
     // #710: on the account the order was placed on, which the bot may have left since: never another account's order of
     // the same venue id.
     let Some(account) = crate::identity::Account::of_order(c, tx)? else { return Ok(Sent::Unanswered("the order's account is another user's or exchange's".into())) };
+    // #710 7a §9.1: a key whose identity read names another account cancels nothing there: the order waits for a key that
+    // reads its account. Nothing is sent, nothing re-read.
+    if crate::engine::model::key_fenced(c, &crate::engine::model::Bot::key_holder(account))? {
+        return Ok(Sent::Refused { errors: vec!["the API key reads another account".into()], invalid_key: true });
+    }
     // Every credential, proxy and account rule is the engine's: the venue is built as the engine builds it.
     let sent = if crate::identity::Account::of_bot(c, bot.id)? == Some(account) {
         send(runtime, &crate::engine::run::venue_for(c, factory, &app.cipher, bot)?.0, &order)

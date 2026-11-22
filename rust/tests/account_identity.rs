@@ -1079,3 +1079,22 @@ fn s7_0_10_the_identity_read_still_runs_for_a_fenced_key_and_lifts_the_fence() {
     assert!(reads(&fx.c), "a read naming its account's lifts the fence");
     assert_eq!(fx.count("account_transactions"), rows, "the identity read writes no rows");
 }
+
+/// #710 7a §9.1 (Codex branch r1: signal.rs:433, api_orders.rs:361, withdrawal.rs:577, sync/jobs.rs:313/389): a version
+/// captured before discovery found its key opens another account fails the one final check every claim, send and venue
+/// result commits under (`check_credential_result`, `key_is_current`), as a changed credential does, its material
+/// unchanged. What the key records about itself (its validation status, its identity read, a job's run) still commits.
+#[test]
+fn s7a_a_key_found_to_open_another_account_fails_every_final_check() {
+    use deltabadger::engine::{model, EngineError};
+    let (fx, key) = established();
+    let captured = fx.version(key);
+    assert!(model::key_is_current(&fx.c, &captured).unwrap());
+    fx.observe(key, read(B));
+    assert_eq!(fx.version(key), captured, "the material is unchanged");
+    assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&key), "fenced");
+    assert!(!model::key_is_current(&fx.c, &captured).unwrap(), "a fenced key is no current key");
+    assert!(matches!(model::credential_write(&fx.c, &Some(captured.clone()), |_| Ok(())), Err(EngineError::CredentialsChanged)), "the final check refuses");
+    let tx = fx.c.unchecked_transaction().unwrap();
+    assert!(model::check_credential_record(&tx, &Some(captured)).is_ok(), "its own record still commits");
+}

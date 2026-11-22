@@ -873,7 +873,7 @@ fn sync_by_hand(env: &dyn Fn(&str) -> Option<String>) -> i32 {
             use deltabadger::jobs::state;
             let at = chrono::Utc::now();
             let tx=deltabadger::engine::model::immediate(c).map_err(|_|"cannot begin job result write")?;
-            let fenced=deltabadger::engine::model::check_credential_result(&tx,&version).map_err(|_|"job credentials changed; result discarded")?;
+            let fenced=deltabadger::engine::model::check_credential_record(&tx,&version).map_err(|_|"job credentials changed; result discarded")?;
             match &outcome {
                 Outcome::Done => state::record_success(&fenced, spec.name, spec.scope.as_deref(), at)?,
                 Outcome::NothingNew => state::record_run(&fenced, spec.name, spec.scope.as_deref(), at)?,

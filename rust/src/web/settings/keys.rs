@@ -875,7 +875,7 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
     let jobs=app.job_wakers()?;let inner=app.clone();
     let result=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-        let fenced=crate::engine::model::check_credential_result(&tx,status.origin())?;
+        let fenced=crate::engine::model::check_credential_record(&tx,status.origin())?;
         let before:i64=fenced.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
         let status=bound_status(&fenced,&inner.cipher,id,status.clone(),account.as_deref(),inner.now()).map_err(|e|WebError::Config(e.0))?;
         store_status(&fenced,&status,id,inner.now()).map_err(|_|WebError::Config("cannot store credential status".into()))?;

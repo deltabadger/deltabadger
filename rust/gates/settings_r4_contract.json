@@ -177,7 +177,7 @@
     "jobs/mod.rs": [
       "job.run_attributed",
       "let version=outcome.origin().clone()",
-      "check_credential_result(&tx,&version)",
+      "check_credential_record(&tx,&version)",
       "version.is_none() && matches!(name"
     ],
     "sync/jobs.rs": [
@@ -244,7 +244,7 @@
       "let result=handle.check_on(app,venue,kind).await?;",
       "let key=validated.columns[0].clone();",
       "validated.result.current_for(&Some(validated.handle.producer().clone()))",
-      "check_credential_result(&tx,status.origin())?",
+      "check_credential_record(&tx,status.origin())?",
       "status:&crate::engine::model::Produced<i64>",
       "status.current_for(&c.producer_version())"
     ],

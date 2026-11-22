@@ -77,8 +77,9 @@ pub(crate) fn account_id(v: &Value) -> Option<i64> {
 pub(crate) fn account_not_found() -> Res { failure(Domain::NotFound, "account_not_found", "Account not found.") }
 /// Lookup.find_api_key: the user's correct trading key.
 /// Whether `account` has a correct trading key (#710: the account an order is placed on or cancelled through).
+/// #710 7a: a key whose identity read names another account (`identity::fenced_sql`) is no correct key of this one.
 fn has_correct_key(c: &Connection, account: &crate::identity::Account) -> Result<bool, WebError> {
-    Ok(c.query_row(&format!("SELECT 1 FROM api_keys k WHERE {} AND k.key_type=0 AND k.status=1 LIMIT 1", account.keys("k")), [], |_| Ok(())).optional()?.is_some())
+    Ok(c.query_row(&format!("SELECT 1 FROM api_keys k WHERE {} AND k.key_type=0 AND k.status=1 AND NOT {} LIMIT 1", account.keys("k"), crate::identity::fenced_sql(c, "k")?), [], |_| Ok(())).optional()?.is_some())
 }
 fn api_key_missing(exchange: &str) -> Res {
     failure(Domain::PermissionDenied, "api_key_missing", format!("No valid API key found for {exchange}. Please add an API key in Settings."))
@@ -290,8 +291,12 @@ pub fn late_refusal(c: &Connection, bot: &model::Bot, request: &crate::engine::a
     if bot.user_id != request.user_id || bot.status == crate::enums::BotStatus::Deleted { return Ok(Some(bot_not_found())) }
     let (exchange, venue): (String, String) = c.query_row("SELECT coalesce(name, ''), coalesce(type, '') FROM exchanges WHERE id=?1", [bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?.unwrap_or_default();
     let ticker = if bot.bot_type == model::SIGNAL_TYPE { model::ticker_for(c, bot).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
-    bot_refusal(c, &Through { bot: bot.clone(), exchange, shown: shown(c, bot)?, venue, ticker }, &request.supplied)
+    let through = Through { bot: bot.clone(), exchange, shown: shown(c, bot)?, venue, ticker };
+    if let Some(refusal) = bot_refusal(c, &through, &request.supplied)? { return Ok(Some(refusal)) }
+    // #710 7a: a key found to open another account since the order was taken places nothing (as `venue_refusal`).
+    Ok(fenced(c, bot)?.then(|| api_key_missing(&through.shown)))
 }
+fn fenced(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> { Ok(model::key_fenced(c, bot)?) }
 
 /// 2.x's status for each refusal code the engine answers with (`Outcome::Refused`).
 const REFUSALS: &[(&str, Domain)] = &[
@@ -418,7 +423,8 @@ fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller
     let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, t.bot.id, "k")?), [], |r| r.get(0)).optional()?;
     Ok(match status {
         Some(s) if s == crate::enums::ApiKeyStatus::PendingActivation as i64 => Some(failure(Domain::Conflict, "api_key_pending", format!("The API key for {} is still pending activation.", t.shown))),
-        Some(s) if s == crate::enums::ApiKeyStatus::Correct as i64 => None,
+        // #710 7a: a correct key whose identity read names another account is no key of this bot's account.
+        Some(s) if s == crate::enums::ApiKeyStatus::Correct as i64 && !fenced(c, &t.bot)? => None,
         _ => Some(api_key_missing(&t.shown)),
     })
 }

@@ -662,3 +662,40 @@ async fn a_standalone_order_recorded_terminal_sends_no_cancel() {
     assert!(body.to_string().contains("already filled"), "{body}");
     assert!(server.received_requests().await.unwrap().iter().all(|r| r.method.as_str() != "DELETE"), "nothing sent");
 }
+
+/// #710 7a: fence the install's one trading key: its account knows fingerprint `fa`, the key's latest identity read names
+/// `fb` (`identity::fenced_sql`).
+fn fence_the_key(c: &rusqlite::Connection) {
+    let (key, user, exchange): (i64, i64, i64) = c.query_row("SELECT id, user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let account = deltabadger::identity::Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', ?3)", rusqlite::params![key, exchange, T0]).unwrap();
+    let fenced = deltabadger::identity::fenced_sql(c, "k").unwrap();
+    assert!(c.query_row(&format!("SELECT {fenced} FROM api_keys k WHERE k.id = ?1"), [key], |r| r.get::<_, bool>(0)).unwrap(), "fenced");
+}
+
+/// #710 7a §9.1 (Codex branch r1, run.rs:876 and bot_api/orders.rs:540): a key whose identity read names another account
+/// polls nothing and cancels nothing, whether from the bot page or the API by row or by exchange id: the venue could
+/// hold another wallet's order with the same id. The order waits; nothing is sent, nothing is re-read.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fenced_key_polls_and_cancels_nothing() {
+    let i = install();
+    api_client(&i.o.primary);
+    fence_the_key(&i.o.primary);
+    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [open_order(), cancelled_order()] }));
+    let mut engine = running_engine(&i, &t).await;
+    deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    assert_eq!(reads(&t), 0, "no poll through the fenced key");
+    let server = venue(204, None).await;
+    let (app, mut browser) = signed_in(&i, &server.uri()).await;
+    let name: String = i.o.primary.query_row("SELECT name FROM exchanges WHERE id = ?1", [i.s.exchange_id], |r| r.get(0)).unwrap();
+    let answer = cancel(&app, &mut browser, &format!("/bots/{}/transactions/{}", i.bot, i.open)).await;
+    assert_eq!((answer.status, answer.body), (422, flash("danger", &format!("Failed to cancel order: Invalid API key. Please check your API key settings on {name}."))));
+    let (status, body) = rest_cancel(&app, &i.open.to_string()).await;
+    assert_eq!((status, body), (502, failed("Cancel failed: the API key reads another account")));
+    let (status, body) = rest_cancel(&app, "OPEN-1?exchange_name=alpaca").await;
+    assert_eq!((status, &body["error"]["code"]), (403, &json!("api_key_missing")), "{body}");
+    assert!(server.received_requests().await.unwrap().is_empty(), "nothing sent");
+    assert!(reread_keys(&i.o).is_empty(), "nothing to re-read");
+    assert_eq!(row_state(&i.o, i.open).0, Some(1), "the order waits, open");
+}

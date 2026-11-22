@@ -310,8 +310,7 @@ impl<C: Connect> Job for LedgerSync<C> {
             let captured = version.clone();
             match cx.db.run(move |c, _| {
                 let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
-                if !crate::engine::model::credential_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))?
-                    || !crate::engine::model::account_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                if !crate::engine::model::key_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
                 crate::jobs::state::mark_incomplete(&tx, LEDGER_SYNC, Some(&key), at)?;
                 tx.commit().map_err(|e| e.to_string())?;
                 Ok(true)
@@ -432,8 +431,7 @@ impl<C: Connect> Job for BalanceSync<C> {
             let captured = version.clone();
             match cx.db.run(move |c, _| {
                 let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
-                if !crate::engine::model::credential_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))?
-                    || !crate::engine::model::account_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                if !crate::engine::model::key_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
                 crate::jobs::state::mark_incomplete(&tx, BALANCE_SYNC, Some(&key), at)?;
                 tx.commit().map_err(|e| e.to_string())?;
                 Ok(true)
@@ -579,7 +577,7 @@ impl<C:Connect> Job for Validator<C>{
         let outcome=async {
         let at=cx.clock.now();
         let (credentials,version_read)=(handle.credentials().clone(),handle.producer().clone());
-        if let Err(SyncError(e))=super::commit_bots_for_ciphered(&cx.db,&version,move|c,cipher|{
+        if let Err(SyncError(e))=super::commit_record_for(&cx.db,&version,move|c,cipher|{
             let status=crate::web::settings::keys::bound_status(c,cipher,id,status.clone(),account.as_deref(),at)?;
             crate::web::settings::keys::store_status(c,&status,id,at)?;
             if let Some(observed)=&identity{crate::identity::record(c,cipher,id,&credentials,&version_read,observed,at).map_err(SyncError)?;}

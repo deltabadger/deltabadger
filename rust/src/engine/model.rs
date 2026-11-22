@@ -812,14 +812,36 @@ impl std::ops::Deref for FencedTransaction<'_> {
     type Target=Connection;
     fn deref(&self)->&Connection { self.connection }
 }
+/// Reads of stored rows (the figures'): a fenced key's rows stay and are read (`check_credential_record`).
 pub fn fence_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
-    for version in versions { check_credential_result(tx,&Some(version.clone()))?; }
+    for version in versions { check_credential_record(tx,&Some(version.clone()))?; }
     Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
 }
+/// #710 7a: whether `version`'s key still reads its account: no identity read of it names another account than its
+/// account's (`identity::fenced_sql`). A pending slot (id 0) has no read yet.
+pub fn key_reads_its_account(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    let fenced = crate::identity::fenced_sql(c, "k")?;
+    if version.id == 0 || fenced == "0" { return Ok(true); }
+    Ok(!c.query_row(&format!("SELECT {fenced} FROM api_keys k WHERE k.id = ?1"), [version.id], |r| r.get::<_, bool>(0)).optional()?.unwrap_or(false))
+}
+/// The final check of every venue result, claim and send under `version`: the same credential, on the account it was
+/// captured on, and still reading that account (#710 7a §9.1: a key found to open another account is as changed).
+pub fn key_is_current(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    Ok(credential_is_current(c, version)? && account_is_current(c, version)? && key_reads_its_account(c, version)?)
+}
 pub fn check_credential_result<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
+    checked(c, version, true)
+}
+/// `check_credential_result` without the identity fence, for what a fenced key still writes about itself or what is
+/// already stored: its validation status and identity read, a job's run record, figures read from stored rows.
+pub fn check_credential_record<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
+    checked(c, version, false)
+}
+fn checked<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>, fence: bool) -> Result<FencedTransaction<'a>, EngineError> {
     if c.is_autocommit() { return Err(EngineError::Data("credential result check requires a write transaction".into())); }
     if let Some(version) = version {
-        if !credential_is_current(c,version)? || !account_is_current(c,version)? {
+        let current = if fence { key_is_current(c, version)? } else { credential_is_current(c, version)? && account_is_current(c, version)? };
+        if !current {
             super::log(CREDENTIALS_CHANGED);
             return Err(EngineError::CredentialsChanged);
         }
