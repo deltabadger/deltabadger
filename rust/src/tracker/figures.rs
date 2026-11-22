@@ -267,20 +267,6 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
     // Fiat and Currency are both cash, and a tokenized share tracks its company's share: one class each.
     let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), Some("Tokenized Stock") => Some("Stock".to_string()), _ => c };
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
-    // Classification (#710): a duplicate's balances are evidence of what its held assets are, though they count for no
-    // amount (`balances` leaves them out). An account's chip reads only its own exchange's duplicates.
-    let exchange = match scope { super::Scope::All => None, super::Scope::Account(a) => Some(a.exchange_id), super::Scope::EmptyLegacyExchange(id) => Some(*id) };
-    let duplicates = crate::identity::duplicate_ids(c, user_id)?;
-    if !duplicates.is_empty() {
-        let list = duplicates.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
-        let mut stmt = c.prepare(&format!("SELECT a.symbol, a.category FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
-                                           WHERE b.user_id = ?1 AND b.account_id IN ({list}) AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0"))?;
-        let held: Vec<(Option<String>, Option<String>)> = stmt.query_map(rusqlite::params![user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
-        for (symbol, category) in held {
-            let Some(symbol) = symbol else { continue };
-            if let Some(set) = classes.iter_mut().find(|(s, _)| **s == symbol.as_str()).map(|(_, set)| set) { set.insert(class(category)); }
-        }
-    }
     for (symbol, _) in pending {
         // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
         // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
@@ -288,6 +274,22 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
                                   WHERE t.user_id = ?1 AND t.base_currency = ?2")?;
         for category in stmt.query_map(rusqlite::params![user_id, symbol], |r| r.get::<_, Option<String>>(0))? {
             classes.entry(symbol).or_default().insert(class(category?));
+        }
+    }
+    // Classification (#710): a duplicate's balances are evidence of what its held assets are, though they count for no
+    // amount (`balances` leaves them out), for every symbol the figures name (a balance's or a pending movement's). An
+    // account's chip reads only its own exchange's duplicates.
+    let exchange = match scope { super::Scope::All => None, super::Scope::Account(a) => Some(a.exchange_id), super::Scope::EmptyLegacyExchange(id) => Some(*id) };
+    let duplicates = crate::identity::duplicate_ids(c, user_id)?;
+    if !duplicates.is_empty() {
+        let list = duplicates.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+        let mut stmt = c.prepare(&format!("SELECT a.symbol, a.category FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
+                                           WHERE b.user_id = ?1 AND b.account_id IN ({list}) AND (?2 IS NULL OR b.exchange_id = ?2) AND b.free + b.locked > 0"))?;
+        let held: Vec<(Option<String>, Option<String>)> = stmt.query_map(rusqlite::params![user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        let named: HashSet<&str> = balances.iter().map(|b| b.symbol.as_str()).chain(pending.iter().map(|(s, _)| s.as_str())).collect();
+        for (symbol, category) in held {
+            let Some(symbol) = symbol.as_deref().and_then(|s| named.get(s).copied()) else { continue };
+            classes.entry(symbol).or_default().insert(class(category));
         }
     }
     if classes.values().any(|categories| categories.len() > 1) {

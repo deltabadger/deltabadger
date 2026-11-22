@@ -3847,3 +3847,18 @@ fn s7_0_4_a_chips_class_evidence_reads_its_own_exchanges_duplicates() {
     assert!(figures_of(c, user, &chip, &[]).is_ok(), "{:?}", figures_of(c, user, &chip, &[]).err());
     assert!(figures_of(c, user, &deltabadger::tracker::Scope::All, &[]).is_err(), "All reads every duplicate");
 }
+
+/// 7a §0.5: on All a duplicate's balance class counts for a symbol only pending movements name: the survivor's rows
+/// record ABC as a stock, the duplicate holds the coin ABC.
+#[test]
+fn s7_0_5_a_duplicates_class_counts_for_a_pending_only_symbol() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let user = two.seeded.user_id;
+    let (stock, coin) = (abc(c, "Stock", "ABC.US"), abc(c, "Cryptocurrency", "abc-coin"));
+    let row = two.row(c, 0, 0, "ABC", "1", Some("a-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [row, stock]).unwrap();
+    holds(c, user, two.seeded.exchange_id, two.id(1), coin);
+    let pending = [("ABC".to_string(), deltabadger::figures::dec::Dec::from_i64(1))];
+    assert!(figures_of(c, user, &deltabadger::tracker::Scope::All, &pending).is_err(), "ambiguous");
+}
