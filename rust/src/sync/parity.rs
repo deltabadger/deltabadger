@@ -227,6 +227,7 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
     match answer {
         Answer::Error(error) => out["error"] = json!(error),
         Answer::Refused(reason) => out["error"] = json!(format!("Binance A12 unresolved: {reason}")),
+        Answer::ImportedElsewhere(account) => out["error"] = json!(format!("imported elsewhere: {account}")),
         Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.id).collect::<Vec<_>>()),
         Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, .. } =>
             out = json!({ "imported": imported, "duplicates": duplicates, "skipped": skipped, "unrecognised": unrecognised, "unrouted": unrouted, "error": null, "ambiguous": null }),

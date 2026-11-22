@@ -1,5 +1,6 @@
 bg:
     tracker:
         import:
+            imported_elsewhere: "Нищо не е импортирано. Редовете от този файл вече са импортирани в %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Записани с общ етикет: %{count}."

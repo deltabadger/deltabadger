@@ -1,5 +1,6 @@
 nl:
     tracker:
         import:
+            imported_elsewhere: "Niets geïmporteerd. De regels van dit bestand zijn al geïmporteerd bij %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Vastgelegd met een algemeen label: %{count}."

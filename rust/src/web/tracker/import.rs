@@ -134,6 +134,8 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
             crate::engine::log(&format!("[Binance] import refused: {reason}"));
             render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Refused(i18n::text(ctx.locale, refused_key(&reason), &[])))
         }
+        Answer::ImportedElsewhere(account) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY,
+            Body::Refused(i18n::text(ctx.locale, "tracker.import.imported_elsewhere", &[("account", i18n::Arg::Text(&account))]))),
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
         Answer::Ambiguous(keys) => {
             let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.id.to_string().into(), label: k.exchange_name.clone(), active: i == 0, href: None }).collect();

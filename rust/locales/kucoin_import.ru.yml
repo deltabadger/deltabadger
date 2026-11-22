@@ -1,5 +1,6 @@
 ru:
     tracker:
         import:
+            imported_elsewhere: "Ничего не импортировано. Строки этого файла уже импортированы в %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Записано с общей меткой: %{count}."

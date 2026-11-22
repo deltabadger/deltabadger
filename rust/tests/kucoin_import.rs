@@ -643,3 +643,18 @@ async fn s7_0_6_a_cutoff_is_its_accounts() {
     let first = key_id(&fx);
     assert!(matches!(fx.import_on(first, &overlapping_export()), run::Answer::Written { imported: 4, .. }), "account 1's cutoffs still hold there");
 }
+
+/// 7a §0.11: a file of another account imported here as a conflict (as before 7a) is never imported again: its re-upload
+/// is refused, naming the account its rows are on, and nothing changes; the conflict observation stays.
+#[test]
+fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
+    let fx = Fx::new();
+    observe(&fx, OTHER);
+    assert_eq!(fx.imported(TRADING).0, 163, "imported as a conflict, as before 7a");
+    assert_eq!(fx.standing(), Standing::Conflicted);
+    let (rows, observations) = (fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports"));
+    let again = fx.import(TRADING);
+    assert!(format!("{again:?}").starts_with("ImportedElsewhere(\"KuCoin\")"), "{again:?}");
+    assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports")), (rows, observations));
+    assert_eq!(fx.standing(), Standing::Conflicted, "the conflict is kept");
+}

@@ -1,5 +1,6 @@
 pl:
     tracker:
         import:
+            imported_elsewhere: "Nic nie zaimportowano. Wiersze tego pliku są już zaimportowane na %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Zapisane z ogólną etykietą: %{count}."

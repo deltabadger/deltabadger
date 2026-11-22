@@ -1,5 +1,6 @@
 de:
     tracker:
         import:
+            imported_elsewhere: "Nichts importiert. Die Zeilen dieser Datei sind bereits bei %{account} importiert."
             format_kucoin: "KuCoin CSV"
             generic: "Mit allgemeiner Bezeichnung erfasst: %{count}."

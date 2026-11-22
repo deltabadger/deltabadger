@@ -1283,6 +1283,18 @@ pub fn record_import_to(c: &Connection, cipher: &Cipher, user_id: i64, exchange_
     Ok(())
 }
 
+/// #710 7a: the live account of (user, exchange) that holds an import of export account `id` recorded as a conflict
+/// (the account's own fingerprint another): a file imported there before 7a, whose rows must not be imported again.
+pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, id: &AccountId, now: DateTime<Utc>) -> Result<Option<i64>, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    if !ready(c).map_err(db)? { return Ok(None); }
+    let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
+    let fingerprint = key(c, cipher, now)?.fingerprint(&exchange_type, id);
+    c.query_row("SELECT x.id FROM exchange_account_imports i JOIN exchange_accounts x ON x.id = i.account_id WHERE i.user_id = ?1 AND i.exchange_id = ?2 \
+                 AND i.fingerprint = ?3 AND x.removed_at IS NULL AND x.fingerprint IS NOT NULL AND x.fingerprint <> ?3 ORDER BY x.number LIMIT 1",
+                params![user_id, exchange_id, fingerprint], |r| r.get(0)).optional().map_err(db)
+}
+
 /// The account id of a venue-native export, read over every record before any is skipped: the first of `columns` the
 /// header row has. Ok(None) for a file with no record at all (its import answers as before). A missing column, a blank,
 /// masked or otherwise unreadable id on any record, or two different ids, is a malformed export. A line with no cells

@@ -1,5 +1,6 @@
 sk:
     tracker:
         import:
+            imported_elsewhere: "Nič sa neimportovalo. Riadky tohto súboru sú už importované na účte %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Zaznamenané so všeobecným označením: %{count}."

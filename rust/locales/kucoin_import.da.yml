@@ -1,5 +1,6 @@
 da:
     tracker:
         import:
+            imported_elsewhere: "Intet blev importeret. Rækkerne i denne fil er allerede importeret på %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Registreret med en generel betegnelse: %{count}."

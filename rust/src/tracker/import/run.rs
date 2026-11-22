@@ -32,6 +32,8 @@ pub enum Answer {
     /// The counts of the one write, with the readers' unrecognised operations and the venues no account takes.
     /// `generic`: of the imported entries, those a KuCoin file could only label generically (D-IMPORT-WARNINGS).
     Written { imported: usize, duplicates: usize, skipped: usize, unrecognised: Vec<String>, unrouted: Vec<String>, generic: usize },
+    /// #710 7a: the file's export account was imported on this account (plain label) as a conflict before; nothing written.
+    ImportedElsewhere(String),
 }
 
 /// Tracker::ImportsController#resolve_offset for a fresh upload: `None` for a format that needs no zone, else the
@@ -159,6 +161,12 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
             None if options.len() > 1 => return Ok(Answer::Ambiguous(options)),
             None => options[0].clone(),
         };
+        // An upgraded install's file of another account, imported here as a conflict before 7a, is not imported again.
+        if let Some(id) = &account_id {
+            if let Some(on) = crate::identity::imported_as_conflict(&tx, cipher, user_id, picked.exchange_id, id, now).map_err(SyncError)? {
+                return Ok(Answer::ImportedElsewhere(crate::identity::label(&tx, on)?.plain()));
+            }
+        }
         routed.push((picked, entries.into_iter().map(|(_, e)| e).collect()));
     } else {
         // `index_by(name_id)`: of two venues of one kind, the later key; #710: of the account the row's number names (an

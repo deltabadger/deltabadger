@@ -1,5 +1,6 @@
 el:
     tracker:
         import:
+            imported_elsewhere: "Δεν εισήχθη τίποτα. Οι γραμμές αυτού του αρχείου έχουν ήδη εισαχθεί στο %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Καταγράφηκαν με γενική ετικέτα: %{count}."

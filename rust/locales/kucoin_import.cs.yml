@@ -1,5 +1,6 @@
 cs:
     tracker:
         import:
+            imported_elsewhere: "Nic se neimportovalo. Řádky tohoto souboru už jsou importované na účtu %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Zaznamenáno s obecným označením: %{count}."

@@ -1,5 +1,6 @@
 sv:
     tracker:
         import:
+            imported_elsewhere: "Inget importerades. Raderna i den här filen är redan importerade till %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Registrerade med en allmän etikett: %{count}."

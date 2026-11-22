@@ -1,5 +1,6 @@
 en:
     tracker:
         import:
+            imported_elsewhere: "Nothing imported. This file's rows are already imported on %{account}."
             format_kucoin: "KuCoin CSV"
             generic: "Recorded with a generic label: %{count}."
