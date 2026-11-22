@@ -768,6 +768,95 @@ async fn a_signal_start_from_another_tab_makes_no_bot() {
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM bots"), bots, "no bot");
 }
 
+/// §2: a signal Start whose picked account was removed meanwhile (another tab) makes no bot at all, never one on account 1.
+#[tokio::test(flavor = "current_thread")]
+async fn a_signal_start_for_a_removed_account_makes_no_bot() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    let (exchange, btc, quote) = (s.exchange_id.to_string(), s.btc.to_string(), s.quote.to_string());
+    b.get(&app, "/bots/new").await;
+    b.send(&app, "POST", "/bots/signals/pick_buyable_asset", Some(&[("bots_signal[base_asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    let pick = format!("/bots/signals/pick_exchange?account_id={}", accounts[1]);
+    assert_eq!(b.send(&app, "POST", &pick, Some(&[("bots_signal[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(b.get(&app, "/bots/signals/add_api_key/new").await.status, 302);
+    b.send(&app, "POST", "/bots/signals/pick_spendable_asset", Some(&[("bots_signal[quote_asset_id]", quote.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(b.get(&app, "/bots/signals/confirm_settings/new").await.status, 200);
+    c.execute("UPDATE exchange_accounts SET removed_at = '2026-09-20 12:00:00' WHERE id = ?1", [accounts[1]]).unwrap();
+    let bots: i64 = one(c, "SELECT count(*) FROM bots");
+    let stale = b.send(&app, "POST", &format!("/bots/signals?exchange_id={exchange}&account_id={}", accounts[1]), Some(&[]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 409, "{}", stale.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM bots"), bots, "no bot, on account 1 least of all");
+}
+
+/// §2, two tabs: the DCA quote step's form names its pick; posted after another tab picked account 1, it makes no bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_dca_quote_form_from_another_tab_makes_no_bot() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    let (exchange, btc, quote) = (s.exchange_id.to_string(), s.btc.to_string(), s.quote.to_string());
+    let pick = |account: i64| format!("/bots/dca_single_assets/pick_exchange?account_id={account}");
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", &pick(accounts[1]), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(b.get(&app, "/bots/dca_single_assets/add_api_key/new").await.status, 302);
+    b.send(&app, "POST", "/bots/dca_single_assets/pick_buyable_asset", Some(&[("bots_dca_single_asset[base_asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    let step = b.get(&app, "/bots/dca_multi_assets/pick_spendable_asset/new").await;
+    let action = format!("/bots/dca_multi_assets/pick_spendable_asset?exchange_id={exchange}&account_id={}", accounts[1]);
+    assert!(links(&step.body, "/bots/dca_multi_assets/pick_spendable_asset?").contains(&action), "the form names its pick: {}", step.body);
+    // Tab B picks account 1.
+    assert_eq!(b.send(&app, "POST", &pick(accounts[0]), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let bots: i64 = one(c, "SELECT count(*) FROM bots");
+    let stale = b.send(&app, "POST", &action, Some(&[("bots_dca_multi_asset[quote_asset_id]", quote.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 409, "{}", stale.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM bots"), bots, "no bot");
+}
+
+/// §2, two tabs: the withdrawal wizard's key form names its pick (a venue tile here); posted after another tab picked account
+/// 2's tile, it saves nothing into account 2's slot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_withdrawal_key_form_from_another_tab_saves_nothing() {
+    let (_d, o, s, second, _server, app) = gemini_two_accounts().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, s.user_id);
+    let (exchange, btc) = (s.exchange_id.to_string(), s.btc.to_string());
+    b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/rules/withdrawals/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    let form = b.get(&app, "/rules/withdrawals/add_api_key/new").await;
+    let action = format!("/rules/withdrawals/add_api_key?exchange_id={exchange}&untargeted=1");
+    assert!(links(&form.body, "/rules/withdrawals/add_api_key?").contains(&action), "the form names its pick: {}", form.body);
+    // Tab B picks account 2's Connected tile.
+    assert_eq!(b.send(&app, "POST", &format!("/rules/withdrawals/pick_exchange?account_id={second}"), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str())]),
+                      common::web::Csrf::Header, &[]).await.status, 302);
+    let before = keys(c, &cipher, s.exchange_id);
+    let stale = b.send(&app, "POST", &action, Some(&[("api_key[key]", "fresh-key"), ("api_key[secret]", "fresh-secret")]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 409, "{}", stale.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), before, "nothing saved");
+}
+
+/// A failed identity read in the bot wizard's key step says so in the user's words, never as an internal code.
+#[tokio::test(flavor = "current_thread")]
+async fn the_wizard_key_step_names_a_failed_identity_read_in_words() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, user);
+    let e = exchange.to_string();
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let form = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(form.status, 200, "{}", location(&form));
+    let answer = b.send(&app, "POST", &format!("/bots/dca_single_assets/add_api_key?exchange_id={e}&untargeted=1"), Some(&kucoin_fields("key-fail")), common::web::Csrf::Header, &[]).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to") && !answer.body.contains("identity_unconfirmed"), "{}", answer.body);
+}
+
 // ---- §3: an import goes to the file's account ----
 
 const BINANCE_NAME: &str = "Binance-Transaction-History-202609190000(UTC+0)-part1-of1.csv";

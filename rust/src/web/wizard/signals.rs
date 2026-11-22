@@ -407,7 +407,7 @@ pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx
 // The save: Bots::SignalsController#create (Bots::Wizard::CreatesController).
 
 /// What the save came to.
-enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str) }
+enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str), Stale }
 
 /// POST /bots/signals: the bot built from the session with its rules (the default one when the session has none) is saved, each
 /// rule with a token of its own, and started. A rule 2.x would not save refuses the whole save (422, nothing written); a start
@@ -438,7 +438,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             saved.push(signal_write::NewRule { sell: rule.sell, percentage: rule.percentage, amount, enabled: rule.enabled });
         }
         let settings = dig(config, &["settings"]).cloned().unwrap_or_else(|| json!({}));
-        let account = super::account(&tx, user.id, config)?.filter(|a| a.id.is_some());
+        let Ok(account) = super::bot_account(&tx, user.id, config)? else { return Ok(Saved::Stale) };
+        let account = account.filter(|a| a.id.is_some());
         let id = signal_write::insert_created(&tx, user.id, exchange, account, &settings, None, &saved, view.locale, view.now)?;
         let started = signal_write::start_created(&tx, &view, user.id, id)?;
         // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
@@ -478,6 +479,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         }
         Saved::Unported => Ok(layout::not_ported_for(&ctx)),
         Saved::Unservable(reason) => Ok(layout::refused(&ctx, reason)),
+        Saved::Stale => Ok(super::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(CONFIRM_NEW)))),
     }
 }
 

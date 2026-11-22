@@ -341,6 +341,15 @@ pub fn account(c: &Connection, user: i64, config: Option<&Value>) -> rusqlite::R
     }
 }
 
+/// The session named an account that is no longer a live account of this user and exchange (`bot_account`).
+pub struct Gone;
+/// `account` for the step that makes the bot (#710 7a §2): Err(Gone) when the session's pick was removed or merged since
+/// (another tab): the form is stale, and the bot never falls to number 1.
+pub fn bot_account(c: &Connection, user: i64, config: Option<&Value>) -> rusqlite::Result<Result<Option<crate::identity::Account>, Gone>> {
+    let account = account(c, user, config)?;
+    Ok(if account.is_none() && exchange_id(config).is_some() { Err(Gone) } else { Ok(account) })
+}
+
 /// Bots::DcaMultiAsset#base_asset_ids of a basket built from the session: `Array(settings['base_asset_ids']).map(&:to_i)`.
 pub fn basket_ids(config: Option<&Value>) -> Vec<i64> {
     array(dig(config, BASE_IDS_KEY)).iter().map(to_i).collect()

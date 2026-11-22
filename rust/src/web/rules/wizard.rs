@@ -49,6 +49,15 @@ struct Preview<'a> {
 fn to(ctx: &Ctx, step: &str) -> Response {
     layout::redirect(StatusCode::FOUND, &ctx.path(&format!("{BASE}/{step}/new")))
 }
+/// What the key form's action adds to say which pick it rendered (#710 7a §2): `&account_id=N`, `&untargeted=1`, or nothing
+/// for a 2.x session (no pick kept), whose form stays as it was.
+fn bound(conf: &Value) -> String {
+    match conf["account_id"].as_i64() {
+        Some(account) => format!("&account_id={account}"),
+        None if crate::web::wizard::untargeted(Some(conf)) => "&untargeted=1".into(),
+        None => String::new(),
+    }
+}
 fn config(ctx: &Ctx) -> Value {
     ctx.session
         .lock()
@@ -227,10 +236,10 @@ async fn key_card(
     exchange: &crate::web::wizard::keys::Venue,
     error: Option<String>,
 ) -> Result<String, WebError> {
-    let (inner, v, e) = (app.clone(), ctx.clone(), exchange.clone());
+    let (inner, v, e, pick) = (app.clone(), ctx.clone(), exchange.clone(), bound(&config(ctx)));
     app.db(move|c|{
         let instructions=keys::key_instructions(c,&inner,&v,&e.class,&e.name,1)?;
-        keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}",e.id)),
+        keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}{pick}",e.id)),
             keys::SHEET_FORM,&e.name,&e.class,false,instructions,error.as_deref(),Some(v.path(&format!("{BASE}/pick_exchange/new"))))
     }).await
 }
@@ -274,6 +283,11 @@ async fn keys(
         .await?;
     let Some(key) = key else { return Ok(to(ctx, "pick_exchange")) };
     if ctx.method == axum::http::Method::POST {
+        // #710 7a §2: a key form rendered for another pick than the session's now (two tabs) saves nothing.
+        let posted = ["account_id", "untargeted"].iter().filter_map(|n| ctx.params.query(n).map(|v| format!("&{n}={v}"))).collect::<String>();
+        if posted != bound(&config(ctx)) {
+            return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/add_api_key/new")))));
+        }
         if !ctx
             .params
             .form
@@ -315,11 +329,7 @@ async fn keys(
                 forbidden,
             ),
             keys::Submitted::Failed => ctx.t("errors.api_key_permission_validation_failed"),
-            keys::Submitted::Refused(reason) => i18n::text(
-                ctx.locale,
-                "engine.write_refused",
-                &[("reason", Arg::Text(reason))],
-            ),
+            keys::Submitted::Refused(reason) => keys::refusal_text(ctx, reason),
         };
         // D-RULES-SHEET: the reason under the card's fields, in the sheet's frame.
         let rule = temporary(app, ctx, config(ctx)).await?;
