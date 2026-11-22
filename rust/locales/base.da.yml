@@ -561,7 +561,8 @@ da:
             missing_anywhere: "Ingen markedspris for %{assets}."
             chart_missing: "Diagrammet viser ikke markedsværdien af %{assets} på %{venue} på dage uden pris."
             chart_incomplete: "Nogle dage i diagrammet er ufuldstændige."
-            connect_coingecko: "Forbind en gratis CoinGecko-konto for at få markedspriser."
+            connect_market_data: "Forbind en markedsdataudbyder for at få markedspriser."
+            providers_intro: "Porteføljesporing og skatterapporter kræver historiske priser og valutakurser. Forbind Deltabadgers data-API (aktier og krypto) eller en gratis CoinGecko-konto (kun krypto)."
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'
         importing_from: 'Importerer data fra %{exchange}…'

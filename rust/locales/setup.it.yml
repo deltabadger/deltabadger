@@ -33,6 +33,7 @@ it:
                 spendable: "Valuta"
                 api: "Connetti exchange"
                 connect: "Connetti"
+                market_data: "Dati di mercato"
                 coingecko: "Connetti CoinGecko"
                 index: "Scegli indice"
                 pick_asset: "Scegli asset"

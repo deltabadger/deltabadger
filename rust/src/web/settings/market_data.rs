@@ -174,11 +174,16 @@ async fn update(app: App, ctx: Ctx, stream_wanted: bool) -> Result<Response, Web
     widget_and_flash(&ctx, &widget, notice)
 }
 
-/// D-INDEX-CONNECT-IN-VIEW: a write from the index wizard's Index view (`wizard=1`).
-pub(super) fn in_wizard(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("1") }
+/// D-INDEX-CONNECT-IN-VIEW: a write from the index wizard's Index view (`wizard=1`) or the tracker's sheet (`wizard=tracker`).
+pub(super) fn in_wizard(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("1") || from_tracker(ctx) }
 
-/// The write that connected market data from the Index view goes on to it, inside the sheet.
-pub(super) fn to_index_view(ctx: &Ctx) -> Response { stream(turbo::redirect(&ctx.path(crate::web::wizard::INDEX_VIEW))) }
+/// D-TRACKER-MARKET-DATA-PICK: the tracker's sheet drew the card, or its write posted from there.
+pub(super) fn from_tracker(ctx: &Ctx) -> bool { ctx.params.form("wizard") == Some("tracker") || ctx.params.route_path.starts_with("/tracker") }
+
+/// The write that connected market data from the Index view goes on to it, inside the sheet; from the tracker, to the tracker.
+pub(super) fn to_index_view(ctx: &Ctx) -> Response {
+    stream(turbo::redirect(&ctx.path(if from_tracker(ctx) { "/tracker" } else { crate::web::wizard::INDEX_VIEW })))
+}
 
 /// D-CG-DISCONNECT-KEEPS-PLATFORM: the provider and the key, not a claimed platform's `market_data_url`/`_token`
 /// (2.x's clear_market_data_settings! drops them too).

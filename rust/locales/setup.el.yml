@@ -33,6 +33,7 @@ el:
                 spendable: "Νόμισμα"
                 api: "Σύνδεση ανταλλακτηρίου"
                 connect: "Σύνδεση"
+                market_data: "Δεδομένα αγοράς"
                 coingecko: "Σύνδεση CoinGecko"
                 index: "Επιλογή δείκτη"
                 pick_asset: "Επιλογή asset"

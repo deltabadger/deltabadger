@@ -33,6 +33,7 @@ pl:
                 spendable: "Waluta"
                 api: "Połącz giełdę"
                 connect: "Połącz"
+                market_data: "Dane rynkowe"
                 coingecko: "Połącz CoinGecko"
                 index: "Wybierz indeks"
                 pick_asset: "Wybierz aktywo"

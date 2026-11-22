@@ -33,6 +33,7 @@ da:
                 spendable: "Valuta"
                 api: "Forbind børs"
                 connect: "Forbind"
+                market_data: "Markedsdata"
                 coingecko: "Forbind CoinGecko"
                 index: "Vælg indeks"
                 pick_asset: "Vælg aktiv"

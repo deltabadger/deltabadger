@@ -559,7 +559,8 @@ fr:
             missing_anywhere: "Aucun prix de marché pour %{assets}."
             chart_missing: "Le graphique n'affiche pas la valeur de marché de %{assets} sur %{venue} les jours sans prix."
             chart_incomplete: "Certains jours du graphique sont incomplets."
-            connect_coingecko: "Connectez un compte CoinGecko gratuit pour obtenir les prix du marché."
+            connect_market_data: "Connectez un fournisseur de données de marché pour obtenir les prix du marché."
+            providers_intro: "Le suivi du portefeuille et les rapports fiscaux ont besoin des prix historiques et des taux de change. Connectez l'API de données Deltabadger (actions et crypto) ou un compte CoinGecko gratuit (crypto uniquement)."
         sync: 'Synchroniser'
         sync_started: 'Synchronisation des transactions depuis vos plateformes...'
         importing_from: 'Importation des données depuis %{exchange}…'
