@@ -36,12 +36,16 @@ pub fn produced_by(c: &Connection, account: &AccountRow, version: &CredentialVer
 /// The key an account's balances are synced with: trading before read-only, never withdrawal.
 pub fn reading_key(c: &Connection, account: &AccountRow) -> Result<Option<i64>, EngineError> {
     // The scheduler's pick (sync::reading_keys_of): a trading key unless its last sync lacked a permission, then read-only.
-    let mut s = c.prepare(&format!("SELECT k.id, k.key_type, e.type, k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-                           WHERE k.status=1 AND k.key_type!=1 AND {} ORDER BY k.id", account.keys("k")))?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?.unwrap_or_default(), r.get::<_, Option<String>>(3)?)))?
+    // #710 7a rule R4: among the keys that can sync first (the scheduler syncs no fenced key), as the ledger watermark
+    // orders them (`ReadOrigin::ledger_is_current`); a fenced one only when no other can.
+    let mut s = c.prepare(&format!("SELECT k.id, k.key_type, e.type, k.last_sync_error, {} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+                           WHERE k.status=1 AND k.key_type!=1 AND {} ORDER BY k.id", crate::identity::fenced_sql(c, "k")?, account.keys("k")))?;
+    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?.unwrap_or_default(), r.get::<_, Option<String>>(3)?, r.get::<_, bool>(4)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows.iter().find(|r| r.1 == 0 && !crate::tracker::import::run::missing_permission(&r.2, r.3.as_deref()))
-        .or_else(|| rows.iter().find(|r| r.1 == 2)).or_else(|| rows.first()).map(|r| r.0))
+    let pick = |fenced: bool| { let rows: Vec<_> = rows.iter().filter(|r| r.4 == fenced).collect();
+        rows.iter().find(|r| r.1 == 0 && !crate::tracker::import::run::missing_permission(&r.2, r.3.as_deref()))
+            .or_else(|| rows.iter().find(|r| r.1 == 2)).or_else(|| rows.first()).map(|r| r.0) };
+    Ok(pick(false).or_else(|| pick(true)))
 }
 /// When account `a`'s stored balances were read, if its current reading key read them completely at its current credential
 /// version (#710: one of the signals that two accounts are one). None otherwise.

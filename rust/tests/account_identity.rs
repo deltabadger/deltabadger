@@ -1303,3 +1303,22 @@ fn s7a_r3_every_rust_owned_table_naming_an_account_keeps_it() {
         assert!(identity::named(&fx.c, account).unwrap(), "{table}: its row names the account");
     }
 }
+
+/// Rule R4 (Codex branch r3, cache.rs:39, shell.rs:62): balance freshness asks the key that can sync, as the ledger
+/// watermark does (one selector, `cache::reading_key`). The trading key is found to open another account; the read-only key
+/// reads the balances completely: they are fresh, and the shell keeps the portfolio ring.
+#[test]
+fn s7a_r4_balance_freshness_reads_the_key_that_can_sync() {
+    use deltabadger::{engine::model, sync::cache, tracker::Scope};
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    fx.observe(trading, read(B));
+    assert!(deltabadger::sync::balance_reading_keys(&fx.c).unwrap().contains(&read_only), "the read-only key syncs");
+    let version = fx.version(read_only);
+    let tx = fx.c.unchecked_transaction().unwrap();
+    cache::record(&model::fence_versions(&tx, &[version]).unwrap(), fx.user, fx.exchange(KUCOIN), &fx.version(read_only), true, now()).unwrap();
+    tx.commit().unwrap();
+    assert!(!cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "the read-only key's complete read is current");
+}
+
