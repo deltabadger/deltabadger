@@ -1,0 +1,17 @@
+sk:
+    tracker:
+        duplicate_account_html: "%{duplicate} je ten istý účet na burze ako %{survivor}, preto sa nezapočítava do tvojich súčtov."
+        merge_in_settings: "Zlúčiť v Nastaveniach"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} je ten istý účet na burze ako %{survivor}."
+            merge: "Zlúčiť"
+            confirm_merge_html: "Zlúčiť %{duplicate} do %{survivor}? Kľúče, boty, pravidlá, príkazy a história prejdú na %{survivor} a %{duplicate} sa odstráni. Nedá sa to vrátiť späť."
+            merged_html: "%{duplicate} bol zlúčený do %{survivor}."
+            merge_in_flight_html: "Príkaz alebo výber na %{duplicate} alebo %{survivor} ešte prebieha. Skús to znova, keď sa dokončí."
+            merge_conflict_html: "%{duplicate} a %{survivor} sa v týchto záznamoch líšia, preto sa nič nezmenilo: %{rows}. Zosúlaď ich a zlúč znova."
+            merge_checking_html: "Deltabadger znova načítava %{duplicate} a %{survivor}, aby si overil, že ide o ten istý účet. Skús to znova o minútu."
+            merge_withdrawal_key_html: "Po zlúčení by tieto pravidlá na výbery používali iný kľúč na výbery: %{rules}. Odstráň kľúč na výbery pri %{duplicate} alebo %{survivor}, zlúč účty a potom ho pridaj znova."
+            merge_foreign_order: "príkaz, ktorý je už na tejto burze zaznamenaný"
+            merge_order_unchecked_html: "Príkaz na %{account} bol zadaný skorším kľúčom, takže ho Deltabadger nemôže overiť tým súčasným: %{rows}. Ulož znova kľúč, ktorým bol zadaný, a potom účty zlúč."
+            merge_unreadable_html: "%{account} nemá žiadny funkčný kľúč, ktorý by čítal jeho zostatky, takže ho Deltabadger nemôže overiť. Oprav alebo pridaj kľúč a potom účty zlúč znova."

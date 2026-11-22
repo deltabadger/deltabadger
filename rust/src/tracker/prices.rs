@@ -165,6 +165,7 @@ impl Reference {
 
     /// `record_assets`' `@recorded_coins`: every name the user's rows recorded a coin under, filtered or not.
     pub fn record_coins(&mut self, c: &Connection, user_id: i64) -> Result<(), FiguresError> {
+        // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
         let mut s = c.prepare("SELECT DISTINCT t.base_currency FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
                                WHERE t.user_id = ?1 AND a.category = 'Cryptocurrency'")?;
         let mut q = s.query([user_id])?;
@@ -265,6 +266,7 @@ pub fn row_price_key(c: &Connection, owner: i64, exchange_id: i64, venue_type: &
     };
     let mut candidates = match own {
         Some(id) => read("SELECT id, external_id, category FROM assets WHERE id = ?1", rusqlite::params![id])?,
+        // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
         None => read("SELECT a.id, a.external_id, a.category FROM assets a WHERE a.id IN (SELECT base_asset_id FROM account_transactions \
                       WHERE user_id = ?1 AND exchange_id = ?2 AND base_currency = ?3) ORDER BY a.id", rusqlite::params![owner, exchange_id, symbol])?,
     };

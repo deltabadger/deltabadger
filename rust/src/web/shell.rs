@@ -42,9 +42,10 @@ impl Shell {
         // without cash unless the user's tracker shows it.
         let tracker_settings: Option<String> = c.query_row("SELECT tracker_settings FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let show_cash = bots::show_cash(tracker_settings.as_deref());
-        let mut priced = c.prepare("SELECT assets.symbol, assets.color, SUM(exchange_account_balances.usd_value) FROM exchange_account_balances JOIN assets ON assets.id = exchange_account_balances.asset_id \
-                                    WHERE exchange_account_balances.user_id = ?1 AND exchange_account_balances.usd_value IS NOT NULL AND exchange_account_balances.usd_value > 0 \
-                                    GROUP BY assets.symbol, assets.color")?;
+        // #710: a duplicate account's balances are its survivor's, counted once.
+        let mut priced = c.prepare(&format!("SELECT assets.symbol, assets.color, SUM(exchange_account_balances.usd_value) FROM exchange_account_balances JOIN assets ON assets.id = exchange_account_balances.asset_id \
+                                    WHERE exchange_account_balances.user_id = ?1 AND exchange_account_balances.usd_value IS NOT NULL AND exchange_account_balances.usd_value > 0 AND {} \
+                                    GROUP BY assets.symbol, assets.color", crate::identity::counted(c, user.id, "exchange_account_balances.account_id")?))?;
         let mut values = vec![];
         let mut rows = priced.query([user.id])?;
         while let Some(row) = rows.next()? {

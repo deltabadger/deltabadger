@@ -854,7 +854,10 @@ fn settings_as_read(scenario: &Value, v2: &mut Value, rust: &mut Value) {
 fn without_identity_record(mut rows: Value) -> Value {
     if let Some(tables) = rows.as_object_mut() {
         for table in deltabadger::identity::TABLES { tables.remove(table); }
-        if let Some(Value::Array(configs)) = tables.get_mut("app_configs") { configs.retain(|row| row["key"] != deltabadger::identity::KEY_CONFIG); }
+        // #710: when a key's credential was replaced (identity::credential_changed_key) is the identity record's too.
+        if let Some(Value::Array(configs)) = tables.get_mut("app_configs") {
+            configs.retain(|row| row["key"] != deltabadger::identity::KEY_CONFIG && !row["key"].as_str().is_some_and(|k| k.starts_with("rust_key_credential_changed:")));
+        }
     }
     rows
 }

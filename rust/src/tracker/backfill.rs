@@ -41,10 +41,35 @@ pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chron
 
 /// `PortfolioSnapshot.history_version`: what a stored history was swept from (every row, today's included).
 pub fn history_version(c: &Connection, user_id: i64) -> Result<String, FiguresError> {
-    let (count, latest): (i64, Option<String>) = c.query_row("SELECT count(*), max(updated_at) FROM account_transactions WHERE user_id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    // A duplicate account's rows (#710, PLAN-710-6 §5.2) count for nothing: its activity alone moves no version.
+    let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
+    let (count, latest): (i64, Option<String>) = c.query_row(&format!("SELECT count(*), max(t.updated_at) FROM account_transactions t WHERE t.user_id = ?1 AND {counted}"), [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     let latest = latest.map(|t| crate::codec::parse_time(&t).map(|t| t.format("%Y-%m-%dT%H:%M:%S%.6fZ").to_string()))
         .transpose().map_err(|e| FiguresError::Data(format!("{e:?}")))?;
-    Ok(format!("{HISTORY_VERSION}_{count}_{}", latest.unwrap_or_default()))
+    // Classification reads every row, a duplicate's included: with a duplicate, its rows' count and latest change too, so
+    // new class evidence sweeps again (none with no duplicate: the version is 2.x's then).
+    let suffix = standing_suffix(c, user_id)?;
+    let evidence = if suffix.is_empty() { String::new() } else {
+        let (all, newest): (i64, Option<String>) = c.query_row("SELECT count(*), max(updated_at) FROM account_transactions WHERE user_id = ?1", [user_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        format!("_c{all}_{}", newest.unwrap_or_default())
+    };
+    Ok(format!("{HISTORY_VERSION}_{count}_{}{evidence}{suffix}", latest.unwrap_or_default()))
+}
+
+/// #710 (PLAN-710-6 §5.2): the duplicate standing a history was swept under, `_d<duplicate>:<survivor>,…` by duplicate;
+/// empty with no duplicate, so a version is byte-identical to 2.x's then. Any change of standing changes the version.
+fn standing_suffix(c: &Connection, user_id: i64) -> Result<String, FiguresError> {
+    let pairs = crate::identity::duplicates(c, user_id)?;
+    if pairs.is_empty() { return Ok(String::new()); }
+    Ok(format!("_d{}", pairs.iter().map(|(d, s)| format!("{d}:{s}")).collect::<Vec<_>>().join(",")))
+}
+/// The standing part of a history version (`standing_suffix`).
+fn standing_of(version: &str) -> &str { version.find("_d").map_or("", |at| &version[at..]) }
+/// Whether `version` was read under another standing than the stored history's. None stored: a change when it is read
+/// under any duplicate standing (points written before the first sweep counted the duplicate), none without one.
+pub fn standing_changed(c: &Connection, cipher: &Cipher, user_id: i64, version: &str) -> Result<bool, FiguresError> {
+    let stored = crate::app_config::get(c, cipher, &history_key(user_id)).map_err(FiguresError::Data)?;
+    Ok(match stored { Some(stored) => standing_of(&stored) != standing_of(version), None => !standing_of(version).is_empty() })
 }
 
 /// `HistoricalPrice.generation`.
@@ -70,10 +95,12 @@ pub fn wanted(c: &Connection, cipher: &Cipher, user_id: i64, today: NaiveDate) -
     };
     // (scope, its first transaction): the whole portfolio, then each account with rows (#710 slice 5; a number 1 with no
     // row yet, minus its exchange id, has no stored day and is wanted until a sweep makes its row).
-    let mut scopes: Vec<(Option<i64>, Option<NaiveDate>)> =
-        vec![(None, date(c.query_row("SELECT min(transacted_at) FROM account_transactions WHERE user_id = ?1", [user_id], |r| r.get(0))?)?)];
+    // A duplicate account's rows (#710, PLAN-710-6 §5.2) are counted nowhere: no scope of its own, none in the whole one's.
     let any = crate::venue_ids::Scope::install(c)?;
-    let mut s = c.prepare(&format!("SELECT COALESCE({}, -t.exchange_id) AS a, min(t.transacted_at) FROM account_transactions t WHERE t.user_id = ?1 GROUP BY a ORDER BY a",
+    let counted = crate::identity::counted(c, user_id, &any.member_sql("t"))?;
+    let mut scopes: Vec<(Option<i64>, Option<NaiveDate>)> =
+        vec![(None, date(c.query_row(&format!("SELECT min(t.transacted_at) FROM account_transactions t WHERE t.user_id = ?1 AND {counted}"), [user_id], |r| r.get(0))?)?)];
+    let mut s = c.prepare(&format!("SELECT COALESCE({}, -t.exchange_id) AS a, min(t.transacted_at) FROM account_transactions t WHERE t.user_id = ?1 AND {counted} GROUP BY a ORDER BY a",
                                    any.row_account("t")))?;
     for account in s.query_map([user_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))? { let (id, first) = account?; scopes.push((Some(id), date(first)?)); }
     // `stale_prices?`: a partial whole-account day a sweep can reach.
@@ -122,6 +149,7 @@ fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Res
         }
         Ok(out)
     };
+    // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
     let mut candidates = read("SELECT a.id, a.category, a.external_id FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
                                WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.base_currency = ?3 ORDER BY t.id", rusqlite::params![user_id, venue.id, symbol])?;
     if candidates.is_empty() {

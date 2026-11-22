@@ -387,9 +387,16 @@ fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
 }
 
 /// Every row of the user, borrowed wallets' included, by instant then id (`by_date_asc`). Each row a step of the open
-/// budget scope, and the sort n log n.
+/// budget scope, and the sort n log n. A duplicate account's rows repeat its survivor's and are left out (#710,
+/// PLAN-710-6 §5.2); a duplicate is numbered 2+, so only a membership row names one.
 pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> {
-    let mut rows = read(c, "t.user_id = ?1", rusqlite::params![user_id])?;
+    let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
+    let mut rows = read(c, &format!("t.user_id = ?1 AND {counted}"), rusqlite::params![user_id])?;
+    // A row linked to a duplicate's row (left out above) reads unlinked: its partner is not in the walk.
+    if counted != "1" {
+        let ids: std::collections::HashSet<i64> = rows.iter().map(|r| r.id).collect();
+        for r in rows.iter_mut().filter(|r| r.linked_to.is_some_and(|l| !ids.contains(&l))) { r.linked_to = None; r.to_venue = None; r.to_exchange_id = None; r.to_account = None; }
+    }
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
     rows.sort_by_key(|r| (r.at.0, r.id));
     place_cfees(&mut rows)?;

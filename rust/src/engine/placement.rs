@@ -115,8 +115,9 @@ pub fn placed_account(c: &Connection, bot: &model::Bot, v: &Value) -> Result<Opt
 }
 
 /// #710: whether key `v` belongs to bot `bot_id`'s account now.
+/// The key is the bot's account's, and still the account it was captured on (#710 Merge moves both together).
 fn key_is_bots(c: &Connection, v: &model::CredentialVersion, bot_id: i64) -> Result<bool, EngineError> {
-    Ok(crate::identity::account_of_key(c, v.id)? == crate::identity::account_of_bot(c, bot_id)?)
+    Ok(crate::identity::account_of_key(c, v.id)? == crate::identity::account_of_bot(c, bot_id)? && model::account_is_current(c, v)?)
 }
 
 pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {

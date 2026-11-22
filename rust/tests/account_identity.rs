@@ -893,6 +893,11 @@ const MEMBERSHIP_DELETES: &[(&str, &str, &str)] = &[
     ("src/web/settings/keys.rs", "DELETE FROM api_keys", "delete: one key, then forget"),
     ("src/engine/rules.rs", "DELETE FROM exchange_account_rules", "refill: number-1 rules 2.x deleted; accounts 2+ are never touched"),
     ("src/engine/api_orders.rs", "DELETE FROM rust_api_order_standalone", "forget, orphans: the order's own row, its account inside it"),
+    // #710 Merge (PLAN-710-6 §6.2): the duplicate's subjects move to its survivor or go, in one transaction.
+    ("src/merge.rs", "DELETE FROM api_keys", "remove_key: a key of the duplicate the survivor's of its type replaces"),
+    ("src/merge.rs", "DELETE FROM exchange_account_keys", "move_key, remove_key: the moved key's row (written again for a survivor 2+), the removed key's"),
+    ("src/merge.rs", "DELETE FROM exchange_account_rules", "the staged swap: the survivor's deleted rule, inserted again under the duplicate with its id"),
+    ("src/venue_ids.rs", "DELETE FROM exchange_account_transactions", "move_orders: the duplicate's orders into a number 1, which takes their ids in 2.x's column"),
 ];
 
 #[test]
@@ -1030,4 +1035,25 @@ fn the_ownership_migration_keeps_every_rule_and_scopes_ids_it_cannot_place_by_ex
     assert_eq!(ids, [(Some(number_1), 5, "R".into()), (None, 7, "V".into()), (None, 8, "V".into())]);
     // Still unique per exchange where the account is unknown.
     assert!(c.execute("INSERT INTO rust_withdrawal_ids (account_id, exchange_id, venue_id, owner, settled_at, source) VALUES (NULL, 7, 'V', 'x', 'now', 'rust')", []).is_err());
+}
+
+/// #710 review r2 (D): a venue's own export routed to account 2's key fingerprints account 2, never the lowest live account.
+#[test]
+fn a_native_export_fingerprints_the_account_its_key_belongs_to() {
+    let fx = Fx::new();
+    let first = fx.key(BINANCE, 0, "bn-a");
+    let exchange = fx.exchange(BINANCE);
+    let lock = deltabadger::lease::lock(&deltabadger::store::Paths::from_env(&|_| None, fx.dir.path()), now()).unwrap();
+    deltabadger::lease::claim(&lock, &fx.c, &fx.cipher, "test", now()).unwrap();
+    deltabadger::identity::Account::of_key(&fx.c, first).unwrap().unwrap().ensure(&fx.c, now()).unwrap();
+    fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [fx.user, exchange]).unwrap();
+    let second_account = fx.c.last_insert_rowid();
+    let second = fx.key(BINANCE, 0, "bn-b");
+    fx.c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [second, second_account]).unwrap();
+    let text = fixture()["binance_export"].as_str().unwrap().to_string();
+    let answer = run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), Some(&second.to_string()), now()).unwrap();
+    assert!(matches!(answer, run::Answer::Written { .. }), "{answer:?}");
+    let print = |id: i64| -> Option<String> { fx.c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
+    let first_account = deltabadger::identity::account_of_key(&fx.c, first).unwrap().unwrap();
+    assert_eq!((print(first_account).is_some(), print(second_account).is_some()), (false, true), "the file's account is its key's");
 }

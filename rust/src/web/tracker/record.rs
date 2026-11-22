@@ -256,7 +256,8 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option
     // `filtered_transactions.by_date`: the window narrows this table (and its Type filter) only, before the limit.
     let zone = super::window::zone(ctx);
     let window = super::window::read(ctx, zone).map_err(|_| invalid())?;
-    let mut sql = format!("SELECT id FROM account_transactions WHERE user_id=?1 AND {}", scope.rows("account_transactions"));
+    // #710: a duplicate account's rows are its survivor's, listed once.
+    let mut sql = format!("SELECT id FROM account_transactions WHERE user_id=?1 AND {} AND {}", scope.rows("account_transactions"), crate::identity::counted(c, owner, &crate::venue_ids::Scope::install(c)?.member_sql("account_transactions"))?);
     let mut binds = vec![rusqlite::types::Value::Integer(owner)];
     window.push(&mut sql, &mut binds);
     sql.push_str(&format!(" ORDER BY transacted_at DESC{}", if all { String::new() } else { format!(" LIMIT {ROW_LIMIT}") }));

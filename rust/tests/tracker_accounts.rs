@@ -444,3 +444,28 @@ fn a_stand_ins_balances_are_its_owners_only() {
     let b_scope = Scope::of_exchange(c, b, Some(s.exchange_id)).unwrap();
     assert!(page::cold(c, b, &b_scope, true).unwrap().holdings.is_empty(), "B's scope holds none of A's balances");
 }
+
+/// #710 R16 #3: an unnamed Kraken debt is a skipped holding (its sign kept), never an unresolved code: +5 on one account
+/// and -5 on the other do not compare equal, and a debt-only read leaves no unresolved code for the tracker's warning.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unnamed_kraken_debt_is_skipped_not_unresolved() {
+    let (_dir, c, db, two, _) = kraken();
+    sync(&db, &two, two.keys[0], json!({ "XTOKEN": { "balance": "5", "hold_trade": "0" } })).await;
+    sync(&db, &two, two.keys[1], json!({ "XTOKEN": { "balance": "-5", "hold_trade": "0" } })).await;
+    let get = |key: String| deltabadger::app_config::get_plain(&c, &key).unwrap();
+    assert!(get(format!("rust_sync.kraken_unresolved:{}", two.keys[0])).is_some_and(|v| v.contains("XTOKEN")));
+    assert!(get(format!("rust_sync.kraken_unresolved:{}", two.keys[1])).is_none(), "a debt is no unresolved code");
+    assert!(get(format!("rust_sync.skipped:{}", two.keys[1])).is_some_and(|v| v.contains("XTOKEN") && v.contains("-5")));
+}
+
+/// #710 R17 #1: Kraken's `credit_used` (a liability) is recorded as a skipped holding with its amount, identity only:
+/// the recorded `kraken-balances-full` answer (USD credit_used 20).
+#[tokio::test(flavor = "current_thread")]
+async fn a_kraken_credit_used_is_skipped() {
+    let (_dir, c, db, two, _) = kraken();
+    let scenario: Value = serde_json::from_str(include_str!("recorded/sync-grid/kraken-balances-full/scenario.json")).unwrap();
+    let result = scenario["steps"][0]["kraken"]["POST /0/private/BalanceEx"][0]["body"]["result"].clone();
+    sync(&db, &two, two.keys[0], result).await;
+    let skipped = deltabadger::app_config::get_plain(&c, &format!("rust_sync.skipped:{}", two.keys[0])).unwrap().expect("recorded");
+    assert!(skipped.contains("credit_used") && skipped.contains("20"), "{skipped}");
+}

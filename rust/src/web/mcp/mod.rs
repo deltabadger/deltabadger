@@ -121,11 +121,11 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
 /// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
 pub struct Pending{session:String,id:Value,work:Work}
 enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
-enum Finished { Read(reads::Fetched), Rules(Value) }
+enum Finished { Read(Box<reads::Fetched>), Rules(Value) }
 /// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
 async fn finish(app:App,p:Pending)->Result<Response,WebError>{
     let fetched = match p.work {
-        Work::Read(fetch) => Finished::Read(reads::fetch(&app,fetch).await),
+        Work::Read(fetch) => Finished::Read(Box::new(reads::fetch(&app,fetch).await)),
         Work::Rules(request) => Finished::Rules(match request.perform(&app).await {
             Ok(read) => protocol::tool_text(&read.text,read.is_error),
             Err(_) => protocol::tool_text("An unexpected error occurred.",true),
@@ -139,7 +139,7 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
     let app2=app.clone();
     app.db(move|c|{
         let value=match fetched {
-            Finished::Read(fetched) => reads::finish(c,fetched).unwrap_or_else(|_|protocol::tool_text("An unexpected error occurred.",true)),
+            Finished::Read(fetched) => reads::finish(c,*fetched).unwrap_or_else(|_|protocol::tool_text("An unexpected error occurred.",true)),
             Finished::Rules(value) => value,
         };
         let answer=result(&p.id,value);

@@ -2350,3 +2350,164 @@ async fn a_venue_history_read_starts_at_the_first_missing_day() {
     assert!(q.history(&db, s.exchange_id, Some(s.api_key_id), segments, all, deadline).await.prices.is_empty());
     assert_eq!(wire.requests().len(), before, "a span stored whole asks nothing");
 }
+
+/// #710 R8: a balance read that skipped a position it cannot name (unmapped or ambiguous) records the symbols with the
+/// read (`rust_sync.skipped:<key>`), so the identity and Merge's live checks do not take it as complete; a read
+/// that skipped none clears them.
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_read_that_skips_a_position_records_it() {
+    let (dir, db, s) = install();
+    let prices = || ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let mut script = balances_script();
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" },
+                                                   { "symbol": "ZZZZ", "asset_class": "us_equity", "qty": "1", "qty_available": "1" }]))]);
+    let (_, v) = venue(script);
+    balances::sync(&db, &v, &prices(), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let key = format!("rust_sync.skipped:{}", s.api_key_id);
+    let recorded: Value = serde_json::from_str(&deltabadger::app_config::get_plain(&c, &key).unwrap().expect("recorded")).unwrap();
+    assert_eq!(recorded["codes"], json!(["ZZZZ"]));
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &prices(), s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    assert!(deltabadger::app_config::get_plain(&c, &key).unwrap().is_none());
+}
+
+/// #710 R10 #4: a balance read by a key that is no longer its account's reading key (another key of the account reads)
+/// commits nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_superseded_reader_commits_nothing() {
+    let (dir, db, s) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) SELECT user_id, exchange_id, key, secret, passphrase, 1, 2, created_at, updated_at FROM api_keys WHERE id = ?1",
+              [s.api_key_id]).unwrap();
+    let reader = c.last_insert_rowid();
+    let before: i64 = c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get(0)).unwrap();
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let (_, v) = venue(balances_script());
+    let out = balances::sync(&db, &v, &prices, reader, &paper(), &clock()).await;
+    assert!(matches!(&out, Err(SyncError(e)) if e == deltabadger::sync::jobs::SUPERSEDED), "{out:?}");
+    let after: i64 = c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get(0)).unwrap();
+    assert_eq!(after, before, "nothing committed");
+}
+
+/// #710 R10 #7: an unsupported Alpaca position (a short option) is the balance read's skipped holding only: the trading
+/// readers' positions are the supported ones, as before, so a stock trade's reconciliation reads them unchanged.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unsupported_alpaca_position_stays_out_of_the_trading_positions() {
+    let script = json!({ "GET /v2/positions": [ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "2", "qty_available": "2" },
+                                                          { "symbol": "AAPL250117C00150000", "asset_class": "us_option", "qty": "-1", "qty_available": "-1" }]))] });
+    let (_, v) = venue(script);
+    let held = deltabadger::venue::Venue::positions(&v).await.unwrap();
+    assert_eq!(held.len(), 1);
+    assert_eq!(held.get("AAPL").map(|q| q.to_s_f()), Some("2.0".to_string()));
+}
+
+/// #710 R11 #2: an Alpaca short (a mapped position below zero) is recorded as skipped with the read.
+#[tokio::test(flavor = "current_thread")]
+async fn an_alpaca_short_is_recorded_as_skipped() {
+    let (dir, db, s) = install();
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    let mut script = balances_script();
+    script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "-5", "qty_available": "-5" }]))]);
+    script.as_object_mut().unwrap().remove("GET /v2/stocks/snapshots");
+    let (_, v) = venue(script);
+    balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &clock()).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let recorded = deltabadger::app_config::get_plain(&c, &format!("rust_sync.skipped:{}", s.api_key_id)).unwrap().expect("recorded");
+    assert!(recorded.contains("asset "), "{recorded}");
+}
+
+/// #710 R11 #5: a superseded reader's failure writes nothing either (no sync error, no key marked incorrect).
+#[tokio::test(flavor = "current_thread")]
+async fn a_superseded_readers_failure_writes_nothing() {
+    let (dir, db, s) = install();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) SELECT user_id, exchange_id, key, secret, passphrase, 1, 2, created_at, updated_at FROM api_keys WHERE id = ?1",
+              [s.api_key_id]).unwrap();
+    let reader = c.last_insert_rowid();
+    let script = json!({ "GET /v2/account": [{ "status": 401, "body": { "message": "unauthorized." } }] });
+    let (_, v) = venue(script);
+    let out = balances::sync(&db, &v, &NoPrices, reader, &paper(), &clock()).await;
+    assert!(matches!(&out, Err(SyncError(e)) if e == deltabadger::sync::jobs::SUPERSEDED), "{out:?}");
+    let (status, error): (i64, Option<String>) = c.query_row("SELECT status, last_sync_error FROM api_keys WHERE id = ?1", [reader], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, error), (1, None));
+}
+
+/// A clock a test moves by hand.
+struct HandClock(Rc<Cell<chrono::DateTime<chrono::Utc>>>);
+impl Clock for HandClock { fn now(&self) -> chrono::DateTime<chrono::Utc> { self.0.get() } }
+/// Prices that take twenty minutes to answer (a desktop asleep between the balances and the commit).
+struct SlowPrices { inner: ScriptedPrices, clock: Rc<Cell<chrono::DateTime<chrono::Utc>>> }
+impl PriceSource for SlowPrices {
+    fn prices<'a>(&'a self, ids: &'a [String], currency: &'a str) -> PriceFuture<'a> {
+        self.clock.set(self.clock.get() + chrono::Duration::minutes(20));
+        self.inner.prices(ids, currency)
+    }
+}
+
+/// #710 R17 #3: a balance read's time is when the venue's answer arrived, before its prices: an answer that came twenty
+/// minutes before its commit counts as twenty minutes old.
+#[tokio::test(flavor = "current_thread")]
+async fn a_balance_reads_time_is_when_its_answer_arrived() {
+    let (dir, db, s) = install();
+    let start: chrono::DateTime<chrono::Utc> = "2026-09-20T02:00:00Z".parse().unwrap();
+    let time = Rc::new(Cell::new(start));
+    let prices = SlowPrices { inner: ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] })), clock: time.clone() };
+    let (_, v) = venue(balances_script());
+    balances::sync(&db, &v, &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
+    assert!(time.get() > start, "the prices took their time");
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    // R19: the portfolio watermark is main's (the commit's time); the identity read time is kept apart.
+    let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
+    assert_eq!(at, "2026-09-20 02:20:00", "the portfolio watermark, as on main");
+    assert_eq!(deltabadger::app_config::get_plain(&c, &format!("rust_sync.read_at:{}", s.api_key_id)).unwrap().as_deref(), Some("2026-09-20 02:00:00"));
+}
+
+/// A transport whose answers after the first take five minutes each (the clock moves before each later reply).
+#[derive(Clone)]
+struct Slow { inner: ScriptedTransport, clock: Rc<Cell<chrono::DateTime<chrono::Utc>>>, sent: Rc<Cell<usize>> }
+impl Transport for Slow {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if self.sent.get() > 0 { self.clock.set(self.clock.get() + chrono::Duration::minutes(5)); }
+        self.sent.set(self.sent.get() + 1);
+        self.inner.send(r).await
+    }
+}
+
+/// #710 R18 #5: a read of several requests is as old as its first answer (Alpaca's cash), not its last.
+#[tokio::test(flavor = "current_thread")]
+async fn a_multi_request_reads_time_is_its_first_answer() {
+    let (dir, db, s) = install();
+    let start: chrono::DateTime<chrono::Utc> = "2026-09-20T02:00:00Z".parse().unwrap();
+    let time = Rc::new(Cell::new(start));
+    let slow = Slow { inner: ScriptedTransport::from_script(&balances_script()), clock: time.clone(), sent: Rc::new(Cell::new(0)) };
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    balances::sync(&db, &AlpacaVenue::new(slow, Urls::for_passphrase(None)), &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    // R19: the portfolio watermark is main's (the commit's time, after the cash, positions and snapshot answers: a fill
+    // between the cash and the positions replies is in the positions and not pending again); the identity read time is
+    // the first answer's, kept apart.
+    let at: String = c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [s.api_key_id], |r| r.get(0)).unwrap();
+    assert_eq!(at, "2026-09-20 02:10:00", "the portfolio watermark, as on main");
+    assert_eq!(deltabadger::app_config::get_plain(&c, &format!("rust_sync.read_at:{}", s.api_key_id)).unwrap().as_deref(), Some("2026-09-20 02:00:00"));
+}
+
+/// #710 R19 #1: an Alpaca buy filled between the cash and the positions replies is in the positions read; brought
+/// forward from the ledger too, it would count twice. Main's watermark (the commit's time) counts it once.
+#[tokio::test(flavor = "current_thread")]
+async fn a_buy_between_the_cash_and_positions_replies_counts_once() {
+    let (dir, db, s) = install();
+    let start: chrono::DateTime<chrono::Utc> = "2026-09-20T02:00:00Z".parse().unwrap();
+    let time = Rc::new(Cell::new(start));
+    let slow = Slow { inner: ScriptedTransport::from_script(&balances_script()), clock: time.clone(), sent: Rc::new(Cell::new(0)) };
+    let prices = ScriptedPrices::from_script(&json!({ "GET /api/v1/prices": [ok(json!({ "data": { "bitcoin": { "usd": 64000.5 } } }))] }));
+    balances::sync(&db, &AlpacaVenue::new(slow, Urls::for_passphrase(None)), &prices, s.api_key_id, &paper(), &HandClock(time.clone())).await.unwrap().unwrap();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    // The buy filled at 02:03: after the cash answer (02:00), before the positions answer (02:05) that holds it.
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, tx_id, \
+               transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, 0, 'AAPL', '1', 'USD', '227', 'fill-1', '2026-09-20 02:03:00', '{}', '{}', 0, '2026-09-20', '2026-09-20')",
+              [s.user_id, s.api_key_id, s.exchange_id]).unwrap();
+    let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All).unwrap();
+    assert!(moved.iter().all(|(symbol, _)| symbol != "AAPL" && symbol != "USD"), "{moved:?}");
+}

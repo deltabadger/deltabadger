@@ -14,7 +14,7 @@ fn time(raw:Option<String>)->Result<Option<DateTime<Utc>>,FiguresError>{raw.map(
 pub fn cold(c:&Connection,owner:i64,scope:&crate::tracker::Scope,show_cash:bool)->Result<Cold,FiguresError>{
     // One snapshot: the balances and the stamp saying which key produced them.
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=cold(&tx,owner,scope,show_cash)?;tx.commit()?;return Ok(out)}
-    let mut s=c.prepare(&format!("SELECT a.id,a.symbol,a.name,a.category,a.color,a.image_url,b.usd_value,b.priced_at,b.synced_at FROM exchange_account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND {} AND b.free+b.locked>0 ORDER BY b.id",scope.store("b")))?;
+    let mut s=c.prepare(&format!("SELECT a.id,a.symbol,a.name,a.category,a.color,a.image_url,b.usd_value,b.priced_at,b.synced_at FROM exchange_account_balances b JOIN assets a ON a.id=b.asset_id WHERE b.user_id=?1 AND {} AND {} AND b.free+b.locked>0 ORDER BY b.id",scope.store("b"),crate::identity::counted(c,owner,"b.account_id")?))?;
     let mut q=s.query([owner])?;
     let mut holdings:Vec<Holding>=vec![];let mut synced=None;let mut oldest=None;let mut unpriced=vec![];let mut unpriced_assets=vec![];let mut missing_time=false;
     while let Some(r)=q.next()? {
@@ -32,7 +32,8 @@ pub fn cold(c:&Connection,owner:i64,scope:&crate::tracker::Scope,show_cash:bool)
             holdings.push(Holding{asset:id,symbol,name:r.get::<_,Option<String>>(2)?.unwrap_or_default(),category:r.get(3)?,color:r.get(4)?,image:r.get(5)?,value});
         }
     }
-    let mut s=c.prepare(&format!("SELECT k.balances_synced_at FROM api_keys k WHERE k.user_id=?1 AND {}",scope.keys("k")))?;
+    // A duplicate's key reads no balance of the figures (#710, PLAN-710-6 §5.2).
+    let mut s=c.prepare(&format!("SELECT k.balances_synced_at FROM api_keys k WHERE k.user_id=?1 AND {} AND {}",scope.keys("k"),crate::identity::key_counted(c,owner,"k")?))?;
     for mark in s.query_map([owner],|r|r.get::<_,Option<String>>(0))?{synced=synced.max(time(mark?)?);}
     let stale=oldest.zip(synced).is_some_and(|(p,s)|s.signed_duration_since(p)>chrono::Duration::seconds(300));
     // Balances not produced by a completed sync of the current key are what the navbar already withholds.

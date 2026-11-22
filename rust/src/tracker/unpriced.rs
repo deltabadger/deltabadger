@@ -69,17 +69,21 @@ pub struct VenueGap { pub exchange_id: Option<i64>, pub venue: Option<String>, p
 pub fn read(c: &Connection, owner: i64, scope: &super::Scope, arrived: &[String]) -> Result<Vec<VenueGap>, FiguresError> {
     let mut now = ByVenue::new();
     let mut s = c.prepare(&format!("SELECT b.account_id, a.symbol FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
-                           WHERE b.user_id = ?1 AND {} AND b.free + b.locked > 0 AND (b.usd_value IS NULL OR b.usd_value <= 0)", scope.store("b")))?;
+                           WHERE b.user_id = ?1 AND {} AND {} AND b.free + b.locked > 0 AND (b.usd_value IS NULL OR b.usd_value <= 0)", scope.store("b"),
+                           crate::identity::counted(c, owner, "b.account_id")?))?;
     let mut q = s.query([owner])?;
     while let Some(r) = q.next()? {
         crate::figures::budget::charge(1, 0)?;
         if let Some(symbol) = r.get::<_, Option<String>>(1)? { now.entry(r.get(0)?).or_default().insert(symbol); }
     }
     let wanted = |id: i64| match scope { super::Scope::All => true, super::Scope::Account(a) => a.id == id, super::Scope::EmptyLegacyExchange(_) => false };
+    // #710: a duplicate account's gaps are its survivor's.
+    let duplicates = crate::identity::duplicate_ids(c, owner)?;
+    let keep = |id: i64| wanted(id) && !duplicates.contains(&id);
     let r = record(c, owner)?;
-    let history: ByVenue = r.venues.into_iter().filter(|(id, _)| wanted(*id)).collect();
-    let openings: ByVenue = r.openings.into_iter().filter(|(id, _)| wanted(*id)).collect();
-    let unnamed: BTreeSet<i64> = r.unnamed.into_iter().filter(|id| wanted(*id)).collect();
+    let history: ByVenue = r.venues.into_iter().filter(|(id, _)| keep(*id)).collect();
+    let openings: ByVenue = r.openings.into_iter().filter(|(id, _)| keep(*id)).collect();
+    let unnamed: BTreeSet<i64> = r.unnamed.into_iter().filter(|id| keep(*id)).collect();
     let mut gaps = vec![];
     for id in now.keys().chain(history.keys()).chain(openings.keys()).chain(unnamed.iter()).copied().collect::<BTreeSet<i64>>() {
         // A stand-in (minus its exchange id) is its exchange's number 1.

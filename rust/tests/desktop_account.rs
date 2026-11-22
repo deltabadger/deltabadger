@@ -325,7 +325,7 @@ const SERVED_SETTINGS: &[&str] = &[
     "/settings/update_mcp_tool_group_permissions", "/settings/update_mcp_tool_permissions", "/settings/update_name",
     "/settings/update_rest_tool_group_permissions", "/settings/update_rest_tool_permissions", "/settings/update_stocks",
     "/settings/update_time_zone", "/settings/update_wash_sale", "/settings/update_display_currency", "/settings/update_hide_balances",
-    "/settings/update_show_cash", "/settings/update_advanced_bots", "/settings/platform_connection",
+    "/settings/update_show_cash", "/settings/update_advanced_bots", "/settings/platform_connection", "/settings/merge_account",
 ];
 
 #[test]

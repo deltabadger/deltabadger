@@ -736,6 +736,52 @@ pub fn guard(tx: &Connection, cipher: &Cipher, bot_id: Option<i64>) -> Result<()
     crate::venue::alpaca::preflight_after(tx, cipher, eligible, vec![]).map(|_| ()).map_err(Refusal::Untradable)
 }
 
+/// `guard` for a write that changes only user `user_id`'s bots, rules and keys (#710 Merge): what it refuses is judged on
+/// that user's bots and rules alone, so another user's bot neither blocks the write nor reaches its answer. The same
+/// checks in the same order: check_install's findings and unreadable bots, the flip rules, an order still being
+/// reconciled, then preflight (on the user's eligible bots, and the lines it names for them).
+pub fn guard_user(tx: &Connection, cipher: &Cipher, user_id: i64) -> Result<(), Refusal> {
+    let failed = |e: EngineError| {
+        crate::engine::log(&format!("guard failed for user {user_id}'s write: {e:?}"));
+        Refusal::Failed(e)
+    };
+    super::provider::bind_cipher(tx, cipher).map_err(failed)?;
+    let ids = |sql: &str| -> Result<std::collections::HashSet<i64>, EngineError> {
+        let mut q = tx.prepare(sql)?;
+        let out = q.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        Ok(out)
+    };
+    let bots = ids("SELECT id FROM bots WHERE user_id = ?1").map_err(failed)?;
+    let others = if crate::engine::rules::table_exists(tx, "exchange_account_rules").map_err(|e| failed(e.into()))? { " UNION SELECT id FROM exchange_account_rules WHERE user_id = ?1" } else { "" };
+    let rules = ids(&format!("SELECT id FROM rules WHERE user_id = ?1{others}")).map_err(failed)?;
+    // A finding line names its bot or rule first ("bot 3 (scheduled): …", "rule 4: …").
+    let named = |line: &str, prefix: &str, set: &std::collections::HashSet<i64>| line.strip_prefix(prefix)
+        .and_then(|rest| rest.split(|c: char| !c.is_ascii_digit()).next()).and_then(|n| n.parse::<i64>().ok()).is_some_and(|id| set.contains(&id));
+    let mine = |line: &String| named(line, "bot ", &bots) || named(line, "rule ", &rules);
+    let report = check_install(tx).map_err(failed)?;
+    let problems: Vec<String> = report.problems.into_iter().filter(mine).collect();
+    if !problems.is_empty() { return Err(Refusal::Ineligible(problems)); }
+    let unreadable: Vec<(i64, String)> = report.unreadable.into_iter().filter(|(id, _)| bots.contains(id)).collect();
+    if !unreadable.is_empty() { return Err(Refusal::Unreadable(unreadable)); }
+    let eligible: Vec<i64> = report.eligible.into_iter().filter(|id| bots.contains(id)).collect();
+    for id in &eligible {
+        let bot = model::load_bot(tx, *id).map_err(failed)?;
+        let reasons = flip_rule_reasons(tx, &bot).map_err(failed)?;
+        if !reasons.is_empty() { return Err(Refusal::Ineligible(texts(reasons))); }
+    }
+    if let Err(Refusal::Reconciling(lines)) = reconciling(tx).map_err(failed)? {
+        let lines: Vec<String> = lines.into_iter().filter(mine).collect();
+        if !lines.is_empty() { return Err(Refusal::Reconciling(lines)); }
+    }
+    match crate::venue::alpaca::preflight_after(tx, cipher, eligible, vec![]) {
+        Err(lines) => {
+            let lines: Vec<String> = lines.into_iter().filter(mine).collect();
+            if lines.is_empty() { Ok(()) } else { Err(Refusal::Untradable(lines)) }
+        }
+        Ok(_) => Ok(()),
+    }
+}
+
 /// Each member's own findings for a bot check_install refuses, named by member: its member_reasons (or their read error), or,
 /// for a bot row that cannot be loaded, the member's reference rows themselves, so any change to them is new. Members are
 /// what Touched::relevant reads: the allocations' keys and bot_index_assets.

@@ -102,7 +102,7 @@ impl Pair {
 
     /// Whether the market's price can be multiplied by this position: Restatable#restated_prices_untrusted?.
     fn untrusted(&self, c: &Connection, now: At) -> Result<bool, FiguresError> {
-        if splits::unresolved(c, self.subject.bot.user_id, &self.subject.orders, &self.holdings, now)? { return Ok(true); }
+        if splits::unresolved(c, self.subject.bot.user_id, &splits::bot_rows(c, self.subject.bot.id)?, &self.subject.orders, &self.holdings, now)? { return Ok(true); }
         Ok(self.restated_at.is_some_and(|at| now.plus_seconds(-QUARANTINE_SECONDS).is_none_or(|cutoff| at > cutoff)))
     }
 
@@ -146,7 +146,7 @@ pub fn metrics(c: &Connection, id: i64, now: At) -> Result<Pair, FiguresError> {
         let strings = spellings(c, id)?;
         p.split_key = p.subject.tickers.first().map(|t| t.base.clone()).or_else(|| strings.first().cloned());
         p.holdings = vec![Holding { key: p.split_key.clone().unwrap_or_default(), asset_id: p.subject.bot.base_asset_ids.first().copied(), strings }];
-        p.events = splits::events(c, p.subject.bot.user_id, &p.subject.orders, &p.holdings, now)?;
+        p.events = splits::events(c, p.subject.bot.user_id, &splits::bot_rows(c, p.subject.bot.id)?, &p.subject.orders, &p.holdings, now)?;
         let orders = std::mem::take(&mut p.subject.orders);
         let events = p.events.clone();
         let mut t = Totals { net_base: Num::Int(0), invested: Num::Int(0), proceeds: Num::Int(0), value: Num::Int(0), buys: vec![], last_price: None };

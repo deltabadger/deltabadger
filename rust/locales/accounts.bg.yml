@@ -1,0 +1,17 @@
+bg:
+    tracker:
+        duplicate_account_html: "%{duplicate} е същият акаунт в борсата като %{survivor}, затова не влиза в сумите ти."
+        merge_in_settings: "Обедини го в Настройки"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} е същият акаунт в борсата като %{survivor}."
+            merge: "Обедини"
+            confirm_merge_html: "Да обединим ли %{duplicate} с %{survivor}? Ключовете, ботовете, правилата, поръчките и историята минават към %{survivor}, а %{duplicate} се премахва. Това не може да се отмени."
+            merged_html: "%{duplicate} е обединен с %{survivor}."
+            merge_in_flight_html: "Поръчка или теглене на %{duplicate} или %{survivor} още не е приключило. Опитай пак, когато приключи."
+            merge_conflict_html: "%{duplicate} и %{survivor} се разминават в тези записи, затова нищо не е променено: %{rows}. Изравни ги и обедини отново."
+            merge_checking_html: "Deltabadger чете отново %{duplicate} и %{survivor}, за да се увери, че са един и същ акаунт. Опитай пак след минута."
+            merge_withdrawal_key_html: "След обединяването тези правила за теглене биха използвали друг ключ за теглене: %{rules}. Премахни ключа за теглене на %{duplicate} или %{survivor}, обедини акаунтите и после го добави отново."
+            merge_foreign_order: "поръчка, която вече е записана на тази борса"
+            merge_order_unchecked_html: "Поръчка на %{account} е пусната с предишен ключ, затова Deltabadger не може да я провери с текущия: %{rows}. Запази отново ключа, с който е пусната, и после обедини акаунтите."
+            merge_unreadable_html: "%{account} няма работещ ключ, който да чете салдата му, затова Deltabadger не може да го провери. Поправи или добави ключ и обедини отново."

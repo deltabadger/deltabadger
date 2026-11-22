@@ -17,7 +17,9 @@ pub fn read(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Result<Scope, Respo
     let present = |key: &str| ctx.params.query(key).filter(|s| !s.trim().is_empty());
     if let Some(raw) = present("account_id") {
         let account = crate::web::bot::id_from_path(raw).map(|id| AccountRow::by_id(c, id)).transpose()?.flatten();
-        return Ok(match account { Some(a) if a.user_id == owner => Ok(Scope::Account(a)), _ => Err(layout::missing()) });
+        // A removed account (a Merge's tombstone) is a 404 too.
+        let live = match account { Some(a) => c.query_row("SELECT removed_at IS NULL FROM exchange_accounts WHERE id = ?1", [a.id], |r| r.get::<_, bool>(0))?, None => false };
+        return Ok(match account { Some(a) if a.user_id == owner && live => Ok(Scope::Account(a)), _ => Err(layout::missing()) });
     }
     let Some(raw) = present("exchange_id") else { return Ok(Ok(Scope::All)) };
     let Some(id) = crate::web::bot::id_from_path(raw) else { return Ok(Err(layout::missing())) };

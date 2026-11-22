@@ -235,6 +235,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // #878: the bot alert emails a user switched off.
     ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
         unique_indexes: &[&["user_id", "alert"]] }),
+    // #710 slice 6: the stored duplicate standing (identity::reconsider).
+    ("20261123000001", TableContract { name: "exchange_account_standings", columns: &[
+        ("duplicate_id", "INTEGER", false), ("survivor_id", "INTEGER", true), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true),
+        ("since", "TEXT", true), ("basis", "TEXT", true)], unique_indexes: &[] }),
 ];
 
 /// What this build migrates.

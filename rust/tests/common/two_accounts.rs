@@ -21,6 +21,77 @@ pub struct Two {
     pub bots: [i64; 2],
 }
 
+/// Account `account`'s fingerprint, as its keys' identity reads confirm it: the account's and each of its keys'
+/// observation (a fixture writes any; `identity::establish` fills only an unknown one), then `identity::reconsider`.
+pub fn confirm(c: &Connection, account: i64, fingerprint: Option<&str>) {
+    c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", params![account, fingerprint]).unwrap();
+    c.execute(&format!("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) SELECT k.id, k.exchange_id, ?2, 'now' FROM api_keys k WHERE {} = ?1 \
+                        ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint", deltabadger::identity::key_account_sql("k")), params![account, fingerprint]).unwrap();
+    // As the next sync's completion would: the exchange's stored standing is reconsidered on it.
+    let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1", [account], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    deltabadger::identity::reconsider(c, user, exchange, chrono::Utc::now()).unwrap();
+}
+
+/// Each of `user`'s keys whose ledger import has no producer yet: stamped as imported by its current version (the stamp a
+/// complete ledger sync records, `sync::cache::record_ledger`), as after a sync.
+pub fn stamp_ledgers(c: &Connection, user: i64) {
+    let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND key_type != 1 ORDER BY id").unwrap();
+    let keys: Vec<i64> = s.query_map([user], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for id in keys {
+        let key = deltabadger::jobs::state::key("ledger_origin", Some(&id.to_string()));
+        if deltabadger::app_config::exists(c, &key).unwrap() { continue; }
+        let stamp = deltabadger::engine::model::credential_version_by_id(c, id).unwrap().unwrap().test_stamp();
+        deltabadger::app_config::set_plain(c, &key, &stamp.to_string(), chrono::Utc::now()).unwrap();
+    }
+}
+/// Key `key`'s ledger import stamped as produced by its current version, whatever was stamped before (a sync's completion).
+pub fn restamp(c: &Connection, user: i64, key: i64) {
+    let k = deltabadger::jobs::state::key("ledger_origin", Some(&key.to_string()));
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [&k]).unwrap();
+    stamp_ledgers(c, user);
+}
+/// A complete balance read of account `account` by its key `key` at `at`: its balance rows (asset, units), the key's
+/// balance time and the account's balance provenance (the key's current version, complete), as a balance sync leaves them.
+pub fn read_balances(c: &Connection, user: i64, account: i64, key: i64, held: &[(i64, &str)], at: &str) {
+    stamp_ledgers(c, user);
+    let a = deltabadger::identity::AccountRow::by_id(c, account).unwrap().unwrap();
+    c.execute("DELETE FROM exchange_account_balances WHERE account_id = ?1", [account]).unwrap();
+    for (asset, units) in held {
+        c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+                   VALUES (?1, ?2, ?3, ?4, 0, 1, ?4, ?5, ?5, ?5, ?5, ?6)", params![a.user_id, a.exchange_id, asset, units, at, account]).unwrap();
+    }
+    c.execute("UPDATE api_keys SET balances_synced_at = ?2 WHERE id = ?1", params![key, at]).unwrap();
+    let origin = deltabadger::jobs::state::key("ledger_origin", Some(&key.to_string()));
+    let mut stamp: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &origin).unwrap().unwrap()).unwrap();
+    stamp["complete"] = serde_json::Value::Bool(true);
+    deltabadger::app_config::set_plain(c, &deltabadger::sync::cache::balance_origin_key_of(&a), &stamp.to_string(), chrono::Utc::now()).unwrap();
+}
+
+/// Every live key (correct, not a withdrawal key) of `user`'s accounts on `exchange` just completed a ledger sync at `at`
+/// under its current credential, and each account's reading key just read its balances completely at `at` (its rows as they
+/// are): what the syncs a Merge wakes leave behind.
+pub fn fresh(c: &Connection, user: i64, exchange: i64, at: &str) {
+    stamp_ledgers(c, user);
+    let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type != 1 AND status = 1 ORDER BY id").unwrap();
+    let keys: Vec<i64> = s.query_map([user, exchange], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let when: chrono::DateTime<chrono::Utc> = chrono::NaiveDateTime::parse_from_str(at, "%Y-%m-%d %H:%M:%S").unwrap().and_utc();
+    for key in &keys {
+        let state = deltabadger::jobs::state::JobState { last_run_at: Some(when), last_success_at: Some(when), ..Default::default() };
+        deltabadger::jobs::state::write(c, "ledger_sync", Some(&key.to_string()), &state, when).unwrap();
+    }
+    let mut s = c.prepare("SELECT id FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number").unwrap();
+    let accounts: Vec<i64> = s.query_map([user, exchange], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for account in accounts {
+        let a = deltabadger::identity::AccountRow::by_id(c, account).unwrap().unwrap();
+        let Some(key) = deltabadger::sync::cache::reading_key(c, &a).unwrap() else { continue };
+        c.execute("UPDATE api_keys SET balances_synced_at = ?2 WHERE id = ?1", params![key, at]).unwrap();
+        let origin = deltabadger::jobs::state::key("ledger_origin", Some(&key.to_string()));
+        let mut stamp: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &origin).unwrap().unwrap()).unwrap();
+        stamp["complete"] = serde_json::Value::Bool(true);
+        deltabadger::app_config::set_plain(c, &deltabadger::sync::cache::balance_origin_key_of(&a), &stamp.to_string(), when).unwrap();
+    }
+}
+
 impl Two {
     /// The seeded install's Kraken (seed::seed_kraken) with a second account.
     pub fn kraken(c: &Connection, cipher: &Cipher) -> Self {
@@ -36,7 +107,7 @@ impl Two {
                    minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
                    VALUES (?1, 'BTCEUR', 'BTC', 'EUR', ?2, ?3, 8, 2, 2, '0.00001', '1', 1, 1, 'now', 'now')", params![exchange_id, of.btc, of.quote]).unwrap();
         let ticker_id = c.last_insert_rowid();
-        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, 'now', 'now')",
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
                   params![of.user_id, exchange_id, cipher.encrypt("account-1-key"), cipher.encrypt("account-1-secret")]).unwrap();
         let seeded = Seeded { user_id: of.user_id, exchange_id, btc: of.btc, quote: of.quote, ticker_id, api_key_id: c.last_insert_rowid() };
         Self::on(c, cipher, seeded)
@@ -48,7 +119,7 @@ impl Two {
         c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')",
                   [seeded.user_id, seeded.exchange_id]).unwrap();
         let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
-        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, 'now', 'now')",
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
                   params![seeded.user_id, seeded.exchange_id, cipher.encrypt("account-2-key"), cipher.encrypt("account-2-secret")]).unwrap();
         let second_key = c.last_insert_rowid();
         second.add_key(c, second_key).unwrap();
@@ -86,6 +157,36 @@ impl Two {
         id
     }
 
+    /// Account `n`'s fingerprint (`identity::establish` fills only an unknown one; a fixture writes any).
+    pub fn fingerprint(&self, c: &Connection, n: usize, fingerprint: Option<&str>) { confirm(c, self.id(n), fingerprint) }
+
+    /// A trade row of account `n` (`entry_type` 0-3) with venue id `id` and its facts: `base_amount` of BTC for 100 EUR at `at`.
+    pub fn trade(&self, c: &Connection, n: usize, entry_type: i64, id: &str, base_amount: &str, at: &str) -> i64 {
+        let row = self.row(c, n, entry_type, "BTC", base_amount, Some(id), None, at);
+        // The venue's answer, as a sync stores it (a restored row stores none).
+        c.execute("UPDATE account_transactions SET quote_currency = 'EUR', quote_amount = '100', raw_data = json_object('refid', ?2) WHERE id = ?1", rusqlite::params![row, id]).unwrap();
+        row
+    }
+
+    /// A recorded venue withdrawal id of account `n` (`rust_withdrawal_ids`), owned by `owner`.
+    pub fn withdrawal_id(&self, c: &Connection, n: usize, id: &str, owner: &str) {
+        c.execute("INSERT INTO rust_withdrawal_ids (account_id, exchange_id, venue_id, owner, settled_at, source) VALUES (?1, ?2, ?3, ?4, 'now', 'operator')",
+                  params![self.id(n), self.seeded.exchange_id, id, owner]).unwrap();
+    }
+
+    /// A standalone API order of account `n` in `state` with `outcome` (JSON text or None), placed as venue id `external`.
+    pub fn standalone(&self, c: &Connection, n: usize, state: &str, outcome: Option<&str>, external: Option<&str>) -> i64 {
+        // Placed under the account's trading key as it is now (its stored credential stamp).
+        let stamp = self.accounts[n].key(c, 0).unwrap().and_then(|k| deltabadger::engine::model::credential_version_by_id(c, k).unwrap()).map(|v| v.test_stamp().to_string());
+        c.execute("INSERT INTO rust_api_orders (user_id, bot_id, side, amount, amount_type, supplied, credential_version, state, outcome, created_at, send_by) \
+                   VALUES (?1, NULL, 'buy', '10', 'quote', '{}', ?4, ?2, ?3, '2026-09-20 10:00:00', '2026-09-20 10:01:00')", params![self.seeded.user_id, state, outcome, stamp]).unwrap();
+        let id = c.last_insert_rowid();
+        c.execute("INSERT INTO rust_api_order_standalone (order_id, account_id, exchange_id, ticker_id, order_type, surface, external_id, order_snapshot) \
+                   VALUES (?1, ?2, ?3, ?4, 'limit', 'rest', ?5, '{\"symbol\":\"BTCEUR\",\"side\":\"buy\",\"limit\":true}')",
+                  params![id, self.id(n), self.seeded.exchange_id, self.seeded.ticker_id, external]).unwrap();
+        id
+    }
+
     /// Account `n`'s (0: number 1, 1: number 2) row id.
     pub fn id(&self, n: usize) -> i64 { self.accounts[n].id.unwrap() }
 
@@ -95,7 +196,7 @@ impl Two {
     pub fn row(&self, c: &Connection, n: usize, entry_type: i64, currency: &str, amount: &str, id: Option<&str>, group: Option<&str>, at: &str) -> i64 {
         let scope = &self.scopes[n];
         c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, group_id, transacted_at, \
-                   raw_data, manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '{}', '{}', 0, 'now', 'now')",
+                   raw_data, manual_values, transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '{}', '{}', 0, ?9, ?9)",
                   params![self.seeded.user_id, self.keys[n], self.seeded.exchange_id, entry_type, currency, amount, scope.stored(id), group, at]).unwrap();
         let row = c.last_insert_rowid();
         venue_ids::after_insert(c, scope, row, id).unwrap();
