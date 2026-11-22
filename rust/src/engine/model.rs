@@ -955,6 +955,8 @@ pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::ident
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};
     if key.is_empty()||secret.is_empty(){return Ok(None);}
     let version=ciphertext_version(id,&columns).with_account(account.id);
+    // #710 7a rule R1: every withdrawal read and send takes its key here; a key found to open another account is none.
+    if !key_reads_its_account(c,&version)? {return Ok(None);}
     Ok(Some((Credentials{redaction_values:columns.iter().filter_map(open).collect(),key,secret,passphrase:open(&columns[2]),ibkr:None},version)))
 }
 

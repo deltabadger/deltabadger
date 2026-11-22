@@ -18,7 +18,9 @@ enum Found { NoBot, NoRow, Refused, Answered { cancelled: bool, invalid_key: Opt
 /// or no answer at all (a transport failure or the timeout, with its message).
 pub(crate) enum Sent { Cancelled, Refused { errors: Vec<String>, invalid_key: bool }, Unanswered(String) }
 /// #710 7a §9.1: the refusal of a cancel through a key whose identity read names another account.
-const FENCED: &str = "the API key reads another account";
+const FENCED: &str = crate::venue::FENCED;
+/// The cancel's yes, read after the key was found to open another account: not confirmed.
+const UNCONFIRMED: &str = "the cancel could not be confirmed: the API key was found to open another account while it was sent";
 impl Sent {
     /// Whether the cancel reached the venue, or may have: a fenced refusal sent nothing, so there is nothing to re-read.
     fn reached(&self) -> bool { !matches!(self, Sent::Refused { errors, .. } if errors.len() == 1 && errors[0] == FENCED) }
@@ -33,6 +35,9 @@ pub(crate) fn send<V: Venue>(c: &rusqlite::Connection, runtime: &tokio::runtime:
         return Ok(Sent::Refused { errors: vec![FENCED.into()], invalid_key: true });
     }
     Ok(match runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.cancel_with(order))) {
+        // #710 7a rule R1: a yes read once the key was found to open another account (while the cancel was out) confirms
+        // nothing for this account.
+        Ok(Ok(())) if crate::engine::model::key_fenced(c, &crate::engine::model::Bot::key_holder(account))? => Sent::Unanswered(UNCONFIRMED.into()),
         Ok(Ok(())) => Sent::Cancelled,
         Ok(Err(VenueError::Rejected(errors) | VenueError::Unauthorized(errors) | VenueError::Coded { errors, .. })) => {
             let invalid_key = venue.rules().is_invalid_key(&errors);

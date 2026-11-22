@@ -627,6 +627,8 @@ fn prepare(c: &Connection, cipher: &crate::crypto::Cipher, id: i64, now: DateTim
         Ok(_) | Err(EngineError::Data(_)) => return Ok(Prep::Write(o.bot, line)),
         Err(e) => return Err(e),
     };
+    // #710 7a rule R1: a key found to open another account reads nothing for this account; the obligation waits.
+    if !model::key_reads_its_account(c, &version)? { return Ok(Prep::Wait); }
     // r1.1: a key replaced since before the window may be another account's; 2.x stores the mark to the second.
     let updated: Option<String> = c.query_row("SELECT updated_at FROM api_keys WHERE id = ?1", [version.id], |r| r.get(0))?;
     let continuous = match updated.as_deref().map(parse_time) { Some(Ok(u)) => u + Duration::seconds(1) < b.from, _ => false };

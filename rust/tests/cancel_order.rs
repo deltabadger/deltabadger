@@ -731,3 +731,33 @@ async fn s7a_a_key_fenced_while_a_cancel_waits_sends_no_cancel() {
     assert_eq!((status, body), (502, failed("Cancel failed: the API key reads another account")));
     assert!(sends(&server).await.is_empty(), "nothing sent");
 }
+
+/// Answers Alpaca's cancel yes and, as it answers, fences the install's trading key: discovery finding the key opens
+/// another account while the cancel is out.
+struct FenceOnCancel(std::path::PathBuf);
+impl wiremock::Respond for FenceOnCancel {
+    fn respond(&self, _: &wiremock::Request) -> ResponseTemplate {
+        fence_the_key(&rusqlite::Connection::open(&self.0).unwrap());
+        ResponseTemplate::new(204)
+    }
+}
+
+/// Rule R1 (Codex branch r3, cancel.rs:36): a cancel's yes read after the key was found to open another account while the
+/// cancel was out confirms nothing for this account: no success flash, no `cancelled: true`.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r1_a_cancel_whose_key_is_fenced_while_it_is_out_is_not_confirmed() {
+    let i = install();
+    api_client(&i.o.primary);
+    let (user, exchange): (i64, i64) = i.o.primary.query_row("SELECT user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    deltabadger::identity::Account::first(&i.o.primary, user, exchange).unwrap().ensure(&i.o.primary, at(T0)).unwrap(); // a fingerprinted account has its row
+    let path = std::path::PathBuf::from(i.o.primary.path().unwrap());
+    let server = MockServer::start().await;
+    Mock::given(matchers::method("DELETE")).and(matchers::path("/v2/orders/OPEN-1")).respond_with(FenceOnCancel(path)).mount(&server).await;
+    let (app, mut browser) = signed_in(&i, &server.uri()).await;
+    let answer = cancel(&app, &mut browser, &format!("/bots/{}/transactions/{}", i.bot, i.open)).await;
+    assert_eq!((answer.status, answer.body), (422, flash("danger", "Failed to cancel order")));
+    // The REST cancel alike, the fence lifted before it and raised again while it is out.
+    i.o.primary.execute("DELETE FROM exchange_account_credentials", []).unwrap();
+    let (status, body) = rest_cancel(&app, &i.open.to_string()).await;
+    assert_eq!((status, body), (502, failed("Cancel failed: the cancel could not be confirmed: the API key was found to open another account while it was sent")));
+}

@@ -1082,3 +1082,24 @@ async fn open_orders_name_every_exchange_not_read_live_on_both_surfaces() {
     assert_eq!(mcp(app.clone()).await("get_exchange_balances", json!({"exchange_name": "Kraken"})).await, balances);
     // The portfolio's own 501 is untouched: its text stays "this build reads Alpaca only" (m3_other_venue_figures).
 }
+
+/// Rule R1 (Codex branch r3, api_orders.rs:384): a standalone order whose key is found to open another account while the
+/// order is out is not this account's: the acceptance answers ambiguous, nothing is kept with the venue's id.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn s7a_r1_a_standalone_order_whose_key_is_fenced_while_it_is_out_is_not_placed_on_its_account() {
+    let k0 = kraken(priced());
+    let path = k0.d.path().join("production.sqlite3");
+    let venue = k0.venue.clone().on_add(move || {
+        let c = Connection::open(&path).unwrap();
+        let (key, user, exchange): (i64, i64, i64) = c.query_row("SELECT id, user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", [user, exchange]).unwrap();
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', ?3)", rusqlite::params![key, exchange, T]).unwrap();
+    });
+    let mut k = Kraken { venue, ..k0 };
+    let request = post(&k.app, standalone("market_buy", json!({"amount": "100"})), "fenced-out");
+    queued(&k, 1).await;
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    assert_eq!(request.await.unwrap(), refusal(502, "placement_ambiguous", "The order may or may not have been placed: the API key was found to open another account while the order was sent. Check Kraken before sending it again."));
+    assert_eq!(k.venue.sent().len(), 1);
+    assert!(retained(&k).is_empty(), "no placed order and no venue id on this account");
+}

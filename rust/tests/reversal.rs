@@ -644,3 +644,25 @@ fn flip_admission_does_not_validate_unrelated_pause_settings_on_a_stopped_bot() 
     let (_d, e, id, _) = engine(spec, priced());
     deltabadger::engine::eligibility::guard(&e.primary, &seed::cipher(), Some(id)).unwrap();
 }
+
+/// Rule R1 (Codex branch r3, reversal.rs:100): a queued reversal cancel through a key found to open another account sends
+/// nothing: the venue handle of a fenced key answers before any request, so A's order id never reaches B's wallet. The
+/// cancel stays queued.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r1_a_fenced_key_sends_no_reversal_cancel() {
+    let v = priced();
+    let (_d, mut e, id, s) = engine(buyer(), v.clone());
+    let tx = open_buy(&e.primary, &s, id, "OBUY");
+    assert!(matches!(reverse(&e.primary, &s, id, "2026-09-03T12:00:00Z"), Reversal::Reversed));
+    let c = &e.primary;
+    let key: i64 = c.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
+    let account = deltabadger::identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, t("2026-09-03T12:00:00Z")).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-03 12:00:00')", rusqlite::params![key, s.exchange_id]).unwrap();
+    let v = v.order("OBUY", kraken_cancelled("0", "0"));
+    let _ = run::step(&mut e, &at("2026-09-03T12:00:01Z")).await;
+    let _ = run::step(&mut e, &at("2026-09-03T12:10:00Z")).await;
+    assert_eq!(v.calls("/0/private/CancelOrder"), 0, "no cancel through the fenced key");
+    assert!(v.sent().is_empty());
+    assert_eq!(reversal::work(&bot(&e.primary, id)).1, vec![tx], "the cancel waits");
+}

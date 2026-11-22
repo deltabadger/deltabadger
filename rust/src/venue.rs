@@ -206,19 +206,29 @@ pub struct PlacementHold {
 
 /// Credentials and their digest are captured once, before this handle is built.
 /// The raw transport is private: production consumers use the attributed methods below.
-pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion> }
+/// #710 7a rule R1: a handle built for a key found to open another account (`model::key_reads_its_account`) sends nothing:
+/// every call answers `FENCED` before any request. A key's identity read and its validation never go through a handle.
+pub struct Handle<V> { venue:V, producer:Option<crate::engine::model::CredentialVersion>, fenced:bool }
+/// The refusal of every call through a fenced handle.
+pub const FENCED: &str = "the API key reads another account";
 impl<V:Venue> Handle<V> {
     pub(crate) fn new(venue:V,producer:Option<crate::engine::model::CredentialVersion>)->Self {
         let producer = venue.producer().or(producer);
-        Self{venue,producer}
+        Self{venue,producer,fenced:false}
     }
+    /// This handle, fenced when its producer's key reads another account now.
+    pub(crate) fn fenced_by(mut self,c:&rusqlite::Connection)->Result<Self,crate::engine::EngineError>{
+        if let Some(version)=&self.producer { self.fenced = !crate::engine::model::key_reads_its_account(c,version)?; }
+        Ok(self)
+    }
+    fn gate(&self)->Result<(),VenueError>{ if self.fenced { Err(VenueError::Transient(FENCED.into())) } else { Ok(()) } }
     /// Tests only: a venue that carries its own producer (a KuCoin venue with account context), so no answer is attributed
     /// to anything but the credentials it captured.
     #[doc(hidden)]
     pub fn attributed(venue:V)->Self { assert!(venue.producer().is_some(), "a venue without its own producer"); Self::new(venue,None) }
     pub(crate) fn for_bot(venue:V,c:&rusqlite::Connection,bot:&crate::engine::model::Bot)->Result<Self,crate::engine::EngineError>{
         let producer=match venue.producer(){Some(origin)=>Some(origin),None=>crate::engine::model::credential_version(c,bot)?};
-        Ok(Self::new(venue,producer))
+        Self::new(venue,producer).fenced_by(c)
     }
 }
 impl<V:Venue> Venue for &V {
@@ -260,42 +270,42 @@ impl<V:Venue> Venue for &V {
     async fn order_created(&self,id:&str,symbol:&str,d:tokio::time::Instant)->Result<Option<CreatedOrder>,HistoryError>{(*self).order_created(id,symbol,d).await}
 }
 impl<V:Venue> Venue for Handle<V> {
-    async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{self.venue.prepare().await}
-    async fn validate_preparation(&self,identity:Option<&serde_json::Value>)->Result<(),VenueError>{self.venue.validate_preparation(identity).await}
+    async fn prepare(&self)->Result<Option<crate::engine::model::CredentialVersion>,VenueError>{self.gate()?;self.venue.prepare().await}
+    async fn validate_preparation(&self,identity:Option<&serde_json::Value>)->Result<(),VenueError>{self.gate()?;self.venue.validate_preparation(identity).await}
     fn producer(&self)->Option<crate::engine::model::CredentialVersion>{self.producer.clone()}
     fn placement_identity(&self)->Option<serde_json::Value>{self.venue.placement_identity()}
-    async fn placement_hold(&self,t:&Ticker,s:Side)->Result<Option<PlacementHold>,VenueError>{self.venue.placement_hold(t,s).await}
+    async fn placement_hold(&self,t:&Ticker,s:Side)->Result<Option<PlacementHold>,VenueError>{self.gate()?;self.venue.placement_hold(t,s).await}
     fn rules(&self)->&'static VenueRules{self.venue.rules()}
-    async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{self.venue.positions().await}
-    async fn clock(&self)->Result<ClockAnswer,VenueError>{self.venue.clock().await}
-    async fn price(&self,t:&Ticker,s:PriceSide)->Result<BigDec,VenueError>{self.venue.price(t,s).await}
-    async fn add_order(&self,o:&NewOrder)->Result<String,VenueError>{self.venue.add_order(o).await}
-    async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{self.venue.orders(ids).await}
-    async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_identified(ids,identify).await}
-    async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_identified(id,identify).await}
-    async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.order_by_client_id(id,symbol,since).await}
-    async fn recovery_with(&self,intent:&serde_json::Value,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.venue.recovery_with(intent,id,symbol,since).await}
-    async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.venue.fills_from_trades(ids,since).await}
-    async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.venue.balance(symbol,crypto).await}
-    async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{self.venue.free_base_balance(t).await}
-    async fn free_base_identified<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.free_base_identified(t,catalog).await}
-    async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.venue.settled_quote_balance(t,catalog).await}
-    async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{self.venue.tickers_prices(symbols).await}
-    async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.venue.cancel(txid).await}
-    async fn orders_with<F>(&self,refs:&[OrderRef],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.orders_with(refs,identify).await}
-    async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.venue.order_with(r,identify).await}
-    async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{self.venue.cancel_with(r).await}
-    async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{self.venue.origin_with(r).await}
-    async fn kucoin_mode(&self)->Option<Result<kucoin_account::AccountMode,VenueError>>{self.venue.kucoin_mode().await}
-    async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.venue.candles(t,start_at,tf).await}
-    async fn withdrawal_balance(&self,coin:&str)->Result<BigDec,VenueError>{self.venue.withdrawal_balance(coin).await}
-    async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.venue.withdrawal_addresses(coin).await}
-    async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.venue.withdrawal_networks(coin).await}
-    async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.venue.withdrawal_fee(d,amount).await}
-    async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{self.venue.withdraw(r).await}
-    async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{self.venue.withdrawal_lookup(r).await}
-    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>,d:tokio::time::Instant)->Result<Created,HistoryError>{self.venue.orders_created(s,from,to,d).await}
-    async fn order_created(&self,id:&str,symbol:&str,d:tokio::time::Instant)->Result<Option<CreatedOrder>,HistoryError>{self.venue.order_created(id,symbol,d).await}
+    async fn positions(&self)->Result<std::collections::HashMap<String,BigDec>,VenueError>{self.gate()?;self.venue.positions().await}
+    async fn clock(&self)->Result<ClockAnswer,VenueError>{self.gate()?;self.venue.clock().await}
+    async fn price(&self,t:&Ticker,s:PriceSide)->Result<BigDec,VenueError>{self.gate()?;self.venue.price(t,s).await}
+    async fn add_order(&self,o:&NewOrder)->Result<String,VenueError>{self.gate()?;self.venue.add_order(o).await}
+    async fn orders(&self,ids:&[String])->Result<Vec<OrderState>,VenueError>{self.gate()?;self.venue.orders(ids).await}
+    async fn orders_identified<F>(&self,ids:&[String],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.gate()?;self.venue.orders_identified(ids,identify).await}
+    async fn order_identified<F>(&self,id:&str,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.gate()?;self.venue.order_identified(id,identify).await}
+    async fn order_by_client_id(&self,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.gate()?;self.venue.order_by_client_id(id,symbol,since).await}
+    async fn recovery_with(&self,intent:&serde_json::Value,id:&str,symbol:&str,since:DateTime<Utc>)->Result<Option<OrderState>,VenueError>{self.gate()?;self.venue.recovery_with(intent,id,symbol,since).await}
+    async fn fills_from_trades(&self,ids:&[String],since:DateTime<Utc>)->Result<Vec<OrderState>,VenueError>{self.gate()?;self.venue.fills_from_trades(ids,since).await}
+    async fn balance(&self,symbol:&str,crypto:bool)->Result<BigDec,VenueError>{self.gate()?;self.venue.balance(symbol,crypto).await}
+    async fn free_base_balance(&self,t:&Ticker)->Result<BigDec,VenueError>{self.gate()?;self.venue.free_base_balance(t).await}
+    async fn free_base_identified<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.gate()?;self.venue.free_base_identified(t,catalog).await}
+    async fn settled_quote_balance<F>(&self,t:&Ticker,catalog:F)->Result<BigDec,VenueError> where F:FnOnce()->Result<Catalog,VenueError>{self.gate()?;self.venue.settled_quote_balance(t,catalog).await}
+    async fn tickers_prices(&self,symbols:&[String])->Result<Vec<(String,serde_json::Value)>,VenueError>{self.gate()?;self.venue.tickers_prices(symbols).await}
+    async fn cancel(&self,txid:&str)->Result<(),VenueError>{self.gate()?;self.venue.cancel(txid).await}
+    async fn orders_with<F>(&self,refs:&[OrderRef],identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.gate()?;self.venue.orders_with(refs,identify).await}
+    async fn order_with<F>(&self,r:&OrderRef,identify:F)->Result<(Vec<OrderState>,Vec<String>),VenueError> where F:FnMut(&str,Option<&str>,Option<&str>)->Result<bool,VenueError>{self.gate()?;self.venue.order_with(r,identify).await}
+    async fn cancel_with(&self,r:&OrderRef)->Result<(),VenueError>{self.gate()?;self.venue.cancel_with(r).await}
+    async fn origin_with(&self,r:&OrderRef)->Result<Origin,VenueError>{self.gate()?;self.venue.origin_with(r).await}
+    async fn kucoin_mode(&self)->Option<Result<kucoin_account::AccountMode,VenueError>>{if let Err(e)=self.gate(){return Some(Err(e))}self.venue.kucoin_mode().await}
+    async fn candles(&self,t:&Ticker,start_at:DateTime<Utc>,tf:Timeframe)->Result<Vec<Candle>,VenueError>{self.gate()?;self.venue.candles(t,start_at,tf).await}
+    async fn withdrawal_balance(&self,coin:&str)->Result<BigDec,VenueError>{self.gate()?;self.venue.withdrawal_balance(coin).await}
+    async fn withdrawal_addresses(&self,coin:&str)->Result<Vec<withdrawal::Entry>,VenueError>{self.gate()?;self.venue.withdrawal_addresses(coin).await}
+    async fn withdrawal_networks(&self,coin:&str)->Result<Option<withdrawal::Coin>,VenueError>{self.gate()?;self.venue.withdrawal_networks(coin).await}
+    async fn withdrawal_fee(&self,d:&withdrawal::Destination,amount:&BigDec)->Result<Option<BigDec>,VenueError>{self.gate()?;self.venue.withdrawal_fee(d,amount).await}
+    async fn withdraw(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::SendResult{if let Err(e)=self.gate(){return crate::engine::withdrawal::SendResult::NotSent{reason:e.message()}}self.venue.withdraw(r).await}
+    async fn withdrawal_lookup(&self,r:&crate::engine::withdrawal::Request)->crate::engine::withdrawal::LookupResult{if let Err(e)=self.gate(){return crate::engine::withdrawal::LookupResult::Unknown{reason:e.message(),candidates:Vec::new()}}self.venue.withdrawal_lookup(r).await}
+    async fn orders_created(&self,s:&[String],from:DateTime<Utc>,to:DateTime<Utc>,d:tokio::time::Instant)->Result<Created,HistoryError>{if let Err(e)=self.gate(){return Err(HistoryError::Retry(e.message()))}self.venue.orders_created(s,from,to,d).await}
+    async fn order_created(&self,id:&str,symbol:&str,d:tokio::time::Instant)->Result<Option<CreatedOrder>,HistoryError>{if let Err(e)=self.gate(){return Err(HistoryError::Retry(e.message()))}self.venue.order_created(id,symbol,d).await}
 }
 /// Apply one immutable handle producer to success and failure values, never from a post-call lookup.
 mod sealed { pub trait Sealed {} impl<V:super::Venue> Sealed for super::Handle<V> {} }

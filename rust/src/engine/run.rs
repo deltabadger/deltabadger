@@ -143,7 +143,8 @@ pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, ciph
     } else { factory.for_bot_with_redaction(&exchange, credentials, sensitive) };
     // #710: the bot's account (none for a request with no bot: `key_holder`).
     let venue = match crate::venue_ids::Scope::of_bot(primary, bot.id)? { Some(scope) => crate::venue::Venue::for_account(venue, scope), None => venue };
-    Ok((crate::venue::Handle::new(venue,version.clone()),version))
+    // #710 7a rule R1: a key found to open another account gets a handle that sends nothing.
+    Ok((crate::venue::Handle::new(venue,version.clone()).fenced_by(primary)?,version))
 }
 
 /// `account`'s trading-key venue, built as a bot's on that venue (`venue_for`): for a request with no bot (an API cancel

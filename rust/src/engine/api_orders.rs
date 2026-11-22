@@ -379,16 +379,23 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
     let send_until = window.min(request.send_by);
     if clock.now() > send_until { return answer(Outcome::Busy); }
     let sent = tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, placement::dispatch(venue, &plan, cl_ord_id, send_until, false)).await;
-    // 8. The answer.
-    answer(match sent {
+    // 8. The answer. #710 7a rule R1: an acceptance read once the key was found to open another account (discovery, while
+    // the order was out) is no order of this account: unconfirmed, as an unanswered send, and no venue id is kept here.
+    let outcome = match sent {
         Ok(Sent::Accepted(order_id)) => Outcome::Placed { order_id },
         Ok(Sent::Rejected(errors) | Sent::BelowMinimum(errors)) => Outcome::Failed { errors },
         Ok(Sent::NotSent(m)) => Outcome::Failed { errors: vec![m] },
         Ok(Sent::Ambiguous(m)) => Outcome::Ambiguous { errors: vec![m] },
         Ok(Sent::Fenced) => Outcome::Failed { errors: vec!["the order was not sent".into()] },
         Err(_) => Outcome::Ambiguous { errors: vec!["the exchange did not answer in time".into()] },
+    };
+    model::locked(c, |tx| {
+        let fenced = matches!(outcome, Outcome::Placed { .. }) && cx.credential_version.as_ref().map(|v| model::key_reads_its_account(tx, v)).transpose()? == Some(false);
+        finish(tx, request.id, &if fenced { Outcome::Ambiguous { errors: vec![UNCONFIRMED.into()] } } else { outcome })
     })
 }
+/// The ambiguity of an acceptance read after the key was found to open another account.
+const UNCONFIRMED: &str = "the API key was found to open another account while the order was sent";
 
 /// The pair is gone since validation: the request's late refusal names why (`pair_not_found`, as Lookup.find_ticker).
 fn late(c: &Connection, request: &Request, clock: &dyn super::Clock) -> Result<(), EngineError> {
