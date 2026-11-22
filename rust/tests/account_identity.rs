@@ -1154,3 +1154,30 @@ fn s7a_removing_the_last_key_keeps_the_fingerprint_of_an_account_a_bot_or_rule_k
         assert_eq!(print(&fx).is_some(), keeper != "nothing", "{keeper}");
     }
 }
+
+/// Rule F1 (Codex branch r2, identity.rs:1140/1398): a key is fenced whatever its status. A revalidation that times out
+/// sets the key pending; a queued signal order or poll captured before must still fail its final check, and a failed read
+/// in that state keeps the takeover's sentinel, so the key is still fenced once it is correct again.
+#[test]
+fn s7a_a_pending_or_incorrect_key_stays_fenced() {
+    use deltabadger::engine::model;
+    let fenced = |fx: &Fx, key: i64| -> bool { fx.c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(&fx.c, "k").unwrap()), [key], |r| r.get(0)).unwrap() };
+    let status = |fx: &Fx, key: i64, s: i64| { fx.c.execute("UPDATE api_keys SET status = ?2 WHERE id = ?1", [key, s]).unwrap(); };
+    let (fx, key) = established();
+    let captured = fx.version(key);
+    fx.observe(key, read(B));
+    for s in [0, 2] {
+        status(&fx, key, s);
+        assert!(fenced(&fx, key), "status {s}: fenced");
+        assert!(!model::key_is_current(&fx.c, &captured).unwrap(), "status {s}: the final check refuses");
+    }
+    // The takeover's sentinel, then a timed-out read while the key is pending.
+    let (fx, key) = established();
+    fx.replace(key, "kc-replaced-by-2x");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    status(&fx, key, 0);
+    fx.observe(key, Observed::Failed("transport".into()));
+    status(&fx, key, 1);
+    assert!(fenced(&fx, key), "a failed read on a pending key keeps the sentinel");
+    assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&key));
+}

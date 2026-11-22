@@ -1131,13 +1131,14 @@ pub fn key_counted(c: &Connection, user_id: i64, alias: &str) -> rusqlite::Resul
 /// SQL condition: account expression `account` is none of the user's duplicates. One statement.
 pub fn counted(c: &Connection, user_id: i64, account: &str) -> rusqlite::Result<String> { Ok(not_duplicate(account, &duplicate_ids(c, user_id)?)) }
 
-/// SQL condition: api key row `k` is fenced (#710 7a): a live key whose latest identity read names another account than
-/// its account's known one. It places nothing, withdraws nothing and syncs nothing until a read matches again; its rows
-/// stay. `"0"` on an install without the account tables.
+/// SQL condition: api key row `k` is fenced (#710 7a): a key whose latest identity read names another account than its
+/// account's known one, whatever its status (a revalidation that timed out leaves it pending, still fenced). It places
+/// nothing, withdraws nothing and syncs nothing until a read matches again; its rows stay. `"0"` on an install without the
+/// account tables.
 pub fn fenced_sql(c: &Connection, k: &str) -> rusqlite::Result<String> {
     let observed: bool = c.query_row("SELECT count(*) = 1 FROM sqlite_master WHERE type = 'table' AND name = 'exchange_account_credentials'", [], |r| r.get(0))?;
     if !observed || !crate::venue_ids::ready(c)? { return Ok("0".into()); }
-    Ok(format!("({k}.status = 1 AND EXISTS (SELECT 1 FROM exchange_account_credentials fo JOIN exchange_accounts fx ON fx.id = {} \
+    Ok(format!("(EXISTS (SELECT 1 FROM exchange_account_credentials fo JOIN exchange_accounts fx ON fx.id = {} \
                 WHERE fo.api_key_id = {k}.id AND fo.fingerprint IS NOT NULL AND fx.fingerprint IS NOT NULL AND fo.fingerprint <> fx.fingerprint))", key_account_sql(k)))
 }
 
