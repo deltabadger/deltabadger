@@ -5,6 +5,8 @@ sk:
     settings:
         accounts:
             duplicate_html: "%{duplicate} je ten istý účet na burze ako %{survivor}."
+            key_elsewhere_html: "Tento kľúč patrí k účtu %{account}. %{target} sa nezmenil."
+            identity_unconfirmed: "Nepodarilo sa overiť, ku ktorému účtu tento kľúč patrí. Skúste to znova."
             merge: "Zlúčiť"
             confirm_merge_html: "Zlúčiť %{duplicate} do %{survivor}? Kľúče, boty, pravidlá, príkazy a história prejdú na %{survivor} a %{duplicate} sa odstráni. Nedá sa to vrátiť späť."
             merged_html: "%{duplicate} bol zlúčený do %{survivor}."

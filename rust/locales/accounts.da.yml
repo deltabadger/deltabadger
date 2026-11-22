@@ -5,6 +5,8 @@ da:
     settings:
         accounts:
             duplicate_html: "%{duplicate} er den samme børskonto som %{survivor}."
+            key_elsewhere_html: "Denne nøgle hører til %{account}. %{target} blev ikke ændret."
+            identity_unconfirmed: "Vi kunne ikke bekræfte, hvilken konto denne nøgle hører til. Prøv igen."
             merge: "Flet"
             confirm_merge_html: "Flet %{duplicate} ind i %{survivor}? Nøgler, bots, regler, ordrer og historik flyttes til %{survivor}, og %{duplicate} fjernes. Det kan ikke fortrydes."
             merged_html: "%{duplicate} er flettet ind i %{survivor}."

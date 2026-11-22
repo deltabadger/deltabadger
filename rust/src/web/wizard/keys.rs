@@ -192,7 +192,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) { return Ok(layout::bad_request()) }
     let live = ctx.params.form("api_key[passphrase]").map_or(key.passphrase.as_deref() == Some("live"), |mode| mode == "live");
     let message = match keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await? {
-        keys::Submitted::Correct => {
+        keys::Submitted::Correct | keys::Submitted::Moved { .. } => {
             let path = app.db(move |c| after_api_key_path(c, user.id, config.as_ref(), namespace)).await?;
             return Ok(super::stream(StatusCode::OK, turbo::redirect(&ctx.path(path))));
         }

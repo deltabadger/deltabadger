@@ -5,6 +5,8 @@ en:
     settings:
         accounts:
             duplicate_html: "%{duplicate} is the same exchange account as %{survivor}."
+            key_elsewhere_html: "This key belongs to %{account}. %{target} was not changed."
+            identity_unconfirmed: "We could not confirm which account this key belongs to. Try again."
             merge: "Merge"
             confirm_merge_html: "Merge %{duplicate} into %{survivor}? Its keys, bots, rules, orders and history move to %{survivor}, and %{duplicate} is removed. This cannot be undone."
             merged_html: "%{duplicate} was merged into %{survivor}."

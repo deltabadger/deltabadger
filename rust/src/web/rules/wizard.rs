@@ -278,7 +278,7 @@ async fn keys(
         )
         .await?
         {
-            keys::Submitted::Correct => {
+            keys::Submitted::Correct | keys::Submitted::Moved { .. } => {
                 let response = next(app, ctx, false).await?;
                 let target = response
                     .headers()

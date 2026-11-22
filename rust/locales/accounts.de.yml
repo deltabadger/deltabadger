@@ -5,6 +5,8 @@ de:
     settings:
         accounts:
             duplicate_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor}."
+            key_elsewhere_html: "Dieser Schlüssel gehört zu %{account}. %{target} wurde nicht geändert."
+            identity_unconfirmed: "Wir konnten nicht bestätigen, zu welchem Konto dieser Schlüssel gehört. Versuche es noch einmal."
             merge: "Zusammenführen"
             confirm_merge_html: "%{duplicate} mit %{survivor} zusammenführen? Schlüssel, Bots, Regeln, Orders und Historie gehen auf %{survivor} über, und %{duplicate} wird entfernt. Das lässt sich nicht rückgängig machen."
             merged_html: "%{duplicate} wurde mit %{survivor} zusammengeführt."

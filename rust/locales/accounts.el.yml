@@ -5,6 +5,8 @@ el:
     settings:
         accounts:
             duplicate_html: "Ο %{duplicate} είναι ο ίδιος λογαριασμός ανταλλακτηρίου με τον %{survivor}."
+            key_elsewhere_html: "Αυτό το κλειδί ανήκει στο %{account}. Το %{target} δεν άλλαξε."
+            identity_unconfirmed: "Δεν μπορέσαμε να επιβεβαιώσουμε σε ποιον λογαριασμό ανήκει αυτό το κλειδί. Δοκιμάστε ξανά."
             merge: "Συγχώνευση"
             confirm_merge_html: "Να συγχωνευτεί ο %{duplicate} στον %{survivor}; Τα κλειδιά, τα bots, οι κανόνες, οι εντολές και το ιστορικό του περνούν στον %{survivor} και ο %{duplicate} αφαιρείται. Δεν αναιρείται."
             merged_html: "Ο %{duplicate} συγχωνεύτηκε στον %{survivor}."

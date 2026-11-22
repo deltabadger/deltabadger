@@ -5,6 +5,8 @@ nl:
     settings:
         accounts:
             duplicate_html: "%{duplicate} is hetzelfde exchange-account als %{survivor}."
+            key_elsewhere_html: "Deze sleutel hoort bij %{account}. %{target} is niet gewijzigd."
+            identity_unconfirmed: "We konden niet bevestigen bij welk account deze sleutel hoort. Probeer het opnieuw."
             merge: "Samenvoegen"
             confirm_merge_html: "%{duplicate} samenvoegen met %{survivor}? De sleutels, bots, regels, orders en historie gaan naar %{survivor} en %{duplicate} wordt verwijderd. Dit kun je niet ongedaan maken."
             merged_html: "%{duplicate} is samengevoegd met %{survivor}."

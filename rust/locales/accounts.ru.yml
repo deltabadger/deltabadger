@@ -5,6 +5,8 @@ ru:
     settings:
         accounts:
             duplicate_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}."
+            key_elsewhere_html: "Этот ключ принадлежит %{account}. %{target} не изменён."
+            identity_unconfirmed: "Не удалось подтвердить, какому аккаунту принадлежит этот ключ. Попробуйте ещё раз."
             merge: "Объединить"
             confirm_merge_html: "Объединить %{duplicate} с %{survivor}? Ключи, боты, правила, ордера и история перейдут в %{survivor}, а %{duplicate} будет удалён. Это действие нельзя отменить."
             merged_html: "%{duplicate} объединён с %{survivor}."

@@ -5,6 +5,8 @@ it:
     settings:
         accounts:
             duplicate_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}."
+            key_elsewhere_html: "Questa chiave appartiene a %{account}. %{target} non è stato modificato."
+            identity_unconfirmed: "Non siamo riusciti a confermare a quale account appartiene questa chiave. Riprova."
             merge: "Unisci"
             confirm_merge_html: "Unire %{duplicate} a %{survivor}? Chiavi, bot, regole, ordini e storico passano a %{survivor} e %{duplicate} viene rimosso. L’operazione non si può annullare."
             merged_html: "%{duplicate} è stato unito a %{survivor}."
