@@ -7,6 +7,8 @@ de:
             duplicate_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor}."
             key_elsewhere_html: "Dieser Schlüssel gehört zu %{account}. %{target} wurde nicht geändert."
             identity_unconfirmed: "Wir konnten nicht bestätigen, zu welchem Konto dieser Schlüssel gehört. Versuche es noch einmal."
+            key_order_waits: "Eine offene Order nutzt noch den aktuellen Schlüssel. Storniere sie oder warte, bis sie ausgeführt ist, und versuche es dann noch einmal."
+            key_withdrawal_waits: "Eine Auszahlung nutzt noch den aktuellen Schlüssel. Warte, bis sie abgeschlossen ist, und versuche es dann noch einmal."
             merge: "Zusammenführen"
             confirm_merge_html: "%{duplicate} mit %{survivor} zusammenführen? Schlüssel, Bots, Regeln, Orders und Historie gehen auf %{survivor} über, und %{duplicate} wird entfernt. Das lässt sich nicht rückgängig machen."
             merged_html: "%{duplicate} wurde mit %{survivor} zusammengeführt."

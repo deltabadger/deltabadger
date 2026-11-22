@@ -266,12 +266,21 @@ async fn a_routed_replacement_waits_for_the_destination_s_open_standalone_order(
                VALUES (?1, ?2, ?3, 1, 'limit', 'rest', 'ord-1', '{}')", rusqlite::params![order, accounts[1], exchange]).unwrap();
     let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b2")).await;
     assert_eq!(answer.status, 422, "{}", answer.body);
-    assert!(answer.body.contains("An order is still being settled"), "{}", answer.body);
+    // D-KEY-REPLACE-WAITS: the refusal names what is in flight and what the user can do.
+    assert!(answer.body.contains("An open order still uses the current key. Cancel it or wait until it fills, then try again."), "{}", answer.body);
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())]);
     // Settled (found terminal), the same save replaces account 2's key.
     deltabadger::merge::record_terminal(c, order, "filled").unwrap();
     let answer = save(&app, &mut b, exchange, Some(accounts[0]), &kucoin_fields("key-b2")).await;
     assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
+    // A withdrawal intent of account 2's key: its removal waits, and says so.
+    let key_b = identity::key_of(c, accounts[1], 2).unwrap().unwrap();
+    c.execute("INSERT INTO rust_withdrawal_intents(owner,state,client_id,created_at,api_key_id,credential_digest,host,account_scope,key_identity,params_enc,fee_basis,budget,free_balance) \
+               VALUES ('rule:999','unresolved','test','2026-09-20 10:00:00',?1,'digest','host','spot','key','encrypted','flat','1','1')", [key_b]).unwrap();
+    let removed = b.send(&app, "DELETE", &format!("/settings/destroy_api_key/{key_b}"), None, common::web::Csrf::Header, &[]).await;
+    assert_eq!(removed.status, 422, "{}", removed.body);
+    assert!(removed.body.contains("A withdrawal still uses the current key. Wait until it completes, then try again."), "{}", removed.body);
     assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b2".into())]);
 }
 

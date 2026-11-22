@@ -7,6 +7,8 @@ cs:
             duplicate_html: "%{duplicate} je stejný účet na burze jako %{survivor}."
             key_elsewhere_html: "Tento klíč patří k účtu %{account}. %{target} se nezměnil."
             identity_unconfirmed: "Nepodařilo se ověřit, ke kterému účtu tento klíč patří. Zkuste to znovu."
+            key_order_waits: "Otevřený příkaz stále používá aktuální klíč. Zruš ho nebo počkej, až se vyplní, a zkus to znovu."
+            key_withdrawal_waits: "Výběr stále používá aktuální klíč. Počkej, až doběhne, a zkus to znovu."
             merge: "Sloučit"
             confirm_merge_html: "Sloučit %{duplicate} do %{survivor}? Klíče, boti, pravidla, příkazy a historie přejdou na %{survivor} a %{duplicate} bude odstraněn. Nelze to vrátit zpět."
             merged_html: "%{duplicate} byl sloučen do %{survivor}."

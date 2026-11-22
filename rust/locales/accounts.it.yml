@@ -7,6 +7,8 @@ it:
             duplicate_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}."
             key_elsewhere_html: "Questa chiave appartiene a %{account}. %{target} non è stato modificato."
             identity_unconfirmed: "Non siamo riusciti a confermare a quale account appartiene questa chiave. Riprova."
+            key_order_waits: "Un ordine aperto usa ancora la chiave attuale. Annullalo o attendi che venga eseguito, poi riprova."
+            key_withdrawal_waits: "Un prelievo usa ancora la chiave attuale. Attendi che sia completato, poi riprova."
             merge: "Unisci"
             confirm_merge_html: "Unire %{duplicate} a %{survivor}? Chiavi, bot, regole, ordini e storico passano a %{survivor} e %{duplicate} viene rimosso. L’operazione non si può annullare."
             merged_html: "%{duplicate} è stato unito a %{survivor}."

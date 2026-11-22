@@ -7,6 +7,8 @@ pl:
             duplicate_html: "%{duplicate} to to samo konto na giełdzie co %{survivor}."
             key_elsewhere_html: "Ten klucz należy do %{account}. %{target} nie zostało zmienione."
             identity_unconfirmed: "Nie udało się potwierdzić, do którego konta należy ten klucz. Spróbuj ponownie."
+            key_order_waits: "Otwarte zlecenie nadal korzysta z obecnego klucza. Anuluj je albo poczekaj na jego realizację, a potem spróbuj ponownie."
+            key_withdrawal_waits: "Wypłata nadal korzysta z obecnego klucza. Poczekaj, aż się zakończy, a potem spróbuj ponownie."
             merge: "Połącz"
             confirm_merge_html: "Połączyć %{duplicate} z %{survivor}? Klucze, boty, reguły, zlecenia i historia przejdą na %{survivor}, a %{duplicate} zostanie usunięte. Tego nie da się cofnąć."
             merged_html: "Połączono %{duplicate} z %{survivor}."

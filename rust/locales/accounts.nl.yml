@@ -7,6 +7,8 @@ nl:
             duplicate_html: "%{duplicate} is hetzelfde exchange-account als %{survivor}."
             key_elsewhere_html: "Deze sleutel hoort bij %{account}. %{target} is niet gewijzigd."
             identity_unconfirmed: "We konden niet bevestigen bij welk account deze sleutel hoort. Probeer het opnieuw."
+            key_order_waits: "Een openstaande order gebruikt nog de huidige sleutel. Annuleer die of wacht tot hij is uitgevoerd en probeer het dan opnieuw."
+            key_withdrawal_waits: "Een opname gebruikt nog de huidige sleutel. Wacht tot die is afgerond en probeer het dan opnieuw."
             merge: "Samenvoegen"
             confirm_merge_html: "%{duplicate} samenvoegen met %{survivor}? De sleutels, bots, regels, orders en historie gaan naar %{survivor} en %{duplicate} wordt verwijderd. Dit kun je niet ongedaan maken."
             merged_html: "%{duplicate} is samengevoegd met %{survivor}."
