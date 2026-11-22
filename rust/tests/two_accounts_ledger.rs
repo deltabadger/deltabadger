@@ -726,3 +726,26 @@ async fn s7a_a_bot_that_switches_account_keeps_each_order_and_fill_on_its_own_ac
     let known = deltabadger::engine::reconcile::known_fills(c, &identity::Account::of_order(c, old).unwrap().unwrap(), "X", "Classic").unwrap();
     assert_eq!(known.size, BigDec::parse("0.0012").unwrap(), "the old order's fills: account 1's");
 }
+
+/// Rule F2 (Codex branch r2, binance_repair.rs:261): money and venue data commit only through the fenced check. A repair
+/// previewed for account 2's key, whose key is then found to open another account, validates nothing and applies nothing.
+#[test]
+fn s7a_a_repair_through_a_key_found_to_open_another_account_writes_nothing() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let _lock = claim(c, dir.path());
+    let [_, k2] = keys(c, &two, "Exchanges::Binance");
+    let fetched = repair::Evidence { inputs: vec![deposit("d9")], coverage: vec![] };
+    let version = model::credential_version_by_id(c, k2.id).unwrap().unwrap();
+    let m = repair::dry_run(c, &seed::cipher(), &k2, &version, now(), &fetched).unwrap();
+    assert!(!m.batches.is_empty());
+    common::two_accounts::confirm(c, two.accounts[1].id.unwrap(), Some("fp-2"));
+    c.execute("UPDATE exchange_account_credentials SET fingerprint = 'fp-other' WHERE api_key_id = ?1", [k2.id]).unwrap();
+    let rows = one::<i64>(c, "SELECT count(*) FROM account_transactions");
+    let digest = m.digest();
+    assert!(repair::validate(c, &seed::cipher(), &k2, &m, &digest, &fetched).is_err(), "validation refuses");
+    assert!(repair::ApplySession::new(&m, &digest, &fetched).unwrap().apply_batch(c, &seed::cipher(), &k2, 0).is_err(), "the batch refuses");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), rows, "nothing written");
+}

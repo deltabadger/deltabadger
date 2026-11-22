@@ -812,8 +812,15 @@ impl std::ops::Deref for FencedTransaction<'_> {
     type Target=Connection;
     fn deref(&self)->&Connection { self.connection }
 }
-/// Reads of stored rows (the figures'): a fenced key's rows stay and are read (`check_credential_record`).
+/// The final check of a write of money or venue data under several versions (ledger rows, balances, repair batches): each
+/// passes `check_credential_result`, so a key found to open another account commits none of it (#710 7a rule F2).
 pub fn fence_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
+    for version in versions { check_credential_result(tx,&Some(version.clone()))?; }
+    Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
+}
+/// `fence_versions` for figures read from stored rows only (the tracker cache's publication): a fenced key's rows stay and
+/// are read (`check_credential_record`). Never for anything a venue read produced.
+pub fn read_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
     for version in versions { check_credential_record(tx,&Some(version.clone()))?; }
     Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
 }
@@ -832,8 +839,8 @@ pub fn key_is_current(c: &Connection, version: &CredentialVersion) -> Result<boo
 pub fn check_credential_result<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
     checked(c, version, true)
 }
-/// `check_credential_result` without the identity fence, for what a fenced key still writes about itself or what is
-/// already stored: its validation status and identity read, a job's run record, figures read from stored rows.
+/// `check_credential_result` without the identity fence, ONLY for rows about the key itself: its validation status and
+/// identity read, a job's run record (and `read_versions`' figures from stored rows). Never money or venue data.
 pub fn check_credential_record<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
     checked(c, version, false)
 }

@@ -182,7 +182,7 @@ pub fn balances_current(tx:&Connection,origin:&ReadOrigin)->Result<bool,EngineEr
 
 pub fn fence_read<'a>(tx:&'a rusqlite::Transaction<'_>,origin:&ReadOrigin)->Result<model::FencedTransaction<'a>,EngineError>{
     if !balances_current(tx,origin)? {return Err(EngineError::CredentialsChanged)}
-    let fenced=model::fence_versions(tx,&origin.versions)?;
+    let fenced=model::read_versions(tx,&origin.versions)?;
     if !read_is_current(tx,origin)?{crate::engine::log(model::CREDENTIALS_CHANGED);return Err(EngineError::CredentialsChanged)}
     Ok(fenced)
 }
