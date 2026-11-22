@@ -563,6 +563,28 @@ async fn a_key_replaced_during_the_price_check_checks_again_at_once() {
     assert_eq!(v.sent().len(), 1, "met under the new key: re-armed and ticked");
 }
 
+/// #710 7a §9.1: a paused bot whose condition is met while its key's identity read names another account is not checked again
+/// at once: the re-arm is refused as for a replaced key, but the handle is the same on every pass, so the check waits as a stale
+/// bot does instead of spinning the loop.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fenced_key_s_paused_bot_does_not_spin_the_loop() {
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0");
+    for last in ["50100", "49900", "49900", "49900"] { v.script("/0/public/Ticker", kraken_ticker(last)); }
+    let (_d, mut e, id, s) = engine(ruled_spec(), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "paused");
+    let key: i64 = e.primary.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
+    let account = deltabadger::identity::Account::first(&e.primary, s.user_id, s.exchange_id).unwrap().ensure(&e.primary, "2026-09-01T10:00:30Z".parse().unwrap()).unwrap();
+    e.primary.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    e.primary.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-01 10:00:30')", [key, s.exchange_id]).unwrap();
+    let wake = run::step(&mut e, &at("2026-09-01T10:01:00Z")).await.unwrap();
+    assert!(wake >= us("2026-09-01T10:01:00Z") + 1_000_000, "not at once: {wake}");
+    let calls = v.calls("/0/public/Ticker");
+    run::step(&mut e, &at("2026-09-01T10:01:00.001Z")).await.unwrap();
+    assert_eq!(v.calls("/0/public/Ticker"), calls, "not read again on the next pass");
+    assert!(v.sent().is_empty());
+}
+
 /// PLAN-dashboard-bot-actions slice F: a Merge or Split moves the order while its follow-up poll's answer is in flight. The
 /// engine writes nothing against the deleted source and keeps polling the row under its new owner, without a restart.
 #[tokio::test(flavor = "current_thread")]

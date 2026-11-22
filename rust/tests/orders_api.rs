@@ -423,6 +423,27 @@ async fn the_engine_asks_again_what_changed_after_validation() {
     assert!(k.venue.sent().is_empty());
 }
 
+/// #710 7a §9.1: a key whose identity read names another account places nothing for this account: an API order taken after
+/// the fence is refused by the engine (`late_refusal`), and one posted after it by the web (`venue_refusal`), nothing sent.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn an_api_order_through_a_fenced_key_is_refused() {
+    fn fence(c: &Connection) {
+        let (key, user, exchange): (i64, i64, i64) = c.query_row("SELECT id, user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        let account = deltabadger::identity::Account::first(c, user, exchange).unwrap().ensure(c, kt(0).0).unwrap();
+        c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', ?3)", rusqlite::params![key, exchange, T]).unwrap();
+    }
+    let missing = refusal(403, "api_key_missing", "No valid API key found for Kraken. Please add an API key in Settings.");
+    let mut k = kraken(priced());
+    let request = post(&k.app, buy(&k, json!("100")), "taken");
+    queued(&k, 1).await;
+    fence(k.c());
+    run::step(&mut k.e, &kt(0)).await.unwrap();
+    assert_eq!(request.await.unwrap(), missing, "taken after the fence");
+    assert_eq!(order(&k.app, buy(&k, json!("100")), "posted").await, missing, "posted after it");
+    assert!(k.venue.sent().is_empty() && k.rows().is_empty());
+}
+
 /// D-ORDER-API-CAP (Jan, 2026-10-31): the spending cap applies to an API buy, refused and never clamped.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn the_spending_cap_refuses_an_api_buy_it_does_not_cover() {

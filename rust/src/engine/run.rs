@@ -124,6 +124,12 @@ impl<F: VenueFactory> Engine<F> {
     fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> { venue_for(&self.primary, &self.factory, &self.cipher, bot) }
 }
 
+/// When a pass that met CredentialsChanged runs again: at once, on a fresh handle for the new key; but a key fenced for
+/// reading another account (#710 7a §9.1) is the same key on every pass, so it waits as a stale bot does.
+fn credentials_retry(c: &Connection, bot_id: i64, now_us: i64) -> Result<i64, EngineError> {
+    Ok(if model::key_fenced(c, &model::load_bot(c, bot_id)?)? { now_us + STALE_RECHECK_US } else { now_us })
+}
+
 /// The bot's venue. An IBKR bot's is built for the account it belongs to (`ibkr_account::bot_binding`): one whose key is
 /// bound to another account gets a venue that refuses every call, so its placement, recovery, polls, cancels and
 /// liquidation never reach IBKR (D-IBKR-BOT-ACCOUNT).
@@ -764,7 +770,8 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
                 Ok(None) => {}
                 Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
                 // Changed since the claim: served again, on the bot as it is now.
-                Err(EngineError::RunFenced | EngineError::CredentialsChanged) => *wake = (*wake).min(clock.now().timestamp_micros()),
+                Err(EngineError::RunFenced) => *wake = (*wake).min(clock.now().timestamp_micros()),
+                Err(EngineError::CredentialsChanged) => *wake = (*wake).min(credentials_retry(&e.primary, id, clock.now().timestamp_micros())?),
                 Err(err) => {
                     super::log(&format!("[engine] bot {id}: its condition status line could not be computed: {err:?}"));
                     let tx = model::immediate(&e.primary)?;
@@ -811,7 +818,11 @@ async fn refresh_open_orders<F: VenueFactory>(e: &mut Engine<F>, id: i64, versio
     // Logged by kind only: a venue's answer can carry account details (an address, a name).
     match outcome {
         Ok(None) => {}
-        Ok(Some(polling::PollFailure::CredentialsChanged | polling::PollFailure::OwnerChanged(_))) => {
+        Ok(Some(polling::PollFailure::CredentialsChanged)) => {
+            *wake = (*wake).min(credentials_retry(&e.primary, id, clock.now().timestamp_micros())?);
+            return Ok(());
+        }
+        Ok(Some(polling::PollFailure::OwnerChanged(_))) => {
             *wake = (*wake).min(clock.now().timestamp_micros());
             return Ok(());
         }
@@ -1027,7 +1038,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             // The key was replaced while the price read ran: nothing was written, and the check runs again on the next pass
             // with a handle on the new key (as reconcile_idle and the tick retry), never left for Repair.
             Err(EngineError::CredentialsChanged) => {
-                let at = clock.now().timestamp_micros();
+                let at = credentials_retry(&e.primary, id, clock.now().timestamp_micros())?;
                 e.condition_at.insert(id, at);
                 *wake = (*wake).min(at);
                 return Ok(());
@@ -1242,8 +1253,8 @@ pub async fn reconcile_idle_intents<F: VenueFactory>(e: &mut Engine<F>, clock: &
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
             let changed=matches!(err,EngineError::CredentialsChanged);
             if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
-            let delay=if changed {0}else{RECONCILE_EVERY_US};
-            let at = clock.now().timestamp_micros() + delay;
+            let now_us = clock.now().timestamp_micros();
+            let at = if changed { credentials_retry(&e.primary, id, now_us)? } else { now_us + RECONCILE_EVERY_US };
             e.reconcile_at.insert(id, model::Produced::new(at,None));
             *wake = (*wake).min(at);
         }
