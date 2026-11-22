@@ -88,6 +88,8 @@ pub fn rows(dir: &Path, cipher: &Cipher) -> Value {
             if table == "app_configs" && row.get("key").and_then(Value::as_str) == Some(deltabadger::identity::KEY_CONFIG) { continue; }
             // D-CG-SETUP-DURABLE: the setup run a save asks for, Rust's own row (2.x enqueues Setup::SeedAndSyncJob).
             if table == "app_configs" && row.get("key").and_then(Value::as_str) == Some(deltabadger::jobs::setup_sync::REQUEST) { continue; }
+            // #710: when a key's credential was replaced (identity::credential_changed_key), Rust's own row with no 2.x counterpart.
+            if table == "app_configs" && row.get("key").and_then(Value::as_str).is_some_and(|k| k.starts_with("rust_key_credential_changed:")) { continue; }
             rows.push(Value::Object(row));
         }
         out.insert(table.into(), Value::Array(rows));

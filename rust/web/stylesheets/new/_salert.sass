@@ -1,44 +1,6 @@
-// flash messages
-//
-// One bottom-right column. The #flash list inside it is turbo-permanent so a morph cannot drop a
-// message mid-read, and a page's own standing warning (yield :flash_extra) joins the same column
-// rather than starting a second stack on top of it.
-.flash-stack
-  position: fixed
-  bottom: 1rem
-  right: 1rem
-  z-index: 9999999999 // keep it above 999999999 to show them above the Tidio chat
+@use "../mixins" as *
 
-  display: flex
-  flex-direction: column
-  align-items: center
-  gap: 1rem
-
-  max-width: 100%
-  width: max-content
-
-  // Only a wrapper for the permanence flag — its messages are what stack.
-  #flash
-    display: contents
-
-#flash
-  &__message
-    animation: flash-appear 0.3s ease-out both
-
-.flash__message.flash--fading
-  animation: none
-  opacity: 0
-  transition: opacity 1s ease-out
-
-@keyframes flash-appear
-  from
-    opacity: 0
-    transform: translateY(1rem)
-  to
-    opacity: 1
-    transform: translateY(0)
-
-
+// An alert inside a page or a modal (an export's save error): a slab in the alert's colour.
 .salert
   position: relative
   background-color: var(--accent)
@@ -47,36 +9,202 @@
   border-radius: 2rem
   width: 50rem
   max-width: calc(100vw - 2rem)
-  &--danger, &--success, &--warning
-    color: #fff
   &--danger
+    color: #fff
     background-color: var(--berry)
-  &--success
-    background-color: var(--grass)
-  &--warning
-    background-color: var(--warning)
-  &--syncing
-    animation: none
-    display: flex
-    align-items: center
-    gap: 1.5rem
-    padding: 2rem 2.5rem
-  &--download
-    animation: none
-    display: flex
-    flex-direction: column
-    gap: 1.5rem
-    padding: 2rem 2.5rem
-    .slider
-      margin: 0 !important
-  .slider__style__track
-    border-right: 0 !important
 
-.loader--syncing
-  width: 2rem
-  height: 2rem
-  min-width: 2rem
-  border-radius: 50%
-  border: 0.25rem solid color-mix(in srgb, var(--on-accent, #fff) 30%, transparent)
-  border-top-color: var(--on-accent, #fff)
-  animation: rotate 1s linear infinite
+// Flash messages (controllers/flash_stack_controller.js): every .salert in the stack is a toast on the menus' surface, a
+// dot in its colour and one ring around it that is the time left, the progress made, or work under way. Newest in front,
+// the older ones tucked behind; hover or focus fans them out and holds every timer.
+\:root
+  --toast-shadow: 0 1px 2px rgba(0,0,0,.08), 0 10px 28px rgba(0,0,0,.14)
+  +dark-root
+    --toast-shadow: 0 0 0 1px #0006, 0 12px 32px rgba(0,0,0,.5)
+
+.flash-stack
+  position: fixed
+  right: 2rem
+  bottom: 2rem
+  width: 45rem
+  z-index: 9999999999 // keep it above 999999999 to show them above the Tidio chat
+  transition: height .3s
+  @media (max-width: 600px)
+    left: 1.5rem
+    right: 1.5rem
+    bottom: 1.5rem
+    width: auto
+  // A stream's own stack (the tax report's refusal) is only a wrapper inside this one.
+  .flash-stack
+    display: contents
+
+.flash-stack .salert
+  position: absolute
+  left: 0
+  right: 0
+  bottom: 0
+  width: auto
+  max-width: none
+  padding: 0
+  overflow: hidden
+  border-radius: 1.75rem
+  background: var(--dropdown-bg)
+  color: var(--ink)
+  border: 1px solid var(--dropdown-border)
+  box-shadow: var(--toast-shadow)
+  transform: translate(var(--dx, 0px), var(--y, 0px)) scale(var(--s, 1))
+  transform-origin: bottom center
+  opacity: var(--o, 1)
+  transition: transform .35s cubic-bezier(.2,.9,.3,1), opacity .25s, height .3s cubic-bezier(.2,.9,.3,1)
+  touch-action: pan-y
+  cursor: grab
+  user-select: none
+  will-change: transform
+  // Not taken in by the stack yet: nothing to see until it enters. Should the script never come, it shows anyway.
+  // Unstacked, they then stand one above the other.
+  &:not([data-seq])
+    position: relative
+    margin-top: 1rem
+    opacity: 0
+    animation: toast-unscripted 0s 2s forwards
+  &:focus-visible
+    outline: 2px solid var(--accent)
+    outline-offset: 2px
+  &[data-state="in"]
+    --y: calc(100% + 2rem) !important
+    --o: 0 !important
+  &[data-state="out"]
+    --o: 0 !important
+    pointer-events: none
+  &[data-dragging]
+    transition: none
+  &[data-back] .toast__body
+    opacity: 0
+  // The tax report's bar: the ring shows it.
+  .slider
+    display: none
+  // An error shakes its head once as it lands. `translate` composes with the stack's own transform.
+  &.salert--danger[data-seq]:not([data-settled])
+    animation: toast-shake .4s .3s cubic-bezier(.36,.07,.19,.97) both
+  // A success overshoots: it rides the entrance up past its place in one motion, then drops back with a small bounce.
+  &.salert--success[data-seq]:not([data-settled])
+    animation: toast-hop .8s both
+
+.toast__body
+  display: flex
+  align-items: flex-start
+  gap: 1.25rem
+  padding: 1.5rem
+  transition: opacity .2s
+
+.toast__text
+  flex: 1
+  min-width: 0
+  font-size: 1.75rem
+  line-height: 2.5rem
+  font-weight: 500
+
+.toast__glyph
+  flex: none
+  width: 2.5rem
+  height: 2.5rem
+  --k: var(--accent)
+  --dur: 5s
+  .salert--success &
+    --k: var(--grass)
+  .salert--warning &
+    --k: var(--warning)
+    --dur: 8s
+  .salert--danger &
+    --k: var(--berry)
+    --dur: 10s
+  circle
+    fill: none
+  .toast__dot
+    fill: var(--k)
+  .toast__track, .toast__ring
+    stroke-width: 3.5
+    --c: 56.55px
+  .toast__track
+    stroke: color-mix(in srgb, var(--k) 14%, transparent)
+  .toast__ring
+    stroke: var(--k)
+    stroke-linecap: round
+    stroke-dasharray: var(--c)
+    transform: rotate(-90deg)
+    transform-origin: 12px 12px
+  // The ring is the timer: when it has drained, the message leaves.
+  &[data-ring="timer"] .toast__ring
+    opacity: .4
+    animation: toast-drain var(--dur) linear forwards
+  // A message with a button or a link stays until answered: a full, faint ring.
+  &[data-ring="still"]
+    .toast__track
+      display: none
+    .toast__ring
+      opacity: .4
+  &[data-ring="spin"], &[data-ring="pct"]
+    .toast__dot
+      display: none
+  &[data-ring="spin"] .toast__ring
+    stroke-dasharray: calc(var(--c) * .3) calc(var(--c) * .7)
+    animation: toast-spin .9s linear infinite
+  &[data-ring="pct"] .toast__ring
+    stroke-dashoffset: calc(var(--c) * (1 - var(--p, 0)))
+    transition: stroke-dashoffset .3s
+
+.flash-stack:is(:hover, :focus-within) .toast__glyph[data-ring="timer"] .toast__ring, .salert[data-waiting] .toast__glyph[data-ring="timer"] .toast__ring
+  animation-play-state: paused
+
+@keyframes toast-shake
+  15%, 45%, 75%
+    translate: -5px 0
+  30%, 60%, 90%
+    translate: 5px 0
+
+@keyframes toast-hop
+  0%
+    translate: 0 0
+    animation-timing-function: cubic-bezier(.2,.8,.3,1)
+  36%
+    translate: 0 -14px
+    animation-timing-function: ease-in
+  60%
+    translate: 0 0
+    animation-timing-function: ease-out
+  74%
+    translate: 0 -5px
+    animation-timing-function: ease-in
+  87%
+    translate: 0 0
+    animation-timing-function: ease-out
+  94%
+    translate: 0 -1.5px
+    animation-timing-function: ease-in
+  100%
+    translate: 0 0
+
+@keyframes toast-unscripted
+  to
+    opacity: 1
+
+@keyframes toast-drain
+  to
+    stroke-dashoffset: var(--c)
+
+@keyframes toast-spin
+  from
+    transform: rotate(-90deg)
+  to
+    transform: rotate(270deg)
+
+@media (prefers-reduced-motion: reduce)
+  .flash-stack .salert
+    transition: opacity .2s, height 0s
+    &[data-state="in"]
+      --y: 0px !important
+    &.salert--danger[data-seq]:not([data-settled]), &.salert--success[data-seq]:not([data-settled])
+      animation: none
+  // The reset (new/_reset.sass) cuts every animation to nothing: the timer's ring is a clock, not motion, and keeps its
+  // time. The spinner stands still, as 2.x's loader did.
+  .toast__glyph[data-ring="timer"] .toast__ring
+    animation-duration: var(--dur) !important

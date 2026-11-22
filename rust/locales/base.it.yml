@@ -558,6 +558,7 @@ it:
             missing: "Nessun prezzo di mercato per %{assets} su %{venue}."
             missing_anywhere: "Nessun prezzo di mercato per %{assets}."
             chart_missing: "Il grafico non mostra il valore di mercato di %{assets} su %{venue} nei giorni senza prezzo."
+            opening_unknown: "Il valore iniziale di %{assets} su %{venue} è sconosciuto."
             chart_incomplete: "Alcuni giorni del grafico sono incompleti."
             connect_market_data: "Collega un fornitore di dati di mercato per ottenere i prezzi di mercato."
             providers_intro: "Il monitoraggio del portafoglio e i report fiscali richiedono prezzi storici e tassi di cambio. Collega l'API dati di Deltabadger (azioni e cripto) o un account CoinGecko gratuito (solo cripto). Un account CoinGecko gratuito copre solo i prezzi dell'ultimo anno."

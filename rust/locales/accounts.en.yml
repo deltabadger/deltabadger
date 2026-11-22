@@ -1,0 +1,17 @@
+en:
+    tracker:
+        duplicate_account_html: "%{duplicate} is the same exchange account as %{survivor}, so it is left out of your totals."
+        merge_in_settings: "Merge it in Settings"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} is the same exchange account as %{survivor}."
+            merge: "Merge"
+            confirm_merge_html: "Merge %{duplicate} into %{survivor}? Its keys, bots, rules, orders and history move to %{survivor}, and %{duplicate} is removed. This cannot be undone."
+            merged_html: "%{duplicate} was merged into %{survivor}."
+            merge_in_flight_html: "An order or a withdrawal of %{duplicate} or %{survivor} is still in flight. Try again when it settles."
+            merge_conflict_html: "%{duplicate} and %{survivor} disagree on these records, so nothing was changed: %{rows}. Make them match, then merge again."
+            merge_checking_html: "Deltabadger is reading %{duplicate} and %{survivor} again to make sure they are the same account. Try again in a minute."
+            merge_withdrawal_key_html: "After the merge, these withdrawal rules would send with a different withdrawal key: %{rules}. Remove the withdrawal key of %{duplicate} or %{survivor}, merge, then add it again."
+            merge_foreign_order: "an order already recorded on this exchange"
+            merge_order_unchecked_html: "An order of %{account} was placed with an earlier key, so Deltabadger can't check it with its current key: %{rows}. Save the key it was placed with again, then merge."
+            merge_unreadable_html: "%{account} has no working key that can read its balances, so Deltabadger can't check it. Fix or add one, then merge again."

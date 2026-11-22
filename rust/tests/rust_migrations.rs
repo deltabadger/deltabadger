@@ -669,12 +669,14 @@ fn the_users_name_drop_removes_the_column_and_nothing_else() {
     store::migrate_with(&p, &lock(&p), &Registry { migrations: &earlier, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap();
     let others = |p: &Paths| contents(p).into_iter().filter(|t| !t.starts_with("users:") && !t.contains("TABLE \"users\"") && !t.starts_with("rust_schema_migrations")).collect::<Vec<_>>();
     let untouched = others(&p);
-    assert_eq!(store::migrate(&p, &lock(&p)).unwrap(), vec!["20261122000002".to_string()]);
+    // The drop alone (later migrations, such as #710's, are not this test's).
+    let through: Vec<Migration> = store::REGISTRY.migrations.iter().copied().filter(|m| m.version <= "20261122000002").collect();
+    assert_eq!(store::migrate_with(&p, &lock(&p), &Registry { migrations: &through, tables: store::REGISTRY.tables, retired: store::REGISTRY.retired }).unwrap(), vec!["20261122000002".to_string()]);
     assert_eq!(columns(&p), before.into_iter().filter(|c| c != "name").collect::<Vec<_>>());
     assert_eq!(others(&p), untouched, "every other 2.x table as it was");
     let row: (String, i64) = Connection::open(&p.primary).unwrap().query_row("SELECT email, admin FROM users", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     assert_eq!(row, ("o@example.com".to_string(), 1));
-    assert!(store::migrate(&p, &lock(&p)).unwrap().is_empty());
+    assert!(!store::migrate(&p, &lock(&p)).unwrap().contains(&"20261122000002".to_string()), "the drop runs once");
 }
 
 /// D-DROP-USERS-NAME timing: on an install this engine does not own yet, `migrate_unowned` applies every other migration
@@ -797,4 +799,19 @@ fn kucoin_coverage_moves_to_its_number_one_through_the_hop() {
                 vec![Integer(9), Integer(3), Integer(2), Integer(1), s("export"), s("2026-01-01"), s("2026-02-01"), s("u2")]]);
     assert_eq!(rows(&p, "SELECT account_id FROM kucoin_coverage WHERE id = 4"), [[Integer(30)]], "the existing number 1");
     assert!(store::check(&p).unwrap().pending_rust.is_empty());
+}
+
+/// Delisted coins PR0: `asset_prices` (coin prices by identity) migrates once, keyed as its writer relies on: one price
+/// per (external id, currency, day).
+#[test]
+fn the_asset_prices_table_migrates_once_with_its_key() {
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap();
+    assert!(has_table(&p, "asset_prices"));
+    let c = Connection::open(&p.primary).unwrap();
+    let put = "INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin-gold', 'USD', '2019-01-02', '13.5') ON CONFLICT DO NOTHING";
+    assert_eq!(c.execute(put, []).unwrap(), 1);
+    assert_eq!(c.execute(put, []).unwrap(), 0, "one price per external id, currency and day");
+    assert_eq!(store::migrate_with(&p, &lock(&p), &REGISTRY).unwrap(), Vec::<String>::new(), "a restart applies nothing");
 }

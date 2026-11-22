@@ -182,7 +182,7 @@ pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
         };
         if names.is_empty() { return Ok(Prepared { response:StatusCode::NO_CONTENT.into_response(),jobs }); }
         let text = super::i18n::t(ctx.locale,"tracker.importing_from",&[("exchange",super::i18n::Arg::Text(&names.join(", ")))]);
-        let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\">\n    <div class=\"loader--syncing\"></div>\n    {text}\n  </div>\n");
+        let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\">\n    {text}\n  </div>\n");
         Ok(Prepared { response:([(header::CONTENT_TYPE,super::turbo::CONTENT_TYPE)],super::turbo::stream("append","flash",&content)).into_response(),jobs })
     })).await
 }
@@ -214,7 +214,8 @@ fn transactions_csv(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, W
     // #710 slice 5: the page's scope (an account; an old `exchange_id` link, its number 1): that account's rows.
     match scope::read(c, ctx, owner)? {
         Err(missing) => return Ok(missing),
-        Ok(crate::tracker::Scope::All) => {}
+        // #710: a duplicate account's rows are its survivor's, listed once.
+        Ok(crate::tracker::Scope::All) => sql.push_str(&format!(" AND {}", crate::identity::counted(c, owner, &crate::venue_ids::Scope::install(c)?.member_sql("account_transactions"))?)),
         Ok(scope) => sql.push_str(&format!(" AND {}", scope.rows("account_transactions"))),
     }
     if let Some(answer) = window::structured_exchange(c, ctx)? { return Ok(answer); }

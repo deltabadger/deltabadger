@@ -1457,7 +1457,7 @@ async fn unreadable_split_report(dir: &Path, sc: &Value, expected: &Value, now: 
     let split_at: String = c.query_row("SELECT min(transacted_at) FROM account_transactions WHERE entry_type=15", [], |r| r.get(0)).unwrap();
     let expires = db_time(&split_at) + chrono::Duration::seconds(deltabadger::figures::splits::QUARANTINE_SECONDS);
     assert_eq!(now.utc() < expires, name == "split_fresh", "both sides of quarantine must be exercised");
-    assert!(matches!(db::split_rows(&c, user, &[subject.bot.exchange_id.unwrap()]), Err(FiguresError::Data(_))), "unreadable split report must fail the whole read");
+    assert!(matches!(db::split_rows(&c, user, "1", &[subject.bot.exchange_id.unwrap()]), Err(FiguresError::Data(_))), "unreadable split report must fail the whole read");
     assert!(matches!(walk::metrics(&c, &subject, now), Err(FiguresError::Data(_))), "a partial split read must not produce a share count");
     let cache = Cache::default();
     let reader = Reader::new(&cache, now.utc().timestamp());

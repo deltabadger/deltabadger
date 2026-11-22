@@ -643,8 +643,11 @@ pub fn exchange_type(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
 }
 
 /// Bot#api_key: any status, trading slot. P versions stored ciphertext, never metadata.
+/// `account` (#710, PLAN-710-6 §6.4): the account the key belonged to when the version was captured, checked again at the
+/// result's commit (`check_credential_result`), so a result whose key moved to another account (Merge), or whose account
+/// was removed, is discarded. Not part of the comparison or the stamp: a stored stamp decodes with none.
 #[derive(Clone)]
-pub struct CredentialVersion { pub id: i64, digest: [u8; 32] }
+pub struct CredentialVersion { pub id: i64, digest: [u8; 32], account: Option<i64> }
 impl PartialEq for CredentialVersion {
     fn eq(&self,other:&Self)->bool { self.same_credentials(other) }
 }
@@ -662,8 +665,14 @@ impl CredentialVersion {
     }
     pub(crate) fn from_stamp(stamp:&Value)->Option<Self> {
         let bytes=hex::decode(stamp["ciphertext_digest"].as_str()?).ok()?;
-        Some(Self{id:stamp["key_id"].as_i64()?,digest:bytes.try_into().ok()?})
+        Some(Self{id:stamp["key_id"].as_i64()?,digest:bytes.try_into().ok()?,account:None})
     }
+    /// The stamp a sync records (`cache_stamp`), for a test that writes what a sync leaves.
+    #[doc(hidden)]
+    pub fn test_stamp(&self) -> Value { self.cache_stamp() }
+    /// This version as captured on account `account` (None: a number 1 with no row yet, which no Merge touches).
+    pub fn with_account(mut self, account: Option<i64>) -> Self { self.account = account; self }
+    pub fn account(&self) -> Option<i64> { self.account }
 
 }
 /// The only credential-provenance comparison. Missing or malformed producers are stale.
@@ -734,7 +743,7 @@ fn ciphertext_version(id: i64, columns: &[Option<String>; 7]) -> CredentialVersi
             }
         }
     }
-    CredentialVersion { id, digest: hash.finalize().into() }
+    CredentialVersion { id, digest: hash.finalize().into(), account: None }
 }
 /// A submitted validation handle owns these exact encryption envelopes before HTTP.
 /// Zero is a private pending slot; it is never used to label persisted account state.
@@ -748,8 +757,17 @@ fn stored_columns(r: &rusqlite::Row<'_>) -> rusqlite::Result<[Option<String>; 7]
 pub const CREDENTIALS_CHANGED: &str = "credentials changed; venue result discarded";
 
 pub fn credential_version_by_id(c: &Connection, id: i64) -> Result<Option<CredentialVersion>, EngineError> {
-    Ok(c.query_row("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param FROM api_keys WHERE id=?1",
-        [id], |r| Ok(ciphertext_version(id, &stored_columns(r)?))).optional()?)
+    Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,{account} FROM api_keys k WHERE id=?1"),
+        [id], |r| Ok(ciphertext_version(id, &stored_columns(r)?).with_account(r.get(7)?))).optional())?)
+}
+
+/// #710 (PLAN-710-6 §6.4): whether `version`'s key is still on the account it was captured on, and that account live. A
+/// version with no account (a decoded stamp, a number 1 with no row) passes, as before. A pending slot (id 0, a key not
+/// saved yet) has only its account to check.
+pub fn account_is_current(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    let Some(account) = version.account else { return Ok(true) };
+    if version.id != 0 && crate::identity::account_of_key(c, version.id)? != Some(account) { return Ok(false); }
+    Ok(c.query_row("SELECT removed_at IS NULL FROM exchange_accounts WHERE id = ?1", [account], |r| r.get::<_, bool>(0)).optional()?.unwrap_or(false))
 }
 
 /// Shared Q check. Call only inside the transaction that writes the venue result.
@@ -801,7 +819,7 @@ pub fn fence_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[Credent
 pub fn check_credential_result<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
     if c.is_autocommit() { return Err(EngineError::Data("credential result check requires a write transaction".into())); }
     if let Some(version) = version {
-        if !credential_is_current(c,version)? {
+        if !credential_is_current(c,version)? || !account_is_current(c,version)? {
             super::log(CREDENTIALS_CHANGED);
             return Err(EngineError::CredentialsChanged);
         }
@@ -828,8 +846,9 @@ pub fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     Ok(status == Some(crate::enums::ApiKeyStatus::PendingActivation as i64))
 }
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
-    Ok(c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1",bot_keys(c,bot)?),
-        [], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?))).optional()?)
+    let keys = bot_keys(c, bot)?;
+    Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id,{account} FROM api_keys k WHERE {keys} AND key_type=0 ORDER BY id LIMIT 1"),
+        [], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?).with_account(r.get(8)?))).optional())?)
 }
 pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
     Ok(credentials_with_version(c,cipher,bot)?.0)
@@ -843,12 +862,14 @@ pub fn credentials_with_version(c: &Connection, cipher: &Cipher, bot: &Bot) -> R
 /// Diagnostic material comes from the same row snapshot as the credential digest.
 pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>,Vec<String>);
 pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
-    type KeyRow = ([Option<String>;7], Option<String>, i64);
-    let row: Option<KeyRow> = c.query_row(
-        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {} AND k.key_type=0 ORDER BY k.id LIMIT 1",bot_keys(c,bot)?),
-        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?))).optional()?;
-    let Some((columns,exchange_type,id)) = row else { return Ok((None,None,Vec::new())) };
-    let version = ciphertext_version(id,&columns);
+    type KeyRow = ([Option<String>;7], Option<String>, i64, Option<i64>);
+    let keys = bot_keys(c,bot)?;
+    // The ciphertext and its owner in one statement (#710 §6.4).
+    let row: Option<KeyRow> = crate::identity::with_key_account("k", |account| c.query_row(
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id,{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {keys} AND k.key_type=0 ORDER BY k.id LIMIT 1"),
+        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?,r.get(9)?))).optional())?;
+    let Some((columns,exchange_type,id,owner)) = row else { return Ok((None,None,Vec::new())) };
+    let version = ciphertext_version(id,&columns).with_account(owner);
     let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
     // ApiKey#passphrase where the venue's client takes it: KuCoin signs with it, Alpaca reads its mode from it. Others never
     // read the field, so an unreadable leftover there does not stop their key.
@@ -876,19 +897,26 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     Ok((credentials,Some(version),sensitive))
 }
 
+/// The withdrawal key `account`'s rules withdraw with: its lowest correct withdrawal key. The one selection, which Merge's
+/// guard reads too (#710).
+pub fn withdrawal_key_id(c:&Connection,account:&crate::identity::Account)->rusqlite::Result<Option<i64>>{
+    c.query_row(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),[],|r|r.get(0)).optional()
+}
+
 /// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,
 /// an absent, invalid or undecryptable key is never replaced by an empty signing key.
 /// `account`'s correct withdrawal key (#710: a rule withdraws with its own account's).
 pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::identity::Account)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,account)?;tx.commit()?;return Ok(result);}
+    let Some(id)=withdrawal_key_id(c,account)? else{return Ok(None)};
     let row:Option<([Option<String>;7],i64)>=c.query_row(
-        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),
-        [],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
+        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE k.id=?1",
+        [id],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
     let Some((columns,id))=row else{return Ok(None)};
     let open=|v:&Option<String>|v.as_ref().and_then(|v|cipher.decrypt(v).ok());
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};
     if key.is_empty()||secret.is_empty(){return Ok(None);}
-    let version=ciphertext_version(id,&columns);
+    let version=ciphertext_version(id,&columns).with_account(account.id);
     Ok(Some((Credentials{redaction_values:columns.iter().filter_map(open).collect(),key,secret,passphrase:open(&columns[2]),ibkr:None},version)))
 }
 
@@ -1058,7 +1086,7 @@ mod r4_provenance_tests {
     use super::*;
     #[test]
     fn r4_current_for_rejects_missing_and_malformed_producers_and_map_keeps_origin(){
-        let a=CredentialVersion{id:1,digest:[1;32]};let b=CredentialVersion{id:1,digest:[2;32]};
+        let a=CredentialVersion{id:1,digest:[1;32],account:None};let b=CredentialVersion{id:1,digest:[2;32],account:None};
         assert!(current_for(Some(&a),Some(&a)).is_fresh());
         for (state,current) in [(None,None),(Some(&a),None),(None,Some(&a)),(Some(&a),Some(&b))]{assert!(!current_for(state,current).is_fresh(),"R4 absent or changed producer is stale");}
         assert!(!stamp_current_for(&serde_json::json!({"key_id":1,"ciphertext_digest":"bad"}),&a.cache_stamp()).is_fresh());
@@ -1067,7 +1095,7 @@ mod r4_provenance_tests {
     }
     #[test]
     fn r5_incomplete_produced_values_stay_stale_through_maps(){
-        let a=CredentialVersion{id:1,digest:[7;32]};
+        let a=CredentialVersion{id:1,digest:[7;32],account:None};
         let incomplete=Produced::new(10,Some(a.clone())).with_completion(false);
         assert!(!incomplete.current_for(&Some(a.clone())).is_fresh(),"R5 completeness is part of provenance");
         assert!(!incomplete.map(|n|n*2).current_for(&Some(a.clone())).is_fresh(),"R5 transformations cannot complete a partial set");

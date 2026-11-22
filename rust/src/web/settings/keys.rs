@@ -31,18 +31,8 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 }
 /// K: no new tracking. Read the intent and the engine's actual polling rows under the write lock.
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
-/// The account's bots only (#710 §4.2).
-fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> {
-    let mut stmt = c.prepare(&format!("SELECT b.id FROM bots b WHERE {} ORDER BY b.id", account.bots("b")))?;
-    let ids = stmt.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
-    for id in ids {
-        let bot = crate::engine::model::load_bot(c, id)?;
-        if bot.rust_placement().is_some() || !crate::engine::polling::waiting_ids(c, &bot)?.is_empty() {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
+/// The account's bots only (#710 §4.2); Merge asks the same (`merge::settling`).
+pub(crate) fn settling(c: &Connection, account: &Account) -> Result<bool, WebError> { Ok(crate::merge::settling(c, account)?) }
 pub(crate) fn refusal_text(ctx: &Ctx, reason: &str) -> String {
     if reason == SETTLING { reason.to_string() }
     else { i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
@@ -145,7 +135,8 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<V
     let mut values=key.extras.iter().flatten().cloned().collect::<Vec<_>>();
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
-    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns);
+    // #710 (PLAN-710-6 §6.4): the form's account, so a save validated while Merge moved or removed it is refused at its commit.
+    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns).with_account(original.account.id);
     // Session#initialize's reads, from the submitted fields over the stored ones.
     let ibkr=match (venue==crate::venue::ibkr::IBKR,&key.extras) {
         (true,[Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)])=>Some(Box::new(crate::venue::signers::ibkr::Material{
@@ -320,6 +311,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     let user_id=original.account.user_id;
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
+  if !crate::engine::model::account_is_current(&tx,validated.handle.producer())? {return Ok(Some("credential changed during validation".into()));}
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
   let target=original.account.ensure(&tx,inner.now())?;
   let current=Key::read(&tx,&inner,target,kind)?;
@@ -335,16 +327,13 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
    let key=validated.columns[0].clone();let secret=validated.columns[1].clone();let passphrase=validated.columns[2].clone();
    match current.id{
-    Some(id)=>{tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=?7,last_sync_error=NULL,updated_at=?4 WHERE id=?5 AND user_id=?6",rusqlite::params![key,secret,passphrase,&now,id,user_id,status])?;id},
+    Some(id)=>{
+     crate::identity::write_credential(&tx,&inner.cipher,id,key.as_deref(),secret.as_deref(),passphrase.as_deref(),inner.now())?;
+     crate::identity::write_status(&tx,id,status,&now,false,true)?;id},
     None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,kind,key,secret,passphrase,&now,status])?;
      let id=tx.last_insert_rowid();target.add_key(&tx,id)?;id}
    }
   };
-  // #497: another credential may be another account, which syncs its own full history; its rows stay linked.
-  if let Some(id)=current.id.filter(|_|!(same(&candidate.key,&current.key)&&same(&candidate.secret,&current.secret))){
-   tx.execute("UPDATE api_keys SET last_synced_at=NULL WHERE id=?1",[id])?;
-   tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
-  }
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE id=?6",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,id])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   // D-IBKR-ACCOUNT: the key binds to the account it names, or is refused (nothing saved) when bound to another.
@@ -431,7 +420,10 @@ pub fn list(c: &Connection, ctx: &Ctx, csrf: &str, user: i64) -> Result<String, 
             super::sections::Key { id, name, name_id, read_only: kind == 2, withdrawal: kind == 1, instructions }
         })
         .collect();
-    Ok(super::sections::api_keys(ctx, csrf, &keys))
+    // #710 (PLAN-710-6 §6.1): one Merge row per duplicate, above the keys.
+    let duplicates = crate::identity::duplicates(c, user)?.into_iter()
+        .map(|(d, s)| Ok((crate::identity::label(c, d)?.html(), crate::identity::label(c, s)?.html(), d, s))).collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(super::sections::api_keys(ctx, csrf, &keys, &duplicates))
 }
 /// settings/widgets/_market_data: the container's market data source, the one section Connect holds (D-BROKERS-AS-VENUES).
 /// `show_coingecko_form`: 2.x's `@show_coingecko_form`, a switch to CoinGecko with no key to use. `platform_errors`: 2.x's
@@ -567,7 +559,11 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, then: i
   crate::identity::forget(&tx,id,&account)?;
   crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
-  let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();Ok(Some(Ok(out)))
+  // #710: the account's reading key now reads its balances again, so its duplicate standing may re-enter on them.
+  let reader=match crate::identity::AccountRow::of(&tx,&account)? {Some(a)=>crate::sync::cache::reading_key(&tx,&a)?,None=>None};
+  let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();
+  if let (Some(k),Ok(jobs))=(reader,inner.job_wakers()){jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&k.to_string()),None);}
+  Ok(Some(Ok(out)))
 }
 
 /// `legacy`'s answers to a pick (§4.2): an account not the user's live one of this exchange, and which account.
@@ -667,10 +663,11 @@ pub async fn legacy(
   let id=if let Some(id)=current.id{
    let stamp=if !same_keys||current.status!=0 {now.clone()} else {current.updated_at.clone().unwrap_or_else(||now.clone())};
    if same_keys {
-    tx.execute("UPDATE api_keys SET status=0,updated_at=?1 WHERE id=?2",(&stamp,id))?;
+    crate::identity::write_status(&tx,id,0,&stamp,false,false)?;
    } else {
-    tx.execute("UPDATE api_keys SET key=?1,secret=?2,passphrase=?3,status=0,last_sync_error=NULL,last_synced_at=NULL,updated_at=?4 WHERE id=?5",(key.as_ref().map(|s|inner.cipher.encrypt(s)),secret.as_ref().map(|s|inner.cipher.encrypt(s)),saved_passphrase.map(|s|inner.cipher.encrypt(s)),stamp,id))?;
-    tx.execute("DELETE FROM app_configs WHERE key IN (?1,?2,?3,?4)",(format!("rust_sync.ledger:{id}"),format!("rust_sync.ledger_splits:{id}"),format!("rust_sync.kraken_unresolved:{id}"),format!("rust_sync.kraken_repair_deferred:{id}")))?;
+    let encrypted=|v:Option<&String>|v.map(|s|inner.cipher.encrypt(s));
+    crate::identity::write_credential(&tx,&inner.cipher,id,encrypted(key.as_ref()).as_deref(),encrypted(secret.as_ref()).as_deref(),encrypted(saved_passphrase).as_deref(),inner.now())?;
+    crate::identity::write_status(&tx,id,0,&stamp,false,true)?;
    }
    id
   }else{
@@ -912,7 +909,158 @@ pub fn bound_status(c:&Connection,cipher:&crate::crypto::Cipher,id:i64,status:cr
 }
 pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate::engine::model::Produced<i64>,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
     if !status.current_for(&c.producer_version()).is_fresh() || status.origin().as_ref().is_none_or(|producer|producer.id!=id){return Err(crate::sync::SyncError(crate::engine::model::CREDENTIALS_CHANGED.into()));}
-    c.execute("UPDATE api_keys SET status=?1,updated_at=CASE WHEN status<>?1 THEN ?2 ELSE updated_at END WHERE id=?3",rusqlite::params![status.value,format_time(at),id])?;Ok(())
+    crate::identity::write_status(c,id,status.value,&format_time(at),true,false)?;Ok(())
+}
+
+/// The pre-flight of a Merge (PLAN-710-6 §6.1), outside the lock: every placed standalone order of either account not yet
+/// known terminal is read from its venue under its account's current trading key, by its stored route. Each one found
+/// ended is recorded (`$.terminal`) in a credential-fenced write; false at the first one open or unreadable.
+/// What the pre-flight found: every standalone order settled at its venue (`Clear`), one still open or unread
+/// (`InFlight`), or one placed under another credential than its account's current trading key (`Unchecked`: the current
+/// key may be another wallet, whose answer is never taken for it), named by its account and its order.
+enum Preflight { Clear, InFlight, Unchecked(String, String) }
+async fn merge_preflight(app: &App, d: i64, s: i64) -> Result<Preflight, WebError> {
+    crate::web::bot::cancel::on_own_connection(app, move |c, app, runtime| {
+        use crate::venue::{OrderStatus, Venue};
+        let factory = crate::web::bot::cancel::live_factory(c, app);
+        let mut q = c.prepare(&format!("SELECT o.id, x.account_id, x.external_id, x.identity, x.order_snapshot, o.credential_version, o.created_at, o.side, o.amount \
+                                         FROM rust_api_orders o JOIN rust_api_order_standalone x ON x.order_id = o.id \
+                                         WHERE o.id IN ({} UNION {}) ORDER BY o.id", crate::merge::unsettled_standalone(d), crate::merge::unsettled_standalone(s)))?;
+        type Row = (i64, i64, Option<String>, Option<String>, Option<String>, Option<String>, String, String, String);
+        let orders: Vec<Row> = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?)))?.collect::<Result<_, _>>()?;
+        drop(q);
+        for (id, account_id, external, identity, snapshot, placed_under, placed_at, side, amount) in orders {
+            let date = placed_at.chars().take(10).collect::<String>();
+            let (Some(external), Some(account)) = (external, Account::by_id(c, account_id)?) else { return Ok(Preflight::InFlight) };
+            // The cancel's route (bot_api::orders): the identity and snapshot stored at the claim.
+            let parse = |t: Option<String>| t.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+            let mut intent = parse(identity).unwrap_or_else(|| serde_json::json!({}));
+            let snapshot = parse(snapshot).unwrap_or_default();
+            for field in ["symbol", "side", "limit"] { intent[field] = snapshot[field].clone(); }
+            let order = crate::venue::OrderRef { external_id: external, record: crate::venue::kucoin::record_of(&intent) };
+            let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
+            // The handle's producer: the trading key's version the read is made under, which the record is fenced by.
+            let Some(version) = venue.producer() else { return Ok(Preflight::InFlight) };
+            // Only the credential it was placed under can speak for it.
+            // Its stamp names this key, and the key's material has not changed since it was placed (a re-encryption of the
+            // same material changes the stamp only: `identity::write_credential` records a real change).
+            let placed = parse(placed_under).and_then(|v| crate::engine::model::CredentialVersion::from_stamp(&v));
+            let changed: Option<String> = crate::app_config::get_plain(c, &crate::identity::credential_changed_key(version.id)).map_err(WebError::Config)?;
+            let same = placed.as_ref().is_some_and(|p| p.cache_stamp() == version.cache_stamp()
+                || (p.id == version.id && changed.as_deref().is_none_or(|t| t < placed_at.as_str())));
+            if !same {
+                return Ok(Preflight::Unchecked(crate::identity::label(c, account_id)?.plain(), format!("{date} {side} {amount}")));
+            }
+            let version = Some(version);
+            let read = runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.order_with(&order, |_, _, _| Ok(true))));
+            // The poll's reading (`OrderState::settled`): a KuCoin zero-fill answer old enough is final.
+            let status = match read { Ok(Ok((states, _))) => states.first().map(|o| o.clone().settled(app.now()).status), _ => None };
+            let terminal = match status { Some(OrderStatus::Closed) => "filled", Some(OrderStatus::Cancelled) => "cancelled", Some(OrderStatus::Failed) => "rejected", _ => return Ok(Preflight::InFlight) };
+            match crate::engine::model::credential_write(c, &version, |tx| Ok(crate::merge::record_terminal(tx, id, terminal)?)) {
+                Ok(_) => {}
+                Err(crate::engine::EngineError::CredentialsChanged) => return Ok(Preflight::InFlight),
+                Err(e) => return Err(e.into()),
+            }
+        }
+        Ok(Preflight::Clear)
+    }).await
+}
+
+/// Settings' Merge (PLAN-710-6 §6.1): duplicate `<id>` joins its survivor (`merge::run`, one transaction on the engine's
+/// write path), answered as a delete: the key list replaced and a flash, or a 422 flash naming why nothing changed.
+pub async fn merge(app: App, ctx: Ctx) -> Result<Response, WebError> {
+    let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
+    let Some(id) = ctx.params.route_path.rsplit('/').next().and_then(|s| s.parse::<i64>().ok()) else { return Ok(crate::web::layout::missing()) };
+    let user_id = user.id;
+    // The survivor the confirmation named: another one derived by now is no Merge the user confirmed.
+    let Some(posted) = ctx.params.form("survivor_id").and_then(|s| s.parse::<i64>().ok()) else { return Ok(crate::web::layout::missing()) };
+    let names = app.db(move |c| {
+        let Some((d, s)) = crate::identity::duplicates(c, user_id)?.into_iter().find(|(d, _)| *d == id) else { return Ok(None) };
+        Ok(Some((d, s, crate::identity::label(c, d)?.plain(), crate::identity::label(c, s)?.plain())))
+    }).await?;
+    let Some((d, s, duplicate, survivor)) = names else { return Ok(crate::web::layout::missing()) };
+    if s != posted { return Ok(crate::web::layout::missing()); }
+    fn args<'a>(duplicate: &'a str, survivor: &'a str, rows: Option<&'a str>) -> Vec<(&'static str, i18n::Arg<'a>)> {
+        let mut out = vec![("duplicate", i18n::Arg::Text(duplicate)), ("survivor", i18n::Arg::Text(survivor))];
+        if let Some(rows) = rows { out.push(("rows", i18n::Arg::Text(rows))); }
+        out
+    }
+    let refused = |ctx: &Ctx, text: String| -> Result<Response, WebError> {
+        Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+            turbo::prepend_flash(flash::render(&flash::take(&ctx.session, &[(flash::ALERT, text)]))?.trim_end())).into_response())
+    };
+    match merge_preflight(&app, d, s).await? {
+        Preflight::Clear => {}
+        Preflight::InFlight => return refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_in_flight_html", &args(&duplicate, &survivor, None))),
+        Preflight::Unchecked(account, order) => return refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_order_unchecked_html",
+                                                                             &[("account", i18n::Arg::Text(&account)), ("rows", i18n::Arg::Text(&order))])),
+    }
+    let inner = app.clone();
+    let v = ctx.clone();
+    let csrf = ctx.csrf_token();
+    enum Done { Missing, Merged(crate::merge::Merged, String, Vec<(i64, bool, bool)>, (String, String)), InFlight, Stale(Vec<(&'static str, i64)>), WithdrawalKeys(Vec<String>), Unreadable(String),
+                Conflict(Vec<String>), Refused(String) }
+    let done = app.db(move |c| {
+        let tx = crate::engine::model::immediate(c)?;
+        // The names as they read in the transaction, before the duplicate is removed.
+        let labels = (crate::identity::label(&tx, id)?.plain(), crate::identity::label(&tx, posted)?.plain());
+        let merged = match crate::merge::run(&tx, &inner.cipher, user_id, id, posted, inner.now()) {
+            Ok(None) => return Ok(Done::Missing),
+            Ok(Some(merged)) => merged,
+            Err(crate::merge::Refusal::InFlight) => return Ok(Done::InFlight),
+            Err(crate::merge::Refusal::Stale(wake)) => return Ok(Done::Stale(wake)),
+            Err(crate::merge::Refusal::WithdrawalKeys(rules)) => return Ok(Done::WithdrawalKeys(rules)),
+            Err(crate::merge::Refusal::Unreadable(account)) => return Ok(Done::Unreadable(crate::identity::label(&tx, account)?.plain())),
+            Err(crate::merge::Refusal::Conflict(rows)) => return Ok(Done::Conflict(rows)),
+            Err(crate::merge::Refusal::Db(e)) => return Err(e.into()),
+        };
+        // Only the merging user's bots and rules decide: another user's neither block a Merge nor reach its answer.
+        if let Err(refusal) = eligibility::guard_user(&tx, &inner.cipher, user_id) { return Ok(Done::Refused(refusal.reason())); }
+        let body = list(&tx, &v, &csrf, user_id)?;
+        // Only the keys the scheduler reads with (a trading key before a read-only one): a sync of another key would stamp
+        // the account's balances as a producer the freshness check does not expect.
+        let ledger = crate::sync::ledger_reading_keys(&tx).map_err(|e| WebError::Config(e.0))?;
+        let balances = crate::sync::balance_reading_keys(&tx).map_err(|e| WebError::Config(e.0))?;
+        let wakes: Vec<(i64, bool, bool)> = merged.kept_keys.iter().map(|k| (*k, ledger.contains(k), balances.contains(k))).collect();
+        tx.commit()?;
+        Ok(Done::Merged(merged, body, wakes, labels))
+    }).await?;
+    match done {
+        Done::Missing => Ok(crate::web::layout::missing()),
+        Done::InFlight => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_in_flight_html", &args(&duplicate, &survivor, None))),
+        Done::Stale(wake) => {
+            // The live check: the syncs that read both accounts again, then the user tries again.
+            let jobs = app.job_wakers()?;
+            for (job, key) in wake { jobs.wake(job, Some(&key.to_string()), None); }
+            refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_checking_html", &args(&duplicate, &survivor, None)))
+        }
+        Done::WithdrawalKeys(rules) => {
+            let mut a = args(&duplicate, &survivor, None);
+            let rules = rules.join("; ");
+            a.push(("rules", i18n::Arg::Text(&rules)));
+            refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_withdrawal_key_html", &a))
+        }
+        Done::Unreadable(account) => refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_unreadable_html", &[("account", i18n::Arg::Text(&account))])),
+        Done::Conflict(rows) => {
+            // Another user's order, in the user's words (`merge::FOREIGN_ORDER`).
+            let rows: Vec<String> = rows.into_iter().map(|r| if r == crate::merge::FOREIGN_ORDER { i18n::t(ctx.locale, "settings.accounts.merge_foreign_order", &[]) } else { r }).collect();
+            refused(&ctx, i18n::t(ctx.locale, "settings.accounts.merge_conflict_html", &args(&duplicate, &survivor, Some(&rows.join("; ")))))
+        }
+        Done::Refused(reason) => refused(&ctx, refusal_text(&ctx, &reason)),
+        Done::Merged(merged, body, wakes, (duplicate, survivor)) => {
+            for key in &merged.deleted_keys { crate::venue::ibkr::forget(*key); }
+            app.wake_engine();
+            let jobs = app.job_wakers()?;
+            for (key, ledger, balances) in wakes {
+                if ledger { jobs.wake(crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string()), None); }
+                if balances { jobs.wake(crate::sync::jobs::BALANCE_SYNC, Some(&key.to_string()), None); }
+            }
+            for job in [crate::tracker::jobs::TRACKER_LEDGER, crate::tracker::jobs::PORTFOLIO_BACKFILL] { jobs.wake(job, Some(&user_id.to_string()), None); }
+            let text = i18n::t(ctx.locale, "settings.accounts.merged_html", &args(&duplicate, &survivor, None));
+            Ok(([(header::CONTENT_TYPE, turbo::CONTENT_TYPE)],
+                format!("{}{}", turbo::stream("replace", "api_keys", &body), turbo::prepend_flash(flash::render(&[flash::Message { style: "primary", text }])?.trim_end()))).into_response())
+        }
+    }
 }
 
 #[cfg(test)]

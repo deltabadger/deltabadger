@@ -188,6 +188,16 @@ fn save_owed(c: &Connection, key_id: i64, owed: &[Owed], now: DateTime<Utc>) -> 
     put_config(c, &splits_key(key_id), &json!({ "pending": pending }), now)
 }
 
+/// #710 Merge: key `from`'s owed split restatements move to key `to` (joined with its own, one each).
+pub(crate) fn hand_owed(c: &Connection, from: i64, to: i64) -> Result<(), SyncError> {
+    let theirs = load_owed(c, from)?;
+    if theirs.is_empty() { return Ok(()); }
+    let mut mine = load_owed(c, to)?;
+    for o in theirs { if !mine.iter().any(|m| m.symbol == o.symbol && m.exchange_id == o.exchange_id && m.at == o.at) { mine.push(o); } }
+    save_owed(c, to, &mine, chrono::Utc::now())?;
+    save_owed(c, from, &[], chrono::Utc::now())
+}
+
 /// Every bump owed at or before `now`, each a read unit (which bots the symbol names now, as the 2.x job reads them
 /// when it runs) and one guarded write unit that bumps them and removes the entry. A refusal fails the sync and leaves
 /// the entry owed.
@@ -1405,7 +1415,8 @@ fn link(c: &Connection, pairs: &[(i64, i64)], now: DateTime<Utc>) -> Result<usiz
     let mut linked = 0;
     for (deposit, withdrawal) in pairs {
         linked += c.execute("UPDATE account_transactions SET linked_transaction_id = ?1, updated_at = ?2 WHERE id = ?3 AND linked_transaction_id IS NULL \
-                             AND transfer_link_rejected = 0 AND NOT EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = ?1)",
+                             AND transfer_link_rejected = 0 AND NOT EXISTS (SELECT 1 FROM account_transactions l WHERE l.linked_transaction_id = ?1) \
+                             AND EXISTS (SELECT 1 FROM account_transactions d WHERE d.id = ?1)",
                             params![deposit, sql_time(now), withdrawal])?;
     }
     Ok(linked)

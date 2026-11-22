@@ -144,14 +144,26 @@ pub async fn commit_bots_for_ciphered<T: Send + 'static>(db: &Db, version: &crat
     }).map_err(|e|e.0)).await.map_err(SyncError)?;
     db.note_write_hold(held);tokio::time::sleep(WRITE_GAP).await;Ok(out)
 }
+tokio::task_local! {
+    /// The account the running job captured its key's version on (#710 §6.4): a later capture inside it must name the same.
+    static BOUND: Option<i64>;
+}
+/// Runs `work` bound to `account` (`capture_bound_version` refuses a capture on another account inside it).
+pub async fn bound<F: std::future::Future>(account: Option<i64>, work: F) -> F::Output { BOUND.scope(account, work).await }
+
 pub async fn capture_bound_version(db: &Db, key_id: i64, supplied: &Credentials) -> Result<crate::engine::model::CredentialVersion, SyncError> {
     let supplied = supplied.clone();
+    let bound = BOUND.try_with(|a| *a).ok().flatten();
     db.run(move |c, cipher| {
         use subtle::ConstantTimeEq;
         let (current, version) = credentials_with_version(c, cipher, key_id).map_err(|e| e.0)?;
         let same = |a: &str, b: &str| bool::from(a.as_bytes().ct_eq(b.as_bytes()));
         let phrase = match (&current.passphrase, &supplied.passphrase) { (Some(a),Some(b)) => same(a,b), (None,None) => true, _ => false };
         if !same(&current.key, &supplied.key) || !same(&current.secret, &supplied.secret) || !phrase {
+            crate::engine::log(crate::engine::model::CREDENTIALS_CHANGED);
+            return Err(crate::engine::model::CREDENTIALS_CHANGED.into());
+        }
+        if bound.is_some_and(|account| version.account() != Some(account)) {
             crate::engine::log(crate::engine::model::CREDENTIALS_CHANGED);
             return Err(crate::engine::model::CREDENTIALS_CHANGED.into());
         }

@@ -223,31 +223,39 @@ pub(crate) fn account(text: &str) -> Result<Result<BigDec, String>, Unread> {
 }
 
 /// The positions as #get_balances needs them: an array of at most `MAX_POSITIONS` objects (the reader stops at the
-/// next one). Unsupported classes are logged and individually excluded. A supported position with no symbol fails the
+/// next one). Unsupported classes are logged and carried as `Unsupported`, which no catalogue entry names (skipped, and recorded). A supported position with no symbol fails the
 /// response, here and in 2.x (`a position without a symbol`): skipped, its holding would read as 0 and its stored
 /// balance be deleted. For a supported identity a missing/unreadable quantity fails it too; it is never manufactured as zero.
 pub(crate) type Position = (String, String, Node);
 
+/// The positions the trading readers use (split reconciliation, the venue's `positions`, MCP): the supported classes
+/// only, as before #710.
 pub(crate) fn positions(text: &str) -> Result<Result<Vec<Position>, String>, Unread> {
+    Ok(balance_positions(text)?.map(|all| all.into_iter().filter(|(category, _, _)| category != "Unsupported").collect()))
+}
+/// The balance read's positions: every one, an unsupported class carried as `Unsupported` so the read records it as
+/// skipped (identity only).
+pub(crate) fn balance_positions(text: &str) -> Result<Result<Vec<Position>, String>, Unread> {
     let node = match wire::read_identity(text, &mut Budget(MAX_LIST_NODES), Some(MAX_POSITIONS)) {
         Err(wire::Refused::TooManyItems) => return Err(Unread::Raised(format!("more than {MAX_POSITIONS} positions"))),
         other => other.map_err(|r| Unread::refused(r, "positions"))?,
     };
     let Node::Array(items) = node else { return Ok(Err("unreadable positions".into())) };
-    Ok(items.iter().filter_map(|item| {
-        let Node::Object(fields) = item else { return Some(Err("unreadable position".to_string())); };
+    Ok(items.iter().map(|item| {
+        let Node::Object(fields) = item else { return Err("unreadable position".to_string()); };
         let identity = |key: &str| fields.iter().find(|(name, _)| name == key).and_then(|(_, value)| {
             if let Node::Scalar(token) = value { serde_json::from_str::<String>(token).ok() } else { None }
         });
         let category = match identity("asset_class").as_deref() {
             Some("us_equity") => "Stock", Some("crypto") => "Cryptocurrency",
-            _ => { crate::eline!("Alpaca position skipped: unsupported class"); return None; }
+            // A class this build does not hold (an option): carried on, so the catalogue skips it and the read records it.
+            _ => { crate::eline!("Alpaca position skipped: unsupported class"); return Ok(("Unsupported".to_string(), identity("symbol").unwrap_or_else(|| "unnamed position".into()), item.clone())); }
         };
         let Some(symbol) = identity("symbol").filter(|s| !s.trim().is_empty()) else {
-            return Some(Err("a position without a symbol".to_string()));
+            return Err("a position without a symbol".to_string());
         };
         // Keep the whole row raw until the catalog resolves its class and native symbol.
-        Some(Ok((category.to_string(), symbol, item.clone())))
+        Ok((category.to_string(), symbol, item.clone()))
     }).collect())
 }
 
@@ -291,8 +299,10 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
         let (creds, now) = (credentials.clone(), clock.now());
         async move {
             let error = super::commit_for(db, version, move |c| {
+                // A reader its account no longer reads with writes nothing, a failure included.
+                if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
                 if condemn && text.contains("unauthorized") {
-                    c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
+                    crate::identity::write_status(c, key_id, 2, &sql_time(now), true, false)?;
                 }
                 record_sync_error(c, key_id, &text, &creds)
             }).await?;
@@ -303,22 +313,32 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
     // #get_balances: the account, then the positions. A failed request, or an answer that is not JSON, ends it there
     // (a failure the venue returned is its word on the key, `condemn`; a transport failure is not). Both answers are
     // then validated whole, the account first, as 2.x raises only once it uses them.
-    let cash = match venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await.value.map_err(venue_failure) {
+    let cash = venue.read(false, "/v2/account", vec![], MAX_ACCOUNT_BYTES).await;
+    // The read's time: its first answer's (the cash), the earliest of its requests, before the quotes and prices.
+    let received = clock.now();
+    let cash = match cash.value.map_err(venue_failure) {
         Err((text, raised)) => return fail(text, !raised).await,
         Ok(body) => match parsed(body, account).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
     let held = match venue.read(false, "/v2/positions", vec![], MAX_LIST_BYTES).await.value.map_err(venue_failure) {
         Err((text, raised)) => return fail(text, !raised).await,
-        Ok(body) => match parsed(body, positions).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
+        Ok(body) => match parsed(body, balance_positions).await { Ok(checked) => checked, Err((text, raised)) => return fail(text, !raised).await },
     };
     let (cash, held) = match (cash, held) {
         (Ok(cash), Ok(held)) => (cash, held),
         (Err(why), _) | (_, Err(why)) => return fail(why, false).await,
     };
-    let held = match complete_balances(&catalog, cash, held) {
-        Ok(rows) => rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(),
+    let (held, skipped) = match complete_balances_skipping(&catalog, cash, held) {
+        Ok((rows, mut skipped)) => {
+            // A short (a mapped position below zero) is no complete read: recorded with it (identity only).
+            for (id, free, locked) in &rows { if (free + locked) < BigDec::zero() { skipped.push(format!("asset {id}")); } }
+            (rows.into_iter().filter(|(_, free, locked)| (free + locked).is_positive()).collect::<Vec<_>>(), skipped)
+        }
         Err(why) => return fail(why, false).await,
     };
+    // Recorded with the read's last commit, cleared by a read that skipped none.
+    let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let record = vec![(format!("rust_sync.skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string()))];
 
     let ids: Vec<i64> = held.iter().map(|(id, _, _)| *id).collect();
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
@@ -344,7 +364,7 @@ async fn sync_steps<T:Transport>(db:&Db,venue:&AlpacaVenue<T>,prices:&dyn PriceS
             Err((text, false)) => errors.push(text),
         }
     }
-    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, None, &[]).await? {
+    match finish(db, version, &catalog, held, assets, fresh, errors, prices, key_id, clock, step, record, &[], received).await? {
         Ok(summary) => Ok(Ok(summary)),
         Err(why) => fail(why, false).await,
     }
@@ -428,6 +448,8 @@ pub(crate) async fn sync_kucoin_captured<T: Transport>(db: &Db, transport: T, pr
     if let Some(mode) = mode {
         let now = clock.now();
         super::commit_for(db, version, move |c| {
+            // A reader its account no longer reads with writes nothing, its mode observation included.
+            if super::jobs::superseded(c, key_id)?.is_some() { return Ok(()); }
             let key = super::load_key_of(c, key_id, &[KUCOIN])?;
             if mode != crate::venue::kucoin_account::AccountMode::ClassicLf || super::kucoin_hf::enabled(c, &key.scope)? { super::kucoin_hf::observe_mode(c, &key, mode, now)?; }
             Ok(())
@@ -583,8 +605,19 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
             Ok(None) => Err(format!("KeyError: Key path {key} not found")),
             Err(why) => Err(why),
         };
+        // Credit used (a liability BalanceEx reports beside the balance) is no complete read: recorded as skipped with its
+        // amount, for the identity checks only.
+        if let Some(used) = entry.number("credit_used").ok().flatten().filter(|u| !u.is_zero()) {
+            SKIPPED.with(|s| s.borrow_mut().push(format!("{code} credit_used {}", used.to_s_f())));
+        }
         let Some(asset) = names.asset_id(code) else {
-            if entry.number("balance").ok().flatten().is_some_and(|b| b.is_positive()) { unresolved.push(code.clone()); }
+            // A holding it cannot name is an unresolved code (compared, and the tracker's warning); a debt it cannot name is no
+            // complete read, recorded as skipped with its sign (never compared as a code, never a sync warning).
+            match entry.number("balance").ok().flatten() {
+                Some(b) if b.is_positive() => unresolved.push(code.clone()),
+                Some(b) if !b.is_zero() => SKIPPED.with(|s| s.borrow_mut().push(format!("{code} {}", b.to_s_f()))),
+                _ => {}
+            }
             continue;
         };
         let (balance, hold) = match (quantity("balance"), quantity("hold_trade")) {
@@ -598,7 +631,7 @@ fn kraken_read(text: &str, names: &super::kraken_ledger::KrakenIdentity, asset_i
     let mut rest: Vec<i64> = found.keys().copied().filter(|id| !asset_ids.contains(id)).collect();
     rest.sort_unstable();
     order.extend(rest);
-    let held = order.into_iter().filter_map(|id| found.remove(&id).map(|(free, locked)| (id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect();
+    let held = order.into_iter().filter_map(|id| found.remove(&id).map(|(free, locked)| (id, free, locked))).filter(holding).collect();
     Ok(Ok((held, unresolved)))
 }
 
@@ -650,25 +683,34 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
         let (creds, now, venue_type) = (credentials.clone(), clock.now(), exchange_type.clone());
         async move {
             let error = super::commit_for(db, version, move |c| {
+                if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
                 if !messages.is_empty() && condemning(&venue_type, &messages) {
-                    c.execute("UPDATE api_keys SET status = 2, updated_at = ?1 WHERE id = ?2 AND status != 2", params![sql_time(now), key_id])?;
+                    crate::identity::write_status(c, key_id, 2, &sql_time(now), true, false)?;
                 }
                 record_sync_error(c, key_id, &text, &creds)
             }).await?;
             Ok::<_, SyncError>(Err(Failure { error, raised: false }))
         }
     };
+    // The read's time: no later than its first answer (a read of several requests, KuCoin's mode then its balances, is as
+    // old as the earliest), before any price lookup; freshness and comparability read it.
+    let received = clock.now();
     let text = match read(exchange_type.clone()).await? {
         Ok(text) => text,
         Err(text) => return fail(read_by_key((venue.failure_text)(&text))).await,
     };
     let (asset_ids, held, record, kept) = (catalog.asset_ids.clone(), venue.held, venue.record, venue.kept);
-    let read = tokio::task::spawn_blocking(move || match held(&text, &names, &asset_ids) {
-        Ok(Ok(rows)) => Ok(Ok((rows, record.map(|(prefix, codes)| (prefix, codes(&text, &names))), kept.map(|k| k(&text, &names, &asset_ids)).unwrap_or_default()))),
-        Ok(Err(failure)) => Ok(Err(failure)),
-        Err(unread) => Err((unread, text)),
+    let read = tokio::task::spawn_blocking(move || {
+        let _ = take_skipped();
+        let read = held(&text, &names, &asset_ids);
+        let skipped = take_skipped();
+        match read {
+            Ok(Ok(rows)) => Ok(Ok((rows, record.map(|(prefix, codes)| (prefix, codes(&text, &names))), kept.map(|k| k(&text, &names, &asset_ids)).unwrap_or_default(), skipped))),
+            Ok(Err(failure)) => Ok(Err(failure)),
+            Err(unread) => Err((unread, text)),
+        }
     }).await.unwrap_or_else(|_| Err((Unread::Raised("reading the venue's answer was interrupted".into()), String::new())));
-    let (held, record, (kept, kept_error)) = match read {
+    let (held, record, (kept, kept_error), skipped) = match read {
         Ok(Ok(held)) => held,
         Ok(Err(failed)) => return fail(failed).await,
         // A 2xx body that is not JSON: honeymaker's failure is the body itself, read as any failure is.
@@ -679,12 +721,17 @@ where R: std::future::Future<Output = Result<Result<String, String>, SyncError>>
     let assets = Arc::new(phase(db, move |c| assets(c, &ids)).await?);
     let at = clock.now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     let record = record.map(|(prefix, codes)| (format!("{prefix}:{key_id}"), (!codes.is_empty()).then(|| serde_json::json!({ "codes": codes, "at": at }).to_string())));
-    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record, &kept).await? {
+    let skipped = (format!("rust_sync.skipped:{key_id}"), (!skipped.is_empty()).then(|| serde_json::json!({ "codes": skipped, "at": at }).to_string()));
+    match finish(db, version, &catalog, held, assets, HashMap::new(), vec![], prices, key_id, clock, None, record.into_iter().chain([skipped]).collect(), &kept, received).await? {
         // The rows it kept are named after the success commit; a balance sync never clears the error (the ledger does).
         Ok(summary) => {
             if let Some(text) = kept_error {
                 let credentials = credentials.clone();
-                super::commit_for(db, version, move |c| record_sync_error(c, key_id, &text, &credentials)).await?;
+                super::commit_for(db, version, move |c| {
+                    // A reader its account no longer reads with writes nothing, this warning included.
+                    if super::jobs::superseded(c, key_id)?.is_some() { return Ok(String::new()); }
+                    record_sync_error(c, key_id, &text, &credentials)
+                }).await?;
             }
             Ok(Ok(summary))
         }
@@ -700,9 +747,13 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
     let node = wire::read(text, &mut Budget(MAX_BINANCE_ACCOUNT_NODES), None).map_err(|r| Unread::refused(r, "an account"))?;
     let Node::Array(rows) = node else { return Ok(Err(("unreadable balances".into(), vec![]))) };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for row in &rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-        let Some(asset) = row.value["symbol"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        twice(&mut seen, row.value["symbol"].as_str().unwrap_or("?"));
+        let Some(asset) = row.value["symbol"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, row.value["symbol"].as_str().unwrap_or("?"), &["available", "inOrder"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -715,7 +766,7 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
         };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Exchanges::Kucoin#get_balances then AccountBalance::Sync's `nonzero`. Only the success code with `data` means balances,
@@ -733,8 +784,17 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         Some(Node::Scalar(token)) if token != "null" && code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
         Some(Node::Object(_)) if code.as_deref() == Some("200000") && body.value["data"]["accountType"] == "UNIFIED" => {
             let rows = match uta_currencies(&body) { Ok(rows) => rows, Err(failed) => return Ok(Err(failed)) };
-            let mut found: HashMap<i64, (BigDec, BigDec)> = rows.into_iter().filter_map(|(code, held)| Some((*names.get(&code).filter(|id| asset_ids.contains(id))?, held?))).collect();
-            return Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()));
+            let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+            for (code, held) in rows {
+                match (names.get(&code).filter(|id| asset_ids.contains(id)), held) {
+                    (Some(id), Some(held)) => { found.insert(*id, held); }
+                    (None, Some((free, locked))) if !(&free + &locked).is_zero() => SKIPPED.with(|s| s.borrow_mut().push(code)),
+                    // A liability (listed or not): its rows stay as they were, so this read is no complete account.
+                    (_, None) => SKIPPED.with(|s| s.borrow_mut().push(code)),
+                    _ => {}
+                }
+            }
+            return Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()));
         }
         Some(Node::Object(_)) if code.as_deref() == Some("200000") => return Ok(Err(("unreadable balances".into(), vec![]))),
         _ => {
@@ -743,10 +803,14 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         }
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
-        let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        twice(&mut seen, currency.as_str().unwrap_or("?"));
+        let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, currency.as_str().unwrap_or("?"), &["available", "locked", "holds", "balance"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -762,7 +826,7 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// D-KUCOIN-UTA-BALANCES: each currency of a UTA's unified account (`data.accounts[].currencies[]`). Holdings are
@@ -848,11 +912,13 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         _ => return Ok(Err(("unreadable balances".into(), vec![]))),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
         let Some(currency) = currency.as_str() else { return Ok(Err(("unreadable balance currency".into(), vec![]))) };
-        let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { continue };
+        twice(&mut seen, &currency.to_uppercase());
+        let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { skip(&row, currency, &["available", "amount"]); continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -863,7 +929,7 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         let amount = match quantity("amount") { Ok(n) => n, Err(why) => return Ok(Err((why, vec![]))) };
         found.insert(*asset, (free.clone(), &amount - &free));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// One balance sync of one Bitget key, as AccountBalance::SyncJob runs it for that key: Exchanges::Bitget#get_balances
@@ -902,10 +968,14 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         _ => return Ok(Err(read_by_key(failed_bitget(&body.value)))),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(coin) = row.value.get("coin").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
-        let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        twice(&mut seen, coin.as_str().unwrap_or("?"));
+        let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, coin.as_str().unwrap_or("?"), &["available", "frozen", "locked"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(Some(n)) => Ok(n),
@@ -916,9 +986,11 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
             (Ok(free), Ok(locked)) => (free, locked),
             (Err(why), _) | (_, Err(why)) => return Ok(Err((why, vec![]))),
         };
+        // The merchant `locked` the holding does not count: no complete read of the asset (identity only).
+        if row.number("locked").ok().flatten().is_some_and(|n| !n.is_zero()) { skip(&row, coin.as_str().unwrap_or("?"), &["locked"]); }
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Exchanges::Bitget#get_balances' failure: "Failed to get Bitget balances: " and the envelope's code and msg, as present.
@@ -966,9 +1038,13 @@ fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64])
         Some(_) => return Ok(Err(("unreadable balances".into(), vec![]))),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for row in &rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-        let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+        twice(&mut seen, row.value["coin"].as_str().unwrap_or("?"));
+        let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+            skip(&row, row.value["coin"].as_str().unwrap_or("?"), &["total", "hold"]); continue
+        };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
             Ok(n) => Ok(n.unwrap_or_else(BigDec::zero)),
@@ -980,7 +1056,7 @@ fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64])
         };
         found.insert(*asset, (&total - &hold, hold));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Exchange#asset_from_symbol: the venue's available tickers in id order, each naming its base asset and then its quote
@@ -1018,9 +1094,13 @@ fn account_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64], cod
         Some(_) => return Ok(Err("unreadable balances".into())),
     };
     let mut found: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for entry in entries {
         let Ok(entry) = Raw::from_node(entry) else { return Ok(Err("unreadable balance".into())) };
-        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).filter(|id| asset_ids.contains(id)) else { continue };
+        twice(&mut seen, entry.value["asset"].as_str().unwrap_or("?"));
+        let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).filter(|id| asset_ids.contains(id)) else {
+            skip(&entry, entry.value["asset"].as_str().unwrap_or("?"), &["free", "locked"]); continue
+        };
         // number::json reads a blank string as 0 (String#to_d, which the Alpaca sync matches); here it is no number.
         let quantity = |key: &str| match entry.number(key) {
             _ if entry.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -1032,7 +1112,7 @@ fn account_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64], cod
         let locked = match quantity("locked") { Ok(n) => n, Err(why) => return Ok(Err(why)) };
         found.insert(*asset, (free, locked));
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Utilities::Currency#fiat?'s asset half: the first asset by that symbol is of category Currency.
@@ -1054,12 +1134,12 @@ fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
 /// AccountBalance::Sync#sync! from the venue's balances on: other cash at its exchange rate, the market's prices, the
 /// checks, then the rows `BATCH` at a time, what is gone, and the key's clock. `fresh` holds the venue's own quotes
 /// (Alpaca's stocks), `errors` why some could not be read. `Ok(Err(text))`: the sync fails with `text`, nothing written.
-/// `record`: an `app_configs` row the last commit sets to its value, or removes (None). `kept`: assets whose stored
+/// `records`: `app_configs` rows the last commit sets to their value, or removes (None). `kept`: assets whose stored
 /// rows stay as they are, never gone.
 #[allow(clippy::too_many_arguments)]
 async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, catalog: &Catalog, held: Vec<Held>, assets: Arc<Vec<Asset>>,
                 mut fresh: HashMap<String, Price>, mut errors: Vec<String>, prices: &dyn PriceSource, key_id: i64, clock: &dyn Clock, step: Option<&BalanceStep<'_>>,
-                record: Option<(String, Option<String>)>, kept: &[i64]) -> Result<Result<Summary, String>, SyncError> {
+                records: Vec<(String, Option<String>)>, kept: &[i64], read_at: DateTime<Utc>) -> Result<Result<Summary, String>, SyncError> {
     // Cash is decided by category, never by symbol, and wins over every feed: a dollar is worth a dollar.
     // Other cash is converted at the market API's exchange rates (cash_prices_for); a currency with no rate is left out
     // and goes stale or unpriced, never to the coin market (where 2.x sends it: `usd` and `eur` are coin ids there too).
@@ -1142,7 +1222,13 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     let now = clock.now();
     let (held, fresh) = (Arc::new(held), Arc::new(fresh));
     let origin = version.clone();
+    // Every unit commits only while its key is still its account's reading key (`jobs::superseded`).
+    let reading = move |c: &Connection| -> Result<(), SyncError> {
+        if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
+        Ok(())
+    };
     let account = super::commit_for(db, version, move |c| {
+        reading(c)?;
         let account = crate::identity::AccountRow::ensure_of_key(c, key_id, now)?.ok_or_else(|| SyncError(format!("api key {key_id} has no account")))?;
         super::cache::record_account(c, &account, &origin, false, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
         Ok(account)
@@ -1151,7 +1237,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     let mut summary = Summary::default();
     for from in (0..held.len()).step_by(BATCH) {
         let (held, assets, fresh) = (held.clone(), assets.clone(), fresh.clone());
-        summary = super::commit_for(db, version, move |c| upsert(c, &account, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old)).await?;
+        summary = super::commit_for(db, version, move |c| { reading(c)?; upsert(c, &account, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old) }).await?;
         if let Some(step)=step {step(from/BATCH+1).await;}
     }
     let kept: HashSet<i64> = held.iter().map(|(id, _, _)| *id).chain(kept.iter().copied()).collect();
@@ -1159,17 +1245,20 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     loop {
         let rest = gone.split_off(gone.len().min(BATCH));
         let last = rest.is_empty();
-        let (origin, record) = (version.clone(), record.clone());
+        // The identity read time apart from the portfolio watermark (which stays main's, the commit's time).
+        let (origin, records) = (version.clone(), records.iter().cloned().chain([(format!("rust_sync.read_at:{key_id}"), Some(sql_time(read_at)))]).collect::<Vec<_>>());
         super::commit_for(db, version, move |c| {
+            reading(c)?;
             for id in &gone { c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id])?; }
             if last {
                 c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
                 super::cache::record_account(c, &account, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
-                match &record {
-                    Some((key, Some(value))) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
-                                                             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
-                    Some((key, None)) => { c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?; }
-                    None => {}
+                for record in &records {
+                    match record {
+                        (key, Some(value)) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
+                                                           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
+                        (key, None) => { c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?; }
+                    }
                 }
             }
             Ok(())
@@ -1255,13 +1344,24 @@ pub(crate) fn position_spelling(native: &str) -> &str {
 /// `qty_available` what is left to sell: free is the second, locked the rest, so the holding stays whole. Both are
 /// required, as in 2.x (`a position without a quantity`).
 pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<Vec<(i64, BigDec, BigDec)>, String> {
+    complete_balances_skipping(catalog, cash, positions).map(|(rows, _)| rows)
+}
+/// `complete_balances`, and the symbols of the positions it skipped (#710: such a read is no complete account for the
+/// identity checks, `rust_sync.skipped:<key>`).
+#[allow(clippy::type_complexity)]
+pub(crate) fn complete_balances_skipping(catalog: &Catalog, cash: BigDec, positions: Vec<Position>) -> Result<(Vec<(i64, BigDec, BigDec)>, Vec<String>), String> {
     let mut free: HashMap<i64, (BigDec, BigDec)> = HashMap::new();
+    let mut skipped = vec![];
     if let [usd] = catalog.cash_ids.as_slice() { free.insert(*usd, (cash, BigDec::zero())); }
     else if !cash.is_zero() { return Err("Unmapped or ambiguous Alpaca cash asset".into()); }
+    let mut seen: HashSet<String> = HashSet::new();
     for (category, symbol, raw) in positions {
-        let ids = catalog.by_symbol.get(&(category, symbol));
+        // A symbol listed twice: the later stands, as on main; recorded as skipped (identity only), as `twice` records.
+        if !seen.insert(symbol.clone()) { skipped.push(symbol.clone()); }
+        let ids = catalog.by_symbol.get(&(category, symbol.clone()));
         let Some(asset) = ids.filter(|ids| ids.len() == 1).and_then(|ids| ids.iter().next()).copied().filter(|id| catalog.asset_ids.contains(id)) else {
             crate::eline!("Alpaca position skipped: unmapped or ambiguous identity");
+            skipped.push(symbol);
             continue;
         };
         let position = Raw::from_node(&raw).map_err(|_| "unreadable position".to_string())?;
@@ -1271,7 +1371,7 @@ pub(crate) fn complete_balances(catalog: &Catalog, cash: BigDec, positions: Vec<
         let locked = &qty - &available;
         free.insert(asset, (available, locked));
     }
-    Ok(catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|(free, locked)| (*id, free, locked))).collect())
+    Ok((catalog.asset_ids.iter().filter_map(|id| free.remove(id).map(|(free, locked)| (*id, free, locked))).collect(), skipped))
 }
 
 fn assets(c: &Connection, ids: &[i64]) -> Result<Vec<Asset>, SyncError> {
@@ -1425,23 +1525,32 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
     let result = match body.object("result") { Ok(Some(r)) => r, _ => return Ok(Err(("KeyError: Key path result.list not found".into(), vec![]))) };
     let Some(Node::Array(accounts)) = result.member("list") else { return Ok(Err(("KeyError: Key path result.list not found".into(), vec![]))) };
     let mut found = HashMap::new();
+    let mut seen: HashSet<String> = HashSet::new();
     for account in accounts {
         let Ok(account) = Raw::from_node(account) else { return Ok(Err(("unreadable account".into(), vec![]))) };
         let Some(Node::Array(coins)) = account.member("coin") else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
         for coin in coins {
             let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-            let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else { continue };
+            twice(&mut seen, row.value["coin"].as_str().unwrap_or("?"));
+            let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
+                skip(&row, row.value["coin"].as_str().unwrap_or("?"), &["walletBalance", "availableToWithdraw", "free", "locked", "spotBorrow"]); continue
+            };
             let amounts = || -> Result<(BigDec, BigDec), String> {
                 let present = |key: &str| row.value.get(key).is_some_and(|v| !v.is_null() && v.as_str().is_none_or(|s| !crate::v2::blank(s)));
                 let locked = row.decimal("locked")?;
-                let free = if present("walletBalance") { (&(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?).max(BigDec::zero()) }
+                let free = if present("walletBalance") {
+                    let free = &(&row.decimal("walletBalance")? - &locked) - &row.decimal("spotBorrow")?;
+                    // Clamped at zero for the trading readers; a borrow beyond the wallet is no complete read (identity).
+                    if free < BigDec::zero() { SKIPPED.with(|s| s.borrow_mut().push(row.value["coin"].as_str().unwrap_or("?").to_string())); }
+                    free.max(BigDec::zero())
+                }
                            else { row.decimal(if present("availableToWithdraw") { "availableToWithdraw" } else { "free" })? };
                 Ok((free, locked))
             };
             match amounts() { Ok(amounts) => { found.insert(*asset, amounts); }, Err(e) => return Ok(Err((e, vec![]))) }
         }
     }
-    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(|(_, free, locked)| (free + locked).is_positive()).collect()))
+    Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|(free, locked)| (*id, free, locked))).filter(holding).collect()))
 }
 
 /// Coinbase reads key_permissions for portfolio_uuid, then that portfolio's spot positions.
@@ -1462,17 +1571,25 @@ fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> 
     let parse = || -> Result<Vec<Held>, String> {
         let raw = Raw::from_node(&node)?;
         let breakdown = raw.object("breakdown")?.ok_or("KeyError: Key path breakdown not found")?;
+        // A portfolio holding derivatives besides its spot positions is no complete read (identity only).
+        for list in ["futures_positions", "perp_positions"] {
+            if matches!(breakdown.member(list), Some(Node::Array(items)) if !items.is_empty()) { SKIPPED.with(|s| s.borrow_mut().push(list.to_string())); }
+        }
         let rows = breakdown.member("spot_positions").ok_or("KeyError: Key path breakdown.spot_positions not found")?;
         let Node::Array(rows) = rows else { return Err("unreadable spot_positions".into()) };
         let mut found = HashMap::new();
+        let mut seen: HashSet<String> = HashSet::new();
         for row in rows {
             let raw = Raw::from_node(row)?;
-            let Some(id) = raw.value["asset"].as_str().and_then(|s| names.get(s)).filter(|id|asset_ids.contains(id)) else {continue};
+            twice(&mut seen, raw.value["asset"].as_str().unwrap_or("?"));
+            let Some(id) = raw.value["asset"].as_str().and_then(|s| names.get(s)).filter(|id|asset_ids.contains(id)) else {
+                skip(&raw, raw.value["asset"].as_str().unwrap_or("?"), &["available_to_trade_crypto", "total_balance_crypto"]); continue
+            };
             let free = raw.number("available_to_trade_crypto")?.ok_or("KeyError: Key path available_to_trade_crypto not found")?;
             let total = raw.number("total_balance_crypto")?.ok_or("KeyError: Key path total_balance_crypto not found")?;
             found.insert(*id,(free.clone(), &total - &free));
         }
-        Ok(asset_ids.iter().filter_map(|id|found.remove(id).map(|(f,l)|(*id,f,l))).filter(|(_,f,l)|(f+l).is_positive()).collect())
+        Ok(asset_ids.iter().filter_map(|id|found.remove(id).map(|(f,l)|(*id,f,l))).filter(holding).collect())
     };
     Ok(parse().map_err(|e|(e, vec![])))
 }
@@ -1582,7 +1699,7 @@ pub(crate) fn ibkr_names(c: &Connection, _exchange_id: i64) -> Result<HashMap<St
 /// `ibkr_conids` does not map is skipped and counted. A quantity that is no number fails the sync. Stored balances are
 /// holdings only (positive); `ibkr_balances` is the live answer.
 pub(crate) fn ibkr_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Result<Result<Vec<Held>, String>, Unread> {
-    Ok(ibkr_balances(text, names, asset_ids)?.map(|all| all.into_iter().filter(|(_, free, _)| free.is_positive()).collect()))
+    Ok(ibkr_balances(text, names, asset_ids)?.map(|all| all.into_iter().filter(holding).collect()))
 }
 
 /// `ibkr_held` before the holdings filter: every balance the account states, a short position and a cash loan (negative)
@@ -1595,7 +1712,7 @@ pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids:
         for (currency, row) in ledger {
             if currency.eq_ignore_ascii_case("BASE") { continue; }
             let Ok(row) = Raw::from_node(row) else { continue };
-            let Some(asset) = names.get(&format!("cash:{}", currency.to_uppercase())).filter(|id| asset_ids.contains(id)) else { continue };
+            let Some(asset) = names.get(&format!("cash:{}", currency.to_uppercase())).filter(|id| asset_ids.contains(id)) else { skip(&row, currency, &["cashbalance"]); continue };
             match row.number("cashbalance") { Ok(Some(n)) => { found.insert(*asset, n); } Ok(None) => {} Err(why) => return Ok(Err(why)) }
         }
     }
@@ -1604,13 +1721,140 @@ pub(crate) fn ibkr_balances(text: &str, names: &HashMap<String, i64>, asset_ids:
         for row in rows {
             let Ok(row) = Raw::from_node(row) else { return Ok(Err("unreadable IBKR position".into())) };
             let conid = match &row.value["conid"] { Value::Number(n) => n.to_string(), Value::String(s) => s.trim().to_string(), _ => String::new() };
-            let Some(asset) = names.get(&format!("conid:{conid}")).copied() else { unknown += 1; continue };
-            if !asset_ids.contains(&asset) { unknown += 1; continue; }
+            let Some(asset) = names.get(&format!("conid:{conid}")).copied().filter(|a| asset_ids.contains(a)) else { unknown += 1; skip(&row, &format!("conid {conid}"), &["position"]); continue };
             match row.number("position") { Ok(Some(n)) => { found.insert(asset, n); } Ok(None) => return Ok(Err("an IBKR position without a quantity".into())), Err(why) => return Ok(Err(why)) }
         }
     }
     if unknown > 0 { crate::engine::log(&format!("[IBKR] {unknown} position(s) skipped: their conids name no asset of the catalogue")); }
     Ok(Ok(asset_ids.iter().filter_map(|id| found.remove(id).map(|free| (*id, free, BigDec::zero()))).collect()))
+}
+
+thread_local! { static SKIPPED: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) }; }
+/// A balance row the read drops although it holds something, any of `quantities` (every one the venue's parser reads)
+/// non-zero, a short or a debt included (#710): no asset of the catalogue it names, here `code`.
+/// Collected per thread while a venue's answer is read (`sync_venue`), and recorded with the read
+/// (`rust_sync.skipped:<key>`): a read that dropped a holding is no complete account for the identity checks.
+fn skip(row: &Raw, code: &str, quantities: &[&str]) {
+    if quantities.iter().any(|q| row.number(q).ok().flatten().is_some_and(|n| !n.is_zero())) {
+        // Bounded: a read outside `sync_venue` (an MCP read of the same answer) leaves its codes to the next take.
+        SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(code.to_string()); } });
+    }
+}
+/// Whether a mapped row is held (free + locked above zero); one below zero (a short, a debt) is no complete read and is
+/// recorded as skipped (`asset <id>`).
+fn holding(row: &Held) -> bool {
+    let total = &row.1 + &row.2;
+    if total < BigDec::zero() { SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(format!("asset {}", row.0)); } }); }
+    total.is_positive()
+}
+/// The one check every mapper makes of an answer's codes: one listed twice leaves the later row standing (trading reads
+/// it as on main) and the read no complete account for the identity checks, recorded as skipped.
+fn twice(seen: &mut HashSet<String>, code: &str) {
+    if !seen.insert(code.to_string()) { SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(code.to_string()); } }); }
+}
+fn take_skipped() -> Vec<String> { SKIPPED.with(|s| std::mem::take(&mut *s.borrow_mut())) }
+
+#[cfg(test)]
+mod skipped_tests {
+    use super::*;
+    /// R9 #6: a balance row the read drops while it holds something (no asset it names) is recorded as skipped; one that
+    /// holds nothing is not. Alpaca's unsupported classes too.
+    #[test]
+    fn dropped_holdings_are_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        bitvavo_held(r#"[{"symbol":"BTC","available":"1","inOrder":"0"},{"symbol":"ZZZ","available":"2","inOrder":"0"},{"symbol":"NIL","available":"0","inOrder":"0"}]"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["ZZZ"]);
+        account_held(r#"{"balances":[{"asset":"QQQ","free":"0","locked":"3"}]}"#, &names, &[1], str::to_string).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["QQQ"]);
+        let read = balance_positions(r#"[{"symbol":"AAPL250117C00150000","asset_class":"us_option","qty":"1","qty_available":"1"}]"#).unwrap().unwrap();
+        let catalog = Catalog::new(vec![1], &[], vec![]);
+        let (rows, skipped) = complete_balances_skipping(&catalog, BigDec::zero(), read).unwrap();
+        assert!(rows.is_empty());
+        assert_eq!(skipped, ["AAPL250117C00150000"]);
+    }
+    /// R10 #5, #6: a KuCoin UTA currency with a liability is skipped (listed or not); a classic row's `locked` counts as
+    /// the parser reads it; an IBKR short position counts.
+    #[test]
+    fn debts_locked_holdings_and_shorts_are_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        let uta = r#"{"code":"200000","data":{"accountType":"UNIFIED","accounts":[{"currencies":[{"currency":"BTC","balance":"1","hold":"0","liability":"0.5"},{"currency":"ZZZ","balance":"0","hold":"0","liability":"5"}]}]}}"#;
+        kucoin_held(uta, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC", "ZZZ"]);
+        kucoin_held(r#"{"code":"200000","data":[{"currency":"Q","available":"0","locked":"2"}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["Q"]);
+        ibkr_balances(r#"{"positions":[{"conid":99,"position":-3}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["conid 99"]);
+    }
+    /// R11 #2: a mapped holding that is negative (a short, a debt) or clamped (Bybit's borrow) is recorded as skipped.
+    #[test]
+    fn negative_and_clamped_holdings_are_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        account_held(r#"{"balances":[{"asset":"BTC","free":"-1","locked":"0"}]}"#, &names, &[1], str::to_string).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["asset 1"]);
+        bybit_held(r#"{"retCode":0,"result":{"list":[{"coin":[{"coin":"BTC","walletBalance":"1","locked":"0","spotBorrow":"3"}]}]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"]);
+        ibkr_held(r#"{"positions":[{"conid":5,"position":-2}]}"#, &HashMap::from([("conid:5".to_string(), 1)]), &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["asset 1"]);
+    }
+    /// R12 #3: a mapped Bitget row whose merchant `locked` the holding does not count is recorded as skipped.
+    #[test]
+    fn a_bitget_merchant_lock_is_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        bitget_held(r#"{"code":"00000","data":[{"coin":"BTC","available":"0","frozen":"0","locked":"100"}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"]);
+    }
+    /// R17 #2: a Coinbase portfolio holding derivatives (futures or perpetual positions) is recorded as skipped.
+    #[test]
+    fn coinbase_derivatives_are_recorded() {
+        let names: HashMap<String, i64> = [("ETH".to_string(), 1)].into();
+        let _ = take_skipped();
+        coinbase_held(r#"{"breakdown":{"spot_positions":[],"futures_positions":[{"product_id":"BIT-28NOV26"}],"perp_positions":[]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["futures_positions"]);
+    }
+    /// R18 #4: two rows of one coin in one Bybit answer are no complete read (identity only).
+    #[test]
+    fn a_bybit_coin_listed_twice_is_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        bybit_held(r#"{"retCode":0,"result":{"list":[{"coin":[{"coin":"BTC","walletBalance":"1","locked":"0","spotBorrow":"0"},{"coin":"BTC","walletBalance":"2","locked":"0","spotBorrow":"0"}]}]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"]);
+    }
+    /// R19 #2: a code an answer lists twice is recorded as skipped by the one helper every mapper uses (the later row
+    /// stands for trading, as on main).
+    #[test]
+    fn a_code_listed_twice_is_recorded_by_every_mapper() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        account_held(r#"{"balances":[{"asset":"BTC","free":"5","locked":"0"},{"asset":"BTC","free":"1","locked":"0"}]}"#, &names, &[1], str::to_string).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "account_held");
+        bitvavo_held(r#"[{"symbol":"BTC","available":"5","inOrder":"0"},{"symbol":"BTC","available":"1","inOrder":"0"}]"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "bitvavo");
+        kucoin_held(r#"{"code":"200000","data":[{"currency":"BTC","available":"5","holds":"0"},{"currency":"BTC","available":"1","holds":"0"}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "kucoin");
+        gemini_held(r#"[{"currency":"BTC","available":"5","amount":"5"},{"currency":"BTC","available":"1","amount":"1"}]"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "gemini");
+        bitget_held(r#"{"code":"00000","data":[{"coin":"BTC","available":"5","frozen":"0"},{"coin":"BTC","available":"1","frozen":"0"}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "bitget");
+        hyperliquid_held(r#"{"balances":[{"coin":"BTC","total":"5","hold":"0"},{"coin":"BTC","total":"1","hold":"0"}]}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "hyperliquid");
+        coinbase_held(r#"{"breakdown":{"spot_positions":[{"asset":"BTC","available_to_trade_crypto":"5","total_balance_crypto":"5"},{"asset":"BTC","available_to_trade_crypto":"1","total_balance_crypto":"1"}]}}"#, &names, &[1]).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "coinbase");
+        let read = balance_positions(r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":"2","qty_available":"2"},{"symbol":"AAPL","asset_class":"us_equity","qty":"1","qty_available":"1"}]"#).unwrap().unwrap();
+        let catalog = Catalog::new(vec![7], &[("AAPL".to_string(), Some("Stock".to_string()), 7)], vec![]);
+        let (_, skipped) = complete_balances_skipping(&catalog, BigDec::zero(), read).unwrap();
+        assert_eq!(skipped, ["AAPL"], "alpaca");
+    }
+    /// R10 #7: the trading readers' positions leave unsupported classes out; the balance read's carry them.
+    #[test]
+    fn unsupported_positions_are_the_balance_reads_only() {
+        let text = r#"[{"symbol":"AAPL","asset_class":"us_equity","qty":"2","qty_available":"2"},{"symbol":"OPT","asset_class":"us_option","qty":"-1","qty_available":"-1"}]"#;
+        assert_eq!(positions(text).unwrap().unwrap().len(), 1);
+        assert_eq!(balance_positions(text).unwrap().unwrap().len(), 2);
+    }
 }
 
 #[cfg(test)]

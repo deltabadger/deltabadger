@@ -302,10 +302,20 @@ impl<C: Connect> Job for LedgerSync<C> {
             };
             let completion=async {
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
-            let result=async {
+            // A capture inside the job (each adapter re-reads its key) must be on the account captured here (#710 §6.4).
+            let result=crate::sync::bound(version.account(), async {
             let key = self.key_id.to_string();
             let at = cx.clock.now();
-            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, LEDGER_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            // Marked only under the captured version (#710 §6.4): a run whose key moved account is discarded before it marks.
+            let captured = version.clone();
+            match cx.db.run(move |c, _| {
+                let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
+                if !crate::engine::model::credential_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))?
+                    || !crate::engine::model::account_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                crate::jobs::state::mark_incomplete(&tx, LEDGER_SYNC, Some(&key), at)?;
+                tx.commit().map_err(|e| e.to_string())?;
+                Ok(true)
+            }).await { Ok(true) => {}, Ok(false) => return Outcome::NothingNew, Err(e) => return Outcome::Failed(e) }
             use crate::venue::registry::{self, LedgerSync};
             let done = match venue_of(&cx.db, self.key_id).await {
                 Err(e) => Err(e),
@@ -345,6 +355,13 @@ impl<C: Connect> Job for LedgerSync<C> {
                 },
             };
             let outcome = outcome(done, |out| out.complete);
+            // #710: a complete import may enter or end its exchange's duplicate standing (identity::reconsider).
+            if outcome == Outcome::Done {
+                let (key, at) = (self.key_id, cx.clock.now());
+                if let Err(e) = cx.db.run(move |c, _| crate::identity::reconsider_for_key(c, key, at).map_err(|e| e.to_string())).await {
+                    crate::engine::log(&format!("[sync] standing of key {key} not reconsidered: {e}"));
+                }
+            }
             // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as 2.x's one job reads the
             // whole history at once; other due jobs run in between.
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
@@ -352,13 +369,26 @@ impl<C: Connect> Job for LedgerSync<C> {
             else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
             outcome
 
-            }.await;
+            }).await;
             crate::engine::model::Produced::new(result,Some(version))
             }.await;
             if completion.value != Outcome::NothingNew { cx.db.notifications.sync_done(owner); }
             completion
         })
     }
+}
+
+/// A balance read whose key stopped being its account's reading key while it ran (`superseded`): nothing it read is
+/// committed, and the run ends as NothingNew under its version.
+pub const SUPERSEDED: &str = "superseded balance reader";
+/// Whether key `key_id` no longer reads its account's balances: another key of the same account is its reading key
+/// (sync::balance_reading_keys). An account none of whose keys reads keeps this key reading.
+pub(crate) fn superseded(c: &rusqlite::Connection, key_id: i64) -> Result<Option<i64>, SyncError> {
+    let keys = crate::sync::balance_reading_keys(c)?;
+    if keys.contains(&key_id) { return Ok(None); }
+    let Some(account) = crate::identity::Account::of_key(c, key_id)? else { return Ok(None) };
+    for k in keys { if crate::identity::Account::of_key(c, k)? == Some(account) { return Ok(Some(k)); } }
+    Ok(None)
 }
 
 /// `balance_sync`, scoped by the key: 2.x's `AccountBalance::SyncJob` for one key. It runs nightly at 02:30 UTC
@@ -378,12 +408,36 @@ impl<C: Connect> Job for BalanceSync<C> {
     fn run<'a>(&'a self,cx:Cx<'a>,wakes:Vec<Wake>)->JobFuture<'a>{ Box::pin(async move{self.run_attributed(cx,wakes).await.value}) }
     fn run_attributed<'a>(&'a self,cx:Cx<'a>,_wakes:Vec<Wake>)->AttributedJobFuture<'a>{
         Box::pin(async move {
+            // #710 Merge: a key moved beside its new account's reading key keeps its registered daily run; only the reading key
+            // writes the account's balances and their provenance (the freshness check names it).
+            let key_id = self.key_id;
+            // A key whose account reads with another key gives way to it; one whose account has no reading key runs as before.
+            let gives_way = cx.db.run(move |c, _| superseded(c, key_id).map_err(|e| e.0)).await;
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
+            match gives_way {
+                Ok(None) => {}
+                // A run that read nothing, under the key's current version: the scheduler records it, nothing wakes it again.
+                // The reader's own job reads now (registered by the wake when the reader changed since the start).
+                Ok(Some(reader)) => {
+                    cx.wakers.wake(BALANCE_SYNC, Some(&reader.to_string()), None);
+                    return crate::engine::model::Produced::new(Outcome::NothingNew, Some(version));
+                }
+                Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e), None),
+            }
             let result=async {
             // As the ledger: from before the first write unit until a complete success, the key's balances may be half
             // written (a run dropped, or a hand run stopped, between two units); a start finding the mark runs the job at once.
             let (key, at) = (self.key_id.to_string(), cx.clock.now());
-            if let Err(e) = cx.db.run(move |c, _| crate::jobs::state::mark_incomplete(c, BALANCE_SYNC, Some(&key), at)).await { return Outcome::Failed(e); }
+            // Marked only under the captured version (#710 §6.4): a run whose key moved account is discarded before it marks.
+            let captured = version.clone();
+            match cx.db.run(move |c, _| {
+                let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
+                if !crate::engine::model::credential_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))?
+                    || !crate::engine::model::account_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                crate::jobs::state::mark_incomplete(&tx, BALANCE_SYNC, Some(&key), at)?;
+                tx.commit().map_err(|e| e.to_string())?;
+                Ok(true)
+            }).await { Ok(true) => {}, Ok(false) => return Outcome::NothingNew, Err(e) => return Outcome::Failed(e) }
             // D-LOW-FUNDS-STATUS: the balances stop being evidence from here; the status bars that read them redraw.
             cx.db.notifications.balances_changed(self.key_id);
             use crate::venue::registry::{self, BalanceSync};
@@ -423,7 +477,24 @@ impl<C: Connect> Job for BalanceSync<C> {
                     Some(BalanceSync::Alpaca) | None => balances::sync_captured(&cx.db, &self.venues.connect(&credentials), self.prices.as_ref(), self.key_id, &credentials, cx.clock, &version).await,
                 },
             };
-            let outcome = outcome(done, |_| true);
+            // Its key stopped reading while it ran: nothing was committed, and the reader's own job reads.
+            let outcome = match &done { Err(SyncError(e)) if e == SUPERSEDED => Outcome::NothingNew, _ => outcome(done, |_| true) };
+            if outcome == Outcome::NothingNew {
+                let key_id = self.key_id;
+                if let Ok(Some(reader)) = cx.db.run(move |c, _| superseded(c, key_id).map_err(|e| e.0)).await {
+                    cx.wakers.wake(BALANCE_SYNC, Some(&reader.to_string()), None);
+                    return outcome;
+                }
+            }
+            // #710: a pair that may be one venue account keeps the verdict of its comparable reads; a partner whose read is too
+            // far off is read now, so the two stay comparable.
+            if outcome == Outcome::Done {
+                let (key, at) = (self.key_id, cx.clock.now());
+                match cx.db.run(move |c, _| crate::identity::after_balance_read(c, key, at).map_err(|e| e.to_string())).await {
+                    Ok(partners) => for partner in partners { cx.wakers.wake(BALANCE_SYNC, Some(&partner.to_string()), None); },
+                    Err(e) => crate::engine::log(&format!("[sync] standing of key {key} not reconsidered: {e}")),
+                }
+            }
             // 2.x's AccountBalance::SyncJob ends in PortfolioSnapshot.record!, whatever the sync did: the user's tracker
             // rewrites today's rows.
             if outcome == Outcome::NothingNew { cx.wakers.wake(BALANCE_SYNC, Some(&self.key_id.to_string()), None); }

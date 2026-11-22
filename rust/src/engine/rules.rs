@@ -497,7 +497,8 @@ pub fn handback_problems(c: &Connection) -> Result<Vec<String>, EngineError> {
         problems.push("withdrawal job cleanup is pending".into());
     }
     if table_exists(c, "exchange_account_rules")?
-        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rules r JOIN exchange_accounts a ON a.id=r.account_id WHERE a.number<>1)", [], |r| r.get::<_, bool>(0))? {
+        // #710 Merge: a deleted rule of a tombstoned account is history 2.x holds as its deleted placeholder.
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_rules r JOIN exchange_accounts a ON a.id=r.account_id WHERE a.number<>1 AND NOT (r.status=3 AND a.removed_at IS NOT NULL))", [], |r| r.get::<_, bool>(0))? {
         problems.push(HANDBACK_REFUSAL.into());
     }
     Ok(problems)

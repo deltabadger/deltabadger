@@ -17,8 +17,6 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::{json, Value};
 
-const CLOSE: &str = include_str!("../../../templates/svg/_24x24_close.html");
-
 /// `download_tax_report_tracker_path(country:, year:, report_scope:)` in `locale` (`default_url_options`).
 fn download_path(locale: &str, country: &str, year: i64, scope: &str) -> String {
     let query = locale::switch_query(&[("country".into(), country.into()), ("report_scope".into(), scope.into()), ("year".into(), year.to_string())]);
@@ -49,8 +47,7 @@ pub fn panel(locale: &str, r: &Request, p: &Panel) -> String {
 /// The refused and failed partials.
 fn alert(id: &str, request: Option<&str>, style: &str, message: &str) -> String {
     let tag = request.map_or(String::new(), |r| format!(" data-tax-request=\"{r}\""));
-    format!("<div id=\"{id}\" class=\"flash__message salert salert--{style}\" data-controller=\"removals\" role=\"alert\"{tag}>\n  \
-             <button class=\"modal__close\" data-action=\"removals#remove\">\n    {CLOSE}\n  </button>\n  {message}\n</div>\n")
+    format!("<div id=\"{id}\" class=\"flash__message salert salert--{style}\" role=\"alert\"{tag}>\n  {message}\n</div>\n")
 }
 
 fn stream(body: &str) -> Response {

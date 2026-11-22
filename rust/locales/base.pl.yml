@@ -560,6 +560,7 @@ pl:
             missing: "Brak ceny rynkowej dla %{assets} na %{venue}."
             missing_anywhere: "Brak ceny rynkowej dla %{assets}."
             chart_missing: "Wykres nie pokazuje wartości rynkowej %{assets} na %{venue} w dniach bez ceny."
+            opening_unknown: "Wartość początkowa %{assets} na %{venue} jest nieznana."
             chart_incomplete: "Niektóre dni na wykresie są niekompletne."
             connect_market_data: "Połącz dostawcę danych rynkowych, aby otrzymywać ceny rynkowe."
             providers_intro: "Śledzenie portfela i raporty podatkowe wymagają historycznych cen i kursów wymiany. Połącz API danych Deltabadger (akcje i krypto) lub darmowe konto CoinGecko (tylko krypto). Darmowe konto CoinGecko obejmuje ceny tylko z ostatniego roku."

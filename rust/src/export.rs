@@ -392,6 +392,8 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Prefix("rust_kucoin_origin:"), "where a KuCoin order's record came from"),
     (Key::Prefix("rust_kucoin_unresolved:"), "a KuCoin order whose result is unknown"),
     (Key::Prefix("rust_cancel_reread:"), "a cancel whose result is re-read"),
+    (Key::Prefix("rust_key_credential_changed:"), "when a key's credential was last replaced (#710 duplicate evidence)"),
+    (Key::Prefix("rust_standing_wake:"), "when a candidate duplicate's partner was last woken to read its balances"),
     (Key::Prefix("rust_binance_a12_v1:"), "the Binance history repair's journal and marker"),
     (Key::Prefix("rust_binance_repair_gaps."), "Binance history gaps"),
     (Key::Exact("rust_rules_fired_at"), "when rules last ran"),
@@ -434,6 +436,8 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     // Rust's: the old key's observations, IBKR reservations and never-sent withdrawals go; the account anchors stay.
     tx.execute_batch("DELETE FROM exchange_account_credentials; DELETE FROM ibkr_reservations; \
                       DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'").map_err(&f)?;
+    // #710: the duplicate standings rest on keys the export no longer carries; the next reconsideration decides again.
+    if crate::engine::rules::table_exists(tx, "exchange_account_standings").map_err(&f)? { tx.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(&f)?; }
     crate::rotation::rebalancing_off(tx).map_err(&f)?;
     let engine = |e: crate::engine::EngineError| ExportError::Failed(format!("scrub: {e:?}"));
     let mut st = tx.prepare("SELECT id, transient_data FROM bots ORDER BY id").map_err(&f)?;

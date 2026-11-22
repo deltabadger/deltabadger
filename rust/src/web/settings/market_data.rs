@@ -217,7 +217,7 @@ async fn resync(app: App, ctx: Ctx) -> Result<Response, WebError> {
     })
     .await?;
     let syncing = format!(
-        "{}\n<div id=\"flash-syncing\" class=\"salert salert--syncing\" role=\"alert\">\n  <div class=\"loader--syncing\"></div>\n  {}\n</div>",
+        "{}\n<div id=\"flash-syncing\" class=\"salert salert--syncing\" role=\"alert\">\n  {}\n</div>",
         ctx.stream_from("settings_sync"),
         ctx.t("setup.syncing_message")
     );

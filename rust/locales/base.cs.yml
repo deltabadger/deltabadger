@@ -567,6 +567,7 @@ cs:
             missing: "Pro %{assets} na %{venue} není k dispozici tržní cena."
             missing_anywhere: "Pro %{assets} není k dispozici tržní cena."
             chart_missing: "Graf neukazuje tržní hodnotu %{assets} na %{venue} ve dnech bez ceny."
+            opening_unknown: "Počáteční hodnota %{assets} na %{venue} není známa."
             chart_incomplete: "Některé dny v grafu jsou neúplné."
             connect_market_data: "Připoj poskytovatele tržních dat a získej tržní ceny."
             providers_intro: "Sledování portfolia a daňové reporty potřebují historické ceny a směnné kurzy. Připoj datové API Deltabadger (akcie a krypto) nebo bezplatný účet CoinGecko (jen krypto). Bezplatný účet CoinGecko pokrývá ceny jen za poslední rok."

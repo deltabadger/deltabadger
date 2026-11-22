@@ -303,6 +303,8 @@ fn finish_in(c:&Connection,fetch:Fetched)->Result<Read,WebError>{
                 crate::engine::log(crate::engine::model::CREDENTIALS_CHANGED);
                 return Ok(unported("Figures unavailable: credentials changed; retry with current credentials",false));
             }
+            // #710 §6.4: a key whose account changed (a Merge moved it, or removed its account) reads for no account now.
+            if !crate::engine::model::account_is_current(c,&version)? { return Ok(failed(Domain::NotFound,"account_not_found","Account not found.")); }
         }
         return finish_in(c,*inner)
     }

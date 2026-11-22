@@ -40,7 +40,7 @@ pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Ve
     let mut s = c.prepare(&format!(
         "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, {name}, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
-         WHERE b.user_id = ?1 AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b")))?;
+         WHERE b.user_id = ?1 AND {} AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b"), crate::identity::counted(c, user_id, "b.account_id")?))?;
     let mut q = s.query([user_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
@@ -94,8 +94,9 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec
     let any = crate::venue_ids::Scope::install(c)?;
     let mut s = c.prepare(&format!(
         "SELECT exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, {}, transacted_at, id, fee_currency, fee_amount, group_id, {}, \
-         COALESCE({}, -exchange_id) FROM account_transactions WHERE user_id = ?1 AND {} ORDER BY id",
-        any.row_id("account_transactions"), any.member_sql("account_transactions"), any.row_account("account_transactions"), scope.rows("account_transactions")))?;
+         COALESCE({}, -exchange_id) FROM account_transactions WHERE user_id = ?1 AND {} AND {} ORDER BY id",
+        any.row_id("account_transactions"), any.member_sql("account_transactions"), any.row_account("account_transactions"), scope.rows("account_transactions"),
+        crate::identity::counted(c, user_id, &any.member_sql("account_transactions"))?))?;
     let mut q = s.query([user_id])?;
     let mut add = |symbol: String, amount: Dec| -> Result<(), FiguresError> {
         crate::figures::budget::charge(1, 0)?;
@@ -264,8 +265,22 @@ pub fn compute_on(c: &Connection, user_id: i64, ledger: &Summary, balances: &[Ba
     // Fiat and Currency are both cash, and a tokenized share tracks its company's share: one class each.
     let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), Some("Tokenized Stock") => Some("Stock".to_string()), _ => c };
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
+    // Classification (#710): a duplicate's balances are evidence of what its held assets are, though they count for no
+    // amount (`balances` leaves them out).
+    let duplicates = crate::identity::duplicate_ids(c, user_id)?;
+    if !duplicates.is_empty() {
+        let list = duplicates.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+        let mut stmt = c.prepare(&format!("SELECT a.symbol, a.category FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
+                                           WHERE b.user_id = ?1 AND b.account_id IN ({list}) AND b.free + b.locked > 0"))?;
+        let held: Vec<(Option<String>, Option<String>)> = stmt.query_map([user_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+        for (symbol, category) in held {
+            let Some(symbol) = symbol else { continue };
+            if let Some(set) = classes.iter_mut().find(|(s, _)| **s == symbol.as_str()).map(|(_, set)| set) { set.insert(class(category)); }
+        }
+    }
     for (symbol, _) in pending {
         // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
+        // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
         let mut stmt = c.prepare("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
                                   WHERE t.user_id = ?1 AND t.base_currency = ?2")?;
         for category in stmt.query_map(rusqlite::params![user_id, symbol], |r| r.get::<_, Option<String>>(0))? {

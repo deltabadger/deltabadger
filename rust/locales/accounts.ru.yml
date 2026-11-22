@@ -1,0 +1,17 @@
+ru:
+    tracker:
+        duplicate_account_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}, поэтому он не входит в итоги."
+        merge_in_settings: "Объединить в настройках"
+    settings:
+        accounts:
+            duplicate_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}."
+            merge: "Объединить"
+            confirm_merge_html: "Объединить %{duplicate} с %{survivor}? Ключи, боты, правила, ордера и история перейдут в %{survivor}, а %{duplicate} будет удалён. Это действие нельзя отменить."
+            merged_html: "%{duplicate} объединён с %{survivor}."
+            merge_in_flight_html: "Ордер или вывод по %{duplicate} или %{survivor} ещё не завершён. Попробуйте снова, когда он завершится."
+            merge_conflict_html: "У %{duplicate} и %{survivor} расходятся эти записи, поэтому ничего не изменено: %{rows}. Приведите их в соответствие и объедините снова."
+            merge_checking_html: "Deltabadger заново считывает %{duplicate} и %{survivor}, чтобы убедиться, что это один и тот же аккаунт. Попробуйте ещё раз через минуту."
+            merge_withdrawal_key_html: "После объединения эти правила вывода стали бы использовать другой ключ для вывода: %{rules}. Удалите ключ для вывода у %{duplicate} или %{survivor}, объедините аккаунты и добавьте его снова."
+            merge_foreign_order: "ордер, который уже записан на этой бирже"
+            merge_order_unchecked_html: "Ордер по %{account} был размещён с прежним ключом, поэтому Deltabadger не может проверить его текущим: %{rows}. Сохраните снова ключ, с которым он был размещён, и объедините аккаунты."
+            merge_unreadable_html: "У %{account} нет рабочего ключа, который может читать балансы, поэтому Deltabadger не может его проверить. Исправьте или добавьте ключ, затем объедините аккаунты снова."

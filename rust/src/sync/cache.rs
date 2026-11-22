@@ -43,6 +43,26 @@ pub fn reading_key(c: &Connection, account: &AccountRow) -> Result<Option<i64>, 
     Ok(rows.iter().find(|r| r.1 == 0 && !crate::tracker::import::run::missing_permission(&r.2, r.3.as_deref()))
         .or_else(|| rows.iter().find(|r| r.1 == 2)).or_else(|| rows.first()).map(|r| r.0))
 }
+/// When account `a`'s stored balances were read, if its current reading key read them completely at its current credential
+/// version (#710: one of the signals that two accounts are one). None otherwise.
+pub fn balances_read_at(c: &Connection, a: &AccountRow) -> Result<Option<DateTime<Utc>>, EngineError> {
+    let Some(id) = reading_key(c, a)? else { return Ok(None) };
+    let stamp = app_config::get_plain(c, &key(a)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
+    let fresh = match stamp.as_ref().and_then(|s| CredentialVersion::from_stamp(s).map(|p| (p, s))) {
+        Some((producer, stamp)) => producer.id == id && stamp["complete"] == Value::Bool(true) && model::credential_is_current(c, &producer)?,
+        None => false,
+    };
+    if !fresh { return Ok(None); }
+    Ok(read_time(c, id)?)
+}
+
+/// When key `id`'s last balance read began (its first answer, `rust_sync.read_at:<key>`; the identity checks' time),
+/// else its portfolio watermark (`balances_synced_at`, main's: the commit's time).
+pub fn read_time(c: &Connection, id: i64) -> rusqlite::Result<Option<DateTime<Utc>>> {
+    let read: Option<String> = app_config::get_plain(c, &format!("rust_sync.read_at:{id}")).map_err(rusqlite::Error::InvalidParameterName)?;
+    let at: Option<String> = match read { Some(t) => Some(t), None => c.query_row("SELECT balances_synced_at FROM api_keys WHERE id = ?1", [id], |r| r.get(0)).optional()?.flatten() };
+    Ok(at.and_then(|t| crate::codec::parse_time(&t).ok()))
+}
 /// The scope's accounts with balances (`balances`) or a non-withdrawal key (`keys`), by id; a key's number 1 with no row
 /// yet as its stand-in (`AccountRow::unplaced`), after them.
 fn accounts(c: &Connection, user: i64, scope: &Scope, balances: bool, keys: bool) -> Result<Vec<AccountRow>, EngineError> {
@@ -53,7 +73,9 @@ fn accounts(c: &Connection, user: i64, scope: &Scope, balances: bool, keys: bool
     let mut parts = vec![];
     if balances { parts.push(format!("SELECT b.account_id FROM exchange_account_balances b WHERE b.user_id = ?1 AND {}", scope.store("b"))); }
     if keys { parts.push(format!("SELECT {key} FROM api_keys k WHERE k.user_id = ?1 AND k.key_type != 1 AND {}", scope.keys("k"))); }
-    Ok(AccountRow::listed(c, user, &parts.join(" UNION "))?)
+    // A duplicate account (#710, PLAN-710-6 §5.2) is counted nowhere, so its freshness is no scope's.
+    let duplicates = crate::identity::duplicate_ids(c, user)?;
+    Ok(AccountRow::listed(c, user, &parts.join(" UNION "))?.into_iter().filter(|a| !duplicates.contains(&a.id)).collect())
 }
 /// Missing, malformed, partial or differently credentialed cache origins are sync-pending.
 /// Select the same reading slot as the sync scheduler: trading before read-only, never withdrawal.
@@ -121,7 +143,8 @@ impl ReadOrigin {
     }
 }
 pub fn capture_read(c:&Connection,user:i64,scope:&Scope)->Result<ReadOrigin,EngineError>{
-    let mut stmt=c.prepare(&format!("SELECT k.id FROM api_keys k WHERE k.user_id=?1 AND k.key_type!=1 AND {} ORDER BY k.id",scope.keys("k")))?;
+    // A duplicate account's key produces none of the figures (#710, PLAN-710-6 §5.2): rotating it moves no provenance.
+    let mut stmt=c.prepare(&format!("SELECT k.id FROM api_keys k WHERE k.user_id=?1 AND k.key_type!=1 AND {} AND {} ORDER BY k.id",scope.keys("k"),crate::identity::key_counted(c,user,"k")?))?;
     let ids=stmt.query_map([user],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
     let versions=ids.into_iter().map(|id|model::credential_version_by_id(c,id)).collect::<Result<Vec<_>,_>>()?.into_iter().flatten().collect();
     Ok(ReadOrigin{user,scope:*scope,versions,balance_producers:vec![],balance_inputs:false})
