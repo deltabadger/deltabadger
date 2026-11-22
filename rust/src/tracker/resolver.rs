@@ -221,7 +221,9 @@ fn broker_unrecorded(f: &Facts, leg: &Leg, catalogue: bool) -> (bool, Option<Hol
         return (false, if catalogue { answer(distinct(f.catalogue.get(leg.spelling).into_iter().flatten().cloned())) } else { None });
     }
     let answers: Vec<Holding> = listings.into_iter().filter_map(answer).collect();
-    (true, match answers.as_slice() { [] => None, [a, rest @ ..] if rest.iter().all(|b| b == a) => Some(a.clone()), _ => Some(Holding::Unknown(Why::Unclear)) })
+    // Sides that disagree name two holdings: a conflict, which inherits nothing (an unclear fee would take whatever
+    // lot the account books under the spelling, a third instrument included).
+    (true, match answers.as_slice() { [] => None, [a, rest @ ..] if rest.iter().all(|b| b == a) => Some(a.clone()), _ => Some(Holding::Unknown(Why::Conflict)) })
 }
 
 /// Steps 2–4 for a leg that is not cash by spelling (or a fiat spelling looking for coin evidence: `catalogue` false).
@@ -253,7 +255,12 @@ fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
             Some(r) if bound(f, leg, r) => return Some(coin(leg, r)),
             // Recorded, unbound: the broker's listing stands, and another coin listed is a conflict (never the alias).
             Some(r) => if let (true, Some(h)) = broker_unrecorded(f, leg, catalogue) {
-                return Some(match h { Holding::Coin(other) if r.external_id.as_deref() != Some(other.as_str()) => Holding::Unknown(Why::Conflict), h => h });
+                return Some(match h {
+                    Holding::Coin(other) if r.external_id.as_deref() != Some(other.as_str()) => Holding::Unknown(Why::Conflict),
+                    // A recorded cryptocurrency is never the security listed under its spelling (Alpaca's BTC, an ETF's tombstone).
+                    Holding::Security(_) if r.crypto() => Holding::Unknown(Why::Conflict),
+                    h => h,
+                });
             },
             None => match broker_unrecorded(f, leg, catalogue) {
                 (true, Some(h)) | (false, Some(h @ Holding::Security(_))) => return Some(h),
@@ -605,7 +612,7 @@ mod tests {
         let mut f = Facts::default();
         f.stale.entry((alpaca.id, "S".into())).or_default().push(coin_asset(50, "coin-x", "S"));
         list(&mut f, &alpaca, Side::Quote, "S", &coin_asset(51, "coin-y", "S"));
-        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "S", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "S", "2025-01-01", None)), Holding::Unknown(Why::Conflict), "two sides, two coins: inherits nothing");
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "S", "2025-01-01", None)), coin_of("coin-x"), "the base leg: its tombstone");
     }
 
@@ -645,7 +652,7 @@ mod tests {
         let mut f = Facts::default();
         list(&mut f, &alpaca, Side::Base, "PLN", &coin_asset(2227, "pleasure-coin", "PLN"));
         list(&mut f, &alpaca, Side::Quote, "PLN", &asset(3, "pln", "PLN", Some("Fiat")));
-        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "PLN", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Fee, "PLN", "2025-01-01", None)), Holding::Unknown(Why::Conflict));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Quote, "PLN", "2025-01-01", None)), Holding::Cash(CashKind::Fiat));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "PLN", "2025-01-01", None)), coin_of("pleasure-coin"));
         catalogue(&mut f, &coin_asset(91, "terra-luna-2", "LUNA"));
@@ -657,5 +664,9 @@ mod tests {
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&x))), coin_of("matic-x"), "recorded and bound: the same coin");
         let y = coin_asset(42, "matic-y", "MATIC");
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "MATIC", "2025-01-01", Some(&y))), Holding::Unknown(Why::Conflict), "recorded Y, listed X: never the alias");
+        // Codex PR1a r3: a recorded cryptocurrency against the tombstone of an ETF under its spelling is neither.
+        f.stale.entry((alpaca.id, "BTC".into())).or_default().push(asset(60, "BTC.ARCX", "BTC", Some("ETF")));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", Some(&coin_asset(1, "bitcoin", "BTC")))), Holding::Unknown(Why::Conflict));
+        assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", None)), Holding::Security("BTC.ARCX".into()), "unrecorded: the listing");
     }
 }
