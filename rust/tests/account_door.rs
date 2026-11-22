@@ -465,3 +465,62 @@ async fn connected_tiles_are_accounts_and_the_wizard_makes_its_bot_on_the_picked
     assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str())]), common::web::Csrf::Header, &[]).await.status, 302);
     assert_eq!(b.get(&app, "/bots/dca_single_assets/add_api_key/new").await.status, 302);
 }
+
+// ---- §2: the withdrawal-rule wizard takes the pick ----
+
+const ADDRESS_A: &str = "bc1qaccountonewallet";
+const ADDRESS_B: &str = "bc1qaccounttwowallet";
+
+/// A Gemini exchange (the Kraken fixture renamed) whose withdrawal key `test-key` is account 1's, and account 2 with its own
+/// withdrawal key `account-2-key`; each key's listing names its own account's approved address.
+async fn gemini_two_accounts() -> (tempfile::TempDir, store::Opened, seed::Seeded, i64, MockServer, deltabadger::web::App) {
+    let server = MockServer::start().await;
+    for (key, address) in [("account-2-key", ADDRESS_B), ("test-key", ADDRESS_A)] {
+        Mock::given(path("/v1/approvedAddresses/account/bitcoin")).and(header("X-GEMINI-APIKEY", key))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"approvedAddresses":[{"address":address,"network":"bitcoin","status":"active"}]})))
+            .mount(&server).await;
+    }
+    let (dir, o) = install();
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let s = seed::seed_kraken(c, &cipher);
+    c.execute("UPDATE exchanges SET type='Exchanges::Gemini', name='Gemini'", []).unwrap();
+    c.execute("UPDATE tickers SET base='BTC'", []).unwrap();
+    c.execute("UPDATE api_keys SET key_type=1", []).unwrap();
+    c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,withdrawal_chains,created_at,updated_at) VALUES (?1,?2,'[]','2026-01-01','2026-01-01')", (s.exchange_id, s.btc)).unwrap();
+    identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [s.user_id, s.exchange_id]).unwrap();
+    let second = identity::Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 1, 'now', 'now')",
+              rusqlite::params![s.user_id, s.exchange_id, cipher.encrypt("account-2-key"), cipher.encrypt("account-2-secret")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    let app = web_app(dir.path(), c).with_venue_key_url("Exchanges::Gemini", &server.uri()).unwrap();
+    (dir, o, s, second.id.unwrap(), server, app)
+}
+
+/// §2: the withdrawal-rule wizard draws a Connected tile per account; picking account 2's reads account 2's withdrawal key and
+/// its addresses, and the rule it makes is account 2's, to account 2's wallet.
+#[tokio::test(flavor = "current_thread")]
+async fn the_rule_wizard_makes_its_rule_on_the_picked_account_with_its_addresses() {
+    let (_d, o, s, second, _server, app) = gemini_two_accounts().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, s.user_id);
+    let step = b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
+    assert_eq!(step.status, 200, "{}", step.body);
+    assert!(step.body.contains(&format!("account_id={second}\"")), "a tile for account 2: {}", step.body);
+    let exchange = s.exchange_id.to_string();
+    let picked = b.send(&app, "POST", &format!("/rules/withdrawals/pick_exchange?account_id={second}"),
+                        Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(picked.status, 302, "{}", picked.body);
+    let btc = s.btc.to_string();
+    assert_eq!(b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await.status, 302);
+    let key_step = b.get(&app, "/rules/withdrawals/add_api_key/new").await;
+    assert_eq!((key_step.status, location(&key_step)), (302, "/rules/withdrawals/confirm_settings/new"), "account 2's withdrawal key is correct: {}", key_step.body);
+    let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
+    assert_eq!(confirm.status, 200, "{}", confirm.body);
+    assert!(confirm.body.contains("bc1qaccounttw") && !confirm.body.contains("bc1qaccounton"), "account 2's address: {}", confirm.body);
+    let made = b.send(&app, "POST", "/rules/withdrawals/confirm_settings", Some(&[("network", "bitcoin"), ("min_amount", "0.1"), ("threshold_type", "min_amount")]),
+                      common::web::Csrf::Header, &[]).await;
+    assert_eq!(made.status, 200, "{}", made.body);
+    let (account, address): (i64, String) = c.query_row("SELECT account_id, address FROM exchange_account_rules", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((account, cipher.decrypt(&address).unwrap().as_str()), (second, ADDRESS_B), "account 2's rule, to account 2's wallet");
+}

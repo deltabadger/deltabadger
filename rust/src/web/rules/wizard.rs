@@ -77,7 +77,8 @@ async fn temporary(app: &App, ctx: &Ctx, config: Value) -> Result<Option<Rule>, 
         let Some(asset)=Asset::find(c,crate::web::wizard::to_i(&config["asset_id"]))?else{return Ok(None)};
         let (fee,chains):(Option<String>,Option<String>)=c.query_row("SELECT withdrawal_fee,withdrawal_chains FROM exchange_assets WHERE exchange_id=?1 AND asset_id=?2",
             (exchange.id,asset.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?.unwrap_or_default();
-        let account=crate::identity::Account::first(c,user,exchange.id)?;
+        // #710 7a §2: the picked account (or the one its key was saved on), else the exchange's number 1.
+        let Some(account)=crate::web::wizard::account(c,user,Some(&config))?.filter(|a|a.exchange_id==exchange.id) else{return Ok(None)};
         Ok(Some(Rule{id:0,user_id:user,account,status:0,label:crate::identity::label_or(c,account.id,&exchange.name)?,exchange,asset,address:string(&config["address"]),settings:config,
             fee:fee.and_then(|f|BigDec::parse(&f).ok()),chains:chains.and_then(|s|serde_json::from_str(&s).ok()).unwrap_or_default(),balance:None,unconfirmed:None}))
     }).await
@@ -91,17 +92,22 @@ async fn exchange(app: &App, ctx: &Ctx) -> Result<Response, WebError> {
             .filter(|s| !v2::blank(s))
         {
             let n = crate::web::bot::search::to_i(id);
-            let allowed = app
+            let (view, user) = (ctx.clone(), ctx.user().map_or(0, |u| u.id));
+            let (allowed, picked) = app
                 .db(move |c| {
-                    Ok(venue(c, Some(n))?
-                        .is_some_and(|v| crate::venue::withdrawal::Kind::of(&v.class).is_some()))
+                    Ok((venue(c, Some(n))?
+                        .is_some_and(|v| crate::venue::withdrawal::Kind::of(&v.class).is_some()),
+                        crate::web::wizard::picked(c, &view, user, n)?))
                 })
                 .await?;
             if !allowed {
                 return Ok(to(ctx, "pick_exchange"));
             }
+            // #710 7a §2: a Connected tile's account, or a venue tile that always asks for the key.
+            let Some(picked) = picked else { return Ok(layout::missing()) };
             let mut conf = config(ctx);
             conf["exchange_id"] = json!(id);
+            crate::web::wizard::keep_pick(&mut conf, picked);
             conf.as_object_mut().unwrap().remove("asset_id");
             set(ctx, conf);
             return Ok(to(ctx, "add_api_key"));
@@ -256,9 +262,15 @@ async fn keys(
         exchange.id,
         ctx.user().expect("authenticated").id,
     );
+    // #710 7a §2: the picked account's withdrawal key; a venue tile's is a blank candidate, saved where it routes.
+    let conf = config(ctx);
     let key = app
-        .db(move |c| keys::Key::read(c, &inner, crate::identity::Account::first(c, user, id)?, 1))
+        .db(move |c| {
+            let Some(account) = crate::web::wizard::account(c, user, Some(&conf))?.filter(|a| a.exchange_id == id) else { return Ok(None) };
+            Ok(Some(if crate::web::wizard::untargeted(Some(&conf)) { keys::Key::untargeted(account) } else { keys::Key::read(c, &inner, account, 1)? }))
+        })
         .await?;
+    let Some(key) = key else { return Ok(to(ctx, "pick_exchange")) };
     if ctx.method == axum::http::Method::POST {
         if !ctx
             .params
@@ -268,17 +280,18 @@ async fn keys(
         {
             return Ok(layout::bad_request());
         }
-        let message = match keys::submit(
-            app,
-            ctx,
-            &exchange.class,
-            &exchange.name,
-            1,
-            key,
-        )
-        .await?
-        {
+        let outcome = keys::submit(app, ctx, &exchange.class, &exchange.name, 1, key).await?;
+        let message = match &outcome {
             keys::Submitted::Correct(_) | keys::Submitted::Moved { .. } => {
+                let saved = match outcome { keys::Submitted::Correct(a) => a, keys::Submitted::Moved { to, .. } => Some(to), _ => None };
+                // The session takes the account the key was saved on (§2); a 2.x session (neither kept) stays as it was.
+                let mut conf = config(ctx);
+                if let Some(account) = saved {
+                    if conf.get("account_id").is_some() || crate::web::wizard::untargeted(Some(&conf)) {
+                        crate::web::wizard::keep_pick(&mut conf, crate::web::wizard::Picked::Account(account));
+                        set(ctx, conf);
+                    }
+                }
                 let response = next(app, ctx, false).await?;
                 let target = response
                     .headers()
@@ -296,14 +309,14 @@ async fn keys(
                 &crate::tracker::rows::name_id(&exchange.class),
                 &exchange.name,
                 1,
-                &missing,
-                &forbidden,
+                missing,
+                forbidden,
             ),
             keys::Submitted::Failed => ctx.t("errors.api_key_permission_validation_failed"),
             keys::Submitted::Refused(reason) => i18n::text(
                 ctx.locale,
                 "engine.write_refused",
-                &[("reason", Arg::Text(&reason))],
+                &[("reason", Arg::Text(reason))],
             ),
         };
         // D-RULES-SHEET: the reason under the card's fields, in the sheet's frame.
@@ -369,9 +382,9 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
         set(ctx, conf);
         return Ok(to(ctx, "confirm_settings"));
     }
-    let (inner, user, id) = (app.clone(), rule.user_id, rule.exchange.id);
+    let (inner, account) = (app.clone(), rule.account);
     let correct = app
-        .db(move |c| Ok(keys::Key::read(c, &inner, crate::identity::Account::first(c, user, id)?, 1)?.status == 1))
+        .db(move |c| Ok(keys::Key::read(c, &inner, account, 1)?.status == 1))
         .await?;
     if !correct {
         return Ok(to(ctx, "add_api_key"));
@@ -543,7 +556,7 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         let patch=service::Patch {
             address:Some(rule.address.clone()),settings:rule.settings.clone(),destination:posted,
         };
-        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,account_id:None,patch}).await? {
+        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,account_id:rule.account.id,patch}).await? {
             Err(e) if e.code=="address_not_listed" || e.code=="credential_changed"=>return Ok(to(ctx,"add_address")),
             Err(e) if e.code=="rule_exists"=>return alert(ctx,i18n::t(ctx.locale,"errors.withdrawal_rule_already_exists",
                 &[("asset_symbol",Arg::Text(rule.asset.symbol())),("exchange_name",Arg::Text(&rule.label.plain()))]),false),
