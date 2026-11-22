@@ -513,7 +513,7 @@ async fn the_rule_wizard_makes_its_rule_on_the_picked_account_with_its_addresses
                         Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
     assert_eq!(picked.status, 302, "{}", picked.body);
     let btc = s.btc.to_string();
-    assert_eq!(b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(pick_asset(&app, &mut b, &btc).await.status, 302);
     let key_step = b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     assert_eq!((key_step.status, location(&key_step)), (302, "/rules/withdrawals/confirm_settings/new"), "account 2's withdrawal key is correct: {}", key_step.body);
     let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
@@ -691,14 +691,14 @@ async fn h5_a_withdrawal_confirmation_naming_no_account_makes_no_rule_after_anot
     b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
     assert_eq!(b.send(&app, "POST", "/rules/withdrawals/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str())]), common::web::Csrf::Header, &[]).await.status, 302);
     let btc = s.btc.to_string();
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
     assert!(confirm.status == 200 && !confirm.body.contains("name=\"account_id\""), "a 2.x form: {}", confirm.body);
     // Tab B picks account 2, BTC again.
     let pick = format!("/rules/withdrawals/pick_exchange?account_id={second}");
     assert_eq!(b.send(&app, "POST", &pick, Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     let stale = b.send(&app, "POST", "/rules/withdrawals/confirm_settings", Some(&[("network", "bitcoin"), ("min_amount", "0.1"), ("threshold_type", "min_amount")]),
                        common::web::Csrf::Header, &[]).await;
@@ -718,13 +718,13 @@ async fn a_withdrawal_confirmation_from_another_tab_makes_no_rule() {
     b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
     assert_eq!(b.send(&app, "POST", &pick(second), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
     let btc = s.btc.to_string();
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
     assert!(confirm.body.contains(&format!("<input type=\"hidden\" name=\"account_id\" value=\"{second}\" />")), "the form names account 2: {}", confirm.body);
     // Tab B picks account 1, BTC again and its address.
     assert_eq!(b.send(&app, "POST", &pick(first), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     assert_eq!(location(&b.get(&app, "/rules/withdrawals/add_api_key/new").await), "/rules/withdrawals/confirm_settings/new");
     let second_s = second.to_string();
     let stale = b.send(&app, "POST", "/rules/withdrawals/confirm_settings", Some(&[("account_id", second_s.as_str()), ("network", "bitcoin"), ("min_amount", "0.1"), ("threshold_type", "min_amount")]),
@@ -890,7 +890,7 @@ async fn a_withdrawal_key_form_from_another_tab_saves_nothing() {
     let (exchange, btc) = (s.exchange_id.to_string(), s.btc.to_string());
     b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
     assert_eq!(b.send(&app, "POST", "/rules/withdrawals/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     let form = b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     let action = format!("/rules/withdrawals/add_api_key?exchange_id={exchange}&untargeted=1");
     assert!(links(&form.body, "/rules/withdrawals/add_api_key?").contains(&action), "the form names its pick: {}", form.body);
@@ -1771,12 +1771,12 @@ async fn s7a_r11_a_stale_withdrawal_confirmation_or_preview_copies_nothing_into_
     let btc = s.btc.to_string();
     b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
     assert_eq!(b.send(&app, "POST", &pick(second), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     assert_eq!(b.get(&app, "/rules/withdrawals/confirm_settings/new").await.status, 200);
     // Tab B picks account 1.
     assert_eq!(b.send(&app, "POST", &pick(first), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
-    b.send(&app, "POST", "/rules/withdrawals/pick_asset", Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    pick_asset(&app, &mut b, &btc).await;
     b.get(&app, "/rules/withdrawals/add_api_key/new").await;
     let second_s = second.to_string();
     for path in ["/rules/withdrawals/confirm_settings", "/rules/withdrawals/confirm_settings/preview"] {
@@ -1891,3 +1891,39 @@ fn sheet_token(body: &str) -> String {
 }
 /// How many account reads Alpaca's key check has been sent.
 async fn account_reads(server: &MockServer) -> usize { server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == "/v2/account").count() }
+
+/// The withdrawal wizard's asset step, posted to the action its page drew (`pick_asset`, naming its pick).
+async fn pick_asset(app: &deltabadger::web::App, b: &mut common::web::Browser, asset: &str) -> common::web::Answer {
+    let form = b.get(app, "/rules/withdrawals/pick_asset/new").await;
+    let action = asset_action(&form.body);
+    b.send(app, "POST", &action, Some(&[("bots_dca_single_asset[asset_id]", asset)]), common::web::Csrf::Header, &[]).await
+}
+fn asset_action(body: &str) -> String {
+    regex::Regex::new(r#"action="([^"]*/rules/withdrawals/pick_asset(?:\?[^"]*)?)""#).unwrap().captures(body).unwrap_or_else(|| panic!("asset form: {body}"))[1].replace("&amp;", "&")
+}
+
+/// Rule S7 (Codex branch r4, wizard.rs:164): the withdrawal wizard's asset step checks its pick before it writes. Account
+/// 2's asset form left open, another tab picks account 1 and gets to its confirmation; account 2's form submitted then
+/// is refused and account 1's asset and address stay.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s7_a_stale_withdrawal_asset_form_writes_nothing_into_the_session() {
+    let (_d, o, s, second, _server, app) = gemini_two_accounts().await;
+    let c = &o.primary;
+    let first = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let exchange = s.exchange_id.to_string();
+    let pick = |account: i64| format!("/rules/withdrawals/pick_exchange?account_id={account}");
+    let btc = s.btc.to_string();
+    b.get(&app, "/rules/withdrawals/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", &pick(second), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let stale_action = asset_action(&b.get(&app, "/rules/withdrawals/pick_asset/new").await.body);
+    // Tab B picks account 1, its asset, and reaches its confirmation (its address chosen).
+    assert_eq!(b.send(&app, "POST", &pick(first), Some(&[("bots_dca_single_asset[exchange_id]", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    assert_eq!(pick_asset(&app, &mut b, &btc).await.status, 302);
+    b.get(&app, "/rules/withdrawals/add_api_key/new").await;
+    assert_eq!(b.get(&app, "/rules/withdrawals/confirm_settings/new").await.status, 200);
+    let stale = b.send(&app, "POST", &stale_action, Some(&[("bots_dca_single_asset[asset_id]", btc.as_str())]), common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 409, "{}", stale.body);
+    let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
+    assert_eq!(confirm.status, 200, "account 1's address stays: {:?}", confirm.headers);
+}

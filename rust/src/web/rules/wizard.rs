@@ -58,6 +58,15 @@ fn bound(conf: &Value) -> String {
         None => String::new(),
     }
 }
+/// #710 7a rules R11, S7: whether a POST came from a page drawn for the session's pick: its action's `account_id` /
+/// `untargeted` (as `bound` wrote them) are the session's now. A 2.x session's form names none, as before.
+fn drawn_for_pick(ctx: &Ctx) -> bool {
+    ["account_id", "untargeted"].iter().filter_map(|n| ctx.params.query(n).map(|v| format!("&{n}={v}"))).collect::<String>() == bound(&config(ctx))
+}
+/// The answer to a POST from a page drawn for another pick: nothing written, back to `step`'s page.
+fn stale(ctx: &Ctx, step: &str) -> Response {
+    crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/{step}/new"))))
+}
 fn config(ctx: &Ctx) -> Value {
     ctx.session
         .lock()
@@ -162,6 +171,8 @@ async fn assets(
     exchange: crate::web::wizard::keys::Venue,
 ) -> Result<Response, WebError> {
     if ctx.method == axum::http::Method::POST {
+        // Rule S7: an asset form drawn for another pick (two tabs) writes nothing.
+        if !drawn_for_pick(ctx) { return Ok(stale(ctx, "pick_asset")); }
         if let Some(id) = ctx
             .params
             .form("bots_dca_single_asset[asset_id]")
@@ -218,7 +229,7 @@ async fn assets(
             }
             let search = search_box("asset-picker", &v.path(&format!("{BASE}/pick_asset/new")), &v.t("utils.search.placeholder.asset"))?;
             Ok((
-                crate::web::wizard::spendable::asset_pane(search, v.path(&format!("{BASE}/pick_asset")), v.csrf_token(), "bots_dca_single_asset[asset_id]", items, next)?,
+                crate::web::wizard::spendable::asset_pane(search, v.path(&format!("{BASE}/pick_asset{}", bound(&config(&v)).replacen('&', "?", 1))), v.csrf_token(), "bots_dca_single_asset[asset_id]", items, next)?,
                 false,
             ))
         })
@@ -284,10 +295,7 @@ async fn keys(
     let Some(key) = key else { return Ok(to(ctx, "pick_exchange")) };
     if ctx.method == axum::http::Method::POST {
         // #710 7a §2: a key form rendered for another pick than the session's now (two tabs) saves nothing.
-        let posted = ["account_id", "untargeted"].iter().filter_map(|n| ctx.params.query(n).map(|v| format!("&{n}={v}"))).collect::<String>();
-        if posted != bound(&config(ctx)) {
-            return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/add_api_key/new")))));
-        }
+        if !drawn_for_pick(ctx) { return Ok(stale(ctx, "add_api_key")); }
         if !ctx
             .params
             .form
@@ -374,6 +382,8 @@ async fn keys(
 async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebError> {
     let list = reads::listing(app, &rule, ctx.method == axum::http::Method::POST).await?;
     if ctx.method == axum::http::Method::POST {
+        // Rule S7: an address posted for another pick writes nothing (no page draws this form; a 2.x session's post names none).
+        if !drawn_for_pick(ctx) { return Ok(stale(ctx, "add_address")); }
         let mut conf = config(ctx);
         conf["address"] = json!(ctx.params.form("address").unwrap_or_default());
         conf["address_tag"] = ctx
