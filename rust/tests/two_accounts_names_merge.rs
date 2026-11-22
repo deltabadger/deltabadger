@@ -1664,8 +1664,8 @@ fn rb_a_kucoin_csv_fill_beside_the_others_api_copy_refuses() {
     c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
     let csv = kucoin.row(c, 1, 0, "BTC", "1", Some("kucoin-csv-1"), None, "2026-09-01 10:00:00");
     c.execute("UPDATE account_transactions SET raw_data = '{\"source\":\"kucoin_csv\",\"class\":\"fills\",\"source_rows\":[\"r1\"]}' WHERE id = ?1", [csv]).unwrap();
-    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at) \
-               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'in', '1', '0', '2026-09-01 10:00:00', '', 'fills', 'now')", [kucoin.seeded.user_id, kucoin.seeded.exchange_id]).unwrap();
+    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at, account_id) \
+               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'in', '1', '0', '2026-09-01 10:00:00', '', 'fills', 'now', ?3)", [kucoin.seeded.user_id, kucoin.seeded.exchange_id, kucoin.id(1)]).unwrap();
     assert!(matches!(merge_now(c, &kucoin, kucoin.id(1)), Err(Refusal::Conflict(_))));
 }
 
@@ -3862,3 +3862,16 @@ fn s7_0_5_a_duplicates_class_counts_for_a_pending_only_symbol() {
     let pending = [("ABC".to_string(), deltabadger::figures::dec::Dec::from_i64(1))];
     assert!(figures_of(c, user, &deltabadger::tracker::Scope::All, &pending).is_err(), "ambiguous");
 }
+
+/// 7a §0.6: an import's identity observation is its account's, and Merge moves the duplicate's to the survivor.
+#[test]
+fn s7_0_6_merge_moves_the_duplicates_import_observations() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let observed = c.execute("INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES (?1, ?2, 'fp', x'00', 'now', ?3)",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, two.id(1)]);
+    assert!(observed.is_ok(), "an observation names its account: {observed:?}");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {}", two.id(0))), 1);
+}
+

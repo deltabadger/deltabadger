@@ -1269,8 +1269,8 @@ pub fn record_import_to(c: &Connection, cipher: &Cipher, user_id: i64, exchange_
     let fingerprint = key.fingerprint(&exchange_type, id);
     let encrypted = cipher.encrypt(&id.0).into_bytes();
     establish(c, account, &fingerprint, &encrypted, now).map_err(db)?;
-    c.execute("INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-              params![user_id, exchange_id, fingerprint, encrypted, format_time(now)]).map_err(db)?;
+    c.execute("INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+              params![user_id, exchange_id, fingerprint, encrypted, format_time(now), account]).map_err(db)?;
     Ok(())
 }
 

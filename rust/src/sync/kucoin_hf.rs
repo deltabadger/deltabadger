@@ -17,7 +17,7 @@ use crate::engine::model::FencedTransaction;
 use crate::v2::BigDec;
 use crate::venue_ids;
 use crate::venue::kucoin_account::AccountMode;
-use crate::tracker::import::kucoin::{self as file, Catalogue, Derived, SourceRow, Stored, API_ROW, DERIVED};
+use crate::tracker::import::kucoin::{self as file, Catalogue, Derived, SourceRow, Stored, API_ROW};
 use chrono::{DateTime, Duration, Timelike, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
@@ -49,7 +49,7 @@ const MAX_SPANS: usize = 500;
 pub fn gap_key(user_id: i64) -> String { format!("rust_kucoin_hf_gap.{user_id}") }
 
 /// A KuCoin fill-class row with neither this importer's provenance nor the API's: restored, or entered by the user.
-fn provenance_less() -> String { format!("entry_type IN ({BUY}, {SELL}, {FEE}, {ADJUSTMENT}) AND NOT ({API_ROW}) AND NOT ({DERIVED})") }
+fn provenance_less(scope: &crate::venue_ids::Scope) -> String { format!("entry_type IN ({BUY}, {SELL}, {FEE}, {ADJUSTMENT}) AND NOT ({API_ROW}) AND NOT ({})", file::derived_sql(scope)) }
 
 pub type Span = (DateTime<Utc>, DateTime<Utc>);
 pub fn second(t: DateTime<Utc>) -> DateTime<Utc> { t.with_nanosecond(0).unwrap_or(t) }
@@ -249,7 +249,7 @@ fn restored_rows(c: &Connection, key: &Key, t: DateTime<Utc>) -> Result<Vec<Rest
     let at_ = "account_transactions";
     let mut s = c.prepare_cached(&format!("SELECT id, {}, entry_type, base_currency, base_amount, quote_currency, quote_amount, fee_currency, fee_amount, raw_data \
                                            FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND transacted_at >= ?3 AND transacted_at < ?4 AND {} ORDER BY id",
-                                          key.scope.row_id(at_), super::ledger::BY_TIME, key.scope.rows(at_), provenance_less()))?;
+                                          key.scope.row_id(at_), super::ledger::BY_TIME, key.scope.rows(at_), provenance_less(&key.scope)))?;
     let rows = s.query_map(params![key.user_id, key.exchange_id, from, to], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, Option<f64>>(4)?.unwrap_or_default(),
         r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get::<_, Option<String>>(9)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows.into_iter().map(|(a, b, cc, d, e, f, g, h, i, raw)| (a, b, cc, d, e, f, g, h, i, raw.and_then(|r| serde_json::from_str(&r).ok()).unwrap_or(Value::Null))).collect())
@@ -422,20 +422,21 @@ pub fn migrate(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> Resu
     if enabled(c, &key.scope)? { return Ok(false); }
     add(c, key, ENABLED, (second(now), second(now)), now)?;
     let catalogue = Catalogue::load(c, key.exchange_id)?;
-    // #710 slice 5: imports land on the exchange's number 1 until they route by account (slice 7): an account 2+ takes none.
-    let groups: Vec<String> = if key.scope.member.is_some() { vec![] } else {
-        let mut s = c.prepare("SELECT DISTINCT created_at FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY created_at")?;
-        let groups = s.query_map(params![key.user_id, key.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    // #710: the account's own imports.
+    let account = key.scope.account_sql();
+    let groups: Vec<String> = {
+        let mut s = c.prepare(&format!("SELECT DISTINCT created_at FROM import_rows WHERE account_id = {account} ORDER BY created_at"))?;
+        let groups = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
         groups
     };
     let mut seconds = BTreeSet::new();
     for group in groups {
-        let mut s = c.prepare_cached("SELECT DISTINCT transacted_at FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 AND created_at = ?3")?;
-        let times: Vec<String> = s.query_map(params![key.user_id, key.exchange_id, group], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        let mut s = c.prepare_cached(&format!("SELECT DISTINCT transacted_at FROM import_rows WHERE account_id = {account} AND created_at = ?1"))?;
+        let times: Vec<String> = s.query_map(params![group], |r| r.get(0))?.collect::<Result<_, _>>()?;
         // Only this group's rows: held_rows reads every row of the second.
         let ids: HashSet<String> = {
-            let mut s = c.prepare_cached("SELECT row_id FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2 AND created_at = ?3")?;
-            let ids = s.query_map(params![key.user_id, key.exchange_id, group], |r| r.get(0))?.collect::<Result<_, _>>()?;
+            let mut s = c.prepare_cached(&format!("SELECT row_id FROM import_rows WHERE account_id = {account} AND created_at = ?1"))?;
+            let ids = s.query_map(params![group], |r| r.get(0))?.collect::<Result<_, _>>()?;
             ids
         };
         let mut rows = vec![];
@@ -447,7 +448,7 @@ pub fn migrate(c: &FencedTransaction<'_>, key: &Key, now: DateTime<Utc>) -> Resu
         if let Some(span) = period_of(&rows, &catalogue) { add(c, key, EXPORT, span, now)?; }
     }
     let mut s = c.prepare(&format!("SELECT DISTINCT transacted_at FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {}",
-                                   key.scope.rows("account_transactions"), provenance_less()))?;
+                                   key.scope.rows("account_transactions"), provenance_less(&key.scope)))?;
     let restored: Vec<String> = s.query_map(params![key.user_id, key.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     for at in restored { seconds.insert(second(time(&at)?)); }
     flush(c, key, seconds, now)?;
@@ -668,9 +669,9 @@ pub fn missing(c: &Connection, key: &Key) -> Result<Vec<Span>, SyncError> {
         let t: Option<String> = c.query_row(sql, params![key.user_id, key.exchange_id], |r| r.get(0))?;
         t.map(|t| time(&t).map(second)).transpose()
     };
-    // #710 slice 5: the account's own history. Imports land on the exchange's number 1 until they route by account
-    // (#710 slice 7), so an account 2+ has none.
-    let imported = if key.scope.member.is_none() { first("SELECT MIN(transacted_at) FROM import_rows WHERE user_id = ?1 AND exchange_id = ?2")? } else { None };
+    // #710: the account's own history, its imports included.
+    let imported: Option<String> = c.query_row(&format!("SELECT MIN(transacted_at) FROM import_rows WHERE account_id = {}", key.scope.account_sql()), [], |r| r.get(0))?;
+    let imported = imported.map(|t| time(&t).map(second)).transpose()?;
     let starts = [first(&format!("SELECT MIN(a.transacted_at) FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {}", key.scope.rows("a")))?,
                   imported, attempts.iter().map(|s| s.0).min()];
     let Some(start) = starts.into_iter().flatten().min() else { return Ok(vec![]) };

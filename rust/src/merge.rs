@@ -466,6 +466,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
 
+    // The duplicate's import observations are the survivor's.
+    c.execute("UPDATE exchange_account_imports SET account_id = ?2 WHERE account_id = ?1", [d, s])?;
     // 8. KuCoin coverage (the HF marker once) and withheld fills (a twin once).
     c.execute("DELETE FROM kucoin_coverage WHERE account_id = ?1 AND source = ?3 AND EXISTS (SELECT 1 FROM kucoin_coverage WHERE account_id = ?2 AND source = ?3)",
               params![d, s, crate::sync::kucoin_hf::ENABLED])?;

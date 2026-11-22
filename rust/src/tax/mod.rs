@@ -206,11 +206,12 @@ fn crypto_row(stock_venue: bool, class: Option<bool>, by_symbol: impl FnOnce() -
 fn fork_rows(c: &Connection, user_id: i64) -> Result<HashSet<i64>, FiguresError> {
     let mut s = c.prepare("SELECT id FROM account_transactions WHERE user_id = ?1 AND lower(coalesce(description, '')) LIKE '%fork%'")?;
     let mut ids: HashSet<i64> = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
-    let imports: bool = c.query_row("SELECT count(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'import_rows'", [], |r| r.get(0))?;
+    // #710: a row's source rows are its account's.
+    let imports: bool = c.query_row("SELECT count(*) > 0 FROM pragma_table_info('import_rows') WHERE name = 'account_id'", [], |r| r.get(0))?;
     if imports {
-        let mut s = c.prepare("SELECT DISTINCT t.id FROM account_transactions t, json_each(t.raw_data, '$.source_rows') j \
-                               JOIN import_rows i ON i.user_id = t.user_id AND i.exchange_id = t.exchange_id AND i.row_id = j.value \
-                               WHERE t.user_id = ?1 AND json_valid(t.raw_data) AND lower(i.row_type) LIKE '%fork%'")?;
+        let mut s = c.prepare(&format!("SELECT DISTINCT t.id FROM account_transactions t, json_each(t.raw_data, '$.source_rows') j \
+                               JOIN import_rows i ON i.account_id = {} AND i.row_id = j.value \
+                               WHERE t.user_id = ?1 AND json_valid(t.raw_data) AND lower(i.row_type) LIKE '%fork%'", crate::venue_ids::row_account("t")))?;
         ids.extend(s.query_map([user_id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?);
     }
     Ok(ids)

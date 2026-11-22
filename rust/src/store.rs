@@ -235,6 +235,17 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // #878: the bot alert emails a user switched off.
     ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
         unique_indexes: &[&["user_id", "alert"]] }),
+    // #710 slice 7a: KuCoin export rows, the API's takeover cutoffs and import observations by account.
+    ("20261124000001", TableContract { name: "import_rows", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("row_id", "TEXT", true), ("account_type", "TEXT", true),
+        ("currency", "TEXT", true), ("side", "TEXT", true), ("amount", "TEXT", true), ("fee", "TEXT", true), ("transacted_at", "TEXT", true),
+        ("remark", "TEXT", true), ("row_type", "TEXT", true), ("created_at", "TEXT", true), ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "row_id"]] }),
+    ("20261124000001", TableContract { name: "import_cutoffs", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("class", "TEXT", true), ("cutoff_at", "TEXT", true),
+        ("updated_at", "TEXT", true), ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "class"]] }),
+    ("20261124000001", TableContract { name: "exchange_account_imports", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("fingerprint", "TEXT", true),
+        ("account_id_enc", "BLOB", true), ("observed_at", "TEXT", true), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
     // #710 slice 6: the stored duplicate standing (identity::reconsider).
     ("20261123000001", TableContract { name: "exchange_account_standings", columns: &[
         ("duplicate_id", "INTEGER", false), ("survivor_id", "INTEGER", true), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true),

@@ -591,3 +591,55 @@ async fn the_cutoffs_survive_an_app_configs_wipe() {
     assert_eq!(fx.imported(&overlapping_export()).0, 4, "day A's three and the income: what the API covers is still not derived");
     assert_taken_over(&fx);
 }
+
+// ---- #710 slice 7a §0.6: the import tables are their account's ----
+
+impl Fx {
+    /// A second KuCoin account of the user with its own trading key: (account id, key id).
+    fn second_account(&self) -> (i64, i64) {
+        identity::Account::first(&self.c, self.user, self.exchange).unwrap().ensure(&self.c, now()).unwrap();
+        self.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [self.user, self.exchange]).unwrap();
+        let account = self.c.last_insert_rowid();
+        let e = |v: &str| self.cipher.encrypt(v);
+        self.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",
+                       rusqlite::params![self.user, self.exchange, e("second"), e("secret"), e("phrase")]).unwrap();
+        let key = self.c.last_insert_rowid();
+        identity::Account::by_id(&self.c, account).unwrap().unwrap().add_key(&self.c, key).unwrap();
+        (account, key)
+    }
+    fn import_on(&self, key: i64, text: &str) -> run::Answer { run::import(&self.c, &self.cipher, self.user, "kucoin", text.as_bytes(), None, Some(&key.to_string()), now()).unwrap() }
+    fn rows_of(&self, account: i64) -> i64 {
+        self.c.query_row(&format!("SELECT count(*) FROM account_transactions a WHERE a.user_id = ?1 AND {} = ?2", deltabadger::venue_ids::row_account("a")), [self.user, account], |r| r.get(0)).unwrap()
+    }
+}
+
+/// One export imported on each of two accounts: each account stores its rows (the same row ids) and derives its entries.
+#[test]
+fn s7_0_6_each_account_holds_its_own_export_rows() {
+    let fx = Fx::new();
+    let first = key_id(&fx);
+    let (second, key) = fx.second_account();
+    assert!(matches!(fx.import_on(first, TRADING), run::Answer::Written { imported: 163, .. }));
+    let answer = fx.import_on(key, TRADING);
+    assert!(matches!(answer, run::Answer::Written { imported: 163, .. }), "{answer:?}");
+    assert_eq!(fx.count("SELECT count(*) FROM import_rows"), 654);
+    assert_eq!(fx.rows_of(second), 163);
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {second}")), 1, "the observation is the account's");
+}
+
+/// The API's takeover cutoffs are their account's: account 1's sync takes nothing over on account 2, whose import of the
+/// overlapping export derives all of it.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_0_6_a_cutoff_is_its_accounts() {
+    let whole = Fx::new();
+    let run::Answer::Written { imported: all, .. } = whole.import(&overlapping_export()) else { panic!() };
+    let fx = Fx::new();
+    let (second, key) = fx.second_account();
+    fx.watermark(WATERMARK);
+    assert!(fx.sync(&overlapping_api(500), false).await);
+    let answer = fx.import_on(key, &overlapping_export());
+    assert!(matches!(answer, run::Answer::Written { imported, .. } if imported == all), "{answer:?}: {all}");
+    assert_eq!(fx.rows_of(second), all as i64);
+    let first = key_id(&fx);
+    assert!(matches!(fx.import_on(first, &overlapping_export()), run::Answer::Written { imported: 4, .. }), "account 1's cutoffs still hold there");
+}

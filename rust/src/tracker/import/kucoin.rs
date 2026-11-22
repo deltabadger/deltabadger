@@ -320,8 +320,9 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     let mut out = Stored::default();
     let mut touched: BTreeSet<DateTime<Utc>> = BTreeSet::new();
     {
-        let mut insert = c.prepare_cached("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at)
-                                           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) ON CONFLICT (user_id, exchange_id, row_id) DO NOTHING")?;
+        // #710: the rows are the account's the file was routed to.
+        let mut insert = c.prepare_cached(&format!("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at, account_id)
+                                           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, {}) ON CONFLICT (account_id, row_id) DO NOTHING", account_of(c, key, now)?))?;
         for r in rows {
             let n = insert.execute(params![key.user_id, key.exchange_id, r.row_id, r.account_type, r.currency, side(r.inflow), r.amount.to_s_f(), r.fee.to_s_f(),
                                            sql_time(r.at), r.remark, r.kind, sql_time(now)])?;
@@ -358,7 +359,7 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
 pub(crate) fn restored_at(c: &rusqlite::Connection, key: &Key, at: DateTime<Utc>) -> Result<bool, SyncError> {
     let at_ = "account_transactions";
     Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND {} \
-                             AND transacted_at = ?3 AND {} LIKE 'kucoin-csv-%' AND NOT ({DERIVED}))", ledger::BY_TIME, key.scope.rows(at_), key.scope.row_id(at_)),
+                             AND transacted_at = ?3 AND {} LIKE 'kucoin-csv-%' AND NOT ({}))", ledger::BY_TIME, key.scope.rows(at_), key.scope.row_id(at_), derived_sql(&key.scope)),
                    params![key.user_id, key.exchange_id, sql_time(at)], |r| r.get(0))?)
 }
 
@@ -370,8 +371,8 @@ pub(crate) fn rewrite_second(c: &crate::engine::model::FencedTransaction<'_>, ke
     // By time: the planner otherwise walks the user's whole ledger for each second (quadratic over a file).
     let at_ = "account_transactions";
     let mut s = c.prepare_cached(&format!("SELECT id, {rid}, entry_type, group_id FROM account_transactions {}
-                                  WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND transacted_at = ?3 AND {rid} LIKE 'kucoin-csv-%' AND {DERIVED}",
-                                          ledger::BY_TIME, key.scope.rows(at_), rid = key.scope.row_id(at_)))?;
+                                  WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND transacted_at = ?3 AND {rid} LIKE 'kucoin-csv-%' AND {}",
+                                          ledger::BY_TIME, key.scope.rows(at_), derived_sql(&key.scope), rid = key.scope.row_id(at_)))?;
     type Held = (i64, Option<String>, i64, Option<String>);
     let old: Vec<Held> = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
     // Same source rows, type and swap group: derived as before, so kept (a lone Convert half that became a swap is not).
@@ -391,6 +392,11 @@ pub(crate) fn rewrite_second(c: &crate::engine::model::FencedTransaction<'_>, ke
     Ok(out)
 }
 
+/// The key's account's row id, its number 1 made first where it has no row yet (#710: the import tables are by account).
+fn account_of(c: &rusqlite::Connection, key: &Key, now: DateTime<Utc>) -> Result<i64, SyncError> {
+    Ok(match key.scope.account { Some(id) => id, None => crate::identity::ensure_account(c, key.user_id, key.exchange_id, now)? })
+}
+
 /// The classes the API's three sources prove (plan KI §5); `other` never is.
 pub const API_CLASSES: [&str; 3] = ["fills", "deposits", "withdrawals"];
 /// A row the KuCoin API sync wrote: every fill and transfer it reads carries KuCoin's `createdAt` (sync::kucoin_ledger
@@ -399,18 +405,21 @@ pub(crate) const API_ROW: &str = "json_extract(raw_data, '$.createdAt') IS NOT N
 /// A row this importer derived.
 pub(crate) const FILE_ROW: &str = "COALESCE(json_extract(raw_data, '$.source'), '') = 'kucoin_csv'";
 
-/// A row this importer derived whose source rows (`raw_data.source_rows`) are all stored for its user and exchange: the
-/// only rows a rebuild or a takeover touches. An entry restored from a Deltabadger CSV keeps its `kucoin-csv-*` id but
-/// neither its raw data nor its rows: it is the user's (a complete trade, their edits), and its second derives nothing.
-pub(crate) const DERIVED: &str = "COALESCE(json_extract(raw_data, '$.source'), '') = 'kucoin_csv' AND json_array_length(raw_data, '$.source_rows') > 0 \
+/// SQL condition over `account_transactions` rows of `scope`'s account: a row this importer derived whose source rows
+/// (`raw_data.source_rows`) are all stored for that account (#710): the only rows a rebuild or a takeover touches. An
+/// entry restored from a Deltabadger CSV keeps its `kucoin-csv-*` id but neither its raw data nor its rows: it is the
+/// user's (a complete trade, their edits), and its second derives nothing.
+pub(crate) fn derived_sql(scope: &venue_ids::Scope) -> String {
+    format!("COALESCE(json_extract(raw_data, '$.source'), '') = 'kucoin_csv' AND json_array_length(raw_data, '$.source_rows') > 0 \
     AND NOT EXISTS (SELECT 1 FROM json_each(raw_data, '$.source_rows') s WHERE NOT EXISTS (SELECT 1 FROM import_rows i \
-    WHERE i.user_id = account_transactions.user_id AND i.exchange_id = account_transactions.exchange_id AND i.row_id = s.value))";
+    WHERE i.account_id = {} AND i.row_id = s.value))", scope.account_sql())
+}
 
 /// The current cutoff of each class the API has taken over for (user, exchange): the UTC second of its earliest stored
 /// API row at the last completion of its source. In Rust's own `import_cutoffs`, which no 2.x reset clears.
 pub(crate) fn cutoffs(c: &rusqlite::Connection, key: &Key) -> Result<HashMap<String, DateTime<Utc>>, SyncError> {
-    let mut s = c.prepare_cached("SELECT class, cutoff_at FROM import_cutoffs WHERE user_id = ?1 AND exchange_id = ?2")?;
-    let rows: Vec<(String, String)> = s.query_map(params![key.user_id, key.exchange_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let mut s = c.prepare_cached(&format!("SELECT class, cutoff_at FROM import_cutoffs WHERE account_id = {}", key.scope.account_sql()))?;
+    let rows: Vec<(String, String)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     rows.into_iter().map(|(class, at)| {
         let t = crate::codec::parse_time(&at).map_err(|e| SyncError(format!("import_cutoffs.cutoff_at {at}: {e:?}")))?;
         Ok((class, t))
@@ -436,29 +445,27 @@ pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], n
         let at = crate::codec::parse_time(&earliest).map_err(|e| SyncError(format!("account_transactions.transacted_at {earliest}: {e:?}")))?;
         let at = at.with_nanosecond(0).unwrap_or(at);
         let mut s = c.prepare_cached(&format!("SELECT id FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} LIKE 'kucoin-csv-%' \
-                                               AND {DERIVED} AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4", key.scope.rows(at_), key.scope.row_id(at_)))?;
+                                               AND {} AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4", key.scope.rows(at_), key.scope.row_id(at_), derived_sql(&key.scope)))?;
         let gone: Vec<i64> = s.query_map(params![key.user_id, key.exchange_id, class, sql_time(at)], |r| r.get(0))?.collect::<Result<_, _>>()?;
         for id in gone {
             c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [id])?;
             c.execute("DELETE FROM account_transactions WHERE id = ?1", [id])?;
         }
         if cut.get(*class) != Some(&at) {
-            c.execute("INSERT INTO import_cutoffs (user_id, exchange_id, class, cutoff_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5) \
-                       ON CONFLICT (user_id, exchange_id, class) DO UPDATE SET cutoff_at = excluded.cutoff_at, updated_at = excluded.updated_at",
+            c.execute(&format!("INSERT INTO import_cutoffs (user_id, exchange_id, class, cutoff_at, updated_at, account_id) VALUES (?1, ?2, ?3, ?4, ?5, {}) \
+                       ON CONFLICT (account_id, class) DO UPDATE SET cutoff_at = excluded.cutoff_at, updated_at = excluded.updated_at", account_of(c, key, now)?),
                       params![key.user_id, key.exchange_id, class, sql_time(at), sql_time(now)])?;
         }
     }
     Ok(())
 }
 
-/// Every stored row of (user, exchange) at one UTC second, in no order (`derive` orders them). By the time index: an
-/// ORDER BY row_id made the planner walk the user's every row by the unique index instead, for each second.
+/// Every stored row of the key's account at one UTC second, in no order (`derive` orders them). By the time index: an
+/// ORDER BY row_id made the planner walk the account's every row by the unique index instead, for each second.
 pub(crate) fn held_rows(c: &rusqlite::Connection, key: &Key, at: DateTime<Utc>) -> Result<Vec<SourceRow>, SyncError> {
-    // #710 slice 5: the stored rows are the exchange's number 1's (imports route by account from slice 7 on).
-    if key.scope.member.is_some() { return Ok(vec![]); }
-    let mut s = c.prepare_cached("SELECT row_id, account_type, currency, side, amount, fee, remark, row_type FROM import_rows
-                                  INDEXED BY index_import_rows_on_user_exchange_time WHERE user_id = ?1 AND exchange_id = ?2 AND transacted_at = ?3")?;
-    let rows = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| {
+    let mut s = c.prepare_cached(&format!("SELECT row_id, account_type, currency, side, amount, fee, remark, row_type FROM import_rows
+                                  INDEXED BY index_import_rows_on_account_time WHERE account_id = {} AND transacted_at = ?1", key.scope.account_sql()))?;
+    let rows = s.query_map(params![sql_time(at)], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?, r.get::<_, String>(4)?, r.get::<_, String>(5)?,
             r.get::<_, String>(6)?, r.get::<_, String>(7)?))
     })?.collect::<Result<Vec<_>, _>>()?;
