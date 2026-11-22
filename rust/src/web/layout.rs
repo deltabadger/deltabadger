@@ -158,6 +158,11 @@ impl Ctx {
         let mut session = self.session.lock();
         csrf::masked(session.csrf.get_or_insert_with(csrf::new_token))
     }
+    /// `csrf_token` for a page drawn for `scope` and `binding` (`csrf::masked_for`), checked by `csrf::drawn_for`.
+    pub fn csrf_token_for(&self, scope: &str, binding: &str) -> String {
+        let token = self.session.lock().csrf.get_or_insert_with(csrf::new_token).clone();
+        csrf::masked_for(&token, &self.app.keys.session, scope, binding)
+    }
 
     pub fn csrf_verified(&self, headers: &HeaderMap) -> bool {
         let [own, request] = self.app.config.form_origins(headers);

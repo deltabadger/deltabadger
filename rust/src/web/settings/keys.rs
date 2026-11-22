@@ -201,6 +201,12 @@ pub async fn save(
     let bot_request=ctx.params.route_path.starts_with("/bots/");
     let bot_account=if bot_request {owned_bot_account(&app,&ctx).await?} else {None};
     if bot_request && bot_account.is_none(){return Ok(crate::web::layout::missing())}
+    // #710 7a rule S6: a bot sheet saves only for the exchange and account it was drawn for (its token says which); the bot
+    // on another since is a 404, before any venue is asked. A token no sheet drew (a 2.x page, the header's) falls to the checks below.
+    if let Some(account)=bot_account.filter(|_|bot_request) {
+        let binding=app.db(move|c|Ok(sheet_binding(c,account.exchange_id,account.id)?)).await?;
+        if ctx.params.authenticity_token().and_then(|t|crate::web::csrf::drawn_for(t,&app.keys.session,&sheet_scope(&ctx),&binding))==Some(false){return Ok(crate::web::layout::missing())}
+    }
     // #710 7a §2: a bot sheet posts the account it showed; the bot on another one since is a 404, nothing saved.
     if bot_request && ctx.params.query("account_id").is_some_and(|a|Some(a.parse::<i64>().unwrap_or(0))!=bot_account.and_then(|a|a.id)){return Ok(crate::web::layout::missing())}
     // 7a rule R11: a sheet naming no account was rendered for the exchange's number 1 (`bot_step`), so it saves only while the
@@ -277,7 +283,7 @@ pub async fn save(
     };
     if let Some(message) = message {
         let (inner, v) = (app.clone(), ctx.clone());
-        let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, bot_account.and_then(|a| a.id), &class, &name, live, Some(&message))?)) }
+        let (track, content) = app.db(move |c| if bot_request { Ok((String::new(), bot_step(c, &inner, &v, bot_account.map_or(0, |a| a.exchange_id), bot_account.and_then(|a| a.id), &class, &name, live, Some(&message))?)) }
                                               else { tracker_step(c, &inner, &v, exchange, pick, &class, &name, kind, live, Some(&message)) }).await?;
         let body = turbo::stream("update", "modal_content", &format!("{}\n", crate::web::wizard::sheet_frame(&track, &content)?));
         return Ok((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{body}\n")).into_response());
@@ -1139,12 +1145,21 @@ fn bot_base(ctx:&Ctx)->String{ctx.params.route_path.trim_end_matches("/new").tri
 /// venue's name a plain header (no venue step to go back to), `error` under its fields.
 /// #710 7a §2: the card's action names the bot's account (`account_id`) while its exchange has 2+ live accounts.
 #[allow(clippy::too_many_arguments)]
-fn bot_step(c:&Connection,app:&App,ctx:&Ctx,account:Option<i64>,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
+/// #710 7a rule S6: what a bot's key sheet is drawn for: its bot (the scope) and its exchange and account number (a number
+/// is never reused; no row is number 1).
+fn sheet_scope(ctx:&Ctx)->String{format!("bot-key-sheet:{}",ctx.params.route_path.split('/').nth(2).unwrap_or_default())}
+fn sheet_binding(c:&Connection,exchange:i64,account:Option<i64>)->rusqlite::Result<String>{
+    let number=match account{Some(id)=>c.query_row("SELECT number FROM exchange_accounts WHERE id=?1",[id],|r|r.get::<_,i64>(0)).optional()?.unwrap_or(0),None=>1};
+    Ok(format!("{exchange}:{number}"))
+}
+#[allow(clippy::too_many_arguments)]
+fn bot_step(c:&Connection,app:&App,ctx:&Ctx,exchange:i64,account:Option<i64>,class:&str,name:&str,live:bool,error:Option<&str>)->Result<String,WebError>{
     let instructions=key_instructions(c,app,ctx,class,name,0)?;
     let form_data=format!("{SHEET_FORM} data-action=\"turbo:submit-end-&gt;modal--base#submitEnd\"");
     // R11: a sheet names its account unless it is the exchange's sole number 1 (a nameless sheet means number 1).
     let target=match account{Some(id) if !number_one(c,Some(id))?=>format!("?account_id={id}"),_=>target_query(c,account)?.replacen('&',"?",1)};
-    let card=sheet_card(ctx,&ctx.csrf_token(),ctx.path(&format!("{}/add_api_key{target}",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
+    let csrf=ctx.csrf_token_for(&sheet_scope(ctx),&sheet_binding(c,exchange,account)?);
+    let card=sheet_card(ctx,&csrf,ctx.path(&format!("{}/add_api_key{target}",bot_base(ctx))),&form_data,name,class,live,instructions,error,None)?;
     crate::web::wizard::keys::key_pane(&card)
 }
 pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::extract::Extension(ctx):axum::extract::Extension<Ctx>)->Result<Response,WebError>{
@@ -1156,7 +1171,7 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
         let (class,name)=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[account.exchange_id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default())))?;
         if !ported(&class){return Ok((None,crate::web::shell::Shell::load(c,&inner,&owner)?))}
         let live=Key::read(c,&inner,account,0)?.passphrase.as_deref()==Some("live");
-        Ok((Some(bot_step(c,&inner,&v,account.id,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
+        Ok((Some(bot_step(c,&inner,&v,account.exchange_id,account.id,&class,&name,live,None)?),crate::web::shell::Shell::load(c,&inner,&owner)?))
     }).await?;
     let Some(content)=content else{return Ok(crate::web::layout::not_ported_for(&ctx))};
     let csrf=ctx.csrf_token();

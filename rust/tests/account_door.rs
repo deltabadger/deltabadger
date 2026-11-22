@@ -1854,3 +1854,40 @@ async fn s7a_s5_a_key_answer_whose_key_is_gone_is_asked_again_on_its_venue() {
     assert!(!values.is_empty() && values.iter().all(|v| v.starts_with('a') || v.starts_with(&format!("n{binance}~"))), "Binance's accounts asked: {}", again.body);
     assert_eq!((rows_on(c, on_us), one::<i64>(c, "SELECT count(*) FROM account_transactions")), (0, ledger), "nothing written, never on Binance.US");
 }
+
+/// Rule S6 (Codex branch r4, keys.rs:208, validator.rs:75), a single-account install: a bot's key sheet is drawn for its
+/// exchange and account. The sheet opened while the bot was on Kraken, the bot moved to Alpaca since: its submit is a 404
+/// and Alpaca is never sent the secret. The sheet's bytes are as before (the binding rides in its masked CSRF token).
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s6_a_bot_sheet_drawn_for_another_exchange_sends_nothing_to_the_bot_s_venue() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    let mut b = browser(&app, c, s.user_id);
+    let bot = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    c.execute("DELETE FROM exchange_account_bots WHERE bot_id = ?1", [bot]).unwrap();
+    c.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2", [kraken, bot]).unwrap();
+    let sheet = b.get(&app, &format!("/bots/{bot}/add_api_key/new")).await;
+    assert_eq!(sheet.status, 200, "{}", sheet.body);
+    assert!(sheet.body.contains("Kraken"), "Kraken's sheet: {}", sheet.body);
+    let token = sheet_token(&sheet.body);
+    c.execute("UPDATE bots SET exchange_id = ?1 WHERE id = ?2", [s.exchange_id, bot]).unwrap();
+    let (before, stored) = (account_reads(&server).await, keys(c, &cipher, s.exchange_id));
+    let stale = b.send(&app, "POST", &format!("/bots/{bot}/add_api_key"), Some(&[("authenticity_token", token.as_str()), ("api_key[key]", "kraken-key"), ("api_key[secret]", "kraken-secret")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert_eq!(stale.status, 404, "{}", stale.body);
+    assert_eq!((account_reads(&server).await, keys(c, &cipher, s.exchange_id)), (before, stored), "nothing sent to Alpaca, nothing saved");
+    let fresh = b.get(&app, &format!("/bots/{bot}/add_api_key/new")).await;
+    let token = sheet_token(&fresh.body);
+    let saved = b.send(&app, "POST", &format!("/bots/{bot}/add_api_key"), Some(&[("authenticity_token", token.as_str()), ("api_key[key]", "alpaca-key"), ("api_key[secret]", "alpaca-secret"), ("api_key[passphrase]", "paper")]),
+                       common::web::Csrf::Header, &[]).await;
+    assert_ne!(saved.status, 404, "the sheet drawn for Alpaca saves: {}", saved.body);
+    assert!(account_reads(&server).await > before, "Alpaca validates the Alpaca sheet's key");
+}
+
+/// The token of the page's bot key sheet form (the shell's own forms carry others).
+fn sheet_token(body: &str) -> String {
+    regex::Regex::new(r#"action="[^"]*/bots/\d+/add_api_key"[^>]*><input type="hidden" name="authenticity_token" value="([^"]+)""#).unwrap().captures(body).unwrap_or_else(|| panic!("sheet form: {body}"))[1].to_string()
+}
+/// How many account reads Alpaca's key check has been sent.
+async fn account_reads(server: &MockServer) -> usize { server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == "/v2/account").count() }
