@@ -1255,6 +1255,30 @@ mod tests {
         assert_eq!((disposals[0][2], disposals[0][3], disposals[0][5]), ("BTC", "1.0", "55555.56"), "{csv}");
     }
 
+    /// #710 slice 7a: a group id is its account's. A fiat leg on account 1 and an unrelated coin leg on account 2 of one
+    /// venue that happen to share a group id are no trade for cash: Poland converts no cash for them (`pl_components`) and
+    /// the wealth reports count no fiat paid (`fiat_trades`).
+    #[test]
+    fn one_group_id_on_two_accounts_is_no_trade_for_cash() {
+        let c = shared_symbol();
+        c.execute_batch(include_str!("../../migrations/20261103000001_nbp_rates.sql")).unwrap();
+        c.execute_batch(include_str!("../../migrations/20261104000001_rust_tax_pl_carry.sql")).unwrap();
+        let Prepared::Report(mut report) = prepare(&c, 1, "PL", 2025, false).unwrap() else { panic!("refused") };
+        let leg = |id: i64, kind: Kind, base: &str, account: i64| Stored { base: base.into(), quote: None, quote_amount: None, group: Some("g".into()), account,
+                                                                             ..btc(id, kind, "100", None, "2025-03-01 10:00:00") };
+        report.scoped = vec![leg(1, Kind::Sell, "EUR", 1), leg(2, Kind::Buy, "BTC", 2)];
+        assert_eq!(report.nbp_needs(), [], "no cash converted");
+        let mut fetcher = Unfetched;
+        let (paid, received) = {
+            let mut ps = PriceService::new(&report.reference, &report.fx, NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(), &mut fetcher);
+            report.fiat_trades(&mut ps, "EUR").unwrap()
+        };
+        assert_eq!((paid.to_s_f(), received.to_s_f()), ("0.0".to_string(), "0.0".to_string()), "no fiat paid");
+        // The same legs on one account are a trade for cash.
+        report.scoped = vec![leg(1, Kind::Sell, "EUR", 1), leg(2, Kind::Buy, "BTC", 1)];
+        assert_eq!(report.nbp_needs().len(), 1);
+    }
+
     // ---- D-TAX-CFEE-MATCHED-FILL: the fold ----
     fn d(s: &str) -> Dec { Dec::strict(s).unwrap() }
     fn btc(id: i64, kind: Kind, amount: &str, paid: Option<&str>, at: &str) -> Stored {
