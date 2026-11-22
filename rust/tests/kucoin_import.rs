@@ -612,7 +612,16 @@ impl Fx {
         identity::Account::by_id(&self.c, account).unwrap().unwrap().add_key(&self.c, key).unwrap();
         (account, key)
     }
-    fn import_on(&self, key: i64, text: &str) -> run::Answer { run::import(&self.c, &self.cipher, self.user, "kucoin", text.as_bytes(), None, Some(&key.to_string()), now()).unwrap() }
+    /// The file imported on `key`'s account: asked which, the answer naming that account (as the question renders it).
+    fn import_on(&self, key: i64, text: &str) -> run::Answer {
+        let import = |answer: Option<&str>| run::import(&self.c, &self.cipher, self.user, "kucoin", text.as_bytes(), None, answer, now()).unwrap();
+        let account: i64 = self.c.query_row("SELECT account_id FROM exchange_account_keys WHERE api_key_id = ?1", [key], |r| r.get(0))
+            .unwrap_or_else(|_| identity::Account::first(&self.c, self.user, self.exchange).unwrap().id.unwrap());
+        match import(None) {
+            run::Answer::Ambiguous(choices) => import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{account}~"))).expect("the account offered").value)),
+            answer => answer,
+        }
+    }
     fn rows_of(&self, account: i64) -> i64 {
         self.c.query_row(&format!("SELECT count(*) FROM account_transactions a WHERE a.user_id = ?1 AND {} = ?2", deltabadger::venue_ids::row_account("a")), [self.user, account], |r| r.get(0)).unwrap()
     }

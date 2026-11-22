@@ -1056,7 +1056,10 @@ fn a_native_export_fingerprints_the_account_its_key_belongs_to() {
     let second = fx.key(BINANCE, 0, "bn-b");
     fx.c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [second, second_account]).unwrap();
     let text = fixture()["binance_export"].as_str().unwrap().to_string();
-    let answer = run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), Some(&second.to_string()), now()).unwrap();
+    // 7a rule H3: asked which account (a key id answers only the venue question of a one-account venue), account 2 answered.
+    let import = |answer: Option<&str>| run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), answer, now()).unwrap();
+    let run::Answer::Ambiguous(choices) = import(None) else { panic!("asked") };
+    let answer = import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{second_account}~"))).expect("account 2 offered").value));
     assert!(matches!(answer, run::Answer::Written { .. }), "{answer:?}");
     let print = |id: i64| -> Option<String> { fx.c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
     let first_account = deltabadger::identity::account_of_key(&fx.c, first).unwrap().unwrap();

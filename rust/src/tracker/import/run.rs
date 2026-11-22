@@ -270,39 +270,56 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
             .query_map([user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect()
     };
     let offered = |exchange: i64| exchanges.iter().find(|(id, _, _)| *id == exchange);
-    // The venue question: per venue, its lone account's lone reading key as 2.x answered it (one account), else the venue.
+    // The venue question's answer for a venue: its lone account's lone reading key as 2.x answered it (one account), else
+    // the venue.
+    let venue_key = |id: i64| -> rusqlite::Result<Option<i64>> {
+        let keyed: Vec<&Reading> = keys.iter().filter(|k| k.exchange_id == id).collect();
+        Ok((keyed.len() == 1 && live(id)?.len() <= 1).then(|| keyed[0].id))
+    };
     let ask_venue = |among: &[i64]| -> rusqlite::Result<Routed> {
         let mut choices = vec![];
         for (id, _, name) in exchanges.iter().filter(|(id, _, _)| among.contains(id)) {
-            let keyed: Vec<&Reading> = keys.iter().filter(|k| k.exchange_id == *id).collect();
-            let key = (keyed.len() == 1 && live(*id)?.len() <= 1).then(|| keyed[0].id);
+            let key = venue_key(*id)?;
             choices.push(Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false });
         }
         Ok(Routed::Ask(choices))
     };
-    // The parked answer: an account (`a<id>`, or a key id: 2.x's answer, the parity runner's), a new account (`n<exchange>`),
-    // or a venue (`v<exchange>`). It is read here and taken only after the file's fingerprint (1.), which it never overrides.
+    // The account question's candidates for a venue (its unfingerprinted live accounts), and the set an answer is bound to.
+    let owners = |venue: i64| -> rusqlite::Result<Vec<i64>> { Ok(live(venue)?.into_iter().filter(|(_, _, held)| held.is_none()).map(|(id, _, _)| id).collect()) };
+    let set_of = |owners: &[i64]| owners.iter().map(i64::to_string).collect::<Vec<_>>().join("-");
+    // The parked answer (rule H3): an account (`a<id>~<set>`, or a key id: the venue question's, 2.x's, the parity
+    // runner's), a new account (`n<exchange>~<set>`), or a venue (`v<exchange>`). Each is bound to what it was rendered
+    // for, revalidated here under the import's lock: a key id only while the venue question would still offer it (its
+    // venue's one account), an account or new-account answer only while its venue's candidates are the `set` it was
+    // rendered with; otherwise asked again. Its venue is the venue for the rest of routing. It is read here and taken only
+    // after the file's fingerprint (1.), which it never overrides.
     let (mut venue, mut stale, mut chose_venue, mut parked) = (None, false, false, None::<Result<i64, i64>>);
     if let Some(chosen) = chosen {
-        let number = |prefix: &str| chosen.strip_prefix(prefix).and_then(|n| n.parse::<i64>().ok());
-        let keyed = chosen.parse::<i64>().ok().and_then(|id| keys.iter().find(|k| k.id == id))
-            .map(|k| k.account_id.map_or_else(|| crate::identity::ensure_account(c, user_id, k.exchange_id, now), Ok)).transpose()?;
+        let (body, set) = chosen.split_once('~').map_or((chosen, None), |(b, s)| (b, Some(s)));
+        let number = |prefix: &str| body.strip_prefix(prefix).and_then(|n| n.parse::<i64>().ok());
+        let key = body.parse::<i64>().ok().and_then(|id| keys.iter().find(|k| k.id == id)).filter(|k| offered(k.exchange_id).is_some());
+        let offered_key = match key { Some(k) => venue_key(k.exchange_id)? == Some(k.id), None => false };
+        let keyed = key.filter(|_| offered_key).map(|k| k.account_id.map_or_else(|| crate::identity::ensure_account(c, user_id, k.exchange_id, now), Ok)).transpose()?;
+        // A key id the venue question no longer offers: the venue is asked again.
+        let bound = |exchange: i64| -> rusqlite::Result<bool> { Ok(set == Some(set_of(&owners(exchange)?).as_str())) };
         if let Some(account) = number("a").or(keyed) {
             let row: Option<(i64, i64, Option<String>, bool)> = c.query_row("SELECT exchange_id, user_id, fingerprint, removed_at IS NOT NULL FROM exchange_accounts WHERE id = ?1", [account],
                                                                             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
             if let Some((exchange, owner, held, removed)) = row {
                 if let Some((_, exchange_type, _)) = offered(exchange).filter(|_| owner == user_id) {
                     // Removed, merged or read as another account since the question: asked again, never routed elsewhere.
-                    if !removed && (held.is_none() || held == fingerprint(exchange_type)) { parked = Some(Ok(account)) } else { stale = true }
+                    let current = keyed.is_some() || bound(exchange)?;
+                    if current && !removed && (held.is_none() || held == fingerprint(exchange_type)) { parked = Some(Ok(account)) } else { stale = true }
                     venue = Some(exchange);
                 }
             }
         } else if let Some(exchange) = number("n").filter(|e| offered(*e).is_some()) {
-            (venue, parked) = (Some(exchange), Some(Err(exchange)));
+            venue = Some(exchange);
+            if bound(exchange)? { parked = Some(Err(exchange)) } else { stale = true }
         } else {
             venue = number("v").filter(|e| offered(*e).is_some());
-            chose_venue = venue.is_some();
         }
+        chose_venue = venue.is_some();
     }
     // 1. The file's fingerprint, under this lock: it wins over any parked account answer (another tab may have bound the
     // file's account meanwhile, or an earlier "a new account" answer made it). Matched in both venues: the venue is asked.
@@ -331,13 +348,14 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         (None, _) => return Ok(ask_venue(&exchanges.iter().map(|(id, _, _)| *id).collect::<Vec<_>>())?),
     };
     // 2 and 3: the venue's unfingerprinted accounts.
-    let owners: Vec<i64> = live(venue)?.into_iter().filter(|(_, _, held)| held.is_none()).map(|(id, _, _)| id).collect();
+    let owners = owners(venue)?;
+    let set = set_of(&owners);
     Ok(match owners.as_slice() {
         [] if !stale => Routed::To(crate::identity::new_account(c, user_id, venue, now)?),
         [one] if !stale => Routed::To(*one),
         many => {
-            let mut choices = many.iter().map(|id| Ok(Choice { value: format!("a{id}"), label: crate::identity::label(c, *id)?.plain(), key: None, new: false })).collect::<rusqlite::Result<Vec<_>>>()?;
-            choices.push(Choice { value: format!("n{venue}"), label: String::new(), key: None, new: true });
+            let mut choices = many.iter().map(|id| Ok(Choice { value: format!("a{id}~{set}"), label: crate::identity::label(c, *id)?.plain(), key: None, new: false })).collect::<rusqlite::Result<Vec<_>>>()?;
+            choices.push(Choice { value: format!("n{venue}~{set}"), label: String::new(), key: None, new: true });
             Routed::Ask(choices)
         }
     })

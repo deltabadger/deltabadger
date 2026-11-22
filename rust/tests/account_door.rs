@@ -971,16 +971,17 @@ async fn two_unfingerprinted_accounts_make_the_import_ask_and_a_stale_answer_is_
     let mut b = browser(&app, c, s.user_id);
     let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
     let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
-    assert_eq!(options(&asked.body), [format!("a{first}"), format!("a{second}"), format!("n{kucoin}")], "{}", asked.body);
+    let set = format!("{first}-{second}");
+    assert_eq!(options(&asked.body), [format!("a{first}~{set}"), format!("a{second}~{set}"), format!("n{kucoin}~{set}")], "{}", asked.body);
     assert!(asked.body.contains("This file could be from more than one account here. Which one?"), "{}", asked.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
     // Account 2 is read as another account meanwhile: the answer naming it is asked again.
     fingerprint(c, second, "Exchanges::Kucoin", "555");
-    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}")).await;
-    assert_eq!(options(&again.body), [format!("a{first}"), format!("n{kucoin}")], "asked again, account 2 no longer offered: {}", again.body);
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}~{set}")).await;
+    assert_eq!(options(&again.body), [format!("a{first}~{first}"), format!("n{kucoin}~{first}")], "asked again, account 2 no longer offered: {}", again.body);
     assert!(rows_on(c, first) == 0 && rows_on(c, second) == 0, "never routed to another account");
     // The new-account answer.
-    let done = answer(&app, &mut b, &again, "kucoin", &format!("n{kucoin}")).await;
+    let done = answer(&app, &mut b, &again, "kucoin", &format!("n{kucoin}~{first}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 3, "a new account 3");
     assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 0));
@@ -1022,7 +1023,8 @@ async fn the_venue_question_names_the_venue_when_it_has_two_accounts() {
     let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
     assert_eq!(options(&asked.body), [format!("v{binance}"), format!("v{us}")], "{}", asked.body);
     let which = answer(&app, &mut b, &asked, "binance", &format!("v{binance}")).await;
-    assert_eq!(options(&which.body), [format!("a{first}"), format!("a{keyless}"), format!("n{binance}")], "{}", which.body);
+    let set = format!("{first}-{keyless}");
+    assert_eq!(options(&which.body), [format!("a{first}~{set}"), format!("a{keyless}~{set}"), format!("n{binance}~{set}")], "{}", which.body);
     assert_eq!((rows_on(c, first), rows_on(c, keyless)), (0, 0), "nothing written yet");
 }
 
@@ -1041,7 +1043,7 @@ async fn a_parked_answer_never_beats_the_file_s_account() {
     let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
     assert_eq!(options(&asked.body).len(), 3, "{}", asked.body);
     fingerprint(c, second, "Exchanges::Kucoin", "444");
-    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}~{first}-{second}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, first), 0, "never on account 1");
     assert!(rows_on(c, second) > 0, "on the file's account");
@@ -1049,10 +1051,90 @@ async fn a_parked_answer_never_beats_the_file_s_account() {
     identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
     let (one, two) = (upload(&app, &mut b, "kucoin", &kucoin_file("888")).await, upload(&app, &mut b, "kucoin", &kucoin_file("888")).await);
     for asked in [&one, &two] {
-        let done = answer(&app, &mut b, asked, "kucoin", &format!("n{kucoin}")).await;
+        let done = answer(&app, &mut b, asked, "kucoin", &options(&asked.body)[2]).await;
         assert_eq!(done.status, 200, "{}", done.body);
     }
     assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 4, "one new account for the UID");
+}
+
+/// Rule H3: with the file's UID on one keyed account in each Binance venue, the venue question names each venue's key;
+/// either answer settles the venue and lands the file there, never asking again.
+#[tokio::test(flavor = "current_thread")]
+async fn h3_a_key_answer_settles_the_venue_when_both_binance_venues_know_the_uid() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let (kb, ku) = (key_on(c, s.user_id, binance, None), key_on(c, s.user_id, us, None));
+    let (on_binance, on_us) = (identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap(), identity::Account::first(c, s.user_id, us).unwrap().id.unwrap());
+    fingerprint(c, on_binance, "Exchanges::Binance", "222");
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), ku.to_string()], "{}", asked.body);
+    let done = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert!(imported(&done), "the answer is taken, not asked again: {}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, on_binance), rows_on(c, on_us)), (1, 0));
+}
+
+/// H3: the venue question offered Binance's key while Binance had one account. A second Binance account made meanwhile:
+/// the key answer named that one account, so the import asks again and writes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn h3_a_key_answer_rendered_for_one_account_is_asked_again_once_the_venue_has_two() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let kb = key_on(c, s.user_id, binance, None);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
+    identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert_eq!(options(&again.body), [format!("v{binance}"), format!("v{us}")], "asked again: {}", again.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
+}
+
+/// H3: after "Binance", the account answer lands on Binance even once the file's UID appears on Binance.US meanwhile.
+#[tokio::test(flavor = "current_thread")]
+async fn h3_an_answer_after_choosing_binance_never_lands_on_binance_us() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    let which = answer(&app, &mut b, &asked, "binance", &format!("v{binance}")).await;
+    let first_value = options(&which.body).into_iter().find(|v| v.starts_with(&format!("a{first}"))).unwrap_or_else(|| panic!("{}", which.body));
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "777");
+    let done = answer(&app, &mut b, &which, "binance", &first_value).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, first), rows_on(c, on_us)), (1, 0), "on Binance, as answered");
+}
+
+/// H3: the account question's answer is bound to the accounts it offered. A third unfingerprinted account made meanwhile:
+/// asked again, all three offered, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn h3_an_account_answer_is_asked_again_when_the_candidates_changed() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    let first_value = options(&asked.body).into_iter().find(|v| v.starts_with(&format!("a{first}"))).unwrap_or_else(|| panic!("{}", asked.body));
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let again = answer(&app, &mut b, &asked, "kucoin", &first_value).await;
+    assert_eq!(options(&again.body).len(), 4, "three accounts and a new one: {}", again.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
 }
 
 /// Rule H4: a conflict is looked up in the file's venue. A Binance file of UID 123 held on Binance's account 1 as a conflict
@@ -1192,9 +1274,10 @@ async fn a_re_import_after_a_reset_asks_which_account_and_keeps_the_totals() {
     deltabadger::rotation::clear(c, chrono::Utc::now()).unwrap();
     let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
     let asked = upload(&app, &mut b, "kucoin", &kucoin_file("111")).await;
-    assert_eq!(options(&asked.body), [format!("a{}", accounts[0]), format!("a{}", accounts[1]), format!("n{kucoin}")], "{}", asked.body);
+    let set = format!("{}-{}", accounts[0], accounts[1]);
+    assert_eq!(options(&asked.body), [format!("a{}~{set}", accounts[0]), format!("a{}~{set}", accounts[1]), format!("n{kucoin}~{set}")], "{}", asked.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written before the answer");
-    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{}", accounts[0])).await;
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{}~{set}", accounts[0])).await;
     assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "{}: {}", done.status, done.body);
     let done = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
     assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "the one unread account: {}: {}", done.status, done.body);
