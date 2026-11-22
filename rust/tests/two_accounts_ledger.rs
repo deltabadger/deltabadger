@@ -686,3 +686,43 @@ fn an_account_2_rows_group_is_exported_as_the_venue_group() {
     assert!(csv.lines().nth(1).unwrap().ends_with(&format!(",b-coin,{SHARED_GROUP},,2")), "{csv}");
     assert!(!csv.contains('@'), "{csv}");
 }
+
+// ---- 7a §6: end to end ----
+
+/// 7a §6 end to end: bot 1 fills order X on Kraken¹, switches to Kraken² (its trading key is account 2's from then on) and
+/// fills an order the venue also names X there: both placed, both recovered, each on the account it was placed on. A
+/// delayed sync then brings each account's fill of X; each links to its own account's order, and each account's totals
+/// hold only its own: Kraken¹ the first fill, Kraken² the second, the old order's known fills account 1's alone.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_a_bot_that_switches_account_keeps_each_order_and_fill_on_its_own_account() {
+    use deltabadger::identity;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let t0: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
+    let old = place(c, two.bots[0], "X", t0).await;
+    identity::place_bot(c, two.bots[0], two.seeded.user_id, two.seeded.exchange_id, Some(two.accounts[1]), t0).unwrap();
+    assert_eq!(identity::account_of_bot(c, two.bots[0]).unwrap(), two.accounts[1].id, "the bot is on account 2");
+    assert_eq!(identity::key_of(c, two.id(1), 0).unwrap(), Some(two.keys[1]), "and trades with account 2's key");
+    place(c, two.bots[0], "X", t0 + chrono::Duration::days(1)).await;
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM transactions WHERE bot_id = {}", two.bots[0])), 2, "both placed");
+    let new = venue_ids::order_by_id(c, &two.scopes[1], "X").unwrap().expect("account 2's X");
+    assert_ne!(old, new);
+    assert_eq!((identity::Account::of_order(c, old).unwrap(), identity::Account::of_order(c, new).unwrap()), (Some(two.accounts[0]), Some(two.accounts[1])));
+    for (n, row) in [old, new].into_iter().enumerate() { assert_eq!(venue_ids::order_by_id(c, &two.scopes[n], "X").unwrap(), Some(row), "account {}'s X", n + 1); }
+    // The delayed sync: each account's fill of X, the same fill id on both.
+    let ks = keys(c, &two, "Exchanges::Kraken");
+    for (n, size) in [(0, "0.0012"), (1, "0.0013")] {
+        let fill = Entry { raw: Raw::from_value(json!({"order_id": "X", "orderId": "X", "createdAt": 1, "size": size, "funds": "60", "fee": "0", "feeCurrency": "EUR"})), quote_currency: Some("EUR".into()), quote_amount: Some(BigDec::parse("60").unwrap()),
+                           ..entry(0, "BTC", size, Some("fill-X"), None, "2026-10-01T12:00:05Z") };
+        assert_eq!(store(c, &ks[n], vec![fill]).imported, 1, "account {}'s fill", n + 1);
+    }
+    for (n, (order, size)) in [(old, "0.0012"), (new, "0.0013")].into_iter().enumerate() {
+        let (linked, total): (Option<i64>, f64) = c.query_row(&format!("SELECT MAX(a.transaction_id), SUM(a.base_amount) FROM account_transactions a WHERE a.exchange_id = {} AND {}",
+                                                                       two.seeded.exchange_id, two.scopes[n].rows("a")), [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(linked, Some(order), "account {}'s fill links to its own order", n + 1);
+        assert!((total - size.parse::<f64>().unwrap()).abs() < 1e-12, "account {}'s totals: {total}", n + 1);
+    }
+    let known = deltabadger::engine::reconcile::known_fills(c, &identity::Account::of_order(c, old).unwrap().unwrap(), "X", "Classic").unwrap();
+    assert_eq!(known.size, BigDec::parse("0.0012").unwrap(), "the old order's fills: account 1's");
+}
