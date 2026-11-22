@@ -452,10 +452,17 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) {
         // (id, bot, external id, "base/quote", side, exchange name, exchange type)
         type Row = (i64, i64, String, String, String, String, String);
+        // #710 7a §9.3: with an explicit account, only that account's rows (another's id is a bare venue id there).
+        let scope = if present(account_id) {
+            match to_s(account_id).trim().parse::<i64>().ok().map(|id| crate::identity::Account::by_id(c, id)).transpose()?.flatten().filter(|a| a.user_id == who.user) {
+                Some(account) => account.orders(c, "t")?,
+                None => "0".into(),
+            }
+        } else { "1".into() };
         let row: Option<Row> = match text.parse::<i64>() {
             Ok(id) => c.query_row(&format!("SELECT t.id, t.bot_id, coalesce({}, ''), coalesce(t.base, '') || '/' || coalesce(t.quote, ''), \
                                    CASE t.side WHEN 0 THEN 'buy' WHEN 1 THEN 'sell' ELSE '' END, coalesce(e.name, ''), coalesce(e.type, '') FROM transactions t \
-                                   JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1", crate::venue_ids::order_id(c, "t")?),
+                                   JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1 AND {scope}", crate::venue_ids::order_id(c, "t")?),
                 [who.user, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional()?,
             Err(_) => None,
         };

@@ -611,3 +611,30 @@ async fn a_second_accounts_standalone_order_needs_only_its_own_accounts_key() {
     let (status, body) = rest_cancel(&kucoin_app(&d, &server), &format!("SCL-3?exchange_name=kucoin&account_id={}", second.id.unwrap())).await;
     assert_eq!((status, &body["data"]["cancelled"]), (200, &json!(true)), "{body}");
 }
+
+/// #710 7a §9.3: a numeric order id with an explicit `account_id` looks the local order up only within that account. Account
+/// 1's bot row id, named for account 2, is not account 1's order: it is a bare id cancelled through account 2's key.
+#[tokio::test(flavor = "current_thread")]
+async fn a_numeric_order_id_named_for_another_account_is_not_that_accounts_row() {
+    use deltabadger::identity::Account;
+    let server = MockServer::start().await;
+    let (d, o, bot, rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM bots WHERE id = ?1", [bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [user, exchange]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("account-2-key"), cipher.encrypt("dGVzdC1zZWNyZXQ="), cipher.encrypt("pass")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    kucoin_mode(&server, &o, "classic").await;
+    let app = kucoin_app(&d, &server);
+    let (status, body) = rest_cancel(&app, &format!("{}?exchange_name=kucoin&account_id={}", rows[2], second.id.unwrap())).await;
+    assert_eq!(status, 200, "{body}");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "DELETE")
+        .map(|r| (r.headers.get("KC-API-KEY").unwrap().to_str().unwrap().to_string(), r.url.path().to_string())).collect();
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0].0, "account-2-key", "account 2's key, never account 1's row");
+    assert!(sent[0].1.ends_with(&format!("/{}", rows[2])), "the id as a bare venue id: {sent:?}");
+}
