@@ -216,7 +216,7 @@ ru:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Подписка Self-hosted'
-            subscription_html: 'Подписка Self-hosted <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> включает Market Data API и фиксированный IP для добавления в белый список бирж.'
+            subscription_html: 'Подписка Self-hosted <a href="https://deltabadger.com/ru/self-hosted" target="_blank" rel="noopener">Deltabadger</a> включает Market Data API и фиксированный IP для добавления в белый список бирж.'
             code: 'Код подключения'
             connect: 'Подключить'
             connected_with_proxies: 'Deltabadger.com подключён для получения рыночных данных и использования прокси бирж.'

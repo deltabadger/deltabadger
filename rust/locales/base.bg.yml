@@ -213,7 +213,7 @@ bg:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Абонамент Self-hosted'
-            subscription_html: 'Абонаментът Self-hosted на <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> включва Market Data API и фиксиран IP адрес за белия списък на борсите.'
+            subscription_html: 'Абонаментът Self-hosted на <a href="https://deltabadger.com/bg/self-hosted" target="_blank" rel="noopener">Deltabadger</a> включва Market Data API и фиксиран IP адрес за белия списък на борсите.'
             code: 'Код за свързване'
             connect: 'Свързване'
             connected_with_proxies: 'Deltabadger.com е свързан за пазарни данни и прокси сървъри за борсите.'

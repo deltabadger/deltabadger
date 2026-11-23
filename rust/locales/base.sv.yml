@@ -213,7 +213,7 @@ sv:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Self-hosted-prenumeration'
-            subscription_html: 'En <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-prenumeration inkluderar Market Data API och en fast IP-adress att vitlista hos börserna.'
+            subscription_html: 'En <a href="https://deltabadger.com/sv/self-hosted" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-prenumeration inkluderar Market Data API och en fast IP-adress att vitlista hos börserna.'
             code: 'Anslutningskod'
             connect: 'Anslut'
             connected_with_proxies: 'Ansluten till Deltabadger.com för marknadsdata och börsproxyservrar.'

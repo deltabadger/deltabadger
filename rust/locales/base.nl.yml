@@ -213,7 +213,7 @@ nl:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Self-hosted-abonnement'
-            subscription_html: 'Een <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-abonnement omvat de Market Data API en een vast IP-adres dat je bij exchanges kunt whitelisten.'
+            subscription_html: 'Een <a href="https://deltabadger.com/nl/self-hosted" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-abonnement omvat de Market Data API en een vast IP-adres dat je bij exchanges kunt whitelisten.'
             code: 'Verbindingscode'
             connect: 'Verbinden'
             connected_with_proxies: "Verbonden met Deltabadger.com voor marktgegevens en beursproxy's."
