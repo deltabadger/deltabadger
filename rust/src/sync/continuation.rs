@@ -269,12 +269,10 @@ pub(super) async fn sync<W: Walk>(db: &Db, version: &CredentialVersion, key: Key
     // Store, a page (with the empty pages after it) at a time, each in one transaction with its checkpoint: a cut leaves a
     // page wholly stored and checkpointed, or not at all, so a replay never meets half a page.
     let key = Arc::new(key);
-    let (mut progress, holding) = {
+    let mut progress = {
         let k = key.clone();
-        phase(db, move |c| Ok((Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])), ledger::held_by(c, &k)?.is_some()))).await?
+        phase(db, move |c| Ok(Progress::new(ledger::asset_rule(c, k.exchange_id, &k.exchange_type)?, ledger::stored_merged(c, &k)?, Arc::new(vec![])))).await?
     };
-    // #710 7a rule R8: while a hold applies, a UTC second is stored whole, never split across two pages' commits.
-    if holding { read.segments = ledger::whole_seconds(std::mem::take(&mut read.segments)); }
     progress.pending = Some(transfers.legacy.clone());
     progress.kraken_repair = W::KRAKEN_REPAIR.then(|| version.cache_stamp());
     let stamp = Arc::new(version.cache_stamp());

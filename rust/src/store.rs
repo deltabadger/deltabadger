@@ -250,9 +250,6 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261123000001", TableContract { name: "exchange_account_standings", columns: &[
         ("duplicate_id", "INTEGER", false), ("survivor_id", "INTEGER", true), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true),
         ("since", "TEXT", true), ("basis", "TEXT", true)], unique_indexes: &[] }),
-    // #710 slice 7a rule R8: a held API event's claim on an export row (sync::ledger::Holds).
-    ("20261125000001", TableContract { name: "exchange_account_hold_claims", columns: &[
-        ("transaction_id", "INTEGER", false), ("account_id", "INTEGER", true), ("claimant", "TEXT", true), ("created_at", "TEXT", true)], unique_indexes: &[] }),
     // Delisted coins PR0: coin prices by identity.
     ("20261123000002", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),

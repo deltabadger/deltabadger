@@ -2,8 +2,6 @@ cs:
     tracker:
         duplicate_account_html: "%{duplicate} je stejný účet na burze jako %{survivor}, proto se nezapočítává do tvých součtů."
         merge_in_settings: "Sloučit v Nastavení"
-        held_on_account_html: "Část historie %{account} byla naimportována z jeho exportu do %{holder}. Zůstává tam a nepočítá se dvakrát."
-        held_unmatched_on_account_html: "Část historie %{account} byla naimportována z jeho exportu do %{holder}. Některé pohyby se nepodařilo spárovat s vlastní historií %{account}, a proto se mohou započítat dvakrát."
     settings:
         accounts:
             duplicate_html: "%{duplicate} je stejný účet na burze jako %{survivor}."

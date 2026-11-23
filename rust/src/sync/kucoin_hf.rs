@@ -338,7 +338,7 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
     let (judged_at, ruled_at) = (widen(seconds, 1), widen(seconds, 2));
     for t in &ruled_at { withhold(c, key, *t, now)?; }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
-    let cut = file::Cutoff::load(c, key)?;
+    let cutoffs = file::cutoffs(c, key)?;
     let mut ruled: HashMap<DateTime<Utc>, Judged> = HashMap::new();
     for t in &ruled_at { ruled.insert(*t, judge(c, key, *t, &catalogue)?); }
     let unpaired_api = |t: DateTime<Utc>| ruled.get(&t).is_some_and(|j| j.reps.iter().zip(&j.used).any(|(r, u)| r.api && !u));
@@ -363,18 +363,13 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
         };
         if j.held {
             let mut derived: Vec<Derived> = if materialize { leftover.iter().map(|i| j.csv[*i].clone()).collect() } else { vec![] };
-            // #710 7a §9.7 rule H2: another account's export stays, whatever the rule makes of this account's fills.
-            derived.extend(j.csv.iter().enumerate().filter(|(i, d)| !(materialize && leftover.contains(i)) && cut.foreign(d)).map(|(_, d)| d.clone()));
-            // 7a rule R9: another account's export (`cut.foreign`, the predicate every rewrite reads) stays in every second,
-            // one holding a restored entry included; this account's own non-fill entries follow the rules below.
-            derived.extend(j.other.iter().filter(|d| cut.foreign(d)).cloned());
             if !file::restored_at(c, key, *t)? {
                 // UTA r1.6: an unknown export type in a currency an API fill of this second trades may be that fill (a
                 // UTA export's types are unknown): it is withheld, the API wins, and the second is flagged.
                 let traded: HashSet<&Option<String>> = j.reps.iter().filter(|r| r.api).filter_map(|r| r.key.as_ref()).chain(&j.withheld).flat_map(|k| [&k.base, &k.quote]).collect();
                 let unknown = |d: &Derived| d.entry.raw.value["reason"] == "unmapped_type" && traded.contains(&d.entry.base_currency);
-                ambiguous |= j.other.iter().filter(|d| !cut.foreign(d)).any(unknown);
-                derived.extend(j.other.iter().filter(|d| !cut.foreign(d) && !unknown(d)).filter(|d| cut.keeps(d, *t)).cloned());
+                ambiguous |= j.other.iter().any(unknown);
+                derived.extend(j.other.iter().filter(|d| !unknown(d)).filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| t < cut)).cloned());
             }
             let s = file::rewrite_second(c, key, *t, derived, &mut writer, now)?;
             (out.imported, out.duplicates, out.skipped, out.generic) = (out.imported + s.imported, out.duplicates + s.duplicates, out.skipped + s.skipped, out.generic + s.generic);

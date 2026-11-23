@@ -1355,51 +1355,6 @@ async fn a_re_import_after_a_reset_asks_which_account_and_keeps_the_totals() {
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger);
 }
 
-/// §9.7: an account whose export another account holds as a conflict (imported there before 7a) is named on the tracker:
-/// its history stays where it is and is not counted twice.
-#[tokio::test(flavor = "current_thread")]
-async fn the_tracker_says_when_an_account_s_export_is_held_on_another() {
-    let (_d, o, s, _server, app) = alpaca().await;
-    let c = &o.primary;
-    let _lock = own(_d.path(), c, &app);
-    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
-    let mut b = browser(&app, c, s.user_id);
-    let done = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
-    assert!(imported(&done), "{}: {}", done.status, done.body);
-    // As before 7a: account 1's own key then read another account.
-    let first = identity::accounts_of(c, s.user_id, kucoin).unwrap()[0].0;
-    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
-    fingerprint(c, first, "Exchanges::Kucoin", "111");
-    let page = b.get(&app, "/tracker").await;
-    assert!(page.status == 200 && !page.body.contains("history was imported on"), "no account of that export yet: {}", page.body);
-    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
-    fingerprint(c, second, "Exchanges::Kucoin", "222");
-    let page = b.get(&app, "/tracker").await;
-    assert_eq!(page.status, 200);
-    assert_eq!(page.body.matches("history was imported on KuCoin<sup class=").count() + page.body.matches("history was imported on KuCoin<sup>").count(), 1, "{}", page.body);
-}
-
-/// §9.7 rule H1: when the account's sync could not match some entries with the export another account holds, the notice
-/// says so instead of promising nothing is counted twice.
-#[tokio::test(flavor = "current_thread")]
-async fn the_held_notice_says_when_the_export_could_not_be_matched() {
-    let (_d, o, s, _server, app) = alpaca().await;
-    let c = &o.primary;
-    let _lock = own(_d.path(), c, &app);
-    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
-    let mut b = browser(&app, c, s.user_id);
-    assert!(imported(&upload(&app, &mut b, "kucoin", &kucoin_file("222")).await));
-    let first = identity::accounts_of(c, s.user_id, kucoin).unwrap()[0].0;
-    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
-    fingerprint(c, first, "Exchanges::Kucoin", "111");
-    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
-    fingerprint(c, second, "Exchanges::Kucoin", "222");
-    identity::mark_held_unmatched(c, second, first, chrono::Utc::now()).unwrap();
-    let page = b.get(&app, "/tracker").await;
-    assert_eq!(page.status, 200);
-    assert!(page.body.contains("could not be matched") && !page.body.contains("is not counted twice"), "{}", page.body);
-}
-
 /// §3: a Deltabadger CSV row naming a live account that holds only a withdrawal key lands there (no key named).
 #[tokio::test(flavor = "current_thread")]
 async fn a_csv_row_naming_an_account_with_only_a_withdrawal_key_lands_there() {

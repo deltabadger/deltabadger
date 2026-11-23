@@ -2,8 +2,6 @@ da:
     tracker:
         duplicate_account_html: "%{duplicate} er den samme børskonto som %{survivor} og tælles derfor ikke med i dine totaler."
         merge_in_settings: "Flet den i Indstillinger"
-        held_on_account_html: "En del af historikken for %{account} blev importeret på %{holder} fra dens eksport. Den bliver der og tælles ikke med to gange."
-        held_unmatched_on_account_html: "En del af historikken for %{account} blev importeret på %{holder} fra dens eksport. Noget af den kunne ikke matches med %{account}s egen historik og kan derfor blive talt med to gange."
     settings:
         accounts:
             duplicate_html: "%{duplicate} er den samme børskonto som %{survivor}."

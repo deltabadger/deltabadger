@@ -339,7 +339,7 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         return Ok(out);
     }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
-    let cut = Cutoff::load(c, key)?;
+    let cutoffs = cutoffs(c, key)?;
     let mut writer = ledger::FileWriter::new(c, key)?;
     for at in touched {
         // A second holding a restored entry (a `kucoin-csv-*` id without this importer's provenance) is the restored
@@ -347,34 +347,12 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if restored_at(c, key, at)? { continue; }
         let held = held_rows(c, key, at)?;
         // What the API took over (at or after its class's cutoff) is the API's: its rows stay stored, nothing is derived.
-        let derived: Vec<Derived> = derive(&held, &catalogue).into_iter().filter(|d| cut.keeps(d, at)).collect();
+        let derived: Vec<Derived> = derive(&held, &catalogue).into_iter()
+            .filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| at < *cut)).collect();
         let stored = rewrite_second(c, key, at, derived, &mut writer, now)?;
         (out.imported, out.duplicates, out.skipped, out.generic) = (out.imported + stored.imported, out.duplicates + stored.duplicates, out.skipped + stored.skipped, out.generic + stored.generic);
     }
     Ok(out)
-}
-
-/// What a takeover leaves to the file (plan KI §5): the entries before their class's cutoff, and (#710 7a §9.7 rule H2) every
-/// entry derived only from rows of another account's export imported here as a conflict, which no cutoff of this
-/// account's API covers. Every rewrite of a second reads it: the classic `store` and the HF rule (`kucoin_hf::rederive`).
-pub(crate) struct Cutoff { cutoffs: HashMap<String, DateTime<Utc>>, foreign: BTreeSet<String> }
-
-impl Cutoff {
-    pub(crate) fn load(c: &rusqlite::Connection, key: &Key) -> Result<Self, SyncError> {
-        let account = key.scope.account_sql();
-        let foreign = c.prepare(&format!("SELECT row_id FROM import_rows WHERE account_id = {account} AND created_at IN (SELECT observed_at FROM exchange_account_imports \
-                                          WHERE account_id = {account} AND fingerprint <> (SELECT fingerprint FROM exchange_accounts WHERE id = {account}))"))?
-            .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
-        Ok(Self { cutoffs: cutoffs(c, key)?, foreign })
-    }
-    /// Derived only from rows of another account's export.
-    pub(crate) fn foreign(&self, d: &Derived) -> bool {
-        d.entry.raw.value["source_rows"].as_array().is_some_and(|ids| !ids.is_empty() && ids.iter().all(|id| id.as_str().is_some_and(|id| self.foreign.contains(id))))
-    }
-    /// The file keeps `d` at `at`.
-    pub(crate) fn keeps(&self, d: &Derived, at: DateTime<Utc>) -> bool {
-        d.entry.raw.value["class"].as_str().and_then(|class| self.cutoffs.get(class)).is_none_or(|cut| at < *cut) || self.foreign(d)
-    }
 }
 
 /// A second holding a restored entry: a `kucoin-csv-*` id without this importer's provenance.
@@ -437,22 +415,6 @@ pub(crate) fn derived_sql(scope: &venue_ids::Scope) -> String {
     WHERE i.account_id = {} AND i.row_id = s.value))", scope.account_sql())
 }
 
-/// SQL condition over `account_transactions` rows of `holder`'s account (#710 7a §9.7): a row written by an import of an
-/// export whose fingerprint is `fingerprint` (a condition, `= ?n`): the import's rows and its observation share its time.
-/// A KuCoin entry is derived again when a later file touches its second, so it is the export's when every source row it
-/// is derived from was stored by that import.
-pub(crate) fn from_export(holder: &venue_ids::Scope, fingerprint: &str) -> String {
-    let account = holder.account_sql();
-    let imports = format!("SELECT observed_at FROM exchange_account_imports WHERE account_id = {account} AND fingerprint {fingerprint}");
-    format!("(CASE WHEN {FILE_ROW} THEN json_array_length(raw_data, '$.source_rows') > 0 AND NOT EXISTS (SELECT 1 FROM json_each(raw_data, '$.source_rows') s \
-             WHERE NOT EXISTS (SELECT 1 FROM import_rows i WHERE i.account_id = {account} AND i.row_id = s.value AND i.created_at IN ({imports}))) \
-             ELSE created_at IN ({imports}) END)")
-}
-/// `from_export` of another account than the scope's own (its fingerprint another): an export imported here as a conflict.
-pub(crate) fn foreign_sql(scope: &venue_ids::Scope) -> String {
-    from_export(scope, &format!("<> (SELECT fingerprint FROM exchange_accounts WHERE id = {})", scope.account_sql()))
-}
-
 /// The current cutoff of each class the API has taken over for (user, exchange): the UTC second of its earliest stored
 /// API row at the last completion of its source. In Rust's own `import_cutoffs`, which no 2.x reset clears.
 pub(crate) fn cutoffs(c: &rusqlite::Connection, key: &Key) -> Result<HashMap<String, DateTime<Utc>>, SyncError> {
@@ -466,8 +428,7 @@ pub(crate) fn cutoffs(c: &rusqlite::Connection, key: &Key) -> Result<HashMap<Str
 
 /// The API's takeover (plan KI §5), in the transaction that commits the completion of `classes`' sources, after their
 /// rows' duplicate checks: each class's cutoff is the UTC second of its earliest API row stored for (user, exchange),
-/// and every `kucoin_csv` entry of that class at or after it is deleted (#710 7a §9.7: but an entry of another account's
-/// export, imported here as a conflict, which the API never read), its incoming links cleared as 2.x's
+/// and every `kucoin_csv` entry of that class at or after it is deleted, its incoming links cleared as 2.x's
 /// `dependent: :nullify` clears them. The source rows stay stored; later imports derive nothing of that class from the
 /// cutoff on (`store`). A class with no API row has no cutoff: nothing proves its coverage.
 pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], now: DateTime<Utc>) -> Result<(), SyncError> {
@@ -484,8 +445,7 @@ pub(crate) fn take_over(c: &rusqlite::Connection, key: &Key, classes: &[&str], n
         let at = crate::codec::parse_time(&earliest).map_err(|e| SyncError(format!("account_transactions.transacted_at {earliest}: {e:?}")))?;
         let at = at.with_nanosecond(0).unwrap_or(at);
         let mut s = c.prepare_cached(&format!("SELECT id FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND {} LIKE 'kucoin-csv-%' \
-                                               AND {} AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4 AND NOT {}", key.scope.rows(at_), key.scope.row_id(at_), derived_sql(&key.scope),
-                                               foreign_sql(&key.scope)))?;
+                                               AND {} AND json_extract(raw_data, '$.class') = ?3 AND transacted_at >= ?4", key.scope.rows(at_), key.scope.row_id(at_), derived_sql(&key.scope)))?;
         let gone: Vec<i64> = s.query_map(params![key.user_id, key.exchange_id, class, sql_time(at)], |r| r.get(0))?.collect::<Result<_, _>>()?;
         for id in gone {
             c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [id])?;

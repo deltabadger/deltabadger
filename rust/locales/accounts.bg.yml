@@ -2,8 +2,6 @@ bg:
     tracker:
         duplicate_account_html: "%{duplicate} е същият акаунт в борсата като %{survivor}, затова не влиза в сумите ти."
         merge_in_settings: "Обедини го в Настройки"
-        held_on_account_html: "Част от историята на %{account} е импортирана от експорта му в %{holder}. Тя остава там и не се брои два пъти."
-        held_unmatched_on_account_html: "Част от историята на %{account} е импортирана от експорта му в %{holder}. Някои операции не можаха да бъдат съпоставени със собствената история на %{account}, затова може да се броят два пъти."
     settings:
         accounts:
             duplicate_html: "%{duplicate} е същият акаунт в борсата като %{survivor}."

@@ -2,8 +2,6 @@ de:
     tracker:
         duplicate_account_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor} und wird deshalb nicht in deine Summen eingerechnet."
         merge_in_settings: "In den Einstellungen zusammenführen"
-        held_on_account_html: "Ein Teil des Verlaufs von %{account} wurde aus seinem Export bei %{holder} importiert. Er bleibt dort und wird nicht doppelt gezählt."
-        held_unmatched_on_account_html: "Ein Teil des Verlaufs von %{account} wurde aus seinem Export bei %{holder} importiert. Manches davon ließ sich nicht dem eigenen Verlauf von %{account} zuordnen und wird deshalb womöglich doppelt gezählt."
     settings:
         accounts:
             duplicate_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor}."

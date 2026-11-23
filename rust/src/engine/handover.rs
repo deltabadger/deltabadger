@@ -715,8 +715,6 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
         (Table, "kucoin_coverage", Refuses("KuCoin HF and Unified account history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
-        // #710 7a rule R8: a held API event's claim is an account 2+'s (it holds only what another account has); 2.x never reads it.
-        (Table, "exchange_account_hold_claims", Ignored),
         // API orders (D-ORDER-QUEUED): one placed through a bot is that bot's rust_placement (a wait). A standalone one is
         // never sent again after a restart (api_orders::sweep_at_start); once placed it is a venue order no bot follows,
         // as every standalone order 2.x places is (it records none, and cancels by exchange id). D-HANDBACK-STANDALONE-ROUTE:

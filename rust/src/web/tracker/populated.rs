@@ -464,25 +464,6 @@ fn duplicate_notice(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope) -> Res
     Ok((format!("<div class=\"widget notice\" role=\"status\">\n{lines}</div>\n"), scope.account().is_some()))
 }
 
-/// #710 7a §9.7: an account whose export another account holds as a conflict (`identity::held`), on the scopes of either.
-fn held_notice(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope) -> Result<String, WebError> {
-    let pairs = crate::identity::held(c, owner)?;
-    let shown: Vec<&(i64, i64)> = match scope {
-        Scope::All => pairs.iter().collect(),
-        Scope::Account(a) => pairs.iter().filter(|(b, h)| *b == a.id || *h == a.id).collect(),
-        Scope::EmptyLegacyExchange(_) => vec![],
-    };
-    if shown.is_empty() { return Ok(String::new()); }
-    let mut lines = String::new();
-    for (b, h) in shown {
-        // Rule H1: an account whose sync could not match the export exactly says so.
-        let text = if crate::identity::held_unmatched(c, *b, *h).map_err(WebError::Config)? { "tracker.held_unmatched_on_account_html" } else { "tracker.held_on_account_html" };
-        let (b, h) = (crate::identity::label(c, *b)?.html(), crate::identity::label(c, *h)?.html());
-        lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", i18n::t(ctx.locale, text, &[("account", Arg::Html(&b)), ("holder", Arg::Html(&h))])));
-    }
-    Ok(format!("<div class=\"widget notice\" role=\"status\">\n{lines}</div>\n"))
-}
-
 pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<Built, WebError> {
     // One snapshot for every input: the balances `cold` approves, the cached ledger and the balances `warm` computes
     // from are the same rows, whatever a sync commits meanwhile.
@@ -520,7 +501,7 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     }
     Ok(Built::Regions(Regions {
         pending: pending_report(c, ctx, owner, &settings)?,
-        notice: duplicate + &held_notice(c, ctx, owner, scope)? + &super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
+        notice: duplicate + &super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
         filters, bar_end,
         tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
         holdings: holdings_pane.clone(),
