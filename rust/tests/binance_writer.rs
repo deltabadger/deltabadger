@@ -339,6 +339,25 @@ async fn production_export_import_matches_gross_dust_and_rejects_suppressed_ids(
     write(c,&key,&pair("p1","BTC")).unwrap();write(c,&key,&pair("p2","ETH")).unwrap();
 }
 
+/// #710 7a (Codex branch r4 #9): a file unit that a suppressed event of the stored history could be, and no binding proves
+/// it is, is the file's statement: warned, and with the user's answer written as plain imported rows.
+#[test]
+fn a_unit_near_a_suppressed_event_is_warned_and_written_on_the_answer() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&pair("p1","BTC")).unwrap();suppress(c,"BTC");
+    let file=dust_file(&["BTC"]).replace("BTC,-1","BTC,-2");
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let (before,rows)=(state(c),count(c));
+    let asked=import(c,&key,"binance",&file).unwrap();
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert!(warnings.contains(&Warning::Retained),"{warnings:?}");assert_eq!(state(c),before,"nothing written before the answer");
+    let done=run::import(c,&common::seed::cipher(),key.user_id,"binance",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+    assert!(matches!(done,Answer::Written{imported:2,..}),"{done:?}");assert_eq!(count(c),rows+2);
+    let accepted:i64=c.query_row("SELECT count(*) FROM import_row_origins WHERE import_kind='binance_accepted'",[],|r|r.get(0)).unwrap();
+    assert_eq!(accepted,2);
+}
+
 // Prices and tax settings are fixed by the unchanged accounting recording. The
 // quantities, fees, ordering and groups below are read back from the actual database.
 fn accounting(c:&Connection,owner:i64,expected:&Value) {
@@ -604,12 +623,14 @@ async fn production_import_route_explains_identity_refusals_after_rollback() {
         };
         let file=prefix+file.split_once('\n').unwrap().1;
         app_config::set_plain(c,&deltabadger::tracker::cache::key(key.user_id),"stale",now()).unwrap();
+        // A warning keeps what routing made (the identity key the first read makes); the write's rows are undone.
+        deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
         let before=state(c);
         let (content_type,body)=web::multipart(&[("format",format)],&[("file","history_UTC.csv",file.as_bytes())]);
         let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
         assert!(answer.body.contains("id=\"modal\""));
         // #710 7a rules P6/Q3: what the user can accept is a warning (the whole file rolled back meanwhile), not a refusal.
-        if ["ambiguous CSV identity","exported identity has no retained binding","exported CSV identity changed"].contains(&reason) {
+        if ["ambiguous CSV identity","exported identity has no retained binding","exported CSV identity changed","CSV cannot exclude a suppressed event"].contains(&reason) {
             assert_eq!(answer.status,200,"{reason}: {}",answer.body);
             assert!(answer.body.contains("synced history"),"{reason}: {}",answer.body);
             assert_eq!(state(c),before,"{reason}: nothing written before the answer");

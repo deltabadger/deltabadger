@@ -80,16 +80,19 @@ fn kind(entry_type: i64) -> &'static str {
 #[derive(Clone, Debug)]
 /// `raw`: the venue's answer, when only the duplicate's twin has one (a restored row has none, or only a file's own fields):
 /// the row kept carries it. `synced`: whether the row's raw is a venue's answer (`not_synced`).
-/// `asset`, `group`: the duplicate's, written where the kept twin has none.
+/// `asset`, `group`: the duplicate's, written where the kept twin has none. `imported`: the row has a file origin
+/// (`import_row_origins`, rule N8).
 struct Meta { manual: serde_json::Map<String, serde_json::Value>, order: Option<i64>, rejected: bool, raw: Option<String>, synced: bool, asset: Option<i64>,
-              group: Option<String>, description: Option<String> }
+              group: Option<String>, description: Option<String>, imported: bool }
 fn meta(c: &Connection, row: i64) -> rusqlite::Result<Meta> {
+    let imported = crate::tracker::import::origins_ready(c)?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM import_row_origins WHERE transaction_id = ?1)", [row], |r| r.get::<_, bool>(0))?;
     c.query_row(&format!("SELECT x.manual_values, x.transaction_id, coalesce(x.transfer_link_rejected, 0), x.raw_data, x.base_asset_id, x.group_id, x.description, NOT {} \
                           FROM account_transactions x WHERE x.id = ?1", not_synced("x")), [row], |r| {
         let manual = r.get::<_, Option<String>>(0)?.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
         Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.as_str(), "" | "{}" | "null")), synced: r.get(7)?,
                   asset: match r.get_ref(4)? { rusqlite::types::ValueRef::Integer(i) => Some(i), _ => None },
-                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()) })
+                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()), imported })
     })
 }
 
@@ -222,7 +225,8 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         // A venue answer always beats a restore's shape: the kept twin takes the duplicate's answer over its own restore.
         sm.raw = if sm.raw.is_none() || (!sm.synced && dm.synced) { dm.raw.clone() } else { None };
         // #710 7a rule Q7: a survivor taking the duplicate's venue answer is a synced row from here on (`synced` says so).
-        if sm.raw.is_some() { sm.synced = dm.synced; }
+        // A duplicate that is itself a file's row (a sync enriched it) gives no independent read: the survivor stays imported.
+        if sm.raw.is_some() { sm.synced = dm.synced; sm.imported = dm.imported; }
         sm.asset = if sm.asset.is_none() { dm.asset } else { None };
         sm.description = if sm.description.is_none() { dm.description.clone() } else { None };
         // A group: D's where S's row has none and no other row reads its key on S (the group is S's then), by the same key
@@ -464,7 +468,7 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
                    base_asset_id = COALESCE(?6, base_asset_id), group_id = COALESCE(?7, group_id), description = COALESCE(?8, description) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
         // Rule Q7: the event was read from an account independently of the file: the row's file origin goes.
-        if m.raw.is_some() && m.synced && crate::tracker::import::origins_ready(c)? { c.execute("DELETE FROM import_row_origins WHERE transaction_id = ?1", [row])?; }
+        if m.raw.is_some() && m.synced && !m.imported && crate::tracker::import::origins_ready(c)? { c.execute("DELETE FROM import_row_origins WHERE transaction_id = ?1", [row])?; }
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
 

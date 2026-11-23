@@ -4038,3 +4038,25 @@ fn q7_a_twin_taking_the_venue_answer_loses_its_file_origin_in_either_order() {
         assert_eq!(origins, 0, "{restored_kept}: the kept twin reads synced, the duplicate's origin went with it");
     }
 }
+
+/// #710 7a rule Q7 (Codex branch r4 #8): two imported twins, the duplicate enriched by a sync (a venue payload, its file
+/// origin kept): the survivor takes the payload, and stays an imported row.
+#[test]
+fn q7_two_imported_twins_keep_the_survivors_file_origin() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    let gone = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{}' WHERE id = ?1", [kept]).unwrap();
+    c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [gone]).unwrap();
+    for row in [kept, gone] { deltabadger::tracker::import::record_origin(c, row, "deltabadger", chrono::Utc::now()).unwrap(); }
+    merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+    let raw: String = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [kept], |r| r.get(0)).unwrap();
+    assert!(raw.contains("\"net_amount\":\"-10\""), "{raw}");
+    let kind: Option<String> = c.query_row("SELECT import_kind FROM import_row_origins WHERE transaction_id = ?1", [kept], |r| r.get(0)).ok();
+    assert_eq!(kind.as_deref(), Some("deltabadger"), "two imported rows stay one imported row");
+}

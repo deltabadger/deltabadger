@@ -325,7 +325,12 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
             (a.kind==e.entry_type || ([6,7].contains(&a.kind) && [6,7].contains(&e.entry_type))) &&
             e.base_currency.as_deref().is_none_or(|coin|coin==a.coin) &&
             e.transacted_at.is_none_or(|t|window(a).is_none_or(|(from,to)|t.timestamp_millis()>=from && t.timestamp_millis()<=to))
-        })) {return Err(refused("CSV cannot exclude a suppressed event"))}
+        })) {
+            // A unit a suppressed event of the stored history could be, no binding proving it: the file's statement, warned
+            // (rule P6), or (accepted) written plain.
+            if !accept {warn.push(*first);continue}
+            stripped.push((*first,dust));continue;
+        }
         if dust {
             let imported = csv_dust(c, key, rows, &mut used, Some(origin), now)?;
             if imported {out.imported+=2;mark(c,now)?;invalidate(c,key.user_id)?;}else{out.duplicates+=2;}

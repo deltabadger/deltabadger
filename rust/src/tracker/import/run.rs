@@ -332,16 +332,28 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
         let bound = Bound { entries: &bound_entries, kucoin: &kucoin_rows };
         Ok(Answer::Warned(shown, choices(c, cipher, user_id, subject, &offer, account_id.as_ref(), &bound, evidence, now)?))
     };
-    // Rule N4 / M1: asked (again) before writing anything.
-    if changed || (!warnings.is_empty() && !accepting) { drop(tx); return ask(c, warnings, &evidence, changed); }
+    // Rule N4 / M1: asked (again) before writing anything. Each question's choices (and their digests' slots) are read in
+    // this transaction, so no credential change in between binds them to another slot; it commits only what routing made
+    // (a first-named exchange's eager number-1 row, the identity key): the rows a write made first are undone.
+    if changed || (!warnings.is_empty() && !accepting) { let asked = ask(&tx, warnings, &evidence, changed); tx.commit()?; return asked; }
     // The destination's slots as the answer saw them, before this write adds to them.
     let before = match &offer { Offer::Native { dest, .. } => Some((*dest, slot(&tx, user_id, *dest)?)), Offer::Csv { .. } => Some((Dest::New(0), slot(&tx, user_id, Dest::New(0))?)), Offer::Unbound => None };
+    // A question found while writing is asked over the state before the write (`undo`).
+    tx.execute_batch("SAVEPOINT import_write")?;
+    let undo = |tx: &rusqlite::Transaction<'_>| tx.execute_batch("ROLLBACK TO import_write");
     let written = write_targets(&tx, cipher, user_id, format, targets, &kucoin_rows, account_id.as_ref(), unrecognised, unrouted, accepting, now);
     let (answer, stripped) = match written {
         Ok(written) => written,
         Err(error) => match crate::sync::binance_writer::warned(&error) {
             // Rules P6/Q3: Binance rows the writer warns about; nothing kept, asked with them.
-            Some(units) => { drop(tx); let mut shown = warnings; shown.push(Warning::Retained); return ask(c, shown, &format!("{evidence}|retained:{units:?}"), false); }
+            Some(units) => {
+                undo(&tx)?;
+                let mut shown = warnings;
+                shown.push(Warning::Retained);
+                let asked = ask(&tx, shown, &format!("{evidence}|retained:{units:?}"), false);
+                tx.commit()?;
+                return asked;
+            }
             None => return Err(error),
         },
     };
@@ -350,11 +362,18 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
         // An "import anyway" holds only while everything it was given for does; any answer counts once.
         let stale = purpose == 'w' && before.as_ref().is_none_or(|(dest, slot)| posted != seal('w', subject, *dest, slot, &evidence));
         if stale || !consume(&tx, posted, now)? {
-            drop(tx);
+            undo(&tx)?;
             let mut shown = warnings;
             if !stripped.is_empty() { shown.push(Warning::Retained); }
-            return ask(c, shown, &evidence, true);
+            let asked = ask(&tx, shown, &evidence, true);
+            tx.commit()?;
+            return asked;
         }
+    }
+    // Rule N4: a parked upload is written once, whichever of its answers comes first; a later one writes nothing.
+    if !subject.is_empty() && !consume(&tx, &sha(&format!("u|{subject}")), now)? {
+        drop(tx);
+        return Ok(Answer::Written { imported: 0, duplicates: 0, skipped: 0, unrecognised: vec![], unrouted: vec![], generic: 0 });
     }
     tx.commit()?;
     Ok(answer)
@@ -486,11 +505,14 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
     for (venue, entry) in entries {
         match venue.as_ref().and_then(|(name, number)| by_name(name, *number)) {
             Some(key) => match routed.iter_mut().find(|(k, _)| (k.exchange_id, k.scope.account, k.id) == (key.exchange_id, key.scope.account, key.id)) { Some((_, rows)) => rows.push(entry), None => routed.push((key.clone(), vec![entry])) },
-            None => if let Some((venue, number)) = venue {
+            // Rule N6: a row naming no exchange has no account here either: counted, left out.
+            None => {
                 left_out += 1;
-                let venue = if number == 1 { venue } else { format!("{venue} {number}") };
-                if !unrouted.contains(&venue) { unrouted.push(venue); }
-            },
+                if let Some((venue, number)) = venue {
+                    let venue = if number == 1 { venue } else { format!("{venue} {number}") };
+                    if !unrouted.contains(&venue) { unrouted.push(venue); }
+                }
+            }
         }
     }
     unrouted.sort();
@@ -698,7 +720,25 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         // No venue of the format on this install: nothing could hold the file.
         (None, []) => return Ok(Routed::None),
         (None, [(only, _, _)]) => *only,
-        (None, _) => return Ok(ask_venue(&exchanges.iter().map(|(id, _, _)| *id).collect::<Vec<_>>())?),
+        (None, _) => {
+            // Plan L8, as main: the one reading key of the format's venues, its venue's one account, takes a clean upload,
+            // unless another of them already observed the file's UID (rules G1/J2: then the venue is asked).
+            let readers: Vec<&Reading> = keys.iter().filter(|k| exchanges.iter().any(|(id, _, _)| *id == k.exchange_id)).collect();
+            if let [k] = readers.as_slice().iter().filter(|k| venue_key(k.exchange_id).ok().flatten() == Some(k.id)).collect::<Vec<_>>().as_slice() {
+                let mut seen_elsewhere = false;
+                for (other, exchange_type, _) in exchanges.iter().filter(|(id, _, _)| *id != k.exchange_id) {
+                    let Some(print) = fingerprint(exchange_type) else { continue };
+                    seen_elsewhere |= c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 AND fingerprint = ?3)
+                                                     OR EXISTS(SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint = ?3)
+                                                     OR EXISTS(SELECT 1 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND fingerprint = ?3)",
+                                                  rusqlite::params![user_id, other, print], |r| r.get::<_, bool>(0))?;
+                }
+                if !seen_elsewhere && !stale {
+                    return Ok(Routed::To(match k.account_id { Some(a) => a, None => crate::identity::ensure_account(c, user_id, k.exchange_id, now)? }));
+                }
+            }
+            return Ok(ask_venue(&exchanges.iter().map(|(id, _, _)| *id).collect::<Vec<_>>())?)
+        }
     };
     // 2 and 3: the venue's unfingerprinted accounts.
     let owners = owners(venue)?;

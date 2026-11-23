@@ -1170,6 +1170,8 @@ async fn h3_a_key_answer_rendered_for_one_account_is_asked_again_once_the_venue_
     let _lock = own(_d.path(), c, &app);
     let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
     let kb = key_on(c, s.user_id, binance, None);
+    // Plan L8: one Binance reading key alone takes a clean upload; Binance.US having seen the UID asks the venue.
+    seen_on_us(c, s.user_id, us, "777");
     let mut b = browser(&app, c, s.user_id);
     let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
     assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
@@ -1235,8 +1237,8 @@ async fn h4_a_binance_conflict_never_refuses_a_binance_us_file() {
     let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
     let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
     let mut b = browser(&app, c, s.user_id);
-    let asked = upload(&app, &mut b, "binance", &binance_file("123")).await;
-    let done = answer(&app, &mut b, &asked, "binance", &options(&asked.body)[0]).await;
+    // Plan L8: the one Binance reading key takes the clean upload, as on main.
+    let done = upload(&app, &mut b, "binance", &binance_file("123")).await;
     assert!(imported(&done) && rows_on(c, first) == 1, "{}: {}", done.status, done.body);
     // As before 7a: Binance's account 1 then read another account; its copy of 123's file is a conflict there.
     c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
@@ -1323,6 +1325,27 @@ async fn a_partly_routed_csv_imports_the_rest_and_names_the_accounts_it_left_out
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, first), last as i64, "account 1's rows imported");
     assert!(done.body.contains(&format!("No account connected for: {name} 2. Those rows were left out.")), "{}", done.body);
+}
+
+/// Rule N6 (Codex branch r4 #10): a Deltabadger CSV row with no exchange is a row with no account here: counted and said
+/// before writing, and "import the rest" leaves it out.
+#[tokio::test(flavor = "current_thread")]
+async fn n6_a_csv_row_with_no_exchange_is_counted_before_writing() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let header = format!("{},account", deltabadger::web::tracker::gap::CSV_HEADER);
+    let file = format!("{header}\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},T1,,,1\n2023-01-06T10:00:00Z,deposit,BTC,0.5,,,,,,T2,,,1\n");
+    let first = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let asked = upload(&app, &mut b, "deltabadger", &file).await;
+    assert!(asked.body.contains("Rows naming accounts that aren&#39;t here: 1.") || asked.body.contains("Rows naming accounts that aren't here: 1."), "{}", asked.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written yet");
+    let done = answer(&app, &mut b, &asked, "deltabadger", "r").await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger + 1, "the routable row only");
+    assert!(rows_on(c, first) >= 1);
 }
 
 /// §3, D-TRACKER-EMPTY-IMPORT: the empty tracker's welcome screen offers Import beside Connect, so a user with no key can
@@ -1690,6 +1713,8 @@ async fn s7a_r10_a_stale_key_answer_is_asked_again_on_its_own_venue() {
     let _lock = own(_d.path(), c, &app);
     let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
     let kb = key_on(c, s.user_id, binance, None);
+    // Plan L8: one Binance reading key alone takes a clean upload; Binance.US having seen the UID asks the venue.
+    seen_on_us(c, s.user_id, us, "777");
     let mut b = browser(&app, c, s.user_id);
     let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
     assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
@@ -1715,8 +1740,8 @@ async fn s7a_r10_a_fresh_upload_of_a_held_file_asks_before_another_venue_takes_i
     let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
     let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
     let mut b = browser(&app, c, s.user_id);
-    let asked = upload(&app, &mut b, "binance", &binance_file("123")).await;
-    let done = answer(&app, &mut b, &asked, "binance", &options(&asked.body)[0]).await;
+    // Plan L8: the one Binance reading key takes the clean upload, as on main.
+    let done = upload(&app, &mut b, "binance", &binance_file("123")).await;
     assert!(imported(&done) && rows_on(c, first) == 1, "{}: {}", done.status, done.body);
     c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1", [first]).unwrap();
     fingerprint(c, first, "Exchanges::Binance", "111");
@@ -1833,6 +1858,8 @@ async fn s7a_s5_a_key_answer_whose_key_is_gone_is_asked_again_on_its_venue() {
     let _lock = own(_d.path(), c, &app);
     let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
     let kb = key_on(c, s.user_id, binance, None);
+    // Plan L8: one Binance reading key alone takes a clean upload; Binance.US having seen the UID asks the venue.
+    seen_on_us(c, s.user_id, us, "777");
     let mut b = browser(&app, c, s.user_id);
     let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
     assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
@@ -1847,9 +1874,32 @@ async fn s7a_s5_a_key_answer_whose_key_is_gone_is_asked_again_on_its_venue() {
     assert_eq!((rows_on(c, on_us), one::<i64>(c, "SELECT count(*) FROM account_transactions")), (0, ledger), "nothing written, never on Binance.US");
 }
 
-/// Rule S9 (Codex branch r4, run.rs:302/379), a single-account install: a legacy Binance reading key with no account row
-/// yet, answered by its key id, writes its rows with that key's id, as main does (the answer makes number 1's row after
-/// the readers were read).
+/// Rule N4 (Codex branch r4 #3): a parked upload is written once. Two answers of one upload's venue question, one per venue
+/// (two tabs, both holding the parked bytes): the first writes, the second writes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn n4_a_parked_upload_is_written_once_whatever_its_answers() {
+    use deltabadger::tracker::import::run;
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let (kb, ku) = (key_on(c, s.user_id, binance, None), key_on(c, s.user_id, us, None));
+    let file = binance_file("777");
+    let write = |answer: Option<&str>| {
+        let read = run::read("binance", file.as_bytes(), Some("+00:00")).unwrap_or_else(|_| panic!("readable"));
+        run::write(c, &seed::cipher(), s.user_id, "binance", read, "00000000000000aa", answer, chrono::Utc::now()).unwrap()
+    };
+    assert!(matches!(write(None), run::Answer::Ambiguous(_)), "the venue is asked");
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    assert!(matches!(write(Some(&kb.to_string())), run::Answer::Written { imported: 1, .. }));
+    assert!(matches!(write(Some(&ku.to_string())), run::Answer::Written { imported: 0, .. }), "the second answer writes nothing");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger + 1, "written once");
+}
+
+/// Rule S9 (Codex branch r4, run.rs:302/379) and plan L8 (Codex branch r4 #11), a single-account install: a legacy Binance
+/// reading key with no account row yet, the only Binance-family reading key, Binance.US holding nothing of the file's UID:
+/// the clean upload picks that key as main does, asking nothing, and its rows keep that key's id (the write makes number
+/// 1's row after the readers were read).
 #[tokio::test(flavor = "current_thread")]
 async fn s7a_s9_a_legacy_key_answer_keeps_its_key_on_the_rows() {
     let (_d, o, s, _server, app) = alpaca().await;
@@ -1862,11 +1912,15 @@ async fn s7a_s9_a_legacy_key_answer_keeps_its_key_on_the_rows() {
     let kb = c.last_insert_rowid();
     assert_eq!(numbers(c, binance), Vec::<i64>::new(), "no account row yet");
     let mut b = browser(&app, c, s.user_id);
-    let asked = upload(&app, &mut b, "binance", &binance_file("555")).await;
-    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
-    let done = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    let done = upload(&app, &mut b, "binance", &binance_file("555")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM account_transactions WHERE exchange_id = {binance} AND api_key_id = {kb}")), 1, "the row keeps its key");
+    // Rules G1/J2: a Binance.US key (not a reading one: invalid) observed the next file's UID: the venue is asked.
+    let ku = key_on(c, s.user_id, us, None);
+    identity::record_copy(c, &seed::cipher(), ku, "Exchanges::BinanceUs", &identity::AccountId::parse("556").unwrap(), chrono::Utc::now()).unwrap();
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [ku]).unwrap();
+    let asked = upload(&app, &mut b, "binance", &binance_file("556")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
 }
 
 /// Rule S6 (Codex branch r4, keys.rs:208, validator.rs:75), a single-account install: a bot's key sheet is drawn for its
@@ -1996,6 +2050,12 @@ async fn n3_the_exact_key_reposted_on_a_tile_is_its_own_accounts() {
 
 // ---- #710 7a part 2: an import or key save that can see a problem warns before writing; the user's answer decides ----
 
+/// Rules G1/J2: a Binance.US key that is no reading key (invalid) observed `uid`: a Binance upload of it asks the venue.
+fn seen_on_us(c: &Connection, user: i64, us: i64, uid: &str) {
+    let key = key_on(c, user, us, None);
+    identity::record_copy(c, &seed::cipher(), key, "Exchanges::BinanceUs", &identity::AccountId::parse(uid).unwrap(), chrono::Utc::now()).unwrap();
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+}
 fn observe_import(c: &Connection, user: i64, exchange: i64, account: i64, uid: &str) {
     identity::record_import_to(c, &seed::cipher(), user, exchange, Some(account), Some(&identity::AccountId::parse(uid).unwrap()), chrono::Utc::now()).unwrap();
 }
@@ -2052,6 +2112,27 @@ async fn n5_a_file_unlike_the_destination_s_key_warns_and_imports_on_the_answer(
     let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert!(rows_on(c, first) > 0);
+}
+
+/// Rule N4 (Codex branch r4 #6): the warning's answer binds the fingerprints it compared, not only whether some matched or
+/// differed. A further foreign UID observed on the destination while "import here anyway" is open: asked again, nothing
+/// written.
+#[tokio::test(flavor = "current_thread")]
+async fn n4_a_new_foreign_observation_makes_an_open_import_warning_stale() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    let key = key_on(c, s.user_id, kucoin, None);
+    identity::record_copy(c, &seed::cipher(), key, "Exchanges::Kucoin", &identity::AccountId::parse("999").unwrap(), chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert_eq!(options(&asked.body), [format!("a{first}")], "{}", asked.body);
+    // An import observation of a further UID on the destination (its keys, the slot, unchanged).
+    observe_import(c, s.user_id, kucoin, first, "888");
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(rows_on(c, first), 0, "nothing written");
 }
 
 /// Rules P5/Q6 (exact ids, no fuzzy matching): a Deltabadger CSV whose rows exist on another live account (by venue id, and
