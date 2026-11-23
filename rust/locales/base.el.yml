@@ -213,7 +213,7 @@ el:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Συνδρομή Self-hosted'
-            subscription_html: 'Η συνδρομή Self-hosted του <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> περιλαμβάνει το Market Data API και σταθερή IP για whitelist στα ανταλλακτήρια.'
+            subscription_html: 'Η συνδρομή Self-hosted του <a href="https://deltabadger.com/el/self-hosted" target="_blank" rel="noopener">Deltabadger</a> περιλαμβάνει το Market Data API και σταθερή IP για whitelist στα ανταλλακτήρια.'
             code: 'Κωδικός σύνδεσης'
             connect: 'Σύνδεση'
             connected_with_proxies: 'Συνδεθήκατε στο Deltabadger.com για δεδομένα αγοράς και διακομιστές μεσολάβησης ανταλλακτηρίων.'

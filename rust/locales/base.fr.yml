@@ -214,7 +214,7 @@ fr:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Abonnement Self-hosted'
-            subscription_html: 'Un abonnement Self-hosted <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> inclut la Market Data API et une IP fixe à autoriser sur les plateformes d’échange.'
+            subscription_html: 'Un abonnement Self-hosted <a href="https://deltabadger.com/fr/self-hosted" target="_blank" rel="noopener">Deltabadger</a> inclut la Market Data API et une IP fixe à autoriser sur les plateformes d’échange.'
             code: 'Code de connexion'
             connect: 'Connecter'
             connected_with_proxies: 'Connecté à Deltabadger.com pour les données de marché et les proxys des plateformes d’échange.'

@@ -213,7 +213,7 @@ es:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Suscripción Self-hosted'
-            subscription_html: 'Una suscripción Self-hosted de <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> incluye la Market Data API y una IP fija para añadir a la lista blanca de los exchanges.'
+            subscription_html: 'Una suscripción Self-hosted de <a href="https://deltabadger.com/es/self-hosted" target="_blank" rel="noopener">Deltabadger</a> incluye la Market Data API y una IP fija para añadir a la lista blanca de los exchanges.'
             code: 'Código de conexión'
             connect: 'Conectar'
             connected_with_proxies: 'Conectado a Deltabadger.com para obtener datos de mercado y usar proxies de los exchanges.'
