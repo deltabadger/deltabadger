@@ -1250,8 +1250,9 @@ mod tests {
         let Outcome::Csv(csv) = report.compute(&mut Unfetched, NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(), &mut |_| {}).unwrap() else { panic!("refused") };
         let disposals: Vec<Vec<&str>> = csv.lines().skip(1).map(|l| l.split(',').collect()).collect();
         assert_eq!(disposals.len(), 1, "{csv}");
-        // Quantity, then the cost: the 60,000 USD purchase at 1.08, not 11/21 of it.
-        assert_eq!((disposals[0][2], disposals[0][3], disposals[0][5]), ("BTC", "1.0", "55555.56"), "{csv}");
+        // Quantity, then the cost: the 60,000 USD purchase at 1.08, not 11/21 of it. D-TAX-COIN-IDENTITY: the coin shares
+        // its spelling with the owner's ETF, so it prints its name.
+        assert_eq!((disposals[0][2], disposals[0][3], disposals[0][5]), ("BTC (Bitcoin)", "1.0", "55555.56"), "{csv}");
     }
 
     // ---- D-TAX-CFEE-MATCHED-FILL: the fold ----

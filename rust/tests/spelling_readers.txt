@@ -171,6 +171,7 @@ legacy	tracker/fx.rs	literal	1	let from_rate = if from == "EUR" { Some(&one) } e
 legacy	tracker/fx.rs	literal	1	let to_rate = if to == "EUR" { Some(&one) } else { self.per_eur(to, date) };
 legacy	tracker/fx.rs	literal	1	pub const CURRENCIES: [&str; 11] = ["USD", "GBP", "CHF", "SEK", "DKK", "CZK", "PLN", "NOK", "HUF", "RON", "BGN"];
 legacy	tracker/gaps.rs	sql	1	notes.sort_by(|a, b| (a.symbol.as_str(), a.kind).cmp(&(b.symbol.as_str(), b.kind)));
+resolver	tracker/labels.rs	sql	1	if let (Some(f), Some(l)) = (r.fee_currency.as_mut(), s.label(r.id, Side::Fee)) { *f = l.clone(); }
 resolver	tracker/labels.rs	sql	1	if let Some(e) = a.external_id { names.entry(e).or_insert((a.symbol, name)); }
 resolver	tracker/labels.rs	sql	1	if let Some(f) = r.fee_currency.as_ref() { out.push((Side::Fee, f.as_str().to_string(), r.fee_amount.clone().unwrap_or_else(Dec::zero).neg())); }
 resolver	tracker/labels.rs	sql	1	if let Some(symbol) = a.symbol.clone() { f.catalogue.entry(symbol).or_default().push(a); }

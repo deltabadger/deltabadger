@@ -10,8 +10,9 @@ use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// The assets whose `column` is one of `values`, by id, each a step of the open budget scope.
-fn assets_where(c: &Connection, column: &str, values: &BTreeSet<String>) -> Result<Vec<(AssetRef, Option<String>)>, FiguresError> {
+fn assets_where(c: &Connection, ok: bool, column: &str, values: &BTreeSet<String>) -> Result<Vec<(AssetRef, Option<String>)>, FiguresError> {
     let mut out = vec![];
+    if !ok { return Ok(out); }
     let values: Vec<&String> = values.iter().collect();
     for chunk in values.chunks(500) {
         let marks = vec!["?"; chunk.len()].join(", ");
@@ -42,32 +43,46 @@ fn legs_of(r: &Stored) -> Vec<(Side, String, Dec)> {
     out
 }
 
-/// The owner's map over `rows` (every row `load_all` reads, borrowed wallets' included).
+/// The owner's map over `rows` (every row `load_all` reads, borrowed wallets' included), read before they are relabelled.
 pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, FiguresError> {
     // The venues: the rows' and the balances'.
-    let mut s = c.prepare("SELECT id, type FROM exchanges ORDER BY id")?;
-    let kinds: HashMap<i64, Option<String>> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    // Each venue's type, and the name an unidentified label prints (its display name, else its name id).
+    let named = c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('exchanges') WHERE name = 'name')", [], |r| r.get::<_, bool>(0))?;
+    let mut s = c.prepare(if named { "SELECT id, type, name FROM exchanges ORDER BY id" } else { "SELECT id, type, NULL FROM exchanges ORDER BY id" })?;
+    let kinds: HashMap<i64, (Option<String>, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?))))?.collect::<Result<_, _>>()?;
     let venue = |id: i64| {
-        let t = kinds.get(&id).cloned().flatten().unwrap_or_default();
+        let t = kinds.get(&id).and_then(|k| k.0.clone()).unwrap_or_default();
         VenueRef { id, name_id: super::rows::name_id(&t), broker: super::prices::STOCK_TYPES.contains(&t.as_str()) }
     };
+    let shown = |v: &VenueRef| kinds.get(&v.id).and_then(|k| k.1.clone()).filter(|n| !n.trim().is_empty()).unwrap_or_else(|| v.name_id.clone());
     // The balances, by account (as the rows' account: the membership's, else minus the exchange id).
-    let has_account = c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('exchange_account_balances') WHERE name = 'account_id')", [], |r| r.get::<_, bool>(0))?;
-    let (account, counted) = if has_account {
-        ("COALESCE(b.account_id, -b.exchange_id)".to_string(), crate::identity::counted(c, user_id, "b.account_id")?)
-    } else { ("-b.exchange_id".to_string(), "1".to_string()) };
-    let mut s = c.prepare(&format!("SELECT {account}, b.exchange_id, a.id, a.external_id, a.symbol, a.category FROM exchange_account_balances b \
-                                    JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND {counted} AND b.free + b.locked > 0 ORDER BY b.id"))?;
+    // A store without a table or column the map reads (an old schema, a test's) reads none of it.
+    let has = |table: &str, cols: &[&str]| -> rusqlite::Result<bool> {
+        let n: i64 = c.query_row(&format!("SELECT count(*) FROM pragma_table_info('{table}') WHERE name IN ({})", cols.iter().map(|c| format!("'{c}'")).collect::<Vec<_>>().join(", ")), [], |r| r.get(0))?;
+        Ok(n == cols.len() as i64)
+    };
+    let assets_ok = has("assets", &["id", "external_id", "symbol", "category", "name"])?;
+    let balances_ok = assets_ok && has("exchange_account_balances", &["user_id", "exchange_id", "asset_id", "free", "locked"])?;
+    let tickers_ok = assets_ok && has("tickers", &["exchange_id", "base", "quote", "base_asset_id", "quote_asset_id"])?;
+    let has_account = has("exchange_account_balances", &["account_id"])?;
     let mut balances_raw: Vec<(i64, i64, AssetRef)> = vec![];
-    let mut q = s.query([user_id])?;
-    while let Some(r) = q.next()? {
-        charge(1, 0)?;
-        balances_raw.push((r.get(0)?, r.get(1)?, AssetRef { id: r.get(2)?, external_id: r.get(3)?, symbol: r.get(4)?, category: r.get(5)? }));
+    if balances_ok {
+        let (account, counted) = if has_account {
+            ("COALESCE(b.account_id, -b.exchange_id)".to_string(), crate::identity::counted(c, user_id, "b.account_id")?)
+        } else { ("-b.exchange_id".to_string(), "1".to_string()) };
+        let mut s = c.prepare(&format!("SELECT {account}, b.exchange_id, a.id, a.external_id, a.symbol, a.category FROM exchange_account_balances b \
+                                        JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND {counted} AND b.free + b.locked > 0 ORDER BY b.id"))?;
+        let mut q = s.query([user_id])?;
+        while let Some(r) = q.next()? {
+            charge(1, 0)?;
+            balances_raw.push((r.get(0)?, r.get(1)?, AssetRef { id: r.get(2)?, external_id: r.get(3)?, symbol: r.get(4)?, category: r.get(5)? }));
+        }
     }
     let venues: BTreeSet<i64> = rows.iter().map(|r| r.exchange_id).chain(balances_raw.iter().map(|b| b.1)).collect();
     // The facts: each venue's live listings by side, its tombstoned bases, the catalogue under the owner's spellings.
     let mut f = Facts::default();
-    for chunk in venues.iter().collect::<Vec<_>>().chunks(500) {
+    let venues: Vec<&i64> = if tickers_ok { venues.iter().collect() } else { vec![] };
+    for chunk in venues.chunks(500) {
         let marks = vec!["?"; chunk.len()].join(", ");
         let mut s = c.prepare(&format!(
             "SELECT t.exchange_id, t.base, t.quote, b.id, b.external_id, b.symbol, b.category, q.id, q.external_id, q.symbol, q.category FROM tickers t \
@@ -91,11 +106,11 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
     let mut legs: Vec<(usize, Side, String, Dec)> = vec![];
     for (i, r) in rows.iter().enumerate() { for (side, spelling, amount) in legs_of(r) { legs.push((i, side, spelling, amount)); } }
     let spellings: BTreeSet<String> = legs.iter().map(|l| l.2.clone()).chain(balances_raw.iter().filter_map(|b| b.2.symbol.clone())).collect();
-    for (a, _) in assets_where(c, "symbol", &spellings)? {
+    for (a, _) in assets_where(c, assets_ok, "symbol", &spellings)? {
         if let Some(symbol) = a.symbol.clone() { f.catalogue.entry(symbol).or_default().push(a); }
     }
     let recorded_ids: BTreeSet<String> = rows.iter().filter_map(|r| r.base_asset.as_ref().map(|a| a.0.to_string())).collect();
-    let recorded: HashMap<i64, AssetRef> = assets_where(c, "id", &recorded_ids)?.into_iter().map(|(a, _)| (a.id, a)).collect();
+    let recorded: HashMap<i64, AssetRef> = assets_where(c, assets_ok, "id", &recorded_ids)?.into_iter().map(|(a, _)| (a.id, a)).collect();
     // Each leg's holding.
     let mut ins = Vec::with_capacity(legs.len());
     for (i, side, spelling, amount) in legs {
@@ -105,7 +120,7 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
         let at = r.at.utc();
         let rec = (side == Side::Base).then(|| r.base_asset.as_ref().and_then(|a| recorded.get(&a.0))).flatten();
         let holding = resolver::holding(&f, &resolver::Leg { venue: &v, side, spelling: &spelling, at, recorded: rec });
-        ins.push(LegIn { row: r.id, side, account: r.account, venue: v.name_id.clone(), spelling, holding, at, amount });
+        ins.push(LegIn { row: r.id, side, account: r.account, venue: shown(&v), spelling, holding, at, amount });
     }
     // The links: a withdrawal's to its deposit, whichever of the two names the other.
     let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();
@@ -124,16 +139,25 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
         let Some(spelling) = asset.symbol.clone() else { continue };
         let v = venue(*exchange);
         let holding = resolver::holding(&f, &resolver::Leg { venue: &v, side: Side::Base, spelling: &spelling, at: now, recorded: Some(asset) });
-        balances.push(BalanceIn { account: *account, venue: v.name_id.clone(), asset_id: asset.id, spelling, holding });
+        balances.push(BalanceIn { account: *account, venue: shown(&v), asset_id: asset.id, spelling, holding });
     }
     // The catalogue's symbol and name of each coin and security held.
     let held: BTreeSet<String> = ins.iter().map(|l| &l.holding).chain(balances.iter().map(|b| &b.holding))
         .filter_map(|h| match h { resolver::Holding::Coin(e) | resolver::Holding::Security(e) => Some(e.clone()), _ => None }).collect();
     let mut names = Names::new();
-    for (a, name) in assets_where(c, "external_id", &held)? {
+    for (a, name) in assets_where(c, assets_ok, "external_id", &held)? {
         if let Some(e) = a.external_id { names.entry(e).or_insert((a.symbol, name)); }
     }
     Ok(Spellings::build(ins, &links, &balances, &names)?)
+}
+
+/// Each row's legs take their labels from the map (a leg it has none for keeps its spelling: a blank quote).
+pub fn relabel(rows: &mut [Stored], s: &Spellings) {
+    for r in rows {
+        if let Some(l) = s.label(r.id, Side::Base) { r.base = l.clone(); }
+        if let (Some(q), Some(l)) = (r.quote.as_mut(), s.label(r.id, Side::Quote)) { *q = l.clone(); }
+        if let (Some(f), Some(l)) = (r.fee_currency.as_mut(), s.label(r.id, Side::Fee)) { *f = l.clone(); }
+    }
 }
 
 #[cfg(test)]
@@ -161,9 +185,7 @@ mod tests {
         c
     }
     fn map(c: &Connection) -> (Vec<Stored>, Spellings) {
-        let rows = crate::tracker::rows::load_all(c, 1).unwrap();
-        let s = load(c, 1, &rows).unwrap();
-        (rows, s)
+        crate::tracker::rows::load_all_mapped(c, 1).unwrap()
     }
     fn printed(s: &Spellings, row: i64, side: Side) -> String { s.label(row, side).unwrap().to_string() }
 
@@ -224,6 +246,11 @@ mod tests {
         assert_eq!(printed(&s, 1, Side::Base), "PLN (PLEARN)");
         assert_eq!(printed(&s, 2, Side::Quote), "PLN");
         assert_eq!(s.class(s.label(2, Side::Quote).unwrap()), Class::Cash(resolver::CashKind::Fiat));
+        // The label answers alone, from its identity.
+        let (plearn, zloty) = (s.label(1, Side::Base).unwrap(), s.label(2, Side::Quote).unwrap());
+        assert_eq!((plearn.class(), plearn.coin(), plearn.currency()), (Class::Coin, Some("pleasure-coin"), None));
+        assert_eq!((zloty.is_fiat(), zloty.is_stable(), zloty.currency()), (true, false, Some("PLN")));
+        assert!(s.label(1, Side::Quote).unwrap().is_stable());
     }
 
     /// Balances are an input (a balance of another coin under a history's spelling splits it), and an unidentified

@@ -25,6 +25,25 @@ pub struct Label { printed: String, key: String }
 impl Label {
     pub fn spelled(s: impl Into<String>) -> Label { Label { printed: s.into(), key: String::new() } }
     pub fn as_str(&self) -> &str { &self.printed }
+    /// What the label holds, from its identity key; a spelled label (identity mode, a hand-built row) by its spelling.
+    pub fn class(&self) -> Class {
+        match self.key.split_once(':') {
+            Some(("cash", s)) => Class::Cash(if super::stable(s) { CashKind::Stable } else { CashKind::Fiat }),
+            Some(("coin", _)) => Class::Coin,
+            Some(("security", _)) => Class::Security,
+            Some(("unknown", _)) => Class::Unknown,
+            _ if super::stable(&self.printed) => Class::Cash(CashKind::Stable),
+            _ if super::fiat(&self.printed) => Class::Cash(CashKind::Fiat),
+            _ => Class::Unknown,
+        }
+    }
+    pub fn is_cash(&self) -> bool { matches!(self.class(), Class::Cash(_)) }
+    pub fn is_fiat(&self) -> bool { self.class() == Class::Cash(CashKind::Fiat) }
+    pub fn is_stable(&self) -> bool { self.class() == Class::Cash(CashKind::Stable) }
+    /// A coin label's external id.
+    pub fn coin(&self) -> Option<&str> { self.key.strip_prefix("coin:") }
+    /// A cash label's currency code (its spelling).
+    pub fn currency(&self) -> Option<&str> { self.key.strip_prefix("cash:").or_else(|| (self.key.is_empty() && super::cash(&self.printed)).then_some(self.printed.as_str())) }
 }
 impl From<&str> for Label { fn from(s: &str) -> Label { Label::spelled(s) } }
 impl From<String> for Label { fn from(s: String) -> Label { Label::spelled(s) } }

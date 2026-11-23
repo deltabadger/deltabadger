@@ -286,8 +286,11 @@ async fn an_oversized_entry_keeps_the_previous_one(){
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
     let before=db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap();
     assert!(before.is_some());
-    // A coin whose symbol alone is larger than an entry may be.
-    db.run(move|c,_|{c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,?3,1,'2026-09-02 00:00:00','{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00')",rusqlite::params![owner,venue,"X".repeat(9*1024*1024)]).unwrap();Ok(())}).await.unwrap();
+    // More than an entry holds: labels are bounded (64 characters), so a long symbol alone no longer overflows it; 40,000
+    // round trips (a buy, then its sale) do.
+    db.run(move|c,_|{c.execute("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<80000) \
+        INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) \
+        SELECT ?1,?2,i%2,'ZZZ',1,'USD',1+i%2,datetime('2026-09-02 00:00:00','+'||i||' seconds'),'{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00' FROM n",rusqlite::params![owner,venue]).unwrap();Ok(())}).await.unwrap();
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(cache::PAYLOAD_TOO_LARGE.into()));
     assert_eq!(db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap(),before,"the previous entry is kept, not replaced by a failure");
 }

@@ -445,11 +445,12 @@ async fn the_upgrade_repairs_only_the_syncing_users_rows() {
     assert_eq!((r("U9").5, kept.as_str()), (btc_id, "{\"price\":\"60000\"}"), "the asset filled, the manual price kept");
     assert_eq!(fx.dump(other), before_other, "the other user's rows under the same ids are untouched");
     assert!(fx.deferred(key).is_none(), "the deferred list goes at completion");
-    // The walk: Kraken's own quantities where no link reaches another venue, and an opening only for the linked conflict
-    // left as 2.x stored it.
+    // The walk: Kraken's own quantities where no link reaches another venue, an opening for the linked conflict left as
+    // 2.x stored it, and (delisted coins, plan r10 §1.1 step 3) one for ETH: the deposit whose stored asset (DOT) is not
+    // what Kraken lists under ETH is unidentified, so the ETH withdrawals after it have no ETH to spend.
     let (coins, _, _, w) = walked(&fx, user);
     let opened: Vec<&str> = w.rows.iter().filter(|r| r.opening).map(|r| r.base.as_str()).collect();
-    assert_eq!(opened, ["DOT.S"]);
+    assert_eq!(opened, ["ETH (ETH)", "DOT.S"]);
     let kraken = deltas(&[dot_entry.clone(), doge.clone(), ltc.clone(), btc, manual_entry.clone()], &symbol_of);
     for coin in ["BTC", "DOGE", "LTC", "DOT"] { assert!((coins[coin] - kraken[coin]).abs() < 1e-12, "{coin}: walk {}, Kraken {}", coins[coin], kraken[coin]); }
 
