@@ -222,7 +222,12 @@ fn import_step(c: &Connection, cipher: &Cipher, user_id: i64, step: &Value, at: 
                                                                        rusqlite::params![user_id, kind], |r| r.get(0)))?,
         None => None,
     };
-    let answer=run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)?;
+    let mut answer=run::import(c, cipher, user_id, format, bytes, offset.as_deref(), answered.map(|id| id.to_string()).as_deref(), at)?;
+    // #710 7a (D-IMPORT-WARNS-FIRST): Rust asks before writing what 2.x wrote and reported; the user's "import anyway" is
+    // 2.x's write, so the rows compare.
+    if let crate::tracker::import::run::Answer::Warned(_, choices) = &answer {
+        if let Some(accept) = choices.last().map(|c| c.value.clone()) { answer = run::import(c, cipher, user_id, format, bytes, offset.as_deref(), Some(&accept), at)?; }
+    }
     Ok(import_out(none, answer))
 }
 
@@ -232,7 +237,8 @@ fn import_out(none: Value, answer: crate::tracker::import::run::Answer) -> Value
     match answer {
         Answer::Error(error) => out["error"] = json!(error),
         Answer::Refused(reason) => out["error"] = json!(format!("Binance A12 unresolved: {reason}")),
-        Answer::ImportedElsewhere(account) => out["error"] = json!(format!("imported elsewhere: {account}")),
+        // #710 7a: a warning before writing (Rust's, nothing written).
+        Answer::Warned(warnings, _) => out["error"] = json!(format!("warned: {warnings:?}")),
         Answer::Ambiguous(keys) => out["ambiguous"] = json!(keys.iter().map(|k| k.key.map_or_else(|| json!(k.value), |id| json!(id))).collect::<Vec<_>>()),
         Answer::Written { imported, duplicates, skipped, unrecognised, unrouted, .. } =>
             out = json!({ "imported": imported, "duplicates": duplicates, "skipped": skipped, "unrecognised": unrecognised, "unrouted": unrouted, "error": null, "ambiguous": null }),

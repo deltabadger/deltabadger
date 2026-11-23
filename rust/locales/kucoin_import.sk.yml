@@ -1,6 +1,18 @@
 sk:
     tracker:
         import:
-            imported_elsewhere: "Nič sa neimportovalo. Riadky tohto súboru sú už importované na účte %{account}."
+            warn_held: "%{account} už možno má históriu z tohto exportu. Import sem ju môže vo vašich súčtoch započítať dvakrát."
+            warn_other: "Tento export je z iného účtu ako %{account}. Import tam zmieša dva účty."
+            warn_existing: "Riadky, ktoré už sú na účte %{account}: %{count}. Import sem ich vo vašich súčtoch započíta dvakrát."
+            warn_unrouted: "Riadky účtov, ktoré tu nie sú: %{count}. Nebudú importované."
+            warn_retained: "Tieto riadky pochádzajú zo synchronizovanej histórie iného účtu. Import sem ich môže započítať dvakrát."
+            warn_changed: "Od vašej odpovede sa niečo zmenilo. Skontrolujte to znova."
+            import_here: "Aj tak importovať sem"
+            import_new: "Importovať do nového účtu"
+            import_to: "Importovať na %{account}"
+            import_anyway: "Aj tak importovať"
+            import_rest: "Importovať zvyšok"
+            cancel: "Zrušiť"
+            cancelled: "Nič sa neimportovalo."
             format_kucoin: "KuCoin CSV"
             generic: "Zaznamenané so všeobecným označením: %{count}."

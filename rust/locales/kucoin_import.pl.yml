@@ -1,6 +1,18 @@
 pl:
     tracker:
         import:
-            imported_elsewhere: "Nic nie zaimportowano. Wiersze tego pliku są już zaimportowane na %{account}."
+            warn_held: "%{account} może już mieć historię z tego eksportu. Import tutaj może ją policzyć podwójnie w Twoich sumach."
+            warn_other: "Ten eksport pochodzi z innego konta niż %{account}. Import tam pomiesza dwa konta."
+            warn_existing: "Wiersze, które już są na %{account}: %{count}. Import tutaj policzy je podwójnie w Twoich sumach."
+            warn_unrouted: "Wiersze kont, których tu nie ma: %{count}. Nie zostaną zaimportowane."
+            warn_retained: "Te wiersze pochodzą z zsynchronizowanej historii innego konta. Import tutaj może je policzyć podwójnie."
+            warn_changed: "Od Twojej odpowiedzi coś się zmieniło. Sprawdź jeszcze raz."
+            import_here: "Mimo to importuj tutaj"
+            import_new: "Importuj na nowe konto"
+            import_to: "Importuj na %{account}"
+            import_anyway: "Mimo to importuj"
+            import_rest: "Importuj resztę"
+            cancel: "Anuluj"
+            cancelled: "Nic nie zaimportowano."
             format_kucoin: "KuCoin CSV"
             generic: "Zapisane z ogólną etykietą: %{count}."

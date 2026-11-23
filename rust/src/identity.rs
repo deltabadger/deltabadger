@@ -1622,6 +1622,33 @@ pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, excha
                 params![user_id, exchange_id, fingerprint], |r| r.get(0)).optional().map_err(db)
 }
 
+/// #710 7a rules M1, N5, P8: what the identity records say about writing export account `id`'s history on `dest` (None: a
+/// new account) of (user, exchange), read inside the import's transaction. `holders`: the other live accounts whose
+/// fingerprint, key observation or import observation is the export's (by number). `foreign`: `dest`'s fingerprint, a
+/// key observation of it, or an import observation of it names another account. The takeover's sentinel names nobody.
+/// `facts`: what was compared, for the answer's digest (rule N4).
+pub struct ImportEvidence { pub holders: Vec<i64>, pub foreign: bool, pub facts: String }
+pub fn import_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId, now: DateTime<Utc>) -> Result<ImportEvidence, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
+    let file = key(c, cipher, now)?.fingerprint(&exchange_type, id);
+    let mut out = ImportEvidence { holders: vec![], foreign: false, facts: String::new() };
+    for (account, _) in accounts_of(c, user_id, exchange_id).map_err(db)? {
+        let Some(row) = Account::by_id(c, account).map_err(db)? else { continue };
+        let own: Option<String> = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).map_err(db)?;
+        let mut seen: Vec<String> = c.prepare(&format!("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                                                         WHERE {} AND o.fingerprint IS NOT NULL AND o.fingerprint <> ?1
+                                                         UNION SELECT fingerprint FROM exchange_account_imports WHERE account_id = ?2 ORDER BY 1", row.keys("k"))).map_err(db)?
+            .query_map(params![UNCONFIRMED_AFTER_V2, account], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+        seen.extend(own.clone());
+        let theirs = seen.contains(&file);
+        let other = seen.iter().any(|f| *f != file);
+        out.facts.push_str(&format!("{account}:{}:{};", u8::from(theirs), u8::from(other)));
+        if Some(account) == dest { out.foreign = other; } else if theirs { out.holders.push(account); }
+    }
+    Ok(out)
+}
+
 /// The account id of a venue-native export, read over every record before any is skipped: the first of `columns` the
 /// header row has. Ok(None) for a file with no record at all (its import answers as before). A missing column, a blank,
 /// masked or otherwise unreadable id on any record, or two different ids, is a malformed export. A line with no cells

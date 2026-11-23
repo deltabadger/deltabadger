@@ -1,6 +1,18 @@
 nl:
     tracker:
         import:
-            imported_elsewhere: "Niets geïmporteerd. De regels van dit bestand zijn al geïmporteerd bij %{account}."
+            warn_held: "%{account} heeft de geschiedenis van deze export misschien al. Hier importeren kan die dubbel tellen in je totalen."
+            warn_other: "Deze export is van een ander account dan %{account}. Daar importeren vermengt twee accounts."
+            warn_existing: "Regels die al op %{account} staan: %{count}. Hier importeren telt ze dubbel in je totalen."
+            warn_unrouted: "Regels van accounts die hier niet zijn: %{count}. Die worden niet geïmporteerd."
+            warn_retained: "Deze regels komen uit de gesynchroniseerde geschiedenis van een ander account. Hier importeren kan ze dubbel tellen."
+            warn_changed: "Er is iets veranderd sinds je antwoord. Controleer het opnieuw."
+            import_here: "Toch hier importeren"
+            import_new: "Importeren in een nieuw account"
+            import_to: "Importeren in %{account}"
+            import_anyway: "Toch importeren"
+            import_rest: "De rest importeren"
+            cancel: "Annuleren"
+            cancelled: "Niets geïmporteerd."
             format_kucoin: "KuCoin CSV"
             generic: "Vastgelegd met een algemeen label: %{count}."

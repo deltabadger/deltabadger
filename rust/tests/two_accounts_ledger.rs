@@ -138,7 +138,7 @@ fn entry(kind: i64, coin: &str, amount: &str, id: Option<&str>, group: Option<&s
 
 fn store(c: &Connection, key: &sync::Key, entries: Vec<Entry>) -> sync::ledger::Outcome {
     let tx = model::immediate(c).unwrap();
-    let out = sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), key, entries, now()).unwrap();
+    let out = sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), key, entries, "deltabadger", now()).unwrap();
     tx.commit().unwrap();
     out
 }
@@ -211,7 +211,7 @@ fn the_binance_writer_keeps_buckets_and_dust_pairs_per_account() {
     assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}:"))), "number 1's name as before: {buckets:?}");
     assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}@{n}:"))), "{buckets:?}");
     let csv = |key: &sync::Key, rows: Vec<Entry>| { let tx = model::immediate(c).unwrap();
-        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, now()); if out.is_ok() { tx.commit().unwrap(); } out };
+        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, "binance", false, now()).map(|(o, _)| o); if out.is_ok() { tx.commit().unwrap(); } out };
     for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().imported, 2); }
     for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().duplicates, 2); }
     // A lone dust leg on account 1 near a second CSV pair's time.
@@ -441,7 +441,12 @@ async fn a_transfer_between_the_two_accounts_is_stored_on_both_and_linked() {
 // ---- commit 6: export and re-import (§6 test 11) ----
 
 fn import(c: &Connection, user: i64, text: &str) -> deltabadger::tracker::import::run::Answer {
-    deltabadger::tracker::import::run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, None, now()).unwrap()
+    use deltabadger::tracker::import::run::{self, Answer};
+    // #710 7a rule Q6: one venue id on two accounts of the file is warned about first; imported anyway.
+    match run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, None, now()).unwrap() {
+        Answer::Warned(_, choices) => run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, Some(&choices[0].value), now()).unwrap(),
+        answer => answer,
+    }
 }
 
 /// §6 test 11 (CSV): the export carries `account` 1/2 and account 2's venue ids; read back into another install with two

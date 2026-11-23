@@ -617,8 +617,13 @@ impl Fx {
         let import = |answer: Option<&str>| run::import(&self.c, &self.cipher, self.user, "kucoin", text.as_bytes(), None, answer, now()).unwrap();
         let account: i64 = self.c.query_row("SELECT account_id FROM exchange_account_keys WHERE api_key_id = ?1", [key], |r| r.get(0))
             .unwrap_or_else(|_| identity::Account::first(&self.c, self.user, self.exchange).unwrap().id.unwrap());
-        match import(None) {
+        let answer = match import(None) {
             run::Answer::Ambiguous(choices) => import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{account}~"))).expect("the account offered").value)),
+            answer => answer,
+        };
+        // #710 7a rule P5: the same export's rows on the other account are warned about; imported here anyway.
+        match answer {
+            run::Answer::Warned(_, choices) => import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{account}!"))).expect("here offered").value)),
             answer => answer,
         }
     }
@@ -659,8 +664,8 @@ async fn s7_0_6_a_cutoff_is_its_accounts() {
     assert!(matches!(fx.import_on(first, &overlapping_export()), run::Answer::Written { imported: 4, .. }), "account 1's cutoffs still hold there");
 }
 
-/// 7a §0.11: a file of another account imported here as a conflict (as before 7a) is never imported again: its re-upload
-/// is refused, naming the account its rows are on, and nothing changes; the conflict observation stays.
+/// 7a §0.11, rule M1(b): a file of another account imported here as a conflict (as before 7a) is the user's to import
+/// again: its re-upload warns, naming the account holding it, and writes nothing until answered.
 #[test]
 fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
     let fx = Fx::new();
@@ -672,7 +677,23 @@ fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
     assert_eq!(fx.standing(), Standing::Conflicted);
     let (rows, observations) = (fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports"));
     let again = fx.import(TRADING);
-    assert!(format!("{again:?}").starts_with("ImportedElsewhere(\"KuCoin\")"), "{again:?}");
+    assert!(matches!(&again, run::Answer::Warned(w, _) if w.contains(&run::Warning::HeldElsewhere("KuCoin".into()))), "{again:?}");
     assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports")), (rows, observations));
     assert_eq!(fx.standing(), Standing::Conflicted, "the conflict is kept");
+}
+
+/// #710 7a rule N8: every row a file import wrote records its importer in the insert's transaction; a row the API sync
+/// wrote records none.
+#[tokio::test(flavor = "current_thread")]
+async fn n8_every_imported_row_records_its_importer_and_no_synced_row_does() {
+    let fx = Fx::new();
+    fx.watermark(WATERMARK);
+    assert!(fx.sync(&overlapping_api(500), false).await);
+    let synced = fx.count("SELECT count(*) FROM account_transactions");
+    assert!(synced > 0);
+    assert!(matches!(fx.import(&overlapping_export()), run::Answer::Written { .. }));
+    let filed = fx.count("SELECT count(*) FROM account_transactions") - synced;
+    assert!(filed > 0);
+    assert_eq!(fx.count("SELECT count(*) FROM import_row_origins WHERE import_kind = 'kucoin'"), filed, "each imported row");
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM import_row_origins o JOIN account_transactions a ON a.id = o.transaction_id WHERE {}", "json_extract(a.raw_data, '$.createdAt') IS NOT NULL")), 0, "no synced row");
 }

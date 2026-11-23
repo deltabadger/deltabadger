@@ -1,6 +1,18 @@
 da:
     tracker:
         import:
-            imported_elsewhere: "Intet blev importeret. Rækkerne i denne fil er allerede importeret på %{account}."
+            warn_held: "%{account} har måske allerede historikken fra denne eksport. Importerer du den her, kan den tælle dobbelt i dine totaler."
+            warn_other: "Denne eksport er fra en anden konto end %{account}. Importerer du den der, blandes to konti."
+            warn_existing: "Rækker, der allerede er på %{account}: %{count}. Importerer du dem her, tæller de dobbelt i dine totaler."
+            warn_unrouted: "Rækker for konti, der ikke er her: %{count}. De bliver ikke importeret."
+            warn_retained: "Rækkerne kommer fra en anden kontos synkroniserede historik. Importerer du dem her, kan de tælle dobbelt."
+            warn_changed: "Noget har ændret sig, siden du svarede. Tjek det igen."
+            import_here: "Importér her alligevel"
+            import_new: "Importér til en ny konto"
+            import_to: "Importér til %{account}"
+            import_anyway: "Importér alligevel"
+            import_rest: "Importér resten"
+            cancel: "Annullér"
+            cancelled: "Intet blev importeret."
             format_kucoin: "KuCoin CSV"
             generic: "Registreret med en generel betegnelse: %{count}."
