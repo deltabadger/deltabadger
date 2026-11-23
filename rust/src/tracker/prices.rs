@@ -199,7 +199,7 @@ impl Reference {
 
 /// Every symbol the rows name: base, quote and fee, and BTC (the cross rate a missing ECB rate falls back to).
 pub fn symbols(rows: &[Stored]) -> HashSet<String> {
-    let mut s: HashSet<String> = rows.iter().flat_map(|r| std::iter::once(r.base.clone()).chain(r.quote.clone()).chain(r.fee_currency.clone())).collect();
+    let mut s: HashSet<String> = rows.iter().flat_map(|r| std::iter::once(r.base.to_string()).chain(r.quote.as_deref().map(str::to_owned)).chain(r.fee_currency.as_deref().map(str::to_owned))).collect();
     s.insert("BTC".into());
     s
 }
@@ -358,7 +358,7 @@ impl<'a> PriceService<'a> {
     pub fn record(&mut self, rows: &[Stored]) {
         for r in rows {
             let Some(asset) = &r.base_asset else { continue };
-            let list = self.recorded.entry((r.exchange_id, r.base.clone())).or_default();
+            let list = self.recorded.entry((r.exchange_id, r.base.to_string())).or_default();
             if !list.iter().any(|a| a.0 == asset.0) { list.push(asset.clone()); }
         }
     }

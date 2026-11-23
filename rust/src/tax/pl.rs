@@ -104,19 +104,19 @@ impl Report {
             let (coin, cash) = match group {
                 Some((_, coins)) if fiat(&r.base) => {
                     let coin = coins.iter().find(|c| c.kind.in_leg() == r.kind.out_leg()).unwrap_or(&coins[0]);
-                    out.push(Component { row: r, day, asset: coin.base.clone(), amount: Some(coin.amount.clone()), sides: side(r.kind.out_leg()),
-                                         money: Money::Cash(r.amount.clone(), r.base.clone()) });
-                    (coin.base.clone(), true)
+                    out.push(Component { row: r, day, asset: coin.base.to_string(), amount: Some(coin.amount.clone()), sides: side(r.kind.out_leg()),
+                                         money: Money::Cash(r.amount.clone(), r.base.to_string()) });
+                    (coin.base.to_string(), true)
                 }
-                Some(_) => (r.base.clone(), true),
+                Some(_) => (r.base.to_string(), true),
                 None if fiat(&r.base) => continue,
                 None => match r.quote.as_deref().filter(|q| fiat(q)).zip(r.quote_amount.as_ref()) {
                     Some((q, paid)) => {
-                        out.push(Component { row: r, day, asset: r.base.clone(), amount: Some(r.amount.clone()), sides: side(r.kind.in_leg()),
+                        out.push(Component { row: r, day, asset: r.base.to_string(), amount: Some(r.amount.clone()), sides: side(r.kind.in_leg()),
                                              money: Money::Cash(paid.clone(), q.to_string()) });
-                        (r.base.clone(), true)
+                        (r.base.to_string(), true)
                     }
-                    None => (r.base.clone(), false),
+                    None => (r.base.to_string(), false),
                 },
             };
             let Some((fee_currency, fee)) = r.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).zip(r.fee_amount.as_ref()).filter(|(_, a)| a.is_positive()) else { continue };

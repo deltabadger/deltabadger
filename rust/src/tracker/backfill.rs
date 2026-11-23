@@ -373,8 +373,8 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
             next_row += 1;
             apply(&mut held, t, &linked, &by_id)?;
             if !t.borrowed() {
-                for (currency, amount) in super::walk::cash_moves(t.kind, &t.base, &t.amount, t.quote.as_deref(), t.quote_amount.as_ref(), t.fee_currency.as_deref(), t.fee_amount.as_ref())? {
-                    let q = cash.entry((location(t.account), currency)).or_insert_with(Dec::zero);
+                for (currency, amount) in super::walk::cash_moves(t.kind, &t.base, &t.amount, t.quote.as_ref(), t.quote_amount.as_ref(), t.fee_currency.as_ref(), t.fee_amount.as_ref())? {
+                    let q = cash.entry((location(t.account), currency.to_string())).or_insert_with(Dec::zero);
                     *q = (&*q + &amount)?;
                 }
             }
@@ -770,7 +770,7 @@ mod tests {
     #[test]
     fn many_symbols_plan_in_linear_work_within_the_allowance() {
         let c = install();
-        let rows: Vec<Stored> = (0..3000).map(|i| Stored { id: i, base: format!("S{i}"), ..bought("BTC") }).collect();
+        let rows: Vec<Stored> = (0..3000).map(|i| Stored { id: i, base: format!("S{i}").into(), ..bought("BTC") }).collect();
         let (out, used) = budget::scope(budget::FIGURE, || plan(&c, 1, &rows, day("2026-09-02"), day("2026-09-30")));
         assert_eq!(out.unwrap().instruments.len(), 3000);
         assert!(used.steps >= 6_000 && used.steps < 1_000_000, "{} steps", used.steps);
@@ -798,7 +798,7 @@ mod tests {
     /// step: bounded, and refused under an allowance it exceeds.
     #[test]
     fn many_symbols_sweep_in_linear_work_within_the_allowance() {
-        let rows: Vec<Stored> = (0..100_000).map(|i| Stored { id: i, base: format!("S{i}"), ..bought("BTC") }).collect();
+        let rows: Vec<Stored> = (0..100_000).map(|i| Stored { id: i, base: format!("S{i}").into(), ..bought("BTC") }).collect();
         let sweep_in = |limits| budget::scope(limits, || sweep(&Plan::default(), &Prices::new(), &rows, &[], day("2026-09-02"), day("2026-09-03"), &super::super::fx::FxTable::default()));
         let (out, used) = sweep_in(budget::FIGURE);
         assert_eq!(out.unwrap().whole.len(), 2);

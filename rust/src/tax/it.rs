@@ -129,7 +129,7 @@ impl Report {
             if euro_emt(self.local(r.at), &r.base) { emt_bucket = (&emt_bucket + &v)?; }
         }
         let mut coins: Vec<String> = held.into_iter().flatten().filter(|(sym, units)| (stable(sym) || emt(sym)) && units.is_positive()).map(|(sym, _)| sym.clone())
-            .chain(enriched.iter().map(|e| &e.row).filter(|r| (stable(&r.base) || emt(&r.base)) && self.local(r.at).year() == year).map(|r| r.base.clone())).collect();
+            .chain(enriched.iter().map(|e| &e.row).filter(|r| (stable(&r.base) || emt(&r.base)) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
         coins.sort();
         coins.dedup();
         notes.stablecoins = coins;

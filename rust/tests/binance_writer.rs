@@ -344,7 +344,7 @@ fn accounting(c:&Connection,owner:i64,expected:&Value) {
     }).collect();
     assert_eq!(json!(lots),expected["lots"],"exact remaining FIFO lots from stored history");
     let mut held=std::collections::BTreeMap::<String,Dec>::new();
-    for r in &rows {for (coin,n) in walk::quantity_moves(r.kind,&r.base,&r.amount,r.fee_currency.as_deref(),r.fee_amount.as_ref(),false,None).unwrap(){let old=held.entry(coin).or_insert_with(Dec::zero);*old=(&*old+&n).unwrap();}}
+    for r in &rows {for (coin,n) in walk::quantity_moves(r.kind,&r.base,&r.amount,r.fee_currency.as_ref(),r.fee_amount.as_ref(),false,None).unwrap(){let old=held.entry(coin.to_string()).or_insert_with(Dec::zero);*old=(&*old+&n).unwrap();}}
     assert_eq!(json!(held.into_iter().map(|(k,v)|(k,v.to_s_f())).collect::<std::collections::BTreeMap<_,_>>()),expected["holdings"]);
     assert_eq!(engine.disposals.len(),expected["disposals"].as_array().unwrap().len());
     let mut realised=Dec::zero();

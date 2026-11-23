@@ -131,8 +131,8 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec
         let partner = links.get(&r.id).or_else(|| inverse.get(&r.id)).copied();
         let linked = partner.is_some_and(|p| ids.contains(&p));
         let fee = match (linked, r.kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((&r.amount - p)?), _ => None };
-        for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_deref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol, a)?; } }
-        for (currency, a) in cash_moves(r.kind, &r.base, &r.amount, r.quote.as_deref(), r.quote_amount.as_ref(), r.fee_currency.as_deref(), r.fee_amount.as_ref())? { add(currency, a)?; }
+        for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol.to_string(), a)?; } }
+        for (currency, a) in cash_moves(r.kind, &r.base, &r.amount, r.quote.as_ref(), r.quote_amount.as_ref(), r.fee_currency.as_ref(), r.fee_amount.as_ref())? { add(currency.to_string(), a)?; }
     }
     Ok(moved)
 }

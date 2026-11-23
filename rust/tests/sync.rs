@@ -1996,7 +1996,7 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
     let mut held = dec("10");
     for amount in amounts {
         let amount = dec(&amount);
-        let moves = walk::quantity_moves(Kind::Adjustment,"AAPL",&amount,None,None,false,None).unwrap();
+        let moves = walk::quantity_moves(Kind::Adjustment,&"AAPL".into(),&amount,None,None,false,None).unwrap();
         held = (&held + &moves[0].1).unwrap();
         rows.push(row(rows.len(),Kind::Adjustment,amount,Dec::zero(),At::from_sql("2026-09-15T00:00:00Z").unwrap()));
     }
