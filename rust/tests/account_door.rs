@@ -133,12 +133,13 @@ async fn a_forged_or_merged_target_is_a_404() {
 
 const UID_A: &str = "165111215";
 const UID_B: &str = "999000111";
+const UID_C: &str = "555000333";
 
-/// A KuCoin exchange of the Alpaca fixture's user, its key server answering each key's account: `key-a` reads A, `key-b`
-/// reads B, any other key's read fails (a 503).
+/// A KuCoin exchange of the Alpaca fixture's user, its key server answering each key's account: `key-a` reads A, `key-b`, `key-b2`, `key-b3`
+/// read B, `key-c` C, any other key's read fails (a 503).
 async fn kucoin() -> (tempfile::TempDir, store::Opened, i64, i64, MockServer, deltabadger::web::App) {
     let server = MockServer::start().await;
-    for (key, uid) in [("key-a", UID_A), ("key-b", UID_B), ("key-b2", UID_B)] {
+    for (key, uid) in [("key-a", UID_A), ("key-b", UID_B), ("key-b2", UID_B), ("key-b3", UID_B), ("key-c", UID_C)] {
         Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", key))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": uid, "permission":"General,Spot"}}))).mount(&server).await;
     }
@@ -2032,6 +2033,50 @@ async fn q1_a_second_account_forms_only_once_every_other_key_was_read() {
             assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (1, unread.into())]);
         }
     }
+}
+
+/// A read-only key `key` of the KuCoin fixture placed on `account` as 2.x would leave it: no account read.
+fn unread_key(c: &Connection, user: i64, exchange: i64, account: i64, key: &str) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt(key), cipher.encrypt("secret"), cipher.encrypt("phrase")]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    assert!(identity::unread(c, id).unwrap());
+    id
+}
+
+/// Rule Q1 extended (slice 9 review b): on an exchange with two accounts, a Reconnect first reads the unread key it would
+/// replace. Account 1's read-only key (A's, never read) and a keyless account 2: Reconnecting account 1's slot with C's key
+/// reads A's key first, so C's key never lands on A's history; A's slot is untouched.
+#[tokio::test(flavor = "current_thread")]
+async fn q1_a_reconnect_reads_the_unread_key_it_would_replace() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let a = unread_key(c, user, exchange, first, "key-a");
+    identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &kucoin_fields("key-c")).await;
+    assert!(!identity::unread(c, a).unwrap(), "A's key was read first");
+    let on_first: Vec<String> = keys(c, &cipher, exchange).into_iter().filter(|(n, _)| *n == 1).map(|(_, k)| k).collect();
+    assert_eq!(on_first, ["key-a"], "A's slot untouched: {} {}", answer.status, answer.body);
+}
+
+/// Rule Q1 for every new account (slice 9 review c): a tile save that would make account 3 while account 2's key is unread
+/// reads it first; another key of account 2's owner then lands on 2, and the exchange keeps two accounts.
+#[tokio::test(flavor = "current_thread")]
+async fn q1_a_third_account_forms_only_once_the_second_accounts_key_was_read() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_key(c, user, exchange, second, "key-b");
+    let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-b2")).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(numbers(c, exchange), [1, 2], "no third account");
+    assert!(keys(c, &cipher, exchange).contains(&(2, "key-b2".into())), "{:?}", keys(c, &cipher, exchange));
 }
 
 /// Rule N3: the exact key reposted through a venue tile goes to its own account, even where no read has set that

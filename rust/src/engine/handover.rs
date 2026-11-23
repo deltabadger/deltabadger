@@ -207,6 +207,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         // #710: what 2.x added names exchanges with no account yet; rows stay eager. Its withdrawal rules are the number-1
         // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
+        // #710 7a rule N7: the readers before the takeover's fences, so a fence's handoff counts.
+        crate::sync::seed_readers(&tx).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
         crate::identity::after_v2(&tx, cipher)?;
         // #710 7a rules P9/Q5: rows 2.x's importer wrote while it owned the install, by its import shapes only.
         if let Some(back) = handed_back { crate::tracker::import::v2_origins(&tx, back, now)?; }

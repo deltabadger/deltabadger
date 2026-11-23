@@ -4060,3 +4060,21 @@ fn q7_two_imported_twins_keep_the_survivors_file_origin() {
     let kind: Option<String> = c.query_row("SELECT import_kind FROM import_row_origins WHERE transaction_id = ?1", [kept], |r| r.get(0)).ok();
     assert_eq!(kind.as_deref(), Some("deltabadger"), "two imported rows stay one imported row");
 }
+
+/// Slice 9 review d: discovery filling both NULL fingerprints judges the pair's duplicate standing in the observation's
+/// own transaction: read right after the second read, with no reconsider of the test's own (`standing` runs one). The same
+/// account read on both keys makes 2 the duplicate of 1; read as different accounts, nothing stands.
+#[test]
+fn d_discovery_filling_both_fingerprints_settles_the_standing_at_once() {
+    for (second, stands) in [("111", true), ("222", false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let kraken = Two::kraken(c, &seed::cipher());
+        let two = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+        assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+        observe(c, two.keys[0], &identity::Observed::Read(identity::AccountId::parse("111").unwrap()));
+        observe(c, two.keys[1], &identity::Observed::Read(identity::AccountId::parse(second).unwrap()));
+        let stored = identity::duplicates(c, two.seeded.user_id).unwrap();
+        assert_eq!(stored.contains(&(two.id(1), two.id(0))), stands, "{second}: {stored:?}");
+    }
+}

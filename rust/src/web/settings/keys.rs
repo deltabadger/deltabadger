@@ -38,24 +38,28 @@ pub const UNCONFIRMED: &str = "\u{0}identity_unconfirmed";
 /// `other_key_checking(name)` names the exchange.
 const OTHER_KEY_CHECKING: &str = "\u{0}other_key_checking\u{1}";
 fn other_key_checking(exchange: &str) -> String { format!("{OTHER_KEY_CHECKING}{exchange}") }
-/// Rules Q1/P1: whether a save routed to a new account must wait: the exchange (an identity venue) has one live account and
-/// a key of it has no UID read of its current material (`identity::unread`). Inside the save's transaction too.
+/// Rules Q1/P1: the keys a save must wait for: on an identity venue with a live account, every key of the exchange with no
+/// UID read of its current material (`identity::unread`). A save routed to a new account waits for them; on an exchange
+/// with two or more accounts every save does (it may replace or route against one). Inside the save's transaction too.
 fn needs_reads(c: &Connection, user: i64, exchange: i64, venue: &str) -> Result<Vec<i64>, WebError> {
-    if !crate::identity::VENUES.contains(&venue) || crate::identity::accounts_of(c, user, exchange)?.len() != 1 { return Ok(vec![]); }
+    if !crate::identity::VENUES.contains(&venue) || crate::identity::accounts_of(c, user, exchange)?.is_empty() { return Ok(vec![]); }
     let ids: Vec<i64> = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id")?.query_map([user, exchange], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let mut out = vec![];
     for id in ids { if crate::identity::unread(c, id).map_err(WebError::Config)? { out.push(id); } }
     Ok(out)
 }
+/// Whether the exchange has two or more live accounts (rule Q1: every save there reads the unread keys first).
+fn several(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> { Ok(crate::identity::accounts_of(c, user, exchange)?.len() >= 2) }
 /// Rule Q1: before a save makes an exchange's second account, every key of it without a UID read of its current material
 /// is read now (bounded by the key check's own timeout), each recorded as discovery records it (`identity::publish`:
 /// fenced where it reads another account, routed nowhere else). `would_create` asks whether the save routes to a new
-/// account. A read that fails refuses the save (Q1's words); nothing is allocated.
+/// account; on an exchange with two or more accounts every save reads them. A read that fails refuses the save (Q1's
+/// words); nothing is allocated.
 async fn read_unread(app: &App, user: i64, exchange: i64, venue: &str, name: &str, would_create: impl FnOnce(&Connection) -> Result<bool, WebError> + Send + 'static) -> Result<Option<String>, WebError> {
     let (inner, venue_s) = (app.clone(), venue.to_string());
     let due = app.db(move |c| {
         let ids = needs_reads(c, user, exchange, &venue_s)?;
-        if ids.is_empty() || !would_create(c)? { return Ok(vec![]); }
+        if ids.is_empty() || (!several(c, user, exchange)? && !would_create(c)?) { return Ok(vec![]); }
         let mut out = vec![];
         for id in ids {
             let (credentials, version, _) = crate::sync::validation_material(c, &inner.cipher, id).map_err(|e| WebError::Config(e.0))?;
@@ -532,7 +536,7 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
    let route=crate::identity::route_key(&tx,&inner.cipher,user_id,original.account.exchange_id,&venue_s,stored,named.and_then(|a|a.id),&reading,validated.handle.credentials(),None,inner.now()).map_err(WebError::Config)?;
    let dest=match route {
     crate::identity::Route::To(id)=>id,
-    // Rules Q1/P1: never a second account while another key of the exchange has no account read (one added meanwhile).
+    // Rules Q1/P1: never a new account while another key of the exchange has no account read (one added meanwhile).
     crate::identity::Route::New if !needs_reads(&tx,user_id,original.account.exchange_id,&venue_s)?.is_empty()=>return Ok(Some(other_key_checking(&venue_label))),
     // Rule M2: a new account for an exchange account another one holds history of is asked first.
     crate::identity::Route::New=>match &validated.identity {
@@ -558,6 +562,9 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
    return Ok(Some("credential changed during validation".into()));
   }
   if !validated.result.current_for(&Some(validated.handle.producer().clone())).is_fresh(){return Ok(Some("credential changed during validation".into()));}
+  // Rule Q1: on an identity venue's exchange with two or more accounts, no save while one of its keys has no account read
+  // (one added meanwhile; the slots it may replace were read before the save).
+  if venue_s!=crate::venue::ibkr::IBKR&&several(&tx,user_id,original.account.exchange_id)?&&needs_reads(&tx,user_id,original.account.exchange_id,&venue_s)?.into_iter().any(|k|Some(k)!=current.id) {return Ok(Some(other_key_checking(&venue_label)));}
   let candidate=&validated.key;
   let now=format_time(inner.now());
   let status=if pending {3} else {1};
@@ -1042,6 +1049,11 @@ pub async fn legacy(
   if key_slot(&current)!=before&&!current.id.is_some_and(|k|crate::identity::is_material(&tx,&inner.cipher,k,&venue,&material)) {
    // Replaced (or added) by another request while this one read the key's account: retried, never overwritten.
    return Ok(Err(Some("credential changed during validation".into())));
+  }
+  // Rule Q1: on an exchange with two or more accounts, no save while one of its keys has no account read (added meanwhile).
+  if venue!=crate::venue::ibkr::IBKR&&several(&tx,user.id,exchange)?&&needs_reads(&tx,user.id,exchange,&venue)?.into_iter().any(|k|Some(k)!=current.id) {
+   let name:String=tx.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?;
+   return Ok(Err(Some(other_key_checking(&name))));
   }
   if current.id.is_some() { if let Some(r)=settling(&tx,&inner.cipher,&account)? { return Ok(Err(Some(r.to_string()))); } }
   let same_keys=same(&current.key,&key)&&same(&current.secret,&secret);

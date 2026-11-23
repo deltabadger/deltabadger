@@ -223,6 +223,8 @@ pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result
             crate::store::mark_changed();
         }
     }
+    // An install 2.x owns is not written before its claim (a refused start leaves it as it was); its takeover seeds them.
+    if !crate::lease::read(c, cipher).ok().flatten().is_some_and(|v| v["engine"] == "rust") { return Ok(()); }
     crate::sync::seed_readers(c).map_err(|e| e.0)
 }
 
@@ -1465,7 +1467,13 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                       params![api_key_id, exchange_id, digest, version, fingerprint, encrypted, at]).map_err(db)?;
             ensure_account(c, user_id, exchange_id, now).map_err(db)?;
             if reading_key(c, user_id, api_key_id)? {
-                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { establish_by_read(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
+                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? {
+                    let print = |c: &Connection| c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get::<_, Option<String>>(0)).optional();
+                    let was = print(c).map_err(db)?.flatten();
+                    establish_by_read(c, account, &fingerprint, &encrypted, now).map_err(db)?;
+                    // A fingerprint filled or replaced is new evidence: the exchange's duplicate standings are judged again now.
+                    if print(c).map_err(db)?.flatten() != was { reconsider(c, user_id, exchange_id, now).map_err(db)?; }
+                }
             }
             fence_copies(c, cipher, user_id, exchange_id, &exchange_type, credentials, id, Some(api_key_id), now)?;
         }
@@ -1747,7 +1755,8 @@ pub fn due(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Vec<Du
     if !ready(c).map_err(db)? { return Ok(vec![]); }
     let key = existing_key(c, cipher);
     let mut s = c.prepare("SELECT k.id, e.type, o.material_digest, o.observed_credential_version, o.fingerprint, o.observed_at, o.last_failure_at
-                           FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id ORDER BY k.id").map_err(db)?;
+                           FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id
+                           ORDER BY (o.observed_at IS NOT NULL OR o.last_failure_at IS NOT NULL), max(coalesce(o.observed_at, ''), coalesce(o.last_failure_at, '')), k.id").map_err(db)?;
     type Row = (i64, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
     let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).map_err(db)?
         .collect::<Result<Vec<Row>, _>>().map_err(db)?;

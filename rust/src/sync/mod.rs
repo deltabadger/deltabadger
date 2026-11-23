@@ -415,17 +415,25 @@ pub fn settle_reader(c: &Connection, account: i64) -> Result<Option<i64>, SyncEr
     if let Some(row) = crate::identity::AccountRow::by_id(c, account)? { c.execute("DELETE FROM app_configs WHERE key = ?1", [cache::balance_origin_key_of(&row)])?; }
     Ok(Some(k))
 }
-/// Rule N7, at startup: each live account with no generation row (one from before the table) has its current reader
-/// stored, as `settle_reader`'s first sighting, before anything can hand it off.
+/// Rule N7, at a start of an install Rust owns and in a takeover's claim: each live account's reader is settled before
+/// anything can hand it off. One with no generation row (from before the table) has its current reader stored, as
+/// `settle_reader`'s first sighting; one whose stored reader no longer reads (made unread, fenced, gone while stopped) is
+/// a handoff now, so the read that makes it eligible again moves the generation and wakes it. Inside the caller's
+/// transaction when there is one.
 pub fn seed_readers(c: &Connection) -> Result<(), SyncError> {
     if !generations_ready(c)? { return Ok(()); }
+    let settle_all = |c: &Connection| -> Result<(), SyncError> {
+        let live: Vec<i64> = c.prepare("SELECT id FROM exchange_accounts WHERE removed_at IS NULL ORDER BY id")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        for account in live { settle_reader(c, account)?; }
+        Ok(())
+    };
+    if !c.is_autocommit() { return settle_all(c); }
     let tx = c.unchecked_transaction()?;
-    let missing: Vec<i64> = tx.prepare("SELECT id FROM exchange_accounts WHERE removed_at IS NULL AND id NOT IN (SELECT account_id FROM ledger_reader_generations) ORDER BY id")?
-        .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
-    if missing.is_empty() { return Ok(()); }
-    for account in missing { settle_reader(&tx, account)?; }
+    let before = tx.total_changes();
+    settle_all(&tx)?;
+    let changed = tx.total_changes() != before;
     tx.commit()?;
-    crate::store::mark_changed();
+    if changed { crate::store::mark_changed(); }
     Ok(())
 }
 /// `settle_reader` for every live account of (user, exchange); the readers that changed.

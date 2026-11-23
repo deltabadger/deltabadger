@@ -1521,6 +1521,42 @@ async fn n1_an_unread_keys_jobs_do_nothing_on_a_two_account_exchange() {
     assert_eq!(fx.c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE '%' || ?1 || '%'", [format!(":{added}")], |r| r.get::<_, i64>(0)).unwrap(), 0, "nothing marked");
 }
 
+/// Discovery never starves (slice 9 review e): each pass takes the never-attempted credentials first, then the least
+/// recently attempted. Ten older keys refused at every read do not keep a later valid key from being read.
+#[test]
+fn discovery_reads_a_later_key_while_ten_older_ones_keep_failing() {
+    let fx = Fx::new();
+    let failing: Vec<i64> = (0..10).map(|i| fx.key(KUCOIN, 0, &format!("kc-bad-{i}"))).collect();
+    for key in &failing { fx.observe(*key, Observed::Failed("http 401".into())); }
+    let later = fx.key(KUCOIN, 0, "kc-good");
+    let due: Vec<i64> = identity::due(&fx.c, &fx.cipher, now() + Duration::hours(2)).unwrap().into_iter().map(|d| d.api_key_id).collect();
+    assert_eq!(due.len(), 10);
+    assert_eq!(due[0], later, "never attempted first: {due:?}");
+}
+
+/// Slice 9 review a: a reader recorded while it could read, made unread by a second account and its own new material,
+/// over a restart: the start reconciles the stored reader (nobody reads), so discovery's read of the same key moves the
+/// generation and wakes its ledger and balance jobs (`moved_readers`, what discovery wakes).
+#[test]
+fn a_an_upgraded_reader_confirmed_by_discovery_is_woken() {
+    use deltabadger::sync;
+    let (mut fx, key) = established();
+    sync::settle_readers_of_key(&fx.c, key).unwrap();
+    identity::new_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    fx.replace(key, "kc-a-new");
+    assert!(!ledger_reads(&fx, key), "unread on a two-account exchange");
+    let stored: Option<i64> = fx.c.query_row("SELECT reader FROM ledger_reader_generations WHERE reader = ?1", [key], |r| r.get(0)).unwrap();
+    assert_eq!(stored, Some(key), "the persisted row still names it");
+    let paths = deltabadger::store::Paths::from_env(&|_| None, fx.dir.path());
+    let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+    deltabadger::lease::claim(&lock, &fx.c, &fx.cipher, "test", now()).unwrap();
+    fx.restart();
+    let before = identity::generations_of_key(&fx.c, key).unwrap();
+    fx.observe(key, read(A));
+    assert_eq!(identity::moved_readers(&fx.c, key, &before).unwrap(), [key], "discovery wakes it");
+    assert!(ledger_reads(&fx, key) && sync::balance_reading_keys(&fx.c).unwrap().contains(&key));
+}
+
 /// Rule P4: the proof and the reader generation are bookkeeping, not holdings: they keep no account, and a tombstone takes
 /// them with it.
 #[test]
@@ -1574,6 +1610,10 @@ fn n7_the_first_handoff_after_the_upgrade_counts() {
     common::two_accounts::stamp_ledgers(&fx.c, fx.user);
     common::two_accounts::restamp(&fx.c, fx.user, read_only);
     fx.c.execute("DELETE FROM ledger_reader_generations", []).unwrap();
+    // An install Rust owns (a start of one 2.x owns writes nothing before its claim; the takeover seeds then).
+    let paths = deltabadger::store::Paths::from_env(&|_| None, fx.dir.path());
+    let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+    deltabadger::lease::claim(&lock, &fx.c, &fx.cipher, "test", now()).unwrap();
     fx.restart();
     let old = sync::reader_entry(&fx.c, trading).unwrap().expect("the trading key reads");
     let current = |fx: &Fx| sync::cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap().ledger_is_current(&fx.c).unwrap();
