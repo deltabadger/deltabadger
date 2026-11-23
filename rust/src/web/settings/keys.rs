@@ -75,6 +75,73 @@ async fn read_unread(app: &App, user: i64, exchange: i64, venue: &str, name: &st
     }
     Ok(None)
 }
+/// #710 7a rule M2: a save that would make a new account for an exchange account another live account already holds
+/// history of (a key or file observation of it), or a Reconnect whose account is another: asked first. The reason
+/// carries the question (`question_html`); `key_answer` posts the answer back with the key.
+const QUESTION: &str = "\u{0}key_question\u{1}";
+/// Cancel on that question: nothing saved, the question goes.
+const UNASKED: &str = "\u{0}key_unasked";
+/// What `key_question` came to: a new account, the account the answer named instead, or the question.
+enum KeyAsk { New, To(i64), Ask(String) }
+/// Rule M2 (and N4's discipline): in the save's write transaction, for a save routed to a new account with read `read`.
+/// Each answer is bound to the key (its material and slot type), its destination's slots and what was seen; it is
+/// consumed in this transaction; any difference asks again.
+#[allow(clippy::too_many_arguments)]
+fn key_question(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, exchange: i64, kind: i64, target: Option<i64>, read: &crate::identity::AccountId,
+                material: &crate::crypto::Credentials, answer: Option<&str>, now: chrono::DateTime<chrono::Utc>) -> Result<KeyAsk, WebError> {
+    use crate::tracker::import::run::{self, Dest};
+    let seen = crate::identity::import_evidence(c, cipher, user, exchange, target, read, now).map_err(WebError::Config)?;
+    if seen.holders.is_empty() && !seen.foreign { return Ok(KeyAsk::New); }
+    let subject = format!("{kind}:{}", crate::identity::existing_key(c, cipher).map(|k| k.material_digest(material)).unwrap_or_default());
+    let sealed = |dest: Dest| -> Result<String, WebError> { Ok(run::seal('w', &subject, dest, &run::slot(c, user, dest).map_err(|e| WebError::Config(e.0))?, &seen.facts)) };
+    let new = sealed(Dest::New(exchange))?;
+    let consume = |d: &str| run::consume(c, d, now).map_err(|e| WebError::Config(e.0));
+    if answer == Some(format!("n!w{new}").as_str()) && consume(&new)? { return Ok(KeyAsk::New); }
+    let mut choices = vec![];
+    for h in &seen.holders {
+        let d = sealed(Dest::Account(*h))?;
+        if answer == Some(format!("a{h}!w{d}").as_str()) && consume(&d)? { return Ok(KeyAsk::To(*h)); }
+        choices.push(serde_json::json!({"value": format!("a{h}!w{d}"), "account": crate::identity::label(c, *h)?.plain()}));
+    }
+    choices.push(serde_json::json!({"value": format!("n!w{new}"), "account": null}));
+    let name: String = c.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1", [exchange], |r| r.get(0))?;
+    let held = seen.holders.first().map(|h| crate::identity::label(c, *h).map(|l| l.plain())).transpose()?;
+    let other = target.filter(|_| seen.foreign).map(|t| crate::identity::label(c, t).map(|l| l.plain())).transpose()?;
+    Ok(KeyAsk::Ask(format!("{QUESTION}{}", serde_json::json!({"changed": answer.is_some(), "exchange": name, "held": held, "other": other, "choices": choices}))))
+}
+/// The question's lines and answers, plain text (the JSON save's), or None for any other reason.
+/// The question's lines, and its answers as (value, label).
+type Asked = (Vec<String>, Vec<(String, String)>);
+pub(crate) fn question_of(ctx: &Ctx, reason: &str) -> Option<Asked> {
+    let q: serde_json::Value = serde_json::from_str(reason.strip_prefix(QUESTION)?).ok()?;
+    let text = |key: &str, args: &[(&str, i18n::Arg)]| i18n::text(ctx.locale, &format!("settings.accounts.{key}"), args);
+    let exchange = q["exchange"].as_str().unwrap_or_default();
+    let mut lines = vec![];
+    if q["changed"].as_bool() == Some(true) { lines.push(text("key_changed", &[])); }
+    if let Some(a) = q["held"].as_str() { lines.push(text("key_held", &[("account", i18n::Arg::Text(a)), ("exchange", i18n::Arg::Text(exchange))])); }
+    if let Some(a) = q["other"].as_str() { lines.push(text("key_other", &[("account", i18n::Arg::Text(a)), ("exchange", i18n::Arg::Text(exchange))])); }
+    let choices = q["choices"].as_array()?.iter().map(|c| (c["value"].as_str().unwrap_or_default().to_string(), match c["account"].as_str() {
+        Some(a) => text("connect_instead", &[("account", i18n::Arg::Text(a))]),
+        None => text("add_anyway", &[]),
+    })).collect();
+    Some((lines, choices))
+}
+/// A key form's answer to the save's question (rule M2): in place of the form's question slot, so the typed key stays;
+/// None for any other reason.
+pub(crate) fn question_response(ctx: &Ctx, reason: &str) -> Option<Response> {
+    let html = if reason == UNASKED { String::new() } else {
+        let (lines, choices) = question_of(ctx, reason)?;
+        let mut html: String = lines.iter().map(|l| format!("<p class=\"sform__error\" role=\"alert\">{}</p>", i18n::escape(l))).collect();
+        html.push_str("<div class=\"set-api__actions\">");
+        for (value, label) in choices.iter().chain(std::iter::once(&("x".to_string(), i18n::text(ctx.locale, "settings.accounts.key_cancel", &[])))) {
+            html.push_str(&format!("<button type=\"submit\" name=\"key_answer\" value=\"{}\" class=\"rbutton rbutton--secondary\" data-turbo-stream=\"true\">{}</button>", i18n::escape(value), i18n::escape(label)));
+        }
+        html.push_str("</div>");
+        html
+    };
+    Some((StatusCode::UNPROCESSABLE_ENTITY, [(header::CONTENT_TYPE, turbo::CONTENT_TYPE)], format!("{}\n", turbo::stream("update", "api_key_question", &html))).into_response())
+}
+
 /// The JSON save of an account's own key again, whose fresh read says it opens another account (#710 7a).
 pub const KEY_READS_ELSEWHERE: &str = "\u{0}key_reads_elsewhere";
 /// D-KEY-REPLACE-WAITS: an open order or a withdrawal still goes through the key being replaced or removed.
@@ -317,6 +384,7 @@ pub async fn save(
     if !bot_request {ctx.session.lock().tracker_connect=Some(exchange);}
     let live = ctx.params.form("api_key[passphrase]").map_or(original.passphrase.as_deref() == Some("live"), |mode| mode == "live");
     let outcome = submit(&app, &ctx, &class, &name, kind, original).await?;
+    if let Submitted::Refused(reason) = &outcome { if let Some(asked) = question_response(&ctx, reason) { return Ok(asked); } }
     // D-TRACKER-SHEET, D-BOT-KEY-SHEET: a refused key says why under the sheet's fields.
     let message = match &outcome {
         Submitted::Correct(_) | Submitted::Moved { .. } => None,
@@ -358,6 +426,9 @@ pub(crate) enum Submitted { Correct(Option<i64>), Incorrect, Permissions(Vec<Str
 /// syncs a reading key has woken after the commit. An incorrect or unverified key is not saved. It is saved into the
 /// account `original` was read from.
 pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, kind: i64, original: Key) -> Result<Submitted, WebError> {
+    // #710 7a rule M2: Cancel on the save's question saves nothing.
+    let answer = ctx.params.form("key_answer").map(str::to_string);
+    if answer.as_deref() == Some("x") { return Ok(Submitted::Refused(UNASKED.into())); }
     // A tile's save starts from a blank candidate: it never inherits a stored key's omitted fields.
     let mut candidate = original.clone();
     if let Some(value) = ctx.params.form("api_key[key]") {
@@ -373,7 +444,7 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, 
         if let Some(value)=ctx.params.form(&format!("api_key[{name}]")){candidate.extras[i]=Some(value.into());}
     }
     if let Some(value)=ctx.params.form("api_key[ibkr_realm]"){candidate.realm=Some(value.into());}
-    match submit_candidate(app,venue,venue_name,kind,original,candidate).await? {
+    match submit_answered(app,venue,venue_name,kind,original,candidate,answer).await? {
         // `This key belongs to Kraken². Kraken¹ was not changed.`, on the page the save lands on.
         Submitted::Moved{to,from} => {
             let (saved,unchanged)=app.db(move|c|Ok((crate::identity::label(c,to)?.html(),crate::identity::label(c,from)?.html()))).await?;
@@ -386,6 +457,10 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, 
 
 /// `submit` of a candidate made by the caller over the stored key (`original`): the IBKR connect page's activation.
 pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
+    submit_answered(app, venue, venue_name, kind, original, candidate, None).await
+}
+/// `submit_candidate` with the answer to the save's question (rule M2), if one was posted.
+async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key, answer: Option<String>) -> Result<Submitted, WebError> {
     // #710 7a: every live account's slot of this type before validation (key id and ciphertext version, absent included):
     // the slot routing picks must still be as it was under the write lock.
     let (snap_user,snap_exchange)=(original.account.user_id,original.account.exchange_id);
@@ -459,7 +534,15 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     crate::identity::Route::To(id)=>id,
     // Rules Q1/P1: never a second account while another key of the exchange has no account read (one added meanwhile).
     crate::identity::Route::New if !needs_reads(&tx,user_id,original.account.exchange_id,&venue_s)?.is_empty()=>return Ok(Some(other_key_checking(&venue_label))),
-    crate::identity::Route::New=>crate::identity::new_account(&tx,user_id,original.account.exchange_id,inner.now())?,
+    // Rule M2: a new account for an exchange account another one holds history of is asked first.
+    crate::identity::Route::New=>match &validated.identity {
+     Some(crate::identity::Observed::Read(read))=>match key_question(&tx,&inner.cipher,user_id,original.account.exchange_id,stored,named.and_then(|a|a.id),read,validated.handle.credentials(),answer.as_deref(),inner.now())? {
+      KeyAsk::New=>crate::identity::new_account(&tx,user_id,original.account.exchange_id,inner.now())?,
+      KeyAsk::To(account)=>account,
+      KeyAsk::Ask(question)=>return Ok(Some(question)),
+     },
+     _=>crate::identity::new_account(&tx,user_id,original.account.exchange_id,inner.now())?,
+    },
     crate::identity::Route::Unconfirmed=>return Ok(Some(UNCONFIRMED.into())),
    };
    if let Some(from)=named.and_then(|a|a.id).filter(|from|*from!=dest){moved=Some((dest,from));}
@@ -852,6 +935,7 @@ pub async fn legacy(
     let key = parameter("key").map(|s| s.replace("\\n", "\n"));
     let secret = parameter("secret").map(|s| s.replace("\\n", "\n"));
     let passphrase = parameter("passphrase");
+    let answer = parameter("key_answer");
     // #710 (PLAN-710-6 §4.1): the account the save names; none with one live account is the exchange's.
     // Only an omitted or null account_id is the exchange's account; one that is no id (`[]`) names none.
     let raw_account = ctx.params.json.as_ref().and_then(|j| j.get("api_key")).and_then(|root| root.get("account_id")).is_some_and(|v| !v.is_null());
@@ -940,7 +1024,15 @@ pub async fn legacy(
      let name:String=tx.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?;
      return Ok(Err(Some(other_key_checking(&name))));
     }
-    crate::identity::Route::New=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
+    // Rule M2, as the form save: asked first; `api_key[key_answer]` answers.
+    crate::identity::Route::New=>match &read {
+     Some(id)=>match key_question(&tx,&inner.cipher,user.id,exchange,kind,account.id,id,&material,answer.as_deref(),inner.now())? {
+      KeyAsk::New=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
+      KeyAsk::To(to)=>to,
+      KeyAsk::Ask(question)=>return Ok(Err(Some(question))),
+     },
+     None=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
+    },
     crate::identity::Route::Unconfirmed=>return Ok(Err(Some(UNCONFIRMED.into()))),
    };
    Account::by_id(&tx,dest)?.ok_or_else(||WebError::Config("routed account missing".into()))?.ensure(&tx,inner.now())?
@@ -1003,6 +1095,11 @@ pub async fn legacy(
         // An exchange with 2+ live accounts and no account named: which one, in the services' words (§4.2).
         Err(Some(reason)) if reason==UNCONFIRMED||reason==KEY_READS_ELSEWHERE||reason.starts_with(OTHER_KEY_CHECKING) => (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
         Err(Some(reason)) if reason.starts_with(AMBIGUOUS) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":&reason[AMBIGUOUS.len()..]})),
+        // Rule M2: the question, and the answers to post back as `api_key[key_answer]`.
+        Err(Some(reason)) if reason.starts_with(QUESTION) => {
+            let (lines, choices) = question_of(&ctx, &reason).unwrap_or_default();
+            (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":lines.join(" "),"answers":choices.iter().map(|(value,label)|serde_json::json!({"value":value,"label":label})).collect::<Vec<_>>()}))
+        }
         Err(Some(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
     };
     Ok((status, [(header::CONTENT_TYPE, "application/json; charset=utf-8")], data.to_string()).into_response())

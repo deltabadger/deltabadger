@@ -197,6 +197,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) { return Ok(layout::bad_request()) }
     let live = ctx.params.form("api_key[passphrase]").map_or(key.passphrase.as_deref() == Some("live"), |mode| mode == "live");
     let outcome = keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await?;
+    if let keys::Submitted::Refused(reason) = &outcome { if let Some(asked) = keys::question_response(&ctx, reason) { return Ok(asked); } }
     let message = match &outcome {
         keys::Submitted::Correct(_) | keys::Submitted::Moved { .. } => {
             let saved = match outcome { keys::Submitted::Correct(a) => a, keys::Submitted::Moved { to, .. } => Some(to), _ => None };

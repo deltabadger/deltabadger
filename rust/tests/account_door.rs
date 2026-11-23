@@ -954,12 +954,23 @@ async fn upload(app: &deltabadger::web::App, b: &mut common::web::Browser, forma
     b.send_bytes(app, "POST", "/tracker/import", Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await
 }
 /// The question's options (`value`s) and the answer `value` posted back with the parked file.
+/// #710 7a rule N4: without the digest each is rendered with (`!…`, `full_options`).
 fn options(body: &str) -> Vec<String> {
-    regex::Regex::new(r#"data-value="([^"]+)""#).unwrap().captures_iter(body).map(|m| m[1].to_string()).collect()
+    full_options(body).into_iter().map(|v| v.split_once('!').map_or(v.clone(), |(b, _)| b.to_string())).collect()
 }
+fn full_options(body: &str) -> Vec<String> {
+    regex::Regex::new(r#"data-value="([^"]+)""#).unwrap().captures_iter(body).map(|m| m[1].replace("&#33;", "!")).collect()
+}
+/// `value` posted back as the page renders it: with its digest, when the page offered it.
 async fn answer(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str, value: &str) -> common::web::Answer {
     let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap_or_else(|| panic!("parked: {}", asked.body))[1].to_string();
-    b.send(app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", format), ("api_key_id", value)]), common::web::Csrf::Header, &[]).await
+    let full = full_options(&asked.body).into_iter().find(|v| v == value || v.starts_with(&format!("{value}!"))).unwrap_or_else(|| value.to_string());
+    b.send(app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", format), ("api_key_id", full.as_str())]), common::web::Csrf::Header, &[]).await
+}
+/// Cancel on the question parked by `asked`.
+async fn cancel(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str) -> common::web::Answer {
+    let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap_or_else(|| panic!("parked: {}", asked.body))[1].to_string();
+    b.send(app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", format), ("cancel", "Cancel")]), common::web::Csrf::Header, &[]).await
 }
 /// A Binance write needs this process to own the install (the lease), as `serve` does.
 fn own(dir: &std::path::Path, c: &Connection, app: &deltabadger::web::App) -> deltabadger::lease::EngineLock {
@@ -1093,8 +1104,9 @@ async fn the_venue_question_names_the_venue_when_it_has_two_accounts() {
     assert_eq!((rows_on(c, first), rows_on(c, keyless)), (0, 0), "nothing written yet");
 }
 
-/// §3: a parked answer is checked against the file's account under the import's lock. Account 2 bound to the file's UID in
-/// another tab wins over a parked "account 1"; two parked "a new account" answers for one UID make one account.
+/// §3, #710 7a rule N4: a parked answer is checked against the file's account under the import's lock. Account 2 bound to the
+/// file's UID in another tab: the parked "account 1" is asked again (never written there, nor on 2 unasked), and the answer
+/// to that lands on 2; two parked "a new account" answers for one UID make one account, the second asked again.
 #[tokio::test(flavor = "current_thread")]
 async fn a_parked_answer_never_beats_the_file_s_account() {
     let (_d, o, s, _server, app) = alpaca().await;
@@ -1108,17 +1120,24 @@ async fn a_parked_answer_never_beats_the_file_s_account() {
     let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
     assert_eq!(options(&asked.body).len(), 3, "{}", asked.body);
     fingerprint(c, second, "Exchanges::Kucoin", "444");
-    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}~{first}-{second}")).await;
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}~{first}-{second}")).await;
+    assert!(again.body.contains("Something changed since you answered."), "asked again: {}", again.body);
+    assert_eq!(options(&again.body), [format!("a{second}")], "{}", again.body);
+    assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 0), "nothing written");
+    let done = answer(&app, &mut b, &again, "kucoin", &format!("a{second}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, first), 0, "never on account 1");
     assert!(rows_on(c, second) > 0, "on the file's account");
     // Two tabs, each asked (accounts 1 and 3 unfingerprinted), each answering "a new account".
     identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
     let (one, two) = (upload(&app, &mut b, "kucoin", &kucoin_file("888")).await, upload(&app, &mut b, "kucoin", &kucoin_file("888")).await);
-    for asked in [&one, &two] {
-        let done = answer(&app, &mut b, asked, "kucoin", &options(&asked.body)[2]).await;
-        assert_eq!(done.status, 200, "{}", done.body);
-    }
+    let warned = answer(&app, &mut b, &one, "kucoin", &options(&one.body)[2]).await;
+    // Rule P5: the same export's rows are on account 2 already (KuCoin row ids carry no UID): warned, imported anyway.
+    assert!(warned.body.contains("Rows already on"), "{}", warned.body);
+    let done = answer(&app, &mut b, &warned, "kucoin", &format!("n{kucoin}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    let late = answer(&app, &mut b, &two, "kucoin", &options(&two.body)[2]).await;
+    assert!(late.body.contains("Something changed since you answered."), "the second is asked again: {}", late.body);
     assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 4, "one new account for the UID");
 }
 
@@ -1294,9 +1313,14 @@ async fn a_partly_routed_csv_imports_the_rest_and_names_the_accounts_it_left_out
     let last = examples.len() - 1;
     let rows: Vec<String> = examples.iter().enumerate().map(|(i, r)| format!("{r},{}", if i == last { 2 } else { 1 })).collect();
     let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
-    let done = upload(&app, &mut b, "deltabadger", &file).await;
-    assert!(imported(&done), "{}: {}", done.status, done.body);
+    // #710 7a rule N6: said before writing; "import the rest" writes the rows that have an account.
     let first = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
+    let asked = upload(&app, &mut b, "deltabadger", &file).await;
+    assert!(asked.body.contains("Rows naming accounts that aren&#39;t here: 1.") || asked.body.contains("Rows naming accounts that aren't here: 1."), "{}", asked.body);
+    assert_eq!(options(&asked.body), ["r"], "{}", asked.body);
+    assert_eq!(rows_on(c, first), 0, "nothing written yet");
+    let done = answer(&app, &mut b, &asked, "deltabadger", "r").await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, first), last as i64, "account 1's rows imported");
     assert!(done.body.contains(&format!("No account connected for: {name} 2. Those rows were left out.")), "{}", done.body);
 }
@@ -1335,7 +1359,12 @@ async fn a_re_import_after_a_reset_asks_which_account_and_keeps_the_totals() {
     let _lock = own(_d.path(), c, &app);
     let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
     let mut b = browser(&app, c, s.user_id);
-    for uid in ["111", "222"] { let done = upload(&app, &mut b, "kucoin", &kucoin_file(uid)).await; assert!(imported(&done), "{uid}: {}: {}", done.status, done.body); }
+    for uid in ["111", "222"] {
+        let mut done = upload(&app, &mut b, "kucoin", &kucoin_file(uid)).await;
+        // Rule P5: the second export's rows (the same row ids) are on account 1: warned, imported to a new account anyway.
+        if !imported(&done) { let value = options(&done.body).last().cloned().unwrap_or_default(); done = answer(&app, &mut b, &done, "kucoin", &value).await; }
+        assert!(imported(&done), "{uid}: {}: {}", done.status, done.body);
+    }
     let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, kucoin).unwrap().into_iter().map(|(id, _)| id).collect();
     assert_eq!(accounts.len(), 2, "one account per file");
     let before: Vec<_> = accounts.iter().map(|a| totals(c, *a)).collect();
@@ -1347,8 +1376,13 @@ async fn a_re_import_after_a_reset_asks_which_account_and_keeps_the_totals() {
     assert_eq!(options(&asked.body), [format!("a{}~{set}", accounts[0]), format!("a{}~{set}", accounts[1]), format!("n{kucoin}~{set}")], "{}", asked.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written before the answer");
     let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{}~{set}", accounts[0])).await;
+    // Rule P5: account 2 holds the same row ids: warned, then imported anyway (adding nothing).
+    assert!(done.body.contains("Rows already on"), "{}", done.body);
+    let done = answer(&app, &mut b, &done, "kucoin", &format!("a{}", accounts[0])).await;
     assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "{}: {}", done.status, done.body);
-    let done = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
+    assert!(asked.body.contains("Rows already on"), "{}", asked.body);
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{}", accounts[1])).await;
     assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "the one unread account: {}: {}", done.status, done.body);
     assert_eq!(identity::accounts_of(c, s.user_id, kucoin).unwrap().len(), 2, "no account made");
     assert_eq!(accounts.iter().map(|a| totals(c, *a)).collect::<Vec<_>>(), before, "the totals hold");
@@ -1925,8 +1959,14 @@ async fn q1_a_second_account_forms_only_once_every_other_key_was_read() {
         c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, created_at, updated_at)
                    VALUES (?1, ?2, ?3, 0, 'BTC', 1, '2026-09-01', 'now', 'now')", [user, stray, exchange]).unwrap();
         assert!(deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&stray), "{unread}: one account: it syncs, as on main");
-        let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-b2")).await;
+        let mut answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-b2")).await;
         if readable {
+            // Rule M2: the stray key read as B's on account 1, which holds history of B: asked; "add anyway".
+            assert!(answer.body.contains("already holds history of this KuCoin account"), "{}", answer.body);
+            let add = answer.body.split("name=\"key_answer\" value=\"").skip(1).map(|v| v.split('"').next().unwrap_or_default()).find(|v| v.starts_with("n!")).unwrap().to_string();
+            let mut fields = kucoin_fields("key-b2").to_vec();
+            fields.push(("key_answer", add.as_str()));
+            answer = save(&app, &mut b, exchange, None, &fields).await;
             assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
             assert_eq!(numbers(c, exchange), [1, 2]);
             assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&stray), "read as B's: fenced on A's account");
@@ -1952,4 +1992,138 @@ async fn n3_the_exact_key_reposted_on_a_tile_is_its_own_accounts() {
     let again = save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await;
     assert!(again.status < 400, "{}: {}", again.status, again.body);
     assert_eq!((numbers(c, exchange), keys(c, &cipher, exchange)), (vec![1], vec![(1, "key-a".into())]));
+}
+
+// ---- #710 7a part 2: an import or key save that can see a problem warns before writing; the user's answer decides ----
+
+fn observe_import(c: &Connection, user: i64, exchange: i64, account: i64, uid: &str) {
+    identity::record_import_to(c, &seed::cipher(), user, exchange, Some(account), Some(&identity::AccountId::parse(uid).unwrap()), chrono::Utc::now()).unwrap();
+}
+
+/// Rule M1(b): another account holds the export's account (an import observation of it): the upload warns before writing,
+/// that account offered first. Cancel writes nothing; an answer whose state changed meanwhile (a new account) is asked
+/// again, writing nothing; the fresh "import to a new account" makes the account and writes there.
+#[tokio::test(flavor = "current_thread")]
+async fn m1_a_file_another_account_holds_warns_and_lands_where_answered() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "111");
+    observe_import(c, s.user_id, kucoin, first, "444");
+    let mut b = browser(&app, c, s.user_id);
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(asked.body.contains("may already hold this export&#39;s history") || asked.body.contains("may already hold this export's history"), "{}", asked.body);
+    assert_eq!(options(&asked.body), [format!("a{first}"), format!("n{kucoin}")], "{}", asked.body);
+    assert_eq!((one::<i64>(c, "SELECT count(*) FROM account_transactions"), numbers(c, kucoin)), (ledger, vec![1]), "nothing written");
+    let cancelled = cancel(&app, &mut b, &asked, "kucoin").await;
+    assert!(cancelled.body.contains("Nothing imported."), "{}", cancelled.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("n{kucoin}")).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!((one::<i64>(c, "SELECT count(*) FROM account_transactions"), numbers(c, kucoin)), (ledger, vec![1, 2]), "nothing written");
+    let done = answer(&app, &mut b, &again, "kucoin", &format!("n{kucoin}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(numbers(c, kucoin), [1, 2, 3]);
+    let third = identity::accounts_of(c, s.user_id, kucoin).unwrap()[2].0;
+    assert_eq!(rows_on(c, first), 0);
+    assert!(rows_on(c, third) > 0, "on the account the answer made");
+}
+
+/// Rules M1(a)/N5: the destination's own key reads another account (its observation, no fingerprint): warned, and "import
+/// here anyway" writes there. A clean upload of the same UID afterwards asks nothing more than that warning again.
+#[tokio::test(flavor = "current_thread")]
+async fn n5_a_file_unlike_the_destination_s_key_warns_and_imports_on_the_answer() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    let key = key_on(c, s.user_id, kucoin, None);
+    identity::record_copy(c, &seed::cipher(), key, "Exchanges::Kucoin", &identity::AccountId::parse("999").unwrap(), chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(asked.body.contains("This export is from another account than"), "{}", asked.body);
+    assert_eq!(options(&asked.body), [format!("a{first}")], "{}", asked.body);
+    assert_eq!(rows_on(c, first), 0, "nothing written");
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert!(rows_on(c, first) > 0);
+}
+
+/// Rules P5/Q6 (exact ids, no fuzzy matching): a Deltabadger CSV whose rows exist on another live account (by venue id, and
+/// an id-less row repeating one there to the second), or whose venue id goes to two accounts in one upload, is counted
+/// and asked; "import anyway" writes it.
+#[tokio::test(flavor = "current_thread")]
+async fn p5_rows_another_account_holds_are_counted_before_writing() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let header = format!("{},account", deltabadger::web::tracker::gap::CSV_HEADER);
+    let first = format!("{header}\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},T1,,,1\n");
+    assert!(imported(&upload(&app, &mut b, "deltabadger", &first).await));
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let second = format!("{header}\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},T1,,,2\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},,,,2\n\
+                          2023-01-06T10:00:00Z,deposit,ETH,1,,,,,{v},T2,,,1\n2023-01-06T10:00:00Z,deposit,ETH,1,,,,,{v},T2,,,2\n");
+    let asked = upload(&app, &mut b, "deltabadger", &second).await;
+    assert!(asked.body.contains("Rows already on") && asked.body.contains(": 3."), "{}", asked.body);
+    assert_eq!(options(&asked.body), ["r"], "{}", asked.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
+    let done = answer(&app, &mut b, &asked, "deltabadger", "r").await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert!(rows_on(c, accounts[1]) >= 2, "account 2's rows written");
+}
+
+/// Rule M2: a tile save that would make a new account for an exchange account another live account holds history of (its
+/// import observation) asks first, the typed key kept (the answer goes to the form's question slot). Cancel saves nothing;
+/// a stale answer is asked again; "add anyway" makes account 2.
+#[tokio::test(flavor = "current_thread")]
+async fn m2_a_new_account_another_one_holds_history_of_is_asked_first() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    let first = identity::accounts_of(c, user, exchange).unwrap()[0].0;
+    observe_import(c, user, exchange, first, UID_B);
+    let asked = save(&app, &mut b, exchange, None, &kucoin_fields("key-b")).await;
+    assert_eq!(asked.status, 422, "{}", asked.body);
+    assert!(asked.body.contains("api_key_question") && asked.body.contains("already holds history of this KuCoin account"), "{}", asked.body);
+    assert_eq!(numbers(c, exchange), [1], "nothing made");
+    let values: Vec<String> = regex::Regex::new(r#"name="key_answer" value="([^"]+)""#).unwrap().captures_iter(&asked.body).map(|m| m[1].replace("&#33;", "!")).collect();
+    let add = values.iter().find(|v| v.starts_with("n!w")).unwrap_or_else(|| panic!("{}", asked.body)).clone();
+    assert!(values.iter().any(|v| v == &format!("a{first}")) || values.iter().any(|v| v.starts_with(&format!("a{first}!w"))), "connect to account 1 offered: {values:?}");
+    let with = |answer: &str| { let mut f: Vec<(&str, &str)> = kucoin_fields("key-b").to_vec(); f.push(("key_answer", answer)); f.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>() };
+    let cancelled = { let f = with("x"); let refs: Vec<(&str, &str)> = f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect(); save(&app, &mut b, exchange, None, &refs).await };
+    assert!(cancelled.body.contains("api_key_question") && !cancelled.body.contains("already holds history"), "{}", cancelled.body);
+    assert_eq!(numbers(c, exchange), [1]);
+    // An account made meanwhile (the new account's slot changed): the answer is asked again.
+    identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let stale = { let f = with(&add); let refs: Vec<(&str, &str)> = f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect(); save(&app, &mut b, exchange, None, &refs).await };
+    assert!(stale.body.contains("Something changed since you answered."), "{}", stale.body);
+    assert_eq!(numbers(c, exchange), [1, 2]);
+    let fresh: String = regex::Regex::new(r#"name="key_answer" value="(n[^"]+)""#).unwrap().captures(&stale.body).unwrap()[1].replace("&#33;", "!");
+    let added = { let f = with(&fresh); let refs: Vec<(&str, &str)> = f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect(); save(&app, &mut b, exchange, None, &refs).await };
+    assert!(added.status < 400, "{}: {}", added.status, added.body);
+    assert_eq!(numbers(c, exchange), [1, 2, 3]);
+}
+
+/// Rule M2: a Reconnect of an account whose read fingerprint is another (proven) one, nobody holding it: asked, not made a
+/// new account silently.
+#[tokio::test(flavor = "current_thread")]
+async fn m2_a_reconnect_onto_another_account_is_asked() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    let first = identity::accounts_of(c, user, exchange).unwrap()[0].0;
+    let asked = save(&app, &mut b, exchange, Some(first), &kucoin_fields("key-b")).await;
+    assert_eq!(asked.status, 422, "{}", asked.body);
+    assert!(asked.body.contains("This key opens another KuCoin account than"), "{}", asked.body);
+    assert_eq!(numbers(c, exchange), [1]);
 }

@@ -45,6 +45,7 @@
 {%- if let Some(error) = error %}
     <p class="sform__error" id="api_key_error" role="alert">{{ error }}</p>
 {%- endif %}
+    <div id="api_key_question"></div>
     <div class="set-api__actions">
       <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="rbutton rbutton--secondary" data-turbo-stream="true" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />
     </div>

@@ -305,6 +305,7 @@ async fn keys(
             return Ok(layout::bad_request());
         }
         let outcome = keys::submit(app, ctx, &exchange.class, &exchange.name, 1, key).await?;
+        if let keys::Submitted::Refused(reason) = &outcome { if let Some(asked) = keys::question_response(ctx, reason) { return Ok(asked); } }
         let message = match &outcome {
             keys::Submitted::Correct(_) | keys::Submitted::Moved { .. } => {
                 let saved = match outcome { keys::Submitted::Correct(a) => a, keys::Submitted::Moved { to, .. } => Some(to), _ => None };
