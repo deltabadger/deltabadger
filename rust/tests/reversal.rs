@@ -658,6 +658,8 @@ async fn s7a_r1_a_fenced_key_sends_no_reversal_cancel() {
     let key: i64 = c.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
     let account = deltabadger::identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, t("2026-09-03T12:00:00Z")).unwrap();
     c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
     c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-03 12:00:00')", rusqlite::params![key, s.exchange_id]).unwrap();
     let v = v.order("OBUY", kraken_cancelled("0", "0"));
     let _ = run::step(&mut e, &at("2026-09-03T12:00:01Z")).await;
@@ -679,6 +681,8 @@ async fn s7a_s1_a_key_fenced_after_its_handle_was_built_sends_no_reversal_cancel
     let key: i64 = c.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
     let account = deltabadger::identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, t("2026-09-03T12:00:00Z")).unwrap();
     c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
     let primary = Paths::from_env(&|_| None, d.path()).primary;
     let exchange = s.exchange_id;
     let v = v.order("OBUY", kraken_cancelled("0", "0")).on_mode(move || {

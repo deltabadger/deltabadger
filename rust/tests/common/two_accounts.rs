@@ -25,8 +25,17 @@ pub struct Two {
 /// observation (a fixture writes any; `identity::establish` fills only an unknown one), then `identity::reconsider`.
 pub fn confirm(c: &Connection, account: i64, fingerprint: Option<&str>) {
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", params![account, fingerprint]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account]).unwrap();
     c.execute(&format!("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) SELECT k.id, k.exchange_id, ?2, 'now' FROM api_keys k WHERE {} = ?1 \
                         ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint", deltabadger::identity::key_account_sql("k")), params![account, fingerprint]).unwrap();
+    // Each read was of the key's current material (#710 7a rule Q2: a read under another ciphertext is no read).
+    let keys: Vec<i64> = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} = ?1", deltabadger::identity::key_account_sql("k"))).unwrap()
+        .query_map([account], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for k in keys {
+        let stamp = deltabadger::engine::model::credential_version_by_id(c, k).unwrap().unwrap().test_stamp().to_string();
+        c.execute("UPDATE exchange_account_credentials SET observed_credential_version = ?2, observed_at = COALESCE(observed_at, 'now') WHERE api_key_id = ?1", params![k, stamp]).unwrap();
+    }
     // As the next sync's completion would: the exchange's stored standing is reconsidered on it.
     let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1", [account], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
     deltabadger::identity::reconsider(c, user, exchange, chrono::Utc::now()).unwrap();

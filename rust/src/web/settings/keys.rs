@@ -34,6 +34,47 @@ pub fn scrub(text: &str, values: &[Option<String>]) -> String {
 pub const SETTLING: &str = "An order is still being settled. Please try again shortly.";
 /// #710 7a: an identity venue's account read failed or was masked, and the key could land on the wrong account.
 pub const UNCONFIRMED: &str = "\u{0}identity_unconfirmed";
+/// #710 7a rule Q1: the save would make the exchange's second account while another key of it has no account read yet;
+/// `other_key_checking(name)` names the exchange.
+const OTHER_KEY_CHECKING: &str = "\u{0}other_key_checking\u{1}";
+fn other_key_checking(exchange: &str) -> String { format!("{OTHER_KEY_CHECKING}{exchange}") }
+/// Rules Q1/P1: whether a save routed to a new account must wait: the exchange (an identity venue) has one live account and
+/// a key of it has no UID read of its current material (`identity::unread`). Inside the save's transaction too.
+fn needs_reads(c: &Connection, user: i64, exchange: i64, venue: &str) -> Result<Vec<i64>, WebError> {
+    if !crate::identity::VENUES.contains(&venue) || crate::identity::accounts_of(c, user, exchange)?.len() != 1 { return Ok(vec![]); }
+    let ids: Vec<i64> = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id")?.query_map([user, exchange], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    let mut out = vec![];
+    for id in ids { if crate::identity::unread(c, id).map_err(WebError::Config)? { out.push(id); } }
+    Ok(out)
+}
+/// Rule Q1: before a save makes an exchange's second account, every key of it without a UID read of its current material
+/// is read now (bounded by the key check's own timeout), each recorded as discovery records it (`identity::publish`:
+/// fenced where it reads another account, routed nowhere else). `would_create` asks whether the save routes to a new
+/// account. A read that fails refuses the save (Q1's words); nothing is allocated.
+async fn read_unread(app: &App, user: i64, exchange: i64, venue: &str, name: &str, would_create: impl FnOnce(&Connection) -> Result<bool, WebError> + Send + 'static) -> Result<Option<String>, WebError> {
+    let (inner, venue_s) = (app.clone(), venue.to_string());
+    let due = app.db(move |c| {
+        let ids = needs_reads(c, user, exchange, &venue_s)?;
+        if ids.is_empty() || !would_create(c)? { return Ok(vec![]); }
+        let mut out = vec![];
+        for id in ids {
+            let (credentials, version, _) = crate::sync::validation_material(c, &inner.cipher, id).map_err(|e| WebError::Config(e.0))?;
+            out.push(crate::identity::Due { api_key_id: id, exchange_type: venue_s.clone(), credentials, version });
+        }
+        Ok(out)
+    }).await?;
+    for due in due {
+        let observed = json_identity(app, venue, &due.credentials).await?;
+        let read = matches!(observed, Some(crate::identity::Observed::Read(_)));
+        if let Some(observed) = observed {
+            let at = app.now();
+            let inner = app.clone();
+            app.db(move |c| Ok(crate::identity::publish(c, &inner.cipher, &due, &observed, at).map(|_| ()))).await?.map_err(WebError::Config)?;
+        }
+        if !read { return Ok(Some(other_key_checking(name))); }
+    }
+    Ok(None)
+}
 /// The JSON save of an account's own key again, whose fresh read says it opens another account (#710 7a).
 pub const KEY_READS_ELSEWHERE: &str = "\u{0}key_reads_elsewhere";
 /// D-KEY-REPLACE-WAITS: an open order or a withdrawal still goes through the key being replaced or removed.
@@ -49,6 +90,9 @@ pub(crate) fn settling(c: &Connection, cipher: &crate::crypto::Cipher, account: 
 }
 pub(crate) fn refusal_text(ctx: &Ctx, reason: &str) -> String {
     if reason == SETTLING { reason.to_string() }
+    else if let Some((name, exchange)) = reason.strip_prefix('\u{0}').and_then(|r| r.split_once('\u{1}')) {
+        i18n::t(ctx.locale, &format!("settings.accounts.{name}"), &[("exchange", i18n::Arg::Text(exchange))])
+    }
     else if let Some(name) = reason.strip_prefix('\u{0}') { ctx.t(&format!("settings.accounts.{name}")) }
     else { i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(reason))]) }
 }
@@ -381,6 +425,15 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
         if let Some((read,material))=taught { learn_refused(app,original.account.user_id,snap_exchange,venue,material,read).await?; }
         return Ok(refused);
     }
+    // #710 7a rule Q1: a save that would make the exchange's second account reads the exchange's unread keys first.
+    if let Some(crate::identity::Observed::Read(read))=validated.identity.clone() {
+        let (inner,venue_s,material,target)=(app.clone(),venue.to_string(),validated.handle.credentials().clone(),if original.untargeted {None} else {original.account.id});
+        let would_create=move|c:&Connection|->Result<bool,WebError>{
+            Ok(crate::identity::route_key(c,&inner.cipher,snap_user,snap_exchange,&venue_s,stored,target,&crate::identity::Reading::Read(&read),&material,None,inner.now()).map_err(WebError::Config)?==crate::identity::Route::New)
+        };
+        if let Some(refusal)=read_unread(app,snap_user,snap_exchange,venue,venue_name,would_create).await? { return Ok(Submitted::Refused(refusal)); }
+    }
+    let venue_label=venue_name.to_string();
     // ApiKey#validate_credentials!: IBKR's activation wait is saved too (status pending_activation, its clock restarted).
     let pending=matches!(validated.result.value,Validity::PendingActivation);
     let account=match &validated.result.value {Validity::Account(account)=>Some(account.clone()),_=>None};
@@ -404,6 +457,8 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
    let route=crate::identity::route_key(&tx,&inner.cipher,user_id,original.account.exchange_id,&venue_s,stored,named.and_then(|a|a.id),&reading,validated.handle.credentials(),None,inner.now()).map_err(WebError::Config)?;
    let dest=match route {
     crate::identity::Route::To(id)=>id,
+    // Rules Q1/P1: never a second account while another key of the exchange has no account read (one added meanwhile).
+    crate::identity::Route::New if !needs_reads(&tx,user_id,original.account.exchange_id,&venue_s)?.is_empty()=>return Ok(Some(other_key_checking(&venue_label))),
     crate::identity::Route::New=>crate::identity::new_account(&tx,user_id,original.account.exchange_id,inner.now())?,
     crate::identity::Route::Unconfirmed=>return Ok(Some(UNCONFIRMED.into())),
    };
@@ -445,7 +500,10 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     return Ok(Some(if refusal==crate::venue::ibkr_account::OTHER_ACCOUNT {"\u{0}ibkr_other_account".into()} else {refusal}));
    }
   }
-  if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),validated.handle.producer(),observed,inner.now()).map_err(WebError::Config)?;}
+  // The read was of the material just written: recorded under its fresh ciphertext version, so the key counts as read
+  // (#710 7a rule Q2) from this save on.
+  let fresh=crate::sync::credentials_with_version(&tx,&inner.cipher,id).ok().map(|(_,v)|v);
+  if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),fresh.as_ref().unwrap_or(validated.handle.producer()),observed,inner.now()).map_err(WebError::Config)?;}
   if venue_s!=crate::venue::ibkr::IBKR {
    if let (Some(crate::identity::Observed::Read(read)),Some(account))=(&validated.identity,target.id) {
     // The routed account takes the fingerprint (every key type); every other copy of this key, on another account, was
@@ -456,12 +514,16 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   }
   // The slots a restart would register (sync::jobs::register, tracker::jobs::register): a key that reads for its
   // venue gets its syncs, and its owner the tracker's jobs. Woken after the commit only.
+  // Rules M4/N7: the save may move a reader of the exchange's accounts; each account's reader is woken.
+  crate::sync::settle_readers(&tx,user_id,target.exchange_id).map_err(|e|WebError::Config(e.0))?;
+  let readers=readers_of(&tx,user_id,target.exchange_id)?;
   let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   tx.commit()?;
   if stored==0 {inner.wake_engine();}
   if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
   if balances {jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&id.to_string()),None);}
+  for k in readers.iter().filter(|k|**k!=id) {for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&k.to_string()),None);}}
   if ledger||balances {
    for job in [crate::tracker::jobs::TRACKER_LEDGER,crate::tracker::jobs::PORTFOLIO_BACKFILL] {jobs.wake(job,Some(&user_id.to_string()),None);}
   }
@@ -488,6 +550,15 @@ async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate:
         crate::identity::fence_copies(&tx,&inner.cipher,user,exchange,&venue,&material,&read,None,inner.now()).map_err(WebError::Config)?;
         tx.commit()?;Ok(())
     }).await
+}
+/// The reader of every live account of (user, exchange) (`sync::reader_of`).
+fn readers_of(c: &Connection, user: i64, exchange: i64) -> Result<Vec<i64>, WebError> {
+    let mut out = vec![];
+    for (id, _) in crate::identity::accounts_of(c, user, exchange)? {
+        let Some(account) = Account::by_id(c, id)? else { continue };
+        out.extend(crate::sync::reader_of(c, &account.keys("k")).map_err(|e| WebError::Config(e.0))?);
+    }
+    Ok(out)
 }
 /// A slot of an account: its key's id and ciphertext version (None: absent).
 type Slot = Option<(i64, Option<String>)>;
@@ -721,7 +792,7 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, expecte
   // #710: the account's reading key now reads its balances again, so its duplicate standing may re-enter on them.
   let reader=match crate::identity::AccountRow::of(&tx,&account)? {Some(a)=>crate::sync::cache::reading_key(&tx,&a)?,None=>None};
   let out=then(&tx)?;tx.commit()?;crate::venue::ibkr::forget(id);inner.wake_engine();
-  if let (Some(k),Ok(jobs))=(reader,inner.job_wakers()){jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&k.to_string()),None);}
+  if let (Some(k),Ok(jobs))=(reader,inner.job_wakers()){for job in [crate::sync::jobs::BALANCE_SYNC,crate::sync::jobs::LEDGER_SYNC] {jobs.wake(job,Some(&k.to_string()),None);}}
   Ok(Some(Ok(out)))
 }
 
@@ -815,6 +886,18 @@ pub async fn legacy(
         _ => None,
     };
     let taught=match (&observed,venue_type.as_deref()) {(Some(crate::identity::Observed::Read(read)),Some(venue)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),venue.to_string(),material.clone())),_=>None};
+    // #710 7a rule Q1, as the form save: a save that would make the exchange's second account reads its unread keys first.
+    if let (Some(crate::identity::Observed::Read(read)),Some(venue))=(observed.clone(),venue_type.clone()) {
+        let name:String=app.db(move|c|Ok(c.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?)).await?;
+        let (inner,v,m,uid)=(app.clone(),venue.clone(),material.clone(),user.id);
+        let would_create=move|c:&Connection|->Result<bool,WebError>{
+            let target=match crate::identity::pick(c,uid,exchange,posted_account)? {crate::identity::Pick::One(a)=>a.id,_=>return Ok(false)};
+            Ok(crate::identity::route_key(c,&inner.cipher,uid,exchange,&v,kind,target,&crate::identity::Reading::Read(&read),&m,None,inner.now()).map_err(WebError::Config)?==crate::identity::Route::New)
+        };
+        if let Some(refusal)=read_unread(&app,user.id,exchange,&venue,&name,would_create).await? {
+            return Ok((StatusCode::CONFLICT,[(header::CONTENT_TYPE,"application/json; charset=utf-8")],serde_json::json!({"data":false,"message":refusal_text(&ctx,&refusal)}).to_string()).into_response());
+        }
+    }
     let jobs = app.job_wakers()?;
     let inner = app.clone();
     let saved=app.db(move|c|{
@@ -852,6 +935,11 @@ pub async fn legacy(
      tx.commit()?;return Ok(Err(Some(KEY_READS_ELSEWHERE.into())));
     }
     crate::identity::Route::To(id)=>id,
+    // Rules Q1/P1: never a second account while another key of the exchange has no account read.
+    crate::identity::Route::New if !needs_reads(&tx,user.id,exchange,&venue)?.is_empty()=>{
+     let name:String=tx.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?;
+     return Ok(Err(Some(other_key_checking(&name))));
+    }
     crate::identity::Route::New=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
     crate::identity::Route::Unconfirmed=>return Ok(Err(Some(UNCONFIRMED.into()))),
    };
@@ -894,9 +982,17 @@ pub async fn legacy(
     crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,Some(id),inner.now()).map_err(WebError::Config)?;
    }
    if !same_keys {crate::identity::write_digest(&tx,&inner.cipher,id,exchange,&material).map_err(WebError::Config)?;}
+   // The key's own read, of the material just written (#710 7a rule Q2: it counts as read from here on).
+   if let (Some(read),Ok((_,version)))=(&read,crate::sync::credentials_with_version(&tx,&inner.cipher,id)) {
+    crate::identity::record(&tx,&inner.cipher,id,&material,&version,&crate::identity::Observed::Read(read.clone()),inner.now()).map_err(WebError::Config)?;
+   }
   }
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Err(Some(refusal.reason())));}
-  tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}Ok(Ok(()))
+  crate::sync::settle_readers(&tx,user.id,exchange).map_err(|e|WebError::Config(e.0))?;
+  let readers=readers_of(&tx,user.id,exchange)?;
+  tx.commit()?;inner.wake_engine();jobs.wake(crate::sync::jobs::API_KEY_VALIDATOR,Some(&id.to_string()),None);if !same_keys{jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
+  for k in readers.iter().filter(|k|**k!=id) {for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&k.to_string()),None);}}
+  Ok(Ok(()))
  }).await?;
     if let (Err(Some(_)),Some((read,venue,material)))=(&saved,taught) { learn_refused(&app,user.id,exchange,&venue,material,read).await?; }
     if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
@@ -905,7 +1001,7 @@ pub async fn legacy(
         Ok(()) => (StatusCode::CREATED, serde_json::json!({"data":true})),
         Err(None) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false})),
         // An exchange with 2+ live accounts and no account named: which one, in the services' words (§4.2).
-        Err(Some(reason)) if reason==UNCONFIRMED||reason==KEY_READS_ELSEWHERE => (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
+        Err(Some(reason)) if reason==UNCONFIRMED||reason==KEY_READS_ELSEWHERE||reason.starts_with(OTHER_KEY_CHECKING) => (StatusCode::CONFLICT, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
         Err(Some(reason)) if reason.starts_with(AMBIGUOUS) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":&reason[AMBIGUOUS.len()..]})),
         Err(Some(reason)) => (StatusCode::UNPROCESSABLE_ENTITY, serde_json::json!({"data":false,"message":refusal_text(&ctx,&reason)})),
     };

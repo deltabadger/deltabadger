@@ -2209,6 +2209,13 @@ async fn a_v2_order_is_recovered_on_the_first_account_whatever_the_bots_account_
     c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, '2026-01-01', '2026-01-01')",
               params![f.s.user_id, f.s.exchange_id, seed::cipher().encrypt("account-2-key"), seed::cipher().encrypt("account-2-secret")]).unwrap();
     second.add_key(c, c.last_insert_rowid()).unwrap();
+    // #710 7a rule N1: with two accounts each key syncs once its account was read; both were.
+    let keys: Vec<i64> = c.prepare("SELECT id FROM api_keys WHERE exchange_id = ?1").unwrap().query_map([f.s.exchange_id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for k in keys {
+        let stamp = deltabadger::engine::model::credential_version_by_id(c, k).unwrap().unwrap().test_stamp().to_string();
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at, observed_credential_version) VALUES (?1, ?2, ?3, 'now', ?4)",
+                  params![k, f.s.exchange_id, format!("fp-{k}"), stamp]).unwrap();
+    }
     deltabadger::identity::place_bot(c, f.b, f.s.user_id, f.s.exchange_id, Some(second), now()).unwrap();
     // Account 2's own order and fill under the shared ids (its venue ids relocated).
     c.execute("INSERT INTO transactions (bot_id, exchange_id, status, external_status, side, base_asset_id, quote_asset_id, transaction_type, amount, amount_exec, \

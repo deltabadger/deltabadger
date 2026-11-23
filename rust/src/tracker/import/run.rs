@@ -239,6 +239,9 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
 /// Where a venue's own export goes (#710 7a §3).
 enum Routed { To(i64), Ask(Vec<Choice>), Elsewhere(i64), Key(Reading), None }
 
+/// SQL on account row `x`: the fingerprint a file routes by (`route_file`): the account's own, else its first import
+/// observation's.
+const ROUTING: &str = "COALESCE(x.fingerprint, (SELECT i.fingerprint FROM exchange_account_imports i WHERE i.account_id = x.id ORDER BY i.id LIMIT 1))";
 /// The file's account, under the write lock: 1. a live account of `venues` with the file's fingerprint; else, the venue
 /// known (one venue, or the one chosen), 2. its one unfingerprinted live account, 3. none: a new keyless account; two or
 /// more: the question, "a new account" offered too. A Binance-format file matched nowhere asks the venue first. A parked
@@ -266,9 +269,11 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
     };
     let identity = crate::identity::key(c, cipher, now).map_err(SyncError)?;
     let fingerprint = |exchange_type: &str| file.map(|id| identity.fingerprint(exchange_type, id));
-    // (account, number, fingerprint) of each live account of `exchange`.
+    // (account, number, fingerprint) of each live account of `exchange`. #710 7a rule M3: a file sets no fingerprint, so an
+    // account known only from files routes by its first import observation (the UID a file named there first), as the
+    // fingerprint that file used to set.
     let live = |exchange: i64| -> rusqlite::Result<Vec<(i64, i64, Option<String>)>> {
-        c.prepare("SELECT id, number, fingerprint FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number")?
+        c.prepare(&format!("SELECT id, number, {ROUTING} FROM exchange_accounts x WHERE user_id = ?1 AND exchange_id = ?2 AND removed_at IS NULL ORDER BY number"))?
             .query_map([user_id, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect()
     };
     let offered = |exchange: i64| exchanges.iter().find(|(id, _, _)| *id == exchange);
@@ -305,7 +310,7 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         // A key id the venue question no longer offers: the venue is asked again.
         let bound = |exchange: i64| -> rusqlite::Result<bool> { Ok(set == Some(set_of(&owners(exchange)?).as_str())) };
         if let Some(account) = number("a").or(keyed) {
-            let row: Option<(i64, i64, Option<String>, bool)> = c.query_row("SELECT exchange_id, user_id, fingerprint, removed_at IS NOT NULL FROM exchange_accounts WHERE id = ?1", [account],
+            let row: Option<(i64, i64, Option<String>, bool)> = c.query_row(&format!("SELECT exchange_id, user_id, {ROUTING}, removed_at IS NOT NULL FROM exchange_accounts x WHERE id = ?1"), [account],
                                                                             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
             if let Some((exchange, owner, held, removed)) = row {
                 if let Some((_, exchange_type, _)) = offered(exchange).filter(|_| owner == user_id) {

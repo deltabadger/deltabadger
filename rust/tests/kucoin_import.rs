@@ -279,10 +279,10 @@ fn an_import_records_its_account_and_another_accounts_file_is_a_conflict_in_eith
         let stored = deltabadger::app_config::get_plain(&fx.c, identity::KEY_CONFIG).unwrap();
         fx.import(TRADING);
         assert_eq!(fx.count("SELECT count(*) FROM exchange_account_imports"), 1);
-        assert_eq!(fx.standing(), Standing::Bound);
+        assert_eq!(fx.standing(), Standing::Unknown, "#710 7a rule M3: a file establishes no account");
         let after = deltabadger::app_config::get_plain(&fx.c, identity::KEY_CONFIG).unwrap();
         assert!(after.is_some() && (stored.is_none() || stored == after), "created once, then reused");
-        // File then key: the file established the account, the key reads another.
+        // File then key: the key's read is the account's identity; the file named another, which the standing still records.
         observe(&fx, OTHER);
         assert_eq!(fx.standing(), Standing::Conflicted);
     }

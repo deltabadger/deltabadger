@@ -7,6 +7,7 @@ pt:
             duplicate_html: "%{duplicate} é a mesma conta da exchange que %{survivor}."
             key_elsewhere_html: "Esta chave pertence a %{account}. %{target} não foi alterada."
             identity_unconfirmed: "Não conseguimos confirmar a que conta pertence esta chave. Tente novamente."
+            other_key_checking: "O Deltabadger ainda está a verificar a tua outra chave da %{exchange}. Tenta outra vez dentro de um minuto."
             key_reads_elsewhere: "Esta chave abre uma conta da corretora diferente desta, por isso não foi guardada aqui. Guarde a chave desta conta."
             key_order_waits: "Uma ordem aberta ainda usa a chave atual. Cancela-a ou espera que seja executada e tenta outra vez."
             key_withdrawal_waits: "Um levantamento ainda usa a chave atual. Espera que termine e tenta outra vez."

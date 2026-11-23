@@ -1907,3 +1907,49 @@ async fn s7a_s7_a_stale_withdrawal_asset_form_writes_nothing_into_the_session() 
     let confirm = b.get(&app, "/rules/withdrawals/confirm_settings/new").await;
     assert_eq!(confirm.status, 200, "account 1's address stays: {:?}", confirm.headers);
 }
+
+/// Rule Q1 (with P1): the save that would make an exchange's second account first reads every key of the exchange that has
+/// no UID read of its current material. A key 2.x left on account 1, unread, that already booked a ledger row, is read
+/// first: it opens B, so it is fenced on A's account, and the save makes account 2. When that read fails, the save is
+/// refused, retryable, and allocates nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn q1_a_second_account_forms_only_once_every_other_key_was_read() {
+    for (unread, readable) in [("key-b", true), ("key-x", false)] {
+        let (_d, o, user, exchange, _server, app) = kucoin().await;
+        let (c, cipher) = (&o.primary, seed::cipher());
+        let mut b = browser(&app, c, user);
+        assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, 'now', 'now')",
+                  rusqlite::params![user, exchange, cipher.encrypt(unread), cipher.encrypt("secret"), cipher.encrypt("phrase")]).unwrap();
+        let stray = c.last_insert_rowid();
+        c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, created_at, updated_at)
+                   VALUES (?1, ?2, ?3, 0, 'BTC', 1, '2026-09-01', 'now', 'now')", [user, stray, exchange]).unwrap();
+        assert!(deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&stray), "{unread}: one account: it syncs, as on main");
+        let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-b2")).await;
+        if readable {
+            assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+            assert_eq!(numbers(c, exchange), [1, 2]);
+            assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&stray), "read as B's: fenced on A's account");
+            assert!(!identity::unread(c, stray).unwrap(), "read before account 2 formed");
+        } else {
+            assert_eq!(answer.status, 422, "{}", answer.body);
+            assert!(answer.body.contains("Deltabadger is still checking your other KuCoin key. Try again in a minute."), "{}", answer.body);
+            assert_eq!(numbers(c, exchange), [1], "nothing allocated");
+            assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (1, unread.into())]);
+        }
+    }
+}
+
+/// Rule N3: the exact key reposted through a venue tile goes to its own account, even where no read has set that
+/// account's fingerprint (a reset), never to a new one.
+#[tokio::test(flavor = "current_thread")]
+async fn n3_the_exact_key_reposted_on_a_tile_is_its_own_accounts() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    c.execute_batch("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL; DELETE FROM exchange_account_credentials; DELETE FROM account_fingerprint_proofs;").unwrap();
+    let again = save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await;
+    assert!(again.status < 400, "{}: {}", again.status, again.body);
+    assert_eq!((numbers(c, exchange), keys(c, &cipher, exchange)), (vec![1], vec![(1, "key-a".into())]));
+}

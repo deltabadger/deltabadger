@@ -794,9 +794,8 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// testing "an update brings a migration" the day one is added.
 type Undo = (&'static str, fn() -> String);
 const UNDO: [Undo; 2] = [
-    // A data-only migration: nothing to drop; its row gone makes it pending again.
-    ("20261124000001", || "SELECT 1".to_string()),
-    ("20261124000002", || undo_replacement("20261124000002"))];
+    ("20261124000002", || undo_replacement("20261124000002")),
+    ("20261125000001", || undo_replacement("20261125000001"))];
 
 /// A replacing migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each
 /// table it retired or rebuilt created again as the released migration that made it wrote it (names from the registry).

@@ -466,6 +466,11 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
 
     // The duplicate's import observations are the survivor's.
     c.execute("UPDATE exchange_account_imports SET account_id = ?2 WHERE account_id = ?1", [d, s])?;
+    // #710 7a rule N2: a proof of the duplicate's fingerprint proves the survivor's when they are one fingerprint.
+    if crate::engine::rules::table_exists(c, "account_fingerprint_proofs")? {
+        c.execute("INSERT INTO account_fingerprint_proofs (account_id, created_at) SELECT ?2, p.created_at FROM account_fingerprint_proofs p WHERE p.account_id = ?1
+                   AND (SELECT fingerprint FROM exchange_accounts WHERE id = ?1) IS (SELECT fingerprint FROM exchange_accounts WHERE id = ?2) ON CONFLICT (account_id) DO NOTHING", [d, s])?;
+    }
     // The API's takeover cutoffs: the survivor keeps the earlier of each class, and the duplicate's go.
     c.execute("UPDATE import_cutoffs SET cutoff_at = (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class), updated_at = ?3 \
                WHERE account_id = ?2 AND cutoff_at > (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class)",
@@ -495,6 +500,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     // 11. The tombstone; the keys moved and removed cleared the standings of both (key events); the exchange's standing
     // is reconsidered once, on the merged account.
     identity::tombstone(c, d, now)?;
+    // #710 7a rules M4/N7: the moved keys may give the survivor another reader.
+    crate::sync::settle_reader(c, s).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
     // Evidence restarts: every kept key's change marker is the merge time, so no row imported before the Merge (its own,
     // or one re-keyed to it from a deleted key) is shared-trade evidence for the merged account again.
     for k in &kept { crate::app_config::set_plain(c, &identity::credential_changed_key(*k), &crate::codec::format_time(now), now).map_err(rusqlite::Error::InvalidParameterName)?; }

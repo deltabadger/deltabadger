@@ -431,6 +431,8 @@ async fn an_api_order_through_a_fenced_key_is_refused() {
         let (key, user, exchange): (i64, i64, i64) = c.query_row("SELECT id, user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
         let account = deltabadger::identity::Account::first(c, user, exchange).unwrap().ensure(c, kt(0).0).unwrap();
         c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+        // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+        c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
         c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', ?3)", rusqlite::params![key, exchange, T]).unwrap();
     }
     let missing = refusal(403, "api_key_missing", "No valid API key found for Kraken. Please add an API key in Settings.");
@@ -1093,6 +1095,7 @@ async fn s7a_r1_a_standalone_order_whose_key_is_fenced_while_it_is_out_is_not_pl
         let c = Connection::open(&path).unwrap();
         let (key, user, exchange): (i64, i64, i64) = c.query_row("SELECT id, user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
         c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", [user, exchange]).unwrap();
+        c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) SELECT id, 'now' FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2 AND number = 1", [user, exchange]).unwrap();
         c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', ?3)", rusqlite::params![key, exchange, T]).unwrap();
     });
     let mut k = Kraken { venue, ..k0 };

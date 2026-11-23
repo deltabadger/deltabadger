@@ -7,6 +7,7 @@ en:
             duplicate_html: "%{duplicate} is the same exchange account as %{survivor}."
             key_elsewhere_html: "This key belongs to %{account}. %{target} was not changed."
             identity_unconfirmed: "We could not confirm which account this key belongs to. Try again."
+            other_key_checking: "Deltabadger is still checking your other %{exchange} key. Try again in a minute."
             key_reads_elsewhere: "This key opens a different exchange account than this one, so it was not saved here. Save this account's own key."
             key_order_waits: "An open order still uses the current key. Cancel it or wait until it fills, then try again."
             key_withdrawal_waits: "A withdrawal still uses the current key. Wait until it completes, then try again."

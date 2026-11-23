@@ -576,6 +576,8 @@ async fn a_fenced_key_s_paused_bot_does_not_spin_the_loop() {
     let key: i64 = e.primary.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
     let account = deltabadger::identity::Account::first(&e.primary, s.user_id, s.exchange_id).unwrap().ensure(&e.primary, "2026-09-01T10:00:30Z".parse().unwrap()).unwrap();
     e.primary.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    e.primary.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
     e.primary.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-01 10:00:30')", [key, s.exchange_id]).unwrap();
     let wake = run::step(&mut e, &at("2026-09-01T10:01:00Z")).await.unwrap();
     assert!(wake >= us("2026-09-01T10:01:00Z") + 1_000_000, "not at once: {wake}");
@@ -624,6 +626,8 @@ async fn a_fenced_key_s_idle_reconciliation_keeps_its_wait() {
     let key: i64 = e.primary.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
     let account = deltabadger::identity::Account::first(&e.primary, s.user_id, s.exchange_id).unwrap().ensure(&e.primary, "2026-09-01T10:00:30Z".parse().unwrap()).unwrap();
     e.primary.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    e.primary.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
     e.primary.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-01 10:00:30')", [key, s.exchange_id]).unwrap();
     let lookups = std::rc::Rc::new(std::cell::Cell::new(0));
     let counted = lookups.clone();

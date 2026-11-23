@@ -7,6 +7,7 @@ sv:
             duplicate_html: "%{duplicate} är samma börskonto som %{survivor}."
             key_elsewhere_html: "Den här nyckeln hör till %{account}. %{target} ändrades inte."
             identity_unconfirmed: "Vi kunde inte bekräfta vilket konto den här nyckeln hör till. Försök igen."
+            other_key_checking: "Deltabadger kontrollerar fortfarande din andra %{exchange}-nyckel. Försök igen om en minut."
             key_reads_elsewhere: "Den här nyckeln öppnar ett annat konto på börsen än det här, så den sparades inte här. Spara det här kontots egen nyckel."
             key_order_waits: "En öppen order använder fortfarande den nuvarande nyckeln. Avbryt den eller vänta tills den har genomförts och försök sedan igen."
             key_withdrawal_waits: "Ett uttag använder fortfarande den nuvarande nyckeln. Vänta tills det är klart och försök sedan igen."

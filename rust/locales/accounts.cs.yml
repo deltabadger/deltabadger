@@ -7,6 +7,7 @@ cs:
             duplicate_html: "%{duplicate} je stejný účet na burze jako %{survivor}."
             key_elsewhere_html: "Tento klíč patří k účtu %{account}. %{target} se nezměnil."
             identity_unconfirmed: "Nepodařilo se ověřit, ke kterému účtu tento klíč patří. Zkuste to znovu."
+            other_key_checking: "Deltabadger ještě ověřuje tvůj druhý klíč pro %{exchange}. Zkus to znovu za minutu."
             key_reads_elsewhere: "Tento klíč otevírá jiný účet na burze než tento, proto zde nebyl uložen. Uložte klíč tohoto účtu."
             key_order_waits: "Otevřený příkaz stále používá aktuální klíč. Zruš ho nebo počkej, až se vyplní, a zkus to znovu."
             key_withdrawal_waits: "Výběr stále používá aktuální klíč. Počkej, až doběhne, a zkus to znovu."

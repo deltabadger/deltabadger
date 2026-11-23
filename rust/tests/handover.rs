@@ -1979,6 +1979,8 @@ fn takeover_fences_a_key_2x_replaced_in_place_and_keeps_the_material_digests() {
     let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap().id.unwrap();
     let fingerprint = key.fingerprint_text("Exchanges::Kraken", "uid-1");
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", rusqlite::params![account, fingerprint]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account]).unwrap();
     for id in [s.api_key_id, reader] {
         let material = deltabadger::crypto::Credentials { redaction_values: vec![], key: cipher.decrypt(&count_text(c, id, "key")).unwrap(),
             secret: cipher.decrypt(&count_text(c, id, "secret")).unwrap(), passphrase: None, ibkr: None };

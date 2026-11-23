@@ -7,6 +7,7 @@ de:
             duplicate_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor}."
             key_elsewhere_html: "Dieser Schlüssel gehört zu %{account}. %{target} wurde nicht geändert."
             identity_unconfirmed: "Wir konnten nicht bestätigen, zu welchem Konto dieser Schlüssel gehört. Versuche es noch einmal."
+            other_key_checking: "Deltabadger prüft gerade noch deinen anderen %{exchange}-Schlüssel. Versuch es in einer Minute noch einmal."
             key_reads_elsewhere: "Dieser Schlüssel öffnet ein anderes Börsenkonto als dieses, daher wurde er hier nicht gespeichert. Speichere den Schlüssel dieses Kontos."
             key_order_waits: "Eine offene Order nutzt noch den aktuellen Schlüssel. Storniere sie oder warte, bis sie ausgeführt ist, und versuche es dann noch einmal."
             key_withdrawal_waits: "Eine Auszahlung nutzt noch den aktuellen Schlüssel. Warte, bis sie abgeschlossen ist, und versuche es dann noch einmal."
