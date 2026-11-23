@@ -2511,3 +2511,101 @@ async fn a_buy_between_the_cash_and_positions_replies_counts_once() {
     let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All).unwrap();
     assert!(moved.iter().all(|(symbol, _)| symbol != "AAPL" && symbol != "USD"), "{moved:?}");
 }
+
+// ---- #710 7a rules M4/N7: a reader handoff, end to end ----------------------------------------------------------------
+
+/// The account's ledger freshness as the tracker reads it.
+async fn ledger_current(db: &Db, user: i64) -> bool {
+    db.run(move |c, _| sync::cache::capture_read(c, user, &deltabadger::tracker::Scope::All).map_err(|e| format!("{e:?}"))?.ledger_is_current(c).map_err(|e| format!("{e:?}"))).await.unwrap()
+}
+
+/// Rules M4 and N7's scenario, through the jobs' own entry and the scheduler. One Alpaca account, a trading key T and a read-only key
+/// R. R read the ledger once (T was off), one page, and left a continuation; T came back and walked the whole history.
+/// Then a deposit arrives at the venue, and T is found to open another account (its copy fenced, as a key save's read
+/// records it): R takes over. The handoff drops R's continuation and stamps, so the tracker is not current; an order
+/// wakes T's job, which syncs nothing and wakes R's; R walks from the start (no page token: the handoff time is covered),
+/// the deposit reaches the ledger without a restart, and the tracker is current again.
+async fn handoff() -> Handoff {
+    let (dir, db, s) = install();
+    let cipher = seed::cipher();
+    let (t, user, exchange) = (s.api_key_id, s.user_id, s.exchange_id);
+    let r = db.run(move |c, cipher| {
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![user, exchange, cipher.encrypt("PKREAD"), cipher.encrypt("read-secret"), cipher.encrypt("paper")]).map_err(|e| e.to_string())?;
+        let r = c.last_insert_rowid();
+        // A key read proved the account's fingerprint.
+        let account = deltabadger::identity::Account::first(c, user, exchange).map_err(|e| e.to_string())?.ensure(c, clock().now()).map_err(|e| e.to_string())?.id.unwrap();
+        deltabadger::identity::key(c, cipher, clock().now())?;
+        c.execute("UPDATE exchange_accounts SET fingerprint = 'fa', account_id_enc = x'01' WHERE id = ?1", [account]).map_err(|e| e.to_string())?;
+        c.execute("INSERT INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account]).map_err(|e| e.to_string())?;
+        // T is off for a while: R is the reader.
+        deltabadger::identity::write_status(c, t, 0, "2026-09-01 00:00:00", false, false).map_err(|e| e.to_string())?;
+        Ok(r)
+    }).await.unwrap();
+    let continuation = format!("rust_sync.ledger:{r}");
+    let has = |db: &Db, key: String| { let db = db.clone(); async move { db.run(move |c, _| deltabadger::app_config::exists(c, &key)).await.unwrap() } };
+    let history = long_history();
+    let first = Paged::new(history.clone());
+    let one_page = LedgerSync::new(PagedVenues(first.clone()), r).within(ledger::Limits { pages: 1, runs: 100 });
+    assert_eq!(one_page.run(cx(&db, &clock()), vec![Wake::Manual(None)]).await, Outcome::NothingNew, "R: one page, more to read");
+    assert!(has(&db, continuation.clone()).await, "R left a continuation");
+    // T is back: it reads the whole history.
+    db.run(move |c, _| deltabadger::identity::write_status(c, t, 1, "2026-09-02 00:00:00", false, false).map(|_| ()).map_err(|e| e.to_string())).await.unwrap();
+    assert_eq!(LedgerSync::new(PagedVenues(first.clone()), t).run(cx(&db, &clock()), vec![Wake::Manual(None)]).await, Outcome::Done);
+    assert_eq!(one::<i64>(&db, "SELECT count(*) FROM account_transactions").await, 1_050);
+    assert!(has(&db, continuation.clone()).await, "R's continuation waits while T reads");
+
+    // The deposit, after T's walk; then T is found to open another account.
+    let mut later = history;
+    later.push(json!({ "id": "dep-1", "activity_type": "CSD", "net_amount": "500", "date": "2026-09-19" }));
+    let second = Paged::new(later);
+    db.run(move |c, cipher| {
+        let material = sync::validation_material(c, cipher, t).map_err(|e| e.0)?.0;
+        deltabadger::identity::fence_copies(c, cipher, user, exchange, sync::ALPACA, &material, &deltabadger::identity::AccountId::parse("999").unwrap(), None, clock().now())
+    }).await.unwrap();
+    let (dropped, current_at_handoff) = (!has(&db, continuation.clone()).await, ledger_current(&db, user).await);
+
+    // An order wakes T's ledger job: it syncs nothing and wakes R's, which the scheduler spawns and runs.
+    let order = EngineEvent::OrderRecorded { bot_id: 1, transaction_id: 1 };
+    let jobs: Vec<Box<dyn Job>> = vec![Box::new(LedgerSync::new(PagedVenues(second.clone()), t))];
+    let clock = tokio_clock("2026-09-20T12:00:00Z");
+    let mut engine = deltabadger::engine::events::EngineEvents::default();
+    let rx = engine.subscribe();
+    let api: Rc<Option<deltabadger::jobs::data_api::DataApi<ScriptedTransport>>> = Rc::new(None);
+    let resolver = deltabadger::jobs::resolve::all(PagedVenues(second.clone()), api, deltabadger::tracker::jobs::system_wall());
+    let scheduler = deltabadger::jobs::Scheduler::new(Connection::open(dir.path().join("production.sqlite3")).unwrap(), cipher.clone(), jobs, Some(rx)).with_resolver(resolver);
+    let (stop, stopped) = tokio::sync::watch::channel(false);
+    let (ended, ()) = tokio::join!(scheduler.run(stopped, &clock), async {
+        tokio::time::sleep(MINUTE).await;
+        engine.send(order);
+        tokio::time::sleep(10 * MINUTE).await;
+        stop.send(true).unwrap();
+    });
+    ended.unwrap();
+    let deposit = one::<i64>(&db, "SELECT count(*) FROM account_transactions WHERE tx_id = 'dep-1' OR raw_data LIKE '%dep-1%'").await;
+    Handoff { asked: second.asked(), dropped, current_at_handoff, deposit, current_after: ledger_current(&db, user).await, _dir: dir }
+}
+/// What `handoff` saw: R's requests to the venue after the handoff, whether its continuation was gone and the tracker
+/// current right after the handoff, the deposit's rows, and the tracker after the scheduler ran.
+struct Handoff { asked: Vec<(Option<String>, Option<String>)>, dropped: bool, current_at_handoff: bool, deposit: i64, current_after: bool, _dir: tempfile::TempDir }
+
+/// Rule M4: a deposit made between the old reader's walk and the handoff reaches the tracker without a restart, and the
+/// tracker is not current between the handoff and the new reader's finished job.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn m4_a_deposit_made_before_a_handoff_reaches_the_tracker_through_the_new_reader() {
+    let h = handoff().await;
+    assert!(!h.current_at_handoff, "not current until R's own job has run");
+    assert_eq!(h.deposit, 1, "the deposit reached the ledger, no restart");
+    assert!(h.current_after, "R's finished walk is the watermark");
+}
+
+/// Rule N7: the handoff dropped the continuation the new reader would have resumed, so its walk starts from the
+/// beginning and covers the handoff time.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn n7_the_new_readers_walk_covers_the_handoff_time() {
+    let h = handoff().await;
+    assert!(h.dropped, "the continuation R would have resumed was dropped");
+    // T's job ran at the start (its import marked incomplete) and at the order: each run woke R, which walked whole.
+    assert!(!h.asked.is_empty() && h.asked.len() % 11 == 0, "whole walks of R's, nothing through T: {:?}", h.asked);
+    assert_eq!(h.asked[0], (None, None), "R walked from the start, not from its dropped page token");
+}

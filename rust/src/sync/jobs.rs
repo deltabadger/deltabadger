@@ -303,9 +303,11 @@ impl<C: Connect> Job for LedgerSync<C> {
             let completion=async {
             // #710 7a rule P7: only the account's reader syncs its ledger; it captures the reader generation here, and every
             // fenced commit of the run checks it (N7). Another key's job does nothing but wake the reader.
-            let entry = match reader_entry(&cx, key_id, LEDGER_SYNC).await { Ok(Some(entry)) => entry, Ok(None) => return crate::engine::model::Produced::new(Outcome::NothingNew,None),
-                Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
+            // A run that did nothing, under the key's current version: the scheduler records it (a run with no version is
+            // refused as a changed credential, and would be run again at once).
+            let entry = match reader_entry(&cx, key_id, LEDGER_SYNC).await { Ok(Some(entry)) => entry, Ok(None) => return crate::engine::model::Produced::new(Outcome::NothingNew,Some(version)),
+                Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             // A capture inside the job (each adapter re-reads its key) must be on the account captured here (#710 §6.4).
             let result=crate::sync::as_reader(entry, crate::sync::bound(version.account(), async {
             let key = self.key_id.to_string();
@@ -315,6 +317,9 @@ impl<C: Connect> Job for LedgerSync<C> {
             match cx.db.run(move |c, _| {
                 let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
                 if !crate::engine::model::key_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                // The account's reader as stored is settled first: an account whose reader no handoff ever recorded gets its
+                // generation row now, so the next handoff bumps it (rule N7).
+                crate::sync::settle_readers_of_key(&tx, key_id).map_err(|e| e.0)?;
                 if let Some(entry) = &entry { if !crate::sync::reader_holds(&tx, entry).map_err(|e| e.0)? { return Ok(false); } }
                 crate::jobs::state::mark_incomplete(&tx, LEDGER_SYNC, Some(&key), at)?;
                 tx.commit().map_err(|e| e.to_string())?;
@@ -453,9 +458,8 @@ impl<C: Connect> Job for BalanceSync<C> {
             // A key whose account reads with another key gives way to it; one whose account has no reading key runs as before.
             let gives_way = cx.db.run(move |c, _| superseded(c, key_id).map_err(|e| e.0)).await;
             let (credentials, version) = match key_credentials(&cx.db, self.key_id).await { Ok(c) => c, Err(SyncError(e)) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
-            // #710 7a rule P7: an account none of whose keys can read (fenced, or unread on a two-account exchange) is
-            // read by none of them; the reader captures its generation (N7).
-            let entry = match reader_entry(&cx, key_id, BALANCE_SYNC).await { Ok(Some(entry)) => entry, Ok(None) if matches!(gives_way, Ok(None)) => return crate::engine::model::Produced::new(Outcome::NothingNew,None),
+            // #710 7a rule P7: the account's reader captures its generation (N7); a key another key reads for does nothing.
+            let entry = match reader_entry(&cx, key_id, BALANCE_SYNC).await { Ok(Some(entry)) => entry, Ok(None) if matches!(gives_way, Ok(None)) => return crate::engine::model::Produced::new(Outcome::NothingNew,Some(version)),
                 Ok(None) => None, Err(e) => return crate::engine::model::Produced::new(Outcome::Failed(e),None) };
             match gives_way {
                 Ok(None) => {}
@@ -476,6 +480,7 @@ impl<C: Connect> Job for BalanceSync<C> {
             match cx.db.run(move |c, _| {
                 let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
                 if !crate::engine::model::key_is_current(&tx, &captured).map_err(|e| format!("{e:?}"))? { return Ok(false); }
+                crate::sync::settle_readers_of_key(&tx, key_id).map_err(|e| e.0)?;
                 if let Some(r) = &reader { if !crate::sync::reader_holds(&tx, r).map_err(|e| e.0)? { return Ok(false); } }
                 crate::jobs::state::mark_incomplete(&tx, BALANCE_SYNC, Some(&key), at)?;
                 tx.commit().map_err(|e| e.to_string())?;
