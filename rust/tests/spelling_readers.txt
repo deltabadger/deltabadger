@@ -171,6 +171,11 @@ legacy	tracker/fx.rs	literal	1	let from_rate = if from == "EUR" { Some(&one) } e
 legacy	tracker/fx.rs	literal	1	let to_rate = if to == "EUR" { Some(&one) } else { self.per_eur(to, date) };
 legacy	tracker/fx.rs	literal	1	pub const CURRENCIES: [&str; 11] = ["USD", "GBP", "CHF", "SEK", "DKK", "CZK", "PLN", "NOK", "HUF", "RON", "BGN"];
 legacy	tracker/gaps.rs	sql	1	notes.sort_by(|a, b| (a.symbol.as_str(), a.kind).cmp(&(b.symbol.as_str(), b.kind)));
+resolver	tracker/labels.rs	sql	1	if let Some(e) = a.external_id { names.entry(e).or_insert((a.symbol, name)); }
+resolver	tracker/labels.rs	sql	1	if let Some(f) = r.fee_currency.as_ref() { out.push((Side::Fee, f.as_str().to_string(), r.fee_amount.clone().unwrap_or_else(Dec::zero).neg())); }
+resolver	tracker/labels.rs	sql	1	if let Some(symbol) = a.symbol.clone() { f.catalogue.entry(symbol).or_default().push(a); }
+resolver	tracker/labels.rs	sql	1	let mut s = c.prepare(&format!( "SELECT t.exchange_id, t.base, t.quote, b.id, b.external_id, b.symbol, b.category, q.id, q.external_id, q.symbol, q.category FROM tickers t \ LEFT JOIN assets b ON b.id = t.base_asset_id LEFT JOIN assets q ON q.id = t.quote_asset_id WHERE t.exchange_id IN ({marks}) ORDER BY t.id"))?;
+resolver	tracker/labels.rs	sql	1	let mut s = c.prepare(&format!("SELECT {account}, b.exchange_id, a.id, a.external_id, a.symbol, a.category FROM exchange_account_balances b \ JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND {counted} AND b.free + b.locked > 0 ORDER BY b.id"))?;
 legacy	tracker/mod.rs	literal	1	pub const FIAT: [&str; 13] = ["USD", "EUR", "GBP", "CHF", "SEK", "PLN", "DKK", "CZK", "BGN", "AUD", "CAD", "JPY", "AED"];
 legacy	tracker/mod.rs	literal	1	pub const STABLECOINS: [&str; 8] = ["USDT", "USDC", "BUSD", "DAI", "FDUSD", "TUSD", "PYUSD", "RLUSD"];
 legacy	tracker/parity.rs	sql	1	holdings.sort_by(|a, b| a.symbol.cmp(&b.symbol));
