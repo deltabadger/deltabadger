@@ -29,8 +29,9 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
 /// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK). 5: a security's corporate action
 /// never restates a coin's lots under the symbol they share (#1061). 6: a timed Alpaca CFEE stands after its fill and an
-/// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL).
-pub const CALCULATION: &str = "6";
+/// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL). 7: coins are priced by identity from asset_prices, an
+/// unidentified leg is unpriced (D-TRACKER-COIN-PRICE-KEYS).
+pub const CALCULATION: &str = "7";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
 pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }

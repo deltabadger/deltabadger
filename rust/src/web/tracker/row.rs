@@ -56,7 +56,13 @@ pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Fills(Dec), Ours(De
 /// (D-TAX-CFEE-PREVIOUS-DAY; the walk values both so too), our stored daily USD price
 /// for the row's UTC date. D-PRICE-WAITING: no stored price yet, and the row's UTC day is not
 /// over (`today` from the app clock), for a key we have priced before → `Waiting`, not open to a stated price yet.
-pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,WebError>{
+/// The owner's label map, which says what coin each row's base leg is (plan r10 L1). It reads the owner's whole history,
+/// so a page builds it once for all its rows.
+// ponytail: one owner-wide load per ledger page or row update; cache it beside the ledger cache if pages get slow.
+pub fn labels(c:&Connection,owner:i64)->Result<crate::tracker::spellings::Spellings,WebError>{
+    crate::tracker::rows::load_all_mapped(c,owner).map(|(_,s)|s).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})
+}
+pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:&crate::tracker::spellings::Spellings)->Result<Source,WebError>{
     if crate::tracker::cash(&row.base){return Ok(Source::Cash)}
     if row.amount.is_zero(){return Ok(Source::None)}
     if let Some(counterpart)=row.counterpart(c)?{return Ok(Source::Exchange(counterpart))}
@@ -71,11 +77,17 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate)->Result<Source,Web
     }
     // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
     let day=row.at.date_naive();
-    let Some(key)=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,day)? else{return Ok(Source::None)};
-    let stored:Option<rusqlite::types::Value>=c.query_row("SELECT price FROM historical_prices WHERE asset=?1 AND currency='USD' AND date=?2 LIMIT 1",(&key,day.to_string()),|r|r.get(0)).optional()?;
+    // A coin's price is stored by the coin (asset_prices); a leg no coin is known for has none of ours.
+    let label=labels.label(row.id,crate::tracker::spellings::Side::Base);
+    let (table,column,key)=match label.map(|l|(l.coin(),l.keyed() && l.class()==crate::tracker::spellings::Class::Unknown)) {
+        Some((Some(coin),_))=>("asset_prices","external_id",coin.to_string()),
+        Some((None,true))=>return Ok(Source::None),
+        _=>{let Some(key)=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,day)? else{return Ok(Source::None)};("historical_prices","asset",key)}
+    };
+    let stored:Option<rusqlite::types::Value>=c.query_row(&format!("SELECT price FROM {table} WHERE {column}=?1 AND currency='USD' AND date=?2 LIMIT 1"),(&key,day.to_string()),|r|r.get(0)).optional()?;
     if let Some(p)=stored.map(|v|number(Dec::from_sql((&v).into()))).transpose()?.flatten().filter(Dec::is_positive){return Ok(Source::Ours(p))}
     if day<today{return Ok(Source::None)}
-    let priced:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM historical_prices WHERE asset=?1 AND currency='USD' AND CAST(price AS REAL)>0)",[&key],|r|r.get(0))?;
+    let priced:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE {column}=?1 AND currency='USD' AND CAST(price AS REAL)>0)"),[&key],|r|r.get(0))?;
     Ok(if priced{Source::Waiting}else{Source::None})
 }
 
@@ -142,12 +154,12 @@ pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String
     Ok(match flag.or(image).filter(|s|!s.trim().is_empty()) {Some(src)=>format!("  <img class=\"asset-logo\" src=\"{}\" alt=\"\" loading=\"lazy\">\n",escape(&src)),None=>format!("  <span class=\"asset-logo\" style=\"background: {}\"></span>\n",escape(&crate::web::colors::pill_color(color.as_deref()).ok_or_else(invalid)?))})
 }
 
-pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination)->Result<String,WebError>{
+pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:&crate::tracker::spellings::Spellings)->Result<String,WebError>{
     let user=ctx.user().ok_or_else(invalid)?;
     let absolute=if row.amount.is_negative(){row.amount.neg()}else{row.amount.clone()};
     let counterpart=row.counterpart(c)?;
     let today=ctx.app.now().date_naive();
-    let (price,source,exchange_price)=match source(c,row,today)? {
+    let (price,source,exchange_price)=match source(c,row,today,labels)? {
         Source::Cash=>(in_display(c,&Dec::one(),&row.base,row.at.date_naive(),d)?,"cash",None),
         Source::Exchange((amount,currency))=>(None,"exchange",Some(figure(&number(amount.div(&absolute))?,&currency)?)),
         Source::Stated(usd)=>(Some(number(&usd * &d.rate)?),"stated",None),
