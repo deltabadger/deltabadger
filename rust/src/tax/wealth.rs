@@ -32,7 +32,7 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
             _ => None,
         };
         let own_fee = r.fee_amount.clone().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str()));
-        let mut moves = walk::quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_deref(), r.fee_amount.as_ref(), linked, transfer_fee.as_ref())?;
+        let mut moves = walk::quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, transfer_fee.as_ref())?;
         // r4 item 2: an own-coin fee attached to a linked deposit leaves too (`quantity_moves` takes a third coin's already; the
         // principal is not credited again, and the inferred network fee is the withdrawal's amount less the deposit's gross).
         if r.kind == Kind::Deposit && linked { if let Some(f) = &own_fee { moves.push((r.base.clone(), f.neg())); } }
@@ -47,7 +47,7 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
             let asset = identity(&symbol, r);
             match out.iter_mut().find(|h| h.asset == asset) {
                 Some(h) => h.units = (&h.units + &delta)?,
-                None => out.push(Held { asset, symbol, venue: r.venue.clone(), units: delta }),
+                None => out.push(Held { asset, symbol: symbol.to_string(), venue: r.venue.clone(), units: delta }),
             }
         }
     }

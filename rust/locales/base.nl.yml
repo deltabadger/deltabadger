@@ -566,6 +566,7 @@ nl:
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
         importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'
+        imported_from: 'Gegevens van %{exchange} geïmporteerd.'
         get_report: 'Belastingrapport'
         filter: 'Filteren'
         no_results: 'Geen transacties gevonden voor de geselecteerde filters.'

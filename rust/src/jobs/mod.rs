@@ -124,6 +124,7 @@ impl Db {
         // A captured owner survives deletion of that key by the completed database unit.
         let owner = match captured { Some(owner) => Some(owner), None => self.completion_owner(name, scope).await };
         let Some(owner) = owner else { return; };
+        if let Err(e) = self.run(move |c, _| crate::sync::jobs::progress::clear(c, owner)).await { log(&format!("[tracker] import progress of user {owner} not cleared: {e}")); }
         self.notifications.sync_done(owner);
     }
 

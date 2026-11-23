@@ -490,13 +490,13 @@ impl Report {
         });
         engine.calculate(&txs)?;
         // Tax::Report#refuse_excess_return_of_capital: this year's only (D-TAX-LOCAL-YEAR: the taxpayer's year).
-        let mut symbols: Vec<String> = engine.excess_roc_rows.iter().map(|&i| &txs[i].row).filter(|r| self.in_year(r.at)).map(|r| r.base.clone()).collect();
+        let mut symbols: Vec<String> = engine.excess_roc_rows.iter().map(|&i| &txs[i].row).filter(|r| self.in_year(r.at)).map(|r| r.base.to_string()).collect();
         symbols.sort();
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "excess_return_of_capital".into(), symbols }); }
         // D-TAX-GB-UNSUPPORTED-ACTION (r2 item 3): a split or a return of capital within a pair matched by a disposal of the
         // year: the match cannot be restated.
-        let mut symbols: Vec<String> = engine.unsupported.iter().filter(|(_, day)| gb::tax_year(*day) == year).map(|&(i, _)| txs[i].row.base.clone()).collect();
+        let mut symbols: Vec<String> = engine.unsupported.iter().filter(|(_, day)| gb::tax_year(*day) == year).map(|&(i, _)| txs[i].row.base.to_string()).collect();
         symbols.sort();
         symbols.dedup();
         if !symbols.is_empty() { return Ok(Outcome::Refused { reason: "unsupported_corporate_action".into(), symbols }); }
@@ -525,8 +525,8 @@ impl Report {
             for r in enriched.iter().map(|e| &e.row).filter(|r| self.in_year(r.at)) {
                 let coin_fee = r.fee_currency.as_deref().filter(|c| !c.trim().is_empty() && !fiat(c)).zip(r.fee_amount.as_ref().filter(|a| a.is_positive()));
                 let listed = match r.kind {
-                    Kind::Fee => own_rows.contains(&r.uid).then(|| (r.base.clone(), r.amount.clone())),
-                    Kind::Withdrawal if r.linked => r.transfer_fee.clone().filter(Dec::is_positive).map(|f| (r.base.clone(), f)),
+                    Kind::Fee => own_rows.contains(&r.uid).then(|| (r.base.to_string(), r.amount.clone())),
+                    Kind::Withdrawal if r.linked => r.transfer_fee.clone().filter(Dec::is_positive).map(|f| (r.base.to_string(), f)),
                     _ => coin_fee.map(|(c, a)| (c.to_string(), a.clone())),
                 };
                 if let Some((coin, units)) = listed { notes.fr_fees.push(format!("{coin} {} {}", units.to_s_f(), date(r.at))); }
@@ -571,7 +571,7 @@ impl Report {
         if dk {
             // D-TAX-DK-STABLECOIN: held at the year's start, or any row of it in the year.
             let mut held: Vec<String> = engine.snapshot.iter().flatten().filter(|(sym, units)| dk_stablecoin(sym) && units.is_positive()).map(|(sym, _)| sym.clone())
-                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(&r.base) && self.local(r.at).year() == year).map(|r| r.base.clone())).collect();
+                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(&r.base) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
             held.sort();
             held.dedup();
             notes.stablecoins = held;
@@ -630,7 +630,7 @@ impl Report {
             let Some((_, name)) = INCOME.iter().find(|(k, _)| *k == r.kind && !matches!(k, Kind::StakingReward | Kind::Airdrop)) else { continue };
             if r.at.0 < from.0 || fiat(&r.base) { continue; }
             let day = self.local(r.at);
-            groups.entry((r.exchange.clone(), r.base.clone(), name, day.year(), day.month())).or_default().push(i);
+            groups.entry((r.exchange.clone(), r.base.to_string(), name, day.year(), day.month())).or_default().push(i);
         }
         let mut listed = vec![];
         for ((venue, base, name, y, m), rows) in groups.into_iter().filter(|(_, rows)| rows.len() > 3) {
@@ -1079,7 +1079,7 @@ impl CryptoScope {
 fn tokenized_symbols<'a>(c: &Connection, rows: impl Iterator<Item = &'a Stored>) -> Result<Vec<String>, FiguresError> {
     let canonical = |s: &str| s.strip_suffix("SPV").map_or_else(|| s.to_string(), |head| format!("{head}x")).to_uppercase();
     let rows: Vec<&Stored> = rows.filter(|r| !r.base.trim().is_empty()).collect();
-    let names: HashSet<String> = rows.iter().flat_map(|r| [r.base.clone(), canonical(&r.base)]).collect();
+    let names: HashSet<String> = rows.iter().flat_map(|r| [r.base.to_string(), canonical(&r.base)]).collect();
     let reference = Reference::load(c, &Venue::alpaca(c)?, &names)?;
     let mut listed = c.prepare("SELECT a.symbol, a.instrument_type FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
                                 WHERE t.exchange_id = ?1 AND t.base IN (?2, ?3) ORDER BY t.id LIMIT 1")?;

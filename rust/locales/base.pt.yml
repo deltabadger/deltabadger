@@ -565,6 +565,7 @@ pt:
         sync: 'Sincronizar'
         sync_started: 'A sincronizar transações das suas exchanges...'
         importing_from: 'A importar dados de %{exchange}…'
+        imported_from: 'Dados de %{exchange} importados.'
         get_report: 'Relatório fiscal'
         filter: 'Filtrar'
         no_results: 'Nenhuma transação encontrada para os filtros selecionados.'

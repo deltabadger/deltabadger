@@ -566,6 +566,7 @@ de:
         sync: 'Synchronisieren'
         sync_started: 'Transaktionen werden von deinen Börsen synchronisiert...'
         importing_from: 'Daten werden von %{exchange} importiert…'
+        imported_from: 'Daten von %{exchange} importiert.'
         get_report: 'Steuerbericht'
         filter: 'Filtern'
         bot: 'Bot'

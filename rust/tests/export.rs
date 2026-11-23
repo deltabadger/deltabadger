@@ -409,7 +409,7 @@ fn input_ddl_never_reaches_the_download() {
     let c = b.db();
     // The stray-conditions migration (it updates bots) and the import-cutoff one (it deletes app_configs rows) still pending,
     // and with it 7a's rebuild of the import tables by account (their pre-7a shape restored, empty).
-    c.execute_batch("DELETE FROM rust_schema_migrations WHERE version IN ('20261025000001', '20261023000001', '20261124000001'); DROP TABLE import_cutoffs;
+    c.execute_batch("DELETE FROM rust_schema_migrations WHERE version IN ('20261025000001', '20261023000001', '20261124000002'); DROP TABLE import_cutoffs;
         DROP TABLE import_rows; DROP TABLE exchange_account_imports;").unwrap();
     for (version, table) in [("20261022000002", "import_rows"), ("20261022000001", "exchange_account_imports")] {
         let ddl = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations").join(

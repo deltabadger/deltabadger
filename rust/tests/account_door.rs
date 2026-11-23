@@ -93,8 +93,10 @@ async fn a_tile_save_without_identity_makes_a_new_account_and_the_same_material_
 async fn a_legacy_form_replaces_number_1s_key() {
     let (_d, o, s, _server, app) = alpaca().await;
     let (c, cipher) = (&o.primary, seed::cipher());
+    // D-ALPACA-ONE-KEY: Alpaca's tracker key is number 1's trading key, so the form replaces that one.
     let mut want = keys(c, &cipher, s.exchange_id);
-    want.push((1, "replaced".into()));
+    assert_eq!(want, [(1, "PKTEST".to_string())]);
+    want[0].1 = "replaced".into();
     let mut b = browser(&app, c, s.user_id);
     let exchange = s.exchange_id.to_string();
     assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
@@ -553,9 +555,9 @@ async fn the_tracker_venue_step_binds_its_key_form_to_the_picked_account() {
     let saved = b.send(&app, "POST", &action.replace("&#38;", "&"), Some(&[("api_key[key]", "reader-2"), ("api_key[secret]", "reader-2-secret"), ("api_key[passphrase]", "paper")]),
                        common::web::Csrf::Header, &[]).await;
     assert!(saved.status < 400, "{}: {}", saved.status, saved.body);
-    let mut want = before.clone();
-    want.push((2, "reader-2".into()));
-    assert_eq!(keys(c, &cipher, s.exchange_id), want, "account 2's reading key; account 1 untouched");
+    // D-ALPACA-ONE-KEY: Alpaca's tracker key is the account's trading key, so the save replaces account 2's.
+    let want: Vec<(i64, String)> = before.iter().map(|(n, k)| if *n == 2 { (2, "reader-2".into()) } else { (*n, k.clone()) }).collect();
+    assert_eq!(keys(c, &cipher, s.exchange_id), want, "account 2's key; account 1 untouched");
     // A venue tile: the form always asks, and posts untargeted.
     b.get(&app, "/tracker/pick_exchange/new").await;
     let tile = b.send(&app, "POST", "/tracker/pick_exchange", Some(&[("exchange_id", exchange.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await;
@@ -590,7 +592,7 @@ async fn reconnect_links_and_the_bot_sheet_name_their_account() {
     assert_eq!(page.status, 200);
     let fixes = links(&page.body, "/tracker/add_api_key/new");
     for account in [first, second] {
-        assert!(fixes.iter().any(|l| l.contains("key_type=trading") && l.ends_with(&format!("account_id={account}"))), "a fix for account {account}: {fixes:?}");
+        assert!(fixes.iter().any(|l| l.contains("key_type=") && l.ends_with(&format!("account_id={account}"))), "a fix for account {account}: {fixes:?}");
     }
     assert!(fixes.iter().any(|l| l == &format!("/tracker/add_api_key/new?account_id={second}&exchange_id={}", s.exchange_id)), "account 2's broken chip: {fixes:?}");
     let gap = b.get(&app, &format!("/tracker/history_gap?account_id={second}")).await;
@@ -1553,14 +1555,15 @@ async fn a_key_replacement_waits_only_on_a_standalone_order_still_open_at_its_ve
     assert!(waiting.body.contains("An open order still uses the current key."), "{}", waiting.body);
 }
 
-/// Answers Alpaca's order read (filled) and, as it answers, saves account 1's read-only key from another request.
+/// Answers Alpaca's order read (filled) and, as it answers, replaces account 1's key (D-ALPACA-ONE-KEY: its tracker key is
+/// the trading key) from another request.
 struct SaveWhileRead(std::path::PathBuf, i64, i64);
 impl wiremock::Respond for SaveWhileRead {
     fn respond(&self, _: &wiremock::Request) -> ResponseTemplate {
         let c = Connection::open(&self.0).unwrap();
         let cipher = seed::cipher();
-        c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, ?5, 1, 'now', 'now')",
-                  rusqlite::params![self.1, self.2, cipher.encrypt("other-request-key"), cipher.encrypt("other-secret"), cipher.encrypt("paper")]).unwrap();
+        c.execute("UPDATE api_keys SET key = ?3, secret = ?4, updated_at = 'now' WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0",
+                  rusqlite::params![self.1, self.2, cipher.encrypt("other-request-key"), cipher.encrypt("other-secret")]).unwrap();
         ResponseTemplate::new(200).set_body_json(serde_json::json!({ "id": "x", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "buy", "qty": "0.001",
             "notional": null, "filled_qty": "0.001", "filled_avg_price": "60000", "limit_price": null }))
     }
@@ -1587,7 +1590,7 @@ async fn s7a_a_json_save_never_overwrites_a_key_saved_while_its_preflight_read_t
     let answer = if form { save(&app, &mut b, s.exchange_id, Some(account), &[("api_key[key]", "first-request-key"), ("api_key[secret]", "s"), ("api_key[passphrase]", "paper")]).await }
                  else { json_save(&app, &mut b, s.exchange_id, account, "first-request-key").await };
     assert!(answer.status >= 400, "form {form}: {}: {}", answer.status, answer.body);
-    let saved: Vec<String> = c.prepare("SELECT key FROM api_keys WHERE key_type = 2").unwrap().query_map([], |r| r.get::<_, String>(0)).unwrap().map(|k| cipher.decrypt(&k.unwrap()).unwrap()).collect();
+    let saved: Vec<String> = c.prepare("SELECT key FROM api_keys WHERE key_type IN (0, 2)").unwrap().query_map([], |r| r.get::<_, String>(0)).unwrap().map(|k| cipher.decrypt(&k.unwrap()).unwrap()).collect();
     assert_eq!(saved, ["other-request-key"], "form {form}: the other request's key stays");
     }
 }

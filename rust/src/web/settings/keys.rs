@@ -253,7 +253,8 @@ pub async fn save(
                 (None, None) => Account::first(c, id, exchange)?,
             };
             let label = crate::identity::label_or(c, account.id, venue.as_ref().map_or("", |(_, name)| name.as_str()))?.plain();
-            let mut key = Key::read(c, &inner, account, kind)?;
+            let stored = venue.as_ref().map_or(kind, |(class, _)| slot(class, kind));
+            let mut key = Key::read(c, &inner, account, stored)?;
             if untargeted { key = Key::untargeted(account); }
             Ok(Some((venue, label, key)))
         })
@@ -345,7 +346,9 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     // the slot routing picks must still be as it was under the write lock.
     let (snap_user,snap_exchange)=(original.account.user_id,original.account.exchange_id);
     let snap_app=app.clone();
-    let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,kind)).await?;
+    // D-ALPACA-ONE-KEY: validated as the slot asked for (a tracker key passes the reading check), stored where `slot` puts it.
+    let stored=slot(venue,kind);
+    let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,stored)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),validated.handle.credentials().clone())),_=>None};
     // #710 7a rule S2: a verdict that saves nothing still records what the account read taught (`learn_refused`).
@@ -398,7 +401,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     (true,Some(crate::identity::Observed::Read(id)))=>crate::identity::Reading::Read(id),
     (true,_)=>crate::identity::Reading::Unread,
    };
-   let route=crate::identity::route_key(&tx,&inner.cipher,user_id,original.account.exchange_id,&venue_s,kind,named.and_then(|a|a.id),&reading,validated.handle.credentials(),None,inner.now()).map_err(WebError::Config)?;
+   let route=crate::identity::route_key(&tx,&inner.cipher,user_id,original.account.exchange_id,&venue_s,stored,named.and_then(|a|a.id),&reading,validated.handle.credentials(),None,inner.now()).map_err(WebError::Config)?;
    let dest=match route {
     crate::identity::Route::To(id)=>id,
     crate::identity::Route::New=>crate::identity::new_account(&tx,user_id,original.account.exchange_id,inner.now())?,
@@ -407,10 +410,10 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
    if let Some(from)=named.and_then(|a|a.id).filter(|from|*from!=dest){moved=Some((dest,from));}
    Account::by_id(&tx,dest)?.ok_or_else(||WebError::Config("routed account missing".into()))?.ensure(&tx,inner.now())?
   };
-  let current=Key::read(&tx,&inner,target,kind)?;
+  let current=Key::read(&tx,&inner,target,stored)?;
   if named.is_some_and(|n|n.id==target.id) {
    if !original.same(&current){return Ok(Some("credential changed during validation".into()));}
-  } else if slot(&current)!=snapshot.iter().find(|(a,_)|Some(*a)==target.id).map(|(_,s)|s.clone()).unwrap_or(None)
+  } else if key_slot(&current)!=snapshot.iter().find(|(a,_)|Some(*a)==target.id).map(|(_,s)|s.clone()).unwrap_or(None)
      && !current.id.is_some_and(|k|crate::identity::is_material(&tx,&inner.cipher,k,&venue_s,validated.handle.credentials())) {
    // A routed slot is as it was before validation (absent still absent), else the save is retried; a concurrent save of
    // this very material there is this one's (a no-op success).
@@ -430,7 +433,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
     Some(id)=>{
      crate::identity::write_credential(&tx,&inner.cipher,id,key.as_deref(),secret.as_deref(),passphrase.as_deref(),inner.now())?;
      crate::identity::write_status(&tx,id,status,&now,false,true)?;id},
-    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,kind,key,secret,passphrase,&now,status])?;
+    None=>{tx.execute("INSERT INTO api_keys(user_id,exchange_id,key_type,key,secret,passphrase,status,created_at,updated_at)VALUES(?1,?2,?3,?4,?5,?6,?8,?7,?7)",rusqlite::params![user_id,target.exchange_id,stored,key,secret,passphrase,&now,status])?;
      let id=tx.last_insert_rowid();target.add_key(&tx,id)?;id}
    }
   };
@@ -456,7 +459,7 @@ pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, k
   let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   tx.commit()?;
-  if kind==0 {inner.wake_engine();}
+  if stored==0 {inner.wake_engine();}
   if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
   if balances {jobs.wake(crate::sync::jobs::BALANCE_SYNC,Some(&id.to_string()),None);}
   if ledger||balances {
@@ -488,13 +491,13 @@ async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate:
 }
 /// A slot of an account: its key's id and ciphertext version (None: absent).
 type Slot = Option<(i64, Option<String>)>;
-fn slot(k: &Key) -> Slot { k.id.map(|id| (id, k.version.as_ref().map(|v| v.cache_stamp().to_string()))) }
+fn key_slot(k: &Key) -> Slot { k.id.map(|id| (id, k.version.as_ref().map(|v| v.cache_stamp().to_string()))) }
 /// Every live account of (user, exchange) with its slot of key type `kind`.
 fn slots(c: &Connection, app: &App, user: i64, exchange: i64, kind: i64) -> Result<Vec<(i64, Slot)>, WebError> {
     let mut out = vec![];
     for (id, _) in crate::identity::accounts_of(c, user, exchange)? {
         let Some(account) = Account::by_id(c, id)? else { continue };
-        out.push((id, slot(&Key::read(c, app, account, kind)?)));
+        out.push((id, key_slot(&Key::read(c, app, account, kind)?)));
     }
     Ok(out)
 }
@@ -533,7 +536,7 @@ pub(crate) fn warnings(c:&Connection,v:&Ctx,user:i64)->Result<String,WebError>{
             let args=[("exchange",i18n::Arg::Text(&key.name))];let label=|name:&str|i18n::t(v.locale,name,&args);
             // #710 7a §2: a fix names the account it is for.
             let target=target_query(c,key.account)?;
-            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading{target}",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only{target}",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label("tracker.replace_tracker_key")});
+            fixes.push(Fix{message:label(&format!("tracker.key_fix.{}.{reason}",if key.kind==0{"trading"}else{"read_only"})),trading:key.kind==0&&key.venue!=crate::sync::ALPACA,trading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading{target}",key.exchange))),reading_path:i18n::escape(&v.path(&format!("/tracker/add_api_key/new?exchange_id={}&key_type=read_only{target}",key.exchange))),trading_label:label("tracker.replace_trading_key"),add_label:label("tracker.add_tracker_key"),replace_label:label(if key.kind==0{"tracker.replace_trading_key"}else{"tracker.replace_tracker_key"})});
         }
     }
     Ok(Warnings{title:i18n::t(v.locale,"tracker.sync_failed_for",&[("exchanges",i18n::Arg::Text(&names))]),fixes}.render()?+"\n")
@@ -797,11 +800,13 @@ pub async fn legacy(
     // #710 7a (D-JSON-KEY-IDENTITY): an identity venue's key is read for its account first (the permission check stays
     // asynchronous), so the save routes like every other.
     let venue_type:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
+    // D-ALPACA-ONE-KEY: the slot the save writes (`slot`) is the one snapshotted.
+    let kind=venue_type.as_deref().map_or(kind,|t|slot(t,kind));
     // As the form save (`submit_candidate`): the named account's slot and every live account's of this type, before the
     // identity read; the slot the save writes must still be as it was under the write lock.
     let snap_app=app.clone();
     let snapshot=snapshot_then_settle(&app,user.id,exchange,move|c|{
-        let named=match crate::identity::pick(c,user.id,exchange,posted_account)? {crate::identity::Pick::One(a)=>Some(slot(&Key::read(c,&snap_app,a,kind)?)),_=>None};
+        let named=match crate::identity::pick(c,user.id,exchange,posted_account)? {crate::identity::Pick::One(a)=>Some(key_slot(&Key::read(c,&snap_app,a,kind)?)),_=>None};
         Ok((named,slots(c,&snap_app,user.id,exchange,kind)?))
     }).await?;
     let material=crate::crypto::Credentials{redaction_values:vec![],key:key.clone().unwrap_or_default(),secret:secret.clone().unwrap_or_default(),passphrase:passphrase.clone(),ibkr:None};
@@ -816,6 +821,7 @@ pub async fn legacy(
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   let venue:Option<String>=tx.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?;
   let Some(venue)=venue else{return Ok(Err(None));};
+  let kind=slot(&venue,kind);
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on.
   let account=match crate::identity::pick(&tx,user.id,exchange,posted_account)?{
    crate::identity::Pick::One(account)=>account,
@@ -853,7 +859,7 @@ pub async fn legacy(
   };
   let current=Key::read(&tx,&inner,account,kind)?;
   let before=if account.id==named.account.id {snapshot.0.clone().unwrap_or(None)} else {snapshot.1.iter().find(|(a,_)|Some(*a)==account.id).map(|(_,s)|s.clone()).unwrap_or(None)};
-  if slot(&current)!=before&&!current.id.is_some_and(|k|crate::identity::is_material(&tx,&inner.cipher,k,&venue,&material)) {
+  if key_slot(&current)!=before&&!current.id.is_some_and(|k|crate::identity::is_material(&tx,&inner.cipher,k,&venue,&material)) {
    // Replaced (or added) by another request while this one read the key's account: retried, never overwritten.
    return Ok(Err(Some("credential changed during validation".into())));
   }
@@ -981,6 +987,9 @@ pub(crate) fn key_instructions(c:&Connection,app:&App,ctx:&Ctx,class:&str,name:&
     }
     Ok(out)
 }
+/// D-ALPACA-ONE-KEY: Alpaca's key has no permissions, so the tracker's key there is the trading key the bots read (one key
+/// per account, whichever page saved it); every other venue keeps the slot asked for.
+pub(crate) fn slot(class:&str,kind:i64)->i64{if class==crate::sync::ALPACA&&kind==2{0}else{kind}}
 /// Exchange#requires_passphrase? outside Alpaca (whose passphrase is its Paper/Live switch): the API Passphrase row.
 fn requires_passphrase(class:&str)->bool{class!=crate::sync::ALPACA&&crate::venue::registry::row(class).is_some_and(|r|r.passphrase)}
 /// The venue's connect card as the sheet draws it (D-WIZARD-SHEET-KEY-FORM): Settings' fields and button (`.rinput`, `.rbutton`)
@@ -1016,7 +1025,9 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
         return crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]});
     }
     let requested=ctx.params.query("key_type").filter(|s|matches!(*s,"trading"|"read_only"));
-    let kind=if requested==Some("trading"){0}else{2};
+    // The card keeps the slot asked for (its action and walkthrough); the key it shows is the slot saves write (`slot`).
+    let asked=if requested==Some("trading"){0}else{2};
+    let kind=slot(class.as_deref().unwrap_or_default(),asked);
     let (inner,owner,view,kept)=(app.clone(),user.clone(),ctx.clone(),ctx.session.lock().tracker_pick.clone());
     let found=app.db(move|c| {
         let venue:Option<(String,String)>=c.query_row("SELECT type,name FROM exchanges WHERE id=?1",[exchange],|r|Ok((r.get(0)?,r.get::<_,Option<String>>(1)?.unwrap_or_default()))).optional()?;
@@ -1043,7 +1054,8 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     if crate::web::bot::retired_type(&class){ctx.session.lock().tracker_connect=Some(exchange);return Ok(retired_answer(&ctx))}
     if !ported(&class){return Ok(crate::web::layout::not_ported_for(&ctx))}
     ctx.session.lock().tracker_connect=Some(exchange);
-    if !(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::v2::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::v2::blank(s)){
+    // A GET rechecks the slot it shows; Alpaca's tracker card shows the trading key, which its own card rechecks.
+    if asked==kind&&!(requested.is_none()&&healthy)&&key.status!=1&&key.key.as_deref().is_some_and(|s|!crate::v2::blank(s))&&key.secret.as_deref().is_some_and(|s|!crate::v2::blank(s)){
         if let Some(id)=key.id{
             if let Some(reason)=revalidate(&app,id).await?{
                 let body=turbo::prepend_flash(&flash::render(&flash::take(&ctx.session,&[(flash::ALERT,refusal_text(&ctx,&reason))]))?);
@@ -1056,7 +1068,7 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
     if requested.is_none()&&pick!=Picked::Untargeted&&(healthy||(key.status==1&&!crate::tracker::import::run::missing_permission(&class,key.last_error.as_deref()))){return Ok(crate::web::layout::redirect(StatusCode::FOUND,&ctx.path("/tracker")))}
     let csrf=ctx.csrf_token();
     let (inner,v,live)=(app.clone(),ctx.clone(),key.passphrase.as_deref()==Some("live"));
-    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,pick,&class,&name,kind,live,None)).await?;
+    let (track,content)=app.db(move|c|tracker_step(c,&inner,&v,exchange,pick,&class,&name,asked,live,None)).await?;
     let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
     crate::web::shell::application(&ctx,&csrf,&user,&shell,crate::web::layout::Page{status:StatusCode::OK,body,flash_now:vec![]})
 }

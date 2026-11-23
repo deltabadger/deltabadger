@@ -42,6 +42,15 @@ impl Notifications {
             "<turbo-stream action=\"remove\" target=\"sync-progress\"></turbo-stream>",
         );
     }
+    /// D-SYNC-DONE-TOAST: the page refreshes and the import's toast turns into its success message (flash_stack_controller.js,
+    /// once that refresh has rendered), in one message: a refresh that replaces the page resubscribes, and a second message
+    /// sent meanwhile would be lost. A page without that controller still removes the toast.
+    pub fn imported(&self, owner: i64) {
+        self.publish(
+            owner,
+            "<turbo-stream action=\"refresh\"></turbo-stream><turbo-stream action=\"remove\" target=\"sync-progress\" data-done></turbo-stream>",
+        );
+    }
     pub fn ledger_done(&self, owner: i64) {
         self.publish(owner, "<turbo-stream action=\"refresh\"></turbo-stream>");
     }

@@ -793,8 +793,11 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
 /// with it), as on an install from the build before it. The newest migration must be here, or these tests would stop
 /// testing "an update brings a migration" the day one is added.
 type Undo = (&'static str, fn() -> String);
-const UNDO: [Undo; 2] = [
-    ("20261124000001", || undo_replacement("20261124000001")),
+const UNDO: [Undo; 4] = [
+    ("20261123000002", || undo_replacement("20261123000002")),
+    // A data-only migration: nothing to drop; its row gone makes it pending again.
+    ("20261124000001", || "SELECT 1".to_string()),
+    ("20261124000002", || undo_replacement("20261124000002")),
     ("20261125000001", || undo_replacement("20261125000001"))];
 
 /// A replacing migration undone on a desktop data dir (no takeover rows to rename back): its new tables dropped, each

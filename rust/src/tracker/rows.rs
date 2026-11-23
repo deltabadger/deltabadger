@@ -4,6 +4,7 @@
 //! - `walk_rows`: those rows less the borrowed wallets' (Tracker::UnfundedCash.borrowed?), in the order every reader of
 //!   the ledger walks them (Tax::PriceService.ordered): what Tracker::Ledger walks.
 use super::{cash, fiat, stable};
+pub use super::spellings::Label;
 use crate::figures::{at::At, dec::Dec, FiguresError};
 use chrono::NaiveDate;
 use rusqlite::Connection;
@@ -48,11 +49,11 @@ pub struct Stored {
     /// The venue's `Exchange#name_id` ("alpaca", "binance", "binance_us").
     pub venue: String,
     pub kind: Kind,
-    pub base: String,
+    pub base: Label,
     pub amount: Dec,
-    pub quote: Option<String>,
+    pub quote: Option<Label>,
     pub quote_amount: Option<Dec>,
-    pub fee_currency: Option<String>,
+    pub fee_currency: Option<Label>,
     pub fee_amount: Option<Dec>,
     pub tx_id: Option<String>,
     pub group: Option<String>,
@@ -432,7 +433,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
         let to_type: Option<String> = r.get(16)?;
         let base: String = r.get(4)?;
         rows.push(Stored {
-            id: r.get(0)?, exchange_id: r.get(1)?, venue: name_id(venue_type.as_deref().unwrap_or("")), kind, base: base.clone(),
+            id: r.get(0)?, exchange_id: r.get(1)?, venue: name_id(venue_type.as_deref().unwrap_or("")), kind, base: base.clone().into(),
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
             quote: r.get(6)?, quote_amount: Dec::from_sql(r.get_ref(7)?)?,
             fee_currency: r.get(8)?, fee_amount: Dec::from_sql(r.get_ref(9)?)?,
@@ -585,7 +586,7 @@ mod tests {
     }
     type Leg = (i64, Kind, String, String, Option<String>, Option<String>);
     fn legs(rows: &[Stored]) -> Vec<Leg> {
-        rows.iter().map(|r| (r.id, r.kind, r.base.clone(), r.amount.to_s_f(), r.fee_currency.clone(), r.group.clone())).collect()
+        rows.iter().map(|r| (r.id, r.kind, r.base.to_string(), r.amount.to_s_f(), r.fee_currency.as_deref().map(str::to_owned), r.group.clone())).collect()
     }
 
     /// D-TRACKER-COIN-QUOTE: a coin-quoted row is its two legs, out first, at its place; the fee with its own coin's leg, else

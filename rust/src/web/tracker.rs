@@ -181,8 +181,14 @@ pub async fn sync(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Res
             SyncPlan::Keys { names, jobs } => (names, jobs),
         };
         if names.is_empty() { return Ok(Prepared { response:StatusCode::NO_CONTENT.into_response(),jobs }); }
-        let text = super::i18n::t(ctx.locale,"tracker.importing_from",&[("exchange",super::i18n::Arg::Text(&names.join(", ")))]);
-        let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\">\n    {text}\n  </div>\n");
+        // D-SYNC-DONE-TOAST: what the toast waits on (sync::jobs::progress).
+        let keys: Vec<i64> = jobs.iter().filter(|(job,_)| *job==crate::sync::jobs::LEDGER_SYNC).filter_map(|(_,key)| key.parse().ok()).collect();
+        crate::sync::jobs::progress::started(c,owner,&keys,ctx.now).map_err(|e| WebError::Engine(crate::engine::EngineError::Data(e)))?;
+        let exchange = [("exchange",super::i18n::Arg::Text(&names.join(", ")))];
+        let text = super::i18n::t(ctx.locale,"tracker.importing_from",&exchange);
+        // D-SYNC-DONE-TOAST: what the toast turns into once the import succeeds (Notifications::sync_done, flash_stack_controller.js).
+        let done = super::i18n::t(ctx.locale,"tracker.imported_from",&exchange);
+        let content = format!("  <div id=\"sync-progress\" class=\"flash__message salert salert--syncing\" data-done=\"{done}\">\n    {text}\n  </div>\n");
         Ok(Prepared { response:([(header::CONTENT_TYPE,super::turbo::CONTENT_TYPE)],super::turbo::stream("append","flash",&content)).into_response(),jobs })
     })).await
 }

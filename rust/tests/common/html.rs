@@ -146,6 +146,9 @@ pub fn flash_toasts_as_rust(v2: &str) -> String {
     let close = regex::Regex::new(r#"(?s)\n([ ]*)<button[^>]*class="modal__close" data-action="removals#remove">.*?</button>\s*"#).unwrap();
     let loader = regex::Regex::new(r#"\n([ ]*)<div class="loader--syncing"></div>\s*"#).unwrap();
     let v2 = v2.replace(" data-controller=\"removals\" role=\"alert\"", " role=\"alert\"").replace("class=\"flash-stack\" data-controller=\"flash-stack\"", "class=\"flash-stack\"");
+    // D-SYNC-DONE-TOAST: the import's toast carries the message it turns into (the recordings are English).
+    let importing = regex::Regex::new(r#"(<div id="sync-progress" class="flash__message salert salert--syncing")(>\s*(?:<div class="loader--syncing"></div>\s*)?Importing data from ([^<]*?)…)"#).unwrap();
+    let v2 = importing.replace_all(&v2, r#"$1 data-done="Imported data from $3."$2"#);
     loader.replace_all(&close.replace_all(&v2, "\n$1"), "\n$1").into_owned()
 }
 

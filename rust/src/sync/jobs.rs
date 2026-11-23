@@ -363,6 +363,16 @@ impl<C: Connect> Job for LedgerSync<C> {
             }
             // S-7.7: an import that stopped at its page cap goes on as soon as the runner is free, as 2.x's one job reads the
             // whole history at once; other due jobs run in between.
+            // D-SYNC-DONE-TOAST: this key's part of a page's import is in, before the walk it wakes looks (progress::take).
+            if outcome == Outcome::Done {
+                let (key, at) = (self.key_id, cx.clock.now());
+                // Unrecorded, no walk would ever end the toast: it goes now, without its success message.
+                if let Err(e) = cx.db.run(move |c, _| progress::landed(c, owner, key, at)).await {
+                    crate::engine::log(&format!("[sync] import progress of key {key} not recorded: {e}"));
+                    let _ = cx.db.run(move |c, _| progress::clear(c, owner)).await;
+                    cx.db.notifications.sync_done(owner);
+                }
+            }
             if outcome == Outcome::NothingNew { cx.wakers.wake(LEDGER_SYNC, Some(&self.key_id.to_string()), None); }
             // 2.x's SyncJob ends in a Tracker::LedgerJob: the user's tracker walks again once the ledger is whole.
             else if let Err(e)=crate::tracker::jobs::wake_for_key(&cx,self.key_id).await {return Outcome::Failed(e);}
@@ -371,7 +381,12 @@ impl<C: Connect> Job for LedgerSync<C> {
             }).await;
             crate::engine::model::Produced::new(result,Some(version))
             }.await;
-            if completion.value != Outcome::NothingNew { cx.db.notifications.sync_done(owner); }
+            // D-SYNC-DONE-TOAST: a failed import's toast goes now; a complete one's waits for the tracker walk it woke (LedgerWalk),
+            // so it says "imported" once the page shows the new numbers.
+            if !matches!(completion.value, Outcome::NothingNew | Outcome::Done) {
+                if let Err(e) = cx.db.run(move |c, _| progress::clear(c, owner)).await { crate::engine::log(&format!("[sync] import progress of user {owner} not cleared: {e}")); }
+                cx.db.notifications.sync_done(owner);
+            }
             completion
         })
     }
@@ -672,6 +687,56 @@ impl<C: Connect> Job for IbkrActivation<C> {
             }
             if activated { cx.wakers.wake_engine(); }
             Outcome::Done
+        })
+    }
+}
+
+/// D-SYNC-DONE-TOAST: the keys a page's import toast still waits on, so only the tracker walk that starts after the last of
+/// them landed ends it, and no other walk (a page's cold cache, a bot's order) does. Plain and Rust-only.
+pub mod progress {
+    use chrono::{DateTime, Utc};
+    use rusqlite::Connection;
+    fn key(owner: i64) -> String { format!("rust_sync_toast.{owner}") }
+    fn read(c: &Connection, owner: i64) -> Result<Option<Vec<i64>>, String> {
+        Ok(crate::app_config::get_plain(c, &key(owner))?.map(|s| serde_json::from_str(&s).unwrap_or_default()))
+    }
+    fn write(c: &Connection, owner: i64, keys: &[i64], now: DateTime<Utc>) -> Result<(), String> {
+        crate::app_config::set_plain(c, &key(owner), &serde_json::to_string(keys).map_err(|e| e.to_string())?, now)
+    }
+    /// One read-and-write, on its own immediate transaction: the web's `started` cannot land in between.
+    fn change<R>(c: &Connection, f: impl FnOnce(&Connection) -> Result<R, String>) -> Result<R, String> {
+        let tx = crate::engine::model::immediate(c).map_err(|e| format!("{e:?}"))?;
+        let out = f(&tx)?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(out)
+    }
+    /// The import button (inside its own write): these keys import now. A newer import replaces an older one's wait.
+    pub fn started(c: &Connection, owner: i64, keys: &[i64], now: DateTime<Utc>) -> Result<(), String> { write(c, owner, keys, now) }
+    /// A key's import completed.
+    pub fn landed(c: &Connection, owner: i64, key_id: i64, now: DateTime<Utc>) -> Result<(), String> {
+        change(c, |c| {
+            let Some(mut keys) = read(c, owner)? else { return Ok(()) };
+            keys.retain(|k| *k != key_id);
+            write(c, owner, &keys, now)
+        })
+    }
+    /// The toast ended some other way (a failed import, a deadline).
+    pub fn clear(c: &Connection, owner: i64) -> Result<(), String> { crate::app_config::delete(c, &key(owner)) }
+    /// Whether an import is still waited on (one started after a walk took the last: that walk leaves its toast alone).
+    pub fn pending(c: &Connection, owner: i64) -> Result<bool, String> { Ok(read(c, owner)?.is_some()) }
+    /// A tracker walk about to read the ledger: true (and the toast is this walk's to end) once every key landed. A key
+    /// deleted since the import began never lands: it is no longer waited on.
+    pub fn take(c: &Connection, owner: i64, now: DateTime<Utc>) -> Result<bool, String> {
+        change(c, |c| {
+            let Some(keys) = read(c, owner)? else { return Ok(false) };
+            let mut left = vec![];
+            for id in &keys {
+                let exists: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE id=?1 AND user_id=?2)", (id, owner), |r| r.get(0)).map_err(|e| e.to_string())?;
+                if exists { left.push(*id); }
+            }
+            if left.is_empty() { clear(c, owner)?; return Ok(true) }
+            if left != keys { write(c, owner, &left, now)?; }
+            Ok(false)
         })
     }
 }

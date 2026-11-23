@@ -568,6 +568,7 @@ el:
         sync: 'Συγχρονισμός'
         sync_started: 'Συγχρονισμός συναλλαγών από τα ανταλλακτήριά σου...'
         importing_from: 'Εισαγωγή δεδομένων από %{exchange}…'
+        imported_from: 'Τα δεδομένα από %{exchange} εισήχθησαν.'
         get_report: 'Φορολογική αναφορά'
         filter: 'Φίλτρο'
         bot: 'Bot'

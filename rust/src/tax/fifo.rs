@@ -381,12 +381,12 @@ impl<'a> Fifo<'a> {
 
     fn walk(&mut self, txs: &[Tx]) -> Result<(), FiguresError> {
         for tx in txs {
-            self.symbols.entry(tx.asset.clone()).or_insert_with(|| tx.row.base.clone());
+            self.symbols.entry(tx.asset.clone()).or_insert_with(|| tx.row.base.to_string());
             self.venues.entry(tx.asset.clone()).or_insert_with(|| tx.row.exchange.clone());
             // Each wallet's venue, for what the report names (`allocation`, the PVCT holdings).
             self.wallets.entry(wallet(&tx.row)).or_insert_with(|| tx.row.exchange.clone());
             if let (Some(a), Some(v)) = (tx.row.to_account, &tx.row.to_exchange) { self.wallets.entry(a.to_string()).or_insert_with(|| v.clone()); }
-            if let (Some(a), Some(s)) = (&tx.fee_asset, &tx.row.fee_currency) { self.symbols.entry(a.clone()).or_insert_with(|| s.clone()); }
+            if let (Some(a), Some(s)) = (&tx.fee_asset, &tx.row.fee_currency) { self.symbols.entry(a.clone()).or_insert_with(|| s.to_string()); }
         }
         if !self.o.swaps_taxable {
             self.in_groups = self.build_in_groups(txs)?;
@@ -499,7 +499,7 @@ impl<'a> Fifo<'a> {
                     // elsewhere as before (moving it would restate every other report's figures: a later slice's question).
                     if self.o.pvct_from.is_some() {
                         if let Some(fee) = r.fee_amount.clone().filter(Dec::is_positive) {
-                            let symbol = r.fee_currency.clone().unwrap_or_default();
+                            let symbol = r.fee_currency.as_deref().unwrap_or_default().to_string();
                             let asset = if symbol == r.base { tx.asset.clone() } else { tx.fee_asset.clone().unwrap_or_else(|| symbol.clone()) };
                             self.consume_fee_in_kind(&wallet(r), &symbol, &asset, &fee)?;
                         }
@@ -689,7 +689,7 @@ impl<'a> Fifo<'a> {
             for (venue, symbol, delta) in crate::tracker::walk::located_moves(&by_wallet(&tx.row))? {
                 let Some(venue) = venue else { continue };
                 let asset = if symbol == tx.row.base { tx.asset.clone() } else if tx.row.fee_currency.as_deref() == Some(symbol.as_str()) {
-                    tx.fee_asset.clone().unwrap_or(symbol) } else { symbol };
+                    tx.fee_asset.clone().unwrap_or_else(|| symbol.to_string()) } else { symbol.to_string() };
                 let k = (venue, asset);
                 match self.held.iter_mut().find(|(h, _)| *h == k) {
                     Some((_, q)) => *q = (&*q + &delta)?,
@@ -833,7 +833,7 @@ impl<'a> Fifo<'a> {
     /// value where spending a coin is one (its value missing when the row's only missing price is its fee's).
     fn spend_fee_coin(&mut self, tx: &Tx, fee: &Dec) -> Result<(), FiguresError> {
         let r = &tx.row;
-        let (symbol, asset) = (r.fee_currency.clone().unwrap_or_default(), tx.fee_asset.clone().unwrap_or_else(|| r.fee_currency.clone().unwrap_or_default()));
+        let (symbol, asset) = (r.fee_currency.as_deref().unwrap_or_default().to_string(), tx.fee_asset.clone().unwrap_or_else(|| r.fee_currency.as_deref().unwrap_or_default().to_string()));
         if let Some(k) = self.waits(r, &asset) { self.deferred.push((k, Deferred::Fee(self.index, fee.clone()))); return Ok(()); }
         let swap_leg = matches!(r.kind, Kind::SwapIn | Kind::SwapOut) && !self.swaps_taxable_at(r.at);
         if !swap_leg && self.coin_fees_disposed(r.at) {

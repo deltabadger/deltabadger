@@ -568,6 +568,7 @@ bg:
         sync: 'Синхронизирай'
         sync_started: 'Синхронизиране на транзакции от борсите ви...'
         importing_from: 'Импортиране на данни от %{exchange}…'
+        imported_from: 'Данните от %{exchange} са импортирани.'
         get_report: 'Данъчен отчет'
         filter: 'Филтър'
         bot: 'Бот'

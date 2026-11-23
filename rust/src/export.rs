@@ -377,6 +377,7 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Prefix("snapshot_calculation_version_"), "the tracker's per-user calculation version"),
     (Key::Prefix("rust_job."), "job schedule state (last_error removed: D-EXPORT-JOB-ERRORS)"),
     (Key::Prefix("rust_sync."), "tracker sync cursors and progress"),
+    (Key::Prefix("rust_sync_toast."), "the key ids an import toast waits on (D-SYNC-DONE-TOAST)"),
     (Key::Exact(crate::lease::CREATED_AT), "the marker of an install this engine created"),
     (Key::Exact(crate::lease::TAKEN_OVER_AT), "when this engine took the install over"),
     (Key::Exact(crate::lease::HANDED_BACK_AT), "when this engine handed it back"),

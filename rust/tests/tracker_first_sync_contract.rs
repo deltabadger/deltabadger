@@ -22,6 +22,13 @@ fn completion_payloads_match_recorded_v2_jobs() {
         messages.lock().unwrap().clear();
         notifications.ledger_done(owner);
         assert_eq!(serde_json::json!(*messages.lock().unwrap()), fixture["records"][format!("ledger_{owner}")]);
+        // D-SYNC-DONE-TOAST: 2.x sends the same remove after a failure and a success, apart from its refresh; this build sends
+        // a success's with the refresh, in one message, marked `data-done`.
+        messages.lock().unwrap().clear();
+        notifications.imported(owner);
+        let (ledger, sync) = (&fixture["records"][format!("ledger_{owner}")][0], &fixture["records"][format!("sync_{owner}_success")][0]);
+        let done = sync[1].as_str().unwrap().replace(r#"target="sync-progress">"#, r#"target="sync-progress" data-done>"#);
+        assert_eq!(serde_json::json!(*messages.lock().unwrap()), serde_json::json!([[ledger[0], format!("{}{done}", ledger[1].as_str().unwrap())]]));
     }
 }
 

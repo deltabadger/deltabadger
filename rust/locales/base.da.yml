@@ -568,6 +568,7 @@ da:
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'
         importing_from: 'Importerer data fra %{exchange}…'
+        imported_from: 'Data importeret fra %{exchange}.'
         get_report: 'Skatterapport'
         filter: 'Filtrér'
         bot: 'Bot'
