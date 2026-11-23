@@ -117,7 +117,16 @@ pub struct Reference {
     prices: HashMap<(String, String), BTreeMap<NaiveDate, Dec>>,
     /// The names a coin was recorded under in the user's whole history (`record_coins`).
     recorded_coins: HashSet<String>,
+    /// Delisted coins (plan r10 §1.5): the owner's coin labels, printed label → the coin's external id (`learn`), and the
+    /// labels of units no evidence identifies (never priced). A known label prints like no other identity, so the
+    /// printed text names one coin.
+    coins: HashMap<String, String>,
+    unknown: HashSet<String>,
 }
+
+/// A coin's price key: `coin:<external id>`. A label's alphabet has no `:`, so no spelling or label is one.
+pub fn coin_key(external_id: &str) -> String { format!("coin:{external_id}") }
+fn coin_of_key(key: &str) -> Option<&str> { key.strip_prefix("coin:") }
 
 impl Reference {
     /// The venues, and the catalogue and the prices of `symbols` (and of `stock:<symbol>`), in every currency.
@@ -150,11 +159,16 @@ impl Reference {
             let Some(symbol) = row.get::<_, Option<String>>(0)? else { continue };
             if symbols.contains(&symbol) { r.assets.entry(symbol).or_default().push((row.get(1)?, row.get(2)?, row.get(3)?)); }
         }
+        // A coin key's prices (`coin:<id>`, delisted coins §1.5) are its coin's, in `asset_prices`.
+        let ids: Vec<String> = symbols.iter().filter_map(|k| coin_of_key(k).map(str::to_string)).collect();
+        r.coin_prices(c, &ids)?;
         let mut s = c.prepare("SELECT asset, currency, date, price FROM historical_prices")?;
         let mut q = s.query([])?;
         while let Some(row) = q.next()? {
             crate::figures::budget::charge(1, 0)?;
             let asset: String = row.get(0)?;
+            // A coin's prices are its own table's (`learn`): a legacy row under `coin:…` text is no coin's price.
+            if coin_of_key(&asset).is_some() { continue; }
             if !(symbols.contains(&asset) || asset.strip_prefix("stock:").is_some_and(|sym| symbols.contains(sym))) { continue; }
             let currency: String = row.get(1)?;
             let (Ok(day), Some(price)) = (NaiveDate::parse_from_str(&row.get::<_, String>(2)?, "%Y-%m-%d"), Dec::from_sql(row.get_ref(3)?)?) else { continue };
@@ -171,6 +185,51 @@ impl Reference {
         let mut q = s.query([user_id])?;
         while let Some(row) = q.next()? { crate::figures::budget::charge(1, 0)?; self.recorded_coins.insert(row.get(0)?); }
         Ok(())
+    }
+
+    /// Delisted coins: the coin labels of `rows` (base, quote, fee) and Bitcoin (the ECB cross), and their prices in every
+    /// currency from `asset_prices`; the labels no evidence identifies.
+    pub fn learn(&mut self, c: &Connection, rows: &[Stored]) -> Result<(), FiguresError> {
+        for r in rows {
+            for l in std::iter::once(&r.base).chain(r.quote.as_ref()).chain(r.fee_currency.as_ref()) {
+                if let Some(ext) = l.coin() { self.coins.insert(l.to_string(), ext.to_string()); }
+                else if l.class() == super::spellings::Class::Unknown && l.keyed() { self.unknown.insert(l.to_string()); }
+            }
+        }
+        let mut ids: Vec<&String> = self.coins.values().collect();
+        let btc = "bitcoin".to_string();
+        ids.push(&btc);
+        ids.sort();
+        ids.dedup();
+        let ids: Vec<String> = ids.into_iter().cloned().collect();
+        self.coin_prices(c, &ids)
+    }
+
+    /// The prices of coins `ids`, in every currency, from `asset_prices` (none on a store without it).
+    fn coin_prices(&mut self, c: &Connection, ids: &[String]) -> Result<(), FiguresError> {
+        let table: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'asset_prices')", [], |r| r.get(0))?;
+        let ids = if table { ids } else { &[] };
+        for chunk in ids.chunks(500) {
+            let marks = vec!["?"; chunk.len()].join(", ");
+            let mut s = c.prepare(&format!("SELECT external_id, currency, date, price FROM asset_prices WHERE external_id IN ({marks})"))?;
+            let mut q = s.query(rusqlite::params_from_iter(chunk))?;
+            while let Some(row) = q.next()? {
+                crate::figures::budget::charge(1, 0)?;
+                let (ext, currency): (String, String) = (row.get(0)?, row.get(1)?);
+                let (Ok(day), Some(price)) = (NaiveDate::parse_from_str(&row.get::<_, String>(2)?, "%Y-%m-%d"), Dec::from_sql(row.get_ref(3)?)?) else { continue };
+                self.prices.entry((coin_key(&ext), currency)).or_default().insert(day, price);
+            }
+        }
+        Ok(())
+    }
+
+    /// What a symbol is priced as: a coin key (`coin:<id>`, or an owner's coin label), None for a label no evidence
+    /// identifies, else the symbol itself for the 2.x path (securities, cash, a hand-built row's spelling).
+    pub fn resolve(&self, symbol: &str) -> Resolved {
+        if let Some(ext) = coin_of_key(symbol) { return Resolved::Coin(ext.to_string()); }
+        if let Some(ext) = self.coins.get(symbol) { return Resolved::Coin(ext.clone()); }
+        if self.unknown.contains(symbol) { return Resolved::Unidentified; }
+        Resolved::Symbol
     }
 
     /// `Exchange.find_by(type: "Exchanges::#{name.camelize}")`.
@@ -196,6 +255,10 @@ impl Reference {
     /// The category of the asset the default venue lists under `symbol`: None when it lists nothing.
     pub fn listed_category(&self, symbol: &str) -> Option<Option<&str>> { self.listed_category_on(self.default, symbol) }
 }
+
+/// What `Reference::resolve` makes of a symbol.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Resolved { Coin(String), Unidentified, Symbol }
 
 /// Every symbol the rows name: base, quote and fee, and BTC (the cross rate a missing ECB rate falls back to).
 pub fn symbols(rows: &[Stored]) -> HashSet<String> {
@@ -365,6 +428,11 @@ impl<'a> PriceService<'a> {
 
     /// `price_key_for`: the key and the security, cached per venue and recorded asset; a dated alias is a coin's.
     fn price_key_for(&mut self, symbol: &str, exchange: Option<&str>, date: NaiveDate, recorded: Option<&Asset>) -> Option<(String, Option<Asset>)> {
+        match self.r.resolve(symbol) {
+            Resolved::Coin(ext) => return Some((coin_key(&ext), None)),
+            Resolved::Unidentified => return None,
+            Resolved::Symbol => {}
+        }
         let venue = self.venue(exchange);
         if alias_coin(symbol, venue, Some(date)).is_some() { return Some((symbol.to_string(), None)); }
         let assets: Vec<Asset> = match recorded {
@@ -395,15 +463,17 @@ impl<'a> PriceService<'a> {
             return Ok((&eur * &self.fiat_exchange_rate("EUR", currency, at)?)?);
         }
         let date = at.utc().date_naive();
+        // The BTC cross asks for Bitcoin by its key; its warning names it as 2.x does.
+        let shown = if coin_of_key(asset) == Some("bitcoin") { "BTC" } else { asset };
         let Some((key, security)) = self.price_key_for(asset, exchange, date, recorded) else {
-            self.warnings.push(format!("{asset}/{currency} {date}"));
+            self.warnings.push(format!("{shown}/{currency} {date}"));
             return Ok(Dec::zero());
         };
         crate::figures::budget::charge(1, 0)?;
         if let Some(p) = self.known(&key, currency, date) { return Ok(p); }
         match self.fetch_single_price(asset, &key, security.as_ref(), currency, date, exchange)? {
             Some(p) => Ok(p),
-            None => { self.warnings.push(format!("{asset}/{currency} {date}")); Ok(Dec::zero()) }
+            None => { self.warnings.push(format!("{shown}/{currency} {date}")); Ok(Dec::zero()) }
         }
     }
 
@@ -414,9 +484,11 @@ impl<'a> PriceService<'a> {
         let from = minus(to, SINGLE_PRICE_WINDOW * 2);
         let venue = self.venue(exchange);
         // A security has no dated alias: its own id, over the whole window.
-        let ranges = match security {
-            Some(s) => s.1.iter().map(|id| (from, to, id.clone())).collect(),
-            None => coin_ids_over_on(self.r, asset, venue, from, to),
+        let ranges = match (security, coin_of_key(key)) {
+            (Some(s), _) => s.1.iter().map(|id| (from, to, id.clone())).collect(),
+            // A coin by its identity: the whole window is that coin's.
+            (None, Some(ext)) => vec![(from, to, ext.to_string())],
+            (None, None) => coin_ids_over_on(self.r, asset, venue, from, to),
         };
         let Some((first, last, coin)) = ranges.into_iter().find(|(f, l, _)| *f <= date && date <= *l) else { return Ok(None) };
         let end = if last == to { plus(first, SINGLE_PRICE_WINDOW * 2).min(self.today) } else { last };
@@ -483,14 +555,17 @@ impl<'a> PriceService<'a> {
 
     /// `btc_cross_rate`: BTC in both currencies that day; None when either is not positive.
     fn btc_cross_rate(&mut self, from: &str, to: &str, at: At) -> Result<Option<Dec>, FiguresError> {
-        let btc_from = self.price_at("BTC", from, at, None)?;
-        let btc_to = self.price_at("BTC", to, at, None)?;
+        // Plan r10 C8: Bitcoin by its identity.
+        let btc = coin_key("bitcoin");
+        let btc_from = self.price_at(&btc, from, at, None)?;
+        let btc_to = self.price_at(&btc, to, at, None)?;
         if !(btc_from.is_positive() && btc_to.is_positive()) { return Ok(None); }
         Ok(Some(btc_to.div(&btc_from)?))
     }
 
     /// `coin_id_for`: the alias of the day, else the catalogue's answer, cached per venue.
     fn coin_id_for(&mut self, symbol: &str, exchange: Option<&str>, date: NaiveDate) -> Option<String> {
+        match self.r.resolve(symbol) { Resolved::Coin(ext) => return Some(ext), Resolved::Unidentified => return None, Resolved::Symbol => {} }
         let venue = self.venue(exchange);
         if let Some(coin) = alias_coin(symbol, venue, Some(date)) { return Some(coin); }
         let r = self.r;
@@ -532,7 +607,7 @@ impl<'a> PriceService<'a> {
         // `price_key_for`; the alias and the catalogue answer BTC alike on every day, so the range is the days' span.
         if priced_in != "USD" && self.statutory.is_none() {
             if let (Some(from), Some(to)) = (coins.iter().map(|c| c.2).min(), coins.iter().map(|c| c.3).max()) {
-                add(self, &mut coins, &mut index, Some("BTC"), from, to, None, None);
+                add(self, &mut coins, &mut index, Some(&coin_key("bitcoin")), from, to, None, None);
             }
         }
         let total = coins.len();
@@ -549,8 +624,10 @@ pub type PriceRow = (String, NaiveDate, String);
 
 /// The days of `from..=to` that already have a stored price of `asset` in `currency`.
 pub fn stored_days(c: &Connection, asset: &str, currency: &str, from: NaiveDate, to: NaiveDate) -> Result<HashSet<NaiveDate>, FiguresError> {
-    let mut s = c.prepare("SELECT date FROM historical_prices WHERE asset = ?1 AND currency = ?2 AND date >= ?3 AND date <= ?4")?;
-    let days = s.query_map(rusqlite::params![asset, currency, from.to_string(), to.to_string()], |r| r.get::<_, String>(0))?
+    let sql = if coin_of_key(asset).is_some() { "SELECT date FROM asset_prices WHERE external_id = ?1 AND currency = ?2 AND date >= ?3 AND date <= ?4" }
+              else { "SELECT date FROM historical_prices WHERE asset = ?1 AND currency = ?2 AND date >= ?3 AND date <= ?4" };
+    let mut s = c.prepare(sql)?;
+    let days = s.query_map(rusqlite::params![coin_of_key(asset).unwrap_or(asset), currency, from.to_string(), to.to_string()], |r| r.get::<_, String>(0))?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(days.iter().filter_map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()).collect())
 }
@@ -602,10 +679,16 @@ pub async fn fetch_range<T: Transport>(feed: &Feed<T>, fetch: &Fetch, have: &Has
 pub fn store(c: &Connection, rows: &[PriceRow]) -> Result<usize, FiguresError> { store_in(c, "USD", rows) }
 
 /// HistoricalPrice.bulk_store in `currency`.
+/// A coin's rows (`coin:<id>`) go to `asset_prices` by its id; every other key's to `historical_prices`.
 pub fn store_in(c: &Connection, currency: &str, rows: &[PriceRow]) -> Result<usize, FiguresError> {
-    let mut s = c.prepare_cached("INSERT INTO historical_prices (asset, currency, date, price) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (asset, currency, date) DO NOTHING")?;
     let mut stored = 0;
-    for (asset, date, price) in rows { stored += s.execute(rusqlite::params![asset, currency, date.to_string(), price])?; }
+    for (asset, date, price) in rows {
+        let mut s = match coin_of_key(asset) {
+            Some(_) => c.prepare_cached("INSERT INTO asset_prices (external_id, currency, date, price) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (external_id, currency, date) DO NOTHING")?,
+            None => c.prepare_cached("INSERT INTO historical_prices (asset, currency, date, price) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (asset, currency, date) DO NOTHING")?,
+        };
+        stored += s.execute(rusqlite::params![coin_of_key(asset).unwrap_or(asset), currency, date.to_string(), price])?;
+    }
     Ok(stored)
 }
 
@@ -942,12 +1025,22 @@ mod tests {
         assert_eq!(key(2, 2, "Exchanges::Binance", "BTC", None).as_deref(), Some("BTC"));
     }
 
-    /// A missing ECB rate warns on every record that leans on it and falls back to the BTC cross.
+    /// A missing ECB rate warns on every record that leans on it and falls back to the BTC cross: Bitcoin by its identity
+    /// (plan r10 C8), its prices `asset_prices`'; a legacy `BTC` row gives no cross.
     #[test]
     fn a_missing_rate_falls_back_to_the_btc_cross_and_warns_each_time() {
         let c = catalogue();
-        c.execute_batch("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('BTC', 'EUR', '2026-09-09', '50000'), ('BTC', 'USD', '2026-09-09', '60000')").unwrap();
-        let r = Reference::load(&c, &venue("alpaca"), &names(&["BTC"])).unwrap();
+        c.execute_batch("CREATE TABLE asset_prices (id INTEGER PRIMARY KEY, external_id TEXT NOT NULL, currency TEXT NOT NULL, date TEXT NOT NULL, price TEXT NOT NULL, UNIQUE (external_id, currency, date));
+                         INSERT INTO historical_prices (asset, currency, date, price) VALUES ('BTC', 'EUR', '2026-09-10', '50000'), ('BTC', 'USD', '2026-09-10', '60000');
+                         INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin', 'EUR', '2026-09-09', '50000'), ('bitcoin', 'USD', '2026-09-09', '60000')").unwrap();
+        let mut r = Reference::load(&c, &venue("alpaca"), &names(&["BTC"])).unwrap();
+        r.learn(&c, &[]).unwrap();
+        {
+            let fx = FxTable::load(&c).unwrap();
+            let mut unfetched = Unfetched;
+            let mut ps = PriceService::new(&r, &fx, day("2026-10-01"), &mut unfetched);
+            assert!(ps.convert_fiat(&Dec::from_i64(10), "EUR", "USD", At::from_sql("2026-09-10 12:00:00").unwrap()).unwrap().is_zero(), "the legacy BTC rows are no cross");
+        }
         let fx = FxTable::load(&c).unwrap();
         let at = At::from_sql("2026-09-09 12:00:00").unwrap();
         let mut none = NoFetch;

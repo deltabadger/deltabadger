@@ -186,6 +186,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     symbols.extend(prices::symbols(&ahead));
     let mut reference = Reference::load(c, &Venue::alpaca(c)?, &symbols)?;
     reference.record_coins(c, user_id)?;
+    reference.learn(c, &scoped)?;
+    reference.learn(c, &ahead)?;
     let fx = crate::tracker::fx::FxTable::load(c)?;
     let nbp = if j.code == "PL" { Some(nbp::Nbp::load(c)?) } else { None };
     let carry = if j.code == "PL" { pl::declared(c, user_id, year)? } else { Default::default() };

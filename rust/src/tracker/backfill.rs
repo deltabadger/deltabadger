@@ -72,9 +72,13 @@ pub fn standing_changed(c: &Connection, cipher: &Cipher, user_id: i64, version: 
     Ok(match stored { Some(stored) => standing_of(&stored) != standing_of(version), None => !standing_of(version).is_empty() })
 }
 
-/// `HistoricalPrice.generation`.
+/// `HistoricalPrice.generation`, over both price tables (delisted coins, plan r10 §1.7: a coin's prices are
+/// `asset_prices`'). Both are insert-only, so the sum of their newest ids moves with every write to either.
 pub fn generation(c: &Connection) -> Result<i64, FiguresError> {
-    Ok(c.query_row("SELECT coalesce(max(id), 0) FROM historical_prices", [], |r| r.get(0))?)
+    let legacy: i64 = c.query_row("SELECT coalesce(max(id), 0) FROM historical_prices", [], |r| r.get(0))?;
+    let coins: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'asset_prices')", [], |r| r.get(0))?;
+    let coins: i64 = if coins { c.query_row("SELECT coalesce(max(id), 0) FROM asset_prices", [], |r| r.get(0))? } else { 0 };
+    Ok(legacy + coins)
 }
 
 /// Whether a sweep is wanted, as the tracker page asks for one (`load_history`), for either setting of its cash
@@ -170,6 +174,8 @@ fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Res
 /// symbol, else Tax::AssetIdentity's.
 fn coins_of(reference: &prices::Reference, i: &Instrument, last: NaiveDate) -> Vec<(NaiveDate, NaiveDate, String)> {
     match &i.coin {
+        // A coin by its identity is that coin on every day.
+        Some(Some(named)) if i.key.starts_with("coin:") => vec![(i.from, last, named.clone())],
         Some(named) if !prices::dated_alias(&i.symbol, Some(&i.venue)) => named.iter().map(|coin| (i.from, last, coin.clone())).collect(),
         _ => coin_ids_over(reference, &i.symbol, &i.venue, i.from, last),
     }
@@ -200,7 +206,8 @@ pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub
 /// venue that touched it first.
 pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, last: NaiveDate) -> Result<Plan, FiguresError> {
     // The catalogue and the stored closes, read once; each venue's key, once.
-    let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(rows))?;
+    let mut reference = prices::Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(rows))?;
+    reference.learn(c, rows)?;
     let mut keys_of: HashMap<i64, Option<i64>> = HashMap::new();
     let mut touched: Vec<((String, String), NaiveDate, String)> = vec![];
     let mut seen: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
@@ -221,9 +228,15 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
     for ((venue_name, symbol), from, _) in touched {
         crate::figures::budget::charge(1, 0)?;
         let Some(venue) = reference.venue(&venue_name).cloned() else { plan.keys.insert((venue_name, symbol), None); continue };
-        let identity = if venue.stock { identity_of(c, user_id, &venue, &symbol)? } else { Some((false, None)) };
+        // Delisted coins (plan r10 §1.5): a coin label is its coin's instrument, under the coin's key; a label no evidence
+        // identifies has none.
+        let (identity, coin_key) = match reference.resolve(&symbol) {
+            prices::Resolved::Coin(ext) => (Some((false, Some(Some(ext.clone())))), Some(prices::coin_key(&ext))),
+            prices::Resolved::Unidentified => (None, None),
+            prices::Resolved::Symbol => (if venue.stock { identity_of(c, user_id, &venue, &symbol)? } else { Some((false, None)) }, None),
+        };
         let Some((stock, coin)) = identity else { plan.keys.insert((venue_name, symbol), None); continue };
-        let key = if stock { format!("stock:{symbol}") } else { symbol.clone() };
+        let key = coin_key.unwrap_or_else(|| if stock { format!("stock:{symbol}") } else { symbol.clone() });
         plan.keys.insert((venue_name, symbol.clone()), Some(key.clone()));
         match index.get(&key) {
             Some(&i) => {
@@ -240,7 +253,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         if !i.stock {
             let spans = coins_of(&reference, i, last);
             for (from, to, coin) in &spans {
-                plan.fetches.push(Close::Range(Fetch::usd(coin.clone(), i.symbol.clone(), *from, *to)));
+                plan.fetches.push(Close::Range(Fetch::usd(coin.clone(), i.key.clone(), *from, *to)));
             }
             // The venues' own days after the provider's (D-VENUE-HISTORY-FALLBACK): each span's coin as its one asset (a
             // coin id two assets carry is not guessed at).
@@ -293,7 +306,7 @@ pub type Prices = HashMap<String, BTreeMap<NaiveDate, Dec>>;
 
 pub fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<Prices, FiguresError> {
     // The catalogue and every stored close of the instruments, read once.
-    let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &plan.instruments.iter().map(|i| i.symbol.clone()).collect())?;
+    let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &plan.instruments.iter().flat_map(|i| [i.symbol.clone(), i.key.clone()]).collect())?;
     let mut out = HashMap::new();
     for i in &plan.instruments {
         // ponytail: `coins` holds one stretch per dated alias of the symbol (ALIASES has eight), so this find is bounded.

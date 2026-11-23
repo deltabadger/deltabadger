@@ -744,435 +744,374 @@
     "wash_sale_locks": [],
     "historical_prices": [
       {
-        "id": 1,
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-02",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-03",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-04",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-05",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-06",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-07",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-08",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-09",
+        "price": 50000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-10",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-11",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-12",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-13",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-14",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-15",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-16",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-17",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-18",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-19",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-20",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-21",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-22",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-23",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-24",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-25",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-26",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-27",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-28",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-29",
+        "price": 60000
+      },
+      {
+        "asset": "BTC",
+        "currency": "USD",
+        "date": "2026-09-30",
+        "price": 60000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-10",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-11",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-12",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-13",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-14",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-15",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-16",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-17",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-18",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-19",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-20",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-21",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-22",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-23",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-24",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-25",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-26",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-27",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-28",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-29",
+        "price": 3000
+      },
+      {
+        "asset": "ETH",
+        "currency": "USD",
+        "date": "2026-09-30",
+        "price": 3000
+      },
+      {
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-01",
         "price": 1
       },
       {
-        "id": 2,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-02",
         "price": 1
       },
       {
-        "id": 3,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-03",
         "price": 1
       },
       {
-        "id": 4,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-04",
         "price": 1
       },
       {
-        "id": 5,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-05",
         "price": 1
       },
       {
-        "id": 6,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-06",
         "price": 1
       },
       {
-        "id": 7,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-07",
         "price": 1
       },
       {
-        "id": 8,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-08",
         "price": 1
       },
       {
-        "id": 9,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-09",
         "price": 1
       },
       {
-        "id": 10,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-10",
         "price": 1
       },
       {
-        "id": 11,
         "asset": "USDT",
         "currency": "USD",
         "date": "2026-09-11",
         "price": 1
-      },
-      {
-        "id": 12,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-10",
-        "price": 60000
-      },
-      {
-        "id": 13,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-10",
-        "price": 3000
-      },
-      {
-        "id": 14,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-02",
-        "price": 50000
-      },
-      {
-        "id": 15,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-03",
-        "price": 50000
-      },
-      {
-        "id": 16,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-04",
-        "price": 50000
-      },
-      {
-        "id": 17,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-05",
-        "price": 50000
-      },
-      {
-        "id": 18,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-06",
-        "price": 50000
-      },
-      {
-        "id": 19,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-07",
-        "price": 50000
-      },
-      {
-        "id": 20,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-08",
-        "price": 50000
-      },
-      {
-        "id": 21,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-09",
-        "price": 50000
-      },
-      {
-        "id": 22,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-11",
-        "price": 60000
-      },
-      {
-        "id": 23,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-12",
-        "price": 60000
-      },
-      {
-        "id": 24,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-13",
-        "price": 60000
-      },
-      {
-        "id": 25,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-14",
-        "price": 60000
-      },
-      {
-        "id": 26,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-15",
-        "price": 60000
-      },
-      {
-        "id": 27,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-16",
-        "price": 60000
-      },
-      {
-        "id": 28,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-17",
-        "price": 60000
-      },
-      {
-        "id": 29,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-18",
-        "price": 60000
-      },
-      {
-        "id": 30,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-19",
-        "price": 60000
-      },
-      {
-        "id": 31,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-20",
-        "price": 60000
-      },
-      {
-        "id": 32,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-21",
-        "price": 60000
-      },
-      {
-        "id": 33,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-22",
-        "price": 60000
-      },
-      {
-        "id": 34,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-23",
-        "price": 60000
-      },
-      {
-        "id": 35,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-24",
-        "price": 60000
-      },
-      {
-        "id": 36,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-25",
-        "price": 60000
-      },
-      {
-        "id": 37,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-26",
-        "price": 60000
-      },
-      {
-        "id": 38,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-27",
-        "price": 60000
-      },
-      {
-        "id": 39,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-28",
-        "price": 60000
-      },
-      {
-        "id": 40,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-29",
-        "price": 60000
-      },
-      {
-        "id": 41,
-        "asset": "BTC",
-        "currency": "USD",
-        "date": "2026-09-30",
-        "price": 60000
-      },
-      {
-        "id": 42,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-11",
-        "price": 3000
-      },
-      {
-        "id": 43,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-12",
-        "price": 3000
-      },
-      {
-        "id": 44,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-13",
-        "price": 3000
-      },
-      {
-        "id": 45,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-14",
-        "price": 3000
-      },
-      {
-        "id": 46,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-15",
-        "price": 3000
-      },
-      {
-        "id": 47,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-16",
-        "price": 3000
-      },
-      {
-        "id": 48,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-17",
-        "price": 3000
-      },
-      {
-        "id": 49,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-18",
-        "price": 3000
-      },
-      {
-        "id": 50,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-19",
-        "price": 3000
-      },
-      {
-        "id": 51,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-20",
-        "price": 3000
-      },
-      {
-        "id": 52,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-21",
-        "price": 3000
-      },
-      {
-        "id": 53,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-22",
-        "price": 3000
-      },
-      {
-        "id": 54,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-23",
-        "price": 3000
-      },
-      {
-        "id": 55,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-24",
-        "price": 3000
-      },
-      {
-        "id": 56,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-25",
-        "price": 3000
-      },
-      {
-        "id": 57,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-26",
-        "price": 3000
-      },
-      {
-        "id": 58,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-27",
-        "price": 3000
-      },
-      {
-        "id": 59,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-28",
-        "price": 3000
-      },
-      {
-        "id": 60,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-29",
-        "price": 3000
-      },
-      {
-        "id": 61,
-        "asset": "ETH",
-        "currency": "USD",
-        "date": "2026-09-30",
-        "price": 3000
       }
     ],
     "snapshot_history_version_1": "1_4_2026-09-01T09:00:00.000000Z",
-    "snapshot_price_generation_1": "61"
+    "snapshot_price_generation_1": true
   },
   "requests": {
     "market": [

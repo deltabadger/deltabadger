@@ -10,13 +10,15 @@ use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// The assets whose `column` is one of `values`, by id, each a step of the open budget scope.
-fn assets_where(c: &Connection, ok: bool, column: &str, values: &BTreeSet<String>) -> Result<Vec<(AssetRef, Option<String>)>, FiguresError> {
+fn assets_where(c: &Connection, ok: (bool, bool), column: &str, values: &BTreeSet<String>) -> Result<Vec<(AssetRef, Option<String>)>, FiguresError> {
     let mut out = vec![];
+    let (ok, named) = ok;
     if !ok { return Ok(out); }
+    let name = if named { "name" } else { "NULL" };
     let values: Vec<&String> = values.iter().collect();
     for chunk in values.chunks(500) {
         let marks = vec!["?"; chunk.len()].join(", ");
-        let mut s = c.prepare(&format!("SELECT id, external_id, symbol, category, name FROM assets WHERE {column} IN ({marks}) ORDER BY id"))?;
+        let mut s = c.prepare(&format!("SELECT id, external_id, symbol, category, {name} FROM assets WHERE {column} IN ({marks}) ORDER BY id"))?;
         let mut q = s.query(rusqlite::params_from_iter(chunk))?;
         while let Some(r) = q.next()? {
             charge(1, 0)?;
@@ -61,9 +63,11 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
         let n: i64 = c.query_row(&format!("SELECT count(*) FROM pragma_table_info('{table}') WHERE name IN ({})", cols.iter().map(|c| format!("'{c}'")).collect::<Vec<_>>().join(", ")), [], |r| r.get(0))?;
         Ok(n == cols.len() as i64)
     };
-    let assets_ok = has("assets", &["id", "external_id", "symbol", "category", "name"])?;
+    let assets_ok = has("assets", &["id", "external_id", "symbol", "category"])?;
+    let catalogue = (assets_ok, has("assets", &["name"])?);
     let balances_ok = assets_ok && has("exchange_account_balances", &["user_id", "exchange_id", "asset_id", "free", "locked"])?;
-    let tickers_ok = assets_ok && has("tickers", &["exchange_id", "base", "quote", "base_asset_id", "quote_asset_id"])?;
+    let tickers_ok = assets_ok && has("tickers", &["exchange_id", "base", "base_asset_id"])?;
+    let quoted = has("tickers", &["quote", "quote_asset_id"])?;
     let has_account = has("exchange_account_balances", &["account_id"])?;
     let mut balances_raw: Vec<(i64, i64, AssetRef)> = vec![];
     if balances_ok {
@@ -85,8 +89,9 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
     for chunk in venues.chunks(500) {
         let marks = vec!["?"; chunk.len()].join(", ");
         let mut s = c.prepare(&format!(
-            "SELECT t.exchange_id, t.base, t.quote, b.id, b.external_id, b.symbol, b.category, q.id, q.external_id, q.symbol, q.category FROM tickers t \
-             LEFT JOIN assets b ON b.id = t.base_asset_id LEFT JOIN assets q ON q.id = t.quote_asset_id WHERE t.exchange_id IN ({marks}) ORDER BY t.id"))?;
+            "SELECT t.exchange_id, t.base, {}, b.id, b.external_id, b.symbol, b.category, q.id, q.external_id, q.symbol, q.category FROM tickers t \
+             LEFT JOIN assets b ON b.id = t.base_asset_id LEFT JOIN assets q ON q.id = {} WHERE t.exchange_id IN ({marks}) ORDER BY t.id",
+            if quoted { "t.quote" } else { "''" }, if quoted { "t.quote_asset_id" } else { "NULL" }))?;
         let mut q = s.query(rusqlite::params_from_iter(chunk))?;
         while let Some(r) = q.next()? {
             charge(1, 0)?;
@@ -106,11 +111,11 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
     let mut legs: Vec<(usize, Side, String, Dec)> = vec![];
     for (i, r) in rows.iter().enumerate() { for (side, spelling, amount) in legs_of(r) { legs.push((i, side, spelling, amount)); } }
     let spellings: BTreeSet<String> = legs.iter().map(|l| l.2.clone()).chain(balances_raw.iter().filter_map(|b| b.2.symbol.clone())).collect();
-    for (a, _) in assets_where(c, assets_ok, "symbol", &spellings)? {
+    for (a, _) in assets_where(c, catalogue, "symbol", &spellings)? {
         if let Some(symbol) = a.symbol.clone() { f.catalogue.entry(symbol).or_default().push(a); }
     }
     let recorded_ids: BTreeSet<String> = rows.iter().filter_map(|r| r.base_asset.as_ref().map(|a| a.0.to_string())).collect();
-    let recorded: HashMap<i64, AssetRef> = assets_where(c, assets_ok, "id", &recorded_ids)?.into_iter().map(|(a, _)| (a.id, a)).collect();
+    let recorded: HashMap<i64, AssetRef> = assets_where(c, catalogue, "id", &recorded_ids)?.into_iter().map(|(a, _)| (a.id, a)).collect();
     // Each leg's holding.
     let mut ins = Vec::with_capacity(legs.len());
     for (i, side, spelling, amount) in legs {
@@ -145,7 +150,7 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
     let held: BTreeSet<String> = ins.iter().map(|l| &l.holding).chain(balances.iter().map(|b| &b.holding))
         .filter_map(|h| match h { resolver::Holding::Coin(e) | resolver::Holding::Security(e) => Some(e.clone()), _ => None }).collect();
     let mut names = Names::new();
-    for (a, name) in assets_where(c, assets_ok, "external_id", &held)? {
+    for (a, name) in assets_where(c, catalogue, "external_id", &held)? {
         if let Some(e) = a.external_id { names.entry(e).or_insert((a.symbol, name)); }
     }
     Ok(Spellings::build(ins, &links, &balances, &names)?)
@@ -283,5 +288,41 @@ mod tests {
             assert_eq!(s.label(2, Side::Base), s.label(1, Side::Base), "linked {w_link}/{d_link}");
             assert!(s.void_links().is_empty());
         }
+    }
+
+    /// Plan r10 PR1 step 3: a coin label is priced by its coin, from `asset_prices`; a bare legacy row under its spelling
+    /// (BTG: main's rank guess) and a legacy `coin:` text row are no coin's prices; an unidentified label has no price; a
+    /// fetched price is stored by the coin; the generation moves with a write to either table.
+    #[test]
+    fn a_coin_is_priced_by_its_identity() {
+        use crate::tracker::prices::{self, PriceService, Reference, Venue};
+        let c = db(CATALOGUE, "", &["1, 0, 'BTG', 1, 'USDT', 20, NULL, NULL, NULL, NULL, '2019-01-01 00:00:00'",
+                                    "1, 0, 'ZZZ', 1, 'USDT', 1, NULL, NULL, NULL, NULL, '2019-01-01 00:00:00'"]);
+        c.execute_batch("ALTER TABLE assets ADD COLUMN market_cap_rank INTEGER;
+                         CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));
+                         CREATE TABLE asset_prices (id INTEGER PRIMARY KEY, external_id TEXT NOT NULL, currency TEXT NOT NULL, date TEXT NOT NULL, price TEXT NOT NULL, UNIQUE (external_id, currency, date));
+                         CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC);
+                         INSERT INTO historical_prices (asset, currency, date, price) VALUES ('BTG', 'USD', '2019-01-01', 0.5), ('coin:bitcoin', 'USD', '2019-01-01', 1);
+                         INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin-gold', 'USD', '2019-01-01', '20');").unwrap();
+        let before = crate::tracker::backfill::generation(&c).unwrap();
+        let (rows, _) = crate::tracker::rows::load_all_mapped(&c, 1).unwrap();
+        let mut r = Reference::load(&c, &Venue::alpaca(&c).unwrap(), &prices::symbols(&rows)).unwrap();
+        r.learn(&c, &rows).unwrap();
+        let fx = crate::tracker::fx::FxTable::load(&c).unwrap();
+        let mut none = prices::Unfetched;
+        let mut ps = PriceService::new(&r, &fx, chrono::NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(), &mut none);
+        let at = crate::figures::at::At::from_sql("2019-01-01 12:00:00").unwrap();
+        let btg = rows[0].base.to_string();
+        assert_eq!(btg, "BTG");
+        assert_eq!(ps.price_at(&btg, "USD", at, Some("binance")).unwrap().to_s_f(), "20.0", "Bitcoin Gold's price, not the bare BTG row");
+        assert!(ps.price_at("ZZZ", "USD", at, Some("binance")).unwrap().is_zero(), "unidentified: no price");
+        assert!(ps.warnings.iter().any(|w| w.starts_with("ZZZ/USD")));
+        assert!(ps.price_at(&prices::coin_key("bitcoin"), "USD", at, None).unwrap().is_zero(), "a legacy coin: text row is no price");
+        // Stored by the coin, and the generation moves.
+        prices::store(&c, &[(prices::coin_key("bitcoin"), chrono::NaiveDate::from_ymd_opt(2019, 1, 1).unwrap(), "3500".into())]).unwrap();
+        let n: i64 = c.query_row("SELECT count(*) FROM asset_prices WHERE external_id = 'bitcoin'", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+        assert!(crate::tracker::backfill::generation(&c).unwrap() > before);
+        assert_eq!(prices::stored_days(&c, &prices::coin_key("bitcoin"), "USD", chrono::NaiveDate::from_ymd_opt(2019, 1, 1).unwrap(), chrono::NaiveDate::from_ymd_opt(2019, 1, 2).unwrap()).unwrap().len(), 1);
     }
 }

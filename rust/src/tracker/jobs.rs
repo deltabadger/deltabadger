@@ -120,6 +120,7 @@ pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError>
     let deposits = all.iter().map(|r| (r.id, r.amount.clone())).collect();
     let mut reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
     reference.record_coins(&tx, user_id)?;
+    reference.learn(&tx, &all)?;
     let fx = FxTable::load(&tx)?;
     tx.commit()?;
     Ok(Inputs { all, rows, deposits, reference, fx, history, generation, cache, origin })

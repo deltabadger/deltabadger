@@ -693,7 +693,7 @@ async fn a_429_publishes_the_report_with_warnings_and_a_regeneration_fills_the_g
     assert_eq!(rows(&open(&i)), vec![(R1.into(), "ready".into())]);
     let csv = std::fs::read_to_string(tax::report_path(&tmp(&i), i.user, "US", 2025, "crypto")).unwrap();
     assert!(csv.contains("BTC/USD 2025-10-01") && csv.contains("ETH/USD 2025-10-05"), "{csv}");
-    let stored = |c: &Connection| c.query_row("SELECT count(*) FROM historical_prices", [], |r| r.get::<_, i64>(0)).unwrap();
+    let stored = |c: &Connection| c.query_row("SELECT (SELECT count(*) FROM historical_prices) + (SELECT count(*) FROM asset_prices)", [], |r| r.get::<_, i64>(0)).unwrap();
     assert_eq!(stored(&open(&i)), 0);
     // A wake: nothing queued, nothing asked.
     let (t, feed) = coingecko(json!({}));

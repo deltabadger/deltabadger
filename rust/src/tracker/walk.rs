@@ -1829,7 +1829,8 @@ mod tests {
     fn walked_with(rows: Vec<Stored>, deposits: &[(i64, &str)], fx: &crate::tracker::fx::FxTable) -> Walked {
         let stored = crate::tracker::rows::walk_rows(&rows).unwrap();
         let r = crate::tracker::prices::Reference::default();
-        let mut none = crate::tracker::prices::NoFetch;
+        // Asks and finds nothing: a missing ECB rate's BTC cross asks for Bitcoin by its identity (plan r10 C8).
+        let mut none = crate::tracker::prices::Unfetched;
         let mut ps = PriceService::new(&r, fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut none);
         let deposits: HashMap<i64, Dec> = deposits.iter().map(|(i, a)| (*i, d(a))).collect();
         scopes(&stored, &deposits, &mut ps, At::from_sql("2026-10-01 00:00:00").unwrap()).unwrap()

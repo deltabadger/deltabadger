@@ -164,6 +164,7 @@ async fn populated_regions_match_v2() {
         grid::restore(&c, expected);
         // The scenario writes (its ledger pass writes today's snapshots), as `run` does on a migrated install (#710 slice 5).
         deltabadger::store::test_support::migrate(&c).unwrap();
+        c.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
         let at: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
         stamp(&c, at);
         let owner: i64 = c.query_row("SELECT id FROM users ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();

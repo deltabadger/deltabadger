@@ -175,24 +175,27 @@ resolver	tracker/labels.rs	sql	1	if let (Some(f), Some(l)) = (r.fee_currency.as_
 resolver	tracker/labels.rs	sql	1	if let Some(e) = a.external_id { names.entry(e).or_insert((a.symbol, name)); }
 resolver	tracker/labels.rs	sql	1	if let Some(f) = r.fee_currency.as_ref() { out.push((Side::Fee, f.as_str().to_string(), r.fee_amount.clone().unwrap_or_else(Dec::zero).neg())); }
 resolver	tracker/labels.rs	sql	1	if let Some(symbol) = a.symbol.clone() { f.catalogue.entry(symbol).or_default().push(a); }
-resolver	tracker/labels.rs	sql	1	let mut s = c.prepare(&format!( "SELECT t.exchange_id, t.base, t.quote, b.id, b.external_id, b.symbol, b.category, q.id, q.external_id, q.symbol, q.category FROM tickers t \ LEFT JOIN assets b ON b.id = t.base_asset_id LEFT JOIN assets q ON q.id = t.quote_asset_id WHERE t.exchange_id IN ({marks}) ORDER BY t.id"))?;
+resolver	tracker/labels.rs	sql	1	let mut s = c.prepare(&format!( "SELECT t.exchange_id, t.base, {}, b.id, b.external_id, b.symbol, b.category, q.id, q.external_id, q.symbol, q.category FROM tickers t \ LEFT JOIN assets b ON b.id = t.base_asset_id LEFT JOIN assets q ON q.id = {} WHERE t.exchange_id IN ({marks}) ORDER BY t.id", if quoted { "t.quote" } else { "''" }, if quoted { "t.quote_asset_id" } else { "NULL" }))?;
 resolver	tracker/labels.rs	sql	1	let mut s = c.prepare(&format!("SELECT {account}, b.exchange_id, a.id, a.external_id, a.symbol, a.category FROM exchange_account_balances b \ JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND {counted} AND b.free + b.locked > 0 ORDER BY b.id"))?;
 legacy	tracker/mod.rs	literal	1	pub const FIAT: [&str; 13] = ["USD", "EUR", "GBP", "CHF", "SEK", "PLN", "DKK", "CZK", "BGN", "AUD", "CAD", "JPY", "AED"];
 legacy	tracker/mod.rs	literal	1	pub const STABLECOINS: [&str; 8] = ["USDT", "USDC", "BUSD", "DAI", "FDUSD", "TUSD", "PYUSD", "RLUSD"];
+legacy	tracker/parity.rs	sql	1	" UNION ALL SELECT (SELECT a.symbol FROM assets a WHERE a.external_id = p.external_id AND a.category = 'Cryptocurrency' ORDER BY a.id LIMIT 1), p.currency, p.date, CAST(p.price AS NUMERIC) \ FROM asset_prices p WHERE NOT EXISTS (SELECT 1 FROM historical_prices h JOIN assets a ON a.symbol = h.asset AND a.category = 'Cryptocurrency' \ WHERE a.external_id = p.external_id AND h.currency = p.currency AND h.date = p.date)"
 legacy	tracker/parity.rs	sql	1	holdings.sort_by(|a, b| a.symbol.cmp(&b.symbol));
 legacy	tracker/parity.rs	sql	1	positions.sort_by(|a, b| a.symbol.cmp(&b.symbol));
 legacy	tracker/prices.rs	literal	1	const ALIASES: [Alias; 8] = [ ("LUNA", "terra-luna", None, Some((2022, 5, 27))), ("QUICK", "quick", None, Some((2023, 7, 20))), ("MATIC", "matic-network", None, None), ("LIT", "litentry", Some("binance"), None), ("GAL", "project-galaxy", Some("binance"), None), ("DAR", "mines-of-dalarnia", Some("binance"), None), ("PNT", "pnetwork", None, None), ("BURGER", "burger-swap", None, None), ];
 legacy	tracker/prices.rs	literal	1	if currency == "USD" { return Ok(Dec::one()); }
 legacy	tracker/prices.rs	literal	1	if priced_in != "USD" && self.statutory.is_none() {
 legacy	tracker/prices.rs	literal	1	if self.statutory.is_some() && currency != "EUR" {
+legacy	tracker/prices.rs	literal	1	let shown = if coin_of_key(asset) == Some("bitcoin") { "BTC" } else { asset };
 legacy	tracker/prices.rs	literal	1	pub const STOCK_CATEGORIES: [&str; 4] = ["Stock", "Common Stock", "ETF", "Fund"];
 legacy	tracker/prices.rs	sql	1	None => read("SELECT a.id, a.external_id, a.category FROM assets a WHERE a.id IN (SELECT base_asset_id FROM account_transactions \ WHERE user_id = ?1 AND exchange_id = ?2 AND base_currency = ?3) ORDER BY a.id", rusqlite::params![owner, exchange_id, symbol])?, };
 legacy	tracker/prices.rs	sql	1	add(self, &mut coins, &mut index, r.fee_currency.as_deref(), date, date, Some(&r.venue), None);
 legacy	tracker/prices.rs	sql	1	candidates = read("SELECT a.id, a.external_id, a.category FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.base = ?2 ORDER BY t.id", rusqlite::params![exchange_id, symbol])?;
 legacy	tracker/prices.rs	sql	1	candidates = read("SELECT id, external_id, category FROM assets WHERE symbol = ?1 ORDER BY market_cap_rank IS NULL, market_cap_rank, id", rusqlite::params![symbol])?;
+legacy	tracker/prices.rs	sql	1	else { "SELECT date FROM historical_prices WHERE asset = ?1 AND currency = ?2 AND date >= ?3 AND date <= ?4" };
+legacy	tracker/prices.rs	sql	1	for l in std::iter::once(&r.base).chain(r.quote.as_ref()).chain(r.fee_currency.as_ref()) {
 legacy	tracker/prices.rs	sql	1	if r.fee_amount.as_ref().is_some_and(Dec::is_positive) && !r.fee_currency.as_deref().is_some_and(stable) {
 legacy	tracker/prices.rs	sql	1	let mut s = c.prepare("SELECT DISTINCT t.base_currency FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \ WHERE t.user_id = ?1 AND a.category = 'Cryptocurrency'")?;
-legacy	tracker/prices.rs	sql	1	let mut s = c.prepare("SELECT date FROM historical_prices WHERE asset = ?1 AND currency = ?2 AND date >= ?3 AND date <= ?4")?;
 legacy	tracker/prices.rs	sql	1	let mut s = c.prepare("SELECT date, price FROM historical_prices WHERE asset = ?1 AND currency = 'USD' AND date >= ?2 AND date <= ?3")?;
 legacy	tracker/prices.rs	sql	1	let mut s = c.prepare("SELECT t.exchange_id, t.base, a.id, a.external_id, a.category FROM tickers t JOIN assets a ON a.id = t.base_asset_id ORDER BY t.id")?;
 legacy	tracker/prices.rs	sql	1	let mut s: HashSet<String> = rows.iter().flat_map(|r| std::iter::once(r.base.to_string()).chain(r.quote.as_deref().map(str::to_owned)).chain(r.fee_currency.as_deref().map(str::to_owned))).collect();
