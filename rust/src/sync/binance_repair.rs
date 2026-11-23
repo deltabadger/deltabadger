@@ -492,8 +492,8 @@ impl<R:HistoryReader> HistoryRepair<R> {
                     Ok(())
                 }).map_err(|e|e.0)
             }).await?;
+            // D-SYNC-DONE-TOAST: the walk woken here ends the import's toast (LedgerWalk).
             cx.wakers.wake(crate::tracker::jobs::TRACKER_LEDGER,Some(&owner.to_string()),None);
-            cx.db.notifications.sync_done(owner);
         }
         cx.db.run(move |c,cipher| {
             let tx=model::immediate(c).map_err(|e|SyncError::from(e).0)?;

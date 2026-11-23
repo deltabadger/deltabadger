@@ -87,7 +87,7 @@ impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C,
             }).await;
             let settings = match settings {
                 Ok(settings) => settings,
-                Err(e) => return crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
+                Err(e) => { unstarted(&cx, &self.spec()).await; return crate::engine::model::Produced::new(super::Outcome::Failed(e), None) },
             };
             // One snapshot of the configuration per run: a switch takes effect at the next run (PLAN-A17 A17-3 item 1).
             let api = Rc::new((self.feeds)(&settings, self.rates.clone()).and_then(Feed::into_data_api));
@@ -103,10 +103,18 @@ impl<C: Connect + Clone + 'static, T: Transport + 'static> Job for Configured<C,
             let resolve = all_with(self.venues.clone(), api, feed, prices, tracker::jobs::system_wall());
             match resolve(spec.name, spec.scope.as_deref()) {
                 Ok(job) => job.run_attributed(cx, wakes).await,
-                Err(e) => crate::engine::model::Produced::new(super::Outcome::Failed(e), None),
+                Err(e) => { unstarted(&cx, &spec).await; crate::engine::model::Produced::new(super::Outcome::Failed(e), None) },
             }
         })
     }
+}
+
+/// D-SYNC-DONE-TOAST: a tracker walk that could not start still ends the import toast it would have ended (no spinner left).
+async fn unstarted(cx: &super::Cx<'_>, spec: &super::Spec) {
+    if spec.name != tracker::jobs::TRACKER_LEDGER { return }
+    let Some(owner) = spec.scope.as_deref().and_then(|s| s.parse::<i64>().ok()) else { return };
+    let at = cx.clock.now();
+    if let Ok(true) = cx.db.run(move |c, _| crate::sync::jobs::progress::take(c, owner, at)).await { cx.db.notifications.sync_done(owner); }
 }
 
 #[cfg(test)]

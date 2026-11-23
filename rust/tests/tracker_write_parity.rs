@@ -7,15 +7,16 @@ use rusqlite::{Connection, types::{Value as Sql, ValueRef}};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 
-/// Every 2.x table's rows. Rust's own tables (`REGISTRY.owned_tables()`) and the one app_configs row Rust writes on
-/// an import (the identity key, `identity::KEY_CONFIG`) are left out: 2.x has neither; `rust_effects` asserts them.
+/// Every 2.x table's rows. Rust's own tables (`REGISTRY.owned_tables()`) and the app_configs rows Rust writes on an
+/// import (the identity key, `identity::KEY_CONFIG`) or a sync (D-SYNC-DONE-TOAST: what its toast waits on) are left
+/// out: 2.x has neither; `rust_effects` asserts them.
 fn snapshot(c: &Connection) -> Value {
     let owned = deltabadger::store::REGISTRY.owned_tables();
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
         .query_map([],|r|r.get(0)).unwrap().collect::<Result<Vec<String>,_>>().unwrap().into_iter().filter(|n| !owned.contains(&n.as_str())).collect();
     let mut tables = Map::new();
     for name in names {
-        let skip = if name == "app_configs" { format!(" WHERE key IS NOT '{}'", deltabadger::identity::KEY_CONFIG) } else { String::new() };
+        let skip = if name == "app_configs" { format!(" WHERE key IS NOT '{}' AND key NOT LIKE 'rust\\_sync\\_toast.%' ESCAPE '\\'", deltabadger::identity::KEY_CONFIG) } else { String::new() };
         // #710 slice 5: 2.x's balances and venue snapshots are what their stores hold, under 2.x's names and columns.
         let from = deltabadger::sync::balance_store::v2_projection(c, &name).unwrap().unwrap_or_else(|| name.clone());
         let mut statement = c.prepare(&format!("SELECT * FROM {from}{skip} ORDER BY 1")).unwrap();
@@ -138,6 +139,10 @@ fn rust_effects(c: &Connection, name: &str, key_before: Option<String>) {
         assert_eq!(count("SELECT count(*) FROM exchange_account_imports"), 1, "{name}: the export's account is recorded");
     }
     assert_eq!(count("SELECT count(*) FROM import_rows"), 0, "{name}");
+    // D-SYNC-DONE-TOAST: only a sync records what its toast waits on (sync_alpaca's, its one key).
+    let toasts = count("SELECT count(*) FROM app_configs WHERE key LIKE 'rust\\_sync\\_toast.%' ESCAPE '\\'");
+    if name == "sync_alpaca" { assert_eq!(toasts, 1, "{name}"); }
+    if !name.starts_with("sync_") { assert_eq!(toasts, 0, "{name}"); }
 }
 
 /// A12-1: the tracker's tax report create (`tax_*`) and download (`download_*`) against 2.x's answers, rows, enqueued

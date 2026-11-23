@@ -566,6 +566,7 @@ fr:
         sync: 'Synchroniser'
         sync_started: 'Synchronisation des transactions depuis vos plateformes...'
         importing_from: 'Importation des données depuis %{exchange}…'
+        imported_from: 'Données importées depuis %{exchange}.'
         get_report: 'Rapport fiscal'
         filter: 'Filtrer'
         bot: 'Bot'

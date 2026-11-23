@@ -217,11 +217,11 @@
   +dark-root
     +palette-dark
 
-// Space: neutral cool greys instead of navy and a Bitcoin-orange accent, in both modes.
+// Space: neutral cool greys, monochrome: a near-black accent in light mode and a white one in dark (its labels #111).
 \:root[data-scheme="space"]
   +light-root
-    --accent: #F7931A
-    --link: #F7931A
+    --accent: #111111
+    --link: #111111
     --ink: #121216
     --ash: #4F4F5A
     --stone: #6B6B76
@@ -235,15 +235,15 @@
     --autocomplete: #F0F0F2
     --inputTextFocus: #121216
     --menulink: #8A8A94
-    --menulink-active: #F7931A
-    --menuLogo: #F7931A
-    --navbarLink: #F7931A
+    --menulink-active: #111111
+    --menuLogo: #111111
+    --navbarLink: #111111
     --pickExchangeItemBg: #F0F0F2
     --benchmark: #A3A3AD
-    --insight-background: #F7931A33
+    --insight-background: #11111114
     --insight-warning-background: #F6D9B8
     --slider-track: #12121619
-    --slider-progress: #F7931A
+    --slider-progress: #111111
     --label: #121216ba
     --label-select-inactive: #12121660
     --close-hover: #F0F0F2
@@ -251,7 +251,7 @@
     --big-header: var(--stone)
     --input-text-inactive: #9A9AA4
     --input-border: #9A9AA4
-    --sinput-text: #F7931A
+    --sinput-text: #111111
     --tooltip-text: #121216
     --dropdown-hover: #E6E6EA66
     --text-faded: #9A9AA4
@@ -259,10 +259,12 @@
 
 \:root[data-scheme="space"]
   +dark-root
-    --accent: #F7931A
-    --slider-progress: #F7931A
-    --insight-background: #F7931A99
-    --tooltip-background: #F7931A
+    --accent: #FFFFFF
+    --on-accent: #111111
+    --slider-progress: #FFFFFF
+    --insight-background: #ffffff1f
+    --tooltip-background: #FFFFFF
+    --tooltip-text: #111111
     --dropdown-hover: #ffffff1f
     --link: #e6e6ea
     --ink: #e6e6ea
