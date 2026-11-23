@@ -340,7 +340,7 @@ pub(crate) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
     }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
     let cutoffs = cutoffs(c, key)?;
-    let mut writer = ledger::FileWriter::new(c, key)?;
+    let mut writer = ledger::FileWriter::new(c, key, "kucoin")?;
     for at in touched {
         // A second holding a restored entry (a `kucoin-csv-*` id without this importer's provenance) is the restored
         // ledger's: its rows stay stored and nothing is derived there, so nothing is counted twice.

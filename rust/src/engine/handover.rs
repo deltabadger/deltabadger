@@ -208,6 +208,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
         crate::identity::after_v2(&tx, cipher)?;
+        // #710 7a rules P9/Q5: rows 2.x's importer wrote while it owned the install, by its import shapes only.
+        if let Some(back) = handed_back { crate::tracker::import::v2_origins(&tx, back, now)?; }
         super::rules::refill(&tx)?;
         // #710 slice 5: 2.x's balances and venue snapshots are the number-1 rows of Rust's stores again.
         crate::sync::balance_store::refill_number_one(&tx)?;
@@ -707,6 +709,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "exchange_account_standings", Refuses(SECOND_ACCOUNT)),
         // #710 7a rules N2/N7: Rust's own identity and reader bookkeeping; 2.x never reads either.
         (Table, "account_fingerprint_proofs", Ignored), (Table, "ledger_reader_generations", Ignored),
+        (Table, "import_row_origins", Ignored), (Table, "parked_answers", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's

@@ -221,6 +221,8 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         sm.rejected |= dm.rejected;
         // A venue answer always beats a restore's shape: the kept twin takes the duplicate's answer over its own restore.
         sm.raw = if sm.raw.is_none() || (!sm.synced && dm.synced) { dm.raw.clone() } else { None };
+        // #710 7a rule Q7: a survivor taking the duplicate's venue answer is a synced row from here on (`synced` says so).
+        if sm.raw.is_some() { sm.synced = dm.synced; }
         sm.asset = if sm.asset.is_none() { dm.asset } else { None };
         sm.description = if sm.description.is_none() { dm.description.clone() } else { None };
         // A group: D's where S's row has none and no other row reads its key on S (the group is S's then), by the same key
@@ -461,6 +463,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
                    base_asset_id = COALESCE(?6, base_asset_id), group_id = COALESCE(?7, group_id), description = COALESCE(?8, description) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
+        // Rule Q7: the event was read from an account independently of the file: the row's file origin goes.
+        if m.raw.is_some() && m.synced && crate::tracker::import::origins_ready(c)? { c.execute("DELETE FROM import_row_origins WHERE transaction_id = ?1", [row])?; }
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
 

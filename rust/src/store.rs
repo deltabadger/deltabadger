@@ -254,6 +254,10 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261125000001", TableContract { name: "account_fingerprint_proofs", columns: &[("account_id", "INTEGER", false), ("created_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261125000001", TableContract { name: "ledger_reader_generations", columns: &[("account_id", "INTEGER", false), ("generation", "INTEGER", true),
         ("reader", "INTEGER", false)], unique_indexes: &[] }),
+    // #710 slice 7a rules N8/N4: each file-imported ledger row's importer, and the parked answers consumed.
+    ("20261125000002", TableContract { name: "import_row_origins", columns: &[("transaction_id", "INTEGER", false), ("import_kind", "TEXT", true),
+        ("created_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261125000002", TableContract { name: "parked_answers", columns: &[("digest", "TEXT", false), ("created_at", "TEXT", true)], unique_indexes: &[] }),
     // Delisted coins PR0: coin prices by identity.
     ("20261123000002", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),

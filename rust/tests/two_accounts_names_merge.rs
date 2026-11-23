@@ -4013,3 +4013,28 @@ fn s7_0_8_cutoffs_alone_merge_keeping_the_earlier() {
     let s = two.id(0);
     assert_eq!(cutoffs, [(s, "deposits".into(), "2026-09-07 00:00:00".into()), (s, "fills".into(), "2026-09-05 00:00:00".into()), (s, "withdrawals".into(), "2026-09-08 00:00:00".into())]);
 }
+
+/// #710 7a rule Q7: Merge reconciles provenance with the twins. A restored survivor that takes its API twin's answer was
+/// read from an account: its file origin goes. An API survivor stays synced, its restored twin (and that origin) gone.
+#[test]
+fn q7_a_twin_taking_the_venue_answer_loses_its_file_origin_in_either_order() {
+    for restored_kept in [true, false] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let kraken = Two::kraken(c, &seed::cipher());
+        let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+        alpaca.fingerprint(c, 0, Some("fp"));
+        alpaca.fingerprint(c, 1, Some("fp"));
+        let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+        let gone = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+        let (restored, api) = if restored_kept { (kept, gone) } else { (gone, kept) };
+        c.execute("UPDATE account_transactions SET raw_data = '{}' WHERE id = ?1", [restored]).unwrap();
+        c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [api]).unwrap();
+        deltabadger::tracker::import::record_origin(c, restored, "deltabadger", chrono::Utc::now()).unwrap();
+        merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+        let raw: String = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [kept], |r| r.get(0)).unwrap();
+        assert!(raw.contains("\"net_amount\":\"-10\""), "{restored_kept}: {raw}");
+        let origins: i64 = c.query_row("SELECT count(*) FROM import_row_origins", [], |r| r.get(0)).unwrap();
+        assert_eq!(origins, 0, "{restored_kept}: the kept twin reads synced, the duplicate's origin went with it");
+    }
+}

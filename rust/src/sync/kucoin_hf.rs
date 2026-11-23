@@ -342,7 +342,7 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
     let mut ruled: HashMap<DateTime<Utc>, Judged> = HashMap::new();
     for t in &ruled_at { ruled.insert(*t, judge(c, key, *t, &catalogue)?); }
     let unpaired_api = |t: DateTime<Utc>| ruled.get(&t).is_some_and(|j| j.reps.iter().zip(&j.used).any(|(r, u)| r.api && !u));
-    let mut writer = super::ledger::FileWriter::new(c, key)?;
+    let mut writer = super::ledger::FileWriter::new(c, key, "kucoin")?;
     for t in &judged_at {
         let j = &ruled[t];
         let leftover: Vec<usize> = (0..j.csv.len()).filter(|i| !j.represented[*i]).collect();
