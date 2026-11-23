@@ -210,16 +210,20 @@ const KNOWN: &str = "SELECT (SELECT count(*) FROM exchange_accounts WHERE finger
                           + (SELECT count(*) FROM exchange_account_imports)";
 
 /// At startup: a reset 2.x made while Rust was stopped is handled before anything is recorded. Writes nothing on an
-/// install with a readable key or with nothing known.
+/// install with a readable key or with nothing known. Then (#710 7a rule N7) every live account with no reader
+/// generation yet (one from before the table) gets its reader recorded, so its first handoff counts as one.
 pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), String> {
-    if !ready(c).map_err(|e| e.to_string())? || existing_key(c, cipher).is_some() { return Ok(()); }
-    let known: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(|e| e.to_string())?;
-    if known == 0 { return Ok(()); }
-    let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
-    key(&tx, cipher, now)?;
-    tx.commit().map_err(|e| e.to_string())?;
-    crate::store::mark_changed();
-    Ok(())
+    if !ready(c).map_err(|e| e.to_string())? { return Ok(()); }
+    if existing_key(c, cipher).is_none() {
+        let known: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if known > 0 {
+            let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
+            key(&tx, cipher, now)?;
+            tx.commit().map_err(|e| e.to_string())?;
+            crate::store::mark_changed();
+        }
+    }
+    crate::sync::seed_readers(c).map_err(|e| e.0)
 }
 
 /// The account (user, exchange) is read as while it has one (#710 slices 1-6): its lowest live number.
@@ -1626,7 +1630,7 @@ pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, excha
 /// new account) of (user, exchange), read inside the import's transaction. `holders`: the other live accounts whose
 /// fingerprint, key observation or import observation is the export's (by number). `foreign`: `dest`'s fingerprint, a
 /// key observation of it, or an import observation of it names another account. The takeover's sentinel names nobody.
-/// `facts`: what was compared, for the answer's digest (rule N4).
+/// `facts`: what was compared (each account's distinct fingerprints seen), for the answer's digest (rule N4).
 pub struct ImportEvidence { pub holders: Vec<i64>, pub foreign: bool, pub facts: String }
 pub fn import_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId, now: DateTime<Utc>) -> Result<ImportEvidence, String> {
     let db = |e: rusqlite::Error| format!("account identity: {e}");
@@ -1641,9 +1645,12 @@ pub fn import_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_i
                                                          UNION SELECT fingerprint FROM exchange_account_imports WHERE account_id = ?2 ORDER BY 1", row.keys("k"))).map_err(db)?
             .query_map(params![UNCONFIRMED_AFTER_V2, account], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
         seen.extend(own.clone());
+        seen.sort();
+        seen.dedup();
         let theirs = seen.contains(&file);
         let other = seen.iter().any(|f| *f != file);
-        out.facts.push_str(&format!("{account}:{}:{};", u8::from(theirs), u8::from(other)));
+        // Rule N4: the fingerprints themselves, so one more seen meanwhile makes an open answer stale.
+        out.facts.push_str(&format!("{account}:{};", seen.join(",")));
         if Some(account) == dest { out.foreign = other; } else if theirs { out.holders.push(account); }
     }
     Ok(out)
@@ -1772,11 +1779,23 @@ pub fn publish(c: &Connection, cipher: &Cipher, due: &Due, observed: &Observed, 
 }
 
 /// (account, reader generation) of every live account of key `key`'s exchange.
-fn generations_of_key(c: &Connection, key: i64) -> Result<Vec<(i64, i64)>, String> {
+pub fn generations_of_key(c: &Connection, key: i64) -> Result<Vec<(i64, i64)>, String> {
     let row: Option<(i64, i64)> = c.query_row("SELECT user_id, exchange_id FROM api_keys WHERE id = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?))).optional().map_err(|e| e.to_string())?;
     let Some((user, exchange)) = row else { return Ok(vec![]) };
     let mut out = vec![];
     for (account, _) in accounts_of(c, user, exchange).map_err(|e| e.to_string())? { out.push((account, crate::sync::reader_generation(c, account).map_err(|e| e.0)?)); }
+    Ok(out)
+}
+
+/// #710 7a rules K5/M4: the readers of key `key`'s exchange's accounts whose generation moved since `before`
+/// (`generations_of_key`, read before the write): each has its ledger and balance jobs woken after the commit.
+pub fn moved_readers(c: &Connection, key: i64, before: &[(i64, i64)]) -> Result<Vec<i64>, String> {
+    let mut out = vec![];
+    for (account, generation) in generations_of_key(c, key)? {
+        if before.contains(&(account, generation)) { continue; }
+        let Some(a) = Account::by_id(c, account).map_err(|e| e.to_string())? else { continue };
+        out.extend(crate::sync::reader_of(c, &a.keys("k")).map_err(|e| e.0)?);
+    }
     Ok(out)
 }
 
@@ -1810,15 +1829,7 @@ impl<C: crate::sync::jobs::Connect> crate::jobs::Job for Discovery<C> {
                 let before = match cx.db.run(move |c, _| generations_of_key(c, key)).await { Ok(g) => g, Err(e) => return Outcome::Failed(e) };
                 if let Err(e) = cx.db.run(move |c, cipher| publish(c, cipher, &credential, &observed, at)).await { return Outcome::Failed(e); }
                 // #710 7a rules K5/M4: a read that moved an account's reader (a fence, or its lifting) wakes the new reader.
-                let moved = match cx.db.run(move |c, _| {
-                    let mut out = vec![];
-                    for (account, generation) in generations_of_key(c, key)? {
-                        if before.contains(&(account, generation)) { continue; }
-                        let Some(a) = Account::by_id(c, account).map_err(|e| e.to_string())? else { continue };
-                        out.extend(crate::sync::reader_of(c, &a.keys("k")).map_err(|e| e.0)?);
-                    }
-                    Ok(out)
-                }).await { Ok(m) => m, Err(e) => return Outcome::Failed(e) };
+                let moved = match cx.db.run(move |c, _| moved_readers(c, key, &before)).await { Ok(m) => m, Err(e) => return Outcome::Failed(e) };
                 for r in moved { for job in [crate::sync::jobs::LEDGER_SYNC, crate::sync::jobs::BALANCE_SYNC] { cx.wakers.wake(job, Some(&r.to_string()), None); } }
             }
             Outcome::Done

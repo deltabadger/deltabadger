@@ -406,18 +406,21 @@ impl<C: Connect> Job for LedgerSync<C> {
 /// the run is bound to it). A key whose account another key reads wakes that reader's `job` (a permission fallback or a
 /// fence moved it), and its own run does nothing (`None`). An account no key can read runs unbound (`Some(None)`), as
 /// before: the venue sync refuses a key that is not a reading key itself, and a named hand run syncs it whatever it is.
+/// Rule N1: a key that waits for its UID read (`sync::waits_for_read`) does nothing, its account no reader or not.
 async fn reader_entry(cx: &Cx<'_>, key: i64, job: &'static str) -> Result<Option<Option<crate::sync::Reader>>, String> {
-    let (entry, reader) = cx.db.run(move |c, _| {
+    let (entry, reader, waits) = cx.db.run(move |c, _| {
         let entry = crate::sync::reader_entry(c, key).map_err(|e| e.0)?;
         let reader = match (&entry, crate::identity::Account::of_key(c, key).map_err(|e| e.to_string())?) {
             (None, Some(account)) => crate::sync::reader_of(c, &account.keys("k")).map_err(|e| e.0)?,
             _ => None,
         };
-        Ok((entry, reader))
+        let waits = entry.is_none() && reader.is_none() && crate::sync::waits_for_read(c, key).map_err(|e| e.0)?;
+        Ok((entry, reader, waits))
     }).await?;
     match (entry, reader) {
         (Some(entry), _) => Ok(Some(Some(entry))),
         (None, Some(r)) => { cx.wakers.wake(job, Some(&r.to_string()), None); Ok(None) }
+        (None, None) if waits => Ok(None),
         (None, None) => Ok(Some(None)),
     }
 }

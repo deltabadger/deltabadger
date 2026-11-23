@@ -334,6 +334,14 @@ fn candidates(c: &Connection, filter: &str) -> Result<Vec<Candidate>, SyncError>
     }
     Ok(out)
 }
+/// Rule N1: key `key` is an identity venue's key on an exchange with two or more live accounts and has no UID read of its
+/// current material: it reads nothing until discovery reads it (`candidates` leaves it out).
+pub fn waits_for_read(c: &Connection, key: i64) -> Result<bool, SyncError> {
+    let row: Option<(i64, i64, Option<String>)> = c.query_row("SELECT k.user_id, k.exchange_id, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1",
+                                                              [key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let Some((user, exchange, Some(venue))) = row else { return Ok(false) };
+    Ok(crate::identity::VENUES.contains(&venue.as_str()) && crate::identity::accounts_of(c, user, exchange)?.len() >= 2 && crate::identity::unread(c, key).map_err(SyncError)?)
+}
 /// ApiKey.reading among one account's candidates: the trading key that lacks no permission (`missing_permission?`), else
 /// the read-only one, else the first.
 fn choose(group: &[&Candidate]) -> Option<i64> {
@@ -406,6 +414,19 @@ pub fn settle_reader(c: &Connection, account: i64) -> Result<Option<i64>, SyncEr
     }
     if let Some(row) = crate::identity::AccountRow::by_id(c, account)? { c.execute("DELETE FROM app_configs WHERE key = ?1", [cache::balance_origin_key_of(&row)])?; }
     Ok(Some(k))
+}
+/// Rule N7, at startup: each live account with no generation row (one from before the table) has its current reader
+/// stored, as `settle_reader`'s first sighting, before anything can hand it off.
+pub fn seed_readers(c: &Connection) -> Result<(), SyncError> {
+    if !generations_ready(c)? { return Ok(()); }
+    let tx = c.unchecked_transaction()?;
+    let missing: Vec<i64> = tx.prepare("SELECT id FROM exchange_accounts WHERE removed_at IS NULL AND id NOT IN (SELECT account_id FROM ledger_reader_generations) ORDER BY id")?
+        .query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    if missing.is_empty() { return Ok(()); }
+    for account in missing { settle_reader(&tx, account)?; }
+    tx.commit()?;
+    crate::store::mark_changed();
+    Ok(())
 }
 /// `settle_reader` for every live account of (user, exchange); the readers that changed.
 pub fn settle_readers(c: &Connection, user: i64, exchange: i64) -> Result<Vec<i64>, SyncError> {

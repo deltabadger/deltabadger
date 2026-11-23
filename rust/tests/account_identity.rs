@@ -1492,6 +1492,35 @@ fn n1_q2_with_two_accounts_an_unread_key_waits_for_its_read() {
     assert!(ledger_reads(&fx, added));
 }
 
+/// No venue: every read is refused (`Connect`'s defaults reach no host).
+struct NoVenue;
+impl deltabadger::sync::jobs::Connect for NoVenue {
+    type T = deltabadger::venue::http::ScriptedTransport;
+    fn connect(&self, _: &Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ScriptedTransport::from_script(&json!({})), deltabadger::venue::alpaca::Urls::for_passphrase(None))
+    }
+}
+
+/// Rule N1 (Codex branch r4 #1, jobs.rs `reader_entry`): on an exchange with two live accounts, the ledger and balance jobs
+/// of a key with no UID read, whose account therefore has no reader, do nothing (NothingNew under its version): they never
+/// run unbound and book another account's history before discovery reads the key.
+#[tokio::test(flavor = "current_thread")]
+async fn n1_an_unread_keys_jobs_do_nothing_on_a_two_account_exchange() {
+    use deltabadger::jobs::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
+    let (fx, _) = established();
+    let second = identity::new_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    let added = fx.key(KUCOIN, 0, "kc-b");
+    place(&fx, added, second);
+    let db = Db::new(Connection::open(fx.dir.path().join("production.sqlite3")).unwrap(), fx.cipher.clone());
+    let clock = deltabadger::engine::FixedClock(now());
+    let cx = || Cx { db: db.clone(), clock: &clock, wakers: Default::default() };
+    assert_eq!(LedgerSync::new(NoVenue, added).run(cx(), vec![Wake::Manual(None)]).await, Outcome::NothingNew);
+    let balance = BalanceSync::new(NoVenue, std::rc::Rc::new(deltabadger::sync::balances::NoPrices), added);
+    assert_eq!(balance.run(cx(), vec![Wake::Manual(None)]).await, Outcome::NothingNew);
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE '%' || ?1 || '%'", [format!(":{added}")], |r| r.get::<_, i64>(0)).unwrap(), 0, "nothing marked");
+}
+
 /// Rule P4: the proof and the reader generation are bookkeeping, not holdings: they keep no account, and a tombstone takes
 /// them with it.
 #[test]
@@ -1530,6 +1559,29 @@ fn n7_a_handoff_stops_the_old_run_and_waits_for_the_new_reader() {
     fx.observe(trading, read(A));
     assert!(!sync::reader_holds(&fx.c, &old).unwrap() && !sync::reader_holds(&fx.c, &new).unwrap(), "every earlier run stops");
     assert!(sync::reader_entry(&fx.c, trading).unwrap().is_some());
+}
+
+/// Rule N7 (Codex branch r4 #5): an account from before the generations table has no row; the start records its reader, so
+/// the first handoff after the upgrade is a handoff like any other: the generation moves and the incoming reader's stale
+/// stamp goes.
+#[test]
+fn n7_the_first_handoff_after_the_upgrade_counts() {
+    use deltabadger::sync;
+    let (mut fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    // Both keys read the ledger once (the read-only one while the trading key was off); the install predates the table.
+    common::two_accounts::stamp_ledgers(&fx.c, fx.user);
+    common::two_accounts::restamp(&fx.c, fx.user, read_only);
+    fx.c.execute("DELETE FROM ledger_reader_generations", []).unwrap();
+    fx.restart();
+    let old = sync::reader_entry(&fx.c, trading).unwrap().expect("the trading key reads");
+    let current = |fx: &Fx| sync::cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap().ledger_is_current(&fx.c).unwrap();
+    assert!(current(&fx));
+    fx.observe(trading, read(B));
+    assert!(!sync::reader_holds(&fx.c, &old).unwrap(), "the old run publishes nothing");
+    assert!(sync::reader_entry(&fx.c, read_only).unwrap().is_some_and(|r| r.generation == 1));
+    assert!(!current(&fx), "the read-only key's old stamp went");
 }
 
 /// Rule P7: after a permission fallback the former trading reader's job does nothing: its entry finds it no reader.
