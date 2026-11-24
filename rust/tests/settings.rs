@@ -4237,14 +4237,16 @@ fn d5b_scheduler(h:&Harness,url:&str)->deltabadger::jobs::Scheduler{
 }
 fn d5b_slots(s:&mut deltabadger::jobs::Scheduler,h:&Harness)->std::collections::BTreeSet<(String,Option<String>)>{s.slots(h.app.now()).unwrap().into_iter().collect()}
 /// The running scheduler's slots after `request`, beside the slots a fresh start on the same database registers.
-async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,i64,i64){
+/// `setup` `incorrect_unnamed`: the key incorrect, its account read naming no account; the wakes `request` left pending last.
+async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,i64,i64,Vec<(String,Option<String>)>){
     let server=MockServer::start().await;
+    if setup=="incorrect_unnamed"{Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(1).mount(&server).await;}
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     match setup {
         "fresh"=>{h.c.execute("DELETE FROM api_keys",[]).unwrap();}
-        "incorrect"=>{h.c.execute("UPDATE api_keys SET status=2",[]).unwrap();}
+        "incorrect"|"incorrect_unnamed"=>{h.c.execute("UPDATE api_keys SET status=2",[]).unwrap();}
         _=>{}
     }
     let mut running=d5b_scheduler(&h,&server.uri());
@@ -4252,6 +4254,7 @@ async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(
     h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap().with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()),Arc::new(Logs::default())).unwrap();
     h.app.attach_jobs(running.wakers()).unwrap();
     let started=d5b_slots(&mut running,&h);
+    let woken=running.wakers().pending().len();
     let (kind,status)=match request {
         "read_only"|"trading"=>{let r=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type",request),("api_key[key]","account-b-key"),("api_key[secret]","account-b-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;assert_eq!(r.status,200,"{}",r.body);(request,0)}
         _=>{let r=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[]).await;assert_eq!(r.status,200);("trading",1)}
@@ -4259,37 +4262,49 @@ async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(
     // D-ALPACA-ONE-KEY: either request writes Alpaca's one (trading) key.
     let _=kind;let id=h.c.query_row("SELECT id FROM api_keys WHERE key_type=0",[],|r|r.get::<_,i64>(0)).unwrap();
     assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).unwrap(),1,"{status}: the key is correct now");
+    let wakes=running.wakers().pending().split_off(woken);
     let after=d5b_slots(&mut running,&h);
     let fresh=d5b_slots(&mut d5b_scheduler(&h,&server.uri()),&h);
-    (started,after,fresh,id,h.seed.user_id)
+    (started,after,fresh,id,h.seed.user_id,wakes)
 }
 fn d5b_slot(name:&str,scope:i64)->(String,Option<String>){(name.into(),Some(scope.to_string()))}
 #[tokio::test(flavor="current_thread")]
 async fn d5b_a_first_key_registers_every_slot_a_restart_would_including_the_users_tracker_jobs(){
     use deltabadger::{sync::jobs::{LEDGER_SYNC,BALANCE_SYNC},tracker::jobs::{TRACKER_LEDGER,PORTFOLIO_BACKFILL}};
-    let (started,after,fresh,id,user)=d5b_slots_after("fresh","read_only").await;
+    let (started,after,fresh,id,user,_)=d5b_slots_after("fresh","read_only").await;
     assert!(!started.contains(&d5b_slot(TRACKER_LEDGER,user)),"no reading key at startup");
     for slot in [d5b_slot(LEDGER_SYNC,id),d5b_slot(BALANCE_SYNC,id),d5b_slot(TRACKER_LEDGER,user),d5b_slot(PORTFOLIO_BACKFILL,user)]{assert!(after.contains(&slot),"missing {slot:?}");}
     assert_eq!(after,fresh,"the running scheduler holds exactly what a restart registers");
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_an_alpaca_tracker_key_replaces_the_trading_key_in_place_and_keeps_the_registered_slots(){
-    let (started,after,fresh,_,_)=d5b_slots_after("existing","read_only").await;
+    let (started,after,fresh,_,_,_)=d5b_slots_after("existing","read_only").await;
     assert_eq!(after,fresh);assert_eq!(after,started);
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_replacing_the_trading_key_in_place_keeps_the_registered_slots(){
-    let (started,after,fresh,_,_)=d5b_slots_after("existing","trading").await;
+    let (started,after,fresh,_,_,_)=d5b_slots_after("existing","trading").await;
     assert_eq!(after,fresh);assert_eq!(after,started);
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_the_passive_revalidation_on_get_wakes_no_job(){
-    let (started,after,_,id,_)=d5b_slots_after("incorrect","get").await;
+    // The recheck makes the key correct, but its account read names no account: no reader changes, so nothing wakes.
+    let (started,after,_,_,_,wakes)=d5b_slots_after("incorrect_unnamed","get").await;
+    assert_eq!(wakes,vec![],"a GET never enqueues: 2.x's new action runs no job");
+    assert_eq!(after,started);
+}
+#[tokio::test(flavor="current_thread")]
+async fn d5b_a_revalidation_on_get_that_makes_the_reader_wakes_its_jobs(){
+    use deltabadger::sync::jobs::{LEDGER_SYNC,BALANCE_SYNC};
+    let (started,after,_,id,_,wakes)=d5b_slots_after("incorrect","get").await;
     // A GET enqueues nothing of 2.x's. #710 7a rules M4/N7: the recheck makes the incorrect key correct and read, the
     // account's reader now (it had none): that handoff wakes the new reader's ledger and balance jobs, and nothing else.
+    let mut woken=wakes.clone();woken.sort();
+    let mut want=vec![(BALANCE_SYNC.to_string(),Some(id.to_string())),(LEDGER_SYNC.to_string(),Some(id.to_string()))];want.sort();
+    assert_eq!(woken,want,"the handoff wakes the new reader's ledger and balance, and nothing else");
     let mut expected=started.clone();
-    for job in [deltabadger::sync::jobs::LEDGER_SYNC,deltabadger::sync::jobs::BALANCE_SYNC]{expected.insert((job.to_string(),Some(id.to_string())));}
-    assert_eq!(after,expected,"a GET runs no job of 2.x's; the handoff wakes the new reader's");
+    for job in [LEDGER_SYNC,BALANCE_SYNC]{expected.insert((job.to_string(),Some(id.to_string())));}
+    assert_eq!(after,expected);
 }
 /// Exchanges::Alpaca#get_api_key_validity: a 200 that is not a JSON object says nothing about the key.
 #[tokio::test(flavor="current_thread")]

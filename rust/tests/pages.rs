@@ -924,8 +924,8 @@ async fn mount_identity_reads(server: &wiremock::MockServer) {
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"uid": 354937868, "balances": []}))).mount(server).await;
     }
 }
-/// `IDENTITY_POSTS`: a listed scenario's step sends exactly its listed account reads, in order; they are this build's own,
-/// taken out of the transcript. Any other scenario is left as it is.
+/// `IDENTITY_POSTS`: a listed scenario's step sends exactly its listed account reads, in order, after every recorded request
+/// of the step (the permission check); they are this build's own, taken out of the transcript. Any other scenario is left as it is.
 fn without_listed_identity_reads(scenario: &str, index: usize, sent: Vec<wiremock::Request>) -> Vec<wiremock::Request> {
     if !IDENTITY_POSTS.iter().any(|(name, _, _)| *name == scenario) { return sent; }
     let read = |r: &wiremock::Request| r.method.as_str() == "GET"
@@ -934,6 +934,10 @@ fn without_listed_identity_reads(scenario: &str, index: usize, sent: Vec<wiremoc
     let want: Vec<String> = IDENTITY_POSTS.iter().find(|(name, n, _)| *name == scenario && *n == index).map_or(vec![], |(_, _, keys)| keys.iter().map(|k| k.to_string()).collect());
     let got: Vec<String> = sent.iter().filter(|r| read(r)).map(key).collect();
     assert_eq!(got, want, "D-ACCOUNT-ID-READ: {scenario} step {index}'s account reads");
+    // After the permission check: every other request the step sends comes before the first read.
+    if let (Some(first), Some(last)) = (sent.iter().position(read), sent.iter().rposition(|r| !read(r))) {
+        assert!(last < first, "D-ACCOUNT-ID-READ: {scenario} step {index} reads the accounts before {}", sent[last].url.path());
+    }
     sent.into_iter().filter(|r| !read(r)).collect()
 }
 
