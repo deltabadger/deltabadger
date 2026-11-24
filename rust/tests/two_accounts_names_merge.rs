@@ -197,9 +197,13 @@ impl deltabadger::web::settings::keys::Logger for Quiet { fn warn(&self, _: &str
 /// T4: a bot sheet's key save on account 2 (Alpaca, validated by its host) changes account 2's key only.
 #[tokio::test(flavor = "current_thread")]
 async fn t4_a_bot_sheet_save_on_account_2_changes_only_its_key() {
-    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    use common::alpaca_key::account;
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
     let server = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    // #710 slice 9: Alpaca names its account; each account's keys read their own (the new key account 2's).
+    for (key, uuid) in [("account-1-key", ACCOUNT_A), ("account-2-key", ACCOUNT_B), ("new-key", ACCOUNT_B)] {
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", key)).respond_with(ResponseTemplate::new(200).set_body_json(account(uuid))).mount(&server).await;
+    }
     let (dir, o) = install();
     let c = &o.primary;
     let cipher = seed::cipher();
@@ -4275,4 +4279,113 @@ async fn s9_g4_a_transient_coinbase_breakdown_keeps_a_correct_keys_status_and_st
     c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [read]).unwrap();
     run().await;
     assert_eq!(status(), 0, "a key that was not correct is pending");
+}
+
+// ---- #710 slice 9: Alpaca names its account ----
+
+use common::alpaca_key::{ACCOUNT_A, ACCOUNT_B};
+const ALPACA: &str = "Exchanges::Alpaca";
+/// An Alpaca pair beside Kraken's fixture (keys `account-1-key`, `account-2-key`, paper).
+fn alpaca_two(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    Two::venue(c, &seed::cipher(), &k.seeded, ALPACA, "Alpaca")
+}
+/// Both keys read account A and both accounts know it: a duplicate standing.
+fn alpaca_observed(c: &Connection) -> Two {
+    let two = alpaca_two(c);
+    for key in two.keys { observe_stored(c, key, &uuid(ACCOUNT_A)); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+              [two.keys[0], two.id(0), two.id(1)]).unwrap();
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    two
+}
+
+/// G5: Alpaca stays an overlap venue. A standing its order ids entered before the upgrade is unchanged before the first
+/// identity read; after it, reads naming one account keep it and a second account's key naming another ends it.
+#[test]
+fn s9_g5_an_alpaca_overlap_standing_is_kept_by_one_account_and_ended_by_another() {
+    for (second, kept) in [(ACCOUNT_A, true), (ACCOUNT_B, false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_two(c);
+        trades(c, &two, 0, 3, 0, "1");
+        trades(c, &two, 1, 3, 0, "1");
+        c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+                  rusqlite::params![two.id(1), two.id(0), two.seeded.user_id, two.seeded.exchange_id, identity::standing_basis(c, two.id(1), two.id(0)).unwrap()]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "unchanged before the first identity read");
+        observe_stored(c, two.keys[0], &uuid(ACCOUNT_A));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "one account's id known: the overlap still stands");
+        observe_stored(c, two.keys[1], &uuid(second));
+        assert_eq!(standing(c, &two).is_empty(), !kept, "{second}");
+    }
+}
+
+/// G4 after discovery: Alpaca's only definite refusal is its 401. A 403, a rate limit, a 5xx and a success that names no
+/// account leave the standing; the 401 ends it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_after_discovery_only_alpaca_s_401_ends_a_standing() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let refusal = |code: i64| serde_json::json!({"code": code, "message": "refused"});
+    for (status, body, ends) in [(401, refusal(40110000), true), (403, refusal(40310000), false), (429, refusal(42910000), false),
+                                 (503, serde_json::json!({}), false), (200, serde_json::json!({"status": "ACTIVE", "cash": "0"}), false)] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-1-key"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body)).expect(1).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_observed(c);
+        let later = chrono::Utc::now() + chrono::Duration::days(8);
+        let due = identity::due(c, &seed::cipher(), later).unwrap().into_iter().find(|d| d.api_key_id == two.keys[0]).unwrap();
+        let observed = identity::read_live(ALPACA, &server.uri(), deltabadger::venue::http::client(), &due.credentials).await.unwrap();
+        assert!(matches!(observed, identity::Observed::Failed(_)), "{status}: {observed:?}");
+        assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
+        server.verify().await;
+        assert_eq!(standing(c, &two).is_empty(), ends, "{status}");
+    }
+}
+
+/// G4 (r4/r5) in the scheduled validator: Alpaca's account read is its validation read. A correct reading key whose
+/// account read succeeds and whose positions read then fails (a 503), or whose account read itself answers 503, keeps its
+/// status and its account's standing (the successful read is recorded); a key that was not correct is written pending.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_a_transient_alpaca_check_keeps_a_correct_keys_status_and_standing() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    for account_fails in [false, true] {
+        let server = MockServer::start().await;
+        let answer = if account_fails { ResponseTemplate::new(503) } else { ResponseTemplate::new(200).set_body_json(common::alpaca_key::account(ACCOUNT_A)) };
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-1-read")).respond_with(answer).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_observed(c);
+        // The fixture's EUR bots are no Alpaca bots the guard lets run: stopped, as in t4.
+        c.execute("UPDATE bots SET status = 2 WHERE exchange_id = ?1", [two.seeded.exchange_id]).unwrap();
+        // A 2.x reading key row of account 1 beside its trading key, read as A's.
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-1-read"), seed::cipher().encrypt("account-1-secret")]).unwrap();
+        let read = c.last_insert_rowid();
+        two.accounts[0].add_key(c, read).unwrap();
+        observe_stored(c, read, &uuid(ACCOUNT_A));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+        if !account_fails { c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [read]).unwrap(); }
+        let run = || async {
+            let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+            let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+            deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: read }.run(cx, vec![]).await
+        };
+        let status = || one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {read}"));
+        let outcome = run().await;
+        let failing = if account_fails { "/v2/account" } else { "/v2/positions" };
+        assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == failing), "{failing} was read");
+        assert_eq!(status(), 1, "{account_fails}: a correct key stays correct");
+        assert_eq!(standings(c), [(two.id(1), two.id(0))], "{account_fails}: and its standing stays");
+        let row: Option<(Option<String>, Option<String>, Option<String>)> = rusqlite::OptionalExtension::optional(c.query_row(
+            "SELECT fingerprint, observed_credential_version, last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1", [read], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))).unwrap();
+        assert!(!identity::unread(c, read).unwrap(), "{account_fails}: the account read is recorded: {row:?} {outcome:?}");
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [read]).unwrap();
+        run().await;
+        assert_eq!(status(), 0, "{account_fails}: a key that was not correct is pending");
+    }
 }

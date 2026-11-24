@@ -51,11 +51,31 @@ fn numbers(c: &Connection, exchange: i64) -> Vec<i64> {
     c.prepare("SELECT number FROM exchange_accounts WHERE exchange_id = ?1 ORDER BY number").unwrap().query_map([exchange], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
 
-// ---- no identity venue (Alpaca): material decides (§1.1 rule 4) ----
+// ---- no identity venue (Kraken): material decides (§1.1 rule 4) ----
 
-async fn alpaca() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
+/// Kraken's fixture with its key server: every key's permission read answers a reading key's permissions.
+async fn kraken() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
     let server = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("POST")).and(path("/0/private/GetApiKeyInfo"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"error": [], "result": {"permissions": ["query-funds", "query-ledger"]}}))).mount(&server).await;
+    let (dir, o) = install();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, chrono::Utc::now()).unwrap();
+    let app = web_app(dir.path(), &o.primary).with_venue_key_url("Exchanges::Kraken", &server.uri()).unwrap();
+    (dir, o, s, server, app)
+}
+
+// ---- Alpaca (#710 slice 9: an identity venue, `id` of its account read) ----
+
+/// The Alpaca fixture. Its account read names account A for every key (`PKTEST`, the seeded one, included) but
+/// `second-key` and `reader-2`, which name B (`common::alpaca_key`).
+async fn alpaca() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
+    use common::alpaca_key::{account, ACCOUNT_A, ACCOUNT_B};
+    let server = MockServer::start().await;
+    for key in ["second-key", "reader-2"] {
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", key)).respond_with(ResponseTemplate::new(200).set_body_json(account(ACCOUNT_B))).with_priority(1).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account(ACCOUNT_A))).mount(&server).await;
     Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let (dir, o) = install();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -68,24 +88,24 @@ async fn alpaca() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer
 /// key and secret, a leftover passphrase too, saves to 2 and leaves 1 as it was, saying so.
 #[tokio::test(flavor = "current_thread")]
 async fn a_tile_save_without_identity_makes_a_new_account_and_the_same_material_finds_it() {
-    let (_d, o, s, _server, app) = alpaca().await;
+    let (_d, o, s, _server, app) = kraken().await;
     let (c, cipher) = (&o.primary, seed::cipher());
     let before = keys(c, &cipher, s.exchange_id);
     let mut b = browser(&app, c, s.user_id);
-    let first = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret"), ("api_key[passphrase]", "paper")]).await;
+    let first = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "c2Vjb25kLXNlY3JldA==")]).await;
     assert!(first.status < 400, "{}: {}", first.status, first.body);
     assert_eq!(numbers(c, s.exchange_id), [1, 2]);
-    let again = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret")]).await;
+    let again = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "c2Vjb25kLXNlY3JldA==")]).await;
     assert!(again.status < 400, "{}: {}", again.status, again.body);
     assert_eq!(numbers(c, s.exchange_id), [1, 2], "the same material is the same account");
     let account1 = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
-    let reconnect = save(&app, &mut b, s.exchange_id, Some(account1), &[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret"), ("api_key[passphrase]", "paper")]).await;
+    let reconnect = save(&app, &mut b, s.exchange_id, Some(account1), &[("api_key[key]", "second-key"), ("api_key[secret]", "c2Vjb25kLXNlY3JldA=="), ("api_key[passphrase]", "paper")]).await;
     assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
     let mut want = before.clone();
     want.push((2, "second-key".into()));
     assert_eq!(keys(c, &cipher, s.exchange_id), want, "account 1 keeps its key");
     let notice = b.get(&app, "/tracker").await;
-    assert!(notice.body.contains("This key belongs to Alpaca") && notice.body.contains("was not changed"), "{}", &notice.body[..notice.body.len().min(2000)]);
+    assert!(notice.body.contains("This key belongs to Kraken") && notice.body.contains("was not changed"), "{}", &notice.body[..notice.body.len().min(2000)]);
 }
 
 /// A 2.x form (no `account_id`, no `untargeted`) still saves into number 1, and again replaces that key, as before.
@@ -2657,4 +2677,237 @@ async fn s9_r1_a_refused_repost_wakes_the_reader_it_made() {
     for job in [deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC] {
         assert!(pending.contains(&(job.to_string(), Some(key.to_string()))), "{job} is woken for the new reader: {pending:?}");
     }
+}
+
+// ---- #710 slice 9: Alpaca names its account (`id` of its key check's own GET /v2/account; paper and live are two) ----
+
+/// The Alpaca fixture on distinct paper and live hosts (`common::alpaca_key::hosts`): only the mocks a test mounts answer
+/// the account read; positions answer empty on both.
+async fn alpaca_modes() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(wiremock::matchers::path_regex("/v2/positions$")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let (dir, o) = install();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, chrono::Utc::now()).unwrap();
+    let app = web_app(dir.path(), &o.primary).with_settings_key_boundary(common::alpaca_key::hosts(&server.uri()), std::sync::Arc::new(Quiet)).unwrap();
+    (dir, o, s, server, app)
+}
+/// `key`'s account read on `host` (`paper` or `live`) answers `status` with account `uuid` (a 2xx) or Alpaca's error.
+async fn alpaca_reads(server: &MockServer, host: &str, key: &str, status: u16, uuid: &str) {
+    let body = if (200..300).contains(&status) { common::alpaca_key::account(uuid) } else { serde_json::json!({"code": 40110000, "message": "request is not authorized"}) };
+    Mock::given(method("GET")).and(path(format!("/{host}/v2/account"))).and(header("APCA-API-KEY-ID", key)).respond_with(ResponseTemplate::new(status).set_body_json(body)).mount(server).await;
+}
+/// The browser's JSON save of an Alpaca trading key over `fields`.
+async fn alpaca_json(app: &deltabadger::web::App, b: &mut common::web::Browser, exchange: i64, fields: &[(&str, &str)]) -> common::web::Answer {
+    let exchange = exchange.to_string();
+    let mut form = vec![("api_key[exchange_id]", exchange.as_str()), ("api_key[key_type]", "trading")];
+    form.extend_from_slice(fields);
+    assert_eq!(b.get(app, "/settings/api_keys").await.status, 200);
+    b.send(app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await
+}
+/// The (path, key) of every account read `server` received.
+async fn mode_reads(server: &MockServer) -> Vec<(String, String)> {
+    common::alpaca_key::sent(server).await.into_iter().filter(|(p, _)| p.ends_with("/v2/account")).collect()
+}
+/// Key `id`'s row as stored: status, update time and every credential ciphertext.
+fn key_row(c: &Connection, id: i64) -> String {
+    one(c, &format!("SELECT status || '|' || updated_at || '|' || key || '|' || secret || '|' || coalesce(passphrase, '') FROM api_keys WHERE id = {id}"))
+}
+fn pair(p: &str, k: &str) -> (String, String) { (p.to_string(), k.to_string()) }
+
+/// Two keys of one Alpaca account make one account; a key of another its own (tiles); a Reconnect of account 2 with a key
+/// of account A lands on account 1; a key whose account read names no account is refused on a tile (Q5).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_alpaca_one_account_is_one_account_and_another_account_another() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "pk-noid"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status": "ACTIVE", "cash": "0"}))).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    for key in ["pk-a2", "second-key"] {
+        let answer = trading_tile(&app, &mut b, s.exchange_id, key).await;
+        assert!(answer.status < 400, "{key}: {}: {}", answer.status, answer.body);
+    }
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "pk-a2".into()), (2, "second-key".into())], "A's second key replaced A's on account 1");
+    let second = accounts(c, s.user_id, s.exchange_id)[1];
+    let reconnect = save(&app, &mut b, s.exchange_id, Some(second), &[("api_key[key]", "pk-a3"), ("api_key[secret]", "pk-a3-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "pk-a3".into()), (2, "second-key".into())], "routed to A's account, account 2 untouched");
+    let refused = trading_tile(&app, &mut b, s.exchange_id, "pk-noid").await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("We could not confirm which account this key belongs to"), "{}", refused.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "pk-a3".into()), (2, "second-key".into())]);
+}
+
+/// The effective mode (r4): a JSON repost of the installed live key that names no mode keeps the slot's, so the key is read
+/// on the live host once and never on the paper one, and stays live.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_json_repost_without_a_mode_reads_the_installed_live_keys_host() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![cipher.encrypt("live"), s.api_key_id]).unwrap();
+    alpaca_reads(&server, "live", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    alpaca_reads(&server, "paper", "PKTEST", 401, "").await;
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST")], "one live read, no paper read");
+    let mode: String = one(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id));
+    assert_eq!(cipher.decrypt(&mode).unwrap(), "live");
+    assert!(!identity::unread(c, s.api_key_id).unwrap());
+}
+
+/// Mode-picking Connect over one server's paper and live hosts, as the venue picks them from a key's mode.
+struct Modes(String);
+impl deltabadger::sync::jobs::Connect for Modes {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls::pick(c.passphrase.as_deref(), &common::alpaca_key::hosts(&self.0)))
+    }
+}
+
+/// r4: an explicit `live` over the paper slot with the same key and secret is new material: it is read live (and the
+/// installed paper key, unread, is read first), written live, its read recorded against the live version, and the next
+/// discovery reads the live host.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_json_switch_to_live_is_read_written_and_rediscovered_live() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    for host in ["paper", "live"] { alpaca_reads(&server, host, "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await; }
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST"), pair("/paper/v2/account", "PKTEST")], "the candidate live, then the installed paper key");
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "PKTEST".into())], "in place");
+    let mode: String = one(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id));
+    assert_eq!(cipher.decrypt(&mode).unwrap(), "live");
+    assert!(!identity::unread(c, s.api_key_id).unwrap(), "the read is the live version's");
+    let clock = deltabadger::engine::FixedClock("2026-09-29T12:00:00Z".parse().unwrap());
+    let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), cipher.clone()), clock: &clock, wakers: Default::default() };
+    identity::Discovery { venues: Modes(server.uri()) }.run(cx, vec![]).await;
+    assert_eq!(mode_reads(&server).await[2..], [pair("/live/v2/account", "PKTEST")], "rediscovered on the live host");
+}
+
+/// r5: a switch the live host refuses (its 401) is refused; the paper slot is as it was, byte for byte.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_refused_alpaca_switch_keeps_the_paper_slot_byte_for_byte() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let c = &o.primary;
+    alpaca_reads(&server, "live", "PKTEST", 401, "").await;
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (422, "{\"data\":false}"));
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST")]);
+    assert_eq!(key_row(c, s.api_key_id), before);
+}
+
+/// r5: a switch whose live read names another account is routed as any new key (rule M2's question, then account 2), never
+/// refused as a repost reading elsewhere; the paper key stays on account 1 as it was.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_switch_reading_another_account_is_routed_as_a_new_key() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    alpaca_reads(&server, "live", "PKTEST", 200, common::alpaca_key::ACCOUNT_B).await;
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let fields = [("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")];
+    let asked = alpaca_json(&app, &mut b, s.exchange_id, &fields).await;
+    assert_eq!(asked.status, 409, "{}", asked.body);
+    let add: serde_json::Value = serde_json::from_str(&asked.body).unwrap();
+    let add = add["answers"].as_array().unwrap_or_else(|| panic!("asked, not refused: {}", asked.body)).iter().find_map(|a| a["value"].as_str().filter(|v| v.starts_with("n!"))).unwrap().to_string();
+    let mut answered = fields.to_vec();
+    answered.push(("api_key[key_answer]", add.as_str()));
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &answered).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "PKTEST".into()), (2, "PKTEST".into())], "the live account is account 2");
+    assert_eq!(key_row(c, s.api_key_id), before, "the paper key as it was");
+}
+
+/// r6: `route_key`'s installed material includes the mode. A tile posting the paper slot's key and secret in live mode,
+/// while account 1's account is not yet established by a read, never routes to the paper slot by material: the live
+/// account is account 2 and the paper credential is kept.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_tile_in_live_mode_never_takes_the_paper_slot_by_material() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    alpaca_reads(&server, "live", "PKTEST", 200, common::alpaca_key::ACCOUNT_B).await;
+    let (credentials, version, _) = deltabadger::sync::validation_material(c, &cipher, s.api_key_id).unwrap();
+    identity::record(c, &cipher, s.api_key_id, &credentials, &version, &identity::Observed::Read(identity::AccountId::from_uuid(&serde_json::json!(common::alpaca_key::ACCOUNT_A)).unwrap()), chrono::Utc::now()).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE exchange_id = ?1", [s.exchange_id]).unwrap();
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let exchange = s.exchange_id.to_string();
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let answer = b.send(&app, "POST", "/tracker/add_api_key", Some(&[("exchange_id", exchange.as_str()), ("key_type", "trading"), ("untargeted", "1"), ("api_key[key]", "PKTEST"),
+                                                                    ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "PKTEST".into()), (2, "PKTEST".into())], "two accounts");
+    assert_eq!(key_row(c, s.api_key_id), before, "the paper credential is kept");
+}
+
+/// r6: a Reconnect reposting account 1's installed key as a reading key, whose account read names A and whose positions
+/// read then fails (a 503), is refused (nothing saved) and still records the read against the installed version.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_refused_alpaca_repost_records_its_account_on_the_installed_key() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let c = &o.primary;
+    assert!(identity::unread(c, s.api_key_id).unwrap());
+    let before = key_row(c, s.api_key_id);
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(503)).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    let first = accounts(c, s.user_id, s.exchange_id)[0];
+    let answer = save(&app, &mut b, s.exchange_id, Some(first), &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == "/v2/positions"), "the positions read failed");
+    assert!(!identity::unread(c, s.api_key_id).unwrap(), "the account read is recorded on the installed key");
+    assert_eq!(identity::credential_standing(c, s.api_key_id).unwrap(), identity::CredentialStanding::Bound);
+    assert_eq!(key_row(c, s.api_key_id), before, "status and material as they were");
+}
+
+/// G4 at `revalidate`: Alpaca's account read is its validation read. A key turned correct while its recheck was in flight
+/// that answers 503 stays correct and keeps its account's standing; one the venue refuses (401) is incorrect and the
+/// standing ends.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_only_alpaca_s_401_demotes_a_correct_key_at_revalidate() {
+    for (answer, status, standing) in [(401, 2, 0), (503, 1, 1)] {
+        let (_d, o, s, server, app) = alpaca().await;
+        let c = &o.primary;
+        let first = accounts(c, s.user_id, s.exchange_id)[0];
+        let second = identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+        stand(c, s.user_id, s.exchange_id, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [s.api_key_id]).unwrap();
+        let (db, key) = (c.path().unwrap().to_string(), s.api_key_id);
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "PKTEST")).respond_with(move |_: &wiremock::Request| {
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(answer).set_body_json(serde_json::json!({"code": 40110000, "message": "request is not authorized"}))
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, s.user_id);
+        // D-ALPACA-ONE-KEY: the trading card rechecks the key (the reading card shows it and leaves it to that one).
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading&account_id={first}", s.exchange_id)).await;
+        assert_eq!(account_reads(&server).await, 1, "{answer}: the recheck ran");
+        assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), standings(c)), (status, standing), "{answer}");
+    }
+}
+
+/// G4 (as review r1 #4 on Coinbase): the JSON save's same-key repost of a correct Alpaca key whose account read answers 503
+/// neither demotes it nor ends its standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_json_same_key_repost_with_a_transient_read_keeps_a_correct_key() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let c = &o.primary;
+    let first = accounts(c, s.user_id, s.exchange_id)[0];
+    let second = identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    stand(c, s.user_id, s.exchange_id, second, first);
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "PKTEST")).respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    let first_s = first.to_string();
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[account_id]", first_s.as_str()), ("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret")]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(account_reads(&server).await, 1);
+    assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {}", s.api_key_id)), standings(c)), (1, 1));
 }
