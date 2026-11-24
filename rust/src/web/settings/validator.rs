@@ -93,19 +93,18 @@ async fn check_observed(url: &str, key: &crate::crypto::Credentials, kind: i64, 
         Err(_) => return Ok(pending(None,"","validation request failed")),
     };
     let status = response.status().as_u16();
-    let body = response
-        .text()
-        .await
-        .map_err(|_| WebError::Config("cannot read key validation response".into()))?;
+    // An answer whose body cannot be read is a transient non-verdict (Alpaca branch review r1 #4).
+    let Ok(body) = response.text().await else { return Ok(pending(Some(status),"","validation request failed")) };
     *observed = crate::identity::alpaca_answer(status, &body);
     let metadata=log_body(&body);
     let body=key.venue_text(&body);
-    if status == 401 && kind!=2 {return Ok(Validity::Incorrect);}
+    // D-ALPACA-STATUS-VERDICT (#710 slice 9, review r1 #3): the verdict is the status, never the text. Only a 401 on the key's
+    // own host refuses it; a 5xx or a 429 saying "unauthorized" is the venue's trouble (2.x matched a read-only key's text).
+    if status == 401 {return Ok(Validity::Incorrect);}
     let value: serde_json::Value = match serde_json::from_str(&body) {
         Ok(v) => v,
         Err(_) => return Ok(pending(Some(status),&metadata,&body)),
     };
-    if kind==2 && !(200..300).contains(&status) && value.get("message").and_then(|v|v.as_str()).unwrap_or(&body).contains("unauthorized"){return Ok(Validity::Incorrect);}
     if !(200..300).contains(&status) {
         return Ok(pending(Some(status),&metadata,
             value
@@ -126,13 +125,14 @@ async fn check_observed(url: &str, key: &crate::crypto::Credentials, kind: i64, 
             Err(_) => return Ok(pending(None,"","validation request failed")),
         };
         let status=response.status().as_u16();let successful=response.status().is_success();
-        let text = response.text().await.map_err(|_| WebError::Config("cannot read positions validation".into()))?;
+        // A positions body that cannot be read keeps the account read before it: a transient verdict (review r1 #4).
+        let Ok(text) = response.text().await else { return Ok(pending(Some(status),"","validation request failed")) };
         let metadata=log_body(&text);
         let text=key.venue_text(&text);
         if !successful {
             let value=serde_json::from_str::<serde_json::Value>(&text).ok();
             let message=value.as_ref().and_then(|v|v.get("message")).and_then(|v|v.as_str()).unwrap_or(&text);
-            return Ok(if message.contains("unauthorized"){Validity::Incorrect}else{pending(Some(status),&metadata,message)});
+            return Ok(if status==401 {Validity::Incorrect} else {pending(Some(status),&metadata,message)});
         }
         let positions=match serde_json::from_str::<serde_json::Value>(&text){
             Ok(serde_json::Value::Array(positions))=>positions,

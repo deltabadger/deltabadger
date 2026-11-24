@@ -4389,3 +4389,34 @@ async fn s9_g4_a_transient_alpaca_check_keeps_a_correct_keys_status_and_standing
         assert_eq!(status(), 0, "{account_fails}: a key that was not correct is pending");
     }
 }
+
+/// Alpaca branch review r1 #3: the verdict is the status, never the text. A 5xx or a 429 that says "unauthorized", on the
+/// account read or on the positions read, is transient: a correct reading key stays correct and keeps its standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_an_alpaca_5xx_saying_unauthorized_never_demotes_a_correct_key() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let unauthorized = |status: u16| ResponseTemplate::new(status).set_body_json(serde_json::json!({"message": "unauthorized."}));
+    for (on_account, status) in [(true, 503), (true, 429), (false, 503), (false, 500)] {
+        let server = MockServer::start().await;
+        let account = if on_account { unauthorized(status) } else { ResponseTemplate::new(200).set_body_json(common::alpaca_key::account(ACCOUNT_A)) };
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-1-read")).respond_with(account).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v2/positions")).respond_with(unauthorized(status)).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_observed(c);
+        c.execute("UPDATE bots SET status = 2 WHERE exchange_id = ?1", [two.seeded.exchange_id]).unwrap();
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-1-read"), seed::cipher().encrypt("account-1-secret")]).unwrap();
+        let read = c.last_insert_rowid();
+        two.accounts[0].add_key(c, read).unwrap();
+        observe_stored(c, read, &uuid(ACCOUNT_A));
+        let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+        let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+        deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: read }.run(cx, vec![]).await;
+        let failing = if on_account { "/v2/account" } else { "/v2/positions" };
+        assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == failing), "{failing} was read");
+        assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {read}")), 1, "{failing} {status}: a correct key stays correct");
+        assert_eq!(standings(c), [(two.id(1), two.id(0))], "{failing} {status}: and its standing stays");
+    }
+}

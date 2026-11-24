@@ -656,9 +656,8 @@ async fn run(dir: &Path) -> Value {
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
         let scenario_name = dir.file_name().unwrap().to_string_lossy().to_string();
-        let walked = scenario["walk_of"].is_string();
-        let alpaca_reads = alpaca_identity_reads(&scenario_name, index);
-        let installed = alpaca_reads.map(|_| alpaca_slot_key(dir, &app.cipher));
+        let alpaca_reads = alpaca_identity_reads(&scenario_name, index, step);
+        let installed = alpaca_reads.as_ref().map(|_| alpaca_slot_key(dir, &app.cipher));
         if step["resync"] == true { rank_fixture(dir, &app.cipher, now); }
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
         // D-NO-USER-NAME (no_user_name_divergences): the rows before an unrouted name write, to hold it wrote nothing.
@@ -716,7 +715,7 @@ async fn run(dir: &Path) -> Value {
         if let Some(sql) = step["account_rows"].as_str() { response["account_rows"] = account_rows(dir, &sql.replacen("SELECT id, name, ", "SELECT id, ", 1)); }
         if step["tax_files"] == true { response["tax_files"] = tax_files(dir); }
         let sent = key_server.received_requests().await.unwrap_or_default()[seen..].to_vec();
-        let sent = without_alpaca_identity_reads(&scenario_name, walked, index, step, alpaca_reads, installed.flatten().as_deref(), sent);
+        let sent = without_alpaca_identity_reads(&scenario_name, index, step, alpaca_reads, installed.flatten().as_deref(), sent);
         let mut requests = without_identity_reads(venue_transcript(&sent));
         // D-JSON-KEY-IDENTITY (#710 7a): the JSON save of an identity venue's key reads its account, and only that, before its
         // 201; the permission check stays asynchronous, as 2.x's.
@@ -848,10 +847,16 @@ const ALPACA_POSTS: &[(&str, usize, &[Read])] = &[
     ("settings_key_r9-no-cash", 3, &[Posted]), ("settings_key_r9-null-cash", 3, &[Posted]), ("settings_key_r9-unnamed-position", 3, &[Posted]),
     ("settings_bot_key_save_incorrect", 3, &[Posted]), ("settings_bot_key_save_failure", 3, &[Posted]),
     ("wizard_create_alpaca", 6, &[Posted]), ("wizard_create_alpaca", 7, &[Posted]),
-    ("wizard_index_alpaca_key", 9, &[Posted]), ("wizard_index_alpaca_key", 10, &[Posted]), ("wizard_index_top_alpaca", 8, &[Posted]),
+    // wizard_index_alpaca_key and wizard_index_top_alpaca post Alpaca keys too, but are retired from replay
+    // (RETIRED_INDEX_WIZARD): wizard_index_top_alpaca's key post is walked by index_in_wizard_both_orders_create_the_bots_v2_created,
+    // whose step names its reads (`alpaca_reads`); wizard_index_alpaca_key runs nowhere.
 ];
-fn alpaca_identity_reads(scenario: &str, step: usize) -> Option<&'static [Read]> {
-    ALPACA_POSTS.iter().find(|(name, n, _)| *name == scenario && *n == step).map(|(_, _, reads)| *reads)
+/// The account reads step `step` of `scenario` must send: its own `alpaca_reads` (a walk's), else its ALPACA_POSTS entry.
+fn alpaca_identity_reads(scenario: &str, index: usize, step: &Value) -> Option<Vec<Read>> {
+    if let Some(reads) = step["alpaca_reads"].as_array() {
+        return Some(reads.iter().map(|r| match r.as_str() { Some("posted") => Posted, Some("installed") => Installed, other => panic!("alpaca_reads: {other:?}") }).collect());
+    }
+    ALPACA_POSTS.iter().find(|(name, n, _)| *name == scenario && *n == index).map(|(_, _, reads)| reads.to_vec())
 }
 /// The decrypted key of the Alpaca trading slot (its tracker key too, D-ALPACA-ONE-KEY) before a step.
 fn alpaca_slot_key(dir: &Path, cipher: &deltabadger::crypto::Cipher) -> Option<String> {
@@ -863,28 +868,33 @@ fn alpaca_slot_key(dir: &Path, cipher: &deltabadger::crypto::Cipher) -> Option<S
 /// D-ALPACA-IDENTITY-READ: the step's account reads are exactly `reads` (present, once each, in order, each with its key's
 /// header, on the paper host), and none but the listed steps posts Alpaca credentials. This build's own reads (a JSON
 /// save's, an installed key's) are then taken out; 2.x's validation request stays and is compared with its recording.
-fn without_alpaca_identity_reads(scenario: &str, walked: bool, index: usize, step: &Value, reads: Option<&[Read]>, installed: Option<&str>, sent: Vec<wiremock::Request>) -> Vec<wiremock::Request> {
+fn without_alpaca_identity_reads(scenario: &str, index: usize, step: &Value, reads: Option<Vec<Read>>, installed: Option<&str>, sent: Vec<wiremock::Request>) -> Vec<wiremock::Request> {
     let account = |r: &wiremock::Request| r.method.as_str() == "GET" && r.url.path().ends_with("alpaca.markets/v2/account");
     let key = |r: &wiremock::Request| r.headers.get("APCA-API-KEY-ID").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string();
     let posted = step["form"]["api_key[key]"].as_str().map(str::to_string)
         .or_else(|| step["json"].as_str().and_then(|j| serde_json::from_str::<Value>(j).ok()).and_then(|j| j["api_key"]["key"].as_str().map(str::to_string)));
     let Some(reads) = reads else {
-        // A walk (`walk_of`) is new steps over a recording's install, never compared with a transcript: left as it is.
-        assert!(walked || !posted.as_ref().is_some_and(|p| sent.iter().any(|r| account(r) && &key(r) == p)), "{scenario} step {index} posts Alpaca credentials: list it in ALPACA_POSTS");
+        assert!(!posted.as_ref().is_some_and(|p| sent.iter().any(|r| account(r) && &key(r) == p)), "{scenario} step {index} posts Alpaca credentials: list it in ALPACA_POSTS");
         return sent;
     };
     let want: Vec<String> = reads.iter().map(|r| match r { Posted => posted.clone(), Installed => installed.map(str::to_string) }
         .unwrap_or_else(|| panic!("{scenario} step {index}: no {r:?} key"))).collect();
     let got: Vec<String> = sent.iter().filter(|r| account(r)).map(|r| { assert!(r.url.path().starts_with("/paper-api.alpaca.markets/"), "{scenario} step {index}: {}", r.url); key(r) }).collect();
     assert_eq!(got, want, "D-ALPACA-IDENTITY-READ: {scenario} step {index}'s account reads ({reads:?})");
+    // This build's own reads, by position in the step's full request list: the JSON save sends nothing but them; a form save
+    // sends 2.x's validation requests first, then the installed key's read, last (nothing between, nothing after).
     let json = step["path"].as_str().is_some_and(|p| p.ends_with("/api/api_keys"));
     let mut n = 0;
-    sent.into_iter().filter(|r| {
-        if !account(r) { return true; }
+    let own: Vec<bool> = sent.iter().map(|r| {
+        if !account(r) { return false; }
         let own = json || reads[n] == Installed;
         n += 1;
-        !own
-    }).collect()
+        own
+    }).collect();
+    let first_own = own.iter().position(|o| *o).unwrap_or(own.len());
+    assert!(own[first_own..].iter().all(|o| *o), "D-ALPACA-IDENTITY-READ: {scenario} step {index}: this build's reads come after every recorded request: {:?}",
+            sent.iter().map(|r| format!("{} {}", r.url.path(), key(r))).collect::<Vec<_>>());
+    sent.into_iter().zip(own).filter(|(_, own)| !own).map(|(r, _)| r).collect()
 }
 
 fn without_identity_reads(requests: Vec<Value>) -> Vec<Value> {
@@ -4694,8 +4704,6 @@ mod index_in_wizard {
         let sign_in: Vec<Value> = scenario["steps"].as_array().unwrap()[..2].to_vec();
         assert!(sign_in[1]["path"] == "/login" && sign_in[1]["method"] == "POST", "{name} signs in first");
         scenario["steps"] = json!([sign_in, steps].concat());
-        // A walk is new steps over a recording's install, never compared with its transcript (D-ALPACA-IDENTITY-READ).
-        scenario["walk_of"] = json!(name);
         std::fs::write(dir.path().join("scenario.json"), scenario.to_string()).unwrap();
         let answers = run(dir.path()).await["responses"].as_array().unwrap()[2..].to_vec();
         (dir, answers)
@@ -4896,7 +4904,11 @@ async fn index_in_wizard_both_orders_create_the_bots_v2_created() {
         for (name, exchange, index, key, quote) in [("wizard_index_kraken_key", "3", top(), kraken(), "18"), ("wizard_index_layer1_binance", "4", layer1(), None, "19"),
                                                     ("wizard_index_top_alpaca", "1", top(), alpaca(), "1")] {
             let picked = index["index_category_id"].as_str().filter(|id| !id.is_empty()).unwrap_or("top-coins").to_string();
-            let steps = index_bot_steps(asset_first, exchange, index, key, quote);
+            let mut steps = index_bot_steps(asset_first, exchange, index, key, quote);
+            // D-ALPACA-IDENTITY-READ: the walk's Alpaca key post sends exactly its own account read (the wizard's slot is empty).
+            if name == "wizard_index_top_alpaca" {
+                for step in steps.iter_mut().filter(|s| s["method"] == "POST" && s["path"].as_str().is_some_and(|p| p.ends_with("/add_api_key"))) { step["alpaca_reads"] = json!(["posted"]); }
+            }
             let view = steps.iter().position(|step| step["path"].as_str().unwrap().ends_with("?kind=index")).unwrap();
             let (dir, answers) = walk(name, steps).await;
             assert!(index_rows(&answers[view]).iter().any(|(id, _)| *id == picked), "{name}: the Index view offers {picked}: {}", raw(&answers[view]));
@@ -5090,4 +5102,34 @@ async fn index_in_wizard_market_data_lost_mid_flow_goes_back_to_the_index_view()
     steps.extend([lost, get("/bots/dca_indexes/pick_exchange/new?query=bin", "exchange-picker"), get("/bots/dca_indexes/add_api_key/new", "modal_content")]);
     let (_dir, answers) = walk("wizard_index_layer1_binance", steps).await;
     for answer in &answers[answers.len() - 3..] { assert_eq!(went(answer), (302, format!("{ASSETS}?kind=index"))); }
+}
+
+/// D-ALPACA-IDENTITY-READ's own guard: a listed read that is missing, or this build's read sent before a recorded request,
+/// fails; in place, this build's reads leave the recorded requests as they were. No listed scenario is one replay skips.
+#[tokio::test(flavor = "current_thread")]
+async fn alpaca_identity_reads_are_asserted_whole_and_in_place() {
+    for (name, _, _) in ALPACA_POSTS { assert!(!RETIRED_INDEX_WIZARD.contains(name), "{name} is never replayed"); }
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::any()).respond_with(wiremock::ResponseTemplate::new(200)).mount(&server).await;
+    let sent = |order: &'static [(&'static str, &'static str)]| { let uri = server.uri(); async move {
+        let client = reqwest::Client::new();
+        for (path, key) in order { client.get(format!("{uri}/paper-api.alpaca.markets{path}")).header("APCA-API-KEY-ID", *key).send().await.unwrap(); }
+    } };
+    let requests = || async { let r = server.received_requests().await.unwrap(); server.reset().await;
+                              wiremock::Mock::given(wiremock::matchers::any()).respond_with(wiremock::ResponseTemplate::new(200)).mount(&server).await; r };
+    let form = json!({"method": "POST", "path": "/tracker/add_api_key", "form": {"api_key[key]": "posted"}});
+    let paths = |r: &[wiremock::Request]| r.iter().map(|r| r.url.path().to_string()).collect::<Vec<_>>();
+    let filter = |reqs: Vec<wiremock::Request>, reads: Vec<Read>, step: Value| std::panic::catch_unwind(move || without_alpaca_identity_reads("t", 3, &step, Some(reads), Some("installed"), reqs).len());
+    sent(&[("/v2/account", "posted"), ("/v2/positions", "posted"), ("/v2/account", "installed")]).await;
+    let kept = without_alpaca_identity_reads("t", 3, &form, Some(vec![Posted, Installed]), Some("installed"), requests().await);
+    assert_eq!(paths(&kept), ["/paper-api.alpaca.markets/v2/account", "/paper-api.alpaca.markets/v2/positions"], "in place: the recorded requests stay");
+    sent(&[("/v2/account", "posted"), ("/v2/account", "installed"), ("/v2/positions", "posted")]).await;
+    assert!(filter(requests().await, vec![Posted, Installed], form.clone()).is_err(), "the installed read before the positions read fails");
+    sent(&[("/v2/account", "posted"), ("/v2/positions", "posted")]).await;
+    assert!(filter(requests().await, vec![Posted, Installed], form.clone()).is_err(), "a missing installed read fails");
+    let json_save = json!({"method": "POST", "path": "/api/api_keys", "json": "{\"api_key\":{\"key\":\"posted\"}}"});
+    sent(&[("/v2/account", "installed")]).await;
+    assert!(filter(requests().await, vec![Posted, Installed], json_save.clone()).is_err(), "a missing posted read fails");
+    sent(&[("/v2/account", "posted"), ("/v2/account", "installed")]).await;
+    assert_eq!(filter(requests().await, vec![Posted, Installed], json_save).unwrap(), 0, "the JSON save's reads are all this build's");
 }

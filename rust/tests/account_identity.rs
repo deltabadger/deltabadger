@@ -675,6 +675,34 @@ async fn alpaca_key_checks_observe_their_own_account_read() {
                "the check's own requests, none added");
 }
 
+/// Alpaca branch review r1 #4: a positions answer whose body cannot be read (the connection drops mid-body) after a good
+/// account read is a transient verdict that keeps the account read.
+#[tokio::test(flavor = "current_thread")]
+async fn alpaca_a_truncated_positions_answer_keeps_the_account_read() {
+    use common::alpaca_key::{account, ACCOUNT_A};
+    use deltabadger::web::settings::validator::{check_identified, Validity};
+    use std::io::{Read, Write};
+    // A server that answers the account read, then promises a positions body it never finishes.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let uri = format!("http://{}", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for (n, stream) in listener.incoming().take(2).enumerate() {
+            let mut stream = stream.unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf);
+            let answer = if n == 0 {
+                let body = account(ACCOUNT_A).to_string();
+                format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len())
+            } else { "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 500\r\nconnection: close\r\n\r\n[{\"sym".to_string() };
+            stream.write_all(answer.as_bytes()).unwrap();
+        }
+    });
+    let credentials = Credentials { ibkr: None, key: "pk-a".into(), secret: "pk-a-secret".into(), passphrase: None, redaction_values: vec![] };
+    let (validity, observed) = check_identified(&uri, &credentials, 2).await.expect("a verdict, not an error");
+    assert!(matches!(validity, Validity::Pending(_)), "transient");
+    assert_eq!(observed, alpaca_account(ACCOUNT_A), "the account read is kept");
+}
+
 /// The paper and live hosts of `Modes`' server (`common::alpaca_key::hosts`), as the venue picks them from a key's mode.
 struct Modes(String);
 impl deltabadger::sync::jobs::Connect for Modes {

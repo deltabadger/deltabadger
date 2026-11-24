@@ -1380,8 +1380,9 @@ fn compared(exchange_type: &str, c: &Credentials) -> (String, String, String) {
     (c.key.clone(), c.secret.clone(), passphrase)
 }
 
-/// Alpaca's mode as a save compares it (`compared`): an empty one is `paper`. Paper and live are two accounts.
-pub fn alpaca_mode(passphrase: Option<&str>) -> String { passphrase.filter(|p| !p.trim().is_empty()).unwrap_or("paper").to_string() }
+/// Alpaca's mode as a save compares it (`compared`): the host it selects (`alpaca::is_live`, as `Urls::pick`), so NULL,
+/// `paper`, `Live` and every other spelling are paper (Alpaca branch review r1 #6). Paper and live are two accounts.
+pub fn alpaca_mode(passphrase: Option<&str>) -> String { (if crate::venue::alpaca::is_live(passphrase) { "live" } else { "paper" }).to_string() }
 
 /// A stored key of (user, exchange) other than `skip` whose material is `material`'s (`compared`), decrypted: the stored
 /// digest is an index only, never the truth (a 2.x save can replace material in place). Each key's digest is filled as it

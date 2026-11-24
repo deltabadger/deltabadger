@@ -1012,23 +1012,39 @@ pub async fn legacy(
     let snap_app=app.clone();
     let (snap_key,snap_secret,alpaca)=(key.clone(),secret.clone(),venue_type.as_deref()==Some(crate::sync::ALPACA));
     let snapshot=snapshot_then_settle(&app,user.id,exchange,move|c|{
-        let named=match crate::identity::pick(c,user.id,exchange,posted_account)? {crate::identity::Pick::One(a)=>Some(Key::read(c,&snap_app,a,kind)?),_=>None};
-        // #710 slice 9: an Alpaca repost of the named slot's key and secret that names no mode keeps the slot's.
+        let (named,ambiguous)=match crate::identity::pick(c,user.id,exchange,posted_account)? {
+            crate::identity::Pick::One(a)=>(Some(Key::read(c,&snap_app,a,kind)?),None),
+            crate::identity::Pick::Ambiguous(accounts)=>{
+                let name:String=c.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1",[exchange],|r|r.get(0))?;
+                (None,Some(crate::identity::Pick::required(&name,&accounts)))
+            }
+            crate::identity::Pick::NotFound=>(None,None),
+        };
+        // #710 slice 9: an Alpaca repost of the named slot's key and secret keeps the slot's stored mode when it names none or
+        // one selecting the same host (review r1 #5: the material read and recorded is then the stored one, byte for byte).
         let kept_mode=named.as_ref().filter(|n|alpaca&&same(&n.key,&snap_key)&&same(&n.secret,&snap_secret)).map(|n|n.passphrase.clone());
-        Ok((named.as_ref().map(key_slot),slots(c,&snap_app,user.id,exchange,kind)?,kept_mode))
+        Ok((named.as_ref().map(key_slot),slots(c,&snap_app,user.id,exchange,kind)?,kept_mode,ambiguous))
     }).await?;
+    // Alpaca branch review r1 #2: a save naming no account on an exchange with two is refused before any request.
+    if let Some(required)=&snapshot.3 {
+        return Ok((StatusCode::UNPROCESSABLE_ENTITY,[(header::CONTENT_TYPE,"application/json; charset=utf-8")],serde_json::json!({"data":false,"message":required}).to_string()).into_response());
+    }
     // #710 slice 9 (D-ALPACA-IDENTITY-READ): ONE effective Alpaca mode, resolved before any request, is what the account read
-    // reads (its host), what the save compares (a switch is new material) and what it writes.
-    let switch=snapshot.2.as_ref().is_some_and(|slot|passphrase.is_some()&&crate::identity::alpaca_mode(passphrase.as_deref())!=crate::identity::alpaca_mode(slot.as_deref()));
-    let passphrase=if alpaca {passphrase.or_else(||snapshot.2.clone().flatten())} else {passphrase};
+    // reads (its host), what the save compares (a switch, to the other host, is new material) and what it writes.
+    let same_host=|slot:&Option<String>|crate::identity::alpaca_mode(passphrase.as_deref())==crate::identity::alpaca_mode(slot.as_deref());
+    let switch=snapshot.2.as_ref().is_some_and(|slot|passphrase.is_some()&&!same_host(slot));
+    let passphrase=match &snapshot.2 { Some(slot) if passphrase.is_none()||same_host(slot)=>slot.clone(), _=>passphrase };
     let material=crate::crypto::Credentials{redaction_values:vec![],key:key.clone().unwrap_or_default(),secret:secret.clone().unwrap_or_default(),passphrase:passphrase.clone(),ibkr:None};
     let observed=match venue_type.as_deref().filter(|t|crate::identity::VENUES.contains(t)) {
         Some(venue) if key.is_some() => json_identity(&app,venue,&material).await?,
         _ => None,
     };
-    // A mode switch the other mode's host refuses (its 401) is refused: the slot stays as it is, byte for byte.
-    if switch&&!crate::identity::not_refused(crate::sync::ALPACA,observed.as_ref()) {
-        return Ok((StatusCode::UNPROCESSABLE_ENTITY,[(header::CONTENT_TYPE,"application/json; charset=utf-8")],serde_json::json!({"data":false}).to_string()).into_response());
+    // A mode switch is written only when the other host's read succeeds; otherwise it is refused and the slot stays as it is,
+    // byte for byte: its 401 as an invalid key, anything else (review r1 #1: a 503) as "try again".
+    if switch&&!matches!(observed,Some(crate::identity::Observed::Read(_))) {
+        let body=if crate::identity::not_refused(crate::sync::ALPACA,observed.as_ref()) {(StatusCode::CONFLICT,serde_json::json!({"data":false,"message":refusal_text(&ctx,UNCONFIRMED)}))}
+                 else {(StatusCode::UNPROCESSABLE_ENTITY,serde_json::json!({"data":false}))};
+        return Ok((body.0,[(header::CONTENT_TYPE,"application/json; charset=utf-8")],body.1.to_string()).into_response());
     }
     let taught=match (&observed,venue_type.as_deref()) {(Some(crate::identity::Observed::Read(read)),Some(venue)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),venue.to_string(),material.clone())),_=>None};
     // #710 7a rule Q1, as the form save: a save that would make the exchange's second account reads its unread keys first.

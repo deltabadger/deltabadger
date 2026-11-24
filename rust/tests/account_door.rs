@@ -2911,3 +2911,69 @@ async fn s9_an_alpaca_json_same_key_repost_with_a_transient_read_keeps_a_correct
     assert_eq!(account_reads(&server).await, 1);
     assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {}", s.api_key_id)), standings(c)), (1, 1));
 }
+
+// ---- #710 slice 9, Alpaca branch review r1 ----
+
+/// r1 #1: a mode switch is written only when the new host's read succeeds. A live host answering 503 refuses the switch
+/// ("try again"); the paper slot is as it was, byte for byte.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_a_transient_alpaca_switch_keeps_the_paper_slot() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let c = &o.primary;
+    Mock::given(method("GET")).and(path("/live/v2/account")).and(header("APCA-API-KEY-ID", "PKTEST")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]).await;
+    assert_eq!(answer.status, 409, "{}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to. Try again."), "{}", answer.body);
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST")]);
+    assert_eq!(key_row(c, s.api_key_id), before);
+}
+
+/// r1 #2: a JSON repost naming no account on an exchange with two is refused before any request: no key is sent anywhere.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_an_ambiguous_alpaca_repost_sends_nothing() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![cipher.encrypt("live"), s.api_key_id]).unwrap();
+    identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret")]).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(server.received_requests().await.unwrap().is_empty(), "nothing sent: {:?}", common::alpaca_key::sent(&server).await);
+    assert_eq!(key_row(c, s.api_key_id), before);
+}
+
+/// r1 #5: a mode that selects the stored key's host is no switch, and the read is recorded on the stored material: a key
+/// stored with no mode reposted as `paper` keeps its stored bytes and is not due again.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_an_equivalent_paper_mode_records_the_stored_material() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = NULL WHERE id = ?1", [s.api_key_id]).unwrap();
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id)), None, "the stored mode as it was");
+    let due = identity::due(c, &cipher, "2026-09-20T13:00:00Z".parse().unwrap()).unwrap();
+    assert!(due.iter().all(|d| d.api_key_id != s.api_key_id), "the read is the stored material's");
+}
+
+/// r1 #6: the mode compares as the host it selects: the recorded spelling `Live` selects the paper host, so reposting the
+/// key as `paper` is no switch; the stored bytes stay.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_a_spelling_that_selects_the_paper_host_is_paper() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![cipher.encrypt("Live"), s.api_key_id]).unwrap();
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let stored = one::<String>(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id));
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(mode_reads(&server).await, [pair("/paper/v2/account", "PKTEST")]);
+    assert_eq!(one::<String>(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id)), stored, "no switch: the stored bytes");
+}

@@ -2668,12 +2668,15 @@ async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn reading_key_bare_401_is_inconclusive_and_does_not_condemn_a_stored_key(){
+/// D-ALPACA-STATUS-VERDICT (#710 slice 9, Alpaca branch review r1 #3): the verdict is the status. 2.x took a reading key's
+/// bare 401 (no "unauthorized" in its text) as inconclusive; Alpaca's 401 on the key's own host is an invalid key, as for a
+/// trading key (and as the identity classifier reads it). Nothing is saved either way.
+async fn reading_key_bare_401_is_an_invalid_key(){
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
     let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","candidate"),("api_key[secret]","candidate-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,422);assert!(answer.body.contains("Failed to validate API key permissions"),"2.x does not condemn an unattributed reading-key 401");assert_eq!(h.snapshot(),before);
+    assert_eq!(answer.status,422);assert!(!answer.body.contains("Failed to validate API key permissions"),"an invalid key, not an inconclusive check: {}",answer.body);assert_eq!(h.snapshot(),before);
     server.verify().await;
 }
 
@@ -3069,10 +3072,12 @@ async fn identity_reads(server:&MockServer)->Vec<String>{
 #[tokio::test(flavor="current_thread")]
 async fn legacy_same_key_with_another_mode_is_new_material(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    // The switch is written only once the other host names the key's account (Alpaca branch review r1 #1).
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"904837e3-3b76-47ec-b432-046db621571b","status":"ACTIVE","cash":"0"}))).mount(&server).await;
     h.c.execute("UPDATE api_keys SET key_type=0,passphrase=?1 WHERE id=?2",(h.app.cipher.encrypt("live"),h.seed.api_key_id)).unwrap();
     let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"paper","the posted mode is written");
-    assert_eq!(identity_reads(&server).await,["GET /v2/account previous-key"]);
+    assert_eq!(identity_reads(&server).await,["GET /v2/account previous-key"],"the new mode's read (no account rows here: nothing else waits for a read)");
 }
 
 async fn ledger_progress_after_rotation(partial:bool, unknown:bool, empty:bool){
