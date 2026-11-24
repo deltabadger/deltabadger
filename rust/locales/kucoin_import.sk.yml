@@ -6,6 +6,7 @@ sk:
             warn_existing_html: "Riadky, ktoré už sú na účte %{account}: %{count}. Import sem ich vo vašich súčtoch započíta dvakrát."
             warn_unrouted: "Riadky účtov, ktoré tu nie sú: %{count}. Nebudú importované."
             warn_retained: "Tieto riadky pochádzajú zo synchronizovanej histórie iného účtu. Import sem ich môže započítať dvakrát."
+            warn_dust: "Niektoré prevody drobných zostatkov v tomto súbore nezodpovedajú jedna k jednej vašej histórii na Binance. Ak ich aj tak importujete, zaznamenajú sa tak, ako ich uvádza súbor."
             warn_changed: "Od vašej odpovede sa niečo zmenilo. Skontrolujte to znova."
             import_to_html: "Importovať na %{account} (riadkov v súbore: %{count})"
             import_new_html: "Importovať do nového účtu, %{account} (riadkov v súbore: %{count})"

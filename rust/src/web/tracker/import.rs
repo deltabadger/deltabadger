@@ -49,6 +49,7 @@ fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
         Warning::Twice(n) => vec![i18n::t(locale, "tracker.import.twice_html", &[("count", i18n::Arg::Count(*n as i64))])],
         Warning::Unrouted(n) => vec![i18n::t(locale, "tracker.import.warn_unrouted", &[("count", i18n::Arg::Count(*n as i64))])],
         Warning::Retained => vec![i18n::t(locale, "tracker.import.warn_retained", &[])],
+        Warning::Dust => vec![i18n::t(locale, "tracker.import.warn_dust", &[])],
         Warning::Changed => vec![i18n::t(locale, "tracker.import.warn_changed", &[])],
     }
 }
@@ -205,7 +206,7 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
                 }
                 // A venue export: what is not one destination's above the buttons; each destination's own under its button.
                 _ => render(&ctx, StatusCode::OK, Body::Choose { csrf, token, format, buttons: buttons(ctx.locale, &choices),
-                                                                lines: warnings.iter().filter(|w| matches!(w, Warning::Changed | Warning::Retained)).flat_map(|w| lines(ctx.locale, w)).collect() }),
+                                                                lines: warnings.iter().filter(|w| matches!(w, Warning::Changed | Warning::Retained | Warning::Dust)).flat_map(|w| lines(ctx.locale, w)).collect() }),
             }
         }
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),

@@ -6,6 +6,7 @@ da:
             warn_existing_html: "Rækker, der allerede er på %{account}: %{count}. Importerer du dem her, tæller de dobbelt i dine totaler."
             warn_unrouted: "Rækker for konti, der ikke er her: %{count}. De bliver ikke importeret."
             warn_retained: "Rækkerne kommer fra en anden kontos synkroniserede historik. Importerer du dem her, kan de tælle dobbelt."
+            warn_dust: "Nogle omvekslinger af små saldi i denne fil passer ikke én til én med din Binance-historik. Importerer du alligevel, registreres de, som filen viser dem."
             warn_changed: "Noget har ændret sig, siden du svarede. Tjek det igen."
             import_to_html: "Importér til %{account} (rækker i filen: %{count})"
             import_new_html: "Importér til en ny konto, %{account} (rækker i filen: %{count})"

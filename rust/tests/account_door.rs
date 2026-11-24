@@ -2711,3 +2711,103 @@ async fn unrouted_csv_rows_name_the_exchange_or_keep_the_csv_spelling() {
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert!(done.body.contains("No account connected for: Alpaca 2, zzz."), "{}", done.body);
 }
+
+// ---- #710 8a review r1 ----
+
+/// R5 (r1 #1): a destination named without the venue question is bound to the venue routing too: the file's UID showing
+/// up on Binance.US before the click asks the venue, never writing on Binance's account the user did not pick a venue for.
+#[tokio::test(flavor = "current_thread")]
+async fn a_destination_whose_venue_became_ambiguous_asks_the_venue_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [format!("a{second}")], "{}", asked.body);
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let again = answer(&app, &mut b, &asked, "binance", &format!("a{second}")).await;
+    assert_eq!(options(&again.body), [format!("v{binance}"), format!("v{us}")], "the venue asked: {}", again.body);
+    assert_eq!((rows_on(c, second), rows_on(c, on_us)), (0, 0), "nothing written");
+}
+
+/// R9 (r1 #2): every button binds the number a new account would take: a number taken and tombstoned while the account
+/// question is open asks again, even for a pick of an existing account.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_pick_binds_the_proposed_new_number() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(under(&asked.body, &format!("n{kucoin}~")).contains("KuCoin<sup>3</sup>"), "{}", asked.body);
+    let third = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    c.execute("UPDATE exchange_accounts SET removed_at = '2026-01-01' WHERE id = ?1", [third]).unwrap();
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}~{first}-{second}")).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(rows_on(c, first), 0, "nothing written");
+}
+
+/// R7 (r1 #3): a button binds the file it counted: the parked export changed after the preview asks again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_parked_file_changed_after_the_preview_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "111");
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    observe_import(c, s.user_id, kucoin, second, "444");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_part("444", 2..=2)).await;
+    assert!(under(&asked.body, &format!("a{second}!")).contains("(rows in file: 1)"), "{}", asked.body);
+    let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap()[1].to_string();
+    std::fs::write(app.config.tmp_dir.join("imports").join(s.user_id.to_string()).join(format!("{token}.csv")), kucoin_part("444", 2..=3)).unwrap();
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}")).await;
+    assert!(again.body.contains("Something changed since you answered.") && again.body.contains("(rows in file: 2)"), "{}", again.body);
+    assert_eq!(rows_on(c, second), 0, "nothing written");
+}
+
+/// R6 (r1 #4): the account question numbers the accounts it offers beside a new one, also when it is asked again on its
+/// venue after a stale venue answer.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_venue_answer_numbers_the_accounts_it_offers() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let kb = key_on(c, s.user_id, binance, None);
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    seen_on_us(c, s.user_id, us, "777");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
+    c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [kb]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE id = ?1", [kb]).unwrap();
+    let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert!(under(&again.body, &format!("a{first}~")).contains("Import to Binance<sup>1</sup>"), "{}", again.body);
+    assert!(under(&again.body, &format!("n{binance}~")).contains("a new account, Binance<sup>2</sup>"), "{}", again.body);
+}
+
+/// R6 (r1 #5): a legacy key's rows (its account has no row yet) go to the exchange's name.
+#[tokio::test(flavor = "current_thread")]
+async fn a_legacy_keys_destination_is_named_by_its_exchange() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, kraken, e("legacy"), e("s")]).unwrap();
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "K1", "BTC", 5, 1), (&v, "T1", "BTC", 6, 1), (&v, "T2", "BTC", 7, 2)])).await;
+    assert!(asked.body.contains("Rows going to Kraken: 1."), "{}", asked.body);
+}

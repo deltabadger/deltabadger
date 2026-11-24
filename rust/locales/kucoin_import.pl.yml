@@ -6,6 +6,7 @@ pl:
             warn_existing_html: "Wiersze, które już są na %{account}: %{count}. Import tutaj policzy je podwójnie w Twoich sumach."
             warn_unrouted: "Wiersze kont, których tu nie ma: %{count}. Nie zostaną zaimportowane."
             warn_retained: "Te wiersze pochodzą z zsynchronizowanej historii innego konta. Import tutaj może je policzyć podwójnie."
+            warn_dust: "Niektóre zamiany drobnych sald w tym pliku nie pasują jeden do jednego do Twojej historii Binance. Jeśli mimo to zaimportujesz, zapiszemy je tak, jak pokazuje je plik."
             warn_changed: "Od Twojej odpowiedzi coś się zmieniło. Sprawdź jeszcze raz."
             import_to_html: "Importuj na %{account} (wiersze w pliku: %{count})"
             import_new_html: "Importuj na nowe konto, %{account} (wiersze w pliku: %{count})"

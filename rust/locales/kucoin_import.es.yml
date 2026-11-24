@@ -6,6 +6,7 @@ es:
             warn_existing_html: "Filas que ya están en %{account}: %{count}. Si las importas aquí, se cuentan dos veces en tus totales."
             warn_unrouted: "Filas de cuentas que no están aquí: %{count}. No se importarán."
             warn_retained: "Estas filas salen del historial sincronizado de otra cuenta. Si las importas aquí, pueden contarse dos veces."
+            warn_dust: "Algunas conversiones de saldos pequeños de este archivo no encajan una a una con tu historial de Binance. Si importas igualmente, se registran tal como aparecen en el archivo."
             warn_changed: "Algo ha cambiado desde tu respuesta. Vuelve a comprobarlo."
             import_to_html: "Importar en %{account} (filas en el archivo: %{count})"
             import_new_html: "Importar en una cuenta nueva, %{account} (filas en el archivo: %{count})"

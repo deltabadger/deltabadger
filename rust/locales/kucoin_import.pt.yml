@@ -6,6 +6,7 @@ pt:
             warn_existing_html: "Linhas que já estão em %{account}: %{count}. Importá-las aqui conta-as duas vezes nos seus totais."
             warn_unrouted: "Linhas de contas que não estão aqui: %{count}. Não serão importadas."
             warn_retained: "Estas linhas vêm do histórico sincronizado de outra conta. Importá-las aqui pode contá-las duas vezes."
+            warn_dust: "Algumas conversões de pequenos saldos deste ficheiro não correspondem uma a uma ao seu histórico da Binance. Se importar na mesma, ficam registadas tal como o ficheiro as mostra."
             warn_changed: "Algo mudou desde a sua resposta. Verifique novamente."
             import_to_html: "Importar para %{account} (linhas no ficheiro: %{count})"
             import_new_html: "Importar para uma conta nova, %{account} (linhas no ficheiro: %{count})"

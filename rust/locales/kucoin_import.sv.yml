@@ -6,6 +6,7 @@ sv:
             warn_existing_html: "Rader som redan finns på %{account}: %{count}. Importerar du dem här räknas de dubbelt i dina summor."
             warn_unrouted: "Rader för konton som inte finns här: %{count}. De importeras inte."
             warn_retained: "Raderna kommer från ett annat kontos synkade historik. Importerar du dem här kan de räknas dubbelt."
+            warn_dust: "Några omvandlingar av små saldon i den här filen stämmer inte en till en med din Binance-historik. Importerar du ändå registreras de så som filen visar dem."
             warn_changed: "Något har ändrats sedan du svarade. Kontrollera igen."
             import_to_html: "Importera till %{account} (rader i filen: %{count})"
             import_new_html: "Importera till ett nytt konto, %{account} (rader i filen: %{count})"
