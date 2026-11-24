@@ -93,6 +93,15 @@ pub async fn history<T: Transport>(make: &super::venue_quotes::MakeWire<T>, db: 
             .map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
         // Alpaca's history is asked for its crypto only (its stocks have their bars).
         let rows: Vec<(Pair, Ticker)> = if exchange_type == ALPACA { rows.into_iter().filter(|(p, _)| p.code.contains('/')).collect() } else { rows };
+        // Delisted coins (Codex r1, plan r10 step 4): a pair code the venue rebound to another listing (a tombstone carries
+        // it) may have candles of the coin it named before; no route takes it, nor a tombstoned row itself.
+        // ponytail: whole codes refused; the plan's per-binding intervals (listing evidence) would keep the days after a rebind.
+        let mut kept = vec![];
+        for (p, t) in rows {
+            if p.code.starts_with("__stale_") || super::fills::symbol_reused(c, exchange_id, &p.code)? { continue; }
+            kept.push((p, t));
+        }
+        let rows = kept;
         let ids: HashSet<i64> = rows.iter().flat_map(|(p, _)| [p.base, p.quote]).chain(assets.iter().copied()).collect();
         let mut fiat = HashMap::new();
         let mut s = c.prepare("SELECT id, symbol FROM assets WHERE category IN ('Fiat','Currency')").map_err(|e| e.to_string())?;
