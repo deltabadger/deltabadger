@@ -3510,6 +3510,12 @@ fn r15_only_venue_native_ids_count() {
     let c = &o.primary;
     let kraken = Two::kraken(c, &seed::cipher());
     let mexc = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Mexc", "MEXC");
+    // #710 slice 9: MEXC is an identity venue, whose unread keys read nothing on an exchange with two accounts (rule N1). Each
+    // key has been read here, while neither account's UID is established (pre-upgrade overlap evidence), so the balances are
+    // comparable and the trade ids alone decide.
+    for key in mexc.keys { observe_stored(c, key, &mexc_uid("209302839")); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE exchange_id = ?1", [mexc.seeded.exchange_id]).unwrap();
+    c.execute("DELETE FROM exchange_account_standings WHERE exchange_id = ?1", [mexc.seeded.exchange_id]).unwrap();
     for k in 0..2 { for i in 0..3 { mexc.trade(c, k, 0, &format!("BTCUSDT-{i}-{i}"), "1", &format!("2026-09-0{} 10:00:00", i + 1)); } }
     mexc.trade(c, 0, 0, "BTCUSDT--", "1", "2026-09-05 10:00:00");
     mexc.trade(c, 1, 0, "BTCUSDT--", "2", "2026-09-06 10:00:00");
@@ -4419,4 +4425,86 @@ async fn s9_al_r1_an_alpaca_5xx_saying_unauthorized_never_demotes_a_correct_key(
         assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {read}")), 1, "{failing} {status}: a correct key stays correct");
         assert_eq!(standings(c), [(two.id(1), two.id(0))], "{failing} {status}: and its standing stays");
     }
+}
+
+// ---- #710 slice 9: MEXC names its UID (`uid` of GET /api/v3/uid) ----
+
+const MEXC: &str = "Exchanges::Mexc";
+fn mexc_uid(raw: &str) -> identity::Observed { identity::Observed::Read(identity::AccountId::parse(raw).unwrap()) }
+/// A MEXC pair beside Kraken's fixture (keys `account-1-key`, `account-2-key`).
+fn mexc_two(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    Two::venue(c, &seed::cipher(), &k.seeded, MEXC, "MEXC")
+}
+
+/// G5: MEXC stays an overlap venue. A standing its trade ids entered before any UID read is unchanged before the first
+/// identity read; after it, reads naming one UID keep it and a second account's key naming another ends it.
+#[test]
+fn s9_g5_a_mexc_overlap_standing_is_kept_by_one_uid_and_ended_by_another() {
+    for (second, kept) in [("209302839", true), ("209302840", false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = mexc_two(c);
+        trades(c, &two, 0, 3, 0, "1");
+        trades(c, &two, 1, 3, 0, "1");
+        c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+                  rusqlite::params![two.id(1), two.id(0), two.seeded.user_id, two.seeded.exchange_id, identity::standing_basis(c, two.id(1), two.id(0)).unwrap()]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "unchanged before the first identity read");
+        observe_stored(c, two.keys[0], &mexc_uid("209302839"));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "one account's UID known: the overlap still stands");
+        observe_stored(c, two.keys[1], &mexc_uid(second));
+        assert_eq!(standing(c, &two).is_empty(), !kept, "{second}");
+    }
+}
+
+/// G4 after discovery: MEXC's definite refusals are its codes 700001, 700002, 700007 and 10072. A bare 403, a 429 or a 5xx
+/// (even one carrying 10072), another code and a success that names no UID leave the standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_after_discovery_only_mexc_s_refusal_codes_end_a_standing() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let code = |code: i64| serde_json::json!({"code": code, "msg": "refused"});
+    let mut cases: Vec<(u16, serde_json::Value, bool)> = [(400, 700001), (400, 700002), (403, 700007), (200, 10072)].into_iter().map(|(s, c)| (s, code(c), true)).collect();
+    cases.extend([(403, serde_json::json!({}), false), (429, code(10072), false), (503, code(10072), false), (400, code(700003), false), (200, serde_json::json!({}), false)]);
+    for (status, body, ends) in cases {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/api/v3/uid")).and(header("X-MEXC-APIKEY", "account-1-key"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body.clone())).expect(1).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = mexc_two(c);
+        for key in two.keys { observe_stored(c, key, &mexc_uid("209302839")); }
+        c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+                  [two.keys[0], two.id(0), two.id(1)]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+        let later = chrono::Utc::now() + chrono::Duration::days(8);
+        let due = identity::due(c, &seed::cipher(), later).unwrap().into_iter().find(|d| d.api_key_id == two.keys[0]).unwrap();
+        let observed = identity::read_live(MEXC, &server.uri(), deltabadger::venue::http::client(), &due.credentials).await.unwrap();
+        assert!(matches!(observed, identity::Observed::Failed(_)), "{status} {body}: {observed:?}");
+        assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
+        server.verify().await;
+        assert_eq!(standing(c, &two).is_empty(), ends, "{status} {body}");
+    }
+}
+
+/// The scheduled validator records a correct MEXC key's UID read (its account probe, then GET /api/v3/uid).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_scheduled_validator_records_a_mexc_uid() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v3/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"canTrade": true, "balances": []}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v3/uid")).and(header("X-MEXC-APIKEY", "account-1-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"uid": "209302839"}))).mount(&server).await;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = mexc_two(c);
+    let key = two.keys[0];
+    assert!(identity::unread(c, key).unwrap());
+    let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+    let outcome = deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: key }.run(cx, vec![]).await;
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == "/api/v3/uid"), "{outcome:?}");
+    assert!(!identity::unread(c, key).unwrap(), "the UID read is recorded: {outcome:?}");
+    assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), 1);
 }
