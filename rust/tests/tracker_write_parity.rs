@@ -236,7 +236,7 @@ async fn compare(cases: &[&str]) {
 
 async fn compare_one(root: &str, name: &str, identity_key: bool) {
     // D-IMPORT-WARNS-FIRST: a warned import's token, format and "import the rest" answer.
-    let warned = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})"[\s\S]*name="format" id="format" value="([a-z]+)"[\s\S]*data-value="(r![^"]+)""#).unwrap();
+    let warned = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})"[\s\S]*name="format" id="format" value="([a-z]+)"[\s\S]*name="api_key_id" value="(r![^"]+)""#).unwrap();
     let (root, cases) = (root.to_string(), [name]);
     for name in cases {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
