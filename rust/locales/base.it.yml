@@ -561,6 +561,7 @@ it:
             opening_unknown: "Il valore iniziale di %{assets} su %{venue} è sconosciuto."
             chart_incomplete: "Alcuni giorni del grafico sono incompleti."
             chart_missing_causes: "Succede quando non è chiaro quale asset fosse detenuto, o non esiste un prezzo utilizzabile, ad esempio dopo un delisting, un cambio di nome o un tasso di cambio mancante. Scompare quando questi asset possono essere valutati."
+            transfer_conflict: "Il trasferimento di %{assets} del %{date} collega due asset diversi, quindi ogni lato viene contato dove è stato registrato."
             connect_market_data: "Collega un fornitore di dati di mercato per ottenere i prezzi di mercato."
             providers_intro: "Il monitoraggio del portafoglio e i report fiscali richiedono prezzi storici e tassi di cambio. Collega l'API dati di Deltabadger (azioni e cripto) o un account CoinGecko gratuito (solo cripto). Un account CoinGecko gratuito copre solo i prezzi dell'ultimo anno."
             ask_admin: "I dati di mercato li configura l'amministratore della tua istanza. Chiedigli di collegare un fornitore in Impostazioni → Connetti."

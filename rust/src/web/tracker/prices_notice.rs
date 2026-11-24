@@ -29,6 +29,20 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Sco
             if !g.openings.is_empty() { lines.push_str(&line(ctx, "opening_unknown", &g.openings, g.venue.as_deref())); }
         }
     }
+    // Delisted coins (plan r10 §1.8): a stored link the coin map voided (two different coins under one spelling) moves no
+    // quantity; each side is counted where it was booked. Read from the warm ledger cache, its withdrawal's spelling and day.
+    // ponytail: best-effort (a cold cache states none until the next ledger run), and in every scope.
+    if let Ok(crate::tracker::cache::State::Warm(s)) = crate::tracker::cache::read(c, owner, None, ctx.now) {
+        use rusqlite::OptionalExtension;
+        for (a, b) in s.labels.void.iter().filter(|(a, b)| a < b) {
+            let sent: Option<(String, String)> = c.query_row("SELECT base_currency, substr(transacted_at, 1, 10) FROM account_transactions WHERE user_id = ?1 AND id IN (?2, ?3) \
+                                                             AND linked_transaction_id IN (?2, ?3) ORDER BY id LIMIT 1", rusqlite::params![owner, a, b], |r| Ok((r.get(0)?, r.get(1)?)))
+                .optional().map_err(|_| super::row::invalid())?;
+            let Some((asset, day)) = sent else { continue };
+            lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n",
+                i18n::t(ctx.locale, "tracker.prices.transfer_conflict", &[("assets", Arg::Text(&asset)), ("date", Arg::Text(&day))])));
+        }
+    }
     if lines.is_empty() { return Ok(String::new()); }
     // Delisted coins (plan r10 §1.8): beside a named asset without a price, why that happens (an asset no evidence tells
     // apart from another under its ticker shows here under its label, as every unpriced asset does).

@@ -570,6 +570,7 @@ sk:
             opening_unknown: "Počiatočná hodnota %{assets} na %{venue} nie je známa."
             chart_incomplete: "Niektoré dni v grafe sú neúplné."
             chart_missing_causes: "Stáva sa to, keď nie je jasné, ktoré aktívum bolo držané, alebo neexistuje použiteľná cena, napríklad po stiahnutí z burzy, premenovaní alebo chýbajúcom výmennom kurze. Zmizne, keď bude možné tieto aktíva oceniť."
+            transfer_conflict: "Prevod %{assets} zo dňa %{date} spája dve rôzne aktíva, preto sa každá strana počíta tam, kde bola zaúčtovaná."
             connect_market_data: "Pripoj poskytovateľa trhových dát a získaj trhové ceny."
             providers_intro: "Sledovanie portfólia a daňové reporty potrebujú historické ceny a výmenné kurzy. Pripoj dátové API Deltabadger (akcie a krypto) alebo bezplatný účet CoinGecko (len krypto). Bezplatný účet CoinGecko pokrýva ceny len za posledný rok."
             ask_admin: "Trhové dáta nastavuje správca vašej inštancie. Požiadajte ho, aby pripojil poskytovateľa v Nastavenia → Pripojiť."

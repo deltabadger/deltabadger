@@ -563,6 +563,7 @@ sv:
             opening_unknown: "Startvärdet för %{assets} på %{venue} är okänt."
             chart_incomplete: "Vissa dagar i diagrammet är ofullständiga."
             chart_missing_causes: "Det händer när det är oklart vilken tillgång som innehades, eller när inget användbart pris finns, till exempel efter en avnotering, ett namnbyte eller en saknad växelkurs. Det försvinner när innehaven kan värderas."
+            transfer_conflict: "Överföringen av %{assets} den %{date} kopplar ihop två olika tillgångar, så varje sida räknas där den bokfördes."
             connect_market_data: "Anslut en leverantör av marknadsdata för att få marknadspriser."
             providers_intro: "Portföljspårning och skatterapporter behöver historiska priser och växelkurser. Anslut Deltabadgers data-API (aktier och krypto) eller ett gratis CoinGecko-konto (endast krypto). Ett gratis CoinGecko-konto täcker bara priser för det senaste året."
             ask_admin: "Marknadsdata ställs in av instansens administratör. Be hen ansluta en leverantör under Inställningar → Anslut."

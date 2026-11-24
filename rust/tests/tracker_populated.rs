@@ -532,3 +532,22 @@ async fn an_unvalued_opening_is_named_in_the_banner() {
     }).await;
     assert!(r.notice.contains(&format!("The opening value of BTC on {venue} is unknown.")) && r.notice.contains("Some days on the chart are incomplete."), "{}", r.notice);
 }
+
+/// Delisted coins (plan r10 §1.8): a stored link the coin map voided (two different coins under one spelling) is named in
+/// the prices notice with its asset and day; each side is counted where it was booked.
+#[tokio::test(flavor = "current_thread")]
+async fn a_voided_transfer_is_named_in_the_notice() {
+    let (_dir, app, owner, _) = warm_install(true).await;
+    let r = regions_of(&app, owner, move |c| {
+        let ids: Vec<i64> = c.prepare("SELECT id FROM account_transactions WHERE user_id = ?1 ORDER BY id").unwrap()
+            .query_map([owner], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+        let (deposit, buy) = (ids[0], ids[1]);
+        // The link as stored (updated_at kept: the ledger cache stays warm), and the map's verdict in the cached labels.
+        c.execute("UPDATE account_transactions SET linked_transaction_id = ?1 WHERE id = ?2", [deposit, buy]).unwrap();
+        let key = format!("rust_tracker_ledger.{owner}");
+        let mut v: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &key).unwrap().expect("a warm ledger")).unwrap();
+        v["whole"]["labels"]["void"] = serde_json::json!([[deposit, buy], [buy, deposit]]);
+        deltabadger::app_config::set_plain(c, &key, &v.to_string(), AT.parse().unwrap()).unwrap();
+    }).await;
+    assert!(r.notice.contains("The transfer of BTC on 2026-09-02 links two different assets"), "{}", r.notice);
+}
