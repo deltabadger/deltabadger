@@ -630,16 +630,21 @@ impl<C:Connect> Job for Validator<C>{
         let outcome=async {
         let at=cx.clock.now();
         let (credentials,version_read)=(handle.credentials().clone(),handle.producer().clone());
-        if let Err(SyncError(e))=super::commit_record_for(&cx.db,&version,move|c,cipher|{
+        let moved=match super::commit_record_for(&cx.db,&version,move|c,cipher|{
+            // #710 7a rules K5/M4, as the web recheck: the check may make the key (or another) its account's reader.
+            let generations=crate::identity::generations_of_key(c,id).map_err(SyncError)?;
             let status=crate::web::settings::keys::bound_status(c,cipher,id,status.clone(),account.as_deref(),at)?;
             crate::web::settings::keys::store_status(c,&status,id,at)?;
             if let Some(observed)=&identity{crate::identity::record(c,cipher,id,&credentials,&version_read,observed,at).map_err(SyncError)?;}
-            Ok(((),true))
+            super::settle_readers_of_key(c,id)?;
+            Ok((crate::identity::moved_readers(c,id,&generations).map_err(SyncError)?,true))
         }).await{
-            if e==crate::engine::model::CREDENTIALS_CHANGED{cx.wakers.wake(API_KEY_VALIDATOR,Some(&id.to_string()),None);return Outcome::NothingNew;}
-            return Outcome::Failed(e)
-        }
+            Ok(moved)=>moved,
+            Err(SyncError(e)) if e==crate::engine::model::CREDENTIALS_CHANGED=>{cx.wakers.wake(API_KEY_VALIDATOR,Some(&id.to_string()),None);return Outcome::NothingNew;}
+            Err(SyncError(e))=>return Outcome::Failed(e),
+        };
         cx.wakers.wake_engine();
+        for k in moved {for job in [LEDGER_SYNC,BALANCE_SYNC] {cx.wakers.wake(job,Some(&k.to_string()),None);}}
         if let Some(error)=error {return Outcome::Failed(error)}
         if kind==0 && correct {cx.wakers.wake(BALANCE_SYNC,Some(&id.to_string()),None);}
         Outcome::Done

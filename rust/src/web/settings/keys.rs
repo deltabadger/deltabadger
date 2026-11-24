@@ -73,7 +73,15 @@ async fn read_unread(app: &App, user: i64, exchange: i64, venue: &str, name: &st
         if let Some(observed) = observed {
             let at = app.now();
             let inner = app.clone();
-            app.db(move |c| Ok(crate::identity::publish(c, &inner.cipher, &due, &observed, at).map(|_| ()))).await?.map_err(WebError::Config)?;
+            // Rules K5/M4: each committed read wakes the reader it moved, whatever a later read of this loop comes to.
+            let moved = app.db(move |c| Ok((|| {
+                let before = crate::identity::generations_of_key(c, due.api_key_id)?;
+                crate::identity::publish(c, &inner.cipher, &due, &observed, at)?;
+                crate::identity::moved_readers(c, due.api_key_id, &before)
+            })())).await?.map_err(WebError::Config)?;
+            if let Ok(jobs) = app.job_wakers() {
+                for k in moved { for job in [crate::sync::jobs::LEDGER_SYNC, crate::sync::jobs::BALANCE_SYNC] { jobs.wake(job, Some(&k.to_string()), None); } }
+            }
         }
         if !read { return Ok(Some(other_key_checking(name))); }
     }
@@ -95,7 +103,8 @@ fn key_question(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, excha
                 material: &crate::crypto::Credentials, answer: Option<&str>, now: chrono::DateTime<chrono::Utc>) -> Result<KeyAsk, WebError> {
     use crate::tracker::import::run::{self, Dest};
     let seen = crate::identity::import_evidence(c, cipher, user, exchange, target, read, now).map_err(WebError::Config)?;
-    if seen.holders.is_empty() && !seen.foreign { return Ok(KeyAsk::New); }
+    // An answer naming an account ("connect to account N instead") whose evidence went is asked again, never a new account.
+    if seen.holders.is_empty() && !seen.foreign && !answer.is_some_and(|a| a.starts_with('a')) { return Ok(KeyAsk::New); }
     let subject = format!("{kind}:{}", crate::identity::existing_key(c, cipher).map(|k| k.material_digest(material)).unwrap_or_default());
     let sealed = |dest: Dest| -> Result<String, WebError> { Ok(run::seal('w', &subject, dest, &run::slot(c, user, dest).map_err(|e| WebError::Config(e.0))?, &seen.facts)) };
     let new = sealed(Dest::New(exchange))?;

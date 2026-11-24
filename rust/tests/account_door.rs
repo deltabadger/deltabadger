@@ -1008,6 +1008,29 @@ async fn an_import_with_no_key_makes_a_keyless_account_asking_a_binance_file_s_v
     assert_eq!(rows_on(c, accounts[0].0), 1);
 }
 
+/// Rule N7 (Codex branch r5, run.rs:558): a native import that makes account 2 settles the exchange's readers in its
+/// transaction. Account 1's key has no UID read: it read alone, and the second account disqualifies it at once; the
+/// generation moves then, so a run that started before the import publishes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn n7_an_import_that_makes_an_account_settles_the_readers() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    let kk = key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "111");
+    deltabadger::sync::settle_readers_of_key(c, kk).unwrap();
+    assert!(deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&kk), "one account: it reads");
+    let before = deltabadger::sync::reader_generation(c, first).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let done = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(numbers(c, kucoin), [1, 2], "the file's own account");
+    assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&kk), "unread on a two-account exchange");
+    assert_ne!(deltabadger::sync::reader_generation(c, first).unwrap(), before, "the handoff moved the generation");
+}
+
 /// §3: a Binance file whose UID is account 2's lands on 2, never asking; a Binance.US UID matching a keyless Binance.US
 /// account lands there although the only key is Binance's.
 #[tokio::test(flavor = "current_thread")]
@@ -1924,6 +1947,26 @@ async fn s7a_s9_a_legacy_key_answer_keeps_its_key_on_the_rows() {
     assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
 }
 
+/// Plan L8 (Codex branch r5, run.rs:727): main's sole reader is one reading key across Binance and Binance.US together. Two
+/// Binance readers (two accounts) and one Binance.US reader: the venue is asked, never Binance.US picked as the only one.
+#[tokio::test(flavor = "current_thread")]
+async fn l8_two_binance_readers_and_one_binance_us_reader_ask_the_venue() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    key_on(c, s.user_id, binance, Some(second));
+    let ku = key_on(c, s.user_id, us, None);
+    let on_us = identity::Account::first(c, s.user_id, us).unwrap().id.unwrap();
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [format!("v{binance}"), ku.to_string()], "the venue is asked: {}", asked.body);
+    assert_eq!((rows_on(c, on_us), one::<i64>(c, "SELECT count(*) FROM account_transactions")), (0, ledger), "nothing written");
+}
+
 /// Rule S6 (Codex branch r4, keys.rs:208, validator.rs:75), a single-account install: a bot's key sheet is drawn for its
 /// exchange and account. The sheet opened while the bot was on Kraken, the bot moved to Alpaca since: its submit is a 404
 /// and Alpaca is never sent the secret. The sheet's bytes are as before (the binding rides in its masked CSRF token).
@@ -2077,6 +2120,29 @@ async fn q1_a_third_account_forms_only_once_the_second_accounts_key_was_read() {
     assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
     assert_eq!(numbers(c, exchange), [1, 2], "no third account");
     assert!(keys(c, &cipher, exchange).contains(&(2, "key-b2".into())), "{:?}", keys(c, &cipher, exchange));
+}
+
+/// Rule Q1 (Codex branch r5, keys.rs:76): each read a save makes first wakes the reader it moved, even when a later read
+/// of the same save fails. Account 1's unread key reads A and becomes its reader; account 2's unread key fails: the save is
+/// refused, and account 1's ledger and balance syncs are woken all the same.
+#[tokio::test(flavor = "current_thread")]
+async fn q1_a_read_before_a_failed_one_wakes_the_reader_it_moved() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let a = unread_key(c, user, exchange, first, "key-a");
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_key(c, user, exchange, second, "key-fail");
+    deltabadger::sync::settle_readers_of_key(c, a).unwrap();
+    assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&a), "unread: no reader");
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-c")).await;
+    assert_eq!(answer.status, 422, "the second read failed: {}", answer.body);
+    assert!(!identity::unread(c, a).unwrap() && deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&a), "A's key read and reading");
+    let pending = app.job_wakers().unwrap().pending();
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC] {
+        assert!(pending.contains(&(job.to_string(), Some(a.to_string()))), "{job} is woken for the new reader: {pending:?}");
+    }
 }
 
 /// Rule N3: the exact key reposted through a venue tile goes to its own account, even where no read has set that
@@ -2237,6 +2303,28 @@ async fn m2_a_new_account_another_one_holds_history_of_is_asked_first() {
     let added = { let f = with(&fresh); let refs: Vec<(&str, &str)> = f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect(); save(&app, &mut b, exchange, None, &refs).await };
     assert!(added.status < 400, "{}: {}", added.status, added.body);
     assert_eq!(numbers(c, exchange), [1, 2, 3]);
+}
+
+/// Rule M2 (Codex branch r5, keys.rs:98): "connect to account 1 instead", posted after the observation that made account 1
+/// a candidate went, is asked again: the save never falls through to a new account the user did not choose.
+#[tokio::test(flavor = "current_thread")]
+async fn m2_an_account_answer_whose_evidence_went_is_asked_again() {
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &kucoin_fields("key-a")).await.status < 400);
+    let first = identity::accounts_of(c, user, exchange).unwrap()[0].0;
+    observe_import(c, user, exchange, first, UID_B);
+    let asked = save(&app, &mut b, exchange, None, &kucoin_fields("key-b")).await;
+    let values: Vec<String> = regex::Regex::new(r#"name="key_answer" value="([^"]+)""#).unwrap().captures_iter(&asked.body).map(|m| m[1].replace("&#33;", "!")).collect();
+    let to_first = values.iter().find(|v| v.starts_with(&format!("a{first}!w"))).unwrap_or_else(|| panic!("{}", asked.body)).clone();
+    c.execute("DELETE FROM exchange_account_imports WHERE account_id = ?1", [first]).unwrap();
+    let mut f: Vec<(&str, &str)> = kucoin_fields("key-b").to_vec();
+    f.push(("key_answer", to_first.as_str()));
+    let again = save(&app, &mut b, exchange, None, &f).await;
+    assert_eq!(again.status, 422, "{}", again.body);
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(numbers(c, exchange), [1], "no account the user did not choose");
 }
 
 /// Rule M2: a Reconnect of an account whose read fingerprint is another (proven) one, nobody holding it: asked, not made a

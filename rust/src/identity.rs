@@ -1467,15 +1467,12 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                       params![api_key_id, exchange_id, digest, version, fingerprint, encrypted, at]).map_err(db)?;
             ensure_account(c, user_id, exchange_id, now).map_err(db)?;
             if reading_key(c, user_id, api_key_id)? {
-                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? {
-                    let print = |c: &Connection| c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get::<_, Option<String>>(0)).optional();
-                    let was = print(c).map_err(db)?.flatten();
-                    establish_by_read(c, account, &fingerprint, &encrypted, now).map_err(db)?;
-                    // A fingerprint filled or replaced is new evidence: the exchange's duplicate standings are judged again now.
-                    if print(c).map_err(db)?.flatten() != was { reconsider(c, user_id, exchange_id, now).map_err(db)?; }
-                }
+                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { establish_by_read(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
             }
             fence_copies(c, cipher, user_id, exchange_id, &exchange_type, credentials, id, Some(api_key_id), now)?;
+            // Every successful read is new evidence (a fingerprint filled or replaced, or a key of the account confirming
+            // it): the exchange's duplicate standings are judged again now.
+            reconsider(c, user_id, exchange_id, now).map_err(db)?;
         }
         Observed::Failed(code) => {
             // A live key's definite failure on its current material is a contradiction: the account's standings end now. A
@@ -1747,6 +1744,8 @@ pub fn credential_standing(c: &Connection, api_key_id: i64) -> rusqlite::Result<
 /// A credential the discovery job reads: its key, venue, material and the ciphertext version it was read under.
 pub struct Due { pub api_key_id: i64, pub exchange_type: String, pub credentials: Credentials, pub version: crate::engine::model::CredentialVersion }
 
+/// When `due` last handed out each key, in this process.
+static ATTEMPTED: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<i64, DateTime<Utc>>>> = std::sync::LazyLock::new(Default::default);
 /// The credentials of a supported venue, every key type, due an observation at `now`: never observed (or not since its
 /// material changed), its stored ciphertext changed since, or observed longer ago than `observe_every`, unless a read
 /// failed within `retry_after`. A key whose values cannot be decrypted is left out.
@@ -1758,8 +1757,13 @@ pub fn due(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Vec<Du
                            FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id
                            ORDER BY (o.observed_at IS NOT NULL OR o.last_failure_at IS NOT NULL), max(coalesce(o.observed_at, ''), coalesce(o.last_failure_at, '')), k.id").map_err(db)?;
     type Row = (i64, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
-    let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).map_err(db)?
+    let mut rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).map_err(db)?
         .collect::<Result<Vec<Row>, _>>().map_err(db)?;
+    // A transient failure after a definite one stores nothing (`record`), so the stored times alone could hand the same
+    // keys every pass: after the never-attempted, the least recently handed out by this process goes first.
+    // ponytail: process memory, so a restart starts the rotation over; a Rust-owned table if restarts ever starve a key.
+    let mut attempted = ATTEMPTED.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    rows.sort_by_key(|r| (r.5.is_some() || r.6.is_some(), attempted.get(&r.0).copied()));
     let time = |t: &Option<String>| t.as_deref().and_then(|t| parse_time(t).ok());
     let mut out = vec![];
     for (id, exchange_type, digest, version, fingerprint, observed_at, failed_at) in rows {
@@ -1770,7 +1774,7 @@ pub fn due(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Vec<Du
         let version_same = version.as_deref().and_then(|v| serde_json::from_str::<Value>(v).ok())
             .is_some_and(|stored| crate::engine::model::stamp_current_for(&stored, &current.cache_stamp()).is_fresh());
         let fresh = fingerprint.is_some() && time(&observed_at).is_some_and(|t| now - t < observe_every());
-        if !(material_same && version_same && fresh) { out.push(Due { api_key_id: id, exchange_type, credentials, version: current }); }
+        if !(material_same && version_same && fresh) { attempted.insert(id, now); out.push(Due { api_key_id: id, exchange_type, credentials, version: current }); }
         if out.len() == PER_RUN { break; }
     }
     Ok(out)

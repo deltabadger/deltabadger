@@ -248,7 +248,8 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
         let key = writer(c, &[], other)?;
         let merged = ledger::stored_merged(c, &key)?;
         let at_ = "account_transactions";
-        let mut hit = |id: String, first: &mut Option<i64>| { count += 1; ids.push(id); first.get_or_insert(other); };
+        // Each id with the account holding it: a Merge that moves it changes what the warning named.
+        let mut hit = |id: String, first: &mut Option<i64>| { count += 1; ids.push(format!("{other}:{id}")); first.get_or_insert(other); };
         for e in bound.entries {
             match e.tx_id.as_deref().filter(|t| !t.trim().is_empty()) {
                 Some(id) => if crate::venue_ids::known(c, &key.scope, id)? || merged.contains(id) { hit(id.to_string(), &mut first) },
@@ -555,7 +556,16 @@ fn write_targets(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher,
     let mut stripped = vec![];
     let origin = origin(format);
     for (target, rows) in targets {
-        let key = match target { Target::Key(key) => key, Target::New(exchange) => writer(&fenced, &[], crate::identity::new_account(&fenced, user_id, exchange, now)?)? };
+        let key = match target {
+            Target::Key(key) => key,
+            Target::New(exchange) => {
+                let account = crate::identity::new_account(&fenced, user_id, exchange, now)?;
+                // Rule N7: a second account can disqualify a reader with no UID read; its generation moves now. A keyless
+                // account makes no reader, so nothing is woken.
+                crate::sync::settle_readers(&fenced, user_id, exchange)?;
+                writer(&fenced, &[], account)?
+            }
+        };
         let (routed_account, exchange_id) = (key.scope.account, key.exchange_id);
         if format == "kucoin" {
             // #710 slice 7: the source rows are stored by (user, exchange), whatever account the file was routed to; routing
@@ -721,10 +731,10 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         (None, []) => return Ok(Routed::None),
         (None, [(only, _, _)]) => *only,
         (None, _) => {
-            // Plan L8, as main: the one reading key of the format's venues, its venue's one account, takes a clean upload,
-            // unless another of them already observed the file's UID (rules G1/J2: then the venue is asked).
+            // Plan L8, as main: the one reading key of the format's venues together, its venue's one account, takes a clean
+            // upload, unless another of them already observed the file's UID (rules G1/J2: then the venue is asked).
             let readers: Vec<&Reading> = keys.iter().filter(|k| exchanges.iter().any(|(id, _, _)| *id == k.exchange_id)).collect();
-            if let [k] = readers.as_slice().iter().filter(|k| venue_key(k.exchange_id).ok().flatten() == Some(k.id)).collect::<Vec<_>>().as_slice() {
+            if let [k] = readers.as_slice().iter().filter(|k| readers.len() == 1 && venue_key(k.exchange_id).ok().flatten() == Some(k.id)).collect::<Vec<_>>().as_slice() {
                 let mut seen_elsewhere = false;
                 for (other, exchange_type, _) in exchanges.iter().filter(|(id, _, _)| *id != k.exchange_id) {
                     let Some(print) = fingerprint(exchange_type) else { continue };

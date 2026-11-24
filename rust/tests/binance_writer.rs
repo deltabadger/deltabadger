@@ -358,6 +358,26 @@ fn a_unit_near_a_suppressed_event_is_warned_and_written_on_the_answer() {
     assert_eq!(accepted,2);
 }
 
+/// #710 7a rule P6 (Codex branch r5, binance_writer.rs:308): two valid CSV deposits of one amount inside one retained API
+/// deposit's ten-minute window: the second cannot be that deposit too. The file is the user's word: warned, and on the
+/// answer the second is written as a plain imported row (the first stays the API deposit's duplicate).
+#[test]
+fn two_same_amount_deposits_in_one_api_deposits_window_warn_and_write_on_the_answer() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&[input(Source::Deposit,"d1","","BTC")]).unwrap();
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2026-08-17 10:00:00,Spot,Deposit,BTC,1,\n1,2026-08-17 10:05:00,Spot,Deposit,BTC,1,\n";
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let (before,rows)=(state(c),count(c));
+    let asked=import(c,&key,"binance",file).unwrap();
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert!(warnings.contains(&Warning::Retained),"{warnings:?}");assert_eq!(state(c),before,"nothing written before the answer");
+    let done=run::import(c,&common::seed::cipher(),key.user_id,"binance",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+    assert!(matches!(done,Answer::Written{imported:1,duplicates:1,..}),"{done:?}");assert_eq!(count(c),rows+1);
+    let accepted:i64=c.query_row("SELECT count(*) FROM import_row_origins WHERE import_kind='binance_accepted'",[],|r|r.get(0)).unwrap();
+    assert_eq!(accepted,1);
+}
+
 // Prices and tax settings are fixed by the unchanged accounting recording. The
 // quantities, fees, ordering and groups below are read back from the actual database.
 fn accounting(c:&Connection,owner:i64,expected:&Value) {

@@ -226,7 +226,10 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         sm.raw = if sm.raw.is_none() || (!sm.synced && dm.synced) { dm.raw.clone() } else { None };
         // #710 7a rule Q7: a survivor taking the duplicate's venue answer is a synced row from here on (`synced` says so).
         // A duplicate that is itself a file's row (a sync enriched it) gives no independent read: the survivor stays imported.
+        // Whether or not a payload is copied, a duplicate read from an account independently of any file (synced, no file
+        // origin) makes the kept row a read one: its file origin goes.
         if sm.raw.is_some() { sm.synced = dm.synced; sm.imported = dm.imported; }
+        else if dm.synced && !dm.imported { sm.synced = true; sm.imported = false; }
         sm.asset = if sm.asset.is_none() { dm.asset } else { None };
         sm.description = if sm.description.is_none() { dm.description.clone() } else { None };
         // A group: D's where S's row has none and no other row reads its key on S (the group is S's then), by the same key
@@ -468,7 +471,7 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
                    base_asset_id = COALESCE(?6, base_asset_id), group_id = COALESCE(?7, group_id), description = COALESCE(?8, description) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
         // Rule Q7: the event was read from an account independently of the file: the row's file origin goes.
-        if m.raw.is_some() && m.synced && !m.imported && crate::tracker::import::origins_ready(c)? { c.execute("DELETE FROM import_row_origins WHERE transaction_id = ?1", [row])?; }
+        if m.synced && !m.imported && crate::tracker::import::origins_ready(c)? { c.execute("DELETE FROM import_row_origins WHERE transaction_id = ?1", [row])?; }
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
 

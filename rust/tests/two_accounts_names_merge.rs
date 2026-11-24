@@ -4078,3 +4078,67 @@ fn d_discovery_filling_both_fingerprints_settles_the_standing_at_once() {
         assert_eq!(stored.contains(&(two.id(1), two.id(0))), stands, "{second}: {stored:?}");
     }
 }
+
+/// Codex branch r5 (identity.rs:1475): account 2's secondary live key is unread when both reading keys read the same
+/// account, so the first judgment cannot make 2 the duplicate of 1. The secondary key's read of that account fills no
+/// fingerprint, yet it completes account 2's confirmation: the standing is judged again in its transaction.
+#[test]
+fn a_secondary_keys_confirming_read_settles_the_standing_at_once() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-2-reader"), seed::cipher().encrypt("s")]).unwrap();
+    let secondary = c.last_insert_rowid();
+    two.accounts[1].add_key(c, secondary).unwrap();
+    let uid = || identity::Observed::Read(identity::AccountId::parse("111").unwrap());
+    observe(c, two.keys[0], &uid());
+    observe(c, two.keys[1], &uid());
+    assert!(!identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(two.id(1), two.id(0))), "account 2's secondary key is unread");
+    observe(c, secondary, &uid());
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(two.id(1), two.id(0))), "the secondary key's read confirms it");
+}
+
+/// Rules N4/P5 (Codex branch r5, run.rs:271): an import warning binds each venue id it found with the account holding it.
+/// A CSV for account 3 warns that venue id T is on account 2; account 2 is merged into 1, so T is on 1 now: the old
+/// "import anyway" is asked again, never written under a warning that named another account.
+#[test]
+fn p5_an_import_anyway_given_before_a_merge_moved_its_rows_is_asked_again() {
+    use deltabadger::tracker::import::run;
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let third = two.third(c).id.unwrap();
+    two.trade(c, 1, 0, "T", "0.25", "2026-09-01 10:00:00");
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Kraken");
+    let file = format!("{},account\n2026-09-01T10:00:00Z,deposit,BTC,0.25,,,,,{v},T,,,3\n", deltabadger::web::tracker::gap::CSV_HEADER);
+    let write = |answer: Option<&str>| {
+        let read = run::read("deltabadger", file.as_bytes(), Some("+00:00")).unwrap_or_else(|_| panic!("readable"));
+        run::write(c, &seed::cipher(), two.seeded.user_id, "deltabadger", read, "", answer, chrono::Utc::now()).unwrap()
+    };
+    let anyway = match write(None) { run::Answer::Warned(_, choices) => choices[0].value.clone(), other => panic!("warned first: {other:?}") };
+    assert!(matches!(merge_now(c, &two, two.id(1)), Ok(Some(_))), "merged");
+    let rows = |c: &Connection| c.query_row("SELECT count(*) FROM exchange_account_rows WHERE account_id = ?1", [third], |r| r.get::<_, i64>(0)).unwrap();
+    assert!(matches!(write(Some(&anyway)), run::Answer::Warned(..)), "asked again");
+    assert_eq!(rows(c), 0, "nothing written on account 3");
+}
+
+/// #710 7a rule Q7 (Codex branch r5, merge.rs:470): the result's API origin does not depend on a payload being copied. A
+/// restored survivor a sync already enriched with the very payload its independently synced twin holds copies nothing,
+/// yet the twin deleted was read from an account: the survivor's file origin goes.
+#[test]
+fn q7_an_equal_payload_from_a_synced_twin_still_drops_the_file_origin() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    let gone = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    for row in [kept, gone] { c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [row]).unwrap(); }
+    deltabadger::tracker::import::record_origin(c, kept, "deltabadger", chrono::Utc::now()).unwrap();
+    merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+    let origins: i64 = c.query_row("SELECT count(*) FROM import_row_origins", [], |r| r.get(0)).unwrap();
+    assert_eq!(origins, 0, "the kept twin reads synced");
+}

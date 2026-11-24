@@ -1681,3 +1681,52 @@ fn n3_installed_evidence_routes_before_a_new_account() {
     let second_agent = Credentials { ibkr: None, key: wallet.into(), secret: "another-agent-secret".into(), passphrase: None, redaction_values: vec![] };
     assert_eq!(route(fx.exchange(HL), HL, &identity::Reading::NotAnIdentityVenue, &second_agent), identity::Route::To(hl), "one wallet, one account");
 }
+
+/// Rules K5/M4 (Codex branch r5, jobs.rs:644): the background key check settles and wakes the readers it moved, as the web
+/// recheck does. A read-only KuCoin key pending at startup (no reader, no job registered) checked correct by the validator
+/// job becomes the sole reader, and its ledger and balance syncs are woken at once.
+#[tokio::test(flavor = "current_thread")]
+async fn k5_the_background_key_check_wakes_the_reader_it_made() {
+    use deltabadger::jobs::{Cx, Db, Job, Wakers};
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"uid": A, "permission":"General"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::kucoin_account::MODE)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::kucoin_account::OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":false}))).mount(&server).await;
+    Mock::given(method("DELETE")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":[]}))).mount(&server).await;
+    let fx = Fx::new();
+    let key = fx.key(KUCOIN, 2, "kc-reader");
+    fx.c.execute("UPDATE api_keys SET status = 0 WHERE id = ?1", [key]).unwrap();
+    deltabadger::sync::settle_readers_of_key(&fx.c, key).unwrap();
+    assert!(!ledger_reads(&fx, key), "pending: no reader");
+    let clock = deltabadger::engine::FixedClock(now());
+    let wakers = Wakers::default();
+    let cx = Cx { db: Db::new(Connection::open(fx.dir.path().join("production.sqlite3")).unwrap(), fx.cipher.clone()), clock: &clock, wakers: wakers.clone() };
+    deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: key }.run(cx, vec![]).await;
+    assert_eq!(fx.c.query_row("SELECT status FROM api_keys WHERE id = ?1", [key], |r| r.get::<_, i64>(0)).unwrap(), 1, "checked correct");
+    assert!(ledger_reads(&fx, key), "the sole reader");
+    let pending = wakers.pending();
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC] {
+        assert!(pending.contains(&(job.to_string(), Some(key.to_string()))), "{job} is woken for the new reader: {pending:?}");
+    }
+}
+
+/// Discovery never starves (Codex branch r5, identity.rs:1504): a transient failure after a definite one leaves the stored
+/// failure as it was, so the stored times alone would hand the same ten keys every pass. The job's own attempts rotate
+/// them: a previously read eleventh key, due again, is read on the next pass.
+#[test]
+fn discovery_rotates_past_ten_keys_failing_transiently() {
+    let fx = Fx::new();
+    let failing: Vec<i64> = (0..10).map(|i| fx.key(KUCOIN, 0, &format!("kc-bad-{i}"))).collect();
+    for key in &failing { fx.observe(*key, Observed::Failed("http 401".into())); }
+    let eleventh = fx.key(KUCOIN, 0, "kc-good");
+    fx.observe(eleventh, read(A));
+    let ids = |at| identity::due(&fx.c, &fx.cipher, at).unwrap().into_iter().map(|d| d.api_key_id).collect::<Vec<i64>>();
+    let first = now() + identity::observe_every() + Duration::hours(1);
+    assert_eq!(ids(first), failing, "the ten older failures first");
+    for key in &failing { fx.observe(*key, Observed::Failed("transport".into())); }
+    let next = ids(first + Duration::hours(1));
+    assert_eq!(next.first(), Some(&eleventh), "the eleventh is read on the next pass: {next:?}");
+}

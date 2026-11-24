@@ -305,7 +305,13 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         }
         if let Some(pair)=candidates.first() {
             if pair.iter().any(|a|a.suppressed) {if pair.iter().any(|a|!a.suppressed){return Err(refused("partial suppressed pair"))}out.skipped+=rows.len();continue}
-            if pair.iter().any(|a|!used.insert(a.row_id)) {return Err(refused("CSV identities are not one-to-one"))}
+            // Rule P6: a retained event another unit of the file already matched cannot be this unit too: warned, or
+            // (accepted) written plain.
+            if pair.iter().any(|a|used.contains(&a.row_id)) {
+                if !accept {warn.push(*first);continue}
+                stripped.push((*first,dust));continue;
+            }
+            used.extend(pair.iter().map(|a|a.row_id));
             for a in pair {let row=match image(c,a.row_id) {
                 Ok(row)=>row,
                 Err(rusqlite::Error::QueryReturnedNoRows)=>return Err(refused("CSV alias points to deleted row")),
@@ -356,7 +362,8 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         if csv_dust_from(c,key,&refs,&mut used,Some(crate::tracker::import::BINANCE_ACCEPTED),true,now)? {out.imported+=2;mark(c,now)?;invalidate(c,key.user_id)?;}else{out.duplicates+=2;}
     }
     if !plain.is_empty() {
-        let before=c.total_changes();let result=ledger::store_file(c,key,plain,crate::tracker::import::BINANCE_ACCEPTED,now)?;
+        // The retained events other units matched are taken: no evidence against an accepted row.
+        let before=c.total_changes();let result=ledger::store_file_besides(c,key,plain,crate::tracker::import::BINANCE_ACCEPTED,&used,now)?;
         out.imported+=result.imported;out.duplicates+=result.duplicates;out.skipped+=result.skipped;
         if c.total_changes()!=before {mark(c,now)?;invalidate(c,key.user_id)?;}
     }

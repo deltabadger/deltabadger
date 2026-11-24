@@ -804,6 +804,11 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
 pub fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, origin: &'static str, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
     FileWriter::new(c, key, origin)?.store(c, key, entries, now)
 }
+/// `store_file` beside rows `taken` (stored rows other entries of the same file already matched): no evidence that an
+/// entry is a duplicate, as rows this run stored are not.
+pub(crate) fn store_file_besides(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, origin: &'static str, taken: &HashSet<i64>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+    FileWriter::new(c, key, origin)?.store_from(c, key, entries, taken.clone(), now)
+}
 
 /// `store_file`'s writer state (the venue's asset rule, the merged legs stored), read once for a writer that stores
 /// many batches in one transaction (a KuCoin file, one UTC second at a time). Each batch is its own store, exactly as
@@ -817,8 +822,11 @@ impl FileWriter {
         Ok(Self { assets: Arc::new(asset_rule(c, key.exchange_id, &key.exchange_type)?), merged: stored_merged(c, key)?, pending: super::pending_transfers::Legacy::load(c,key)?, origin })
     }
     pub(crate) fn store(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+        self.store_from(c, key, entries, HashSet::new(), now)
+    }
+    fn store_from(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, stored: HashSet<i64>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
         let batch = Arc::new(entries);
-        let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored: HashSet::new(),
+        let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored,
                            repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: None, pending: Some(self.pending.clone()), origin: self.origin };
         let p = store(c, key, 0..batch.len(), None, p, now)?;
         self.merged = p.merged;
@@ -1094,7 +1102,8 @@ fn file_transfer_twin(c: &Connection, key: &Key, p: &Progress, index: usize, rep
     let Some(at) = e.transacted_at else { return Ok(false) };
     if same_event(c, key, e, e.entry_type, "", &p.stored, repeat, &api_transfer_row)? { return Ok(true); }
     for _ in 0..2 {
-        let candidates = api_rows_for(c, key, e)?;
+        // A row this run stored, or one another entry of the file already matched (`store_file_besides`), pairs no more.
+        let candidates: Vec<Stored> = api_rows_for(c, key, e)?.into_iter().filter(|r| !p.stored.contains(&r.id)).collect();
         if twinned(&candidates, at) { return Ok(true); }
         let free: Vec<&Stored> = candidates.iter().filter(|r| r.raw.get("file_twin_at").is_none()).collect();
         let [free] = free[..] else { return Ok(false) };
