@@ -54,7 +54,7 @@ fn encode(s:&Summary)->Value {
 fn side_code(s:Side)->&'static str { match s { Side::Base=>"b", Side::Quote=>"q", Side::Fee=>"f" } }
 fn encode_labels(l:&Labels)->Value {
     json!({"assets":l.assets.iter().map(|(a,id,t)|json!([a,id,t])).collect::<Vec<_>>(),"legs":l.legs.iter().map(|(r,s,t)|json!([r,side_code(*s),t])).collect::<Vec<_>>(),
-           "spellings":l.spellings.iter().map(|(t,r)|json!([t,r])).collect::<Vec<_>>()})
+           "spellings":l.spellings.iter().map(|(t,r)|json!([t,r])).collect::<Vec<_>>(),"void":l.void.iter().map(|(a,b)|json!([a,b])).collect::<Vec<_>>()})
 }
 /// A summary cached before the labels were kept reads none (each balance and pending move keeps its symbol).
 fn decode_labels(v:&Value)->Result<Labels,FiguresError> {
@@ -63,7 +63,8 @@ fn decode_labels(v:&Value)->Result<Labels,FiguresError> {
     let side=|v:&Value|match text(v)? { "b"=>Ok(Side::Base), "q"=>Ok(Side::Quote), "f"=>Ok(Side::Fee), _=>Err(malformed()) };
     Ok(Labels { assets:array(&v["assets"])?.iter().map(|p|Ok((int(&p[0])?,int(&p[1])?,text(&p[2])?.to_string()))).collect::<Result<_,FiguresError>>()?,
                 legs:array(&v["legs"])?.iter().map(|p|Ok((int(&p[0])?,side(&p[1])?,text(&p[2])?.to_string()))).collect::<Result<_,FiguresError>>()?,
-                spellings:array(&v["spellings"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()? })
+                spellings:array(&v["spellings"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()?,
+                void:array(&v["void"])?.iter().map(|p|Ok((int(&p[0])?,int(&p[1])?))).collect::<Result<_,FiguresError>>()? })
 }
 /// Every computed decimal a summary stores: the bound a reader applies is applied before publishing too.
 fn decimals(s:&Summary)->impl Iterator<Item=&Dec> {
@@ -377,7 +378,7 @@ mod tests {
     }
     #[test]
     fn labels_roundtrip() {
-        let l=Labels{assets:vec![(-2,21,"BTG (Openverse Network)".into())],legs:vec![(1,Side::Base,"BTG (Bitcoin Gold)".into()),(1,Side::Fee,"X".into())],spellings:vec![("BTG (Bitcoin Gold)".into(),"BTG".into())]};
+        let l=Labels{assets:vec![(-2,21,"BTG (Openverse Network)".into())],legs:vec![(1,Side::Base,"BTG (Bitcoin Gold)".into()),(1,Side::Fee,"X".into())],spellings:vec![("BTG (Bitcoin Gold)".into(),"BTG".into())],void:vec![(2,3),(3,2)]};
         assert_eq!(decode_labels(&encode_labels(&l)).unwrap(),l);
         assert_eq!(decode_labels(&Value::Null).unwrap(),Labels::default(),"a summary cached before the labels");
     }
@@ -470,7 +471,7 @@ mod tests {
         // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
         // and the 287-character decimal needs three successive restatements.
         let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None,account:7,to_account:None};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None,account:7,to_account:None, to_base: None};
         let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;

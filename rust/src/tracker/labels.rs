@@ -158,18 +158,35 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
 
 /// Each row's legs take their labels from the map (a leg it has none for keeps its spelling: a blank quote).
 pub fn relabel(rows: &mut [Stored], s: &Spellings) {
-    for r in rows {
+    for r in rows.iter_mut() {
         if let Some(l) = s.label(r.id, Side::Base) { r.base = l.clone(); }
         if let (Some(q), Some(l)) = (r.quote.as_mut(), s.label(r.id, Side::Quote)) { *q = l.clone(); }
         if let (Some(f), Some(l)) = (r.fee_currency.as_mut(), s.label(r.id, Side::Fee)) { *f = l.clone(); }
     }
+    unlink(rows, &void_pairs(s));
+    // A valid link whose quantity arrives under another label (unknown units at two accounts) lands under that label.
+    for r in rows.iter_mut() {
+        let Some(to) = r.linked_to else { continue };
+        let moved = [Link { from: (r.id, Side::Base), to: (to, Side::Base) }, Link { from: (to, Side::Base), to: (r.id, Side::Base) }].iter().find_map(|l| s.transfer(l));
+        r.to_base = moved.filter(|(from, arrive)| from != arrive && *from == &r.base).map(|(_, arrive)| arrive.clone());
+    }
+}
+
+/// The rows of each void link, both ways round.
+fn void_pairs(s: &Spellings) -> Vec<(i64, i64)> { s.void_links().iter().flat_map(|l| [(l.from.0, l.to.0), (l.to.0, l.from.0)]).collect() }
+
+/// A link the map voids (two coins, a cut, too little held) is void for quantity too: its rows read unlinked.
+fn unlink(rows: &mut [Stored], void: &[(i64, i64)]) {
+    for r in rows.iter_mut().filter(|r| r.linked_to.is_some_and(|to| void.contains(&(r.id, to)))) { r.linked_to = None; r.to_venue = None; r.to_exchange_id = None; r.to_account = None; }
 }
 
 /// What reconciliation reads of the map after the walk (balances and pending moves joined to positions by label), kept
 /// with each cached summary: every current balance's label, the legs whose label is not their own spelling, and each
 /// such label's first raw spelling (for the lookups that still gather by spelling).
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Side, String)>, pub spellings: Vec<(String, String)> }
+pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Side, String)>, pub spellings: Vec<(String, String)>,
+                    /// The void links' rows, both ways round (`Spellings::void_links`).
+                    pub void: Vec<(i64, i64)> }
 
 impl Labels {
     /// The table for `rows` (as read, before `relabel`) under map `s`.
@@ -187,7 +204,7 @@ impl Labels {
             .filter_map(|l| s.raw(l).first().filter(|r| **r != l.as_str()).map(|r| (l.as_str().to_string(), r.clone()))).collect();
         spellings.sort();
         spellings.dedup();
-        Labels { assets, legs, spellings }
+        Labels { assets, legs, spellings, void: void_pairs(s) }
     }
     /// The label of an account's balance of an asset; None when the map has none (the balance keeps its symbol).
     pub fn asset(&self, account: i64, asset: i64) -> Option<&str> { self.assets.iter().find(|(a, id, _)| *a == account && *id == asset).map(|(_, _, l)| l.as_str()) }
@@ -198,12 +215,15 @@ impl Labels {
     /// `rows` (as read) take the labels of their legs; a leg with none keeps its spelling.
     pub fn relabel(&self, rows: &mut [Stored]) {
         let of: HashMap<(i64, Side), &str> = self.legs.iter().map(|(r, side, l)| ((*r, *side), l.as_str())).collect();
-        for r in rows {
+        for r in rows.iter_mut() {
             if let Some(l) = of.get(&(r.id, Side::Base)) { r.base = super::spellings::Label::spelled(*l); }
             if let (Some(q), Some(l)) = (r.quote.as_mut(), of.get(&(r.id, Side::Quote))) { *q = super::spellings::Label::spelled(*l); }
             if let (Some(f), Some(l)) = (r.fee_currency.as_mut(), of.get(&(r.id, Side::Fee))) { *f = super::spellings::Label::spelled(*l); }
         }
+        unlink(rows, &self.void);
     }
+    /// Whether the map voids the link between rows `a` and `b`.
+    pub fn void(&self, a: i64, b: i64) -> bool { self.void.contains(&(a, b)) }
 }
 
 #[cfg(test)]
@@ -344,6 +364,41 @@ mod tests {
         assert_eq!(notes(&summary), [("arrived", "BTG".to_string()), ("left", "BTG (Bitcoin Gold)".to_string())], "by symbol");
         summary.labels = labels;
         assert_eq!(notes(&summary), [("arrived", "BTG (Openverse Network)".to_string())], "by label: only the Openverse units arrived");
+    }
+
+    /// Codex r1: a valid link between unknown units at two accounts that print apart lands its lots under the
+    /// deposit's label, so the destination's own rows find them.
+    #[test]
+    fn a_valid_link_lands_under_the_deposits_label() {
+        let c = db(CATALOGUE, "",
+                   &["1, 0, 'ZZZ', 1, 'USDT', 1, NULL, NULL, NULL, NULL, '2024-01-01 00:00:00'",
+                     "1, 5, 'ZZZ', 1, NULL, NULL, NULL, NULL, 3, NULL, '2024-01-02 00:00:00'",
+                     "3, 4, 'ZZZ', 1, NULL, NULL, NULL, NULL, NULL, NULL, '2024-01-02 01:00:00'"]);
+        let (rows, s) = map(&c);
+        assert!(s.void_links().is_empty());
+        let sent = rows.iter().find(|r| r.id == 2).unwrap();
+        assert_eq!((sent.base.as_str(), sent.linked_to), ("ZZZ", Some(3)));
+        assert_eq!(sent.to_base.as_ref().map(|l| l.as_str()), Some("ZZZ (unidentified on mexc)"));
+        assert_eq!(rows.iter().find(|r| r.id == 3).unwrap().base.as_str(), "ZZZ (unidentified on mexc)");
+        assert_eq!(rows.iter().find(|r| r.id == 1).unwrap().to_base, None, "no link, no arrival label");
+    }
+
+    /// Codex r1: a link the map voids (Bitcoin Gold out of Binance, Openverse into KuCoin, both BTG) is void for quantity
+    /// too: the walk, the backfill and the tax read both rows unlinked, and a pending move does not net them.
+    #[test]
+    fn a_void_link_reads_unlinked() {
+        let c = db(CATALOGUE, "INSERT INTO tickers VALUES (1, 1, 'BTG', 'USDT', 20, 3); INSERT INTO tickers VALUES (2, 2, 'BTG', 'USDT', 21, 3);",
+                   &["1, 0, 'BTG', 1, 'USDT', 20, NULL, NULL, NULL, NULL, '2019-01-01 00:00:00'",
+                     "1, 5, 'BTG', 1, NULL, NULL, NULL, NULL, 3, NULL, '2019-01-02 00:00:00'",
+                     "2, 4, 'BTG', 1, NULL, NULL, NULL, NULL, NULL, NULL, '2019-01-02 01:00:00'"]);
+        let (rows, s) = map(&c);
+        assert_eq!(s.void_links(), &[Link { from: (2, Side::Base), to: (3, Side::Base) }]);
+        let sent = rows.iter().find(|r| r.id == 2).unwrap();
+        assert_eq!((sent.linked_to, sent.to_account), (None, None), "void for quantity");
+        assert_eq!(sent.base.as_str(), "BTG (Bitcoin Gold)");
+        assert_eq!(rows.iter().find(|r| r.id == 3).unwrap().base.as_str(), "BTG (Openverse Network)");
+        let (_, labels) = crate::tracker::rows::load_all_labelled(&c, 1).unwrap();
+        assert!(labels.void(2, 3) && labels.void(3, 2) && !labels.void(1, 2));
     }
 
     /// A stored link carries a known withdrawal's coin to an unlisted deposit, whichever row names the other.

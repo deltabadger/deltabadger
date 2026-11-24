@@ -1287,7 +1287,7 @@ mod tests {
     fn btc(id: i64, kind: Kind, amount: &str, paid: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "BTC".into(), amount: d(amount), quote: paid.map(|_| "USD".into()), quote_amount: paid.map(d),
                  fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql(at).unwrap(), per_share: None, stated: None, linked_to: None,
-                 to_venue: None, to_exchange_id: None, base_asset: None, bot_order: None, account: 1, to_account: None,
+                 to_venue: None, to_exchange_id: None, base_asset: None, bot_order: None, account: 1, to_account: None, to_base: None,
                  cfee: rows::Cfee { price: paid.map(|p| d(p).div(&d(amount)).unwrap()), symbol: Some("BTC/USD".into()), ..Default::default() } }
     }
     fn legacy(id: i64, amount: &str, at: &str) -> Stored { Stored { cfee: rows::Cfee { fee: true, ..Default::default() }, ..btc(id, Kind::Fee, amount, None, at) } }

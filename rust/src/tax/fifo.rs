@@ -1706,7 +1706,7 @@ mod tests {
         Tx { row: Row { uid, kind, base: base.into(), amount: d(amount), quote: Some("USD".into()), quote_amount: None, fiat_value: d(value),
                         fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None, at: at(day), group: None, price_missing: false,
                         value_missing: Some(false), exchange: venue.into(), linked: false, transfer_fee: None, swap_fiat_cost: None,
-                        swap_stable_cost: None, per_share: None, to_exchange: None, account: venue.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None,
+                        swap_stable_cost: None, per_share: None, to_exchange: None, account: venue.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None, to_base: None,
                         orphan: false, opening: false, stated_value: false, fee_missing: false, class: None },
              tx_id: None, fiat_exit: true, asset: base.into(), fee_asset: None, cash_group: false }
     }

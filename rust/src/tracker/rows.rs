@@ -71,6 +71,9 @@ pub struct Stored {
     /// lots, cash and transfer ends by it; `venue` stays the exchange's identity (pricing, the cash rule).
     pub account: i64,
     pub to_account: Option<i64>,
+    /// A valid link's arrival label when it is not the withdrawal's (`Spellings::transfer`): the lots it moves are booked
+    /// under it at the destination.
+    pub to_base: Option<super::spellings::Label>,
     /// `base_asset`: the asset the row recorded, as (id, external id, category).
     pub base_asset: Option<super::prices::Asset>,
     /// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE, and what the fold made of a fill it was charged on.
@@ -463,7 +466,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
                 ..Cfee::default()
             },
             bot_order: r.get(21)?,
-            account: r.get(23)?, to_account: r.get(24)?,
+            account: r.get(23)?, to_account: r.get(24)?, to_base: None,
         });
     }
     Ok(rows)
@@ -579,7 +582,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None, to_base: None }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.

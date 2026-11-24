@@ -487,7 +487,7 @@ fn apply(held: &mut Held, t: &Stored, linked: &dyn Fn(&Stored) -> bool, by_id: &
                 let fee = if fee.is_positive() { fee } else { Dec::zero() };
                 let destination = t.to_account.map(super::walk::location).unwrap_or_default();
                 if destination == here { add(held, venue, &t.base, &fee.neg())?; }
-                else { add(held, venue, &t.base, &t.amount.neg())?; add(held, &destination, &t.base, &(&t.amount - &fee)?)?; }
+                else { add(held, venue, &t.base, &t.amount.neg())?; add(held, &destination, t.to_base.as_ref().unwrap_or(&t.base), &(&t.amount - &fee)?)?; }
             }
         }
         Kind::Adjustment => add(held, venue, &t.base, &t.amount)?,
@@ -569,7 +569,7 @@ mod tests {
     fn bought(symbol: &str) -> Stored {
         Stored { id: 1, exchange_id: 1, venue: "alpaca".into(), kind: Kind::Buy, base: symbol.into(), amount: Dec::one(), quote: Some("USD".into()), quote_amount: Some(Dec::one()),
                  fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None,
-                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None }
+                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None, to_base: None }
     }
 
     /// A coin a broker's rows named still takes the dated cut where its symbol changed coin (Terra's LUNA).

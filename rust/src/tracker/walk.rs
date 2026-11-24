@@ -35,7 +35,7 @@ fn binance_a12_recorded_accounting_baselines() {
                 fiat_value:d("fiat_value"),fee_fiat_value:d("fee_fiat_value"),fee_currency:r["fee_currency"].as_str().map(Label::from),fee_amount:r["fee_amount"].as_str().map(|s|Dec::parse(s).unwrap()),
                 at:At::from_sql(r["transacted_at"].as_str().unwrap()).unwrap(),group:r["group_id"].as_str().map(str::to_owned),
                 price_missing:false,value_missing:None,exchange:"binance".into(),linked:false,transfer_fee:None,swap_fiat_cost:None,
-                swap_stable_cost:None,per_share:None,to_exchange:None,account:0,to_account:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
+                swap_stable_cost:None,per_share:None,to_exchange:None,account:0,to_account:None, to_base: None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
         }).collect();
         let mut engine=Engine::new(false); engine.calculate(&rows).unwrap();
         let lots: serde_json::Map<String,Value>=engine.lots.iter().map(|((_,asset),ls)|
@@ -86,6 +86,9 @@ pub struct Row {
     /// and the tax report's wallet. `exchange` stays the venue where a reader prices or names it.
     pub account: i64,
     pub to_account: Option<i64>,
+    /// A valid link's arrival label when it is not the withdrawal's (`Spellings::transfer`): the lots it moves are booked
+    /// under it at the destination.
+    pub to_base: Option<super::spellings::Label>,
     pub orphan: bool,
     /// An opening balance the walk booked (`open_with_what_must_have_been_held`), not a stored row.
     pub opening: bool,
@@ -396,7 +399,7 @@ pub fn enrich_with(stored: &[Stored], deposits: &HashMap<i64, Dec>, ps: &mut Pri
             group: t.group.clone(), price_missing, value_missing: Some(value_missing), exchange: t.venue.clone(),
             linked: links.contains_key(&t.id) || linked_deposits.contains(&t.id), transfer_fee,
             swap_fiat_cost: leg.and_then(|l| l.swap_fiat.clone()), swap_stable_cost: leg.and_then(|l| l.swap_stable.clone()),
-            per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), account: t.account, to_account: t.to_account, orphan: false, opening: false,
+            per_share: t.per_share.clone(), to_exchange: t.to_venue.clone(), account: t.account, to_account: t.to_account, to_base: t.to_base.clone(), orphan: false, opening: false,
             stated_value: t.stated.is_some() && !(t.quoted() || leg.is_some_and(|l| l.fiat_value.is_some())), fee_missing,
             class: super::prices::recorded_class(t.base_asset.as_ref()),
         });
@@ -481,7 +484,7 @@ pub(crate) fn located_moves(r: &Row) -> Result<Vec<(Option<String>, Label, Dec)>
     if !between_venues(r) { return Ok(moves.collect()); }
     let mut out: Vec<(Option<String>, Label, Dec)> = moves.filter(|(_, s, _)| *s != r.base).collect();
     out.push((Some(r.exchange.clone()), r.base.clone(), r.amount.neg()));
-    out.push((r.to_exchange.clone(), r.base.clone(), (&r.amount - &r.transfer_fee.clone().unwrap_or_else(Dec::zero))?));
+    out.push((r.to_exchange.clone(), r.to_base.clone().unwrap_or_else(|| r.base.clone()), (&r.amount - &r.transfer_fee.clone().unwrap_or_else(Dec::zero))?));
     Ok(out)
 }
 
@@ -626,7 +629,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         before.entry(i).or_default().push(Row {
             uid, kind: Kind::Deposit, base: symbol, fiat_value: (&price * &quantity)?, fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None,
             amount: quantity, quote: None, quote_amount: None, at, group: None, price_missing: price.is_zero(), value_missing: None, exchange: venue,
-            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, account: row.account, to_account: None, orphan: false, opening: true, stated_value: false, fee_missing: false, class: None,
+            linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None, to_exchange: None, account: row.account, to_account: None, to_base: None, orphan: false, opening: true, stated_value: false, fee_missing: false, class: None,
         });
     }
     if before.is_empty() { return Ok(rows); }
@@ -913,7 +916,9 @@ impl Engine {
         let after = self.pool_basis(&r.base)?;
         self.fee_basis.insert(r.uid, (&before - &after)?);
         let Some(destination) = r.to_exchange.clone().filter(|d| !d.is_empty()) else { return Ok(()) };
-        if !self.located || destination == r.exchange { return Ok(()); }
+        // A valid link into another label (unknown units at two accounts) re-keys its lots, pooled or within a venue.
+        let arrive = r.to_base.clone().filter(|b| *b != r.base);
+        if (!self.located || destination == r.exchange) && arrive.is_none() { return Ok(()); }
         let amount = (&r.amount - &r.transfer_fee.clone().unwrap_or_else(Dec::zero))?;
         if !amount.is_positive() { return Ok(()); }
         let (mut tranches, held) = self.dequeue(&r.base, &amount)?;
@@ -923,7 +928,8 @@ impl Engine {
             self.uncovered_venues.insert(self.venue.clone());
             tranches.push(Tranche { amount: uncovered.clone(), cost: Dec::zero(), date: r.at, basis_assumed: true, unpriced: uncovered, weight: Dec::zero(), class: r.class });
         }
-        let key = (Some(destination), r.base.clone());
+        let label = arrive.unwrap_or_else(|| r.base.clone());
+        let key = if self.located { (Some(destination), label) } else { self.key(&label) };
         let lots = self.lots.entry(key.clone()).or_default();
         for t in &tranches {
             if !t.amount.is_positive() { continue; }
@@ -1721,7 +1727,7 @@ mod tests {
         Row { uid, kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None, fiat_value: Dec::zero(), fee_fiat_value: Dec::zero(),
               fee_currency: None, fee_amount: None, at: At::from_sql(at).unwrap(), group: None, price_missing: false, value_missing: None,
               exchange: exchange.into(), linked: false, transfer_fee: None, swap_fiat_cost: None, swap_stable_cost: None, per_share: None,
-              to_exchange: None, account: exchange.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None, orphan: false, opening: false, stated_value: false, fee_missing: false, class: None }
+              to_exchange: None, account: exchange.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None, to_base: None, orphan: false, opening: false, stated_value: false, fee_missing: false, class: None }
     }
     /// A 1 BTC withdrawal from `from` linked to a deposit on `to`.
     fn send(uid: usize, from: &str, to: &str) -> Row { Row { linked: true, to_exchange: Some(to.into()), ..row(uid, Kind::Withdrawal, "BTC", "1", T, from) } }
@@ -1834,7 +1840,7 @@ mod tests {
     fn st(id: i64, venue: &str, kind: Kind, base: &str, amount: &str, at: &str) -> Stored {
         Stored { id, exchange_id: if venue == "a" { 1 } else { 2 }, venue: venue.into(), kind, base: base.into(), amount: d(amount), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql(at).unwrap(), per_share: None, stated: None, linked_to: None,
-                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: if venue == "a" { 1 } else { 2 }, to_account: None }
+                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: if venue == "a" { 1 } else { 2 }, to_account: None, to_base: None }
     }
     fn trade(id: i64, venue: &str, kind: Kind, amount: &str, quote: &str, paid: &str, at: &str) -> Stored {
         Stored { quote: Some(quote.into()), quote_amount: Some(d(paid)), ..st(id, venue, kind, "BTC", amount, at) }
@@ -1976,6 +1982,20 @@ mod tests {
         let sent = Stored { linked_to: Some(3), to_venue: Some("a".into()), to_exchange_id: Some(1), to_account: Some(1), ..st(2, "b", Kind::Withdrawal, "BTC", "1", D2) };
         let rows = vec![trade(1, "b", Kind::Buy, "1", "USD", "100", D1), sent, st(3, "a", Kind::Deposit, "BTC", "1", D2), sold(4, 7, "1", "USD", "150", D3)];
         assert_eq!(walked_with(rows, &[(3, "1")], &Default::default()).bot_sales, [sale(7, D3, "1", "USD", "100", true)]);
+    }
+
+    /// Delisted coins (Codex r1): a valid link into another label (unknown units at two accounts) moves its lots under
+    /// the deposit's label, located and pooled, keeping their cost.
+    #[test]
+    fn a_link_into_another_label_moves_the_lots_under_it() {
+        let zzz = |r: Stored| Stored { base: Label::spelled("ZZZ"), ..r };
+        let sent = Stored { linked_to: Some(3), to_venue: Some("a".into()), to_exchange_id: Some(1), to_account: Some(1), to_base: Some(Label::spelled("ZZZ (a)")),
+                            ..zzz(st(2, "b", Kind::Withdrawal, "BTC", "1", D2)) };
+        let rows = vec![zzz(trade(1, "b", Kind::Buy, "1", "USD", "100", D1)), sent, Stored { base: Label::spelled("ZZZ (a)"), ..st(3, "a", Kind::Deposit, "BTC", "1", D2) }];
+        let w = walked_with(rows, &[(3, "1")], &Default::default());
+        let held = |s: &Summary| s.positions.iter().filter(|p| p.quantity.is_positive()).map(|p| (p.symbol.clone(), p.quantity.to_s_f(), p.cost.to_s_f())).collect::<Vec<_>>();
+        assert_eq!(held(&w.whole), [("ZZZ (a)".to_string(), "1.0".to_string(), "100.0".to_string())], "pooled");
+        assert_eq!(held(w.venue(1).unwrap()), [("ZZZ (a)".to_string(), "1.0".to_string(), "100.0".to_string())], "located");
     }
 
     #[test]

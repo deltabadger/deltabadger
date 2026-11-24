@@ -125,7 +125,7 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope, labels: &supe
             fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::group_id(r.get(11)?),
             at,
             per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None,
-            account, to_account: None,
+            account, to_account: None, to_base: None,
         });
     }
     labels.relabel(&mut rows);
@@ -133,7 +133,7 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope, labels: &supe
     let amounts: HashMap<i64, Dec> = rows.iter().map(|r| (r.id, r.amount.clone())).collect();
     // D-TRACKER-COIN-QUOTE: a coin-quoted single row moves as its two legs, as the walk reads it (a new leg is unlinked).
     for r in &super::rows::split_coin_quoted_trades(rows, true)? {
-        let partner = links.get(&r.id).or_else(|| inverse.get(&r.id)).copied();
+        let partner = links.get(&r.id).or_else(|| inverse.get(&r.id)).copied().filter(|p| !labels.void(r.id, *p));
         let linked = partner.is_some_and(|p| ids.contains(&p));
         let fee = match (linked, r.kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((&r.amount - p)?), _ => None };
         for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol.to_string(), a)?; } }
