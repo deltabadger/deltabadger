@@ -486,6 +486,21 @@ mod tests {
         assert_eq!(mine.coin("BTG (Openverse Network)"), None);
     }
 
+    /// Codex r2: the ledger reads a row's quote as cash by its label: a venue's coin spelled `PLN` (PLEARN on MEXC) is no
+    /// złoty, so the row is not priced by its counterpart as if it were.
+    #[test]
+    fn a_coin_quote_spelled_like_cash_is_no_counterpart() {
+        let c = db(CATALOGUE, "INSERT INTO tickers VALUES (1, 3, 'BTC', 'PLN', 1, 30);",
+                   &["3, 0, 'BTC', 1, 'PLN', 500, NULL, NULL, NULL, NULL, '2024-01-01 00:00:00'"]);
+        let (_, s) = map(&c);
+        assert_eq!(printed(&s, 1, Side::Quote), "PLN (PLEARN)");
+        let row = crate::web::tracker::row::Row { id: 1, owner: 1, exchange: 3, kind: 0, base: "BTC".into(), amount: Dec::one(), quote: Some("PLN".into()),
+            quoted: Some(Dec::from_i64(500)), fee: None, fee_currency: None, at: chrono::Utc::now(), group: None, manual: serde_json::json!({}), manual_null: false,
+            linked: None, inverse: None, asset: None, bot: None, venue: "mexc".into(), raw: serde_json::json!({}) };
+        assert!(row.counterpart(&c, None).unwrap().is_some(), "by its spelling, PLN is the złoty");
+        assert!(row.counterpart(&c, Some(&s)).unwrap().is_none(), "by its label, PLEARN");
+    }
+
     /// A stored link carries a known withdrawal's coin to an unlisted deposit, whichever row names the other.
     #[test]
     fn a_link_carries_the_coin_either_way_it_is_stored() {

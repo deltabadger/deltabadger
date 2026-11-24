@@ -418,7 +418,7 @@ fn readers_keep_each_accounts_groups_and_ids() {
     assert_ne!((account(a), group(a)), (account(b), group(b)), "two accounts' legs of one group id are two groups");
     assert!(rows.iter().find(|r| r.id == fut).unwrap().borrowed(), "account 2's futures row is read by its relocated id");
     assert_eq!(rows.iter().find(|r| r.id == b).unwrap().tx_id.as_deref(), Some("b-coin"));
-    let price = |id: i64| deltabadger::web::tracker::row::Row::load(c, two.seeded.user_id, id).unwrap().unwrap().counterpart(c).unwrap();
+    let price = |id: i64| deltabadger::web::tracker::row::Row::load(c, two.seeded.user_id, id).unwrap().unwrap().counterpart(c, None).unwrap();
     assert!(price(a).is_some(), "account 1's pair prices its coin leg");
     assert_eq!((price(b), price(lone)), (None, None), "no leg of the other account prices it");
 }
