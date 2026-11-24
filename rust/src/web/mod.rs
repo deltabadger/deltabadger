@@ -1026,8 +1026,9 @@ pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// with an empty form. The pipeline keeps the decision; it never selects another cookie.
 #[derive(Clone)]
 enum Admission {
-    /// The selected cookie's session. The pipeline checks the account again after the read.
-    Admitted { data: Box<session::SessionData> },
+    /// The selected cookie (its value) and its session. The pipeline checks the account again after the read, and last
+    /// of all, with a fresh clock, that this cookie is still the one selected.
+    Admitted { token: String, data: Box<session::SessionData> },
     /// The selected session as it arrived (none: the default), as the account check left it (no user, CSRF secret
     /// kept), and who that makes the request: `SignedOut` or `Inactive`.
     Denied { before: Box<session::SessionData>, cleared: Box<session::SessionData>, current: auth::Current },
@@ -1047,7 +1048,7 @@ async fn admit(app: &App, headers: &HeaderMap) -> Result<Admission, WebError> {
     let session = session::Session::new(opened.data.clone());
     let current = auth::current_user(app, &session, now).await?;
     if matches!(current, auth::Current::SignedIn(_)) && still_selected(app, headers, &token) {
-        return Ok(Admission::Admitted { data: Box::new(opened.data) });
+        return Ok(Admission::Admitted { token, data: Box::new(opened.data) });
     }
     session.lock().user = None;
     let current = if let auth::Current::Inactive(reason) = current { auth::Current::Inactive(reason) } else { auth::Current::SignedOut };
@@ -1397,6 +1398,14 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         return response;
     }
 
+    // On an import route the setup lookup comes first, so the account check is the last read before any answer is chosen.
+    let early_setup = match &admission {
+        Some(admission) => match needs_setup(&app, &params).await {
+            Ok(to_setup) => Some(to_setup),
+            Err(error) => return finish(&app, &session, &before, &nonce, now, matches!(admission, Admission::Admitted { .. }), error.into_response()),
+        },
+        None => None,
+    };
     let current = match &admission {
         Some(Admission::Denied { current, .. }) => current.clone(),
         _ => match auth::current_user(&app, &session, now).await {
@@ -1404,13 +1413,25 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
             Err(error) => return error.into_response(),
         },
     };
+    // The admitted cookie, after the last lookup and with a fresh clock: still the one selected, still unexpired. If not,
+    // the request is signed out, and its session loses the user before it is sealed: an ended sign-in is never renewed.
+    let current = match &admission {
+        Some(Admission::Admitted { token, .. }) if !still_selected(&app, request.headers(), token) => {
+            session.lock().user = None;
+            auth::Current::SignedOut
+        }
+        _ => current,
+    };
     let signed_in = matches!(current, auth::Current::SignedIn(_));
     let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
 
     // ApplicationController#redirect_to_setup_if_needed: after Devise's prepended filters and the CSRF check.
-    let to_setup = match needs_setup(&app, &context.params).await {
-        Ok(to_setup) => to_setup,
-        Err(error) => return finish(&app, &session, &before, &nonce, now, signed_in, error.into_response()),
+    let to_setup = match early_setup {
+        Some(to_setup) => to_setup,
+        None => match needs_setup(&app, &context.params).await {
+            Ok(to_setup) => to_setup,
+            Err(error) => return finish(&app, &session, &before, &nonce, now, signed_in, error.into_response()),
+        },
     };
     let response = if let Some(early) = auth::prepended_filters(&context) {
         early

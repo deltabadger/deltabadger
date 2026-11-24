@@ -21,7 +21,7 @@ const HEADER: &str = "Timestamp,Order ID,Type,Side,Amount,Value,Price,Base Asset
 const ROW: &str = "2026-08-01 10:00:00 UTC,x,Market,Buy,0.001,60,60000,BTC,USD,Closed";
 const MIB: usize = 1024 * 1024;
 
-struct Install { _d: tempfile::TempDir, o: deltabadger::store::Opened, user: i64, salt: String, bot: i64, clock: Arc<TestClock>, app: App }
+struct Install { d: tempfile::TempDir, o: deltabadger::store::Opened, user: i64, salt: String, bot: i64, clock: Arc<TestClock>, app: App }
 
 /// A configured install: its admin (confirmed) and one stopped Alpaca basket of theirs.
 fn install() -> Install {
@@ -31,7 +31,7 @@ fn install() -> Install {
     let hash: String = o.primary.query_row("SELECT encrypted_password FROM users WHERE id=?1", [s.user_id], |r| r.get(0)).unwrap();
     let clock = TestClock::at(T0);
     let app = web::app(d.path(), web::SECRET, clock.clone());
-    Install { salt: hash.chars().take(29).collect(), user: s.user_id, bot, _d: d, o, clock, app }
+    Install { salt: hash.chars().take(29).collect(), user: s.user_id, bot, d, o, clock, app }
 }
 
 impl Install {
@@ -334,4 +334,136 @@ async fn a_denied_request_does_not_turn_to_another_cookie() {
     assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (signed_out.status, signed_out.location.as_deref(), signed_out.flash()));
     assert_eq!((answer.status, answer.location.as_deref()), (302, Some("/")));
     assert_eq!(answer.session.unwrap().user, None);
+}
+
+/// C2: admission binds the session it chose. Cookie A admits the upload and expires during the read; cookie B (the same
+/// user, its token in the header) would now open: the request is not B's, nothing is imported.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cookie_that_expires_during_the_read_does_not_hand_the_import_to_another() {
+    let i = install();
+    let (a, b) = (csrf::new_token(), csrf::new_token());
+    let first = i.cookie_at(&i.signed_in(&a), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+    let second = i.cookie_at(&i.signed_in(&b), i.now());
+    let clock = i.clock.clone();
+    let later = i.now() + Duration::seconds(10);
+    let polls = Arc::new(AtomicUsize::new(0));
+    let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&a))], &[("file", "orders.csv", &csv())]);
+    let headers = [("content-type", content_type.as_str()), ("x-csrf-token", &csrf::masked(&b))];
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&first, &second], &headers, counted(body, polls.clone(), move || clock.set(later))).await;
+    assert!(polls.load(Ordering::SeqCst) > 0, "admitted");
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
+    assert_eq!(answer.session.unwrap().user, None);
+    assert_eq!(i.rows(), 0);
+}
+
+/// C2: a password changed while the body is on its way ends the sign-in: nothing is imported.
+#[tokio::test(flavor = "current_thread")]
+async fn a_password_changed_during_the_read_imports_nothing() {
+    let i = install();
+    let secret = csrf::new_token();
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+    let db = i.d.path().join("production.sqlite3");
+    let polls = Arc::new(AtomicUsize::new(0));
+    let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+    let change = move || { rusqlite::Connection::open(&db).unwrap().execute("UPDATE users SET encrypted_password='$2a$11$changedchangedchangedch.x'", []).unwrap(); };
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls.clone(), change)).await;
+    assert!(polls.load(Ordering::SeqCst) > 0);
+    assert_eq!((answer.status, answer.location.as_deref()), (302, Some("/login")));
+    assert_eq!(i.rows(), 0);
+}
+
+/// D3: an admitted upload whose cookie expires during the read keeps the reader's answer to a bad body (400 truncated,
+/// 413 oversized) and gets the signed-out answer to a good one; neither writes.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cookie_that_expires_during_the_read_gets_the_reader_s_error_or_the_signed_out_answer() {
+    let i = install();
+    let secret = csrf::new_token();
+    let (content_type, good) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+    let mut huge = vec![b'a'; deltabadger::web::IMPORT_LIMIT];
+    huge.extend_from_slice(b"overflow");
+    let oversized = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "big.csv", &huge)]).1;
+    for (case, body, status) in [("truncated", good[..good.len() - 8].to_vec(), 400), ("oversized", oversized, 413), ("good", good.clone(), 302)] {
+        i.clock.set(web::at(T0));
+        let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+        let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
+        let polls = Arc::new(AtomicUsize::new(0));
+        let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls.clone(), move || clock.set(later))).await;
+        assert!(polls.load(Ordering::SeqCst) > 0, "{case}");
+        assert_eq!(answer.status, status, "{case}: {}", answer.body);
+        if status == 302 { assert_eq!(answer.location.as_deref(), Some("/login"), "{case}"); }
+        assert_eq!(i.rows(), 0, "{case}");
+    }
+}
+
+/// D3: a stalled admitted upload is the reader's 408, however its cookie fares meanwhile.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn a_stalled_upload_whose_cookie_expires_is_the_reader_s_timeout() {
+    let i = install();
+    let secret = csrf::new_token();
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+    let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
+    let (content_type, good) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+    let mut first = Some(move || clock.set(later));
+    let start = Bytes::copy_from_slice(&good[..good.len() / 2]);
+    let stalled = futures_util::stream::once(async move { if let Some(first) = first.take() { first(); } Ok::<_, std::convert::Infallible>(start) })
+        .chain(futures_util::stream::pending());
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], Body::from_stream(stalled)).await;
+    assert_eq!(answer.status, 408, "{}", answer.body);
+    assert_eq!(i.rows(), 0);
+}
+
+/// E1: the cookie expires during the post-read lookup, the token is valid and the import would write: the signed-out
+/// answer, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cookie_that_expires_during_the_post_read_lookup_imports_nothing() {
+    let i = install();
+    let secret = csrf::new_token();
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+    let armed = Arc::new(AtomicBool::new(false));
+    let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
+    i.at_admin_read(Some(armed.clone()), 1, move || clock.set(later)).await;
+    let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+    let polls = Arc::new(AtomicUsize::new(0));
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
+    assert_eq!(answer.session.unwrap().user, None);
+    assert_eq!(i.rows(), 0);
+}
+
+/// F1: the final check comes before any answer is chosen. The cookie expires during the post-read setup lookup and the
+/// token is invalid: the unverified-request answer, nothing written, and the cookie it returns does not sign anyone in.
+#[tokio::test(flavor = "current_thread")]
+async fn an_expired_sign_in_is_never_sealed_again() {
+    let i = install();
+    let secret = csrf::new_token();
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+    let armed = Arc::new(AtomicBool::new(false));
+    let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
+    i.at_admin_read(Some(armed.clone()), 1, move || clock.set(later)).await;
+    let (content_type, body) = web::multipart(&[("authenticity_token", "invalid")], &[("file", "orders.csv", &csv())]);
+    let polls = Arc::new(AtomicUsize::new(0));
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")));
+    assert_eq!(answer.session.as_ref().unwrap().user, None, "the resealed session has nobody in it");
+    assert_eq!(i.rows(), 0);
+    let next = send(&i.app, "GET", "/settings/account", &[answer.cookie.as_deref().unwrap()], &[], Body::empty()).await;
+    assert_eq!((next.status, next.location.as_deref()), (302, Some("/login")), "the returned cookie does not authenticate");
+}
+
+/// F2: the account check is the last read before dispatch. A password change committed between the setup lookup and the
+/// account lookup imports nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_password_changed_between_the_lookups_imports_nothing() {
+    let i = install();
+    let secret = csrf::new_token();
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+    let armed = Arc::new(AtomicBool::new(false));
+    let db = i.d.path().join("production.sqlite3");
+    let change = move || { rusqlite::Connection::open(&db).unwrap().execute("UPDATE users SET encrypted_password='$2a$11$changedchangedchangedch.x'", []).unwrap(); };
+    i.at_admin_read(Some(armed.clone()), 2, change).await;
+    let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+    let polls = Arc::new(AtomicUsize::new(0));
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
+    assert_eq!(i.rows(), 0);
 }
