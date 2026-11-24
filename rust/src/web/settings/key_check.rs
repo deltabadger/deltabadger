@@ -543,7 +543,10 @@ pub const MEXC_DEPOSITS_PATH: &str = "/api/v3/capital/deposit/hisrec";
 /// payload (None: Faraday's nil for an empty body); else the verdict. KEY_CHECK_REJECTED, or MEXC's invalid-key words in
 /// the failure's `msg`, are an incorrect key; any other code in a success is no verdict with its `msg`; any other failure
 /// no verdict with its text.
+/// Divergence D-MEXC-5XX-NO-VERDICT (#710 slice 9): a 5xx or a 429 is no verdict whatever code its body carries (2.x read
+/// KEY_CHECK_REJECTED under any status).
 pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Result<Option<Value>, Verdict> {
+    if let Ok(r) = answer { if r.status >= 500 || r.status == 429 { return Err(Verdict::Failure(raised(r, method, url))); } }
     let (data, failure): (Option<Value>, Option<String>) = match answer {
         Err(error) => (None, Some(transport(error))),
         Ok(response) if !(200..300).contains(&response.status) => (None, Some(raised(response, method, url))),
@@ -576,18 +579,24 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
 /// withdrawal key passes on the read); for a reading key (#get_read_api_key_validity, `reading`) the deposit history then
 /// (`limit: 1`), MEXC granting it under its own permission. The last answer (for the diagnostics) and the verdict.
 pub async fn mexc_check<T: Transport>(transport: &T, venue: &crate::venue::mexc::MexcVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
-    use crate::venue::mexc::{ACCOUNT_PATH, RECV_WINDOW};
-    let read = venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.into())], transport.now());
-    let answer = transport.send(&read).await;
-    let data = match mexc_answer_verdict(&answer, read.method, read.url().as_str()) { Ok(data) => data, Err(verdict) => return (answer, verdict) };
-    let Some(can_trade) = data.as_ref().filter(|d| d.is_object()).and_then(|d| d.get("canTrade")).and_then(Value::as_bool) else {
-        return (answer, Verdict::Failure("MEXC answered without an account payload".into()));
-    };
-    if !reading { return (answer, Verdict::Valid(kind == 1 || can_trade)); }
-    let deposits = venue.signed("GET", MEXC_DEPOSITS_PATH, vec![("limit", "1".into()), ("recvWindow", RECV_WINDOW.into())], transport.now());
-    let answer = transport.send(&deposits).await;
-    let verdict = mexc_answer_verdict(&answer, deposits.method, deposits.url().as_str()).err().unwrap_or(Verdict::Valid(true));
+    let (answer, verdict, _) = mexc_check_identified(transport, venue, kind, reading).await;
     (answer, verdict)
+}
+/// `mexc_check`, with what its last answer states as an identity read (`identity::mexc_answer`: its status and code), read
+/// as it arrived, before the transport scrubs a body that echoes the key.
+pub async fn mexc_check_identified<T: Transport>(transport: &T, venue: &crate::venue::mexc::MexcVenue<T>, kind: i64, reading: bool)
+                                                -> (Result<HttpResponse, TransportError>, Verdict, Option<crate::identity::Observed>) {
+    use crate::venue::mexc::{ACCOUNT_PATH, RECV_WINDOW};
+    let send = |r: HttpRequest| async move { match transport.send_observed(&r, &crate::identity::mexc_answer).await { Ok((a, p)) => (Ok(a), Some(p), r), Err(e) => (Err(e), None, r) } };
+    let (answer, probe, read) = send(venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.into())], transport.now())).await;
+    let data = match mexc_answer_verdict(&answer, read.method, read.url().as_str()) { Ok(data) => data, Err(verdict) => return (answer, verdict, probe) };
+    let Some(can_trade) = data.as_ref().filter(|d| d.is_object()).and_then(|d| d.get("canTrade")).and_then(Value::as_bool) else {
+        return (answer, Verdict::Failure("MEXC answered without an account payload".into()), probe);
+    };
+    if !reading { return (answer, Verdict::Valid(kind == 1 || can_trade), probe); }
+    let (answer, probe, deposits) = send(venue.signed("GET", MEXC_DEPOSITS_PATH, vec![("limit", "1".into()), ("recvWindow", RECV_WINDOW.into())], transport.now())).await;
+    let verdict = mexc_answer_verdict(&answer, deposits.method, deposits.url().as_str()).err().unwrap_or(Verdict::Valid(true));
+    (answer, verdict, probe)
 }
 
 /// What honeymaker's #post_info (#with_rescue) hands Exchanges::Hyperliquid for a key check's answer: the parsed 2xx body
@@ -750,7 +759,8 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
 }
 
 /// `check`, and for a correct key of a venue with a confirmed account id (crate::identity::VENUES) what its identity read
-/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance; Binance.US's is its check's own account read).
+/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance, D-MEXC-IDENTITY-READ on MEXC; Binance.US's is
+/// its check's own account read, Coinbase's its permission read).
 /// None: no read was made.
 pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
                               -> (Validity, Option<crate::identity::Observed>) {
@@ -828,7 +838,14 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
     } else if scheme == Some(KeyCheck::Mexc) {
         let transport = ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), base, &credentials.secret);
-        mexc_check(&transport, &venue, kind, kind == 2).await
+        let (answer, verdict, probe) = mexc_check_identified(&transport, &venue, kind, kind == 2).await;
+        // #710 slice 9 (D-MEXC-IDENTITY-READ): a key the check judges correct is read once more, for its UID. A probe MEXC
+        // refused with one of its definite refusal codes (G4) is the key's own answer; a transient one (a 503) reads nothing.
+        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue_type, &transport, base, &credentials.secret).await; }
+        else if let Some(probe @ crate::identity::Observed::Failed(code)) = &probe {
+            if crate::identity::definite_failure(venue_type, code) { observed = Some(probe.clone()); }
+        }
+        (answer, verdict)
     } else if scheme == Some(KeyCheck::BinanceUs) {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);
