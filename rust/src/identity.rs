@@ -11,6 +11,7 @@
 use crate::codec::{format_time, parse_time};
 use crate::crypto::{Cipher, Credentials};
 use crate::venue::binance::{BINANCE, BINANCE_US};
+use crate::venue::bybit::BYBIT;
 use crate::venue::coinbase::COINBASE;
 use crate::venue::http::{HttpRequest, Transport};
 use crate::venue::kucoin::KUCOIN;
@@ -25,12 +26,13 @@ pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// 7a: and the proofs and reader generations (20261125000001_account_fingerprint_proofs.sql).
 pub const TABLES: [&str; 10] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
                                "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows", "account_fingerprint_proofs", "ledger_reader_generations"];
-/// The venues whose account id is confirmed (AF1; #710 slice 9: Coinbase's portfolio). Every other venue records nothing yet.
-pub const VENUES: [&str; 4] = [KUCOIN, BINANCE, BINANCE_US, COINBASE];
+/// The venues whose account id is confirmed (AF1; #710 slice 9: Coinbase's portfolio, Bybit's UID). Every other venue records nothing yet.
+pub const VENUES: [&str; 5] = [KUCOIN, BINANCE, BINANCE_US, COINBASE, BYBIT];
 /// #710 slice 9 G4: the identity venues whose identity read is their key check's own validation read (Coinbase's permission
-/// read). A check of theirs that comes to no verdict (a 5xx, a rate limit, a failed request after the read) leaves a correct
-/// key correct, so its standing stays; only a verdict changes its status (`web::settings::keys::transient_kept`).
-pub const VALIDATION_READS: [&str; 1] = [COINBASE];
+/// read), or follows a permission probe whose transient answer is no verdict on the key (G4 r6: Bybit's 10006 before its
+/// query-api read). A check of theirs that comes to no verdict (a 5xx, a rate limit, a failed request after the read) leaves
+/// a correct key correct, so its standing stays; only a verdict changes its status (`web::settings::keys::transient_kept`).
+pub const VALIDATION_READS: [&str; 2] = [COINBASE, BYBIT];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
 pub fn observe_every() -> Duration { Duration::weeks(1) }
 /// A failed read is retried no sooner than this.
@@ -94,9 +96,12 @@ struct Definite { success: bool, statuses: &'static [u16], codes: &'static [&'st
 /// status that names no account (masked, or an error envelope).
 const LEGACY: Definite = Definite { success: true, statuses: &[401, 403], codes: &[] };
 /// G4: each new identity venue's own documented credential refusals. Coinbase documents no invalid-key code: only its 401.
+/// Bybit's are retCodes (v5 error docs): 10003 invalid key, 10004 signature, 10005 permission denied, 10007 authentication
+/// failed, -2015 an expired spot key; its bare 403 (an IP limit, a US address), 10006/10016 and every 429/5xx are transient.
 fn definite_of(exchange_type: &str) -> Definite {
     match exchange_type {
         COINBASE => Definite { success: false, statuses: &[401], codes: &[] },
+        BYBIT => Definite { success: false, statuses: &[], codes: &["10003", "10004", "10005", "10007", "-2015"] },
         _ => LEGACY,
     }
 }
@@ -135,8 +140,10 @@ pub fn not_refused(exchange_type: &str, observed: Option<&Observed>) -> bool {
 }
 
 /// The failure of an answer: its status and the venue's numeric `code`, nothing else.
-fn failure(status: u16, body: &str) -> Observed {
-    let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get("code") {
+fn failure(status: u16, body: &str) -> Observed { failure_at(status, body, "code") }
+/// `failure`, the venue's numeric code under `field`.
+fn failure_at(status: u16, body: &str, field: &str) -> Observed {
+    let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get(field) {
         Some(Value::Number(n)) => n.as_i64().map(|n| n.to_string()),
         Some(Value::String(s)) if (1..=12).contains(&s.len()) && s.trim_start_matches('-').bytes().all(|b| b.is_ascii_digit()) => Some(s.clone()),
         _ => None,
@@ -168,6 +175,17 @@ pub fn coinbase_answer(status: u16, body: &str) -> Observed {
     AccountId::from_uuid(&v["portfolio_uuid"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
 }
 
+/// Bybit's GET /v5/user/query-api (after its key check passes): `result.userID` under `retCode` 0 (never `result.id`, the
+/// key's own id). A sub-account's key reports its own UID: it is its own account. An error is `retCode` (any status).
+pub fn bybit_answer(status: u16, body: &str) -> Observed {
+    let Ok(v) = serde_json::from_str::<Value>(body) else { return failure_at(status, body, "retCode") };
+    let ok = v["retCode"].as_i64() == Some(0) || v["retCode"].as_str() == Some("0");
+    if !(200..300).contains(&status) || !ok { return failure_at(status, body, "retCode"); }
+    AccountId::from_json(&v["result"]["userID"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
+}
+/// Bybit's identity read path (`bybit_answer`).
+pub const BYBIT_PATH: &str = "/v5/user/query-api";
+
 /// The identity read of `exchange_type` through `transport`, or None for a venue without a confirmed identity.
 pub fn request<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &str, secret: &str) -> Option<HttpRequest> {
     use crate::venue::binance::{BinanceVenue, READ_RECV_WINDOW};
@@ -176,6 +194,7 @@ pub fn request<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &
         BINANCE | BINANCE_US => Some(BinanceVenue::new(transport.clone(), base, secret)
             .signed("GET", BINANCE_PATH, vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())], transport.now())),
         COINBASE => Some(HttpRequest { method: "GET", base: base.into(), path: crate::venue::coinbase::PERMISSIONS.into(), query: vec![], body: None, not_after: None }),
+        BYBIT => Some(HttpRequest { method: "GET", base: base.into(), path: BYBIT_PATH.into(), query: vec![], body: None, not_after: None }),
         _ => None,
     }
 }
@@ -186,6 +205,7 @@ pub fn extractor(exchange_type: &str) -> fn(u16, &str) -> Observed {
         KUCOIN => kucoin_answer,
         BINANCE | BINANCE_US => binance_answer,
         COINBASE => coinbase_answer,
+        BYBIT => bybit_answer,
         other => unreachable!("{other} has no identity read"),
     }
 }
@@ -207,6 +227,7 @@ pub async fn read_live(exchange_type: &str, base: &str, client: reqwest::Client,
         KUCOIN => ReqwestTransport::kucoin(client, key, secret, credentials.passphrase.clone().unwrap_or_default()),
         BINANCE | BINANCE_US => ReqwestTransport::binance(client, key, secret),
         COINBASE => ReqwestTransport::coinbase(client, key, secret),
+        BYBIT => ReqwestTransport::bybit(client, key, secret),
         _ => return None,
     }.with_sensitive_values(redaction);
     read(exchange_type, &transport, base, &credentials.secret).await
@@ -1980,14 +2001,44 @@ mod tests {
         assert!(VENUES.contains(&COINBASE));
     }
 
+    /// Bybit's GET /v5/user/query-api (public docs): `result.userID`, an integer (text accepted too), under `retCode` 0; never
+    /// `result.id` (the key's own id) nor `parentUid`. An error is `retCode` under any status; a sub-account is its own UID.
+    #[test]
+    fn bybit_answers_yield_the_user_id_or_a_failure() {
+        use serde_json::json;
+        let ok = |user: Value| json!({"retCode": 0, "retMsg": "", "result": {"id": "13770661", "note": "n", "apiKey": "the-key", "readOnly": 0, "secret": "",
+                                      "userID": user, "parentUid": "0", "isMaster": true}, "retExtInfo": {}, "time": 1697525990798u64}).to_string();
+        let read = |id: &str| Observed::Read(AccountId::parse(id).unwrap());
+        assert_eq!(bybit_answer(200, &ok(json!(24600000))), read("24600000"));
+        assert_eq!(bybit_answer(200, &ok(json!("24600000"))), read("24600000"), "text is the same id");
+        let sub = json!({"retCode": 0, "result": {"id": "1", "userID": 24600111, "parentUid": "24600000", "isMaster": false}}).to_string();
+        assert_eq!(bybit_answer(200, &sub), read("24600111"), "a sub-account reports its own UID");
+        assert_eq!(bybit_answer(200, &json!({"retCode": "0", "result": {"userID": 7}}).to_string()), read("7"));
+        for user in [Value::Null, json!(""), json!(" "), json!(0), json!("0"), json!(-5), json!(1.5), json!("24****00"), json!([1])] {
+            assert_eq!(bybit_answer(200, &ok(user.clone())), Observed::Failed("http 200".into()), "{user}");
+        }
+        assert_eq!(bybit_answer(200, r#"{"retCode":0,"result":{"id":"13770661"}}"#), Observed::Failed("http 200".into()), "result.id is no account");
+        assert_eq!(bybit_answer(200, r#"{"retCode":10003,"retMsg":"API key is invalid. 24600000","result":{}}"#), Observed::Failed("http 200; code 10003".into()));
+        assert_eq!(bybit_answer(200, r#"{"retCode":10006,"retMsg":"Too many visits!","result":{"userID":24600000}}"#), Observed::Failed("http 200; code 10006".into()));
+        assert_eq!(bybit_answer(200, r#"{"retCode":-2015,"retMsg":"expired"}"#), Observed::Failed("http 200; code -2015".into()));
+        assert_eq!(bybit_answer(403, "<html>24600000</html>"), Observed::Failed("http 403".into()));
+        assert_eq!(bybit_answer(503, &ok(json!(24600000))), Observed::Failed("http 503; code 0".into()), "no id under a 5xx");
+        assert_eq!(extractor(BYBIT)(200, &ok(json!(24600000))), read("24600000"));
+        assert!(VENUES.contains(&BYBIT) && VALIDATION_READS.contains(&BYBIT) && OVERLAP_VENUES.contains(&BYBIT), "G5: Bybit stays an overlap venue");
+    }
+
     /// G4: definite failures are per venue. KuCoin and Binance keep 2xx/401/403; Coinbase's only definite refusal is a 401.
     #[test]
     fn definite_failures_are_per_venue_and_the_sql_twin_agrees() {
-        let codes = ["http 200", "http 200; code -2015", "http 204", "http 401", "http 401; code 16", "http 403", "http 403; code 7", "http 404",
+        let codes = ["http 200", "http 200; code -2015", "http 204", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005",
+                     "http 200; code 10006", "http 200; code 10007", "http 200; code 10016", "http 403; code 10003", "http 429; code 10006",
+                     "http 503; code 10003", "http 200; code 0", "http 401", "http 401; code 16", "http 403", "http 403; code 7", "http 404",
                      "http 429", "http 500", "http 503", "http 400; code -1021", "http 2000", "transport", "no egress", "proxy unreadable"];
-        let legacy = |code: &str| ["http 200", "http 200; code -2015", "http 204", "http 401", "http 401; code 16", "http 403", "http 403; code 7"].contains(&code);
+        let legacy = |code: &str| code.strip_prefix("http ").and_then(|r| r.split(';').next()).is_some_and(|status| ["200", "204", "401", "403"].contains(&status));
         for venue in [KUCOIN, BINANCE, BINANCE_US] { for code in codes { assert_eq!(definite_failure(venue, code), legacy(code), "{venue} {code}"); } }
         for code in codes { assert_eq!(definite_failure(COINBASE, code), code == "http 401" || code == "http 401; code 16", "Coinbase {code}"); }
+        let bybit = ["http 200; code -2015", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005", "http 200; code 10007", "http 403; code 10003"];
+        for code in codes { assert_eq!(definite_failure(BYBIT, code), bybit.contains(&code), "Bybit {code}: only its refusal codes, never a bare 403, 10006, 10016, a 429 or a 5xx"); }
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT); CREATE TABLE o (exchange_id INTEGER, code TEXT);").unwrap();
         for (n, venue) in VENUES.iter().chain(["Exchanges::Kraken"].iter()).enumerate() {
