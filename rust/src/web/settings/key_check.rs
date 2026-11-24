@@ -838,7 +838,10 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
         (answer, verdict)
     } else if scheme == Some(KeyCheck::Coinbase) {
         let transport = ReqwestTransport::coinbase(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
-        coinbase_check(&transport, base, kind, std::time::Duration::from_secs(1)).await
+        // #710 slice 9: the permission read is the identity read; what it stated is kept whatever the check concludes.
+        let (answer, verdict, identity) = coinbase_check_identified(&transport, base, kind, std::time::Duration::from_secs(1)).await;
+        observed = Some(identity);
+        (answer, verdict)
     } else if scheme == Some(KeyCheck::Hyperliquid) {
         let transport = ReqwestTransport::hyperliquid(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::hyperliquid::HyperliquidVenue::new(transport.clone(), base, &credentials.key);
@@ -961,26 +964,37 @@ pub fn coinbase_verdict(kind:i64, answer:&Result<HttpResponse,TransportError>, u
 /// Trading and withdrawal: at most three total permission reads, retrying only HTTP 500.
 /// Read-only: fresh permission read for portfolio_uuid, then breakdown, without retry or a flag verdict.
 pub async fn coinbase_check<T:Transport>(transport:&T,base:&str,kind:i64,pause:std::time::Duration)->(Result<HttpResponse,TransportError>,Verdict){
+    let (answer,verdict,_)=coinbase_check_identified(transport,base,kind,pause).await;
+    (answer,verdict)
+}
+/// `coinbase_check`, with what its last permission read states of the key's portfolio (`portfolio_uuid`, #710 slice 9),
+/// taken from that answer as it arrived, before the breakdown read replaces it, and kept whatever the breakdown answers.
+/// No extra request: the read is the check's own.
+pub async fn coinbase_check_identified<T:Transport>(transport:&T,base:&str,kind:i64,pause:std::time::Duration)
+                                                   ->(Result<HttpResponse,TransportError>,Verdict,crate::identity::Observed){
+    use crate::identity::Observed;
     let request=|path:&str|HttpRequest{method:"GET",base:base.into(),path:path.into(),query:vec![],body:None,not_after:None};
     let r=request(crate::venue::coinbase::PERMISSIONS);
-    let mut answer=transport.send(&r).await;
+    let permissions=||async{match transport.send_observed(&r,&crate::identity::coinbase_answer).await{
+        Ok((response,observed))=>(Ok(response),observed),Err(e)=>(Err(e),Observed::Failed("transport".into()))}};
+    let (mut answer,mut observed)=permissions().await;
     if kind!=2{
         for _ in 1..3{if !matches!(&answer,Ok(r)if r.status==500){break;}
-            if !pause.is_zero(){tokio::time::sleep(pause).await;}answer=transport.send(&r).await;}
-        let verdict=coinbase_verdict(kind,&answer,r.url().as_str());return(answer,verdict);
+            if !pause.is_zero(){tokio::time::sleep(pause).await;}(answer,observed)=permissions().await;}
+        let verdict=coinbase_verdict(kind,&answer,r.url().as_str());return(answer,verdict,observed);
     }
     let failure=|answer:&Result<HttpResponse,TransportError>,url:&str|match answer{
         Err(e)=>Some(Verdict::Failure(self::transport(e))),
         Ok(r)if !(200..300).contains(&r.status)=>Some(Verdict::Failure(raised(r,"GET",url))),_=>None};
-    if let Some(v)=failure(&answer,r.url().as_str()){return(answer,v);}
+    if let Some(v)=failure(&answer,r.url().as_str()){return(answer,v,observed);}
     let parsed=answer.as_ref().ok().and_then(|r|serde_json::from_str::<Value>(&r.body).ok());
-    let Some(Value::Object(p))=parsed else{return(answer,Verdict::Failure("Coinbase sent an unreadable answer to the key check".into()))};
+    let Some(Value::Object(p))=parsed else{return(answer,Verdict::Failure("Coinbase sent an unreadable answer to the key check".into()),observed)};
     let uuid=p.get("portfolio_uuid").and_then(Value::as_str).unwrap_or("");
     let r=request(&format!("/api/v3/brokerage/portfolios/{uuid}"));answer=transport.send(&r).await;
     let verdict=failure(&answer,r.url().as_str()).unwrap_or_else(||{
         let parsed=answer.as_ref().ok().and_then(|r|serde_json::from_str::<Value>(&r.body).ok());
         if parsed.as_ref().is_some_and(|p|p["breakdown"]["spot_positions"].is_array()){Verdict::Valid(true)}else{Verdict::Failure("Coinbase sent an unreadable answer to the key check".into())}
-    });(answer,verdict)
+    });(answer,verdict,observed)
 }
 /// BingX probes order 0 for trading and reads balances for withdrawal/read-only keys.
 pub async fn bingx_check<T: Transport>(transport: &T, venue: &crate::venue::bingx::BingxVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
