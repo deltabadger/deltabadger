@@ -171,7 +171,12 @@ pub fn cookie_values(headers: &HeaderMap) -> impl Iterator<Item = &str> {
 /// any page on a sibling subdomain may set one for the whole site, and with a longer Path the browser
 /// sends it first. A value that does not open is passed over, so it cannot hide the real one.
 pub fn from_request(key: &[u8; 32], headers: &HeaderMap, now: DateTime<Utc>) -> Option<Opened> {
-    cookie_values(headers).find_map(|value| read(key, value, now))
+    selected(key, headers, now).map(|(_, opened)| opened)
+}
+
+/// `from_request`, with the cookie value it chose: what an import request is bound to (web::Admission).
+pub fn selected<'a>(key: &[u8; 32], headers: &'a HeaderMap, now: DateTime<Utc>) -> Option<(&'a str, Opened)> {
+    cookie_values(headers).find_map(|value| read(key, value, now).map(|opened| (value, opened)))
 }
 
 /// `Set-Cookie` as 2.x writes its session cookie, under our name.
