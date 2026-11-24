@@ -59,11 +59,13 @@ pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Fills(Dec), Ours(De
 /// The owner's label map, which says what coin each row's base leg is (plan r10 L1). It reads the owner's whole history,
 /// so a page builds it once for all its rows.
 // ponytail: one owner-wide load per ledger page or row update; cache it beside the ledger cache if pages get slow.
-pub fn labels(c:&Connection,owner:i64)->Result<crate::tracker::spellings::Spellings,WebError>{
-    crate::tracker::rows::load_all_mapped(c,owner).map(|(_,s)|s).map_err(|e|match e{crate::figures::FiguresError::Sqlite(e)=>WebError::from(e),_=>invalid()})
+pub fn labels(c:&Connection,owner:i64)->Result<Option<crate::tracker::spellings::Spellings>,WebError>{
+    // A history the walk cannot read (a row 2.x did not write) leaves the page by spelling, as before the map.
+    match crate::tracker::rows::load_all_mapped(c,owner) {Ok((_,s))=>Ok(Some(s)),Err(crate::figures::FiguresError::Sqlite(e))=>Err(e.into()),Err(_)=>Ok(None)}
 }
-pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:&crate::tracker::spellings::Spellings)->Result<Source,WebError>{
-    if crate::tracker::cash(&row.base){return Ok(Source::Cash)}
+pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crate::tracker::spellings::Spellings>)->Result<Source,WebError>{
+    // Cash by the leg's label where the map has one (a PLN recorded for PLEARN is the coin), else by its spelling.
+    if labels.and_then(|l|l.label(row.id,crate::tracker::resolver::Side::Base)).map_or(crate::tracker::cash(&row.base),|l|l.is_cash()){return Ok(Source::Cash)}
     if row.amount.is_zero(){return Ok(Source::None)}
     if let Some(counterpart)=row.counterpart(c)?{return Ok(Source::Exchange(counterpart))}
     if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
@@ -78,8 +80,9 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:&crate::trac
     // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
     let day=row.at.date_naive();
     // A coin's price is stored by the coin (asset_prices); a leg no coin is known for has none of ours.
-    let label=labels.label(row.id,crate::tracker::spellings::Side::Base);
+    let label=labels.and_then(|l|l.label(row.id,crate::tracker::resolver::Side::Base));
     let (table,column,key)=match label.map(|l|(l.coin(),l.keyed() && l.class()==crate::tracker::spellings::Class::Unknown)) {
+        Some((Some(_),_)) if !c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='asset_prices')",[],|r|r.get::<_,bool>(0))? =>return Ok(Source::None),
         Some((Some(coin),_))=>("asset_prices","external_id",coin.to_string()),
         Some((None,true))=>return Ok(Source::None),
         _=>{let Some(key)=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,day)? else{return Ok(Source::None)};("historical_prices","asset",key)}
@@ -154,7 +157,7 @@ pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String
     Ok(match flag.or(image).filter(|s|!s.trim().is_empty()) {Some(src)=>format!("  <img class=\"asset-logo\" src=\"{}\" alt=\"\" loading=\"lazy\">\n",escape(&src)),None=>format!("  <span class=\"asset-logo\" style=\"background: {}\"></span>\n",escape(&crate::web::colors::pill_color(color.as_deref()).ok_or_else(invalid)?))})
 }
 
-pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:&crate::tracker::spellings::Spellings)->Result<String,WebError>{
+pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&crate::tracker::spellings::Spellings>)->Result<String,WebError>{
     let user=ctx.user().ok_or_else(invalid)?;
     let absolute=if row.amount.is_negative(){row.amount.neg()}else{row.amount.clone()};
     let counterpart=row.counterpart(c)?;

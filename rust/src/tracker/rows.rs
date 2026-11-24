@@ -402,11 +402,12 @@ pub fn load_all_mapped(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, sup
         for r in rows.iter_mut().filter(|r| r.linked_to.is_some_and(|l| !ids.contains(&l))) { r.linked_to = None; r.to_venue = None; r.to_exchange_id = None; r.to_account = None; }
     }
     let map = super::labels::load(c, user_id, &rows)?;
-    super::labels::relabel(&mut rows, &map);
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
     rows.sort_by_key(|r| (r.at.0, r.id));
+    // The CFEE matcher parses the venue's pair against the row's own spelling: label the legs after it.
     place_cfees(&mut rows)?;
     price_cfees(&mut rows)?;
+    super::labels::relabel(&mut rows, &map);
     Ok((rows, map))
 }
 

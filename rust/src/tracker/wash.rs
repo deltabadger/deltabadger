@@ -23,6 +23,10 @@ pub fn days(c: &Connection, user_id: i64) -> Result<u64, FiguresError> {
 pub fn targets(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)]) -> Result<(u64, Vec<(i64, NaiveDate)>), FiguresError> {
     let days = days(c, user_id)?;
     if days == 0 || loss_sales.is_empty() { return Ok((days, vec![])); }
+    // ponytail: a decorated label ("BTC (Bitcoin)") locks every ticker of its symbol, as main did; lock by the label's
+    // asset identity once disposals carry it (plan r10 step 5).
+    let symbol = |s: &str| s.split_once(" (").map_or(s, |(sym, _)| sym).to_string();
+    let loss_sales: Vec<(String, NaiveDate)> = loss_sales.iter().map(|(s, on)| (symbol(s), *on)).collect();
     let wanted: HashSet<&str> = loss_sales.iter().map(|(s, _)| s.as_str()).collect();
     let mut by_symbol: HashMap<String, Vec<i64>> = HashMap::new();
     let mut s = c.prepare("SELECT base, base_asset_id FROM tickers ORDER BY id")?;
@@ -36,7 +40,7 @@ pub fn targets(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)])
         if !assets.contains(&asset) { assets.push(asset); } // one symbol's tickers: a handful
     }
     let mut out = vec![];
-    for (symbol, on) in loss_sales {
+    for (symbol, on) in &loss_sales {
         crate::figures::budget::charge(1, 0)?;
         for asset in by_symbol.get(symbol).map_or(&[][..], Vec::as_slice) { out.push((*asset, *on)); }
     }
@@ -126,5 +130,14 @@ mod tests {
         let off = db(false);
         arm(&off, 1, &sale, now).unwrap();
         assert_eq!(locks(&off).len(), 1, "protection off: the bot's lock alone");
+    }
+
+    /// A coin printed with its name beside a security of its symbol ("AAPL (Apple Token)") still locks its symbol's assets.
+    #[test]
+    fn a_decorated_label_locks_its_symbols_assets() {
+        let now: DateTime<Utc> = "2026-10-01T03:00:00Z".parse().unwrap();
+        let c = db(true);
+        arm(&c, 1, &[("AAPL (Apple Token)".to_string(), NaiveDate::from_ymd_opt(2026, 9, 20).unwrap())], now).unwrap();
+        assert_eq!(locks(&c).iter().map(|l| l.0).collect::<Vec<_>>(), [10, 11]);
     }
 }
