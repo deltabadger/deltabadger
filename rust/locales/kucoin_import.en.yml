@@ -1,15 +1,17 @@
 en:
     tracker:
         import:
-            warn_held: "%{account} may already hold this export's history. Importing it here can count it twice in your totals."
-            warn_other: "This export is from another account than %{account}. Importing it there mixes two accounts."
-            warn_existing: "Rows already on %{account}: %{count}. Importing them here counts them twice in your totals."
+            warn_held_html: "%{account} may already hold this export's history. Importing it here can count it twice in your totals."
+            warn_other_html: "This export is from another account than %{account}. Importing it there mixes two accounts."
+            warn_existing_html: "Rows already on %{account}: %{count}. Importing them here counts them twice in your totals."
             warn_unrouted: "Rows naming accounts that aren't here: %{count}. They won't be imported."
             warn_retained: "These rows were exported from another account's synced history. Importing them here can count them twice."
+            warn_dust: "Some small-balance conversions in this file don't pair up one to one with your Binance history. Importing anyway records them as the file shows them."
             warn_changed: "Something changed since you answered. Check again."
-            import_here: "Import here anyway"
-            import_new: "Import to a new account"
-            import_to: "Import to %{account}"
+            import_to_html: "Import to %{account} (rows in file: %{count})"
+            import_new_html: "Import to a new account, %{account} (rows in file: %{count})"
+            destination_html: "Rows going to %{account}: %{count}."
+            twice_html: "Rows this file sends to more than one account: %{count}."
             import_anyway: "Import anyway"
             import_rest: "Import the rest"
             cancel: "Cancel"

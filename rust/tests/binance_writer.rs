@@ -41,7 +41,7 @@ fn csv(rows: &[writer::Input]) -> Vec<Entry> { rows.iter().map(|r| {let mut e=r.
     if e.entry_type==2 { e.base_amount=deltabadger::v2::BigDec::parse("0.09").unwrap();e.fee_amount=None;e.fee_currency=None; } e.raw=Raw::from_value(json!({"operation":"Small Assets Exchange BNB"}));e }).collect() }
 fn file(c: &Connection, key: &sync::Key, rows: &[Entry]) -> Result<sync::ledger::Outcome,sync::SyncError> {
     let tx=model::immediate(c)?;
-    let out=writer::store_csv(&model::fence_versions(&tx,&[])?,&common::seed::cipher(),key,rows, "binance", false, now())?.0;
+    let out=writer::store_csv(&model::fence_versions(&tx,&[])?,&common::seed::cipher(),key,rows,"k","binance", false, now())?.0;
     tx.commit()?;Ok(out)
 }
 
@@ -499,13 +499,16 @@ fn production_csv_distinguishes_new_same_asset_pairs_by_the_complete_source_leg(
 }
 
 #[test]
-fn production_csv_refuses_two_indistinguishable_pairs_without_partial_writes() {
+fn production_csv_warns_two_indistinguishable_pairs_without_partial_writes() {
     let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
     let first=dust_file(&["BTC"]);let second=first.replace(",BTC\n",",second\n");
     let combined=first.clone()+second.split_once('\n').unwrap().1;
-    let before=state(c);assert!(matches!(import(c,&key,"binance",&combined).unwrap(),deltabadger::tracker::import::run::Answer::Refused(_)));assert_eq!(state(c),before);
+    // D-BINANCE-DUST-WARNS: warned (the file's statement), nothing written, never refused.
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let warned=|a:deltabadger::tracker::import::run::Answer|matches!(a,deltabadger::tracker::import::run::Answer::Warned(w,_) if w.contains(&deltabadger::tracker::import::run::Warning::Dust));
+    let before=state(c);assert!(warned(import(c,&key,"binance",&combined).unwrap()));assert_eq!(state(c),before);
     import(c,&key,"binance",&first).unwrap();let before=state(c);
-    assert!(matches!(import(c,&key,"binance",&combined).unwrap(),deltabadger::tracker::import::run::Answer::Refused(_)));assert_eq!(state(c),before);
+    assert!(warned(import(c,&key,"binance",&combined).unwrap()));assert_eq!(state(c),before);
 }
 
 
@@ -649,6 +652,14 @@ async fn production_import_route_explains_identity_refusals_after_rollback() {
         let (content_type,body)=web::multipart(&[("format",format)],&[("file","history_UTC.csv",file.as_bytes())]);
         let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
         assert!(answer.body.contains("id=\"modal\""));
+        // D-BINANCE-DUST-WARNS: a dust leg without its pair, or a file pair another of the file's pairs already matched, is the
+        // file's statement: warned (nothing written), never refused.
+        if ["partial CSV dust pair","CSV identities are not one-to-one"].contains(&reason) {
+            assert_eq!(answer.status,200,"{reason}: {}",answer.body);
+            assert!(answer.body.contains("small-balance conversions"),"{reason}: {}",answer.body);
+            assert_eq!(state(c),before,"{reason}: nothing written before the answer");
+            continue;
+        }
         // #710 7a rules P6/Q3: what the user can accept is a warning (the whole file rolled back meanwhile), not a refusal.
         if ["ambiguous CSV identity","exported identity has no retained binding","exported CSV identity changed","CSV cannot exclude a suppressed event"].contains(&reason) {
             assert_eq!(answer.status,200,"{reason}: {}",answer.body);
@@ -1086,4 +1097,85 @@ async fn repair_update_install_completion_rechecks_each_accounts_scope() {
     let c=Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert!(deltabadger::jobs::state::read(&c,repair::JOB,Some(&repair::REPAIR_VERSION.to_string())).unwrap().last_success_at.is_none());
     assert_eq!(run_repair(&job,c).await,deltabadger::jobs::Outcome::Done);
+}
+
+/// #710 8a rule R4: a pick of the account question writes with nothing accepted it did not show. Retained ids only the writer
+/// finds come back as their own confirmation, nothing written; its answer writes the unit stripped.
+#[test]
+fn a_picked_account_never_strips_retained_ids_unseen() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&[input(Source::Deposit,"d1","","BTC")]).unwrap();
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let first=deltabadger::identity::ensure_account(c,s.user_id,s.exchange_id,now()).unwrap();
+    deltabadger::identity::new_account(c,s.user_id,s.exchange_id,now()).unwrap();
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2026-08-17 10:00:00,Spot,Deposit,BTC,1,\n1,2026-08-17 10:05:00,Spot,Deposit,BTC,1,\n";
+    let import=|answer:Option<&str>|run::import(c,&common::seed::cipher(),s.user_id,"binance",file.as_bytes(),Some("+00:00"),answer,now()).unwrap();
+    let Answer::Ambiguous(choices)=import(None) else {panic!("the account question")};
+    let pick=choices.iter().find(|o|o.value.starts_with(&format!("a{first}~"))).expect("account 1 offered").value.clone();
+    let (before,rows)=(state(c),count(c));
+    let asked=import(Some(&pick));
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert_eq!(warnings,[Warning::Retained]);assert_eq!(state(c),before,"nothing written before the confirmation");
+    let done=import(Some(&choices.last().unwrap().value));
+    assert!(matches!(done,Answer::Written{imported:1,duplicates:1,..}),"{done:?}");assert_eq!(count(c),rows+1);
+}
+
+/// #710 8a rule R14: a warned or stripped unit is named by its destination account, so two keyless accounts' units differ
+/// (both used to be key 0's): a confirmation given while one account's unit was warned never strips the other's.
+#[test]
+fn two_keyless_binance_destinations_bind_retained_units_by_account() {
+    use deltabadger::tracker::import::run::{self, Answer};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let unbound=|at:&str,n:u32|format!("{at},deposit,BTC,1,,,,,binance,binance-a12-v1:deposit:unknown,,,{n}");
+    let plain=|at:&str,n:u32|format!("{at},deposit,ETH,1,,,,,binance,plain-{n},,,{n}");
+    let entries:Vec<Entry>=deltabadger::tracker::import::deltabadger::read(&format!("{}\n{}\n",deltabadger::web::tracker::CSV_HEADERS.join(","),unbound("2026-08-17T10:00:00Z",1))).unwrap().0.into_iter().map(|r|r.entry).collect();
+    let tx=model::immediate(c).unwrap();
+    let error=writer::store_csv(&model::fence_versions(&tx,&[]).unwrap(),&common::seed::cipher(),&key,&entries,"a7","binance",false,now()).unwrap_err();
+    assert_eq!(writer::warned(&error),Some(vec!["a7:0".to_string()]),"{error:?}");drop(tx);
+    let first=deltabadger::identity::ensure_account(c,s.user_id,s.exchange_id,now()).unwrap();
+    let second=deltabadger::identity::new_account(c,s.user_id,s.exchange_id,now()).unwrap();
+    c.execute_batch("DELETE FROM exchange_account_keys; DELETE FROM api_keys;").unwrap();
+    let header=deltabadger::web::tracker::CSV_HEADERS.join(",");
+    let on_first=format!("{header}\n{}\n{}\n",unbound("2026-08-17T10:00:00Z",1),plain("2026-08-17T11:00:00Z",2));
+    let on_second=format!("{header}\n{}\n{}\n",plain("2026-08-17T10:00:00Z",1),unbound("2026-08-17T11:00:00Z",2));
+    let import=|text:&str,answer:Option<&str>|run::import(c,&common::seed::cipher(),s.user_id,"deltabadger",text.as_bytes(),None,answer,now()).unwrap();
+    // Asked where the rows go, then (the writer's finding) about account 1's retained unit.
+    let mut asked=import(&on_first,None);
+    for _ in 0..2 { if let Answer::Warned(warnings,choices)=&asked { if warnings.contains(&run::Warning::Retained) {break} asked=import(&on_first,Some(&choices[0].value)); } }
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert!(warnings.contains(&run::Warning::Retained),"{warnings:?}");
+    // (r1 #6) A retained id first seen after the destination-only confirmation is no stale answer.
+    assert!(!warnings.contains(&run::Warning::Changed),"{warnings:?}");
+    let rows=count(c);
+    // The same answer for a file whose retained unit is account 2's: asked again, nothing written.
+    let again=import(&on_second,Some(&choices[0].value));
+    assert!(matches!(&again,Answer::Warned(w,_) if w.contains(&run::Warning::Changed)),"{again:?}");
+    assert_eq!(count(c),rows,"nothing stripped unseen on account {second} (not {first})");
+}
+
+/// D-BINANCE-DUST-WARNS: a dust conversion leg without its pair, or a file pair whose stored pair another of the file's pairs
+/// already matched, warns before writing (nothing kept) instead of refusing the file; on the answer it is written as the
+/// file states it, recorded as accepted.
+#[test]
+fn a_partial_or_shared_dust_unit_warns_and_is_written_on_the_answer() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let whole=dust_file(&["BTC"]);
+    let partial=whole.lines().take(2).collect::<Vec<_>>().join("\n")+"\n";
+    let shared=whole.clone()+whole.replace(",BTC\n",",second\n").split_once('\n').unwrap().1;
+    for (name,file) in [("partial",partial),("shared",shared)] {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+        let (before,rows)=(state(c),count(c));
+        let asked=import(c,&key,"binance",&file).unwrap();
+        let Answer::Warned(warnings,choices)=asked else {panic!("{name}: {asked:?}")};
+        assert!(warnings.contains(&Warning::Dust) && !warnings.contains(&Warning::Retained),"{name}: {warnings:?}");
+        assert_eq!(state(c),before,"{name}: nothing written before the answer");
+        let done=run::import(c,&common::seed::cipher(),key.user_id,"binance",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+        let Answer::Written{imported,..}=done else {panic!("{name}: {done:?}")};
+        assert!(imported>0,"{name}: {done:?}");assert_eq!(count(c),rows+imported as i64,"{name}");
+        let accepted:i64=c.query_row("SELECT count(*) FROM import_row_origins WHERE import_kind='binance_accepted'",[],|r|r.get(0)).unwrap();
+        assert!(accepted>0,"{name}: the accepted unit is recorded as accepted");
+    }
 }

@@ -653,7 +653,6 @@ de:
             drop_hint: 'oder klicken, um eine Datei zu wählen'
             which_account: 'Diese Datei kann von beiden Binance-Konten stammen. Von welchem?'
             which_of_accounts: 'Diese Datei kann von mehr als einem Konto hier stammen. Von welchem?'
-            new_account: 'Ein neues Konto'
             unrouted: 'Kein Konto verbunden für: %{exchanges}. Diese Zeilen wurden ausgelassen.'
             error_no_account_for_format: 'Für dieses Format ist kein passendes Konto verbunden.'
             format: 'Format'

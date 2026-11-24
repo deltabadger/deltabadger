@@ -66,7 +66,7 @@ fn new_fills_link_as_stored_and_never_through_the_generic_lookups() {
                 // A row naming the order directly, without orderId, keeps the generic match.
                 entry(1, "BTCUSDT-99", json!({"operation": "Transaction Sold"}))];
     let tx = model::immediate(c).unwrap();
-    writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &common::seed::cipher(), &key, &rows, "binance", false, now()).unwrap();
+    writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &common::seed::cipher(), &key, &rows, "k", "binance", false, now()).unwrap();
     tx.commit().unwrap();
     let by_tx = |t: &str| c.query_row("SELECT transaction_id FROM account_transactions WHERE tx_id=?1", [t], |r| r.get::<_, Option<i64>>(0)).unwrap();
     assert_eq!((by_tx("BTCUSDT-12-101"), by_tx("BTCUSDT-12-102")), (Some(id), Some(id)), "both fills, one order");

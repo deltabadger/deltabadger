@@ -1,15 +1,17 @@
 nl:
     tracker:
         import:
-            warn_held: "%{account} heeft de geschiedenis van deze export misschien al. Hier importeren kan die dubbel tellen in je totalen."
-            warn_other: "Deze export is van een ander account dan %{account}. Daar importeren vermengt twee accounts."
-            warn_existing: "Regels die al op %{account} staan: %{count}. Hier importeren telt ze dubbel in je totalen."
+            warn_held_html: "%{account} heeft de geschiedenis van deze export misschien al. Hier importeren kan die dubbel tellen in je totalen."
+            warn_other_html: "Deze export is van een ander account dan %{account}. Daar importeren vermengt twee accounts."
+            warn_existing_html: "Regels die al op %{account} staan: %{count}. Hier importeren telt ze dubbel in je totalen."
             warn_unrouted: "Regels van accounts die hier niet zijn: %{count}. Die worden niet geïmporteerd."
             warn_retained: "Deze regels komen uit de gesynchroniseerde geschiedenis van een ander account. Hier importeren kan ze dubbel tellen."
+            warn_dust: "Sommige omzettingen van kleine saldi in dit bestand komen niet één op één overeen met je Binance-geschiedenis. Importeer je toch, dan worden ze vastgelegd zoals het bestand ze toont."
             warn_changed: "Er is iets veranderd sinds je antwoord. Controleer het opnieuw."
-            import_here: "Toch hier importeren"
-            import_new: "Importeren in een nieuw account"
-            import_to: "Importeren in %{account}"
+            import_to_html: "Importeren in %{account} (regels in bestand: %{count})"
+            import_new_html: "Importeren in een nieuw account, %{account} (regels in bestand: %{count})"
+            destination_html: "Regels naar %{account}: %{count}."
+            twice_html: "Regels die dit bestand naar meer dan één account stuurt: %{count}."
             import_anyway: "Toch importeren"
             import_rest: "De rest importeren"
             cancel: "Annuleren"

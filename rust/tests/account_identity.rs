@@ -564,7 +564,7 @@ async fn discovery_observes_idle_keys_of_every_type_and_survives_a_restart() {
     let mut fx = Fx::new();
     let trading = fx.key(KUCOIN, 0, "kc-a");
     let idle = fx.key(KUCOIN, 1, "kc-b");
-    fx.key(deltabadger::sync::ALPACA, 0, "alpaca"); // a venue without a confirmed identity is never read
+    fx.key("Exchanges::Kraken", 0, "kraken"); // a venue without a confirmed identity is never read
     assert_eq!(identity::JOB, "account_identity");
     let mut passes = 0;
     loop {
@@ -637,6 +637,106 @@ async fn an_unreadable_proxy_setting_sends_no_identity_read_and_records_a_failur
     let failed: Option<String> = fx.c.query_row("SELECT last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1", [key], |r| r.get(0)).unwrap();
     assert_eq!(failed.as_deref(), Some("proxy unreadable"));
     assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().is_empty(), "the failure backs off");
+}
+
+// ---- #710 slice 9: Alpaca's account ---------------------------------------------------------------------------------
+
+const ALPACA: &str = deltabadger::sync::ALPACA;
+fn alpaca_account(uuid: &str) -> Observed { Observed::Read(AccountId::from_uuid(&json!(uuid)).unwrap()) }
+
+/// Alpaca's key check is its account read: the check's own GET /v2/account states the account (`id`) and no request is
+/// added; a read-only key's account is kept when its positions read then fails; a refused key (401) is a definite failure
+/// that names nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn alpaca_key_checks_observe_their_own_account_read() {
+    use common::alpaca_key::{account, ACCOUNT_A};
+    use deltabadger::web::settings::validator::{check_identified, Validity};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "pk-a")).respond_with(ResponseTemplate::new(200).set_body_json(account(&ACCOUNT_A.to_uppercase()))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "pk-wrong"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(json!({"code": 40110000, "message": "request is not authorized"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(503)).up_to_n_times(1).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(json!([]))).mount(&server).await;
+    let credentials = |key: &str| Credentials { ibkr: None, key: key.into(), secret: format!("{key}-secret"), passphrase: Some("paper".into()), redaction_values: vec![] };
+    let (validity, observed) = check_identified(&server.uri(), &credentials("pk-a"), 2).await.unwrap();
+    assert!(matches!(validity, Validity::Pending(_)), "the positions read failed");
+    assert_eq!(observed, alpaca_account(ACCOUNT_A), "the account read before it is kept, case folded");
+    let (validity, observed) = check_identified(&server.uri(), &credentials("pk-a"), 2).await.unwrap();
+    assert!(matches!(validity, Validity::Correct) && observed == alpaca_account(ACCOUNT_A));
+    let (validity, observed) = check_identified(&server.uri(), &credentials("pk-a"), 0).await.unwrap();
+    assert!(matches!(validity, Validity::Correct) && observed == alpaca_account(ACCOUNT_A));
+    let (validity, observed) = check_identified(&server.uri(), &credentials("pk-wrong"), 0).await.unwrap();
+    assert!(matches!(validity, Validity::Incorrect));
+    let Observed::Failed(code) = observed else { panic!("{observed:?}") };
+    assert!(identity::definite_failure(ALPACA, &code), "{code}");
+    let sent: Vec<String> = common::alpaca_key::sent(&server).await.into_iter().map(|(p, k)| format!("{p} {k}")).collect();
+    assert_eq!(sent, ["/v2/account pk-a", "/v2/positions pk-a", "/v2/account pk-a", "/v2/positions pk-a", "/v2/account pk-a", "/v2/account pk-wrong"],
+               "the check's own requests, none added");
+}
+
+/// Alpaca branch review r1 #4: a positions answer whose body cannot be read (the connection drops mid-body) after a good
+/// account read is a transient verdict that keeps the account read.
+#[tokio::test(flavor = "current_thread")]
+async fn alpaca_a_truncated_positions_answer_keeps_the_account_read() {
+    use common::alpaca_key::{account, ACCOUNT_A};
+    use deltabadger::web::settings::validator::{check_identified, Validity};
+    use std::io::{Read, Write};
+    // A server that answers the account read, then promises a positions body it never finishes.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let uri = format!("http://{}", listener.local_addr().unwrap());
+    std::thread::spawn(move || {
+        for (n, stream) in listener.incoming().take(2).enumerate() {
+            let mut stream = stream.unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf);
+            let answer = if n == 0 {
+                let body = account(ACCOUNT_A).to_string();
+                format!("HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len())
+            } else { "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 500\r\nconnection: close\r\n\r\n[{\"sym".to_string() };
+            stream.write_all(answer.as_bytes()).unwrap();
+        }
+    });
+    let credentials = Credentials { ibkr: None, key: "pk-a".into(), secret: "pk-a-secret".into(), passphrase: None, redaction_values: vec![] };
+    let (validity, observed) = check_identified(&uri, &credentials, 2).await.expect("a verdict, not an error");
+    assert!(matches!(validity, Validity::Pending(_)), "transient");
+    assert_eq!(observed, alpaca_account(ACCOUNT_A), "the account read is kept");
+}
+
+/// The paper and live hosts of `Modes`' server (`common::alpaca_key::hosts`), as the venue picks them from a key's mode.
+struct Modes(String);
+impl deltabadger::sync::jobs::Connect for Modes {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls::pick(c.passphrase.as_deref(), &common::alpaca_key::hosts(&self.0)))
+    }
+}
+
+/// Discovery reads each Alpaca key once, on its own mode's host, with the key check's account read alone (Alpaca has no
+/// key-check proxy and needs none). Paper and live are two accounts: a live key of another UUID beside the paper one is
+/// that account's conflict.
+#[tokio::test(flavor = "current_thread")]
+async fn alpaca_discovery_reads_each_key_on_its_own_host() {
+    use common::alpaca_key::{account, ACCOUNT_A, ACCOUNT_B};
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/paper/v2/account")).and(header("APCA-API-KEY-ID", "pk-paper")).respond_with(ResponseTemplate::new(200).set_body_json(account(ACCOUNT_A))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/live/v2/account")).and(header("APCA-API-KEY-ID", "pk-live")).respond_with(ResponseTemplate::new(200).set_body_json(account(ACCOUNT_B))).mount(&server).await;
+    let fx = Fx::new();
+    let paper = fx.key(ALPACA, 0, "pk-paper");
+    let live = fx.key(ALPACA, 2, "pk-live");
+    fx.c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![fx.cipher.encrypt("live"), live]).unwrap();
+    let clock = deltabadger::engine::FixedClock(now());
+    let cx = Cx { db: Db::new(Connection::open(fx.dir.path().join("production.sqlite3")).unwrap(), fx.cipher.clone()), clock: &clock, wakers: Default::default() };
+    identity::Discovery { venues: Modes(server.uri()) }.run(cx, vec![]).await;
+    let mut sent = common::alpaca_key::sent(&server).await;
+    sent.sort();
+    assert_eq!(sent, [("/live/v2/account".to_string(), "pk-live".to_string()), ("/paper/v2/account".into(), "pk-paper".into())], "each key on its own host, once");
+    assert_eq!((identity::credential_standing(&fx.c, paper).unwrap(), identity::credential_standing(&fx.c, live).unwrap()),
+               (CredentialStanding::Bound, CredentialStanding::Conflict), "paper and live are two accounts");
+    assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().is_empty());
 }
 
 // ---- #710 slice 9: Coinbase's portfolio ------------------------------------------------------------------------------

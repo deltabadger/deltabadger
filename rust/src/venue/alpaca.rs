@@ -28,6 +28,9 @@ impl Hosts {
     pub fn all(url: &str) -> Self { Self { paper: url.into(), live: url.into(), data: url.into() } }
 }
 
+/// Whether a key's stored mode selects the live host (`Urls::pick`): exactly "live"; NULL and every other spelling is paper.
+pub fn is_live(passphrase: Option<&str>) -> bool { passphrase == Some("live") }
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Urls { pub trading: String, pub data: String }
 
@@ -35,7 +38,7 @@ impl Urls {
     /// Exchanges::Alpaca#paper_mode? and Clients::Alpaca: the live trading host for exactly "live" (nil and anything else
     /// is paper); market data on its own host whatever the mode. The only place a mode becomes a host.
     pub fn pick(passphrase: Option<&str>, hosts: &Hosts) -> Self {
-        Self { trading: if passphrase == Some("live") { hosts.live.clone() } else { hosts.paper.clone() }, data: hosts.data.clone() }
+        Self { trading: if is_live(passphrase) { hosts.live.clone() } else { hosts.paper.clone() }, data: hosts.data.clone() }
     }
     pub fn for_passphrase(passphrase: Option<&str>) -> Self { Self::pick(passphrase, &Hosts::alpaca()) }
 }

@@ -653,7 +653,6 @@ es:
             drop_hint: 'o haz clic para elegir un archivo'
             which_account: 'Este archivo puede ser de cualquiera de las dos cuentas de Binance. ¿Cuál?'
             which_of_accounts: 'Este archivo puede ser de más de una cuenta de aquí. ¿De cuál?'
-            new_account: 'Una cuenta nueva'
             unrouted: 'No hay cuenta conectada para: %{exchanges}. Esas filas se omitieron.'
             error_no_account_for_format: 'No hay ninguna cuenta conectada que corresponda a este formato.'
             format: 'Formato'
