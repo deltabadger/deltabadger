@@ -197,9 +197,13 @@ impl deltabadger::web::settings::keys::Logger for Quiet { fn warn(&self, _: &str
 /// T4: a bot sheet's key save on account 2 (Alpaca, validated by its host) changes account 2's key only.
 #[tokio::test(flavor = "current_thread")]
 async fn t4_a_bot_sheet_save_on_account_2_changes_only_its_key() {
-    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    use common::alpaca_key::account;
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
     let server = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    // #710 slice 9: Alpaca names its account; each account's keys read their own (the new key account 2's).
+    for (key, uuid) in [("account-1-key", ACCOUNT_A), ("account-2-key", ACCOUNT_B), ("new-key", ACCOUNT_B)] {
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", key)).respond_with(ResponseTemplate::new(200).set_body_json(account(uuid))).mount(&server).await;
+    }
     let (dir, o) = install();
     let c = &o.primary;
     let cipher = seed::cipher();
@@ -3515,11 +3519,21 @@ fn r15_only_venue_native_ids_count() {
     let c = &o.primary;
     let kraken = Two::kraken(c, &seed::cipher());
     let coinbase = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Coinbase", "Coinbase");
+    // #710 slice 9: Coinbase is an identity venue, whose unread keys read nothing on an exchange with two accounts (rule
+    // N1). Each key has been read here, while neither account's portfolio is established, so the balances are comparable
+    // and the trade ids alone decide.
+    for key in coinbase.keys { observe_stored(c, key, &uuid(PORTFOLIO_A)); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE exchange_id = ?1", [coinbase.seeded.exchange_id]).unwrap();
+    c.execute("DELETE FROM exchange_account_standings WHERE exchange_id = ?1", [coinbase.seeded.exchange_id]).unwrap();
     for k in 0..2 {
         for t in ["s1", "s2"] { coinbase.trade(c, k, 0, t, "1", "2026-09-01 10:00:00"); }
         for leg in ["-in", "-out"] { coinbase.trade(c, k, 0, leg, "1", "2026-09-02 10:00:00"); }
     }
     assert!(!overlaps(c, &coinbase, 1), "two matches and an id-less swap are not three");
+    // The positive control: the predicate is evaluated; a third genuine trade id makes the three matches the id-less swap
+    // could not.
+    for k in 0..2 { coinbase.trade(c, k, 0, "s3", "1", "2026-09-03 10:00:00"); }
+    assert!(overlaps(c, &coinbase, 1), "a third genuine trade id is three");
 }
 
 /// R15 C: one definition of blank, Unicode whitespace included: a tab-only group takes the duplicate's.
@@ -4141,4 +4155,352 @@ fn q7_an_equal_payload_from_a_synced_twin_still_drops_the_file_origin() {
     merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
     let origins: i64 = c.query_row("SELECT count(*) FROM import_row_origins", [], |r| r.get(0)).unwrap();
     assert_eq!(origins, 0, "the kept twin reads synced");
+}
+
+// ---- #710 slice 9: Coinbase names its portfolio ----
+
+use common::coinbase_key::{PORTFOLIO_A, PORTFOLIO_B};
+const COINBASE: &str = "Exchanges::Coinbase";
+fn uuid(raw: &str) -> identity::Observed { identity::Observed::Read(identity::AccountId::from_uuid(&serde_json::json!(raw)).unwrap()) }
+/// A Coinbase pair beside Kraken's fixture; both keys sign (`common::coinbase_key`: `account-1-key`, `account-2-key`).
+fn coinbase_two(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &k.seeded, COINBASE, "Coinbase");
+    c.execute("UPDATE api_keys SET secret = ?2 WHERE exchange_id = ?1", rusqlite::params![two.seeded.exchange_id, seed::cipher().encrypt(common::coinbase_key::SECRET)]).unwrap();
+    two
+}
+/// `observe`, with the key's own stored material (as every real read records it).
+fn observe_stored(c: &Connection, key: i64, observed: &identity::Observed) {
+    let (credentials, version, _) = deltabadger::sync::validation_material(c, &seed::cipher(), key).unwrap();
+    identity::record(c, &seed::cipher(), key, &credentials, &version, observed, chrono::Utc::now()).unwrap();
+}
+/// Both keys read portfolio A and both accounts know it: a duplicate standing.
+fn coinbase_observed(c: &Connection) -> Two {
+    let two = coinbase_two(c);
+    for key in two.keys { observe_stored(c, key, &uuid(PORTFOLIO_A)); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+              [two.keys[0], two.id(0), two.id(1)]).unwrap();
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    two
+}
+
+/// G5: Coinbase stays an overlap venue. A standing its trade ids entered before the upgrade (before Coinbase read any
+/// portfolio) is unchanged before the first identity read; after it, reads naming one portfolio keep it and a second
+/// account's key naming another ends it.
+#[test]
+fn s9_g5_a_coinbase_overlap_standing_is_kept_by_one_portfolio_and_ended_by_another() {
+    for (second, kept) in [(PORTFOLIO_A, true), (PORTFOLIO_B, false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = coinbase_two(c);
+        trades(c, &two, 0, 3, 0, "1");
+        trades(c, &two, 1, 3, 0, "1");
+        c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+                  rusqlite::params![two.id(1), two.id(0), two.seeded.user_id, two.seeded.exchange_id, identity::standing_basis(c, two.id(1), two.id(0)).unwrap()]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "unchanged before the first identity read");
+        observe_stored(c, two.keys[0], &uuid(PORTFOLIO_A));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "one account's portfolio known: the overlap still stands");
+        observe_stored(c, two.keys[1], &uuid(second));
+        assert_eq!(standing(c, &two).is_empty(), !kept, "{second}");
+    }
+}
+
+/// G4 after discovery: Coinbase's only definite refusal is its 401. A 403, a rate limit, a 5xx and a success that names no
+/// portfolio leave the standing; the 401 ends it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_after_discovery_only_coinbase_s_401_ends_a_standing() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let envelope = |code: i64, error: &str| serde_json::json!({"error": error, "code": code, "message": "refused", "details": []});
+    for (status, body, ends) in [(401, envelope(16, "UNAUTHENTICATED"), true), (403, envelope(7, "PERMISSION_DENIED"), false), (429, envelope(8, "RESOURCE_EXHAUSTED"), false),
+                                 (503, serde_json::json!({}), false), (200, serde_json::json!({"can_view": true, "can_trade": false, "can_transfer": false}), false)] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("account-1-key"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body)).expect(1).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = coinbase_observed(c);
+        let later = chrono::Utc::now() + chrono::Duration::days(8);
+        let due = identity::due(c, &seed::cipher(), later).unwrap().into_iter().find(|d| d.api_key_id == two.keys[0]).unwrap();
+        let observed = identity::read_live(COINBASE, &server.uri(), deltabadger::venue::http::client(), &due.credentials).await.unwrap();
+        assert!(matches!(observed, identity::Observed::Failed(_)), "{status}: {observed:?}");
+        assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
+        server.verify().await;
+        assert_eq!(standing(c, &two).is_empty(), ends, "{status}");
+    }
+}
+
+struct Egress(String);
+impl deltabadger::sync::jobs::Connect for Egress {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls { trading: self.0.clone(), data: self.0.clone() })
+    }
+    fn key_check_egress(&self, _: &str, _: Option<String>) -> Result<(String, reqwest::Client), String> { Ok((self.0.clone(), deltabadger::venue::http::client())) }
+}
+
+/// G4 (r4/r5) in the scheduled validator: Coinbase's permission read is its validation read. A correct read-only key whose
+/// portfolio read succeeds and whose breakdown then fails (a 503) keeps its status and its account's standing, and the
+/// read is recorded; a key that was not correct is written pending, as before.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_a_transient_coinbase_breakdown_keeps_a_correct_keys_status_and_standing() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("account-1-read"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(common::coinbase_key::permissions(PORTFOLIO_A, false))).mount(&server).await;
+    let breakdown = format!("/api/v3/brokerage/portfolios/{PORTFOLIO_A}");
+    Mock::given(method("GET")).and(path(breakdown.as_str())).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = coinbase_observed(c);
+    // Account 1's read-only key beside its trading key (the bot's), read as A's.
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-1-read"), seed::cipher().encrypt(common::coinbase_key::SECRET)]).unwrap();
+    let read = c.last_insert_rowid();
+    two.accounts[0].add_key(c, read).unwrap();
+    observe_stored(c, read, &uuid(PORTFOLIO_A));
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [read]).unwrap();
+    let run = || async {
+        let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+        let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+        deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: read }.run(cx, vec![]).await
+    };
+    let status = || one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {read}"));
+    let outcome = run().await;
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == breakdown), "the breakdown was read");
+    assert_eq!(status(), 1, "a correct key stays correct");
+    assert_eq!(standings(c), [(two.id(1), two.id(0))], "and its standing stays");
+    let row: Option<(Option<String>, Option<String>, Option<String>)> = rusqlite::OptionalExtension::optional(c.query_row(
+        "SELECT fingerprint, observed_credential_version, last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1", [read], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))).unwrap();
+    assert!(!identity::unread(c, read).unwrap(), "the portfolio read is recorded: {row:?} {outcome:?}");
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [read]).unwrap();
+    run().await;
+    assert_eq!(status(), 0, "a key that was not correct is pending");
+}
+
+// ---- #710 slice 9: Alpaca names its account ----
+
+use common::alpaca_key::{ACCOUNT_A, ACCOUNT_B};
+const ALPACA: &str = "Exchanges::Alpaca";
+/// An Alpaca pair beside Kraken's fixture (keys `account-1-key`, `account-2-key`, paper).
+fn alpaca_two(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    Two::venue(c, &seed::cipher(), &k.seeded, ALPACA, "Alpaca")
+}
+/// Both keys read account A and both accounts know it: a duplicate standing.
+fn alpaca_observed(c: &Connection) -> Two {
+    let two = alpaca_two(c);
+    for key in two.keys { observe_stored(c, key, &uuid(ACCOUNT_A)); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+              [two.keys[0], two.id(0), two.id(1)]).unwrap();
+    assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+    two
+}
+
+/// G5: Alpaca stays an overlap venue. A standing its order ids entered before the upgrade is unchanged before the first
+/// identity read; after it, reads naming one account keep it and a second account's key naming another ends it.
+#[test]
+fn s9_g5_an_alpaca_overlap_standing_is_kept_by_one_account_and_ended_by_another() {
+    for (second, kept) in [(ACCOUNT_A, true), (ACCOUNT_B, false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_two(c);
+        trades(c, &two, 0, 3, 0, "1");
+        trades(c, &two, 1, 3, 0, "1");
+        c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+                  rusqlite::params![two.id(1), two.id(0), two.seeded.user_id, two.seeded.exchange_id, identity::standing_basis(c, two.id(1), two.id(0)).unwrap()]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "unchanged before the first identity read");
+        observe_stored(c, two.keys[0], &uuid(ACCOUNT_A));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "one account's id known: the overlap still stands");
+        observe_stored(c, two.keys[1], &uuid(second));
+        assert_eq!(standing(c, &two).is_empty(), !kept, "{second}");
+    }
+}
+
+/// G4 after discovery: Alpaca's only definite refusal is its 401. A 403, a rate limit, a 5xx and a success that names no
+/// account leave the standing; the 401 ends it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_after_discovery_only_alpaca_s_401_ends_a_standing() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let refusal = |code: i64| serde_json::json!({"code": code, "message": "refused"});
+    for (status, body, ends) in [(401, refusal(40110000), true), (403, refusal(40310000), false), (429, refusal(42910000), false),
+                                 (503, serde_json::json!({}), false), (200, serde_json::json!({"status": "ACTIVE", "cash": "0"}), false)] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-1-key"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body)).expect(1).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_observed(c);
+        let later = chrono::Utc::now() + chrono::Duration::days(8);
+        let due = identity::due(c, &seed::cipher(), later).unwrap().into_iter().find(|d| d.api_key_id == two.keys[0]).unwrap();
+        let observed = identity::read_live(ALPACA, &server.uri(), deltabadger::venue::http::client(), &due.credentials).await.unwrap();
+        assert!(matches!(observed, identity::Observed::Failed(_)), "{status}: {observed:?}");
+        assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
+        server.verify().await;
+        assert_eq!(standing(c, &two).is_empty(), ends, "{status}");
+    }
+}
+
+/// G4 (r4/r5) in the scheduled validator: Alpaca's account read is its validation read. A correct reading key whose
+/// account read succeeds and whose positions read then fails (a 503), or whose account read itself answers 503, keeps its
+/// status and its account's standing (the successful read is recorded); a key that was not correct is written pending.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_a_transient_alpaca_check_keeps_a_correct_keys_status_and_standing() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    for account_fails in [false, true] {
+        let server = MockServer::start().await;
+        let answer = if account_fails { ResponseTemplate::new(503) } else { ResponseTemplate::new(200).set_body_json(common::alpaca_key::account(ACCOUNT_A)) };
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-1-read")).respond_with(answer).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_observed(c);
+        // The fixture's EUR bots are no Alpaca bots the guard lets run: stopped, as in t4.
+        c.execute("UPDATE bots SET status = 2 WHERE exchange_id = ?1", [two.seeded.exchange_id]).unwrap();
+        // A 2.x reading key row of account 1 beside its trading key, read as A's.
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-1-read"), seed::cipher().encrypt("account-1-secret")]).unwrap();
+        let read = c.last_insert_rowid();
+        two.accounts[0].add_key(c, read).unwrap();
+        observe_stored(c, read, &uuid(ACCOUNT_A));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+        if !account_fails { c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [read]).unwrap(); }
+        let run = || async {
+            let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+            let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+            deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: read }.run(cx, vec![]).await
+        };
+        let status = || one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {read}"));
+        let outcome = run().await;
+        let failing = if account_fails { "/v2/account" } else { "/v2/positions" };
+        assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == failing), "{failing} was read");
+        assert_eq!(status(), 1, "{account_fails}: a correct key stays correct");
+        assert_eq!(standings(c), [(two.id(1), two.id(0))], "{account_fails}: and its standing stays");
+        let row: Option<(Option<String>, Option<String>, Option<String>)> = rusqlite::OptionalExtension::optional(c.query_row(
+            "SELECT fingerprint, observed_credential_version, last_failure_code FROM exchange_account_credentials WHERE api_key_id = ?1", [read], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))).unwrap();
+        assert!(!identity::unread(c, read).unwrap(), "{account_fails}: the account read is recorded: {row:?} {outcome:?}");
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [read]).unwrap();
+        run().await;
+        assert_eq!(status(), 0, "{account_fails}: a key that was not correct is pending");
+    }
+}
+
+/// Alpaca branch review r1 #3: the verdict is the status, never the text. A 5xx or a 429 that says "unauthorized", on the
+/// account read or on the positions read, is transient: a correct reading key stays correct and keeps its standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_an_alpaca_5xx_saying_unauthorized_never_demotes_a_correct_key() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let unauthorized = |status: u16| ResponseTemplate::new(status).set_body_json(serde_json::json!({"message": "unauthorized."}));
+    for (on_account, status) in [(true, 503), (true, 429), (false, 503), (false, 500)] {
+        let server = MockServer::start().await;
+        let account = if on_account { unauthorized(status) } else { ResponseTemplate::new(200).set_body_json(common::alpaca_key::account(ACCOUNT_A)) };
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "account-1-read")).respond_with(account).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v2/positions")).respond_with(unauthorized(status)).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = alpaca_observed(c);
+        c.execute("UPDATE bots SET status = 2 WHERE exchange_id = ?1", [two.seeded.exchange_id]).unwrap();
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-1-read"), seed::cipher().encrypt("account-1-secret")]).unwrap();
+        let read = c.last_insert_rowid();
+        two.accounts[0].add_key(c, read).unwrap();
+        observe_stored(c, read, &uuid(ACCOUNT_A));
+        let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+        let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+        deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: read }.run(cx, vec![]).await;
+        let failing = if on_account { "/v2/account" } else { "/v2/positions" };
+        assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == failing), "{failing} was read");
+        assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {read}")), 1, "{failing} {status}: a correct key stays correct");
+        assert_eq!(standings(c), [(two.id(1), two.id(0))], "{failing} {status}: and its standing stays");
+    }
+}
+
+// ---- #710 slice 9: Bybit names its UID (`result.userID` of GET /v5/user/query-api) ----
+
+const BYBIT: &str = "Exchanges::Bybit";
+fn uid(raw: &str) -> identity::Observed { identity::Observed::Read(identity::AccountId::parse(raw).unwrap()) }
+/// A Bybit pair beside Kraken's fixture (keys `account-1-key`, `account-2-key`).
+fn bybit_two(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    Two::venue(c, &seed::cipher(), &k.seeded, BYBIT, "Bybit")
+}
+
+/// G5: Bybit stays an overlap venue. A standing its trade ids entered before any UID read is unchanged before the first
+/// identity read; after it, reads naming one UID keep it and a second account's key naming another ends it.
+#[test]
+fn s9_g5_a_bybit_overlap_standing_is_kept_by_one_uid_and_ended_by_another() {
+    for (second, kept) in [("24600000", true), ("24600111", false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = bybit_two(c);
+        trades(c, &two, 0, 3, 0, "1");
+        trades(c, &two, 1, 3, 0, "1");
+        c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+                  rusqlite::params![two.id(1), two.id(0), two.seeded.user_id, two.seeded.exchange_id, identity::standing_basis(c, two.id(1), two.id(0)).unwrap()]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "unchanged before the first identity read");
+        observe_stored(c, two.keys[0], &uid("24600000"));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "one account's UID known: the overlap still stands");
+        observe_stored(c, two.keys[1], &uid(second));
+        assert_eq!(standing(c, &two).is_empty(), !kept, "{second}");
+    }
+}
+
+/// G4 after discovery: Bybit's definite refusals are its retCodes 10003, 10004, 10005, 10007 and -2015. A bare 403,
+/// 10006, 10016, a 429, a 5xx (even one carrying 10003) and a success that names no UID leave the standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_after_discovery_only_bybit_s_refusal_codes_end_a_standing() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let code = |code: i64| serde_json::json!({"retCode": code, "retMsg": "refused", "result": {}});
+    let mut cases: Vec<(u16, serde_json::Value, bool)> = [10003, 10004, 10005, 10007, -2015].into_iter().map(|c| (200, code(c), true)).collect();
+    cases.extend([(403, serde_json::json!({}), false), (200, code(10006), false), (200, code(10016), false), (429, code(10006), false), (503, code(10003), false),
+                  (200, serde_json::json!({"retCode": 0, "result": {"id": "13770661"}}), false)]);
+    for (status, body, ends) in cases {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", "account-1-key"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body.clone())).expect(1).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = bybit_two(c);
+        for key in two.keys { observe_stored(c, key, &uid("24600000")); }
+        c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+                  [two.keys[0], two.id(0), two.id(1)]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+        let later = chrono::Utc::now() + chrono::Duration::days(8);
+        let due = identity::due(c, &seed::cipher(), later).unwrap().into_iter().find(|d| d.api_key_id == two.keys[0]).unwrap();
+        let observed = identity::read_live(BYBIT, &server.uri(), deltabadger::venue::http::client(), &due.credentials).await.unwrap();
+        assert!(matches!(observed, identity::Observed::Failed(_)), "{status} {body}: {observed:?}");
+        assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
+        server.verify().await;
+        assert_eq!(standing(c, &two).is_empty(), ends, "{status} {body}");
+    }
+}
+
+/// Bybit review r1 #7: the scheduled validator records a correct Bybit key's UID read (its permission probe, then the
+/// query-api read).
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_the_scheduled_validator_records_a_bybit_uid() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/v5/order/cancel")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 170213, "retMsg": "Order does not exist."}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v5/user/query-api")).and(header("X-BAPI-API-KEY", "account-1-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"id": "1", "userID": 24600000}}))).mount(&server).await;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = bybit_two(c);
+    let key = two.keys[0];
+    assert!(identity::unread(c, key).unwrap());
+    let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+    let outcome = deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: key }.run(cx, vec![]).await;
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == "/v5/user/query-api"), "{outcome:?}");
+    assert!(!identity::unread(c, key).unwrap(), "the UID read is recorded: {outcome:?}");
+    assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), 1);
 }

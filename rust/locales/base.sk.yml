@@ -672,7 +672,6 @@ sk:
             drop_hint: 'alebo klikni a vyber súbor'
             which_account: 'Tento súbor môže byť z oboch účtov Binance. Z ktorého?'
             which_of_accounts: 'Tento súbor môže byť z viacerých účtov tu. Z ktorého?'
-            new_account: 'Nový účet'
             unrouted: 'Pre %{exchanges} nie je pripojený účet. Tieto riadky sa vynechali.'
             error_no_account_for_format: 'Pre tento formát nie je pripojený zodpovedajúci účet.'
             format: 'Formát'

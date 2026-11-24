@@ -11,8 +11,11 @@
 use crate::codec::{format_time, parse_time};
 use crate::crypto::{Cipher, Credentials};
 use crate::venue::binance::{BINANCE, BINANCE_US};
+use crate::venue::bybit::BYBIT;
+use crate::venue::coinbase::COINBASE;
 use crate::venue::http::{HttpRequest, Transport};
 use crate::venue::kucoin::KUCOIN;
+use crate::sync::ALPACA;
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -24,8 +27,15 @@ pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// 7a: and the proofs and reader generations (20261125000001_account_fingerprint_proofs.sql).
 pub const TABLES: [&str; 10] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
                                "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows", "account_fingerprint_proofs", "ledger_reader_generations"];
-/// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
-pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
+/// The venues whose account id is confirmed (AF1; #710 slice 9: Coinbase's portfolio, Alpaca's account, Bybit's UID). Every
+/// other venue records nothing yet.
+pub const VENUES: [&str; 6] = [KUCOIN, BINANCE, BINANCE_US, COINBASE, ALPACA, BYBIT];
+/// #710 slice 9 G4: the identity venues whose identity read is their key check's own validation read (Coinbase's permission
+/// read, Alpaca's GET /v2/account), or follows a permission probe whose transient answer is no verdict on the key (G4 r6:
+/// Bybit's 10006 before its query-api read). A check of theirs that comes to no verdict (a 5xx, a rate limit, a failed
+/// request after the read) leaves a correct key correct, so its standing stays; only a verdict changes its status
+/// (`web::settings::keys::transient_kept`).
+pub const VALIDATION_READS: [&str; 3] = [COINBASE, ALPACA, BYBIT];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
 pub fn observe_every() -> Duration { Duration::weeks(1) }
 /// A failed read is retried no sooner than this.
@@ -40,6 +50,8 @@ const PER_RUN: usize = 10;
 pub const KUCOIN_PATH: &str = "/api/v1/user/api-key";
 /// Binance's and Binance.US's account read, `uid` (Binance's export's `User ID`).
 pub const BINANCE_PATH: &str = "/api/v3/account";
+/// Alpaca's account read (its key check's own first read), `id`: on the key's paper or live host, each its own account.
+pub const ALPACA_PATH: &str = "/v2/account";
 /// The account-id column of each venue's own export, by venue: Binance's two spellings (main's recorded exports use both).
 pub const BINANCE_EXPORT_COLUMNS: [&str; 2] = ["User ID", "User_ID"];
 pub const KUCOIN_EXPORT_COLUMNS: [&str; 1] = ["UID"];
@@ -63,6 +75,14 @@ impl AccountId {
     fn from_json(v: &Value) -> Option<Self> {
         match v { Value::Number(n) if n.is_u64() => Self::parse(&n.to_string()), Value::String(s) => Self::parse(s), _ => None }
     }
+    /// #710 slice 9 G1: a venue that names its accounts by UUID (Coinbase's portfolio): text in the hyphenated form, as
+    /// canonical lowercase hyphenated text. Nil, any other form and anything but text are no account id. The fingerprint's
+    /// namespace is the exchange type, so a UUID never meets a decimal id.
+    pub fn from_uuid(v: &Value) -> Option<Self> {
+        let Value::String(s) = v else { return None };
+        let uuid = uuid::Uuid::try_parse(s).ok().filter(|u| s.len() == 36 && !u.is_nil())?;
+        Some(Self(uuid.hyphenated().to_string()))
+    }
 }
 
 /// What one identity read came to.
@@ -73,22 +93,65 @@ pub enum Observed {
     Failed(String),
 }
 
-/// Whether a failed identity read is the venue's definite answer on the key's current material (#710): its auth refused
-/// (401, 403), or an answer under a success status that names no account (masked, or an error envelope). A 5xx, a rate
-/// limit (429, 418), any other status and the reads that reached no venue (`transport`, `no egress`, `proxy
-/// unreadable`) say nothing about the account. `code` as `failure` writes it (`http <status>[; code <code>]`).
-pub fn definite_failure(code: &str) -> bool {
-    code.strip_prefix("http ").and_then(|rest| rest.split(';').next()).and_then(|s| s.trim().parse::<u16>().ok())
-        .is_some_and(|status| (200..300).contains(&status) || status == 401 || status == 403)
+/// What a venue's failed identity read must be to be definite (#710 slice 9 G4): any success status (`success`), one of
+/// `statuses`, or one of the venue's numeric `codes` (under any status). Everything else is transient.
+#[derive(PartialEq)]
+struct Definite { success: bool, statuses: &'static [u16], codes: &'static [&'static str] }
+/// #710's reading, kept exactly for KuCoin and Binance (and any venue not listed): auth refused (401, 403), or a success
+/// status that names no account (masked, or an error envelope).
+const LEGACY: Definite = Definite { success: true, statuses: &[401, 403], codes: &[] };
+/// G4: each new identity venue's own documented credential refusals. Coinbase documents no invalid-key code: only its 401.
+/// Bybit's are retCodes (v5 error docs): 10003 invalid key, 10004 signature, 10005 permission denied, 10007 authentication
+/// failed, -2015 an expired spot key; its bare 403 (an IP limit, a US address), 10006/10016 and every 429/5xx are transient.
+fn definite_of(exchange_type: &str) -> Definite {
+    match exchange_type {
+        COINBASE => Definite { success: false, statuses: &[401], codes: &[] },
+        // Alpaca's 401 on the key's own (effective paper/live) host; a 403 or a success naming no account says nothing.
+        ALPACA => Definite { success: false, statuses: &[401], codes: &[] },
+        BYBIT => Definite { success: false, statuses: &[], codes: &["10003", "10004", "10005", "10007", "-2015"] },
+        _ => LEGACY,
+    }
 }
-/// SQL condition: failure code expression `code` is a definite failure (`definite_failure`).
-fn definite_sql(code: &str) -> String {
-    format!("({code} LIKE 'http 2__' OR {code} LIKE 'http 2__;%' OR {code} LIKE 'http 401' OR {code} LIKE 'http 401;%' OR {code} LIKE 'http 403' OR {code} LIKE 'http 403;%')")
+/// Whether a failed identity read of `exchange_type` is the venue's definite answer on the key's current material (#710,
+/// `definite_of`). A 5xx, a rate limit, any other status and the reads that reached no venue (`transport`, `no egress`,
+/// `proxy unreadable`) say nothing about the account. `code` as `failure` writes it (`http <status>[; code <code>]`).
+pub fn definite_failure(exchange_type: &str, code: &str) -> bool { definite_by(&definite_of(exchange_type), code) }
+fn definite_by(rule: &Definite, code: &str) -> bool {
+    let Some(rest) = code.strip_prefix("http ") else { return false };
+    let mut parts = rest.splitn(2, ';');
+    let Some(status) = parts.next().and_then(|s| (s.len() == 3).then(|| s.parse::<u16>().ok()).flatten()) else { return false };
+    let venue_code = parts.next().and_then(|c| c.trim().strip_prefix("code ")).map(str::trim);
+    // Review r1 #7: a venue's refusal code under a rate limit or a 5xx is the venue's trouble, never the key's.
+    (rule.success && (200..300).contains(&status)) || rule.statuses.contains(&status)
+        || (status != 429 && status < 500 && venue_code.is_some_and(|c| rule.codes.contains(&c)))
+}
+/// SQL condition: failure code expression `code`, of a credential of exchange id expression `exchange`, is a definite
+/// failure (`definite_failure`: the same rule, per venue).
+fn definite_sql(code: &str, exchange: &str) -> String {
+    let arms: Vec<String> = VENUES.iter().filter(|v| definite_of(v) != LEGACY).map(|venue| format!("WHEN '{venue}' THEN {}", condition_sql(&definite_of(venue), code))).collect();
+    format!("(CASE (SELECT type FROM exchanges WHERE id = {exchange}) {} ELSE {} END)", arms.join(" "), condition_sql(&LEGACY, code))
+}
+/// SQL condition: failure code expression `code` is definite under `rule` (`definite_by`).
+fn condition_sql(rule: &Definite, code: &str) -> String {
+    let status = |s: &str| format!("{code} LIKE 'http {s}' OR {code} LIKE 'http {s};%'");
+    let mut any: Vec<String> = rule.statuses.iter().map(|s| status(&s.to_string())).collect();
+    if rule.success { any.push(status("2__")); }
+    // A code under a rate limit or a 5xx is no refusal (`definite_by`).
+    // Bybit review r1 #6: every status from 500 up, as `definite_by` reads it.
+    any.extend(rule.codes.iter().map(|c| format!("({code} LIKE 'http ___; code {c}' AND {code} NOT LIKE 'http 429;%' AND CAST(substr({code}, 6, 3) AS INTEGER) < 500)")));
+    if any.is_empty() { "0".into() } else { format!("({})", any.join(" OR ")) }
+}
+/// G4 (review r1 #3): whether what a venue's identity read came to says nothing definite about the key: a success, a
+/// transient failure, or no read at all. A definite refusal (`definite_failure`) is the key's answer.
+pub fn not_refused(exchange_type: &str, observed: Option<&Observed>) -> bool {
+    !matches!(observed, Some(Observed::Failed(code)) if definite_failure(exchange_type, code))
 }
 
 /// The failure of an answer: its status and the venue's numeric `code`, nothing else.
-fn failure(status: u16, body: &str) -> Observed {
-    let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get("code") {
+fn failure(status: u16, body: &str) -> Observed { failure_at(status, body, "code") }
+/// `failure`, the venue's numeric code under `field`.
+fn failure_at(status: u16, body: &str, field: &str) -> Observed {
+    let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get(field) {
         Some(Value::Number(n)) => n.as_i64().map(|n| n.to_string()),
         Some(Value::String(s)) if (1..=12).contains(&s.len()) && s.trim_start_matches('-').bytes().all(|b| b.is_ascii_digit()) => Some(s.clone()),
         _ => None,
@@ -112,6 +175,33 @@ pub fn binance_answer(status: u16, body: &str) -> Observed {
     AccountId::from_json(&v["uid"]).map_or_else(|| failure(status, body), Observed::Read)
 }
 
+/// Coinbase's GET /api/v3/brokerage/key_permissions (its key check's own first read): `portfolio_uuid` (G1). A Coinbase
+/// portfolio is the account: two portfolios of one login are two accounts. An error is the grpc-gateway envelope.
+pub fn coinbase_answer(status: u16, body: &str) -> Observed {
+    if !(200..300).contains(&status) { return failure(status, body); }
+    let v = serde_json::from_str::<Value>(body).unwrap_or(Value::Null);
+    AccountId::from_uuid(&v["portfolio_uuid"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
+}
+
+/// Alpaca's GET /v2/account (its key check's own first read, public docs): `id`, the account's UUID (G1), never
+/// `account_number`. Paper and live are different accounts on different hosts: the read goes to the key's own. An error is
+/// `{code, message}`.
+pub fn alpaca_answer(status: u16, body: &str) -> Observed {
+    if !(200..300).contains(&status) { return failure(status, body); }
+    let v = serde_json::from_str::<Value>(body).unwrap_or(Value::Null);
+    AccountId::from_uuid(&v["id"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
+}
+/// Bybit's GET /v5/user/query-api (after its key check passes): `result.userID` under `retCode` 0 (never `result.id`, the
+/// key's own id). A sub-account's key reports its own UID: it is its own account. An error is `retCode` (any status).
+pub fn bybit_answer(status: u16, body: &str) -> Observed {
+    let Ok(v) = serde_json::from_str::<Value>(body) else { return failure_at(status, body, "retCode") };
+    let ok = v["retCode"].as_i64() == Some(0) || v["retCode"].as_str() == Some("0");
+    if !(200..300).contains(&status) || !ok { return failure_at(status, body, "retCode"); }
+    AccountId::from_json(&v["result"]["userID"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
+}
+/// Bybit's identity read path (`bybit_answer`).
+pub const BYBIT_PATH: &str = "/v5/user/query-api";
+
 /// The identity read of `exchange_type` through `transport`, or None for a venue without a confirmed identity.
 pub fn request<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &str, secret: &str) -> Option<HttpRequest> {
     use crate::venue::binance::{BinanceVenue, READ_RECV_WINDOW};
@@ -119,12 +209,24 @@ pub fn request<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &
         KUCOIN => Some(HttpRequest { method: "GET", base: base.into(), path: KUCOIN_PATH.into(), query: vec![], body: None, not_after: None }),
         BINANCE | BINANCE_US => Some(BinanceVenue::new(transport.clone(), base, secret)
             .signed("GET", BINANCE_PATH, vec![("omitZeroBalances", "true".into()), ("recvWindow", READ_RECV_WINDOW.into())], transport.now())),
+        COINBASE => Some(HttpRequest { method: "GET", base: base.into(), path: crate::venue::coinbase::PERMISSIONS.into(), query: vec![], body: None, not_after: None }),
+        ALPACA => Some(HttpRequest { method: "GET", base: base.into(), path: ALPACA_PATH.into(), query: vec![], body: None, not_after: None }),
+        BYBIT => Some(HttpRequest { method: "GET", base: base.into(), path: BYBIT_PATH.into(), query: vec![], body: None, not_after: None }),
         _ => None,
     }
 }
 
-/// How an answer of `exchange_type`'s identity read is read.
-pub fn extractor(exchange_type: &str) -> fn(u16, &str) -> Observed { if exchange_type == KUCOIN { kucoin_answer } else { binance_answer } }
+/// How an answer of `exchange_type`'s identity read is read (G2: per venue, no default). Only a venue `request` reads.
+pub fn extractor(exchange_type: &str) -> fn(u16, &str) -> Observed {
+    match exchange_type {
+        KUCOIN => kucoin_answer,
+        BINANCE | BINANCE_US => binance_answer,
+        COINBASE => coinbase_answer,
+        ALPACA => alpaca_answer,
+        BYBIT => bybit_answer,
+        other => unreachable!("{other} has no identity read"),
+    }
+}
 
 /// The identity read: one request, the id taken from the raw answer and the body dropped. None: not a supported venue.
 pub async fn read<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &str, secret: &str) -> Option<Observed> {
@@ -142,6 +244,9 @@ pub async fn read_live(exchange_type: &str, base: &str, client: reqwest::Client,
     let transport = match exchange_type {
         KUCOIN => ReqwestTransport::kucoin(client, key, secret, credentials.passphrase.clone().unwrap_or_default()),
         BINANCE | BINANCE_US => ReqwestTransport::binance(client, key, secret),
+        COINBASE => ReqwestTransport::coinbase(client, key, secret),
+        ALPACA => ReqwestTransport::new(client, key, secret),
+        BYBIT => ReqwestTransport::bybit(client, key, secret),
         _ => return None,
     }.with_sensitive_values(redaction);
     read(exchange_type, &transport, base, &credentials.secret).await
@@ -356,6 +461,24 @@ pub fn venue_text(object: &Value, exchange: &str) -> String {
 pub fn label(c: &Connection, account_id: i64) -> rusqlite::Result<Label> {
     c.query_row(&format!("SELECT e.name, {} FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.id = ?1", label_number_sql("x.id")), [account_id],
                 |r| Ok(Label { name: r.get::<_, Option<String>>(0)?.unwrap_or_default(), number: r.get(1)? }))
+}
+/// Account `account_id`'s label with its number, whatever its exchange's live count: an import question offering a new
+/// account beside it shows "KuCoin¹" beside "KuCoin²" (#710 8a rule R6).
+pub fn label_numbered(c: &Connection, account_id: i64) -> rusqlite::Result<Label> {
+    c.query_row("SELECT e.name, x.number FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.id = ?1", [account_id],
+                |r| Ok(Label { name: r.get::<_, Option<String>>(0)?.unwrap_or_default(), number: Some(r.get(1)?) }))
+}
+/// SQL over (user `?1`, exchange `?2`): the number a new account takes, `max(number) + 1` over every row, tombstones
+/// included, so no number is reused. `new_account` inserts it; `next_number` reads it.
+const NEXT_NUMBER: &str = "SELECT coalesce(max(number), 0) + 1 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2";
+/// The number a new account of (user, exchange) would take now (#710 8a rule R9).
+pub fn next_number(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<i64> {
+    c.query_row(NEXT_NUMBER, [user_id, exchange_id], |r| r.get(0))
+}
+/// The label a new account of (user, exchange) would show: "KuCoin²" (#710 8a rule R6).
+pub fn prospective(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Label> {
+    let name: Option<String> = c.query_row("SELECT name FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get(0))?;
+    Ok(Label { name: name.unwrap_or_default(), number: Some(next_number(c, user_id, exchange_id)?) })
 }
 /// The label of every account of the user, by id. One statement (none on an install without the account tables).
 pub fn labels(c: &Connection, user_id: i64) -> rusqlite::Result<std::collections::HashMap<i64, Label>> {
@@ -731,7 +854,7 @@ pub fn identity_changed_since(c: &Connection, d: i64, s: i64, since: &str) -> ru
     if !ready(c)? { return Ok(false); }
     c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id JOIN exchange_accounts a ON a.id = {}
                           WHERE k.status = 1 AND a.id IN (?1, ?2) AND ((o.last_failure_at > ?3 AND {}) OR (o.fingerprint IS NOT NULL AND a.fingerprint IS NOT NULL AND o.fingerprint <> a.fingerprint)))",
-                         key_account_sql("k"), definite_sql("o.last_failure_code")), params![d, s, since], |r| r.get(0))
+                         key_account_sql("k"), definite_sql("o.last_failure_code", "o.exchange_id")), params![d, s, since], |r| r.get(0))
 }
 
 /// A key event of account `account` (a real credential change, a key added or removed, a Merge moving keys, the account
@@ -1117,7 +1240,7 @@ fn confirmed(x: &str) -> String {
     let masked = format!("EXISTS (SELECT 1 FROM api_keys k WHERE {} = {x}.id AND k.status = 1 \
                           AND NOT EXISTS (SELECT 1 FROM exchange_account_credentials o WHERE o.api_key_id = k.id AND o.fingerprint = {x}.fingerprint \
                             AND NOT (o.last_failure_at IS NOT NULL AND {} AND (o.observed_at IS NULL OR o.last_failure_at > o.observed_at))))",
-                         key_account_sql("k"), definite_sql("o.last_failure_code"));
+                         key_account_sql("k"), definite_sql("o.last_failure_code", "o.exchange_id"));
     format!("({x}.fingerprint IS NULL OR ({x}.fingerprint IN {keys} AND NOT EXISTS (SELECT 1 FROM {keys} f WHERE f.fingerprint <> {x}.fingerprint) AND NOT {masked}))")
 }
 /// SQL condition: account row `x`'s known fingerprint is contradicted by a live key: its identity read names another
@@ -1125,7 +1248,7 @@ fn confirmed(x: &str) -> String {
 fn contradicted(x: &str) -> String {
     format!("({x}.fingerprint IS NOT NULL AND EXISTS (SELECT 1 FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id WHERE {} = {x}.id \
              AND k.status = 1 AND (o.fingerprint <> {x}.fingerprint OR (o.last_failure_at IS NOT NULL AND {} AND (o.observed_at IS NULL OR o.last_failure_at > o.observed_at)))))",
-            key_account_sql("k"), definite_sql("o.last_failure_code"))
+            key_account_sql("k"), definite_sql("o.last_failure_code", "o.exchange_id"))
 }
 /// The ids of the user's duplicates (`duplicates`).
 pub fn duplicate_ids(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<i64>> { Ok(duplicates(c, user_id)?.into_iter().map(|(d, _)| d).collect()) }
@@ -1244,7 +1367,9 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
         for id in ids.into_iter().filter(|id| Some(*id) != skip) {
             let Some(stored) = stored_material(c, cipher, id) else { continue };
             let same = if wallet { stored.key.trim().eq_ignore_ascii_case(material.key.trim()) && !material.key.trim().is_empty() }
-                       else { stored.key == material.key && stored.secret == material.secret && !material.secret.is_empty() };
+                       else { stored.key == material.key && stored.secret == material.secret && !material.secret.is_empty()
+                              // #710 slice 9 (r6): Alpaca's paper and live are two accounts, so its mode is part of the material.
+                              && (exchange_type != ALPACA || compared(ALPACA, &stored).2 == compared(ALPACA, material).2) };
             if !same { continue; }
             let Some(account) = account_of_key(c, id).map_err(db)?.filter(|a| live.iter().any(|(l, _)| l == a)) else { continue };
             if !unknown || unset(account)? { return Ok(Route::To(account)); }
@@ -1287,13 +1412,30 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
     }
 }
 
+/// Whether account `account` holds a key of other material than `material` with no UID read of its current material
+/// (`unread`): that key, read, would decide where a key of the account belongs (Bybit review r1 #1/#2, every identity venue).
+pub fn holds_unread_other(c: &Connection, cipher: &Cipher, account: i64, exchange_type: &str, material: &Credentials) -> Result<bool, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let Some(account) = Account::by_id(c, account).map_err(db)? else { return Ok(false) };
+    let ids: Vec<i64> = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {}", account.keys("k"))).map_err(db)?
+        .query_map([], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+    for id in ids {
+        if !is_material(c, cipher, id, exchange_type, material) && unread(c, id)? { return Ok(true); }
+    }
+    Ok(false)
+}
+
 /// A venue's own credential fields, as a save compares them (`venue/registry.rs`): a passphrase only where the venue
 /// signs with it, Alpaca's empty mode as `paper`.
 fn compared(exchange_type: &str, c: &Credentials) -> (String, String, String) {
-    let passphrase = if exchange_type == crate::sync::ALPACA { c.passphrase.clone().filter(|p| !p.trim().is_empty()).unwrap_or_else(|| "paper".into()) }
+    let passphrase = if exchange_type == crate::sync::ALPACA { alpaca_mode(c.passphrase.as_deref()) }
                      else if crate::venue::registry::row(exchange_type).is_some_and(|r| r.passphrase) { c.passphrase.clone().unwrap_or_default() } else { String::new() };
     (c.key.clone(), c.secret.clone(), passphrase)
 }
+
+/// Alpaca's mode as a save compares it (`compared`): the host it selects (`alpaca::is_live`, as `Urls::pick`), so NULL,
+/// `paper`, `Live` and every other spelling are paper (Alpaca branch review r1 #6). Paper and live are two accounts.
+pub fn alpaca_mode(passphrase: Option<&str>) -> String { (if crate::venue::alpaca::is_live(passphrase) { "live" } else { "paper" }).to_string() }
 
 /// A stored key of (user, exchange) other than `skip` whose material is `material`'s (`compared`), decrypted: the stored
 /// digest is an index only, never the truth (a 2.x save can replace material in place). Each key's digest is filled as it
@@ -1386,10 +1528,9 @@ pub fn fence_copies(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: 
     Ok(())
 }
 
-/// A new account of (user, exchange): `max(number) + 1` over every row, tombstones included, so no number is reused.
+/// A new account of (user, exchange), numbered `NEXT_NUMBER`.
 pub fn new_account(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<i64> {
-    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)
-               SELECT ?1, ?2, coalesce(max(number), 0) + 1, ?3, ?3 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
+    c.execute(&format!("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, ({NEXT_NUMBER}), ?3, ?3)"),
               params![user_id, exchange_id, format_time(now)])?;
     Ok(c.last_insert_rowid())
 }
@@ -1478,7 +1619,7 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             // A live key's definite failure on its current material is a contradiction: the account's standings end now. A
             // transient one changes nothing; a key that is not live speaks for nothing (discovery still reads it, as before).
             let live: bool = c.query_row("SELECT status = 1 FROM api_keys WHERE id = ?1", [api_key_id], |r| r.get(0)).map_err(db)?;
-            if definite_failure(code) && live {
+            if definite_failure(&exchange_type, code) && live {
                 if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { key_event(c, account).map_err(db)?; }
             }
             let Some(key) = existing_key(c, cipher) else {
@@ -1492,7 +1633,7 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                                                                                [api_key_id], |r| Ok((r.get(0)?, r.get(1)?))).optional().map_err(db)?;
             // A definite failure on this material is sticky: a transient one after it leaves it standing; only a successful
             // read (Observed::Read) lifts it.
-            let sticky = !definite_failure(code) && stored.as_ref().and_then(|(_, last)| last.as_deref()).is_some_and(definite_failure);
+            let sticky = !definite_failure(&exchange_type, code) && stored.as_ref().and_then(|(_, last)| last.as_deref()).is_some_and(|last| definite_failure(&exchange_type, last));
             // #710 7a §9.1/§9.2: a read that names nobody never lifts a fence (a read of another account, the takeover's
             // `UNCONFIRMED_AFTER_V2`), even when the material is unknown (digests dropped at a takeover) or changed: only a
             // successful read naming the account does.
@@ -1828,6 +1969,15 @@ impl<C: crate::sync::jobs::Connect> crate::jobs::Job for Discovery<C> {
             let due = match cx.db.run(move |c, cipher| due(c, cipher, now)).await { Ok(due) => due, Err(e) => return Outcome::Failed(e) };
             if due.is_empty() { return Outcome::NothingNew; }
             for credential in due {
+                // #710 slice 9: Alpaca's key check has no proxy (`key_check_proxy` leaves it out); its identity read goes, as
+                // that check does, to the key's own paper or live host (the mode its credentials name, as its venue picks it).
+                if credential.exchange_type == ALPACA {
+                    let base = self.venues.connect(&credential.credentials).urls().trading.clone();
+                    let observed = read_live(ALPACA, &base, crate::venue::http::client(), &credential.credentials).await;
+                    let Some(observed) = observed else { continue };
+                    if let Err(e) = self.publish_read(&cx, credential, observed).await { return Outcome::Failed(e); }
+                    continue;
+                }
                 let Some(proxy) = crate::venue::registry::key_check_proxy(&credential.exchange_type) else { continue };
                 // As the key check (sync::jobs::Validator): a proxy setting that cannot be read sends nothing, never goes around it.
                 let stored = cx.db.run(move |c, cipher| crate::app_config::get(c, cipher, &format!("proxy_{proxy}"))).await;
@@ -1837,16 +1987,23 @@ impl<C: crate::sync::jobs::Connect> crate::jobs::Job for Discovery<C> {
                     Ok(Err(_)) => Some(Observed::Failed("no egress".into())),
                 };
                 let Some(observed) = observed else { continue };
-                let at = cx.clock.now();
-                let key = credential.api_key_id;
-                let before = match cx.db.run(move |c, _| generations_of_key(c, key)).await { Ok(g) => g, Err(e) => return Outcome::Failed(e) };
-                if let Err(e) = cx.db.run(move |c, cipher| publish(c, cipher, &credential, &observed, at)).await { return Outcome::Failed(e); }
-                // #710 7a rules K5/M4: a read that moved an account's reader (a fence, or its lifting) wakes the new reader.
-                let moved = match cx.db.run(move |c, _| moved_readers(c, key, &before)).await { Ok(m) => m, Err(e) => return Outcome::Failed(e) };
-                for r in moved { for job in [crate::sync::jobs::LEDGER_SYNC, crate::sync::jobs::BALANCE_SYNC] { cx.wakers.wake(job, Some(&r.to_string()), None); } }
+                if let Err(e) = self.publish_read(&cx, credential, observed).await { return Outcome::Failed(e); }
             }
             Outcome::Done
         })
+    }
+}
+impl<C: crate::sync::jobs::Connect> Discovery<C> {
+    /// One read published; a read that moved an account's reader (a fence, or its lifting) wakes the new reader (#710 7a
+    /// rules K5/M4).
+    async fn publish_read(&self, cx: &crate::jobs::Cx<'_>, credential: Due, observed: Observed) -> Result<(), String> {
+        let at = cx.clock.now();
+        let key = credential.api_key_id;
+        let before = cx.db.run(move |c, _| generations_of_key(c, key)).await?;
+        cx.db.run(move |c, cipher| publish(c, cipher, &credential, &observed, at)).await?;
+        let moved = cx.db.run(move |c, _| moved_readers(c, key, &before)).await?;
+        for r in moved { for job in [crate::sync::jobs::LEDGER_SYNC, crate::sync::jobs::BALANCE_SYNC] { cx.wakers.wake(job, Some(&r.to_string()), None); } }
+        Ok(())
     }
 }
 
@@ -1878,9 +2035,134 @@ mod tests {
 
     #[test]
     fn only_definite_failures_count() {
-        for code in ["http 401", "http 401; code 400003", "http 403", "http 200", "http 200; code -2015"] { assert!(definite_failure(code), "{code}"); }
-        for code in ["http 500", "http 502", "http 429", "http 418", "http 400; code -1021", "transport", "no egress", "proxy unreadable"] { assert!(!definite_failure(code), "{code}"); }
+        for code in ["http 401", "http 401; code 400003", "http 403", "http 200", "http 200; code -2015"] { assert!(definite_failure(KUCOIN, code), "{code}"); }
+        for code in ["http 500", "http 502", "http 429", "http 418", "http 400; code -1021", "transport", "no egress", "proxy unreadable"] { assert!(!definite_failure(KUCOIN, code), "{code}"); }
     }
+    /// #710 slice 9 G1: a UUID id is canonical lowercase hyphenated text; nil, malformed and non-text are no account id.
+    #[test]
+    fn uuids_are_canonical_lowercase_hyphenated_text_and_nothing_else() {
+        let id = |v: Value| AccountId::from_uuid(&v);
+        let canonical = "5b2c6a1e-8f3d-4e7a-9c0b-1d2e3f4a5b6c";
+        assert_eq!(id(Value::from(canonical)), Some(AccountId(canonical.into())));
+        assert_eq!(id(Value::from(canonical.to_uppercase())), id(Value::from(canonical)), "case folds");
+        for bad in [Value::from(""), Value::from(" "), Value::Null, Value::from("00000000-0000-0000-0000-000000000000"), Value::from("abc"),
+                    Value::from("5b2c6a1e8f3d4e7a9c0b1d2e3f4a5b6c"), Value::from(format!("{{{canonical}}}")), Value::from(format!(" {canonical}")),
+                    Value::from(165111215u64), serde_json::json!([canonical])] {
+            assert_eq!(id(bad.clone()), None, "{bad}");
+        }
+        assert_eq!(AccountId::from_json(&Value::from(canonical)), None, "decimal ids stay decimal-only");
+    }
+
+    /// Coinbase's GET /api/v3/brokerage/key_permissions (public docs): `portfolio_uuid` beside the flags; an error is the
+    /// grpc-gateway envelope `{error, code, message, details}`.
+    #[test]
+    fn coinbase_answers_yield_the_portfolio_uuid_or_a_failure() {
+        let canonical = "5b2c6a1e-8f3d-4e7a-9c0b-1d2e3f4a5b6c";
+        let ok = |uuid: &str| format!(r#"{{"can_view":true,"can_trade":true,"can_transfer":false,"portfolio_uuid":"{uuid}","portfolio_type":"DEFAULT"}}"#);
+        assert_eq!(coinbase_answer(200, &ok(canonical)), Observed::Read(AccountId(canonical.into())));
+        assert_eq!(coinbase_answer(200, &ok(&canonical.to_uppercase())), Observed::Read(AccountId(canonical.into())));
+        for body in [ok(""), ok("00000000-0000-0000-0000-000000000000"), ok("not-a-uuid"), r#"{"can_view":true}"#.into(), r#"{"portfolio_uuid":null}"#.into(), "[]".into(), "<html>".into()] {
+            assert_eq!(coinbase_answer(200, &body), Observed::Failed("http 200".into()), "{body}");
+        }
+        assert_eq!(coinbase_answer(401, r#"{"error":"UNAUTHENTICATED","code":16,"message":"unauthorized","details":[]}"#), Observed::Failed("http 401; code 16".into()));
+        assert_eq!(coinbase_answer(503, &format!("<p>{canonical}</p>")), Observed::Failed("http 503".into()));
+        // G2: the dispatch is per venue, never Binance's reading of another venue's answer.
+        assert_eq!(extractor(COINBASE)(200, &ok(canonical)), Observed::Read(AccountId(canonical.into())));
+        assert_eq!(extractor(BINANCE)(200, &ok(canonical)), Observed::Failed("http 200".into()));
+        assert!(VENUES.contains(&COINBASE));
+    }
+
+    /// Bybit's GET /v5/user/query-api (public docs): `result.userID`, an integer (text accepted too), under `retCode` 0; never
+    /// `result.id` (the key's own id) nor `parentUid`. An error is `retCode` under any status; a sub-account is its own UID.
+    #[test]
+    fn bybit_answers_yield_the_user_id_or_a_failure() {
+        use serde_json::json;
+        let ok = |user: Value| json!({"retCode": 0, "retMsg": "", "result": {"id": "13770661", "note": "n", "apiKey": "the-key", "readOnly": 0, "secret": "",
+                                      "userID": user, "parentUid": "0", "isMaster": true}, "retExtInfo": {}, "time": 1697525990798u64}).to_string();
+        let read = |id: &str| Observed::Read(AccountId::parse(id).unwrap());
+        assert_eq!(bybit_answer(200, &ok(json!(24600000))), read("24600000"));
+        assert_eq!(bybit_answer(200, &ok(json!("24600000"))), read("24600000"), "text is the same id");
+        let sub = json!({"retCode": 0, "result": {"id": "1", "userID": 24600111, "parentUid": "24600000", "isMaster": false}}).to_string();
+        assert_eq!(bybit_answer(200, &sub), read("24600111"), "a sub-account reports its own UID");
+        assert_eq!(bybit_answer(200, &json!({"retCode": "0", "result": {"userID": 7}}).to_string()), read("7"));
+        for user in [Value::Null, json!(""), json!(" "), json!(0), json!("0"), json!(-5), json!(1.5), json!("24****00"), json!([1])] {
+            assert_eq!(bybit_answer(200, &ok(user.clone())), Observed::Failed("http 200".into()), "{user}");
+        }
+        assert_eq!(bybit_answer(200, r#"{"retCode":0,"result":{"id":"13770661"}}"#), Observed::Failed("http 200".into()), "result.id is no account");
+        assert_eq!(bybit_answer(200, r#"{"retCode":10003,"retMsg":"API key is invalid. 24600000","result":{}}"#), Observed::Failed("http 200; code 10003".into()));
+        assert_eq!(bybit_answer(200, r#"{"retCode":10006,"retMsg":"Too many visits!","result":{"userID":24600000}}"#), Observed::Failed("http 200; code 10006".into()));
+        assert_eq!(bybit_answer(200, r#"{"retCode":-2015,"retMsg":"expired"}"#), Observed::Failed("http 200; code -2015".into()));
+        assert_eq!(bybit_answer(403, "<html>24600000</html>"), Observed::Failed("http 403".into()));
+        assert_eq!(bybit_answer(503, &ok(json!(24600000))), Observed::Failed("http 503; code 0".into()), "no id under a 5xx");
+        assert_eq!(extractor(BYBIT)(200, &ok(json!(24600000))), read("24600000"));
+        assert!(VENUES.contains(&BYBIT) && VALIDATION_READS.contains(&BYBIT) && OVERLAP_VENUES.contains(&BYBIT), "G5: Bybit stays an overlap venue");
+    }
+
+    /// Alpaca's GET /v2/account (public docs, Trading API "Get account"): `id`, the account's UUID, never `account_number`;
+    /// an error is `{code, message}` (a 401's code included).
+    #[test]
+    fn alpaca_answers_yield_the_account_uuid_or_a_failure() {
+        let canonical = "904837e3-3b76-47ec-b432-046db621571b";
+        let ok = |id: Value| serde_json::json!({"id": id, "account_number": "PA3W1ZQ9D3WB", "status": "ACTIVE", "currency": "USD", "cash": "100000"}).to_string();
+        assert_eq!(alpaca_answer(200, &ok(Value::from(canonical))), Observed::Read(AccountId(canonical.into())));
+        assert_eq!(alpaca_answer(200, &ok(Value::from(canonical.to_uppercase()))), Observed::Read(AccountId(canonical.into())), "case folds");
+        for body in [ok(Value::from("")), ok(Value::Null), ok(Value::from("00000000-0000-0000-0000-000000000000")), ok(Value::from("PA3W1ZQ9D3WB")),
+                     ok(Value::from(12345u64)), r#"{"status":"ACTIVE","cash":"0","account_number":"PA3W1ZQ9D3WB"}"#.into(), "[]".into(), "<html>".into()] {
+            assert_eq!(alpaca_answer(200, &body), Observed::Failed("http 200".into()), "{body}");
+        }
+        assert_eq!(alpaca_answer(401, r#"{"code":40110000,"message":"request is not authorized"}"#), Observed::Failed("http 401; code 40110000".into()));
+        assert_eq!(alpaca_answer(403, r#"{"code":40310000,"message":"forbidden"}"#), Observed::Failed("http 403; code 40310000".into()));
+        assert_eq!(alpaca_answer(503, &ok(Value::from(canonical))), Observed::Failed("http 503".into()), "no id under a failure status");
+        assert_eq!(extractor(ALPACA)(200, &ok(Value::from(canonical))), Observed::Read(AccountId(canonical.into())));
+        assert!(VENUES.contains(&ALPACA) && VALIDATION_READS.contains(&ALPACA));
+        let none = Credentials { key: "k".into(), secret: "s".into(), passphrase: None, redaction_values: vec![], ibkr: None };
+        let t = crate::venue::http::ReqwestTransport::new(crate::venue::http::client(), "k".into(), "s".into());
+        let r = request(ALPACA, &t, "https://paper-api.alpaca.markets", &none.secret).unwrap();
+        assert_eq!((r.method, r.path.as_str(), r.query.len()), ("GET", ALPACA_PATH, 0));
+    }
+
+    /// G4: definite failures are per venue. KuCoin and Binance keep 2xx/401/403; Coinbase's only definite refusal is a 401.
+    #[test]
+    fn definite_failures_are_per_venue_and_the_sql_twin_agrees() {
+        let codes = ["http 200", "http 200; code -2015", "http 204", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005",
+                     "http 200; code 10006", "http 200; code 10007", "http 200; code 10016", "http 403; code 10003", "http 429; code 10006",
+                     "http 503; code 10003", "http 200; code 0", "http 600", "http 600; code 10003", "http 599; code 10003", "http 401", "http 401; code 16", "http 403", "http 403; code 7", "http 404",
+                     "http 429", "http 500", "http 503", "http 400; code -1021", "http 2000", "transport", "no egress", "proxy unreadable"];
+        let legacy = |code: &str| code.strip_prefix("http ").and_then(|r| r.split(';').next()).is_some_and(|status| ["200", "204", "401", "403"].contains(&status));
+        for venue in [KUCOIN, BINANCE, BINANCE_US] { for code in codes { assert_eq!(definite_failure(venue, code), legacy(code), "{venue} {code}"); } }
+        for code in codes { assert_eq!(definite_failure(COINBASE, code), code == "http 401" || code == "http 401; code 16", "Coinbase {code}"); }
+        // Alpaca: only its 401 (on the key's own paper or live host) refuses the key; a 403, a 2xx naming no account are not.
+        for code in codes { assert_eq!(definite_failure(ALPACA, code), code == "http 401" || code == "http 401; code 16", "Alpaca {code}"); }
+        let bybit = ["http 200; code -2015", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005", "http 200; code 10007", "http 403; code 10003"];
+        for code in codes { assert_eq!(definite_failure(BYBIT, code), bybit.contains(&code), "Bybit {code}: only its refusal codes, never a bare 403, 10006, 10016, a 429 or a 5xx"); }
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT); CREATE TABLE o (exchange_id INTEGER, code TEXT);").unwrap();
+        for (n, venue) in VENUES.iter().chain(["Exchanges::Kraken"].iter()).enumerate() {
+            c.execute("INSERT INTO exchanges (id, type) VALUES (?1, ?2)", params![n as i64 + 1, venue]).unwrap();
+            for code in codes {
+                c.execute("DELETE FROM o", []).unwrap();
+                c.execute("INSERT INTO o VALUES (?1, ?2)", params![n as i64 + 1, code]).unwrap();
+                let sql: bool = c.query_row(&format!("SELECT {} FROM o", definite_sql("o.code", "o.exchange_id")), [], |r| r.get(0)).unwrap();
+                assert_eq!(sql, definite_failure(venue, code), "{venue} {code}");
+            }
+        }
+    }
+
+    /// Review r1 #7: a venue's numeric refusal code never makes a rate limit or a 5xx definite, in Rust and in SQL (a
+    /// venue whose codes are listed lands later: a rule with Bybit's 10003 stands in).
+    #[test]
+    fn a_numeric_code_never_makes_a_429_or_a_5xx_definite() {
+        let rule = Definite { success: false, statuses: &[], codes: &["10003"] };
+        let c = Connection::open_in_memory().unwrap();
+        for (code, definite) in [("http 200; code 10003", true), ("http 401; code 10003", true), ("http 403; code 10003", true), ("http 503; code 10003", false),
+                                 ("http 500; code 10003", false), ("http 429; code 10003", false), ("http 200; code 10006", false), ("http 503", false),
+                                 ("http 600; code 10003", false), ("http 599; code 10003", false), ("http 499; code 10003", true)] {
+            assert_eq!(definite_by(&rule, code), definite, "{code}");
+            let sql: bool = c.query_row(&format!("SELECT {}", condition_sql(&rule, "?1")), [code], |r| r.get(0)).unwrap();
+            assert_eq!(sql, definite, "SQL {code}");
+        }
+    }
+
     #[test]
     fn answers_yield_the_id_or_a_failure_without_body_text() {
         let kucoin = r#"{"code":"200000","data":{"uid":165111215,"apiKey":"the-key","remark":"r"}}"#;

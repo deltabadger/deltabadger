@@ -51,11 +51,31 @@ fn numbers(c: &Connection, exchange: i64) -> Vec<i64> {
     c.prepare("SELECT number FROM exchange_accounts WHERE exchange_id = ?1 ORDER BY number").unwrap().query_map([exchange], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
 }
 
-// ---- no identity venue (Alpaca): material decides (§1.1 rule 4) ----
+// ---- no identity venue (Kraken): material decides (§1.1 rule 4) ----
 
-async fn alpaca() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
+/// Kraken's fixture with its key server: every key's permission read answers a reading key's permissions.
+async fn kraken() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
     let server = MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("POST")).and(path("/0/private/GetApiKeyInfo"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"error": [], "result": {"permissions": ["query-funds", "query-ledger"]}}))).mount(&server).await;
+    let (dir, o) = install();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, chrono::Utc::now()).unwrap();
+    let app = web_app(dir.path(), &o.primary).with_venue_key_url("Exchanges::Kraken", &server.uri()).unwrap();
+    (dir, o, s, server, app)
+}
+
+// ---- Alpaca (#710 slice 9: an identity venue, `id` of its account read) ----
+
+/// The Alpaca fixture. Its account read names account A for every key (`PKTEST`, the seeded one, included) but
+/// `second-key` and `reader-2`, which name B (`common::alpaca_key`).
+async fn alpaca() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
+    use common::alpaca_key::{account, ACCOUNT_A, ACCOUNT_B};
+    let server = MockServer::start().await;
+    for key in ["second-key", "reader-2"] {
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", key)).respond_with(ResponseTemplate::new(200).set_body_json(account(ACCOUNT_B))).with_priority(1).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account(ACCOUNT_A))).mount(&server).await;
     Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let (dir, o) = install();
     let s = seed::seed_alpaca(&o.primary, &seed::cipher());
@@ -68,24 +88,24 @@ async fn alpaca() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer
 /// key and secret, a leftover passphrase too, saves to 2 and leaves 1 as it was, saying so.
 #[tokio::test(flavor = "current_thread")]
 async fn a_tile_save_without_identity_makes_a_new_account_and_the_same_material_finds_it() {
-    let (_d, o, s, _server, app) = alpaca().await;
+    let (_d, o, s, _server, app) = kraken().await;
     let (c, cipher) = (&o.primary, seed::cipher());
     let before = keys(c, &cipher, s.exchange_id);
     let mut b = browser(&app, c, s.user_id);
-    let first = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret"), ("api_key[passphrase]", "paper")]).await;
+    let first = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "c2Vjb25kLXNlY3JldA==")]).await;
     assert!(first.status < 400, "{}: {}", first.status, first.body);
     assert_eq!(numbers(c, s.exchange_id), [1, 2]);
-    let again = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret")]).await;
+    let again = save(&app, &mut b, s.exchange_id, None, &[("api_key[key]", "second-key"), ("api_key[secret]", "c2Vjb25kLXNlY3JldA==")]).await;
     assert!(again.status < 400, "{}: {}", again.status, again.body);
     assert_eq!(numbers(c, s.exchange_id), [1, 2], "the same material is the same account");
     let account1 = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().id.unwrap();
-    let reconnect = save(&app, &mut b, s.exchange_id, Some(account1), &[("api_key[key]", "second-key"), ("api_key[secret]", "second-secret"), ("api_key[passphrase]", "paper")]).await;
+    let reconnect = save(&app, &mut b, s.exchange_id, Some(account1), &[("api_key[key]", "second-key"), ("api_key[secret]", "c2Vjb25kLXNlY3JldA=="), ("api_key[passphrase]", "paper")]).await;
     assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
     let mut want = before.clone();
     want.push((2, "second-key".into()));
     assert_eq!(keys(c, &cipher, s.exchange_id), want, "account 1 keeps its key");
     let notice = b.get(&app, "/tracker").await;
-    assert!(notice.body.contains("This key belongs to Alpaca") && notice.body.contains("was not changed"), "{}", &notice.body[..notice.body.len().min(2000)]);
+    assert!(notice.body.contains("This key belongs to Kraken") && notice.body.contains("was not changed"), "{}", &notice.body[..notice.body.len().min(2000)]);
 }
 
 /// A 2.x form (no `account_id`, no `untargeted`) still saves into number 1, and again replaces that key, as before.
@@ -959,8 +979,23 @@ async fn upload(app: &deltabadger::web::App, b: &mut common::web::Browser, forma
 fn options(body: &str) -> Vec<String> {
     full_options(body).into_iter().map(|v| v.split_once('!').map_or(v.clone(), |(b, _)| b.to_string())).collect()
 }
+/// #710 8a: a segmented option (`data-value`), a named destination's button or a CSV's hidden answer (`name="api_key_id"`).
 fn full_options(body: &str) -> Vec<String> {
-    regex::Regex::new(r#"data-value="([^"]+)""#).unwrap().captures_iter(body).map(|m| m[1].replace("&#33;", "!")).collect()
+    regex::Regex::new(r#"data-value="([^"]+)"|name="api_key_id" value="([^"]+)""#).unwrap().captures_iter(body)
+        .map(|m| m.get(1).or(m.get(2)).unwrap().as_str().replace("&#33;", "!")).collect()
+}
+/// #710 8a: the markup of the button posting `value` (its digest aside) and the notes under it, up to the next button.
+fn under(body: &str, value: &str) -> String {
+    let start = body.find(&format!("name=\"api_key_id\" value=\"{value}")).unwrap_or_else(|| panic!("no button {value}: {body}"));
+    let rest = &body[start..];
+    let end = rest[1..].find("<button").or_else(|| rest.find("name=\"cancel\"")).map_or(rest.len(), |e| e + 1);
+    rest[..end].to_string()
+}
+/// A CSV's sealed answer (#710 8a): the one hidden `api_key_id`.
+fn hidden(body: &str) -> String {
+    let all: Vec<String> = regex::Regex::new(r#"<input type="hidden" name="api_key_id" value="([^"]+)""#).unwrap().captures_iter(body).map(|m| m[1].replace("&#33;", "!")).collect();
+    assert_eq!(all.len(), 1, "one sealed answer: {body}");
+    all[0].clone()
 }
 /// `value` posted back as the page renders it: with its digest, when the page offered it.
 async fn answer(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str, value: &str) -> common::web::Answer {
@@ -1024,7 +1059,9 @@ async fn n7_an_import_that_makes_an_account_settles_the_readers() {
     assert!(deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&kk), "one account: it reads");
     let before = deltabadger::sync::reader_generation(c, first).unwrap();
     let mut b = browser(&app, c, s.user_id);
-    let done = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
+    // #710 8a rule R1: a new account beside a live one is named first.
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("n{kucoin}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(numbers(c, kucoin), [1, 2], "the file's own account");
     assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&kk), "unread on a two-account exchange");
@@ -1047,7 +1084,10 @@ async fn a_file_whose_account_is_known_lands_there_in_either_binance_venue() {
     fingerprint(c, keyless_us, "Exchanges::BinanceUs", "333");
     let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
     let mut b = browser(&app, c, s.user_id);
-    let done = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    // #710 8a rule R1: account 2 of two is named first.
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [format!("a{second}")], "{}", asked.body);
+    let done = answer(&app, &mut b, &asked, "binance", &format!("a{second}")).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 1), "account 2's file");
     let done = upload(&app, &mut b, "binance", &binance_file("333")).await;
@@ -1155,10 +1195,10 @@ async fn a_parked_answer_never_beats_the_file_s_account() {
     // Two tabs, each asked (accounts 1 and 3 unfingerprinted), each answering "a new account".
     identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
     let (one, two) = (upload(&app, &mut b, "kucoin", &kucoin_file("888")).await, upload(&app, &mut b, "kucoin", &kucoin_file("888")).await);
-    let warned = answer(&app, &mut b, &one, "kucoin", &options(&one.body)[2]).await;
-    // Rule P5: the same export's rows are on account 2 already (KuCoin row ids carry no UID): warned, imported anyway.
-    assert!(warned.body.contains("Rows already on"), "{}", warned.body);
-    let done = answer(&app, &mut b, &warned, "kucoin", &format!("n{kucoin}")).await;
+    // Rule P5: the same export's rows are on account 2 already (KuCoin row ids carry no UID): shown on the button, and
+    // (#710 8a rule R4) accepted by its click.
+    assert!(under(&one.body, &options(&one.body)[2]).contains("Rows already on"), "{}", one.body);
+    let done = answer(&app, &mut b, &one, "kucoin", &options(&one.body)[2]).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     let late = answer(&app, &mut b, &two, "kucoin", &options(&two.body)[2]).await;
     assert!(late.body.contains("Something changed since you answered."), "the second is asked again: {}", late.body);
@@ -1297,7 +1337,8 @@ async fn the_gap_dialog_reads_its_account_and_its_example_lands_on_it() {
     assert!(gap.body.contains("group_id,description,account"), "{}", gap.body);
     for row in &rows { assert!(gap.body.contains(row.as_str()), "{row} in {}", gap.body); }
     let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
-    let done = upload(&app, &mut b, "deltabadger", &file).await;
+    // #710 8a rule R2: where the rows go is said first.
+    let done = import_confirmed(&app, &mut b, "deltabadger", &file).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, third), rows.len() as i64, "on account 3");
 }
@@ -1348,7 +1389,8 @@ async fn a_partly_routed_csv_imports_the_rest_and_names_the_accounts_it_left_out
     let done = answer(&app, &mut b, &asked, "deltabadger", "r").await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, first), last as i64, "account 1's rows imported");
-    assert!(done.body.contains(&format!("No account connected for: {name} 2. Those rows were left out.")), "{}", done.body);
+    // #710 8a rule R15: named as an account is.
+    assert!(done.body.contains("No account connected for: Alpaca 2. Those rows were left out."), "{}", done.body);
 }
 
 /// Rule N6 (Codex branch r4 #10): a Deltabadger CSV row with no exchange is a row with no account here: counted and said
@@ -1422,10 +1464,9 @@ async fn a_re_import_after_a_reset_asks_which_account_and_keeps_the_totals() {
     let set = format!("{}-{}", accounts[0], accounts[1]);
     assert_eq!(options(&asked.body), [format!("a{}~{set}", accounts[0]), format!("a{}~{set}", accounts[1]), format!("n{kucoin}~{set}")], "{}", asked.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written before the answer");
+    // Rule P5: account 2 holds the same row ids: shown on the pick, which (#710 8a rule R4) imports anyway, adding nothing.
+    assert!(under(&asked.body, &format!("a{}~", accounts[0])).contains("Rows already on"), "{}", asked.body);
     let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{}~{set}", accounts[0])).await;
-    // Rule P5: account 2 holds the same row ids: warned, then imported anyway (adding nothing).
-    assert!(done.body.contains("Rows already on"), "{}", done.body);
-    let done = answer(&app, &mut b, &done, "kucoin", &format!("a{}", accounts[0])).await;
     assert!(done.status == 200 && done.body.contains("Every transaction in this file is already in your history."), "{}: {}", done.status, done.body);
     let asked = upload(&app, &mut b, "kucoin", &kucoin_file("222")).await;
     assert!(asked.body.contains("Rows already on"), "{}", asked.body);
@@ -1450,7 +1491,7 @@ async fn a_csv_row_naming_an_account_with_only_a_withdrawal_key_lands_there() {
     let name = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
     let rows: Vec<String> = deltabadger::web::tracker::gap::examples(&name).into_iter().map(|r| format!("{r},2")).collect();
     let file = format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, rows.join("\n"));
-    let done = upload(&app, &mut b, "deltabadger", &file).await;
+    let done = import_confirmed(&app, &mut b, "deltabadger", &file).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
     assert_eq!(rows_on(c, second), rows.len() as i64, "on account 2");
 }
@@ -1472,7 +1513,7 @@ async fn a_csv_export_restores_on_another_install_by_account_number() {
     let mut b = browser(&app, c, s.user_id);
     assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
     let source: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
-    assert!(imported(&upload(&app, &mut b, "deltabadger", &file).await));
+    assert!(imported(&import_confirmed(&app, &mut b, "deltabadger", &file).await));
     let held: Vec<i64> = source.iter().map(|a| rows_on(c, *a)).collect();
     assert_eq!(held, [split as i64, (examples.len() - split) as i64]);
     let export = b.get(&app, "/tracker/export").await;
@@ -1484,7 +1525,10 @@ async fn a_csv_export_restores_on_another_install_by_account_number() {
     let second = identity::new_account(c2, s2.user_id, s2.exchange_id, chrono::Utc::now()).unwrap();
     let first = identity::Account::first(c2, s2.user_id, s2.exchange_id).unwrap().id.unwrap();
     let mut b2 = browser(&app2, c2, s2.user_id);
-    let done = upload(&app2, &mut b2, "deltabadger", &export.body).await;
+    // #710 8a rule R2: two accounts: where the rows go is confirmed first.
+    let asked = upload(&app2, &mut b2, "deltabadger", &export.body).await;
+    assert_eq!((rows_on(c2, first), rows_on(c2, second)), (0, 0), "nothing written yet");
+    let done = answer(&app2, &mut b2, &asked, "deltabadger", &hidden(&asked.body)).await;
     assert!(imported(&done), "{}: {}\n{}", done.status, done.body, export.body);
     assert_eq!([rows_on(c2, first), rows_on(c2, second)], [held[0], held[1]], "each row on its number: {}", export.body);
 }
@@ -2259,12 +2303,14 @@ async fn p5_rows_another_account_holds_are_counted_before_writing() {
     let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
     let header = format!("{},account", deltabadger::web::tracker::gap::CSV_HEADER);
     let first = format!("{header}\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},T1,,,1\n");
-    assert!(imported(&upload(&app, &mut b, "deltabadger", &first).await));
+    assert!(imported(&import_confirmed(&app, &mut b, "deltabadger", &first).await));
     let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
     let second = format!("{header}\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},T1,,,2\n2023-01-05T10:00:00Z,deposit,BTC,0.25,,,,,{v},,,,2\n\
                           2023-01-06T10:00:00Z,deposit,ETH,1,,,,,{v},T2,,,1\n2023-01-06T10:00:00Z,deposit,ETH,1,,,,,{v},T2,,,2\n");
     let asked = upload(&app, &mut b, "deltabadger", &second).await;
-    assert!(asked.body.contains("Rows already on") && asked.body.contains(": 3."), "{}", asked.body);
+    // #710 8a rules R12/R13: the two stored rows per account, the venue id sent to two accounts on its own line.
+    assert!(asked.body.contains("Rows already on Alpaca<sup>1</sup>: 2."), "{}", asked.body);
+    assert!(asked.body.contains("Rows this file sends to more than one account: 1."), "{}", asked.body);
     assert_eq!(options(&asked.body), ["r"], "{}", asked.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
     let done = answer(&app, &mut b, &asked, "deltabadger", "r").await;
@@ -2340,4 +2386,1290 @@ async fn m2_a_reconnect_onto_another_account_is_asked() {
     assert_eq!(asked.status, 422, "{}", asked.body);
     assert!(asked.body.contains("This key opens another KuCoin account than"), "{}", asked.body);
     assert_eq!(numbers(c, exchange), [1]);
+}
+
+// ---- #710 8a: the import dialog names the account ----
+
+/// The input records of a KuCoin export (rule R7: what "rows in file" counts).
+fn kucoin_records(text: &str) -> usize { text.lines().skip(1).filter(|l| !l.trim().is_empty()).count() }
+/// A KuCoin export of `uid` holding only the fixture's records `lines` (1-based).
+fn kucoin_part(uid: &str, lines: std::ops::RangeInclusive<usize>) -> String {
+    let all = kucoin_file(uid);
+    let mut rows = all.lines();
+    let header = rows.next().unwrap();
+    std::iter::once(header).chain(rows.enumerate().filter(|(i, _)| lines.contains(&(i + 1))).map(|(_, l)| l)).collect::<Vec<_>>().join("\n") + "\n"
+}
+/// A Deltabadger CSV of `rows`: (exchange name id, tx id, coin, day of January 2023, account number).
+fn ledger_csv(rows: &[(&str, &str, &str, u32, u32)]) -> String {
+    let lines: Vec<String> = rows.iter().map(|(v, tx, coin, day, n)| format!("2023-01-{day:02}T10:00:00Z,deposit,{coin},1,,,,,{v},{tx},,,{n}")).collect();
+    format!("{},account\n{}\n", deltabadger::web::tracker::gap::CSV_HEADER, lines.join("\n"))
+}
+/// A Kraken of `n` accounts for `user`: number 1 keyed, the rest keyless. Their ids, by number.
+fn krakens(c: &Connection, user: i64, n: usize) -> (i64, Vec<i64>) {
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    key_on(c, user, kraken, None);
+    let mut ids = vec![identity::Account::first(c, user, kraken).unwrap().id.unwrap()];
+    for _ in 1..n { ids.push(identity::new_account(c, user, kraken, chrono::Utc::now()).unwrap()); }
+    (kraken, ids)
+}
+/// Upload `text`; a question is answered with what it offers last (a CSV's sealed answer, a native file's destination).
+async fn import_confirmed(app: &deltabadger::web::App, b: &mut common::web::Browser, format: &str, text: &str) -> common::web::Answer {
+    let asked = upload(app, b, format, text).await;
+    if imported(&asked) { return asked; }
+    let value = full_options(&asked.body).last().cloned().unwrap_or_else(|| panic!("asked nothing: {}", asked.body));
+    answer(app, b, &asked, format, &value).await
+}
+
+/// R1/R6/R7: a Binance file whose UID is account 2's asks before writing, one named button per destination with its rows
+/// in file, no selector; nothing is written until it is clicked, and the click writes on account 2.
+#[tokio::test(flavor = "current_thread")]
+async fn a_native_file_matched_to_binance_2_asks_with_named_buttons() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let binance = venue(c, "Exchanges::Binance", "Binance");
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [format!("a{second}")], "{}", asked.body);
+    assert!(under(&asked.body, &format!("a{second}!")).contains("Import to Binance<sup>2</sup> (rows in file: 1)"), "{}", asked.body);
+    assert!(!asked.body.contains("data-value") && asked.body.contains("name=\"cancel\""), "buttons and Cancel, no selector: {}", asked.body);
+    assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 0), "nothing written yet");
+    let done = answer(&app, &mut b, &asked, "binance", &format!("a{second}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, first), rows_on(c, second)), (0, 1));
+}
+
+/// R3/R5/R6: each destination shows its own warnings; with a new account offered, KuCoin 1 shows as KuCoin¹ beside the new
+/// KuCoin². A click validates against the offer rebuilt under the import's lock and writes what its button showed, with no
+/// second question.
+#[tokio::test(flavor = "current_thread")]
+async fn each_destination_shows_its_own_warnings_and_the_default_writes_what_it_shows() {
+    for pick_new in [false, true] {
+        let (_d, o, s, _server, app) = alpaca().await;
+        let c = &o.primary;
+        let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+        key_on(c, s.user_id, kucoin, None);
+        let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+        fingerprint(c, first, "Exchanges::Kucoin", "111");
+        observe_import(c, s.user_id, kucoin, first, "444");
+        let mut b = browser(&app, c, s.user_id);
+        let file = kucoin_file("444");
+        let n = kucoin_records(&file);
+        let asked = upload(&app, &mut b, "kucoin", &file).await;
+        assert_eq!(options(&asked.body), [format!("a{first}"), format!("n{kucoin}")], "{}", asked.body);
+        let here = under(&asked.body, &format!("a{first}!"));
+        assert!(here.contains(&format!("Import to KuCoin<sup>1</sup> (rows in file: {n})")), "{here}");
+        assert!(here.contains("This export is from another account than KuCoin<sup>1</sup>"), "its own warning: {here}");
+        let new = under(&asked.body, &format!("n{kucoin}!"));
+        assert!(new.contains(&format!("Import to a new account, KuCoin<sup>2</sup> (rows in file: {n})")), "{new}");
+        assert!(new.contains("KuCoin<sup>1</sup> may already hold this export") && !new.contains("This export is from another account"), "{new}");
+        let done = answer(&app, &mut b, &asked, "kucoin", &if pick_new { format!("n{kucoin}") } else { format!("a{first}") }).await;
+        assert!(imported(&done), "no second question: {}: {}", done.status, done.body);
+        if pick_new {
+            assert_eq!(numbers(c, kucoin), [1, 2]);
+            assert_eq!(rows_on(c, first), 0);
+            assert!(rows_on(c, identity::accounts_of(c, s.user_id, kucoin).unwrap()[1].0) > 0);
+        } else {
+            assert_eq!(numbers(c, kucoin), [1], "no account made");
+            assert!(rows_on(c, first) > 0);
+        }
+    }
+}
+
+/// R3/R4: the account question's button shows the rows another account already holds, and its click accepts them (no
+/// second question). Another of the file's rows landing on that account between preview and click asks again.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_pick_shows_rows_already_held_and_accepts_them_on_click() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let third = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    // One deposit of the export on account 2 (its UID 444 observed there).
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_part("444", 2..=2)).await;
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}~{first}-{second}-{third}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    // The whole export of another UID: KuCoin row ids carry no UID, so account 2 holds one of its rows.
+    let set = format!("{first}-{third}");
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("888")).await;
+    assert_eq!(options(&asked.body), [format!("a{first}~{set}"), format!("a{third}~{set}"), format!("n{kucoin}~{set}")], "{}", asked.body);
+    assert!(under(&asked.body, &format!("a{first}~")).contains("Rows already on KuCoin<sup>2</sup>: 1."), "{}", asked.body);
+    // Another record lands on account 2 meanwhile: the pick is asked again, nothing written.
+    let more = import_confirmed(&app, &mut b, "kucoin", &kucoin_part("444", 3..=3)).await;
+    assert!(imported(&more), "{}: {}", more.status, more.body);
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}~{set}")).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(rows_on(c, first), 0, "nothing written");
+    assert!(under(&again.body, &format!("a{first}!")).contains("Rows already on KuCoin<sup>2</sup>: 2."), "{}", again.body);
+    let done = answer(&app, &mut b, &again, "kucoin", &format!("a{first}")).await;
+    assert!(imported(&done), "accepted on the click: {}: {}", done.status, done.body);
+    assert!(rows_on(c, first) > 0);
+}
+
+/// R7: a KuCoin export to KuCoin 2 counts its source records, also when the writer adds nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_kucoin_export_to_kucoin_2_counts_its_source_rows() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "111");
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    observe_import(c, s.user_id, kucoin, second, "444");
+    let mut b = browser(&app, c, s.user_id);
+    let file = kucoin_file("444");
+    let label = format!("Import to KuCoin<sup>2</sup> (rows in file: {})", kucoin_records(&file));
+    for again in [false, true] {
+        let asked = upload(&app, &mut b, "kucoin", &file).await;
+        assert!(under(&asked.body, &format!("a{second}!")).contains(&label), "{label}: {}", asked.body);
+        let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}")).await;
+        if again { assert!(done.body.contains("Every transaction in this file is already in your history."), "{}", done.body) } else { assert!(imported(&done), "{}", done.body) }
+    }
+}
+
+/// R7: a Binance fill on three records (buy, spend, fee) is one entry and three rows in file.
+#[tokio::test(flavor = "current_thread")]
+async fn a_three_record_binance_fill_counts_three_rows_in_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let binance = venue(c, "Exchanges::Binance", "Binance");
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let file = "User ID,Time,Account,Operation,Coin,Change,Remark\n222,2026-08-01 10:00:46,Spot,Transaction Buy,BTC,0.001,\n\
+                222,2026-08-01 10:00:46,Spot,Transaction Spend,USDT,-60,\n222,2026-08-01 10:00:46,Spot,Transaction Fee,BTC,-0.000001,\n";
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", file).await;
+    assert!(under(&asked.body, &format!("a{second}!")).contains("(rows in file: 3)"), "{}", asked.body);
+    let done = answer(&app, &mut b, &asked, "binance", &format!("a{second}")).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!(rows_on(c, second), 1, "one entry");
+}
+
+/// R1/R9: an automatic new account previews the number it will take (3; 4 when 3 is a tombstone), and the confirm binds it:
+/// a number taken and tombstoned between preview and confirm asks again, writing nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn an_automatic_new_account_previews_and_binds_its_number() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "111");
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Kucoin", "222");
+    let tombstone = |c: &Connection| { let id = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap(); c.execute("UPDATE exchange_accounts SET removed_at = '2026-01-01' WHERE id = ?1", [id]).unwrap(); };
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("333")).await;
+    assert!(under(&asked.body, &format!("n{kucoin}!")).contains("a new account, KuCoin<sup>3</sup>"), "{}", asked.body);
+    tombstone(c);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("333")).await;
+    assert!(under(&asked.body, &format!("n{kucoin}!")).contains("a new account, KuCoin<sup>4</sup>"), "{}", asked.body);
+    let (ledger, rows) = (one::<i64>(c, "SELECT count(*) FROM account_transactions"), one::<i64>(c, "SELECT count(*) FROM exchange_accounts"));
+    tombstone(c);
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("n{kucoin}")).await;
+    assert!(again.body.contains("Something changed since you answered.") && again.body.contains("a new account, KuCoin<sup>5</sup>"), "{}", again.body);
+    assert_eq!((one::<i64>(c, "SELECT count(*) FROM account_transactions"), one::<i64>(c, "SELECT count(*) FROM exchange_accounts")), (ledger, rows + 1), "nothing written");
+}
+
+/// R6/R7: the account question names each account and the new one, each with the file's rows.
+#[tokio::test(flavor = "current_thread")]
+async fn an_explicit_pick_shows_counts() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let file = kucoin_file("444");
+    let n = kucoin_records(&file);
+    let asked = upload(&app, &mut b, "kucoin", &file).await;
+    assert!(asked.body.contains("This file could be from more than one account here. Which one?"), "{}", asked.body);
+    assert!(!asked.body.contains("data-value"), "buttons, no selector: {}", asked.body);
+    assert!(under(&asked.body, &format!("a{first}~")).contains(&format!("Import to KuCoin<sup>1</sup> (rows in file: {n})")), "{}", asked.body);
+    assert!(under(&asked.body, &format!("a{second}~")).contains(&format!("Import to KuCoin<sup>2</sup> (rows in file: {n})")), "{}", asked.body);
+    assert!(under(&asked.body, &format!("n{kucoin}~")).contains(&format!("Import to a new account, KuCoin<sup>3</sup> (rows in file: {n})")), "{}", asked.body);
+}
+
+/// R2: a CSV over an exchange with two accounts lists where its rows go and posts one sealed value through Import.
+#[tokio::test(flavor = "current_thread")]
+async fn a_destination_only_csv_posts_its_sealed_value_through_import() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let accounts: Vec<i64> = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap().into_iter().map(|(id, _)| id).collect();
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[(&v, "T1", "BTC", 5, 1), (&v, "T2", "BTC", 6, 2)])).await;
+    let value = hidden(&asked.body);
+    assert!(!asked.body.contains("data-value") && asked.body.contains("value=\"Import\"") && asked.body.contains("name=\"cancel\""), "{}", asked.body);
+    assert!(asked.body.contains("Rows going to Alpaca<sup>1</sup>: 1") && asked.body.contains("Rows going to Alpaca<sup>2</sup>: 1"), "{}", asked.body);
+    assert_eq!((rows_on(c, accounts[0]), rows_on(c, accounts[1])), (0, 0), "nothing written yet");
+    let done = answer(&app, &mut b, &asked, "deltabadger", &value).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, accounts[0]), rows_on(c, accounts[1])), (1, 1));
+}
+
+/// R2: each destination account with its count.
+#[tokio::test(flavor = "current_thread")]
+async fn a_deltabadger_csv_over_kraken_1_and_2_lists_each_with_its_count() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let (_, ids) = krakens(c, s.user_id, 2);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "T1", "BTC", 5, 1), ("kraken", "T2", "BTC", 6, 2), ("kraken", "T3", "ETH", 7, 2)])).await;
+    assert!(asked.body.contains("Rows going to Kraken<sup>1</sup>: 1") && asked.body.contains("Rows going to Kraken<sup>2</sup>: 2"), "{}", asked.body);
+    let done = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert_eq!((rows_on(c, ids[0]), rows_on(c, ids[1])), (1, 2));
+}
+
+/// R11: "import the rest" binds the accounts it would write: an empty Kraken 2 made while it is open asks again.
+#[tokio::test(flavor = "current_thread")]
+async fn an_empty_kraken_2_made_while_import_the_rest_is_open_re_asks() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let (kraken, ids) = krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "T1", "BTC", 5, 1), ("kraken", "T2", "BTC", 6, 2)])).await;
+    assert!(asked.body.contains("value=\"Import the rest\""), "{}", asked.body);
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    identity::new_account(c, s.user_id, kraken, chrono::Utc::now()).unwrap();
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
+    assert_eq!(rows_on(c, ids[0]), 0);
+}
+
+/// R12: rows another account holds are counted per account.
+#[tokio::test(flavor = "current_thread")]
+async fn existing_rows_are_counted_per_account() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 3);
+    let mut b = browser(&app, c, s.user_id);
+    let stored = import_confirmed(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "T1", "BTC", 5, 1), ("kraken", "T2", "ETH", 6, 2)])).await;
+    assert!(imported(&stored), "{}: {}", stored.status, stored.body);
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "T1", "BTC", 5, 3), ("kraken", "T2", "ETH", 6, 3)])).await;
+    assert!(asked.body.contains("Rows already on Kraken<sup>1</sup>: 1.") && asked.body.contains("Rows already on Kraken<sup>2</sup>: 1."), "{}", asked.body);
+    assert!(!asked.body.contains("more than one account"), "{}", asked.body);
+}
+
+/// R13: a venue id this file sends to two or more accounts counts once whatever the order of its groups; a confirm whose
+/// id's destinations changed since asks again; only rows stored on another account are "already on" it.
+#[tokio::test(flavor = "current_thread")]
+async fn rows_sent_to_more_than_one_account_count_distinct_ids() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 3);
+    let mut b = browser(&app, c, s.user_id);
+    let twice = ledger_csv(&[("kraken", "T", "BTC", 5, 1), ("kraken", "T", "BTC", 6, 1), ("kraken", "T", "BTC", 7, 2), ("kraken", "U", "ETH", 8, 3)]);
+    let reordered = ledger_csv(&[("kraken", "T", "BTC", 5, 2), ("kraken", "T", "BTC", 6, 1), ("kraken", "T", "BTC", 7, 1), ("kraken", "U", "ETH", 8, 3)]);
+    for file in [&twice, &reordered] {
+        let asked = upload(&app, &mut b, "deltabadger", file).await;
+        assert!(asked.body.contains("Rows this file sends to more than one account: 1."), "{}", asked.body);
+        assert!(!asked.body.contains("Rows already on"), "nothing stored: {}", asked.body);
+    }
+    // The parked file's T goes to a third account by the confirm (its groups' sizes unchanged): asked again.
+    let asked = upload(&app, &mut b, "deltabadger", &twice).await;
+    let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap()[1].to_string();
+    let third = ledger_csv(&[("kraken", "T", "BTC", 5, 1), ("kraken", "U", "ETH", 6, 1), ("kraken", "T", "BTC", 7, 2), ("kraken", "T", "ETH", 8, 3)]);
+    std::fs::write(app.config.tmp_dir.join("imports").join(s.user_id.to_string()).join(format!("{token}.csv")), &third).unwrap();
+    let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert!(again.body.contains("Something changed since you answered.") && again.body.contains("Rows this file sends to more than one account: 1."), "{}", again.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
+}
+
+/// R10: on a 2.x database Rust has not migrated, a clean CSV writes at once and a warned one writes on its confirm.
+#[test]
+fn a_clean_upload_on_an_unmigrated_2x_db_writes_at_once_and_confirms() {
+    use deltabadger::tracker::import::run::{self, Answer};
+    let dir = common::v2_install_unmigrated();
+    let c = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    assert!(!identity::ready(&c).unwrap());
+    let import = |text: &str, answer: Option<&str>| run::import(&c, &seed::cipher(), s.user_id, "deltabadger", text.as_bytes(), None, answer, chrono::Utc::now()).unwrap();
+    assert!(matches!(import(&ledger_csv(&[("kraken", "T1", "BTC", 5, 1)]), None), Answer::Written { imported: 1, .. }));
+    let rest = ledger_csv(&[("kraken", "T2", "BTC", 6, 1), ("kraken", "T3", "BTC", 7, 2)]);
+    let Answer::Warned(_, choices) = import(&rest, None) else { panic!("warned") };
+    let done = import(&rest, Some(&choices[0].value));
+    assert!(matches!(&done, Answer::Written { imported: 1, unrouted, .. } if unrouted == &["Kraken 2"]), "{done:?}");
+}
+
+/// R1: an exchange with one account writes a native file on the first response, as on main.
+#[test]
+fn a_single_account_upload_writes_on_the_first_response() {
+    let (_d, o, s) = common::install_alpaca();
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let file = kucoin_file("444");
+    let answer = deltabadger::tracker::import::run::import(c, &seed::cipher(), s.user_id, "kucoin", file.as_bytes(), None, None, chrono::Utc::now()).unwrap();
+    assert!(matches!(answer, deltabadger::tracker::import::run::Answer::Written { imported, .. } if imported > 0), "{answer:?}");
+}
+
+/// R15: an unrouted CSV row naming account 2+ is named as an account is ("Alpaca 2"); a number-1 row keeps the CSV's
+/// spelling, as does a row for an exchange this install has no row for.
+#[tokio::test(flavor = "current_thread")]
+async fn unrouted_csv_rows_name_the_exchange_or_keep_the_csv_spelling() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    // A Kraken with no account: its number-1 row keeps the CSV's spelling, as 2.x and the recorded imports name it.
+    venue(c, "Exchanges::Kraken", "Kraken");
+    let done = import_confirmed(&app, &mut b, "deltabadger", &ledger_csv(&[(&v, "T1", "BTC", 5, 1), (&v, "T2", "BTC", 6, 2), ("zzz", "T3", "BTC", 7, 1), ("kraken", "T4", "BTC", 8, 1)])).await;
+    assert!(imported(&done), "{}: {}", done.status, done.body);
+    assert!(done.body.contains("No account connected for: Alpaca 2, kraken, zzz."), "{}", done.body);
+}
+
+// ---- #710 8a review r1 ----
+
+/// R5 (r1 #1): a destination named without the venue question is bound to the venue routing too: the file's UID showing
+/// up on Binance.US before the click asks the venue, never writing on Binance's account the user did not pick a venue for.
+#[tokio::test(flavor = "current_thread")]
+async fn a_destination_whose_venue_became_ambiguous_asks_the_venue_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [format!("a{second}")], "{}", asked.body);
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let again = answer(&app, &mut b, &asked, "binance", &format!("a{second}")).await;
+    assert_eq!(options(&again.body), [format!("v{binance}"), format!("v{us}")], "the venue asked: {}", again.body);
+    assert_eq!((rows_on(c, second), rows_on(c, on_us)), (0, 0), "nothing written");
+}
+
+/// R9 (r1 #2): every button binds the number a new account would take: a number taken and tombstoned while the account
+/// question is open asks again, even for a pick of an existing account.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_pick_binds_the_proposed_new_number() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(under(&asked.body, &format!("n{kucoin}~")).contains("KuCoin<sup>3</sup>"), "{}", asked.body);
+    let third = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    c.execute("UPDATE exchange_accounts SET removed_at = '2026-01-01' WHERE id = ?1", [third]).unwrap();
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}~{first}-{second}")).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(rows_on(c, first), 0, "nothing written");
+}
+
+/// R7 (r1 #3): a button binds the file it counted: the parked export changed after the preview asks again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_parked_file_changed_after_the_preview_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "111");
+    let second = identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    observe_import(c, s.user_id, kucoin, second, "444");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_part("444", 2..=2)).await;
+    assert!(under(&asked.body, &format!("a{second}!")).contains("(rows in file: 1)"), "{}", asked.body);
+    let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap()[1].to_string();
+    std::fs::write(app.config.tmp_dir.join("imports").join(s.user_id.to_string()).join(format!("{token}.csv")), kucoin_part("444", 2..=3)).unwrap();
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}")).await;
+    assert!(again.body.contains("Something changed since you answered.") && again.body.contains("(rows in file: 2)"), "{}", again.body);
+    assert_eq!(rows_on(c, second), 0, "nothing written");
+}
+
+/// R6 (r1 #4): the account question numbers the accounts it offers beside a new one, also when it is asked again on its
+/// venue after a stale venue answer.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_venue_answer_numbers_the_accounts_it_offers() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let kb = key_on(c, s.user_id, binance, None);
+    let first = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    seen_on_us(c, s.user_id, us, "777");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), format!("v{us}")], "{}", asked.body);
+    c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [kb]).unwrap();
+    c.execute("DELETE FROM api_keys WHERE id = ?1", [kb]).unwrap();
+    let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert!(under(&again.body, &format!("a{first}~")).contains("Import to Binance<sup>1</sup>"), "{}", again.body);
+    assert!(under(&again.body, &format!("n{binance}~")).contains("a new account, Binance<sup>2</sup>"), "{}", again.body);
+}
+
+/// R6 (r1 #5): a legacy key's rows (its account has no row yet) go to the exchange's name.
+#[tokio::test(flavor = "current_thread")]
+async fn a_legacy_keys_destination_is_named_by_its_exchange() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, kraken, e("legacy"), e("s")]).unwrap();
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "K1", "BTC", 5, 1), (&v, "T1", "BTC", 6, 1), (&v, "T2", "BTC", 7, 2)])).await;
+    assert!(asked.body.contains("Rows going to Kraken: 1."), "{}", asked.body);
+}
+
+// ---- #710 slice 9: Coinbase names its portfolio (`portfolio_uuid` of its key check's own permission read) ----
+
+/// A Coinbase exchange of the Alpaca fixture's user. `cb-a`, `cb-a2`, `cb-a3`, `cb-unread` read portfolio A; `cb-b`, `cb-b2`
+/// B; `cb-nouuid`'s permission answer names no portfolio; any other key's permission read fails (a 503). Every portfolio's
+/// breakdown answers.
+async fn coinbase() -> (tempfile::TempDir, store::Opened, i64, i64, MockServer, deltabadger::web::App) {
+    use common::coinbase_key::{permissions, Kid, PORTFOLIO_A, PORTFOLIO_B};
+    let server = MockServer::start().await;
+    let perms = deltabadger::venue::coinbase::PERMISSIONS;
+    for (key, uuid) in [("cb-a", PORTFOLIO_A), ("cb-a2", PORTFOLIO_A), ("cb-a3", PORTFOLIO_A), ("cb-unread", PORTFOLIO_A), ("cb-b", PORTFOLIO_B), ("cb-b2", PORTFOLIO_B)] {
+        Mock::given(method("GET")).and(path(perms)).and(Kid(key)).respond_with(ResponseTemplate::new(200).set_body_json(permissions(uuid, true))).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path(perms)).and(Kid("cb-nouuid"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"can_view": true, "can_trade": true, "can_transfer": false}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(perms)).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    Mock::given(method("GET")).and(wiremock::matchers::path_regex("^/api/v3/brokerage/portfolios/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"breakdown": {"spot_positions": []}}))).mount(&server).await;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let s = seed::seed_alpaca(c, &seed::cipher());
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, 'Coinbase', '0.1', '0.1', 'now', 'now')", [deltabadger::venue::coinbase::COINBASE]).unwrap();
+    let exchange = c.last_insert_rowid();
+    let app = web_app(dir.path(), c).with_venue_key_url(deltabadger::venue::coinbase::COINBASE, &server.uri()).unwrap();
+    (dir, o, s.user_id, exchange, server, app)
+}
+fn coinbase_fields(key: &'static str) -> [(&'static str, &'static str); 2] { [("api_key[key]", key), ("api_key[secret]", common::coinbase_key::SECRET)] }
+fn accounts(c: &Connection, user: i64, exchange: i64) -> Vec<i64> { identity::accounts_of(c, user, exchange).unwrap().into_iter().map(|(id, _)| id).collect() }
+/// The permission reads `server` received signed by `key`.
+async fn permission_reads(server: &MockServer, key: &'static str) -> usize {
+    use wiremock::Match;
+    server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == deltabadger::venue::coinbase::PERMISSIONS && common::coinbase_key::Kid(key).matches(r)).count()
+}
+
+/// Two keys of one portfolio make one account; a key of another portfolio its own (tiles); a Reconnect of account 2 with a
+/// key of portfolio A lands on account 1; a key whose permission answer names no portfolio is refused on a tile (Q5).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_coinbase_one_portfolio_is_one_account_and_another_portfolio_another() {
+    let (_d, o, user, exchange, _server, app) = coinbase().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["cb-a", "cb-b", "cb-a2"] {
+        let answer = save(&app, &mut b, exchange, None, &coinbase_fields(key)).await;
+        assert!(answer.status < 400, "{key}: {}: {}", answer.status, answer.body);
+    }
+    assert_eq!(keys(c, &cipher, exchange), [(1, "cb-a2".into()), (2, "cb-b".into())], "A's second key replaced A's on account 1");
+    let reconnect = save(&app, &mut b, exchange, Some(accounts(c, user, exchange)[1]), &coinbase_fields("cb-a3")).await;
+    assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "cb-a3".into()), (2, "cb-b".into())], "routed to A's account, account 2 untouched");
+    let refused = save(&app, &mut b, exchange, None, &coinbase_fields("cb-nouuid")).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("We could not confirm which account this key belongs to"), "{}", refused.body);
+    assert_eq!((numbers(c, exchange), keys(c, &cipher, exchange)), (vec![1, 2], vec![(1, "cb-a3".into()), (2, "cb-b".into())]));
+}
+
+/// Rule Q1 on Coinbase: the JSON save that would make account 2 first reads account 1's unread key (one more permission
+/// read, signed by it), then routes the new key by its own portfolio read.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_coinbase_json_save_reads_the_unread_key_first_and_routes_by_portfolio() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &coinbase_fields("cb-a")).await.status < 400);
+    let first = accounts(c, user, exchange)[0];
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("cb-unread"), cipher.encrypt(common::coinbase_key::SECRET)]).unwrap();
+    let unread = c.last_insert_rowid();
+    identity::Account::by_id(c, first).unwrap().unwrap().add_key(c, unread).unwrap();
+    assert!(identity::unread(c, unread).unwrap());
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("api_key[exchange_id]", exchange_s.as_str()), ("api_key[account_id]", first_s.as_str()), ("api_key[key_type]", "read_only"),
+                ("api_key[key]", "cb-b"), ("api_key[secret]", common::coinbase_key::SECRET)];
+    let asked = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!(permission_reads(&server, "cb-unread").await, 1, "the unread key was read first");
+    // Rule M2: account 1 was named and portfolio B is another account: asked first; "add anyway" makes account 2.
+    assert_eq!(asked.status, 409, "{}", asked.body);
+    let add: serde_json::Value = serde_json::from_str(&asked.body).unwrap();
+    let add = add["answers"].as_array().unwrap().iter().find_map(|a| a["value"].as_str().filter(|v| v.starts_with("n!"))).unwrap().to_string();
+    let mut form = form.to_vec();
+    form.push(("api_key[key_answer]", add.as_str()));
+    let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert!(!identity::unread(c, unread).unwrap());
+    assert_eq!(keys(c, &cipher, exchange), [(1, "cb-a".into()), (1, "cb-unread".into()), (2, "cb-b".into())], "portfolio B is account 2");
+}
+
+/// The bot wizard's key save sees Coinbase's portfolio: a trading key of another portfolio than account 1's makes account
+/// 2, and its observation is recorded.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_wizard_save_routes_a_coinbase_key_by_its_portfolio() {
+    let (_d, o, user, exchange, _server, app) = coinbase().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &coinbase_fields("cb-a")).await.status < 400);
+    let e = exchange.to_string();
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let form = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(form.status, 200, "{}", location(&form));
+    let answer = b.send(&app, "POST", &format!("/bots/dca_single_assets/add_api_key?exchange_id={e}&untargeted=1"), Some(&coinbase_fields("cb-b")), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "cb-a".into()), (2, "cb-b".into())]);
+    let trading = identity::key_of(c, accounts(c, user, exchange)[1], 0).unwrap().unwrap();
+    assert_eq!(identity::credential_standing(c, trading).unwrap(), identity::CredentialStanding::Bound);
+}
+
+/// G4 (r6): a Reconnect reposting account 1's own installed key, whose permission read names A and whose breakdown then
+/// fails, is refused (nothing saved) and still records the read against the installed credential's current version: the
+/// key counts as read; its status and material are as they were.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_refused_coinbase_repost_records_its_portfolio_on_the_installed_key() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &coinbase_fields("cb-a")).await.status < 400);
+    let first = accounts(c, user, exchange)[0];
+    let key = identity::key_of(c, first, 2).unwrap().unwrap();
+    c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [key]).unwrap();
+    assert!(identity::unread(c, key).unwrap());
+    let row = |c: &Connection| one::<String>(c, &format!("SELECT status || ':' || key || ':' || secret FROM api_keys WHERE id = {key}"));
+    let before = row(c);
+    Mock::given(method("GET")).and(path(format!("/api/v3/brokerage/portfolios/{}", common::coinbase_key::PORTFOLIO_A)))
+        .respond_with(ResponseTemplate::new(503)).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(!identity::unread(c, key).unwrap(), "the portfolio read is recorded on the installed key");
+    assert_eq!(identity::credential_standing(c, key).unwrap(), identity::CredentialStanding::Bound);
+    assert_eq!(row(c), before, "status and material as they were");
+}
+
+/// G4 (r4/r5) at `revalidate`: Coinbase's permission read is its validation read. A key turned correct while its recheck
+/// was in flight, whose portfolio read succeeds and whose breakdown then fails (a 503), keeps its correct status; the
+/// breakdown request was sent. A key that was not correct is written pending as before.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_transient_coinbase_breakdown_keeps_a_correct_keys_status_at_revalidate() {
+    for (flipped, expected) in [(true, 1), (false, 0)] {
+        let (_d, o, user, exchange, server, app) = coinbase().await;
+        let c = &o.primary;
+        let mut b = browser(&app, c, user);
+        assert!(save(&app, &mut b, exchange, None, &coinbase_fields("cb-a")).await.status < 400);
+        let first = accounts(c, user, exchange)[0];
+        let key = identity::key_of(c, first, 2).unwrap().unwrap();
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+        let db = c.path().unwrap().to_string();
+        Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("cb-a")).respond_with(move |_: &wiremock::Request| {
+            if flipped { Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap(); }
+            ResponseTemplate::new(200).set_body_json(common::coinbase_key::permissions(common::coinbase_key::PORTFOLIO_A, true))
+        }).with_priority(1).mount(&server).await;
+        let breakdown = format!("/api/v3/brokerage/portfolios/{}", common::coinbase_key::PORTFOLIO_A);
+        Mock::given(method("GET")).and(path(breakdown.as_str())).respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+        let breakdowns = || async { server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == breakdown).count() };
+        let before = breakdowns().await;
+        let page = b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type=read_only&account_id={first}")).await;
+        assert_eq!(breakdowns().await, before + 1, "flipped {flipped}: the recheck read the breakdown: {} {}", page.status, location(&page));
+        assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), expected, "flipped {flipped}");
+    }
+}
+
+// ---- #710 slice 9, review r1 ----
+
+/// A read-only Coinbase key `key` placed on `account` as 2.x would leave it: correct, never read.
+fn coinbase_unread(c: &Connection, user: i64, exchange: i64, account: i64, key: &str) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt(key), cipher.encrypt(common::coinbase_key::SECRET)]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    assert!(identity::unread(c, id).unwrap());
+    id
+}
+/// A stored duplicate standing: `duplicate` is `survivor`'s twin.
+fn stand(c: &Connection, user: i64, exchange: i64, duplicate: i64, survivor: i64) {
+    c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+              rusqlite::params![duplicate, survivor, user, exchange, identity::standing_basis(c, duplicate, survivor).unwrap()]).unwrap();
+}
+fn standings(c: &Connection) -> i64 { one(c, "SELECT count(*) FROM exchange_account_standings") }
+
+/// Review r1 #1: on an exchange with one account, a Reconnect that would replace an installed key nothing has read yet
+/// reads that key first: portfolio B's key never takes the slot (and the history) of portfolio A's.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_reconnect_of_the_sole_account_reads_its_unread_key_first() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = coinbase_unread(c, user, exchange, first, "cb-unread");
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-b")).await;
+    assert_eq!(permission_reads(&server, "cb-unread").await, 1, "the installed key was read first: {} {}", answer.status, answer.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    let on_first: Vec<String> = keys(c, &cipher, exchange).into_iter().filter(|(n, _)| *n == 1).map(|(_, k)| k).collect();
+    assert_eq!(on_first, ["cb-unread"], "B's key never replaced A's: {} {}", answer.status, answer.body);
+    // The same key posted again is no other key: nothing more is read for it.
+    let repost = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-unread")).await;
+    assert!(repost.status < 400, "{}: {}", repost.status, repost.body);
+    assert_eq!(permission_reads(&server, "cb-unread").await, 2, "one read: the repost's own");
+}
+
+/// Review r1 #2: a refused repost records its read only on the installed key as it was before the request. A save that
+/// rewrote the key meanwhile (the same material, a fresh ciphertext) is a newer version: nothing is stamped on it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_refused_repost_never_stamps_a_key_rewritten_meanwhile() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = coinbase_unread(c, user, exchange, first, "cb-a");
+    let db = c.path().unwrap().to_string();
+    Mock::given(method("GET")).and(path(format!("/api/v3/brokerage/portfolios/{}", common::coinbase_key::PORTFOLIO_A))).respond_with(move |_: &wiremock::Request| {
+        let other = Connection::open(&db).unwrap();
+        let cipher = seed::cipher();
+        identity::write_credential(&other, &cipher, key, Some(&cipher.encrypt("cb-a")), Some(&cipher.encrypt(common::coinbase_key::SECRET)), None, chrono::Utc::now()).unwrap();
+        ResponseTemplate::new(503)
+    }).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(identity::unread(c, key).unwrap(), "the read belongs to the version before the rewrite");
+}
+
+/// Review r1 #3: the previously-correct rule takes only a transient non-verdict. A correct key whose recheck's first read
+/// is refused (401) is written pending and its standing ends; one that answers 503 stays correct and keeps it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_definite_refusal_still_demotes_a_correct_key_at_revalidate() {
+    for (answer, status, standing) in [(401, 0, 0), (503, 1, 1)] {
+        let (_d, o, user, exchange, server, app) = coinbase().await;
+        let c = &o.primary;
+        let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        let key = coinbase_unread(c, user, exchange, first, "cb-a");
+        let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        stand(c, user, exchange, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+        let db = c.path().unwrap().to_string();
+        Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("cb-a")).respond_with(move |_: &wiremock::Request| {
+            // Correct while the recheck is in flight.
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(answer).set_body_json(serde_json::json!({"error": "UNAUTHENTICATED", "code": 16, "message": "refused", "details": []}))
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, user);
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type=read_only&account_id={first}")).await;
+        assert_eq!(permission_reads(&server, "cb-a").await, 1, "{answer}: the recheck ran");
+        assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), standings(c)), (status, standing), "{answer}");
+    }
+}
+
+/// Review r1 #4: the JSON save's same-key repost of a correct Coinbase key whose permission read answers 503 neither
+/// demotes it nor ends its standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_json_same_key_repost_with_a_transient_read_keeps_a_correct_key() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = coinbase_unread(c, user, exchange, first, "cb-a");
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    stand(c, user, exchange, second, first);
+    Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("cb-a"))
+        .respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("api_key[exchange_id]", exchange_s.as_str()), ("api_key[account_id]", first_s.as_str()), ("api_key[key_type]", "read_only"),
+                ("api_key[key]", "cb-a"), ("api_key[secret]", common::coinbase_key::SECRET)];
+    let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(permission_reads(&server, "cb-a").await, 1);
+    assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), standings(c)), (1, 1));
+}
+
+/// Review r1 #5: the refused-repost recording is Coinbase's (`identity::VALIDATION_READS`): a KuCoin HF trading key
+/// reposted, read for its UID and refused for its missing Spot permission, stays unread, as on main.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_refused_kucoin_repost_leaves_its_installed_key_unread() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let c = &o.primary;
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-hf"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_A, "permission":"General"}}))).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::kucoin_account::OPENED))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":true}))).with_priority(1).mount(&server).await;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("key-hf"), cipher.encrypt("secret"), cipher.encrypt("phrase")]).unwrap();
+    let key = c.last_insert_rowid();
+    identity::Account::by_id(c, first).unwrap().unwrap().add_key(c, key).unwrap();
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("exchange_id", exchange_s.as_str()), ("key_type", "trading"), ("account_id", first_s.as_str()),
+                ("api_key[key]", "key-hf"), ("api_key[secret]", "secret"), ("api_key[passphrase]", "phrase")];
+    let answer = b.send(&app, "POST", "/tracker/add_api_key", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status >= 400 || answer.body.contains("Spot"), "refused for its permission: {}: {}", answer.status, answer.body);
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == identity::KUCOIN_PATH), "the UID was read");
+    assert!(identity::unread(c, key).unwrap(), "a KuCoin refusal records nothing on the installed key");
+}
+
+/// Review r1 #6: a refused repost that makes the installed key its account's reader (its first read, on an exchange with
+/// two accounts) wakes that reader's ledger and balance jobs.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_refused_repost_wakes_the_reader_it_made() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = coinbase_unread(c, user, exchange, first, "cb-a");
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    coinbase_unread(c, user, exchange, second, "cb-b");
+    deltabadger::sync::settle_readers_of_key(c, key).unwrap();
+    assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key), "unread: no reader");
+    Mock::given(method("GET")).and(path(format!("/api/v3/brokerage/portfolios/{}", common::coinbase_key::PORTFOLIO_A)))
+        .respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(!identity::unread(c, key).unwrap() && deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key), "read and reading");
+    let pending = app.job_wakers().unwrap().pending();
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC] {
+        assert!(pending.contains(&(job.to_string(), Some(key.to_string()))), "{job} is woken for the new reader: {pending:?}");
+    }
+}
+
+// ---- #710 slice 9: Alpaca names its account (`id` of its key check's own GET /v2/account; paper and live are two) ----
+
+/// The Alpaca fixture on distinct paper and live hosts (`common::alpaca_key::hosts`): only the mocks a test mounts answer
+/// the account read; positions answer empty on both.
+async fn alpaca_modes() -> (tempfile::TempDir, store::Opened, seed::Seeded, MockServer, deltabadger::web::App) {
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(wiremock::matchers::path_regex("/v2/positions$")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let (dir, o) = install();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    identity::Account::first(&o.primary, s.user_id, s.exchange_id).unwrap().ensure(&o.primary, chrono::Utc::now()).unwrap();
+    let app = web_app(dir.path(), &o.primary).with_settings_key_boundary(common::alpaca_key::hosts(&server.uri()), std::sync::Arc::new(Quiet)).unwrap();
+    (dir, o, s, server, app)
+}
+/// `key`'s account read on `host` (`paper` or `live`) answers `status` with account `uuid` (a 2xx) or Alpaca's error.
+async fn alpaca_reads(server: &MockServer, host: &str, key: &str, status: u16, uuid: &str) {
+    let body = if (200..300).contains(&status) { common::alpaca_key::account(uuid) } else { serde_json::json!({"code": 40110000, "message": "request is not authorized"}) };
+    Mock::given(method("GET")).and(path(format!("/{host}/v2/account"))).and(header("APCA-API-KEY-ID", key)).respond_with(ResponseTemplate::new(status).set_body_json(body)).mount(server).await;
+}
+/// The browser's JSON save of an Alpaca trading key over `fields`.
+async fn alpaca_json(app: &deltabadger::web::App, b: &mut common::web::Browser, exchange: i64, fields: &[(&str, &str)]) -> common::web::Answer {
+    let exchange = exchange.to_string();
+    let mut form = vec![("api_key[exchange_id]", exchange.as_str()), ("api_key[key_type]", "trading")];
+    form.extend_from_slice(fields);
+    assert_eq!(b.get(app, "/settings/api_keys").await.status, 200);
+    b.send(app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await
+}
+/// The (path, key) of every account read `server` received.
+async fn mode_reads(server: &MockServer) -> Vec<(String, String)> {
+    common::alpaca_key::sent(server).await.into_iter().filter(|(p, _)| p.ends_with("/v2/account")).collect()
+}
+/// Key `id`'s row as stored: status, update time and every credential ciphertext.
+fn key_row(c: &Connection, id: i64) -> String {
+    one(c, &format!("SELECT status || '|' || updated_at || '|' || key || '|' || secret || '|' || coalesce(passphrase, '') FROM api_keys WHERE id = {id}"))
+}
+fn pair(p: &str, k: &str) -> (String, String) { (p.to_string(), k.to_string()) }
+
+/// Two keys of one Alpaca account make one account; a key of another its own (tiles); a Reconnect of account 2 with a key
+/// of account A lands on account 1; a key whose account read names no account is refused on a tile (Q5).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_alpaca_one_account_is_one_account_and_another_account_another() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "pk-noid"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status": "ACTIVE", "cash": "0"}))).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    for key in ["pk-a2", "second-key"] {
+        let answer = trading_tile(&app, &mut b, s.exchange_id, key).await;
+        assert!(answer.status < 400, "{key}: {}: {}", answer.status, answer.body);
+    }
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "pk-a2".into()), (2, "second-key".into())], "A's second key replaced A's on account 1");
+    let second = accounts(c, s.user_id, s.exchange_id)[1];
+    let reconnect = save(&app, &mut b, s.exchange_id, Some(second), &[("api_key[key]", "pk-a3"), ("api_key[secret]", "pk-a3-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "pk-a3".into()), (2, "second-key".into())], "routed to A's account, account 2 untouched");
+    let refused = trading_tile(&app, &mut b, s.exchange_id, "pk-noid").await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("We could not confirm which account this key belongs to"), "{}", refused.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "pk-a3".into()), (2, "second-key".into())]);
+}
+
+/// The effective mode (r4): a JSON repost of the installed live key that names no mode keeps the slot's, so the key is read
+/// on the live host once and never on the paper one, and stays live.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_json_repost_without_a_mode_reads_the_installed_live_keys_host() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![cipher.encrypt("live"), s.api_key_id]).unwrap();
+    alpaca_reads(&server, "live", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    alpaca_reads(&server, "paper", "PKTEST", 401, "").await;
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST")], "one live read, no paper read");
+    let mode: String = one(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id));
+    assert_eq!(cipher.decrypt(&mode).unwrap(), "live");
+    assert!(!identity::unread(c, s.api_key_id).unwrap());
+}
+
+/// Mode-picking Connect over one server's paper and live hosts, as the venue picks them from a key's mode.
+struct Modes(String);
+impl deltabadger::sync::jobs::Connect for Modes {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls::pick(c.passphrase.as_deref(), &common::alpaca_key::hosts(&self.0)))
+    }
+}
+
+/// r4: an explicit `live` over the paper slot with the same key and secret is new material: it is read live (and the
+/// installed paper key, unread, is read first), written live, its read recorded against the live version, and the next
+/// discovery reads the live host.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_json_switch_to_live_is_read_written_and_rediscovered_live() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    for host in ["paper", "live"] { alpaca_reads(&server, host, "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await; }
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST"), pair("/paper/v2/account", "PKTEST")], "the candidate live, then the installed paper key");
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "PKTEST".into())], "in place");
+    let mode: String = one(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id));
+    assert_eq!(cipher.decrypt(&mode).unwrap(), "live");
+    assert!(!identity::unread(c, s.api_key_id).unwrap(), "the read is the live version's");
+    let clock = deltabadger::engine::FixedClock("2026-09-29T12:00:00Z".parse().unwrap());
+    let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), cipher.clone()), clock: &clock, wakers: Default::default() };
+    identity::Discovery { venues: Modes(server.uri()) }.run(cx, vec![]).await;
+    assert_eq!(mode_reads(&server).await[2..], [pair("/live/v2/account", "PKTEST")], "rediscovered on the live host");
+}
+
+/// r5: a switch the live host refuses (its 401) is refused; the paper slot is as it was, byte for byte.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_refused_alpaca_switch_keeps_the_paper_slot_byte_for_byte() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let c = &o.primary;
+    alpaca_reads(&server, "live", "PKTEST", 401, "").await;
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (422, "{\"data\":false}"));
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST")]);
+    assert_eq!(key_row(c, s.api_key_id), before);
+}
+
+/// r5: a switch whose live read names another account is routed as any new key (rule M2's question, then account 2), never
+/// refused as a repost reading elsewhere; the paper key stays on account 1 as it was.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_switch_reading_another_account_is_routed_as_a_new_key() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    alpaca_reads(&server, "live", "PKTEST", 200, common::alpaca_key::ACCOUNT_B).await;
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let fields = [("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")];
+    let asked = alpaca_json(&app, &mut b, s.exchange_id, &fields).await;
+    assert_eq!(asked.status, 409, "{}", asked.body);
+    let add: serde_json::Value = serde_json::from_str(&asked.body).unwrap();
+    let add = add["answers"].as_array().unwrap_or_else(|| panic!("asked, not refused: {}", asked.body)).iter().find_map(|a| a["value"].as_str().filter(|v| v.starts_with("n!"))).unwrap().to_string();
+    let mut answered = fields.to_vec();
+    answered.push(("api_key[key_answer]", add.as_str()));
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &answered).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "PKTEST".into()), (2, "PKTEST".into())], "the live account is account 2");
+    assert_eq!(key_row(c, s.api_key_id), before, "the paper key as it was");
+}
+
+/// r6: `route_key`'s installed material includes the mode. A tile posting the paper slot's key and secret in live mode,
+/// while account 1's account is not yet established by a read, never routes to the paper slot by material: the live
+/// account is account 2 and the paper credential is kept.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_tile_in_live_mode_never_takes_the_paper_slot_by_material() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    alpaca_reads(&server, "live", "PKTEST", 200, common::alpaca_key::ACCOUNT_B).await;
+    let (credentials, version, _) = deltabadger::sync::validation_material(c, &cipher, s.api_key_id).unwrap();
+    identity::record(c, &cipher, s.api_key_id, &credentials, &version, &identity::Observed::Read(identity::AccountId::from_uuid(&serde_json::json!(common::alpaca_key::ACCOUNT_A)).unwrap()), chrono::Utc::now()).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE exchange_id = ?1", [s.exchange_id]).unwrap();
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let exchange = s.exchange_id.to_string();
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let answer = b.send(&app, "POST", "/tracker/add_api_key", Some(&[("exchange_id", exchange.as_str()), ("key_type", "trading"), ("untargeted", "1"), ("api_key[key]", "PKTEST"),
+                                                                    ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, s.exchange_id), [(1, "PKTEST".into()), (2, "PKTEST".into())], "two accounts");
+    assert_eq!(key_row(c, s.api_key_id), before, "the paper credential is kept");
+}
+
+/// r6: a Reconnect reposting account 1's installed key as a reading key, whose account read names A and whose positions
+/// read then fails (a 503), is refused (nothing saved) and still records the read against the installed version.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_refused_alpaca_repost_records_its_account_on_the_installed_key() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let c = &o.primary;
+    assert!(identity::unread(c, s.api_key_id).unwrap());
+    let before = key_row(c, s.api_key_id);
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(503)).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    let first = accounts(c, s.user_id, s.exchange_id)[0];
+    let answer = save(&app, &mut b, s.exchange_id, Some(first), &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == "/v2/positions"), "the positions read failed");
+    assert!(!identity::unread(c, s.api_key_id).unwrap(), "the account read is recorded on the installed key");
+    assert_eq!(identity::credential_standing(c, s.api_key_id).unwrap(), identity::CredentialStanding::Bound);
+    assert_eq!(key_row(c, s.api_key_id), before, "status and material as they were");
+}
+
+/// G4 at `revalidate`: Alpaca's account read is its validation read. A key turned correct while its recheck was in flight
+/// that answers 503 stays correct and keeps its account's standing; one the venue refuses (401) is incorrect and the
+/// standing ends.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_only_alpaca_s_401_demotes_a_correct_key_at_revalidate() {
+    for (answer, status, standing) in [(401, 2, 0), (503, 1, 1)] {
+        let (_d, o, s, server, app) = alpaca().await;
+        let c = &o.primary;
+        let first = accounts(c, s.user_id, s.exchange_id)[0];
+        let second = identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+        stand(c, s.user_id, s.exchange_id, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [s.api_key_id]).unwrap();
+        let (db, key) = (c.path().unwrap().to_string(), s.api_key_id);
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "PKTEST")).respond_with(move |_: &wiremock::Request| {
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(answer).set_body_json(serde_json::json!({"code": 40110000, "message": "request is not authorized"}))
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, s.user_id);
+        // D-ALPACA-ONE-KEY: the trading card rechecks the key (the reading card shows it and leaves it to that one).
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={}&key_type=trading&account_id={first}", s.exchange_id)).await;
+        assert_eq!(account_reads(&server).await, 1, "{answer}: the recheck ran");
+        assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), standings(c)), (status, standing), "{answer}");
+    }
+}
+
+/// G4 (as review r1 #4 on Coinbase): the JSON save's same-key repost of a correct Alpaca key whose account read answers 503
+/// neither demotes it nor ends its standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_an_alpaca_json_same_key_repost_with_a_transient_read_keeps_a_correct_key() {
+    let (_d, o, s, server, app) = alpaca().await;
+    let c = &o.primary;
+    let first = accounts(c, s.user_id, s.exchange_id)[0];
+    let second = identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    stand(c, s.user_id, s.exchange_id, second, first);
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID", "PKTEST")).respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, s.user_id);
+    let first_s = first.to_string();
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[account_id]", first_s.as_str()), ("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret")]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(account_reads(&server).await, 1);
+    assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {}", s.api_key_id)), standings(c)), (1, 1));
+}
+
+// ---- #710 slice 9, Alpaca branch review r1 ----
+
+/// r1 #1: a mode switch is written only when the new host's read succeeds. A live host answering 503 refuses the switch
+/// ("try again"); the paper slot is as it was, byte for byte.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_a_transient_alpaca_switch_keeps_the_paper_slot() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let c = &o.primary;
+    Mock::given(method("GET")).and(path("/live/v2/account")).and(header("APCA-API-KEY-ID", "PKTEST")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "live")]).await;
+    assert_eq!(answer.status, 409, "{}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to. Try again."), "{}", answer.body);
+    assert_eq!(mode_reads(&server).await, [pair("/live/v2/account", "PKTEST")]);
+    assert_eq!(key_row(c, s.api_key_id), before);
+}
+
+/// r1 #2: a JSON repost naming no account on an exchange with two is refused before any request: no key is sent anywhere.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_an_ambiguous_alpaca_repost_sends_nothing() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![cipher.encrypt("live"), s.api_key_id]).unwrap();
+    identity::new_account(c, s.user_id, s.exchange_id, chrono::Utc::now()).unwrap();
+    let before = key_row(c, s.api_key_id);
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret")]).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(server.received_requests().await.unwrap().is_empty(), "nothing sent: {:?}", common::alpaca_key::sent(&server).await);
+    assert_eq!(key_row(c, s.api_key_id), before);
+}
+
+/// r1 #5: a mode that selects the stored key's host is no switch, and the read is recorded on the stored material: a key
+/// stored with no mode reposted as `paper` keeps its stored bytes and is not due again.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_an_equivalent_paper_mode_records_the_stored_material() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = NULL WHERE id = ?1", [s.api_key_id]).unwrap();
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id)), None, "the stored mode as it was");
+    let due = identity::due(c, &cipher, "2026-09-20T13:00:00Z".parse().unwrap()).unwrap();
+    assert!(due.iter().all(|d| d.api_key_id != s.api_key_id), "the read is the stored material's");
+}
+
+/// r1 #6: the mode compares as the host it selects: the recorded spelling `Live` selects the paper host, so reposting the
+/// key as `paper` is no switch; the stored bytes stay.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_al_r1_a_spelling_that_selects_the_paper_host_is_paper() {
+    let (_d, o, s, server, app) = alpaca_modes().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    c.execute("UPDATE api_keys SET passphrase = ?1 WHERE id = ?2", rusqlite::params![cipher.encrypt("Live"), s.api_key_id]).unwrap();
+    alpaca_reads(&server, "paper", "PKTEST", 200, common::alpaca_key::ACCOUNT_A).await;
+    let stored = one::<String>(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id));
+    let mut b = browser(&app, c, s.user_id);
+    let answer = alpaca_json(&app, &mut b, s.exchange_id, &[("api_key[key]", "PKTEST"), ("api_key[secret]", "paper-secret"), ("api_key[passphrase]", "paper")]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(mode_reads(&server).await, [pair("/paper/v2/account", "PKTEST")]);
+    assert_eq!(one::<String>(c, &format!("SELECT passphrase FROM api_keys WHERE id = {}", s.api_key_id)), stored, "no switch: the stored bytes");
+}
+
+// ---- #710 slice 9: Bybit names its UID (`result.userID` of GET /v5/user/query-api, after the permission check) ----
+
+/// The UID read Bybit's public docs type: `userID` an integer (`text` sends it as a string), `id` the key's own id.
+fn bybit_uid(uid: &str, text: bool) -> serde_json::Value {
+    let user = if text { serde_json::json!(uid) } else { serde_json::json!(uid.parse::<u64>().unwrap()) };
+    serde_json::json!({"retCode": 0, "retMsg": "", "result": {"id": "13770661", "apiKey": "masked", "userID": user, "parentUid": "0", "isMaster": true}, "retExtInfo": {}, "time": 1697525990798u64})
+}
+/// A Bybit exchange of the Alpaca fixture's user. `by-a`, `by-a2`, `by-a3` read UID A; `by-b` B (as text); `by-nouid`'s
+/// answer names no UID; any other key's UID read fails (a 503). Every key's permission check passes.
+async fn bybit() -> (tempfile::TempDir, store::Opened, i64, i64, MockServer, deltabadger::web::App) {
+    let server = MockServer::start().await;
+    for (key, uid, text) in [("by-a", UID_A, false), ("by-a2", UID_A, false), ("by-a3", UID_A, false), ("by-b", UID_B, true)] {
+        Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", key)).respond_with(ResponseTemplate::new(200).set_body_json(bybit_uid(uid, text))).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", "by-nouid"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"id": "13770661"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::bybit::ASSETS_PATH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"list": [{"coin": []}]}}))).mount(&server).await;
+    Mock::given(method("POST")).and(path(deltabadger::venue::bybit::CANCEL_PATH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 170213, "retMsg": "Order does not exist."}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"list": []}}))).mount(&server).await;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let s = seed::seed_alpaca(c, &seed::cipher());
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, 'Bybit', '0.1', '0.1', 'now', 'now')", [deltabadger::venue::bybit::BYBIT]).unwrap();
+    let exchange = c.last_insert_rowid();
+    let app = web_app(dir.path(), c).with_venue_key_url(deltabadger::venue::bybit::BYBIT, &server.uri()).unwrap();
+    (dir, o, s.user_id, exchange, server, app)
+}
+fn bybit_fields(key: &'static str) -> [(&'static str, &'static str); 2] { [("api_key[key]", key), ("api_key[secret]", "by-secret")] }
+/// The requests `server` received signed by `key` to `path`.
+async fn bybit_sent(server: &MockServer, key: &str, to: &str) -> usize {
+    server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == to && r.headers.get("X-BAPI-API-KEY").is_some_and(|v| v == key)).count()
+}
+
+/// Two keys of one UID make one account; a key of another UID its own (tiles); a Reconnect of account 2 with a key of UID A
+/// lands on account 1; a key whose answer names no UID (only the key's own `id`) is refused on a tile (Q5).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_bybit_one_uid_is_one_account_and_another_uid_another() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["by-a", "by-b", "by-a2"] {
+        let answer = save(&app, &mut b, exchange, None, &bybit_fields(key)).await;
+        assert!(answer.status < 400, "{key}: {}: {}", answer.status, answer.body);
+    }
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a2".into()), (2, "by-b".into())], "A's second key replaced A's on account 1");
+    let reconnect = save(&app, &mut b, exchange, Some(accounts(c, user, exchange)[1]), &bybit_fields("by-a3")).await;
+    assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a3".into()), (2, "by-b".into())], "routed to A's account, account 2 untouched");
+    let refused = save(&app, &mut b, exchange, None, &bybit_fields("by-nouid")).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("We could not confirm which account this key belongs to"), "{}", refused.body);
+    assert_eq!((numbers(c, exchange), keys(c, &cipher, exchange)), (vec![1, 2], vec![(1, "by-a3".into()), (2, "by-b".into())]));
+    assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 1, "one UID read per check");
+}
+
+/// The bot wizard's key save sees Bybit's UID: a trading key of another UID than account 1's makes account 2, and its
+/// observation is recorded.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_wizard_save_routes_a_bybit_key_by_its_uid() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &bybit_fields("by-a")).await.status < 400);
+    let e = exchange.to_string();
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let form = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(form.status, 200, "{}", location(&form));
+    let answer = b.send(&app, "POST", &format!("/bots/dca_single_assets/add_api_key?exchange_id={e}&untargeted=1"), Some(&bybit_fields("by-b")), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a".into()), (2, "by-b".into())]);
+    let trading = identity::key_of(c, accounts(c, user, exchange)[1], 0).unwrap().unwrap();
+    assert_eq!(identity::credential_standing(c, trading).unwrap(), identity::CredentialStanding::Bound);
+    assert_eq!(bybit_sent(&server, "by-b", deltabadger::venue::bybit::CANCEL_PATH).await, 1, "the trading probe, then the UID read");
+}
+
+/// A read-only Bybit key `key` placed on `account` as 2.x would leave it: correct, never read.
+fn bybit_unread(c: &Connection, user: i64, exchange: i64, account: i64, key: &str) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt(key), cipher.encrypt("by-secret")]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    id
+}
+
+/// G4 r6 at `revalidate`: Bybit's permission probe comes before its UID read. A key correct while its recheck is in flight
+/// whose probe answers 10006 (a rate limit) or a bare 403 keeps its status and its account's standing, with no UID read
+/// sent; one whose probe answers a refusal (10003 invalid, 10007 authentication failed) is no longer correct and its
+/// standing ends. The probe was received each time.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_transient_bybit_probe_keeps_a_correct_keys_status_and_standing_at_revalidate() {
+    let body = |code: i64, message: &str| serde_json::json!({"retCode": code, "retMsg": message, "result": {}});
+    for (status, answer, kept) in [(200, body(10006, "Too many visits!"), true), (403, serde_json::json!({}), true),
+                                   (200, body(10003, "API key is invalid."), false), (200, body(10007, "User authentication failed."), false)] {
+        let (_d, o, user, exchange, server, app) = bybit().await;
+        let c = &o.primary;
+        let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        let key = bybit_unread(c, user, exchange, first, "by-a");
+        let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        stand(c, user, exchange, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+        let db = c.path().unwrap().to_string();
+        let reply = answer.clone();
+        Mock::given(method("GET")).and(path(deltabadger::venue::bybit::ASSETS_PATH)).and(header("X-BAPI-API-KEY", "by-a")).respond_with(move |_: &wiremock::Request| {
+            // Correct while the recheck is in flight.
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(status).set_body_json(reply.clone())
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, user);
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type=read_only&account_id={first}")).await;
+        assert_eq!(bybit_sent(&server, "by-a", deltabadger::venue::bybit::ASSETS_PATH).await, 1, "{status} {answer}: the recheck sent its probe");
+        assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 0, "{status} {answer}: no UID read");
+        let now = one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}"));
+        assert_eq!((now == 1, standings(c)), (kept, kept as i64), "{status} {answer}: status {now}");
+    }
+}
+
+/// The JSON save reads a Bybit key's UID before it saves (D-JSON-KEY-IDENTITY): a key of another UID than the named
+/// account's is asked first (rule M2); a key of the same UID is saved there.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_bybit_json_save_reads_the_uid_first() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &bybit_fields("by-a")).await.status < 400);
+    let (exchange_s, first_s) = (exchange.to_string(), accounts(c, user, exchange)[0].to_string());
+    let post = |key: &'static str| [("api_key[exchange_id]", exchange_s.clone()), ("api_key[account_id]", first_s.clone()), ("api_key[key_type]", "read_only".into()),
+                                     ("api_key[key]", key.into()), ("api_key[secret]", "by-secret".into())];
+    let form = post("by-b");
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let asked = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!(asked.status, 409, "{}", asked.body);
+    assert_eq!(bybit_sent(&server, "by-b", identity::BYBIT_PATH).await, 1, "the UID was read before the answer");
+    let form = post("by-a2");
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a2".into())]);
+}
+
+// ---- #710 slice 9, Bybit review r1 ----
+
+/// A key `key` of `kind` placed on `account` as 2.x would leave it: correct, never read (`passphrase` where the venue has one).
+fn unread_slot_key(c: &Connection, user: i64, exchange: i64, account: i64, kind: i64, (key, secret, passphrase): (&str, &str, Option<&str>)) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, kind, cipher.encrypt(key), cipher.encrypt(secret), passphrase.map(|p| cipher.encrypt(p))]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    assert!(identity::unread(c, id).unwrap());
+    id
+}
+
+/// Review r1 #1 (every identity venue): a tile save landing on an account that holds an unread key of other material reads
+/// that key first, even when the slot it fills is empty (the read-only slot beside an unread trading key): a key of
+/// another exchange account never binds the account to its own id.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_a_save_beside_an_unread_key_reads_it_first() {
+    // Bybit: by-a (trading, unread) reads UID A; by-b (read-only) B.
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = unread_slot_key(c, user, exchange, first, 0, ("by-a", "by-secret", None));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, None, &bybit_fields("by-b")).await;
+    assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 1, "the unread trading key was read first: {} {}", answer.status, answer.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a".into()), (2, "by-b".into())], "B's key is its own account: {} {}", answer.status, answer.body);
+    // KuCoin: key-a (trading, unread) reads A; key-b (read-only) B.
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = unread_slot_key(c, user, exchange, first, 0, ("key-a", "secret", Some("phrase")));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-b")).await;
+    let reads = server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == identity::KUCOIN_PATH && r.headers.get("KC-API-KEY").is_some_and(|v| v == "key-a")).count();
+    assert_eq!(reads, 1, "KuCoin: the unread trading key was read first: {} {}", answer.status, answer.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())], "KuCoin: {} {}", answer.status, answer.body);
+}
+
+/// Review r1 #5: a Reconnect reposting the exact installed Bybit key whose probe answers a definite refusal (10007) is
+/// refused, and that refusal is recorded on the installed key as a read's would be: its account's standing ends.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_a_refused_repost_records_a_definite_bybit_refusal_on_the_installed_key() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = unread_slot_key(c, user, exchange, first, 2, ("by-a", "by-secret", None));
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    stand(c, user, exchange, second, first);
+    Mock::given(method("GET")).and(path(deltabadger::venue::bybit::ASSETS_PATH)).and(header("X-BAPI-API-KEY", "by-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 10007, "retMsg": "User authentication failed."}))).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &bybit_fields("by-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(standings(c), 0, "the definite refusal ends the standing");
+    assert!(identity::unread(c, key).unwrap(), "a refusal names no account");
+}
+
+/// Review r1 #7: the JSON save naming an account whose installed Bybit key nothing has read reads that key first (rule
+/// Q1), then asks about the new key of another UID.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_the_bybit_json_save_reads_an_unread_installed_key_first() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = unread_slot_key(c, user, exchange, first, 2, ("by-a", "by-secret", None));
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("api_key[exchange_id]", exchange_s.as_str()), ("api_key[account_id]", first_s.as_str()), ("api_key[key_type]", "read_only"),
+                ("api_key[key]", "by-b"), ("api_key[secret]", "by-secret")];
+    let asked = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 1, "the installed key was read first: {} {}", asked.status, asked.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(asked.status, 409, "{}", asked.body);
 }

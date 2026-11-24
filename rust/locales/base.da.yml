@@ -664,7 +664,6 @@ da:
             drop_hint: 'eller klik for at vælge en fil'
             which_account: 'Filen kan komme fra begge Binance-konti. Hvilken?'
             which_of_accounts: 'Filen kan komme fra mere end én konto her. Hvilken?'
-            new_account: 'En ny konto'
             unrouted: 'Ingen konto forbundet for: %{exchanges}. De rækker blev udeladt.'
             error_no_account_for_format: 'Ingen forbundet konto passer til dette format.'
             format: 'Format'

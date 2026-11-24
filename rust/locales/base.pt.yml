@@ -653,7 +653,6 @@ pt:
             drop_hint: 'ou clica para escolher um ficheiro'
             which_account: 'Este ficheiro pode ser de qualquer uma das contas Binance. Qual delas?'
             which_of_accounts: 'Este ficheiro pode ser de mais de uma conta aqui. Qual delas?'
-            new_account: 'Uma conta nova'
             unrouted: 'Sem conta ligada para: %{exchanges}. Essas linhas ficaram de fora.'
             error_no_account_for_format: 'Não há nenhuma conta ligada que corresponda a este formato.'
             format: 'Formato'

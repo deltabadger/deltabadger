@@ -271,3 +271,47 @@ pub async fn drop_mock_server(server: wiremock::MockServer) {
 pub fn number_one(c: &rusqlite::Connection, user_id: i64, exchange_id: i64) -> i64 {
     deltabadger::identity::Account::first(c, user_id, exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap().id.unwrap()
 }
+
+/// #710 slice 9: Coinbase keys as the identity tests send them. An Ed25519 secret (32 bytes, base64) signs every request,
+/// so each carries a JWT whose header names its key (`kid`), which `CoinbaseKid` matches.
+/// #710 slice 9: Alpaca accounts as its public docs type GET /v2/account (Trading API, "Get account"): `id` is the account's
+/// UUID (`account_number` is not the identity). Paper and live are two accounts.
+pub mod alpaca_key {
+    pub const ACCOUNT_A: &str = "904837e3-3b76-47ec-b432-046db621571b";
+    pub const ACCOUNT_B: &str = "2c1f8b4a-6d3e-4f5a-9b8c-7d6e5f4a3b2c";
+    pub fn account(uuid: &str) -> serde_json::Value {
+        serde_json::json!({"id": uuid, "account_number": "PA3W1ZQ9D3WB", "status": "ACTIVE", "currency": "USD", "cash": "0", "buying_power": "0"})
+    }
+    /// One mock server's paper, live and data hosts at `<uri>/paper`, `<uri>/live`, `<uri>/data`.
+    pub fn hosts(uri: &str) -> deltabadger::venue::alpaca::Hosts {
+        deltabadger::venue::alpaca::Hosts { paper: format!("{uri}/paper"), live: format!("{uri}/live"), data: format!("{uri}/data") }
+    }
+    /// The (path, APCA-API-KEY-ID) of every request `server` received, in order.
+    pub async fn sent(server: &wiremock::MockServer) -> Vec<(String, String)> {
+        server.received_requests().await.unwrap().iter()
+            .map(|r| (r.url.path().to_string(), r.headers.get("APCA-API-KEY-ID").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string())).collect()
+    }
+}
+
+pub mod coinbase_key {
+    use base64::Engine;
+    pub const SECRET: &str = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+    pub const PORTFOLIO_A: &str = "5b2c6a1e-8f3d-4e7a-9c0b-1d2e3f4a5b6c";
+    pub const PORTFOLIO_B: &str = "9d8e7f6a-5b4c-4d3e-8f2a-1b0c9d8e7f6a";
+    pub fn credentials(key: &str) -> deltabadger::crypto::Credentials {
+        deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: SECRET.into(), passphrase: None, redaction_values: vec![] }
+    }
+    /// GET /api/v3/brokerage/key_permissions as Coinbase's public docs type it: a read-only key's flags and its portfolio.
+    pub fn permissions(uuid: &str, can_trade: bool) -> serde_json::Value {
+        serde_json::json!({"can_view": true, "can_trade": can_trade, "can_transfer": false, "portfolio_uuid": uuid, "portfolio_type": "DEFAULT"})
+    }
+    /// A request signed by key `0`.
+    pub struct Kid(pub &'static str);
+    impl wiremock::Match for Kid {
+        fn matches(&self, r: &wiremock::Request) -> bool {
+            let Some(jwt) = r.headers.get("authorization").and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")) else { return false };
+            let header = jwt.split('.').next().and_then(|h| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(h).ok());
+            header.and_then(|h| serde_json::from_slice::<serde_json::Value>(&h).ok()).is_some_and(|h| h["kid"] == self.0)
+        }
+    }
+}

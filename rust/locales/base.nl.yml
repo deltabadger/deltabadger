@@ -654,7 +654,6 @@ nl:
             drop_hint: 'of klik om een bestand te kiezen'
             which_account: 'Dit bestand kan van beide Binance-accounts komen. Welk?'
             which_of_accounts: 'Dit bestand kan van meer dan één account hier komen. Welk?'
-            new_account: 'Een nieuw account'
             unrouted: 'Geen account verbonden voor: %{exchanges}. Die regels zijn overgeslagen.'
             error_no_account_for_format: 'Er is geen passend account verbonden voor dit formaat.'
             format: 'Formaat'
