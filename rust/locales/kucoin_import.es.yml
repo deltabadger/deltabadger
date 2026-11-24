@@ -1,15 +1,16 @@
 es:
     tracker:
         import:
-            warn_held: "Puede que %{account} ya tenga el historial de esta exportación. Si la importas aquí, puede contarse dos veces en tus totales."
-            warn_other: "Esta exportación es de otra cuenta distinta de %{account}. Si la importas ahí, mezclas dos cuentas."
-            warn_existing: "Filas que ya están en %{account}: %{count}. Si las importas aquí, se cuentan dos veces en tus totales."
+            warn_held_html: "Puede que %{account} ya tenga el historial de esta exportación. Si la importas aquí, puede contarse dos veces en tus totales."
+            warn_other_html: "Esta exportación es de otra cuenta distinta de %{account}. Si la importas ahí, mezclas dos cuentas."
+            warn_existing_html: "Filas que ya están en %{account}: %{count}. Si las importas aquí, se cuentan dos veces en tus totales."
             warn_unrouted: "Filas de cuentas que no están aquí: %{count}. No se importarán."
             warn_retained: "Estas filas salen del historial sincronizado de otra cuenta. Si las importas aquí, pueden contarse dos veces."
             warn_changed: "Algo ha cambiado desde tu respuesta. Vuelve a comprobarlo."
-            import_here: "Importar aquí igualmente"
-            import_new: "Importar en una cuenta nueva"
-            import_to: "Importar en %{account}"
+            import_to_html: "Importar en %{account} (filas en el archivo: %{count})"
+            import_new_html: "Importar en una cuenta nueva, %{account} (filas en el archivo: %{count})"
+            destination_html: "Filas que van a %{account}: %{count}."
+            twice_html: "Filas que este archivo envía a más de una cuenta: %{count}."
             import_anyway: "Importar igualmente"
             import_rest: "Importar el resto"
             cancel: "Cancelar"

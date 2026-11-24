@@ -656,7 +656,6 @@ pl:
             drop_hint: 'lub kliknij, aby wybrać plik'
             which_account: 'Ten plik może pochodzić z obu kont Binance. Z którego?'
             which_of_accounts: 'Ten plik może pochodzić z więcej niż jednego konta tutaj. Z którego?'
-            new_account: 'Nowe konto'
             unrouted: 'Brak podłączonego konta dla: %{exchanges}. Te wiersze pominięto.'
             error_no_account_for_format: 'Nie masz podłączonego konta pasującego do tego formatu.'
             format: 'Format'

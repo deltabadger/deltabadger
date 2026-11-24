@@ -357,6 +357,24 @@ pub fn label(c: &Connection, account_id: i64) -> rusqlite::Result<Label> {
     c.query_row(&format!("SELECT e.name, {} FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.id = ?1", label_number_sql("x.id")), [account_id],
                 |r| Ok(Label { name: r.get::<_, Option<String>>(0)?.unwrap_or_default(), number: r.get(1)? }))
 }
+/// Account `account_id`'s label with its number, whatever its exchange's live count: an import question offering a new
+/// account beside it shows "KuCoin¹" beside "KuCoin²" (#710 8a rule R6).
+pub fn label_numbered(c: &Connection, account_id: i64) -> rusqlite::Result<Label> {
+    c.query_row("SELECT e.name, x.number FROM exchange_accounts x JOIN exchanges e ON e.id = x.exchange_id WHERE x.id = ?1", [account_id],
+                |r| Ok(Label { name: r.get::<_, Option<String>>(0)?.unwrap_or_default(), number: Some(r.get(1)?) }))
+}
+/// SQL over (user `?1`, exchange `?2`): the number a new account takes, `max(number) + 1` over every row, tombstones
+/// included, so no number is reused. `new_account` inserts it; `next_number` reads it.
+const NEXT_NUMBER: &str = "SELECT coalesce(max(number), 0) + 1 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2";
+/// The number a new account of (user, exchange) would take now (#710 8a rule R9).
+pub fn next_number(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<i64> {
+    c.query_row(NEXT_NUMBER, [user_id, exchange_id], |r| r.get(0))
+}
+/// The label a new account of (user, exchange) would show: "KuCoin²" (#710 8a rule R6).
+pub fn prospective(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<Label> {
+    let name: Option<String> = c.query_row("SELECT name FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get(0))?;
+    Ok(Label { name: name.unwrap_or_default(), number: Some(next_number(c, user_id, exchange_id)?) })
+}
 /// The label of every account of the user, by id. One statement (none on an install without the account tables).
 pub fn labels(c: &Connection, user_id: i64) -> rusqlite::Result<std::collections::HashMap<i64, Label>> {
     if !numbered(c)? { return Ok(Default::default()); }
@@ -1386,10 +1404,9 @@ pub fn fence_copies(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: 
     Ok(())
 }
 
-/// A new account of (user, exchange): `max(number) + 1` over every row, tombstones included, so no number is reused.
+/// A new account of (user, exchange), numbered `NEXT_NUMBER`.
 pub fn new_account(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<i64> {
-    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)
-               SELECT ?1, ?2, coalesce(max(number), 0) + 1, ?3, ?3 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
+    c.execute(&format!("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, ({NEXT_NUMBER}), ?3, ?3)"),
               params![user_id, exchange_id, format_time(now)])?;
     Ok(c.last_insert_rowid())
 }

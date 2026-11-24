@@ -8,6 +8,7 @@ use crate::sync::activities::Entry;
 use crate::sync::{ledger, Key, SyncError};
 use crate::venue::binance::{BINANCE, BINANCE_US};
 use crate::venue::kucoin::KUCOIN;
+use crate::identity::Label;
 use chrono::{DateTime, Timelike, Utc};
 use rusqlite::{Connection, OptionalExtension};
 
@@ -38,16 +39,20 @@ pub enum Answer {
     Warned(Vec<Warning>, Vec<Choice>),
 }
 
-/// One thing an import warns about before writing (#710 7a). Accounts are plain labels.
+/// One thing an import warns about before writing (#710 7a). Accounts are labels, numbered as the question names them
+/// (#710 8a rule R6).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Warning {
     /// Rule M1(b): another live account (`0`) already holds this export's account: key read, key or file observation.
-    HeldElsewhere(String),
+    HeldElsewhere(Label),
     /// Rules M1(a)/(c), N5: the destination (`0`) is, reads or holds another account than this export's.
-    OtherAccount(String),
-    /// Rules P5/Q6: `0` rows of the file already exist on another live account (`1`) of the exchange, or on two
-    /// destinations of this upload.
-    Existing(usize, String),
+    OtherAccount(Label),
+    /// Rules P5/Q6, #710 8a rule R12: per other live account of the exchange, the rows of the file it already holds.
+    Existing(Vec<(Label, usize)>),
+    /// #710 8a rule R2: where a Deltabadger CSV's rows go, per account (asked when an exchange of it has 2+ accounts).
+    Destination(Vec<(Label, usize)>),
+    /// #710 8a rule R13: the venue ids this file sends to two or more accounts.
+    Twice(usize),
     /// Rule N6: `0` rows of a Deltabadger CSV name accounts this install lacks; they are left out.
     Unrouted(usize),
     /// Rules P6/Q3: Binance rows exported from synced history this account has no record of (or edited since).
@@ -69,6 +74,8 @@ pub enum Accept {
     Anyway,
     /// A Deltabadger CSV's rows that have an account here.
     Rest,
+    /// #710 8a rule R2: a Deltabadger CSV whose only note is where its rows go.
+    Import,
 }
 
 /// #710 7a §3: an option of the import's question, posted back as `api_key_id`. `value`: a key id (that key's venue, the
@@ -76,9 +83,14 @@ pub enum Accept {
 /// venue's lone keyed account's reading key, the option 2.x offered; `new`: the "a new account" option (its label is the
 /// page's). `venue`: the venue a key answer stands for (rule S5: the page keeps it, so the answer keeps its venue after
 /// its key is gone).
-/// `accept`: an "import anyway" answer of a warning (#710 7a), `label` the account it names.
+/// `accept`: an "import anyway" answer of a warning (#710 7a). #710 8a rule R3: `shown` the account (or venue) it names,
+/// `count` the file's rows (rule R7) and `notes` the warnings its digest binds, which its click accepts.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Choice { pub value: String, pub label: String, pub key: Option<i64>, pub new: bool, pub venue: Option<i64>, pub accept: Option<Accept> }
+pub struct Choice { pub value: String, pub shown: Label, pub key: Option<i64>, pub new: bool, pub venue: Option<i64>, pub accept: Option<Accept>, pub count: usize, pub notes: Vec<Warning> }
+
+impl Choice {
+    fn new(value: String, shown: Label, venue: Option<i64>) -> Self { Self { value, shown, key: None, new: false, venue, accept: None, count: 0, notes: vec![] } }
+}
 
 /// Tracker::ImportsController#resolve_offset for a fresh upload: `None` for a format that needs no zone, else the
 /// file's own zone (Import::BinanceCsv.offset_from), or `Some(None)` when it names none (`unknown_timezone`).
@@ -127,7 +139,9 @@ pub fn reading(c: &Connection, user_id: i64) -> Result<Vec<Reading>, SyncError> 
 /// venue-native export's account id (crate::identity).
 /// An entry with the venue and account number (#710) its row names, where the format names one.
 type Named = (Option<(String, u32)>, Entry);
-pub struct Read { entries: Vec<Named>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId> }
+/// `records`: the file's input records (#710 8a rule R7): a Binance export's non-empty records, a KuCoin export's rows, a
+/// Deltabadger CSV's entries.
+pub struct Read { entries: Vec<Named>, unrecognised: Vec<String>, rows: Vec<kucoin::SourceRow>, account_id: Option<crate::identity::AccountId>, records: usize }
 
 /// What a column holds of an amount: its nearest double, which must be finite (2.x stores 1e309 as Infinity, which
 /// no later read takes; this refuses the file instead).
@@ -141,10 +155,11 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
     let text = csv::as_text(bytes);
     let mut account_id = None;
     let mut rows = vec![];
+    let mut records = 0;
     let (entries, unrecognised): (Vec<Named>, Vec<String>) = match format {
         // D-IMPORT-UID: Binance's own export names its account (`User ID`, or `User_ID`) on every record. It is read
         // over every record before the reader skips any; a missing, blank, masked or mixed id is a malformed export.
-        "binance" => match csv::Table::parse(&text).and_then(|table| crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS))
+        "binance" => match csv::Table::parse(&text).and_then(|table| { records = table.rows.iter().filter(|row| !row.is_empty()).count(); crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS) })
             .and_then(|id| { account_id = id; binance::read(&text, offset) }) {
             Ok(read) => (read.entries.into_iter().map(|e| (None, e)).collect(), read.unrecognised),
             Err(_) => return Err(Answer::Error("malformed")),
@@ -165,7 +180,8 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
     };
     if !entries.iter().all(|(_, e)| storable(e)) { return Err(Answer::Error("malformed")); }
     if entries.is_empty() && unrecognised.is_empty() && rows.is_empty() { return Err(Answer::Error("unreadable")); }
-    Ok(Read { entries, unrecognised, rows, account_id })
+    if format != "binance" { records = entries.len() + rows.len(); }
+    Ok(Read { entries, unrecognised, rows, account_id, records })
 }
 
 /// Import::Run#import!: `bytes` read in `format` at `offset` and written for `user_id` (`read`, then `write`), as an
@@ -212,7 +228,7 @@ fn digest(c: &Connection, user_id: i64, purpose: char, subject: &str, dest: Dest
 }
 pub(crate) fn seal(purpose: char, subject: &str, dest: Dest, slot: &str, evidence: &str) -> String { sha(&format!("{purpose}|{subject}|{dest:?}|{slot}|{evidence}")) }
 /// A destination's slots: each key of the account, its type, status and ciphertext; for a new account, the exchange's
-/// live accounts (one made meanwhile changes it).
+/// live accounts (one made meanwhile changes it) and the number it would take (#710 8a rule R9).
 pub(crate) fn slot(c: &Connection, user_id: i64, dest: Dest) -> Result<String, SyncError> {
     Ok(match dest {
         Dest::Account(id) => match crate::identity::Account::by_id(c, id)? {
@@ -222,9 +238,14 @@ pub(crate) fn slot(c: &Connection, user_id: i64, dest: Dest) -> Result<String, S
                 .collect::<Result<Vec<_>, _>>()?.join(","),
             None => "gone".into(),
         },
-        Dest::New(exchange) => crate::identity::accounts_of(c, user_id, exchange)?.iter().map(|(id, _)| id.to_string()).collect::<Vec<_>>().join(","),
+        Dest::New(exchange) => {
+            let live = crate::identity::accounts_of(c, user_id, exchange)?.iter().map(|(id, _)| id.to_string()).collect::<Vec<_>>().join(",");
+            if crate::identity::ready(c)? { format!("{live}#{}", crate::identity::next_number(c, user_id, exchange)?) } else { live }
+        }
     })
 }
+/// #710 8a rule R10: a Deltabadger CSV's answer is bound to its whole routing (the evidence), never to a new account's slot.
+const CSV_SLOT: &str = "csv";
 
 /// Rule N4: an answer is used once: consumed in the write it allows (a second answer of the same question finds it gone).
 pub(crate) fn consume(c: &Connection, digest: &str, now: DateTime<Utc>) -> Result<bool, SyncError> {
@@ -237,22 +258,23 @@ struct Bound<'a> { entries: &'a [Entry], kucoin: &'a [kucoin::SourceRow] }
 
 /// Rules P5/Q6: of the rows `bound` would write on `dest` (account `own`, or a new one) of `exchange`, those that exist
 /// on another live account of it: an entry whose venue id it holds or merged (Alpaca's `merged_activity_ids`), an
-/// id-less entry exactly repeating one of its rows (type, currency, amount, UTC second), a KuCoin row it holds. The
-/// first such account, the count, and the ids seen (for the digest).
-fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound: &Bound) -> Result<Option<(i64, usize, String)>, SyncError> {
+/// id-less entry exactly repeating one of its rows (type, currency, amount, UTC second), a KuCoin row it holds. Per such
+/// account (#710 8a rule R12): the account, its count, and the ids seen (for the digest).
+fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound: &Bound) -> Result<Vec<(i64, usize, String)>, SyncError> {
     let others: Vec<i64> = crate::identity::accounts_of(c, user_id, exchange)?.into_iter().map(|(id, _)| id).filter(|id| Some(*id) != own).collect();
-    if others.is_empty() { return Ok(None); }
+    let mut out = vec![];
+    if others.is_empty() { return Ok(out); }
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default();
-    let (mut first, mut count, mut ids) = (None, 0, vec![]);
     for other in others {
+        let (mut count, mut ids) = (0, vec![]);
         let key = writer(c, &[], other)?;
         let merged = ledger::stored_merged(c, &key)?;
         let at_ = "account_transactions";
         // Each id with the account holding it: a Merge that moves it changes what the warning named.
-        let mut hit = |id: String, first: &mut Option<i64>| { count += 1; ids.push(format!("{other}:{id}")); first.get_or_insert(other); };
+        let mut hit = |id: String| { count += 1; ids.push(format!("{other}:{id}")); };
         for e in bound.entries {
             match e.tx_id.as_deref().filter(|t| !t.trim().is_empty()) {
-                Some(id) => if crate::venue_ids::known(c, &key.scope, id)? || merged.contains(id) { hit(id.to_string(), &mut first) },
+                Some(id) => if crate::venue_ids::known(c, &key.scope, id)? || merged.contains(id) { hit(id.to_string()) },
                 None => {
                     let (Some(at), Some(base)) = (e.transacted_at, e.base_currency.as_deref()) else { continue };
                     let second = at.with_nanosecond(0).unwrap_or(at);
@@ -260,39 +282,87 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
                                                           AND base_currency = ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at < ?7)", ledger::BY_TIME, key.scope.rows(at_)),
                                                  rusqlite::params![user_id, exchange, e.entry_type, base, ledger::amount_sql(&exchange_type, &e.base_amount),
                                                                    crate::sync::sql_time(second), crate::sync::sql_time(second + chrono::Duration::seconds(1))], |r| r.get(0))?;
-                    if same { hit(format!("{}|{base}|{}|{}", e.entry_type, e.base_amount.to_s_f(), second.timestamp()), &mut first) }
+                    if same { hit(format!("{}|{base}|{}|{}", e.entry_type, e.base_amount.to_s_f(), second.timestamp())) }
                 }
             }
         }
         for row in bound.kucoin {
             let held: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1 AND row_id = ?2)", rusqlite::params![other, row.row_id], |r| r.get(0))?;
-            if held { hit(row.row_id.clone(), &mut first) }
+            if held { hit(row.row_id.clone()) }
         }
+        if count > 0 { out.push((other, count, ids.join(","))); }
     }
-    Ok(first.map(|a| (a, count, ids.join(","))))
+    Ok(out)
 }
 
 /// What the import sees at `dest` before writing (rules M1, N5, P5, P8, Q6): the warnings, the accounts holding the
-/// export's account (offered first), and the evidence the answer's digest binds.
+/// export's account (offered first), and the evidence the answer's digest binds. `named`: the question offers a new
+/// account, so every account shows its number (#710 8a rule R6); the evidence binds it and each label shown (rule R11).
 #[allow(clippy::too_many_arguments)]
-fn seen(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, dest: Dest, file: Option<&crate::identity::AccountId>, bound: &Bound, now: DateTime<Utc>)
+fn seen(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, dest: Dest, file: Option<&crate::identity::AccountId>, bound: &Bound, named: bool, now: DateTime<Utc>)
         -> Result<(Vec<Warning>, Vec<i64>, String), SyncError> {
     let (exchange, own) = match dest {
         Dest::Account(id) => (crate::identity::Account::by_id(c, id)?.ok_or_else(|| SyncError(format!("import account {id} is gone")))?.exchange_id, Some(id)),
         Dest::New(exchange) => (exchange, None),
     };
-    let (mut warnings, mut holders, mut facts) = (vec![], vec![], String::new());
+    let (mut warnings, mut holders, mut facts, mut shown) = (vec![], vec![], String::new(), vec![]);
+    let mut name = |account: i64| -> rusqlite::Result<Label> {
+        let label = if named { crate::identity::label_numbered(c, account)? } else { crate::identity::label(c, account)? };
+        shown.push((account, label.number));
+        Ok(label)
+    };
     if let Some(id) = file.filter(|_| crate::identity::ready(c).unwrap_or(false)) {
         let e = crate::identity::import_evidence(c, cipher, user_id, exchange, own, id, now).map_err(SyncError)?;
-        if let Some(first) = e.holders.first() { warnings.push(Warning::HeldElsewhere(crate::identity::label(c, *first)?.plain())); }
-        if e.foreign { if let Some(own) = own { warnings.push(Warning::OtherAccount(crate::identity::label(c, own)?.plain())); } }
+        if let Some(first) = e.holders.first() { warnings.push(Warning::HeldElsewhere(name(*first)?)); }
+        if e.foreign { if let Some(own) = own { warnings.push(Warning::OtherAccount(name(own)?)); } }
         (holders, facts) = (e.holders, e.facts);
     }
-    if let Some((on, n, ids)) = existing(c, user_id, exchange, own, bound)? {
-        warnings.push(Warning::Existing(n, crate::identity::label(c, on)?.plain()));
+    let mut lines = vec![];
+    for (on, n, ids) in existing(c, user_id, exchange, own, bound)? {
+        lines.push((name(on)?, n));
         facts.push_str(&format!("|ids:{ids}"));
     }
+    if !lines.is_empty() { warnings.push(Warning::Existing(lines)); }
+    facts.push_str(&format!("|named:{}|shown:{shown:?}", u8::from(named)));
     Ok((warnings, holders, facts))
+}
+
+/// The label a question shows for `dest` (#710 8a rule R6): an account's, numbered when `named`; a new account's
+/// prospective one.
+fn shown(c: &Connection, user_id: i64, dest: Dest, named: bool) -> rusqlite::Result<Label> {
+    match dest {
+        Dest::Account(id) if named => crate::identity::label_numbered(c, id),
+        Dest::Account(id) => crate::identity::label(c, id),
+        Dest::New(exchange) => crate::identity::prospective(c, user_id, exchange),
+    }
+}
+
+fn exchange_of(c: &Connection, dest: Dest) -> Result<i64, SyncError> {
+    match dest {
+        Dest::Account(id) => Ok(crate::identity::Account::by_id(c, id)?.ok_or_else(|| SyncError(format!("import account {id} is gone")))?.exchange_id),
+        Dest::New(exchange) => Ok(exchange),
+    }
+}
+
+/// #710 8a rule R5: the offer a venue export's question shows on `exchange`, whichever of its buttons is clicked: where the
+/// file routes there with no account answer (an account and its number, a new account and the number it would take, or the
+/// account question's options), and each account holding the export's account with its number. Recomputed under the
+/// import's lock when a click is validated. Its `bool`: a new account is offered, so the question numbers every account.
+#[allow(clippy::too_many_arguments)]
+fn offered(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venues: &[&str], file: Option<&crate::identity::AccountId>, keys: &[Reading], exchange: i64,
+           now: DateTime<Utc>) -> Result<(String, bool), SyncError> {
+    let number = |id: i64| -> rusqlite::Result<i64> { c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)) };
+    let (mut text, named, own) = match route_file(c, cipher, user_id, venues, file, Some(&format!("v{exchange}")), keys, now)? {
+        Routed::To(account) => (format!("to:{account}#{}", number(account)?), false, Some(account)),
+        Routed::New(e) => (format!("new:{e}#{}", crate::identity::next_number(c, user_id, e)?), true, None),
+        Routed::Ask(options) => (format!("ask:{}", options.iter().map(|o| o.value.as_str()).collect::<Vec<_>>().join(",")), options.iter().any(|o| o.new), None),
+        Routed::Key(k) => (format!("key:{}", k.id), false, None),
+        Routed::None => ("none".into(), false, None),
+    };
+    if let Some(id) = file.filter(|_| crate::identity::ready(c).unwrap_or(false)) {
+        for holder in crate::identity::import_evidence(c, cipher, user_id, exchange, own, id, now).map_err(SyncError)?.holders { text.push_str(&format!("|holder:{holder}#{}", number(holder)?)); }
+    }
+    Ok((text, named))
 }
 
 /// Where rows of one routed group go: a key's (or a keyless account's) writer, or a new account of an exchange.
@@ -300,11 +370,13 @@ fn seen(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, dest: Dest
 enum Target { Key(Key), New(i64) }
 
 /// What a question asked before writing offers (rule N4): a venue export's destination and the accounts holding the
-/// export's account, or a Deltabadger CSV's whole routing (`rest`: some of its rows have no account here).
-enum Offer { Native { dest: Dest, holders: Vec<i64> }, Csv { rest: bool }, Unbound }
+/// export's account, with the offer as shown (`offered`, #710 8a rule R5), whether it numbers every account and the file's
+/// rows; or a Deltabadger CSV's whole routing (`rest`: some of its rows have no account here) and its routed rows.
+enum Offer { Native { dest: Dest, holders: Vec<i64>, offer: String, named: bool, count: usize }, Csv { rest: bool, count: usize }, Unbound }
 
-/// The routing of a file, before anything is written.
-struct Plan { targets: Vec<(Target, Vec<Entry>)>, unrouted: Vec<String>, warnings: Vec<Warning>, evidence: String, changed: bool, offer: Offer }
+/// The routing of a file, before anything is written. `confirm`: asked before writing even with nothing to warn about
+/// (#710 8a rules R1/R2: the destination is one of an exchange's several accounts, or a new one beside a live one).
+struct Plan { targets: Vec<(Target, Vec<Entry>)>, unrouted: Vec<String>, warnings: Vec<Warning>, evidence: String, changed: bool, confirm: bool, offer: Offer }
 
 /// The origin each importer's rows are recorded under (rule N8).
 fn origin(format: &str) -> &'static str { match format { "binance" => "binance", "kucoin" => "kucoin", _ => "deltabadger" } }
@@ -312,7 +384,7 @@ fn origin(format: &str) -> &'static str { match format { "binance" => "binance",
 // Returning an error drops the transaction before `write` translates a named refusal.
 #[allow(clippy::too_many_arguments)]
 fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, subject: &str, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
-    let Read { entries, unrecognised, rows: kucoin_rows, account_id } = file;
+    let Read { entries, unrecognised, rows: kucoin_rows, account_id, records } = file;
     let tx = model::immediate(c)?;
     let keys = reading(&tx, user_id)?;
     let (body, tag) = match chosen { Some(chosen) => { let (body, tag) = split_answer(chosen); (Some(body), tag) } None => (None, None) };
@@ -321,24 +393,27 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     let venues: &[&str] = match format { "binance" => &[BINANCE, BINANCE_US], "kucoin" => &[KUCOIN], _ => &[] };
     let plan = if venues.is_empty() { csv_plan(&tx, user_id, &keys, entries, body, tag)? } else {
         let entries: Vec<Entry> = entries.into_iter().map(|(_, e)| e).collect();
-        match native_plan(&tx, cipher, user_id, venues, account_id.as_ref(), &keys, entries, &kucoin_rows, subject, body, tag, now)? {
+        match native_plan(&tx, cipher, user_id, venues, account_id.as_ref(), &keys, entries, &kucoin_rows, records, subject, body, tag, now)? {
             Ok(plan) => plan,
             Err(answer) => return Ok(answer),
         }
     };
-    let Plan { targets, unrouted, warnings, evidence, changed, offer } = plan;
+    let Plan { targets, unrouted, warnings, evidence, changed, confirm, offer } = plan;
     let bound_entries: Vec<Entry> = targets.iter().flat_map(|(_, rows)| rows.iter().cloned()).collect();
     let ask = |c: &Connection, mut shown: Vec<Warning>, evidence: &str, changed: bool| -> Result<Answer, SyncError> {
         if changed { shown.insert(0, Warning::Changed); }
         let bound = Bound { entries: &bound_entries, kucoin: &kucoin_rows };
-        Ok(Answer::Warned(shown, choices(c, cipher, user_id, subject, &offer, account_id.as_ref(), &bound, evidence, now)?))
+        let choices = choices(c, cipher, user_id, subject, &offer, account_id.as_ref(), &bound, &shown, evidence, now)?;
+        Ok(Answer::Warned(shown, choices))
     };
     // Rule N4 / M1: asked (again) before writing anything. Each question's choices (and their digests' slots) are read in
     // this transaction, so no credential change in between binds them to another slot; it commits only what routing made
     // (a first-named exchange's eager number-1 row, the identity key): the rows a write made first are undone.
-    if changed || (!warnings.is_empty() && !accepting) { let asked = ask(&tx, warnings, &evidence, changed); tx.commit()?; return asked; }
+    // #710 8a rule R4: a pick whose digest still holds accepts what its button showed; it is never asked again for it.
+    let picked = matches!(tag, Some(('p', _)));
+    if changed || (!accepting && !picked && (confirm || !warnings.is_empty())) { let asked = ask(&tx, warnings, &evidence, changed); tx.commit()?; return asked; }
     // The destination's slots as the answer saw them, before this write adds to them.
-    let before = match &offer { Offer::Native { dest, .. } => Some((*dest, slot(&tx, user_id, *dest)?)), Offer::Csv { .. } => Some((Dest::New(0), slot(&tx, user_id, Dest::New(0))?)), Offer::Unbound => None };
+    let before = match &offer { Offer::Native { dest, .. } => Some((*dest, slot(&tx, user_id, *dest)?)), Offer::Csv { .. } => Some((Dest::New(0), CSV_SLOT.to_string())), Offer::Unbound => None };
     // A question found while writing is asked over the state before the write (`undo`).
     tx.execute_batch("SAVEPOINT import_write")?;
     let undo = |tx: &rusqlite::Transaction<'_>| tx.execute_batch("ROLLBACK TO import_write");
@@ -380,30 +455,36 @@ fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i6
     Ok(answer)
 }
 
-/// The answers of a warning (rule M1): each account holding the export's account first ("import to"), then the
-/// destination ("import here", or a new account); a Deltabadger CSV's "import anyway" / "import the rest". Cancel is the
-/// page's.
+/// The answers of a question before writing (rule M1): each account holding the export's account first ("import to"),
+/// then the destination (an account, or a new account), each named with the file's rows and the warnings its digest binds
+/// (#710 8a rule R3); a Deltabadger CSV's one sealed answer ("import", "import anyway", "import the rest"). Cancel is the
+/// page's. `warnings`: what the question shows, the destination's own warnings among them.
 #[allow(clippy::too_many_arguments)]
 fn choices(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, subject: &str, offer: &Offer, file: Option<&crate::identity::AccountId>, bound: &Bound,
-           evidence: &str, now: DateTime<Utc>) -> Result<Vec<Choice>, SyncError> {
-    let choice = |value: String, label: String, venue: Option<i64>, accept: Accept| Choice { value, label, key: None, new: false, venue, accept: Some(accept) };
+           warnings: &[Warning], evidence: &str, now: DateTime<Utc>) -> Result<Vec<Choice>, SyncError> {
+    let choice = |value: String, shown: Label, venue: Option<i64>, accept: Accept, count: usize, notes: Vec<Warning>| Choice { value, shown, key: None, new: false, venue, accept: Some(accept), count, notes };
     Ok(match offer {
-        Offer::Native { dest, holders } => {
+        Offer::Native { dest, holders, offer, named, count } => {
             let mut out = vec![];
             for holder in holders {
                 let at = Dest::Account(*holder);
-                let (_, _, facts) = seen(c, cipher, user_id, at, file, bound, now)?;
+                let (notes, _, facts) = seen(c, cipher, user_id, at, file, bound, *named, now)?;
                 let venue = crate::identity::Account::by_id(c, *holder)?.map(|a| a.exchange_id);
-                out.push(choice(format!("a{holder}!w{}", digest(c, user_id, 'w', subject, at, &facts)?), crate::identity::label(c, *holder)?.plain(), venue, Accept::To));
+                out.push(choice(format!("a{holder}!w{}", digest(c, user_id, 'w', subject, at, &format!("{facts}|offer:{offer}"))?), shown(c, user_id, at, *named)?, venue, Accept::To, *count, notes));
             }
             let d = digest(c, user_id, 'w', subject, *dest, evidence)?;
+            let notes: Vec<Warning> = warnings.iter().filter(|w| !matches!(w, Warning::Changed | Warning::Retained)).cloned().collect();
+            let label = shown(c, user_id, *dest, *named)?;
             out.push(match dest {
-                Dest::Account(id) => choice(format!("a{id}!w{d}"), crate::identity::label(c, *id)?.plain(), crate::identity::Account::by_id(c, *id)?.map(|a| a.exchange_id), Accept::Here),
-                Dest::New(exchange) => choice(format!("n{exchange}!w{d}"), String::new(), Some(*exchange), Accept::New),
+                Dest::Account(id) => choice(format!("a{id}!w{d}"), label, crate::identity::Account::by_id(c, *id)?.map(|a| a.exchange_id), Accept::Here, *count, notes),
+                Dest::New(exchange) => choice(format!("n{exchange}!w{d}"), label, Some(*exchange), Accept::New, *count, notes),
             });
             out
         }
-        Offer::Csv { rest } => vec![choice(format!("r!w{}", digest(c, user_id, 'w', subject, Dest::New(0), evidence)?), String::new(), None, if *rest { Accept::Rest } else { Accept::Anyway })],
+        Offer::Csv { rest, count } => {
+            let accept = if *rest { Accept::Rest } else if warnings.iter().all(|w| matches!(w, Warning::Destination(_) | Warning::Changed)) { Accept::Import } else { Accept::Anyway };
+            vec![choice(format!("r!w{}", seal('w', subject, Dest::New(0), CSV_SLOT, evidence)), Label::bare(""), None, accept, *count, vec![])]
+        }
         Offer::Unbound => vec![],
     })
 }
@@ -436,7 +517,7 @@ fn named_dest(c: &Connection, user_id: i64, keys: &[Reading], body: &str) -> Res
 /// routing or no account can take it.
 #[allow(clippy::too_many_arguments)]
 fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venues: &[&str], file: Option<&crate::identity::AccountId>, keys: &[Reading], entries: Vec<Entry>,
-               kucoin_rows: &[kucoin::SourceRow], subject: &str, body: Option<&str>, tag: Option<(char, &str)>, now: DateTime<Utc>) -> Result<Result<Plan, Answer>, SyncError> {
+               kucoin_rows: &[kucoin::SourceRow], records: usize, subject: &str, body: Option<&str>, tag: Option<(char, &str)>, now: DateTime<Utc>) -> Result<Result<Plan, Answer>, SyncError> {
     let bound = Bound { entries: &entries, kucoin: kucoin_rows };
     // An "import anyway" names its destination itself; it holds while its digest does (`write_transaction`).
     let accepted = match (tag, body) { (Some(('w', _)), Some(body)) => accepted_dest(c, user_id, venues, body)?, _ => None };
@@ -450,17 +531,20 @@ fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, ven
             Routed::Key(k) => {
                 let key = Key { id: k.id, user_id, exchange_id: k.exchange_id, status: 1, key_type: k.key_type, last_synced_at: None, last_sync_error: None,
                                 exchange_type: k.exchange_type, scope: crate::sync::key_scope(c, k.id)? };
-                return Ok(Ok(Plan { targets: vec![(Target::Key(key), entries)], unrouted: vec![], warnings: vec![], evidence: String::new(), changed: false, offer: Offer::Unbound }));
+                return Ok(Ok(Plan { targets: vec![(Target::Key(key), entries)], unrouted: vec![], warnings: vec![], evidence: String::new(), changed: false, confirm: false, offer: Offer::Unbound }));
             }
             Routed::None => return Ok(Err(Answer::Error("no_account_for_format"))),
-            // Rule N4: each account the question offers is bound to what its destination holds now. The venue question's
-            // key answer stays 2.x's (a key id): it holds only while its venue's one account and key do (`route_file`).
+            // Rule N4: each account the question offers is bound to what its destination holds now and to the offer as
+            // shown (#710 8a rules R3/R5), and named with the file's rows and that destination's warnings, which its click
+            // accepts (rule R4). The venue question's key answer stays 2.x's (a key id): it holds only while its venue's one
+            // account and key do (`route_file`).
             Routed::Ask(mut options) => {
                 for o in options.iter_mut().filter(|o| o.key.is_none()) {
-                    if let Some(dest) = named_dest(c, user_id, keys, &o.value)? {
-                        let (_, _, facts) = seen(c, cipher, user_id, dest, file, &bound, now)?;
-                        o.value = format!("{}!p{}", o.value, digest(c, user_id, 'p', subject, dest, &facts)?);
-                    }
+                    let Some(dest) = named_dest(c, user_id, keys, &o.value)? else { continue };
+                    let (offer, named) = offered(c, cipher, user_id, venues, file, keys, exchange_of(c, dest)?, now)?;
+                    let (notes, _, facts) = seen(c, cipher, user_id, dest, file, &bound, named, now)?;
+                    o.value = format!("{}!p{}", o.value, digest(c, user_id, 'p', subject, dest, &format!("{facts}|offer:{offer}"))?);
+                    (o.shown, o.count, o.notes) = (shown(c, user_id, dest, named)?, records, notes);
                 }
                 return Ok(Err(Answer::Ambiguous(options)));
             }
@@ -473,10 +557,16 @@ fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, ven
         (None, Some(body)) if body.starts_with('a') || body.starts_with('n') => changed = true,
         _ => {}
     }
-    let (warnings, holders, evidence) = seen(c, cipher, user_id, dest, file, &bound, now)?;
+    let exchange = exchange_of(c, dest)?;
+    let (offer, named) = offered(c, cipher, user_id, venues, file, keys, exchange, now)?;
+    let (warnings, holders, facts) = seen(c, cipher, user_id, dest, file, &bound, named, now)?;
+    let evidence = format!("{facts}|offer:{offer}");
     if let Some(('p', posted)) = tag { if posted != digest(c, user_id, 'p', subject, dest, &evidence)? { changed = true; } }
+    // #710 8a rule R1: one of an exchange's several accounts, or a new account beside a live one, is named before writing.
+    let live = crate::identity::accounts_of(c, user_id, exchange)?.len();
+    let confirm = tag.is_none() && match dest { Dest::Account(_) => live >= 2, Dest::New(_) => live >= 1 };
     let target = match dest { Dest::Account(account) => Target::Key(writer(c, keys, account)?), Dest::New(exchange) => Target::New(exchange) };
-    Ok(Ok(Plan { targets: vec![(target, entries)], unrouted: vec![], warnings, evidence, changed, offer: Offer::Native { dest, holders } }))
+    Ok(Ok(Plan { targets: vec![(target, entries)], unrouted: vec![], warnings, evidence, changed, confirm, offer: Offer::Native { dest, holders, offer, named, count: records } }))
 }
 
 /// A Deltabadger CSV's plan: each row to the account its venue and number name.
@@ -501,6 +591,10 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
             numbered.push((writer(c, &[], account)?, number));
         }
     }
+    // #710 8a rule R15: an unrouted row is named as an account is, by its exchange's name; the CSV's own spelling when
+    // this install has no such exchange.
+    let names: Vec<(String, String)> = c.prepare("SELECT type, name FROM exchanges ORDER BY id")?
+        .query_map([], |r| Ok((r.get::<_, Option<String>>(0)?.unwrap_or_default(), r.get::<_, Option<String>>(1)?.unwrap_or_default())))?.collect::<Result<_, _>>()?;
     let by_name = |name: &str, number: u32| numbered.iter().rev().find(|(k, n)| crate::tracker::rows::name_id(&k.exchange_type) == name && *n == i64::from(number)).map(|(k, _)| k);
     let mut left_out = 0;
     for (venue, entry) in entries {
@@ -510,6 +604,7 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
             None => {
                 left_out += 1;
                 if let Some((venue, number)) = venue {
+                    let venue = names.iter().find(|(t, _)| crate::tracker::rows::name_id(t) == venue).map_or(venue, |(_, name)| name.clone());
                     let venue = if number == 1 { venue } else { format!("{venue} {number}") };
                     if !unrouted.contains(&venue) { unrouted.push(venue); }
                 }
@@ -518,36 +613,50 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
     }
     unrouted.sort();
     // Rule N6: rows naming accounts this install lacks are said before writing. Rules P5/Q6: rows another live account
-    // holds, and a venue id this upload routes to two accounts. The digest binds every group's account, key and slots.
-    let mut warnings = vec![];
-    if left_out > 0 { warnings.push(Warning::Unrouted(left_out)); }
+    // holds (#710 8a rule R12: per account), and the venue ids this upload sends to two or more accounts (rule R13). #710 8a
+    // rule R2: where the rows go, when an exchange of them has several accounts. The digest binds every group's account,
+    // key and slots, each id's destinations, and each label shown (rule R11).
     let mut evidence = format!("unrouted:{left_out}:{};", unrouted.join(","));
-    let (mut found, mut twice): (Option<(i64, usize)>, usize) = (None, 0);
-    for (i, (key, rows)) in routed.iter().enumerate() {
+    let (mut confirm, mut destinations, mut held, mut shown) = (false, vec![], Vec::<(i64, usize)>::new(), vec![]);
+    let mut sent: std::collections::BTreeMap<(i64, String), std::collections::BTreeSet<String>> = Default::default();
+    for (key, rows) in &routed {
         let own = match key.scope.account { Some(a) => Some(a), None => crate::identity::accounts_of(c, user_id, key.exchange_id)?.first().map(|(a, _)| *a) };
         let slot = match own { Some(a) => digest(c, user_id, 's', "", Dest::Account(a), "")?, None => String::new() };
         evidence.push_str(&format!("{}:{}:{:?}:{}:{slot};", key.id, key.exchange_id, own, rows.len()));
-        for id in rows.iter().filter_map(|e| e.tx_id.as_deref()).filter(|t| !t.trim().is_empty()) {
-            if routed[..i].iter().any(|(other, theirs)| other.exchange_id == key.exchange_id && theirs.iter().any(|x| x.tx_id.as_deref() == Some(id))) {
-                twice += 1;
-                evidence.push_str(&format!("twice:{id};"));
-                if found.is_none() { found = own.map(|a| (a, 0)); }
-            }
-        }
-        if let Some((on, n, ids)) = existing(c, user_id, key.exchange_id, own, &Bound { entries: rows, kucoin: &[] })? {
+        let dest = own.map_or_else(|| format!("k{}", key.id), |a| format!("a{a}"));
+        for id in rows.iter().filter_map(|e| e.tx_id.as_deref()).filter(|t| !t.trim().is_empty()) { sent.entry((key.exchange_id, id.to_string())).or_default().insert(dest.clone()); }
+        for (on, n, ids) in existing(c, user_id, key.exchange_id, own, &Bound { entries: rows, kucoin: &[] })? {
             evidence.push_str(&format!("ids:{ids};"));
-            found = Some(match found { Some((first, m)) if m > 0 => (first, m + n), _ => (on, n) });
+            match held.iter_mut().find(|(a, _)| *a == on) { Some((_, m)) => *m += n, None => held.push((on, n)) }
         }
+        confirm |= crate::identity::accounts_of(c, user_id, key.exchange_id)?.len() >= 2;
+        let label = match own { Some(a) => crate::identity::label(c, a)?, None => Label::bare("") };
+        shown.push((own, label.number));
+        destinations.push((label, rows.len()));
     }
-    if let Some((on, n)) = found { warnings.push(Warning::Existing(n + twice, crate::identity::label(c, on)?.plain())); }
+    let twice: Vec<_> = sent.iter().filter(|(_, to)| to.len() >= 2).collect();
+    for ((exchange, id), to) in &twice { evidence.push_str(&format!("twice:{exchange}:{id}:{};", to.iter().cloned().collect::<Vec<_>>().join(","))); }
+    let mut warnings = vec![];
+    if confirm { warnings.push(Warning::Destination(destinations)); }
+    if !twice.is_empty() { warnings.push(Warning::Twice(twice.len())); }
+    if left_out > 0 { warnings.push(Warning::Unrouted(left_out)); }
+    held.sort();
+    if !held.is_empty() {
+        let mut lines = vec![];
+        for (on, n) in held { let label = crate::identity::label(c, on)?; shown.push((Some(on), label.number)); lines.push((label, n)); }
+        warnings.push(Warning::Existing(lines));
+    }
+    evidence.push_str(&format!("named:0|shown:{shown:?}"));
     // Only "import anyway" (`r`) answers a Deltabadger CSV's warning; anything else posted is asked again.
     let changed = tag.is_some() && (body != Some("r") || tag.is_some_and(|(t, _)| t != 'w'));
-    Ok(Plan { targets: routed.into_iter().map(|(k, rows)| (Target::Key(k), rows)).collect(), unrouted, warnings, evidence, changed, offer: Offer::Csv { rest: left_out > 0 } })
+    let count = routed.iter().map(|(_, rows)| rows.len()).sum();
+    Ok(Plan { targets: routed.into_iter().map(|(k, rows)| (Target::Key(k), rows)).collect(), unrouted, warnings, evidence, changed, confirm, offer: Offer::Csv { rest: left_out > 0, count } })
 }
 
 /// #write: one transaction across every account the file touches. Fenced on no credential: an import reads none (the
 /// venue's API is never called), so no credential change can make what it writes stale. `accept`: the Binance rows the
-/// writer would warn about are written plain (rules P6/Q3); returns the answer and those it stripped (`key:unit`).
+/// writer would warn about are written plain (rules P6/Q3); returns the answer and those it stripped (`dest:unit`, #710 8a
+/// rule R14: `a<account>`, or `n<exchange>` for an account this write makes).
 #[allow(clippy::too_many_arguments)]
 fn write_targets(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, targets: Vec<(Target, Vec<Entry>)>, kucoin_rows: &[kucoin::SourceRow],
                  account_id: Option<&crate::identity::AccountId>, unrecognised: Vec<String>, unrouted: Vec<String>, accept: bool, now: DateTime<Utc>) -> Result<(Answer, Vec<String>), SyncError> {
@@ -556,14 +665,14 @@ fn write_targets(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher,
     let mut stripped = vec![];
     let origin = origin(format);
     for (target, rows) in targets {
-        let key = match target {
-            Target::Key(key) => key,
+        let (key, unit) = match target {
+            Target::Key(key) => { let unit = key.scope.account.map_or_else(|| format!("k{}", key.id), |a| format!("a{a}")); (key, unit) }
             Target::New(exchange) => {
                 let account = crate::identity::new_account(&fenced, user_id, exchange, now)?;
                 // Rule N7: a second account can disqualify a reader with no UID read; its generation moves now. A keyless
                 // account makes no reader, so nothing is woken.
                 crate::sync::settle_readers(&fenced, user_id, exchange)?;
-                writer(&fenced, &[], account)?
+                (writer(&fenced, &[], account)?, format!("n{exchange}"))
             }
         };
         let (routed_account, exchange_id) = (key.scope.account, key.exchange_id);
@@ -574,8 +683,8 @@ fn write_targets(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher,
             (imported, duplicates, skipped, generic) = (imported + out.imported, duplicates + out.duplicates, skipped + out.skipped, generic + out.generic);
         } else {
             let out = if [BINANCE, BINANCE_US].contains(&key.exchange_type.as_str()) {
-                let (out, units) = crate::sync::binance_writer::store_csv(&fenced, cipher, &key, &rows, origin, accept, now)?;
-                stripped.extend(units.into_iter().map(|u| format!("{}:{u}", key.id)));
+                let (out, units) = crate::sync::binance_writer::store_csv(&fenced, cipher, &key, &rows, &unit, origin, accept, now)?;
+                stripped.extend(units);
                 out
             } else if key.exchange_type == KUCOIN {
                 // D-KUCOIN-HF-LEDGER: each row's exact decimals ride with it, and an HF-enabled history judges the
@@ -616,7 +725,7 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         return Ok(match (chosen.and_then(|id| options.iter().find(|k| k.id.to_string() == id)), options.as_slice()) {
             (Some(k), _) | (None, [k]) => Routed::Key((*k).clone()),
             (None, []) => Routed::None,
-            (None, _) => Routed::Ask(options.iter().map(|k| Choice { value: k.id.to_string(), label: k.exchange_name.clone(), key: Some(k.id), new: false, venue: Some(k.exchange_id), accept: None }).collect()),
+            (None, _) => Routed::Ask(options.iter().map(|k| Choice { key: Some(k.id), ..Choice::new(k.id.to_string(), Label::bare(k.exchange_name.clone()), Some(k.exchange_id)) }).collect()),
         });
     }
     let exchanges: Vec<(i64, String, String)> = c.prepare("SELECT id, type, name FROM exchanges WHERE type IN (SELECT value FROM json_each(?1)) ORDER BY id")?
@@ -647,7 +756,7 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         let mut choices = vec![];
         for (id, _, name) in exchanges.iter().filter(|(id, _, _)| among.contains(id)) {
             let key = venue_key(*id)?;
-            choices.push(Choice { value: key.map_or_else(|| format!("v{id}"), |k| k.to_string()), label: name.clone(), key, new: false, venue: Some(*id), accept: None });
+            choices.push(Choice { key, ..Choice::new(key.map_or_else(|| format!("v{id}"), |k| k.to_string()), Label::bare(name.clone()), Some(*id)) });
         }
         Ok(Routed::Ask(choices))
     };
@@ -757,8 +866,8 @@ fn route_file(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venu
         [] if !stale => Routed::New(venue),
         [one] if !stale => Routed::To(*one),
         many => {
-            let mut choices = many.iter().map(|id| Ok(Choice { value: format!("a{id}~{set}"), label: crate::identity::label(c, *id)?.plain(), key: None, new: false, venue: Some(venue), accept: None })).collect::<rusqlite::Result<Vec<_>>>()?;
-            choices.push(Choice { value: format!("n{venue}~{set}"), label: String::new(), key: None, new: true, venue: Some(venue), accept: None });
+            let mut choices = many.iter().map(|id| Ok(Choice::new(format!("a{id}~{set}"), crate::identity::label(c, *id)?, Some(venue)))).collect::<rusqlite::Result<Vec<_>>>()?;
+            choices.push(Choice { new: true, ..Choice::new(format!("n{venue}~{set}"), Label::bare(""), Some(venue)) });
             Routed::Ask(choices)
         }
     })

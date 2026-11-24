@@ -248,9 +248,11 @@ pub fn warned(error: &SyncError) -> Option<Vec<String>> {
 /// than one retained candidate, or names a binding whose amounts the file changed is the file's statement, not a
 /// refusal: without `accept` the whole write fails with `warned`'s list of them (nothing kept); with it each is written
 /// as plain imported rows, its retained id stripped, recorded as `BINANCE_ACCEPTED`. `origin`: every other inserted
-/// row's importer (rule N8). Returns the units it stripped.
+/// row's importer (rule N8). Returns the units it stripped. #710 8a rule R14: a unit is `{unit}:{n}`, `unit` naming the
+/// destination (`run` passes `a<account>`, or `n<exchange>` for an account its write makes), so two keyless accounts'
+/// units never read alike.
 #[allow(clippy::too_many_arguments)]
-pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries: &[Entry], origin: &'static str, accept: bool, now: DateTime<Utc>) -> Result<(Outcome,Vec<usize>),SyncError> {
+pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries: &[Entry], unit: &str, origin: &'static str, accept: bool, now: DateTime<Utc>) -> Result<(Outcome,Vec<String>),SyncError> {
     ownership(c,cipher,key)?;
     let bindings:Vec<_>=buckets(c,key)?.into_iter().flat_map(|b|b.bindings).collect();
     let mut units:BTreeMap<String,(usize,Vec<&Entry>)>=BTreeMap::new();
@@ -344,7 +346,7 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         }
         fallback.extend(rows.iter().map(|e|(*e).clone()));
     }
-    if !warn.is_empty() {return Err(SyncError(format!("{WARN}{}",warn.iter().map(|n|format!("{}:{n}",key.id)).collect::<Vec<_>>().join(","))))}
+    if !warn.is_empty() {return Err(SyncError(format!("{WARN}{}",warn.iter().map(|n|format!("{unit}:{n}")).collect::<Vec<_>>().join(","))))}
     // Keep the ledger's stored-row and repeat counters for the whole file.
     if !fallback.is_empty() {
         let before=c.total_changes();let result=ledger::store_file(c,key,fallback,origin,now)?;
@@ -367,7 +369,7 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         out.imported+=result.imported;out.duplicates+=result.duplicates;out.skipped+=result.skipped;
         if c.total_changes()!=before {mark(c,now)?;invalidate(c,key.user_id)?;}
     }
-    Ok((out,stripped.into_iter().map(|(n,_)|n).collect()))
+    Ok((out,stripped.into_iter().map(|(n,_)|format!("{unit}:{n}")).collect()))
 }
 
 

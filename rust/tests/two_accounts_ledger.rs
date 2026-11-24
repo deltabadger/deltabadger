@@ -211,7 +211,7 @@ fn the_binance_writer_keeps_buckets_and_dust_pairs_per_account() {
     assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}:"))), "number 1's name as before: {buckets:?}");
     assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}@{n}:"))), "{buckets:?}");
     let csv = |key: &sync::Key, rows: Vec<Entry>| { let tx = model::immediate(c).unwrap();
-        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, "binance", false, now()).map(|(o, _)| o); if out.is_ok() { tx.commit().unwrap(); } out };
+        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, "k", "binance", false, now()).map(|(o, _)| o); if out.is_ok() { tx.commit().unwrap(); } out };
     for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().imported, 2); }
     for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().duplicates, 2); }
     // A lone dust leg on account 1 near a second CSV pair's time.
@@ -450,7 +450,7 @@ fn import(c: &Connection, user: i64, text: &str) -> deltabadger::tracker::import
 }
 
 /// §6 test 11 (CSV): the export carries `account` 1/2 and account 2's venue ids; read back into another install with two
-/// accounts each row goes to its own; a file without the column goes to number 1; `3` is unrouted as `kraken 3`; `0` or
+/// accounts each row goes to its own; a file without the column goes to number 1; `3` is unrouted as `Kraken 3` (#710 8a rule R15); `0` or
 /// `x` is malformed.
 #[test]
 fn the_csv_names_each_rows_account_and_a_reimport_routes_by_it() {
@@ -479,7 +479,7 @@ fn the_csv_names_each_rows_account_and_a_reimport_routes_by_it() {
     assert!(matches!(import(c2, other.seeded.user_id, &format!("{header}\n2026-09-02T10:00:00Z,deposit,BTC,5,,,,,kraken,old-file,,\n")), Answer::Written { imported: 1, .. }));
     assert!(venue_ids::known(c2, &other.scopes[0], "old-file").unwrap(), "a 12-column file is number 1's");
     match import(c2, other.seeded.user_id, &format!("{header},account\n2026-09-03T10:00:00Z,deposit,BTC,5,,,,,kraken,third,,,3\n")) {
-        Answer::Written { unrouted, .. } => assert_eq!(unrouted, ["kraken 3"]),
+        Answer::Written { unrouted, .. } => assert_eq!(unrouted, ["Kraken 3"]),
         other => panic!("{other:?}"),
     }
     for bad in ["0", "x"] {

@@ -1,15 +1,16 @@
 de:
     tracker:
         import:
-            warn_held: "%{account} hat den Verlauf dieses Exports vielleicht schon. Hier importiert, kann er in deinen Summen doppelt zählen."
-            warn_other: "Dieser Export stammt von einem anderen Konto als %{account}. Dort importiert, vermischt er zwei Konten."
-            warn_existing: "Bereits bei %{account} vorhandene Zeilen: %{count}. Hier importiert, zählen sie in deinen Summen doppelt."
+            warn_held_html: "%{account} hat den Verlauf dieses Exports vielleicht schon. Hier importiert, kann er in deinen Summen doppelt zählen."
+            warn_other_html: "Dieser Export stammt von einem anderen Konto als %{account}. Dort importiert, vermischt er zwei Konten."
+            warn_existing_html: "Bereits bei %{account} vorhandene Zeilen: %{count}. Hier importiert, zählen sie in deinen Summen doppelt."
             warn_unrouted: "Zeilen zu Konten, die es hier nicht gibt: %{count}. Sie werden nicht importiert."
             warn_retained: "Diese Zeilen stammen aus dem synchronisierten Verlauf eines anderen Kontos. Hier importiert, können sie doppelt zählen."
             warn_changed: "Seit deiner Antwort hat sich etwas geändert. Prüf es noch einmal."
-            import_here: "Trotzdem hier importieren"
-            import_new: "In ein neues Konto importieren"
-            import_to: "In %{account} importieren"
+            import_to_html: "In %{account} importieren (Zeilen in der Datei: %{count})"
+            import_new_html: "In ein neues Konto importieren, %{account} (Zeilen in der Datei: %{count})"
+            destination_html: "Zeilen für %{account}: %{count}."
+            twice_html: "Zeilen, die diese Datei an mehr als ein Konto schickt: %{count}."
             import_anyway: "Trotzdem importieren"
             import_rest: "Den Rest importieren"
             cancel: "Abbrechen"
