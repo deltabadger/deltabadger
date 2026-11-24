@@ -313,6 +313,8 @@ fn read_rows(c: &rusqlite::Connection, table: &str, columns: &[&str], parse_json
                 rusqlite::types::ValueRef::Integer(n) => json!(n),
                 rusqlite::types::ValueRef::Real(n) => Value::Number(serde_json::Number::from_f64(n).ok_or("nonfinite SQLite REAL")?),
                 rusqlite::types::ValueRef::Text(t) => json!(std::str::from_utf8(t)?),
+                // The identity tables' encrypted account ids (#710: Rust's own rows, never 2.x's).
+                rusqlite::types::ValueRef::Blob(_) if deltabadger::identity::TABLES.contains(&table) => json!("[encrypted]"),
                 rusqlite::types::ValueRef::Blob(_) => return Err(format!("unexpected blob in {table}.{name}").into()),
             };
             let json_column = matches!((table, name.as_str()), ("bots", "settings" | "transient_data")
@@ -556,7 +558,8 @@ async fn run(dir: &Path) -> Value {
     let mut now: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
     let clock = TestClock::at(scenario["at"].as_str().unwrap());
     let key_server=wiremock::MockServer::start().await;
-    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path_regex("/v2/account$")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&key_server).await;
+    // #710 slice 9 (D-ALPACA-IDENTITY-READ): every key names one account, so each recorded replacement stays in place.
+    wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path_regex("/v2/account$")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"id":ALPACA_ACCOUNT,"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&key_server).await;
     wiremock::Mock::given(wiremock::matchers::method("GET")).and(wiremock::matchers::path_regex("/v2/positions$")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([]))).mount(&key_server).await;
     wiremock::Mock::given(wiremock::matchers::header("APCA-API-KEY-ID","incorrect-key")).respond_with(wiremock::ResponseTemplate::new(401)).with_priority(1).mount(&key_server).await;
     wiremock::Mock::given(wiremock::matchers::header("APCA-API-KEY-ID","failure-key")).respond_with(wiremock::ResponseTemplate::new(503).set_body_json(json!({"message":"unavailable"}))).with_priority(1).mount(&key_server).await;
@@ -652,6 +655,10 @@ async fn run(dir: &Path) -> Value {
         };
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let seen = key_server.received_requests().await.map_or(0, |requests| requests.len());
+        let scenario_name = dir.file_name().unwrap().to_string_lossy().to_string();
+        let walked = scenario["walk_of"].is_string();
+        let alpaca_reads = alpaca_identity_reads(&scenario_name, index);
+        let installed = alpaca_reads.map(|_| alpaca_slot_key(dir, &app.cipher));
         if step["resync"] == true { rank_fixture(dir, &app.cipher, now); }
         let before = snapshot.then(|| action_rows(dir, &app.cipher).unwrap_or_else(|error| panic!("action rows before: {error}")));
         // D-NO-USER-NAME (no_user_name_divergences): the rows before an unrouted name write, to hold it wrote nothing.
@@ -708,7 +715,9 @@ async fn run(dir: &Path) -> Value {
         // D-NO-USER-NAME: 2.x's recorded query, without the column this build dropped.
         if let Some(sql) = step["account_rows"].as_str() { response["account_rows"] = account_rows(dir, &sql.replacen("SELECT id, name, ", "SELECT id, ", 1)); }
         if step["tax_files"] == true { response["tax_files"] = tax_files(dir); }
-        let mut requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
+        let sent = key_server.received_requests().await.unwrap_or_default()[seen..].to_vec();
+        let sent = without_alpaca_identity_reads(&scenario_name, walked, index, step, alpaca_reads, installed.flatten().as_deref(), sent);
+        let mut requests = without_identity_reads(venue_transcript(&sent));
         // D-JSON-KEY-IDENTITY (#710 7a): the JSON save of an identity venue's key reads its account, and only that, before its
         // 201; the permission check stays asynchronous, as 2.x's.
         if step["method"] == "POST" && step["path"].as_str().is_some_and(|p| p.ends_with("/api/api_keys")) && answer.status == 201 {
@@ -813,6 +822,71 @@ async fn run(dir: &Path) -> Value {
 /// Named divergence D-ACCOUNT-ID-READ (plan AF §3): a KuCoin or Binance key the check judged correct is read once more, for
 /// the account it belongs to. Only that read is left out of this crate's transcript, and only right after that venue's
 /// own key check; every other request is compared.
+/// The one Alpaca account every key of the page scenarios reads (`run`'s key server).
+const ALPACA_ACCOUNT: &str = "904837e3-3b76-47ec-b432-046db621571b";
+/// Whose account read an Alpaca key save sends (D-ALPACA-IDENTITY-READ): the posted key's, or the installed key's of the
+/// slot it replaces (read first because nothing had read it: #710 7a's Reconnect rule).
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Read { Posted, Installed }
+use Read::{Installed, Posted};
+/// D-ALPACA-IDENTITY-READ (#710 slice 9): every recorded step that posts Alpaca credentials (tests/recorded/ grepped for
+/// `api_key[key]` on an Alpaca exchange, form, JSON, bot sheet and wizard alike), with the account reads (GET /v2/account
+/// on the paper host) it must send, in order. A form save's posted read is 2.x's own validation request, in its recording;
+/// the JSON save's reads and every installed-key read are this build's own, taken out of the transcript only here.
+const ALPACA_POSTS: &[(&str, usize, &[Read])] = &[
+    ("settings_r2_json_key_create", 3, &[Posted, Installed]), ("settings_key_legacy_create", 3, &[Posted, Installed]),
+    ("settings_key_legacy_replace", 3, &[Posted, Installed]), ("settings_key_legacy_revalidate", 3, &[Posted]),
+    ("settings_key_save_read_only", 3, &[Posted, Installed]), ("settings_key_save_trading", 3, &[Posted, Installed]),
+    ("settings_bot_key_save_placeholder", 3, &[Posted, Installed]),
+    ("settings_sync_warning_bg", 3, &[Posted, Installed]), ("settings_sync_warning_cs", 3, &[Posted, Installed]), ("settings_sync_warning_da", 3, &[Posted, Installed]),
+    ("settings_sync_warning_de", 3, &[Posted, Installed]), ("settings_sync_warning_el", 3, &[Posted, Installed]), ("settings_sync_warning_en", 3, &[Posted, Installed]),
+    ("settings_sync_warning_es", 3, &[Posted, Installed]), ("settings_sync_warning_fr", 3, &[Posted, Installed]), ("settings_sync_warning_it", 3, &[Posted, Installed]),
+    ("settings_sync_warning_nl", 3, &[Posted, Installed]), ("settings_sync_warning_pl", 3, &[Posted, Installed]), ("settings_sync_warning_pt", 3, &[Posted, Installed]),
+    ("settings_sync_warning_ru", 3, &[Posted, Installed]), ("settings_sync_warning_sk", 3, &[Posted, Installed]), ("settings_sync_warning_sv", 3, &[Posted, Installed]),
+    ("settings_key_csrf_read_only", 3, &[]), ("settings_key_csrf_trading", 3, &[]), ("settings_key_signed_out_save", 1, &[]),
+    ("settings_key_incorrect", 3, &[Posted]), ("settings_key_failure", 3, &[Posted]), ("settings_key_positions_incorrect", 3, &[Posted]),
+    ("settings_key_r9-no-cash", 3, &[Posted]), ("settings_key_r9-null-cash", 3, &[Posted]), ("settings_key_r9-unnamed-position", 3, &[Posted]),
+    ("settings_bot_key_save_incorrect", 3, &[Posted]), ("settings_bot_key_save_failure", 3, &[Posted]),
+    ("wizard_create_alpaca", 6, &[Posted]), ("wizard_create_alpaca", 7, &[Posted]),
+    ("wizard_index_alpaca_key", 9, &[Posted]), ("wizard_index_alpaca_key", 10, &[Posted]), ("wizard_index_top_alpaca", 8, &[Posted]),
+];
+fn alpaca_identity_reads(scenario: &str, step: usize) -> Option<&'static [Read]> {
+    ALPACA_POSTS.iter().find(|(name, n, _)| *name == scenario && *n == step).map(|(_, _, reads)| *reads)
+}
+/// The decrypted key of the Alpaca trading slot (its tracker key too, D-ALPACA-ONE-KEY) before a step.
+fn alpaca_slot_key(dir: &Path, cipher: &deltabadger::crypto::Cipher) -> Option<String> {
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let key: Option<String> = rusqlite::OptionalExtension::optional(c.query_row("SELECT k.key FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+        WHERE e.type = 'Exchanges::Alpaca' AND k.key_type = 0 ORDER BY k.id LIMIT 1", [], |r| r.get(0))).unwrap();
+    key.map(|k| cipher.decrypt(&k).unwrap())
+}
+/// D-ALPACA-IDENTITY-READ: the step's account reads are exactly `reads` (present, once each, in order, each with its key's
+/// header, on the paper host), and none but the listed steps posts Alpaca credentials. This build's own reads (a JSON
+/// save's, an installed key's) are then taken out; 2.x's validation request stays and is compared with its recording.
+fn without_alpaca_identity_reads(scenario: &str, walked: bool, index: usize, step: &Value, reads: Option<&[Read]>, installed: Option<&str>, sent: Vec<wiremock::Request>) -> Vec<wiremock::Request> {
+    let account = |r: &wiremock::Request| r.method.as_str() == "GET" && r.url.path().ends_with("alpaca.markets/v2/account");
+    let key = |r: &wiremock::Request| r.headers.get("APCA-API-KEY-ID").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string();
+    let posted = step["form"]["api_key[key]"].as_str().map(str::to_string)
+        .or_else(|| step["json"].as_str().and_then(|j| serde_json::from_str::<Value>(j).ok()).and_then(|j| j["api_key"]["key"].as_str().map(str::to_string)));
+    let Some(reads) = reads else {
+        // A walk (`walk_of`) is new steps over a recording's install, never compared with a transcript: left as it is.
+        assert!(walked || !posted.as_ref().is_some_and(|p| sent.iter().any(|r| account(r) && &key(r) == p)), "{scenario} step {index} posts Alpaca credentials: list it in ALPACA_POSTS");
+        return sent;
+    };
+    let want: Vec<String> = reads.iter().map(|r| match r { Posted => posted.clone(), Installed => installed.map(str::to_string) }
+        .unwrap_or_else(|| panic!("{scenario} step {index}: no {r:?} key"))).collect();
+    let got: Vec<String> = sent.iter().filter(|r| account(r)).map(|r| { assert!(r.url.path().starts_with("/paper-api.alpaca.markets/"), "{scenario} step {index}: {}", r.url); key(r) }).collect();
+    assert_eq!(got, want, "D-ALPACA-IDENTITY-READ: {scenario} step {index}'s account reads ({reads:?})");
+    let json = step["path"].as_str().is_some_and(|p| p.ends_with("/api/api_keys"));
+    let mut n = 0;
+    sent.into_iter().filter(|r| {
+        if !account(r) { return true; }
+        let own = json || reads[n] == Installed;
+        n += 1;
+        !own
+    }).collect()
+}
+
 fn without_identity_reads(requests: Vec<Value>) -> Vec<Value> {
     let identity = |r: &Value| r["method"] == "GET" && ((r["host"] == "api.kucoin.com" && r["path"] == deltabadger::identity::KUCOIN_PATH)
                                                      || (r["host"] == "api.binance.com" && r["path"] == deltabadger::identity::BINANCE_PATH));
@@ -4620,6 +4694,8 @@ mod index_in_wizard {
         let sign_in: Vec<Value> = scenario["steps"].as_array().unwrap()[..2].to_vec();
         assert!(sign_in[1]["path"] == "/login" && sign_in[1]["method"] == "POST", "{name} signs in first");
         scenario["steps"] = json!([sign_in, steps].concat());
+        // A walk is new steps over a recording's install, never compared with its transcript (D-ALPACA-IDENTITY-READ).
+        scenario["walk_of"] = json!(name);
         std::fs::write(dir.path().join("scenario.json"), scenario.to_string()).unwrap();
         let answers = run(dir.path()).await["responses"].as_array().unwrap()[2..].to_vec();
         (dir, answers)
