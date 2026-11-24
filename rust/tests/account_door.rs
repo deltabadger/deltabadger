@@ -2658,3 +2658,148 @@ async fn s9_r1_a_refused_repost_wakes_the_reader_it_made() {
         assert!(pending.contains(&(job.to_string(), Some(key.to_string()))), "{job} is woken for the new reader: {pending:?}");
     }
 }
+
+// ---- #710 slice 9: Bybit names its UID (`result.userID` of GET /v5/user/query-api, after the permission check) ----
+
+/// The UID read Bybit's public docs type: `userID` an integer (`text` sends it as a string), `id` the key's own id.
+fn bybit_uid(uid: &str, text: bool) -> serde_json::Value {
+    let user = if text { serde_json::json!(uid) } else { serde_json::json!(uid.parse::<u64>().unwrap()) };
+    serde_json::json!({"retCode": 0, "retMsg": "", "result": {"id": "13770661", "apiKey": "masked", "userID": user, "parentUid": "0", "isMaster": true}, "retExtInfo": {}, "time": 1697525990798u64})
+}
+/// A Bybit exchange of the Alpaca fixture's user. `by-a`, `by-a2`, `by-a3` read UID A; `by-b` B (as text); `by-nouid`'s
+/// answer names no UID; any other key's UID read fails (a 503). Every key's permission check passes.
+async fn bybit() -> (tempfile::TempDir, store::Opened, i64, i64, MockServer, deltabadger::web::App) {
+    let server = MockServer::start().await;
+    for (key, uid, text) in [("by-a", UID_A, false), ("by-a2", UID_A, false), ("by-a3", UID_A, false), ("by-b", UID_B, true)] {
+        Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", key)).respond_with(ResponseTemplate::new(200).set_body_json(bybit_uid(uid, text))).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", "by-nouid"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"id": "13770661"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::bybit::ASSETS_PATH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"list": [{"coin": []}]}}))).mount(&server).await;
+    Mock::given(method("POST")).and(path(deltabadger::venue::bybit::CANCEL_PATH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 170213, "retMsg": "Order does not exist."}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"list": []}}))).mount(&server).await;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let s = seed::seed_alpaca(c, &seed::cipher());
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, 'Bybit', '0.1', '0.1', 'now', 'now')", [deltabadger::venue::bybit::BYBIT]).unwrap();
+    let exchange = c.last_insert_rowid();
+    let app = web_app(dir.path(), c).with_venue_key_url(deltabadger::venue::bybit::BYBIT, &server.uri()).unwrap();
+    (dir, o, s.user_id, exchange, server, app)
+}
+fn bybit_fields(key: &'static str) -> [(&'static str, &'static str); 2] { [("api_key[key]", key), ("api_key[secret]", "by-secret")] }
+/// The requests `server` received signed by `key` to `path`.
+async fn bybit_sent(server: &MockServer, key: &str, to: &str) -> usize {
+    server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == to && r.headers.get("X-BAPI-API-KEY").is_some_and(|v| v == key)).count()
+}
+
+/// Two keys of one UID make one account; a key of another UID its own (tiles); a Reconnect of account 2 with a key of UID A
+/// lands on account 1; a key whose answer names no UID (only the key's own `id`) is refused on a tile (Q5).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_bybit_one_uid_is_one_account_and_another_uid_another() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["by-a", "by-b", "by-a2"] {
+        let answer = save(&app, &mut b, exchange, None, &bybit_fields(key)).await;
+        assert!(answer.status < 400, "{key}: {}: {}", answer.status, answer.body);
+    }
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a2".into()), (2, "by-b".into())], "A's second key replaced A's on account 1");
+    let reconnect = save(&app, &mut b, exchange, Some(accounts(c, user, exchange)[1]), &bybit_fields("by-a3")).await;
+    assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a3".into()), (2, "by-b".into())], "routed to A's account, account 2 untouched");
+    let refused = save(&app, &mut b, exchange, None, &bybit_fields("by-nouid")).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("We could not confirm which account this key belongs to"), "{}", refused.body);
+    assert_eq!((numbers(c, exchange), keys(c, &cipher, exchange)), (vec![1, 2], vec![(1, "by-a3".into()), (2, "by-b".into())]));
+    assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 1, "one UID read per check");
+}
+
+/// The bot wizard's key save sees Bybit's UID: a trading key of another UID than account 1's makes account 2, and its
+/// observation is recorded.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_wizard_save_routes_a_bybit_key_by_its_uid() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &bybit_fields("by-a")).await.status < 400);
+    let e = exchange.to_string();
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let form = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(form.status, 200, "{}", location(&form));
+    let answer = b.send(&app, "POST", &format!("/bots/dca_single_assets/add_api_key?exchange_id={e}&untargeted=1"), Some(&bybit_fields("by-b")), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a".into()), (2, "by-b".into())]);
+    let trading = identity::key_of(c, accounts(c, user, exchange)[1], 0).unwrap().unwrap();
+    assert_eq!(identity::credential_standing(c, trading).unwrap(), identity::CredentialStanding::Bound);
+    assert_eq!(bybit_sent(&server, "by-b", deltabadger::venue::bybit::CANCEL_PATH).await, 1, "the trading probe, then the UID read");
+}
+
+/// A read-only Bybit key `key` placed on `account` as 2.x would leave it: correct, never read.
+fn bybit_unread(c: &Connection, user: i64, exchange: i64, account: i64, key: &str) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt(key), cipher.encrypt("by-secret")]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    id
+}
+
+/// G4 r6 at `revalidate`: Bybit's permission probe comes before its UID read. A key correct while its recheck is in flight
+/// whose probe answers 10006 (a rate limit) or a bare 403 keeps its status and its account's standing, with no UID read
+/// sent; one whose probe answers a refusal (10003 invalid, 10007 authentication failed) is no longer correct and its
+/// standing ends. The probe was received each time.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_transient_bybit_probe_keeps_a_correct_keys_status_and_standing_at_revalidate() {
+    let body = |code: i64, message: &str| serde_json::json!({"retCode": code, "retMsg": message, "result": {}});
+    for (status, answer, kept) in [(200, body(10006, "Too many visits!"), true), (403, serde_json::json!({}), true),
+                                   (200, body(10003, "API key is invalid."), false), (200, body(10007, "User authentication failed."), false)] {
+        let (_d, o, user, exchange, server, app) = bybit().await;
+        let c = &o.primary;
+        let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        let key = bybit_unread(c, user, exchange, first, "by-a");
+        let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        stand(c, user, exchange, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+        let db = c.path().unwrap().to_string();
+        let reply = answer.clone();
+        Mock::given(method("GET")).and(path(deltabadger::venue::bybit::ASSETS_PATH)).and(header("X-BAPI-API-KEY", "by-a")).respond_with(move |_: &wiremock::Request| {
+            // Correct while the recheck is in flight.
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(status).set_body_json(reply.clone())
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, user);
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type=read_only&account_id={first}")).await;
+        assert_eq!(bybit_sent(&server, "by-a", deltabadger::venue::bybit::ASSETS_PATH).await, 1, "{status} {answer}: the recheck sent its probe");
+        assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 0, "{status} {answer}: no UID read");
+        let now = one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}"));
+        assert_eq!((now == 1, standings(c)), (kept, kept as i64), "{status} {answer}: status {now}");
+    }
+}
+
+/// The JSON save reads a Bybit key's UID before it saves (D-JSON-KEY-IDENTITY): a key of another UID than the named
+/// account's is asked first (rule M2); a key of the same UID is saved there.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_bybit_json_save_reads_the_uid_first() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &bybit_fields("by-a")).await.status < 400);
+    let (exchange_s, first_s) = (exchange.to_string(), accounts(c, user, exchange)[0].to_string());
+    let post = |key: &'static str| [("api_key[exchange_id]", exchange_s.clone()), ("api_key[account_id]", first_s.clone()), ("api_key[key_type]", "read_only".into()),
+                                     ("api_key[key]", key.into()), ("api_key[secret]", "by-secret".into())];
+    let form = post("by-b");
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let asked = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!(asked.status, 409, "{}", asked.body);
+    assert_eq!(bybit_sent(&server, "by-b", identity::BYBIT_PATH).await, 1, "the UID was read before the answer");
+    let form = post("by-a2");
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a2".into())]);
+}
