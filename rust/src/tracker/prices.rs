@@ -399,6 +399,14 @@ pub fn catalogue_coin(r: &Reference, symbol: &str, venue: &Venue) -> Option<Stri
 /// label (a label prints like no other identity, so its text names one coin, whatever day the row is), its own key for
 /// an unidentified one (never a catalogue coin of its spelling), else the coin the spelling means on `venue` that day,
 /// else the spelling itself.
+pub fn tax_identity_of(r: &Reference, label: &super::spellings::Label, venue: Option<&Venue>, at: Option<NaiveDate>) -> String {
+    // Codex r2: an unidentified label's own key (its account and spelling): two accounts may print it alike.
+    if let Some(ext) = label.coin() { return ext.to_string(); }
+    if label.keyed() && label.class() == super::spellings::Class::Unknown { return label.key().to_string(); }
+    tax_identity(r, label.as_str(), venue, at)
+}
+
+/// `tax_identity_of` by printed text alone (a holding's symbol, compared with an identity already resolved).
 pub fn tax_identity(r: &Reference, symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>) -> String {
     if let Some(ext) = r.coins.get(symbol) { return ext.clone(); }
     if r.unknown.contains(symbol) { return format!("unknown:{symbol}"); }
@@ -487,13 +495,15 @@ impl<'a> PriceService<'a> {
 
     /// `price_key_for`: the key and the security, cached per venue and recorded asset; a dated alias is a coin's.
     fn price_key_for(&mut self, symbol: &str, exchange: Option<&str>, date: NaiveDate, recorded: Option<&Asset>) -> Option<(String, Option<Asset>)> {
-        match self.r.resolve(symbol) {
+        let security = match self.r.resolve(symbol) {
             Resolved::Coin(ext) => return Some((coin_key(&ext), None)),
             Resolved::Unidentified => return None,
-            Resolved::Security | Resolved::Symbol => {}
-        }
+            Resolved::Security => true,
+            Resolved::Symbol => false,
+        };
         let venue = self.venue(exchange);
-        if alias_coin(symbol, venue, Some(date)).is_some() { return Some((symbol.to_string(), None)); }
+        // Codex r2: a security the map resolved is never a dated coin alias of its spelling (LUNA the security is not Terra).
+        if !security && alias_coin(symbol, venue, Some(date)).is_some() { return Some((symbol.to_string(), None)); }
         let assets: Vec<Asset> = match recorded {
             Some(a) => vec![a.clone()],
             None => venue.and_then(|v| self.recorded.get(&(v.id, symbol.to_string()))).cloned().unwrap_or_default(),

@@ -306,6 +306,9 @@ mod tests {
         for on in ["2021-06-01", "2023-01-01"] { assert_eq!(prices::tax_identity(&r, "LUNC", binance, day(on)), "terra-luna", "{on}"); }
         assert_eq!(prices::tax_identity(&r, "LUNA (Terra)", binance, day("2023-02-01")), "terra-luna-2");
         assert_eq!(prices::tax_identity(&r, "ZZZ", r.venue("mexc"), day("2024-01-01")), "unknown:ZZZ");
+        // Codex r2: by the label, an unidentified unit keeps its account (two accounts may print it alike).
+        let zzz = rows.iter().find(|x| x.base.as_str() == "ZZZ").unwrap();
+        assert_eq!(prices::tax_identity_of(&r, &zzz.base, r.venue("mexc"), day("2024-01-01")), "unknown:-3:ZZZ");
         // The Kursliste names a coin by its catalogue symbol, not by a decorated label.
         assert_eq!((r.official("LUNA (Terra)"), r.official("LUNC"), r.official("ZZZ")), ("LUNA", "LUNC", "ZZZ"));
     }

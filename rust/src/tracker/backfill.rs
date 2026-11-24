@@ -40,6 +40,12 @@ pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chron
     crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
 }
 
+/// A fingerprint of the labels a walk resolved (`note_identity`, the sweep's fence).
+pub fn fingerprint(labels: &super::labels::Labels) -> String {
+    use sha2::Digest;
+    hex::encode(sha2::Sha256::digest(format!("{labels:?}").as_bytes()))
+}
+
 /// The fingerprint of the coin identities the user's history was computed with (Rust only, plan r10 §1.7).
 pub fn identity_key(user_id: i64) -> String { format!("rust_snapshot_identity_{user_id}") }
 /// Delisted coins (plan r10 §1.7): the labels a walk resolved (from the rows, the listings, the catalogue and the held
@@ -47,8 +53,7 @@ pub fn identity_key(user_id: i64) -> String { format!("rust_snapshot_identity_{u
 /// a balance of a new asset), the calculation stamp is cleared, so the stored history is swept again under them.
 /// Returns whether they changed. The first fingerprint clears nothing: CALCULATION's bump sweeps an upgraded install.
 pub fn note_identity(c: &Connection, user_id: i64, labels: &super::labels::Labels, now: chrono::DateTime<chrono::Utc>) -> Result<bool, FiguresError> {
-    use sha2::Digest;
-    let fingerprint = hex::encode(sha2::Sha256::digest(format!("{labels:?}").as_bytes()));
+    let fingerprint = fingerprint(labels);
     let stored = crate::app_config::get_plain(c, &identity_key(user_id)).map_err(FiguresError::Data)?;
     if stored.as_deref() == Some(fingerprint.as_str()) { return Ok(false); }
     let changed = stored.is_some();
@@ -216,7 +221,9 @@ pub enum Close { Range(Fetch), Bars(Bars), Venue(VenueHistory) }
 /// What `load_prices` fetches before it reads, instrument by instrument, and the key each venue's symbol is priced
 /// under (`@price_keys`: none for a name that is both a stock and a coin, whose days are unpriced).
 #[derive(Clone, Debug, Default)]
-pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>>, pub user_id: i64 }
+pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>>, pub user_id: i64,
+                  /// The fingerprint of the labels the plan was made under (`fingerprint`): the sweep's write refuses others.
+                  pub identity: String }
 
 /// `touched`, `identity_of` and the instruments over every row: per venue and symbol (cash left out) the first day it
 /// was touched there, a linked transfer touching its destination too; on a crypto venue a symbol is a coin, on a stock

@@ -22,7 +22,7 @@ pub struct Held { pub asset: String, pub symbol: String, pub venue: String, pub 
 /// The units held of every coin just before `until`, from `rows` (every row the report read, in order); `deposits` the amount
 /// of every row by id (a linked withdrawal's network fee is its amount less its deposit's); `identity(symbol, row)` the coin a
 /// symbol means on that row. Coins with no unit left (or fewer than none: an oversold coin) are not held.
-pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: &dyn Fn(&str, &Stored) -> String) -> Result<Vec<Held>, FiguresError> {
+pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: &dyn Fn(&crate::tracker::spellings::Label, &Stored) -> String) -> Result<Vec<Held>, FiguresError> {
     let linked_deposits: HashSet<i64> = rows.iter().filter_map(|r| r.linked_to).collect();
     let mut out: Vec<Held> = vec![];
     for r in rows.iter().filter(|r| r.at.0 < until.0) {
@@ -71,7 +71,7 @@ impl Report {
 
     /// `held` over the report's rows, each symbol read as the coin it meant on its row's day.
     pub(super) fn held_at(&self, until: At) -> Result<Vec<Held>, FiguresError> {
-        held(&self.scoped, &self.deposits, until, &|symbol, r| self.coin(symbol, &r.venue, r.at.utc().date_naive()))
+        held(&self.scoped, &self.deposits, until, &|label, r| prices::tax_identity_of(&self.reference, label, self.reference.venue(&r.venue), Some(r.at.utc().date_naive())))
     }
 
     /// Whether a holding's ticker names it, and only it, on `day` (r3 item 2, r4 item 1): its price or ESTV value may be read.

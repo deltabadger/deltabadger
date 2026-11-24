@@ -27,6 +27,8 @@ impl Label {
     pub fn as_str(&self) -> &str { &self.printed }
     /// Whether the label was allocated (it has an identity key), not spelled.
     pub fn keyed(&self) -> bool { !self.key.is_empty() }
+    /// The identity key (`coin:<id>`, `unknown:<account>:<spelling>`, …); empty for a spelled label.
+    pub fn key(&self) -> &str { &self.key }
     /// What the label holds, from its identity key; a spelled label (identity mode, a hand-built row) by its spelling.
     pub fn class(&self) -> Class {
         match self.key.split_once(':') {

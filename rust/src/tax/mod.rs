@@ -612,11 +612,12 @@ impl Report {
         // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a group stays, as the swap's fee (it moves no coin).
         let swap_fee = |e: &Entry| matches!(self.j.code, "SE" | "GB") && e.row.kind == Kind::Fee && e.row.group.is_some();
         let taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
-        let identity = |symbol: &str, r: &walk::Row| prices::tax_identity(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()));
+        let identity = |label: &Label, r: &walk::Row| prices::tax_identity_of(&self.reference, label, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()));
         let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter()
             .map(|e| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
                                             asset: identity(&e.row.base, &e.row),
-                                            fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
+                                            fee_asset: e.row.fee_currency.as_ref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
+                                            to_asset: e.row.to_base.as_ref().map(|l| identity(l, &e.row)),
                                             cash_group: false })).collect();
         // Groups with a fiat leg, read before the fiat rows leave.
         let cash_groups: HashSet<(i64, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
