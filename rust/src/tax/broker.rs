@@ -358,6 +358,9 @@ impl<'a> Walk<'a> {
     /// One account's walk (one depot) over its rows `recs`.
     fn new(c: &'a Connection, user: i64, year: i32, closes: &'a Closes<'a>, recs: Vec<Rec>) -> R<Walk<'a>> {
         let scope = CryptoScope::new(c, user)?;
+        // ponytail: the owner's whole map per depot walk; pass it down from the report if several depots make it slow.
+        let labels = crate::tracker::rows::load_all_mapped(c, user)?.1;
+        let labelled = |r: &Rec| labels.label(r.id, crate::tracker::resolver::Side::Base).filter(|l| !scope.fund(l)).and_then(super::label_scope);
         let mut w = Walk { c, user, year, fx: FxTable::load(c)?, closes, recs: vec![], rates: BTreeMap::new(), gross_usd: BTreeMap::new(),
                            scale: BTreeMap::new(), gross_by_day: BTreeMap::new(), credited: BTreeMap::new(), withheld: BTreeMap::new(), paid_by_day: BTreeMap::new(), states: BTreeMap::new(), refusals: BTreeMap::new(),
                            warnings: vec![], warned: HashSet::new(), disposals: vec![], income: vec![], fee_total: Dec::zero(), cash: Kap::new() };
@@ -367,6 +370,8 @@ impl<'a> Walk<'a> {
                 None => false,
                 // #1061: the asset a row stored decides its class (a coin is the crypto report's), whatever else shares the
                 // symbol; a distribution's instrument is its quote, which the stored asset does not name.
+                // Plan r10 §1.6: the label the map gave the traded leg decides first, as in the crypto report.
+                Some(_) if !matches!(r.kind, OTHER_INCOME | WITHHOLDING) && labelled(&r).is_some() => labelled(&r) == Some(true),
                 Some(_) if !matches!(r.kind, OTHER_INCOME | WITHHOLDING) && r.class.is_some() => r.class == Some(false),
                 Some(symbol) => {
                     if let Some(categories) = scope.ambiguous(c, &symbol)? { w.warn("ambiguous_symbol", Some(symbol.clone()), Detail::List(categories)); }

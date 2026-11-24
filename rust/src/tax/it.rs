@@ -8,7 +8,7 @@
 //!   realisation (L. 199/2025 c. 28): out of the rows, listed (NOTE `it_eurc_conversion`).
 //! - D-TAX-IT-RT: the quadro RT figures of the year (`year`).
 //! - D-TAX-IT-INCOME: staking in the summary at the row's gross value; other receipts listed apart (NOTE `it_income`).
-use super::{cents, date, fifo::{Disposal, Tx}, line, Cell, Entry, Report};
+use super::{cents, coin_of_id, date, fifo::{Disposal, Tx}, line, named, Cell, Entry, Report};
 use crate::figures::{dec::Dec, FiguresError};
 use crate::tracker::rows::{Kind, Stored};
 use crate::tracker::prices::PriceService;
@@ -30,10 +30,10 @@ const RATE_33_FROM: i32 = 2026;
 const EURO_EMT: &str = "EURC";
 
 /// The MiCA e-money tokens this report knows: exchanging one is a disposal (this report's reading, flagged).
-pub(super) fn emt(symbol: &str) -> bool { matches!(symbol, "USDC" | EURO_EMT) }
+pub(super) fn emt(symbol: &str, coin: Option<&str>) -> bool { named(symbol, coin, "USDC", "usd-coin") || named(symbol, coin, EURO_EMT, "euro-coin") }
 
 /// `value_groups`' side: the coins received, for a group with an e-money token leg; any other group is no disposal.
-pub(super) fn emt_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> { ins.iter().chain(outs).any(|r| emt(&r.base)).then_some(true) }
+pub(super) fn emt_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> { ins.iter().chain(outs).any(|r| emt(&r.base, r.base.coin())).then_some(true) }
 
 /// The exchanges with an e-money token leg: groups of coin legs only (no fiat), legs both ways, as (ins, outs).
 fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
@@ -42,7 +42,7 @@ fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
     // The trade's legs only: a fee row booked in the group (a USDC fee) makes no exchange with an e-money token.
     let legs = |all: Vec<usize>| -> Vec<usize> { all.into_iter().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect() };
     let mut out: Vec<(Vec<usize>, Vec<usize>)> = groups.into_values().map(legs)
-        .filter(|legs| !legs.iter().any(|&i| fiat(&rows[i].row.base)) && legs.iter().any(|&i| emt(&rows[i].row.base)))
+        .filter(|legs| !legs.iter().any(|&i| fiat(&rows[i].row.base)) && legs.iter().any(|&i| emt(&rows[i].row.base, rows[i].row.base.coin())))
         .map(|legs| (legs.iter().copied().filter(|&i| rows[i].row.kind.in_leg()).collect(), legs.iter().copied().filter(|&i| rows[i].row.kind.out_leg()).collect()))
         .filter(|(ins, outs): &(Vec<usize>, Vec<usize>)| !ins.is_empty() && !outs.is_empty()).collect();
     out.sort();
@@ -76,11 +76,11 @@ pub(super) fn emt_groups_as_trades(rows: &mut [Entry]) {
 }
 
 /// D-TAX-IT-EMT-RATE: whether a disposal (or staking) of `asset` on `day` is in the 26% bucket of 2026 on.
-fn euro_emt(day: NaiveDate, asset: &str) -> bool { day.year() >= RATE_33_FROM && asset == EURO_EMT }
+fn euro_emt(day: NaiveDate, asset: &str, coin: Option<&str>) -> bool { day.year() >= RATE_33_FROM && named(asset, coin, EURO_EMT, "euro-coin") }
 
 /// The `tax_rate` column: 2.x's rate by the local date, and 26% for EURC from 2026.
-pub(super) fn rate((before, after, (y, m, d)): (&'static str, &'static str, (i32, u32, u32)), day: NaiveDate, asset: &str) -> &'static str {
-    if day < super::jurisdictions::ymd((y, m, d)) || euro_emt(day, asset) { before } else { after }
+pub(super) fn rate((before, after, (y, m, d)): (&'static str, &'static str, (i32, u32, u32)), day: NaiveDate, asset: &str, coin: Option<&str>) -> &'static str {
+    if day < super::jurisdictions::ymd((y, m, d)) || euro_emt(day, asset, coin) { before } else { after }
 }
 
 /// What the Italian report states beside the rows.
@@ -103,7 +103,7 @@ impl Report {
         for mut d in results.drain(..) {
             (d.proceeds, d.cost_basis, d.fee) = (d.proceeds.round(2)?, d.cost_basis.round(2)?, d.fee.round(2)?);
             d.gain_loss = (&d.proceeds - &d.cost_basis)?;
-            if euro_emt(self.local(d.at), &d.asset) && for_euros(&d) {
+            if euro_emt(self.local(d.at), &d.asset, coin_of_id(&d.asset_id)) && for_euros(&d) {
                 notes.conversions.push((format!("{} {} {}", d.asset, d.amount.to_s_f(), date(d.at)), d.gain_loss.clone()));
             } else {
                 kept.push(d);
@@ -113,7 +113,7 @@ impl Report {
         let (mut proceeds, mut costs, mut staking, mut emt_bucket) = (Dec::zero(), Dec::zero(), Dec::zero(), Dec::zero());
         for d in results.iter() {
             (proceeds, costs) = ((&proceeds + &d.proceeds)?, (&costs + &d.cost_basis)?);
-            if euro_emt(self.local(d.at), &d.asset) { emt_bucket = (&emt_bucket + &d.gain_loss)?; }
+            if euro_emt(self.local(d.at), &d.asset, coin_of_id(&d.asset_id)) { emt_bucket = (&emt_bucket + &d.gain_loss)?; }
         }
         let mut staked = false;
         for (i, name, value) in income {
@@ -126,10 +126,10 @@ impl Report {
             staked = true;
             let v = value.round(2)?;
             staking = (&staking + &v)?;
-            if euro_emt(self.local(r.at), &r.base) { emt_bucket = (&emt_bucket + &v)?; }
+            if euro_emt(self.local(r.at), &r.base, r.base.coin()) { emt_bucket = (&emt_bucket + &v)?; }
         }
-        let mut coins: Vec<String> = held.into_iter().flatten().filter(|(sym, units)| (stable(sym) || emt(sym)) && units.is_positive()).map(|(sym, _)| sym.clone())
-            .chain(enriched.iter().map(|e| &e.row).filter(|r| (stable(&r.base) || emt(&r.base)) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
+        let mut coins: Vec<String> = held.into_iter().flatten().filter(|(sym, units)| (stable(sym) || emt(sym, None)) && units.is_positive()).map(|(sym, _)| sym.clone())
+            .chain(enriched.iter().map(|e| &e.row).filter(|r| (stable(&r.base) || emt(&r.base, r.base.coin())) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
         coins.sort();
         coins.dedup();
         notes.stablecoins = coins;
@@ -181,12 +181,14 @@ mod tests {
     #[test]
     fn the_rate_column_is_26_to_2025_and_33_after_but_for_eurc() {
         let r = ("26%", "33%", (2026, 1, 1));
-        assert_eq!([rate(r, day("2025-12-31"), "BTC"), rate(r, day("2026-01-01"), "BTC"), rate(r, day("2026-01-01"), "EURC"), rate(r, day("2026-03-01"), "USDC")],
+        assert_eq!([rate(r, day("2025-12-31"), "BTC", None), rate(r, day("2026-01-01"), "BTC", None), rate(r, day("2026-01-01"), "EURC", None), rate(r, day("2026-03-01"), "USDC", None)],
                    ["26%", "33%", "26%", "33%"]);
     }
 
     #[test]
     fn usdc_and_eurc_are_the_e_money_tokens() {
-        assert!(emt("USDC") && emt("EURC") && !emt("USDT") && !emt("DAI") && !emt("BTC"));
+        assert!(emt("USDC", None) && emt("EURC", None) && !emt("USDT", None) && !emt("DAI", None) && !emt("BTC", None));
+        // Plan r10 C2: a known coin by its identity: EURC under another label is Circle's euro coin; another coin printed EURC is not.
+        assert!(emt("EUROC", Some("euro-coin")) && !emt("EURC", Some("some-other-eurc")));
     }
 }

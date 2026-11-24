@@ -79,7 +79,7 @@ pub mod pl;
 
 use crate::figures::{at::At, budget, dec::Dec, FiguresError};
 use crate::tracker::prices::{self, alias_coin, catalogue_coin, Fetcher, PriceService, Reference, Unfetched, Venue};
-use crate::tracker::rows::{self, Kind, Stored};
+use crate::tracker::rows::{self, Kind, Label, Stored};
 use crate::tracker::{fiat, stable, walk};
 use crate::web::i18n::{text, Arg};
 use chrono::{Datelike, NaiveDate, TimeZone, Utc};
@@ -146,7 +146,8 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let scope = CryptoScope::new(c, user_id)?;
     let mut rows = vec![];
     for r in all {
-        if crypto_row(stock.contains(&r.exchange_id), prices::recorded_class(r.base_asset.as_ref()), || scope.crypto(c, &r.base))? { rows.push(r); }
+        let label = Some(&r.base).filter(|l| !scope.fund(l));
+        if crypto_row(stock.contains(&r.exchange_id), label, prices::recorded_class(r.base_asset.as_ref()), || scope.crypto(c, &r.base))? { rows.push(r); }
     }
 
     let zone: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [user_id], |r| r.get(0))?;
@@ -200,9 +201,18 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
 /// D-TAX-SCOPE-STORED-ASSET (#1061): whether a row is in the crypto report. Every row of a crypto venue; of a stock venue,
 /// the asset the row stored decides (a coin in, a security out), and a row that stored none is read by its symbol, as
 /// 2.x did. By symbol alone a coin whose symbol a security shares was never crypto, and its rows were missing.
-fn crypto_row(stock_venue: bool, class: Option<bool>, by_symbol: impl FnOnce() -> Result<bool, FiguresError>) -> Result<bool, FiguresError> {
+fn crypto_row(stock_venue: bool, label: Option<&Label>, class: Option<bool>, by_symbol: impl FnOnce() -> Result<bool, FiguresError>) -> Result<bool, FiguresError> {
     if !stock_venue { return Ok(true); }
+    if let Some(crypto) = label.and_then(label_scope) { return Ok(crypto); }
     match class { Some(security) => Ok(!security), None => by_symbol() }
+}
+
+/// Plan r10 §1.6 `row_scope` (both reports read it): on a broker venue, a traded coin is the crypto report's; a security,
+/// or an instrument no evidence identifies (the broker report keeps it unclassified, so its summary stays withheld), the
+/// broker report's. None for cash and a spelled label: the stored asset, else the symbol, decides as before.
+pub(crate) fn label_scope(label: &Label) -> Option<bool> {
+    use crate::tracker::spellings::Class;
+    match label.class() { Class::Coin => Some(true), Class::Security => Some(false), Class::Unknown if label.keyed() => Some(false), _ => None }
 }
 
 /// D-TAX-GB-AIRDROP (r3 item 3): the user's rows whose venue label names a fork: the row's own description (Binance's
@@ -572,8 +582,8 @@ impl Report {
         }
         if dk {
             // D-TAX-DK-STABLECOIN: held at the year's start, or any row of it in the year.
-            let mut held: Vec<String> = engine.snapshot.iter().flatten().filter(|(sym, units)| dk_stablecoin(sym) && units.is_positive()).map(|(sym, _)| sym.clone())
-                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(&r.base) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
+            let mut held: Vec<String> = engine.snapshot.iter().flatten().filter(|(sym, units)| dk_stablecoin(sym, None) && units.is_positive()).map(|(sym, _)| sym.clone())
+                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(&r.base, r.base.coin()) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
             held.sort();
             held.dedup();
             notes.stablecoins = held;
@@ -602,8 +612,7 @@ impl Report {
         // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a group stays, as the swap's fee (it moves no coin).
         let swap_fee = |e: &Entry| matches!(self.j.code, "SE" | "GB") && e.row.kind == Kind::Fee && e.row.group.is_some();
         let taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
-        let identity = |symbol: &str, r: &walk::Row| prices::coin_id(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()))
-            .unwrap_or_else(|| format!("symbol:{symbol}"));
+        let identity = |symbol: &str, r: &walk::Row| prices::tax_identity(&self.reference, symbol, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()));
         let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter()
             .map(|e| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
                                             asset: identity(&e.row.base, &e.row),
@@ -725,7 +734,7 @@ impl Report {
             if j.method == "share_pooling" { row.push(s(d.rule.unwrap_or("section104"))); }
             // December's disposals are the later period (s. 959AQ), on the taxpayer's calendar.
             if j.split_payment { row.push(s(if self.local(d.at).month() == 12 { "later" } else { "initial" })); }
-            if let Some(rate) = j.tax_rate { row.push(s(it::rate(rate, self.local(d.at), &d.asset))); }
+            if let Some(rate) = j.tax_rate { row.push(s(it::rate(rate, self.local(d.at), &d.asset, coin_of_id(&d.asset_id)))); }
             if j.czech_exemptions.is_some() {
                 let (exempt, reason) = at.exempt.get(i).cloned().unwrap_or((false, None));
                 row.extend([Cell::Raw(exempt.to_string()), reason.map_or(Cell::Nil, s)]);
@@ -839,7 +848,7 @@ impl Report {
     /// = the losses, part by part. Contract stablecoins (D-TAX-DK-STABLECOIN) and sales of mined assets stay out.
     fn dk_summary(&self, out: &mut String, results: &[fifo::Disposal], income: &[(usize, &str, Dec)]) -> Result<(), FiguresError> {
         let (mut gains, mut losses, mut received) = (Dec::zero(), Dec::zero(), Dec::zero());
-        for d in results.iter().filter(|d| !dk_contract(&d.asset) && !d.mined) {
+        for d in results.iter().filter(|d| !dk_contract(&d.asset, coin_of_id(&d.asset_id)) && !d.mined) {
             let v = d.gain_loss.round(2)?;
             if v.is_positive() { gains = (&gains + &v)?; } else { losses = (&losses - &v)?; }
         }
@@ -860,7 +869,7 @@ impl Report {
         if !at.stablecoins.is_empty() {
             line(out, &[]);
             line(out, &[s(format!("NOTE: {}:", text(l, "tax_report.warnings.dk_stablecoins", &[])))]);
-            let (contracts, others): (Vec<&String>, Vec<&String>) = at.stablecoins.iter().partition(|c| dk_contract(c));
+            let (contracts, others): (Vec<&String>, Vec<&String>) = at.stablecoins.iter().partition(|c| dk_contract(c, None));
             if !contracts.is_empty() {
                 line(out, &[self.t("tax_report.warnings.dk_stablecoins_contracts")]);
                 for c in contracts {
@@ -929,7 +938,7 @@ fn swap_coin_for_stablecoin_groups(rows: &mut [Entry], italy: bool) {
     for legs in groups.values() {
         if legs.iter().any(|&i| fiat(&rows[i].row.base) || !matches!(rows[i].row.kind, Kind::Buy | Kind::Sell)) { continue; }
         if !(legs.iter().any(|&i| rows[i].row.kind == Kind::Buy) && legs.iter().any(|&i| rows[i].row.kind == Kind::Sell)) { continue; }
-        if italy && legs.iter().any(|&i| it::emt(&rows[i].row.base)) { continue; }
+        if italy && legs.iter().any(|&i| it::emt(&rows[i].row.base, rows[i].row.base.coin())) { continue; }
         for &i in legs { rows[i].row.kind = if rows[i].row.kind == Kind::Buy { Kind::SwapIn } else { Kind::SwapOut }; }
     }
 }
@@ -946,16 +955,22 @@ fn value_fiat_fee_rows(rows: &mut [Entry], ps: &mut PriceService, currency: &str
 const DK_RECEIVED: [&str; 3] = ["staking_reward", "lending_interest", "airdrop"];
 
 /// D-TAX-DK-STABLECOIN: the stablecoins Skattestyrelsen treats as financial contracts (SKM2022.300.SR as skat.dk applies it).
-fn dk_contract(symbol: &str) -> bool { matches!(symbol, "USDT" | "USDC" | "USDP") }
+fn dk_contract(symbol: &str, coin: Option<&str>) -> bool { named(symbol, coin, "USDT", "tether") || named(symbol, coin, "USDC", "usd-coin") || named(symbol, coin, "USDP", "paxos-standard") }
 /// Every stablecoin the NOTE names: the contracts, and the others as not classified.
-fn dk_stablecoin(symbol: &str) -> bool { stable(symbol) || symbol == "USDP" }
+fn dk_stablecoin(symbol: &str, coin: Option<&str>) -> bool { stable(symbol) || named(symbol, coin, "USDP", "paxos-standard") }
+
+/// Plan r10 C2–C6: whether a statutory list's `symbol` (its coin `id`) names a holding printed `printed`: a known coin by
+/// its identity, anything else (cash, a unit no evidence identifies, a hand-built row) by the printed name, as main read it.
+pub(super) fn named(printed: &str, coin: Option<&str>, symbol: &str, id: &str) -> bool { match coin { Some(c) => c == id, None => printed == symbol } }
+/// A disposal's coin, from its asset identity (`prices::identity`): a coin id has no `:`; a key or a spelling is no coin.
+pub(super) fn coin_of_id(id: &str) -> Option<&str> { (!id.contains(':')).then_some(id) }
 
 /// D-TAX-DK-SWAP-VALUE: the side whose value both take, `true` for the coins received: a fiat stablecoin's side, else
 /// Bitcoin's, else Ether's, else the side received (Skattestyrelsen's list ends with 2022; no historical rank is held).
 fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> {
-    let tests: [fn(&str) -> bool; 3] = [|b| matches!(b, "USDT" | "USDC" | "USDP" | "EURC"), |b| b == "BTC", |b| b == "ETH"];
+    let tests: [fn(&str, Option<&str>) -> bool; 3] = [|b, c| dk_contract(b, c) || named(b, c, "EURC", "euro-coin"), |b, c| named(b, c, "BTC", "bitcoin"), |b, c| named(b, c, "ETH", "ethereum")];
     for t in tests {
-        let (i, o) = (ins.iter().any(|r| t(&r.base)), outs.iter().any(|r| t(&r.base)));
+        let (i, o) = (ins.iter().any(|r| t(&r.base, r.base.coin())), outs.iter().any(|r| t(&r.base, r.base.coin())));
         if i || o { return Some(i); }
     }
     Some(true)
@@ -1061,6 +1076,9 @@ impl CryptoScope {
         Ok(CryptoScope { classified, memo: Default::default() })
     }
 
+    /// Whether the user saved a label's spelling as a fund: the saved classification decides it, not the label (plan r10 §1.6).
+    pub(crate) fn fund(&self, label: &Label) -> bool { self.classified.contains(label.as_str().split_once(" (").map_or(label.as_str(), |(s, _)| s)) }
+
     pub(crate) fn crypto(&self, c: &Connection, symbol: &str) -> Result<bool, FiguresError> {
         if let Some(&known) = self.memo.borrow().get(symbol) { return Ok(known); }
         let mut s = c.prepare_cached("SELECT category, instrument_type FROM assets WHERE symbol = ?1")?;
@@ -1080,25 +1098,32 @@ impl CryptoScope {
 /// then by the coin the symbol means there; the catalogue's spelling, sorted.
 fn tokenized_symbols<'a>(c: &Connection, rows: impl Iterator<Item = &'a Stored>) -> Result<Vec<String>, FiguresError> {
     let canonical = |s: &str| s.strip_suffix("SPV").map_or_else(|| s.to_string(), |head| format!("{head}x")).to_uppercase();
-    let rows: Vec<&Stored> = rows.filter(|r| !r.base.trim().is_empty()).collect();
-    let names: HashSet<String> = rows.iter().flat_map(|r| [r.base.to_string(), canonical(&r.base)]).collect();
+    // Plan r10 step 5: every leg (base, quote, fee) but cash; a coin label by its resolved coin, any other by its spelling
+    // (a decorated label's text before its detail).
+    let spelling = |l: &Label| l.as_str().split_once(" (").map_or(l.as_str(), |(s, _)| s).to_string();
+    let legs: Vec<(&Stored, &Label)> = rows.flat_map(|r| std::iter::once(&r.base).chain(r.quote.as_ref()).chain(r.fee_currency.as_ref()).map(move |l| (r, l)))
+        .filter(|(_, l)| !l.trim().is_empty() && !l.is_cash()).collect();
+    let names: HashSet<String> = legs.iter().filter(|(_, l)| l.coin().is_none()).flat_map(|(_, l)| [spelling(l), canonical(&spelling(l))]).collect();
     let reference = Reference::load(c, &Venue::alpaca(c)?, &names)?;
     let mut listed = c.prepare("SELECT a.symbol, a.instrument_type FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
                                 WHERE t.exchange_id = ?1 AND t.base IN (?2, ?3) ORDER BY t.id LIMIT 1")?;
     let mut wrapper = c.prepare("SELECT symbol FROM assets WHERE external_id = ?1 AND instrument_type = 'tokenized' LIMIT 1")?;
     let mut out = vec![];
-    for r in rows {
-        let venue_asset: Option<(Option<String>, Option<String>)> =
-            listed.query_row(rusqlite::params![r.exchange_id, r.base, canonical(&r.base)], |x| Ok((x.get(0)?, x.get(1)?))).optional()?;
-        let venue = reference.venue(&r.venue);
-        let found = match venue_asset {
-            Some((symbol, Some(t))) if t == "tokenized" => symbol,
-            _ => match alias_coin(&r.base, venue, Some(r.date()))
-                .or_else(|| venue.and_then(|v| catalogue_coin(&reference, &r.base, v)))
-                .or_else(|| venue.and_then(|v| catalogue_coin(&reference, &canonical(&r.base), v))) {
-                Some(coin) => wrapper.query_row([coin], |x| x.get::<_, Option<String>>(0)).optional()?.flatten(),
-                None => None,
-            },
+    for (r, l) in legs {
+        let found = if let Some(coin) = l.coin() { wrapper.query_row([coin], |x| x.get::<_, Option<String>>(0)).optional()?.flatten() } else {
+            let base = spelling(l);
+            let venue_asset: Option<(Option<String>, Option<String>)> =
+                listed.query_row(rusqlite::params![r.exchange_id, base, canonical(&base)], |x| Ok((x.get(0)?, x.get(1)?))).optional()?;
+            let venue = reference.venue(&r.venue);
+            match venue_asset {
+                Some((symbol, Some(t))) if t == "tokenized" => symbol,
+                _ => match alias_coin(&base, venue, Some(r.date()))
+                    .or_else(|| venue.and_then(|v| catalogue_coin(&reference, &base, v)))
+                    .or_else(|| venue.and_then(|v| catalogue_coin(&reference, &canonical(&base), v))) {
+                    Some(coin) => wrapper.query_row([coin], |x| x.get::<_, Option<String>>(0)).optional()?.flatten(),
+                    None => None,
+                },
+            }
         };
         if let Some(symbol) = found { if !out.contains(&symbol) { out.push(symbol); } }
     }
@@ -1235,12 +1260,13 @@ mod tests {
     #[test]
     fn a_rows_stored_asset_decides_its_scope_on_a_stock_venue() {
         let never = || -> Result<bool, FiguresError> { panic!("the stored class decides") };
-        assert!(crypto_row(false, Some(true), never).unwrap(), "a crypto venue keeps every row");
-        assert!(crypto_row(false, Some(false), never).unwrap());
-        assert!(crypto_row(false, None, never).unwrap());
-        assert!(crypto_row(true, Some(false), never).unwrap(), "a coin");
-        assert!(!crypto_row(true, Some(true), never).unwrap(), "a security");
-        for by_symbol in [true, false] { assert_eq!(crypto_row(true, None, || Ok(by_symbol)).unwrap(), by_symbol, "no stored asset: by symbol"); }
+        let spelled = Label::spelled("AAPL");
+        assert!(crypto_row(false, Some(&spelled), Some(true), never).unwrap(), "a crypto venue keeps every row");
+        assert!(crypto_row(false, Some(&spelled), Some(false), never).unwrap());
+        assert!(crypto_row(false, Some(&spelled), None, never).unwrap());
+        assert!(crypto_row(true, Some(&spelled), Some(false), never).unwrap(), "a coin");
+        assert!(!crypto_row(true, Some(&spelled), Some(true), never).unwrap(), "a security");
+        for by_symbol in [true, false] { assert_eq!(crypto_row(true, Some(&spelled), None, || Ok(by_symbol)).unwrap(), by_symbol, "no stored asset: by symbol"); }
     }
 
     /// D-TAX-SCOPE-STORED-ASSET (#1061): on a stock venue the asset a row stored decides whether it is crypto; the coin's

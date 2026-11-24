@@ -234,6 +234,8 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         let (identity, coin_key) = match reference.resolve(&symbol) {
             prices::Resolved::Coin(ext) => (Some((false, Some(Some(ext.clone())))), Some(prices::coin_key(&ext))),
             prices::Resolved::Unidentified => (None, None),
+            // Codex r1: a security the map resolved (the BTC ETF beside bitcoin at Alpaca) is not classified again by symbol.
+            prices::Resolved::Security => (Some((true, None)), None),
             prices::Resolved::Symbol => (if venue.stock { identity_of(c, user_id, &venue, &symbol)? } else { Some((false, None)) }, None),
         };
         let Some((stock, coin)) = identity else { plan.keys.insert((venue_name, symbol), None); continue };

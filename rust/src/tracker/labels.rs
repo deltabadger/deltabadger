@@ -186,7 +186,9 @@ fn unlink(rows: &mut [Stored], void: &[(i64, i64)]) {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Side, String)>, pub spellings: Vec<(String, String)>,
                     /// The void links' rows, both ways round (`Spellings::void_links`).
-                    pub void: Vec<(i64, i64)> }
+                    pub void: Vec<(i64, i64)>,
+                    /// Each coin label's external id (the wash-sale locks take every asset of the coin).
+                    pub coins: Vec<(String, String)> }
 
 impl Labels {
     /// The table for `rows` (as read, before `relabel`) under map `s`.
@@ -204,7 +206,11 @@ impl Labels {
             .filter_map(|l| s.raw(l).first().filter(|r| **r != l.as_str()).map(|r| (l.as_str().to_string(), r.clone()))).collect();
         spellings.sort();
         spellings.dedup();
-        Labels { assets, legs, spellings, void: void_pairs(s) }
+        let mut coins: Vec<(String, String)> = s.leg_labels().map(|(_, l)| l).chain(s.asset_labels().map(|(_, l)| l))
+            .filter_map(|l| l.coin().map(|ext| (l.as_str().to_string(), ext.to_string()))).collect();
+        coins.sort();
+        coins.dedup();
+        Labels { assets, legs, spellings, void: void_pairs(s), coins }
     }
     /// The label of an account's balance of an asset; None when the map has none (the balance keeps its symbol).
     pub fn asset(&self, account: i64, asset: i64) -> Option<&str> { self.assets.iter().find(|(a, id, _)| *a == account && *id == asset).map(|(_, _, l)| l.as_str()) }
@@ -222,6 +228,8 @@ impl Labels {
         }
         unlink(rows, &self.void);
     }
+    /// A coin label's external id.
+    pub fn coin(&self, label: &str) -> Option<&str> { self.coins.iter().find(|(l, _)| l == label).map(|(_, e)| e.as_str()) }
     /// Whether the map voids the link between rows `a` and `b`.
     pub fn void(&self, a: i64, b: i64) -> bool { self.void.contains(&(a, b)) }
 }
@@ -276,6 +284,48 @@ mod tests {
         assert_eq!(s.holding(s.label(1, Side::Base).unwrap()), Some(&resolver::Holding::Coin("terra-luna".into())));
         assert_eq!(s.class(s.label(1, Side::Quote).unwrap()), Class::Cash(resolver::CashKind::Stable));
         assert_eq!(printed(&s, 1, Side::Quote), "USDT");
+    }
+
+    /// Codex r1 (step 5): the tax reports take a label's identity from the map, whatever day the row is; an unidentified
+    /// label is its own asset, never a catalogue coin of its spelling.
+    #[test]
+    fn tax_identity_is_the_labels() {
+        use crate::tracker::prices::{self, Reference, Venue};
+        let c = db(CATALOGUE, "INSERT INTO tickers VALUES (1, 1, 'LUNC', 'USDT', 10, 3), (2, 1, 'LUNA', 'USDT', 11, 3);",
+                   &["1, 0, 'LUNA', 10, 'USDT', 100, NULL, NULL, NULL, NULL, '2021-06-01 00:00:00'",
+                     "1, 1, 'LUNC', 10, 'USDT', 1, NULL, NULL, NULL, NULL, '2023-01-01 00:00:00'",
+                     "1, 0, 'LUNA', 5, 'USDT', 5, NULL, NULL, NULL, NULL, '2023-02-01 00:00:00'",
+                     "3, 0, 'ZZZ', 1, 'USDT', 1, NULL, NULL, NULL, NULL, '2024-01-01 00:00:00'"]);
+        c.execute_batch("ALTER TABLE assets ADD COLUMN market_cap_rank INTEGER;
+                         CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));").unwrap();
+        let (rows, _) = map(&c);
+        let mut r = Reference::load(&c, &Venue::alpaca(&c).unwrap(), &prices::symbols(&rows)).unwrap();
+        r.learn(&c, &rows).unwrap();
+        let day = |s: &str| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok();
+        let binance = r.venue("binance");
+        for on in ["2021-06-01", "2023-01-01"] { assert_eq!(prices::tax_identity(&r, "LUNC", binance, day(on)), "terra-luna", "{on}"); }
+        assert_eq!(prices::tax_identity(&r, "LUNA (Terra)", binance, day("2023-02-01")), "terra-luna-2");
+        assert_eq!(prices::tax_identity(&r, "ZZZ", r.venue("mexc"), day("2024-01-01")), "unknown:ZZZ");
+        // The Kursliste names a coin by its catalogue symbol, not by a decorated label.
+        assert_eq!((r.official("LUNA (Terra)"), r.official("LUNC"), r.official("ZZZ")), ("LUNA", "LUNC", "ZZZ"));
+    }
+
+    /// Codex r1: a security the map resolved (Alpaca's BTC ETF beside bitcoin, both recorded) resolves as a security, so
+    /// the backfill does not classify its symbol again (both classes recorded under BTC: no guess, no closes).
+    #[test]
+    fn a_resolved_security_is_a_security() {
+        use crate::tracker::prices::{self, Reference, Resolved, Venue};
+        let c = db(&format!("{CATALOGUE} INSERT INTO assets VALUES (40, 'btc-etf', 'BTC', 'Bitcoin ETF', 'ETF');"), "",
+                   &["4, 0, 'BTC', 1, 'USD', 40, NULL, NULL, NULL, 40, '2026-09-01 00:00:00'",
+                     "4, 0, 'BTC', 1, 'USD', 60000, NULL, NULL, NULL, 1, '2026-09-02 00:00:00'"]);
+        c.execute_batch("ALTER TABLE assets ADD COLUMN market_cap_rank INTEGER;
+                         CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));").unwrap();
+        let (rows, _) = map(&c);
+        let (etf, coin) = (rows[0].base.to_string(), rows[1].base.to_string());
+        let mut r = Reference::load(&c, &Venue::alpaca(&c).unwrap(), &prices::symbols(&rows)).unwrap();
+        r.learn(&c, &rows).unwrap();
+        assert!(matches!(r.resolve(&etf), Resolved::Security), "{etf}");
+        assert!(matches!(r.resolve(&coin), Resolved::Coin(ref e) if e == "bitcoin"), "{coin}");
     }
 
     /// Binance's BTG is Bitcoin Gold (the alias), KuCoin's is what KuCoin lists: two labels; an unrecorded KuCoin BTG

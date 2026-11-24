@@ -122,6 +122,10 @@ pub struct Reference {
     /// printed text names one coin.
     coins: HashMap<String, String>,
     unknown: HashSet<String>,
+    /// The owner's security labels: the map resolved them, so nothing classifies them again by symbol.
+    securities: HashSet<String>,
+    /// Each learned coin's catalogue symbol, by external id (`official`).
+    symbols: HashMap<String, String>,
     /// #710: what a duplicate account's rows, which no walk holds, recorded per (exchange id, symbol) (`record_coins`):
     /// classification evidence `PriceService::record` adds after the walk's own rows. Empty without a duplicate.
     duplicate_assets: Vec<(i64, String, Asset)>,
@@ -208,6 +212,7 @@ impl Reference {
             for l in std::iter::once(&r.base).chain(r.quote.as_ref()).chain(r.fee_currency.as_ref()) {
                 if let Some(ext) = l.coin() { self.coins.insert(l.to_string(), ext.to_string()); }
                 else if l.class() == super::spellings::Class::Unknown && l.keyed() { self.unknown.insert(l.to_string()); }
+                else if l.class() == super::spellings::Class::Security && l.keyed() { self.securities.insert(l.to_string()); }
             }
         }
         let mut ids: Vec<&String> = self.coins.values().collect();
@@ -216,7 +221,31 @@ impl Reference {
         ids.sort();
         ids.dedup();
         let ids: Vec<String> = ids.into_iter().cloned().collect();
+        self.coin_symbols(c, &ids)?;
         self.coin_prices(c, &ids)
+    }
+
+    /// The catalogue's symbol of each coin `ids` (`official`), none on a store without the columns.
+    fn coin_symbols(&mut self, c: &Connection, ids: &[String]) -> Result<(), FiguresError> {
+        let n: i64 = c.query_row("SELECT count(*) FROM pragma_table_info('assets') WHERE name IN ('external_id', 'symbol')", [], |r| r.get(0))?;
+        if n < 2 { return Ok(()); }
+        for chunk in ids.chunks(500) {
+            let marks = vec!["?"; chunk.len()].join(", ");
+            let mut s = c.prepare(&format!("SELECT external_id, symbol FROM assets WHERE external_id IN ({marks}) AND symbol IS NOT NULL ORDER BY id"))?;
+            let mut q = s.query(rusqlite::params_from_iter(chunk))?;
+            while let Some(r) = q.next()? {
+                crate::figures::budget::charge(1, 0)?;
+                let (ext, symbol): (String, String) = (r.get(0)?, r.get(1)?);
+                self.symbols.entry(ext).or_insert(symbol);
+            }
+        }
+        Ok(())
+    }
+
+    /// The symbol an official list (the ESTV's Kursliste) names a label's coin by: the catalogue's, for a coin label
+    /// (BTC (Bitcoin) beside the BTC ETF is listed as BTC); else the label itself.
+    pub fn official<'a>(&'a self, label: &'a str) -> &'a str {
+        self.coins.get(label).and_then(|ext| self.symbols.get(ext)).map_or(label, String::as_str)
     }
 
     /// The prices of coins `ids`, in every currency, from `asset_prices` (none on a store without it).
@@ -243,6 +272,7 @@ impl Reference {
         if let Some(ext) = coin_of_key(symbol) { return Resolved::Coin(ext.to_string()); }
         if let Some(ext) = self.coins.get(symbol) { return Resolved::Coin(ext.clone()); }
         if self.unknown.contains(symbol) { return Resolved::Unidentified; }
+        if self.securities.contains(symbol) { return Resolved::Security; }
         Resolved::Symbol
     }
 
@@ -272,7 +302,7 @@ impl Reference {
 
 /// What `Reference::resolve` makes of a symbol.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Resolved { Coin(String), Unidentified, Symbol }
+pub enum Resolved { Coin(String), Unidentified, Security, Symbol }
 
 /// Every symbol the rows name: base, quote and fee, and BTC (the cross rate a missing ECB rate falls back to).
 pub fn symbols(rows: &[Stored]) -> HashSet<String> {
@@ -365,6 +395,16 @@ pub fn row_price_key(c: &Connection, owner: i64, exchange_id: i64, venue_type: &
 pub fn catalogue_coin(r: &Reference, symbol: &str, venue: &Venue) -> Option<String> { catalogue_coin_on(r, symbol, Some(venue)) }
 
 /// Tax::AssetIdentity.coin_id.
+/// The tax reports' asset identity of a printed label (D-TAX-ASSET-IDENTITY, plan r10 step 5): the map's coin for a coin
+/// label (a label prints like no other identity, so its text names one coin, whatever day the row is), its own key for
+/// an unidentified one (never a catalogue coin of its spelling), else the coin the spelling means on `venue` that day,
+/// else the spelling itself.
+pub fn tax_identity(r: &Reference, symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>) -> String {
+    if let Some(ext) = r.coins.get(symbol) { return ext.clone(); }
+    if r.unknown.contains(symbol) { return format!("unknown:{symbol}"); }
+    coin_id(r, symbol, venue, at).unwrap_or_else(|| format!("symbol:{symbol}"))
+}
+
 pub fn coin_id(r: &Reference, symbol: &str, venue: Option<&Venue>, at: Option<NaiveDate>) -> Option<String> {
     alias_coin(symbol, venue, at).or_else(|| catalogue_coin_on(r, symbol, venue))
 }
@@ -450,7 +490,7 @@ impl<'a> PriceService<'a> {
         match self.r.resolve(symbol) {
             Resolved::Coin(ext) => return Some((coin_key(&ext), None)),
             Resolved::Unidentified => return None,
-            Resolved::Symbol => {}
+            Resolved::Security | Resolved::Symbol => {}
         }
         let venue = self.venue(exchange);
         if alias_coin(symbol, venue, Some(date)).is_some() { return Some((symbol.to_string(), None)); }
@@ -584,7 +624,7 @@ impl<'a> PriceService<'a> {
 
     /// `coin_id_for`: the alias of the day, else the catalogue's answer, cached per venue.
     fn coin_id_for(&mut self, symbol: &str, exchange: Option<&str>, date: NaiveDate) -> Option<String> {
-        match self.r.resolve(symbol) { Resolved::Coin(ext) => return Some(ext), Resolved::Unidentified => return None, Resolved::Symbol => {} }
+        match self.r.resolve(symbol) { Resolved::Coin(ext) => return Some(ext), Resolved::Unidentified | Resolved::Security => return None, Resolved::Symbol => {} }
         let venue = self.venue(exchange);
         if let Some(coin) = alias_coin(symbol, venue, Some(date)) { return Some(coin); }
         let r = self.r;

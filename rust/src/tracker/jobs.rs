@@ -250,7 +250,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb:
         let read = c.unchecked_transaction()?;
         let snapshot_origin = inputs.origin.with_balance_producers(&read).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
         let rows = super::snapshot::today_rows(&read, user_id, &w, &inputs.fx, today)?;
-        let locks = super::wash::targets(&read, user_id, &w.whole.loss_sales)?;
+        let locks = super::wash::targets(&read, user_id, &w.whole.loss_sales, &w.whole.labels)?;
         read.commit()?;
         // The write unit is fenced on the keys the walk read: a key replaced or deleted under the pass refuses it all.
         // The balances are today's snapshot's input alone, not the ledger's: balances no current key produced (a

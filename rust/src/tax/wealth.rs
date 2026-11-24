@@ -66,7 +66,7 @@ impl Report {
 
     /// The coin `symbol` means on `venue` on `day` (D-TAX-ASSET-IDENTITY), or the symbol itself where none is known.
     pub(super) fn coin(&self, symbol: &str, venue: &str, day: NaiveDate) -> String {
-        prices::coin_id(&self.reference, symbol, self.reference.venue(venue), Some(day)).unwrap_or_else(|| format!("symbol:{symbol}"))
+        prices::tax_identity(&self.reference, symbol, self.reference.venue(venue), Some(day))
     }
 
     /// `held` over the report's rows, each symbol read as the coin it meant on its row's day.
