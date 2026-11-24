@@ -209,7 +209,9 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&
         let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
         let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
         let (mut walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
-        walked.label(&inputs.labels);
+        let mut rows: HashMap<i64, HashSet<i64>> = HashMap::new();
+        for r in &inputs.all { rows.entry(r.account).or_default().insert(r.id); }
+        walked.label(&inputs.labels, &rows);
         let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
         let still = history == inputs.history && generation == inputs.generation;
         last = Some((walked, inputs, began));

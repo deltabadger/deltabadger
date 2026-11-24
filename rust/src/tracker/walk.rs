@@ -165,10 +165,11 @@ impl Summary {
 pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term>, pub bot_sales: Vec<BotSale> }
 
 impl Walked {
-    /// Every scope's summary keeps the map's labels.
-    pub fn label(&mut self, labels: &super::labels::Labels) {
+    /// The whole summary keeps the map's labels; each account's, its own part (`rows`: each account's row ids).
+    pub fn label(&mut self, labels: &super::labels::Labels, rows: &HashMap<i64, HashSet<i64>>) {
         self.whole.labels = labels.clone();
-        for (_, v) in &mut self.venues { v.labels = labels.clone(); }
+        let none = HashSet::new();
+        for (account, v) in &mut self.venues { v.labels = labels.for_account(*account, rows.get(account).unwrap_or(&none)); }
     }
 }
 

@@ -237,6 +237,17 @@ impl Labels {
     }
     /// A coin label's external id.
     pub fn coin(&self, label: &str) -> Option<&str> { self.coins.iter().find(|(l, _)| l == label).map(|(_, e)| e.as_str()) }
+    /// The part of the table an account's summary reads: its balances, its rows' legs, and the spellings, coins and void
+    /// pairs those name (Codex r2: one full copy per venue could push a multi-account cache past its limit).
+    pub fn for_account(&self, account: i64, rows: &HashSet<i64>) -> Labels {
+        let assets: Vec<(i64, i64, String)> = self.assets.iter().filter(|(a, ..)| *a == account).cloned().collect();
+        let legs: Vec<(i64, Side, String)> = self.legs.iter().filter(|(r, ..)| rows.contains(r)).cloned().collect();
+        let named: HashSet<&str> = assets.iter().map(|(.., l)| l.as_str()).chain(legs.iter().map(|(.., l)| l.as_str())).collect();
+        Labels { spellings: self.spellings.iter().filter(|(l, _)| named.contains(l.as_str())).cloned().collect(),
+                 coins: self.coins.iter().filter(|(l, _)| named.contains(l.as_str())).cloned().collect(),
+                 void: self.void.iter().filter(|(a, b)| rows.contains(a) || rows.contains(b)).cloned().collect(),
+                 assets, legs, identity: String::new() }
+    }
     /// Whether the map voids the link between rows `a` and `b`.
     pub fn void(&self, a: i64, b: i64) -> bool { self.void.contains(&(a, b)) }
 }
@@ -459,6 +470,20 @@ mod tests {
         assert_eq!(rows.iter().find(|r| r.id == 3).unwrap().base.as_str(), "BTG (Openverse Network)");
         let (_, labels) = crate::tracker::rows::load_all_labelled(&c, 1).unwrap();
         assert!(labels.void(2, 3) && labels.void(3, 2) && !labels.void(1, 2));
+    }
+
+    /// An account's summary keeps only its part of the label table: its balances, its rows' legs, what those name.
+    #[test]
+    fn an_accounts_part_of_the_labels_is_its_own() {
+        let l = Labels { assets: vec![(-1, 20, "BTG (Bitcoin Gold)".into()), (-2, 21, "BTG (Openverse Network)".into())],
+                         legs: vec![(1, Side::Base, "BTG (Bitcoin Gold)".into()), (2, Side::Base, "BTG (Openverse Network)".into())],
+                         spellings: vec![("BTG (Bitcoin Gold)".into(), "BTG".into()), ("BTG (Openverse Network)".into(), "BTG".into())],
+                         void: vec![(1, 3), (3, 1)], coins: vec![("BTG (Bitcoin Gold)".into(), "bitcoin-gold".into()), ("BTG (Openverse Network)".into(), "openverse-network".into())],
+                         identity: "x".into() };
+        let mine = l.for_account(-1, &HashSet::from([1]));
+        assert_eq!((mine.assets.len(), mine.legs.len(), mine.spellings.len(), mine.coins.len(), mine.void.len()), (1, 1, 1, 1, 2));
+        assert_eq!(mine.coin("BTG (Bitcoin Gold)"), Some("bitcoin-gold"));
+        assert_eq!(mine.coin("BTG (Openverse Network)"), None);
     }
 
     /// A stored link carries a known withdrawal's coin to an unlisted deposit, whichever row names the other.
