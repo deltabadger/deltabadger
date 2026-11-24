@@ -259,6 +259,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb:
         let origin = inputs.origin.clone();
         written_for(c, &origin, &*wall, |c, now| {
             if backfill::history_version(c, user_id)? != inputs.history { return Err(FiguresError::NotComputed(MOVED.into())); }
+            backfill::note_identity(c, user_id, &inputs.labels, now)?;
             let snapshot = crate::sync::cache::balances_current(c, &snapshot_origin).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
             if snapshot {
                 super::snapshot::write(c, user_id, &rows, now.date_naive())?;

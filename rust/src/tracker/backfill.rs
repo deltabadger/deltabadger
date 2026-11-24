@@ -40,6 +40,24 @@ pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chron
     crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
 }
 
+/// The fingerprint of the coin identities the user's history was computed with (Rust only, plan r10 §1.7).
+pub fn identity_key(user_id: i64) -> String { format!("rust_snapshot_identity_{user_id}") }
+/// Delisted coins (plan r10 §1.7): the labels a walk resolved (from the rows, the listings, the catalogue and the held
+/// balances) are fingerprinted with each ledger run. When they changed (a listing rebound, a coin added to the catalogue,
+/// a balance of a new asset), the calculation stamp is cleared, so the stored history is swept again under them.
+/// Returns whether they changed. The first fingerprint clears nothing: CALCULATION's bump sweeps an upgraded install.
+pub fn note_identity(c: &Connection, user_id: i64, labels: &super::labels::Labels, now: chrono::DateTime<chrono::Utc>) -> Result<bool, FiguresError> {
+    use sha2::Digest;
+    let fingerprint = hex::encode(sha2::Sha256::digest(format!("{labels:?}").as_bytes()));
+    let key = identity_key(user_id);
+    let stored = crate::app_config::get_plain(c, &key).map_err(FiguresError::Data)?;
+    if stored.as_deref() == Some(fingerprint.as_str()) { return Ok(false); }
+    let changed = stored.is_some();
+    if changed { crate::app_config::delete(c, &calculation_key(user_id)).map_err(FiguresError::Data)?; }
+    crate::app_config::set_plain(c, &key, &fingerprint, now).map_err(FiguresError::Data)?;
+    Ok(changed)
+}
+
 /// `PortfolioSnapshot.history_version`: what a stored history was swept from (every row, today's included).
 pub fn history_version(c: &Connection, user_id: i64) -> Result<String, FiguresError> {
     // A duplicate account's rows (#710, PLAN-710-6 §5.2) count for nothing: its activity alone moves no version.
@@ -735,6 +753,17 @@ mod tests {
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "the calculation before D-TAX-CFEE-MATCHED-FILL");
         mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
+        // Delisted coins (plan r10 §1.7): labels that resolve otherwise than the history's (a listing rebound) sweep it again.
+        let at: chrono::DateTime<chrono::Utc> = "2026-09-24T03:00:00Z".parse().unwrap();
+        let labels = crate::tracker::labels::Labels { coins: vec![("BTG".into(), "bitcoin-gold".into())], ..Default::default() };
+        assert!(!note_identity(&c, 1, &labels, at).unwrap(), "the first fingerprint");
+        assert!(!wanted(&c, &cipher, 1, today).unwrap(), "the first fingerprint clears nothing");
+        assert!(!note_identity(&c, 1, &labels, at).unwrap(), "unchanged");
+        let rebound = crate::tracker::labels::Labels { coins: vec![("BTG".into(), "openverse-network".into())], ..Default::default() };
+        assert!(note_identity(&c, 1, &rebound, at).unwrap());
+        assert!(wanted(&c, &cipher, 1, today).unwrap(), "the identities changed");
+        mark_calculated(&c, &cipher, 1, at).unwrap();
+        assert!(!wanted(&c, &cipher, 1, today).unwrap());
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),
                               ("a venue's row missing", "DELETE FROM exchange_account_snapshots WHERE date = '2026-09-15'"),
                               ("a venue's history starting late", "DELETE FROM exchange_account_snapshots WHERE date BETWEEN '2026-09-01' AND '2026-09-03'"),
