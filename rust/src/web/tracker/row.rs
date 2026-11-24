@@ -29,9 +29,9 @@ impl Row {
     pub fn linked(&self)->bool { self.linked.is_some() || self.inverse.is_some() }
     /// `labels`: the owner's map (Codex r2: a leg the map resolved is cash by its label, so a venue's coin spelled `PLN` is
     /// no złoty); None reads each leg by its spelling.
-    pub fn counterpart(&self,c:&Connection,labels:Option<&crate::tracker::spellings::Spellings>)->Result<Option<(Dec,String)>,WebError> {
+    pub fn counterpart(&self,c:&Connection,labels:Option<&crate::tracker::labels::Labels>)->Result<Option<(Dec,String)>,WebError> {
         use crate::tracker::resolver::Side;
-        let cash=|id:i64,side:Side,spelling:&str| labels.and_then(|l|l.label(id,side)).map_or(crate::tracker::cash(spelling),|l|l.is_cash());
+        let cash=|id:i64,side:Side,spelling:&str| labels.map_or(crate::tracker::cash(spelling),|l|l.leg(id,side,spelling)==crate::tracker::labels::Leg::Cash);
         if self.quoted.is_some() && self.quote.as_deref().is_some_and(|q|cash(self.id,Side::Quote,q)) {
             return Ok(self.quoted.clone().zip(self.quote.clone()));
         }
@@ -60,16 +60,19 @@ pub enum Source { Cash, Exchange((Dec,String)), Stated(Dec), Fills(Dec), Ours(De
 /// (D-TAX-CFEE-PREVIOUS-DAY; the walk values both so too), our stored daily USD price
 /// for the row's UTC date. D-PRICE-WAITING: no stored price yet, and the row's UTC day is not
 /// over (`today` from the app clock), for a key we have priced before → `Waiting`, not open to a stated price yet.
-/// The owner's label map, which says what coin each row's base leg is (plan r10 L1). It reads the owner's whole history,
-/// so a page builds it once for all its rows.
-// ponytail: one owner-wide load per ledger page or row update; cache it beside the ledger cache if pages get slow.
-pub fn labels(c:&Connection,owner:i64)->Result<Option<crate::tracker::spellings::Spellings>,WebError>{
-    // A history the walk cannot read (a row 2.x did not write) leaves the page by spelling, as before the map.
-    match crate::tracker::rows::load_all_mapped(c,owner) {Ok((_,s))=>Ok(Some(s)),Err(crate::figures::FiguresError::Sqlite(e))=>Err(e.into()),Err(_)=>Ok(None)}
+/// The owner's labels, which say what each row's leg is (plan r10 L1), as the last ledger run cached them (Codex r2: no
+/// owner-wide map per page). A cold or unreadable cache leaves the page by spelling, as before the map.
+pub fn labels(c:&Connection,owner:i64,now:chrono::DateTime<chrono::Utc>)->Result<Option<crate::tracker::labels::Labels>,WebError>{
+    match crate::tracker::cache::read(c,owner,None,now) {
+        Ok(crate::tracker::cache::State::Warm(s))=>Ok(Some(s.labels)),
+        Err(crate::figures::FiguresError::Sqlite(e))=>Err(e.into()),
+        _=>Ok(None),
+    }
 }
-pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crate::tracker::spellings::Spellings>)->Result<Source,WebError>{
+pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crate::tracker::labels::Labels>)->Result<Source,WebError>{
     // Cash by the leg's label where the map has one (a PLN recorded for PLEARN is the coin), else by its spelling.
-    if labels.and_then(|l|l.label(row.id,crate::tracker::resolver::Side::Base)).map_or(crate::tracker::cash(&row.base),|l|l.is_cash()){return Ok(Source::Cash)}
+    let leg=labels.map(|l|l.leg(row.id,crate::tracker::resolver::Side::Base,&row.base));
+    if leg.map_or(crate::tracker::cash(&row.base),|l|l==crate::tracker::labels::Leg::Cash){return Ok(Source::Cash)}
     if row.amount.is_zero(){return Ok(Source::None)}
     if let Some(counterpart)=row.counterpart(c,labels)?{return Ok(Source::Exchange(counterpart))}
     if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
@@ -84,11 +87,11 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crat
     // `tracker_price_key`: the key the figures stored this row's price under; none for a name still both a security and a coin.
     let day=row.at.date_naive();
     // A coin's price is stored by the coin (asset_prices); a leg no coin is known for has none of ours.
-    let label=labels.and_then(|l|l.label(row.id,crate::tracker::resolver::Side::Base));
-    let (table,column,key)=match label.map(|l|(l.coin(),l.keyed() && l.class()==crate::tracker::spellings::Class::Unknown)) {
-        Some((Some(_),_)) if !c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='asset_prices')",[],|r|r.get::<_,bool>(0))? =>return Ok(Source::None),
-        Some((Some(coin),_))=>("asset_prices","external_id",coin.to_string()),
-        Some((None,true))=>return Ok(Source::None),
+    use crate::tracker::labels::Leg;
+    let (table,column,key)=match leg {
+        Some(Leg::Coin(_)) if !c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='asset_prices')",[],|r|r.get::<_,bool>(0))? =>return Ok(Source::None),
+        Some(Leg::Coin(coin))=>("asset_prices","external_id",coin.to_string()),
+        Some(Leg::Unknown)=>return Ok(Source::None),
         _=>{let Some(key)=crate::tracker::prices::row_price_key(c,row.owner,row.exchange,&row.venue,&row.base,row.asset,day)? else{return Ok(Source::None)};("historical_prices","asset",key)}
     };
     let stored:Option<rusqlite::types::Value>=c.query_row(&format!("SELECT price FROM {table} WHERE {column}=?1 AND currency='USD' AND date=?2 LIMIT 1"),(&key,day.to_string()),|r|r.get(0)).optional()?;
@@ -161,7 +164,7 @@ pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String
     Ok(match flag.or(image).filter(|s|!s.trim().is_empty()) {Some(src)=>format!("  <img class=\"asset-logo\" src=\"{}\" alt=\"\" loading=\"lazy\">\n",escape(&src)),None=>format!("  <span class=\"asset-logo\" style=\"background: {}\"></span>\n",escape(&crate::web::colors::pill_color(color.as_deref()).ok_or_else(invalid)?))})
 }
 
-pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&crate::tracker::spellings::Spellings>)->Result<String,WebError>{
+pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&crate::tracker::labels::Labels>)->Result<String,WebError>{
     let user=ctx.user().ok_or_else(invalid)?;
     let absolute=if row.amount.is_negative(){row.amount.neg()}else{row.amount.clone()};
     let counterpart=row.counterpart(c,labels)?;

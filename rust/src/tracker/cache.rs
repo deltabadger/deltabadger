@@ -54,7 +54,7 @@ fn encode(s:&Summary)->Value {
 fn side_code(s:Side)->&'static str { match s { Side::Base=>"b", Side::Quote=>"q", Side::Fee=>"f" } }
 fn encode_labels(l:&Labels)->Value {
     json!({"assets":l.assets.iter().map(|(a,id,t)|json!([a,id,t])).collect::<Vec<_>>(),"legs":l.legs.iter().map(|(r,s,t)|json!([r,side_code(*s),t])).collect::<Vec<_>>(),
-           "spellings":l.spellings.iter().map(|(t,r)|json!([t,r])).collect::<Vec<_>>(),"void":l.void.iter().map(|(a,b)|json!([a,b])).collect::<Vec<_>>(),"coins":l.coins.iter().map(|(t,e)|json!([t,e])).collect::<Vec<_>>()})
+           "spellings":l.spellings.iter().map(|(t,r)|json!([t,r])).collect::<Vec<_>>(),"void":l.void.iter().map(|(a,b)|json!([a,b])).collect::<Vec<_>>(),"coins":l.coins.iter().map(|(t,e)|json!([t,e])).collect::<Vec<_>>(),"unknown":l.unknown})
 }
 /// A summary cached before the labels were kept reads none (each balance and pending move keeps its symbol).
 fn decode_labels(v:&Value)->Result<Labels,FiguresError> {
@@ -65,7 +65,7 @@ fn decode_labels(v:&Value)->Result<Labels,FiguresError> {
                 legs:array(&v["legs"])?.iter().map(|p|Ok((int(&p[0])?,side(&p[1])?,text(&p[2])?.to_string()))).collect::<Result<_,FiguresError>>()?,
                 spellings:array(&v["spellings"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()?,
                 void:array(&v["void"])?.iter().map(|p|Ok((int(&p[0])?,int(&p[1])?))).collect::<Result<_,FiguresError>>()?,
-                coins:array(&v["coins"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()?, identity:String::new() })
+                coins:array(&v["coins"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()?, unknown:if v["unknown"].is_null() {vec![]} else {array(&v["unknown"])?.iter().map(|u|Ok(text(u)?.to_string())).collect::<Result<_,FiguresError>>()?}, identity:String::new() })
 }
 /// Every computed decimal a summary stores: the bound a reader applies is applied before publishing too.
 fn decimals(s:&Summary)->impl Iterator<Item=&Dec> {
@@ -379,7 +379,7 @@ mod tests {
     }
     #[test]
     fn labels_roundtrip() {
-        let l=Labels{assets:vec![(-2,21,"BTG (Openverse Network)".into())],legs:vec![(1,Side::Base,"BTG (Bitcoin Gold)".into()),(1,Side::Fee,"X".into())],spellings:vec![("BTG (Bitcoin Gold)".into(),"BTG".into())],void:vec![(2,3),(3,2)],coins:vec![("BTG (Bitcoin Gold)".into(),"bitcoin-gold".into())],identity:String::new()};
+        let l=Labels{assets:vec![(-2,21,"BTG (Openverse Network)".into())],legs:vec![(1,Side::Base,"BTG (Bitcoin Gold)".into()),(1,Side::Fee,"X".into())],spellings:vec![("BTG (Bitcoin Gold)".into(),"BTG".into())],void:vec![(2,3),(3,2)],coins:vec![("BTG (Bitcoin Gold)".into(),"bitcoin-gold".into())],unknown:vec!["ZZZ".into()],identity:String::new()};
         assert_eq!(decode_labels(&encode_labels(&l)).unwrap(),l);
         assert_eq!(decode_labels(&Value::Null).unwrap(),Labels::default(),"a summary cached before the labels");
     }

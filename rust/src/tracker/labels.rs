@@ -180,6 +180,10 @@ fn unlink(rows: &mut [Stored], void: &[(i64, i64)]) {
     for r in rows.iter_mut().filter(|r| r.linked_to.is_some_and(|to| void.contains(&(r.id, to)))) { r.linked_to = None; r.to_venue = None; r.to_exchange_id = None; r.to_account = None; }
 }
 
+/// A leg's kind for the ledger page (`Labels::leg`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Leg<'a> { Cash, Coin(&'a str), Unknown, Spelled }
+
 /// What reconciliation reads of the map after the walk (balances and pending moves joined to positions by label), kept
 /// with each cached summary: every current balance's label, the legs whose label is not their own spelling, and each
 /// such label's first raw spelling (for the lookups that still gather by spelling).
@@ -189,6 +193,8 @@ pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Sid
                     pub void: Vec<(i64, i64)>,
                     /// Each coin label's external id (the wash-sale locks take every asset of the coin).
                     pub coins: Vec<(String, String)>,
+                    /// The labels of units no evidence identifies (never priced), for the ledger page.
+                    pub unknown: Vec<String>,
                     /// Codex r2: a digest of every leg's and balance's resolved key, the walk's fingerprint (`backfill::fingerprint`);
                     /// not cached (a summary read back is never fingerprinted).
                     pub identity: String }
@@ -217,7 +223,10 @@ impl Labels {
             .chain(s.asset_labels().map(|(&(a, id), l)| format!("b{a}:{id}:{}:{}", l.as_str(), l.key()))).collect();
         keys.sort();
         let identity = { use sha2::Digest; hex::encode(sha2::Sha256::digest(keys.join("\n").as_bytes())) };
-        Labels { assets, legs, spellings, void: void_pairs(s), coins, identity }
+        let mut unknown: Vec<String> = s.leg_labels().map(|(_, l)| l).filter(|l| l.keyed() && l.class() == super::spellings::Class::Unknown).map(|l| l.as_str().to_string()).collect();
+        unknown.sort();
+        unknown.dedup();
+        Labels { assets, legs, spellings, void: void_pairs(s), coins, unknown, identity }
     }
     /// The label of an account's balance of an asset; None when the map has none (the balance keeps its symbol).
     pub fn asset(&self, account: i64, asset: i64) -> Option<&str> { self.assets.iter().find(|(a, id, _)| *a == account && *id == asset).map(|(_, _, l)| l.as_str()) }
@@ -237,6 +246,14 @@ impl Labels {
     }
     /// A coin label's external id.
     pub fn coin(&self, label: &str) -> Option<&str> { self.coins.iter().find(|(l, _)| l == label).map(|(_, e)| e.as_str()) }
+    /// What a row's leg is, as the ledger page reads it from the cached table (Codex r2: no owner-wide map per page): the
+    /// leg's label (its relabelled text, else its spelling) is a coin's, an unidentified unit's, cash, or a spelling.
+    pub fn leg(&self, row: i64, side: Side, spelling: &str) -> Leg<'_> {
+        let text = self.legs.iter().find(|(r, s, _)| *r == row && *s == side).map_or(spelling, |(.., l)| l.as_str());
+        if let Some(ext) = self.coin(text) { return Leg::Coin(ext); }
+        if self.unknown.iter().any(|u| u == text) { return Leg::Unknown; }
+        if super::cash(text) { Leg::Cash } else { Leg::Spelled }
+    }
     /// The part of the table an account's summary reads: its balances, its rows' legs, and the spellings, coins and void
     /// pairs those name (Codex r2: one full copy per venue could push a multi-account cache past its limit).
     pub fn for_account(&self, account: i64, rows: &HashSet<i64>) -> Labels {
@@ -246,6 +263,7 @@ impl Labels {
         Labels { spellings: self.spellings.iter().filter(|(l, _)| named.contains(l.as_str())).cloned().collect(),
                  coins: self.coins.iter().filter(|(l, _)| named.contains(l.as_str())).cloned().collect(),
                  void: self.void.iter().filter(|(a, b)| rows.contains(a) || rows.contains(b)).cloned().collect(),
+                 unknown: self.unknown.iter().filter(|l| named.contains(l.as_str())).cloned().collect(),
                  assets, legs, identity: String::new() }
     }
     /// Whether the map voids the link between rows `a` and `b`.
@@ -479,7 +497,7 @@ mod tests {
                          legs: vec![(1, Side::Base, "BTG (Bitcoin Gold)".into()), (2, Side::Base, "BTG (Openverse Network)".into())],
                          spellings: vec![("BTG (Bitcoin Gold)".into(), "BTG".into()), ("BTG (Openverse Network)".into(), "BTG".into())],
                          void: vec![(1, 3), (3, 1)], coins: vec![("BTG (Bitcoin Gold)".into(), "bitcoin-gold".into()), ("BTG (Openverse Network)".into(), "openverse-network".into())],
-                         identity: "x".into() };
+                         unknown: vec![], identity: "x".into() };
         let mine = l.for_account(-1, &HashSet::from([1]));
         assert_eq!((mine.assets.len(), mine.legs.len(), mine.spellings.len(), mine.coins.len(), mine.void.len()), (1, 1, 1, 1, 2));
         assert_eq!(mine.coin("BTG (Bitcoin Gold)"), Some("bitcoin-gold"));
@@ -498,7 +516,9 @@ mod tests {
             quoted: Some(Dec::from_i64(500)), fee: None, fee_currency: None, at: chrono::Utc::now(), group: None, manual: serde_json::json!({}), manual_null: false,
             linked: None, inverse: None, asset: None, bot: None, venue: "mexc".into(), raw: serde_json::json!({}) };
         assert!(row.counterpart(&c, None).unwrap().is_some(), "by its spelling, PLN is the złoty");
-        assert!(row.counterpart(&c, Some(&s)).unwrap().is_none(), "by its label, PLEARN");
+        let (_, labels) = crate::tracker::rows::load_all_labelled(&c, 1).unwrap();
+        assert_eq!(labels.leg(1, Side::Quote, "PLN"), Leg::Coin("pleasure-coin"));
+        assert!(row.counterpart(&c, Some(&labels)).unwrap().is_none(), "by its label, PLEARN");
     }
 
     /// A stored link carries a known withdrawal's coin to an unlisted deposit, whichever row names the other.
