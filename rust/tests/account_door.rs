@@ -2803,3 +2803,82 @@ async fn s9_the_bybit_json_save_reads_the_uid_first() {
     assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
     assert_eq!(keys(c, &cipher, exchange), [(1, "by-a2".into())]);
 }
+
+// ---- #710 slice 9, Bybit review r1 ----
+
+/// A key `key` of `kind` placed on `account` as 2.x would leave it: correct, never read (`passphrase` where the venue has one).
+fn unread_slot_key(c: &Connection, user: i64, exchange: i64, account: i64, kind: i64, (key, secret, passphrase): (&str, &str, Option<&str>)) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, kind, cipher.encrypt(key), cipher.encrypt(secret), passphrase.map(|p| cipher.encrypt(p))]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    assert!(identity::unread(c, id).unwrap());
+    id
+}
+
+/// Review r1 #1 (every identity venue): a tile save landing on an account that holds an unread key of other material reads
+/// that key first, even when the slot it fills is empty (the read-only slot beside an unread trading key): a key of
+/// another exchange account never binds the account to its own id.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_a_save_beside_an_unread_key_reads_it_first() {
+    // Bybit: by-a (trading, unread) reads UID A; by-b (read-only) B.
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = unread_slot_key(c, user, exchange, first, 0, ("by-a", "by-secret", None));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, None, &bybit_fields("by-b")).await;
+    assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 1, "the unread trading key was read first: {} {}", answer.status, answer.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a".into()), (2, "by-b".into())], "B's key is its own account: {} {}", answer.status, answer.body);
+    // KuCoin: key-a (trading, unread) reads A; key-b (read-only) B.
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = unread_slot_key(c, user, exchange, first, 0, ("key-a", "secret", Some("phrase")));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, None, &kucoin_fields("key-b")).await;
+    let reads = server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == identity::KUCOIN_PATH && r.headers.get("KC-API-KEY").is_some_and(|v| v == "key-a")).count();
+    assert_eq!(reads, 1, "KuCoin: the unread trading key was read first: {} {}", answer.status, answer.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into()), (2, "key-b".into())], "KuCoin: {} {}", answer.status, answer.body);
+}
+
+/// Review r1 #5: a Reconnect reposting the exact installed Bybit key whose probe answers a definite refusal (10007) is
+/// refused, and that refusal is recorded on the installed key as a read's would be: its account's standing ends.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_a_refused_repost_records_a_definite_bybit_refusal_on_the_installed_key() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = unread_slot_key(c, user, exchange, first, 2, ("by-a", "by-secret", None));
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    stand(c, user, exchange, second, first);
+    Mock::given(method("GET")).and(path(deltabadger::venue::bybit::ASSETS_PATH)).and(header("X-BAPI-API-KEY", "by-a"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 10007, "retMsg": "User authentication failed."}))).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &bybit_fields("by-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(standings(c), 0, "the definite refusal ends the standing");
+    assert!(identity::unread(c, key).unwrap(), "a refusal names no account");
+}
+
+/// Review r1 #7: the JSON save naming an account whose installed Bybit key nothing has read reads that key first (rule
+/// Q1), then asks about the new key of another UID.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_the_bybit_json_save_reads_an_unread_installed_key_first() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = unread_slot_key(c, user, exchange, first, 2, ("by-a", "by-secret", None));
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("api_key[exchange_id]", exchange_s.as_str()), ("api_key[account_id]", first_s.as_str()), ("api_key[key_type]", "read_only"),
+                ("api_key[key]", "by-b"), ("api_key[secret]", "by-secret")];
+    let asked = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!(bybit_sent(&server, "by-a", identity::BYBIT_PATH).await, 1, "the installed key was read first: {} {}", asked.status, asked.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(asked.status, 409, "{}", asked.body);
+}

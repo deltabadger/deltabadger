@@ -4337,3 +4337,26 @@ async fn s9_g4_after_discovery_only_bybit_s_refusal_codes_end_a_standing() {
         assert_eq!(standing(c, &two).is_empty(), ends, "{status} {body}");
     }
 }
+
+/// Bybit review r1 #7: the scheduled validator records a correct Bybit key's UID read (its permission probe, then the
+/// query-api read).
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_the_scheduled_validator_records_a_bybit_uid() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/v5/order/cancel")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 170213, "retMsg": "Order does not exist."}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v5/user/query-api")).and(header("X-BAPI-API-KEY", "account-1-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"id": "1", "userID": 24600000}}))).mount(&server).await;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = bybit_two(c);
+    let key = two.keys[0];
+    assert!(identity::unread(c, key).unwrap());
+    let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+    let outcome = deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: key }.run(cx, vec![]).await;
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == "/v5/user/query-api"), "{outcome:?}");
+    assert!(!identity::unread(c, key).unwrap(), "the UID read is recorded: {outcome:?}");
+    assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), 1);
+}
