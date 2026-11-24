@@ -537,7 +537,7 @@ async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"result":{"list":[{"coin":[{"coin":"USDT","walletBalance":"1"}]}]} })))
         .mount(&server).await;
     // D-BYBIT-IDENTITY-READ (#710 slice 9): a key the check judges correct is read once more, signed, for its UID.
-    Mock::given(method("GET")).and(path(deltabadger::identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", "bg-key")).and(header_exists("X-BAPI-SIGN"))
+    Mock::given(method("GET")).and(path("/v5/user/query-api")).and(header("X-BAPI-API-KEY", "bg-key")).and(header_exists("X-BAPI-SIGN"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"retMsg":"","result":{"id":"13770661","apiKey":"bg-key","userID":24600000,"parentUid":"0"} })))
         .mount(&server).await;
     let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
@@ -550,7 +550,7 @@ async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
     }
     let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
     let (probe, read) = (("POST".to_string(), "/v5/order/cancel".to_string()), ("GET".to_string(), "/v5/account/wallet-balance".to_string()));
-    let identity = ("GET".to_string(), deltabadger::identity::BYBIT_PATH.to_string());
+    let identity = ("GET".to_string(), "/v5/user/query-api".to_string());
     assert_eq!(sent, [probe, identity.clone(), read.clone(), identity.clone(), read, identity], "each permission check, then its one UID read");
 }
 
@@ -594,4 +594,37 @@ async fn a_bitrue_key_uses_one_account_read_for_each_key_type() {
     assert!(matches!(check(1).await, Validity::Correct));
     assert!(matches!(check(2).await, Validity::Correct));
     assert_eq!(server.received_requests().await.unwrap().len(), 3);
+}
+
+/// Bybit review r1 #3 (D-BYBIT-5XX-NO-VERDICT): a 5xx or a 429 is no verdict whatever retCode its body carries: neither a
+/// refusal code (10003) nor a pass code (170213, 0) makes it correct or incorrect, and no UID read follows.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bybit_5xx_or_429_is_no_verdict_whatever_its_ret_code() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    for (status, code, kind) in [(503, 10003, 0), (503, 170213, 0), (500, 0, 2), (429, 10003, 2), (503, 10003, 2)] {
+        let server = MockServer::start().await;
+        Mock::given(method("POST")).and(path("/v5/order/cancel")).respond_with(ResponseTemplate::new(status).set_body_json(json!({ "retCode": code, "retMsg": "API key is invalid." }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v5/account/wallet-balance"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(json!({ "retCode": code, "retMsg": "API key is invalid.", "result": {"list": [{"coin": []}]} }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v5/user/query-api")).and(header("X-BAPI-API-KEY", "by-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode": 0, "result": {"userID": 1} }))).mount(&server).await;
+        let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "by-key".into(), secret: "by-secret".into(), passphrase: None, redaction_values: vec![] };
+        let (validity, observed) = key_check::check_identified("Exchanges::Bybit", &server.uri(), deltabadger::venue::http::client(), &credentials, kind).await;
+        assert!(matches!(validity, Validity::Pending(_)) && observed.is_none(), "{status} {code} kind {kind}: no verdict, nothing observed: {observed:?}");
+        assert!(server.received_requests().await.unwrap().iter().all(|r| r.url.path() != "/v5/user/query-api"), "{status} {code}: no UID read");
+    }
+}
+
+/// Bybit review r1 #4: the probe's definite retCode is read before the transport scrubs a body that echoes the key: a
+/// signature refusal (10004) naming the key is still the key's answer.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bybit_refusal_echoing_the_key_keeps_its_code() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/v5/account/wallet-balance"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode": 10004, "retMsg": "error sign! origin_string[by-echo-key-123]" }))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "by-echo-key-123".into(), secret: "by-echo-secret".into(), passphrase: None, redaction_values: vec![] };
+    let (_, observed) = key_check::check_identified("Exchanges::Bybit", &server.uri(), deltabadger::venue::http::client(), &credentials, 2).await;
+    assert_eq!(observed, Some(deltabadger::identity::Observed::Failed("http 200; code 10004".into())));
 }

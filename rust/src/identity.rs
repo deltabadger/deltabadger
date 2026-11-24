@@ -130,7 +130,8 @@ fn condition_sql(rule: &Definite, code: &str) -> String {
     let mut any: Vec<String> = rule.statuses.iter().map(|s| status(&s.to_string())).collect();
     if rule.success { any.push(status("2__")); }
     // A code under a rate limit or a 5xx is no refusal (`definite_by`).
-    any.extend(rule.codes.iter().map(|c| format!("({code} LIKE 'http ___; code {c}' AND {code} NOT LIKE 'http 429;%' AND {code} NOT LIKE 'http 5__;%')")));
+    // Bybit review r1 #6: every status from 500 up, as `definite_by` reads it.
+    any.extend(rule.codes.iter().map(|c| format!("({code} LIKE 'http ___; code {c}' AND {code} NOT LIKE 'http 429;%' AND CAST(substr({code}, 6, 3) AS INTEGER) < 500)")));
     if any.is_empty() { "0".into() } else { format!("({})", any.join(" OR ")) }
 }
 /// G4 (review r1 #3): whether what a venue's identity read came to says nothing definite about the key: a success, a
@@ -1373,6 +1374,19 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
     }
 }
 
+/// Whether account `account` holds a key of other material than `material` with no UID read of its current material
+/// (`unread`): that key, read, would decide where a key of the account belongs (Bybit review r1 #1/#2, every identity venue).
+pub fn holds_unread_other(c: &Connection, cipher: &Cipher, account: i64, exchange_type: &str, material: &Credentials) -> Result<bool, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let Some(account) = Account::by_id(c, account).map_err(db)? else { return Ok(false) };
+    let ids: Vec<i64> = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {}", account.keys("k"))).map_err(db)?
+        .query_map([], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+    for id in ids {
+        if !is_material(c, cipher, id, exchange_type, material) && unread(c, id)? { return Ok(true); }
+    }
+    Ok(false)
+}
+
 /// A venue's own credential fields, as a save compares them (`venue/registry.rs`): a passphrase only where the venue
 /// signs with it, Alpaca's empty mode as `paper`.
 fn compared(exchange_type: &str, c: &Credentials) -> (String, String, String) {
@@ -2032,7 +2046,7 @@ mod tests {
     fn definite_failures_are_per_venue_and_the_sql_twin_agrees() {
         let codes = ["http 200", "http 200; code -2015", "http 204", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005",
                      "http 200; code 10006", "http 200; code 10007", "http 200; code 10016", "http 403; code 10003", "http 429; code 10006",
-                     "http 503; code 10003", "http 200; code 0", "http 401", "http 401; code 16", "http 403", "http 403; code 7", "http 404",
+                     "http 503; code 10003", "http 200; code 0", "http 600", "http 600; code 10003", "http 599; code 10003", "http 401", "http 401; code 16", "http 403", "http 403; code 7", "http 404",
                      "http 429", "http 500", "http 503", "http 400; code -1021", "http 2000", "transport", "no egress", "proxy unreadable"];
         let legacy = |code: &str| code.strip_prefix("http ").and_then(|r| r.split(';').next()).is_some_and(|status| ["200", "204", "401", "403"].contains(&status));
         for venue in [KUCOIN, BINANCE, BINANCE_US] { for code in codes { assert_eq!(definite_failure(venue, code), legacy(code), "{venue} {code}"); } }
@@ -2059,7 +2073,8 @@ mod tests {
         let rule = Definite { success: false, statuses: &[], codes: &["10003"] };
         let c = Connection::open_in_memory().unwrap();
         for (code, definite) in [("http 200; code 10003", true), ("http 401; code 10003", true), ("http 403; code 10003", true), ("http 503; code 10003", false),
-                                 ("http 500; code 10003", false), ("http 429; code 10003", false), ("http 200; code 10006", false), ("http 503", false)] {
+                                 ("http 500; code 10003", false), ("http 429; code 10003", false), ("http 200; code 10006", false), ("http 503", false),
+                                 ("http 600; code 10003", false), ("http 599; code 10003", false), ("http 499; code 10003", true)] {
             assert_eq!(definite_by(&rule, code), definite, "{code}");
             let sql: bool = c.query_row(&format!("SELECT {}", condition_sql(&rule, "?1")), [code], |r| r.get(0)).unwrap();
             assert_eq!(sql, definite, "SQL {code}");
