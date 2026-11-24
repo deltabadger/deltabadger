@@ -601,7 +601,14 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
     let mut first: HashMap<Key, usize> = HashMap::new();
     for (i, row) in rows.iter().enumerate() {
         crate::figures::budget::check()?;
-        let moves = if located { located_moves(row)? } else { row_moves(row)?.into_iter().map(|(s, a)| (None, s, a)).collect() };
+        let mut moves: Vec<(Option<String>, Label, Dec)> = if located { located_moves(row)? } else { row_moves(row)?.into_iter().map(|(s, a)| (None, s, a)).collect() };
+        // Codex r2: pooled, a valid link into another label moves its units from the source label to the arrival one, as
+        // `Engine::transfer` re-keys them (else the arrival label's sales open a lot before the real one arrives).
+        if let (false, true, Kind::Withdrawal, Some(to)) = (located, row.linked, row.kind, row.to_base.as_ref().filter(|b| **b != row.base)) {
+            let moved = (&row.amount - &row.transfer_fee.clone().unwrap_or_else(Dec::zero))?;
+            moves.push((None, row.base.clone(), moved.neg()));
+            moves.push((None, to.clone(), moved));
+        }
         for (venue, symbol, amount) in moves {
             if cash(&symbol) { continue; }
             let key = (venue, symbol);
@@ -1997,6 +2004,14 @@ mod tests {
         let held = |s: &Summary| s.positions.iter().filter(|p| p.quantity.is_positive()).map(|p| (p.symbol.clone(), p.quantity.to_s_f(), p.cost.to_s_f())).collect::<Vec<_>>();
         assert_eq!(held(&w.whole), [("ZZZ (a)".to_string(), "1.0".to_string(), "100.0".to_string())], "pooled");
         assert_eq!(held(w.venue(1).unwrap()), [("ZZZ (a)".to_string(), "1.0".to_string(), "100.0".to_string())], "located");
+        // Codex r2: sold there, the pooled walk opens nothing under the arrival label: the moved lot covers the sale.
+        let sent = Stored { linked_to: Some(3), to_venue: Some("a".into()), to_exchange_id: Some(1), to_account: Some(1), to_base: Some(Label::spelled("ZZZ (a)")),
+                            ..zzz(st(2, "b", Kind::Withdrawal, "BTC", "1", D2)) };
+        let rows = vec![zzz(trade(1, "b", Kind::Buy, "1", "USD", "100", D1)), sent, Stored { base: Label::spelled("ZZZ (a)"), ..st(3, "a", Kind::Deposit, "BTC", "1", D2) },
+                        Stored { base: Label::spelled("ZZZ (a)"), ..trade(4, "a", Kind::Sell, "1", "USD", "150", D3) }];
+        let w = walked_with(rows, &[(3, "1")], &Default::default());
+        assert!(w.whole.openings.is_empty(), "{:?}", w.whole.openings);
+        assert_eq!(w.whole.realised.to_s_f(), "50.0");
     }
 
     #[test]
