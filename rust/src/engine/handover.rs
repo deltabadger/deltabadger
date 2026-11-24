@@ -207,6 +207,11 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         // #710: what 2.x added names exchanges with no account yet; rows stay eager. Its withdrawal rules are the number-1
         // rules again (Rust's store), before the rule jobs are imported from them.
         crate::identity::fill(&tx, now)?;
+        // #710 7a rule N7: the readers before the takeover's fences, so a fence's handoff counts.
+        crate::sync::seed_readers(&tx).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
+        crate::identity::after_v2(&tx, cipher)?;
+        // #710 7a rules P9/Q5: rows 2.x's importer wrote while it owned the install, by its import shapes only.
+        if let Some(back) = handed_back { crate::tracker::import::v2_origins(&tx, back, now)?; }
         super::rules::refill(&tx)?;
         // #710 slice 5: 2.x's balances and venue snapshots are the number-1 rows of Rust's stores again.
         crate::sync::balance_store::refill_number_one(&tx)?;
@@ -704,6 +709,9 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "exchange_account_rows", Refuses(SECOND_ACCOUNT_HISTORY)),
         // #710: a stored duplicate standing is of an account 2+, which refuses on its own; its row too.
         (Table, "exchange_account_standings", Refuses(SECOND_ACCOUNT)),
+        // #710 7a rules N2/N7: Rust's own identity and reader bookkeeping; 2.x never reads either.
+        (Table, "account_fingerprint_proofs", Ignored), (Table, "ledger_reader_generations", Ignored),
+        (Table, "import_row_origins", Ignored), (Table, "parked_answers", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's
@@ -839,6 +847,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let problems=super::rules::handback_problems(&o.primary)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     refuse_live_accounts(&o.primary)?;
+    refuse_fenced_bots(&o.primary)?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
@@ -877,6 +886,7 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     let problems=super::rules::handback_problems(&tx)?;
     if !problems.is_empty(){return Err(EngineError::Ineligible(problems));}
     refuse_live_accounts(&tx)?;
+    refuse_fenced_bots(&tx)?;
     // #710: 2.x's withdrawal rules are Rust's number-1 rules (a rule Rust deleted or stopped never runs again on 2.x).
     if super::rules::table_exists(&tx, "exchange_account_rules")? { super::rules::mirror(&tx, None)?; }
     let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
@@ -1136,6 +1146,9 @@ pub const SECOND_ACCOUNT_STANDALONE: &str = "a standalone order of an exchange's
 pub const SECOND_ACCOUNT_HISTORY: &str = "history of a second account is Rust-only";
 /// #710 slice 5: a balance or a venue snapshot of an account 2+.
 pub const SECOND_ACCOUNT_BALANCES: &str = "balances of a second account are Rust-only";
+/// #710 7a: a working bot's trading key is fenced (its last read named another account): 2.x has no fence and would place
+/// the bot's next order on the account that key reads.
+pub const FENCED_KEY_BOT: &str = "a bot's key reads another exchange account than its own; let this engine read it again before handing back";
 /// #710: a live account numbered 2+, whatever it holds: 2.x knows one account per exchange.
 pub const SECOND_ACCOUNT: &str = "an exchange's second account is Rust-only";
 
@@ -1177,6 +1190,16 @@ fn refuse_live_accounts(c: &Connection) -> Result<(), EngineError> {
         return Err(EngineError::Ineligible(vec![SECOND_ACCOUNT.into()]));
     }
     Ok(())
+}
+
+/// #710 7a: a working bot whose trading key is fenced (FENCED_KEY_BOT). Every trading key of the bot's user and exchange
+/// counts: 2.x picks its own.
+fn refuse_fenced_bots(c: &Connection) -> Result<(), EngineError> {
+    let fenced = crate::identity::fenced_sql(c, "k")?;
+    if fenced == "0" { return Ok(()); }
+    let found: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM bots b JOIN api_keys k ON k.user_id = b.user_id AND k.exchange_id = b.exchange_id AND k.key_type = 0 \
+                                            WHERE b.status IN ({}) AND {fenced})", model::working_list()), [], |r| r.get(0))?;
+    if found { Err(EngineError::Ineligible(vec![FENCED_KEY_BOT.into()])) } else { Ok(()) }
 }
 
 fn refuse_commands(c: &Connection) -> Result<(),EngineError> {

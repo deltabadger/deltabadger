@@ -498,7 +498,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
     if matches!(bot.status, BotStatus::Deleted | BotStatus::Archived) { return Ok(Outcome::Skipped("not_resumable")); }
     if !crate::web::bot::cast_boolean(bot.settings.get("rebalance_enabled")) && !is_pending(&bot.transient) { return Ok(Outcome::Skipped("not_resumable")); }
     // #resumable?: `return false if bot.api_key&.pending_activation?`.
-    if super::model::key_pending(c, &bot)? { return Ok(Outcome::Skipped("not_resumable")); }
+    if super::model::key_pending(c, &bot)? || super::model::key_fenced(c, &bot)? { return Ok(Outcome::Skipped("not_resumable")); }
     if let Some(raw) = bot.rust_placement() {
         if let super::placement::Recovery::Pending = super::placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
             if let Some(kind) = raw["transaction_type"].as_str().and_then(TxKind::parse) {

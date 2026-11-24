@@ -33,27 +33,27 @@ pub fn produced_by(c: &Connection, account: &AccountRow, version: &CredentialVer
     let stamp = app_config::get_plain(c, &key(account)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
     Ok(stamp.is_some_and(|stamp| stamp["complete"] == Value::Bool(true) && model::stamp_current_for(&stamp,&version.cache_stamp()).is_fresh()))
 }
-/// The key an account's balances are synced with: trading before read-only, never withdrawal.
+/// The key an account's balances are synced with: the one reader selector (`sync::reader_of`, #710 7a rules M4/Q4), which
+/// the scheduler, the ledger watermark and Merge ask too. None: no key can read the account (a fenced one never does).
 pub fn reading_key(c: &Connection, account: &AccountRow) -> Result<Option<i64>, EngineError> {
-    // The scheduler's pick (sync::reading_keys_of): a trading key unless its last sync lacked a permission, then read-only.
-    let mut s = c.prepare(&format!("SELECT k.id, k.key_type, e.type, k.last_sync_error FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-                           WHERE k.status=1 AND k.key_type!=1 AND {} ORDER BY k.id", account.keys("k")))?;
-    let rows = s.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Option<String>>(2)?.unwrap_or_default(), r.get::<_, Option<String>>(3)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows.iter().find(|r| r.1 == 0 && !crate::tracker::import::run::missing_permission(&r.2, r.3.as_deref()))
-        .or_else(|| rows.iter().find(|r| r.1 == 2)).or_else(|| rows.first()).map(|r| r.0))
+    crate::sync::reader_of(c, &account.keys("k")).map_err(|e| EngineError::Data(e.0))
 }
 /// When account `a`'s stored balances were read, if its current reading key read them completely at its current credential
 /// version (#710: one of the signals that two accounts are one). None otherwise.
 pub fn balances_read_at(c: &Connection, a: &AccountRow) -> Result<Option<DateTime<Utc>>, EngineError> {
     let Some(id) = reading_key(c, a)? else { return Ok(None) };
-    let stamp = app_config::get_plain(c, &key(a)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
-    let fresh = match stamp.as_ref().and_then(|s| CredentialVersion::from_stamp(s).map(|p| (p, s))) {
-        Some((producer, stamp)) => producer.id == id && stamp["complete"] == Value::Bool(true) && model::credential_is_current(c, &producer)?,
-        None => false,
-    };
-    if !fresh { return Ok(None); }
+    if !fresh(c, a, id)? { return Ok(None); }
     Ok(read_time(c, id)?)
+}
+/// Whether account `a`'s stored balances are key `id`'s complete read at its current credential version, the key still
+/// reading its account (#710 7a rule S8: a fenced key's balances are never fresh; with no other key they are stale).
+fn fresh(c: &Connection, a: &AccountRow, id: i64) -> Result<bool, EngineError> {
+    let stamp = app_config::get_plain(c, &key(a)).map_err(EngineError::Data)?.and_then(|s| serde_json::from_str::<Value>(&s).ok());
+    Ok(match stamp.as_ref().and_then(|s| CredentialVersion::from_stamp(s).map(|p| (p, s))) {
+        Some((producer, stamp)) => { let producer = &producer;
+            producer.id == id && stamp["complete"] == Value::Bool(true) && model::credential_is_current(c,producer)? && model::key_reads_its_account(c, producer)? }
+        None => false,
+    })
 }
 
 /// When key `id`'s last balance read began (its first answer, `rust_sync.read_at:<key>`; the identity checks' time),
@@ -84,16 +84,11 @@ pub fn stale(c: &Connection, user: i64, scope: &Scope) -> Result<bool, EngineErr
     for account in accounts(c, user, scope, true, true)? {
         let id = reading_key(c, &account)?;
         // An account whose key cannot read yet (an IBKR key pending activation) and that holds no balances has nothing stale.
-        // The owner's own: a stand-in's id (minus the exchange id) is every user's on that exchange.
-        if id.is_none() && !c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id=?1 AND user_id=?2)", [account.id, user], |r| r.get::<_, bool>(0))? { continue; }
-        let stamp = app_config::get_plain(c, &key(&account)).map_err(EngineError::Data)?
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok());
-        let producer=stamp.as_ref().and_then(CredentialVersion::from_stamp);
-        let fresh=match (&producer,id,&stamp) {
-            (Some(producer),Some(id),Some(stamp)) if producer.id==id && stamp["complete"]==Value::Bool(true)=>model::credential_is_current(c,producer)?,
-            _=>false,
-        };
-        if !fresh { return Ok(true); }
+        // The owner's own: a stand-in's id (minus the exchange id) is every user's on that exchange. #710 7a rule S8: a
+        // correct key that cannot read (fenced, or not read yet beside another account) leaves its account stale.
+        let blocked: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.status = 1 AND k.key_type != 1 AND {})", account.keys("k")), [], |r| r.get(0))?;
+        if id.is_none() && !blocked && !c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_balances WHERE account_id=?1 AND user_id=?2)", [account.id, user], |r| r.get::<_, bool>(0))? { continue; }
+        if !match id { Some(id) => fresh(c, &account, id)?, None => false } { return Ok(true); }
     }
     Ok(false)
 }
@@ -110,10 +105,9 @@ impl ReadOrigin {
     /// 2.x shows it. An account with a key but no healthy reading slot is current only while it has no rows.
     pub fn ledger_is_current(&self,c:&Connection)->Result<bool,EngineError>{
         for account in accounts(c,self.user,&self.scope,false,true)? {
-            // The scheduler imports one healthy reading slot per account, trading before read-only.
-            // Keep the complete captured set for rotation fencing, but do not demand a watermark
-            // from an unused invalid slot which did not produce this account's import.
-            let id:Option<i64>=c.query_row(&format!("SELECT k.id FROM api_keys k WHERE k.status=1 AND k.key_type!=1 AND {} ORDER BY CASE WHEN k.key_type=0 THEN 0 ELSE 1 END,k.id LIMIT 1",account.keys("k")),[],|r|r.get(0)).optional()?;
+            // The scheduler imports with the account's reader (`reading_key`, the one selector). Keep the complete captured set
+            // for rotation fencing, but demand a watermark only from the reader, which produced this account's import.
+            let id:Option<i64>=reading_key(c,&account)?;
             let Some(id)=id else {
                 let rows:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id=?1 AND {})",Scope::Account(account).rows("a")),[self.user],|r|r.get(0))?;
                 if rows {return Ok(false)} else {continue}
@@ -182,7 +176,7 @@ pub fn balances_current(tx:&Connection,origin:&ReadOrigin)->Result<bool,EngineEr
 
 pub fn fence_read<'a>(tx:&'a rusqlite::Transaction<'_>,origin:&ReadOrigin)->Result<model::FencedTransaction<'a>,EngineError>{
     if !balances_current(tx,origin)? {return Err(EngineError::CredentialsChanged)}
-    let fenced=model::fence_versions(tx,&origin.versions)?;
+    let fenced=model::read_versions(tx,&origin.versions)?;
     if !read_is_current(tx,origin)?{crate::engine::log(model::CREDENTIALS_CHANGED);return Err(EngineError::CredentialsChanged)}
     Ok(fenced)
 }

@@ -563,6 +563,30 @@ async fn a_key_replaced_during_the_price_check_checks_again_at_once() {
     assert_eq!(v.sent().len(), 1, "met under the new key: re-armed and ticked");
 }
 
+/// #710 7a §9.1: a paused bot whose condition is met while its key's identity read names another account is not checked again
+/// at once: the re-arm is refused as for a replaced key, but the handle is the same on every pass, so the check waits as a stale
+/// bot does instead of spinning the loop.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fenced_key_s_paused_bot_does_not_spin_the_loop() {
+    let v = FakeVenue::new().balance_body("ZEUR", "100000", "0");
+    for last in ["50100", "49900", "49900", "49900"] { v.script("/0/public/Ticker", kraken_ticker(last)); }
+    let (_d, mut e, id, s) = engine(ruled_spec(), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:20Z")).await.unwrap();
+    assert_eq!(status(&e, id), deltabadger::enums::BotStatus::Waiting, "paused");
+    let key: i64 = e.primary.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
+    let account = deltabadger::identity::Account::first(&e.primary, s.user_id, s.exchange_id).unwrap().ensure(&e.primary, "2026-09-01T10:00:30Z".parse().unwrap()).unwrap();
+    e.primary.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    e.primary.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
+    e.primary.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-01 10:00:30')", [key, s.exchange_id]).unwrap();
+    let wake = run::step(&mut e, &at("2026-09-01T10:01:00Z")).await.unwrap();
+    assert!(wake >= us("2026-09-01T10:01:00Z") + 1_000_000, "not at once: {wake}");
+    let calls = v.calls("/0/public/Ticker");
+    run::step(&mut e, &at("2026-09-01T10:01:00.001Z")).await.unwrap();
+    assert_eq!(v.calls("/0/public/Ticker"), calls, "not read again on the next pass");
+    assert!(v.sent().is_empty());
+}
+
 /// PLAN-dashboard-bot-actions slice F: a Merge or Split moves the order while its follow-up poll's answer is in flight. The
 /// engine writes nothing against the deleted source and keeps polling the row under its new owner, without a restart.
 #[tokio::test(flavor = "current_thread")]
@@ -586,4 +610,31 @@ async fn a_follow_up_poll_follows_a_row_moved_while_the_venue_answered() {
     assert!(wake <= us("2026-09-01T10:00:06Z") + 1, "the obligation is re-queued at once under the new owner");
     run::step(&mut e, &at("2026-09-01T10:00:07Z")).await.unwrap();
     assert_eq!(row(&e), (to, 2), "settled under the new owner");
+}
+
+/// Codex branch r2 (run.rs:1258/:296): a stopped bot's idle reconciliation through a key found to open another account
+/// waits as a stale bot does, and the next wake keeps that wait: it asks the venue once, not on every pass.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fenced_key_s_idle_reconciliation_keeps_its_wait() {
+    let v = priced();
+    let (_d, mut e, id, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let ticker = model::ticker_for(&e.primary, &bot).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), &KRAKEN).unwrap() else { panic!() };
+    placement::begin(&e.primary, &bot, &plan, &at("2026-09-01T10:00:00.5Z")).unwrap();
+    e.primary.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    let key: i64 = e.primary.query_row("SELECT id FROM api_keys WHERE key_type = 0", [], |r| r.get(0)).unwrap();
+    let account = deltabadger::identity::Account::first(&e.primary, s.user_id, s.exchange_id).unwrap().ensure(&e.primary, "2026-09-01T10:00:30Z".parse().unwrap()).unwrap();
+    e.primary.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    e.primary.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
+    e.primary.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', '2026-09-01 10:00:30')", [key, s.exchange_id]).unwrap();
+    let lookups = std::rc::Rc::new(std::cell::Cell::new(0));
+    let counted = lookups.clone();
+    let _ = v.clone().on_lookup(move || counted.set(counted.get() + 1));
+    run::step(&mut e, &at("2026-09-01T10:05:00Z")).await.unwrap();
+    let first = lookups.get();
+    run::step(&mut e, &at("2026-09-01T10:05:01Z")).await.unwrap();
+    assert_eq!(lookups.get(), first, "the next wake keeps the wait");
+    assert!(v.sent().is_empty());
 }

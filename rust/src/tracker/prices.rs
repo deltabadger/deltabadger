@@ -122,6 +122,9 @@ pub struct Reference {
     /// printed text names one coin.
     coins: HashMap<String, String>,
     unknown: HashSet<String>,
+    /// #710: what a duplicate account's rows, which no walk holds, recorded per (exchange id, symbol) (`record_coins`):
+    /// classification evidence `PriceService::record` adds after the walk's own rows. Empty without a duplicate.
+    duplicate_assets: Vec<(i64, String, Asset)>,
 }
 
 /// A coin's price key: `coin:<external id>`. A label's alphabet has no `:`, so no spelling or label is one.
@@ -184,6 +187,17 @@ impl Reference {
                                WHERE t.user_id = ?1 AND a.category = 'Cryptocurrency'")?;
         let mut q = s.query([user_id])?;
         while let Some(row) = q.next()? { crate::figures::budget::charge(1, 0)?; self.recorded_coins.insert(row.get(0)?); }
+        let duplicates = crate::identity::duplicate_ids(c, user_id)?;
+        if duplicates.is_empty() { return Ok(()); }
+        let list = duplicates.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+        let mut s = c.prepare(&format!("SELECT t.exchange_id, t.base_currency, a.id, a.external_id, a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
+                                        WHERE t.user_id = ?1 AND {} IN ({list}) ORDER BY t.id", crate::venue_ids::Scope::install(c)?.member_sql("t")))?;
+        let mut q = s.query([user_id])?;
+        while let Some(row) = q.next()? {
+            crate::figures::budget::charge(1, 0)?;
+            let Some(symbol) = row.get::<_, Option<String>>(1)? else { continue };
+            self.duplicate_assets.push((row.get(0)?, symbol, (row.get(2)?, row.get(3)?, row.get(4)?)));
+        }
         Ok(())
     }
 
@@ -422,6 +436,11 @@ impl<'a> PriceService<'a> {
         for r in rows {
             let Some(asset) = &r.base_asset else { continue };
             let list = self.recorded.entry((r.exchange_id, r.base.to_string())).or_default();
+            if !list.iter().any(|a| a.0 == asset.0) { list.push(asset.clone()); }
+        }
+        // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
+        for (exchange, symbol, asset) in &self.r.duplicate_assets {
+            let list = self.recorded.entry((*exchange, symbol.clone())).or_default();
             if !list.iter().any(|a| a.0 == asset.0) { list.push(asset.clone()); }
         }
     }

@@ -153,8 +153,8 @@ async fn binance_us_reads_its_ledger_so_its_gap_is_judged() {
 // ---- keys ----------------------------------------------------------------------------------------------------------
 
 /// Two correct keys on one venue: the gap is judged with the one the scheduler reads with, the trading key. A trading
-/// key missing a permission beside a read-only key: the scheduler reads with the read-only one, so the trading key's
-/// import is never current and the cache stays cold (an existing mismatch, see sync/cache.rs): no step, no line.
+/// key missing a permission beside a read-only key: the scheduler reads with the read-only one, and since #710 7a (rule
+/// M4: one reader selector) so does the ledger watermark, so the gap is judged with the read-only key.
 #[tokio::test(flavor = "current_thread")]
 async fn the_gap_is_judged_with_the_key_the_scheduler_reads_with() {
     let fx = alpaca_synced("0.01").await;
@@ -173,8 +173,8 @@ async fn the_gap_is_judged_with_the_key_the_scheduler_reads_with() {
     c.execute("DELETE FROM app_configs WHERE key=?1", [format!("rust_job.ledger_origin:{trading}")]).unwrap();
     kucoin_balances(&fx, kucoin, read_only_2, &[("ETH", "1", "2000")]);
     assert_eq!(run(&fx).await, Outcome::Done);
-    assert!(fx.row().is_none(), "the cache is cold: no step ran");
-    assert_eq!(fx.refreshes(), 0);
+    let row = fx.row().expect("the watermark reads the read-only key: the step ran");
+    assert_eq!((gaps_of(&row).len(), gaps_of(&row)[0]["key"].as_i64()), (1, Some(read_only_2)), "{row}");
     let _ = read_only;
 }
 

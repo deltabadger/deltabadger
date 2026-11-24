@@ -55,7 +55,7 @@ pub fn warm(c:&Connection,owner:i64,scope:&crate::tracker::Scope,show_cash:bool,
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=warm(&tx,owner,scope,show_cash,ledger,fx,today)?;tx.commit()?;return Ok(out)}
     let balances=super::balances(c,owner,scope)?;
     let pending=super::pending(c,owner,scope)?;
-    let figures=super::compute_on(c,owner,ledger,&balances,&pending,fx,today)?;
+    let figures=super::compute_on(c,owner,scope,ledger,&balances,&pending,fx,today)?;
     let received=ledger.received.clone();
     if show_cash {return Ok(Warm{figures,all_cash:false,received})}
     let invested=figures.without_cash_result()?;

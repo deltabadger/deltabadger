@@ -1,5 +1,5 @@
 <div class="bot-creation-layout">
- <form data-controller="form--html5-validations form--submit" data-turbo-stream="true" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+ <form data-controller="form--html5-validations form--submit" data-turbo-stream="true" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />{% if let Some(account) = bound %}<input type="hidden" name="account_id" value="{{ account }}" />{% endif %}
  {#- Create first: the form's default submitter (Enter in a field creates); the sheet draws it under the preview. -#}
  <div id="create-bot-button">
 <input type="submit" name="commit" value="{{ v.t("rules.withdrawals.form.submit") }}" class="rbutton rbutton--primary" data-disable-with="{{ v.t("rules.withdrawals.form.submit") }}" />

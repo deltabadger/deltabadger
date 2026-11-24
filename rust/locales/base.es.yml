@@ -213,7 +213,7 @@ es:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Suscripción Self-hosted'
-            subscription_html: 'Una suscripción Self-hosted de <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> incluye la Market Data API y una IP fija para añadir a la lista blanca de los exchanges.'
+            subscription_html: 'Una suscripción Self-hosted de <a href="https://deltabadger.com/es/self-hosted" target="_blank" rel="noopener">Deltabadger</a> incluye la Market Data API y una IP fija para añadir a la lista blanca de los exchanges.'
             code: 'Código de conexión'
             connect: 'Conectar'
             connected_with_proxies: 'Conectado a Deltabadger.com para obtener datos de mercado y usar proxies de los exchanges.'
@@ -652,6 +652,8 @@ es:
             drop: 'Suelta aquí tu CSV'
             drop_hint: 'o haz clic para elegir un archivo'
             which_account: 'Este archivo puede ser de cualquiera de las dos cuentas de Binance. ¿Cuál?'
+            which_of_accounts: 'Este archivo puede ser de más de una cuenta de aquí. ¿De cuál?'
+            new_account: 'Una cuenta nueva'
             unrouted: 'No hay cuenta conectada para: %{exchanges}. Esas filas se omitieron.'
             error_no_account_for_format: 'No hay ninguna cuenta conectada que corresponda a este formato.'
             format: 'Formato'

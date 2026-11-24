@@ -4508,3 +4508,29 @@ async fn an_exchange_scoped_withdrawal_id_blocks_it_for_every_account() {
     assert_eq!(w::load(&d.c, &d.cipher, &i.owner).unwrap().unwrap().reason.as_deref(), Some("duplicate venue id"));
     assert_eq!(d.count("rust_withdrawal_ids"), 1);
 }
+/// Rule F3 (Codex branch r2, withdrawal.rs:577/1286): a reply to a send or a recovery lookup made before discovery found
+/// the withdrawal key opens another account is never recorded on this account as a success: the intent stays, unresolved,
+/// with no withdrawal id and no success log.
+#[tokio::test]
+async fn s7a_a_key_fenced_while_a_withdrawal_waits_records_no_success() {
+    for during in ["send", "lookup"] {
+        let d = Db::new();
+        d.c.execute_batch("CREATE TABLE exchange_account_credentials(api_key_id INTEGER PRIMARY KEY,exchange_id INTEGER,fingerprint TEXT);
+                           CREATE TABLE exchange_account_rows(id INTEGER PRIMARY KEY); UPDATE exchange_accounts SET fingerprint='fa';").unwrap();
+        let mut f = Fake::new(&d);
+        f.change = "INSERT INTO exchange_account_credentials(api_key_id,exchange_id,fingerprint) VALUES(1,1,'fb')".into();
+        let i = d.prepared(&f).await;
+        if during == "send" {
+            f.change_at.set(f.read.get() + 3);
+            w::dispatch(&d.c, &d.cipher, &f, &i, &FixedClock(now())).await.unwrap();
+        } else {
+            w::mark_dispatched(&d.c, &d.cipher, &f, &i, &FixedClock(now())).await.unwrap();
+            f.change_at.set(f.read.get() + 1);
+            *f.lookup.borrow_mut() = w::LookupResult::Found { id: "X".into(), status: w::FoundStatus::Sent };
+            w::recover(&d.c, &d.cipher, &f, &i.owner, &FixedClock(now())).await.unwrap();
+        }
+        assert_eq!(d.count("rust_withdrawal_ids"), 0, "{during}: no withdrawal id");
+        assert_eq!(d.count("rule_logs WHERE status = 1"), 0, "{during}: no success");
+        assert_eq!(w::load(&d.c, &d.cipher, &i.owner).unwrap().unwrap().state, "unresolved", "{during}: the intent stays, uncertain");
+    }
+}

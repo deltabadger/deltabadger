@@ -213,7 +213,7 @@ sv:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Self-hosted-prenumeration'
-            subscription_html: 'En <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-prenumeration inkluderar Market Data API och en fast IP-adress att vitlista hos börserna.'
+            subscription_html: 'En <a href="https://deltabadger.com/sv/self-hosted" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-prenumeration inkluderar Market Data API och en fast IP-adress att vitlista hos börserna.'
             code: 'Anslutningskod'
             connect: 'Anslut'
             connected_with_proxies: 'Ansluten till Deltabadger.com för marknadsdata och börsproxyservrar.'
@@ -661,6 +661,8 @@ sv:
             drop: 'Släpp din CSV här'
             drop_hint: 'eller klicka för att välja en fil'
             which_account: 'Filen kan komma från något av de två Binance-kontona. Vilket?'
+            which_of_accounts: 'Filen kan komma från mer än ett konto här. Vilket?'
+            new_account: 'Ett nytt konto'
             unrouted: 'Inget konto anslutet för: %{exchanges}. De raderna utelämnades.'
             error_no_account_for_format: 'Inget anslutet konto matchar det här formatet.'
             format: 'Format'

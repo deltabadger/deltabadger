@@ -750,7 +750,7 @@ fn bitvavo_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> 
     let mut seen: HashSet<String> = HashSet::new();
     for row in &rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-        twice(&mut seen, row.value["symbol"].as_str().unwrap_or("?"));
+        twice(&mut seen, row.value["symbol"].as_str().and_then(|c| names.get(c)).copied(), row.value["symbol"].as_str().unwrap_or("?"));
         let Some(asset) = row.value["symbol"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
             skip(&row, row.value["symbol"].as_str().unwrap_or("?"), &["available", "inOrder"]); continue
         };
@@ -807,7 +807,7 @@ fn kucoin_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
-        twice(&mut seen, currency.as_str().unwrap_or("?"));
+        twice(&mut seen, currency.as_str().and_then(|c| names.get(c)).copied(), currency.as_str().unwrap_or("?"));
         let Some(asset) = currency.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
             skip(&row, currency.as_str().unwrap_or("?"), &["available", "locked", "holds", "balance"]); continue
         };
@@ -917,7 +917,7 @@ fn gemini_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(currency) = row.value.get("currency").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path currency not found".into(), vec![]))) };
         let Some(currency) = currency.as_str() else { return Ok(Err(("unreadable balance currency".into(), vec![]))) };
-        twice(&mut seen, &currency.to_uppercase());
+        twice(&mut seen, names.get(&currency.to_uppercase()).copied(), &currency.to_uppercase());
         let Some(asset) = names.get(&currency.to_uppercase()).filter(|id| asset_ids.contains(id)) else { skip(&row, currency, &["available", "amount"]); continue };
         let quantity = |key: &str| match row.number(key) {
             _ if row.value[key].as_str().is_some_and(|s| s.trim().is_empty()) => Err(format!("unreadable {key}: not a plain decimal number")),
@@ -972,7 +972,7 @@ fn bitget_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> R
     for row in rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
         let Some(coin) = row.value.get("coin").filter(|v| !v.is_null()) else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
-        twice(&mut seen, coin.as_str().unwrap_or("?"));
+        twice(&mut seen, coin.as_str().and_then(|c| names.get(c)).copied(), coin.as_str().unwrap_or("?"));
         let Some(asset) = coin.as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
             skip(&row, coin.as_str().unwrap_or("?"), &["available", "frozen", "locked"]); continue
         };
@@ -1041,7 +1041,7 @@ fn hyperliquid_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64])
     let mut seen: HashSet<String> = HashSet::new();
     for row in &rows {
         let Ok(row) = Raw::from_node(row) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-        twice(&mut seen, row.value["coin"].as_str().unwrap_or("?"));
+        twice(&mut seen, row.value["coin"].as_str().and_then(|c| names.get(c)).copied(), row.value["coin"].as_str().unwrap_or("?"));
         let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
             skip(&row, row.value["coin"].as_str().unwrap_or("?"), &["total", "hold"]); continue
         };
@@ -1097,7 +1097,7 @@ fn account_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64], cod
     let mut seen: HashSet<String> = HashSet::new();
     for entry in entries {
         let Ok(entry) = Raw::from_node(entry) else { return Ok(Err("unreadable balance".into())) };
-        twice(&mut seen, entry.value["asset"].as_str().unwrap_or("?"));
+        twice(&mut seen, entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).copied(), entry.value["asset"].as_str().unwrap_or("?"));
         let Some(asset) = entry.value["asset"].as_str().and_then(|a| names.get(&code(a))).filter(|id| asset_ids.contains(id)) else {
             skip(&entry, entry.value["asset"].as_str().unwrap_or("?"), &["free", "locked"]); continue
         };
@@ -1356,9 +1356,11 @@ pub(crate) fn complete_balances_skipping(catalog: &Catalog, cash: BigDec, positi
     else if !cash.is_zero() { return Err("Unmapped or ambiguous Alpaca cash asset".into()); }
     let mut seen: HashSet<String> = HashSet::new();
     for (category, symbol, raw) in positions {
-        // A symbol listed twice: the later stands, as on main; recorded as skipped (identity only), as `twice` records.
-        if !seen.insert(symbol.clone()) { skipped.push(symbol.clone()); }
+        // An asset listed twice (its resolved id, else its symbol: `BTC/USD` and `BTCUSD` are one): the later stands, as on
+        // main; recorded as skipped (identity only), as `twice` records.
         let ids = catalog.by_symbol.get(&(category, symbol.clone()));
+        let resolved = ids.filter(|ids| ids.len() == 1).and_then(|ids| ids.iter().next()).map_or_else(|| symbol.clone(), |id| format!("#{id}"));
+        if !seen.insert(resolved) { skipped.push(symbol.clone()); }
         let Some(asset) = ids.filter(|ids| ids.len() == 1).and_then(|ids| ids.iter().next()).copied().filter(|id| catalog.asset_ids.contains(id)) else {
             crate::eline!("Alpaca position skipped: unmapped or ambiguous identity");
             skipped.push(symbol);
@@ -1531,7 +1533,7 @@ fn bybit_held(text: &str, names: &HashMap<String, i64>, asset_ids: &[i64]) -> Re
         let Some(Node::Array(coins)) = account.member("coin") else { return Ok(Err(("KeyError: Key path coin not found".into(), vec![]))) };
         for coin in coins {
             let Ok(row) = Raw::from_node(coin) else { return Ok(Err(("unreadable balance".into(), vec![]))) };
-            twice(&mut seen, row.value["coin"].as_str().unwrap_or("?"));
+            twice(&mut seen, row.value["coin"].as_str().and_then(|c| names.get(c)).copied(), row.value["coin"].as_str().unwrap_or("?"));
             let Some(asset) = row.value["coin"].as_str().and_then(|c| names.get(c)).filter(|id| asset_ids.contains(id)) else {
                 skip(&row, row.value["coin"].as_str().unwrap_or("?"), &["walletBalance", "availableToWithdraw", "free", "locked", "spotBorrow"]); continue
             };
@@ -1581,7 +1583,7 @@ fn coinbase_held(text: &str, names: &HashMap<String,i64>, asset_ids: &[i64]) -> 
         let mut seen: HashSet<String> = HashSet::new();
         for row in rows {
             let raw = Raw::from_node(row)?;
-            twice(&mut seen, raw.value["asset"].as_str().unwrap_or("?"));
+            twice(&mut seen, raw.value["asset"].as_str().and_then(|s| names.get(s)).copied(), raw.value["asset"].as_str().unwrap_or("?"));
             let Some(id) = raw.value["asset"].as_str().and_then(|s| names.get(s)).filter(|id|asset_ids.contains(id)) else {
                 skip(&raw, raw.value["asset"].as_str().unwrap_or("?"), &["available_to_trade_crypto", "total_balance_crypto"]); continue
             };
@@ -1749,8 +1751,10 @@ fn holding(row: &Held) -> bool {
 }
 /// The one check every mapper makes of an answer's codes: one listed twice leaves the later row standing (trading reads
 /// it as on main) and the read no complete account for the identity checks, recorded as skipped.
-fn twice(seen: &mut HashSet<String>, code: &str) {
-    if !seen.insert(code.to_string()) { SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(code.to_string()); } }); }
+/// Listed twice is one asset twice (7a): the code's resolved asset when it names one (`btc` and `BTC` on Bitrue are one),
+/// else its spelling.
+fn twice(seen: &mut HashSet<String>, resolved: Option<i64>, code: &str) {
+    if !seen.insert(resolved.map_or_else(|| code.to_string(), |id| format!("#{id}"))) { SKIPPED.with(|s| { let mut s = s.borrow_mut(); if s.len() < 100 { s.push(code.to_string()); } }); }
 }
 fn take_skipped() -> Vec<String> { SKIPPED.with(|s| std::mem::take(&mut *s.borrow_mut())) }
 
@@ -1847,6 +1851,19 @@ mod skipped_tests {
         let catalog = Catalog::new(vec![7], &[("AAPL".to_string(), Some("Stock".to_string()), 7)], vec![]);
         let (_, skipped) = complete_balances_skipping(&catalog, BigDec::zero(), read).unwrap();
         assert_eq!(skipped, ["AAPL"], "alpaca");
+    }
+    /// 7a §0.3: listed twice means one RESOLVED asset twice, not one spelling twice: Bitrue's `btc` beside `BTC`, and
+    /// Alpaca's `BTC/USD` beside `BTCUSD`.
+    #[test]
+    fn a_resolved_asset_listed_twice_under_two_spellings_is_recorded() {
+        let names: HashMap<String, i64> = [("BTC".to_string(), 1)].into();
+        let _ = take_skipped();
+        account_held(r#"{"balances":[{"asset":"btc","free":"5","locked":"0"},{"asset":"BTC","free":"1","locked":"0"}]}"#, &names, &[1], str::to_uppercase).unwrap().unwrap();
+        assert_eq!(take_skipped(), ["BTC"], "bitrue");
+        let read = balance_positions(r#"[{"symbol":"BTC/USD","asset_class":"crypto","qty":"2","qty_available":"2"},{"symbol":"BTCUSD","asset_class":"crypto","qty":"1","qty_available":"1"}]"#).unwrap().unwrap();
+        let catalog = Catalog::new(vec![7], &[("BTC/USD".to_string(), Some("Cryptocurrency".to_string()), 7)], vec![]);
+        let (_, skipped) = complete_balances_skipping(&catalog, BigDec::zero(), read).unwrap();
+        assert_eq!(skipped, ["BTCUSD"], "alpaca");
     }
     /// R10 #7: the trading readers' positions leave unsupported classes out; the balance read's carry them.
     #[test]

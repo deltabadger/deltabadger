@@ -51,6 +51,10 @@ pub fn binding(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<Bindi
                 |r| Ok(Binding { account_ref: r.get(0)?, account_id_enc: r.get(1)? })).optional()
 }
 
+/// #710 7a §9.5: `bind`'s refusal of another IBKR account than the one a Disconnect retained (the settings page shows it
+/// localized, `settings.accounts.ibkr_other_account`).
+pub const OTHER_ACCOUNT: &str = "this IBKR login names another account than the one this connection had before; Deltabadger keeps one IBKR account per connection";
+
 /// A correct check of key `api_key_id` named `account`: the key is bound to it when it has no binding yet. Err: the key
 /// is bound to another account (or its bound account cannot be read); nothing is written. Call inside the write
 /// transaction that stores the check's verdict.
@@ -64,12 +68,29 @@ pub fn bind(c: &Connection, cipher: &Cipher, api_key_id: i64, account: &str, now
         });
     }
     let fingerprint = crate::identity::key(c, cipher, now)?.fingerprint_text(super::ibkr::IBKR, account);
+    // #710 7a: the account a Disconnect retained (`retain`) takes back only its own IBKR account.
+    if let Some(retained) = crate::identity::account_of_key(c, api_key_id).map_err(db)?
+        .map(|a| c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [a], |r| r.get::<_, Option<String>>(0))).transpose().map_err(db)?.flatten() {
+        if retained != fingerprint {
+            return Ok(Err(OTHER_ACCOUNT.into()));
+        }
+    }
     c.execute("INSERT INTO ibkr_bindings (api_key_id, account_ref, account_fingerprint, account_id_enc, bound_at) VALUES (?1, ?2, ?3, ?4, ?5)",
               params![api_key_id, &fingerprint[..16], fingerprint, cipher.encrypt(account), format_time(now)]).map_err(db)?;
     Ok(Ok(()))
 }
 
-/// The deleted key's binding goes with it: a reconnect binds whatever account it names.
+/// #710 7a: before a Disconnect deletes key `api_key_id`'s binding, the bound IBKR account becomes its exchange account's
+/// fingerprint when that has none, so a reconnect naming another IBKR account is refused (`bind`) until 7b gives it its
+/// own account.
+pub fn retain(c: &Connection, api_key_id: i64, account: i64) -> rusqlite::Result<()> {
+    if !crate::identity::ready(c)? { return Ok(()); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT account_fingerprint FROM ibkr_bindings WHERE api_key_id = ?1),
+               account_id_enc = CAST((SELECT account_id_enc FROM ibkr_bindings WHERE api_key_id = ?1) AS BLOB)
+               WHERE id = ?2 AND fingerprint IS NULL AND EXISTS (SELECT 1 FROM ibkr_bindings WHERE api_key_id = ?1)", [api_key_id, account]).map(|_| ())
+}
+
+/// The deleted key's binding goes with it: a reconnect binds whatever account it names (the one its account retained, #710 7a).
 pub fn forget(c: &Connection, api_key_id: i64) -> rusqlite::Result<()> {
     // An install `run`/`serve` has not migrated has no bindings (as identity::ready).
     let migrated: bool = c.query_row("SELECT count(*) = 1 FROM sqlite_master WHERE type = 'table' AND name = 'ibkr_bindings'", [], |r| r.get(0))?;

@@ -51,9 +51,13 @@ fn same_rows(actual: Value, expected: Value, label: &str) {
 
 // Mask only authenticated variable values; preserve every other byte and whitespace. This build's own elements that 2.x
 // never wrote are taken out first, byte for byte: the Settings menu's scheme and mode rows (D-SCHEME-SWITCH, D-MODE-SWITCH) and an empty state's
-// pixel scene (D-PIXEL-SCENES); and 2.x's sidebar logo, which this build dropped (D-NO-MENU-LOGO). Each is written with nothing around it, so the bytes left are 2.x's.
+// pixel scene (D-PIXEL-SCENES) and the tracker welcome screen's Import (D-TRACKER-EMPTY-IMPORT); and 2.x's sidebar logo, which this build dropped (D-NO-MENU-LOGO). Each is written with nothing around it, so the bytes left are 2.x's.
 pub fn masked(body:&str,app:Option<&deltabadger::web::App>,token:Option<&str>)->String {
-    let ours=regex::Regex::new(r#"(?s)<div class="[^"]*--scheme" data-dropdown-keep-open data-scheme-switch[^>]*>.*?</div>|<div class="[^"]*--currency" data-dropdown-keep-open data-mode-switch[^>]*>.*?<!--/mode--></div>|<canvas class="pixel-scene"[^>]*></canvas>|<div class="menu__section menu__section--top menu__section--logo">.*?</a></div>\n"#).unwrap();
+    // D-TRACKER-EMPTY-IMPORT: Rust's tracker welcome screen offers Import beside Connect (once), 2.x's Connect only.
+    if app.is_some() && body.contains("<div class=\"welcome-screen\">") && body.contains("/tracker/pick_exchange/new\"") {
+        assert_eq!(body.matches(" data-empty-import ").count(),1,"D-TRACKER-EMPTY-IMPORT: one Import on the welcome screen");
+    }
+    let ours=regex::Regex::new(r#"(?s)<div class="[^"]*--scheme" data-dropdown-keep-open data-scheme-switch[^>]*>.*?</div>|<div class="[^"]*--currency" data-dropdown-keep-open data-mode-switch[^>]*>.*?<!--/mode--></div>|<canvas class="pixel-scene"[^>]*></canvas>|<a class="sbutton sbutton--link" data-empty-import [^>]*>[^<]*</a>|<div class="menu__section menu__section--top menu__section--logo">.*?</a></div>\n"#).unwrap();
     let body=common::html::flash_toasts_as_rust(body);let body=&*ours.replace_all(&body,"");
     let values=common::html::masked_values(body);let mut out=body.to_string();
     for v in values.tokens {if let Some(t)=token{assert!(csrf::valid(t,&v));}out=out.replace(&v,"[csrf]");}

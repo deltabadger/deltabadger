@@ -533,7 +533,7 @@ impl Scheduler {
             if version.is_none() && matches!(name,crate::sync::jobs::LEDGER_SYNC|crate::sync::jobs::BALANCE_SYNC|crate::sync::jobs::API_KEY_VALIDATOR) && matches!(what,Record::Success|Record::Run) {
                 return Err(crate::engine::model::CREDENTIALS_CHANGED.to_string());
             }
-            crate::engine::model::check_credential_result(&tx,&version).map_err(|e|match e{crate::engine::EngineError::CredentialsChanged=>crate::engine::model::CREDENTIALS_CHANGED.to_string(),_=>"cannot check scheduler credential origin".into()})?;
+            crate::engine::model::check_credential_record(&tx,&version).map_err(|e|match e{crate::engine::EngineError::CredentialsChanged=>crate::engine::model::CREDENTIALS_CHANGED.to_string(),_=>"cannot check scheduler credential origin".into()})?;
             match &what{
                 Record::Success=>state::record_success(&tx,name,scope.as_deref(),at),
                 Record::Run=>state::record_run(&tx,name,scope.as_deref(),at),

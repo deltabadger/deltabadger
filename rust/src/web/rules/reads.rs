@@ -275,7 +275,7 @@ pub async fn listing(app: &App, rule: &Rule, networks: bool) -> Result<Option<Li
     });
     // A replaced key cannot authorize a destination using an answer from the old key.
     let current = app
-        .db(move |c| Ok(crate::engine::model::credential_is_current(c, &version)?))
+        .db(move |c| Ok(crate::engine::model::key_is_current(c, &version)?))
         .await?;
     Ok(if current { result } else { None })
 }
@@ -468,7 +468,7 @@ pub async fn refresh_fee(
             let tx = crate::engine::model::immediate(c)?;
             if let Some(version) = version {
                 // The account too (#710 §6.4): a quote read before a Merge moved the key is not its new account's.
-                if !crate::engine::model::credential_is_current(&tx, &version)? || !crate::engine::model::account_is_current(&tx, &version)? {
+                if !crate::engine::model::key_is_current(&tx, &version)? {
                     return Ok(false);
                 }
             } else {

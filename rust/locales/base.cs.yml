@@ -214,7 +214,7 @@ cs:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Předplatné Self-hosted'
-            subscription_html: 'Předplatné Self-hosted <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> zahrnuje Market Data API a pevnou IP adresu pro whitelist na burzách.'
+            subscription_html: 'Předplatné Self-hosted <a href="https://deltabadger.com/cs/self-hosted" target="_blank" rel="noopener">Deltabadger</a> zahrnuje Market Data API a pevnou IP adresu pro whitelist na burzách.'
             code: 'Kód připojení'
             connect: 'Připojit'
             connected_with_proxies: 'Připojeno k Deltabadger.com pro tržní data a proxy servery burz.'
@@ -669,6 +669,8 @@ cs:
             drop: 'Přetáhni sem soubor CSV'
             drop_hint: 'nebo klikni a vyber soubor'
             which_account: 'Tento soubor může být z obou účtů Binance. Ze kterého?'
+            which_of_accounts: 'Tento soubor může být z více účtů zde. Ze kterého?'
+            new_account: 'Nový účet'
             unrouted: 'Pro %{exchanges} není připojen účet. Tyto řádky byly vynechány.'
             error_no_account_for_format: 'Pro tento formát není připojen odpovídající účet.'
             format: 'Formát'

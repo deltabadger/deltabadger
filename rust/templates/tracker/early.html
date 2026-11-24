@@ -9,5 +9,5 @@
     <a class="sbutton sbutton--accent" data-turbo-frame="modal" aria-label="{{ v.t("tracker.connect_exchange")|safe }}" href="{{ v.path("/tracker/pick_exchange/new") }}">
       {% include "svg/_24x24_plus.html" %}
 
-{% endif %}</a>  </div>
+{% endif %}</a>{% if !missing %}<a class="sbutton sbutton--link" data-empty-import data-turbo-frame="modal" href="{{ v.path("/tracker/import/new") }}">{{ v.t("tracker.import.title")|safe }}</a>{% endif %}  </div>
 

@@ -99,11 +99,11 @@ impl Report {
         // A trade's legs: bought and sold rows, and swap legs (a fiat-funded convert books its fiat as a swap leg).
         let leg = |k: Kind| matches!(k, Kind::Buy | Kind::Sell | Kind::SwapIn | Kind::SwapOut);
         let traded: HashSet<(i64, &str)> = self.scoped.iter().filter(|r| !fiat(&r.base) && leg(r.kind))
-            .filter_map(|r| r.group.as_deref().map(|g| (r.exchange_id, g))).collect();
+            .filter_map(|r| r.group.as_deref().map(|g| (r.account, g))).collect(); // a group id is its account's (#710)
         let (mut paid, mut received) = (Dec::zero(), Dec::zero());
         for r in self.scoped.iter().filter(|r| self.in_year(r.at) && leg(r.kind)) {
             let (cash, amount, pays) = match (&r.group, fiat(&r.base)) {
-                (Some(g), true) if traded.contains(&(r.exchange_id, g.as_str())) => (r.base.as_str(), &r.amount, r.kind.out_leg()),
+                (Some(g), true) if traded.contains(&(r.account, g.as_str())) => (r.base.as_str(), &r.amount, r.kind.out_leg()),
                 (None, false) => match (r.quote.as_deref(), &r.quote_amount) { (Some(q), Some(a)) if fiat(q) => (q, a, r.kind.in_leg()), _ => continue },
                 _ => continue,
             };

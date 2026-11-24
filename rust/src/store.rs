@@ -235,10 +235,29 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // #878: the bot alert emails a user switched off.
     ("20261122000001", TableContract { name: "rust_email_alert_opt_outs", columns: &[("user_id", "INTEGER", true), ("alert", "TEXT", true)],
         unique_indexes: &[&["user_id", "alert"]] }),
+    // #710 slice 7a: KuCoin export rows, the API's takeover cutoffs and import observations by account.
+    ("20261124000002", TableContract { name: "import_rows", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("row_id", "TEXT", true), ("account_type", "TEXT", true),
+        ("currency", "TEXT", true), ("side", "TEXT", true), ("amount", "TEXT", true), ("fee", "TEXT", true), ("transacted_at", "TEXT", true),
+        ("remark", "TEXT", true), ("row_type", "TEXT", true), ("created_at", "TEXT", true), ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "row_id"]] }),
+    ("20261124000002", TableContract { name: "import_cutoffs", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("class", "TEXT", true), ("cutoff_at", "TEXT", true),
+        ("updated_at", "TEXT", true), ("account_id", "INTEGER", true)], unique_indexes: &[&["account_id", "class"]] }),
+    ("20261124000002", TableContract { name: "exchange_account_imports", columns: &[
+        ("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true), ("fingerprint", "TEXT", true),
+        ("account_id_enc", "BLOB", true), ("observed_at", "TEXT", true), ("account_id", "INTEGER", true)], unique_indexes: &[] }),
     // #710 slice 6: the stored duplicate standing (identity::reconsider).
     ("20261123000001", TableContract { name: "exchange_account_standings", columns: &[
         ("duplicate_id", "INTEGER", false), ("survivor_id", "INTEGER", true), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true),
         ("since", "TEXT", true), ("basis", "TEXT", true)], unique_indexes: &[] }),
+    // #710 slice 7a rules N2/N7: proven fingerprints and each account's ledger reader generation.
+    ("20261125000001", TableContract { name: "account_fingerprint_proofs", columns: &[("account_id", "INTEGER", false), ("created_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261125000001", TableContract { name: "ledger_reader_generations", columns: &[("account_id", "INTEGER", false), ("generation", "INTEGER", true),
+        ("reader", "INTEGER", false)], unique_indexes: &[] }),
+    // #710 slice 7a rules N8/N4: each file-imported ledger row's importer, and the parked answers consumed.
+    ("20261125000002", TableContract { name: "import_row_origins", columns: &[("transaction_id", "INTEGER", false), ("import_kind", "TEXT", true),
+        ("created_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261125000002", TableContract { name: "parked_answers", columns: &[("digest", "TEXT", false), ("created_at", "TEXT", true)], unique_indexes: &[] }),
     // Delisted coins PR0: coin prices by identity.
     ("20261123000002", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),

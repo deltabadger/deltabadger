@@ -568,13 +568,14 @@ fn evaluation_rule(
         Err(error) => Err(error),
     }
 }
-/// Whether `version` is still `account`'s correct withdrawal key.
+/// Whether `version` is still `account`'s correct withdrawal key, and still reads that account (#710 7a rule F3: a send or
+/// lookup reply after discovery found the key opens another account settles nothing; the intent stays, unresolved).
 fn key_current(
     c: &Connection,
     version: &CredentialVersion,
     account: &crate::identity::Account,
 ) -> Result<bool, EngineError> {
-    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.id=?1 AND {} AND k.key_type=1 AND k.status=1)",account.keys("k")),[version.id],|r|r.get::<_,bool>(0))?&&model::credential_is_current(c,version)?)
+    Ok(c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.id=?1 AND {} AND k.key_type=1 AND k.status=1)",account.keys("k")),[version.id],|r|r.get::<_,bool>(0))?&&model::key_is_current(c,version)?)
 }
 /// The account an intent withdraws from: its rule's (#710). A recorder's, and a rule's 2.x deleted (a number 1's, as
 /// every rule 2.x held), is its (user, exchange)'s number 1.

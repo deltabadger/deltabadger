@@ -213,7 +213,7 @@ nl:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Self-hosted-abonnement'
-            subscription_html: 'Een <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-abonnement omvat de Market Data API en een vast IP-adres dat je bij exchanges kunt whitelisten.'
+            subscription_html: 'Een <a href="https://deltabadger.com/nl/self-hosted" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-abonnement omvat de Market Data API en een vast IP-adres dat je bij exchanges kunt whitelisten.'
             code: 'Verbindingscode'
             connect: 'Verbinden'
             connected_with_proxies: "Verbonden met Deltabadger.com voor marktgegevens en beursproxy's."
@@ -651,6 +651,8 @@ nl:
             drop: 'Sleep je CSV hierheen'
             drop_hint: 'of klik om een bestand te kiezen'
             which_account: 'Dit bestand kan van beide Binance-accounts komen. Welk?'
+            which_of_accounts: 'Dit bestand kan van meer dan één account hier komen. Welk?'
+            new_account: 'Een nieuw account'
             unrouted: 'Geen account verbonden voor: %{exchanges}. Die regels zijn overgeslagen.'
             error_no_account_for_format: 'Er is geen passend account verbonden voor dit formaat.'
             format: 'Formaat'

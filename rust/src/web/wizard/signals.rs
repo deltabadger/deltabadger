@@ -183,7 +183,13 @@ pub async fn exchange_create(State(app): State<App>, Extension(ctx): Extension<C
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(exchange) = field(&ctx, EXCHANGE_FIELD) else { return Ok(layout::bad_request()) };
     if crate::v2::blank(&exchange) { return exchange_render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY).await }
-    config_mut(&mut ctx.session.lock().bot_config).insert("exchange_id".into(), json!(exchange));
+    let (view, user, id) = (ctx.clone(), ctx.user().map_or(0, |u| u.id), super::to_i(&json!(exchange)));
+    let Some(picked) = app.db(move |c| Ok(super::picked(c, &view, user, id)?)).await? else { return Ok(layout::missing()) };
+    {
+        let mut data = ctx.session.lock();
+        config_mut(&mut data.bot_config).insert("exchange_id".into(), json!(exchange));
+        if let Some(config) = data.bot_config.as_mut() { super::keep_pick(config, picked); }
+    }
     Ok(redirect(&ctx, KEY_NEW))
 }
 
@@ -284,8 +290,9 @@ fn settings(c: &Connection, ctx: &Ctx, csrf: &str, config: Option<&Value>, rules
 struct Button<'a> { action: String, csrf: &'a str, start: String, starting: String, disabled: bool }
 
 /// bots/signals/_create_bot_button. Its form posts to `bots_signals_path(bot)`, where the unsaved bot is the locale: no prefix.
-fn button(ctx: &Ctx, csrf: &str, rules: &[Rule]) -> Result<String, WebError> {
-    Ok(Button { action: "/bots/signals".into(), csrf, start: ctx.t("button.start"), starting: ctx.t("busy.starting"), disabled: !rules.iter().all(Rule::valid) }.render()?)
+/// #710 7a §2: it posts the pick it rendered.
+fn button(ctx: &Ctx, csrf: &str, config: Option<&Value>, rules: &[Rule]) -> Result<String, WebError> {
+    Ok(Button { action: format!("/bots/signals{}", super::bound_query(config)), csrf, start: ctx.t("button.start"), starting: ctx.t("busy.starting"), disabled: !rules.iter().all(Rule::valid) }.render()?)
 }
 
 #[derive(Template)]
@@ -310,7 +317,7 @@ pub async fn confirm_new(State(app): State<App>, Extension(ctx): Extension<Ctx>)
         let rules = rules(&session_rules(config.as_ref())?)?;
         keys::venue(c, exchange_id(config.as_ref()))?.ok_or_else(|| missing("exchange"))?;
         let csrf = ctx.csrf_token();
-        let content = Confirm { button: button(ctx, &csrf, &rules)?, settings: settings(c, ctx, &csrf, config.as_ref(), &rules)? }.render()?;
+        let content = Confirm { button: button(ctx, &csrf, config.as_ref(), &rules)?, settings: settings(c, ctx, &csrf, config.as_ref(), &rules)? }.render()?;
         Ok((super::sheet(ctx, &track(c, ctx, config.as_ref(), Stage::Confirm)?, &content)?, false))
     }).await
 }
@@ -335,7 +342,7 @@ pub async fn confirm_create(State(app): State<App>, Extension(ctx): Extension<Ct
     let body = app.db(move |c| {
         let csrf = view.csrf_token();
         Ok([turbo::stream("replace", "new-settings", &format!("{}\n", settings(c, &view, &csrf, config.as_ref(), &[])?)),
-            turbo::stream("replace", "create-bot-button", &format!("{}\n", button(&view, &csrf, &[])?)),
+            turbo::stream("replace", "create-bot-button", &format!("{}\n", button(&view, &csrf, config.as_ref(), &[])?)),
             turbo::prepend_flash("")].join("\n") + "\n")
     }).await?;
     Ok(stream_response(body))
@@ -400,7 +407,7 @@ pub async fn update_signal(State(app): State<App>, Extension(ctx): Extension<Ctx
 // The save: Bots::SignalsController#create (Bots::Wizard::CreatesController).
 
 /// What the save came to.
-enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str) }
+enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unported, Unservable(&'static str), Stale }
 
 /// POST /bots/signals: the bot built from the session with its rules (the default one when the session has none) is saved, each
 /// rule with a token of its own, and started. A rule 2.x would not save refuses the whole save (422, nothing written); a start
@@ -409,6 +416,8 @@ enum Saved { Started(i64, Vec<(String, String)>), Refused(String, bool), Unporte
 pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let config = ctx.session.lock().bot_config.clone();
+    // #710 7a §2: a Start rendered for another pick than the session's now (two tabs) makes nothing.
+    if !super::still_bound(&ctx, config.as_ref()) { return Ok(super::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(CONFIRM_NEW)))) }
     let signals = dig(config.as_ref(), &["signals"]).filter(|v| !v.is_null()).and_then(Value::as_array).cloned().unwrap_or_else(|| vec![json!({"direction": "buy", "amount": 100})]);
     let built = rules(&signals)?;
     if !built.iter().all(Rule::valid) {
@@ -429,7 +438,9 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             saved.push(signal_write::NewRule { sell: rule.sell, percentage: rule.percentage, amount, enabled: rule.enabled });
         }
         let settings = dig(config, &["settings"]).cloned().unwrap_or_else(|| json!({}));
-        let id = signal_write::insert_created(&tx, user.id, exchange, &settings, None, &saved, view.locale, view.now)?;
+        let Ok(account) = super::bot_account(&tx, user.id, config)? else { return Ok(Saved::Stale) };
+        let account = account.filter(|a| a.id.is_some());
+        let id = signal_write::insert_created(&tx, user.id, exchange, account, &settings, None, &saved, view.locale, view.now)?;
         let started = signal_write::start_created(&tx, &view, user.id, id)?;
         // A bot whose pages this build cannot serve (`bot::refusal`, as a rule write checks it: an enabled sell rule while the
         // wash-sale question is unanswered, say) is not made at all. 2.x saves it and asks the question on its page; here it
@@ -468,6 +479,7 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         }
         Saved::Unported => Ok(layout::not_ported_for(&ctx)),
         Saved::Unservable(reason) => Ok(layout::refused(&ctx, reason)),
+        Saved::Stale => Ok(super::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(CONFIRM_NEW)))),
     }
 }
 

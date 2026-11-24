@@ -604,3 +604,26 @@ fn a_settings_change_in_the_spans_own_second_leaves_the_scope_unknown() {
     ru::report(&c, now()).unwrap();
     assert_eq!(lines(&c, b)[0].1["reason"], "settings_changed");
 }
+
+/// Rule S10 (Codex branch r4, v2_unrecorded.rs:307/374): 2.x recovery reads the order's own account's ledger watermark.
+/// Account 1's reader is gone and account 2's key is fully synced: account 1's order is not reported as none seen; it waits,
+/// and after seven days it is unread.
+#[test]
+fn s7a_s10_another_account_s_sync_is_no_answer_for_this_account_s_order() {
+    let c = primary();
+    let s = binance(&c);
+    let b = bot(&c, &s);
+    deltabadger::identity::ensure_account(&c, s.user_id, s.exchange_id, now()).unwrap();
+    c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [s.api_key_id]).unwrap();
+    let second = deltabadger::identity::new_account(&c, s.user_id, s.exchange_id, now()).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, 'now', 'now')",
+              params![s.user_id, s.exchange_id, seed::cipher().encrypt("k2"), seed::cipher().encrypt("s2")]).unwrap();
+    let key2 = c.last_insert_rowid();
+    deltabadger::identity::Account::by_id(&c, second).unwrap().unwrap().add_key(&c, key2).unwrap();
+    ambiguous_line(&c, b, AT);
+    ru::collect(&c, &queue(), None, now()).unwrap();
+    synced(&c, key2, now());
+    assert_eq!(ru::report(&c, now()).unwrap(), 0, "account 2's sync says nothing of account 1's ledger");
+    ru::report(&c, now() + Duration::days(8)).unwrap();
+    assert_eq!(lines(&c, b)[0].1["reason"], "unread");
+}

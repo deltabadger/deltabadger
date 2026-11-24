@@ -137,9 +137,20 @@ pub async fn commit_bots_for<T: Send + 'static>(db: &Db, version: &crate::engine
 }
 /// `commit_bots_for`, the work also given the instance's cipher.
 pub async fn commit_bots_for_ciphered<T: Send + 'static>(db: &Db, version: &crate::engine::model::CredentialVersion, work: impl FnOnce(&crate::engine::model::FencedTransaction<'_>, &Cipher) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
+    commit_checked(db, version, true, work).await
+}
+/// `commit_bots_for_ciphered` for a key's own validation status and identity read, which a fenced key still records
+/// (`check_credential_record`).
+pub async fn commit_record_for<T: Send + 'static>(db: &Db, version: &crate::engine::model::CredentialVersion, work: impl FnOnce(&crate::engine::model::FencedTransaction<'_>, &Cipher) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
+    commit_checked(db, version, false, work).await
+}
+async fn commit_checked<T: Send + 'static>(db: &Db, version: &crate::engine::model::CredentialVersion, fence: bool, work: impl FnOnce(&crate::engine::model::FencedTransaction<'_>, &Cipher) -> Result<(T, bool), SyncError> + Send + 'static) -> Result<T, SyncError> {
     let version = Some(version.clone());
+    let reader = if fence { current_reader() } else { None };
     let (out,held)=db.run(move |c,cipher| write_timed(c,cipher,|tx| {
-        let fenced=crate::engine::model::check_credential_result(tx,&version)?;
+        let fenced=if fence {crate::engine::model::check_credential_result(tx,&version)?} else {crate::engine::model::check_credential_record(tx,&version)?};
+        // Rule N7: a run of a former reader (or of an earlier generation) checkpoints and publishes nothing.
+        if let Some(r) = &reader { if !reader_holds(tx, r)? { crate::engine::log(crate::engine::model::CREDENTIALS_CHANGED); return Err(SyncError(crate::engine::model::CREDENTIALS_CHANGED.into())); } }
         work(&fenced,cipher)
     }).map_err(|e|e.0)).await.map_err(SyncError)?;
     db.note_write_hold(held);tokio::time::sleep(WRITE_GAP).await;Ok(out)
@@ -148,6 +159,14 @@ tokio::task_local! {
     /// The account the running job captured its key's version on (#710 §6.4): a later capture inside it must name the same.
     static BOUND: Option<i64>;
 }
+tokio::task_local! {
+    /// What the running ledger or balance job captured at its entry (rule N7): every fenced commit inside it checks it.
+    static READER: Option<Reader>;
+}
+/// Runs `work` as reader `r` (`commit_checked` refuses a commit once the account's reader or generation moved).
+pub async fn as_reader<F: std::future::Future>(r: Option<Reader>, work: F) -> F::Output { READER.scope(r, work).await }
+/// The reader the running job captured, if any.
+pub fn current_reader() -> Option<Reader> { READER.try_with(|r| *r).ok().flatten() }
 /// Runs `work` bound to `account` (`capture_bound_version` refuses a capture on another account inside it).
 pub async fn bound<F: std::future::Future>(account: Option<i64>, work: F) -> F::Output { BOUND.scope(account, work).await }
 
@@ -239,6 +258,14 @@ pub struct Key {
     pub scope: crate::venue_ids::Scope,
 }
 
+/// #710 7a §3: the writer's key id for a keyless account's import: its rows are written with no `api_key_id`.
+pub const NO_KEY: i64 = 0;
+
+impl Key {
+    /// The `api_key_id` its rows are written with.
+    pub fn api_key_id(&self) -> Option<i64> { (self.id != NO_KEY).then_some(self.id) }
+}
+
 /// The venues whose balances this build syncs (`registry::Row::balances`).
 pub fn balance_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| r.balances.is_some()) }
 
@@ -284,23 +311,143 @@ pub fn ledger_venues() -> Vec<&'static str> { crate::venue::registry::types(|r| 
 /// ApiKey.reading over `ledger_venues`.
 pub fn ledger_reading_keys(c: &Connection) -> Result<Vec<i64>, SyncError> { reading_keys_of(c, &ledger_venues()) }
 
-/// ApiKey.reading: per user and account (#710; an exchange while it has one), the trading key that lacks no permission
-/// (`missing_permission?`), else the read-only one, else the first; status correct, never a withdrawal key.
-fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
+/// A key the reader selector weighs: (id, user, exchange, key type, venue, last sync error, account).
+type Candidate = (i64, i64, i64, i64, String, Option<String>, Option<i64>);
+/// The keys that can read, by id: status correct, never a withdrawal key, not fenced (#710 7a §9.1), and (rule N1) on an
+/// exchange with two or more live accounts never an identity venue's key without a UID read of its current material
+/// (`identity::unread`): it is read first. `filter` narrows the rows (SQL on alias `k`).
+fn candidates(c: &Connection, filter: &str) -> Result<Vec<Candidate>, SyncError> {
     let rows = crate::identity::with_key_account("k", |account| c.prepare(&format!(
         "SELECT k.id, k.user_id, k.exchange_id, k.key_type, e.type, k.last_sync_error, {account} FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
-         WHERE k.status = 1 AND k.key_type != 1 ORDER BY k.id"))?
+         WHERE k.status = 1 AND k.key_type != 1 AND NOT {} AND {filter} ORDER BY k.id", crate::identity::fenced_sql(c, "k")?))?
         .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<String>>(4)?.unwrap_or_default(),
                                       r.get::<_, Option<String>>(5)?, r.get::<_, Option<i64>>(6)?)))?
         .collect::<Result<Vec<_>, _>>())?;
-    let rows: Vec<_> = rows.into_iter().filter(|r| venues.contains(&r.4.as_str())).collect();
+    let mut out = vec![];
+    let mut several: std::collections::HashMap<(i64, i64), bool> = std::collections::HashMap::new();
+    for r in rows {
+        if crate::identity::VENUES.contains(&r.4.as_str()) {
+            let many = match several.get(&(r.1, r.2)) { Some(m) => *m, None => { let m = crate::identity::accounts_of(c, r.1, r.2)?.len() >= 2; several.insert((r.1, r.2), m); m } };
+            if many && crate::identity::unread(c, r.0).map_err(SyncError)? { continue; }
+        }
+        out.push(r);
+    }
+    Ok(out)
+}
+/// Rule N1: key `key` is an identity venue's key on an exchange with two or more live accounts and has no UID read of its
+/// current material: it reads nothing until discovery reads it (`candidates` leaves it out).
+pub fn waits_for_read(c: &Connection, key: i64) -> Result<bool, SyncError> {
+    let row: Option<(i64, i64, Option<String>)> = c.query_row("SELECT k.user_id, k.exchange_id, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1",
+                                                              [key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let Some((user, exchange, Some(venue))) = row else { return Ok(false) };
+    Ok(crate::identity::VENUES.contains(&venue.as_str()) && crate::identity::accounts_of(c, user, exchange)?.len() >= 2 && crate::identity::unread(c, key).map_err(SyncError)?)
+}
+/// ApiKey.reading among one account's candidates: the trading key that lacks no permission (`missing_permission?`), else
+/// the read-only one, else the first.
+fn choose(group: &[&Candidate]) -> Option<i64> {
+    group.iter().find(|r| r.3 == 0 && !crate::tracker::import::run::missing_permission(&r.4, r.5.as_deref()))
+        .or_else(|| group.iter().find(|r| r.3 == 2)).or_else(|| group.first()).map(|r| r.0)
+}
+/// ApiKey.reading: per user and account (#710; an exchange while it has one), `choose` over `candidates`.
+fn reading_keys_of(c: &Connection, venues: &[&str]) -> Result<Vec<i64>, SyncError> {
+    let rows: Vec<_> = candidates(c, "1")?.into_iter().filter(|r| venues.contains(&r.4.as_str())).collect();
     let mut groups: Vec<(i64, i64, Option<i64>)> = vec![];
     for r in &rows { if !groups.contains(&(r.1, r.2, r.6)) { groups.push((r.1, r.2, r.6)); } }
-    Ok(groups.into_iter().filter_map(|g| {
-        let group: Vec<_> = rows.iter().filter(|r| (r.1, r.2, r.6) == g).collect();
-        group.iter().find(|r| r.3 == 0 && !crate::tracker::import::run::missing_permission(&r.4, r.5.as_deref()))
-            .or_else(|| group.iter().find(|r| r.3 == 2)).or_else(|| group.first()).map(|r| r.0)
-    }).collect())
+    Ok(groups.into_iter().filter_map(|g| choose(&rows.iter().filter(|r| (r.1, r.2, r.6) == g).collect::<Vec<_>>())).collect())
+}
+/// #710 7a rules M4/Q4: THE reader selector, for one account (`keys`: its key condition on alias `k`, `Account::keys`):
+/// the key the scheduler reads its ledger and balances with, which freshness and Merge ask. None: no key can read it.
+pub fn reader_of(c: &Connection, keys: &str) -> Result<Option<i64>, SyncError> {
+    Ok(choose(&candidates(c, keys)?.iter().collect::<Vec<_>>()))
+}
+
+/// What a ledger or balance job captured at its entry (rules N7/P7): its key was its account's reader in that account's
+/// reader generation. `account` None: a number 1 with no row yet, which keeps no generation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Reader { pub key: i64, pub account: Option<i64>, pub generation: i64 }
+fn generations_ready(c: &Connection) -> rusqlite::Result<bool> { crate::engine::rules::table_exists(c, "ledger_reader_generations") }
+/// Account `account`'s reader generation (0 before its first handoff).
+pub fn reader_generation(c: &Connection, account: i64) -> Result<i64, SyncError> {
+    if !generations_ready(c)? { return Ok(0); }
+    Ok(c.query_row("SELECT generation FROM ledger_reader_generations WHERE account_id = ?1", [account], |r| r.get(0)).optional()?.unwrap_or(0))
+}
+/// Rule P7: in one read, whether key `key` is its account's reader, and that account's generation. None: it is not (a job
+/// woken for it does nothing).
+pub fn reader_entry(c: &Connection, key: i64) -> Result<Option<Reader>, SyncError> {
+    if c.is_autocommit() { let tx = c.unchecked_transaction()?; let out = reader_entry(&tx, key)?; tx.commit()?; return Ok(out); }
+    let Some(account) = crate::identity::Account::of_key(c, key)? else { return Ok(None) };
+    if reader_of(c, &account.keys("k"))? != Some(key) { return Ok(None); }
+    Ok(Some(Reader { key, account: account.id, generation: match account.id { Some(a) => reader_generation(c, a)?, None => 0 } }))
+}
+/// Rule N7: whether what `r` captured still holds (call in the transaction that checkpoints or publishes): the same
+/// account's reader, in the same generation.
+pub fn reader_holds(c: &Connection, r: &Reader) -> Result<bool, SyncError> {
+    Ok(match (reader_entry(c, r.key)?, r.account) {
+        (None, _) => false,
+        (Some(now), Some(_)) => now == *r,
+        // A number 1 that had no row at entry may get it during the run (the run's own writes ensure it): still its reader,
+        // in its first generation.
+        (Some(now), None) => now.generation == 0,
+    })
+}
+/// Rules M4/N7: the handoff, in the caller's write transaction, wherever an account's reader may have changed (a fence
+/// or its lifting, a permission fallback, a key saved, replaced or removed, a takeover): the account's reader is chosen
+/// again; when it is another key than the one stored, the generation is bumped (a run of the former reader publishes
+/// nothing) and the incoming reader's ledger and balance stamps and its saved continuation go, so the account is not
+/// current until that reader's own job has run. The first time an account is seen its reader is only stored. Returns
+/// the new reader when it changed (the caller wakes its jobs after commit).
+pub fn settle_reader(c: &Connection, account: i64) -> Result<Option<i64>, SyncError> {
+    if !generations_ready(c)? { return Ok(None); }
+    let Some(a) = crate::identity::Account::by_id(c, account)? else { return Ok(None) };
+    let reader = reader_of(c, &a.keys("k"))?;
+    let stored: Option<Option<i64>> = c.query_row("SELECT reader FROM ledger_reader_generations WHERE account_id = ?1", [account], |r| r.get(0)).optional()?;
+    match stored {
+        None => { c.execute("INSERT INTO ledger_reader_generations (account_id, generation, reader) VALUES (?1, 0, ?2)", rusqlite::params![account, reader])?; return Ok(None); }
+        Some(was) if was == reader => return Ok(None),
+        Some(_) => {}
+    }
+    c.execute("UPDATE ledger_reader_generations SET generation = generation + 1, reader = ?2 WHERE account_id = ?1", rusqlite::params![account, reader])?;
+    let Some(k) = reader else { return Ok(None) };
+    let scope = k.to_string();
+    for key in [crate::jobs::state::key("ledger_origin", Some(&scope)), format!("rust_sync.venue_ledger:{k}"), format!("rust_sync.ledger:{k}")] {
+        c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?;
+    }
+    if let Some(row) = crate::identity::AccountRow::by_id(c, account)? { c.execute("DELETE FROM app_configs WHERE key = ?1", [cache::balance_origin_key_of(&row)])?; }
+    Ok(Some(k))
+}
+/// Rule N7, at a start of an install Rust owns and in a takeover's claim: each live account's reader is settled before
+/// anything can hand it off. One with no generation row (from before the table) has its current reader stored, as
+/// `settle_reader`'s first sighting; one whose stored reader no longer reads (made unread, fenced, gone while stopped) is
+/// a handoff now, so the read that makes it eligible again moves the generation and wakes it. Inside the caller's
+/// transaction when there is one.
+pub fn seed_readers(c: &Connection) -> Result<(), SyncError> {
+    if !generations_ready(c)? { return Ok(()); }
+    let settle_all = |c: &Connection| -> Result<(), SyncError> {
+        let live: Vec<i64> = c.prepare("SELECT id FROM exchange_accounts WHERE removed_at IS NULL ORDER BY id")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        for account in live { settle_reader(c, account)?; }
+        Ok(())
+    };
+    if !c.is_autocommit() { return settle_all(c); }
+    let tx = c.unchecked_transaction()?;
+    let before = tx.total_changes();
+    settle_all(&tx)?;
+    let changed = tx.total_changes() != before;
+    tx.commit()?;
+    if changed { crate::store::mark_changed(); }
+    Ok(())
+}
+/// `settle_reader` for every live account of (user, exchange); the readers that changed.
+pub fn settle_readers(c: &Connection, user: i64, exchange: i64) -> Result<Vec<i64>, SyncError> {
+    if !generations_ready(c)? { return Ok(vec![]); }
+    let mut out = vec![];
+    for (account, _) in crate::identity::accounts_of(c, user, exchange)? { out.extend(settle_reader(c, account)?); }
+    Ok(out)
+}
+/// `settle_readers` for key `key`'s exchange (nothing for a key gone).
+pub fn settle_readers_of_key(c: &Connection, key: i64) -> Result<Vec<i64>, SyncError> {
+    if !generations_ready(c)? { return Ok(vec![]); }
+    let row: Option<(i64, i64)> = c.query_row("SELECT user_id, exchange_id FROM api_keys WHERE id = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    match row { Some((user, exchange)) => settle_readers(c, user, exchange), None => Ok(vec![]) }
 }
 
 /// Capture all seven encrypted columns.
@@ -438,6 +585,8 @@ pub fn scrub(text: &str, credentials: &Credentials) -> String {
 pub fn record_sync_error(c: &crate::engine::model::FencedTransaction<'_>, key_id: i64, text: &str, credentials: &Credentials) -> Result<String, SyncError> {
     let stored: String = scrub(text, credentials).chars().take(SYNC_ERROR_LIMIT).collect();
     c.execute("UPDATE api_keys SET last_sync_error = ?1 WHERE id = ?2", params![stored, key_id])?;
+    // A permission error moves the account's reader to its read-only key (rule M4's permission fallback).
+    settle_readers_of_key(c, key_id)?;
     Ok(stored)
 }
 

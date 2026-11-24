@@ -287,7 +287,9 @@ fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linke
         return prefix(line);
     }
     // The ledger has the window when a sync of the user's reading key on that venue reached the venue's end after it.
-    let readable = match reading_key(c, user, scope.exchange)? {
+    // #710 7a rule S10: the watermark of the account whose ledger is searched below, never another account's.
+    let account = account_of(c, user, scope.exchange)?;
+    let readable = match reading_key(c, &account)? {
         Some(key) => {
             let state = crate::jobs::state::read(c, crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string())).map_err(EngineError::Data)?;
             state.incomplete_since.is_none() && state.last_success_at.is_some_and(|t| t >= search_to + Duration::seconds(SETTLE))
@@ -298,7 +300,7 @@ fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linke
         if now < o.collected + Duration::days(GIVE_UP_DAYS) { return Ok(None); }
         return Ok(Some((unchecked(&when, &venue, "unread"), basis(vec![], scope))));
     }
-    let trades = match trades(c, &account_of(c, user, scope.exchange)?, &venue_type, &scope, search_from, search_to, linked)? {
+    let trades = match trades(c, &account, &venue_type, &scope, search_from, search_to, linked)? {
         Ok(t) => t,
         Err(()) => return Ok(Some((unchecked(&when, &venue, "unreadable"), basis(vec![], scope)))),
     };
@@ -366,12 +368,12 @@ fn current_scope(c: &Connection, o: &Obligation, exchange: i64) -> Result<Option
     Ok(Some(Scope { exchange, bases, quote, side }))
 }
 
-/// ApiKey.reading for one user and venue (sync::ledger_reading_keys).
-fn reading_key(c: &Connection, user: i64, exchange: i64) -> Result<Option<i64>, EngineError> {
+/// ApiKey.reading for one account (sync::ledger_reading_keys: one per account): the key whose ledger `account` reads.
+fn reading_key(c: &Connection, account: &crate::venue_ids::Scope) -> Result<Option<i64>, EngineError> {
     let keys = crate::sync::ledger_reading_keys(c).map_err(|e| EngineError::Data(e.0))?;
     for key in keys {
         let (u, e): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM api_keys WHERE id = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        if (u, e) == (user, exchange) { return Ok(Some(key)); }
+        if (u, e) == (account.user_id, account.exchange_id) && crate::identity::account_of_key(c, key)? == account.account { return Ok(Some(key)); }
     }
     Ok(None)
 }
@@ -627,6 +629,8 @@ fn prepare(c: &Connection, cipher: &crate::crypto::Cipher, id: i64, now: DateTim
         Ok(_) | Err(EngineError::Data(_)) => return Ok(Prep::Write(o.bot, line)),
         Err(e) => return Err(e),
     };
+    // #710 7a rule R1: a key found to open another account reads nothing for this account; the obligation waits.
+    if !model::key_reads_its_account(c, &version)? { return Ok(Prep::Wait); }
     // r1.1: a key replaced since before the window may be another account's; 2.x stores the mark to the second.
     let updated: Option<String> = c.query_row("SELECT updated_at FROM api_keys WHERE id = ?1", [version.id], |r| r.get(0))?;
     let continuous = match updated.as_deref().map(parse_time) { Some(Ok(u)) => u + Duration::seconds(1) < b.from, _ => false };

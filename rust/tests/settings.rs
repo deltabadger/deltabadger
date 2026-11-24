@@ -1209,7 +1209,8 @@ async fn deleting_one_accounts_key_stops_and_waits_for_that_accounts_bots_only()
     assert_eq!(answer.status,200,"{}",answer.body);
     let status=|bot:i64|->i64{h.c.query_row("SELECT status FROM bots WHERE id=?1",[bot],|r|r.get(0)).unwrap()};
     assert_eq!((status(first_bot),status(second_bot)),(1,2),"account 2's bot stopped, account 1's kept working");
-    assert_eq!(fingerprints(&h),[Some("fp-1".to_string()),None]);
+    // #710 7a (Codex branch r1): account 2's stopped bot keeps the account, and with it its fingerprint.
+    assert_eq!(fingerprints(&h),[Some("fp-1".to_string()),Some("fp-2".to_string())]);
     assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_keys",[],|r|r.get::<_,i64>(0)).unwrap(),0);
     let answer=h.submit("DELETE",&format!("/settings/destroy_api_key/{}",h.seed.api_key_id),&[],Csrf::Header).await;
     assert_eq!(answer.status,422);
@@ -1246,7 +1247,9 @@ async fn a_bots_key_sheet_saves_into_the_bots_account() {
     h.c.execute("UPDATE bots SET status=2",[]).unwrap();
     let first:String=h.c.query_row("SELECT key FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();
     assert_eq!(h.browser.send(&h.app,"GET",&format!("/bots/{second_bot}/add_api_key/new"),None,Csrf::None,&[]).await.status,200);
-    let answer=h.submit("POST",&format!("/bots/{second_bot}/add_api_key"),&[("api_key[key]","second-key"),("api_key[secret]","second-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    // 7a rule R11: the sheet names the bot's account (a nameless one is number 1's).
+    let account=deltabadger::identity::account_of_bot(&h.c,second_bot).unwrap().unwrap();
+    let answer=h.submit("POST",&format!("/bots/{second_bot}/add_api_key?account_id={account}"),&[("api_key[key]","second-key"),("api_key[secret]","second-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
     assert_eq!(answer.status,200,"{}",answer.body);
     let saved:(i64,i64,String)=h.c.query_row("SELECT k.id,m.account_id,k.key FROM api_keys k JOIN exchange_account_keys m ON m.api_key_id=k.id",[],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
     assert_eq!(h.app.cipher.decrypt(&saved.2).unwrap(),"second-key");
@@ -2131,6 +2134,44 @@ async fn a_kucoin_key_saved_at_runtime_wakes_its_ledger_and_balance_syncs() {
     let pending=scheduler.wakers().pending();
     for job in [deltabadger::sync::jobs::LEDGER_SYNC,deltabadger::sync::jobs::BALANCE_SYNC] {
         assert!(pending.contains(&(job.to_string(),Some(id.to_string()))),"{job} is woken for the new KuCoin key: {pending:?}");
+    }
+}
+
+/// #710 7a rules M4/N7 (Codex branch r4 #4): a KuCoin key that was pending activation at startup (no syncs registered, its
+/// account no reader) and is rechecked correct when the owner opens its key step becomes its account's reader: its ledger
+/// and balance syncs are woken at once, so a deposit reaches the tracker without a restart.
+#[tokio::test(flavor="current_thread")]
+async fn a_pending_kucoin_key_rechecked_correct_wakes_its_ledger_and_balance_syncs() {
+    use deltabadger::jobs;
+    use deltabadger::venue::kucoin_account::{MODE, OPENED};
+    let server=MockServer::start().await;
+    for (endpoint, data) in [(MODE, serde_json::json!({"selfAccountMode":"CLASSIC"})), (OPENED, serde_json::json!(false))] {
+        Mock::given(method("GET")).and(path(endpoint)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":data}))).mount(&server).await;
+    }
+    Mock::given(method("DELETE")).and(path("/api/v1/orders/000000000000000000000000")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
+    let mut h=Harness::new(server.uri()).await;
+    h.c.execute("INSERT INTO exchanges(name,type,available,created_at,updated_at) VALUES('KuCoin','Exchanges::Kucoin',1,'2026-01-01','2026-01-01')",[]).unwrap();
+    let kucoin=h.c.last_insert_rowid();
+    let scheduler=jobs::Scheduler::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone(),vec![],None);
+    let env=web::env(web::SECRET);
+    h.app=App::new(Config::from_env(&env).unwrap(),&env,rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.clock.clone()).unwrap()
+        .with_figure_source(deltabadger::web::figure::loading::Source::Disabled).unwrap().with_venue_key_urls(&server.uri(),&server.uri(),&server.uri()).unwrap();
+    h.app.attach_jobs(scheduler.wakers()).unwrap();
+    h.browser.get(&h.app,"/bots/new").await;
+    h.submit("POST","/bots/dca_single_assets/pick_exchange",&[("bots_dca_single_asset[exchange_id]",&kucoin.to_string())],Csrf::Header).await;
+    h.browser.get(&h.app,"/bots/dca_single_assets/add_api_key/new").await;
+    h.submit("POST","/bots/dca_single_assets/add_api_key",&[("api_key[key]","kc-key"),("api_key[secret]","kc-secret"),("api_key[passphrase]","kc-pass")],Csrf::Header).await;
+    let id:i64=h.c.query_row("SELECT id FROM api_keys WHERE exchange_id=?1 AND key_type=0",[kucoin],|r|r.get(0)).unwrap();
+    // As at a start while KuCoin still had the key pending: no reader, nothing registered.
+    h.c.execute("UPDATE api_keys SET status=3 WHERE id=?1",[id]).unwrap();
+    deltabadger::sync::settle_readers_of_key(&h.c,id).unwrap();
+    assert!(!deltabadger::sync::ledger_reading_keys(&h.c).unwrap().contains(&id));
+    let before=scheduler.wakers().pending().len();
+    let page=h.browser.get(&h.app,"/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(h.c.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get::<_,i64>(0)).unwrap(),1,"rechecked correct: {}",page.body);
+    let pending=scheduler.wakers().pending().split_off(before);
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC,deltabadger::sync::jobs::BALANCE_SYNC] {
+        assert!(pending.contains(&(job.to_string(),Some(id.to_string()))),"{job} is woken for the new reader: {pending:?}");
     }
 }
 

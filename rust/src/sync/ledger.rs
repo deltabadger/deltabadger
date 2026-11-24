@@ -468,7 +468,7 @@ fn present(s: &Option<String>) -> Option<&str> { s.as_deref().filter(|s| !blank(
 fn real(d: &BigDec) -> f64 { d.to_f() }
 
 /// Coinbase imports and stored-row repair bind decimal text; SQLite applies the column's NUMERIC affinity.
-pub(super) fn amount_sql(exchange_type: &str, d: &BigDec) -> rusqlite::types::Value {
+pub(crate) fn amount_sql(exchange_type: &str, d: &BigDec) -> rusqlite::types::Value {
     if exchange_type == crate::venue::coinbase::COINBASE {
         let text = d.to_s_f();
         // An integer with a decimal point takes SQLite's REAL parser and can lose digits above 2^53.
@@ -615,12 +615,15 @@ pub(super) struct Progress {
     /// import's credential stamp, which its deferred repairs carry.
     pub(super) kraken_repair: Option<Value>,
     pub(super) pending: Option<super::pending_transfers::Legacy>,
+    /// #710 7a rule N8: a file writer's importer, recorded for each row it inserts (`tracker::import::record_origin`);
+    /// None for an API sync, and on an install without the table.
+    pub(super) origin: Option<&'static str>,
 }
 
 impl Progress {
     /// What one store starts from (AccountTransactionSync#store!'s locals): nothing counted yet, over `batch`.
     pub(super) fn new(assets: AssetRule, merged: HashSet<String>, batch: Arc<Vec<Entry>>) -> Progress {
-        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: None, pending: None }
+        Progress { out: Outcome::default(), assets: Arc::new(assets), merged, min_skipped: None, stored: HashSet::new(), repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch, kraken_repair: None, pending: None, origin: None }
     }
     /// The same store going on over the next `batch` (continuation::sync stores an import a page at a time): what it
     /// counted so far carried, as one store over every page would carry it.
@@ -640,7 +643,7 @@ fn pairs_of(batch: &[Entry]) -> HashMap<String, Vec<usize>> {
 pub(super) type EventKey = (i64, Option<String>, BigDec, Option<DateTime<Utc>>);
 
 /// The legs of every merged split already stored for the user on this venue.
-pub(super) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
+pub(crate) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
     let mut merged: HashSet<String> = HashSet::new();
     let mut s = c.prepare(&format!("SELECT raw_data FROM account_transactions WHERE user_id = ?1 AND exchange_id = ?2 AND entry_type = ?3 AND {}", key.scope.rows("account_transactions")))?;
     for raw in s.query_map(params![key.user_id, key.exchange_id, ADJUSTMENT], |r| r.get::<_, Option<String>>(0))? {
@@ -771,11 +774,12 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
                 "INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, quote_currency, quote_amount, \
              fee_currency, fee_amount, tx_id, group_id, description, transacted_at, raw_data, manual_values, base_asset_id, transaction_id, \
              transfer_link_rejected, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, '{}', ?16, ?17, 0, ?18, ?18)",
-                params![key.user_id, key.id, key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
+                params![key.user_id, key.api_key_id(), key.exchange_id, e.entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), e.quote_currency, e.quote_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)),
                     if no_fee { None } else { e.fee_currency.as_deref() }, if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type, d)) }, key.scope.stored(tx_id), e.group_id,
                     e.description, sql_time(at), e.raw.text(), p.assets.asset_id(c, Some(base_currency), &e.raw.value, Some(at))?, bot_order, sql_time(now)])?;
             let row = c.last_insert_rowid();
             venue_ids::after_insert(c, &key.scope, row, tx_id)?;
+            if let Some(kind) = p.origin { crate::tracker::import::record_origin(c, row, kind, now)?; }
             p.stored.insert(row);
         }
         p.merged.extend(merged_ids(&e.raw.value));
@@ -796,23 +800,34 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
 /// Import::Run#write for one account: AccountTransactionSync#store! over what a file holds for it, inside the caller's
 /// transaction (the one the whole file is written in). The watermark, the recent assets and the transfer matcher are
 /// the sync's alone: an import moves none of them.
-pub fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
-    FileWriter::new(c, key)?.store(c, key, entries, now)
+/// `origin`: the importer each inserted row is recorded under (rule N8).
+pub fn store_file(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, origin: &'static str, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+    FileWriter::new(c, key, origin)?.store(c, key, entries, now)
+}
+/// `store_file` beside rows `taken` (stored rows other entries of the same file already matched): no evidence that an
+/// entry is a duplicate, as rows this run stored are not.
+pub(crate) fn store_file_besides(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, origin: &'static str, taken: &HashSet<i64>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+    FileWriter::new(c, key, origin)?.store_from(c, key, entries, taken.clone(), now)
 }
 
 /// `store_file`'s writer state (the venue's asset rule, the merged legs stored), read once for a writer that stores
 /// many batches in one transaction (a KuCoin file, one UTC second at a time). Each batch is its own store, exactly as
 /// `store_file` over it: only the state read before the store is carried, with the legs each batch merged.
-pub(crate) struct FileWriter { assets: Arc<AssetRule>, merged: HashSet<String>, pending: super::pending_transfers::Legacy }
+pub(crate) struct FileWriter { assets: Arc<AssetRule>, merged: HashSet<String>, pending: super::pending_transfers::Legacy, origin: Option<&'static str> }
 
 impl FileWriter {
-    pub(crate) fn new(c: &Connection, key: &Key) -> Result<Self, SyncError> {
-        Ok(Self { assets: Arc::new(asset_rule(c, key.exchange_id, &key.exchange_type)?), merged: stored_merged(c, key)?, pending: super::pending_transfers::Legacy::load(c,key)? })
+    /// Every row it inserts is a file's, recorded under `origin` (rule N8).
+    pub(crate) fn new(c: &Connection, key: &Key, origin: &'static str) -> Result<Self, SyncError> {
+        let origin = crate::tracker::import::origins_ready(c)?.then_some(origin);
+        Ok(Self { assets: Arc::new(asset_rule(c, key.exchange_id, &key.exchange_type)?), merged: stored_merged(c, key)?, pending: super::pending_transfers::Legacy::load(c,key)?, origin })
     }
     pub(crate) fn store(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
+        self.store_from(c, key, entries, HashSet::new(), now)
+    }
+    fn store_from(&mut self, c: &crate::engine::model::FencedTransaction<'_>, key: &Key, entries: Vec<Entry>, stored: HashSet<i64>, now: DateTime<Utc>) -> Result<Outcome, SyncError> {
         let batch = Arc::new(entries);
-        let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored: HashSet::new(),
-                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: None, pending: Some(self.pending.clone()) };
+        let p = Progress { out: Outcome::default(), assets: self.assets.clone(), merged: std::mem::take(&mut self.merged), min_skipped: None, stored,
+                           repeats: BTreeMap::new(), file_pairs: pairs_of(&batch), batch: batch.clone(), kraken_repair: None, pending: Some(self.pending.clone()), origin: self.origin };
         let p = store(c, key, 0..batch.len(), None, p, now)?;
         self.merged = p.merged;
         Ok(p.out)
@@ -1087,7 +1102,8 @@ fn file_transfer_twin(c: &Connection, key: &Key, p: &Progress, index: usize, rep
     let Some(at) = e.transacted_at else { return Ok(false) };
     if same_event(c, key, e, e.entry_type, "", &p.stored, repeat, &api_transfer_row)? { return Ok(true); }
     for _ in 0..2 {
-        let candidates = api_rows_for(c, key, e)?;
+        // A row this run stored, or one another entry of the file already matched (`store_file_besides`), pairs no more.
+        let candidates: Vec<Stored> = api_rows_for(c, key, e)?.into_iter().filter(|r| !p.stored.contains(&r.id)).collect();
         if twinned(&candidates, at) { return Ok(true); }
         let free: Vec<&Stored> = candidates.iter().filter(|r| r.raw.get("file_twin_at").is_none()).collect();
         let [free] = free[..] else { return Ok(false) };

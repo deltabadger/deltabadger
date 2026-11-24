@@ -708,7 +708,14 @@ async fn run(dir: &Path) -> Value {
         // D-NO-USER-NAME: 2.x's recorded query, without the column this build dropped.
         if let Some(sql) = step["account_rows"].as_str() { response["account_rows"] = account_rows(dir, &sql.replacen("SELECT id, name, ", "SELECT id, ", 1)); }
         if step["tax_files"] == true { response["tax_files"] = tax_files(dir); }
-        let requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
+        let mut requests = without_identity_reads(venue_transcript(&key_server.received_requests().await.unwrap_or_default()[seen..]));
+        // D-JSON-KEY-IDENTITY (#710 7a): the JSON save of an identity venue's key reads its account, and only that, before its
+        // 201; the permission check stays asynchronous, as 2.x's.
+        if step["method"] == "POST" && step["path"].as_str().is_some_and(|p| p.ends_with("/api/api_keys")) && answer.status == 201 {
+            let identity = |r: &Value| r["method"] == "GET" && ((r["host"] == "api.kucoin.com" && r["path"] == deltabadger::identity::KUCOIN_PATH)
+                                                             || (r["host"] == "api.binance.com" && r["path"] == deltabadger::identity::BINANCE_PATH));
+            if requests.len() == 1 && identity(&requests[0]) { requests.clear(); }
+        }
         if !requests.is_empty() { response["venue_requests"] = json!(requests); }
         if let Some(tables) = step.get("may_mutate") { response["may_mutate"] = tables.clone(); }
         if let Some(spec) = step["raw_rows"].as_object() { response["raw_rows"] = raw_rows(dir, spec, &step["raw_clock"]); }

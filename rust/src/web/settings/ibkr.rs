@@ -222,7 +222,7 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
     } else {
         let candidate = original.with_ibkr_credentials(consumer, token, secret);
         match keys::submit_candidate(&app, crate::venue::ibkr::IBKR, "Interactive Brokers", 0, original, candidate).await? {
-            Submitted::Correct => {
+            Submitted::Correct(_) | Submitted::Moved { .. } => {
                 let id = key.id;
                 let status: i64 = app.db(move |c| Ok(c.query_row("SELECT status FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?)).await?;
                 connected = status == 1;
@@ -242,12 +242,15 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
 pub async fn destroy(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let inner = app.clone();
-    let key = app.db(move |c| stored(c, &inner, user.id)).await?;
-    if gated(&app, key.as_ref()) { return Ok(gate(&ctx)); }
-    let exchange = key.as_ref().map(|key| key.exchange);
-    if let Some(key) = key {
+    // #710 7a rule S4: the row as read here is the one removed; an activation committed meanwhile keeps its key (`remove`
+    // refuses a changed row, retryable).
+    let read = app.db(move |c| Ok(match stored(c, &inner, user.id)? { Some(key) => { let row = keys::stored_ciphertext(c, key.id)?; Some((key, row)) } None => None })).await?;
+    let key = read.as_ref().map(|(key, _)| key);
+    if gated(&app, key) { return Ok(gate(&ctx)); }
+    let exchange = key.map(|key| key.exchange);
+    if let Some((key, row)) = read {
         let inner = app.clone();
-        let outcome = app.db(move |c| keys::remove(c, &inner, user.id, key.id, |_| Ok(()))).await?;
+        let outcome = app.db(move |c| keys::remove(c, &inner, user.id, key.id, Some(&row), |_| Ok(()))).await?;
         if let Some(Err(reason)) = outcome {
             flash::set(&ctx.session, flash::ALERT, keys::refusal_text(&ctx, &reason));
             // Refused, the key kept: the sheet again, the reason in it.

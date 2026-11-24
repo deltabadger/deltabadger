@@ -441,7 +441,8 @@ async fn kucoin_a_foreign_id_is_the_classic_cancel_on_a_classic_account_and_refu
     // A mode KuCoin will not tell: refused, nothing sent.
     server.reset().await;
     Mock::given(matchers::method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": "500000", "msg": "busy"}))).mount(&server).await;
-    let key: i64 = o.primary.query_row("SELECT id FROM api_keys", [], |r| r.get(0)).unwrap();
+    let (key, user, exchange): (i64, i64, i64) = o.primary.query_row("SELECT id, user_id, exchange_id FROM api_keys", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    deltabadger::identity::Account::first(&o.primary, user, exchange).unwrap().ensure(&o.primary, at(T0)).unwrap(); // a fingerprinted account has its row
     deltabadger::venue::kucoin_account::Resolver::shared().invalidate(&server.uri(), key);
     let (status, body) = rest_cancel(&kucoin_app(&d, &server), "FOREIGN-1?exchange_name=KuCoin").await;
     assert_eq!((status, &body["error"]["code"]), (502, &json!("cancel_failed")), "{body}");
@@ -610,4 +611,155 @@ async fn a_second_accounts_standalone_order_needs_only_its_own_accounts_key() {
     kucoin_mode(&server, &o, "classic").await;
     let (status, body) = rest_cancel(&kucoin_app(&d, &server), &format!("SCL-3?exchange_name=kucoin&account_id={}", second.id.unwrap())).await;
     assert_eq!((status, &body["data"]["cancelled"]), (200, &json!(true)), "{body}");
+}
+
+/// #710 7a §9.3: a numeric order id with an explicit `account_id` looks the local order up only within that account. Account
+/// 1's bot row id, named for account 2, is not account 1's order: it is a bare id cancelled through account 2's key.
+#[tokio::test(flavor = "current_thread")]
+async fn a_numeric_order_id_named_for_another_account_is_not_that_accounts_row() {
+    use deltabadger::identity::Account;
+    let server = MockServer::start().await;
+    let (d, o, bot, rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange): (i64, i64) = c.query_row("SELECT user_id, exchange_id FROM bots WHERE id = ?1", [bot], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [user, exchange]).unwrap();
+    let second = Account::by_id(c, c.last_insert_rowid()).unwrap().unwrap();
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("account-2-key"), cipher.encrypt("dGVzdC1zZWNyZXQ="), cipher.encrypt("pass")]).unwrap();
+    second.add_key(c, c.last_insert_rowid()).unwrap();
+    kucoin_mode(&server, &o, "classic").await;
+    let app = kucoin_app(&d, &server);
+    let (status, body) = rest_cancel(&app, &format!("{}?exchange_name=kucoin&account_id={}", rows[2], second.id.unwrap())).await;
+    assert_eq!(status, 200, "{body}");
+    let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().filter(|r| r.method.as_str() == "DELETE")
+        .map(|r| (r.headers.get("KC-API-KEY").unwrap().to_str().unwrap().to_string(), r.url.path().to_string())).collect();
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0].0, "account-2-key", "account 2's key, never account 1's row");
+    assert!(sent[0].1.ends_with(&format!("/{}", rows[2])), "the id as a bare venue id: {sent:?}");
+}
+
+/// #710 7a §9.4: a standalone order the pre-flight recorded terminal never sends a cancel, after a key replacement too: the
+/// cancel ends locally, saying so.
+#[tokio::test(flavor = "current_thread")]
+async fn a_standalone_order_recorded_terminal_sends_no_cancel() {
+    use deltabadger::{engine::api_orders, identity::Account};
+    let server = MockServer::start().await;
+    let (d, o, _bot, _rows) = kucoin_install(&server.uri());
+    let c = &o.primary;
+    let (user, exchange, ticker): (i64, i64, i64) = c.query_row("SELECT k.user_id, t.exchange_id, t.id FROM api_keys k JOIN tickers t ON t.exchange_id=k.exchange_id", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let first = Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    let (amount, pair) = (deltabadger::v2::BigDec::parse("0.001").unwrap(), serde_json::Map::new());
+    let id = api_orders::insert(c, &api_orders::New::Standalone { user_id: user, side: deltabadger::venue::Side::Buy, amount: &amount, in_base: true, supplied: &pair,
+        standalone: api_orders::Standalone { account: first, exchange_id: exchange, ticker_id: ticker, limit: true, price: Some(deltabadger::v2::BigDec::parse("60000").unwrap()), mcp: false } }, at(T0)).unwrap();
+    api_orders::take(c, id, at(T0)).unwrap().unwrap();
+    assert!(api_orders::claim(c, id, "cl", None, &json!({"symbol": "BTC-EUR", "side": "buy", "limit": true})).unwrap());
+    api_orders::finish(c, id, &api_orders::Outcome::Placed { order_id: "SCL-9".into() }).unwrap();
+    deltabadger::merge::record_terminal(c, id, "filled").unwrap();
+    kucoin_mode(&server, &o, "classic").await;
+    let (status, body) = rest_cancel(&kucoin_app(&d, &server), "SCL-9?exchange_name=kucoin").await;
+    assert_ne!(status, 200, "{body}");
+    assert!(body.to_string().contains("already filled"), "{body}");
+    assert!(server.received_requests().await.unwrap().iter().all(|r| r.method.as_str() != "DELETE"), "nothing sent");
+}
+
+/// #710 7a: fence the install's one trading key: its account knows fingerprint `fa`, the key's latest identity read names
+/// `fb` (`identity::fenced_sql`).
+fn fence_the_key(c: &rusqlite::Connection) {
+    let (key, user, exchange): (i64, i64, i64) = c.query_row("SELECT id, user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    let account = deltabadger::identity::Account::first(c, user, exchange).unwrap().ensure(c, at(T0)).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = 'fa' WHERE id = ?1", [account.id.unwrap()]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account.id.unwrap()]).unwrap();
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, 'fb', ?3)", rusqlite::params![key, exchange, T0]).unwrap();
+    let fenced = deltabadger::identity::fenced_sql(c, "k").unwrap();
+    assert!(c.query_row(&format!("SELECT {fenced} FROM api_keys k WHERE k.id = ?1"), [key], |r| r.get::<_, bool>(0)).unwrap(), "fenced");
+}
+
+/// #710 7a §9.1 (Codex branch r1, run.rs:876 and bot_api/orders.rs:540): a key whose identity read names another account
+/// polls nothing and cancels nothing, whether from the bot page or the API by row or by exchange id: the venue could
+/// hold another wallet's order with the same id. The order waits; nothing is sent, nothing is re-read.
+#[tokio::test(flavor = "current_thread")]
+async fn a_fenced_key_polls_and_cancels_nothing() {
+    let i = install();
+    api_client(&i.o.primary);
+    fence_the_key(&i.o.primary);
+    let t = ScriptedTransport::from_script(&json!({ "GET /v2/orders/OPEN-1": [open_order(), cancelled_order()] }));
+    let mut engine = running_engine(&i, &t).await;
+    deltabadger::engine::run::step(&mut engine, &FixedClock(at(T0))).await.unwrap();
+    assert_eq!(reads(&t), 0, "no poll through the fenced key");
+    let server = venue(204, None).await;
+    let (app, mut browser) = signed_in(&i, &server.uri()).await;
+    let name: String = i.o.primary.query_row("SELECT name FROM exchanges WHERE id = ?1", [i.s.exchange_id], |r| r.get(0)).unwrap();
+    let answer = cancel(&app, &mut browser, &format!("/bots/{}/transactions/{}", i.bot, i.open)).await;
+    assert_eq!((answer.status, answer.body), (422, flash("danger", &format!("Failed to cancel order: Invalid API key. Please check your API key settings on {name}."))));
+    let (status, body) = rest_cancel(&app, &i.open.to_string()).await;
+    assert_eq!((status, body), (502, failed("Cancel failed: the API key reads another account")));
+    let (status, body) = rest_cancel(&app, "OPEN-1?exchange_name=alpaca").await;
+    assert_eq!((status, &body["error"]["code"]), (403, &json!("api_key_missing")), "{body}");
+    assert!(server.received_requests().await.unwrap().is_empty(), "nothing sent");
+    assert!(reread_keys(&i.o).is_empty(), "nothing to re-read");
+    assert_eq!(row_state(&i.o, i.open).0, Some(1), "the order waits, open");
+}
+
+/// Answers KuCoin's account mode (classic) and, as it answers, fences the install's trading key: discovery finding the key
+/// opens another account while the cancel waits on that lookup.
+struct FenceOnMode(std::path::PathBuf);
+impl wiremock::Respond for FenceOnMode {
+    fn respond(&self, _: &wiremock::Request) -> ResponseTemplate {
+        let c = rusqlite::Connection::open(&self.0).unwrap();
+        fence_the_key(&c);
+        ResponseTemplate::new(200).set_body_json(json!({"code": "200000", "data": {"selfAccountMode": "CLASSIC"}}))
+    }
+}
+
+/// Rule F3 (Codex branch r2, bot_api/orders.rs:555): a cancel re-checks the fence after its last await, right before it
+/// sends. A bare KuCoin id waits on the account-mode lookup; a key fenced meanwhile sends nothing (A's order id never goes
+/// through B's wallet), by exchange id and by a bot row's id alike.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_a_key_fenced_while_a_cancel_waits_sends_no_cancel() {
+    let server = MockServer::start().await;
+    let (d, o, _bot, _rows) = kucoin_install(&server.uri());
+    let path = std::path::PathBuf::from(o.primary.path().unwrap());
+    Mock::given(matchers::method("GET")).and(matchers::path(KUCOIN_MODE)).respond_with(FenceOnMode(path)).mount(&server).await;
+    Mock::given(matchers::method("GET")).and(matchers::path("/api/v1/hf/accounts/opened")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": "200000", "data": false}))).mount(&server).await;
+    Mock::given(matchers::method("DELETE")).and(matchers::path_regex("^/api/v1/orders/")).respond_with(ResponseTemplate::new(200)
+        .set_body_json(json!({"code": "200000", "data": {"cancelledOrderIds": ["x"]}}))).mount(&server).await;
+    let (key, user, exchange): (i64, i64, i64) = o.primary.query_row("SELECT id, user_id, exchange_id FROM api_keys", [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+    deltabadger::identity::Account::first(&o.primary, user, exchange).unwrap().ensure(&o.primary, at(T0)).unwrap(); // a fingerprinted account has its row
+    deltabadger::venue::kucoin_account::Resolver::shared().invalidate(&server.uri(), key);
+    let (status, body) = rest_cancel(&kucoin_app(&d, &server), "FOREIGN-1?exchange_name=KuCoin").await;
+    assert_eq!((status, body), (502, failed("Cancel failed: the API key reads another account")));
+    assert!(sends(&server).await.is_empty(), "nothing sent");
+}
+
+/// Answers Alpaca's cancel yes and, as it answers, fences the install's trading key: discovery finding the key opens
+/// another account while the cancel is out.
+struct FenceOnCancel(std::path::PathBuf);
+impl wiremock::Respond for FenceOnCancel {
+    fn respond(&self, _: &wiremock::Request) -> ResponseTemplate {
+        fence_the_key(&rusqlite::Connection::open(&self.0).unwrap());
+        ResponseTemplate::new(204)
+    }
+}
+
+/// Rule R1 (Codex branch r3, cancel.rs:36): a cancel's yes read after the key was found to open another account while the
+/// cancel was out confirms nothing for this account: no success flash, no `cancelled: true`.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_r1_a_cancel_whose_key_is_fenced_while_it_is_out_is_not_confirmed() {
+    let i = install();
+    api_client(&i.o.primary);
+    let (user, exchange): (i64, i64) = i.o.primary.query_row("SELECT user_id, exchange_id FROM api_keys WHERE key_type = 0", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    deltabadger::identity::Account::first(&i.o.primary, user, exchange).unwrap().ensure(&i.o.primary, at(T0)).unwrap(); // a fingerprinted account has its row
+    let path = std::path::PathBuf::from(i.o.primary.path().unwrap());
+    let server = MockServer::start().await;
+    Mock::given(matchers::method("DELETE")).and(matchers::path("/v2/orders/OPEN-1")).respond_with(FenceOnCancel(path)).mount(&server).await;
+    let (app, mut browser) = signed_in(&i, &server.uri()).await;
+    let answer = cancel(&app, &mut browser, &format!("/bots/{}/transactions/{}", i.bot, i.open)).await;
+    assert_eq!((answer.status, answer.body), (422, flash("danger", "Failed to cancel order")));
+    // The REST cancel alike, the fence lifted before it and raised again while it is out.
+    i.o.primary.execute("DELETE FROM exchange_account_credentials", []).unwrap();
+    let (status, body) = rest_cancel(&app, &i.open.to_string()).await;
+    assert_eq!((status, body), (502, failed("Cancel failed: the cancel could not be confirmed: the API key was found to open another account while it was sent")));
 }

@@ -594,6 +594,10 @@ async fn csv_first_internal_legs_get_their_kraken_metadata_and_link() {
     let meta: Value = serde_json::from_str(&raw("I1")).unwrap();
     assert_eq!(meta, json!({ "type": "transfer", "subtype": "spottostaking", "refid": "P1", "asset": "XETH" }));
     assert_eq!(raw("I3"), "{\"source\":\"elsewhere\"}", "non-empty raw data is kept");
+    // #710 7a rule N8: the restored legs still read as imported once the sync enriched them (provenance is no raw-data tag).
+    let origin = |tx: &str| fx.c.query_row("SELECT o.import_kind FROM import_row_origins o JOIN account_transactions a ON a.id = o.transaction_id WHERE a.user_id = ?1 AND a.tx_id = ?2",
+                                            params![user, tx], |r| r.get::<_, String>(0)).unwrap();
+    assert_eq!([origin("I1"), origin("I2"), origin("I3")], ["deltabadger", "deltabadger", "deltabadger"]);
     assert_eq!(fx.row(user, "I1").7, Some("I2".into()), "linked by its refid");
     let (_, _, _, w) = walked(&fx, user);
     let fee = w.rows.iter().find(|r| r.linked && r.amount.to_f() == 1.1).and_then(|r| r.transfer_fee.clone()).unwrap().to_f();

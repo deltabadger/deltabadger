@@ -214,7 +214,7 @@ sk:
         platform:
             option: 'Deltabadger.com'
             subscription_title: 'Predplatné Self-hosted'
-            subscription_html: 'Predplatné Self-hosted <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> zahŕňa Market Data API a pevnú IP adresu na whitelist na burzách.'
+            subscription_html: 'Predplatné Self-hosted <a href="https://deltabadger.com/sk/self-hosted" target="_blank" rel="noopener">Deltabadger</a> zahŕňa Market Data API a pevnú IP adresu na whitelist na burzách.'
             code: 'Kód pripojenia'
             connect: 'Pripojiť'
             connected_with_proxies: 'Pripojené k Deltabadger.com pre trhové dáta a proxy servery búrz.'
@@ -669,6 +669,8 @@ sk:
             drop: 'Presuň sem súbor CSV'
             drop_hint: 'alebo klikni a vyber súbor'
             which_account: 'Tento súbor môže byť z oboch účtov Binance. Z ktorého?'
+            which_of_accounts: 'Tento súbor môže byť z viacerých účtov tu. Z ktorého?'
+            new_account: 'Nový účet'
             unrouted: 'Pre %{exchanges} nie je pripojený účet. Tieto riadky sa vynechali.'
             error_no_account_for_format: 'Pre tento formát nie je pripojený zodpovedajúci účet.'
             format: 'Formát'

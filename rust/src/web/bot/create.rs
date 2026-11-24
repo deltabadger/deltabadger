@@ -405,7 +405,7 @@ fn index(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resul
     if present(get(p, "label")) { built.label = text(get(p, "label")); }
     schedule(tx, user, &mut built.settings, p.get("start_at"), ctx.now)?;
     let create_errors: Vec<FieldError> = wizard::index_create::validate(&built, "en").into_iter().map(|message| FieldError { field: "num_coins".into(), message }).collect();
-    let id = wizard::index_create::insert(tx, user, built, ctx.now)?;
+    let id = wizard::index_create::insert(tx, user, built, None, ctx.now)?;
     crate::identity::place_bot(tx, id, user, venue.id, Some(account), ctx.now)?;
     let mut prepared = match start(tx, ctx, user, id, create_errors)? { Ok(p) => p, Err(res) => return Ok(refused(res)) };
     if let Some(res) = unservable(tx, ctx, id)? { return Ok(refused(res)); }
@@ -433,7 +433,7 @@ fn signal(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Resu
         return Ok(refused(pair_not_found(&shown, &text(get(p, "base_asset")), get(p, "quote_asset"))));
     };
     let label = present(get(p, "label")).then(|| text(get(p, "label")));
-    let id = signal_write::insert_created(tx, user, venue.id, &json!({"base_asset_id": base, "quote_asset_id": quote}), label.as_deref(), &[], "en", ctx.now)?;
+    let id = signal_write::insert_created(tx, user, venue.id, None, &json!({"base_asset_id": base, "quote_asset_id": quote}), label.as_deref(), &[], "en", ctx.now)?;
     crate::identity::place_bot(tx, id, user, venue.id, Some(account), ctx.now)?;
     let broadcasts = match signal_write::start_created(tx, ctx, user, id)? {
         signal_write::Started::Yes(broadcasts) => broadcasts,
