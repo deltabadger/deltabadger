@@ -2499,3 +2499,162 @@ async fn s9_a_transient_coinbase_breakdown_keeps_a_correct_keys_status_at_revali
         assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), expected, "flipped {flipped}");
     }
 }
+
+// ---- #710 slice 9, review r1 ----
+
+/// A read-only Coinbase key `key` placed on `account` as 2.x would leave it: correct, never read.
+fn coinbase_unread(c: &Connection, user: i64, exchange: i64, account: i64, key: &str) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt(key), cipher.encrypt(common::coinbase_key::SECRET)]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    assert!(identity::unread(c, id).unwrap());
+    id
+}
+/// A stored duplicate standing: `duplicate` is `survivor`'s twin.
+fn stand(c: &Connection, user: i64, exchange: i64, duplicate: i64, survivor: i64) {
+    c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+              rusqlite::params![duplicate, survivor, user, exchange, identity::standing_basis(c, duplicate, survivor).unwrap()]).unwrap();
+}
+fn standings(c: &Connection) -> i64 { one(c, "SELECT count(*) FROM exchange_account_standings") }
+
+/// Review r1 #1: on an exchange with one account, a Reconnect that would replace an installed key nothing has read yet
+/// reads that key first: portfolio B's key never takes the slot (and the history) of portfolio A's.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_reconnect_of_the_sole_account_reads_its_unread_key_first() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = coinbase_unread(c, user, exchange, first, "cb-unread");
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-b")).await;
+    assert_eq!(permission_reads(&server, "cb-unread").await, 1, "the installed key was read first: {} {}", answer.status, answer.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    let on_first: Vec<String> = keys(c, &cipher, exchange).into_iter().filter(|(n, _)| *n == 1).map(|(_, k)| k).collect();
+    assert_eq!(on_first, ["cb-unread"], "B's key never replaced A's: {} {}", answer.status, answer.body);
+    // The same key posted again is no other key: nothing more is read for it.
+    let repost = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-unread")).await;
+    assert!(repost.status < 400, "{}: {}", repost.status, repost.body);
+    assert_eq!(permission_reads(&server, "cb-unread").await, 2, "one read: the repost's own");
+}
+
+/// Review r1 #2: a refused repost records its read only on the installed key as it was before the request. A save that
+/// rewrote the key meanwhile (the same material, a fresh ciphertext) is a newer version: nothing is stamped on it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_refused_repost_never_stamps_a_key_rewritten_meanwhile() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = coinbase_unread(c, user, exchange, first, "cb-a");
+    let db = c.path().unwrap().to_string();
+    Mock::given(method("GET")).and(path(format!("/api/v3/brokerage/portfolios/{}", common::coinbase_key::PORTFOLIO_A))).respond_with(move |_: &wiremock::Request| {
+        let other = Connection::open(&db).unwrap();
+        let cipher = seed::cipher();
+        identity::write_credential(&other, &cipher, key, Some(&cipher.encrypt("cb-a")), Some(&cipher.encrypt(common::coinbase_key::SECRET)), None, chrono::Utc::now()).unwrap();
+        ResponseTemplate::new(503)
+    }).up_to_n_times(1).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(identity::unread(c, key).unwrap(), "the read belongs to the version before the rewrite");
+}
+
+/// Review r1 #3: the previously-correct rule takes only a transient non-verdict. A correct key whose recheck's first read
+/// is refused (401) is written pending and its standing ends; one that answers 503 stays correct and keeps it.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_definite_refusal_still_demotes_a_correct_key_at_revalidate() {
+    for (answer, status, standing) in [(401, 0, 0), (503, 1, 1)] {
+        let (_d, o, user, exchange, server, app) = coinbase().await;
+        let c = &o.primary;
+        let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        let key = coinbase_unread(c, user, exchange, first, "cb-a");
+        let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        stand(c, user, exchange, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+        let db = c.path().unwrap().to_string();
+        Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("cb-a")).respond_with(move |_: &wiremock::Request| {
+            // Correct while the recheck is in flight.
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(answer).set_body_json(serde_json::json!({"error": "UNAUTHENTICATED", "code": 16, "message": "refused", "details": []}))
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, user);
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type=read_only&account_id={first}")).await;
+        assert_eq!(permission_reads(&server, "cb-a").await, 1, "{answer}: the recheck ran");
+        assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), standings(c)), (status, standing), "{answer}");
+    }
+}
+
+/// Review r1 #4: the JSON save's same-key repost of a correct Coinbase key whose permission read answers 503 neither
+/// demotes it nor ends its standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_json_same_key_repost_with_a_transient_read_keeps_a_correct_key() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = coinbase_unread(c, user, exchange, first, "cb-a");
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    stand(c, user, exchange, second, first);
+    Mock::given(method("GET")).and(path(deltabadger::venue::coinbase::PERMISSIONS)).and(common::coinbase_key::Kid("cb-a"))
+        .respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("api_key[exchange_id]", exchange_s.as_str()), ("api_key[account_id]", first_s.as_str()), ("api_key[key_type]", "read_only"),
+                ("api_key[key]", "cb-a"), ("api_key[secret]", common::coinbase_key::SECRET)];
+    let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(permission_reads(&server, "cb-a").await, 1);
+    assert_eq!((one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), standings(c)), (1, 1));
+}
+
+/// Review r1 #5: the refused-repost recording is Coinbase's (`identity::VALIDATION_READS`): a KuCoin HF trading key
+/// reposted, read for its UID and refused for its missing Spot permission, stays unread, as on main.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_refused_kucoin_repost_leaves_its_installed_key_unread() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let c = &o.primary;
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH)).and(header("KC-API-KEY", "key-hf"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":{"uid": UID_A, "permission":"General"}}))).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::kucoin_account::OPENED))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"code":"200000","data":true}))).with_priority(1).mount(&server).await;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt("key-hf"), cipher.encrypt("secret"), cipher.encrypt("phrase")]).unwrap();
+    let key = c.last_insert_rowid();
+    identity::Account::by_id(c, first).unwrap().unwrap().add_key(c, key).unwrap();
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let form = [("exchange_id", exchange_s.as_str()), ("key_type", "trading"), ("account_id", first_s.as_str()),
+                ("api_key[key]", "key-hf"), ("api_key[secret]", "secret"), ("api_key[passphrase]", "phrase")];
+    let answer = b.send(&app, "POST", "/tracker/add_api_key", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status >= 400 || answer.body.contains("Spot"), "refused for its permission: {}: {}", answer.status, answer.body);
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == identity::KUCOIN_PATH), "the UID was read");
+    assert!(identity::unread(c, key).unwrap(), "a KuCoin refusal records nothing on the installed key");
+}
+
+/// Review r1 #6: a refused repost that makes the installed key its account's reader (its first read, on an exchange with
+/// two accounts) wakes that reader's ledger and balance jobs.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_r1_a_refused_repost_wakes_the_reader_it_made() {
+    let (_d, o, user, exchange, server, app) = coinbase().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let key = coinbase_unread(c, user, exchange, first, "cb-a");
+    let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    coinbase_unread(c, user, exchange, second, "cb-b");
+    deltabadger::sync::settle_readers_of_key(c, key).unwrap();
+    assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key), "unread: no reader");
+    Mock::given(method("GET")).and(path(format!("/api/v3/brokerage/portfolios/{}", common::coinbase_key::PORTFOLIO_A)))
+        .respond_with(ResponseTemplate::new(503)).with_priority(1).mount(&server).await;
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &coinbase_fields("cb-a")).await;
+    assert!(answer.status >= 400, "{}: {}", answer.status, answer.body);
+    assert!(!identity::unread(c, key).unwrap() && deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key), "read and reading");
+    let pending = app.job_wakers().unwrap().pending();
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC] {
+        assert!(pending.contains(&(job.to_string(), Some(key.to_string()))), "{job} is woken for the new reader: {pending:?}");
+    }
+}

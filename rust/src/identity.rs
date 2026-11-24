@@ -103,26 +103,35 @@ fn definite_of(exchange_type: &str) -> Definite {
 /// Whether a failed identity read of `exchange_type` is the venue's definite answer on the key's current material (#710,
 /// `definite_of`). A 5xx, a rate limit, any other status and the reads that reached no venue (`transport`, `no egress`,
 /// `proxy unreadable`) say nothing about the account. `code` as `failure` writes it (`http <status>[; code <code>]`).
-pub fn definite_failure(exchange_type: &str, code: &str) -> bool {
+pub fn definite_failure(exchange_type: &str, code: &str) -> bool { definite_by(&definite_of(exchange_type), code) }
+fn definite_by(rule: &Definite, code: &str) -> bool {
     let Some(rest) = code.strip_prefix("http ") else { return false };
     let mut parts = rest.splitn(2, ';');
     let Some(status) = parts.next().and_then(|s| (s.len() == 3).then(|| s.parse::<u16>().ok()).flatten()) else { return false };
     let venue_code = parts.next().and_then(|c| c.trim().strip_prefix("code ")).map(str::trim);
-    let rule = definite_of(exchange_type);
-    (rule.success && (200..300).contains(&status)) || rule.statuses.contains(&status) || venue_code.is_some_and(|c| rule.codes.contains(&c))
+    // Review r1 #7: a venue's refusal code under a rate limit or a 5xx is the venue's trouble, never the key's.
+    (rule.success && (200..300).contains(&status)) || rule.statuses.contains(&status)
+        || (status != 429 && status < 500 && venue_code.is_some_and(|c| rule.codes.contains(&c)))
 }
 /// SQL condition: failure code expression `code`, of a credential of exchange id expression `exchange`, is a definite
 /// failure (`definite_failure`: the same rule, per venue).
 fn definite_sql(code: &str, exchange: &str) -> String {
+    let arms: Vec<String> = VENUES.iter().filter(|v| definite_of(v) != LEGACY).map(|venue| format!("WHEN '{venue}' THEN {}", condition_sql(&definite_of(venue), code))).collect();
+    format!("(CASE (SELECT type FROM exchanges WHERE id = {exchange}) {} ELSE {} END)", arms.join(" "), condition_sql(&LEGACY, code))
+}
+/// SQL condition: failure code expression `code` is definite under `rule` (`definite_by`).
+fn condition_sql(rule: &Definite, code: &str) -> String {
     let status = |s: &str| format!("{code} LIKE 'http {s}' OR {code} LIKE 'http {s};%'");
-    let condition = |rule: Definite| {
-        let mut any: Vec<String> = rule.statuses.iter().map(|s| status(&s.to_string())).collect();
-        if rule.success { any.push(status("2__")); }
-        any.extend(rule.codes.iter().map(|c| format!("{code} LIKE 'http ___; code {c}'")));
-        if any.is_empty() { "0".into() } else { format!("({})", any.join(" OR ")) }
-    };
-    let arms: Vec<String> = VENUES.iter().filter(|v| definite_of(v) != LEGACY).map(|venue| format!("WHEN '{venue}' THEN {}", condition(definite_of(venue)))).collect();
-    format!("(CASE (SELECT type FROM exchanges WHERE id = {exchange}) {} ELSE {} END)", arms.join(" "), condition(LEGACY))
+    let mut any: Vec<String> = rule.statuses.iter().map(|s| status(&s.to_string())).collect();
+    if rule.success { any.push(status("2__")); }
+    // A code under a rate limit or a 5xx is no refusal (`definite_by`).
+    any.extend(rule.codes.iter().map(|c| format!("({code} LIKE 'http ___; code {c}' AND {code} NOT LIKE 'http 429;%' AND {code} NOT LIKE 'http 5__;%')")));
+    if any.is_empty() { "0".into() } else { format!("({})", any.join(" OR ")) }
+}
+/// G4 (review r1 #3): whether what a venue's identity read came to says nothing definite about the key: a success, a
+/// transient failure, or no read at all. A definite refusal (`definite_failure`) is the key's answer.
+pub fn not_refused(exchange_type: &str, observed: Option<&Observed>) -> bool {
+    !matches!(observed, Some(Observed::Failed(code)) if definite_failure(exchange_type, code))
 }
 
 /// The failure of an answer: its status and the venue's numeric `code`, nothing else.
@@ -1989,6 +1998,20 @@ mod tests {
                 let sql: bool = c.query_row(&format!("SELECT {} FROM o", definite_sql("o.code", "o.exchange_id")), [], |r| r.get(0)).unwrap();
                 assert_eq!(sql, definite_failure(venue, code), "{venue} {code}");
             }
+        }
+    }
+
+    /// Review r1 #7: a venue's numeric refusal code never makes a rate limit or a 5xx definite, in Rust and in SQL (a
+    /// venue whose codes are listed lands later: a rule with Bybit's 10003 stands in).
+    #[test]
+    fn a_numeric_code_never_makes_a_429_or_a_5xx_definite() {
+        let rule = Definite { success: false, statuses: &[], codes: &["10003"] };
+        let c = Connection::open_in_memory().unwrap();
+        for (code, definite) in [("http 200; code 10003", true), ("http 401; code 10003", true), ("http 403; code 10003", true), ("http 503; code 10003", false),
+                                 ("http 500; code 10003", false), ("http 429; code 10003", false), ("http 200; code 10006", false), ("http 503", false)] {
+            assert_eq!(definite_by(&rule, code), definite, "{code}");
+            let sql: bool = c.query_row(&format!("SELECT {}", condition_sql(&rule, "?1")), [code], |r| r.get(0)).unwrap();
+            assert_eq!(sql, definite, "SQL {code}");
         }
     }
 
