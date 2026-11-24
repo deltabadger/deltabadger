@@ -483,6 +483,7 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
     let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,stored)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
     let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),validated.handle.credentials().clone())),_=>None};
+    let installed=(!original.untargeted).then_some((original.account,stored));
     // #710 7a rule S2: a verdict that saves nothing still records what the account read taught (`learn_refused`).
     let refused=match &validated.result.value {
         Validity::Incorrect => Some(Submitted::Incorrect),
@@ -510,7 +511,7 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
         Validity::Correct | Validity::Account(_) | Validity::PendingActivation => None,
     };
     if let Some(refused)=refused {
-        if let Some((read,material))=taught { learn_refused(app,original.account.user_id,snap_exchange,venue,material,read).await?; }
+        if let Some((read,material))=taught { learn_refused(app,original.account.user_id,snap_exchange,venue,material,read,installed).await?; }
         return Ok(refused);
     }
     // #710 7a rule Q1: a save that would make the exchange's second account reads the exchange's unread keys first.
@@ -629,7 +630,7 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
   Ok(Some(match moved {Some((to,from))=>format!("\u{0}moved:{to}:{from}"),None=>format!("\u{0}saved:{}",target.id.map_or(String::new(),|a|a.to_string()))}))
  }).await?;
     if let (Some(r),Some((read,material)))=(&outcome,taught) {
-        if !r.starts_with("\u{0}saved:")&&!r.starts_with("\u{0}moved:") { learn_refused(app,user_id,snap_exchange,venue,material,read).await?; }
+        if !r.starts_with("\u{0}saved:")&&!r.starts_with("\u{0}moved:") { learn_refused(app,user_id,snap_exchange,venue,material,read,installed).await?; }
     }
     Ok(match outcome {
         Some(m) if m.starts_with("\u{0}saved:") => Submitted::Correct(m.trim_start_matches("\u{0}saved:").parse().ok()),
@@ -642,11 +643,21 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
 /// #710 7a rule R2: a key save refused after its account read (an open order holding the slot, the slot changed meanwhile,
 /// the JSON save's refusals) still records what the read taught: every stored copy of the material on an account that
 /// knows another fingerprint is fenced there (`identity::fence_copies`), in a transaction of its own.
-async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate::crypto::Credentials,read:crate::identity::AccountId)->Result<(),WebError>{
+/// #710 slice 9 (G4 r6): a form save naming its slot (`installed`: the account and slot type) whose installed key is still
+/// this material records the read as that key's own, under its current credential version (`identity::record`, which
+/// fences the other copies too); its status and material stay as they are.
+async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate::crypto::Credentials,read:crate::identity::AccountId,installed:Option<(Account,i64)>)->Result<(),WebError>{
     let (inner,venue)=(app.clone(),venue.to_string());
     app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
-        crate::identity::fence_copies(&tx,&inner.cipher,user,exchange,&venue,&material,&read,None,inner.now()).map_err(WebError::Config)?;
+        let current=match installed {Some((account,kind))=>Key::read(&tx,&inner,account,kind)?.id.filter(|id|crate::identity::is_material(&tx,&inner.cipher,*id,&venue,&material)),None=>None};
+        match current {
+            Some(id)=>{
+                let (_,version)=crate::sync::credentials_with_version(&tx,&inner.cipher,id).map_err(|e|WebError::Config(e.0))?;
+                crate::identity::record(&tx,&inner.cipher,id,&material,&version,&crate::identity::Observed::Read(read),inner.now()).map_err(WebError::Config)?;
+            }
+            None=>crate::identity::fence_copies(&tx,&inner.cipher,user,exchange,&venue,&material,&read,None,inner.now()).map_err(WebError::Config)?,
+        }
         tx.commit()?;Ok(())
     }).await
 }
@@ -1107,7 +1118,7 @@ pub async fn legacy(
   for k in readers.iter().filter(|k|**k!=id) {for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&k.to_string()),None);}}
   Ok(Ok(()))
  }).await?;
-    if let (Err(Some(_)),Some((read,venue,material)))=(&saved,taught) { learn_refused(&app,user.id,exchange,&venue,material,read).await?; }
+    if let (Err(Some(_)),Some((read,venue,material)))=(&saved,taught) { learn_refused(&app,user.id,exchange,&venue,material,read,None).await?; }
     if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
     if matches!(&saved,Err(Some(reason)) if reason==MISSING){return Ok(layout::missing());}
     let (status, data) = match saved {
@@ -1159,11 +1170,13 @@ pub(crate) async fn revalidate(app:&App,id:i64)->Result<Option<String>,WebError>
     }});
     // D-IBKR-INCONCLUSIVE (as the validator job): an IBKR check with no verdict leaves the key as it is.
     if venue==crate::venue::ibkr::IBKR && status.value==0 {return Ok(None)}
-    let jobs=app.job_wakers()?;let (inner,wakers)=(app.clone(),jobs.clone());
+    let jobs=app.job_wakers()?;let (inner,wakers,venue_t)=(app.clone(),jobs.clone(),venue.clone());
     let result=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
         let fenced=crate::engine::model::check_credential_record(&tx,status.origin())?;
         let before:i64=fenced.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
+        let kept=transient_kept(&fenced,id,&venue_t,status.value)?;
+        let status=status.map(|_|kept);
         // #710 7a rule M4: the recheck may make the key (or another) its account's reader; that reader is woken below.
         let generations=crate::identity::generations_of_key(&fenced,id).map_err(WebError::Config)?;
         let status=bound_status(&fenced,&inner.cipher,id,status.clone(),account.as_deref(),inner.now()).map_err(|e|WebError::Config(e.0))?;
@@ -1419,6 +1432,15 @@ pub fn bound_status(c:&Connection,cipher:&crate::crypto::Cipher,id:i64,status:cr
         Ok(())=>Ok(status),
         Err(refusal)=>{crate::engine::log(&format!("[Interactive Brokers] API key validation: {refusal}"));Ok(status.map(|_|2))}
     }
+}
+/// #710 slice 9 G4 (D-COINBASE-TRANSIENT-KEEPS-CORRECT): the status a check of key `id` writes. On a venue whose identity
+/// read is its validation read (`identity::VALIDATION_READS`), a check with no verdict (`status` 0, pending) of a key that is
+/// correct now leaves it correct, so the status change does not end its account's standings; a key not yet correct is
+/// written pending, as 2.x writes it. Every other venue writes `status`.
+pub fn transient_kept(c:&Connection,id:i64,venue:&str,status:i64)->rusqlite::Result<i64>{
+    if status!=0||!crate::identity::VALIDATION_READS.contains(&venue){return Ok(status)}
+    let now:Option<i64>=c.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0)).optional()?;
+    Ok(if now==Some(1){1}else{status})
 }
 pub fn store_status(c:&crate::engine::model::FencedTransaction<'_>,status:&crate::engine::model::Produced<i64>,id:i64,at:chrono::DateTime<chrono::Utc>)->Result<(),crate::sync::SyncError>{
     if !status.current_for(&c.producer_version()).is_fresh() || status.origin().as_ref().is_none_or(|producer|producer.id!=id){return Err(crate::sync::SyncError(crate::engine::model::CREDENTIALS_CHANGED.into()));}

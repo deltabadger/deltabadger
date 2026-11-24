@@ -27,6 +27,10 @@ pub const TABLES: [&str; 10] = ["exchange_accounts", "exchange_account_credentia
                                "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows", "account_fingerprint_proofs", "ledger_reader_generations"];
 /// The venues whose account id is confirmed (AF1; #710 slice 9: Coinbase's portfolio). Every other venue records nothing yet.
 pub const VENUES: [&str; 4] = [KUCOIN, BINANCE, BINANCE_US, COINBASE];
+/// #710 slice 9 G4: the identity venues whose identity read is their key check's own validation read (Coinbase's permission
+/// read). A check of theirs that comes to no verdict (a 5xx, a rate limit, a failed request after the read) leaves a correct
+/// key correct, so its standing stays; only a verdict changes its status (`web::settings::keys::transient_kept`).
+pub const VALIDATION_READS: [&str; 1] = [COINBASE];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
 pub fn observe_every() -> Duration { Duration::weeks(1) }
 /// A failed read is retried no sooner than this.
@@ -84,15 +88,16 @@ pub enum Observed {
 
 /// What a venue's failed identity read must be to be definite (#710 slice 9 G4): any success status (`success`), one of
 /// `statuses`, or one of the venue's numeric `codes` (under any status). Everything else is transient.
+#[derive(PartialEq)]
 struct Definite { success: bool, statuses: &'static [u16], codes: &'static [&'static str] }
-/// G4: each venue's own documented credential refusals. KuCoin and Binance keep #710's reading: auth refused (401, 403),
-/// or a success status that names no account (masked, or an error envelope). Coinbase documents no invalid-key code: only
-/// its 401. A venue with no identity read has no definite failure.
+/// #710's reading, kept exactly for KuCoin and Binance (and any venue not listed): auth refused (401, 403), or a success
+/// status that names no account (masked, or an error envelope).
+const LEGACY: Definite = Definite { success: true, statuses: &[401, 403], codes: &[] };
+/// G4: each new identity venue's own documented credential refusals. Coinbase documents no invalid-key code: only its 401.
 fn definite_of(exchange_type: &str) -> Definite {
     match exchange_type {
-        KUCOIN | BINANCE | BINANCE_US => Definite { success: true, statuses: &[401, 403], codes: &[] },
         COINBASE => Definite { success: false, statuses: &[401], codes: &[] },
-        _ => Definite { success: false, statuses: &[], codes: &[] },
+        _ => LEGACY,
     }
 }
 /// Whether a failed identity read of `exchange_type` is the venue's definite answer on the key's current material (#710,
@@ -110,14 +115,14 @@ pub fn definite_failure(exchange_type: &str, code: &str) -> bool {
 /// failure (`definite_failure`: the same rule, per venue).
 fn definite_sql(code: &str, exchange: &str) -> String {
     let status = |s: &str| format!("{code} LIKE 'http {s}' OR {code} LIKE 'http {s};%'");
-    let arms: Vec<String> = VENUES.iter().map(|venue| {
-        let rule = definite_of(venue);
+    let condition = |rule: Definite| {
         let mut any: Vec<String> = rule.statuses.iter().map(|s| status(&s.to_string())).collect();
         if rule.success { any.push(status("2__")); }
         any.extend(rule.codes.iter().map(|c| format!("{code} LIKE 'http ___; code {c}'")));
-        format!("WHEN '{venue}' THEN ({})", if any.is_empty() { "0".into() } else { any.join(" OR ") })
-    }).collect();
-    format!("(CASE (SELECT type FROM exchanges WHERE id = {exchange}) {} ELSE 0 END)", arms.join(" "))
+        if any.is_empty() { "0".into() } else { format!("({})", any.join(" OR ")) }
+    };
+    let arms: Vec<String> = VENUES.iter().filter(|v| definite_of(v) != LEGACY).map(|venue| format!("WHEN '{venue}' THEN {}", condition(definite_of(venue)))).collect();
+    format!("(CASE (SELECT type FROM exchanges WHERE id = {exchange}) {} ELSE {} END)", arms.join(" "), condition(LEGACY))
 }
 
 /// The failure of an answer: its status and the venue's numeric `code`, nothing else.

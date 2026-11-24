@@ -630,10 +630,12 @@ impl<C:Connect> Job for Validator<C>{
         let outcome=async {
         let at=cx.clock.now();
         let (credentials,version_read)=(handle.credentials().clone(),handle.producer().clone());
+        let venue=exchange.clone();
         let moved=match super::commit_record_for(&cx.db,&version,move|c,cipher|{
             // #710 7a rules K5/M4, as the web recheck: the check may make the key (or another) its account's reader.
             let generations=crate::identity::generations_of_key(c,id).map_err(SyncError)?;
-            let status=crate::web::settings::keys::bound_status(c,cipher,id,status.clone(),account.as_deref(),at)?;
+            let kept=crate::web::settings::keys::transient_kept(c,id,&venue,status.value)?;
+            let status=crate::web::settings::keys::bound_status(c,cipher,id,status.clone().map(|_|kept),account.as_deref(),at)?;
             crate::web::settings::keys::store_status(c,&status,id,at)?;
             if let Some(observed)=&identity{crate::identity::record(c,cipher,id,&credentials,&version_read,observed,at).map_err(SyncError)?;}
             super::settle_readers_of_key(c,id)?;
