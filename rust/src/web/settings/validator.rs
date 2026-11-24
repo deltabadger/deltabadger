@@ -23,15 +23,18 @@ impl ValidationHandle {
     }
     pub(crate) fn credentials(&self)->&crate::crypto::Credentials { &self.credentials }
     pub(crate) fn producer(&self)->&crate::engine::model::CredentialVersion { &self.producer }
-    pub(crate) async fn check(&self,url:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
-        let value=check(url,&self.credentials,kind).await?;
-        Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
+    /// Alpaca's check on `url` (the key's own paper or live host), with its account read's identity (#710 slice 9: the
+    /// check's own GET /v2/account, observed; no request more).
+    pub(crate) async fn check(&self,url:&str,kind:i64)->Result<Checked,WebError> {
+        let (value,observed)=check_identified(url,&self.credentials,kind).await?;
+        let produced=|value|->Result<_,WebError>{Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))};
+        Ok((produced(value)?,Some(observed)))
     }
     /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's, Binance's and KuCoin's own key checks
     /// (`key_check`), through the venue's proxy when one is configured (ExchangeProxy.for).
     /// With what the key's account-identity read came to, where one was made (`key_check::check_identified`).
     pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<Checked,WebError> {
-        let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return Ok((self.check(&app.alpaca_trading_url(&self.credentials),kind).await?,None))};
+        let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return self.check(&app.alpaca_trading_url(&self.credentials),kind).await};
         let base=app.venue_key_url(venue);
         let cipher=app.cipher.clone();
         let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),name,&crate::venue::http::client()))).await?;
@@ -65,7 +68,15 @@ fn log_body(body:&str)->String{
 fn pending(status:Option<u16>,body:&str,text:impl Into<String>)->Validity {
     Validity::Pending(Diagnostic{status,body:body.into(),text:text.into(),refusal:false})
 }
-pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<Validity, WebError> {
+pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<Validity, WebError> { Ok(check_identified(url, key, kind).await?.0) }
+/// `check`, with what its GET /v2/account stated of the key's account (`identity::alpaca_answer`, read from the raw answer
+/// before anything else reads it), whatever the check concludes after it (#710 slice 9).
+pub async fn check_identified(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<(Validity, crate::identity::Observed), WebError> {
+    let mut observed = crate::identity::Observed::Failed("transport".into());
+    let value = check_observed(url, key, kind, &mut observed).await?;
+    Ok((value, observed))
+}
+async fn check_observed(url: &str, key: &crate::crypto::Credentials, kind: i64, observed: &mut crate::identity::Observed) -> Result<Validity, WebError> {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(30))
@@ -86,6 +97,7 @@ pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Re
         .text()
         .await
         .map_err(|_| WebError::Config("cannot read key validation response".into()))?;
+    *observed = crate::identity::alpaca_answer(status, &body);
     let metadata=log_body(&body);
     let body=key.venue_text(&body);
     if status == 401 && kind!=2 {return Ok(Validity::Incorrect);}

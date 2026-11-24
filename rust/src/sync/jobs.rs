@@ -609,7 +609,7 @@ impl<C:Connect> Job for Validator<C>{
             }
         } else {
             let venue=self.venues.connect(handle.credentials());
-            match handle.check(&venue.urls().trading,kind).await{Ok(v)=>(v,None),Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))}
+            match handle.check(&venue.urls().trading,kind).await{Ok(v)=>v,Err(_)=>return before_result(Outcome::Failed("credential validation unavailable".into()))}
         };
         use crate::web::settings::validator::Validity;
         // ApiKey#update_status!: a permission problem is incorrect; a failure leaves the key pending, its reason logged.
