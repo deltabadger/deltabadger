@@ -129,12 +129,14 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope, labels: &supe
         });
     }
     labels.relabel(&mut rows);
+    // Codex r2: a pair whose ends carry different labels moves units from one to the other; only a same-label pair nets.
+    let bases: HashMap<i64, String> = rows.iter().map(|r| (r.id, r.base.to_string())).collect();
     let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();
     let amounts: HashMap<i64, Dec> = rows.iter().map(|r| (r.id, r.amount.clone())).collect();
     // D-TRACKER-COIN-QUOTE: a coin-quoted single row moves as its two legs, as the walk reads it (a new leg is unlinked).
     for r in &super::rows::split_coin_quoted_trades(rows, true)? {
         let partner = links.get(&r.id).or_else(|| inverse.get(&r.id)).copied().filter(|p| !labels.void(r.id, *p));
-        let linked = partner.is_some_and(|p| ids.contains(&p));
+        let linked = partner.is_some_and(|p| ids.contains(&p) && bases.get(&p).is_some_and(|b| b.as_str() == r.base.as_str()));
         let fee = match (linked, r.kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((&r.amount - p)?), _ => None };
         for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol.to_string(), a)?; } }
         for (currency, a) in cash_moves(r.kind, &r.base, &r.amount, r.quote.as_ref(), r.quote_amount.as_ref(), r.fee_currency.as_ref(), r.fee_amount.as_ref())? { add(currency.to_string(), a)?; }
@@ -215,6 +217,12 @@ impl Figures {
 /// The asset a holding is drawn as (`rows.first&.asset || Ledger.symbol_index(user, [symbol])[symbol] ||
 /// Asset.find_by(symbol:)`): a balance of the user's in that symbol, else the catalog's coin, then its currency, else any
 /// asset of that symbol.
+/// The catalogue's asset of a coin, by external id.
+fn coin_asset(c: &Connection, external_id: &str) -> Result<Option<i64>, FiguresError> {
+    use rusqlite::OptionalExtension;
+    Ok(c.query_row("SELECT id FROM assets WHERE external_id = ?1 ORDER BY id LIMIT 1", [external_id], |r| r.get(0)).optional()?)
+}
+
 fn asset_for(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<i64>, FiguresError> {
     use rusqlite::OptionalExtension;
     let held: Option<i64> = c.query_row("SELECT b.asset_id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id WHERE b.user_id = ?1 AND a.symbol = ?2 ORDER BY b.id LIMIT 1",
@@ -282,6 +290,8 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
     let class = |c: Option<String>| match c.as_deref() { Some("Currency") => Some("Fiat".to_string()), Some("Tokenized Stock") => Some("Stock".to_string()), _ => c };
     for balance in balances { classes.entry(&balance.symbol).or_default().insert(class(balance.category.clone())); }
     for (symbol, _) in pending {
+        // Codex r2: a coin label is its coin's class, whatever else shares its spelling.
+        if ledger.labels.coin(symbol).is_some() { classes.entry(symbol).or_default().insert(Some("Cryptocurrency".to_string())); continue; }
         // Only the assets this user's own rows recorded: the catalogue's BTC stock beside BTC crypto is not ambiguity here.
         // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
         let mut stmt = c.prepare("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
@@ -347,7 +357,14 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         held = (&units + &held)?;
         if !held.is_positive() { continue; }
         if rows.is_empty() && !known.contains(&spelling(&symbol)) { continue; }
-        let asset = match rows.first() { Some(r) => Some(r.asset), None => match ledger.labels.asset_of(&symbol) { Some(a) => Some(a), None => asset_for(c, user_id, &spelling(&symbol))? } };
+        let asset = match rows.first() { Some(r) => Some(r.asset), None => match ledger.labels.asset_of(&symbol) {
+            Some(a) => Some(a),
+            // Codex r2: a coin label's own asset first, never another balance's under its spelling.
+            None => match ledger.labels.coin(&symbol) {
+                Some(ext) => match coin_asset(c, ext)? { Some(a) => Some(a), None => asset_for(c, user_id, &spelling(&symbol))? },
+                None => asset_for(c, user_id, &spelling(&symbol))?,
+            },
+        } };
         let exchange = rows.first().map(|r| r.exchange.as_str()).filter(|name| rows.iter().all(|r| r.exchange == *name));
         let mut prices = Dec::zero();
         let mut values = Dec::zero();

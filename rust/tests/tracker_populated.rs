@@ -549,5 +549,5 @@ async fn a_voided_transfer_is_named_in_the_notice() {
         v["whole"]["labels"]["void"] = serde_json::json!([[deposit, buy], [buy, deposit]]);
         deltabadger::app_config::set_plain(c, &key, &v.to_string(), AT.parse().unwrap()).unwrap();
     }).await;
-    assert!(r.notice.contains("The transfer of BTC on 2026-09-02 links two different assets"), "{}", r.notice);
+    assert!(r.notice.contains("The transfer of BTC on 2026-09-02 could not be matched with its other side"), "{}", r.notice);
 }

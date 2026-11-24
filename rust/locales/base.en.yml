@@ -563,7 +563,7 @@ en:
             opening_unknown: "The opening value of %{assets} on %{venue} is unknown."
             chart_incomplete: "Some days on the chart are incomplete."
             chart_missing_causes: "This happens when it isn't clear which asset was held, or no usable price exists, for example after a delisting, a rename or a missing exchange rate. It clears once those holdings can be valued."
-            transfer_conflict: "The transfer of %{assets} on %{date} links two different assets, so each side is counted where it was booked."
+            transfer_conflict: "The transfer of %{assets} on %{date} could not be matched with its other side, so each side is counted where it was booked."
             connect_market_data: "Connect a market data provider to get market prices."
             providers_intro: "Portfolio tracking and tax reports need historical prices and exchange rates. Connect the Deltabadger data API (stocks and crypto) or a free CoinGecko account (crypto only). A free CoinGecko account covers the past year of prices only."
             ask_admin: "Market data is set up by your instance admin. Ask them to connect a provider under Settings → Connect."

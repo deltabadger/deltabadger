@@ -188,7 +188,10 @@ pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Sid
                     /// The void links' rows, both ways round (`Spellings::void_links`).
                     pub void: Vec<(i64, i64)>,
                     /// Each coin label's external id (the wash-sale locks take every asset of the coin).
-                    pub coins: Vec<(String, String)> }
+                    pub coins: Vec<(String, String)>,
+                    /// Codex r2: a digest of every leg's and balance's resolved key, the walk's fingerprint (`backfill::fingerprint`);
+                    /// not cached (a summary read back is never fingerprinted).
+                    pub identity: String }
 
 impl Labels {
     /// The table for `rows` (as read, before `relabel`) under map `s`.
@@ -210,7 +213,11 @@ impl Labels {
             .filter_map(|l| l.coin().map(|ext| (l.as_str().to_string(), ext.to_string()))).collect();
         coins.sort();
         coins.dedup();
-        Labels { assets, legs, spellings, void: void_pairs(s), coins }
+        let mut keys: Vec<String> = s.leg_labels().map(|(&(r, side), l)| format!("{r}:{side:?}:{}:{}", l.as_str(), l.key()))
+            .chain(s.asset_labels().map(|(&(a, id), l)| format!("b{a}:{id}:{}:{}", l.as_str(), l.key()))).collect();
+        keys.sort();
+        let identity = { use sha2::Digest; hex::encode(sha2::Sha256::digest(keys.join("\n").as_bytes())) };
+        Labels { assets, legs, spellings, void: void_pairs(s), coins, identity }
     }
     /// The label of an account's balance of an asset; None when the map has none (the balance keeps its symbol).
     pub fn asset(&self, account: i64, asset: i64) -> Option<&str> { self.assets.iter().find(|(a, id, _)| *a == account && *id == asset).map(|(_, _, l)| l.as_str()) }

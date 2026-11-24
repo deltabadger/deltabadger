@@ -43,6 +43,7 @@ pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chron
 /// A fingerprint of the labels a walk resolved (`note_identity`, the sweep's fence).
 pub fn fingerprint(labels: &super::labels::Labels) -> String {
     use sha2::Digest;
+    if !labels.identity.is_empty() { return labels.identity.clone(); }
     hex::encode(sha2::Sha256::digest(format!("{labels:?}").as_bytes()))
 }
 

@@ -96,12 +96,10 @@ pub async fn history<T: Transport>(make: &super::venue_quotes::MakeWire<T>, db: 
         // Delisted coins (Codex r1, plan r10 step 4): a pair code the venue rebound to another listing (a tombstone carries
         // it) may have candles of the coin it named before; no route takes it, nor a tombstoned row itself.
         // ponytail: whole codes refused; the plan's per-binding intervals (listing evidence) would keep the days after a rebind.
-        let mut kept = vec![];
-        for (p, t) in rows {
-            if p.code.starts_with("__stale_") || super::fills::symbol_reused(c, exchange_id, &p.code)? { continue; }
-            kept.push((p, t));
-        }
-        let rows = kept;
+        let mut s = c.prepare("SELECT ticker FROM tickers WHERE exchange_id = ?1 AND substr(ticker, 1, 8) = '__stale_'").map_err(|e| e.to_string())?;
+        let reused: HashSet<String> = s.query_map([exchange_id], |r| r.get::<_, String>(0)).map_err(|e| e.to_string())?
+            .filter_map(|n| n.ok()?.strip_prefix("__stale_")?.split_once('_').map(|(_, old)| old.to_string())).collect();
+        let rows: Vec<(Pair, Ticker)> = rows.into_iter().filter(|(p, _)| !p.code.starts_with("__stale_") && !reused.contains(&p.code)).collect();
         let ids: HashSet<i64> = rows.iter().flat_map(|(p, _)| [p.base, p.quote]).chain(assets.iter().copied()).collect();
         let mut fiat = HashMap::new();
         let mut s = c.prepare("SELECT id, symbol FROM assets WHERE category IN ('Fiat','Currency')").map_err(|e| e.to_string())?;

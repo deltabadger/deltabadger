@@ -561,7 +561,7 @@ nl:
             opening_unknown: "De beginwaarde van %{assets} op %{venue} is onbekend."
             chart_incomplete: "Sommige dagen in de grafiek zijn onvolledig."
             chart_missing_causes: "Dit gebeurt als niet duidelijk is welk asset werd aangehouden, of er geen bruikbare prijs is, bijvoorbeeld na een delisting, een naamswijziging of een ontbrekende wisselkoers. Het verdwijnt zodra deze assets gewaardeerd kunnen worden."
-            transfer_conflict: "De overboeking van %{assets} op %{date} koppelt twee verschillende assets, dus elke kant telt waar hij is geboekt."
+            transfer_conflict: "De overboeking van %{assets} op %{date} kon niet aan de andere kant worden gekoppeld, dus elke kant telt waar hij is geboekt."
             connect_market_data: "Koppel een marktdataleverancier om marktprijzen te krijgen."
             providers_intro: "Portfoliotracking en belastingrapporten hebben historische prijzen en wisselkoersen nodig. Koppel de Deltabadger data-API (aandelen en crypto) of een gratis CoinGecko-account (alleen crypto). Een gratis CoinGecko-account dekt alleen de prijzen van het afgelopen jaar."
             ask_admin: "Marktgegevens worden ingesteld door de beheerder van je instantie. Vraag hem een aanbieder te verbinden onder Instellingen → Verbinden."

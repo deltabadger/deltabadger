@@ -29,8 +29,8 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Sco
             if !g.openings.is_empty() { lines.push_str(&line(ctx, "opening_unknown", &g.openings, g.venue.as_deref())); }
         }
     }
-    // Delisted coins (plan r10 §1.8): a stored link the coin map voided (two different coins under one spelling) moves no
-    // quantity; each side is counted where it was booked. Read from the warm ledger cache, its withdrawal's spelling and day.
+    // Delisted coins (plan r10 §1.8): a stored link the coin map voided (two different coins under one spelling, or too
+    // little held to send) moves no quantity; each side is counted where it was booked. Read from the warm ledger cache, its withdrawal's spelling and day.
     // ponytail: best-effort (a cold cache states none until the next ledger run), and in every scope.
     if let Ok(crate::tracker::cache::State::Warm(s)) = crate::tracker::cache::read(c, owner, None, ctx.now) {
         use rusqlite::OptionalExtension;
