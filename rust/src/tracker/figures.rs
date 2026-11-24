@@ -13,7 +13,9 @@ use std::collections::{HashMap, HashSet};
 
 /// An `account_balances` row with something in it (`nonzero`), as the model reads it.
 #[derive(Clone, Debug)]
-pub struct Balance { pub asset: i64, pub category: Option<String>, pub symbol: String, pub exchange: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
+pub struct Balance { pub asset: i64,
+    /// The balance's account (minus its exchange id without an account table), for its label (`Labels::asset`).
+    pub account: i64, pub category: Option<String>, pub symbol: String, pub exchange: String, pub free: Dec, pub locked: Dec, pub usd_price: Option<Dec>, pub usd_value: Option<Dec>, pub priced_at: Option<At>, pub synced_at: Option<At> }
 
 /// A decimal column of `scale` with a precision, as ActiveRecord casts what SQLite returns: a REAL is
 /// `BigDecimal(float.round(scale), 16)` then the scale (sync::balances::cast_float's rule), anything else to_d and the
@@ -37,15 +39,17 @@ fn instant(text: Option<String>) -> Result<Option<At>, FiguresError> {
 pub fn balances(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<Balance>, FiguresError> {
     // Each row named by its account (#710 slice 6); a stand-in (an install without the account tables) by its exchange.
     let name = if crate::identity::numbered(c)? { crate::identity::plain_label_sql("e.name", "b.account_id") } else { "e.name".into() };
+    let has_account: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM pragma_table_info('exchange_account_balances') WHERE name = 'account_id')", [], |r| r.get(0))?;
+    let account = if has_account { "COALESCE(b.account_id, -b.exchange_id)" } else { "-b.exchange_id" };
     let mut s = c.prepare(&format!(
-        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, {name}, a.id FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
+        "SELECT a.symbol, b.free, b.locked, b.usd_price, b.usd_value, b.priced_at, b.synced_at, a.category, {name}, a.id, {account} FROM exchange_account_balances b JOIN assets a ON a.id = b.asset_id \
          JOIN exchanges e ON e.id = b.exchange_id \
          WHERE b.user_id = ?1 AND {} AND {} AND b.free + b.locked > 0 ORDER BY b.id", scope.store("b"), crate::identity::counted(c, user_id, "b.account_id")?))?;
     let mut q = s.query([user_id])?;
     let mut out = vec![];
     while let Some(r) = q.next()? {
         out.push(Balance {
-            asset: r.get(9)?, category: r.get(7)?, symbol: r.get(0)?, exchange: r.get(8)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
+            asset: r.get(9)?, account: r.get(10)?, category: r.get(7)?, symbol: r.get(0)?, exchange: r.get(8)?, free: scaled(r.get_ref(1)?, 16)?.unwrap_or_else(Dec::zero), locked: scaled(r.get_ref(2)?, 16)?.unwrap_or_else(Dec::zero),
             usd_price: scaled(r.get_ref(3)?, 8)?, usd_value: scaled(r.get_ref(4)?, 8)?, priced_at: instant(r.get(5)?)?, synced_at: instant(r.get(6)?)?,
         });
     }
@@ -72,7 +76,7 @@ fn watermarks(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Hash
 /// `Figures.moved_since(pending_scope, watermarks)`: what the ledger has moved since each account's balances were taken,
 /// by symbol, the cash it spent or returned included. An account with no watermark is not brought forward. A transfer is
 /// linked here only when its partner moved since too (`quantity_row`).
-pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec<(String, Dec)>, FiguresError> {
+pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope, labels: &super::labels::Labels) -> Result<Vec<(String, Dec)>, FiguresError> {
     let marks = watermarks(c, user_id, scope)?;
     let mut moved: Vec<(String, Dec)> = vec![];
     let mut index: HashMap<String, usize> = HashMap::new();
@@ -124,6 +128,7 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope) -> Result<Vec
             account, to_account: None,
         });
     }
+    labels.relabel(&mut rows);
     let ids: HashSet<i64> = rows.iter().map(|r| r.id).collect();
     let amounts: HashMap<i64, Dec> = rows.iter().map(|r| (r.id, r.amount.clone())).collect();
     // D-TRACKER-COIN-QUOTE: a coin-quoted single row moves as its two legs, as the walk reads it (a new leg is unlinked).
@@ -243,6 +248,11 @@ fn venue_of(c: &Connection, user_id: i64, symbol: &str) -> Result<Option<String>
     Ok(match accounts.as_slice() { [Some(id)] => Some(crate::identity::label(c, *id)?.plain()), _ => None })
 }
 
+/// `balances` under their labels: each takes its account's label for its asset, else keeps its symbol.
+pub(crate) fn labelled(balances: &[Balance], labels: &super::labels::Labels) -> Vec<Balance> {
+    balances.iter().map(|b| { let mut b = b.clone(); if let Some(l) = labels.asset(b.account, b.asset) { b.symbol = l.to_string(); } b }).collect()
+}
+
 /// A (key, value) list by its key; each entry a step.
 fn indexed(list: &[(String, Dec)]) -> Result<HashMap<&str, &Dec>, FiguresError> {
     crate::figures::budget::charge(list.len() as u64, 0)?;
@@ -262,6 +272,10 @@ pub const AMBIGUOUS_CLASS: &str = "Tracker figures unavailable: ambiguous asset 
 /// `scope`: the figures' own scope, whose duplicates' balances are classification evidence (#710).
 #[allow(clippy::too_many_arguments)]
 pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &Summary, balances: &[Balance], pending: &[(String, Dec)], fx: &FxTable, today: NaiveDate) -> Result<Figures, FiguresError> {
+    // Delisted coins: balances join the positions by the map's label (`pending` is labelled as it is read).
+    let labelled = labelled(balances, &ledger.labels);
+    let balances = labelled.as_slice();
+    let spelling = |label: &str| ledger.labels.spelling(label).to_string();
     // Historical ledger keys remain unchanged; refuse mixed classes before quantities merge.
     let mut classes: HashMap<&str, HashSet<Option<String>>> = HashMap::new();
     // Fiat and Currency are both cash, and a tokenized share tracks its company's share: one class each.
@@ -272,7 +286,7 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         // Classification (#710): a duplicate is the same venue account, so its rows are evidence of what an asset is, as on main.
         let mut stmt = c.prepare("SELECT DISTINCT a.category FROM account_transactions t JOIN assets a ON a.id = t.base_asset_id \
                                   WHERE t.user_id = ?1 AND t.base_currency = ?2")?;
-        for category in stmt.query_map(rusqlite::params![user_id, symbol], |r| r.get::<_, Option<String>>(0))? {
+        for category in stmt.query_map(rusqlite::params![user_id, spelling(symbol)], |r| r.get::<_, Option<String>>(0))? {
             classes.entry(symbol).or_default().insert(class(category?));
         }
     }
@@ -319,7 +333,7 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         let mut q = s.query([])?;
         while let Some(r) = q.next()? {
             crate::figures::budget::charge(1, 0)?;
-            if let Some(symbol) = r.get::<_, Option<String>>(0)? { if unlisted.contains(symbol.as_str()) { known.insert(symbol); } }
+            if let Some(symbol) = r.get::<_, Option<String>>(0)? { known.insert(symbol); }
         }
     }
     let mut notes = Notes::default();
@@ -332,8 +346,8 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         for r in rows { units = (&units + &(&r.free + &r.locked)?)?; }
         held = (&units + &held)?;
         if !held.is_positive() { continue; }
-        if rows.is_empty() && !known.contains(&symbol) { continue; }
-        let asset = match rows.first() { Some(r) => Some(r.asset), None => asset_for(c, user_id, &symbol)? };
+        if rows.is_empty() && !known.contains(&spelling(&symbol)) { continue; }
+        let asset = match rows.first() { Some(r) => Some(r.asset), None => match ledger.labels.asset_of(&symbol) { Some(a) => Some(a), None => asset_for(c, user_id, &spelling(&symbol))? } };
         let exchange = rows.first().map(|r| r.exchange.as_str()).filter(|name| rows.iter().all(|r| r.exchange == *name));
         let mut prices = Dec::zero();
         let mut values = Dec::zero();
@@ -397,7 +411,7 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         crate::figures::budget::charge(1, 0)?;
         if held_symbols.contains(p.symbol.as_str()) || cash(&p.symbol) || !p.quantity.is_positive() { continue; }
         moved = (&moved - &p.cost)?;
-        notes.note("left", &p.symbol, venue_of(c, user_id, &p.symbol)?.as_deref(), Some(&p.quantity), Some(&Dec::zero()), p.cost.clone(), false);
+        notes.note("left", &p.symbol, venue_of(c, user_id, &spelling(&p.symbol))?.as_deref(), Some(&p.quantity), Some(&Dec::zero()), p.cost.clone(), false);
     }
     // `resolve_cash`: cash against the basis the ledger carried it at; its worth beyond the basis is unrealised.
     let mut venue_cash: HashMap<&str, (Dec, Dec)> = HashMap::new();
@@ -457,7 +471,7 @@ mod tests {
     use super::*;
 
     fn balance(symbol: &str, category: &str, exchange: &str, value: Option<&str>) -> Balance {
-        Balance { asset: 1, category: Some(category.into()), symbol: symbol.into(), exchange: exchange.into(), free: Dec::one(), locked: Dec::zero(),
+        Balance { asset: 1, account: -1, category: Some(category.into()), symbol: symbol.into(), exchange: exchange.into(), free: Dec::one(), locked: Dec::zero(),
                   usd_price: value.map(|v| Dec::strict(v).unwrap()), usd_value: value.map(|v| Dec::strict(v).unwrap()), priced_at: None, synced_at: None }
     }
 

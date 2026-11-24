@@ -377,6 +377,10 @@ impl Spellings {
     pub fn transfer(&self, link: &Link) -> Option<(&Label, &Label)> { self.transfers.get(&link.from).map(|(a, b)| (a, b)) }
     /// The links void for identity and quantity (`transfer_conflict`).
     pub fn void_links(&self) -> &[Link] { &self.void }
+    /// Every current balance's label, by (account, asset id).
+    pub fn asset_labels(&self) -> impl Iterator<Item = (&(i64, i64), &Label)> { self.assets.iter() }
+    /// Every leg's label, by (row, side).
+    pub fn leg_labels(&self) -> impl Iterator<Item = (&(i64, Side), &Label)> { self.legs.iter().map(|(k, (l, _))| (k, l)) }
 }
 
 /// §1.4: one label per identity, deterministic, each within the alphabet and MAX_LABEL. Cash and securities print their

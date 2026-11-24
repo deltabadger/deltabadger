@@ -106,6 +106,8 @@ pub struct Inputs {
     /// The ledger cache's version as the pass began.
     pub cache: super::cache::Version,
     pub origin: crate::sync::cache::ReadOrigin,
+    /// The map's labels, for the summaries (`Walked::label`).
+    pub labels: super::labels::Labels,
 }
 
 /// `Inputs` for the user, in one read transaction.
@@ -115,7 +117,7 @@ pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError>
     let cache = super::cache::version(&tx, user_id)?;
     let history = backfill::history_version(&tx, user_id)?;
     let generation = backfill::generation(&tx)?;
-    let all = super::rows::load_all(&tx, user_id)?;
+    let (all, labels) = super::rows::load_all_labelled(&tx, user_id)?;
     let rows = super::rows::walk_rows(&all)?;
     let deposits = all.iter().map(|r| (r.id, r.amount.clone())).collect();
     let mut reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
@@ -123,7 +125,7 @@ pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError>
     reference.learn(&tx, &all)?;
     let fx = FxTable::load(&tx)?;
     tx.commit()?;
-    Ok(Inputs { all, rows, deposits, reference, fx, history, generation, cache, origin })
+    Ok(Inputs { all, rows, deposits, reference, fx, history, generation, cache, origin, labels })
 }
 
 type Answer = Result<Vec<(NaiveDate, Dec)>, String>;
@@ -206,7 +208,8 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&
         fx::ensure_loaded(db, ecb, today).await;
         let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
         let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
-        let (walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
+        let (mut walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
+        walked.label(&inputs.labels);
         let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
         let still = history == inputs.history && generation == inputs.generation;
         last = Some((walked, inputs, began));

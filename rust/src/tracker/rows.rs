@@ -393,7 +393,12 @@ fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
 pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> { Ok(load_all_mapped(c, user_id)?.0) }
 
 /// `load_all`, and the owner's map its labels come from (built once: a relabelled row no longer carries its spelling).
-pub fn load_all_mapped(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::spellings::Spellings), FiguresError> {
+pub fn load_all_mapped(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::spellings::Spellings), FiguresError> { load_inner(c, user_id).map(|(r, m, _)| (r, m)) }
+
+/// `load_all`, and the labels reconciliation reads (`labels::Labels`).
+pub fn load_all_labelled(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::labels::Labels), FiguresError> { load_inner(c, user_id).map(|(r, _, l)| (r, l)) }
+
+fn load_inner(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::spellings::Spellings, super::labels::Labels), FiguresError> {
     let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
     let mut rows = read(c, &format!("t.user_id = ?1 AND {counted}"), rusqlite::params![user_id])?;
     // A row linked to a duplicate's row (left out above) reads unlinked: its partner is not in the walk.
@@ -407,8 +412,9 @@ pub fn load_all_mapped(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, sup
     // The CFEE matcher parses the venue's pair against the row's own spelling: label the legs after it.
     place_cfees(&mut rows)?;
     price_cfees(&mut rows)?;
+    let labels = super::labels::Labels::of(&map, &rows);
     super::labels::relabel(&mut rows, &map);
-    Ok((rows, map))
+    Ok((rows, map, labels))
 }
 
 /// #710: a group is (account, group id): every reader keys a group by the row's account (`Stored::account`) and its id as

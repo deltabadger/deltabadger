@@ -145,19 +145,29 @@ pub struct Summary {
     pub openings: Vec<(String, Dec)>,
     /// Per asset of `openings`, same order: the dollars its opening carries at that day's price (zero when unpriced).
     pub opening_values: Vec<(String, Dec)>,
+    /// The map's labels reconciliation joins balances and pending moves by (set after the walk, `Walked::label`).
+    pub labels: super::labels::Labels,
 }
 
 impl Summary {
     /// `empty_summary`: a venue the walk has no rows of.
     pub fn empty() -> Summary { Summary { positions: vec![], total_invested: Dec::zero(), cash: vec![], cash_basis: vec![], incomplete: false, loss_sales: vec![],
                                         round_trips: vec![], received: Dec::zero(), realised: Dec::zero(), fees: Dec::zero(), cash_usd: Dec::zero(),
-                                        unpriced_proceeds: Dec::zero(), openings: vec![], opening_values: vec![] } }
+                                        unpriced_proceeds: Dec::zero(), openings: vec![], opening_values: vec![], labels: Default::default() } }
 }
 
 /// Every scope from one walk (`Ledger.scopes`): each venue's summary by exchange id, in the order the walk met the
 /// venues, the whole account's, the terms, and what each bot order's sale cost.
 #[derive(Clone, Debug)]
 pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term>, pub bot_sales: Vec<BotSale> }
+
+impl Walked {
+    /// Every scope's summary keeps the map's labels.
+    pub fn label(&mut self, labels: &super::labels::Labels) {
+        self.whole.labels = labels.clone();
+        for (_, v) in &mut self.venues { v.labels = labels.clone(); }
+    }
+}
 
 /// D-SELL-ONLY-QUOTE-RATE: one bot order's sale, its fill rows summed: the units the located walk disposed of and what
 /// their lots cost, in the rows' own quote, each row's dollar cost restated at that row's own rate
@@ -1652,6 +1662,7 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
         loss_sales: vec![],
         openings,
         opening_values,
+        labels: Default::default(),
     })
 }
 
@@ -1696,7 +1707,7 @@ fn whole(w: &Walk, venues: &[(i64, Summary)], ps: &PriceService) -> Result<Summa
         positions, total_invested: total, cash, cash_basis: basis.into_iter().filter(|(_, b)| !b.is_zero()).collect(),
         incomplete: venues.iter().any(|(_, s)| s.incomplete) || w.engine.uncovered || !ps.warnings.is_empty(),
         loss_sales: loss_sales(&w.global.disposals, ps.today)?,
-        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings, opening_values,
+        round_trips, received, realised, fees, cash_usd, unpriced_proceeds, openings, opening_values, labels: Default::default(),
     })
 }
 

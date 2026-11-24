@@ -54,7 +54,7 @@ pub struct Warm {pub figures:super::Figures,pub all_cash:bool,pub received:Dec}
 pub fn warm(c:&Connection,owner:i64,scope:&crate::tracker::Scope,show_cash:bool,ledger:&crate::tracker::walk::Summary,fx:&crate::tracker::fx::FxTable,today:chrono::NaiveDate)->Result<Warm,FiguresError>{
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let out=warm(&tx,owner,scope,show_cash,ledger,fx,today)?;tx.commit()?;return Ok(out)}
     let balances=super::balances(c,owner,scope)?;
-    let pending=super::pending(c,owner,scope)?;
+    let pending=super::pending(c,owner,scope,&ledger.labels)?;
     let figures=super::compute_on(c,owner,scope,ledger,&balances,&pending,fx,today)?;
     let received=ledger.received.clone();
     if show_cash {return Ok(Warm{figures,all_cash:false,received})}

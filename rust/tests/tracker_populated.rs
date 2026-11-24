@@ -275,7 +275,7 @@ fn history_gap_absent(c: &Connection, name: &str, owner: i64, at: chrono::DateTi
         let notes = gaps::resolve(summary, &balances, &venue_name).unwrap();
         let arrived = notes.iter().filter(|n| n.kind == "arrived").fold(deltabadger::figures::dec::Dec::zero(), |sum, n| (&sum + &n.amount).unwrap());
         assert!(arrived < deltabadger::figures::dec::Dec::from_i64(10), "{name}: venue {venue} would show a line ({arrived:?}): stop and report, never edit a fixture");
-        if !figures::pending(c, owner, &scope).unwrap().is_empty() { continue; }
+        if !figures::pending(c, owner, &scope, &Default::default()).unwrap().is_empty() { continue; }
         let Ok(computed) = figures::compute_on(c, owner, &scope, summary, &balances, &[], &fx, at.date_naive()) else { continue };
         let key = |n: &figures::Note| (n.kind, n.symbol.clone(), n.history.clone(), n.held.clone(), n.amount.clone());
         let theirs: Vec<_> = computed.notes.iter().filter(|n| matches!(n.kind, "arrived" | "left")).collect();

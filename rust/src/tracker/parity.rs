@@ -90,7 +90,7 @@ fn report(c: &Connection, user_id: i64, walked: &Walked, today: chrono::NaiveDat
         let balances = figures::balances(c, user_id, &scope)?;
         let rows: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND {})", scope.rows("a")), [user_id], |r| r.get(0))?;
         if balances.is_empty() && !rows { continue; }
-        let f = figures::compute_on(c, user_id, &scope, ledger, &balances, &figures::pending(c, user_id, &scope)?, &fx, today)?;
+        let f = figures::compute_on(c, user_id, &scope, ledger, &balances, &figures::pending(c, user_id, &scope, &ledger.labels)?, &fx, today)?;
         figs.insert(scope.exchange().map_or("whole".into(), |id| id.to_string()), figures_json(&f)?);
     }
     Ok(json!({ "whole": summary_json(&walked.whole), "venues": venues, "figures": figs }))

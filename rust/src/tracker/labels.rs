@@ -165,6 +165,47 @@ pub fn relabel(rows: &mut [Stored], s: &Spellings) {
     }
 }
 
+/// What reconciliation reads of the map after the walk (balances and pending moves joined to positions by label), kept
+/// with each cached summary: every current balance's label, the legs whose label is not their own spelling, and each
+/// such label's first raw spelling (for the lookups that still gather by spelling).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Side, String)>, pub spellings: Vec<(String, String)> }
+
+impl Labels {
+    /// The table for `rows` (as read, before `relabel`) under map `s`.
+    pub fn of(s: &Spellings, rows: &[Stored]) -> Labels {
+        let mut assets: Vec<(i64, i64, String)> = s.asset_labels().map(|(&(a, id), l)| (a, id, l.as_str().to_string())).collect();
+        assets.sort();
+        let own: HashMap<(i64, Side), &str> = rows.iter().flat_map(|r| {
+            [Some((Side::Base, r.base.as_str())), r.quote.as_ref().map(|q| (Side::Quote, q.as_str())), r.fee_currency.as_ref().map(|f| (Side::Fee, f.as_str()))]
+                .into_iter().flatten().map(move |(side, sp)| ((r.id, side), sp))
+        }).collect();
+        // ponytail: every relabelled leg of the whole history; keep only legs since the earliest balance sync if the cache grows.
+        let mut legs: Vec<(i64, Side, String)> = s.leg_labels().filter(|(k, l)| own.get(k).is_some_and(|sp| *sp != l.as_str())).map(|(&(r, side), l)| (r, side, l.as_str().to_string())).collect();
+        legs.sort();
+        let mut spellings: Vec<(String, String)> = s.leg_labels().map(|(_, l)| l).chain(s.asset_labels().map(|(_, l)| l))
+            .filter_map(|l| s.raw(l).first().filter(|r| **r != l.as_str()).map(|r| (l.as_str().to_string(), r.clone()))).collect();
+        spellings.sort();
+        spellings.dedup();
+        Labels { assets, legs, spellings }
+    }
+    /// The label of an account's balance of an asset; None when the map has none (the balance keeps its symbol).
+    pub fn asset(&self, account: i64, asset: i64) -> Option<&str> { self.assets.iter().find(|(a, id, _)| *a == account && *id == asset).map(|(_, _, l)| l.as_str()) }
+    /// A label's raw spelling, for a lookup by spelling; a plain label is its own.
+    pub fn spelling<'a>(&'a self, label: &'a str) -> &'a str { self.spellings.iter().find(|(l, _)| l == label).map_or(label, |(_, r)| r.as_str()) }
+    /// The asset a label's balance holds, if any balance has it.
+    pub fn asset_of(&self, label: &str) -> Option<i64> { self.assets.iter().find(|(_, _, l)| l == label).map(|(_, id, _)| *id) }
+    /// `rows` (as read) take the labels of their legs; a leg with none keeps its spelling.
+    pub fn relabel(&self, rows: &mut [Stored]) {
+        let of: HashMap<(i64, Side), &str> = self.legs.iter().map(|(r, side, l)| ((*r, *side), l.as_str())).collect();
+        for r in rows {
+            if let Some(l) = of.get(&(r.id, Side::Base)) { r.base = super::spellings::Label::spelled(*l); }
+            if let (Some(q), Some(l)) = (r.quote.as_mut(), of.get(&(r.id, Side::Quote))) { *q = super::spellings::Label::spelled(*l); }
+            if let (Some(f), Some(l)) = (r.fee_currency.as_mut(), of.get(&(r.id, Side::Fee))) { *f = super::spellings::Label::spelled(*l); }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -275,6 +316,34 @@ mod tests {
         let (_, s) = map(&c);
         assert_eq!(printed(&s, 1, Side::Base), "BTG (Bitcoin Gold)");
         assert_eq!(s.label_of_asset(-2, 21).unwrap().to_string(), "BTG (Openverse Network)");
+    }
+
+    /// Codex r1: two coins held as BTG (Bitcoin Gold on Binance, Openverse on KuCoin) reconcile apart. By symbol, the one
+    /// `BTG` balance group matches neither position: Bitcoin Gold's lot reads as departed and all six units as arrived.
+    #[test]
+    fn balances_and_pending_rows_reconcile_by_label() {
+        use crate::tracker::{figures::Balance, walk::{Position, Summary}};
+        let c = db(CATALOGUE, "INSERT INTO tickers VALUES (1, 1, 'BTG', 'USDT', 20, 3); INSERT INTO tickers VALUES (2, 2, 'BTG', 'USDT', 21, 3);",
+                   &["1, 0, 'BTG', 1, 'USDT', 20, NULL, NULL, NULL, NULL, '2019-01-01 00:00:00'"]);
+        c.execute_batch("INSERT INTO exchange_account_balances (user_id, exchange_id, account_id, asset_id, free, locked) VALUES (1, 1, NULL, 20, 1, 0), (1, 2, NULL, 21, 5, 0)").unwrap();
+        let (mut rows, labels) = crate::tracker::rows::load_all_labelled(&c, 1).unwrap();
+        assert_eq!(labels.asset(-1, 20), Some("BTG (Bitcoin Gold)"));
+        assert_eq!(labels.asset(-2, 21), Some("BTG (Openverse Network)"));
+        assert_eq!(labels.spelling("BTG (Openverse Network)"), "BTG");
+        // A pending row, read by its spelling, takes its leg's label.
+        rows[0].base = crate::tracker::spellings::Label::spelled("BTG");
+        labels.relabel(&mut rows);
+        assert_eq!(rows[0].base.as_str(), "BTG (Bitcoin Gold)");
+        let d = |s: &str| Dec::strict(s).unwrap();
+        let balance = |account: i64, asset: i64, units: &str| Balance { asset, account, category: Some("Cryptocurrency".into()), symbol: "BTG".into(), exchange: "x".into(),
+            free: d(units), locked: Dec::zero(), usd_price: Some(d("10")), usd_value: Some((&d(units) * &d("10")).unwrap()), priced_at: None, synced_at: None };
+        let mut summary = Summary::empty();
+        summary.positions = vec![Position { symbol: "BTG (Bitcoin Gold)".into(), quantity: d("1"), cost: d("20"), avg_cost: d("20"), opened_at: None, estimated: false, unpriced: Dec::zero() }];
+        let balances = [balance(-1, 20, "1"), balance(-2, 21, "5")];
+        let notes = |s: &Summary| crate::tracker::gaps::resolve(s, &balances, "x").unwrap().into_iter().map(|n| (n.kind, n.symbol)).collect::<Vec<_>>();
+        assert_eq!(notes(&summary), [("arrived", "BTG".to_string()), ("left", "BTG (Bitcoin Gold)".to_string())], "by symbol");
+        summary.labels = labels;
+        assert_eq!(notes(&summary), [("arrived", "BTG (Openverse Network)".to_string())], "by label: only the Openverse units arrived");
     }
 
     /// A stored link carries a known withdrawal's coin to an unlisted deposit, whichever row names the other.

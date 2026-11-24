@@ -1847,7 +1847,7 @@ fn r3_7_a_moved_keys_balance_time_is_read_again() {
     // The survivor's own read as it was before the merge's fresh syncs.
     c.execute("UPDATE api_keys SET balances_synced_at = '2026-09-20 10:00:00' WHERE id = ?1", [two.keys[0]]).unwrap();
     let a = identity::AccountRow::of(c, &two.accounts[0]).unwrap().unwrap();
-    let moved = deltabadger::tracker::figures::pending(c, two.seeded.user_id, &deltabadger::tracker::Scope::Account(a)).unwrap();
+    let moved = deltabadger::tracker::figures::pending(c, two.seeded.user_id, &deltabadger::tracker::Scope::Account(a), &Default::default()).unwrap();
     assert_eq!(moved.into_iter().map(|(s, d)| (s, d.to_s_f())).collect::<Vec<_>>(), [("BTC".to_string(), "0.5".to_string())]);
 }
 

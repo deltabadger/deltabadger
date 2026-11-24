@@ -79,6 +79,8 @@ pub struct StoredGap { pub exchange_id: i64, pub account: AccountRow, pub key: i
 /// venue's price (at cost while it has none); less left at cost; a position the venue no longer reports left at its
 /// cost. Notes under a dollar are dropped as `compute_on` drops them; every note names `venue`, the venue judged.
 pub fn resolve(summary: &Summary, balances: &[Balance], venue: &str) -> Result<Vec<Note>, FiguresError> {
+    let labelled = figures::labelled(balances, &summary.labels);
+    let balances = labelled.as_slice();
     let zero = Dec::zero();
     let mut symbols: Vec<&str> = vec![];
     let mut rows_of: HashMap<&str, Vec<&Balance>> = HashMap::new();
@@ -427,7 +429,7 @@ mod tests {
     }
     fn balance(symbol: &str, units: &str, price: Option<&str>) -> Balance {
         let value = price.map(|p| (&d(units) * &d(p)).unwrap());
-        Balance { asset: 1, category: Some("Cryptocurrency".into()), symbol: symbol.into(), exchange: "KuCoin".into(), free: d(units), locked: Dec::zero(), usd_price: price.map(d), usd_value: value, priced_at: None, synced_at: None }
+        Balance { asset: 1, account: -1, category: Some("Cryptocurrency".into()), symbol: symbol.into(), exchange: "KuCoin".into(), free: d(units), locked: Dec::zero(), usd_price: price.map(d), usd_value: value, priced_at: None, synced_at: None }
     }
     fn key(n: &Note) -> (&'static str, String, Option<Dec>, Option<Dec>, Dec) { (n.kind, n.symbol.clone(), n.history.clone(), n.held.clone(), n.amount.clone()) }
 

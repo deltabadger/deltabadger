@@ -2508,7 +2508,7 @@ async fn a_buy_between_the_cash_and_positions_replies_counts_once() {
                transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
                VALUES (?1, ?2, ?3, 0, 'AAPL', '1', 'USD', '227', 'fill-1', '2026-09-20 02:03:00', '{}', '{}', 0, '2026-09-20', '2026-09-20')",
               [s.user_id, s.api_key_id, s.exchange_id]).unwrap();
-    let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All).unwrap();
+    let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All, &Default::default()).unwrap();
     assert!(moved.iter().all(|(symbol, _)| symbol != "AAPL" && symbol != "USD"), "{moved:?}");
 }
 
