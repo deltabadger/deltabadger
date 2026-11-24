@@ -271,3 +271,28 @@ pub async fn drop_mock_server(server: wiremock::MockServer) {
 pub fn number_one(c: &rusqlite::Connection, user_id: i64, exchange_id: i64) -> i64 {
     deltabadger::identity::Account::first(c, user_id, exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap().id.unwrap()
 }
+
+/// #710 slice 9: Coinbase keys as the identity tests send them. An Ed25519 secret (32 bytes, base64) signs every request,
+/// so each carries a JWT whose header names its key (`kid`), which `CoinbaseKid` matches.
+pub mod coinbase_key {
+    use base64::Engine;
+    pub const SECRET: &str = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+    pub const PORTFOLIO_A: &str = "5b2c6a1e-8f3d-4e7a-9c0b-1d2e3f4a5b6c";
+    pub const PORTFOLIO_B: &str = "9d8e7f6a-5b4c-4d3e-8f2a-1b0c9d8e7f6a";
+    pub fn credentials(key: &str) -> deltabadger::crypto::Credentials {
+        deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: SECRET.into(), passphrase: None, redaction_values: vec![] }
+    }
+    /// GET /api/v3/brokerage/key_permissions as Coinbase's public docs type it: a read-only key's flags and its portfolio.
+    pub fn permissions(uuid: &str, can_trade: bool) -> serde_json::Value {
+        serde_json::json!({"can_view": true, "can_trade": can_trade, "can_transfer": false, "portfolio_uuid": uuid, "portfolio_type": "DEFAULT"})
+    }
+    /// A request signed by key `0`.
+    pub struct Kid(pub &'static str);
+    impl wiremock::Match for Kid {
+        fn matches(&self, r: &wiremock::Request) -> bool {
+            let Some(jwt) = r.headers.get("authorization").and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")) else { return false };
+            let header = jwt.split('.').next().and_then(|h| base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(h).ok());
+            header.and_then(|h| serde_json::from_slice::<serde_json::Value>(&h).ok()).is_some_and(|h| h["kid"] == self.0)
+        }
+    }
+}

@@ -639,6 +639,89 @@ async fn an_unreadable_proxy_setting_sends_no_identity_read_and_records_a_failur
     assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().is_empty(), "the failure backs off");
 }
 
+// ---- #710 slice 9: Coinbase's portfolio ------------------------------------------------------------------------------
+
+const COINBASE: &str = "Exchanges::Coinbase";
+fn portfolio(uuid: &str) -> Observed { Observed::Read(AccountId::from_uuid(&json!(uuid)).unwrap()) }
+
+impl Fx {
+    /// A correct Coinbase key of `kind` named `key`, its secret one that signs (`common::coinbase_key`).
+    fn coinbase(&self, kind: i64, key: &str) -> i64 {
+        self.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",
+                       rusqlite::params![self.user, self.exchange(COINBASE), kind, self.cipher.encrypt(key), self.cipher.encrypt(common::coinbase_key::SECRET)]).unwrap();
+        self.c.last_insert_rowid()
+    }
+}
+
+/// Coinbase's key check reads `portfolio_uuid` from its own permission read: no request is added; a read-only key's
+/// portfolio is captured before the breakdown read replaces that answer and kept when the breakdown fails; a trading key's
+/// is its flag read's; a refused key (401) is a failure that names nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn coinbase_key_checks_capture_the_portfolio_before_the_breakdown_and_keep_it() {
+    use common::coinbase_key::{credentials, permissions, Kid, PORTFOLIO_A, PORTFOLIO_B};
+    use deltabadger::web::settings::{key_check, validator::Validity};
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    let perms = deltabadger::venue::coinbase::PERMISSIONS;
+    Mock::given(method("GET")).and(path(perms)).and(Kid("cb-read")).respond_with(ResponseTemplate::new(200).set_body_json(permissions(PORTFOLIO_A, false))).mount(&server).await;
+    Mock::given(method("GET")).and(path(perms)).and(Kid("cb-trade")).respond_with(ResponseTemplate::new(200).set_body_json(permissions(&PORTFOLIO_B.to_uppercase(), true))).mount(&server).await;
+    Mock::given(method("GET")).and(path(perms)).and(Kid("cb-wrong"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(json!({"error": "UNAUTHENTICATED", "code": 16, "message": "Unauthorized", "details": []}))).mount(&server).await;
+    let breakdown = format!("/api/v3/brokerage/portfolios/{PORTFOLIO_A}");
+    Mock::given(method("GET")).and(path(breakdown.as_str())).respond_with(ResponseTemplate::new(503)).up_to_n_times(1).with_priority(1).mount(&server).await;
+    Mock::given(method("GET")).and(path(breakdown.as_str())).respond_with(ResponseTemplate::new(200).set_body_json(json!({"breakdown": {"spot_positions": []}}))).mount(&server).await;
+    let base = server.uri();
+    let check = |key: &'static str, kind: i64| { let base = base.clone(); async move { key_check::check_identified(COINBASE, &base, deltabadger::venue::http::client(), &credentials(key), kind).await } };
+
+    let (validity, observed) = check("cb-read", 2).await;
+    assert!(matches!(validity, Validity::Pending(_)), "the breakdown failed");
+    assert_eq!(observed, Some(portfolio(PORTFOLIO_A)), "the portfolio read before it is kept");
+    let (validity, observed) = check("cb-read", 2).await;
+    assert!(matches!(validity, Validity::Correct) && observed == Some(portfolio(PORTFOLIO_A)));
+    let (validity, observed) = check("cb-trade", 0).await;
+    assert!(matches!(validity, Validity::Correct) && observed == Some(portfolio(PORTFOLIO_B)), "case folds");
+    let (validity, observed) = check("cb-wrong", 0).await;
+    assert!(matches!(validity, Validity::Incorrect), "only 401 is an invalid key");
+    let Some(Observed::Failed(code)) = observed else { panic!("{observed:?}") };
+    assert!(identity::definite_failure(COINBASE, &code), "{code}");
+    let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
+    assert_eq!(sent, [perms, breakdown.as_str(), perms, breakdown.as_str(), perms, perms], "the check's own requests, none added");
+}
+
+/// Discovery and the JSON save's pre-read (`read_live`) send the check's permission read alone. A Coinbase portfolio is
+/// the account: two keys of one portfolio agree; a key of another portfolio on the same account is its conflict.
+#[tokio::test(flavor = "current_thread")]
+async fn coinbase_discovery_reads_each_keys_portfolio() {
+    use common::coinbase_key::{permissions, Kid, PORTFOLIO_A, PORTFOLIO_B};
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    let perms = deltabadger::venue::coinbase::PERMISSIONS;
+    for (key, uuid) in [("cb-a1", PORTFOLIO_A), ("cb-a2", PORTFOLIO_A), ("cb-b", PORTFOLIO_B)] {
+        Mock::given(method("GET")).and(path(perms)).and(Kid(key)).respond_with(ResponseTemplate::new(200).set_body_json(permissions(uuid, true))).mount(&server).await;
+    }
+    let fx = Fx::new();
+    let (trading, reading) = (fx.coinbase(0, "cb-a1"), fx.coinbase(2, "cb-a2"));
+    let due = identity::due(&fx.c, &fx.cipher, now()).unwrap();
+    let mut ids: Vec<i64> = due.iter().map(|d| d.api_key_id).collect();
+    ids.sort();
+    assert_eq!(ids, [trading, reading], "every Coinbase key is due");
+    for d in due {
+        let observed = identity::read_live(&d.exchange_type, &server.uri(), deltabadger::venue::http::client(), &d.credentials).await.unwrap();
+        assert_eq!(observed, portfolio(PORTFOLIO_A));
+        assert!(identity::publish(&fx.c, &fx.cipher, &d, &observed, now()).unwrap());
+    }
+    assert_eq!((fx.standing(COINBASE), identity::credential_standing(&fx.c, trading).unwrap(), identity::credential_standing(&fx.c, reading).unwrap()),
+               (Standing::Bound, CredentialStanding::Bound, CredentialStanding::Bound), "one portfolio, one account");
+    let other = fx.coinbase(1, "cb-b");
+    for d in identity::due(&fx.c, &fx.cipher, now()).unwrap() {
+        let observed = identity::read_live(&d.exchange_type, &server.uri(), deltabadger::venue::http::client(), &d.credentials).await.unwrap();
+        assert!(identity::publish(&fx.c, &fx.cipher, &d, &observed, now()).unwrap());
+    }
+    assert_eq!(identity::credential_standing(&fx.c, other).unwrap(), CredentialStanding::Conflict, "another portfolio is another account");
+    let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| format!("{} {}", r.method, r.url.path())).collect();
+    assert_eq!(sent, [format!("GET {perms}"), format!("GET {perms}"), format!("GET {perms}")], "one permission read per key");
+}
+
 // ---- #710 slice 1: numbered accounts, eager rows, the resolver --------------------------------------------------------
 
 const V710: &str = "20261119000001";
