@@ -51,11 +51,11 @@ fn needs_reads(c: &Connection, user: i64, exchange: i64, venue: &str) -> Result<
 /// Review r1 #1: whether a save routed `route` replaces, in its slot of type `kind`, a key of other material than `material`
 /// that has no UID read of its current material (`identity::unread`): that key is read first, so a key of another exchange
 /// account never takes its slot and its history, whatever the account count.
-fn replaces_unread(c: &Connection, app: &App, route: crate::identity::Route, kind: i64, venue: &str, material: &crate::crypto::Credentials) -> Result<bool, WebError> {
+/// Bybit review r1 #1: any key of the destination account, not only the slot's: an empty read-only slot beside an unread
+/// trading key reads that key first too.
+fn replaces_unread(c: &Connection, app: &App, route: crate::identity::Route, _kind: i64, venue: &str, material: &crate::crypto::Credentials) -> Result<bool, WebError> {
     let crate::identity::Route::To(account) = route else { return Ok(false) };
-    let Some(account) = Account::by_id(c, account)? else { return Ok(false) };
-    let Some(id) = Key::read(c, app, account, kind)?.id else { return Ok(false) };
-    Ok(!crate::identity::is_material(c, &app.cipher, id, venue, material) && crate::identity::unread(c, id).map_err(WebError::Config)?)
+    crate::identity::holds_unread_other(c, &app.cipher, account, venue, material).map_err(WebError::Config)
 }
 /// Whether the exchange has two or more live accounts (rule Q1: every save there reads the unread keys first).
 fn several(c: &Connection, user: i64, exchange: i64) -> Result<bool, WebError> { Ok(crate::identity::accounts_of(c, user, exchange)?.len() >= 2) }
@@ -493,7 +493,10 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
     let stored=slot(venue,kind);
     let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,stored)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
-    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((read.clone(),validated.handle.credentials().clone())),_=>None};
+    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((crate::identity::Observed::Read(read.clone()),validated.handle.credentials().clone())),
+        // Bybit review r1 #5: a definite refusal is the installed key's answer as a read is (validation-read venues only).
+        Some(failed@crate::identity::Observed::Failed(code)) if crate::identity::VALIDATION_READS.contains(&venue)&&crate::identity::definite_failure(venue,code)=>Some((failed.clone(),validated.handle.credentials().clone())),
+        _=>None};
     let installed=match original.account.id {Some(a) if !original.untargeted=>snapshot.iter().find(|(s,_)|*s==a).map(|(_,slot)|(original.account,stored,slot.clone())),_=>None};
     // #710 7a rule S2: a verdict that saves nothing still records what the account read taught (`learn_refused`).
     let refused=match &validated.result.value {
@@ -659,7 +662,7 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
 /// naming its slot (`installed`: the account, the slot type and the slot as it was before the request) whose installed key
 /// is still that key, at that ciphertext version, and this material records the read as that key's own (`identity::record`,
 /// which fences the other copies too); its status and material stay as they are. A reader it moves is woken (rules K5/M4).
-async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate::crypto::Credentials,read:crate::identity::AccountId,installed:Option<(Account,i64,Slot)>)->Result<(),WebError>{
+async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate::crypto::Credentials,read:crate::identity::Observed,installed:Option<(Account,i64,Slot)>)->Result<(),WebError>{
     let (inner,venue)=(app.clone(),venue.to_string());
     let moved=app.db(move|c|{
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
@@ -672,10 +675,10 @@ async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate:
             Some(id)=>{
                 let generations=crate::identity::generations_of_key(&tx,id).map_err(WebError::Config)?;
                 let (_,version)=crate::sync::credentials_with_version(&tx,&inner.cipher,id).map_err(|e|WebError::Config(e.0))?;
-                crate::identity::record(&tx,&inner.cipher,id,&material,&version,&crate::identity::Observed::Read(read),inner.now()).map_err(WebError::Config)?;
+                crate::identity::record(&tx,&inner.cipher,id,&material,&version,&read,inner.now()).map_err(WebError::Config)?;
                 crate::identity::moved_readers(&tx,id,&generations).map_err(WebError::Config)?
             }
-            None=>{crate::identity::fence_copies(&tx,&inner.cipher,user,exchange,&venue,&material,&read,None,inner.now()).map_err(WebError::Config)?;vec![]},
+            None=>{if let crate::identity::Observed::Read(read)=&read {crate::identity::fence_copies(&tx,&inner.cipher,user,exchange,&venue,&material,read,None,inner.now()).map_err(WebError::Config)?;}vec![]},
         };
         tx.commit()?;Ok(moved)
     }).await?;
@@ -1176,7 +1179,7 @@ pub async fn legacy(
   for k in readers.iter().filter(|k|**k!=id) {for job in [crate::sync::jobs::LEDGER_SYNC,crate::sync::jobs::BALANCE_SYNC] {jobs.wake(job,Some(&k.to_string()),None);}}
   Ok(Ok(()))
  }).await?;
-    if let (Err(Some(_)),Some((read,venue,material)))=(&saved,taught) { learn_refused(&app,user.id,exchange,&venue,material,read,None).await?; }
+    if let (Err(Some(_)),Some((read,venue,material)))=(&saved,taught) { learn_refused(&app,user.id,exchange,&venue,material,crate::identity::Observed::Read(read),None).await?; }
     if matches!(&saved,Err(Some(reason)) if reason=="credential venue is not ported"){return Ok(layout::not_ported_for(&ctx));}
     if matches!(&saved,Err(Some(reason)) if reason==MISSING){return Ok(layout::missing());}
     let (status, data) = match saved {

@@ -4427,6 +4427,90 @@ async fn s9_al_r1_an_alpaca_5xx_saying_unauthorized_never_demotes_a_correct_key(
     }
 }
 
+// ---- #710 slice 9: Bybit names its UID (`result.userID` of GET /v5/user/query-api) ----
+
+const BYBIT: &str = "Exchanges::Bybit";
+fn uid(raw: &str) -> identity::Observed { identity::Observed::Read(identity::AccountId::parse(raw).unwrap()) }
+/// A Bybit pair beside Kraken's fixture (keys `account-1-key`, `account-2-key`).
+fn bybit_two(c: &Connection) -> Two {
+    identity::key(c, &seed::cipher(), chrono::Utc::now()).unwrap();
+    let k = Two::kraken(c, &seed::cipher());
+    Two::venue(c, &seed::cipher(), &k.seeded, BYBIT, "Bybit")
+}
+
+/// G5: Bybit stays an overlap venue. A standing its trade ids entered before any UID read is unchanged before the first
+/// identity read; after it, reads naming one UID keep it and a second account's key naming another ends it.
+#[test]
+fn s9_g5_a_bybit_overlap_standing_is_kept_by_one_uid_and_ended_by_another() {
+    for (second, kept) in [("24600000", true), ("24600111", false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = bybit_two(c);
+        trades(c, &two, 0, 3, 0, "1");
+        trades(c, &two, 1, 3, 0, "1");
+        c.execute("INSERT INTO exchange_account_standings (duplicate_id, survivor_id, user_id, exchange_id, since, basis) VALUES (?1, ?2, ?3, ?4, '2026-09-20 10:00:00', ?5)",
+                  rusqlite::params![two.id(1), two.id(0), two.seeded.user_id, two.seeded.exchange_id, identity::standing_basis(c, two.id(1), two.id(0)).unwrap()]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "unchanged before the first identity read");
+        observe_stored(c, two.keys[0], &uid("24600000"));
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))], "one account's UID known: the overlap still stands");
+        observe_stored(c, two.keys[1], &uid(second));
+        assert_eq!(standing(c, &two).is_empty(), !kept, "{second}");
+    }
+}
+
+/// G4 after discovery: Bybit's definite refusals are its retCodes 10003, 10004, 10005, 10007 and -2015. A bare 403,
+/// 10006, 10016, a 429, a 5xx (even one carrying 10003) and a success that names no UID leave the standing.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_g4_after_discovery_only_bybit_s_refusal_codes_end_a_standing() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let code = |code: i64| serde_json::json!({"retCode": code, "retMsg": "refused", "result": {}});
+    let mut cases: Vec<(u16, serde_json::Value, bool)> = [10003, 10004, 10005, 10007, -2015].into_iter().map(|c| (200, code(c), true)).collect();
+    cases.extend([(403, serde_json::json!({}), false), (200, code(10006), false), (200, code(10016), false), (429, code(10006), false), (503, code(10003), false),
+                  (200, serde_json::json!({"retCode": 0, "result": {"id": "13770661"}}), false)]);
+    for (status, body, ends) in cases {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path(identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", "account-1-key"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(body.clone())).expect(1).mount(&server).await;
+        let (_d, o) = install();
+        let c = &o.primary;
+        let two = bybit_two(c);
+        for key in two.keys { observe_stored(c, key, &uid("24600000")); }
+        c.execute("UPDATE exchange_accounts SET fingerprint = (SELECT fingerprint FROM exchange_account_credentials WHERE api_key_id = ?1) WHERE id IN (?2, ?3)",
+                  [two.keys[0], two.id(0), two.id(1)]).unwrap();
+        assert_eq!(standing(c, &two), [(two.id(1), two.id(0))]);
+        let later = chrono::Utc::now() + chrono::Duration::days(8);
+        let due = identity::due(c, &seed::cipher(), later).unwrap().into_iter().find(|d| d.api_key_id == two.keys[0]).unwrap();
+        let observed = identity::read_live(BYBIT, &server.uri(), deltabadger::venue::http::client(), &due.credentials).await.unwrap();
+        assert!(matches!(observed, identity::Observed::Failed(_)), "{status} {body}: {observed:?}");
+        assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
+        server.verify().await;
+        assert_eq!(standing(c, &two).is_empty(), ends, "{status} {body}");
+    }
+}
+
+/// Bybit review r1 #7: the scheduled validator records a correct Bybit key's UID read (its permission probe, then the
+/// query-api read).
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_the_scheduled_validator_records_a_bybit_uid() {
+    use deltabadger::jobs::{Cx, Db, Job};
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/v5/order/cancel")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 170213, "retMsg": "Order does not exist."}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v5/user/query-api")).and(header("X-BAPI-API-KEY", "account-1-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"retCode": 0, "result": {"id": "1", "userID": 24600000}}))).mount(&server).await;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = bybit_two(c);
+    let key = two.keys[0];
+    assert!(identity::unread(c, key).unwrap());
+    let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let cx = Cx { db: Db::new(Connection::open(c.path().unwrap()).unwrap(), seed::cipher()), clock: &clock, wakers: Default::default() };
+    let outcome = deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: key }.run(cx, vec![]).await;
+    assert!(server.received_requests().await.unwrap().iter().any(|r| r.url.path() == "/v5/user/query-api"), "{outcome:?}");
+    assert!(!identity::unread(c, key).unwrap(), "the UID read is recorded: {outcome:?}");
+    assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), 1);
+}
+
 // ---- #710 slice 9: MEXC names its UID (`uid` of GET /api/v3/uid) ----
 
 const MEXC: &str = "Exchanges::Mexc";
