@@ -570,8 +570,11 @@ pub fn alpaca_sweep_domain(c: &Connection, user_id: i64, all: &[Stored]) -> Resu
         if [Some(r.base.as_str()), r.quote.as_deref()].into_iter().flatten().any(|c| fiat(c) && c != "USD") { return Err("cash other than US dollars".into()); }
         if matches!(r.kind, Kind::Buy | Kind::Sell) && !r.quoted() { return Err("a trade leg with no cash quote of its own".into()); }
     }
-    let linked_to: std::collections::HashSet<i64> = all.iter().filter_map(|r| r.linked_to).collect();
-    if all.iter().any(|r| (r.linked_to.is_some() || linked_to.contains(&r.id)) && r.base != "USD") { return Err("a linked transfer of anything but US dollars".into()); }
+    // The links as stored: a link the map voids (it moves no quantity) still puts its rows outside the domain.
+    let linked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN account_transactions l ON l.id = t.linked_transaction_id \
+                                    WHERE t.user_id = ?1 AND (t.base_currency IS NOT 'USD' OR l.base_currency IS NOT 'USD'))", [user_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    if linked { return Err("a linked transfer of anything but US dollars".into()); }
     Ok(())
 }
 
