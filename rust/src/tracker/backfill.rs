@@ -49,12 +49,11 @@ pub fn identity_key(user_id: i64) -> String { format!("rust_snapshot_identity_{u
 pub fn note_identity(c: &Connection, user_id: i64, labels: &super::labels::Labels, now: chrono::DateTime<chrono::Utc>) -> Result<bool, FiguresError> {
     use sha2::Digest;
     let fingerprint = hex::encode(sha2::Sha256::digest(format!("{labels:?}").as_bytes()));
-    let key = identity_key(user_id);
-    let stored = crate::app_config::get_plain(c, &key).map_err(FiguresError::Data)?;
+    let stored = crate::app_config::get_plain(c, &identity_key(user_id)).map_err(FiguresError::Data)?;
     if stored.as_deref() == Some(fingerprint.as_str()) { return Ok(false); }
     let changed = stored.is_some();
     if changed { crate::app_config::delete(c, &calculation_key(user_id)).map_err(FiguresError::Data)?; }
-    crate::app_config::set_plain(c, &key, &fingerprint, now).map_err(FiguresError::Data)?;
+    crate::app_config::set_plain(c, &identity_key(user_id), &fingerprint, now).map_err(FiguresError::Data)?;
     Ok(changed)
 }
 
