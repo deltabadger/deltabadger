@@ -656,8 +656,11 @@ pub async fn hyperliquid_check<T: Transport>(venue: &crate::venue::hyperliquid::
 }
 
 /// Exchanges::Bybit#get_api_key_validity: cancel alone for trading; wallet for withdrawals.
+/// Divergence D-BYBIT-5XX-NO-VERDICT (#710 slice 9, Bybit review r1 #3): a 5xx or a 429 is no verdict whatever retCode its
+/// body carries (2.x read the code under any status).
 pub fn bybit_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Verdict {
     use crate::venue::bybit::{failure_text, to_s};
+    if let Ok(r) = answer { if r.status >= 500 || r.status == 429 { return Verdict::Failure(raised(r, method, url)); } }
     let result = bitget_result(answer, method, url);
     let body = match &result { Ok(Some(v)) => Some(v.clone()), Err(text) => serde_json::from_str::<Value>(text).ok(), _ => None };
     let code = body.as_ref().and_then(|b| b.get("retCode")).filter(|v| !v.is_null()).map(to_s);
@@ -677,12 +680,19 @@ pub fn bybit_verdict(kind: i64, answer: &Result<HttpResponse, TransportError>, m
     match result { Err(e) => Verdict::Failure(e), _ => Verdict::Failure(message.map(str::to_string).unwrap_or_else(|| format!("Bybit answered retCode {}", inspect(code.as_ref().map(|s| Value::String(s.clone())).as_ref())))) }
 }
 pub async fn bybit_check<T: Transport>(transport: &T, venue: &crate::venue::bybit::BybitVenue<T>, kind: i64) -> (Result<HttpResponse, TransportError>, Verdict) {
+    let (answer, verdict, _) = bybit_check_identified(transport, venue, kind).await;
+    (answer, verdict)
+}
+/// `bybit_check`, with what the probe's answer states as an identity read (`identity::bybit_answer`: its status and
+/// retCode), read as it arrived, before the transport scrubs a body that echoes the key (Bybit review r1 #4).
+pub async fn bybit_check_identified<T: Transport>(transport: &T, venue: &crate::venue::bybit::BybitVenue<T>, kind: i64)
+                                                 -> (Result<HttpResponse, TransportError>, Verdict, Option<crate::identity::Observed>) {
     use crate::venue::bybit::{ASSETS_PATH, CANCEL_PATH};
     let r = if kind == 0 { venue.request("POST", CANCEL_PATH, vec![], Some(serde_json::json!({"category":"spot","symbol":"BTCUSDT","orderId":"0"}))) }
             else { venue.request("GET", ASSETS_PATH, vec![("accountType", "UNIFIED".into())], None) };
-    let answer = transport.send(&r).await;
+    let (answer, probe) = match transport.send_observed(&r, &crate::identity::bybit_answer).await { Ok((a, p)) => (Ok(a), Some(p)), Err(e) => (Err(e), None) };
     let verdict = bybit_verdict(kind, &answer, r.method, r.url().as_str());
-    (answer, verdict)
+    (answer, verdict, probe)
 }
 
 /// What Exchanges::Ibkr#get_api_key_validity comes to: the one account the login names (correct), IBKR's activation wait,
@@ -750,7 +760,8 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
 }
 
 /// `check`, and for a correct key of a venue with a confirmed account id (crate::identity::VENUES) what its identity read
-/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance; Binance.US's is its check's own account read).
+/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance, D-BYBIT-IDENTITY-READ on Bybit; Binance.US's is
+/// its check's own account read, Coinbase's its permission read).
 /// None: no read was made.
 pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
                               -> (Validity, Option<crate::identity::Observed>) {
@@ -856,7 +867,14 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
     } else if scheme == Some(KeyCheck::Bybit) {
         let transport = ReqwestTransport::bybit(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), base);
-        bybit_check(&transport, &venue, kind).await
+        let (answer, verdict, probe) = bybit_check_identified(&transport, &venue, kind).await;
+        // #710 slice 9 (D-BYBIT-IDENTITY-READ): a key the check judges correct is read once more, for its UID. A probe Bybit
+        // refused with one of its definite refusal codes (G4) is the key's own answer; a transient one (10006) reads nothing.
+        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue_type, &transport, base, &credentials.secret).await; }
+        else if let Some(probe @ crate::identity::Observed::Failed(code)) = &probe {
+            if crate::identity::definite_failure(venue_type, code) { observed = Some(probe.clone()); }
+        }
+        (answer, verdict)
     } else if scheme == Some(KeyCheck::Bitrue) {
         let transport = ReqwestTransport::bitrue(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), base, &credentials.secret);
