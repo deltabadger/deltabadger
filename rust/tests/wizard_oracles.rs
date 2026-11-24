@@ -239,6 +239,7 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!(mx["rejected_codes"], json!(key_check::MEXC_REJECTED));
     let invalid: Vec<String> = deltabadger::engine::venue_rules::MEXC.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
     assert_eq!(serde_json::from_value::<Vec<String>>(mx["invalid_key_errors"].clone()).unwrap(), invalid);
+    let mut by_code = 0;
     let mut mexc = 0;
     for case in mx["cases"].as_array().unwrap() {
         let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
@@ -259,7 +260,12 @@ fn key_verdicts_replay_every_recorded_case() {
         // Listed divergence D-MEXC-KEY-TEXT (as Bitvavo's): a deposit history answered 2xx with a body that is no JSON passes
         // 2.x's reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
         // does not carry the content type and MEXC answers JSON, so Rust gives no verdict on it.
-        if name.ends_with("deposits plain_text_200") {
+        // Divergence D-MEXC-CODE-NOT-TEXT (#710 slice 9, review r1 #1): the verdict comes from the status and the code, never
+        // the message: 602 (a signature failure 2.x read as an invalid key by its words) is no verdict.
+        if name.contains("signature 602") {
+            assert!(theirs == Verdict::Valid(false) && matches!(&ours, Verdict::Failure(_)), "D-MEXC-CODE-NOT-TEXT {name}: {ours:?}, 2.x {theirs:?}");
+            by_code += 1;
+        } else if name.ends_with("deposits plain_text_200") {
             assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-MEXC-KEY-TEXT {name}: {ours:?}, 2.x {theirs:?}");
             text_passes += 1;
         } else {
@@ -274,7 +280,7 @@ fn key_verdicts_replay_every_recorded_case() {
         assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
         mexc += 1;
     }
-    assert_eq!((mexc, text_passes - 7), (240, 4), "a recorded MEXC case was added or dropped");
+    assert_eq!((mexc, text_passes - 7, by_code), (240, 4, 8), "a recorded MEXC case was added or dropped");
     replayed += mexc;
     // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
     // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over

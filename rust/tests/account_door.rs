@@ -3535,7 +3535,11 @@ async fn s9_the_wizard_save_routes_a_mexc_key_by_its_uid() {
 async fn s9_a_transient_mexc_probe_keeps_a_correct_keys_status_and_standing_at_revalidate() {
     let refusal = |code: i64, msg: &str| serde_json::json!({"code": code, "msg": msg});
     for (status, answer, kept) in [(503, serde_json::json!({}), true), (403, serde_json::json!({}), true), (429, refusal(10072, "Api key info invalid"), true),
-                                   (400, refusal(10072, "Api key info invalid"), false), (400, refusal(700002, "Signature for this request is not valid."), false)] {
+                                   (400, refusal(10072, "Api key info invalid"), false), (400, refusal(700002, "Signature for this request is not valid."), false),
+                                   // Review r1 #1, the recorded signature failure: 602 is no refusal, whatever its words.
+                                   (400, refusal(602, "Signature verification failed"), true),
+                                   // Review r1 #2: a code spelled as a float is that code.
+                                   (403, serde_json::json!({"code": 700007.0, "msg": "No permission to access the endpoint."}), false)] {
         let (_d, o, user, exchange, server, app) = mexc().await;
         let c = &o.primary;
         let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();

@@ -4465,6 +4465,8 @@ async fn s9_g4_after_discovery_only_mexc_s_refusal_codes_end_a_standing() {
     use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
     let code = |code: i64| serde_json::json!({"code": code, "msg": "refused"});
     let mut cases: Vec<(u16, serde_json::Value, bool)> = [(400, 700001), (400, 700002), (403, 700007), (200, 10072)].into_iter().map(|(s, c)| (s, code(c), true)).collect();
+    // Review r1 #2: a code spelled as a float (as MEXC's recorded probes spell it) is that code; 602 is no refusal.
+    cases.extend([(403, serde_json::json!({"code": 700007.0, "msg": "No permission"}), true), (400, code(602), false)]);
     cases.extend([(403, serde_json::json!({}), false), (429, code(10072), false), (503, code(10072), false), (400, code(700003), false), (200, serde_json::json!({}), false)]);
     for (status, body, ends) in cases {
         let server = MockServer::start().await;
@@ -4483,7 +4485,8 @@ async fn s9_g4_after_discovery_only_mexc_s_refusal_codes_end_a_standing() {
         assert!(matches!(observed, identity::Observed::Failed(_)), "{status} {body}: {observed:?}");
         assert!(identity::publish(c, &seed::cipher(), &due, &observed, later).unwrap());
         server.verify().await;
-        assert_eq!(standing(c, &two).is_empty(), ends, "{status} {body}");
+        // Review r1 #4: what the publication committed, not a recomputation.
+        assert_eq!(standings(c).is_empty(), ends, "{status} {body}");
     }
 }
 

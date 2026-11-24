@@ -150,7 +150,8 @@ pub fn not_refused(exchange_type: &str, observed: Option<&Observed>) -> bool {
 /// The failure of an answer: its status and the venue's numeric `code`, nothing else.
 fn failure(status: u16, body: &str) -> Observed {
     let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get("code") {
-        Some(Value::Number(n)) => n.as_i64().map(|n| n.to_string()),
+        // MEXC review r1 #2: a code spelled as a whole float (700007.0) is that code.
+        Some(Value::Number(n)) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.fract() == 0.0 && f.abs() < 1e15).map(|f| f as i64)).map(|n| n.to_string()),
         Some(Value::String(s)) if (1..=12).contains(&s.len()) && s.trim_start_matches('-').bytes().all(|b| b.is_ascii_digit()) => Some(s.clone()),
         _ => None,
     });
@@ -2096,6 +2097,10 @@ mod tests {
         assert_eq!(mexc_answer(200, r#"{"uid":"209302839","code":700007}"#), Observed::Failed("http 200; code 700007".into()), "a code is an error");
         assert_eq!(mexc_answer(400, r#"{"code":700002,"msg":"Signature for this request is not valid."}"#), Observed::Failed("http 400; code 700002".into()));
         assert_eq!(mexc_answer(403, "<html>209302839</html>"), Observed::Failed("http 403".into()));
+        // Review r1 #2: a code spelled as a float is that code, and definite where the code is.
+        assert_eq!(mexc_answer(403, r#"{"code":700007.0,"msg":"No permission"}"#), Observed::Failed("http 403; code 700007".into()));
+        assert!(definite_failure(MEXC, "http 403; code 700007"));
+        assert_eq!(mexc_answer(400, r#"{"code":602.5}"#), Observed::Failed("http 400".into()), "a fraction is no code");
         assert_eq!(mexc_answer(503, r#"{"uid":"209302839"}"#), Observed::Failed("http 503".into()));
         assert_eq!(extractor(MEXC)(200, r#"{"uid":"209302839"}"#), read("209302839"));
         assert!(VENUES.contains(&MEXC) && VALIDATION_READS.contains(&MEXC) && OVERLAP_VENUES.contains(&MEXC), "G5: MEXC stays an overlap venue");

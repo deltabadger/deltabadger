@@ -538,11 +538,13 @@ pub async fn bitrue_check<T: Transport>(transport: &T, venue: &crate::venue::bit
 /// Exchanges::Mexc::KEY_CHECK_REJECTED: 700007 no permission for the endpoint, 10072 an invalid key.
 pub const MEXC_REJECTED: [i64; 2] = [700_007, 10_072];
 pub const MEXC_DEPOSITS_PATH: &str = "/api/v3/capital/deposit/hisrec";
+/// #710 slice 9 G4: MEXC's documented credential refusals (700001 key format, 700002 signature, 700007 no permission, 10072
+/// invalid key), the codes `identity` holds definite: an incorrect key under any status but a 429 or a 5xx.
+pub const MEXC_REFUSED: [i64; 4] = [700_001, 700_002, 700_007, 10_072];
 
 /// Exchanges::Mexc#key_check_verdict on one answer: `Ok(data)` when the call succeeded without a code (or with 0), its
-/// payload (None: Faraday's nil for an empty body); else the verdict. KEY_CHECK_REJECTED, or MEXC's invalid-key words in
-/// the failure's `msg`, are an incorrect key; any other code in a success is no verdict with its `msg`; any other failure
-/// no verdict with its text.
+/// payload (None: Faraday's nil for an empty body); else the verdict. A refusal code (`MEXC_REFUSED`, D-MEXC-CODE-NOT-TEXT)
+/// is an incorrect key; any other code in a success is no verdict with its `msg`; any other failure no verdict with its text.
 /// Divergence D-MEXC-5XX-NO-VERDICT (#710 slice 9): a 5xx or a 429 is no verdict whatever code its body carries (2.x read
 /// KEY_CHECK_REJECTED under any status).
 pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Result<Option<Value>, Verdict> {
@@ -560,7 +562,9 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
     let body = match &failure { Some(text) => serde_json::from_str::<Value>(text).ok(), None => data.clone() };
     let field = |name: &str| body.as_ref().filter(|b| b.is_object()).and_then(|b| b.get(name)).filter(|v| !v.is_null()).cloned();
     let code = field("code");
-    if MEXC_REJECTED.iter().any(|n| number_is(code.as_ref(), *n)) { return Err(Verdict::Valid(false)); }
+    // Divergence D-MEXC-CODE-NOT-TEXT (review r1 #1): the code decides, never the message (2.x also read MEXC's invalid-key
+    // words, which made 602, a signature failure, an incorrect key).
+    if MEXC_REFUSED.iter().any(|n| number_is(code.as_ref(), *n)) { return Err(Verdict::Valid(false)); }
     let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
     let Some(failure) = failure else {
         // `code.nil? || code.to_i.zero?`
@@ -569,9 +573,6 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
         return Err(Verdict::Failure(field("msg").map(|m| text(&m)).filter(|m| !crate::v2::blank(m))
             .unwrap_or_else(|| format!("MEXC answered code {}", code.as_ref().map(text).unwrap_or_default()))));
     };
-    // #parse_error_message: the failure's JSON `msg`.
-    let error = serde_json::from_str::<Value>(&failure).ok().and_then(|b| b.get("msg").and_then(Value::as_str).map(str::to_string));
-    if error.is_some_and(|e| crate::engine::venue_rules::MEXC.is_invalid_key(&[e])) { return Err(Verdict::Valid(false)); }
     Err(Verdict::Failure(failure))
 }
 
