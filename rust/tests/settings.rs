@@ -563,9 +563,11 @@ async fn missing_otp_seed_get_is_idempotent_foreign_get_enables_nothing_and_patc
     assert_eq!(retained, seed);
 }
 /// Exchanges::Alpaca#get_api_key_validity asks the key's own mode's host: a live key the live server, a paper key the
-/// paper server, never the other. The tracker card validates before it saves; the legacy JSON route saves the key
-/// pending and leaves validation to the woken validator job, as 2.x's Api::ApiKeysController (ApiKeyValidatorJob
-/// .perform_later), so it sends nothing itself.
+/// paper server. The tracker card validates before it saves; the legacy JSON route saves the key pending and leaves
+/// validation to the woken validator job, as 2.x's Api::ApiKeysController (ApiKeyValidatorJob .perform_later).
+/// #710 slice 9 (Bybit review r1 #2): a save that replaces an unread installed key reads that key's account first, on that
+/// key's own host: the stored key whose mode the test flips to the other host is read there, once, and nothing else ever
+/// reaches it. (The seeded key predates its account's row, so the first save has no unread key to read.)
 #[tokio::test(flavor = "current_thread")]
 async fn each_mode_validates_on_its_own_host_and_saves() {
     for mode in ["paper", "live"] {
@@ -573,9 +575,13 @@ async fn each_mode_validates_on_its_own_host_and_saves() {
         let (used, unused) = if mode == "live" { (&live_srv, &paper_srv) } else { (&paper_srv, &live_srv) };
         Mock::given(method("GET")).and(path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID", "bad-key"))
             .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).with_priority(1).expect(1).mount(used).await;
+        // The used host: good-key's check and new-key's JSON read.
         Mock::given(method("GET")).and(path("/v2/account"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).expect(2).mount(used).await;
-        Mock::given(wiremock::matchers::any()).respond_with(ResponseTemplate::new(500)).expect(0).mount(unused).await;
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).with_priority(10).expect(2).mount(used).await;
+        // The other host: good-key's own account read once its mode is flipped there (the JSON save's rule Q1), once.
+        Mock::given(method("GET")).and(path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID", "good-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(common::alpaca_key::account(common::alpaca_key::ACCOUNT_A))).with_priority(1).expect(1).mount(unused).await;
+        Mock::given(wiremock::matchers::any()).respond_with(ResponseTemplate::new(500)).with_priority(10).expect(0).mount(unused).await;
         let mut h = Harness::modes(paper_srv.uri(), live_srv.uri()).await;
         let before = h.snapshot();
         let rejected = h.submit("POST", "/tracker/add_api_key", &[("exchange_id", "1"), ("key_type", "trading"), ("api_key[key]", "bad-key"), ("api_key[secret]", "bad-secret"), ("api_key[passphrase]", mode)], Csrf::Header).await;
@@ -600,7 +606,7 @@ async fn each_mode_validates_on_its_own_host_and_saves() {
 async fn an_alpaca_tracker_key_is_the_trading_key() {
     let server = MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h = Harness::new(server.uri()).await;
     let keys = |h: &Harness| -> Vec<(i64, i64, String)> {
@@ -765,7 +771,7 @@ async fn credential_save_and_delete_guard_the_result_and_preserve_rows_on_refusa
     Mock::given(method("GET"))
         .and(path("/v2/account"))
         .respond_with(
-            ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"})),
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"})),
         )
         .expect(1)
         .mount(&server)
@@ -1081,7 +1087,7 @@ async fn account_rotation_must_not_erase_an_unresolved_accepted_order() {
     Mock::given(method("POST")).and(path("/v2/orders")).and(header("APCA-API-KEY-ID","previous-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"account-a-accepted-order"}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/orders:by_client_order_id")).and(header("APCA-API-KEY-ID","account-b-key"))
         .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({"code":40410000,"message":"order not found"}))).expect(0).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/orders:by_client_order_id")).and(header("APCA-API-KEY-ID","previous-key"))
@@ -1115,7 +1121,7 @@ async fn account_rotation_must_not_erase_an_unresolved_accepted_order() {
 #[tokio::test(flavor="current_thread")]
 async fn credential_replacement_without_unresolved_orders_succeeds() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;h.link();
     let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
     let wake=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(wake.clone());
@@ -1131,7 +1137,7 @@ async fn credential_replacement_without_unresolved_orders_succeeds() {
 #[tokio::test(flavor="current_thread")]
 async fn credential_fence_covers_every_writer_intents_and_tracked_open_orders() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;h.link();
     let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
     let wake=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(wake.clone());
@@ -1270,6 +1276,7 @@ async fn credential_fence_rereads_intents_created_during_network_validation() {
     let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
     let db_path=h._dir.path().join("production.sqlite3");
     let at=deltabadger::engine::Clock::now(h.clock.as_ref());
+    // #710 slice 9 (Bybit review r1 #2): the check's account read names the account, so the save reaches the order fence.
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(move |_request:&wiremock::Request| {
         // A second connection represents the engine committing while validation awaited HTTP.
         let c=rusqlite::Connection::open(&db_path).unwrap();
@@ -1277,10 +1284,10 @@ async fn credential_fence_rereads_intents_created_during_network_validation() {
         let ticker=model::ticker_for(&c,&bot).unwrap().unwrap();
         let Sizing::Place(plan)=amount::size(&bot,&ticker,&BigDec::from_i64(60),&BigDec::from_i64(50_000),&deltabadger::engine::venue_rules::ALPACA).unwrap() else {panic!("fixture")};
         placement::begin(&c,&bot,&plan,&FixedClock(at)).unwrap();
-        ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))
+        ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))
     }).expect(1).mount(&server).await;
     let r=h.submit("POST","/tracker/add_api_key",&[("exchange_id","1"),("key_type","trading"),("api_key[key]","new-key"),("api_key[secret]","new-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(r.status,422);assert!(r.body.contains("An order is still being settled."));
+    assert_eq!(r.status,422,"{}",r.body);assert!(r.body.contains("An order is still being settled."),"{}",r.body);
     let bot=model::load_bot(&h.c,bot_id).unwrap();assert!(bot.rust_placement().is_some());
     assert_eq!(model::credentials_for(&h.c,&h.app.cipher,&bot).unwrap().unwrap().key,"previous-key");
     server.verify().await;
@@ -1306,9 +1313,9 @@ async fn tick_with_a_possible_pre_intent_replacement(replace: bool, same_stamp: 
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).and(header("APCA-API-KEY-ID","previous-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":"50000"}}}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","non_marginable_buying_power":"10000"}))).expect(if same_stamp {2} else if replace {0} else {1}).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","non_marginable_buying_power":"10000"}))).expect(if same_stamp {2} else if replace {0} else {1}).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","non_marginable_buying_power":"10000"}))).expect(if replace {2} else {0}).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","non_marginable_buying_power":"10000"}))).expect(if replace {2} else {0}).mount(&server).await;
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).and(header("APCA-API-KEY-ID","account-b-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":"50000"}}}))).expect(if replace {1} else {0}).mount(&server).await;
     Mock::given(method("POST")).and(path("/v2/orders")).and(header("APCA-API-KEY-ID","account-b-key"))
@@ -1538,7 +1545,7 @@ async fn legacy_key_fields_come_from_api_key_never_a_top_level_query_parameter()
     // 2.x reads params.require(:api_key): a top-level `?key=`/`?secret=` never wins over the body.
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let status=h.submit("POST","/api/api_keys?key=url-key&secret=url-secret",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","body-key"),("api_key[secret]","body-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status;
     assert_eq!(status,201);
@@ -1551,7 +1558,7 @@ async fn identical_saves_change_ciphertext_version_and_keep_v2_timestamps() {
     use deltabadger::engine::model;
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"})))
         .expect(3).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let at=h.app.now();
@@ -1585,9 +1592,9 @@ async fn a_balance_sync_started_before_replacement_must_not_publish_old_account_
     }
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"10000"}))).expect(1).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"10000"}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"2000"}))).expect(2).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"2000"}))).expect(2).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).expect(2).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -1640,7 +1647,7 @@ async fn refused_old_sync_cannot_change_replacement(kind: &str) {
     Mock::given(method("GET")).and(path(endpoint)).and(header("APCA-API-KEY-ID","previous-key"))
         .respond_with(ResponseTemplate::new(if kind=="balance" {401} else {503}).set_body_json(serde_json::json!({"message":"unauthorized previous-secret"}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let at=h.app.now();
     let a=deltabadger::sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();
     let entered=Arc::new(tokio::sync::Notify::new());let resume=Arc::new(tokio::sync::Notify::new());
@@ -1757,10 +1764,11 @@ async fn previously_committed_balances_must_not_be_reported_as_replacement_accou
     use deltabadger::{engine::{FixedClock,model},sync::balances::{self,NoPrices},tracker::{snapshot,walk::Summary},venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
+    // A's balance sync, then (#710 slice 9, Bybit review r1 #2) the save of B reads the unread installed A's account first.
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"10000"}))).expect(1).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"10000"}))).expect(2).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"2000"}))).expect(2).mount(&server).await;
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"2000"}))).expect(2).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).expect(2).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let at=h.app.now();
@@ -1808,7 +1816,7 @@ async fn q_tick_result(kind: &str) {
                 else { ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":"50000"}}})) };
             Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).respond_with(response).expect(1).mount(&server).await;
         }
-        Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"non_marginable_buying_power":"0"}))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"non_marginable_buying_power":"0"}))).mount(&server).await;
     }
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut attempts = tick::Attempts::default();
@@ -1876,7 +1884,7 @@ async fn q_tracker_bar_result_must_not_cache_after_credential_replacement() {
 async fn q_direct_old_credentials(kind:&str) {
     use deltabadger::{sync::{self,balances::{self,NoPrices},ledger},engine::{FixedClock,model},venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"10000"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"10000"}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -1903,7 +1911,7 @@ async fn r_price_cache_must_refetch_for_replacement_credentials() {
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":"50000"}}}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v1beta3/crypto/us/latest/quotes")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quotes":{"BTC/USD":{"ap":"200000"}}}))).expect(1).mount(&server).await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","non_marginable_buying_power":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","non_marginable_buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::at_real_now(server.uri()).await;
     let (bot,_)=q_order(&h);h.c.execute("UPDATE tickers SET minimum_quote_size=100000 WHERE id=?1",[h.seed.ticker_id]).unwrap();
@@ -1932,7 +1940,7 @@ impl deltabadger::sync::jobs::Connect for LocalAlpaca {
 async fn saving_a_new_reading_slot_syncs_it_in_the_running_scheduler_without_restart() {
     use deltabadger::{jobs::{self,state},sync::jobs as sync_jobs};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{ "id":"new-slot-interest", "activity_type":"INT", "net_amount":"0.07", "date":"2026-09-01" }]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -1970,7 +1978,7 @@ async fn r_new_account_cannot_reuse_old_accounts_balance_price() {
     use deltabadger::{engine::FixedClock,sync::{self,balances::{self,NoPrices}},venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}}};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{"symbol":"AAA","qty":"2","qty_available":"2","asset_class":"us_equity"}]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"AAA":{"latestTrade":{"p":120}}}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
@@ -1993,7 +2001,7 @@ async fn r_new_account_cannot_reuse_old_accounts_balance_price() {
 async fn r_navbar_allocation_hides_a_after_b_is_saved() {
     use deltabadger::{engine::FixedClock,sync::{self,balances::{self,NoPrices}},venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}},web::{auth::User,shell::Shell}};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE users SET tracker_settings='{\"show_cash\":true}' WHERE id=?1",[h.seed.user_id]).unwrap();
@@ -2013,7 +2021,7 @@ async fn r_navbar_allocation_hides_a_after_b_is_saved() {
 async fn r_mcp_inflight_balances_and_orders_must_not_publish_a_for_b() {
     use deltabadger::web::{figure::loading::Source,mcp::{reads,tools::Called}};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let mut script=serde_json::json!({});
     script["GET paper-api.alpaca.markets/v2/account"]=serde_json::json!({"status":200,"delay_ms":100,"body":{"cash":"10000"}});
@@ -2046,7 +2054,7 @@ async fn r_mcp_inflight_balances_and_orders_must_not_publish_a_for_b() {
 async fn a_first_reading_key_wakes_its_real_tracker_in_the_running_scheduler() {
     use deltabadger::{jobs::{self,state},sync::jobs as sync_jobs};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{ "id":"new-slot-interest", "activity_type":"INT", "net_amount":"0.07", "date":"2026-09-01" }]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -2090,7 +2098,7 @@ async fn r_replacement_invalidates_the_engines_cached_market_wait() {
     use wiremock::matchers::header;
     let server=MockServer::start().await;
     let mut h=Harness::at_real_now(server.uri()).await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":false,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":true,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
@@ -2182,7 +2190,7 @@ async fn a_pending_kucoin_key_rechecked_correct_wakes_its_ledger_and_balance_syn
 async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart() {
     use deltabadger::{jobs::{self,state},sync::jobs as sync_jobs};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{ "id":"new-slot-interest", "activity_type":"INT", "net_amount":"0.07", "date":"2026-09-01" }]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
@@ -2224,7 +2232,7 @@ async fn legacy_save_runs_validation_and_its_real_balance_sync_without_restart()
 #[tokio::test(flavor="current_thread")]
 async fn successful_save_encrypts_all_submitted_credentials_and_preserves_unsent_fields() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(2).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(2).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let extras=[("access_token","placeholder-token"),("rsa_signature_key","placeholder-signature"),("rsa_encryption_key","placeholder-encryption"),("dh_param","placeholder-dh")];
     let fields:Vec<String>=extras.iter().map(|(name,_)|format!("api_key[{name}]")).collect();
@@ -2247,7 +2255,7 @@ async fn successful_save_encrypts_all_submitted_credentials_and_preserves_unsent
 #[tokio::test(flavor="current_thread")]
 async fn reconnect_get_revalidates_a_stored_pending_key_without_exposing_it() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET status=0 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     let response=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[("Turbo-Frame","modal")]).await;
@@ -2262,7 +2270,7 @@ async fn q_validation_cannot_condemn_b(passive:bool) {
     use wiremock::matchers::header;
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({})).set_delay(std::time::Duration::from_millis(200))).expect(1).mount(&server).await;
-    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET status=0 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     let mut getter=Browser{cookie:h.browser.cookie.clone(),page:h.browser.page.clone()};let app=h.app.clone();
@@ -2288,7 +2296,7 @@ async fn q_validator_job_cannot_condemn_replaced_credentials(){q_validation_cann
 #[tokio::test(flavor="current_thread")]
 async fn sync_metadata_during_validation_does_not_refuse_a_credential_replacement() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"})).set_delay(std::time::Duration::from_millis(100))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"})).set_delay(std::time::Duration::from_millis(100))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let file=h._dir.path().join("production.sqlite3");
     let updating=async{
         while server.received_requests().await.unwrap().is_empty(){tokio::time::sleep(std::time::Duration::from_millis(5)).await;}
@@ -2304,7 +2312,7 @@ async fn sync_metadata_during_validation_does_not_refuse_a_credential_replacemen
 #[tokio::test(flavor="current_thread")]
 async fn saving_one_key_keeps_other_venues_persisted_sync_warnings_and_correct_fix_links() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     h.c.execute("INSERT INTO exchanges(name,type,maker_fee,taker_fee,created_at,updated_at)VALUES('Kraken','Exchanges::Kraken',0,0,'2026-01-01','2026-01-01')",[]).unwrap();
     let exchange=h.c.last_insert_rowid();
@@ -2345,7 +2353,7 @@ async fn q_scheduler_does_not_stamp_a_finished_old_run_as_b_current_success() {
 #[tokio::test(flavor="current_thread")]
 async fn bot_credential_replacement_uses_the_owned_trading_slot_and_refreshes_the_page(){
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
     let form=h.browser.send(&h.app,"GET",&format!("/bots/{bot}/add_api_key/new"),None,Csrf::None,&[("turbo-frame","modal")]).await;
@@ -2638,7 +2646,7 @@ async fn each_dca_step_is_the_sheet_with_its_track(){
 async fn validator_status_commit_wakes_the_running_engine(){
     use deltabadger::{jobs::{Job,Cx,Db},sync::jobs::Validator};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET status=0 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     let notify=Arc::new(tokio::sync::Notify::new());h.app.attach_engine(notify.clone());
@@ -2654,7 +2662,7 @@ async fn validator_status_commit_wakes_the_running_engine(){
 async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v2(){
     use wiremock::matchers::header;
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).with_priority(10).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","bad-account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).with_priority(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized"}))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
@@ -2706,7 +2714,7 @@ async fn stored_extra_credential_material_is_redacted_from_passive_and_job_valid
 async fn scheduler_state_write_failure_is_propagated_and_does_not_claim_success(){
     use deltabadger::{jobs::Scheduler,sync::jobs::{Validator,API_KEY_VALIDATOR},jobs::state};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET status=0 WHERE id=?1",[h.seed.api_key_id]).unwrap();
     h.c.execute_batch("CREATE TRIGGER reject_job_state BEFORE INSERT ON app_configs WHEN NEW.key LIKE 'rust_job.api_key_validator:%' BEGIN SELECT RAISE(ABORT,'forced scheduler state failure'); END").unwrap();
@@ -2724,7 +2732,7 @@ async fn each_credential_status_and_legacy_write_keeps_the_eligibility_guard_and
     use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::Validator};
     let server=MockServer::start().await;
     // #710 slice 9: the legacy save's account read is one of them (D-JSON-KEY-IDENTITY).
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(4).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(4).mount(&server).await;
     for path in ["legacy","passive","job","bot"]{
         let mut h=Harness::new(server.uri()).await;
         let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
@@ -2752,7 +2760,7 @@ async fn each_credential_status_and_legacy_write_keeps_the_eligibility_guard_and
 #[tokio::test(flavor="current_thread")]
 async fn tracker_exchange_resolution_reuses_a_valid_session_when_a_requested_id_is_unknown(){
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     assert_eq!(h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=1&key_type=trading",None,Csrf::None,&[("turbo-frame","modal")]).await.status,200);
     let form=h.browser.send(&h.app,"GET","/tracker/add_api_key/new?exchange_id=999&key_type=trading",None,Csrf::None,&[("turbo-frame","modal")]).await;
@@ -2846,7 +2854,7 @@ async fn r_reader_during_a_completed_replacement_sync(navbar:bool){
     use deltabadger::{engine::FixedClock,sync::{self,balances::{self,NoPrices}},tracker::{snapshot,walk::Summary},venue::{alpaca::{AlpacaVenue,Urls},http::{self,ReqwestTransport}},web::{auth::User,shell::Shell}};
     use rusqlite::hooks::{AuthAction,Authorization};use std::sync::atomic::{AtomicBool,Ordering};use wiremock::matchers::header;
     let server=MockServer::start().await;
-    for (key,cash) in [("previous-key","10000"),("account-b-key","2000")]{Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID",key)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":cash}))).expect(1).mount(&server).await;}
+    for (key,cash) in [("previous-key","10000"),("account-b-key","2000")]{Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID",key)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":cash}))).expect(1).mount(&server).await;}
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).expect(2).mount(&server).await;
     let h=Harness::new(server.uri()).await;let at=h.app.now();let file=h._dir.path().join("production.sqlite3");let id=h.seed.api_key_id;let owner=h.seed.user_id;
     h.c.execute_batch("PRAGMA journal_mode=WAL").unwrap();h.c.execute("UPDATE users SET tracker_settings='{\"show_cash\":true}' WHERE id=?1",[owner]).unwrap();h.c.execute("UPDATE assets SET color='#123456' WHERE symbol='USD'",[]).unwrap();
@@ -3048,7 +3056,7 @@ async fn stored_query_credentials_are_not_echoed_by_the_tax_referer_redirect(){
 
 #[tokio::test(flavor="current_thread")]
 async fn successful_legacy_replacement_retains_credential_identity_and_every_history_link(){
-    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;h.link();
+    let server=MockServer::start().await;one_alpaca_account(&server).await;let mut h=Harness::new(server.uri()).await;h.link();
     h.c.execute("UPDATE api_keys SET key_type=0,access_token=?1,rsa_signature_key=?1,rsa_encryption_key=?1,dh_param=?1 WHERE id=?2",(h.app.cipher.encrypt("retained-extra"),h.seed.api_key_id)).unwrap();
     let before=h.snapshot();
     let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","replacement-key"),("api_key[secret]","replacement-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
@@ -3061,6 +3069,13 @@ async fn successful_legacy_replacement_retains_credential_identity_and_every_his
     assert_eq!(identity_reads(&server).await,["GET /v2/account replacement-key"],"only the account read (#710 slice 9)");
 }
 
+/// #710 slice 9 (Bybit review r1 #2): every Alpaca key on `server` reads one account, as two keys of one Alpaca account
+/// do, so the new key's read names its account and a replacement stays in place (a key nobody could read never takes an
+/// account an unread key of it would decide). The fixture seeds its key after the migrations: its account has no row yet,
+/// so rule Q1 has no unread key to read first.
+async fn one_alpaca_account(server:&MockServer){
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(common::alpaca_key::account(common::alpaca_key::ACCOUNT_A))).mount(server).await;
+}
 /// #710 slice 9: the JSON save of an Alpaca key reads its account first (D-JSON-KEY-IDENTITY), and only that: the (method
 /// path key) of each request `server` received.
 async fn identity_reads(server:&MockServer)->Vec<String>{
@@ -3116,7 +3131,7 @@ async fn r_ledger_unknown_watermark_must_restart_after_rotation(){ledger_progres
 
 #[tokio::test(flavor="current_thread")]
 async fn r_legacy_replacement_clears_the_previous_accounts_diagnostic(){
-    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    let server=MockServer::start().await;one_alpaca_account(&server).await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET last_sync_error='account A rejected its credentials' WHERE id=?1",[h.seed.api_key_id]).unwrap();
     assert_eq!(h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","replacement-key"),("api_key[secret]","replacement-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,201);
     let diagnostic:Option<String>=h.c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert!(diagnostic.is_none(),"B's pending validation cannot display A's diagnostic as current");
@@ -3433,7 +3448,7 @@ async fn r2_confirmation_normalizes_and_validates_pending_email(){
 }
 #[tokio::test(flavor="current_thread")]
 async fn r2_json_api_key_create_and_validation_failure(){
-    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    let server=MockServer::start().await;one_alpaca_account(&server).await;let mut h=Harness::new(server.uri()).await;
     for (body,status) in [(serde_json::json!({"api_key":{"exchange_id":1,"key_type":"read_only","key":"json-key","secret":"json-secret","passphrase":"paper"}}),201),(serde_json::json!({"api_key":{"exchange_id":"999999","key":"json-key","secret":"json-secret"}}),422)]{
         h.browser.get(&h.app,"/settings/account").await;let before=h.snapshot();
         let response=h.browser.send_body(&h.app,"POST","/api/api_keys",Some(body.to_string()),Csrf::Header,&[("content-type","application/json"),("origin","http://localhost:3000")]).await;
@@ -3528,7 +3543,7 @@ async fn r3_replacement_cannot_inherit_a_completed_ledgers_trading_freshness() {
     let server=MockServer::start().await;
     let mut h=Harness::at_real_now(server.uri()).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":true,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/AAPL/quotes/latest")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"quote":{"ap":"100"}}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
@@ -3577,7 +3592,7 @@ async fn r3_replacement_wake(route:&str){
     use deltabadger::{engine::model,jobs::{self,state},sync::{self,jobs as sync_jobs}};
     use wiremock::matchers::header;
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"2000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/account/activities")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{ "id":"r3-b-interest", "activity_type":"INT", "net_amount":"0.07", "date":"2026-09-01" }]))).mount(&server).await;
@@ -3648,7 +3663,7 @@ async fn r4_rotation_between_park_commit_and_cache_insertion_asks_b_clock() {
     use wiremock::matchers::header;
     let server=MockServer::start().await;
     let h=Harness::at_real_now(server.uri()).await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","buying_power":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":false,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/clock")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"is_open":true,"next_open":(h.app.now()+chrono::Duration::hours(1)).to_rfc3339(),"next_close":(h.app.now()+chrono::Duration::hours(8)).to_rfc3339()}))).expect(1).mount(&server).await;
@@ -3695,7 +3710,7 @@ async fn r4_snapshot_cannot_relabel_retained_a_balances_as_b(){
     use wiremock::matchers::header;
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
     for (key,cash) in [("previous-key","10000"),("account-b-key","2000")]{
-        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID",key)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":cash}))).expect(1).mount(&server).await;
+        Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID",key)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":cash}))).expect(1).mount(&server).await;
     }
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).expect(2).mount(&server).await;
     let bot_id=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,&deltabadger::codec::format_time(at)));
@@ -3727,7 +3742,7 @@ async fn r4_snapshot_cannot_relabel_retained_a_balances_as_b(){
 #[tokio::test(flavor="current_thread")]
 async fn r4_submitted_validation_producer_matches_seven_stored_envelopes(){
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec{status:2,..common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00")});
     let observed=Arc::new(std::sync::Mutex::new(Vec::new()));let capture=observed.clone();
@@ -3750,7 +3765,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     use wiremock::matchers::header;
     use deltabadger::sync::jobs::Connect;
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
-    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"cash":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
     let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
@@ -3760,7 +3775,7 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,h.seed.user_id,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
     let mut positions=vec![];
     for n in 0..101 {let symbol=format!("R5{n}");let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,&symbol);h.c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1","qty_available":"1"}));}
-    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"cash":"2000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
     h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
@@ -3812,7 +3827,7 @@ async fn r5_completed_snapshot_capture_is_refused_when_a_new_batch_is_incomplete
     use deltabadger::{engine::FixedClock,sync::{self,balances::{self,NoPrices}},tracker::jobs};
     use deltabadger::sync::jobs::Connect;
     let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"cash":"10000"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
     let a=sync::credentials(&h.c,&h.app.cipher,h.seed.api_key_id).unwrap();let av=LocalAlpaca(server.uri()).connect(&a);
@@ -3927,7 +3942,7 @@ async fn r6_failure_wait_origin_is_venue_and_keeps_its_current_digest(){
 
 #[tokio::test(flavor="current_thread")]
 async fn r9_replacement_resets_only_credential_ledger_progress_and_keeps_history(){
-    let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    let server=MockServer::start().await;one_alpaca_account(&server).await;let mut h=Harness::new(server.uri()).await;
     h.c.execute("UPDATE api_keys SET key_type=0,last_synced_at='2026-09-09 00:00:00',last_sync_error='previous failure' WHERE id=?1",[h.seed.api_key_id]).unwrap();
     for key in ["rust_sync.ledger:1","rust_sync.ledger_splits:1","rust_sync.ledger:999","rust_sync.kraken_unresolved:1","rust_sync.kraken_repair_deferred:1"]{
         h.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at)VALUES(?1,'retained-state','2026-01-01','2026-01-01')",[key]).unwrap();
@@ -3999,13 +4014,15 @@ async fn r9_setup_token_reads_count_query_and_head_but_bare_reads_stay_free(){
 
 #[tokio::test(flavor="current_thread")]
 async fn r9_read_only_validation_rejects_missing_cash_and_supported_unnamed_positions(){
+    let a=common::alpaca_key::ACCOUNT_A;
     for (account,positions,accepted) in [
-        (serde_json::json!({"status":"ACTIVE"}),serde_json::json!([]),false),
-        (serde_json::json!({"status":"ACTIVE","cash":null}),serde_json::json!([]),false),
-        (serde_json::json!({"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"us_equity","qty":"2","qty_available":"2"}]),false),
-        (serde_json::json!({"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"option","qty":"2","qty_available":"2"}]),true),
+        (serde_json::json!({"id":a,"status":"ACTIVE"}),serde_json::json!([]),false),
+        (serde_json::json!({"id":a,"status":"ACTIVE","cash":null}),serde_json::json!([]),false),
+        (serde_json::json!({"id":a,"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"us_equity","qty":"2","qty_available":"2"}]),false),
+        (serde_json::json!({"id":a,"status":"ACTIVE","cash":"0"}),serde_json::json!([{"asset_class":"option","qty":"2","qty_available":"2"}]),true),
     ]{
         let server=MockServer::start().await;
+        // #710 slice 9 (Bybit review r1 #2): the account read names the account, so an accepted key replaces in place.
         Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account)).expect(1).mount(&server).await;
         Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).expect(1).mount(&server).await;
         let mut h=Harness::new(server.uri()).await;let before=h.snapshot();
@@ -4166,7 +4183,7 @@ async fn d5b_retired_and_unported_venues_reach_no_venue_call_and_no_write(){
 #[tokio::test(flavor="current_thread")]
 async fn d5b_the_session_exchange_never_reaches_another_users_key(){
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();
@@ -4188,7 +4205,7 @@ async fn d5b_the_session_exchange_never_reaches_another_users_key(){
 #[tokio::test(flavor="current_thread")]
 async fn d5b_tracker_replacement_restarts_only_the_replaced_credentials_ledger_progress(){
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;h.link();
     let progress=|h:&Harness|{
@@ -4222,7 +4239,7 @@ fn d5b_slots(s:&mut deltabadger::jobs::Scheduler,h:&Harness)->std::collections::
 /// The running scheduler's slots after `request`, beside the slots a fresh start on the same database registers.
 async fn d5b_slots_after(setup:&str,request:&str)->(std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,std::collections::BTreeSet<(String,Option<String>)>,i64,i64){
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":common::alpaca_key::ACCOUNT_A,"status":"ACTIVE","cash":"0"}))).mount(&server).await;
     Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     match setup {
@@ -4267,8 +4284,12 @@ async fn d5b_replacing_the_trading_key_in_place_keeps_the_registered_slots(){
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_the_passive_revalidation_on_get_wakes_no_job(){
-    let (started,after,_,_,_)=d5b_slots_after("incorrect","get").await;
-    assert_eq!(after,started,"a GET never enqueues: 2.x's new action runs no job");
+    let (started,after,_,id,_)=d5b_slots_after("incorrect","get").await;
+    // A GET enqueues nothing of 2.x's. #710 7a rules M4/N7: the recheck makes the incorrect key correct and read, the
+    // account's reader now (it had none): that handoff wakes the new reader's ledger and balance jobs, and nothing else.
+    let mut expected=started.clone();
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC,deltabadger::sync::jobs::BALANCE_SYNC]{expected.insert((job.to_string(),Some(id.to_string())));}
+    assert_eq!(after,expected,"a GET runs no job of 2.x's; the handoff wakes the new reader's");
 }
 /// Exchanges::Alpaca#get_api_key_validity: a 200 that is not a JSON object says nothing about the key.
 #[tokio::test(flavor="current_thread")]
