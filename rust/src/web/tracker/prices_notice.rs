@@ -30,6 +30,10 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Sco
         }
     }
     if lines.is_empty() { return Ok(String::new()); }
+    // Delisted coins (plan r10 §1.8): beside a named asset without a price, why that happens (an asset no evidence tells
+    // apart from another under its ticker shows here under its label, as every unpriced asset does).
+    let named = gaps.iter().any(|g| !g.now.is_empty()) || (chart && gaps.iter().any(|g| g.exchange_id.is_some() && !g.history.is_empty()));
+    if named { lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_missing_causes"))); }
     let connect = if crate::web::bots::market_data(c, &ctx.app)?.1 { String::new() } else {
         format!("    <p class=\"notice__line\">{} <a data-turbo-frame=\"modal\" href=\"{}\">{}</a></p>\n", ctx.t("tracker.prices.connect_market_data"),
             ctx.path("/tracker/connect_market_data"), ctx.t("button.connect"))

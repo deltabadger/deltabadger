@@ -559,6 +559,7 @@ pt:
             chart_missing: "O gráfico não mostra o valor de mercado de %{assets} na %{venue} nos dias sem preço."
             opening_unknown: "O valor inicial de %{assets} na %{venue} é desconhecido."
             chart_incomplete: "Alguns dias do gráfico estão incompletos."
+            chart_missing_causes: "Acontece quando não está claro qual ativo era detido ou não existe um preço utilizável, por exemplo após uma deslistagem, uma mudança de nome ou a falta de uma taxa de câmbio. Desaparece quando esses ativos puderem ser avaliados."
             connect_market_data: "Liga um fornecedor de dados de mercado para obteres preços de mercado."
             providers_intro: "O acompanhamento da carteira e os relatórios fiscais precisam de preços históricos e taxas de câmbio. Liga a API de dados da Deltabadger (ações e cripto) ou uma conta gratuita da CoinGecko (só cripto). Uma conta gratuita da CoinGecko cobre apenas os preços do último ano."
             ask_admin: "Os dados de mercado são configurados pelo administrador da sua instância. Peça-lhe que ligue um fornecedor em Definições → Ligar."

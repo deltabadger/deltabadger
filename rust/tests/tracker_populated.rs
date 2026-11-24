@@ -490,6 +490,7 @@ async fn an_unpriced_holding_is_listed_and_named_in_the_banner() {
     let r = regions_of(&app, owner, unprice).await;
     let venue: String = Connection::open(_dir.path().join("production.sqlite3")).unwrap().query_row("SELECT e.name FROM exchanges e JOIN api_keys k ON k.exchange_id=e.id WHERE k.user_id=?1", [owner], |q| q.get(0)).unwrap();
     assert!(r.notice.contains(&format!("No market price for BTC on {venue}.")), "{}", r.notice);
+    assert!(r.notice.contains("It clears once those holdings can be valued."), "why a named asset has no price: {}", r.notice);
     assert!(r.notice.contains("/tracker/connect_market_data"), "no provider: CoinGecko offered: {}", r.notice);
     assert!(r.holdings.contains("<b>BTC</b>") && r.holdings.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"), "{}", r.holdings);
     assert!(!r.holdings.contains("tracker-holdings__empty"), "the card is shown, not withheld");
