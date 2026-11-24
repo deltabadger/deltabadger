@@ -15,11 +15,11 @@
       <p class="tracker-empty">{{ ctx.t(error)|safe }}</p>
 {%- when Body::Refused with (message) %}
       <p class="tracker-empty">{{ message }}</p>
-{%- when Body::Ambiguous with { csrf, token, format, accounts, first, question } %}
+{%- when Body::Ambiguous with { csrf, token, format, accounts, first } %}
       <form class="form" data-turbo-frame="modal_content" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
         <input type="hidden" name="token" id="token" value="{{ token }}" />
         <input type="hidden" name="format" id="format" value="{{ format }}" />
-        <p>{{ ctx.t(question)|safe }}</p>
+        <p>{{ ctx.t("tracker.import.which_account")|safe }}</p>
         <div class="filters" data-controller="form--segmented-field"
              data-action="segmented:change->form--segmented-field#set">
           
@@ -30,22 +30,36 @@
           <input type="submit" name="commit" value="{{ ctx.t("tracker.import.confirm")|safe }}" class="rbutton rbutton--primary" data-turbo-submits-with="{{ ctx.t("tracker.import.importing")|safe }}" data-disable-with="{{ ctx.t("tracker.import.confirm")|safe }}" />
         </div>
 </form>
-{%- when Body::Warned with { csrf, token, format, lines, accounts, first } %}
+{%- when Body::Choose with { csrf, token, format, lines, buttons } %}
       <form class="form" data-turbo-frame="modal_content" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
         <input type="hidden" name="token" id="token" value="{{ token }}" />
         <input type="hidden" name="format" id="format" value="{{ format }}" />
 {%- for line in lines %}
-        <p class="import-note">{{ line }}</p>
+        <p class="import-note">{{ line|safe }}</p>
 {%- endfor %}
-        <div class="filters" data-controller="form--segmented-field"
-             data-action="segmented:change->form--segmented-field#set">
-          
-{{ accounts|safe }}
-          <input type="hidden" name="api_key_id" id="api_key_id" value="{{ first }}" data-form--segmented-field-target="field" />
+{%- for button in buttons %}
+        <div class="import-destination">
+          <button type="submit" name="api_key_id" value="{{ button.value }}" class="rbutton rbutton--primary">{{ button.html|safe }}</button>
+{%- for note in button.notes %}
+          <p class="import-note">{{ note|safe }}</p>
+{%- endfor %}
         </div>
+{%- endfor %}
         <div class="modal__footer">
           <input type="submit" name="cancel" value="{{ ctx.t("tracker.import.cancel")|safe }}" class="rbutton rbutton--secondary" />
-          <input type="submit" name="commit" value="{{ ctx.t("tracker.import.confirm")|safe }}" class="rbutton rbutton--primary" data-turbo-submits-with="{{ ctx.t("tracker.import.importing")|safe }}" data-disable-with="{{ ctx.t("tracker.import.confirm")|safe }}" />
+        </div>
+</form>
+{%- when Body::Warned with { csrf, token, format, lines, value, label } %}
+      <form class="form" data-turbo-frame="modal_content" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+        <input type="hidden" name="token" id="token" value="{{ token }}" />
+        <input type="hidden" name="format" id="format" value="{{ format }}" />
+        <input type="hidden" name="api_key_id" value="{{ value }}" />
+{%- for line in lines %}
+        <p class="import-note">{{ line|safe }}</p>
+{%- endfor %}
+        <div class="modal__footer">
+          <input type="submit" name="cancel" value="{{ ctx.t("tracker.import.cancel")|safe }}" class="rbutton rbutton--secondary" />
+          <input type="submit" name="commit" value="{{ label|safe }}" class="rbutton rbutton--primary" data-turbo-submits-with="{{ ctx.t("tracker.import.importing")|safe }}" data-disable-with="{{ label|safe }}" />
         </div>
 </form>
 {%- when Body::NothingNew with { skipped, unrouted, unrecognised } %}

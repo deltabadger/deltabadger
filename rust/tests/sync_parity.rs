@@ -418,10 +418,12 @@ fn binance_a12_refusal(name:&str,dir:&Path,first:&Path,v2:&Value,rust:&Value)->O
         "binance-ledger-file_second_after"|"binance-ledger-idless_repeats"|"binance-ledger-preexisting_repeats"|"binance-ledger-known_id_repeat"=>"missing identity evidence",
         "binance-ledger-earn_documented_amounts"=>"missing Earn product evidence",
         "binance-ledger-file_transfers"|"binance-ledger-file_transfer_claimed_once"|"binance-ledger-deposit_600"|"binance-ledger-twin_repeats"|
-        "binance-ledger-file_dust"|"binance-ledger-file_dust_rounding"|"import-file_then_api_transfers"|"import-file_then_api_dust_rounding"=>"possible nil-ID/CSV twin",
-        "import-api_then_file_dust"|"import-file_then_api_dust"=>"partial CSV dust pair",
+        // D-BINANCE-DUST-WARNS: the file's lone dust leg is warned about, not refused; the runner's "import anyway" writes it
+        // as 2.x does, so api_then_file compares as 2.x wrote it, and file_then_api's sync meets the file's pairs as the other
+        // file-first dust does.
+        "binance-ledger-file_dust"|"binance-ledger-file_dust_rounding"|"import-file_then_api_transfers"|"import-file_then_api_dust_rounding"|"import-file_then_api_dust"=>"possible nil-ID/CSV twin",
         "import-api_then_file_dust_rounding"=>"CSV dust identity has no proven whole-pair match",
-        "import-api_then_file_transfers"=>"",
+        "import-api_then_file_transfers"|"import-api_then_file_dust"=>"",
         _=>return None,
     };
     Some((|| {
@@ -429,14 +431,21 @@ fn binance_a12_refusal(name:&str,dir:&Path,first:&Path,v2:&Value,rust:&Value)->O
         let scenario=read(&dir.join("scenario.json"));let mut expected=v2.clone();
         let import=name.starts_with("import-");let file_first=name.starts_with("import-file_then_api");
         if import {
-            let source=if name=="import-file_then_api_dust" {"import-api_then_file_dust"}else{name};
-            expected["changes"]=read(&first.join(source).join("expected.json"))["changes"].clone();
+            expected["changes"]=read(&first.join(name).join("expected.json"))["changes"].clone();
+            // D-BINANCE-DUST-WARNS: api_then_file's lone dust credit is written on the answer, as 2.x inserted it (the
+            // matched pairs stay unstamped, as every A12 file twin does).
+            if name=="import-api_then_file_dust" {
+                let known:Vec<Value>=rows(&expected,"account_transactions").iter().map(|r|r["after"]["id"].clone()).collect();
+                let added:Vec<Value>=rows(v2,"account_transactions").into_iter().filter(|r|r["before"].is_null() && !known.contains(&r["after"]["id"])).collect();
+                assert_eq!(added.len(),1,"one lone dust credit");
+                expected["changes"]["account_transactions"].as_array_mut().unwrap().extend(added);
+            }
             a12_groups(&mut expected,&scenario);
         }else{
             let keep_trades=matches!(name,"binance-ledger-file_dust"|"binance-ledger-file_dust_rounding");
             expected["changes"]["account_transactions"].as_array_mut().unwrap().retain(|r|keep_trades && r["before"].is_null() && !r["after"]["tx_id"].as_str().unwrap_or_default().starts_with("dust-"));
         }
-        let sync_refused=!import || file_first && name!="import-file_then_api_dust";
+        let sync_refused=!import || file_first;
         if sync_refused {
             let mut key=rows(v2,"api_keys")[0].clone();key["after"]=key["before"].clone();
             key["after"]["last_sync_error"]=json!(format!("Binance A12 unresolved: {reason}"));

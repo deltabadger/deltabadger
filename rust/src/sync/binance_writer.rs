@@ -238,6 +238,8 @@ fn insert_from(c: &FencedTransaction<'_>, key: &Key, e: &Entry, origin: Option<&
 const WARN: &str = "Binance A12 warn: ";
 /// The units (`key:first row`) of a file `store_csv` warned about (#710 7a rules P6/Q3), from its error: the spelling
 /// `run` gives the units an accepted write stripped, so one digest binds both.
+/// D-BINANCE-DUST-WARNS: the suffix of a dust unit the writer warned about or stripped.
+pub const DUST_UNIT: &str = ":dust";
 pub fn warned(error: &SyncError) -> Option<Vec<String>> {
     Some(error.0.strip_prefix(WARN)?.split(',').map(str::to_string).collect())
 }
@@ -248,9 +250,11 @@ pub fn warned(error: &SyncError) -> Option<Vec<String>> {
 /// than one retained candidate, or names a binding whose amounts the file changed is the file's statement, not a
 /// refusal: without `accept` the whole write fails with `warned`'s list of them (nothing kept); with it each is written
 /// as plain imported rows, its retained id stripped, recorded as `BINANCE_ACCEPTED`. `origin`: every other inserted
-/// row's importer (rule N8). Returns the units it stripped.
+/// row's importer (rule N8). Returns the units it stripped. #710 8a rule R14: a unit is `{unit}:{n}`, `unit` naming the
+/// destination (`run` passes `a<account>`, or `n<exchange>` for an account its write makes), so two keyless accounts'
+/// units never read alike.
 #[allow(clippy::too_many_arguments)]
-pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries: &[Entry], origin: &'static str, accept: bool, now: DateTime<Utc>) -> Result<(Outcome,Vec<usize>),SyncError> {
+pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries: &[Entry], unit: &str, origin: &'static str, accept: bool, now: DateTime<Utc>) -> Result<(Outcome,Vec<String>),SyncError> {
     ownership(c,cipher,key)?;
     let bindings:Vec<_>=buckets(c,key)?.into_iter().flat_map(|b|b.bindings).collect();
     let mut units:BTreeMap<String,(usize,Vec<&Entry>)>=BTreeMap::new();
@@ -260,7 +264,11 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
     let mut units:Vec<_>=units.into_values().collect();units.sort_by_key(|(n,_)|*n);
     for (first,rows) in &units {
         let dust=rows.iter().any(|e|e.group_id.as_deref().is_some_and(|g|g.starts_with("dust")) || e.raw.value["operation"]=="Small Assets Exchange BNB");
-        if dust && (rows.len()!=2 || rows.iter().filter(|e|e.entry_type==2).count()!=1 || rows.iter().filter(|e|e.entry_type==3).count()!=1) {return Err(refused("partial CSV dust pair"))}
+        // D-BINANCE-DUST-WARNS: a dust leg without its pair is the file's statement: warned, or (accepted) written plain.
+        if dust && (rows.len()!=2 || rows.iter().filter(|e|e.entry_type==2).count()!=1 || rows.iter().filter(|e|e.entry_type==3).count()!=1) {
+            if !accept {warn.push((*first,DUST_UNIT));continue}
+            stripped.push((*first,false,DUST_UNIT));continue;
+        }
         let window=|a:&Binding|->Option<(i64,i64)> {
             if a.kind==5 {let at=chrono::NaiveDateTime::parse_from_str(a.raw["completeTime"].as_str()?,"%Y-%m-%d %H:%M:%S").ok()?.and_utc().timestamp_millis();Some((at-1000,at+1000))}
             else if a.kind==4 {Some((a.at,a.at+600_000))}else{Some((a.at-1000,a.at+1000))}
@@ -277,8 +285,8 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         let edited=|e:&&Entry|e.tx_id.as_ref().and_then(|id|bindings.iter().find(|a| &a.tx_id==id)).is_some_and(|a|!exact(a,e));
         // Rule P6: no binding here, or an edited amount: warned, or (accepted) written plain.
         if rows.iter().any(|e|unbound(e)||edited(e)) {
-            if !accept {warn.push(*first);continue}
-            stripped.push((*first,dust));continue;
+            if !accept {warn.push((*first,""));continue}
+            stripped.push((*first,dust,""));continue;
         }
         let fits=|a:&Binding,e:&Entry|->bool {
             if let Some(id)=&e.tx_id {return id==&a.tx_id && exact(a,e)}
@@ -300,16 +308,16 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         };
         // Rule P6: more than one retained candidate: warned, or (accepted) written plain.
         if candidates.len()>1 {
-            if !accept {warn.push(*first);continue}
-            stripped.push((*first,dust));continue;
+            if !accept {warn.push((*first,""));continue}
+            stripped.push((*first,dust,""));continue;
         }
         if let Some(pair)=candidates.first() {
             if pair.iter().any(|a|a.suppressed) {if pair.iter().any(|a|!a.suppressed){return Err(refused("partial suppressed pair"))}out.skipped+=rows.len();continue}
             // Rule P6: a retained event another unit of the file already matched cannot be this unit too: warned, or
             // (accepted) written plain.
             if pair.iter().any(|a|used.contains(&a.row_id)) {
-                if !accept {warn.push(*first);continue}
-                stripped.push((*first,dust));continue;
+                if !accept {warn.push((*first,""));continue}
+                stripped.push((*first,dust,""));continue;
             }
             used.extend(pair.iter().map(|a|a.row_id));
             for a in pair {let row=match image(c,a.row_id) {
@@ -334,17 +342,21 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         })) {
             // A unit a suppressed event of the stored history could be, no binding proving it: the file's statement, warned
             // (rule P6), or (accepted) written plain.
-            if !accept {warn.push(*first);continue}
-            stripped.push((*first,dust));continue;
+            if !accept {warn.push((*first,""));continue}
+            stripped.push((*first,dust,""));continue;
         }
         if dust {
-            let imported = csv_dust(c, key, rows, &mut used, Some(origin), now)?;
+            // D-BINANCE-DUST-WARNS: a pair whose stored pair another of the file's pairs matched is the file's statement.
+            let imported = match csv_dust(c, key, rows, &mut used, Some(origin), now) {
+                Err(e) if csv_refusal(&e)==Some("CSV identities are not one-to-one") => { if !accept {warn.push((*first,DUST_UNIT));continue} stripped.push((*first,true,DUST_UNIT));continue }
+                other => other?,
+            };
             if imported {out.imported+=2;mark(c,now)?;invalidate(c,key.user_id)?;}else{out.duplicates+=2;}
             continue;
         }
         fallback.extend(rows.iter().map(|e|(*e).clone()));
     }
-    if !warn.is_empty() {return Err(SyncError(format!("{WARN}{}",warn.iter().map(|n|format!("{}:{n}",key.id)).collect::<Vec<_>>().join(","))))}
+    if !warn.is_empty() {return Err(SyncError(format!("{WARN}{}",warn.iter().map(|(n,kind)|format!("{unit}:{n}{kind}")).collect::<Vec<_>>().join(","))))}
     // Keep the ledger's stored-row and repeat counters for the whole file.
     if !fallback.is_empty() {
         let before=c.total_changes();let result=ledger::store_file(c,key,fallback,origin,now)?;
@@ -353,8 +365,10 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
     }
     // The accepted units, their retained ids stripped: plain file rows a later API read never pairs with (rule Q3).
     let (mut plain,mut pairs)=(vec![],vec![]);
-    for (first,dust) in &stripped {
-        let rows:Vec<Entry>=units.iter().find(|(n,_)|n==first).map(|(_,rows)|rows.iter().map(|e|Entry{tx_id:None,..(*e).clone()}).collect()).unwrap_or_default();
+    for (first,dust,kind) in &stripped {
+        // A lone dust leg (D-BINANCE-DUST-WARNS) keeps no dust group a later read would take for a broken pair.
+        let lone=!*dust && !kind.is_empty();
+        let rows:Vec<Entry>=units.iter().find(|(n,_)|n==first).map(|(_,rows)|rows.iter().map(|e|Entry{tx_id:None,group_id:if lone {None} else {e.group_id.clone()},..(*e).clone()}).collect()).unwrap_or_default();
         if *dust {pairs.push(rows)} else {plain.extend(rows)}
     }
     for rows in &pairs {
@@ -367,7 +381,7 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         out.imported+=result.imported;out.duplicates+=result.duplicates;out.skipped+=result.skipped;
         if c.total_changes()!=before {mark(c,now)?;invalidate(c,key.user_id)?;}
     }
-    Ok((out,stripped.into_iter().map(|(n,_)|n).collect()))
+    Ok((out,stripped.into_iter().map(|(n,_,kind)|format!("{unit}:{n}{kind}")).collect()))
 }
 
 

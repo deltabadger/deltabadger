@@ -22,10 +22,45 @@ struct New<'a> { ctx: &'a Ctx, csrf: String, formats: String, default_format: &'
 enum Body {
     Error(String),
     Refused(String),
-    Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String, question: &'static str },
-    /// #710 7a: what the import warns about, its answers, and Cancel.
-    Warned { csrf: String, token: String, format: &'static str, lines: Vec<String>, accounts: String, first: String },
+    /// 2.x's venue question (Binance or Binance.US): its selector, as recorded.
+    Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String },
+    /// #710 8a: a venue export's question (the account question, or what writing it warns about): the question's lines,
+    /// one named button per destination with its own warnings, and Cancel.
+    Choose { csrf: String, token: String, format: &'static str, lines: Vec<String>, buttons: Vec<Button> },
+    /// #710 7a/8a: what a Deltabadger CSV's import says before writing, its one sealed answer (`value`, posted by the
+    /// `label` button), and Cancel.
+    Warned { csrf: String, token: String, format: &'static str, lines: Vec<String>, value: String, label: String },
     NothingNew { skipped: Option<String>, unrouted: Option<String>, unrecognised: Option<String> },
+}
+
+/// A destination's button: its sealed answer, its name (markup) and the warnings its click accepts (markup).
+struct Button { value: String, html: String, notes: Vec<String> }
+
+/// The lines a warning shows, as markup (an account named in each line its own).
+fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
+    use run::Warning;
+    let named = |key: &str, label: &crate::identity::Label| i18n::t(locale, key, &[("account", i18n::Arg::Html(&label.html()))]);
+    let counted = |key: &str, label: &crate::identity::Label, n: usize| i18n::t(locale, key, &[("account", i18n::Arg::Html(&label.html())), ("count", i18n::Arg::Count(n as i64))]);
+    match w {
+        Warning::HeldElsewhere(a) => vec![named("tracker.import.warn_held_html", a)],
+        Warning::OtherAccount(a) => vec![named("tracker.import.warn_other_html", a)],
+        Warning::Existing(per) => per.iter().map(|(a, n)| counted("tracker.import.warn_existing_html", a, *n)).collect(),
+        Warning::Destination(per) => per.iter().map(|(a, n)| counted("tracker.import.destination_html", a, *n)).collect(),
+        Warning::Twice(n) => vec![i18n::t(locale, "tracker.import.twice_html", &[("count", i18n::Arg::Count(*n as i64))])],
+        Warning::Unrouted(n) => vec![i18n::t(locale, "tracker.import.warn_unrouted", &[("count", i18n::Arg::Count(*n as i64))])],
+        Warning::Retained => vec![i18n::t(locale, "tracker.import.warn_retained", &[])],
+        Warning::Dust => vec![i18n::t(locale, "tracker.import.warn_dust", &[])],
+        Warning::Changed => vec![i18n::t(locale, "tracker.import.warn_changed", &[])],
+    }
+}
+
+/// #710 8a: one named button per destination ("Import to KuCoin² (rows in file: 12)").
+fn buttons(locale: &str, choices: &[run::Choice]) -> Vec<Button> {
+    choices.iter().map(|k| {
+        let key = if k.new || k.accept == Some(run::Accept::New) { "tracker.import.import_new_html" } else { "tracker.import.import_to_html" };
+        Button { value: k.value.clone(), html: i18n::t(locale, key, &[("account", i18n::Arg::Html(&k.shown.html())), ("count", i18n::Arg::Count(k.count as i64))]),
+                 notes: k.notes.iter().flat_map(|w| lines(locale, w)).collect() }
+    }).collect()
 }
 
 #[derive(Template)]
@@ -74,7 +109,7 @@ fn parked_venues(ctx: &Ctx, dir: &std::path::Path) -> std::collections::BTreeMap
 }
 
 fn render(ctx: &Ctx, status: StatusCode, body: Body) -> Result<Response, WebError> {
-    Ok(html(status, Create { ctx, form: matches!(body, Body::Ambiguous { .. } | Body::Warned { .. }), body }.render()?))
+    Ok(html(status, Create { ctx, form: matches!(body, Body::Ambiguous { .. } | Body::Choose { .. } | Body::Warned { .. }), body }.render()?))
 }
 
 pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
@@ -162,34 +197,28 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
         }
         Answer::Warned(warnings, choices) => {
             use run::{Accept, Warning};
-            let lines = warnings.iter().map(|w| match w {
-                Warning::HeldElsewhere(a) => i18n::text(ctx.locale, "tracker.import.warn_held", &[("account", i18n::Arg::Text(a))]),
-                Warning::OtherAccount(a) => i18n::text(ctx.locale, "tracker.import.warn_other", &[("account", i18n::Arg::Text(a))]),
-                Warning::Existing(n, a) => i18n::text(ctx.locale, "tracker.import.warn_existing", &[("count", i18n::Arg::Count(*n as i64)), ("account", i18n::Arg::Text(a))]),
-                Warning::Unrouted(n) => i18n::text(ctx.locale, "tracker.import.warn_unrouted", &[("count", i18n::Arg::Count(*n as i64))]),
-                Warning::Retained => i18n::text(ctx.locale, "tracker.import.warn_retained", &[]),
-                Warning::Changed => i18n::text(ctx.locale, "tracker.import.warn_changed", &[]),
-            }).collect();
-            let options = choices.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.value.clone().into(), active: i == 0, href: None, label: match k.accept {
-                Some(Accept::To) => i18n::text(ctx.locale, "tracker.import.import_to", &[("account", i18n::Arg::Text(&k.label))]),
-                Some(Accept::New) => ctx.t("tracker.import.import_new"),
-                Some(Accept::Rest) => ctx.t("tracker.import.import_rest"),
-                Some(Accept::Anyway) => ctx.t("tracker.import.import_anyway"),
-                Some(Accept::Here) | None => ctx.t("tracker.import.import_here"),
-            } }).collect();
-            let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false, frame: None }.render()?;
-            render(&ctx, StatusCode::OK, Body::Warned { csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, lines, accounts,
-                                                        first: choices.first().map(|k| k.value.clone()).unwrap_or_default() })
+            let (csrf, token) = (ctx.csrf_token(), parked.unwrap_or_default());
+            match choices.as_slice() {
+                // A Deltabadger CSV: every line, one sealed answer.
+                [only] if matches!(only.accept, Some(Accept::Anyway | Accept::Rest | Accept::Import)) => {
+                    let label = ctx.t(match only.accept { Some(Accept::Rest) => "tracker.import.import_rest", Some(Accept::Anyway) => "tracker.import.import_anyway", _ => "tracker.import.confirm" });
+                    render(&ctx, StatusCode::OK, Body::Warned { csrf, token, format, lines: warnings.iter().flat_map(|w| lines(ctx.locale, w)).collect(), value: only.value.clone(), label })
+                }
+                // A venue export: what is not one destination's above the buttons; each destination's own under its button.
+                _ => render(&ctx, StatusCode::OK, Body::Choose { csrf, token, format, buttons: buttons(ctx.locale, &choices),
+                                                                lines: warnings.iter().filter(|w| matches!(w, Warning::Changed | Warning::Retained | Warning::Dust)).flat_map(|w| lines(ctx.locale, w)).collect() }),
+            }
         }
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
+        // The account question (#710 7a §3, 8a): its own text, one named button per account and the new one.
+        Answer::Ambiguous(keys) if keys.iter().any(|k| k.new) => render(&ctx, StatusCode::OK, Body::Choose {
+            csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, lines: vec![ctx.t("tracker.import.which_of_accounts")], buttons: buttons(ctx.locale, &keys) }),
+        // The venue question keeps 2.x's selector and text.
         Answer::Ambiguous(keys) => {
-            let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.value.clone().into(), label: if k.new { ctx.t("tracker.import.new_account") } else { k.label.clone() },
-                                                                                 active: i == 0, href: None }).collect();
+            let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.value.clone().into(), label: k.shown.plain(), active: i == 0, href: None }).collect();
             let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false, frame: None }.render()?;
             render(&ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, accounts,
-                                                           first: keys.first().map(|k| k.value.clone()).unwrap_or_default(),
-                                                           // The venue question keeps 2.x's text; the account question (#710 7a §3) has its own.
-                                                           question: if keys.iter().any(|k| k.new) { "tracker.import.which_of_accounts" } else { "tracker.import.which_account" } })
+                                                           first: keys.first().map(|k| k.value.clone()).unwrap_or_default() })
         }
     }
 }

@@ -291,7 +291,12 @@ fn an_import_records_its_account_and_another_accounts_file_is_a_conflict_in_eith
     let fx = Fx::new();
     observe(&fx, OTHER);
     assert_eq!(fx.standing(), Standing::Bound);
-    assert_eq!(fx.imported(TRADING).0, 163, "recorded, never refused");
+    // #710 8a rule R1: a new account beside a live one is named first; its button writes.
+    let run::Answer::Warned(_, choices) = fx.import(TRADING) else { panic!("asked first") };
+    let new = choices.iter().find(|c| c.accept == Some(run::Accept::New)).expect("the new account offered");
+    assert_eq!(new.shown, identity::Label { name: "KuCoin".into(), number: Some(2) });
+    let written = run::import(&fx.c, &fx.cipher, fx.user, "kucoin", TRADING.as_bytes(), None, Some(&new.value), now()).unwrap();
+    assert!(matches!(written, run::Answer::Written { imported: 163, .. }), "recorded, never refused: {written:?}");
     let accounts = identity::accounts_of(&fx.c, fx.user, fx.exchange).unwrap();
     assert_eq!(accounts.iter().map(|(_, n)| *n).collect::<Vec<_>>(), [1, 2], "a new account");
     assert_eq!(fx.count(&format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {}", accounts[1].0)), 1, "the observation, on account 2");
@@ -677,7 +682,7 @@ fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
     assert_eq!(fx.standing(), Standing::Conflicted);
     let (rows, observations) = (fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports"));
     let again = fx.import(TRADING);
-    assert!(matches!(&again, run::Answer::Warned(w, _) if w.contains(&run::Warning::HeldElsewhere("KuCoin".into()))), "{again:?}");
+    assert!(matches!(&again, run::Answer::Warned(w, _) if w.contains(&run::Warning::HeldElsewhere(identity::Label { name: "KuCoin".into(), number: Some(1) }))), "{again:?}");
     assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports")), (rows, observations));
     assert_eq!(fx.standing(), Standing::Conflicted, "the conflict is kept");
 }

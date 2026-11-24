@@ -1,15 +1,17 @@
 it:
     tracker:
         import:
-            warn_held: "%{account} potrebbe già contenere lo storico di questo export. Importarlo qui può contarlo due volte nei tuoi totali."
-            warn_other: "Questo export è di un account diverso da %{account}. Importarlo lì mescola due account."
-            warn_existing: "Righe già presenti su %{account}: %{count}. Importarle qui le conta due volte nei tuoi totali."
+            warn_held_html: "%{account} potrebbe già contenere lo storico di questo export. Importarlo qui può contarlo due volte nei tuoi totali."
+            warn_other_html: "Questo export è di un account diverso da %{account}. Importarlo lì mescola due account."
+            warn_existing_html: "Righe già presenti su %{account}: %{count}. Importarle qui le conta due volte nei tuoi totali."
             warn_unrouted: "Righe di account che qui non ci sono: %{count}. Non verranno importate."
             warn_retained: "Queste righe vengono dallo storico sincronizzato di un altro account. Importarle qui può contarle due volte."
+            warn_dust: "Alcune conversioni di piccoli saldi in questo file non corrispondono una a una al tuo storico Binance. Se importi comunque, vengono registrate come le mostra il file."
             warn_changed: "Qualcosa è cambiato dalla tua risposta. Controlla di nuovo."
-            import_here: "Importa qui comunque"
-            import_new: "Importa in un nuovo account"
-            import_to: "Importa su %{account}"
+            import_to_html: "Importa su %{account} (righe nel file: %{count})"
+            import_new_html: "Importa in un nuovo account, %{account} (righe nel file: %{count})"
+            destination_html: "Righe destinate a %{account}: %{count}."
+            twice_html: "Righe che questo file invia a più di un account: %{count}."
             import_anyway: "Importa comunque"
             import_rest: "Importa il resto"
             cancel: "Annulla"
