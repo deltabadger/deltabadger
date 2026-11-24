@@ -536,15 +536,48 @@ async fn a_bybit_key_is_checked_by_a_cancel_probe_or_an_assets_read() {
     Mock::given(method("GET")).and(path("/v5/account/wallet-balance")).and(header("X-BAPI-API-KEY", "bg-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"result":{"list":[{"coin":[{"coin":"USDT","walletBalance":"1"}]}]} })))
         .mount(&server).await;
+    // D-BYBIT-IDENTITY-READ (#710 slice 9): a key the check judges correct is read once more, signed, for its UID.
+    Mock::given(method("GET")).and(path(deltabadger::identity::BYBIT_PATH)).and(header("X-BAPI-API-KEY", "bg-key")).and(header_exists("X-BAPI-SIGN"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode":0,"retMsg":"","result":{"id":"13770661","apiKey":"bg-key","userID":24600000,"parentUid":"0"} })))
+        .mount(&server).await;
     let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "bg-key".into(), secret: "bg-secret".into(), passphrase: Some("bg-pass".into()), redaction_values: vec![] };
     let base = server.uri();
-    let check = |kind| key_check::check("Exchanges::Bybit", &base, deltabadger::venue::http::client(), &credentials, kind);
-    assert!(matches!(check(0).await, Validity::Correct), "a trading key past the permission gate");
-    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads its assets");
-    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads its balances");
+    let check = |kind| key_check::check_identified("Exchanges::Bybit", &base, deltabadger::venue::http::client(), &credentials, kind);
+    let uid = Some(deltabadger::identity::Observed::Read(deltabadger::identity::AccountId::parse("24600000").unwrap()));
+    for (kind, why) in [(0, "a trading key past the permission gate"), (1, "a withdrawal key that reads its assets"), (2, "a reading key that reads its balances")] {
+        let (validity, observed) = check(kind).await;
+        assert!(matches!(validity, Validity::Correct) && observed == uid, "{why}: {observed:?}");
+    }
     let sent: Vec<(String, String)> = server.received_requests().await.unwrap().iter().map(|r| (r.method.to_string(), r.url.path().to_string())).collect();
     let (probe, read) = (("POST".to_string(), "/v5/order/cancel".to_string()), ("GET".to_string(), "/v5/account/wallet-balance".to_string()));
-    assert_eq!(sent, [probe, read.clone(), read]);
+    let identity = ("GET".to_string(), deltabadger::identity::BYBIT_PATH.to_string());
+    assert_eq!(sent, [probe, identity.clone(), read.clone(), identity.clone(), read, identity], "each permission check, then its one UID read");
+}
+
+/// D-BYBIT-IDENTITY-READ: a check that comes to no verdict (10006, a rate limit) or refuses the key (10003) sends no UID
+/// read; only a refusal code is the key's answer.
+#[tokio::test(flavor = "current_thread")]
+async fn a_bybit_check_without_a_correct_verdict_sends_no_identity_read() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    for (key, code, message) in [("by-busy", 10006, "Too many visits!"), ("by-bad", 10003, "API key is invalid.")] {
+        Mock::given(method("GET")).and(path("/v5/account/wallet-balance")).and(header("X-BAPI-API-KEY", key))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "retCode": code, "retMsg": message }))).mount(&server).await;
+    }
+    let base = server.uri();
+    let check = |key: &str| {
+        let credentials = deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: "by-secret".into(), passphrase: None, redaction_values: vec![] };
+        let base = base.clone();
+        async move { key_check::check_identified("Exchanges::Bybit", &base, deltabadger::venue::http::client(), &credentials, 2).await }
+    };
+    let (validity, observed) = check("by-busy").await;
+    assert!(matches!(validity, Validity::Pending(_)) && observed.is_none(), "no verdict, nothing observed: {observed:?}");
+    let (validity, observed) = check("by-bad").await;
+    assert!(matches!(validity, Validity::Incorrect), "an invalid key");
+    assert_eq!(observed, Some(deltabadger::identity::Observed::Failed("http 200; code 10003".into())), "the refusal is the key's answer");
+    let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
+    assert_eq!(sent, ["/v5/account/wallet-balance", "/v5/account/wallet-balance"], "no UID read");
 }
 
 #[tokio::test]

@@ -750,7 +750,8 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
 }
 
 /// `check`, and for a correct key of a venue with a confirmed account id (crate::identity::VENUES) what its identity read
-/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance; Binance.US's is its check's own account read).
+/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance, D-BYBIT-IDENTITY-READ on Bybit; Binance.US's is
+/// its check's own account read, Coinbase's its permission read).
 /// None: no read was made.
 pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
                               -> (Validity, Option<crate::identity::Observed>) {
@@ -856,7 +857,15 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
     } else if scheme == Some(KeyCheck::Bybit) {
         let transport = ReqwestTransport::bybit(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::bybit::BybitVenue::new(transport.clone(), base);
-        bybit_check(&transport, &venue, kind).await
+        let (answer, verdict) = bybit_check(&transport, &venue, kind).await;
+        // #710 slice 9 (D-BYBIT-IDENTITY-READ): a key the check judges correct is read once more, for its UID. A probe Bybit
+        // refused with one of its definite refusal codes (G4) is the key's own answer; a transient one (10006) reads nothing.
+        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue_type, &transport, base, &credentials.secret).await; }
+        else if let Ok(r) = &answer {
+            let probe = crate::identity::bybit_answer(r.status, &r.body);
+            if matches!(&probe, crate::identity::Observed::Failed(code) if crate::identity::definite_failure(venue_type, code)) { observed = Some(probe); }
+        }
+        (answer, verdict)
     } else if scheme == Some(KeyCheck::Bitrue) {
         let transport = ReqwestTransport::bitrue(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::bitrue::BitrueVenue::new(transport.clone(), base, &credentials.secret);
