@@ -3673,3 +3673,29 @@ async fn s9r1_the_bybit_json_save_reads_an_unread_installed_key_first() {
     assert!(!identity::unread(c, installed).unwrap());
     assert_eq!(asked.status, 409, "{}", asked.body);
 }
+
+/// Review r1 #2 (every identity venue): a Reconnect of the sole account, whose installed key nothing has read, with a key
+/// whose permission check passes but whose own identity read is transient (a 503) is refused with "try again": it is never
+/// accepted against the unfingerprinted account, and the installed key stays.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_a_transient_candidate_read_never_replaces_an_unread_key() {
+    let (_d, o, user, exchange, _server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_slot_key(c, user, exchange, first, 2, ("by-a", "by-secret", None));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &bybit_fields("by-busy")).await;
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to. Try again."), "{}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a".into())]);
+
+    let (_d, o, user, exchange, _server, app) = kucoin().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_slot_key(c, user, exchange, first, 2, ("key-a", "secret", Some("phrase")));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &kucoin_fields("key-fail")).await;
+    assert_eq!(answer.status, 422, "KuCoin: {}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to. Try again."), "KuCoin: {}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into())]);
+}
