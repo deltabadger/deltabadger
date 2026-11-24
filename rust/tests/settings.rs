@@ -574,7 +574,7 @@ async fn each_mode_validates_on_its_own_host_and_saves() {
         Mock::given(method("GET")).and(path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID", "bad-key"))
             .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({"message":"unauthorized."}))).with_priority(1).expect(1).mount(used).await;
         Mock::given(method("GET")).and(path("/v2/account"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).expect(1).mount(used).await;
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).with_priority(10).expect(2).mount(used).await;
         Mock::given(wiremock::matchers::any()).respond_with(ResponseTemplate::new(500)).expect(0).mount(unused).await;
         let mut h = Harness::modes(paper_srv.uri(), live_srv.uri()).await;
         let before = h.snapshot();
@@ -1239,7 +1239,10 @@ async fn starting_a_bot_asks_for_its_own_accounts_trading_key() {
 #[tokio::test(flavor="current_thread")]
 async fn a_bots_key_sheet_saves_into_the_bots_account() {
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(1).mount(&server).await;
+    // #710 slice 9: Alpaca names its account: the new key account 2's, account 1's key (read first, rule Q1) its own.
+    let account=|uuid:&str|serde_json::json!({"id":uuid,"status":"ACTIVE","cash":"0"});
+    Mock::given(method("GET")).and(path("/v2/account")).and(wiremock::matchers::header("APCA-API-KEY-ID","second-key")).respond_with(ResponseTemplate::new(200).set_body_json(account("2c1f8b4a-6d3e-4f5a-9b8c-7d6e5f4a3b2c"))).with_priority(1).expect(1).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(account("904837e3-3b76-47ec-b432-046db621571b"))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;
     let (key,_,second_bot)=second_account(&h);
     h.c.execute("DELETE FROM api_keys WHERE id=?1",[key]).unwrap();
@@ -2665,12 +2668,15 @@ async fn reading_key_positions_explicit_unauthorized_is_an_incorrect_key_as_in_v
 }
 
 #[tokio::test(flavor="current_thread")]
-async fn reading_key_bare_401_is_inconclusive_and_does_not_condemn_a_stored_key(){
+/// D-ALPACA-STATUS-VERDICT (#710 slice 9, Alpaca branch review r1 #3): the verdict is the status. 2.x took a reading key's
+/// bare 401 (no "unauthorized" in its text) as inconclusive; Alpaca's 401 on the key's own host is an invalid key, as for a
+/// trading key (and as the identity classifier reads it). Nothing is saved either way.
+async fn reading_key_bare_401_is_an_invalid_key(){
     let server=MockServer::start().await;
     Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({}))).expect(1).mount(&server).await;
     let mut h=Harness::new(server.uri()).await;let ex=h.seed.exchange_id.to_string();let before=h.snapshot();
     let answer=h.submit("POST","/tracker/add_api_key",&[("exchange_id",&ex),("key_type","read_only"),("api_key[key]","candidate"),("api_key[secret]","candidate-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,422);assert!(answer.body.contains("Failed to validate API key permissions"),"2.x does not condemn an unattributed reading-key 401");assert_eq!(h.snapshot(),before);
+    assert_eq!(answer.status,422);assert!(!answer.body.contains("Failed to validate API key permissions"),"an invalid key, not an inconclusive check: {}",answer.body);assert_eq!(h.snapshot(),before);
     server.verify().await;
 }
 
@@ -2717,7 +2723,8 @@ async fn scheduler_state_write_failure_is_propagated_and_does_not_claim_success(
 async fn each_credential_status_and_legacy_write_keeps_the_eligibility_guard_and_no_wake_on_refusal(){
     use deltabadger::{jobs::{Job,Cx,Db,Outcome},sync::jobs::Validator};
     let server=MockServer::start().await;
-    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(3).mount(&server).await;
+    // #710 slice 9: the legacy save's account read is one of them (D-JSON-KEY-IDENTITY).
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"status":"ACTIVE","cash":"0"}))).expect(4).mount(&server).await;
     for path in ["legacy","passive","job","bot"]{
         let mut h=Harness::new(server.uri()).await;
         let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
@@ -3051,16 +3058,26 @@ async fn successful_legacy_replacement_retains_credential_identity_and_every_his
     assert_eq!(after["api_keys"][0]["created_at"],before["api_keys"][0]["created_at"]);
     for column in ["access_token","rsa_signature_key","rsa_encryption_key","dh_param"]{assert_eq!(after["api_keys"][0][column],before["api_keys"][0][column],"an unsent encrypted field is retained: {column}");}
     for (column,expected) in [("key","replacement-key"),("secret","replacement-secret"),("passphrase","paper")]{let stored:String=h.c.query_row(&format!("SELECT {column} FROM api_keys WHERE id=?1"),[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),expected);}
-    assert!(server.received_requests().await.unwrap().is_empty());
+    assert_eq!(identity_reads(&server).await,["GET /v2/account replacement-key"],"only the account read (#710 slice 9)");
 }
 
+/// #710 slice 9: the JSON save of an Alpaca key reads its account first (D-JSON-KEY-IDENTITY), and only that: the (method
+/// path key) of each request `server` received.
+async fn identity_reads(server:&MockServer)->Vec<String>{
+    server.received_requests().await.unwrap().iter().map(|r|format!("{} {} {}",r.method,r.url.path(),r.headers.get("APCA-API-KEY-ID").and_then(|v|v.to_str().ok()).unwrap_or_default())).collect()
+}
+
+/// D-ALPACA-MODE-SWITCH (#710 slice 9, r4): 2.x kept the stored mode when the same key and secret were posted with another;
+/// here Alpaca's paper and live are two accounts, so an explicit other mode is new material: written, and read on its host.
 #[tokio::test(flavor="current_thread")]
-async fn legacy_same_key_revalidation_keeps_the_stored_realm_as_v2_does(){
+async fn legacy_same_key_with_another_mode_is_new_material(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;
+    // The switch is written only once the other host names the key's account (Alpaca branch review r1 #1).
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"id":"904837e3-3b76-47ec-b432-046db621571b","status":"ACTIVE","cash":"0"}))).mount(&server).await;
     h.c.execute("UPDATE api_keys SET key_type=0,passphrase=?1 WHERE id=?2",(h.app.cipher.encrypt("live"),h.seed.api_key_id)).unwrap();
     let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
-    assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"live","2.x same-key revalidation keeps the stored realm");
-    assert!(server.received_requests().await.unwrap().is_empty());
+    assert_eq!(answer.status,201);let stored:String=h.c.query_row("SELECT passphrase FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert_eq!(h.app.cipher.decrypt(&stored).unwrap(),"paper","the posted mode is written");
+    assert_eq!(identity_reads(&server).await,["GET /v2/account previous-key"],"the new mode's read (no account rows here: nothing else waits for a read)");
 }
 
 async fn ledger_progress_after_rotation(partial:bool, unknown:bool, empty:bool){
@@ -3103,7 +3120,7 @@ async fn r_legacy_replacement_clears_the_previous_accounts_diagnostic(){
     h.c.execute("UPDATE api_keys SET last_sync_error='account A rejected its credentials' WHERE id=?1",[h.seed.api_key_id]).unwrap();
     assert_eq!(h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","replacement-key"),("api_key[secret]","replacement-secret"),("api_key[passphrase]","paper")],Csrf::Header).await.status,201);
     let diagnostic:Option<String>=h.c.query_row("SELECT last_sync_error FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap();assert!(diagnostic.is_none(),"B's pending validation cannot display A's diagnostic as current");
-    assert!(server.received_requests().await.unwrap().is_empty());
+    assert_eq!(identity_reads(&server).await,["GET /v2/account replacement-key"],"only the account read (#710 slice 9)");
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -3926,7 +3943,7 @@ async fn r9_replacement_resets_only_credential_ledger_progress_and_keeps_history
     assert!(watermark.is_none(),"R9 replacement clears the previous credential watermark");
     assert_eq!(h.c.query_row("SELECT COUNT(*) FROM app_configs WHERE key IN ('rust_sync.ledger:1','rust_sync.ledger_splits:1','rust_sync.kraken_unresolved:1','rust_sync.kraken_repair_deferred:1')",[],|r|r.get::<_,i64>(0)).unwrap(),0,"R9 replacement clears both old import cursors and the old credential's unresolved codes and deferred repairs");
     assert_eq!(h.c.query_row("SELECT value FROM app_configs WHERE key='rust_sync.ledger:999'",[],|r|r.get::<_,String>(0)).unwrap(),"retained-state","R9 another credential's progress survives");
-    assert!(server.received_requests().await.unwrap().is_empty());
+    assert_eq!(identity_reads(&server).await,["GET /v2/account replacement-key"],"only the account read (#710 slice 9)");
 }
 
 #[tokio::test(flavor="current_thread")]
@@ -3936,12 +3953,13 @@ async fn r9_same_key_revalidation_keeps_ciphertexts_realm_watermark_and_import()
     h.c.execute("INSERT INTO app_configs(key,value,created_at,updated_at)VALUES('rust_sync.ledger:1','retained-state','2026-01-01','2026-01-01')",[]).unwrap();
     let envelopes=||h.c.query_row("SELECT key,secret,passphrase,last_synced_at,last_sync_error FROM api_keys WHERE id=1",[],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,Option<String>>(4)?))).unwrap();
     let before=envelopes();
-    let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret"),("api_key[passphrase]","paper")],Csrf::Header).await;
+    // D-ALPACA-MODE-SWITCH: the stored mode, or none (it is kept); another mode is new material.
+    let answer=h.submit("POST","/api/api_keys",&[("api_key[exchange_id]","1"),("api_key[key_type]","trading"),("api_key[key]","previous-key"),("api_key[secret]","previous-secret")],Csrf::Header).await;
     assert_eq!(answer.status,201,"R9 identical key only queues revalidation");
     let after=h.c.query_row("SELECT key,secret,passphrase,last_synced_at,last_sync_error FROM api_keys WHERE id=1",[],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?,r.get::<_,Option<String>>(3)?,r.get::<_,Option<String>>(4)?))).unwrap();
     assert_eq!(after,before,"R9 revalidation never rotates ciphertexts or adopts a submitted realm");
     assert_eq!(h.c.query_row("SELECT value FROM app_configs WHERE key='rust_sync.ledger:1'",[],|r|r.get::<_,String>(0)).unwrap(),"retained-state");
-    assert!(server.received_requests().await.unwrap().is_empty());
+    assert_eq!(identity_reads(&server).await,["GET /v2/account previous-key"],"only the account read (#710 slice 9)");
 }
 
 #[tokio::test(flavor="current_thread")]

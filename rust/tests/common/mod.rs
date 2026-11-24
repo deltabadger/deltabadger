@@ -274,6 +274,25 @@ pub fn number_one(c: &rusqlite::Connection, user_id: i64, exchange_id: i64) -> i
 
 /// #710 slice 9: Coinbase keys as the identity tests send them. An Ed25519 secret (32 bytes, base64) signs every request,
 /// so each carries a JWT whose header names its key (`kid`), which `CoinbaseKid` matches.
+/// #710 slice 9: Alpaca accounts as its public docs type GET /v2/account (Trading API, "Get account"): `id` is the account's
+/// UUID (`account_number` is not the identity). Paper and live are two accounts.
+pub mod alpaca_key {
+    pub const ACCOUNT_A: &str = "904837e3-3b76-47ec-b432-046db621571b";
+    pub const ACCOUNT_B: &str = "2c1f8b4a-6d3e-4f5a-9b8c-7d6e5f4a3b2c";
+    pub fn account(uuid: &str) -> serde_json::Value {
+        serde_json::json!({"id": uuid, "account_number": "PA3W1ZQ9D3WB", "status": "ACTIVE", "currency": "USD", "cash": "0", "buying_power": "0"})
+    }
+    /// One mock server's paper, live and data hosts at `<uri>/paper`, `<uri>/live`, `<uri>/data`.
+    pub fn hosts(uri: &str) -> deltabadger::venue::alpaca::Hosts {
+        deltabadger::venue::alpaca::Hosts { paper: format!("{uri}/paper"), live: format!("{uri}/live"), data: format!("{uri}/data") }
+    }
+    /// The (path, APCA-API-KEY-ID) of every request `server` received, in order.
+    pub async fn sent(server: &wiremock::MockServer) -> Vec<(String, String)> {
+        server.received_requests().await.unwrap().iter()
+            .map(|r| (r.url.path().to_string(), r.headers.get("APCA-API-KEY-ID").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string())).collect()
+    }
+}
+
 pub mod coinbase_key {
     use base64::Engine;
     pub const SECRET: &str = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";

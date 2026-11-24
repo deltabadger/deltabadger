@@ -23,15 +23,18 @@ impl ValidationHandle {
     }
     pub(crate) fn credentials(&self)->&crate::crypto::Credentials { &self.credentials }
     pub(crate) fn producer(&self)->&crate::engine::model::CredentialVersion { &self.producer }
-    pub(crate) async fn check(&self,url:&str,kind:i64)->Result<crate::engine::model::Produced<Validity>,WebError> {
-        let value=check(url,&self.credentials,kind).await?;
-        Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))
+    /// Alpaca's check on `url` (the key's own paper or live host), with its account read's identity (#710 slice 9: the
+    /// check's own GET /v2/account, observed; no request more).
+    pub(crate) async fn check(&self,url:&str,kind:i64)->Result<Checked,WebError> {
+        let (value,observed)=check_identified(url,&self.credentials,kind).await?;
+        let produced=|value|->Result<_,WebError>{Ok(crate::engine::model::Produced::new(value,Some(self.producer.clone())))};
+        Ok((produced(value)?,Some(observed)))
     }
     /// `check` on the venue the key belongs to: Alpaca's account read, or Kraken's, Binance's and KuCoin's own key checks
     /// (`key_check`), through the venue's proxy when one is configured (ExchangeProxy.for).
     /// With what the key's account-identity read came to, where one was made (`key_check::check_identified`).
     pub(crate) async fn check_on(&self,app:&crate::web::App,venue:&str,kind:i64)->Result<Checked,WebError> {
-        let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return Ok((self.check(&app.alpaca_trading_url(&self.credentials),kind).await?,None))};
+        let Some(name)=crate::venue::registry::key_check_proxy(venue) else {return self.check(&app.alpaca_trading_url(&self.credentials),kind).await};
         let base=app.venue_key_url(venue);
         let cipher=app.cipher.clone();
         let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),name,&crate::venue::http::client()))).await?;
@@ -65,7 +68,15 @@ fn log_body(body:&str)->String{
 fn pending(status:Option<u16>,body:&str,text:impl Into<String>)->Validity {
     Validity::Pending(Diagnostic{status,body:body.into(),text:text.into(),refusal:false})
 }
-pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<Validity, WebError> {
+pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<Validity, WebError> { Ok(check_identified(url, key, kind).await?.0) }
+/// `check`, with what its GET /v2/account stated of the key's account (`identity::alpaca_answer`, read from the raw answer
+/// before anything else reads it), whatever the check concludes after it (#710 slice 9).
+pub async fn check_identified(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Result<(Validity, crate::identity::Observed), WebError> {
+    let mut observed = crate::identity::Observed::Failed("transport".into());
+    let value = check_observed(url, key, kind, &mut observed).await?;
+    Ok((value, observed))
+}
+async fn check_observed(url: &str, key: &crate::crypto::Credentials, kind: i64, observed: &mut crate::identity::Observed) -> Result<Validity, WebError> {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(30))
@@ -82,18 +93,18 @@ pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Re
         Err(_) => return Ok(pending(None,"","validation request failed")),
     };
     let status = response.status().as_u16();
-    let body = response
-        .text()
-        .await
-        .map_err(|_| WebError::Config("cannot read key validation response".into()))?;
+    // An answer whose body cannot be read is a transient non-verdict (Alpaca branch review r1 #4).
+    let Ok(body) = response.text().await else { return Ok(pending(Some(status),"","validation request failed")) };
+    *observed = crate::identity::alpaca_answer(status, &body);
     let metadata=log_body(&body);
     let body=key.venue_text(&body);
-    if status == 401 && kind!=2 {return Ok(Validity::Incorrect);}
+    // D-ALPACA-STATUS-VERDICT (#710 slice 9, review r1 #3): the verdict is the status, never the text. Only a 401 on the key's
+    // own host refuses it; a 5xx or a 429 saying "unauthorized" is the venue's trouble (2.x matched a read-only key's text).
+    if status == 401 {return Ok(Validity::Incorrect);}
     let value: serde_json::Value = match serde_json::from_str(&body) {
         Ok(v) => v,
         Err(_) => return Ok(pending(Some(status),&metadata,&body)),
     };
-    if kind==2 && !(200..300).contains(&status) && value.get("message").and_then(|v|v.as_str()).unwrap_or(&body).contains("unauthorized"){return Ok(Validity::Incorrect);}
     if !(200..300).contains(&status) {
         return Ok(pending(Some(status),&metadata,
             value
@@ -114,13 +125,14 @@ pub async fn check(url: &str, key: &crate::crypto::Credentials, kind: i64) -> Re
             Err(_) => return Ok(pending(None,"","validation request failed")),
         };
         let status=response.status().as_u16();let successful=response.status().is_success();
-        let text = response.text().await.map_err(|_| WebError::Config("cannot read positions validation".into()))?;
+        // A positions body that cannot be read keeps the account read before it: a transient verdict (review r1 #4).
+        let Ok(text) = response.text().await else { return Ok(pending(Some(status),"","validation request failed")) };
         let metadata=log_body(&text);
         let text=key.venue_text(&text);
         if !successful {
             let value=serde_json::from_str::<serde_json::Value>(&text).ok();
             let message=value.as_ref().and_then(|v|v.get("message")).and_then(|v|v.as_str()).unwrap_or(&text);
-            return Ok(if message.contains("unauthorized"){Validity::Incorrect}else{pending(Some(status),&metadata,message)});
+            return Ok(if status==401 {Validity::Incorrect} else {pending(Some(status),&metadata,message)});
         }
         let positions=match serde_json::from_str::<serde_json::Value>(&text){
             Ok(serde_json::Value::Array(positions))=>positions,
