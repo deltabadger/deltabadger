@@ -41,7 +41,7 @@ fn csv(rows: &[writer::Input]) -> Vec<Entry> { rows.iter().map(|r| {let mut e=r.
     if e.entry_type==2 { e.base_amount=deltabadger::v2::BigDec::parse("0.09").unwrap();e.fee_amount=None;e.fee_currency=None; } e.raw=Raw::from_value(json!({"operation":"Small Assets Exchange BNB"}));e }).collect() }
 fn file(c: &Connection, key: &sync::Key, rows: &[Entry]) -> Result<sync::ledger::Outcome,sync::SyncError> {
     let tx=model::immediate(c)?;
-    let out=writer::store_csv(&model::fence_versions(&tx,&[])?,&common::seed::cipher(),key,rows,now())?;
+    let out=writer::store_csv(&model::fence_versions(&tx,&[])?,&common::seed::cipher(),key,rows, "binance", false, now())?.0;
     tx.commit()?;Ok(out)
 }
 
@@ -61,7 +61,7 @@ fn csv_fallback_preserves_file_multiplicity_and_repeat_imports() {
 }
 
 #[test]
-fn csv_ambiguous_non_dust_identity_refuses_without_writes() {
+fn csv_ambiguous_non_dust_identity_warns_without_writes() {
     for (grouped,first_matched) in [(false,false),(false,true),(true,false),(true,true)] {
         let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
         let rows=[input(Source::Deposit,"d1","","BTC"),input(Source::Deposit,"d2","","BTC"),input(Source::Deposit,"d3","","ETH")];
@@ -69,8 +69,9 @@ fn csv_ambiguous_non_dust_identity_refuses_without_writes() {
         let mut entries=vec![rows[2].entry.clone(),rows[0].entry.clone()];
         if !first_matched {entries[0].base_currency=Some("LTC".into());}
         for e in &mut entries {e.tx_id=None;e.group_id=grouped.then(||"csv_group".into());e.raw=Raw::from_value(json!({"operation":"Deposit"}));}
-        let before=state(c);let err=file(c,&key,&entries).expect_err("several retained identities must refuse the CSV");
-        assert_eq!(err.0,"Binance A12 unresolved: ambiguous CSV identity");assert_eq!(state(c),before);
+        // #710 7a rule P6: the user's to accept, never a refusal; nothing kept until then.
+        let before=state(c);let err=file(c,&key,&entries).expect_err("several retained identities must warn first");
+        assert!(writer::warned(&err).is_some_and(|u|!u.is_empty()),"{}",err.0);assert_eq!(state(c),before);
     }
 }
 
@@ -317,12 +318,64 @@ async fn production_export_import_matches_gross_dust_and_rejects_suppressed_ids(
     assert!(matches!(answer,Answer::Written{imported:0,duplicates:4,..}),"{answer:?}");assert_eq!(state(c),before);
     suppress(c,"ETH");let before=state(c);let answer=import(c,&key,"deltabadger",&exported.body).unwrap();
     assert!(matches!(answer,Answer::Written{imported:0,duplicates:2,skipped:2,..}),"{answer:?}");assert_eq!(state(c),before);
+    // #710 7a rules P6/Q3: a retained id with no binding here (a row, a whole dust pair) or a binding whose amounts the file
+    // changed warns instead of refusing; the warning is the writer's, found only while writing, so the first round writes
+    // nothing and asks; the accepted rows are plain imported rows, their retained ids stripped.
     let unbound=deltabadger::web::tracker::CSV_HEADERS.join(",")+"\n2026-08-17T10:00:00Z,deposit,BTC,1,,,,,binance,binance-a12-v1:deposit:unknown,,\n";
-    assert!(matches!(import(c,&key,"deltabadger",&unbound).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
     let unknown=exported.body.replace("dust-a12-v1-","dust-a12-v1-unknown-");assert_ne!(unknown,exported.body);
-    assert!(matches!(import(c,&key,"deltabadger",&unknown).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
     let changed=exported.body.replace(",0.1,",",0.2,");assert_ne!(changed,exported.body);
-    assert!(matches!(import(c,&key,"deltabadger",&changed).unwrap(),Answer::Refused(_)));assert_eq!(state(c),before);
+    // (the export holds two dust pairs: the edited spelling, one row in each, is two accepted pairs)
+    for (file,added) in [(&unbound,1),(&unknown,2),(&changed,4)] {
+        let before=state(c);let rows=count(c);
+        let asked=import(c,&key,"deltabadger",file).unwrap();
+        let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+        assert!(warnings.contains(&deltabadger::tracker::import::run::Warning::Retained),"{warnings:?}");assert_eq!(state(c),before,"round 1 writes nothing");
+        let done=deltabadger::tracker::import::run::import(c,&common::seed::cipher(),key.user_id,"deltabadger",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+        assert!(matches!(done,Answer::Written{imported,..} if imported==added),"{added}: {done:?}");assert_eq!(count(c),rows+added as i64);
+        let stripped:i64=c.query_row("SELECT count(*) FROM account_transactions a JOIN import_row_origins o ON o.transaction_id=a.id WHERE o.import_kind='binance_accepted' AND a.tx_id IS NULL",[],|r|r.get(0)).unwrap();
+        assert!(stripped>=added as i64,"stripped and marked accepted: {stripped}");
+    }
+    // A real sync of the same history afterwards writes cleanly: the accepted rows are no nil-ID twins of it.
+    write(c,&key,&pair("p1","BTC")).unwrap();write(c,&key,&pair("p2","ETH")).unwrap();
+}
+
+/// #710 7a (Codex branch r4 #9): a file unit that a suppressed event of the stored history could be, and no binding proves
+/// it is, is the file's statement: warned, and with the user's answer written as plain imported rows.
+#[test]
+fn a_unit_near_a_suppressed_event_is_warned_and_written_on_the_answer() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&pair("p1","BTC")).unwrap();suppress(c,"BTC");
+    let file=dust_file(&["BTC"]).replace("BTC,-1","BTC,-2");
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let (before,rows)=(state(c),count(c));
+    let asked=import(c,&key,"binance",&file).unwrap();
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert!(warnings.contains(&Warning::Retained),"{warnings:?}");assert_eq!(state(c),before,"nothing written before the answer");
+    let done=run::import(c,&common::seed::cipher(),key.user_id,"binance",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+    assert!(matches!(done,Answer::Written{imported:2,..}),"{done:?}");assert_eq!(count(c),rows+2);
+    let accepted:i64=c.query_row("SELECT count(*) FROM import_row_origins WHERE import_kind='binance_accepted'",[],|r|r.get(0)).unwrap();
+    assert_eq!(accepted,2);
+}
+
+/// #710 7a rule P6 (Codex branch r5, binance_writer.rs:308): two valid CSV deposits of one amount inside one retained API
+/// deposit's ten-minute window: the second cannot be that deposit too. The file is the user's word: warned, and on the
+/// answer the second is written as a plain imported row (the first stays the API deposit's duplicate).
+#[test]
+fn two_same_amount_deposits_in_one_api_deposits_window_warn_and_write_on_the_answer() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&[input(Source::Deposit,"d1","","BTC")]).unwrap();
+    let file="User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2026-08-17 10:00:00,Spot,Deposit,BTC,1,\n1,2026-08-17 10:05:00,Spot,Deposit,BTC,1,\n";
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    let (before,rows)=(state(c),count(c));
+    let asked=import(c,&key,"binance",file).unwrap();
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert!(warnings.contains(&Warning::Retained),"{warnings:?}");assert_eq!(state(c),before,"nothing written before the answer");
+    let done=run::import(c,&common::seed::cipher(),key.user_id,"binance",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+    assert!(matches!(done,Answer::Written{imported:1,duplicates:1,..}),"{done:?}");assert_eq!(count(c),rows+1);
+    let accepted:i64=c.query_row("SELECT count(*) FROM import_row_origins WHERE import_kind='binance_accepted'",[],|r|r.get(0)).unwrap();
+    assert_eq!(accepted,1);
 }
 
 // Prices and tax settings are fixed by the unchanged accounting recording. The
@@ -336,7 +389,7 @@ fn accounting(c:&Connection,owner:i64,expected:&Value) {
         let fee=r.fee_amount.as_ref().map(|f|(f*&price).unwrap()).unwrap_or_else(Dec::zero);
         Row{uid,kind:r.kind,base:r.base,amount:r.amount,quote:None,quote_amount:None,fiat_value:value,fee_fiat_value:fee,
             fee_currency:r.fee_currency,fee_amount:r.fee_amount,at:r.at,group:r.group,price_missing:false,value_missing:None,
-            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
+            exchange:r.venue,linked:false,transfer_fee:None,swap_fiat_cost:None,swap_stable_cost:None,per_share:None,to_exchange:None,account:r.account,to_account:r.to_account,orphan:false,opening:false,stated_value:false,fee_missing:false,class:None}
     }).collect();
     let mut engine=Engine::new(false);engine.calculate(&rows).unwrap();
     let lots:std::collections::BTreeMap<_,_>=engine.remaining_lots().map(|(asset,venue,lots)| {
@@ -590,11 +643,20 @@ async fn production_import_route_explains_identity_refusals_after_rollback() {
         };
         let file=prefix+file.split_once('\n').unwrap().1;
         app_config::set_plain(c,&deltabadger::tracker::cache::key(key.user_id),"stale",now()).unwrap();
+        // A warning keeps what routing made (the identity key the first read makes); the write's rows are undone.
+        deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
         let before=state(c);
         let (content_type,body)=web::multipart(&[("format",format)],&[("file","history_UTC.csv",file.as_bytes())]);
         let answer=browser.send_bytes(&app,"POST","/tracker/import",Some(body),Csrf::Header,&[("content-type",&content_type)]).await;
-        assert_eq!(answer.status,422,"{reason}: {}",answer.body);
         assert!(answer.body.contains("id=\"modal\""));
+        // #710 7a rules P6/Q3: what the user can accept is a warning (the whole file rolled back meanwhile), not a refusal.
+        if ["ambiguous CSV identity","exported identity has no retained binding","exported CSV identity changed","CSV cannot exclude a suppressed event"].contains(&reason) {
+            assert_eq!(answer.status,200,"{reason}: {}",answer.body);
+            assert!(answer.body.contains("synced history"),"{reason}: {}",answer.body);
+            assert_eq!(state(c),before,"{reason}: nothing written before the answer");
+            continue;
+        }
+        assert_eq!(answer.status,422,"{reason}: {}",answer.body);
         // Every one of these is the file's: the user reads what to do, never our check's name (that goes to the log).
         assert!(!answer.body.contains(reason),"{reason}: {}",answer.body);
         assert!(answer.body.contains("Nothing imported. This file doesn&#39;t match your Binance history") || answer.body.contains("Nothing imported. This file doesn't match your Binance history"),"{reason}: {}",answer.body);

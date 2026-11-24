@@ -356,6 +356,8 @@ async fn tick_inner<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut 
     // as for stale reference data, and ticks once the activation job has marked the key correct (D-IBKR-ACTIVATION: the
     // checkpoint missed meanwhile runs then, where 2.x reschedules to the next one).
     if model::key_pending(c, bot)? { return Ok(TickOutcome::Stale { source: "api_key_pending_activation", message: "waiting for IBKR activation".into() }); }
+    // #710 7a: a key whose identity read names another account reaches no venue for this account; the bot waits.
+    if model::key_fenced(c, bot)? { return Ok(TickOutcome::Stale { source: "api_key_contradicted", message: "waiting for a key that reads this account".into() }); }
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
     let checkpoint_after_recovery = placement::pending_requires_checkpoint(bot)?;
     let settled = match placement::recover_since(c, venue, bot, clock, cx.process_start).await? {

@@ -42,7 +42,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
     let venue = &handle;
     let bot = model::load_bot(c,id)?;
     if matches!(bot.status,BotStatus::Deleted | BotStatus::Archived) { return refuse(c,id,json!("archived"),clock); }
-    if model::key_pending(c,&bot)? { return refuse(c,id,json!("api_key_pending"),clock); }
+    if model::key_pending(c,&bot)? || model::key_fenced(c,&bot)? { return refuse(c,id,json!("api_key_pending"),clock); }
     let names = named(holdings)?;
     let mut claim = rebalance::Claim { composition: placement::composition_snapshot(c,&bot)?, bot };
     // Market first, using only the named assets. The ledger resolves legacy names without a price read.

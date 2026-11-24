@@ -1958,3 +1958,96 @@ async fn v2_unrecorded_candidates_are_collected_per_v2_ownership_only() {
     assert!(matches!(t.claim, Claim::FromV2));
     assert_eq!(unrecorded_refs(&o.primary), [first, v2], "only 2.x's new line; never the engine's own {own}");
 }
+
+/// #710 7a §1.1, §9.2: 2.x replaced a fingerprinted account's key material in place. The takeover fences that key until a
+/// fresh identity read matches (from the first tick, before discovery runs); a key whose material 2.x left alone keeps its
+/// observation. Rule R5: the stored material digests stay, so the next takeover compares again.
+#[test]
+fn takeover_fences_a_key_2x_replaced_in_place_and_keeps_the_material_digests() {
+    use deltabadger::identity;
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let s = seed::seed_kraken(c, &cipher);
+    // A second, read-only key of the same account.
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, 'now', 'now')",
+              rusqlite::params![s.user_id, s.exchange_id, cipher.encrypt("reader"), cipher.encrypt("reader-secret")]).unwrap();
+    let reader = c.last_insert_rowid();
+    let key = identity::key(c, &cipher, now()).unwrap();
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap().id.unwrap();
+    let fingerprint = key.fingerprint_text("Exchanges::Kraken", "uid-1");
+    c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", rusqlite::params![account, fingerprint]).unwrap();
+    // #710 7a rule N2: a key read proved it (only a proven fingerprint fences).
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account]).unwrap();
+    for id in [s.api_key_id, reader] {
+        let material = deltabadger::crypto::Credentials { redaction_values: vec![], key: cipher.decrypt(&count_text(c, id, "key")).unwrap(),
+            secret: cipher.decrypt(&count_text(c, id, "secret")).unwrap(), passphrase: None, ibkr: None };
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, fingerprint, observed_at) VALUES (?1, ?2, ?3, ?4, '2026-09-29 12:00:00')",
+                  rusqlite::params![id, s.exchange_id, key.material_digest(&material), fingerprint]).unwrap();
+    }
+    // 2.x's settings form: the same row, another key.
+    c.execute("UPDATE api_keys SET key = ?2 WHERE id = ?1", rusqlite::params![s.api_key_id, cipher.encrypt("replaced-in-place")]).unwrap();
+    handover::take_over(&l, &o, &cipher, "0.2.0", now()).unwrap();
+    let fenced = |id: i64| count(c, &format!("SELECT count(*) FROM api_keys k WHERE k.id = {id} AND {}", identity::fenced_sql(c, "k").unwrap())) == 1;
+    assert!(fenced(s.api_key_id), "the replaced key places, withdraws and syncs nothing until it reads its account again");
+    assert!(!fenced(reader), "a key 2.x left alone is not fenced");
+    assert_eq!(count(c, "SELECT count(*) FROM exchange_account_credentials WHERE material_digest IS NOT NULL"), 2, "the digests stay for the next takeover");
+}
+/// #710 7a (Codex branch r5, handover.rs:887): a scheduled bot whose trading key is fenced (its last read named another
+/// account than its account's own) is held by this engine; 2.x has no fence and would place its next order on the wallet
+/// that key now reads. The handback is refused while the fence stands.
+#[tokio::test(flavor = "current_thread")]
+async fn handback_refuses_while_a_working_bots_trading_key_is_fenced() {
+    use deltabadger::identity;
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let s = seed::seed_kraken(c, &cipher);
+    seed::insert_bot(c, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let key = identity::key(c, &cipher, now()).unwrap();
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, now()).unwrap().id.unwrap();
+    let fingerprint = key.fingerprint_text("Exchanges::Kraken", "uid-1");
+    c.execute("UPDATE exchange_accounts SET fingerprint = ?2 WHERE id = ?1", rusqlite::params![account, fingerprint]).unwrap();
+    c.execute("INSERT OR IGNORE INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [account]).unwrap();
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, observed_at) VALUES (?1, ?2, ?3, '2026-09-29 12:00:00')",
+              rusqlite::params![s.api_key_id, s.exchange_id, key.fingerprint_text("Exchanges::Kraken", "uid-2")]).unwrap();
+    handover::take_over(&l, &o, &cipher, "0.2.0", now()).unwrap();
+    let back = deltabadger::engine::FixedClock(now() + chrono::Duration::hours(1));
+    match handover::hand_back(&l, &o, &FakeFactory::default(), &cipher, &back).await {
+        Err(EngineError::Ineligible(p)) => assert_eq!(p, [handover::FENCED_KEY_BOT], "{p:?}"),
+        other => panic!("a fenced trading key under a working bot is not handed back: {:?}", other.map(|_| ())),
+    }
+    // A fresh read of its own account lifts the fence, and the handback goes.
+    c.execute("UPDATE exchange_account_credentials SET fingerprint = ?2 WHERE api_key_id = ?1", rusqlite::params![s.api_key_id, fingerprint]).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &cipher, &back).await.unwrap();
+}
+fn count_text(c: &rusqlite::Connection, id: i64, column: &str) -> String { c.query_row(&format!("SELECT {column} FROM api_keys WHERE id = ?1"), [id], |r| r.get(0)).unwrap() }
+
+/// #710 7a rules P9/Q5: at a takeover after 2.x's window, the rows 2.x's importer wrote since the handback (raw data `{}` or
+/// `{operation}` alone) read as imported; a 2.x API row with no venue id (a Bitvavo transfer, the venue's payload) stays
+/// synced, and a row from before the handback is not touched.
+#[tokio::test(flavor = "current_thread")]
+async fn p9_rows_2x_imported_while_it_owned_the_install_read_as_imported() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let row = |raw: &str, created: &str| {
+        o.primary.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
+                           VALUES (?1, ?2, 4, 'BTC', 1, '2026-09-01 10:00:00', ?3, '{}', 0, ?4, ?4)", rusqlite::params![s.user_id, s.exchange_id, raw, created]).unwrap();
+        o.primary.last_insert_rowid()
+    };
+    let before = row("{}", "2026-09-30 11:00:00");
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    let (empty, operation, api) = (row("{}", "2026-09-30 13:00:00"), row(r#"{"operation":"Deposit"}"#, "2026-09-30 13:00:01"),
+                                   row(r#"{"type":"deposit","symbol":"BTC","amount":"1"}"#, "2026-09-30 13:00:02"));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now() + chrono::Duration::hours(2)).unwrap();
+    let kind = |id: i64| o.primary.query_row("SELECT import_kind FROM import_row_origins WHERE transaction_id = ?1", [id], |r| r.get::<_, String>(0)).ok();
+    assert_eq!([kind(before), kind(empty), kind(operation), kind(api)], [None, Some("v2".into()), Some("v2".into()), None]);
+}

@@ -652,6 +652,8 @@ fr:
             drop: 'Dépose ton CSV ici'
             drop_hint: 'ou clique pour choisir un fichier'
             which_account: 'Ce fichier peut venir de l’un ou l’autre compte Binance. Lequel ?'
+            which_of_accounts: 'Ce fichier peut venir de plusieurs comptes ici. Lequel ?'
+            new_account: 'Un nouveau compte'
             unrouted: 'Aucun compte connecté pour : %{exchanges}. Ces lignes ont été ignorées.'
             error_no_account_for_format: 'Aucun compte correspondant à ce format n’est connecté.'
             format: 'Format'

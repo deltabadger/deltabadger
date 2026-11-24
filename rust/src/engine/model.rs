@@ -812,14 +812,43 @@ impl std::ops::Deref for FencedTransaction<'_> {
     type Target=Connection;
     fn deref(&self)->&Connection { self.connection }
 }
+/// The final check of a write of money or venue data under several versions (ledger rows, balances, repair batches): each
+/// passes `check_credential_result`, so a key found to open another account commits none of it (#710 7a rule F2).
 pub fn fence_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
     for version in versions { check_credential_result(tx,&Some(version.clone()))?; }
     Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
 }
+/// `fence_versions` for figures read from stored rows only (the tracker cache's publication): a fenced key's rows stay and
+/// are read (`check_credential_record`). Never for anything a venue read produced.
+pub fn read_versions<'a>(tx: &'a rusqlite::Transaction<'_>, versions: &[CredentialVersion]) -> Result<FencedTransaction<'a>, EngineError> {
+    for version in versions { check_credential_record(tx,&Some(version.clone()))?; }
+    Ok(FencedTransaction{connection:tx,versions:versions.to_vec()})
+}
+/// #710 7a: whether `version`'s key still reads its account: no identity read of it names another account than its
+/// account's (`identity::fenced_sql`). A pending slot (id 0) has no read yet.
+pub fn key_reads_its_account(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    let fenced = crate::identity::fenced_sql(c, "k")?;
+    if version.id == 0 || fenced == "0" { return Ok(true); }
+    Ok(!c.query_row(&format!("SELECT {fenced} FROM api_keys k WHERE k.id = ?1"), [version.id], |r| r.get::<_, bool>(0)).optional()?.unwrap_or(false))
+}
+/// The final check of every venue result, claim and send under `version`: the same credential, on the account it was
+/// captured on, and still reading that account (#710 7a §9.1: a key found to open another account is as changed).
+pub fn key_is_current(c: &Connection, version: &CredentialVersion) -> Result<bool, EngineError> {
+    Ok(credential_is_current(c, version)? && account_is_current(c, version)? && key_reads_its_account(c, version)?)
+}
 pub fn check_credential_result<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
+    checked(c, version, true)
+}
+/// `check_credential_result` without the identity fence, ONLY for rows about the key itself: its validation status and
+/// identity read, a job's run record (and `read_versions`' figures from stored rows). Never money or venue data.
+pub fn check_credential_record<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>) -> Result<FencedTransaction<'a>, EngineError> {
+    checked(c, version, false)
+}
+fn checked<'a>(c: &'a rusqlite::Transaction<'_>, version: &Option<CredentialVersion>, fence: bool) -> Result<FencedTransaction<'a>, EngineError> {
     if c.is_autocommit() { return Err(EngineError::Data("credential result check requires a write transaction".into())); }
     if let Some(version) = version {
-        if !credential_is_current(c,version)? || !account_is_current(c,version)? {
+        let current = if fence { key_is_current(c, version)? } else { credential_is_current(c, version)? && account_is_current(c, version)? };
+        if !current {
             super::log(CREDENTIALS_CHANGED);
             return Err(EngineError::CredentialsChanged);
         }
@@ -844,6 +873,14 @@ pub fn key_pending(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
     let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", bot_keys(c, bot)?),
                                           [], |r| r.get(0)).optional()?;
     Ok(status == Some(crate::enums::ApiKeyStatus::PendingActivation as i64))
+}
+/// Whether `bot`'s trading key is fenced (`identity::fenced_sql`): every job that would place for the bot asks first, as
+/// for `key_pending`.
+pub fn key_fenced(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    let fenced = crate::identity::fenced_sql(c, "k")?;
+    if fenced == "0" { return Ok(false); }
+    let row: Option<bool> = c.query_row(&format!("SELECT {fenced} FROM api_keys k WHERE {} AND k.key_type = 0 ORDER BY k.id LIMIT 1", bot_keys(c, bot)?), [], |r| r.get(0)).optional()?;
+    Ok(row == Some(true))
 }
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
     let keys = bot_keys(c, bot)?;
@@ -900,7 +937,8 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
 /// The withdrawal key `account`'s rules withdraw with: its lowest correct withdrawal key. The one selection, which Merge's
 /// guard reads too (#710).
 pub fn withdrawal_key_id(c:&Connection,account:&crate::identity::Account)->rusqlite::Result<Option<i64>>{
-    c.query_row(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 ORDER BY k.id LIMIT 1",account.keys("k")),[],|r|r.get(0)).optional()
+    // A fenced key withdraws nothing (#710 7a).
+    c.query_row(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type=1 AND k.status=1 AND NOT {} ORDER BY k.id LIMIT 1",account.keys("k"),crate::identity::fenced_sql(c,"k")?),[],|r|r.get(0)).optional()
 }
 
 /// Withdrawal credentials and provenance from the same SQLite snapshot. Unlike trading,
@@ -917,6 +955,8 @@ pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::ident
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};
     if key.is_empty()||secret.is_empty(){return Ok(None);}
     let version=ciphertext_version(id,&columns).with_account(account.id);
+    // #710 7a rule R1: every withdrawal read and send takes its key here; a key found to open another account is none.
+    if !key_reads_its_account(c,&version)? {return Ok(None);}
     Ok(Some((Credentials{redaction_values:columns.iter().filter_map(open).collect(),key,secret,passphrase:open(&columns[2]),ibkr:None},version)))
 }
 

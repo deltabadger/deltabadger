@@ -101,7 +101,8 @@ pub fn key_pane(card: &str) -> Result<String, WebError> { Ok(Form { search: Stri
 #[allow(clippy::too_many_arguments)]
 fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>, namespace: Namespace, venue: &Venue, live: bool, error: Option<&str>) -> Result<(String, String), WebError> {
     let instructions = keys::key_instructions(c, app, ctx, &venue.class, &venue.name, 0)?;
-    let card = keys::sheet_card(ctx, csrf, ctx.path(namespace.action()), keys::SHEET_FORM, &venue.name, &venue.class, live, instructions, error,
+    // #710 7a §2: the form posts the pick it rendered.
+    let card = keys::sheet_card(ctx, csrf, ctx.path(&format!("{}{}", namespace.action(), super::bound_query(config))), keys::SHEET_FORM, &venue.name, &venue.class, live, instructions, error,
                                Some(ctx.path(&namespace.action().replace("/add_api_key", "/pick_exchange/new"))))?;
     if namespace == Namespace::Index {
         let track = super::index_track(ctx, csrf, config, super::At::Key, &super::index::index_name(c, config, ctx.locale)?, Some(venue.name.clone()))?;
@@ -130,7 +131,9 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
     if namespace == Namespace::Index && super::index::refusal(c, app, &venue.class)?.is_some() { return Ok(Route::Refused) }
     if namespace == Namespace::Signal && crate::engine::eligibility::signal_admission(Some(&venue.class)).is_some() { return Ok(Route::Refused) }
-    let key = keys::Key::read(c, app, crate::identity::Account::first(c, user, venue.id)?, 0)?;
+    // #710 7a §2: the picked account's key; an Exchanges tile's is a blank candidate, saved where it routes.
+    let Some(account) = super::account(c, user, config)? else { return Ok(Route::To(missing_exchange_path(c, config, namespace)?)) };
+    let key = if super::untargeted(config) { keys::Key::untargeted(account) } else { keys::Key::read(c, app, account, 0)? };
     Ok(Route::Ready(venue, Box::new(key)))
 }
 
@@ -181,6 +184,8 @@ async fn new(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebEr
 async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let config = ctx.session.lock().bot_config.clone();
+    // #710 7a §2: a form rendered for another pick than the session's now (two tabs) is refused before any check.
+    if !super::still_bound(&ctx, config.as_ref()) { return Ok(super::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{}/new", namespace.action()))))) }
     let (inner, held) = (app.clone(), config.clone());
     let (venue, key) = match app.db(move |c| route(c, &inner, user.id, held.as_ref(), namespace, false)).await? {
         Route::To(path) => return Ok(layout::redirect(StatusCode::FOUND, &ctx.path(path))),
@@ -191,17 +196,29 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     // `params.require(:api_key)`.
     if !ctx.params.form.iter().any(|(name, _)| name.starts_with("api_key[")) { return Ok(layout::bad_request()) }
     let live = ctx.params.form("api_key[passphrase]").map_or(key.passphrase.as_deref() == Some("live"), |mode| mode == "live");
-    let message = match keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await? {
-        keys::Submitted::Correct => {
+    let outcome = keys::submit(&app, &ctx, &venue.class, &venue.name, 0, *key).await?;
+    if let keys::Submitted::Refused(reason) = &outcome { if let Some(asked) = keys::question_response(&ctx, reason) { return Ok(asked); } }
+    let message = match &outcome {
+        keys::Submitted::Correct(_) | keys::Submitted::Moved { .. } => {
+            let saved = match outcome { keys::Submitted::Correct(a) => a, keys::Submitted::Moved { to, .. } => Some(to), _ => None };
+            // The session takes the account the key was saved on (§2).
+            let config = {
+                let mut data = ctx.session.lock();
+                // A 2.x session (neither kept) stays as it was.
+                if let (Some(config), Some(account)) = (data.bot_config.as_mut(), saved) {
+                    if config.get("account_id").is_some() || super::untargeted(Some(config)) { super::keep_pick(config, super::Picked::Account(account)); }
+                }
+                data.bot_config.clone()
+            };
             let path = app.db(move |c| after_api_key_path(c, user.id, config.as_ref(), namespace)).await?;
             return Ok(super::stream(StatusCode::OK, turbo::redirect(&ctx.path(path))));
         }
         keys::Submitted::Incorrect => i18n::text(ctx.locale, "errors.incorrect_api_key_permissions", &[]),
         keys::Submitted::Permissions(missing, forbidden) => {
-            key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&venue.class), &venue.name, 0, &missing, &forbidden)
+            key_check::permission_message(ctx.locale, &crate::tracker::rows::name_id(&venue.class), &venue.name, 0, missing, forbidden)
         }
         keys::Submitted::Failed => i18n::text(ctx.locale, "errors.api_key_permission_validation_failed", &[]),
-        keys::Submitted::Refused(reason) => i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&reason))]),
+        keys::Submitted::Refused(reason) => keys::refusal_text(&ctx, reason),
     };
     let (inner, view, reason) = (app.clone(), ctx.clone(), message);
     let content = app.db(move |c| {

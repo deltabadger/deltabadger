@@ -25,6 +25,7 @@ struct State {
     on_query: Option<Rc<dyn Fn()>>, // the same, while QueryOrders does (the pre-tick sweep)
     on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
     on_price: Option<Rc<dyn Fn()>>,  // the same, while a price read does
+    on_mode: Option<Rc<dyn Fn()>>,   // the same, while the account-mode read a reversal makes first does (none: not KuCoin)
     hold_add: Option<Rc<tokio::sync::Notify>>, // AddOrder's reply waits for it: a tick held in hand while a test acts
     candles: VecDeque<Result<Vec<crate::engine::candles::Candle>, VenueError>>, // candle answers, in order
     candle_reads: Vec<(DateTime<Utc>, crate::engine::candles::Timeframe)>,  // each candle read's start_at and timeframe
@@ -66,6 +67,7 @@ impl FakeVenue {
     pub fn on_query(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_query = Some(Rc::new(f)); self }
     pub fn on_lookup(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_lookup = Some(Rc::new(f)); self }
     pub fn on_price(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_price = Some(Rc::new(f)); self }
+    pub fn on_mode(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_mode = Some(Rc::new(f)); self }
     /// AddOrder records the order and runs `on_add`, then waits for `gate.notify_one()` before it answers: a tick held
     /// in hand at an await point while a test stops the process or writes as the web does.
     pub fn hold_add(self, gate: Rc<tokio::sync::Notify>) -> Self { self.s.borrow_mut().hold_add = Some(gate); self }
@@ -230,6 +232,13 @@ impl Venue for FakeVenue {
         let mut s = self.s.borrow_mut();
         s.candle_reads.push((start_at, timeframe));
         s.candles.pop_front().unwrap_or_else(|| Err(VenueError::Rejected(vec!["candles are not connected for this venue".into()])))
+    }
+
+    /// Not KuCoin: no mode. Runs `on_mode` first.
+    async fn kucoin_mode(&self) -> Option<Result<crate::venue::kucoin_account::AccountMode, VenueError>> {
+        let hook = self.s.borrow().on_mode.clone();
+        if let Some(f) = hook { f(); }
+        None
     }
 
     /// A scripted CancelOrder body, or accepted when none is scripted.

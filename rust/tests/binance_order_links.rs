@@ -66,7 +66,7 @@ fn new_fills_link_as_stored_and_never_through_the_generic_lookups() {
                 // A row naming the order directly, without orderId, keeps the generic match.
                 entry(1, "BTCUSDT-99", json!({"operation": "Transaction Sold"}))];
     let tx = model::immediate(c).unwrap();
-    writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &common::seed::cipher(), &key, &rows, now()).unwrap();
+    writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &common::seed::cipher(), &key, &rows, "binance", false, now()).unwrap();
     tx.commit().unwrap();
     let by_tx = |t: &str| c.query_row("SELECT transaction_id FROM account_transactions WHERE tx_id=?1", [t], |r| r.get::<_, Option<i64>>(0)).unwrap();
     assert_eq!((by_tx("BTCUSDT-12-101"), by_tx("BTCUSDT-12-102")), (Some(id), Some(id)), "both fills, one order");
@@ -128,7 +128,7 @@ fn another_users_order_never_links_on_any_venue() {
                     fee_currency: None, fee_amount: None, tx_id: Some("OXYZ-1".into()), group_id: None, description: None,
                     transacted_at: Some("2026-08-17T10:00:00Z".parse().unwrap()), raw: Raw::from_value(json!({})) };
     let tx = model::immediate(c).unwrap();
-    sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), &key, vec![e], now()).unwrap();
+    sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), &key, vec![e], "deltabadger", now()).unwrap();
     tx.commit().unwrap();
     assert_eq!(c.query_row("SELECT transaction_id FROM account_transactions WHERE tx_id='OXYZ-1'", [], |r| r.get::<_, Option<i64>>(0)).unwrap(), None);
 }

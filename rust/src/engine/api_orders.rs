@@ -162,17 +162,21 @@ pub fn forget(c: &Connection, id: i64) -> Result<(), EngineError> {
 /// account it was placed on, the venue's placement identity at its claim and its wire order (`claim`). None also for one
 /// whose account is another user's or exchange's.
 /// `account`: only that account's orders (#710: two accounts may hold the same venue id); None reads every account.
-pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str, account: Option<i64>) -> Result<Option<(crate::identity::Account, Option<Value>, Value)>, EngineError> {
+/// The logged order's account, identity and snapshot, and its terminal status at the venue when the pre-flight recorded one
+/// (`merge::record_terminal`; #710 7a §9.4: such an order is never sent a cancel).
+pub type Logged = (crate::identity::Account, Option<Value>, Value, Option<String>);
+pub fn log_order(c: &Connection, user_id: i64, exchange_id: i64, external_id: &str, account: Option<i64>) -> Result<Option<Logged>, EngineError> {
     // An install Rust has not migrated (a 2.x one served read-only) has no log: nothing this build placed.
     if !super::rules::table_exists(c, "rust_api_order_standalone")? { return Ok(None); }
-    let row: Option<(i64, Option<String>, Option<String>)> = c.query_row(&format!(
-        "SELECT s.account_id, s.identity, s.order_snapshot FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
+    type Row = (i64, Option<String>, Option<String>, Option<String>);
+    let row: Option<Row> = c.query_row(&format!(
+        "SELECT s.account_id, s.identity, s.order_snapshot, json_extract(o.outcome, '$.terminal') FROM rust_api_order_standalone s JOIN rust_api_orders o ON o.id = s.order_id \
          WHERE o.user_id = ?1 AND s.exchange_id = ?2 AND s.external_id = ?3 AND (?4 IS NULL OR s.account_id = ?4) AND {RETAINED} ORDER BY o.id DESC LIMIT 1"),
-        params![user_id, exchange_id, external_id, account], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
-    let Some((account, identity, snapshot)) = row else { return Ok(None) };
+        params![user_id, exchange_id, external_id, account], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
+    let Some((account, identity, snapshot, terminal)) = row else { return Ok(None) };
     let Some(account) = crate::identity::Account::by_id(c, account)?.filter(|a| a.user_id == user_id && a.exchange_id == exchange_id) else { return Ok(None) };
     let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| EngineError::Data(format!("api order log: {e}")));
-    Ok(Some((account, identity.as_deref().map(parse).transpose()?, parse(snapshot.as_deref().unwrap_or("null"))?)))
+    Ok(Some((account, identity.as_deref().map(parse).transpose()?, parse(snapshot.as_deref().unwrap_or("null"))?, terminal)))
 }
 
 /// Every queued request, oldest first.
@@ -308,6 +312,8 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
     };
     // 1. Taken past its send deadline: nothing is sent.
     if clock.now() > request.send_by { return answer(Outcome::Busy); }
+    // #710 7a: a key whose identity read names another account is no valid key of this account.
+    if model::key_fenced(c, &model::Bot::key_holder(s.account))? { return key_missing(); }
     // 3. The venue's context (KuCoin's account mode), while still taken; r1 §5: a key replaced meanwhile is the request's own refusal.
     match placement::prepare(c, venue).await {
         Ok(Ok(())) => {}
@@ -373,16 +379,23 @@ pub async fn place_standalone<V: crate::venue::Venue>(c: &Connection, venue: &V,
     let send_until = window.min(request.send_by);
     if clock.now() > send_until { return answer(Outcome::Busy); }
     let sent = tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, placement::dispatch(venue, &plan, cl_ord_id, send_until, false)).await;
-    // 8. The answer.
-    answer(match sent {
+    // 8. The answer. #710 7a rule R1: an acceptance read once the key was found to open another account (discovery, while
+    // the order was out) is no order of this account: unconfirmed, as an unanswered send, and no venue id is kept here.
+    let outcome = match sent {
         Ok(Sent::Accepted(order_id)) => Outcome::Placed { order_id },
         Ok(Sent::Rejected(errors) | Sent::BelowMinimum(errors)) => Outcome::Failed { errors },
         Ok(Sent::NotSent(m)) => Outcome::Failed { errors: vec![m] },
         Ok(Sent::Ambiguous(m)) => Outcome::Ambiguous { errors: vec![m] },
         Ok(Sent::Fenced) => Outcome::Failed { errors: vec!["the order was not sent".into()] },
         Err(_) => Outcome::Ambiguous { errors: vec!["the exchange did not answer in time".into()] },
+    };
+    model::locked(c, |tx| {
+        let fenced = matches!(outcome, Outcome::Placed { .. }) && cx.credential_version.as_ref().map(|v| model::key_reads_its_account(tx, v)).transpose()? == Some(false);
+        finish(tx, request.id, &if fenced { Outcome::Ambiguous { errors: vec![UNCONFIRMED.into()] } } else { outcome })
     })
 }
+/// The ambiguity of an acceptance read after the key was found to open another account.
+const UNCONFIRMED: &str = "the API key was found to open another account while the order was sent";
 
 /// The pair is gone since validation: the request's late refusal names why (`pair_not_found`, as Lookup.find_ticker).
 fn late(c: &Connection, request: &Request, clock: &dyn super::Clock) -> Result<(), EngineError> {

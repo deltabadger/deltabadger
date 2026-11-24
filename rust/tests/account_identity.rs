@@ -105,15 +105,14 @@ fn the_migration_creates_the_tables_its_contracts_name_and_the_install_checks() 
 }
 
 #[test]
-fn an_id_less_import_creates_an_unknown_account_and_the_first_identity_fills_it_once() {
+fn an_id_less_import_creates_an_unknown_account_and_files_never_fill_it() {
     let fx = Fx::new();
     fx.import(BINANCE, None);
     assert_eq!(fx.account(BINANCE), Some(None), "an account known only from id-less files");
     assert_eq!(fx.standing(BINANCE), Standing::Unknown);
     fx.import(BINANCE, Some(A));
-    assert_eq!(fx.account(BINANCE), Some(Some(fx.fingerprint_of(BINANCE, A))), "the first identity fills it");
     fx.import(BINANCE, Some(B));
-    assert_eq!(fx.account(BINANCE), Some(Some(fx.fingerprint_of(BINANCE, A))), "a known fingerprint is never overwritten");
+    assert_eq!(fx.account(BINANCE), Some(None), "#710 7a rule M3: a file's UID is no fingerprint");
     assert_eq!(fx.count("exchange_account_imports"), 2, "both identity-bearing imports are recorded");
 }
 
@@ -170,12 +169,14 @@ fn an_identity_key_that_cannot_be_unwrapped_is_a_reset() {
 }
 
 #[test]
-fn an_import_after_a_reset_reestablishes_the_account() {
-    let (mut fx, _) = established();
+fn an_import_after_a_reset_leaves_the_account_to_its_key() {
+    let (mut fx, key) = established();
     deltabadger::app_config::delete(&fx.c, identity::KEY_CONFIG).unwrap();
     fx.restart();
     fx.import(KUCOIN, Some(A));
-    assert_eq!(fx.account(KUCOIN), Some(Some(fx.fingerprint_of(KUCOIN, A))));
+    assert_eq!(fx.account(KUCOIN), Some(None), "rule M3: a file re-establishes nothing");
+    fx.observe(key, read(A));
+    assert_eq!(fx.account(KUCOIN), Some(Some(fx.fingerprint_of(KUCOIN, A))), "the key's read does");
 }
 
 #[test]
@@ -251,8 +252,7 @@ fn concurrent_first_bindings_bind_exactly_one() {
         })
     }).collect();
     for t in threads { t.join().unwrap(); }
-    let fingerprint = fx.account(BINANCE).unwrap().unwrap();
-    assert!([fx.fingerprint_of(BINANCE, A), fx.fingerprint_of(BINANCE, B)].contains(&fingerprint));
+    assert_eq!(fx.account(BINANCE), Some(None), "rule M3: files bind no fingerprint");
     assert_eq!((fx.count("exchange_accounts"), fx.count("exchange_account_imports")), (1, 2), "one account, both imports recorded");
 }
 
@@ -286,7 +286,7 @@ fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise(
     let kucoin = fx.exchange(KUCOIN);
     let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap();
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
-    identity::forget(&fx.c, key, &account).unwrap();
+    identity::forget(&fx.c, key, &account, chrono::Utc::now()).unwrap();
     assert_eq!(account.exchange_id, kucoin);
     assert_eq!((fx.count("exchange_account_credentials"), fx.account(KUCOIN).is_some()), (0, true), "history keeps the account");
     let again = fx.key(KUCOIN, 0, "kc-a");
@@ -297,7 +297,7 @@ fn a_deleted_key_leaves_its_account_while_history_exists_and_takes_it_otherwise(
     fx.observe(binance_key, read(B));
     let account = identity::Account::of_key(&fx.c, binance_key).unwrap().unwrap();
     fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [binance_key]).unwrap();
-    identity::forget(&fx.c, binance_key, &account).unwrap();
+    identity::forget(&fx.c, binance_key, &account, chrono::Utc::now()).unwrap();
     // #710: numbers are never reused, so the row stays, its identity cleared (what delete-then-recreate left before).
     let row: (i64, Option<String>, Option<Vec<u8>>, Option<String>) = fx.c.query_row("SELECT number, fingerprint, account_id_enc, removed_at FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
         [fx.user, fx.exchange(BINANCE)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap();
@@ -402,8 +402,11 @@ fn replacing_the_stray_key_with_new_material_clears_the_conflict() {
     let (fx, _, stray) = conflicted();
     fx.replace(stray, "kc-c");
     fx.observe(stray, Observed::Failed("http 500".into()));
-    assert_eq!((identity::credential_standing(&fx.c, stray).unwrap(), fx.standing(KUCOIN)), (CredentialStanding::Unobserved, Standing::Bound),
-               "a replacement's failed read drops the old observation");
+    // #710 7a (Codex branch r1): the fence stays, unconfirmed, until a read names the account.
+    assert_eq!((identity::credential_standing(&fx.c, stray).unwrap(), fx.standing(KUCOIN)), (CredentialStanding::Conflict, Standing::Conflicted),
+               "a replacement's failed read leaves the key unconfirmed, still fenced");
+    fx.observe(stray, read(A));
+    assert_eq!(fx.standing(KUCOIN), Standing::Bound, "a read naming the account lifts it");
 }
 
 #[test]
@@ -446,9 +449,10 @@ fn an_import_establishes_the_account_and_later_keys_are_observed_against_it() {
     let text = fixture()["binance_export"].as_str().unwrap().to_string();
     let answer = run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), None, now()).unwrap();
     assert!(matches!(answer, run::Answer::Written { imported: 1, .. }), "{answer:?}");
-    assert_eq!(fx.account(BINANCE), Some(Some(fx.fingerprint_of(BINANCE, "354937868"))), "the import established it");
+    assert_eq!(fx.account(BINANCE), Some(None), "rule M3: the import established nothing");
     let keys = fx.keys();
     fx.observe(trading, read("354937868"));
+    assert_eq!(fx.account(BINANCE), Some(Some(fx.fingerprint_of(BINANCE, "354937868"))), "the key's read did");
     assert_eq!(identity::credential_standing(&fx.c, trading).unwrap(), CredentialStanding::Bound);
     let other = fx.key(BINANCE, 2, "bn-other");
     fx.observe(other, read(B));
@@ -786,7 +790,7 @@ fn forget_drops_the_keys_membership_and_keeps_every_account() {
     let before = accounts(&t.fx.c);
     let account = identity::Account::of_key(&t.fx.c, t.key2).unwrap().unwrap();
     t.fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [t.key2]).unwrap();
-    identity::forget(&t.fx.c, t.key2, &account).unwrap();
+    identity::forget(&t.fx.c, t.key2, &account, chrono::Utc::now()).unwrap();
     assert_eq!((count(&t.fx.c, "exchange_account_keys"), accounts(&t.fx.c)), (0, before));
 }
 
@@ -830,10 +834,12 @@ fn forgetting_a_key_clears_its_own_accounts_identity_only() {
     let t = two();
     let c = &t.fx.c;
     c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-' || number WHERE id IN (?1, ?2)", [t.first, t.second]).unwrap();
+    // No bot keeps either account (a bot that does keeps its fingerprint: s7a_removing_the_last_key_keeps_...).
+    c.execute_batch("DELETE FROM exchange_account_bots; DELETE FROM bots;").unwrap();
     let delete = |key: i64| {
         let account = identity::Account::of_key(c, key).unwrap().unwrap();
         c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
-        identity::forget(c, key, &account).unwrap();
+        identity::forget(c, key, &account, chrono::Utc::now()).unwrap();
     };
     delete(t.key2);
     assert_eq!(fingerprints(&t), (Some("fp-1".into()), None), "account 2 had no other key; account 1 keeps its own");
@@ -852,14 +858,15 @@ fn each_account_is_read_with_its_own_key_and_establishes_from_it() {
     let c = &t.fx.c;
     let reading = run::reading(c, t.fx.user).unwrap();
     assert_eq!(reading.iter().map(|k| (k.id, k.account_id)).collect::<Vec<_>>(), [(t.key1, Some(t.first)), (t.key2, Some(t.second))]);
-    for keys in [deltabadger::sync::ledger_reading_keys(c).unwrap(), deltabadger::sync::balance_reading_keys(c).unwrap()] {
-        assert_eq!(keys.iter().filter(|id| [t.key1, t.key2].contains(id)).count(), 2, "{keys:?}");
-    }
+    let synced = |c: &Connection| [deltabadger::sync::ledger_reading_keys(c).unwrap(), deltabadger::sync::balance_reading_keys(c).unwrap()]
+        .map(|keys| keys.iter().filter(|id| [t.key1, t.key2].contains(id)).count());
+    assert_eq!(synced(c), [0, 0], "rule N1: two accounts, neither key read yet: neither syncs");
     t.fx.observe(t.key2, read(B));
     assert_eq!(fingerprints(&t), (None, Some(t.fx.fingerprint_of(KUCOIN, B))), "account 2's key fills account 2");
     assert_eq!(identity::credential_standing(c, t.key2).unwrap(), CredentialStanding::Bound);
     t.fx.observe(t.key1, read(A));
     assert_eq!(fingerprints(&t), (Some(t.fx.fingerprint_of(KUCOIN, A)), Some(t.fx.fingerprint_of(KUCOIN, B))));
+    assert_eq!(synced(c), [2, 2], "each read: each syncs");
 }
 
 /// Eager rows know no identity: a start without an identity key writes nothing for them (no reset, no key).
@@ -972,7 +979,7 @@ fn deleting_one_accounts_subjects_leaves_the_other_accounts_memberships() {
     assert_eq!(Account::of_order(c, orders[0]).unwrap(), Some(first), "no membership row: number 1");
     // Account 1's key deleted, as the settings delete does it.
     c.execute("DELETE FROM api_keys WHERE id = ?1", [s.api_key_id]).unwrap();
-    identity::forget(c, s.api_key_id, &first).unwrap();
+    identity::forget(c, s.api_key_id, &first, chrono::Utc::now()).unwrap();
     check("account 1's key deleted");
     assert_eq!(Account::of_key(c, key).unwrap(), Some(second), "account 2's key");
     // Account 1's bot deleted (bots are kept as deleted) and its order gone (an order's membership cascades with it).
@@ -1039,7 +1046,7 @@ fn the_ownership_migration_keeps_every_rule_and_scopes_ids_it_cannot_place_by_ex
 
 /// #710 review r2 (D): a venue's own export routed to account 2's key fingerprints account 2, never the lowest live account.
 #[test]
-fn a_native_export_fingerprints_the_account_its_key_belongs_to() {
+fn a_native_export_is_observed_on_the_account_its_key_belongs_to() {
     let fx = Fx::new();
     let first = fx.key(BINANCE, 0, "bn-a");
     let exchange = fx.exchange(BINANCE);
@@ -1051,9 +1058,675 @@ fn a_native_export_fingerprints_the_account_its_key_belongs_to() {
     let second = fx.key(BINANCE, 0, "bn-b");
     fx.c.execute("INSERT INTO exchange_account_keys (api_key_id, account_id) VALUES (?1, ?2)", [second, second_account]).unwrap();
     let text = fixture()["binance_export"].as_str().unwrap().to_string();
-    let answer = run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), Some(&second.to_string()), now()).unwrap();
+    // 7a rule H3: asked which account (a key id answers only the venue question of a one-account venue), account 2 answered.
+    let import = |answer: Option<&str>| run::import(&fx.c, &fx.cipher, fx.user, "binance", text.as_bytes(), Some("+00:00"), answer, now()).unwrap();
+    let run::Answer::Ambiguous(choices) = import(None) else { panic!("asked") };
+    let answer = import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{second_account}~"))).expect("account 2 offered").value));
     assert!(matches!(answer, run::Answer::Written { .. }), "{answer:?}");
-    let print = |id: i64| -> Option<String> { fx.c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap() };
+    // Rule M3: the file fingerprints nobody; its UID is an import observation of the account it went to.
+    let observed = |id: i64| -> i64 { fx.c.query_row("SELECT count(*) FROM exchange_account_imports WHERE account_id = ?1", [id], |r| r.get(0)).unwrap() };
     let first_account = deltabadger::identity::account_of_key(&fx.c, first).unwrap().unwrap();
-    assert_eq!((print(first_account).is_some(), print(second_account).is_some()), (false, true), "the file's account is its key's");
+    assert_eq!((observed(first_account), observed(second_account)), (0, 1), "the file's account is its key's");
+}
+
+/// 7a §0.10, the fence's exit: the identity discovery job still reads a fenced key (identity only: `due` takes every key of
+/// an identity venue, fenced or not, and `publish` commits the observation alone). While its read names another account
+/// it syncs nothing; the next read naming its account's again lifts the fence. Its material changing makes it due at once;
+/// otherwise it is due again after `observe_every`.
+#[test]
+fn s7_0_10_the_identity_read_still_runs_for_a_fenced_key_and_lifts_the_fence() {
+    let (fx, key) = established();
+    let reads = |c: &Connection| deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key);
+    assert!(reads(&fx.c));
+    fx.replace(key, "kc-b");
+    assert!(identity::due(&fx.c, &fx.cipher, now()).unwrap().iter().any(|d| d.api_key_id == key), "a material change is due at once");
+    fx.observe(key, read(B));
+    assert!(!reads(&fx.c), "fenced: no sync");
+    assert!(!identity::due(&fx.c, &fx.cipher, now()).unwrap().iter().any(|d| d.api_key_id == key), "just read");
+    let later = now() + identity::observe_every() + Duration::seconds(1);
+    let due = identity::due(&fx.c, &fx.cipher, later).unwrap().into_iter().find(|d| d.api_key_id == key).expect("a fenced key is read again");
+    let rows = fx.count("account_transactions");
+    assert!(identity::publish(&fx.c, &fx.cipher, &due, &read(A), later).unwrap());
+    assert!(reads(&fx.c), "a read naming its account's lifts the fence");
+    assert_eq!(fx.count("account_transactions"), rows, "the identity read writes no rows");
+}
+
+/// #710 7a §9.1 (Codex branch r1: signal.rs:433, api_orders.rs:361, withdrawal.rs:577, sync/jobs.rs:313/389): a version
+/// captured before discovery found its key opens another account fails the one final check every claim, send and venue
+/// result commits under (`check_credential_result`, `key_is_current`), as a changed credential does, its material
+/// unchanged. What the key records about itself (its validation status, its identity read, a job's run) still commits.
+#[test]
+fn s7a_a_key_found_to_open_another_account_fails_every_final_check() {
+    use deltabadger::engine::{model, EngineError};
+    let (fx, key) = established();
+    let captured = fx.version(key);
+    assert!(model::key_is_current(&fx.c, &captured).unwrap());
+    fx.observe(key, read(B));
+    assert_eq!(fx.version(key), captured, "the material is unchanged");
+    assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&key), "fenced");
+    assert!(!model::key_is_current(&fx.c, &captured).unwrap(), "a fenced key is no current key");
+    assert!(matches!(model::credential_write(&fx.c, &Some(captured.clone()), |_| Ok(())), Err(EngineError::CredentialsChanged)), "the final check refuses");
+    let tx = fx.c.unchecked_transaction().unwrap();
+    assert!(model::check_credential_record(&tx, &Some(captured)).is_ok(), "its own record still commits");
+}
+
+/// Codex branch r1 (identity.rs:1398): 2.x replaced account A's key in place; the takeover fences it with its sentinel and
+/// drops every digest. A failed or timed-out first read (the material unknown, so "changed") never lifts the fence; only
+/// a read naming A does. A key fenced by a read of another account keeps that fence through a failed read too.
+#[test]
+fn s7a_a_failed_read_never_lifts_a_fence() {
+    let (fx, key) = established();
+    let reads = |c: &Connection| deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&key);
+    fx.replace(key, "kc-replaced-by-2x");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(!reads(&fx.c), "fenced at takeover");
+    fx.observe(key, Observed::Failed("transport".into()));
+    assert!(!reads(&fx.c), "a timed-out read keeps the takeover's fence");
+    fx.observe(key, Observed::Failed("http 401".into()));
+    assert!(!reads(&fx.c), "a definite failure keeps it too");
+    fx.observe(key, read(A));
+    assert!(reads(&fx.c), "a read naming A lifts it");
+    fx.observe(key, read(B));
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    fx.observe(key, Observed::Failed("transport".into()));
+    assert!(!reads(&fx.c), "a read of another account stays the fence after a failed read");
+}
+
+/// Codex branch r1 (identity.rs:1422): removing the last key of an account that a stopped bot or a withdrawal rule still
+/// keeps never clears its fingerprint, so another wallet connected later is a new account, never the heir of that bot.
+/// With nothing keeping it, the fingerprint goes as before.
+#[test]
+fn s7a_removing_the_last_key_keeps_the_fingerprint_of_an_account_a_bot_or_rule_keeps() {
+    let print = |fx: &Fx| fx.account(KUCOIN).flatten();
+    let remove = |fx: &Fx, key: i64| {
+        let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap();
+        fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+        identity::forget(&fx.c, key, &account, now()).unwrap();
+    };
+    for keeper in ["bot", "rule", "nothing"] {
+        let fx = Fx::new();
+        let key = fx.key(KUCOIN, 0, "kc-a");
+        fx.observe(key, read(A));
+        assert!(print(&fx).is_some(), "{keeper}: fingerprinted");
+        let (exchange, account) = (fx.exchange(KUCOIN), identity::account_of_key(&fx.c, key).unwrap().unwrap());
+        match keeper {
+            "bot" => fx.c.execute("INSERT INTO bots (user_id, exchange_id, status, type, settings, transient_data, created_at, updated_at) VALUES (?1, ?2, 2, 'Bots::DcaSingleAsset', '{}', '{}', 'now', 'now')",
+                                  [fx.user, exchange]).map(|_| ()).unwrap(),
+            "rule" => fx.c.execute("INSERT INTO exchange_account_rules (account_id, user_id, type, status, exchange_id, settings, created_at, updated_at) VALUES (?1, ?2, 'Rules::Withdrawal', 0, ?3, '{}', 'now', 'now')",
+                                   [account, fx.user, exchange]).map(|_| ()).unwrap(),
+            _ => {}
+        }
+        remove(&fx, key);
+        assert_eq!(print(&fx).is_some(), keeper != "nothing", "{keeper}");
+    }
+}
+
+/// Rule F1 (Codex branch r2, identity.rs:1140/1398): a key is fenced whatever its status. A revalidation that times out
+/// sets the key pending; a queued signal order or poll captured before must still fail its final check, and a failed read
+/// in that state keeps the takeover's sentinel, so the key is still fenced once it is correct again.
+#[test]
+fn s7a_a_pending_or_incorrect_key_stays_fenced() {
+    use deltabadger::engine::model;
+    let fenced = |fx: &Fx, key: i64| -> bool { fx.c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(&fx.c, "k").unwrap()), [key], |r| r.get(0)).unwrap() };
+    let status = |fx: &Fx, key: i64, s: i64| { fx.c.execute("UPDATE api_keys SET status = ?2 WHERE id = ?1", [key, s]).unwrap(); };
+    let (fx, key) = established();
+    let captured = fx.version(key);
+    fx.observe(key, read(B));
+    for s in [0, 2] {
+        status(&fx, key, s);
+        assert!(fenced(&fx, key), "status {s}: fenced");
+        assert!(!model::key_is_current(&fx.c, &captured).unwrap(), "status {s}: the final check refuses");
+    }
+    // The takeover's sentinel, then a timed-out read while the key is pending.
+    let (fx, key) = established();
+    fx.replace(key, "kc-replaced-by-2x");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    status(&fx, key, 0);
+    fx.observe(key, Observed::Failed("transport".into()));
+    status(&fx, key, 1);
+    assert!(fenced(&fx, key), "a failed read on a pending key keeps the sentinel");
+    assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&key));
+}
+
+/// Rule F6 (Codex branch r2, identity.rs:1434, venue_ids.rs:184): removing an account's last key never clears its
+/// fingerprint while anything references it, by one predicate (`identity::named`). Number 1's bot orders have no
+/// membership row: its bot moved to account 2 after a fill, the order still names number 1, so number 1 keeps its
+/// fingerprint; so does a deleted bot of number 1. An account 2 an order of a moved bot still names is kept, not
+/// tombstoned. With nothing left, number 1's fingerprint goes.
+#[test]
+fn s7a_removing_the_last_key_keeps_the_fingerprint_while_an_order_or_any_bot_names_the_account() {
+    let remove = |c: &Connection, key: i64| {
+        let account = identity::Account::of_key(c, key).unwrap().unwrap();
+        c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+        identity::forget(c, key, &account, now()).unwrap();
+    };
+    let order = |c: &Connection, bot: i64, exchange: i64| {
+        c.execute("INSERT INTO transactions (bot_id, exchange_id, status, created_at, updated_at) VALUES (?1, ?2, 1, 'now', 'now')", [bot, exchange]).unwrap();
+        c.last_insert_rowid()
+    };
+    for keeper in ["moved bot's order", "deleted bot", "nothing"] {
+        let t = two();
+        let c = &t.fx.c;
+        c.execute("UPDATE exchange_accounts SET fingerprint = 'fp-' || number WHERE id IN (?1, ?2)", [t.first, t.second]).unwrap();
+        match keeper {
+            "moved bot's order" => {
+                order(c, t.bot1, t.exchange);
+                c.execute("INSERT INTO exchange_account_bots (bot_id, account_id) VALUES (?1, ?2)", [t.bot1, t.second]).unwrap();
+            }
+            "deleted bot" => { c.execute("UPDATE bots SET status = ?2 WHERE id = ?1", [t.bot1, deltabadger::enums::BotStatus::Deleted as i64]).unwrap(); }
+            _ => { c.execute("DELETE FROM bots WHERE id = ?1", [t.bot1]).unwrap(); }
+        }
+        remove(c, t.key1);
+        assert_eq!(fingerprints(&t).0.is_some(), keeper != "nothing", "{keeper}");
+    }
+    // Account 2: its bot moved back to number 1 after an order on 2 (a membership row names 2): kept, not tombstoned.
+    let t = two();
+    let c = &t.fx.c;
+    let placed = order(c, t.bot2, t.exchange);
+    c.execute("INSERT INTO exchange_account_transactions (transaction_id, account_id) VALUES (?1, ?2)", [placed, t.second]).unwrap();
+    c.execute("DELETE FROM exchange_account_bots WHERE bot_id = ?1", [t.bot2]).unwrap();
+    remove(c, t.key2);
+    assert_eq!(one_removed(c, t.second), None, "account 2 stays live");
+}
+fn one_removed(c: &Connection, id: i64) -> Option<String> { c.query_row("SELECT removed_at FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).unwrap() }
+
+/// Codex branch r2 (sync/cache.rs:116): the tracker's ledger watermark asks the key that can sync. An account whose
+/// trading key was fenced mid-import (its run left incomplete) and whose read-only key syncs is current once the read-only
+/// key's import is; the tracker's publication still reads the fenced key's stored rows (`fence_read`).
+#[test]
+fn s7a_the_tracker_watermark_reads_the_key_that_can_sync() {
+    use deltabadger::sync::cache;
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    common::two_accounts::stamp_ledgers(&fx.c, fx.user);
+    deltabadger::jobs::state::mark_incomplete(&fx.c, "ledger_sync", Some(&trading.to_string()), now()).unwrap();
+    let current = |fx: &Fx| cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap().ledger_is_current(&fx.c).unwrap();
+    assert!(!current(&fx), "the trading key syncs, and its import is incomplete");
+    fx.observe(trading, read(B));
+    assert!(deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&read_only), "the read-only key syncs");
+    assert!(!current(&fx), "rule M4: the handoff waits for the read-only key's own import");
+    common::two_accounts::restamp(&fx.c, fx.user, read_only);
+    assert!(current(&fx), "the read-only key's complete import is the watermark");
+    let origin = cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap();
+    let tx = fx.c.unchecked_transaction().unwrap();
+    assert!(cache::fence_read(&tx, &origin).is_ok(), "the figures from stored rows still publish");
+}
+
+/// Rule R2 (Codex branch r3, identity.rs:1661): discovery's read of a key fences every copy of that material on its
+/// account. Account A holds kc-a as its trading and its read-only key; discovery reads the read-only one as B's: the
+/// trading copy, never read itself, is fenced at once too.
+#[test]
+fn s7a_r2_discovery_fences_every_copy_of_the_key_it_read() {
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a");
+    let fenced = |k: i64| fx.c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(&fx.c, "k").unwrap()), [k], |r| r.get::<_, bool>(0)).unwrap();
+    assert!(!fenced(trading) && !fenced(read_only));
+    let due = identity::due(&fx.c, &fx.cipher, now()).unwrap().into_iter().find(|d| d.api_key_id == read_only).expect("the read-only key is due");
+    assert!(identity::publish(&fx.c, &fx.cipher, &due, &read(B), now()).unwrap());
+    assert_eq!((fenced(read_only), fenced(trading)), (true, true), "both copies fenced");
+    assert!(!deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&trading));
+}
+
+/// Rule R3 (Codex branch r3, identity.rs:1457, kucoin_hf_ledger.rs:250): a row of ANY Rust-owned table with an
+/// `account_id` column keeps its account named, so forgetting the account's last key keeps its fingerprint. The tables are
+/// read from the migrated schema: a table added later with the column and not counted fails here.
+#[test]
+fn s7a_r3_every_rust_owned_table_naming_an_account_keeps_it() {
+    let fx = Fx::new();
+    let owned = deltabadger::store::REGISTRY.live_tables();
+    let mut s = fx.c.prepare("SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND p.name = 'account_id' ORDER BY m.name").unwrap();
+    // Rule P4: the proof and the reader generation are bookkeeping about an account, never what keeps it.
+    let schema: Vec<String> = s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).filter(|t: &String| owned.contains(&t.as_str()))
+        .filter(|t| !["account_fingerprint_proofs", "ledger_reader_generations"].contains(&t.as_str())).collect();
+    drop(s);
+    for t in ["kucoin_coverage", "kucoin_withheld_fills", "exchange_account_rules", "rust_api_order_standalone", "import_rows"] {
+        assert!(schema.iter().any(|s| s == t), "{t} names an account: {schema:?}");
+    }
+    let exchange = fx.exchange(KUCOIN);
+    // Placeholder rows: no foreign key or trigger of this throwaway install checks them.
+    fx.c.execute_batch("PRAGMA foreign_keys = OFF; PRAGMA ignore_check_constraints = ON").unwrap();
+    let triggers: Vec<String> = fx.c.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    for t in triggers { fx.c.execute(&format!("DROP TRIGGER \"{t}\""), []).unwrap(); }
+    for table in &schema {
+        fx.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) SELECT ?1, ?2, coalesce(max(number), 0) + 1, 'now', 'now' FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
+                     [fx.user, exchange]).unwrap();
+        let account = fx.c.last_insert_rowid();
+        assert!(!identity::named(&fx.c, account).unwrap(), "{table}: a fresh account names nothing");
+        // One row naming the account, every other required column filled with a placeholder of its type.
+        let mut s = fx.c.prepare("SELECT name, type, \"notnull\", dflt_value, pk FROM pragma_table_info(?1)").unwrap();
+        let columns: Vec<(String, String, bool, Option<String>, i64)> = s.query_map([table], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))).unwrap().map(Result::unwrap).collect();
+        drop(s);
+        let (mut names, mut values) = (vec![], vec![]);
+        for (name, kind, notnull, default, pk) in columns {
+            let value = if name == "account_id" { account.to_string() }
+                        else if pk > 0 { format!("{}", account * 1000 + names.len() as i64) }
+                        else if notnull && default.is_none() { if kind.to_uppercase().contains("INT") || kind.to_uppercase().contains("REAL") || kind.to_uppercase().contains("NUM") { "1".into() } else { format!("'{table}-{account}'") } }
+                        else { continue };
+            names.push(format!("\"{name}\""));
+            values.push(value);
+        }
+        fx.c.execute(&format!("INSERT INTO \"{table}\" ({}) VALUES ({})", names.join(", "), values.join(", ")), []).unwrap_or_else(|e| panic!("{table}: {e}"));
+        assert!(identity::named(&fx.c, account).unwrap(), "{table}: its row names the account");
+    }
+}
+
+/// Rule R4 (Codex branch r3, cache.rs:39, shell.rs:62): balance freshness asks the key that can sync, as the ledger
+/// watermark does (one selector, `cache::reading_key`). The trading key is found to open another account; the read-only key
+/// reads the balances completely: they are fresh, and the shell keeps the portfolio ring.
+#[test]
+fn s7a_r4_balance_freshness_reads_the_key_that_can_sync() {
+    use deltabadger::{engine::model, sync::cache, tracker::Scope};
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    fx.observe(trading, read(B));
+    assert!(deltabadger::sync::balance_reading_keys(&fx.c).unwrap().contains(&read_only), "the read-only key syncs");
+    let version = fx.version(read_only);
+    let tx = fx.c.unchecked_transaction().unwrap();
+    cache::record(&model::fence_versions(&tx, &[version]).unwrap(), fx.user, fx.exchange(KUCOIN), &fx.version(read_only), true, now()).unwrap();
+    tx.commit().unwrap();
+    assert!(!cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "the read-only key's complete read is current");
+}
+
+/// Rule R5 (Codex branch r3, identity.rs:1267/1276): a takeover compares each key's stored material with the digest it was
+/// read with and keeps the digests. Take over with A's key unchanged, hand back before discovery reads it again, let 2.x
+/// replace A's key with B's material in place, take over again: the key is fenced.
+#[test]
+fn s7a_r5_a_second_takeover_fences_a_key_2x_replaced_after_the_first() {
+    let (fx, key) = established();
+    let fenced = |c: &Connection| c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(c, "k").unwrap()), [key], |r| r.get::<_, bool>(0)).unwrap();
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(!fenced(&fx.c), "the first takeover: unchanged, not fenced");
+    fx.replace(key, "kc-b");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(fenced(&fx.c), "the second takeover sees the replacement");
+}
+
+/// Rule S3 (Codex branch r4, identity.rs:1268), kept by rule N1 for an exchange with two live accounts only (a single
+/// account is main's: `n1_a_single_account_takeover_syncs_a_key_2x_added`): a takeover weighs every key of a fingerprinted
+/// account, not only the keys it has an observation of. Hand back, let 2.x delete A's trading key and add B's as a new
+/// row, take over: the new key has no observation and no digest, so nothing proves what it reads, and it is fenced until
+/// a read.
+#[test]
+fn s7a_s3_a_takeover_fences_a_key_2x_added_to_a_fingerprinted_account() {
+    let (fx, key) = established();
+    identity::new_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+    let added = fx.key(KUCOIN, 0, "kc-b");
+    let fenced = |c: &Connection| c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", identity::fenced_sql(c, "k").unwrap()), [added], |r| r.get::<_, bool>(0)).unwrap();
+    assert!(!fenced(&fx.c), "before the takeover nothing has read it");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(fenced(&fx.c), "the takeover fences the key 2.x added");
+}
+
+/// Rule S8 (Codex branch r4, cache.rs:48/97): a fenced key's balances are never fresh. The sole reading key publishes a
+/// complete read, then is found to open another account: no key can refresh them, so they are stale, and they no longer
+/// say when they were read.
+#[test]
+fn s7a_s8_balances_a_fenced_key_read_are_never_fresh() {
+    use deltabadger::{engine::model, sync::cache, tracker::Scope};
+    let (fx, trading) = established();
+    let version = fx.version(trading);
+    let tx = fx.c.unchecked_transaction().unwrap();
+    cache::record(&model::fence_versions(&tx, std::slice::from_ref(&version)).unwrap(), fx.user, fx.exchange(KUCOIN), &version, true, now()).unwrap();
+    tx.commit().unwrap();
+    assert!(!cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "the complete read is current");
+    fx.observe(trading, read(B));
+    assert!(cache::stale(&fx.c, fx.user, &Scope::All).unwrap(), "fenced, its balances are stale");
+}
+
+// ---- 7a r8–r11 (M3, N1–N3, N7, P3, P4, P7, P8, Q2, Q4): identity, readers --------------------------------------------
+
+fn proven(c: &Connection) -> Vec<i64> {
+    c.prepare("SELECT account_id FROM account_fingerprint_proofs ORDER BY account_id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+fn ledger_reads(fx: &Fx, key: i64) -> bool { deltabadger::sync::ledger_reading_keys(&fx.c).unwrap().contains(&key) }
+/// Key `key` placed on account `account` (a membership row).
+fn place(fx: &Fx, key: i64, account: i64) { identity::Account::by_id(&fx.c, account).unwrap().unwrap().add_key(&fx.c, key).unwrap(); }
+
+/// Rules M3/L3: a file is the user's word, never the account's identity. A file-first single account keeps no fingerprint
+/// from its export; the real key's read establishes (and proves) it, and that key syncs.
+#[test]
+fn m3_a_file_first_account_takes_its_identity_from_the_key_and_the_key_syncs() {
+    let fx = Fx::new();
+    let key = fx.key(KUCOIN, 0, "kc-a");
+    fx.import(KUCOIN, Some(B));
+    assert_eq!(fx.account(KUCOIN), Some(None), "the file established nothing");
+    assert_eq!(fx.count("exchange_account_imports"), 1, "its UID is an import observation");
+    fx.observe(key, read(A));
+    assert_eq!(fx.account(KUCOIN), Some(Some(fx.fingerprint_of(KUCOIN, A))));
+    assert_eq!(proven(&fx.c).len(), 1, "a key read proves it");
+    assert!(ledger_reads(&fx, key), "the real key syncs");
+}
+
+/// Rule M3: a fingerprint no key read proved (a portable restore carries fingerprints, never observations) gives way to the
+/// first key read: replaced, proven, and the key syncs, never fenced.
+#[test]
+fn m3_an_unproven_fingerprint_gives_way_to_the_key_read() {
+    let fx = Fx::new();
+    let key = fx.key(KUCOIN, 0, "kc-a");
+    let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap().ensure(&fx.c, now()).unwrap().id.unwrap();
+    let print = identity::key(&fx.c, &fx.cipher, now()).unwrap().fingerprint(KUCOIN, &id(B));
+    fx.c.execute("UPDATE exchange_accounts SET fingerprint = ?1, account_id_enc = x'01' WHERE id = ?2", rusqlite::params![print, account]).unwrap();
+    assert!(proven(&fx.c).is_empty());
+    fx.observe(key, read(A));
+    assert_eq!(fx.account(KUCOIN), Some(Some(fx.fingerprint_of(KUCOIN, A))), "replaced by the key's read");
+    assert_eq!(proven(&fx.c), [account]);
+    assert!(ledger_reads(&fx, key), "not fenced");
+}
+
+/// Rule N2: the proof is durable. The sole reader of a proven account is replaced by another account's key in 2.x; the
+/// takeover's sentinel and the key's read of B leave A's fingerprint standing and fence the key.
+#[test]
+fn n2_a_proven_fingerprint_outlives_a_takeover_and_fences_the_replaced_reader() {
+    let (fx, key) = established();
+    let account = identity::account_of_key(&fx.c, key).unwrap().unwrap();
+    assert_eq!(proven(&fx.c), [account]);
+    fx.replace(key, "kc-b");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(!ledger_reads(&fx, key), "fenced at takeover");
+    fx.observe(key, read(B));
+    assert_eq!(fx.account(KUCOIN), Some(Some(fx.fingerprint_of(KUCOIN, A))), "A stands");
+    assert_eq!(proven(&fx.c), [account]);
+    assert!(!ledger_reads(&fx, key), "B's key stays fenced");
+}
+
+/// Rules P3 and P8: the migration proves a fingerprint some key read (never the takeover's sentinel), or one no import
+/// observation names. Account 1: fingerprint a, its key read b, a file named a (unproven). Account 2: fingerprint a2, its
+/// key read b2, no file (proven). Account 3: its key and a file both read c (proven). Account 4: d from a file, its key's
+/// observation the sentinel (unproven).
+#[test]
+fn p3_the_migration_proves_what_a_key_read_or_no_file_named() {
+    const V: &str = "20261125000001";
+    use deltabadger::store::{Registry, REGISTRY, RUST_MIGRATIONS};
+    let before = Registry { migrations: &RUST_MIGRATIONS[..RUST_MIGRATIONS.iter().position(|m| m.version >= V).unwrap()],
+                            tables: &REGISTRY.tables[..REGISTRY.tables.iter().position(|(v, _)| *v >= V).unwrap()], retired: REGISTRY.retired };
+    let dir = common::v2_install_unmigrated();
+    let p = paths(dir.path());
+    let lock = deltabadger::lease::lock(&p, Utc::now()).unwrap();
+    deltabadger::store::migrate_with(&p, &lock, &before).unwrap();
+    let c = Connection::open(&p.primary).unwrap();
+    let t = "'2026-01-01'";
+    let sentinel = identity::UNCONFIRMED_AFTER_V2;
+    c.execute_batch(&format!("PRAGMA foreign_keys = OFF;
+        INSERT INTO exchange_accounts (id, user_id, exchange_id, number, fingerprint, account_id_enc, created_at, updated_at) VALUES
+          (1, 1, 1, 1, 'a', x'01', {t}, {t}), (2, 1, 2, 1, 'a2', x'01', {t}, {t}), (3, 1, 3, 1, 'c', x'01', {t}, {t}), (4, 1, 4, 1, 'd', x'01', {t}, {t});
+        INSERT INTO api_keys (id, user_id, exchange_id, created_at, updated_at) VALUES (1, 1, 1, {t}, {t}), (2, 1, 2, {t}, {t}), (3, 1, 3, {t}, {t}), (4, 1, 4, {t}, {t});
+        INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint) VALUES (1, 1, 'b'), (2, 2, 'b2'), (3, 3, 'c'), (4, 4, '{sentinel}');
+        INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES
+          (1, 1, 'a', x'02', {t}, 1), (1, 3, 'c', x'02', {t}, 3), (1, 4, 'd', x'02', {t}, 4);")).unwrap();
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V, "20261125000002"]);
+    assert_eq!(proven(&c), [2, 3]);
+}
+
+/// Rules N1/K4/M5: on a single-account exchange a takeover is main's: a key 2.x added to a fingerprinted account, never read,
+/// syncs until discovery reads it. (Replaces S3's fence there.)
+#[test]
+fn n1_a_single_account_takeover_syncs_a_key_2x_added() {
+    let (fx, key) = established();
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    fx.c.execute("DELETE FROM api_keys WHERE id = ?1", [key]).unwrap();
+    let added = fx.key(KUCOIN, 0, "kc-b");
+    identity::after_v2(&fx.c, &fx.cipher).unwrap();
+    assert!(ledger_reads(&fx, added), "main parity: it syncs");
+}
+
+/// Rules N1/Q2: once an exchange has two live accounts, a key with no successful UID read of its current material syncs
+/// nothing until it is read: never observed, observed only under other material, or read masked.
+#[test]
+fn n1_q2_with_two_accounts_an_unread_key_waits_for_its_read() {
+    let (fx, _) = established();
+    let second = identity::new_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    let added = fx.key(KUCOIN, 0, "kc-b");
+    place(&fx, added, second);
+    assert!(!ledger_reads(&fx, added), "never read");
+    fx.observe(added, read(B));
+    assert!(ledger_reads(&fx, added), "read: it syncs");
+    fx.replace(added, "kc-b-new");
+    assert!(!ledger_reads(&fx, added), "its read was of other material");
+    fx.observe(added, Observed::Failed("http 200".into()));
+    assert!(!ledger_reads(&fx, added), "a masked read is no read");
+    fx.observe(added, read(B));
+    assert!(ledger_reads(&fx, added));
+}
+
+/// No venue: every read is refused (`Connect`'s defaults reach no host).
+struct NoVenue;
+impl deltabadger::sync::jobs::Connect for NoVenue {
+    type T = deltabadger::venue::http::ScriptedTransport;
+    fn connect(&self, _: &Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ScriptedTransport::from_script(&json!({})), deltabadger::venue::alpaca::Urls::for_passphrase(None))
+    }
+}
+
+/// Rule N1 (Codex branch r4 #1, jobs.rs `reader_entry`): on an exchange with two live accounts, the ledger and balance jobs
+/// of a key with no UID read, whose account therefore has no reader, do nothing (NothingNew under its version): they never
+/// run unbound and book another account's history before discovery reads the key.
+#[tokio::test(flavor = "current_thread")]
+async fn n1_an_unread_keys_jobs_do_nothing_on_a_two_account_exchange() {
+    use deltabadger::jobs::{Cx, Db, Job, Outcome, Wake};
+    use deltabadger::sync::jobs::{BalanceSync, LedgerSync};
+    let (fx, _) = established();
+    let second = identity::new_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    let added = fx.key(KUCOIN, 0, "kc-b");
+    place(&fx, added, second);
+    let db = Db::new(Connection::open(fx.dir.path().join("production.sqlite3")).unwrap(), fx.cipher.clone());
+    let clock = deltabadger::engine::FixedClock(now());
+    let cx = || Cx { db: db.clone(), clock: &clock, wakers: Default::default() };
+    assert_eq!(LedgerSync::new(NoVenue, added).run(cx(), vec![Wake::Manual(None)]).await, Outcome::NothingNew);
+    let balance = BalanceSync::new(NoVenue, std::rc::Rc::new(deltabadger::sync::balances::NoPrices), added);
+    assert_eq!(balance.run(cx(), vec![Wake::Manual(None)]).await, Outcome::NothingNew);
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM app_configs WHERE key LIKE '%' || ?1 || '%'", [format!(":{added}")], |r| r.get::<_, i64>(0)).unwrap(), 0, "nothing marked");
+}
+
+/// Discovery never starves (slice 9 review e): each pass takes the never-attempted credentials first, then the least
+/// recently attempted. Ten older keys refused at every read do not keep a later valid key from being read.
+#[test]
+fn discovery_reads_a_later_key_while_ten_older_ones_keep_failing() {
+    let fx = Fx::new();
+    let failing: Vec<i64> = (0..10).map(|i| fx.key(KUCOIN, 0, &format!("kc-bad-{i}"))).collect();
+    for key in &failing { fx.observe(*key, Observed::Failed("http 401".into())); }
+    let later = fx.key(KUCOIN, 0, "kc-good");
+    let due: Vec<i64> = identity::due(&fx.c, &fx.cipher, now() + Duration::hours(2)).unwrap().into_iter().map(|d| d.api_key_id).collect();
+    assert_eq!(due.len(), 10);
+    assert_eq!(due[0], later, "never attempted first: {due:?}");
+}
+
+/// Slice 9 review a: a reader recorded while it could read, made unread by a second account and its own new material,
+/// over a restart: the start reconciles the stored reader (nobody reads), so discovery's read of the same key moves the
+/// generation and wakes its ledger and balance jobs (`moved_readers`, what discovery wakes).
+#[test]
+fn a_an_upgraded_reader_confirmed_by_discovery_is_woken() {
+    use deltabadger::sync;
+    let (mut fx, key) = established();
+    sync::settle_readers_of_key(&fx.c, key).unwrap();
+    identity::new_account(&fx.c, fx.user, fx.exchange(KUCOIN), now()).unwrap();
+    fx.replace(key, "kc-a-new");
+    assert!(!ledger_reads(&fx, key), "unread on a two-account exchange");
+    let stored: Option<i64> = fx.c.query_row("SELECT reader FROM ledger_reader_generations WHERE reader = ?1", [key], |r| r.get(0)).unwrap();
+    assert_eq!(stored, Some(key), "the persisted row still names it");
+    let paths = deltabadger::store::Paths::from_env(&|_| None, fx.dir.path());
+    let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+    deltabadger::lease::claim(&lock, &fx.c, &fx.cipher, "test", now()).unwrap();
+    fx.restart();
+    let before = identity::generations_of_key(&fx.c, key).unwrap();
+    fx.observe(key, read(A));
+    assert_eq!(identity::moved_readers(&fx.c, key, &before).unwrap(), [key], "discovery wakes it");
+    assert!(ledger_reads(&fx, key) && sync::balance_reading_keys(&fx.c).unwrap().contains(&key));
+}
+
+/// Rule P4: the proof and the reader generation are bookkeeping, not holdings: they keep no account, and a tombstone takes
+/// them with it.
+#[test]
+fn p4_identity_bookkeeping_names_no_account_and_goes_with_its_tombstone() {
+    let fx = Fx::new();
+    let exchange = fx.exchange(KUCOIN);
+    identity::new_account(&fx.c, fx.user, exchange, now()).unwrap();
+    let second = identity::new_account(&fx.c, fx.user, exchange, now()).unwrap();
+    fx.c.execute("INSERT INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, 'now')", [second]).unwrap();
+    fx.c.execute("INSERT INTO ledger_reader_generations (account_id, generation) VALUES (?1, 3)", [second]).unwrap();
+    assert!(!identity::named(&fx.c, second).unwrap());
+    identity::tombstone(&fx.c, second, now()).unwrap();
+    assert_eq!((fx.count("account_fingerprint_proofs"), fx.count("ledger_reader_generations")), (0, 0));
+}
+
+/// Rules M4/N7: a handoff (the trading key found to open another account) bumps the account's reader generation, so a run
+/// the old reader started publishes nothing; the new reader's stamps go, so the account is not current until its own job
+/// has run; a handoff back is a new generation again (an older run never passes).
+#[test]
+fn n7_a_handoff_stops_the_old_run_and_waits_for_the_new_reader() {
+    use deltabadger::sync;
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    let old = sync::reader_entry(&fx.c, trading).unwrap().expect("the trading key reads");
+    assert!(sync::reader_entry(&fx.c, read_only).unwrap().is_none(), "not its account's reader");
+    common::two_accounts::stamp_ledgers(&fx.c, fx.user);
+    let current = |fx: &Fx| deltabadger::sync::cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap().ledger_is_current(&fx.c).unwrap();
+    assert!(current(&fx));
+    fx.observe(trading, read(B));
+    assert!(!sync::reader_holds(&fx.c, &old).unwrap(), "the old run publishes nothing");
+    let new = sync::reader_entry(&fx.c, read_only).unwrap().expect("the read-only key reads now");
+    assert!(!current(&fx), "not current until the new reader's job");
+    common::two_accounts::restamp(&fx.c, fx.user, read_only);
+    assert!(current(&fx));
+    fx.observe(trading, read(A));
+    assert!(!sync::reader_holds(&fx.c, &old).unwrap() && !sync::reader_holds(&fx.c, &new).unwrap(), "every earlier run stops");
+    assert!(sync::reader_entry(&fx.c, trading).unwrap().is_some());
+}
+
+/// Rule N7 (Codex branch r4 #5): an account from before the generations table has no row; the start records its reader, so
+/// the first handoff after the upgrade is a handoff like any other: the generation moves and the incoming reader's stale
+/// stamp goes.
+#[test]
+fn n7_the_first_handoff_after_the_upgrade_counts() {
+    use deltabadger::sync;
+    let (mut fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    // Both keys read the ledger once (the read-only one while the trading key was off); the install predates the table.
+    common::two_accounts::stamp_ledgers(&fx.c, fx.user);
+    common::two_accounts::restamp(&fx.c, fx.user, read_only);
+    fx.c.execute("DELETE FROM ledger_reader_generations", []).unwrap();
+    // An install Rust owns (a start of one 2.x owns writes nothing before its claim; the takeover seeds then).
+    let paths = deltabadger::store::Paths::from_env(&|_| None, fx.dir.path());
+    let lock = deltabadger::lease::lock(&paths, now()).unwrap();
+    deltabadger::lease::claim(&lock, &fx.c, &fx.cipher, "test", now()).unwrap();
+    fx.restart();
+    let old = sync::reader_entry(&fx.c, trading).unwrap().expect("the trading key reads");
+    let current = |fx: &Fx| sync::cache::capture_read(&fx.c, fx.user, &deltabadger::tracker::Scope::All).unwrap().ledger_is_current(&fx.c).unwrap();
+    assert!(current(&fx));
+    fx.observe(trading, read(B));
+    assert!(!sync::reader_holds(&fx.c, &old).unwrap(), "the old run publishes nothing");
+    assert!(sync::reader_entry(&fx.c, read_only).unwrap().is_some_and(|r| r.generation == 1));
+    assert!(!current(&fx), "the read-only key's old stamp went");
+}
+
+/// Rule P7: after a permission fallback the former trading reader's job does nothing: its entry finds it no reader.
+#[test]
+fn p7_the_former_reader_after_a_permission_fallback_does_nothing() {
+    use deltabadger::{engine::model, sync};
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    let old = sync::reader_entry(&fx.c, trading).unwrap().expect("the trading key reads");
+    let (version, credentials) = (fx.version(trading), fx.credentials(trading));
+    let tx = fx.c.unchecked_transaction().unwrap();
+    sync::record_sync_error(&model::fence_versions(&tx, &[version]).unwrap(), trading, "Access Denied", &credentials).unwrap();
+    tx.commit().unwrap();
+    assert!(sync::reader_entry(&fx.c, trading).unwrap().is_none(), "woken, it does nothing");
+    assert!(!sync::reader_holds(&fx.c, &old).unwrap());
+    assert!(sync::reader_entry(&fx.c, read_only).unwrap().is_some());
+}
+
+/// Rule Q4: Merge's live check asks the account's reader only; a second key that is not the reader (its ledger stamp
+/// long expired) is never woken or required.
+#[test]
+fn q4_the_merge_live_check_asks_only_the_reader() {
+    let (fx, trading) = established();
+    let read_only = fx.key(KUCOIN, 2, "kc-a-read");
+    fx.observe(read_only, read(A));
+    let exchange = fx.exchange(KUCOIN);
+    let second = identity::new_account(&fx.c, fx.user, exchange, now()).unwrap();
+    let other = fx.key(KUCOIN, 0, "kc-b");
+    place(&fx, other, second);
+    fx.observe(other, read(B));
+    let first = identity::account_of_key(&fx.c, trading).unwrap().unwrap();
+    let row = |id: i64| identity::AccountRow::by_id(&fx.c, id).unwrap().unwrap();
+    let identity::Live::Stale(wake) = identity::live_check(&fx.c, &row(second), &row(first), now()).unwrap() else { panic!("stale") };
+    let ledger = deltabadger::sync::jobs::LEDGER_SYNC;
+    assert!(wake.contains(&(ledger, trading)) && wake.contains(&(ledger, other)), "{wake:?}");
+    assert!(!wake.contains(&(ledger, read_only)), "the non-reader is not asked: {wake:?}");
+}
+
+/// Rule N3: before a new account, installed evidence routes the key: the exact key and secret already installed (an
+/// account whose fingerprint no read set yet), and a Hyperliquid wallet whose second agent secret is the same account.
+#[test]
+fn n3_installed_evidence_routes_before_a_new_account() {
+    let fx = Fx::new();
+    let key = fx.key(KUCOIN, 2, "kc-a");
+    let account = identity::Account::of_key(&fx.c, key).unwrap().unwrap().ensure(&fx.c, now()).unwrap().id.unwrap();
+    let exchange = fx.exchange(KUCOIN);
+    let material = fx.credentials(key);
+    let route = |exchange: i64, venue: &str, reading: &identity::Reading, m: &Credentials|
+        identity::route_key(&fx.c, &fx.cipher, fx.user, exchange, venue, 2, None, reading, m, None, now()).unwrap();
+    let a = id(A);
+    assert_eq!(route(exchange, KUCOIN, &identity::Reading::Read(&a), &material), identity::Route::To(account), "the exact key: its account");
+    const HL: &str = "Exchanges::Hyperliquid";
+    let wallet = "0x00000000000000000000000000000000000000aa";
+    let agent = fx.key(HL, 0, wallet);
+    let hl = identity::Account::of_key(&fx.c, agent).unwrap().unwrap().ensure(&fx.c, now()).unwrap().id.unwrap();
+    let second_agent = Credentials { ibkr: None, key: wallet.into(), secret: "another-agent-secret".into(), passphrase: None, redaction_values: vec![] };
+    assert_eq!(route(fx.exchange(HL), HL, &identity::Reading::NotAnIdentityVenue, &second_agent), identity::Route::To(hl), "one wallet, one account");
+}
+
+/// Rules K5/M4 (Codex branch r5, jobs.rs:644): the background key check settles and wakes the readers it moved, as the web
+/// recheck does. A read-only KuCoin key pending at startup (no reader, no job registered) checked correct by the validator
+/// job becomes the sole reader, and its ledger and balance syncs are woken at once.
+#[tokio::test(flavor = "current_thread")]
+async fn k5_the_background_key_check_wakes_the_reader_it_made() {
+    use deltabadger::jobs::{Cx, Db, Job, Wakers};
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path(identity::KUCOIN_PATH))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"uid": A, "permission":"General"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::kucoin_account::MODE)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":{"selfAccountMode":"CLASSIC"}}))).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::kucoin_account::OPENED)).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":false}))).mount(&server).await;
+    Mock::given(method("DELETE")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"400100","msg":"order not exist"}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(json!({"code":"200000","data":[]}))).mount(&server).await;
+    let fx = Fx::new();
+    let key = fx.key(KUCOIN, 2, "kc-reader");
+    fx.c.execute("UPDATE api_keys SET status = 0 WHERE id = ?1", [key]).unwrap();
+    deltabadger::sync::settle_readers_of_key(&fx.c, key).unwrap();
+    assert!(!ledger_reads(&fx, key), "pending: no reader");
+    let clock = deltabadger::engine::FixedClock(now());
+    let wakers = Wakers::default();
+    let cx = Cx { db: Db::new(Connection::open(fx.dir.path().join("production.sqlite3")).unwrap(), fx.cipher.clone()), clock: &clock, wakers: wakers.clone() };
+    deltabadger::sync::jobs::Validator { venues: Egress(server.uri()), key_id: key }.run(cx, vec![]).await;
+    assert_eq!(fx.c.query_row("SELECT status FROM api_keys WHERE id = ?1", [key], |r| r.get::<_, i64>(0)).unwrap(), 1, "checked correct");
+    assert!(ledger_reads(&fx, key), "the sole reader");
+    let pending = wakers.pending();
+    for job in [deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC] {
+        assert!(pending.contains(&(job.to_string(), Some(key.to_string()))), "{job} is woken for the new reader: {pending:?}");
+    }
+}
+
+/// Discovery never starves (Codex branch r5, identity.rs:1504): a transient failure after a definite one leaves the stored
+/// failure as it was, so the stored times alone would hand the same ten keys every pass. The job's own attempts rotate
+/// them: a previously read eleventh key, due again, is read on the next pass.
+#[test]
+fn discovery_rotates_past_ten_keys_failing_transiently() {
+    let fx = Fx::new();
+    let failing: Vec<i64> = (0..10).map(|i| fx.key(KUCOIN, 0, &format!("kc-bad-{i}"))).collect();
+    for key in &failing { fx.observe(*key, Observed::Failed("http 401".into())); }
+    let eleventh = fx.key(KUCOIN, 0, "kc-good");
+    fx.observe(eleventh, read(A));
+    let ids = |at| identity::due(&fx.c, &fx.cipher, at).unwrap().into_iter().map(|d| d.api_key_id).collect::<Vec<i64>>();
+    let first = now() + identity::observe_every() + Duration::hours(1);
+    assert_eq!(ids(first), failing, "the ten older failures first");
+    for key in &failing { fx.observe(*key, Observed::Failed("transport".into())); }
+    let next = ids(first + Duration::hours(1));
+    assert_eq!(next.first(), Some(&eleventh), "the eleventh is read on the next pass: {next:?}");
 }

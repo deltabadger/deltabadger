@@ -358,3 +358,28 @@ async fn an_activation_targets_the_exchanges_account_and_leaves_another_accounts
     assert_eq!((status, fx.app.cipher.decrypt(&token.unwrap()).unwrap()), (1, t("access_token")), "account 1's key connected");
     assert_eq!(row(&fx.c, other), before, "account 2's key untouched");
 }
+
+/// Rule S4 (Codex branch r4, ibkr.rs:245/250), a single-account install: Disconnect removes only the key it read. An
+/// activation that commits new credentials into the row between Disconnect's read and its removal keeps the activated key.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_s4_a_disconnect_never_removes_a_key_activated_after_it_read_it() {
+    let mut fx = hosted().await;
+    fx.sheet_post("/settings/ibkr_connect", &[]).await;
+    fx.c.execute("UPDATE api_keys SET status = 3", []).unwrap();
+    fx.page().await;
+    let (path, cipher) = (fx._dir.path().join("production.sqlite3"), fx.app.cipher.clone());
+    let (ready, go) = std::sync::mpsc::channel();
+    let activation = std::thread::spawn(move || {
+        let c = rusqlite::Connection::open(&path).unwrap();
+        c.execute_batch("BEGIN IMMEDIATE").unwrap();
+        c.execute("UPDATE api_keys SET status = 1, access_token = ?1, updated_at = 'activated'", [cipher.encrypt("activated-token")]).unwrap();
+        ready.send(()).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        c.execute_batch("COMMIT").unwrap();
+    });
+    go.recv().unwrap();
+    fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("_method", "delete")]), Csrf::Form, &[]).await;
+    activation.join().unwrap();
+    let status: Option<i64> = { use rusqlite::OptionalExtension; fx.c.query_row("SELECT status FROM api_keys", [], |r| r.get(0)).optional().unwrap() };
+    assert_eq!(status, Some(1), "the activated key is kept");
+}

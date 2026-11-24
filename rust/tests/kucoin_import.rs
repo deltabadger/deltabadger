@@ -279,19 +279,24 @@ fn an_import_records_its_account_and_another_accounts_file_is_a_conflict_in_eith
         let stored = deltabadger::app_config::get_plain(&fx.c, identity::KEY_CONFIG).unwrap();
         fx.import(TRADING);
         assert_eq!(fx.count("SELECT count(*) FROM exchange_account_imports"), 1);
-        assert_eq!(fx.standing(), Standing::Bound);
+        assert_eq!(fx.standing(), Standing::Unknown, "#710 7a rule M3: a file establishes no account");
         let after = deltabadger::app_config::get_plain(&fx.c, identity::KEY_CONFIG).unwrap();
         assert!(after.is_some() && (stored.is_none() || stored == after), "created once, then reused");
-        // File then key: the file established the account, the key reads another.
+        // File then key: the key's read is the account's identity; the file named another, which the standing still records.
         observe(&fx, OTHER);
         assert_eq!(fx.standing(), Standing::Conflicted);
     }
-    // Key then file: the key established the account, the file names another. It imports all the same.
+    // Key then file: the key established the account, the file names another. It imports all the same, on purpose on a new
+    // keyless account (#710 7a §3); its observation is recorded there, so account 1's standing holds.
     let fx = Fx::new();
     observe(&fx, OTHER);
     assert_eq!(fx.standing(), Standing::Bound);
     assert_eq!(fx.imported(TRADING).0, 163, "recorded, never refused");
-    assert_eq!(fx.standing(), Standing::Conflicted);
+    let accounts = identity::accounts_of(&fx.c, fx.user, fx.exchange).unwrap();
+    assert_eq!(accounts.iter().map(|(_, n)| *n).collect::<Vec<_>>(), [1, 2], "a new account");
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {}", accounts[1].0)), 1, "the observation, on account 2");
+    assert_eq!(fx.count("SELECT count(*) FROM account_transactions WHERE api_key_id IS NOT NULL"), 0, "the rows name no key");
+    assert_eq!(fx.standing(), Standing::Bound);
 }
 
 // ---- Chart effect --------------------------------------------------------------------------------------------------
@@ -590,4 +595,105 @@ async fn the_cutoffs_survive_an_app_configs_wipe() {
     fx.c.execute("DELETE FROM app_configs", []).unwrap();
     assert_eq!(fx.imported(&overlapping_export()).0, 4, "day A's three and the income: what the API covers is still not derived");
     assert_taken_over(&fx);
+}
+
+// ---- #710 slice 7a §0.6: the import tables are their account's ----
+
+impl Fx {
+    /// A second KuCoin account of the user with its own trading key: (account id, key id).
+    fn second_account(&self) -> (i64, i64) {
+        identity::Account::first(&self.c, self.user, self.exchange).unwrap().ensure(&self.c, now()).unwrap();
+        self.c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at) VALUES (?1, ?2, 2, 'now', 'now')", [self.user, self.exchange]).unwrap();
+        let account = self.c.last_insert_rowid();
+        let e = |v: &str| self.cipher.encrypt(v);
+        self.c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, passphrase, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",
+                       rusqlite::params![self.user, self.exchange, e("second"), e("secret"), e("phrase")]).unwrap();
+        let key = self.c.last_insert_rowid();
+        identity::Account::by_id(&self.c, account).unwrap().unwrap().add_key(&self.c, key).unwrap();
+        (account, key)
+    }
+    /// The file imported on `key`'s account: asked which, the answer naming that account (as the question renders it).
+    fn import_on(&self, key: i64, text: &str) -> run::Answer {
+        let import = |answer: Option<&str>| run::import(&self.c, &self.cipher, self.user, "kucoin", text.as_bytes(), None, answer, now()).unwrap();
+        let account: i64 = self.c.query_row("SELECT account_id FROM exchange_account_keys WHERE api_key_id = ?1", [key], |r| r.get(0))
+            .unwrap_or_else(|_| identity::Account::first(&self.c, self.user, self.exchange).unwrap().id.unwrap());
+        let answer = match import(None) {
+            run::Answer::Ambiguous(choices) => import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{account}~"))).expect("the account offered").value)),
+            answer => answer,
+        };
+        // #710 7a rule P5: the same export's rows on the other account are warned about; imported here anyway.
+        match answer {
+            run::Answer::Warned(_, choices) => import(Some(&choices.iter().find(|c| c.value.starts_with(&format!("a{account}!"))).expect("here offered").value)),
+            answer => answer,
+        }
+    }
+    fn rows_of(&self, account: i64) -> i64 {
+        self.c.query_row(&format!("SELECT count(*) FROM account_transactions a WHERE a.user_id = ?1 AND {} = ?2", deltabadger::venue_ids::row_account("a")), [self.user, account], |r| r.get(0)).unwrap()
+    }
+}
+
+/// One export's rows imported on each of two accounts (each its own UID, as 7a routes by it): each account stores its rows
+/// (the same row ids) and derives its entries.
+#[test]
+fn s7_0_6_each_account_holds_its_own_export_rows() {
+    let fx = Fx::new();
+    let first = key_id(&fx);
+    let (second, key) = fx.second_account();
+    assert!(matches!(fx.import_on(first, TRADING), run::Answer::Written { imported: 163, .. }));
+    let answer = fx.import_on(key, &TRADING.replace("123456789,", "987654321,"));
+    assert!(matches!(answer, run::Answer::Written { imported: 163, .. }), "{answer:?}");
+    assert_eq!(fx.count("SELECT count(*) FROM import_rows"), 654);
+    assert_eq!(fx.rows_of(second), 163);
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {second}")), 1, "the observation is the account's");
+}
+
+/// The API's takeover cutoffs are their account's: account 1's sync takes nothing over on account 2, whose import of the
+/// overlapping export derives all of it.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_0_6_a_cutoff_is_its_accounts() {
+    let whole = Fx::new();
+    let run::Answer::Written { imported: all, .. } = whole.import(&overlapping_export()) else { panic!() };
+    let fx = Fx::new();
+    let (second, key) = fx.second_account();
+    fx.watermark(WATERMARK);
+    assert!(fx.sync(&overlapping_api(500), false).await);
+    let answer = fx.import_on(key, &overlapping_export().replace("123456789,", "987654321,"));
+    assert!(matches!(answer, run::Answer::Written { imported, .. } if imported == all), "{answer:?}: {all}");
+    assert_eq!(fx.rows_of(second), all as i64);
+    let first = key_id(&fx);
+    assert!(matches!(fx.import_on(first, &overlapping_export()), run::Answer::Written { imported: 4, .. }), "account 1's cutoffs still hold there");
+}
+
+/// 7a §0.11, rule M1(b): a file of another account imported here as a conflict (as before 7a) is the user's to import
+/// again: its re-upload warns, naming the account holding it, and writes nothing until answered.
+#[test]
+fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
+    let fx = Fx::new();
+    // As before 7a: the file imported on account 1, whose key then reads another account (7a routes such a file to a new
+    // account instead).
+    assert_eq!(fx.imported(TRADING).0, 163);
+    fx.c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    observe(&fx, OTHER);
+    assert_eq!(fx.standing(), Standing::Conflicted);
+    let (rows, observations) = (fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports"));
+    let again = fx.import(TRADING);
+    assert!(matches!(&again, run::Answer::Warned(w, _) if w.contains(&run::Warning::HeldElsewhere("KuCoin".into()))), "{again:?}");
+    assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports")), (rows, observations));
+    assert_eq!(fx.standing(), Standing::Conflicted, "the conflict is kept");
+}
+
+/// #710 7a rule N8: every row a file import wrote records its importer in the insert's transaction; a row the API sync
+/// wrote records none.
+#[tokio::test(flavor = "current_thread")]
+async fn n8_every_imported_row_records_its_importer_and_no_synced_row_does() {
+    let fx = Fx::new();
+    fx.watermark(WATERMARK);
+    assert!(fx.sync(&overlapping_api(500), false).await);
+    let synced = fx.count("SELECT count(*) FROM account_transactions");
+    assert!(synced > 0);
+    assert!(matches!(fx.import(&overlapping_export()), run::Answer::Written { .. }));
+    let filed = fx.count("SELECT count(*) FROM account_transactions") - synced;
+    assert!(filed > 0);
+    assert_eq!(fx.count("SELECT count(*) FROM import_row_origins WHERE import_kind = 'kucoin'"), filed, "each imported row");
+    assert_eq!(fx.count(&format!("SELECT count(*) FROM import_row_origins o JOIN account_transactions a ON a.id = o.transaction_id WHERE {}", "json_extract(a.raw_data, '$.createdAt') IS NOT NULL")), 0, "no synced row");
 }

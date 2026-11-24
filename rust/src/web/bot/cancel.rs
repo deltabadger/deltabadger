@@ -17,10 +17,27 @@ enum Found { NoBot, NoRow, Refused, Answered { cancelled: bool, invalid_key: Opt
 /// What one bounded cancel came to: the venue's yes, its refusal (with whether its text is the venue's invalid-key error),
 /// or no answer at all (a transport failure or the timeout, with its message).
 pub(crate) enum Sent { Cancelled, Refused { errors: Vec<String>, invalid_key: bool }, Unanswered(String) }
+/// #710 7a §9.1: the refusal of a cancel through a key whose identity read names another account.
+const FENCED: &str = crate::venue::FENCED;
+/// The cancel's yes, read after the key was found to open another account: not confirmed.
+const UNCONFIRMED: &str = "the cancel could not be confirmed: the API key was found to open another account while it was sent";
+impl Sent {
+    /// Whether the cancel reached the venue, or may have: a fenced refusal sent nothing, so there is nothing to re-read.
+    fn reached(&self) -> bool { !matches!(self, Sent::Refused { errors, .. } if errors.len() == 1 && errors[0] == FENCED) }
+}
 
 /// The one cancel operation (with the adapter's own steps), bounded, never retried here. No transaction is open.
-pub(crate) fn send<V: Venue>(runtime: &tokio::runtime::Handle, venue: &V, order: &crate::venue::OrderRef) -> Sent {
-    match runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.cancel_with(order))) {
+/// `account` is the account the order is cancelled on: its key is checked for the fence right before the send, after
+/// every earlier await (a KuCoin account-mode lookup), so an order id of A never goes through a key found to open B.
+pub(crate) fn send<V: Venue>(c: &rusqlite::Connection, runtime: &tokio::runtime::Handle, venue: &V, order: &crate::venue::OrderRef,
+                             account: crate::identity::Account) -> Result<Sent, WebError> {
+    if crate::engine::model::key_fenced(c, &crate::engine::model::Bot::key_holder(account))? {
+        return Ok(Sent::Refused { errors: vec![FENCED.into()], invalid_key: true });
+    }
+    Ok(match runtime.block_on(tokio::time::timeout(crate::venue::http::TOTAL_TIMEOUT, venue.cancel_with(order))) {
+        // #710 7a rule R1: a yes read once the key was found to open another account (while the cancel was out) confirms
+        // nothing for this account.
+        Ok(Ok(())) if crate::engine::model::key_fenced(c, &crate::engine::model::Bot::key_holder(account))? => Sent::Unanswered(UNCONFIRMED.into()),
         Ok(Ok(())) => Sent::Cancelled,
         Ok(Err(VenueError::Rejected(errors) | VenueError::Unauthorized(errors) | VenueError::Coded { errors, .. })) => {
             let invalid_key = venue.rules().is_invalid_key(&errors);
@@ -29,13 +46,14 @@ pub(crate) fn send<V: Venue>(runtime: &tokio::runtime::Handle, venue: &V, order:
         // D-CANCEL-TRANSPORT-FAILURE: 2.x's controller does not rescue a network failure (a 500); here it is a failure.
         Ok(Err(VenueError::Transient(why) | VenueError::Ambiguous(why))) => Sent::Unanswered(why),
         Err(_) => Sent::Unanswered(format!("the exchange did not answer within {} seconds", crate::venue::http::TOTAL_TIMEOUT.as_secs())),
-    }
+    })
 }
 
 /// D-CANCEL-REREAD-ALWAYS: whatever the answer, the row is re-read (a refusal may hide a cancel that landed); 2.x re-reads
 /// after a success only. The re-read is the engine's; this is the request's only write. One IMMEDIATE transaction: two
-/// overlapping cancels of the row must not both try the insert.
-pub(crate) fn leave_reread(c: &rusqlite::Connection, app: &App, bot: i64, tx: i64) -> Result<(), WebError> {
+/// overlapping cancels of the row must not both try the insert. A cancel that sent nothing (a fenced key) leaves none.
+pub(crate) fn reread(c: &rusqlite::Connection, app: &App, bot: i64, tx: i64, sent: &Sent) -> Result<(), WebError> {
+    if !sent.reached() { return Ok(()) }
     crate::engine::model::locked(c, |c| crate::app_config::set_plain(c, &format!("{REREAD}{tx}"), &serde_json::json!({ "bot": bot }).to_string(), app.now())
         .map_err(crate::engine::EngineError::Data))?;
     app.wake_engine();
@@ -50,13 +68,15 @@ pub(crate) fn send_for_row<F: VenueFactory>(c: &rusqlite::Connection, app: &App,
     // #710: on the account the order was placed on, which the bot may have left since: never another account's order of
     // the same venue id.
     let Some(account) = crate::identity::Account::of_order(c, tx)? else { return Ok(Sent::Unanswered("the order's account is another user's or exchange's".into())) };
+    // #710 7a §9.1: a key whose identity read names another account cancels nothing there (`send`): the order waits for a
+    // key that reads its account. Nothing is sent, nothing re-read.
     // Every credential, proxy and account rule is the engine's: the venue is built as the engine builds it.
     let sent = if crate::identity::Account::of_bot(c, bot.id)? == Some(account) {
-        send(runtime, &crate::engine::run::venue_for(c, factory, &app.cipher, bot)?.0, &order)
+        send(c, runtime, &crate::engine::run::venue_for(c, factory, &app.cipher, bot)?.0, &order, account)?
     } else {
-        send(runtime, &crate::engine::run::venue_for_key(c, factory, &app.cipher, account)?, &order)
+        send(c, runtime, &crate::engine::run::venue_for_key(c, factory, &app.cipher, account)?, &order, account)?
     };
-    leave_reread(c, app, bot.id, tx)?;
+    reread(c, app, bot.id, tx, &sent)?;
     Ok(sent)
 }
 

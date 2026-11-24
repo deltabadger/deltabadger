@@ -37,8 +37,8 @@ pub(super) fn emt_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> 
 
 /// The exchanges with an e-money token leg: groups of coin legs only (no fiat), legs both ways, as (ins, outs).
 fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
-    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
-    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.exchange.clone(), g.clone())).or_default().push(i); } }
+    let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
+    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.account, g.clone())).or_default().push(i); } }
     // The trade's legs only: a fee row booked in the group (a USDC fee) makes no exchange with an e-money token.
     let legs = |all: Vec<usize>| -> Vec<usize> { all.into_iter().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect() };
     let mut out: Vec<(Vec<usize>, Vec<usize>)> = groups.into_values().map(legs)
@@ -97,7 +97,7 @@ impl Report {
                           held: Option<&Vec<(String, Dec)>>) -> Result<(String, Notes), FiguresError> {
         let (l, year) = (self.j.locale, self.year);
         let mut notes = Notes::default();
-        let in_group = |t: &Tx, base: &str| t.row.group.as_ref().is_some_and(|g| enriched.iter().any(|e| e.row.base == base && e.row.exchange == t.row.exchange && e.row.group.as_ref() == Some(g)));
+        let in_group = |t: &Tx, base: &str| t.row.group.as_ref().is_some_and(|g| enriched.iter().any(|e| e.row.base == base && e.row.account == t.row.account && e.row.group.as_ref() == Some(g)));
         let for_euros = |d: &Disposal| txs.iter().find(|t| t.row.uid == d.source).is_some_and(|t| t.row.quote.as_deref() == Some("EUR") || in_group(t, "EUR"));
         let mut kept = vec![];
         for mut d in results.drain(..) {

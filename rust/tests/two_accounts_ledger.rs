@@ -138,7 +138,7 @@ fn entry(kind: i64, coin: &str, amount: &str, id: Option<&str>, group: Option<&s
 
 fn store(c: &Connection, key: &sync::Key, entries: Vec<Entry>) -> sync::ledger::Outcome {
     let tx = model::immediate(c).unwrap();
-    let out = sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), key, entries, now()).unwrap();
+    let out = sync::ledger::store_file(&model::fence_versions(&tx, &[]).unwrap(), key, entries, "deltabadger", now()).unwrap();
     tx.commit().unwrap();
     out
 }
@@ -211,7 +211,7 @@ fn the_binance_writer_keeps_buckets_and_dust_pairs_per_account() {
     assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}:"))), "number 1's name as before: {buckets:?}");
     assert!(buckets.iter().any(|b| b.starts_with(&format!("rust_binance_a12_v1:bucket:{u}:{e}@{n}:"))), "{buckets:?}");
     let csv = |key: &sync::Key, rows: Vec<Entry>| { let tx = model::immediate(c).unwrap();
-        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, now()); if out.is_ok() { tx.commit().unwrap(); } out };
+        let out = writer::store_csv(&model::fence_versions(&tx, &[]).unwrap(), &seed::cipher(), key, &rows, "binance", false, now()).map(|(o, _)| o); if out.is_ok() { tx.commit().unwrap(); } out };
     for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().imported, 2); }
     for key in [&k1, &k2] { assert_eq!(csv(key, dust_csv("ETH", "1", "2026-08-20T10:00:00Z")).unwrap().duplicates, 2); }
     // A lone dust leg on account 1 near a second CSV pair's time.
@@ -412,7 +412,10 @@ fn readers_keep_each_accounts_groups_and_ids() {
     let rows = deltabadger::tracker::rows::load_all(c, two.seeded.user_id).unwrap();
     let group = |id: i64| rows.iter().find(|r| r.id == id).unwrap().group.clone();
     assert_eq!(group(a).as_deref(), Some(SHARED_GROUP), "number 1's group as before");
-    assert_ne!(group(a), group(b), "two accounts' legs of one group id are two groups");
+    // 7a: a group is (account, group id): the id is stored as written, and the accounts keep the legs apart.
+    let account = |id: i64| rows.iter().find(|r| r.id == id).unwrap().account;
+    assert_eq!(group(b).as_deref(), Some(SHARED_GROUP), "the id as written");
+    assert_ne!((account(a), group(a)), (account(b), group(b)), "two accounts' legs of one group id are two groups");
     assert!(rows.iter().find(|r| r.id == fut).unwrap().borrowed(), "account 2's futures row is read by its relocated id");
     assert_eq!(rows.iter().find(|r| r.id == b).unwrap().tx_id.as_deref(), Some("b-coin"));
     let price = |id: i64| deltabadger::web::tracker::row::Row::load(c, two.seeded.user_id, id).unwrap().unwrap().counterpart(c).unwrap();
@@ -438,7 +441,12 @@ async fn a_transfer_between_the_two_accounts_is_stored_on_both_and_linked() {
 // ---- commit 6: export and re-import (§6 test 11) ----
 
 fn import(c: &Connection, user: i64, text: &str) -> deltabadger::tracker::import::run::Answer {
-    deltabadger::tracker::import::run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, None, now()).unwrap()
+    use deltabadger::tracker::import::run::{self, Answer};
+    // #710 7a rule Q6: one venue id on two accounts of the file is warned about first; imported anyway.
+    match run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, None, now()).unwrap() {
+        Answer::Warned(_, choices) => run::import(c, &seed::cipher(), user, "deltabadger", text.as_bytes(), None, Some(&choices[0].value), now()).unwrap(),
+        answer => answer,
+    }
 }
 
 /// §6 test 11 (CSV): the export carries `account` 1/2 and account 2's venue ids; read back into another install with two
@@ -682,4 +690,67 @@ fn an_account_2_rows_group_is_exported_as_the_venue_group() {
                                                               deltabadger::web::tracker::csv_columns(c).unwrap()), vec![]).unwrap();
     assert!(csv.lines().nth(1).unwrap().ends_with(&format!(",b-coin,{SHARED_GROUP},,2")), "{csv}");
     assert!(!csv.contains('@'), "{csv}");
+}
+
+// ---- 7a §6: end to end ----
+
+/// 7a §6 end to end: bot 1 fills order X on Kraken¹, switches to Kraken² (its trading key is account 2's from then on) and
+/// fills an order the venue also names X there: both placed, both recovered, each on the account it was placed on. A
+/// delayed sync then brings each account's fill of X; each links to its own account's order, and each account's totals
+/// hold only its own: Kraken¹ the first fill, Kraken² the second, the old order's known fills account 1's alone.
+#[tokio::test(flavor = "current_thread")]
+async fn s7a_a_bot_that_switches_account_keeps_each_order_and_fill_on_its_own_account() {
+    use deltabadger::identity;
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let t0: chrono::DateTime<chrono::Utc> = "2026-09-30T12:00:00Z".parse().unwrap();
+    let old = place(c, two.bots[0], "X", t0).await;
+    identity::place_bot(c, two.bots[0], two.seeded.user_id, two.seeded.exchange_id, Some(two.accounts[1]), t0).unwrap();
+    assert_eq!(identity::account_of_bot(c, two.bots[0]).unwrap(), two.accounts[1].id, "the bot is on account 2");
+    assert_eq!(identity::key_of(c, two.id(1), 0).unwrap(), Some(two.keys[1]), "and trades with account 2's key");
+    place(c, two.bots[0], "X", t0 + chrono::Duration::days(1)).await;
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM transactions WHERE bot_id = {}", two.bots[0])), 2, "both placed");
+    let new = venue_ids::order_by_id(c, &two.scopes[1], "X").unwrap().expect("account 2's X");
+    assert_ne!(old, new);
+    assert_eq!((identity::Account::of_order(c, old).unwrap(), identity::Account::of_order(c, new).unwrap()), (Some(two.accounts[0]), Some(two.accounts[1])));
+    for (n, row) in [old, new].into_iter().enumerate() { assert_eq!(venue_ids::order_by_id(c, &two.scopes[n], "X").unwrap(), Some(row), "account {}'s X", n + 1); }
+    // The delayed sync: each account's fill of X, the same fill id on both.
+    let ks = keys(c, &two, "Exchanges::Kraken");
+    for (n, size) in [(0, "0.0012"), (1, "0.0013")] {
+        let fill = Entry { raw: Raw::from_value(json!({"order_id": "X", "orderId": "X", "createdAt": 1, "size": size, "funds": "60", "fee": "0", "feeCurrency": "EUR"})), quote_currency: Some("EUR".into()), quote_amount: Some(BigDec::parse("60").unwrap()),
+                           ..entry(0, "BTC", size, Some("fill-X"), None, "2026-10-01T12:00:05Z") };
+        assert_eq!(store(c, &ks[n], vec![fill]).imported, 1, "account {}'s fill", n + 1);
+    }
+    for (n, (order, size)) in [(old, "0.0012"), (new, "0.0013")].into_iter().enumerate() {
+        let (linked, total): (Option<i64>, f64) = c.query_row(&format!("SELECT MAX(a.transaction_id), SUM(a.base_amount) FROM account_transactions a WHERE a.exchange_id = {} AND {}",
+                                                                       two.seeded.exchange_id, two.scopes[n].rows("a")), [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        assert_eq!(linked, Some(order), "account {}'s fill links to its own order", n + 1);
+        assert!((total - size.parse::<f64>().unwrap()).abs() < 1e-12, "account {}'s totals: {total}", n + 1);
+    }
+    let known = deltabadger::engine::reconcile::known_fills(c, &identity::Account::of_order(c, old).unwrap().unwrap(), "X", "Classic").unwrap();
+    assert_eq!(known.size, BigDec::parse("0.0012").unwrap(), "the old order's fills: account 1's");
+}
+
+/// Rule F2 (Codex branch r2, binance_repair.rs:261): money and venue data commit only through the fenced check. A repair
+/// previewed for account 2's key, whose key is then found to open another account, validates nothing and applies nothing.
+#[test]
+fn s7a_a_repair_through_a_key_found_to_open_another_account_writes_nothing() {
+    let (dir, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let _lock = claim(c, dir.path());
+    let [_, k2] = keys(c, &two, "Exchanges::Binance");
+    let fetched = repair::Evidence { inputs: vec![deposit("d9")], coverage: vec![] };
+    let version = model::credential_version_by_id(c, k2.id).unwrap().unwrap();
+    let m = repair::dry_run(c, &seed::cipher(), &k2, &version, now(), &fetched).unwrap();
+    assert!(!m.batches.is_empty());
+    common::two_accounts::confirm(c, two.accounts[1].id.unwrap(), Some("fp-2"));
+    c.execute("UPDATE exchange_account_credentials SET fingerprint = 'fp-other' WHERE api_key_id = ?1", [k2.id]).unwrap();
+    let rows = one::<i64>(c, "SELECT count(*) FROM account_transactions");
+    let digest = m.digest();
+    assert!(repair::validate(c, &seed::cipher(), &k2, &m, &digest, &fetched).is_err(), "validation refuses");
+    assert!(repair::ApplySession::new(&m, &digest, &fetched).unwrap().apply_batch(c, &seed::cipher(), &k2, 0).is_err(), "the batch refuses");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), rows, "nothing written");
 }

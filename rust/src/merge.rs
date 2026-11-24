@@ -29,6 +29,9 @@ impl From<crate::engine::EngineError> for Refusal { fn from(e: crate::engine::En
 
 /// The conflict line naming an order another user's bot holds under the same venue id (shown in the user's words).
 pub const FOREIGN_ORDER: &str = "\u{0}foreign_order";
+/// The conflict line naming an account that holds a KuCoin export's source rows, the account's plain label after it (#710
+/// 7a: Merge does not join two accounts' KuCoin export imports; shown in the user's words).
+pub const KUCOIN_IMPORT: &str = "\u{0}kucoin_import:";
 
 /// What a Merge did: the accounts, and the keys it deleted and kept (the caller's after-commit work).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -77,16 +80,19 @@ fn kind(entry_type: i64) -> &'static str {
 #[derive(Clone, Debug)]
 /// `raw`: the venue's answer, when only the duplicate's twin has one (a restored row has none, or only a file's own fields):
 /// the row kept carries it. `synced`: whether the row's raw is a venue's answer (`not_synced`).
-/// `asset`, `group`: the duplicate's, written where the kept twin has none.
+/// `asset`, `group`: the duplicate's, written where the kept twin has none. `imported`: the row has a file origin
+/// (`import_row_origins`, rule N8).
 struct Meta { manual: serde_json::Map<String, serde_json::Value>, order: Option<i64>, rejected: bool, raw: Option<String>, synced: bool, asset: Option<i64>,
-              group: Option<String>, description: Option<String> }
+              group: Option<String>, description: Option<String>, imported: bool }
 fn meta(c: &Connection, row: i64) -> rusqlite::Result<Meta> {
+    let imported = crate::tracker::import::origins_ready(c)?
+        && c.query_row("SELECT EXISTS(SELECT 1 FROM import_row_origins WHERE transaction_id = ?1)", [row], |r| r.get::<_, bool>(0))?;
     c.query_row(&format!("SELECT x.manual_values, x.transaction_id, coalesce(x.transfer_link_rejected, 0), x.raw_data, x.base_asset_id, x.group_id, x.description, NOT {} \
                           FROM account_transactions x WHERE x.id = ?1", not_synced("x")), [row], |r| {
         let manual = r.get::<_, Option<String>>(0)?.and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default();
         Ok(Meta { manual, order: r.get(1)?, rejected: r.get(2)?, raw: r.get::<_, Option<String>>(3)?.filter(|t| !matches!(t.as_str(), "" | "{}" | "null")), synced: r.get(7)?,
                   asset: match r.get_ref(4)? { rusqlite::types::ValueRef::Integer(i) => Some(i), _ => None },
-                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()) })
+                  group: r.get::<_, Option<String>>(5)?.filter(|g| !g.trim().is_empty()), description: r.get::<_, Option<String>>(6)?.filter(|d| !d.trim().is_empty()), imported })
     })
 }
 
@@ -173,10 +179,11 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
     // Earn payment under two names); (c) S holds a row of its type and asset within ten minutes (Coinbase's legacy ids).
     // Whole seconds, so each boundary is exact.
     let secs = |x: &str| format!("CAST(strftime('%s', {x}.transacted_at) AS INTEGER)");
-    // A moved row's group, composed as the walks compose it (`tracker::rows::account_group`) on S after the move: one
-    // another of the user's rows on the exchange already reads would join two groups into one. A conflict naming both,
-    // unless one of D's rows in it is the twin of S's row in it (its legs then make one group). Each set is read once.
-    let composed = |group: Option<String>, member: Option<i64>| crate::tracker::rows::account_group(group, member);
+    // A moved row's group, keyed as every reader keys it ((account, group id), `tracker::rows::group_id`) on S after the
+    // move: one S already uses for another group would join two groups into one. A conflict naming both, unless one of D's
+    // rows in it is the twin of S's row in it (its legs then make one group). Each set is read once.
+    let survivor = ss.account.unwrap_or(0);
+    let composed = |group: Option<String>, account: Option<i64>| crate::tracker::rows::group_id(group).map(|g| (account.unwrap_or(0), g));
     let shared: std::collections::HashSet<String> = {
         let mut out = std::collections::HashSet::new();
         for (dr, sr) in &twin {
@@ -186,16 +193,16 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         out
     };
     let mut q = c.prepare(&format!("SELECT a.id, a.group_id, {} FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND NOT ({}) AND a.group_id IS NOT NULL",
-                                   crate::venue_ids::Scope::install(c)?.member_sql("a"), sd.rows("a")))?;
+                                   crate::venue_ids::Scope::install(c)?.row_account("a"), sd.rows("a")))?;
     let others: Vec<(i64, Option<String>, Option<i64>)> = q.query_map([ss.user_id, ss.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
     drop(q);
-    let mut taken: HashMap<String, i64> = HashMap::new();
+    let mut taken: HashMap<(i64, String), i64> = HashMap::new();
     for (id, group, member) in others { if let Some(key) = composed(group, member) { taken.entry(key).or_insert(id); } }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let group: Option<String> = c.query_row("SELECT group_id FROM account_transactions WHERE id = ?1", [row], |r| r.get(0))?;
         let Some(group) = group.filter(|g| !g.trim().is_empty()) else { continue };
         if shared.contains(&group) { continue; }
-        if let Some(theirs) = composed(Some(group), ss.member).and_then(|key| taken.get(&key).copied()) { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
+        if let Some(theirs) = composed(Some(group), Some(survivor)).and_then(|key| taken.get(&key).copied()) { conflicts.push(named(c, theirs)?); conflicts.push(named(c, *row)?); }
     }
     for (row, _) in rows.iter().filter(|(row, _)| !twin.contains_key(row)) {
         let refused: bool = c.query_row(&format!("SELECT {} OR EXISTS(SELECT 1 FROM account_transactions s WHERE s.user_id = ?1 AND s.exchange_id = ?2 AND {} \
@@ -217,15 +224,23 @@ fn ledger(c: &Connection, sd: &Scope, ss: &Scope) -> rusqlite::Result<Ledger> {
         sm.rejected |= dm.rejected;
         // A venue answer always beats a restore's shape: the kept twin takes the duplicate's answer over its own restore.
         sm.raw = if sm.raw.is_none() || (!sm.synced && dm.synced) { dm.raw.clone() } else { None };
+        // #710 7a rule Q7: a survivor taking the duplicate's venue answer is a synced row from here on (`synced` says so).
+        // A duplicate that is itself a file's row (a sync enriched it) gives no independent read: the survivor stays imported.
+        // Whether or not a payload is copied, a duplicate read from an account independently of any file (synced, no file
+        // origin) makes the kept row a read one: its file origin goes.
+        if sm.raw.is_some() { sm.synced = dm.synced; sm.imported = dm.imported; }
+        else if dm.synced && !dm.imported { sm.synced = true; sm.imported = false; }
         sm.asset = if sm.asset.is_none() { dm.asset } else { None };
         sm.description = if sm.description.is_none() { dm.description.clone() } else { None };
-        // A group: D's where S's row has none and no other S row uses it (the group is S's then); two groups are a conflict.
+        // A group: D's where S's row has none and no other row reads its key on S (the group is S's then), by the same key
+        // as a moved row's; two groups are a conflict.
         sm.group = match (&sm.group, &dm.group) {
             (Some(a), Some(b)) => { if a != b { clash = true; } None }
             (None, Some(g)) => {
-                let used: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2 AND {} AND a.group_id = ?3)", ss.rows("a")),
-                                             params![ss.user_id, ss.exchange_id, g], |r| r.get(0))?;
-                if used { clash = true; None } else { Some(g.clone()) }
+                match composed(Some(g.clone()), Some(survivor)).and_then(|key| taken.get(&key).copied()) {
+                    Some(theirs) => { conflicts.push(named(c, theirs)?); clash = true; None }
+                    None => Some(g.clone()),
+                }
             }
             _ => None,
         };
@@ -272,19 +287,7 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     let exchange = rd.exchange_id;
 
     // 1. In flight.
-    let bots = format!("(SELECT b.id FROM bots b WHERE {} OR {})", ad.bots("b"), as_.bots("b"));
-    let waiting: bool = c.query_row(&format!(
-        "SELECT EXISTS(SELECT 1 FROM rust_api_orders o LEFT JOIN rust_api_order_standalone x ON x.order_id = o.id WHERE o.state IN ('queued', 'taken', 'sending') \
-           AND (x.account_id IN ({d}, {s}) OR o.bot_id IN {bots})) \
-         OR EXISTS({}) OR EXISTS({}) \
-         OR EXISTS(SELECT 1 FROM rust_withdrawal_intents i WHERE i.owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({d}, {s})) \
-           OR i.api_key_id IN (SELECT k.id FROM api_keys k WHERE {} OR {})) \
-         OR EXISTS(SELECT 1 FROM app_configs x JOIN transactions t ON t.id = CAST(substr(x.key, instr(x.key, ':') + 1) AS INTEGER) \
-           JOIN bots ob ON ob.id = t.bot_id AND ob.user_id = {user} \
-           WHERE (x.key LIKE '{}%' OR (x.key LIKE '{}%' AND json_extract(x.value, '$.origin') = 'unproven')) AND t.exchange_id = {exchange} AND ({} OR {}))",
-        unsettled_standalone(d), unsettled_standalone(s), ad.keys("k"), as_.keys("k"), crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN,
-        sd.orders("t"), ss.orders("t")), [], |r| r.get(0))?;
-    if waiting || settling(c, &ad)? || settling(c, &as_)? || recorder_waiting(c, cipher, &[rd, rs])? { return Err(Refusal::InFlight); }
+    if in_flight(c, cipher, user, &[rd, rs])?.is_some() { return Err(Refusal::InFlight); }
     // Withdrawal keys: each live rule withdraws with its account's key as the withdrawal engine picks it
     // (`engine::model::withdrawal_key_id`); read now, and again on the merged key set below. D's rules step 5 drops beside
     // S's live one of their asset withdraw no more.
@@ -365,6 +368,12 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     // (manual values, order link, transfer links, rejected flag): the visible copy is the one that carries them.
     if conflicts.is_empty() {
         for (tx, _, _) in &on_s { c.execute("DELETE FROM kucoin_withheld_fills WHERE account_id = ?1 AND tx_id = ?2", params![s, tx])?; }
+    }
+    // A KuCoin export's source rows on either account (7a): its derived entries cannot be re-derived on the survivor without
+    // losing edits and links, so Merge refuses rather than guess. Cutoffs alone (an API sync's) do not refuse.
+    for account in [s, d] {
+        let held: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1)", [account], |r| r.get(0))?;
+        if held { conflicts.push(format!("{KUCOIN_IMPORT}{}", identity::label(c, account)?.plain())); }
     }
     let plan = ledger(c, &sd, &ss)?;
     conflicts.extend(plan.conflicts.iter().cloned());
@@ -461,9 +470,24 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         c.execute("UPDATE account_transactions SET manual_values = ?2, transaction_id = ?3, transfer_link_rejected = ?4, raw_data = COALESCE(?5, raw_data), \
                    base_asset_id = COALESCE(?6, base_asset_id), group_id = COALESCE(?7, group_id), description = COALESCE(?8, description) WHERE id = ?1",
                   params![row, serde_json::Value::Object(m.manual.clone()).to_string(), m.order, m.rejected, m.raw, m.asset, m.group, m.description])?;
+        // Rule Q7: the event was read from an account independently of the file: the row's file origin goes.
+        if m.synced && !m.imported && crate::tracker::import::origins_ready(c)? { c.execute("DELETE FROM import_row_origins WHERE transaction_id = ?1", [row])?; }
     }
     for (w, t) in &plan.edges { c.execute("UPDATE account_transactions SET linked_transaction_id = ?2 WHERE id = ?1", [w, t])?; }
 
+    // The duplicate's import observations are the survivor's.
+    c.execute("UPDATE exchange_account_imports SET account_id = ?2 WHERE account_id = ?1", [d, s])?;
+    // #710 7a rule N2: a proof of the duplicate's fingerprint proves the survivor's when they are one fingerprint.
+    if crate::engine::rules::table_exists(c, "account_fingerprint_proofs")? {
+        c.execute("INSERT INTO account_fingerprint_proofs (account_id, created_at) SELECT ?2, p.created_at FROM account_fingerprint_proofs p WHERE p.account_id = ?1
+                   AND (SELECT fingerprint FROM exchange_accounts WHERE id = ?1) IS (SELECT fingerprint FROM exchange_accounts WHERE id = ?2) ON CONFLICT (account_id) DO NOTHING", [d, s])?;
+    }
+    // The API's takeover cutoffs: the survivor keeps the earlier of each class, and the duplicate's go.
+    c.execute("UPDATE import_cutoffs SET cutoff_at = (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class), updated_at = ?3 \
+               WHERE account_id = ?2 AND cutoff_at > (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class)",
+              params![d, s, crate::codec::format_time(now)])?;
+    c.execute("UPDATE import_cutoffs SET account_id = ?2 WHERE account_id = ?1 AND class NOT IN (SELECT class FROM import_cutoffs WHERE account_id = ?2)", [d, s])?;
+    c.execute("DELETE FROM import_cutoffs WHERE account_id = ?1", [d])?;
     // 8. KuCoin coverage (the HF marker once) and withheld fills (a twin once).
     c.execute("DELETE FROM kucoin_coverage WHERE account_id = ?1 AND source = ?3 AND EXISTS (SELECT 1 FROM kucoin_coverage WHERE account_id = ?2 AND source = ?3)",
               params![d, s, crate::sync::kucoin_hf::ENABLED])?;
@@ -487,6 +511,8 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     // 11. The tombstone; the keys moved and removed cleared the standings of both (key events); the exchange's standing
     // is reconsidered once, on the merged account.
     identity::tombstone(c, d, now)?;
+    // #710 7a rules M4/N7: the moved keys may give the survivor another reader.
+    crate::sync::settle_reader(c, s).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
     // Evidence restarts: every kept key's change marker is the merge time, so no row imported before the Merge (its own,
     // or one re-keyed to it from a deleted key) is shared-trade evidence for the merged account again.
     for k in &kept { crate::app_config::set_plain(c, &identity::credential_changed_key(*k), &crate::codec::format_time(now), now).map_err(rusqlite::Error::InvalidParameterName)?; }
@@ -499,6 +525,36 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
     }
     identity::reconsider(c, user, exchange, now)?;
     Ok(Some(Merged { duplicate: d, survivor: s, deleted_keys: deleted, kept_keys: kept }))
+}
+
+/// What of `accounts` is in flight, if anything: a bot settling an order; a queued or sending order (a bot's or a
+/// standalone one), a placed standalone order not found terminal or an unrecorded order still being recovered; a
+/// withdrawal intent of its rules or keys, or a recorder's withdrawal. Merge refuses on it; a key's replacement or
+/// removal too (#710 7a §1.1, D-KEY-REPLACE-WAITS), so no settlement runs through another wallet's key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Waiting { Settling, Order, Withdrawal }
+pub fn in_flight(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, accounts: &[AccountRow]) -> Result<Option<Waiting>, Refusal> {
+    // A settling bot first: its answer is the one single-account key saves gave before.
+    for a in accounts { if settling(c, &a.account())? { return Ok(Some(Waiting::Settling)); } }
+    let ids = accounts.iter().map(|a| a.id.to_string()).collect::<Vec<_>>().join(", ");
+    let all = |f: &dyn Fn(&Account) -> String| accounts.iter().map(|a| f(&a.account())).collect::<Vec<_>>().join(" OR ");
+    let bots = format!("(SELECT b.id FROM bots b WHERE {})", all(&|a| a.bots("b")));
+    let standalone = accounts.iter().map(|a| format!("EXISTS({})", unsettled_standalone(a.id))).collect::<Vec<_>>().join(" OR ");
+    let orders = accounts.iter().map(|a| a.venue_ids().orders("t")).collect::<Vec<_>>().join(" OR ");
+    let exchange = accounts.first().map_or(0, |a| a.exchange_id);
+    let order: bool = c.query_row(&format!(
+        "SELECT EXISTS(SELECT 1 FROM rust_api_orders o LEFT JOIN rust_api_order_standalone x ON x.order_id = o.id WHERE o.state IN ('queued', 'taken', 'sending') \
+           AND (x.account_id IN ({ids}) OR o.bot_id IN {bots})) \
+         OR {standalone} \
+         OR EXISTS(SELECT 1 FROM app_configs x JOIN transactions t ON t.id = CAST(substr(x.key, instr(x.key, ':') + 1) AS INTEGER) \
+           JOIN bots ob ON ob.id = t.bot_id AND ob.user_id = {user} \
+           WHERE (x.key LIKE '{}%' OR (x.key LIKE '{}%' AND json_extract(x.value, '$.origin') = 'unproven')) AND t.exchange_id = {exchange} AND ({orders}))",
+        crate::engine::reconcile::UNRESOLVED, crate::engine::reconcile::ORIGIN), [], |r| r.get(0))?;
+    if order { return Ok(Some(Waiting::Order)); }
+    let withdrawal: bool = c.query_row(&format!(
+        "SELECT EXISTS(SELECT 1 FROM rust_withdrawal_intents i WHERE i.owner IN (SELECT 'rule:' || id FROM exchange_account_rules WHERE account_id IN ({ids})) \
+           OR i.api_key_id IN (SELECT k.id FROM api_keys k WHERE {}))", all(&|a| a.keys("k"))), [], |r| r.get(0))?;
+    Ok((withdrawal || recorder_waiting(c, cipher, accounts)?).then_some(Waiting::Withdrawal))
 }
 
 /// Whether a recorder's withdrawal intent is on one of `accounts`. Its account is its request's (user, exchange)'s number 1

@@ -407,8 +407,19 @@ fn input_ddl_never_reaches_the_download() {
     let b = Box::new();
     v2_input(&b);
     let c = b.db();
-    // The stray-conditions migration (it updates bots) and the import-cutoff one (it deletes app_configs rows) still pending.
-    c.execute_batch("DELETE FROM rust_schema_migrations WHERE version IN ('20261025000001', '20261023000001'); DROP TABLE import_cutoffs").unwrap();
+    // The stray-conditions migration (it updates bots) and the import-cutoff one (it deletes app_configs rows) still pending,
+    // and with it 7a's rebuild of the import tables by account (their pre-7a shape restored, empty).
+    c.execute_batch("DELETE FROM rust_schema_migrations WHERE version IN ('20261025000001', '20261023000001', '20261124000002'); DROP TABLE import_cutoffs;
+        DROP TABLE import_rows; DROP TABLE exchange_account_imports;").unwrap();
+    for (version, table) in [("20261022000002", "import_rows"), ("20261022000001", "exchange_account_imports")] {
+        let ddl = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations").join(
+            std::fs::read_dir(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations")).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap())
+                .find(|f| f.starts_with(version)).unwrap())).unwrap();
+        let start = ddl.find(&format!("CREATE TABLE {table} (")).unwrap();
+        let end = ddl[start..].find(");").unwrap() + start + 2;
+        c.execute_batch(&ddl[start..end]).unwrap();
+        for line in ddl.lines().filter(|l| l.starts_with("CREATE INDEX") && l.contains(&format!(" ON {table} "))) { c.execute_batch(line).unwrap(); }
+    }
     c.execute_batch("
         UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE type = 'Bots::DcaIndex';
         ALTER TABLE bots ADD COLUMN sneaky TEXT DEFAULT 'SENTINEL-column';
@@ -860,6 +871,10 @@ fn a_restored_bot_keeps_its_account_and_refuses_another() {
     assert_eq!(r.query_row("SELECT count(*) FROM exchange_account_credentials", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "observations of the old key go");
     // The owner deletes the connection and connects another IBKR account: the bot refuses it.
     deltabadger::venue::ibkr_account::forget(&r, s.api_key_id).unwrap();
+    // #710 7a §9.5: the account keeps its known IBKR account, so the connection itself refuses another one.
+    assert!(deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().is_err());
+    // Past that (the account's identity cleared), the bot still refuses it.
+    r.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
     deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().unwrap();
     let refused = deltabadger::venue::ibkr_account::check_bot_account(&r, &restored, bot).unwrap().unwrap_err();
     assert!(refused.starts_with("This bot belongs to IBKR account PLANTED-ibkr-account"), "{refused}");

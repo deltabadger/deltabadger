@@ -24,6 +24,8 @@ use serde_json::Value;
 struct Settings<'a> {
     v: &'a Ctx,
     action: String,
+    /// #710 7a §2: the account the form was rendered for (a 2.x session: none, the form as it was).
+    bound: Option<i64>,
     csrf: String,
     preview: String,
 }
@@ -46,6 +48,24 @@ struct Preview<'a> {
 
 fn to(ctx: &Ctx, step: &str) -> Response {
     layout::redirect(StatusCode::FOUND, &ctx.path(&format!("{BASE}/{step}/new")))
+}
+/// What the key form's action adds to say which pick it rendered (#710 7a §2): `&account_id=N`, `&untargeted=1`, or nothing
+/// for a 2.x session (no pick kept), whose form stays as it was.
+fn bound(conf: &Value) -> String {
+    match conf["account_id"].as_i64() {
+        Some(account) => format!("&account_id={account}"),
+        None if crate::web::wizard::untargeted(Some(conf)) => "&untargeted=1".into(),
+        None => String::new(),
+    }
+}
+/// #710 7a rules R11, S7: whether a POST came from a page drawn for the session's pick: its action's `account_id` /
+/// `untargeted` (as `bound` wrote them) are the session's now. A 2.x session's form names none, as before.
+fn drawn_for_pick(ctx: &Ctx) -> bool {
+    ["account_id", "untargeted"].iter().filter_map(|n| ctx.params.query(n).map(|v| format!("&{n}={v}"))).collect::<String>() == bound(&config(ctx))
+}
+/// The answer to a POST from a page drawn for another pick: nothing written, back to `step`'s page.
+fn stale(ctx: &Ctx, step: &str) -> Response {
+    crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/{step}/new"))))
 }
 fn config(ctx: &Ctx) -> Value {
     ctx.session
@@ -77,7 +97,8 @@ async fn temporary(app: &App, ctx: &Ctx, config: Value) -> Result<Option<Rule>, 
         let Some(asset)=Asset::find(c,crate::web::wizard::to_i(&config["asset_id"]))?else{return Ok(None)};
         let (fee,chains):(Option<String>,Option<String>)=c.query_row("SELECT withdrawal_fee,withdrawal_chains FROM exchange_assets WHERE exchange_id=?1 AND asset_id=?2",
             (exchange.id,asset.id),|r|Ok((r.get(0)?,r.get(1)?))).optional()?.unwrap_or_default();
-        let account=crate::identity::Account::first(c,user,exchange.id)?;
+        // #710 7a §2: the picked account (or the one its key was saved on), else the exchange's number 1.
+        let Some(account)=crate::web::wizard::account(c,user,Some(&config))?.filter(|a|a.exchange_id==exchange.id) else{return Ok(None)};
         Ok(Some(Rule{id:0,user_id:user,account,status:0,label:crate::identity::label_or(c,account.id,&exchange.name)?,exchange,asset,address:string(&config["address"]),settings:config,
             fee:fee.and_then(|f|BigDec::parse(&f).ok()),chains:chains.and_then(|s|serde_json::from_str(&s).ok()).unwrap_or_default(),balance:None,unconfirmed:None}))
     }).await
@@ -91,17 +112,22 @@ async fn exchange(app: &App, ctx: &Ctx) -> Result<Response, WebError> {
             .filter(|s| !v2::blank(s))
         {
             let n = crate::web::bot::search::to_i(id);
-            let allowed = app
+            let (view, user) = (ctx.clone(), ctx.user().map_or(0, |u| u.id));
+            let (allowed, picked) = app
                 .db(move |c| {
-                    Ok(venue(c, Some(n))?
-                        .is_some_and(|v| crate::venue::withdrawal::Kind::of(&v.class).is_some()))
+                    Ok((venue(c, Some(n))?
+                        .is_some_and(|v| crate::venue::withdrawal::Kind::of(&v.class).is_some()),
+                        crate::web::wizard::picked(c, &view, user, n)?))
                 })
                 .await?;
             if !allowed {
                 return Ok(to(ctx, "pick_exchange"));
             }
+            // #710 7a §2: a Connected tile's account, or a venue tile that always asks for the key.
+            let Some(picked) = picked else { return Ok(layout::missing()) };
             let mut conf = config(ctx);
             conf["exchange_id"] = json!(id);
+            crate::web::wizard::keep_pick(&mut conf, picked);
             conf.as_object_mut().unwrap().remove("asset_id");
             set(ctx, conf);
             return Ok(to(ctx, "add_api_key"));
@@ -145,6 +171,8 @@ async fn assets(
     exchange: crate::web::wizard::keys::Venue,
 ) -> Result<Response, WebError> {
     if ctx.method == axum::http::Method::POST {
+        // Rule S7: an asset form drawn for another pick (two tabs) writes nothing.
+        if !drawn_for_pick(ctx) { return Ok(stale(ctx, "pick_asset")); }
         if let Some(id) = ctx
             .params
             .form("bots_dca_single_asset[asset_id]")
@@ -201,7 +229,7 @@ async fn assets(
             }
             let search = search_box("asset-picker", &v.path(&format!("{BASE}/pick_asset/new")), &v.t("utils.search.placeholder.asset"))?;
             Ok((
-                crate::web::wizard::spendable::asset_pane(search, v.path(&format!("{BASE}/pick_asset")), v.csrf_token(), "bots_dca_single_asset[asset_id]", items, next)?,
+                crate::web::wizard::spendable::asset_pane(search, v.path(&format!("{BASE}/pick_asset{}", bound(&config(&v)).replacen('&', "?", 1))), v.csrf_token(), "bots_dca_single_asset[asset_id]", items, next)?,
                 false,
             ))
         })
@@ -219,10 +247,10 @@ async fn key_card(
     exchange: &crate::web::wizard::keys::Venue,
     error: Option<String>,
 ) -> Result<String, WebError> {
-    let (inner, v, e) = (app.clone(), ctx.clone(), exchange.clone());
+    let (inner, v, e, pick) = (app.clone(), ctx.clone(), exchange.clone(), bound(&config(ctx)));
     app.db(move|c|{
         let instructions=keys::key_instructions(c,&inner,&v,&e.class,&e.name,1)?;
-        keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}",e.id)),
+        keys::sheet_card(&v,&v.csrf_token(),v.path(&format!("{BASE}/add_api_key?exchange_id={}{pick}",e.id)),
             keys::SHEET_FORM,&e.name,&e.class,false,instructions,error.as_deref(),Some(v.path(&format!("{BASE}/pick_exchange/new"))))
     }).await
 }
@@ -256,10 +284,18 @@ async fn keys(
         exchange.id,
         ctx.user().expect("authenticated").id,
     );
+    // #710 7a §2: the picked account's withdrawal key; a venue tile's is a blank candidate, saved where it routes.
+    let conf = config(ctx);
     let key = app
-        .db(move |c| keys::Key::read(c, &inner, crate::identity::Account::first(c, user, id)?, 1))
+        .db(move |c| {
+            let Some(account) = crate::web::wizard::account(c, user, Some(&conf))?.filter(|a| a.exchange_id == id) else { return Ok(None) };
+            Ok(Some(if crate::web::wizard::untargeted(Some(&conf)) { keys::Key::untargeted(account) } else { keys::Key::read(c, &inner, account, 1)? }))
+        })
         .await?;
+    let Some(key) = key else { return Ok(to(ctx, "pick_exchange")) };
     if ctx.method == axum::http::Method::POST {
+        // #710 7a §2: a key form rendered for another pick than the session's now (two tabs) saves nothing.
+        if !drawn_for_pick(ctx) { return Ok(stale(ctx, "add_api_key")); }
         if !ctx
             .params
             .form
@@ -268,17 +304,19 @@ async fn keys(
         {
             return Ok(layout::bad_request());
         }
-        let message = match keys::submit(
-            app,
-            ctx,
-            &exchange.class,
-            &exchange.name,
-            1,
-            key,
-        )
-        .await?
-        {
-            keys::Submitted::Correct => {
+        let outcome = keys::submit(app, ctx, &exchange.class, &exchange.name, 1, key).await?;
+        if let keys::Submitted::Refused(reason) = &outcome { if let Some(asked) = keys::question_response(ctx, reason) { return Ok(asked); } }
+        let message = match &outcome {
+            keys::Submitted::Correct(_) | keys::Submitted::Moved { .. } => {
+                let saved = match outcome { keys::Submitted::Correct(a) => a, keys::Submitted::Moved { to, .. } => Some(to), _ => None };
+                // The session takes the account the key was saved on (§2); a 2.x session (neither kept) stays as it was.
+                let mut conf = config(ctx);
+                if let Some(account) = saved {
+                    if conf.get("account_id").is_some() || crate::web::wizard::untargeted(Some(&conf)) {
+                        crate::web::wizard::keep_pick(&mut conf, crate::web::wizard::Picked::Account(account));
+                        set(ctx, conf);
+                    }
+                }
                 let response = next(app, ctx, false).await?;
                 let target = response
                     .headers()
@@ -296,15 +334,11 @@ async fn keys(
                 &crate::tracker::rows::name_id(&exchange.class),
                 &exchange.name,
                 1,
-                &missing,
-                &forbidden,
+                missing,
+                forbidden,
             ),
             keys::Submitted::Failed => ctx.t("errors.api_key_permission_validation_failed"),
-            keys::Submitted::Refused(reason) => i18n::text(
-                ctx.locale,
-                "engine.write_refused",
-                &[("reason", Arg::Text(&reason))],
-            ),
+            keys::Submitted::Refused(reason) => keys::refusal_text(ctx, reason),
         };
         // D-RULES-SHEET: the reason under the card's fields, in the sheet's frame.
         let rule = temporary(app, ctx, config(ctx)).await?;
@@ -349,6 +383,8 @@ async fn keys(
 async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebError> {
     let list = reads::listing(app, &rule, ctx.method == axum::http::Method::POST).await?;
     if ctx.method == axum::http::Method::POST {
+        // Rule S7: an address posted for another pick writes nothing (no page draws this form; a 2.x session's post names none).
+        if !drawn_for_pick(ctx) { return Ok(stale(ctx, "add_address")); }
         let mut conf = config(ctx);
         conf["address"] = json!(ctx.params.form("address").unwrap_or_default());
         conf["address_tag"] = ctx
@@ -369,9 +405,9 @@ async fn addresses(app: &App, ctx: &Ctx, rule: Rule) -> Result<Response, WebErro
         set(ctx, conf);
         return Ok(to(ctx, "confirm_settings"));
     }
-    let (inner, user, id) = (app.clone(), rule.user_id, rule.exchange.id);
+    let (inner, account) = (app.clone(), rule.account);
     let correct = app
-        .db(move |c| Ok(keys::Key::read(c, &inner, crate::identity::Account::first(c, user, id)?, 1)?.status == 1))
+        .db(move |c| Ok(keys::Key::read(c, &inner, account, 1)?.status == 1))
         .await?;
     if !correct {
         return Ok(to(ctx, "add_api_key"));
@@ -543,7 +579,7 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
         let patch=service::Patch {
             address:Some(rule.address.clone()),settings:rule.settings.clone(),destination:posted,
         };
-        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,account_id:None,patch}).await? {
+        match service::call(app,rule.user_id,service::Command::Create {exchange_id:rule.exchange.id,asset_id:rule.asset.id,account_id:rule.account.id,patch}).await? {
             Err(e) if e.code=="address_not_listed" || e.code=="credential_changed"=>return Ok(to(ctx,"add_address")),
             Err(e) if e.code=="rule_exists"=>return alert(ctx,i18n::t(ctx.locale,"errors.withdrawal_rule_already_exists",
                 &[("asset_symbol",Arg::Text(rule.asset.symbol())),("exchange_name",Arg::Text(&rule.label.plain()))]),false),
@@ -611,6 +647,7 @@ async fn settings(app: &App, ctx: &Ctx, mut rule: Rule) -> Result<Response, WebE
     let content = Settings {
         v: ctx,
         action: ctx.path(&format!("{BASE}/confirm_settings")),
+        bound: config(ctx)["account_id"].as_i64(),
         csrf: ctx.csrf_token(),
         preview,
     }
@@ -635,6 +672,12 @@ pub async fn step(
         return exchange(&app, &ctx).await;
     }
     if name == "confirm_settings" && ctx.method == axum::http::Method::POST {
+        // #710 7a §2, rule R11: a confirmation or its preview rendered for another account than the session's now (two
+        // tabs) is refused before any of its fields reaches the session. Rule H5: one naming no account (a 2.x pick) only
+        // while the session still has none.
+        if ctx.params.form("account_id").map(|a| a.parse::<i64>().unwrap_or(0)) != config(&ctx)["account_id"].as_i64() {
+            return Ok(crate::web::wizard::stream(StatusCode::CONFLICT, turbo::redirect(&ctx.path(&format!("{BASE}/confirm_settings/new")))));
+        }
         let mut conf = config(&ctx);
         for field in [
             "withdrawal_percentage",

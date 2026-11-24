@@ -87,18 +87,19 @@ pub fn declared(c: &Connection, user: i64, year: i32) -> Result<BTreeMap<i32, De
 impl Report {
     /// The values of every row up to the end of the report's year (local), in row order.
     fn pl_components(&self) -> Vec<Component<'_>> {
-        // A group with both a fiat leg and a coin leg is a trade for cash (Kraken's ledger): its fiat legs are the cash.
+        // A group with both a fiat leg and a coin leg is a trade for cash (Kraken's ledger): its fiat legs are the cash. A group
+        // id is its account's (#710).
         let mut groups: HashMap<(i64, &str), Legs> = HashMap::new();
         for r in &self.scoped {
             let Some(g) = r.group.as_deref().filter(|_| r.kind.in_leg() || r.kind.out_leg()) else { continue };
-            let legs = groups.entry((r.exchange_id, g)).or_default();
+            let legs = groups.entry((r.account, g)).or_default();
             if fiat(&r.base) { legs.0.push(r) } else { legs.1.push(r) }
         }
         let mut out = vec![];
         for r in &self.scoped {
             let day = self.local(r.at);
             if day.year() > self.year || !(r.kind.in_leg() || r.kind.out_leg()) { continue; }
-            let group = r.group.as_deref().and_then(|g| groups.get(&(r.exchange_id, g))).filter(|(f, c)| !f.is_empty() && !c.is_empty());
+            let group = r.group.as_deref().and_then(|g| groups.get(&(r.account, g))).filter(|(f, c)| !f.is_empty() && !c.is_empty());
             let side = |cost: bool| if cost { COST } else { REVENUE };
             // The coin the trade is of, and whether it was for cash.
             let (coin, cash) = match group {

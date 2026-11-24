@@ -15,11 +15,39 @@ pub fn new_token() -> String {
 }
 
 /// The token to put in a page: base64url(pad || pad XOR token). Empty if the session token is unreadable.
-pub fn masked(token: &str) -> String {
+pub fn masked(token: &str) -> String { masked_with(token, rand::random()) }
+fn masked_with(token: &str, pad: [u8; LENGTH]) -> String {
     let Ok(raw) = B64URL.decode(token) else { return String::new() };
-    let pad: [u8; LENGTH] = rand::random();
     let mixed: Vec<u8> = raw.iter().zip(pad.iter()).map(|(t, p)| t ^ p).collect();
     B64URL.encode([pad.as_slice(), mixed.as_slice()].concat())
+}
+/// #710 7a rule S6: `masked`, its pad also stating what the page was drawn for: 16 random bytes, then a tag of `scope` and
+/// a tag of `binding`, 8 bytes each, keyed by `key`. Any masked token still unmasks (`valid`); the page carries a value as
+/// random-looking as before, so its bytes do not change.
+pub fn masked_for(token: &str, key: &[u8], scope: &str, binding: &str) -> String {
+    let mut pad = [0u8; LENGTH];
+    pad[..16].copy_from_slice(&rand::random::<[u8; 16]>());
+    let (scoped, bound) = (tag(key, &pad[..16], scope), tag(key, &pad[..16], &format!("{scope}\0{binding}")));
+    pad[16..24].copy_from_slice(&scoped);
+    pad[24..].copy_from_slice(&bound);
+    masked_with(token, pad)
+}
+/// What a submitted token says of `scope`: None when no page drawn for `scope` carried it (any other token), else whether
+/// it was drawn for `binding`.
+pub fn drawn_for(submitted: &str, key: &[u8], scope: &str, binding: &str) -> Option<bool> {
+    let given = B64URL.decode(submitted.trim_end_matches('=')).ok().filter(|g| g.len() == 2 * LENGTH)?;
+    if !bool::from(given[16..24].ct_eq(&tag(key, &given[..16], scope))) { return None; }
+    Some(given[24..LENGTH].ct_eq(&tag(key, &given[..16], &format!("{scope}\0{binding}"))).into())
+}
+fn tag(key: &[u8], nonce: &[u8], label: &str) -> [u8; 8] {
+    use hmac::Mac;
+    let mut mac = <hmac::Hmac<sha2::Sha256> as Mac>::new_from_slice(key).expect("HMAC takes any key");
+    mac.update(b"csrf page binding\0");
+    mac.update(nonce);
+    mac.update(label.as_bytes());
+    let mut out = [0u8; 8];
+    out.copy_from_slice(&mac.finalize().into_bytes()[..8]);
+    out
 }
 
 /// Whether `submitted` (as a page carried it) unmasks to the session's token. Constant-time in the token.

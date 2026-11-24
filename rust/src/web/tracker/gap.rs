@@ -11,6 +11,8 @@ use rusqlite::{Connection, OptionalExtension};
 
 /// The CSV examples: an old swap, a recent Convert (or HF) swap, a deposit on its own. `{v}` is the venue's name_id.
 const HEADER: &str = "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description";
+const HEADER_NUMBERED: &str = "date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description,account";
+fn numbered(row: &str, number: Option<i64>) -> String { number.map_or_else(|| row.to_string(), |n| format!("{row},{n}")) }
 const EXAMPLES: [(&str, &[&str]); 3] = [
     ("swap", &["2022-05-10T12:00:00Z,swap_out,BTC,0.5,,,,,{v},,{v}-2022-05-10,", "2022-05-10T12:00:00Z,swap_in,ETH,7.4,,,,,{v},,{v}-2022-05-10,"]),
     ("convert", &["2026-09-20T08:00:00Z,swap_out,USDT,500,,,,,{v},,{v}-convert-1,", "2026-09-20T08:00:00Z,swap_in,SOL,3.1,,,,,{v},,{v}-convert-1,"]),
@@ -67,9 +69,12 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
     let Some(exchange) = scope.exchange() else { return Ok(layout::missing()) };
     // The venue, whether it has a trading key of the user's (the key-fix links), and whether the user has it at all.
     // Named by its account (#710 slice 6): a stand-in is its exchange's only account.
-    let account = scope.account().filter(|a| a.placed()).map_or_else(|| "NULL".to_string(), |a| a.id.to_string());
+    let placed = scope.account().filter(|a| a.placed());
+    let account = placed.as_ref().map_or_else(|| "NULL".to_string(), |a| a.id.to_string());
+    // #710 7a §3: the line's account's keys (a stand-in's: its exchange's).
+    let own = match &placed { Some(a) => format!(" AND {} = {}", crate::identity::key_account_sql("api_keys"), a.id), None => String::new() };
     let venue: Option<(String, String, Option<bool>, bool)> = c.query_row(&format!(
-        "SELECT {}, e.type, (SELECT MAX(key_type = 0) FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id AND key_type != 1), \
+        "SELECT {}, e.type, (SELECT MAX(key_type = 0) FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id AND key_type != 1{own}), \
          EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = e.id) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id = ?1 AND exchange_id = e.id) \
          FROM exchanges e WHERE e.id = ?2", crate::identity::plain_label_sql("e.name", &account)), rusqlite::params![owner, exchange], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
     let Some((name, kind, trading, _)) = venue.filter(|v| v.3) else { return Ok(layout::missing()) };
@@ -103,13 +108,21 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
         _ => (&["why_other"], &["steps_other_1", "steps_other_2"]),
     };
     let name_id = crate::tracker::rows::name_id(&kind);
+    // #710 7a §3: an account 2+'s example names its number (the importer reads a row without one as number 1).
+    let number = placed.as_ref().map(|a| a.number).filter(|n| *n != 1);
     let examples = if kind == crate::venue::binance::BINANCE { vec![] } else {
-        EXAMPLES.iter().map(|(caption, rows)| Example { caption: t(&format!("csv_example_caption.{caption}")), rows: escape(&rows.iter().map(|r| r.replace("{v}", &name_id)).collect::<Vec<_>>().join("\n")) }).collect()
+        EXAMPLES.iter().map(|(caption, rows)| Example { caption: t(&format!("csv_example_caption.{caption}")),
+                                                        rows: escape(&rows.iter().map(|r| numbered(&r.replace("{v}", &name_id), number)).collect::<Vec<_>>().join("\n")) }).collect()
     };
-    let eligible = reading.iter().any(|k| k.exchange_id == exchange);
+    let header = if number.is_some() { HEADER_NUMBERED } else { HEADER };
+    // #710 7a §3: this account's reading key, or none at all (a keyless account an import made takes files too).
+    let keyless: bool = match &placed { Some(_) => !c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2{own})"), [owner, exchange], |r| r.get(0))?, None => false };
+    let eligible = keyless || reading.iter().any(|k| k.exchange_id == exchange && (placed.is_none() || k.account_id == placed.as_ref().map(|a| a.id)));
     // As tracker/_key_fix_buttons picks them: a trading key is replaced, or a tracker key added beside it; a tracker
     // key is replaced; a venue with no key gets one.
-    let link = |key_type: &str, label: &str| KeyFix { href: escape(&ctx.path(&format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type={key_type}"))), label: i18n::t(ctx.locale, label, &named) };
+    // #710 7a §2: the line's account, named while its exchange has 2+ live accounts.
+    let target = crate::web::settings::keys::target_query(c, scope.account().filter(|a| a.placed()).map(|a| a.id))?;
+    let link = |key_type: &str, label: &str| KeyFix { href: escape(&ctx.path(&format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type={key_type}{target}"))), label: i18n::t(ctx.locale, label, &named) };
     let fixes = if eligible { vec![] } else {
         match trading {
             // D-ALPACA-ONE-KEY: Alpaca's one key is the trading key; there is no second key to add beside it.
@@ -119,7 +132,7 @@ pub fn render(c: &Connection, ctx: &Ctx, owner: i64) -> Result<Response, WebErro
             None => vec![link("read_only", "tracker.add_tracker_key")],
         }
     };
-    let body = Modal { v: ctx, title: t("title"), why: why.iter().map(|k| t(k)).collect(), evidence, steps: steps.iter().map(|k| t(k)).collect(), examples, header: HEADER,
+    let body = Modal { v: ctx, title: t("title"), why: why.iter().map(|k| t(k)).collect(), evidence, steps: steps.iter().map(|k| t(k)).collect(), examples, header,
                        eligible, cannot: t("cannot_import"), fixes, import: escape(&ctx.path("/tracker/import/new")) }.render()?;
     Ok(([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response())
 }

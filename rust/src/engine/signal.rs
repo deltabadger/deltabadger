@@ -134,7 +134,7 @@ pub async fn run_next<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &
         })?;
         return Ok(Step::Ran);
     }
-    if model::key_pending(c, &bot)? { return refuse(Some("signal_api_key_pending")); }
+    if model::key_pending(c, &bot)? || model::key_fenced(c, &bot)? { return refuse(Some("signal_api_key_pending")); }
     let ticker = model::ticker_for(c, &bot)?.ok_or_else(|| EngineError::Data(format!("bot {bot_id}: no ticker")))?;
     let prepared = super::placement::prepare(c, venue).await?;
     if let Err(e) = prepared {

@@ -30,7 +30,14 @@ pub struct Venue {
     /// `trading && !exchange.order_placement_available?`. Only Hyperliquid's adapter can lack order placement, and only in a
     /// Windows bundle without hyperliquid-rb; this build signs Hyperliquid orders itself, so none is shown disabled.
     pub unavailable: bool,
+    /// #710 7a §2: a Connected tile's account (posted as `account_id`), and its number when the venue has 2+ live accounts.
+    pub account: Option<i64>,
+    pub number: Option<i64>,
 }
+
+/// An account the user holds a correct key of the step's kinds on (#710 7a §2).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Connected { pub exchange: i64, pub account: Option<i64>, pub number: Option<i64> }
 
 /// Exchange::STABLE_TYPES.
 const STABLE_TYPES: [&str; 4] = ["Exchanges::Binance", "Exchanges::BinanceUs", "Exchanges::Coinbase", "Exchanges::Kraken"];
@@ -106,11 +113,20 @@ struct New {
 /// in the order the table had them; a group with no venue is not drawn.
 pub struct Group { title: String, venues: Vec<Venue>, connected: bool }
 
-/// The venues `user` holds a correct key of one of `kinds` on (`api_keys.key_type`: 0 trading, 1 withdrawal, 2 read-only).
-pub fn connected(c: &Connection, user: i64, kinds: &[i64]) -> rusqlite::Result<Vec<i64>> {
-    let mut statement = c.prepare("SELECT DISTINCT exchange_id FROM api_keys WHERE user_id = ?1 AND status = 1 AND key_type IN (SELECT value FROM json_each(?2))")?;
-    let ids = statement.query_map(rusqlite::params![user, json!(kinds).to_string()], |r| r.get(0))?.collect();
-    ids
+/// The accounts `user` holds a correct key of one of `kinds` on (`api_keys.key_type`: 0 trading, 1 withdrawal, 2 read-only),
+/// by exchange, then number. An install without the account tables names each exchange alone.
+pub fn connected(c: &Connection, user: i64, kinds: &[i64]) -> rusqlite::Result<Vec<Connected>> {
+    let mut statement = c.prepare("SELECT id, exchange_id FROM api_keys WHERE user_id = ?1 AND status = 1 AND key_type IN (SELECT value FROM json_each(?2)) ORDER BY id")?;
+    let keys: Vec<(i64, i64)> = statement.query_map(rusqlite::params![user, json!(kinds).to_string()], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let mut out: Vec<(Connected, i64)> = vec![];
+    for (key, exchange) in keys {
+        let account = crate::identity::account_of_key(c, key)?;
+        if out.iter().any(|(o, _)| o.exchange == exchange && o.account == account) { continue }
+        let (number, order) = match account { Some(a) => (crate::identity::label(c, a)?.number, c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [a], |r| r.get(0))?), None => (None, 0) };
+        out.push((Connected { exchange, account, number }, order));
+    }
+    out.sort_by_key(|(o, order)| (o.exchange, *order));
+    Ok(out.into_iter().map(|(o, _)| o).collect())
 }
 
 /// `prepare_step` and the page: the venues the bot built from the session could trade on, its own venue set aside.
@@ -142,12 +158,16 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
 /// D-WIZARD-CONNECTED-GROUP (#710): the venues among them the user is `connected` to come first under "Connected", in that
 /// order too, and stay in their own group below: either tile picks the venue.
 /// The exchange step never searches (D-EXCHANGE-NO-SEARCH): the venues are few enough to see at once.
-pub fn venue_pane(ctx: &Ctx, table: Table, venues: Vec<Exchange>, connected: &[i64]) -> Result<String, WebError> {
+/// D-VENUE-TILE-ASKS-KEY (#710 7a §2): the Connected group draws one tile per account, posting its `account_id` (the number in
+/// a corner with 2+ live accounts); the form says `untargeted`, so a Brokers/Exchanges tile always opens the key step.
+pub fn venue_pane(ctx: &Ctx, table: Table, venues: Vec<Exchange>, connected: &[Connected]) -> Result<String, WebError> {
     let venues = ordered(venues, None);
-    let venue = |venue: &Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false };
+    let venue = |venue: &Exchange| Venue { id: venue.id, mark: exchange_wordmark(&venue.name_id()), unavailable: false, account: None, number: None };
     let group = |key: &str, keep: &dyn Fn(&Exchange) -> bool| Group { title: ctx.t(&format!("bot.setup.venue_groups.{key}")), connected: key == "connected",
                                                                      venues: venues.iter().filter(|v| keep(v)).map(venue).collect() };
-    let groups: Vec<Group> = [group("connected", &|v| connected.contains(&v.id)), group("brokers", &|v| super::assets::broker(&v.class)),
+    let accounts = Group { title: ctx.t("bot.setup.venue_groups.connected"), connected: true,
+                           venues: venues.iter().flat_map(|v| connected.iter().filter(|a| a.exchange == v.id).map(|a| Venue { account: a.account, number: a.number, ..venue(v) })).collect() };
+    let groups: Vec<Group> = [accounts, group("brokers", &|v| super::assets::broker(&v.class)),
                               group("exchanges", &|v| !super::assets::broker(&v.class))].into_iter().filter(|group| !group.venues.is_empty()).collect();
     Ok(New { table, groups }.render()?)
 }
@@ -177,6 +197,8 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     if namespace == Namespace::Multi { if let Some(answer) = super::expired(&ctx) { return Ok(answer) } }
     let Some(exchange) = ctx.params.form(namespace.param()).or_else(|| ctx.params.query(namespace.param())).map(str::to_string) else { return Ok(layout::bad_request()) };
     if crate::v2::blank(&exchange) { return render(&app, &ctx, namespace, StatusCode::UNPROCESSABLE_ENTITY).await }
+    let (view, user, id) = (ctx.clone(), ctx.user().map_or(0, |u| u.id), super::to_i(&json!(exchange)));
+    let Some(picked) = app.db(move |c| Ok(super::picked(c, &view, user, id)?)).await? else { return Ok(layout::missing()) };
     {
         let mut data = ctx.session.lock();
         let config = data.bot_config.get_or_insert_with(|| json!({}));
@@ -184,6 +206,7 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
         let order = StepOrder::new(namespace.bot_type(), current_variant(Some(config)));
         reset_downstream(config, &order, Step::Exchange);
         config["exchange_id"] = json!(exchange);
+        super::keep_pick(config, picked);
     }
     Ok(layout::redirect(StatusCode::FOUND, &ctx.path(&format!("{}/add_api_key/new", namespace.base()))))
 }

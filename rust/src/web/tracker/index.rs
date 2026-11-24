@@ -19,15 +19,22 @@ fn render(c:&Connection,ctx:&Ctx,owner:i64,fx:&super::fx::Prepared)->Result<Resp
         if let Some(answer)=super::window::structured_exchange(c,ctx)? {return Ok(answer);}
         // `filtered_transactions` reads the window on every page past the market-data check (PLAN-A19).
         if super::window::read(ctx,super::window::zone(ctx)).is_err() {return Ok(layout::bad_request());}
-        let populated:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)",[owner],|r|r.get(0))?;
+        let keyed:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM api_keys WHERE user_id=?1) OR EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1)",[owner],|r|r.get(0))?;
+        // #710 7a §4: one presence rule with the account list: an account 2+ something still names (a balance, a snapshot, …)
+        // is the user's too, shown broken without a key.
+        let kept=crate::identity::kept(c,owner)?;
+        let mut keyless=false;
+        for (_,id) in &kept {keyless|=!c.query_row("SELECT EXISTS(SELECT 1 FROM exchange_account_keys WHERE account_id=?1)",[id],|r|r.get::<_,bool>(0))?;}
+        let populated=keyed||!kept.is_empty();
         let settings:Option<String>=c.query_row("SELECT tracker_settings FROM users WHERE id=?1",[owner],|r|r.get(0))?;
         let settings:serde_json::Value=match settings {Some(text)=>serde_json::from_str(&text).map_err(|_|super::row::invalid())?,None=>serde_json::Value::Null};
         let pending=settings.get("pending_report").is_some_and(serde_json::Value::is_object);
         if populated {
             // The first-sync and cold first-day pages state their own never-a-number reasons; a pending report is
             // read by the full page only.
-            if !pending && super::first_sync::supported(c,owner)? {return super::first_sync::render(c,ctx,owner);}
-            if !pending && super::holdings::supported(c,owner)? {
+            // The first-sync and cold pages show keyed venues only: a kept account without a key is on the full page.
+            if !pending && !keyless && super::first_sync::supported(c,owner)? {return super::first_sync::render(c,ctx,owner);}
+            if !pending && !keyless && super::holdings::supported(c,owner)? {
                 let cold=super::holdings::prepare(c,ctx,owner,fx)?;return super::first_sync::render_with(c,ctx,owner,Some(cold));
             }
             return super::populated::page(c,ctx,owner,fx);

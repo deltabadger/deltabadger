@@ -3,8 +3,8 @@
     <div class="exchange-grid">
 {%- for venue in table.venues %}
         <div class="exchange-grid__option">
-          <button name="{{ table.param_name }}" type="submit" value="{{ venue.id }}" class="exchange-grid__item"{% if venue.unavailable %} disabled="disabled"{% endif %} data-arrow-keys-navigation-target="item button" data-turbo-frame="modal_content">
-            {{ venue.mark|safe }}
+          <button name="{{ table.param_name }}" type="submit" value="{{ venue.id }}"{% if let Some(account) = venue.account %} formaction="{{ table.action }}?account_id={{ account }}"{% endif %} class="exchange-grid__item"{% if venue.unavailable %} disabled="disabled"{% endif %} data-arrow-keys-navigation-target="item button" data-turbo-frame="modal_content">
+            {{ venue.mark|safe }}{% if let Some(number) = venue.number %}<sup class="exchange-grid__account">{{ number }}</sup>{% endif %}
 </button>
 {%- if venue.unavailable %}
             <p class="exchange-grid__unavailable-note">{{ table.unavailable_note|safe }}</p>

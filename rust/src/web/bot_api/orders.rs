@@ -77,8 +77,9 @@ pub(crate) fn account_id(v: &Value) -> Option<i64> {
 pub(crate) fn account_not_found() -> Res { failure(Domain::NotFound, "account_not_found", "Account not found.") }
 /// Lookup.find_api_key: the user's correct trading key.
 /// Whether `account` has a correct trading key (#710: the account an order is placed on or cancelled through).
+/// #710 7a: a key whose identity read names another account (`identity::fenced_sql`) is no correct key of this one.
 fn has_correct_key(c: &Connection, account: &crate::identity::Account) -> Result<bool, WebError> {
-    Ok(c.query_row(&format!("SELECT 1 FROM api_keys k WHERE {} AND k.key_type=0 AND k.status=1 LIMIT 1", account.keys("k")), [], |_| Ok(())).optional()?.is_some())
+    Ok(c.query_row(&format!("SELECT 1 FROM api_keys k WHERE {} AND k.key_type=0 AND k.status=1 AND NOT {} LIMIT 1", account.keys("k"), crate::identity::fenced_sql(c, "k")?), [], |_| Ok(())).optional()?.is_some())
 }
 fn api_key_missing(exchange: &str) -> Res {
     failure(Domain::PermissionDenied, "api_key_missing", format!("No valid API key found for {exchange}. Please add an API key in Settings."))
@@ -290,8 +291,12 @@ pub fn late_refusal(c: &Connection, bot: &model::Bot, request: &crate::engine::a
     if bot.user_id != request.user_id || bot.status == crate::enums::BotStatus::Deleted { return Ok(Some(bot_not_found())) }
     let (exchange, venue): (String, String) = c.query_row("SELECT coalesce(name, ''), coalesce(type, '') FROM exchanges WHERE id=?1", [bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?.unwrap_or_default();
     let ticker = if bot.bot_type == model::SIGNAL_TYPE { model::ticker_for(c, bot).map_err(|e| WebError::Config(format!("{e:?}")))? } else { None };
-    bot_refusal(c, &Through { bot: bot.clone(), exchange, shown: shown(c, bot)?, venue, ticker }, &request.supplied)
+    let through = Through { bot: bot.clone(), exchange, shown: shown(c, bot)?, venue, ticker };
+    if let Some(refusal) = bot_refusal(c, &through, &request.supplied)? { return Ok(Some(refusal)) }
+    // #710 7a: a key found to open another account since the order was taken places nothing (as `venue_refusal`).
+    Ok(fenced(c, bot)?.then(|| api_key_missing(&through.shown)))
 }
+fn fenced(c: &Connection, bot: &model::Bot) -> Result<bool, WebError> { Ok(model::key_fenced(c, bot)?) }
 
 /// 2.x's status for each refusal code the engine answers with (`Outcome::Refused`).
 const REFUSALS: &[(&str, Domain)] = &[
@@ -418,7 +423,8 @@ fn venue_refusal(c: &Connection, now: chrono::DateTime<chrono::Utc>, who: Caller
     let status: Option<i64> = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type=0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, t.bot.id, "k")?), [], |r| r.get(0)).optional()?;
     Ok(match status {
         Some(s) if s == crate::enums::ApiKeyStatus::PendingActivation as i64 => Some(failure(Domain::Conflict, "api_key_pending", format!("The API key for {} is still pending activation.", t.shown))),
-        Some(s) if s == crate::enums::ApiKeyStatus::Correct as i64 => None,
+        // #710 7a: a correct key whose identity read names another account is no key of this bot's account.
+        Some(s) if s == crate::enums::ApiKeyStatus::Correct as i64 && !fenced(c, &t.bot)? => None,
         _ => Some(api_key_missing(&t.shown)),
     })
 }
@@ -452,10 +458,17 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) {
         // (id, bot, external id, "base/quote", side, exchange name, exchange type)
         type Row = (i64, i64, String, String, String, String, String);
+        // #710 7a §9.3: with an explicit account, only that account's rows (another's id is a bare venue id there).
+        let scope = if present(account_id) {
+            match to_s(account_id).trim().parse::<i64>().ok().map(|id| crate::identity::Account::by_id(c, id)).transpose()?.flatten().filter(|a| a.user_id == who.user) {
+                Some(account) => account.orders(c, "t")?,
+                None => "0".into(),
+            }
+        } else { "1".into() };
         let row: Option<Row> = match text.parse::<i64>() {
             Ok(id) => c.query_row(&format!("SELECT t.id, t.bot_id, coalesce({}, ''), coalesce(t.base, '') || '/' || coalesce(t.quote, ''), \
                                    CASE t.side WHEN 0 THEN 'buy' WHEN 1 THEN 'sell' ELSE '' END, coalesce(e.name, ''), coalesce(e.type, '') FROM transactions t \
-                                   JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1", crate::venue_ids::order_id(c, "t")?),
+                                   JOIN bots b ON b.id=t.bot_id LEFT JOIN exchanges e ON e.id=t.exchange_id WHERE b.user_id=?1 AND t.id=?2 AND t.status=0 AND t.external_status=1 AND {scope}", crate::venue_ids::order_id(c, "t")?),
                 [who.user, id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).optional()?,
             Err(_) => None,
         };
@@ -487,10 +500,12 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
                                                o = crate::venue_ids::order_id(c, "t")?, mine = picked.orders(c, "t")?),
         rusqlite::params![who.user, exchange, text], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     let log = if row.is_none() { crate::engine::api_orders::log_order(c, who.user, exchange, &text, picked.id).map_err(|e| WebError::Config(format!("{e:?}")))?
-                                     .filter(|(account, _, _)| account.id == picked.id || picked.id.is_none()) } else { None };
+                                     .filter(|(account, _, _, _)| account.id == picked.id || picked.id.is_none()) } else { None };
+    // #710 7a §9.4: an order the venue already ended (recorded by a pre-flight) is not sent a cancel, whatever key is there now.
+    if let Some((_, _, _, Some(terminal))) = &log { return Ok(Cancel::Done(cancel_failed(&format!("the order is already {terminal}")))); }
     let account = match (&row, &log) {
         (Some((_, tx)), _) => crate::identity::Account::of_order(c, *tx)?,
-        (None, Some((account, _, _))) => Some(*account),
+        (None, Some((account, _, _, _))) => Some(*account),
         (None, None) => Some(picked),
     };
     let Some(account) = account else { return Ok(Cancel::Done(api_key_missing(&crate::identity::label_or(c, picked.id, &name)?.plain()))) };
@@ -498,7 +513,7 @@ pub fn cancel(c: &Connection, who: Caller, order_id: &Value, exchange_name: &Val
     if !trades(&venue) { return Ok(Cancel::Done(not_ported(IBKR))) }
     let answer = json!({ "dry_run": who.dry_run, "external_id": order_id, "exchange": name, "cancelled": true });
     if who.dry_run { return Ok(Cancel::Done(Res::success(answer))) }
-    if let Some((_, identity, snapshot)) = log {
+    if let Some((_, identity, snapshot, _)) = log {
         // r1 §4: the route from what was stored at the claim, never from the ticker row (it may be gone or renamed since).
         let mut intent = identity.unwrap_or_else(|| json!({}));
         for key in ["symbol", "side", "limit"] { intent[key] = snapshot[key].clone(); }
@@ -525,20 +540,20 @@ pub async fn send_cancel(app: &App, job: CancelJob) -> Result<Res, WebError> {
             Target::Row { bot, tx, external } => page::send_for_row(c, app, &factory, runtime, &model::load_bot(c, bot)?, tx, &external)?,
             Target::Log { account, order } => {
                 let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
-                page::send(runtime, &venue, &order)
+                page::send(c, runtime, &venue, &order, account)?
             }
             Target::Key { account, external, row } => {
                 let venue = crate::engine::run::venue_for_key(c, &factory, &app.cipher, account)?;
                 match row {
                     Some((bot, tx)) => {
                         let order = crate::venue::OrderRef::load(c, tx, &external)?;
-                        let sent = page::send(runtime, &venue, &order);
-                        page::leave_reread(c, app, bot, tx)?;
+                        let sent = page::send(c, runtime, &venue, &order, account)?;
+                        page::reread(c, app, bot, tx, &sent)?;
                         sent
                     }
                     None => {
                         if let Some(why) = foreign_refusal(runtime, &venue, &external) { return Ok(cancel_failed(&why)) }
-                        page::send(runtime, &venue, &crate::venue::OrderRef { external_id: external, record: None })
+                        page::send(c, runtime, &venue, &crate::venue::OrderRef { external_id: external, record: None }, account)?
                     }
                 }
             }

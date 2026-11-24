@@ -208,11 +208,12 @@ fn crypto_row(stock_venue: bool, class: Option<bool>, by_symbol: impl FnOnce() -
 fn fork_rows(c: &Connection, user_id: i64) -> Result<HashSet<i64>, FiguresError> {
     let mut s = c.prepare("SELECT id FROM account_transactions WHERE user_id = ?1 AND lower(coalesce(description, '')) LIKE '%fork%'")?;
     let mut ids: HashSet<i64> = s.query_map([user_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
-    let imports: bool = c.query_row("SELECT count(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'import_rows'", [], |r| r.get(0))?;
+    // #710: a row's source rows are its account's.
+    let imports: bool = c.query_row("SELECT count(*) > 0 FROM pragma_table_info('import_rows') WHERE name = 'account_id'", [], |r| r.get(0))?;
     if imports {
-        let mut s = c.prepare("SELECT DISTINCT t.id FROM account_transactions t, json_each(t.raw_data, '$.source_rows') j \
-                               JOIN import_rows i ON i.user_id = t.user_id AND i.exchange_id = t.exchange_id AND i.row_id = j.value \
-                               WHERE t.user_id = ?1 AND json_valid(t.raw_data) AND lower(i.row_type) LIKE '%fork%'")?;
+        let mut s = c.prepare(&format!("SELECT DISTINCT t.id FROM account_transactions t, json_each(t.raw_data, '$.source_rows') j \
+                               JOIN import_rows i ON i.account_id = {} AND i.row_id = j.value \
+                               WHERE t.user_id = ?1 AND json_valid(t.raw_data) AND lower(i.row_type) LIKE '%fork%'", crate::venue_ids::row_account("t")))?;
         ids.extend(s.query_map([user_id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?);
     }
     Ok(ids)
@@ -607,9 +608,9 @@ impl Report {
                                             fee_asset: e.row.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
                                             cash_group: false })).collect();
         // Groups with a fiat leg, read before the fiat rows leave.
-        let cash_groups: HashSet<(String, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
-            .filter_map(|e| e.row.group.clone().map(|g| (e.row.exchange.clone(), g))).collect();
-        for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.exchange.clone(), g.clone()))); }
+        let cash_groups: HashSet<(i64, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
+            .filter_map(|e| e.row.group.clone().map(|g| (e.row.account, g))).collect();
+        for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.account, g.clone()))); }
         Ok((taxable, entries.into_iter().map(|(_, t)| t).collect()))
     }
 
@@ -921,8 +922,8 @@ fn assume_airdrops(rows: &mut [Entry]) {
 /// crypto for crypto. 2.x taxed the leg given as sold.
 /// D-TAX-IT-SWAPS (`italy`): a group with an e-money token leg is left as booked (a sale and a purchase).
 fn swap_coin_for_stablecoin_groups(rows: &mut [Entry], italy: bool) {
-    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
-    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.exchange.clone(), g.clone())).or_default().push(i); } }
+    let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
+    for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.account, g.clone())).or_default().push(i); } }
     for legs in groups.values() {
         if legs.iter().any(|&i| fiat(&rows[i].row.base) || !matches!(rows[i].row.kind, Kind::Buy | Kind::Sell)) { continue; }
         if !(legs.iter().any(|&i| rows[i].row.kind == Kind::Buy) && legs.iter().any(|&i| rows[i].row.kind == Kind::Sell)) { continue; }
@@ -965,11 +966,11 @@ fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> {
 /// unpriced), the last taking the rest; set on this report's copy of the rows before the engine. Returns each group so
 /// valued, listed.
 fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Option<bool>) -> Result<Vec<String>, FiguresError> {
-    let mut order: Vec<(String, String)> = vec![];
-    let mut groups: HashMap<(String, String), Vec<usize>> = HashMap::new();
+    let mut order: Vec<(i64, String)> = vec![];
+    let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
     for (i, e) in rows.iter().enumerate() {
         let Some(g) = &e.row.group else { continue };
-        let k = (e.row.exchange.clone(), g.clone());
+        let k = (e.row.account, g.clone());
         if !groups.contains_key(&k) { order.push(k.clone()); }
         groups.entry(k).or_default().push(i);
     }
@@ -1016,7 +1017,7 @@ fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Op
 /// sees the Portuguese immediate fiat exit there. The tracker's enrichment is untouched.
 fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
     let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
-    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.exchange_id, g.clone())).or_default().push(i); } }
+    for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.account, g.clone())).or_default().push(i); } }
     let direction = |k: Kind| if k.in_leg() { Some(true) } else if k.out_leg() { Some(false) } else { None };
     for legs in groups.values() {
         let (coins, cash): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| stable(&rows[i].base));
@@ -1252,6 +1253,30 @@ mod tests {
         assert_eq!(disposals.len(), 1, "{csv}");
         // Quantity, then the cost: the 60,000 USD purchase at 1.08, not 11/21 of it.
         assert_eq!((disposals[0][2], disposals[0][3], disposals[0][5]), ("BTC", "1.0", "55555.56"), "{csv}");
+    }
+
+    /// #710 slice 7a: a group id is its account's. A fiat leg on account 1 and an unrelated coin leg on account 2 of one
+    /// venue that happen to share a group id are no trade for cash: Poland converts no cash for them (`pl_components`) and
+    /// the wealth reports count no fiat paid (`fiat_trades`).
+    #[test]
+    fn one_group_id_on_two_accounts_is_no_trade_for_cash() {
+        let c = shared_symbol();
+        c.execute_batch(include_str!("../../migrations/20261103000001_nbp_rates.sql")).unwrap();
+        c.execute_batch(include_str!("../../migrations/20261104000001_rust_tax_pl_carry.sql")).unwrap();
+        let Prepared::Report(mut report) = prepare(&c, 1, "PL", 2025, false).unwrap() else { panic!("refused") };
+        let leg = |id: i64, kind: Kind, base: &str, account: i64| Stored { base: base.into(), quote: None, quote_amount: None, group: Some("g".into()), account,
+                                                                             ..btc(id, kind, "100", None, "2025-03-01 10:00:00") };
+        report.scoped = vec![leg(1, Kind::Sell, "EUR", 1), leg(2, Kind::Buy, "BTC", 2)];
+        assert_eq!(report.nbp_needs(), [], "no cash converted");
+        let mut fetcher = Unfetched;
+        let (paid, received) = {
+            let mut ps = PriceService::new(&report.reference, &report.fx, NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(), &mut fetcher);
+            report.fiat_trades(&mut ps, "EUR").unwrap()
+        };
+        assert_eq!((paid.to_s_f(), received.to_s_f()), ("0.0".to_string(), "0.0".to_string()), "no fiat paid");
+        // The same legs on one account are a trade for cash.
+        report.scoped = vec![leg(1, Kind::Sell, "EUR", 1), leg(2, Kind::Buy, "BTC", 1)];
+        assert_eq!(report.nbp_needs().len(), 1);
     }
 
     // ---- D-TAX-CFEE-MATCHED-FILL: the fold ----

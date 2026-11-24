@@ -21,8 +21,9 @@ use serde_json::Value;
 pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// Rust's identity tables (rust/migrations/20261022000001_create_exchange_accounts.sql, 20261119000001_exchange_account_numbers.sql,
 /// 20261119000002_exchange_account_ownership.sql, 20261120000001_exchange_account_ids.sql).
-pub const TABLES: [&str; 8] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
-                               "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows"];
+/// 7a: and the proofs and reader generations (20261125000001_account_fingerprint_proofs.sql).
+pub const TABLES: [&str; 10] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
+                               "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows", "account_fingerprint_proofs", "ledger_reader_generations"];
 /// The venues whose account id is confirmed (AF1). Every other venue records nothing yet.
 pub const VENUES: [&str; 3] = [KUCOIN, BINANCE, BINANCE_US];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
@@ -209,16 +210,22 @@ const KNOWN: &str = "SELECT (SELECT count(*) FROM exchange_accounts WHERE finger
                           + (SELECT count(*) FROM exchange_account_imports)";
 
 /// At startup: a reset 2.x made while Rust was stopped is handled before anything is recorded. Writes nothing on an
-/// install with a readable key or with nothing known.
+/// install with a readable key or with nothing known. Then (#710 7a rule N7) every live account with no reader
+/// generation yet (one from before the table) gets its reader recorded, so its first handoff counts as one.
 pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<(), String> {
-    if !ready(c).map_err(|e| e.to_string())? || existing_key(c, cipher).is_some() { return Ok(()); }
-    let known: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(|e| e.to_string())?;
-    if known == 0 { return Ok(()); }
-    let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
-    key(&tx, cipher, now)?;
-    tx.commit().map_err(|e| e.to_string())?;
-    crate::store::mark_changed();
-    Ok(())
+    if !ready(c).map_err(|e| e.to_string())? { return Ok(()); }
+    if existing_key(c, cipher).is_none() {
+        let known: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(|e| e.to_string())?;
+        if known > 0 {
+            let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
+            key(&tx, cipher, now)?;
+            tx.commit().map_err(|e| e.to_string())?;
+            crate::store::mark_changed();
+        }
+    }
+    // An install 2.x owns is not written before its claim (a refused start leaves it as it was); its takeover seeds them.
+    if !crate::lease::read(c, cipher).ok().flatten().is_some_and(|v| v["engine"] == "rust") { return Ok(()); }
+    crate::sync::seed_readers(c).map_err(|e| e.0)
 }
 
 /// The account (user, exchange) is read as while it has one (#710 slices 1-6): its lowest live number.
@@ -974,6 +981,8 @@ pub fn write_status(c: &Connection, id: i64, status: i64, at: &str, on_change: b
     c.execute(&format!("UPDATE api_keys SET status = ?2, updated_at = CASE WHEN ?4 AND status = ?2 THEN updated_at ELSE ?3 END{} WHERE id = ?1",
                        if clear_error { ", last_sync_error = NULL" } else { "" }), params![id, status, at, on_change])?;
     if (old == 1) != (status == 1) { key_event_of_key(c, id)?; }
+    // A key turning live or not live may move its account's reader (rule M4).
+    if old != status { crate::sync::settle_readers_of_key(c, id).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?; }
     Ok(old != status)
 }
 /// The one write of a stored key's credential material: api_keys' key, secret and passphrase, as the ciphertext given (the
@@ -1006,6 +1015,7 @@ pub fn write_credential(c: &Connection, cipher: &Cipher, id: i64, key: Option<&s
         }
         crate::app_config::set_plain(c, &credential_changed_key(id), &format_time(now), now).map_err(rusqlite::Error::InvalidParameterName)?;
         key_event_of_key(c, id)?;
+        crate::sync::settle_readers_of_key(c, id).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
     }
     Ok(changed)
 }
@@ -1064,16 +1074,16 @@ pub enum Live { Fresh, Stale(Vec<(&'static str, i64)>), Differ, Unreadable(i64),
 /// How fresh a Merge's data must be.
 pub const LIVE_SECS: i64 = 900;
 
-/// The live check of a Merge of `d` into `s`, inside its transaction: every live non-withdrawal key of both accounts
-/// completed a ledger sync under its current credential within `LIVE_SECS`, and each account's reading key read its
+/// The live check of a Merge of `d` into `s`, inside its transaction: each account's reader completed a ledger sync
+/// under its current credential within `LIVE_SECS`, and each account's reading key read its
 /// balances completely under its current credential within `LIVE_SECS`; then those reads must agree.
 pub fn live_check(c: &Connection, d: &AccountRow, s: &AccountRow, now: DateTime<Utc>) -> rusqlite::Result<Live> {
     let since = now - Duration::seconds(LIVE_SECS);
     let mut wake = vec![];
     for a in [d, s] {
-        let mut q = c.prepare(&format!("SELECT k.id FROM api_keys k WHERE {} AND k.key_type != 1 AND k.status = 1 ORDER BY k.id", a.keys("k")))?;
-        let keys: Vec<i64> = q.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<_>>()?;
-        drop(q);
+        // #710 7a rule Q4: the account's reader (the one selector), not every live key: a key that is not the reader
+        // produced none of the account's history.
+        let keys: Vec<i64> = crate::sync::cache::reading_key(c, a).map_err(eng)?.into_iter().collect();
         for key in keys {
             let state = crate::jobs::state::read(c, crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string())).map_err(rusqlite::Error::InvalidParameterName)?;
             let fresh = crate::sync::cache::ledger_current_for(c, key).map_err(eng)? && state.incomplete_since.is_none() && state.last_success_at.is_some_and(|t| t >= since);
@@ -1131,6 +1141,276 @@ pub fn key_counted(c: &Connection, user_id: i64, alias: &str) -> rusqlite::Resul
 /// SQL condition: account expression `account` is none of the user's duplicates. One statement.
 pub fn counted(c: &Connection, user_id: i64, account: &str) -> rusqlite::Result<String> { Ok(not_duplicate(account, &duplicate_ids(c, user_id)?)) }
 
+/// SQL condition: api key row `k` is fenced (#710 7a): a key whose latest identity read names another account than its
+/// account's known one, whatever its status (a revalidation that timed out leaves it pending, still fenced). It places
+/// nothing, withdraws nothing and syncs nothing until a read matches again; its rows stay. `"0"` on an install without the
+/// account tables.
+pub fn fenced_sql(c: &Connection, k: &str) -> rusqlite::Result<String> {
+    let observed: bool = c.query_row("SELECT count(*) = 1 FROM sqlite_master WHERE type = 'table' AND name = 'exchange_account_credentials'", [], |r| r.get(0))?;
+    if !observed || !crate::venue_ids::ready(c)? { return Ok("0".into()); }
+    // #710 7a rule M3: only a fingerprint a key read proved backs a fence (a file's never does).
+    let proven = if proofs_ready(c)? { " AND EXISTS (SELECT 1 FROM account_fingerprint_proofs fp WHERE fp.account_id = fx.id)" } else { "" };
+    Ok(format!("(EXISTS (SELECT 1 FROM exchange_account_credentials fo JOIN exchange_accounts fx ON fx.id = {} \
+                WHERE fo.api_key_id = {k}.id AND fo.fingerprint IS NOT NULL AND fx.fingerprint IS NOT NULL AND fo.fingerprint <> fx.fingerprint{proven}))", key_account_sql(k)))
+}
+fn proofs_ready(c: &Connection) -> rusqlite::Result<bool> { crate::engine::rules::table_exists(c, "account_fingerprint_proofs") }
+/// #710 7a rule N2: whether a key read proved account `id`'s fingerprint (`account_fingerprint_proofs`, durable: no
+/// observation upsert, takeover sentinel or credential removal deletes it; Merge carries it; the export keeps it). An
+/// install without the table proves every fingerprint, as before.
+pub fn proven(c: &Connection, id: i64) -> rusqlite::Result<bool> {
+    if !proofs_ready(c)? { return Ok(true); }
+    c.query_row("SELECT EXISTS(SELECT 1 FROM account_fingerprint_proofs WHERE account_id = ?1)", [id], |r| r.get(0))
+}
+fn prove(c: &Connection, id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
+    if proofs_ready(c)? { c.execute("INSERT INTO account_fingerprint_proofs (account_id, created_at) VALUES (?1, ?2) ON CONFLICT (account_id) DO NOTHING", params![id, format_time(now)])?; }
+    Ok(())
+}
+/// Rules M3/N2: a key read of `account` as `fingerprint`: an unknown fingerprint is filled, an unproven one that differs is
+/// replaced (a file's or a restore's: the read is the fact), and either, like an equal one, is proven. A proven one that
+/// differs stays: the key is fenced there (`fenced_sql`).
+fn establish_by_read(c: &Connection, account: i64, fingerprint: &str, encrypted: &[u8], now: DateTime<Utc>) -> rusqlite::Result<()> {
+    let known: Option<String> = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional()?.flatten();
+    match known {
+        None => { if establish(c, account, fingerprint, encrypted, now)? { prove(c, account, now)?; } }
+        Some(k) if k == fingerprint => prove(c, account, now)?,
+        Some(_) if !proven(c, account)? => {
+            c.execute("UPDATE exchange_accounts SET fingerprint = ?2, account_id_enc = ?3, updated_at = ?4 WHERE id = ?1", params![account, fingerprint, encrypted, format_time(now)])?;
+            key_event(c, account)?;
+            prove(c, account, now)?;
+        }
+        Some(_) => {}
+    }
+    Ok(())
+}
+/// #710 7a rule Q2: whether key `api_key_id` has no successful UID read of its current material: no observation, one
+/// that names nothing (a failed or masked read, the takeover's sentinel, P8), or one made under another ciphertext.
+pub fn unread(c: &Connection, api_key_id: i64) -> Result<bool, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    if !ready(c).map_err(db)? { return Ok(false); }
+    let row: Option<(Option<String>, Option<String>, Option<String>)> = c.query_row("SELECT fingerprint, observed_at, observed_credential_version FROM exchange_account_credentials WHERE api_key_id = ?1",
+        [api_key_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional().map_err(db)?;
+    let Some((Some(fingerprint), Some(_), Some(version))) = row else { return Ok(true) };
+    if fingerprint == UNCONFIRMED_AFTER_V2 { return Ok(true); }
+    let Some(read) = serde_json::from_str::<Value>(&version).ok().and_then(|stored| crate::engine::model::CredentialVersion::from_stamp(&stored)) else { return Ok(true) };
+    Ok(read.id != api_key_id || !crate::engine::model::credential_is_current(c, &read).map_err(|e| format!("{e:?}"))?)
+}
+/// The handoff of every account of key `api_key_id`'s exchange (`sync::settle_readers`).
+fn settle(c: &Connection, api_key_id: i64) -> Result<(), String> { crate::sync::settle_readers_of_key(c, api_key_id).map(|_| ()).map_err(|e| e.0) }
+
+/// What a key save's account read came to (#710 7a, PLAN-710-7 §1.1), for `route_key`.
+pub enum Reading<'a> {
+    /// The venue named the key's account.
+    Read(&'a AccountId),
+    /// An identity venue's read failed or was masked.
+    Unread,
+    /// A venue that reports no account id.
+    NotAnIdentityVenue,
+}
+/// Where a saved key goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Route {
+    /// This live account (`target` or another).
+    To(i64),
+    /// A new account, numbered after every one of the exchange, tombstones included.
+    New,
+    /// The read could not tell, and the key could land on the wrong account: refused, retryable, nothing created.
+    Unconfirmed,
+}
+
+/// The one routing of a saved key (PLAN-710-7 §1.1, master plan §4.3), in the save's write transaction: `target` the
+/// account the form named (a Reconnect, a bot's sheet, a 2.x form's number 1), None for a venue tile. In order:
+/// 1. a read whose fingerprint a live account has: there (of two unmerged duplicates, the survivor, else the lowest);
+/// 2. a read no account has: `target` when it has no fingerprint; with no target, the exchange's only live account when
+///    it has no fingerprint and no key of `kind`; else a new account;
+/// 3. an identity venue's failed or masked read: only a named `target` with no fingerprint that is the exchange's only
+///    live account; else `Unconfirmed`;
+/// 4. no identity venue: the account of a stored key of (user, exchange) with this material (compared decrypted, the
+///    venue's own fields only); else `target`; else a new account, but a lone live account with no key at all takes it.
+#[allow(clippy::too_many_arguments)]
+pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, kind: i64, target: Option<i64>, reading: &Reading,
+                 material: &Credentials, skip: Option<i64>, now: DateTime<Utc>) -> Result<Route, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let live = accounts_of(c, user_id, exchange_id).map_err(db)?;
+    let fingerprint_of = |id: i64| c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [id], |r| r.get::<_, Option<String>>(0)).map_err(db);
+    // Rule M3: an account whose fingerprint no key read proved takes a key as one with none.
+    let unset = |id: i64| -> Result<bool, String> { Ok(fingerprint_of(id)?.is_none() || !proven(c, id).map_err(db)?) };
+    // Rule N3: before a new account, the installed evidence: the exact key and secret already stored on a live account
+    // (`unknown`: only one whose fingerprint no read proved), or a Hyperliquid wallet already connected (its address is the
+    // account; each agent secret is a key of it).
+    let installed = |unknown: bool| -> Result<Route, String> {
+        let wallet = exchange_type == crate::venue::hyperliquid::HYPERLIQUID;
+        let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id").map_err(db)?;
+        let ids: Vec<i64> = s.query_map([user_id, exchange_id], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+        for id in ids.into_iter().filter(|id| Some(*id) != skip) {
+            let Some(stored) = stored_material(c, cipher, id) else { continue };
+            let same = if wallet { stored.key.trim().eq_ignore_ascii_case(material.key.trim()) && !material.key.trim().is_empty() }
+                       else { stored.key == material.key && stored.secret == material.secret && !material.secret.is_empty() };
+            if !same { continue; }
+            let Some(account) = account_of_key(c, id).map_err(db)?.filter(|a| live.iter().any(|(l, _)| l == a)) else { continue };
+            if !unknown || unset(account)? { return Ok(Route::To(account)); }
+        }
+        Ok(Route::New)
+    };
+    let keys_of = |id: i64| -> Result<i64, String> {
+        let account = Account::by_id(c, id).map_err(db)?.ok_or("account identity: no account")?;
+        c.query_row(&format!("SELECT count(*) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0)).map_err(db)
+    };
+    match reading {
+        Reading::Read(id) => {
+            let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, id);
+            let mut holders = vec![];
+            for (account, _) in &live { if fingerprint_of(*account)?.as_deref() == Some(fingerprint.as_str()) { holders.push(*account); } }
+            if !holders.is_empty() {
+                // Two unmerged duplicates: the survivor of the stored standing, else the lowest number (`live` is by number).
+                let survivor = holders.iter().find_map(|h| standing_of(c, user_id, *h).ok().flatten().map(|(s, _, _)| s)).filter(|s| holders.contains(s));
+                return Ok(Route::To(survivor.unwrap_or(holders[0])));
+            }
+            if let Some(t) = target { if unset(t)? { return Ok(Route::To(t)); } return installed(true); }
+            if let [(only, _)] = live.as_slice() {
+                let has_kind: bool = Account::by_id(c, *only).map_err(db)?.map(|a| a.key(c, kind)).transpose().map_err(db)?.flatten().is_some();
+                if unset(*only)? && !has_kind { return Ok(Route::To(*only)); }
+            }
+            installed(true)
+        }
+        Reading::Unread => match (target, live.as_slice()) {
+            (Some(t), [(only, _)]) if *only == t && unset(t)? => Ok(Route::To(t)),
+            _ => Ok(Route::Unconfirmed),
+        },
+        Reading::NotAnIdentityVenue => {
+            if let Some(found) = same_material(c, cipher, user_id, exchange_id, exchange_type, material, skip)? {
+                if let Some(account) = account_of_key(c, found).map_err(db)?.filter(|a| live.iter().any(|(l, _)| l == a)) { return Ok(Route::To(account)); }
+            }
+            if let Some(t) = target { return Ok(Route::To(t)); }
+            if let [(only, _)] = live.as_slice() { if keys_of(*only)? == 0 { return Ok(Route::To(*only)); } }
+            installed(false)
+        }
+    }
+}
+
+/// A venue's own credential fields, as a save compares them (`venue/registry.rs`): a passphrase only where the venue
+/// signs with it, Alpaca's empty mode as `paper`.
+fn compared(exchange_type: &str, c: &Credentials) -> (String, String, String) {
+    let passphrase = if exchange_type == crate::sync::ALPACA { c.passphrase.clone().filter(|p| !p.trim().is_empty()).unwrap_or_else(|| "paper".into()) }
+                     else if crate::venue::registry::row(exchange_type).is_some_and(|r| r.passphrase) { c.passphrase.clone().unwrap_or_default() } else { String::new() };
+    (c.key.clone(), c.secret.clone(), passphrase)
+}
+
+/// A stored key of (user, exchange) other than `skip` whose material is `material`'s (`compared`), decrypted: the stored
+/// digest is an index only, never the truth (a 2.x save can replace material in place). Each key's digest is filled as it
+/// goes.
+pub fn same_material(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, material: &Credentials, skip: Option<i64>) -> Result<Option<i64>, String> {
+    Ok(all_material(c, cipher, user_id, exchange_id, exchange_type, material, skip)?.into_iter().next())
+}
+/// Every stored key of (user, exchange) but `skip` whose material is `material`'s, by id.
+fn all_material(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, material: &Credentials, skip: Option<i64>) -> Result<Vec<i64>, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let want = compared(exchange_type, material);
+    let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id").map_err(db)?;
+    let ids: Vec<i64> = s.query_map([user_id, exchange_id], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+    Ok(ids.into_iter().filter(|id| Some(*id) != skip).filter(|id| stored_material(c, cipher, *id).is_some_and(|stored| compared(exchange_type, &stored) == want)).collect())
+}
+/// Key `id`'s key, secret and passphrase, decrypted (None: unreadable). Inside any transaction.
+fn stored_material(c: &Connection, cipher: &Cipher, id: i64) -> Option<Credentials> {
+    let (key, secret, passphrase): (Option<String>, Option<String>, Option<String>) =
+        c.query_row("SELECT key, secret, passphrase FROM api_keys WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).ok()?;
+    let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).ok()).unwrap_or(Some(String::new()));
+    Some(Credentials { redaction_values: vec![], key: open(key)?, secret: open(secret)?, passphrase: match passphrase { Some(p) => Some(cipher.decrypt(&p).ok()?), None => None }, ibkr: None })
+}
+/// Copy `other` of a key a save just read as account `read`'s (§9.1): its observation names that account now, so it is
+/// fenced on its own account at once; its account's standings end (a key event). The next read of it replaces this.
+pub fn record_copy(c: &Connection, cipher: &Cipher, other: i64, exchange_type: &str, read: &AccountId, now: DateTime<Utc>) -> Result<(), String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, read);
+    let exchange: i64 = c.query_row("SELECT exchange_id FROM api_keys WHERE id = ?1", [other], |r| r.get(0)).map_err(db)?;
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint, account_id_enc, observed_at) VALUES (?1, ?2, ?3, ?4, ?5)
+               ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint, account_id_enc = excluded.account_id_enc, observed_at = excluded.observed_at,
+               last_failure_at = NULL, last_failure_code = NULL", params![other, exchange, fingerprint, cipher.encrypt(&read.0).into_bytes(), format_time(now)]).map_err(db)?;
+    if let Some(account) = account_of_key(c, other).map_err(db)? { key_event(c, account).map_err(db)?; }
+    Ok(())
+}
+/// The observation fingerprint of a key whose material 2.x replaced in place under a known account (§9.2): it names no
+/// account, so the key is fenced on its account (`fenced_sql`) until a fresh read records what it reads.
+pub const UNCONFIRMED_AFTER_V2: &str = "unconfirmed-after-2.x";
+/// At a takeover after 2.x's window (#710 7a §1.1, §9.2): 2.x can replace a key's material in place. Every observed key
+/// under a fingerprinted account is compared by decrypting its stored material against the digest of the material it was
+/// read with; one that differs, or whose digest is unknown (nothing proves it unchanged), is fenced until a fresh identity
+/// read matches. #710 7a rule R5: the digests stay, so a later takeover compares again: a hand-back, a replacement in 2.x
+/// and a second takeover fence a key the first takeover saw unchanged. Rule S3: every key of a fingerprinted account is
+/// weighed, an observation or not: one 2.x added (no observation, no digest) is fenced the same way until a read.
+pub fn after_v2(c: &Connection, cipher: &Cipher) -> rusqlite::Result<()> {
+    if !ready(c)? { return Ok(()); }
+    let Some(key) = existing_key(c, cipher) else { return Ok(()) };
+    let mut s = c.prepare(&format!("SELECT k.id, k.exchange_id, o.material_digest FROM api_keys k LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id
+                                    JOIN exchange_accounts a ON a.id = {} WHERE a.fingerprint IS NOT NULL ORDER BY k.id", key_account_sql("k")))?;
+    let rows: Vec<(i64, i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    drop(s);
+    let mut touched = vec![];
+    for (id, exchange, digest) in rows {
+        if digest.as_ref().is_some_and(|digest| stored_material(c, cipher, id).is_some_and(|m| key.material_digest(&m) == *digest)) { continue; }
+        // Rules K4/N1: on an exchange with one live account a key with no digest (one 2.x added) syncs as on main until
+        // discovery reads it; with two or more, the reader selector waits for its read (`unread`) anyway.
+        if digest.is_none() {
+            let user: i64 = c.query_row("SELECT user_id FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?;
+            if accounts_of(c, user, exchange)?.len() < 2 { continue; }
+        }
+        touched.push(id);
+        c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint) VALUES (?1, ?2, ?3)
+                   ON CONFLICT (api_key_id) DO UPDATE SET fingerprint = excluded.fingerprint, account_id_enc = NULL, observed_credential_version = NULL",
+                  params![id, exchange, UNCONFIRMED_AFTER_V2])?;
+    }
+    for id in touched { settle(c, id).map_err(rusqlite::Error::InvalidParameterName)?; }
+    Ok(())
+}
+/// Whether stored key `id`'s material is `material`'s (`compared`).
+pub fn is_material(c: &Connection, cipher: &Cipher, id: i64, exchange_type: &str, material: &Credentials) -> bool {
+    stored_material(c, cipher, id).is_some_and(|stored| compared(exchange_type, &stored) == compared(exchange_type, material))
+}
+/// #710 7a rules F5 and R2: what a successful identity read of `material` (as account `read`) taught, whoever made it:
+/// discovery, a validation, a key save, the JSON save, and a save refused after its read. Every stored copy of that
+/// material of (user, exchange), in every slot, but `skip` (the key the read was made with, which `record` records itself)
+/// whose account knows another fingerprint is recorded as reading `read` (`record_copy`), so each is fenced on its own
+/// account at once. A copy that agrees, or whose account knows none, is left as it is.
+#[allow(clippy::too_many_arguments)]
+pub fn fence_copies(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, exchange_type: &str, material: &Credentials, read: &AccountId,
+                    skip: Option<i64>, now: DateTime<Utc>) -> Result<(), String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, read);
+    for other in all_material(c, cipher, user_id, exchange_id, exchange_type, material, skip)? {
+        let known: Option<String> = match account_of_key(c, other).map_err(db)? {
+            Some(account) => c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).optional().map_err(db)?.flatten(),
+            None => None,
+        };
+        if known.is_some_and(|k| k != fingerprint) { record_copy(c, cipher, other, exchange_type, read, now)?; }
+    }
+    crate::sync::settle_readers(c, user_id, exchange_id).map_err(|e| e.0)?;
+    Ok(())
+}
+
+/// A new account of (user, exchange): `max(number) + 1` over every row, tombstones included, so no number is reused.
+pub fn new_account(c: &Connection, user_id: i64, exchange_id: i64, now: DateTime<Utc>) -> rusqlite::Result<i64> {
+    c.execute("INSERT INTO exchange_accounts (user_id, exchange_id, number, created_at, updated_at)
+               SELECT ?1, ?2, coalesce(max(number), 0) + 1, ?3, ?3 FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2",
+              params![user_id, exchange_id, format_time(now)])?;
+    Ok(c.last_insert_rowid())
+}
+
+/// A save's identity read establishes its routed account's fingerprint (every key type), in the save's transaction.
+pub fn establish_read(c: &Connection, cipher: &Cipher, account: i64, exchange_type: &str, id: &AccountId, now: DateTime<Utc>) -> Result<(), String> {
+    let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, id);
+    establish_by_read(c, account, &fingerprint, &cipher.encrypt(&id.0).into_bytes(), now).map_err(|e| format!("account identity: {e}"))
+}
+
+/// The key's material digest (`IdentityKey::material_digest`), written for every venue's key with its save.
+/// None while the install has no identity key (a digest is an index only; `same_material` decrypts every key anyway).
+pub fn write_digest(c: &Connection, cipher: &Cipher, api_key_id: i64, exchange_id: i64, material: &Credentials) -> Result<(), String> {
+    if !ready(c).map_err(|e| format!("account identity: {e}"))? { return Ok(()); }
+    let Some(key) = existing_key(c, cipher) else { return Ok(()) };
+    let digest = key.material_digest(material);
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest) VALUES (?1, ?2, ?3)
+               ON CONFLICT (api_key_id) DO UPDATE SET material_digest = excluded.material_digest", params![api_key_id, exchange_id, digest])
+        .map(|_| ()).map_err(|e| format!("account identity: {e}"))
+}
+
 /// Fills an unknown account's fingerprint. A known one is never overwritten.
 fn establish(c: &Connection, account: i64, fingerprint: &str, encrypted: &[u8], now: DateTime<Utc>) -> rusqlite::Result<bool> {
     c.execute("UPDATE exchange_accounts SET fingerprint = ?2, account_id_enc = ?3, updated_at = ?4 WHERE id = ?1 AND fingerprint IS NULL",
@@ -1187,8 +1467,12 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                       params![api_key_id, exchange_id, digest, version, fingerprint, encrypted, at]).map_err(db)?;
             ensure_account(c, user_id, exchange_id, now).map_err(db)?;
             if reading_key(c, user_id, api_key_id)? {
-                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { establish(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
+                if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { establish_by_read(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
             }
+            fence_copies(c, cipher, user_id, exchange_id, &exchange_type, credentials, id, Some(api_key_id), now)?;
+            // Every successful read is new evidence (a fingerprint filled or replaced, or a key of the account confirming
+            // it): the exchange's duplicate standings are judged again now.
+            reconsider(c, user_id, exchange_id, now).map_err(db)?;
         }
         Observed::Failed(code) => {
             // A live key's definite failure on its current material is a contradiction: the account's standings end now. A
@@ -1209,18 +1493,25 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
             // A definite failure on this material is sticky: a transient one after it leaves it standing; only a successful
             // read (Observed::Read) lifts it.
             let sticky = !definite_failure(code) && stored.as_ref().and_then(|(_, last)| last.as_deref()).is_some_and(definite_failure);
+            // #710 7a §9.1/§9.2: a read that names nobody never lifts a fence (a read of another account, the takeover's
+            // `UNCONFIRMED_AFTER_V2`), even when the material is unknown (digests dropped at a takeover) or changed: only a
+            // successful read naming the account does.
+            let fences: bool = c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", fenced_sql(c, "k").map_err(db)?), [api_key_id], |r| r.get(0)).optional().map_err(db)?.unwrap_or(false);
             match stored.map(|(digest, _)| digest) {
                 Some(Some(stored)) if stored == digest && sticky => Ok(0),
                 Some(Some(stored)) if stored == digest => c.execute("UPDATE exchange_account_credentials SET last_failure_at = ?2, last_failure_code = ?3 WHERE api_key_id = ?1",
                                                               params![api_key_id, at, code]),
-                Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL, fingerprint = NULL,
-                                      account_id_enc = NULL, observed_at = NULL, last_failure_at = ?4, last_failure_code = ?5 WHERE api_key_id = ?1",
-                                     params![api_key_id, exchange_id, digest, at, code]),
+                Some(_) => c.execute("UPDATE exchange_account_credentials SET exchange_id = ?2, material_digest = ?3, observed_credential_version = NULL,
+                                      fingerprint = CASE WHEN ?6 THEN ?7 END, account_id_enc = NULL,
+                                      observed_at = NULL, last_failure_at = ?4, last_failure_code = ?5 WHERE api_key_id = ?1",
+                                     params![api_key_id, exchange_id, digest, at, code, fences, UNCONFIRMED_AFTER_V2]),
                 None => c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, material_digest, last_failure_at, last_failure_code) VALUES (?1, ?2, ?3, ?4, ?5)",
                                   params![api_key_id, exchange_id, digest, at, code]),
             }.map_err(db)?;
         }
     }
+    // Rules M4/N7: a fence, or its lifting, moves the account's reader.
+    settle(c, api_key_id)?;
     Ok(())
 }
 
@@ -1228,33 +1519,86 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
 /// too when it has no other key, the user no history on its exchange (ledger rows carry no account before #710 slice
 /// 4, so every one counts), and the account no stored balance or venue snapshot of its own (#710 slice 5). The account row stays (numbers are never reused); it is tombstoned only from #710 slice 7 on,
 /// since a tombstone followed by a reconnect would make number 2 before the slices that carry one.
-pub fn forget(c: &Connection, api_key_id: i64, account: &Account) -> rusqlite::Result<()> {
+pub fn forget(c: &Connection, api_key_id: i64, account: &Account, now: DateTime<Utc>) -> rusqlite::Result<()> {
     if !ready(c)? { return Ok(()); }
     if let Some(id) = account.id { key_event(c, id)?; }
     c.execute("DELETE FROM exchange_account_credentials WHERE api_key_id = ?1", [api_key_id])?;
     c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [api_key_id])?;
     let Some(id) = account.id else { return Ok(()) };
-    c.execute(&format!("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1
-               AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
-               AND NOT EXISTS (SELECT 1 FROM api_keys k WHERE {})
-               AND NOT EXISTS (SELECT 1 FROM account_transactions WHERE user_id = ?2 AND exchange_id = ?3)
-               AND NOT EXISTS (SELECT 1 FROM exchange_account_balances WHERE account_id = ?1)
-               AND NOT EXISTS (SELECT 1 FROM exchange_account_snapshots WHERE account_id = ?1)", account.keys("k")),
-              [id, account.user_id, account.exchange_id])?;
+    // #710 7a §4: an account 2+ nothing names any more is tombstoned (its number never reused); one with history stays.
+    let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)).optional()?.unwrap_or(1);
+    // Anything else naming it keeps it live, and with it its fingerprint: a reconnect of another wallet never inherits
+    // the bot, rule or order that stays (it routes to a new account, §1.1). One predicate, for every number.
+    let named = named(c, id)?;
+    let settled = |c: &Connection| crate::sync::settle_readers(c, account.user_id, account.exchange_id).map(|_| ()).map_err(|e| rusqlite::Error::InvalidParameterName(e.0));
+    if number > 1 && !named { tombstone(c, id, now)?; return settled(c); }
+    settled(c)?;
+    if named { return Ok(()); }
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1 AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)", [id])?;
     Ok(())
+}
+
+/// Whether anything names placed account `id` (#710 7a §4, one presence rule; rule F6): a key, a bot on it (any status),
+/// a bot order or ledger row placed under it, a balance, a snapshot, an import row, observation or cutoff, a rule or a
+/// standalone order. A number 1's keys, bots, bot orders and ledger rows name it without a membership row.
+pub fn named(c: &Connection, id: i64) -> rusqlite::Result<bool> {
+    let first: Option<(i64, i64)> = c.query_row("SELECT user_id, exchange_id FROM exchange_accounts WHERE id = ?1 AND number = 1", [id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
+    if let Some((user, exchange)) = first {
+        let implicit: bool = c.query_row(
+            "SELECT EXISTS(SELECT 1 FROM api_keys k WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND NOT EXISTS(SELECT 1 FROM exchange_account_keys m WHERE m.api_key_id = k.id))
+             OR EXISTS(SELECT 1 FROM bots b WHERE b.user_id = ?1 AND b.exchange_id = ?2 AND NOT EXISTS(SELECT 1 FROM exchange_account_bots m WHERE m.bot_id = b.id))
+             OR EXISTS(SELECT 1 FROM transactions t JOIN bots b ON b.id = t.bot_id WHERE b.user_id = ?1 AND t.exchange_id = ?2
+                       AND NOT EXISTS(SELECT 1 FROM exchange_account_transactions m WHERE m.transaction_id = t.id))
+             OR EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND a.exchange_id = ?2
+                       AND NOT EXISTS(SELECT 1 FROM exchange_account_rows m WHERE m.account_transaction_id = a.id))",
+            [user, exchange], |r| r.get(0))?;
+        if implicit { return Ok(true); }
+    }
+    // #710 7a rule R3: every row of a Rust-owned table that names the account (KuCoin's coverage windows and withheld fills
+    // as much as keys, bots, rows, balances, snapshots, imports, rules and standalone orders), read from the schema.
+    let tables = naming_tables(c)?;
+    if tables.is_empty() { return Ok(false); }
+    let any = tables.iter().map(|t| format!("EXISTS(SELECT 1 FROM \"{t}\" WHERE account_id = ?1)")).collect::<Vec<_>>().join(" OR ");
+    c.query_row(&format!("SELECT {any}"), [id], |r| r.get(0))
+}
+/// #710 7a rule R3: the Rust-owned tables (`store::REGISTRY`) whose rows name an account: every one with an `account_id`
+/// column in this install's schema, so a table added later counts without being listed.
+pub fn naming_tables(c: &Connection) -> rusqlite::Result<Vec<String>> {
+    let owned = crate::store::REGISTRY.live_tables();
+    let mut s = c.prepare("SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND p.name = 'account_id' ORDER BY m.name")?;
+    let names = s.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    // Rule P4: an account's proof and reader generation are bookkeeping about it, not holdings of it.
+    Ok(names.into_iter().filter(|n| owned.contains(&n.as_str()) && !["account_fingerprint_proofs", "ledger_reader_generations"].contains(&n.as_str())).collect())
+}
+
+/// #710 7a §4, the tracker's presence rule: the user's live accounts numbered 2+ that `named` keeps, as (exchange, account).
+/// A number 1 is present by its keys and rows, which name it without a membership row.
+pub fn kept(c: &Connection, user_id: i64) -> rusqlite::Result<Vec<(i64, i64)>> {
+    if !numbered(c)? { return Ok(vec![]); }
+    let mut s = c.prepare("SELECT exchange_id, id FROM exchange_accounts WHERE user_id = ?1 AND number > 1 AND removed_at IS NULL ORDER BY id")?;
+    let rows = s.query_map([user_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut out = vec![];
+    for (exchange, id) in rows { if named(c, id)? { out.push((exchange, id)); } }
+    Ok(out)
 }
 
 /// #710 Merge (PLAN-710-6 §6.2 step 11): account `id` (a number 2+) is removed: its identity goes, its row stays as the
 /// tombstone that keeps its number from being reused. Every live lookup (`first_account`, `accounts_of`, `pick`) skips it.
 pub fn tombstone(c: &Connection, id: i64, now: DateTime<Utc>) -> rusqlite::Result<()> {
     key_event(c, id)?;
-    c.execute("UPDATE exchange_accounts SET removed_at = ?2, fingerprint = NULL, account_id_enc = NULL, updated_at = ?2 WHERE id = ?1 AND number > 1",
-              params![id, format_time(now)])?;
+    let removed = c.execute("UPDATE exchange_accounts SET removed_at = ?2, fingerprint = NULL, account_id_enc = NULL, updated_at = ?2 WHERE id = ?1 AND number > 1",
+                            params![id, format_time(now)])?;
+    // Rule P4: its proof and reader generation go with it.
+    if removed > 0 {
+        for t in ["account_fingerprint_proofs", "ledger_reader_generations"] {
+            if crate::engine::rules::table_exists(c, t)? { c.execute(&format!("DELETE FROM {t} WHERE account_id = ?1"), [id])?; }
+        }
+    }
     Ok(())
 }
 
 /// An import for (user, exchange), inside the import's own transaction: the account row exists afterwards; a venue-native
-/// export's id fills its unknown fingerprint, and is recorded as an import observation either way.
+/// export's id is recorded as an import observation (never the account's fingerprint, rule M3).
 pub fn record_import(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, id: Option<&AccountId>, now: DateTime<Utc>) -> Result<(), String> {
     record_import_to(c, cipher, user_id, exchange_id, None, id, now)
 }
@@ -1268,10 +1612,53 @@ pub fn record_import_to(c: &Connection, cipher: &Cipher, user_id: i64, exchange_
     let key = key(c, cipher, now)?;
     let fingerprint = key.fingerprint(&exchange_type, id);
     let encrypted = cipher.encrypt(&id.0).into_bytes();
-    establish(c, account, &fingerprint, &encrypted, now).map_err(db)?;
-    c.execute("INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-              params![user_id, exchange_id, fingerprint, encrypted, format_time(now)]).map_err(db)?;
+    // #710 7a rule M3/L3: a file is the user's word, never the account's identity: its UID is an import observation only
+    // (a routing hint, and what the import's warnings read); only a key read sets a fingerprint.
+    c.execute("INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+              params![user_id, exchange_id, fingerprint, encrypted, format_time(now), account]).map_err(db)?;
     Ok(())
+}
+
+/// #710 7a: the live account of (user, exchange) that holds an import of export account `id` recorded as a conflict
+/// (the account's own fingerprint another): a file imported there before 7a, whose rows must not be imported again.
+pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, id: &AccountId, now: DateTime<Utc>) -> Result<Option<i64>, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    if !ready(c).map_err(db)? { return Ok(None); }
+    let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
+    let fingerprint = key(c, cipher, now)?.fingerprint(&exchange_type, id);
+    c.query_row("SELECT x.id FROM exchange_account_imports i JOIN exchange_accounts x ON x.id = i.account_id WHERE i.user_id = ?1 AND i.exchange_id = ?2 \
+                 AND i.fingerprint = ?3 AND x.removed_at IS NULL AND x.fingerprint IS NOT NULL AND x.fingerprint <> ?3 ORDER BY x.number LIMIT 1",
+                params![user_id, exchange_id, fingerprint], |r| r.get(0)).optional().map_err(db)
+}
+
+/// #710 7a rules M1, N5, P8: what the identity records say about writing export account `id`'s history on `dest` (None: a
+/// new account) of (user, exchange), read inside the import's transaction. `holders`: the other live accounts whose
+/// fingerprint, key observation or import observation is the export's (by number). `foreign`: `dest`'s fingerprint, a
+/// key observation of it, or an import observation of it names another account. The takeover's sentinel names nobody.
+/// `facts`: what was compared (each account's distinct fingerprints seen), for the answer's digest (rule N4).
+pub struct ImportEvidence { pub holders: Vec<i64>, pub foreign: bool, pub facts: String }
+pub fn import_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId, now: DateTime<Utc>) -> Result<ImportEvidence, String> {
+    let db = |e: rusqlite::Error| format!("account identity: {e}");
+    let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
+    let file = key(c, cipher, now)?.fingerprint(&exchange_type, id);
+    let mut out = ImportEvidence { holders: vec![], foreign: false, facts: String::new() };
+    for (account, _) in accounts_of(c, user_id, exchange_id).map_err(db)? {
+        let Some(row) = Account::by_id(c, account).map_err(db)? else { continue };
+        let own: Option<String> = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).map_err(db)?;
+        let mut seen: Vec<String> = c.prepare(&format!("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                                                         WHERE {} AND o.fingerprint IS NOT NULL AND o.fingerprint <> ?1
+                                                         UNION SELECT fingerprint FROM exchange_account_imports WHERE account_id = ?2 ORDER BY 1", row.keys("k"))).map_err(db)?
+            .query_map(params![UNCONFIRMED_AFTER_V2, account], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+        seen.extend(own.clone());
+        seen.sort();
+        seen.dedup();
+        let theirs = seen.contains(&file);
+        let other = seen.iter().any(|f| *f != file);
+        // Rule N4: the fingerprints themselves, so one more seen meanwhile makes an open answer stale.
+        out.facts.push_str(&format!("{account}:{};", seen.join(",")));
+        if Some(account) == dest { out.foreign = other; } else if theirs { out.holders.push(account); }
+    }
+    Ok(out)
 }
 
 /// The account id of a venue-native export, read over every record before any is skipped: the first of `columns` the
@@ -1306,12 +1693,14 @@ pub enum Standing {
 
 /// The distinct fingerprints of (user, exchange)'s current credentials (keys still stored) and of its imported exports,
 /// and the account's own.
+/// #710 7a §3: of the exchange's number-1 account only, so a file or key routed to another account is no conflict here.
 fn seen(c: &Connection, user_id: i64, exchange_id: i64) -> rusqlite::Result<(Option<String>, Vec<String>)> {
-    let account = first_account(c, user_id, exchange_id)?.and_then(|(_, fingerprint)| fingerprint);
-    let mut s = c.prepare("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
-                           WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL
-                           UNION SELECT fingerprint FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY 1")?;
-    let observed = s.query_map([user_id, exchange_id], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
+    let first = first_account(c, user_id, exchange_id)?;
+    let account = first.as_ref().and_then(|(_, fingerprint)| fingerprint.clone());
+    let mut s = c.prepare(&format!("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+                           WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND o.fingerprint IS NOT NULL AND {} IS ?3
+                           UNION SELECT fingerprint FROM exchange_account_imports WHERE user_id = ?1 AND exchange_id = ?2 AND coalesce(account_id, ?3) IS ?3 ORDER BY 1", key_account_sql("k")))?;
+    let observed = s.query_map(params![user_id, exchange_id, first.map(|(id, _)| id)], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
     Ok((account, observed))
 }
 
@@ -1355,6 +1744,8 @@ pub fn credential_standing(c: &Connection, api_key_id: i64) -> rusqlite::Result<
 /// A credential the discovery job reads: its key, venue, material and the ciphertext version it was read under.
 pub struct Due { pub api_key_id: i64, pub exchange_type: String, pub credentials: Credentials, pub version: crate::engine::model::CredentialVersion }
 
+/// When `due` last handed out each key, in this process.
+static ATTEMPTED: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<i64, DateTime<Utc>>>> = std::sync::LazyLock::new(Default::default);
 /// The credentials of a supported venue, every key type, due an observation at `now`: never observed (or not since its
 /// material changed), its stored ciphertext changed since, or observed longer ago than `observe_every`, unless a read
 /// failed within `retry_after`. A key whose values cannot be decrypted is left out.
@@ -1363,10 +1754,16 @@ pub fn due(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Vec<Du
     if !ready(c).map_err(db)? { return Ok(vec![]); }
     let key = existing_key(c, cipher);
     let mut s = c.prepare("SELECT k.id, e.type, o.material_digest, o.observed_credential_version, o.fingerprint, o.observed_at, o.last_failure_at
-                           FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id ORDER BY k.id").map_err(db)?;
+                           FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id LEFT JOIN exchange_account_credentials o ON o.api_key_id = k.id
+                           ORDER BY (o.observed_at IS NOT NULL OR o.last_failure_at IS NOT NULL), max(coalesce(o.observed_at, ''), coalesce(o.last_failure_at, '')), k.id").map_err(db)?;
     type Row = (i64, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
-    let rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).map_err(db)?
+    let mut rows = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))).map_err(db)?
         .collect::<Result<Vec<Row>, _>>().map_err(db)?;
+    // A transient failure after a definite one stores nothing (`record`), so the stored times alone could hand the same
+    // keys every pass: after the never-attempted, the least recently handed out by this process goes first.
+    // ponytail: process memory, so a restart starts the rotation over; a Rust-owned table if restarts ever starve a key.
+    let mut attempted = ATTEMPTED.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    rows.sort_by_key(|r| (r.5.is_some() || r.6.is_some(), attempted.get(&r.0).copied()));
     let time = |t: &Option<String>| t.as_deref().and_then(|t| parse_time(t).ok());
     let mut out = vec![];
     for (id, exchange_type, digest, version, fingerprint, observed_at, failed_at) in rows {
@@ -1377,7 +1774,7 @@ pub fn due(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Vec<Du
         let version_same = version.as_deref().and_then(|v| serde_json::from_str::<Value>(v).ok())
             .is_some_and(|stored| crate::engine::model::stamp_current_for(&stored, &current.cache_stamp()).is_fresh());
         let fresh = fingerprint.is_some() && time(&observed_at).is_some_and(|t| now - t < observe_every());
-        if !(material_same && version_same && fresh) { out.push(Due { api_key_id: id, exchange_type, credentials, version: current }); }
+        if !(material_same && version_same && fresh) { attempted.insert(id, now); out.push(Due { api_key_id: id, exchange_type, credentials, version: current }); }
         if out.len() == PER_RUN { break; }
     }
     Ok(out)
@@ -1392,6 +1789,27 @@ pub fn publish(c: &Connection, cipher: &Cipher, due: &Due, observed: &Observed, 
     record(&tx, cipher, due.api_key_id, &due.credentials, &due.version, observed, now)?;
     tx.commit().map_err(|e: rusqlite::Error| e.to_string())?;
     Ok(true)
+}
+
+/// (account, reader generation) of every live account of key `key`'s exchange.
+pub fn generations_of_key(c: &Connection, key: i64) -> Result<Vec<(i64, i64)>, String> {
+    let row: Option<(i64, i64)> = c.query_row("SELECT user_id, exchange_id FROM api_keys WHERE id = ?1", [key], |r| Ok((r.get(0)?, r.get(1)?))).optional().map_err(|e| e.to_string())?;
+    let Some((user, exchange)) = row else { return Ok(vec![]) };
+    let mut out = vec![];
+    for (account, _) in accounts_of(c, user, exchange).map_err(|e| e.to_string())? { out.push((account, crate::sync::reader_generation(c, account).map_err(|e| e.0)?)); }
+    Ok(out)
+}
+
+/// #710 7a rules K5/M4: the readers of key `key`'s exchange's accounts whose generation moved since `before`
+/// (`generations_of_key`, read before the write): each has its ledger and balance jobs woken after the commit.
+pub fn moved_readers(c: &Connection, key: i64, before: &[(i64, i64)]) -> Result<Vec<i64>, String> {
+    let mut out = vec![];
+    for (account, generation) in generations_of_key(c, key)? {
+        if before.contains(&(account, generation)) { continue; }
+        let Some(a) = Account::by_id(c, account).map_err(|e| e.to_string())? else { continue };
+        out.extend(crate::sync::reader_of(c, &a.keys("k")).map_err(|e| e.0)?);
+    }
+    Ok(out)
 }
 
 /// The discovery job: hourly, it observes the credentials `due` finds through each venue's key-check egress (its proxy
@@ -1420,7 +1838,12 @@ impl<C: crate::sync::jobs::Connect> crate::jobs::Job for Discovery<C> {
                 };
                 let Some(observed) = observed else { continue };
                 let at = cx.clock.now();
+                let key = credential.api_key_id;
+                let before = match cx.db.run(move |c, _| generations_of_key(c, key)).await { Ok(g) => g, Err(e) => return Outcome::Failed(e) };
                 if let Err(e) = cx.db.run(move |c, cipher| publish(c, cipher, &credential, &observed, at)).await { return Outcome::Failed(e); }
+                // #710 7a rules K5/M4: a read that moved an account's reader (a fence, or its lifting) wakes the new reader.
+                let moved = match cx.db.run(move |c, _| moved_readers(c, key, &before)).await { Ok(m) => m, Err(e) => return Outcome::Failed(e) };
+                for r in moved { for job in [crate::sync::jobs::LEDGER_SYNC, crate::sync::jobs::BALANCE_SYNC] { cx.wakers.wake(job, Some(&r.to_string()), None); } }
             }
             Outcome::Done
         })

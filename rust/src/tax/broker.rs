@@ -14,6 +14,10 @@
 //! - D-TAX-BROKER-VAP-DISTRIBUTIONS: the fund's distributions of the whole year count for every lot (§ 18 Abs. 1 S. 1).
 //! - D-TAX-BROKER-VAP-NO-PRICE: a year with no positive Basiszins asks for no price.
 //! - D-TAX-BROKER-2023-LINES: the 2023 report has no Vorabpauschale rows (KAP-INV 2023 lines 9–13 "frei").
+//! - D-BROKER-ONE-DEPOT-PER-ACCOUNT (#710): FIFO runs per Alpaca account (one depot, BMF Rn. 97), each account's rows
+//!   walked on their own and the report joining them. One account whose rows two keys wrote (a read-only key, later a
+//!   trading key) is one depot: 2.x's `several_accounts` warning, which counted key ids, is gone, and with it the
+//!   report's "incomplete" flag it raised.
 //! - D-TAX-BROKER-PANEL: the classification panel shows an uncovered sale and a missing Basiszins too (`classification_rows`);
 //!   a missing close or ECB rate stays the report's (the run fetches both before its walk).
 use super::{line, Cell, CryptoScope};
@@ -164,7 +168,7 @@ fn vorabpauschale(year: i32, acquired: NaiveDate, start: &Dec, end: &Dec, distri
 // ---- the ledger rows ---------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-struct Rec { id: i64, kind: i64, key: Option<i64>, base: String, amount: Dec, quote: Option<String>, quote_amount: Option<Dec>, fee: Option<Dec>, at: DateTime<Utc>, local: NaiveDate, raw: Value,
+struct Rec { id: i64, kind: i64, /** The row's account (#710; 0 on an install without the account tables). */ account: i64, base: String, amount: Dec, quote: Option<String>, quote_amount: Option<Dec>, fee: Option<Dec>, at: DateTime<Utc>, local: NaiveDate, raw: Value,
              /// The class its stored asset records (`prices::recorded_class`): Some(true) a security, Some(false) a coin.
              class: Option<bool> }
 
@@ -215,9 +219,9 @@ fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
     let zone: String = c.query_row("SELECT COALESCE(time_zone, 'UTC') FROM users WHERE id = ?1", [user], |r| r.get(0))?;
     // A duplicate account's rows repeat its survivor's (#710, PLAN-710-6 §5.2).
     let mut s = c.prepare(&format!("SELECT t.id, t.entry_type, t.base_currency, t.base_amount, t.quote_currency, t.quote_amount, t.fee_amount, t.transacted_at, t.raw_data, \
-                           t.api_key_id, ba.id, ba.external_id, ba.category FROM account_transactions t LEFT JOIN assets ba ON ba.id = t.base_asset_id \
+                           COALESCE({}, 0), ba.id, ba.external_id, ba.category FROM account_transactions t LEFT JOIN assets ba ON ba.id = t.base_asset_id \
                            WHERE t.user_id = ?1 AND t.exchange_id = ?2 AND t.transacted_at < ?3 AND {} ORDER BY t.transacted_at, t.id",
-                          crate::identity::counted(c, user, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?))?;
+                          crate::venue_ids::Scope::install(c)?.row_account("t"), crate::identity::counted(c, user, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?))?;
     // Every row of the year in any zone; each kept by its own day's year.
     let until = format!("{}-01-02 12:00:00", year + 1);
     let mut rows = s.query(rusqlite::params![user, exchange, until])?;
@@ -230,7 +234,7 @@ fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
         let local = crate::web::timezone::local(at, &zone).date_naive();
         let asset: Option<i64> = r.get(10)?;
         let class = crate::tracker::prices::recorded_class(asset.map(|id| Ok::<_, rusqlite::Error>((id, r.get(11)?, r.get(12)?))).transpose()?.as_ref());
-        out.push(Rec { class, id: r.get(0)?, kind: r.get(1)?, key: r.get(9)?, base: r.get(2)?, amount: number(3)?.unwrap_or_else(Dec::zero), quote: r.get(4)?,
+        out.push(Rec { class, id: r.get(0)?, kind: r.get(1)?, account: r.get(9)?, base: r.get(2)?, amount: number(3)?.unwrap_or_else(Dec::zero), quote: r.get(4)?,
                        quote_amount: number(5)?, fee: number(6)?, at, local,
                        raw: raw.and_then(|t| serde_json::from_str(&t).ok()).filter(Value::is_object).unwrap_or_else(|| serde_json::json!({})) });
     }
@@ -351,13 +355,14 @@ struct Walk<'a> {
 }
 
 impl<'a> Walk<'a> {
-    fn new(c: &'a Connection, user: i64, exchange: i64, year: i32, closes: &'a Closes<'a>) -> R<Walk<'a>> {
+    /// One account's walk (one depot) over its rows `recs`.
+    fn new(c: &'a Connection, user: i64, year: i32, closes: &'a Closes<'a>, recs: Vec<Rec>) -> R<Walk<'a>> {
         let scope = CryptoScope::new(c, user)?;
         let mut w = Walk { c, user, year, fx: FxTable::load(c)?, closes, recs: vec![], rates: BTreeMap::new(), gross_usd: BTreeMap::new(),
                            scale: BTreeMap::new(), gross_by_day: BTreeMap::new(), credited: BTreeMap::new(), withheld: BTreeMap::new(), paid_by_day: BTreeMap::new(), states: BTreeMap::new(), refusals: BTreeMap::new(),
                            warnings: vec![], warned: HashSet::new(), disposals: vec![], income: vec![], fee_total: Dec::zero(), cash: Kap::new() };
         // `universe.reject { cryptocurrency?(instrument_symbol(record)) }`, the ambiguous categories warned on the way.
-        for r in records(c, user, exchange, year)? {
+        for r in recs {
             let crypto = match r.symbol() {
                 None => false,
                 // #1061: the asset a row stored decides its class (a coin is the crypto report's), whatever else shares the
@@ -370,9 +375,6 @@ impl<'a> Walk<'a> {
             };
             if !crypto { w.recs.push(r); }
         }
-        // FIFO is per depot (BMF Rn. 97): several Alpaca accounts are walked as one, and said so.
-        let keys: BTreeSet<i64> = w.recs.iter().filter_map(|r| r.key).collect();
-        if keys.len() > 1 { w.warn("several_accounts", None, Detail::Text(keys.len().to_string())); }
         w.build_states()?;
         Ok(w)
     }
@@ -793,6 +795,23 @@ impl<'a> Walk<'a> {
     }
 }
 
+/// FIFO is per depot (BMF Rn. 97): each Alpaca account's rows walked on their own (#710: by the row's account, whatever
+/// key wrote it, a deleted one included), each run; one walk when there is no row.
+fn walks<'a>(c: &'a Connection, user: i64, exchange: i64, year: i32, closes: &'a Closes<'a>) -> R<Vec<Walk<'a>>> {
+    let mut by_account: BTreeMap<i64, Vec<Rec>> = BTreeMap::new();
+    for r in records(c, user, exchange, year)? { by_account.entry(r.account).or_default().push(r); }
+    if by_account.is_empty() { by_account.insert(0, vec![]); }
+    let mut out = vec![];
+    for (_, recs) in by_account {
+        let mut walk = Walk::new(c, user, year, closes, recs)?;
+        walk.run()?;
+        out.push(walk);
+    }
+    Ok(out)
+}
+
+fn kap_sum(a: &Kap, b: &Kap) -> R<Kap> { Ok(Kap { z19: add(&a.z19, &b.z19)?, z20: add(&a.z20, &b.z20)?, z22: add(&a.z22, &b.z22)?, z23: add(&a.z23, &b.z23)?, z41: add(&a.z41, &b.z41)? }) }
+
 /// FundClassification.resolve: the user's classification, else a proposal from the catalogue (an ETF a fund of the
 /// other category, a stock a share), else unclassified. (kind, category, persisted).
 pub fn resolve(c: &Connection, user: i64, symbol: &str) -> R<(Option<usize>, Option<usize>, bool)> {
@@ -814,9 +833,7 @@ pub fn resolve(c: &Connection, user: i64, symbol: &str) -> R<(Option<usize>, Opt
 pub fn needs(c: &Connection, user: i64, year: i32) -> R<Vec<Window>> {
     let Some(exchange) = broker_exchange(c, user)? else { return Ok(vec![]) };
     let closes = Closes::Needs(RefCell::new(BTreeSet::new()));
-    let mut walk = Walk::new(c, user, exchange, year, &closes)?;
-    walk.run()?;
-    drop(walk);
+    drop(walks(c, user, exchange, year, &closes)?);
     let Closes::Needs(asked) = closes else { return Ok(vec![]) };
     Ok(asked.into_inner().into_iter().collect())
 }
@@ -825,9 +842,17 @@ pub fn needs(c: &Connection, user: i64, year: i32) -> R<Vec<Window>> {
 /// shows every refusal the report would make but a missing close or ECB rate (the run fetches both first).
 pub fn classification_rows(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<SymbolRow>> {
     let closes = Closes::Panel(c);
-    let mut walk = Walk::new(c, user, exchange, year, &closes)?;
-    walk.run()?;
-    Ok(walk.symbol_rows())
+    // A symbol held in several accounts is one row, its reasons every account's.
+    let mut rows: BTreeMap<String, SymbolRow> = BTreeMap::new();
+    for walk in walks(c, user, exchange, year, &closes)? {
+        for row in walk.symbol_rows() {
+            match rows.get_mut(&row.symbol) {
+                Some(kept) => { let reasons = kept.reasons.clone(); kept.reasons = REFUSAL_ORDER.iter().copied().filter(|r| reasons.contains(r) || row.reasons.contains(r)).collect(); }
+                None => { rows.insert(row.symbol.clone(), row); }
+            }
+        }
+    }
+    Ok(rows.into_values().collect())
 }
 
 /// Tax::BrokerReport#to_csv, in German (the form's language), from the stored closes but the `failed` windows.
@@ -835,12 +860,32 @@ pub fn report(c: &Connection, user: i64, year: i32, failed: &HashSet<Window>) ->
     let exchange = broker_exchange(c, user)?.ok_or_else(|| FiguresError::NotComputed("no Alpaca broker ledger".into()))?;
     let name: String = c.query_row("SELECT name FROM exchanges WHERE id = ?1", [exchange], |r| r.get(0))?;
     let closes = Closes::Stored { c, failed };
-    let mut walk = Walk::new(c, user, exchange, year, &closes)?;
-    walk.run()?;
-    let unclassified: Vec<String> = walk.states.values().filter(|s| s.kind.is_none()).map(|s| s.symbol.clone()).collect();
+    let mut all = walks(c, user, exchange, year, &closes)?;
+    let unclassified: Vec<String> = all.iter().flat_map(|w| w.states.values().filter(|s| s.kind.is_none()).map(|s| s.symbol.clone())).collect::<BTreeSet<_>>().into_iter().collect();
     let summaries = unclassified.is_empty();
-    let kap = if summaries { Some(walk.kap()?) } else { None };
-    let inv = if summaries { Some(walk.kap_inv()?) } else { None };
+    let (mut kap, mut inv) = (if summaries { Some(Kap::new()) } else { None }, if summaries { Some(BTreeMap::<usize, Inv>::new()) } else { None });
+    for walk in &mut all {
+        if let Some(total) = &mut kap { *total = kap_sum(total, &walk.kap()?)?; }
+        if let Some(total) = &mut inv {
+            for (category, i) in walk.kap_inv()? {
+                let t = total.entry(category).or_insert_with(Inv::new);
+                *t = Inv { distributions: add(&t.distributions, &i.distributions)?, vap: add(&t.vap, &i.vap)?, sale: add(&t.sale, &i.sale)? };
+            }
+        }
+    }
+    // One report: the other accounts' rows, warnings and fees joined to the first's, in the walk's order.
+    let mut rest = all.split_off(1);
+    let mut walk = all.pop().ok_or_else(|| FiguresError::NotComputed("no walk".into()))?;
+    for other in &mut rest {
+        walk.disposals.append(&mut other.disposals);
+        walk.income.append(&mut other.income);
+        for w in std::mem::take(&mut other.warnings) { walk.warn(w.code, w.symbol, w.detail); }
+        walk.fee_total = add(&walk.fee_total, &other.fee_total)?;
+    }
+    if !rest.is_empty() {
+        walk.disposals.sort_by(|a, b| (a.sold_on, &a.symbol).cmp(&(b.sold_on, &b.symbol)));
+        walk.income.sort_by(|a, b| (a.date, a.symbol.as_deref().unwrap_or(""), a.activity.as_str()).cmp(&(b.date, b.symbol.as_deref().unwrap_or(""), b.activity.as_str())));
+    }
     let complete = walk.warnings.is_empty();
     csv(&walk, &name, kap.as_ref(), inv.as_ref(), &unclassified, complete)
 }
@@ -1013,6 +1058,26 @@ mod tests {
                    VALUES (1, 1, ?1, 'FNDX', ?2, 'USD', ?3, ?4, '{}', '2026-01-01', '2026-01-01')", rusqlite::params![kind, amount, usd, at]).unwrap();
     }
 
+    /// D-BROKER-ONE-DEPOT-PER-ACCOUNT (Codex branch r3, broker.rs:374): one account whose rows were written by two keys,
+    /// its read-only key first and its trading key later, is one depot: one walk over both keys' rows, FIFO across them,
+    /// and no warning, so the report stays complete. 2.x warned `several_accounts` (two key ids) and called it incomplete.
+    #[test]
+    fn one_account_with_two_keys_is_one_depot_and_its_report_stays_complete() {
+        let c = install();
+        row(&c, 0, "10", "100", "2024-02-01 10:00:00");
+        row(&c, 0, "10", "300", "2024-03-01 10:00:00");
+        row(&c, 1, "15", "600", "2024-06-03 10:00:00");
+        c.execute("UPDATE account_transactions SET api_key_id = CASE WHEN id = 1 THEN 1 ELSE 2 END", []).unwrap();
+        let failed = HashSet::new();
+        let closes = Closes::Stored { c: &c, failed: &failed };
+        let all = walks(&c, 1, 1, 2024, &closes).unwrap();
+        assert_eq!(all.len(), 1, "one depot");
+        let w = &all[0];
+        assert_eq!(w.recs.len(), 3, "both keys' rows");
+        assert_eq!(w.disposals.len(), 1);
+        assert!(w.warnings.is_empty(), "complete: {:?}", w.warnings.iter().map(|w| w.code).collect::<Vec<_>>());
+    }
+
     /// D-TAX-BROKER-VAP-START: 2 January 2023 was an NYSE holiday; the 3rd is the year's first close and makes the window fresh.
     #[test]
     fn the_year_s_first_close_may_follow_a_holiday() {
@@ -1087,8 +1152,7 @@ mod tests {
         }
         let failed = HashSet::new();
         let closes = Closes::Stored { c: &c, failed: &failed };
-        let mut w = Walk::new(&c, 1, 1, 2025, &closes).unwrap();
-        w.run().unwrap();
+        let w = walks(&c, 1, 1, 2025, &closes).unwrap().remove(0);
         assert_eq!(w.recs.iter().map(|r| r.id).collect::<Vec<_>>(), [2, 3, 5], "the coin's rows are not walked");
         let lots = &w.states["BTC"].ledger.lots;
         assert_eq!(lots.iter().map(|l| l.units.clone()).collect::<Vec<_>>(), [n("15")]);

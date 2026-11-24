@@ -124,6 +124,12 @@ impl<F: VenueFactory> Engine<F> {
     fn venue_for(&self, bot: &model::Bot) -> Result<(crate::venue::Handle<F::V>, Option<model::CredentialVersion>), EngineError> { venue_for(&self.primary, &self.factory, &self.cipher, bot) }
 }
 
+/// When a pass that met CredentialsChanged runs again: at once, on a fresh handle for the new key; but a key fenced for
+/// reading another account (#710 7a §9.1) is the same key on every pass, so it waits as a stale bot does.
+fn credentials_retry(c: &Connection, bot_id: i64, now_us: i64) -> Result<i64, EngineError> {
+    Ok(if model::key_fenced(c, &model::load_bot(c, bot_id)?)? { now_us + STALE_RECHECK_US } else { now_us })
+}
+
 /// The bot's venue. An IBKR bot's is built for the account it belongs to (`ibkr_account::bot_binding`): one whose key is
 /// bound to another account gets a venue that refuses every call, so its placement, recovery, polls, cancels and
 /// liquidation never reach IBKR (D-IBKR-BOT-ACCOUNT).
@@ -137,7 +143,8 @@ pub(crate) fn venue_for<F: VenueFactory>(primary: &Connection, factory: &F, ciph
     } else { factory.for_bot_with_redaction(&exchange, credentials, sensitive) };
     // #710: the bot's account (none for a request with no bot: `key_holder`).
     let venue = match crate::venue_ids::Scope::of_bot(primary, bot.id)? { Some(scope) => crate::venue::Venue::for_account(venue, scope), None => venue };
-    Ok((crate::venue::Handle::new(venue,version.clone()),version))
+    // #710 7a rule R1: a key found to open another account gets a handle that sends nothing.
+    Ok((crate::venue::Handle::new(venue,version.clone()).fenced_by(primary)?,version))
 }
 
 /// `account`'s trading-key venue, built as a bot's on that venue (`venue_for`): for a request with no bot (an API cancel
@@ -764,7 +771,8 @@ async fn run_condition_infos<F: VenueFactory>(e: &mut Engine<F>, unreadable: &[(
                 Ok(None) => {}
                 Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
                 // Changed since the claim: served again, on the bot as it is now.
-                Err(EngineError::RunFenced | EngineError::CredentialsChanged) => *wake = (*wake).min(clock.now().timestamp_micros()),
+                Err(EngineError::RunFenced) => *wake = (*wake).min(clock.now().timestamp_micros()),
+                Err(EngineError::CredentialsChanged) => *wake = (*wake).min(credentials_retry(&e.primary, id, clock.now().timestamp_micros())?),
                 Err(err) => {
                     super::log(&format!("[engine] bot {id}: its condition status line could not be computed: {err:?}"));
                     let tx = model::immediate(&e.primary)?;
@@ -811,7 +819,11 @@ async fn refresh_open_orders<F: VenueFactory>(e: &mut Engine<F>, id: i64, versio
     // Logged by kind only: a venue's answer can carry account details (an address, a name).
     match outcome {
         Ok(None) => {}
-        Ok(Some(polling::PollFailure::CredentialsChanged | polling::PollFailure::OwnerChanged(_))) => {
+        Ok(Some(polling::PollFailure::CredentialsChanged)) => {
+            *wake = (*wake).min(credentials_retry(&e.primary, id, clock.now().timestamp_micros())?);
+            return Ok(());
+        }
+        Ok(Some(polling::PollFailure::OwnerChanged(_))) => {
             *wake = (*wake).min(clock.now().timestamp_micros());
             return Ok(());
         }
@@ -861,7 +873,9 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     for (tx,state) in entries {
         if e.stopping() { break; }
         let (id,at,mut attempts)=state.value;
-        let (venue,producer)=match model::load_bot(&e.primary,id).and_then(|bot|e.venue_for(&bot)){
+        // #710 7a §9.1: a key whose identity read names another account polls nothing; the order waits, as on any failure here.
+        let built=model::load_bot(&e.primary,id).and_then(|bot|if model::key_fenced(&e.primary,&bot)? {Err(EngineError::Data("its key reads another account".into()))} else {e.venue_for(&bot)});
+        let (venue,producer)=match built{
             Ok(value)=>value,
             Err(err)=>{super::log(&format!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}"));e.polls.insert(tx,model::Produced::new((id,clock.now().timestamp_micros()+RECONCILE_EVERY_US,attempts),state.origin().clone()));continue;}
         };
@@ -1025,7 +1039,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             // The key was replaced while the price read ran: nothing was written, and the check runs again on the next pass
             // with a handle on the new key (as reconcile_idle and the tick retry), never left for Repair.
             Err(EngineError::CredentialsChanged) => {
-                let at = clock.now().timestamp_micros();
+                let at = credentials_retry(&e.primary, id, clock.now().timestamp_micros())?;
                 e.condition_at.insert(id, at);
                 *wake = (*wake).min(at);
                 return Ok(());
@@ -1240,9 +1254,11 @@ pub async fn reconcile_idle_intents<F: VenueFactory>(e: &mut Engine<F>, clock: &
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
             let changed=matches!(err,EngineError::CredentialsChanged);
             if !changed {super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));}
-            let delay=if changed {0}else{RECONCILE_EVERY_US};
-            let at = clock.now().timestamp_micros() + delay;
-            e.reconcile_at.insert(id, model::Produced::new(at,None));
+            let now_us = clock.now().timestamp_micros();
+            let at = if changed { credentials_retry(&e.primary, id, now_us)? } else { now_us + RECONCILE_EVERY_US };
+            // Held under the bot's key as it is now, so the next wake keeps the wait (a key replaced since ends it at once).
+            let producer = model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)).ok().and_then(|(_, producer)| producer);
+            e.reconcile_at.insert(id, model::Produced::new(at,producer));
             *wake = (*wake).min(at);
         }
     }
@@ -1296,7 +1312,7 @@ async fn run_command<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, kind
             if matches!(bot.status,crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) {
                 return refuse(&e.primary,id,serde_json::json!("archived"));
             }
-            if model::key_pending(&e.primary,&bot)? {
+            if model::key_pending(&e.primary,&bot)? || model::key_fenced(&e.primary,&bot)? {
                 return refuse(&e.primary,id,serde_json::json!("api_key_pending"));
             }
             let (venue,version)=e.venue_for(&bot)?;
@@ -1373,7 +1389,9 @@ async fn api_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::api_orde
         if now > request.send_by { return api_orders::finish(&e.primary, request.id, &Outcome::Busy); }
         let bot = model::load_bot(&e.primary, bot_id)?;
         let (venue, producer) = e.venue_for(&bot)?;
-        if producer.is_none() || producer != request.credential_version {
+        // A key found to open another account (#710 7a) is the same key on every pass: refused here, never retried until
+        // the send deadline (whatever `signal::late_refusal` says).
+        if producer.is_none() || producer != request.credential_version || model::key_fenced(&e.primary, &bot)? {
             let exchange = model::exchange_name(&e.primary, &bot)?;
             return api_orders::finish(&e.primary, request.id, &Outcome::Refused { code: "api_key_missing".into(),
                 message: format!("No valid API key found for {exchange}. Please add an API key in Settings.") });

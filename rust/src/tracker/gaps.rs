@@ -441,7 +441,7 @@ mod tests {
         summary.positions = vec![position("BTC", "1", "30000"), position("SOL", "1", "50"), position("X", "3", "1"), position("Y", "3", "3.5"), position("ADA", "10", "0.5"), position("USDT", "100", "100")];
         let balances = vec![balance("ETH", "7.4", Some("2000")), balance("SOL", "2", None), balance("BTC", "0.4", Some("60000")), balance("Y", "1", Some("1")), balance("USDT", "40", Some("1")), balance("DOT", "0.01", Some("5"))];
         let ours = resolve(&summary, &balances, "KuCoin").unwrap();
-        let theirs = crate::tracker::figures::compute_on(&c, 1, &summary, &balances, &[], &crate::tracker::fx::FxTable::default(), chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap()).unwrap();
+        let theirs = crate::tracker::figures::compute_on(&c, 1, &crate::tracker::Scope::All, &summary, &balances, &[], &crate::tracker::fx::FxTable::default(), chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap()).unwrap();
         let theirs: Vec<&Note> = theirs.notes.iter().filter(|n| matches!(n.kind, "arrived" | "left")).collect();
         assert_eq!(ours.iter().map(key).collect::<Vec<_>>(), theirs.iter().map(|n| key(n)).collect::<Vec<_>>());
         let shown = |kind: &str, symbol: &str| ours.iter().find(|n| n.kind == kind && n.symbol == symbol).map(|n| n.amount.to_s_f());
@@ -466,7 +466,7 @@ mod tests {
         let mut departed = Summary::empty();
         departed.positions = vec![position("BTC", "0.5", "20000")];
         let ours = resolve(&departed, &[], "KuCoin").unwrap();
-        let theirs = crate::tracker::figures::compute_on(&c, 1, &departed, &[], &[], &crate::tracker::fx::FxTable::default(), chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap()).unwrap();
+        let theirs = crate::tracker::figures::compute_on(&c, 1, &crate::tracker::Scope::All, &departed, &[], &[], &crate::tracker::fx::FxTable::default(), chrono::NaiveDate::from_ymd_opt(2026, 10, 1).unwrap()).unwrap();
         assert_eq!(ours.iter().map(key).collect::<Vec<_>>(), theirs.notes.iter().filter(|n| n.kind == "left").map(key).collect::<Vec<_>>());
         assert_eq!((ours[0].exchange.as_deref(), theirs.notes[0].exchange.as_deref()), (Some("KuCoin"), None));
     }

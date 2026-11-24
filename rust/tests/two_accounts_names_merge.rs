@@ -209,7 +209,9 @@ async fn t4_a_bot_sheet_save_on_account_2_changes_only_its_key() {
     let app = web_app(dir.path(), c).with_settings_key_boundary(deltabadger::venue::alpaca::Hosts::all(&server.uri()), std::sync::Arc::new(Quiet)).unwrap();
     let mut b = browser(&app, c, kraken.seeded.user_id);
     assert_eq!(b.get(&app, &format!("/bots/{}", alpaca.bots[1])).await.status, 200);
-    let saved = b.send(&app, "POST", &format!("/bots/{}/add_api_key", alpaca.bots[1]), Some(&[("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", "paper")]),
+    // 7a rule R11: the sheet names the bot's account (a nameless one is number 1's).
+    let account = deltabadger::identity::account_of_bot(c, alpaca.bots[1]).unwrap().unwrap();
+    let saved = b.send(&app, "POST", &format!("/bots/{}/add_api_key?account_id={account}", alpaca.bots[1]), Some(&[("api_key[key]", "new-key"), ("api_key[secret]", "new-secret"), ("api_key[passphrase]", "paper")]),
                        common::web::Csrf::Header, &[]).await;
     assert!(saved.status < 400, "{}: {}", saved.status, saved.body);
     assert_eq!((key_material(c, &cipher, alpaca.keys[0]), key_material(c, &cipher, alpaca.keys[1])), ("account-1-key".into(), "new-key".into()));
@@ -1664,8 +1666,8 @@ fn rb_a_kucoin_csv_fill_beside_the_others_api_copy_refuses() {
     c.execute("UPDATE account_transactions SET raw_data = '{\"createdAt\":1}' WHERE id = ?1", [api]).unwrap();
     let csv = kucoin.row(c, 1, 0, "BTC", "1", Some("kucoin-csv-1"), None, "2026-09-01 10:00:00");
     c.execute("UPDATE account_transactions SET raw_data = '{\"source\":\"kucoin_csv\",\"class\":\"fills\",\"source_rows\":[\"r1\"]}' WHERE id = ?1", [csv]).unwrap();
-    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at) \
-               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'in', '1', '0', '2026-09-01 10:00:00', '', 'fills', 'now')", [kucoin.seeded.user_id, kucoin.seeded.exchange_id]).unwrap();
+    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at, account_id) \
+               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'in', '1', '0', '2026-09-01 10:00:00', '', 'fills', 'now', ?3)", [kucoin.seeded.user_id, kucoin.seeded.exchange_id, kucoin.id(1)]).unwrap();
     assert!(matches!(merge_now(c, &kucoin, kucoin.id(1)), Err(Refusal::Conflict(_))));
 }
 
@@ -2817,7 +2819,7 @@ fn st_each_key_event_clears_it() {
 
     let (_d, o, two) = entered();
     let c = &o.primary;
-    identity::forget(c, two.keys[1], &two.accounts[1]).unwrap();
+    identity::forget(c, two.keys[1], &two.accounts[1], now).unwrap();
     assert!(standings(c).is_empty(), "a key removed");
 
     let (_d, o, two) = entered();
@@ -3700,9 +3702,8 @@ fn r18_a_moved_rows_group_must_be_free() {
 
 // ---- review round 19 ----
 
-/// R19 #3: the group collision check compares the walk's own composed group keys (`tracker::rows::account_group`) as they
-/// will be after the move: account 3's `swap` moving into account 2 reads `swap@<2>`, which account 1's restored group
-/// already is.
+/// R19 #3, 7a §0.7: groups are (account, group id), so account 3's `swap` moving into account 2 is 2's `swap`, never
+/// account 1's restored `swap@<2>`: no collision, and the two groups stay apart.
 #[test]
 fn r19_the_group_check_compares_composed_keys() {
     let (_d, o) = install();
@@ -3718,7 +3719,9 @@ fn r19_the_group_check_compares_composed_keys() {
                VALUES (?1, ?2, ?3, 2, 'ETH', '1', ?4, '2026-09-10 10:00:00', json_object('refid', 's-1'), '{}', 0, 'swap', 'now', 'now')",
               rusqlite::params![two.seeded.user_id, k3, two.seeded.exchange_id, scope.stored(Some("s-1"))]).unwrap();
     deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
-    match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+    merge_now(c, &two, a3).unwrap().unwrap();
+    let groups: Vec<Option<String>> = c.prepare("SELECT group_id FROM account_transactions ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(groups, [Some(format!("swap@{}", two.id(1))), Some("swap".into())]);
 }
 
 /// R19 #4: the history version covers classification evidence, a duplicate's rows included: its new row moves it.
@@ -3749,6 +3752,393 @@ fn r19_the_class_set_reads_a_duplicates_balances() {
     }
     let balances = deltabadger::tracker::figures::balances(c, two.seeded.user_id, &deltabadger::tracker::Scope::All).unwrap();
     let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
-    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::walk::Summary::empty(), &balances, &[], &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
+    let out = deltabadger::tracker::figures::compute_on(c, two.seeded.user_id, &deltabadger::tracker::Scope::All, &deltabadger::tracker::walk::Summary::empty(), &balances, &[], &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap());
     assert!(out.is_err(), "ambiguous");
+}
+
+// ---- slice 7a §0: 6b follow-ups ----
+
+/// 7a §0.1, §0.7: a kept twin that INHERITS the duplicate's group is checked by the same group key as a moved row,
+/// (account, group id): account 3's `swap` on the twin of account 2's row is 2's `swap`, never account 1's `swap@<2>`; a
+/// `swap` account 2 already holds refuses.
+#[test]
+fn s7_0_1_an_inherited_group_is_checked_like_a_moved_one() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    let (a3, k3) = account_numbered(c, &two, 3);
+    for (n, fp) in [(0, "other"), (1, "fp")] { two.fingerprint(c, n, Some(fp)); }
+    common::two_accounts::confirm(c, a3, Some("fp"));
+    assert_eq!(standings(c), [(a3, two.id(1))]);
+    two.row(c, 0, 2, "BTC", "1", Some("r-1"), Some(&format!("swap@{}", two.id(1))), "2026-09-01 10:00:00");
+    // The survivor's (2's) row, no group; its twin on 3 carries `swap`.
+    let kept = two.row(c, 1, 2, "ETH", "1", Some("s-1"), None, "2026-09-10 10:00:00");
+    synced(c, kept);
+    c.execute("UPDATE account_transactions SET raw_data = json_object('refid', 's-1') WHERE id = ?1", [kept]).unwrap();
+    let scope = deltabadger::venue_ids::Scope::of(c, &identity::Account::by_id(c, a3).unwrap().unwrap()).unwrap();
+    c.execute("INSERT INTO account_transactions (user_id, api_key_id, exchange_id, entry_type, base_currency, base_amount, tx_id, transacted_at, raw_data, manual_values, transfer_link_rejected, group_id, created_at, updated_at) \
+               VALUES (?1, ?2, ?3, 2, 'ETH', '1', ?4, '2026-09-10 10:00:00', json_object('refid', 's-1'), '{}', 0, 'swap', '2026-09-10 10:00:00', '2026-09-10 10:00:00')",
+              rusqlite::params![two.seeded.user_id, k3, two.seeded.exchange_id, scope.stored(Some("s-1"))]).unwrap();
+    deltabadger::venue_ids::after_insert(c, &scope, c.last_insert_rowid(), Some("s-1")).unwrap();
+    let taken = two.row(c, 1, 2, "BTC", "1", Some("s-0"), Some("swap"), "2026-08-01 10:00:00");
+    match merge_now(c, &two, a3) { Err(Refusal::Conflict(rows)) => assert!(rows.len() >= 2, "{rows:?}"), other => panic!("{other:?}") }
+    c.execute("UPDATE account_transactions SET group_id = NULL WHERE id = ?1", [taken]).unwrap();
+    merge_now(c, &two, a3).unwrap().unwrap();
+    assert_eq!(one::<Option<String>>(c, &format!("SELECT group_id FROM account_transactions WHERE id = {kept}")).as_deref(), Some("swap"), "inherited");
+}
+
+/// 7a §0.2: the pricing walk's per-venue asset map is classification: a duplicate's row recording ABC as a stock decides
+/// the survivor's unrecorded ABC on Alpaca (the catalogue alone holds a stock and a coin ABC), as the table's key does.
+#[test]
+fn s7_0_2_the_walks_asset_map_reads_a_duplicates_rows() {
+    use deltabadger::tracker::prices::{NoFetch, PriceService, Reference, Venue};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    two.fingerprint(c, 0, Some("fp"));
+    two.fingerprint(c, 1, Some("fp"));
+    identity::reconsider(c, two.seeded.user_id, two.seeded.exchange_id, chrono::Utc::now()).unwrap();
+    assert_eq!(identity::duplicates(c, two.seeded.user_id).unwrap(), [(two.id(1), two.id(0))]);
+    let asset = |category: &str, ext: &str| {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, 'ABC', 'ABC', ?2, 'now', 'now')", [ext, category]).unwrap();
+        c.last_insert_rowid()
+    };
+    let stock = asset("Stock", "ABC.US");
+    asset("Cryptocurrency", "abc-coin");
+    two.row(c, 0, 0, "ABC", "1", Some("a-1"), None, "2026-09-01 10:00:00");
+    let d = two.row(c, 1, 0, "ABC", "1", Some("a-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [d, stock]).unwrap();
+    c.execute("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:ABC', 'USD', '2026-09-01', '12')", []).unwrap();
+    let user = two.seeded.user_id;
+    let all = deltabadger::tracker::rows::load_all(c, user).unwrap();
+    assert_eq!(all.iter().filter(|r| r.base == "ABC").count(), 1, "the duplicate's row is left out of the walk");
+    let table = deltabadger::tracker::prices::row_price_key(c, user, two.seeded.exchange_id, "Exchanges::Alpaca", "ABC", None, chrono::NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()).unwrap();
+    assert_eq!(table.as_deref(), Some("stock:ABC"), "the table's key reads the duplicate's row");
+    let mut r = Reference::load(c, &Venue::alpaca(c).unwrap(), &deltabadger::tracker::prices::symbols(&all)).unwrap();
+    r.record_coins(c, user).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::default();
+    let mut none = NoFetch;
+    let mut ps = PriceService::new(&r, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 2).unwrap(), &mut none);
+    ps.record(&all);
+    let at = deltabadger::figures::at::At::from_sql("2026-09-01 12:00:00").unwrap();
+    assert_eq!(ps.price_at("ABC", "USD", at, Some("alpaca")).unwrap().to_s_f(), "12.0", "{:?}", ps.warnings);
+}
+
+/// An asset `ABC` of `category` (external id `ext`).
+fn abc(c: &Connection, category: &str, ext: &str) -> i64 {
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, 'ABC', 'ABC', ?2, 'now', 'now')", [ext, category]).unwrap();
+    c.last_insert_rowid()
+}
+/// Account `account`'s balance of one `asset`.
+fn holds(c: &Connection, user: i64, exchange: i64, account: i64, asset: i64) {
+    c.execute("INSERT INTO exchange_account_balances (user_id, exchange_id, asset_id, free, locked, usd_price, usd_value, priced_at, synced_at, created_at, updated_at, account_id) \
+               VALUES (?1, ?2, ?3, 1, 0, 1, 1, '2026-09-20 10:00:00', '2026-09-20 10:00:00', '2026-09-20 10:00:00', '2026-09-20 10:00:00', ?4)", rusqlite::params![user, exchange, asset, account]).unwrap();
+}
+fn figures_of(c: &Connection, user: i64, scope: &deltabadger::tracker::Scope, pending: &[(String, deltabadger::figures::dec::Dec)]) -> Result<deltabadger::tracker::figures::Figures, deltabadger::figures::FiguresError> {
+    let balances = deltabadger::tracker::figures::balances(c, user, scope).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::load(c).unwrap();
+    deltabadger::tracker::figures::compute_on(c, user, scope, &deltabadger::tracker::walk::Summary::empty(), &balances, pending, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 20).unwrap())
+}
+
+/// 7a §0.4: an account chip's class evidence reads duplicates of its own exchange only: Kraken's duplicate's crypto ABC
+/// makes Binance's stock ABC no ambiguity on Binance's chip (it still does on All).
+#[test]
+fn s7_0_4_a_chips_class_evidence_reads_its_own_exchanges_duplicates() {
+    let (_d, o, kraken) = duplicate();
+    let c = &o.primary;
+    let user = kraken.seeded.user_id;
+    let binance = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Binance", "Binance");
+    let (stock, coin) = (abc(c, "Stock", "ABC.US"), abc(c, "Cryptocurrency", "abc-coin"));
+    holds(c, user, binance.seeded.exchange_id, binance.id(0), stock);
+    holds(c, user, kraken.seeded.exchange_id, kraken.id(1), coin);
+    let chip = deltabadger::tracker::Scope::Account(identity::AccountRow::by_id(c, binance.id(0)).unwrap().unwrap());
+    assert!(figures_of(c, user, &chip, &[]).is_ok(), "{:?}", figures_of(c, user, &chip, &[]).err());
+    assert!(figures_of(c, user, &deltabadger::tracker::Scope::All, &[]).is_err(), "All reads every duplicate");
+}
+
+/// 7a §0.5: on All a duplicate's balance class counts for a symbol only pending movements name: the survivor's rows
+/// record ABC as a stock, the duplicate holds the coin ABC.
+#[test]
+fn s7_0_5_a_duplicates_class_counts_for_a_pending_only_symbol() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let user = two.seeded.user_id;
+    let (stock, coin) = (abc(c, "Stock", "ABC.US"), abc(c, "Cryptocurrency", "abc-coin"));
+    let row = two.row(c, 0, 0, "ABC", "1", Some("a-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET base_asset_id = ?2 WHERE id = ?1", [row, stock]).unwrap();
+    holds(c, user, two.seeded.exchange_id, two.id(1), coin);
+    let pending = [("ABC".to_string(), deltabadger::figures::dec::Dec::from_i64(1))];
+    assert!(figures_of(c, user, &deltabadger::tracker::Scope::All, &pending).is_err(), "ambiguous");
+}
+
+/// 7a §0.6: an import's identity observation is its account's, and Merge moves the duplicate's to the survivor.
+#[test]
+fn s7_0_6_merge_moves_the_duplicates_import_observations() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let observed = c.execute("INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES (?1, ?2, 'fp', x'00', 'now', ?3)",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, two.id(1)]);
+    assert!(observed.is_ok(), "an observation names its account: {observed:?}");
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM exchange_account_imports WHERE account_id = {}", two.id(0))), 1);
+}
+
+/// 7a §0.9: the Alpaca broker report's FIFO is per account (per depot, BMF Rn. 97), whatever the rows' keys: with both
+/// keys deleted, account 2's sale consumes account 2's own lot (cost 200, gain 50), never account 1's earlier one (100).
+#[test]
+fn s7_0_9_the_broker_report_walks_each_account_on_its_own() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, instrument_type, created_at, updated_at) VALUES ('ACME.US', 'ACME', 'ACME', 'Stock', 'stock', 'now', 'now')", []).unwrap();
+    let mut day = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+    while chrono::Datelike::year(&day) == 2025 { c.execute("INSERT INTO fx_rates (currency, date, rate) VALUES ('USD', ?1, '1')", [day.to_string()]).unwrap(); day = day.succ_opt().unwrap(); }
+    for (n, kind, usd, at) in [(0, 0, "100", "2025-01-10 15:00:00"), (1, 0, "200", "2025-02-10 15:00:00"), (1, 1, "250", "2025-03-10 15:00:00")] {
+        let row = two.row(c, n, kind, "ACME", "1", Some(&format!("t-{at}")), None, at);
+        c.execute("UPDATE account_transactions SET quote_currency = 'USD', quote_amount = ?2, api_key_id = NULL WHERE id = ?1", rusqlite::params![row, usd]).unwrap();
+    }
+    let csv = deltabadger::tax::broker::report(c, two.seeded.user_id, 2025, &std::collections::HashSet::new()).unwrap();
+    let sale = csv.lines().find(|l| l.contains("2025-03-10")).unwrap_or_else(|| panic!("{csv}"));
+    assert!(sale.contains("200") && sale.contains("50") && !sale.contains("150"), "{sale}\n{csv}");
+}
+
+/// 7a §0.10: a live key whose identity read names another account than its account's known one is fenced: no sync
+/// reads with it, no withdrawal goes out with it and its bot places nothing (the tick waits); its rows stay.
+#[tokio::test(flavor = "current_thread")]
+async fn s7_0_10_a_key_reading_another_account_is_fenced() {
+    use deltabadger::engine::tick::{self, Attempts, TickOutcome};
+    let (_d, o, s) = common::install_alpaca();
+    let c = &o.primary;
+    let bot = seed::insert_bot(c, &s, &seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let account = identity::Account::first(c, s.user_id, s.exchange_id).unwrap().ensure(c, chrono::Utc::now()).unwrap();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?3, 1, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, s.exchange_id, seed::cipher().encrypt("withdrawal")]).unwrap();
+    let withdrawal = c.last_insert_rowid();
+    common::two_accounts::confirm(c, account.id.unwrap(), Some("fp"));
+    assert!(deltabadger::sync::balance_reading_keys(c).unwrap().contains(&s.api_key_id), "before: the key reads");
+    assert_eq!(deltabadger::engine::model::withdrawal_key_id(c, &account).unwrap(), Some(withdrawal), "before: the key withdraws");
+    // Both keys' latest identity reads now name another account.
+    c.execute("UPDATE exchange_account_credentials SET fingerprint = 'other'", []).unwrap();
+    assert!(!deltabadger::sync::balance_reading_keys(c).unwrap().contains(&s.api_key_id), "no balance sync");
+    assert!(!deltabadger::sync::ledger_reading_keys(c).unwrap().contains(&s.api_key_id), "no ledger sync");
+    assert_eq!(deltabadger::engine::model::withdrawal_key_id(c, &account).unwrap(), None, "no withdrawal");
+    let transport = common::scripted::script(serde_json::json!({}));
+    let venue = common::scripted::venue(&transport);
+    let out = tick::tick(c, &venue, bot, &deltabadger::engine::FixedClock("2026-09-01T10:00:00Z".parse().unwrap()), &mut Attempts::default()).await;
+    assert!(matches!(out, Ok(TickOutcome::Stale { source: "api_key_contradicted", .. })), "{out:?}");
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM transactions"), 0, "nothing placed");
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM api_keys WHERE id IN ({}, {withdrawal})", s.api_key_id)), 2, "the keys stay");
+}
+
+/// 7a §0.7: a group is (account, group id), never a composed string: account 1's `g@<2>` and account 2's `g` are two
+/// groups, so the swap legs in them are each an orphan.
+#[test]
+fn s7_0_7_a_group_is_its_accounts_and_its_id() {
+    use deltabadger::tracker::prices::{PriceService, Reference, Unfetched, Venue};
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    two.row(c, 0, 3, "BTC", "1", Some("x-1"), Some(&format!("g@{}", two.id(1))), "2026-09-01 10:00:00");
+    two.row(c, 1, 2, "ETH", "10", Some("x-2"), Some("g"), "2026-09-01 10:00:00");
+    let user = two.seeded.user_id;
+    let all = deltabadger::tracker::rows::load_all(c, user).unwrap();
+    let r = Reference::load(c, &Venue::alpaca(c).unwrap(), &deltabadger::tracker::prices::symbols(&all)).unwrap();
+    let fx = deltabadger::tracker::fx::FxTable::default();
+    let mut none = Unfetched;
+    let mut ps = PriceService::new(&r, &fx, chrono::NaiveDate::from_ymd_opt(2026, 9, 2).unwrap(), &mut none);
+    let deposits = all.iter().map(|t| (t.id, t.amount.clone())).collect();
+    let rows = deltabadger::tracker::walk::enrich(&all, &deposits, &mut ps).unwrap();
+    assert_eq!(rows.iter().map(|r| r.orphan).collect::<Vec<_>>(), [true, true], "two groups, one leg each");
+}
+
+/// 7a §0.7: tax FIFO by wallet (D-TAX-US-WALLET, from 2025) is per account: account 2's sale consumes account 2's lot
+/// (cost 200, gain 50), never account 1's earlier one (100); the venue column still reads the exchange.
+#[test]
+fn s7_0_7_the_tax_wallet_is_the_account() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let two = Two::kraken(c, &seed::cipher());
+    for (n, kind, usd, at) in [(0, 0, "100", "2025-01-10 15:00:00"), (1, 0, "200", "2025-02-10 15:00:00"), (1, 1, "250", "2025-03-10 15:00:00")] {
+        let row = two.row(c, n, kind, "BTC", "1", Some(&format!("t-{at}")), None, at);
+        c.execute("UPDATE account_transactions SET quote_currency = 'USD', quote_amount = ?2 WHERE id = ?1", rusqlite::params![row, usd]).unwrap();
+    }
+    let out = deltabadger::tax::crypto_report(c, two.seeded.user_id, "US", 2025, false, chrono::NaiveDate::from_ymd_opt(2026, 1, 15).unwrap()).unwrap();
+    let deltabadger::tax::Outcome::Csv(csv) = out else { panic!("refused") };
+    let sale = csv.lines().find(|l| l.starts_with("2025-03-10")).unwrap_or_else(|| panic!("{csv}"));
+    assert!(sale.starts_with("2025-03-10T15:00:00Z,2025-02-10T15:00:00Z,BTC,1.0,250.0,200.0,50.0,") && sale.contains(",kraken,"), "{sale}\n{csv}");
+}
+
+/// A KuCoin duplicate: account 2 (a duplicate of 1) on a KuCoin exchange of the Kraken fixture's user.
+fn kucoin_duplicate() -> (tempfile::TempDir, store::Opened, Two) {
+    let (d, o) = install();
+    let kraken = Two::kraken(&o.primary, &seed::cipher());
+    let two = Two::venue(&o.primary, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    two.fingerprint(&o.primary, 0, Some("fp"));
+    two.fingerprint(&o.primary, 1, Some("fp"));
+    (d, o, two)
+}
+fn source_row(c: &Connection, two: &Two, n: usize) {
+    c.execute("INSERT INTO import_rows (user_id, exchange_id, row_id, account_type, currency, side, amount, fee, transacted_at, remark, row_type, created_at, account_id) \
+               VALUES (?1, ?2, 'r1', 'TRADE', 'BTC', 'Deposit', '1', '0', '2026-09-01 10:00:00', '', 'Deposit', 'now', ?3)", [two.seeded.user_id, two.seeded.exchange_id, two.id(n)]).unwrap();
+}
+
+/// 7a §0.8: Merge refuses while either account holds a KuCoin export's source rows, naming the account.
+#[test]
+fn s7_0_8_a_kucoin_export_import_refuses_merge() {
+    for n in [1, 0] {
+        let (_d, o, two) = kucoin_duplicate();
+        let c = &o.primary;
+        source_row(c, &two, n);
+        match merge_now(c, &two, two.id(1)) {
+            Err(Refusal::Conflict(rows)) => assert!(rows.iter().any(|r| r.starts_with("\u{0}kucoin_import:") && r.ends_with(&format!("KuCoin {}", n + 1))), "{rows:?}"),
+            other => panic!("account {}: {other:?}", n + 1),
+        }
+    }
+}
+
+/// 7a §0.8: cutoffs alone (an API sync's) do not refuse: the survivor keeps the earlier cutoff per class, the duplicate's go.
+#[test]
+fn s7_0_8_cutoffs_alone_merge_keeping_the_earlier() {
+    let (_d, o, two) = kucoin_duplicate();
+    let c = &o.primary;
+    for (n, class, at) in [(0, "fills", "2026-09-10 00:00:00"), (1, "fills", "2026-09-05 00:00:00"), (1, "deposits", "2026-09-07 00:00:00"), (0, "withdrawals", "2026-09-08 00:00:00")] {
+        c.execute("INSERT INTO import_cutoffs (user_id, exchange_id, class, cutoff_at, updated_at, account_id) VALUES (?1, ?2, ?3, ?4, 'now', ?5)",
+                  rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, class, at, two.id(n)]).unwrap();
+    }
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let cutoffs: Vec<(i64, String, String)> = c.prepare("SELECT account_id, class, cutoff_at FROM import_cutoffs ORDER BY class").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    let s = two.id(0);
+    assert_eq!(cutoffs, [(s, "deposits".into(), "2026-09-07 00:00:00".into()), (s, "fills".into(), "2026-09-05 00:00:00".into()), (s, "withdrawals".into(), "2026-09-08 00:00:00".into())]);
+}
+
+/// #710 7a rule Q7: Merge reconciles provenance with the twins. A restored survivor that takes its API twin's answer was
+/// read from an account: its file origin goes. An API survivor stays synced, its restored twin (and that origin) gone.
+#[test]
+fn q7_a_twin_taking_the_venue_answer_loses_its_file_origin_in_either_order() {
+    for restored_kept in [true, false] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let kraken = Two::kraken(c, &seed::cipher());
+        let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+        alpaca.fingerprint(c, 0, Some("fp"));
+        alpaca.fingerprint(c, 1, Some("fp"));
+        let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+        let gone = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+        let (restored, api) = if restored_kept { (kept, gone) } else { (gone, kept) };
+        c.execute("UPDATE account_transactions SET raw_data = '{}' WHERE id = ?1", [restored]).unwrap();
+        c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [api]).unwrap();
+        deltabadger::tracker::import::record_origin(c, restored, "deltabadger", chrono::Utc::now()).unwrap();
+        merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+        let raw: String = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [kept], |r| r.get(0)).unwrap();
+        assert!(raw.contains("\"net_amount\":\"-10\""), "{restored_kept}: {raw}");
+        let origins: i64 = c.query_row("SELECT count(*) FROM import_row_origins", [], |r| r.get(0)).unwrap();
+        assert_eq!(origins, 0, "{restored_kept}: the kept twin reads synced, the duplicate's origin went with it");
+    }
+}
+
+/// #710 7a rule Q7 (Codex branch r4 #8): two imported twins, the duplicate enriched by a sync (a venue payload, its file
+/// origin kept): the survivor takes the payload, and stays an imported row.
+#[test]
+fn q7_two_imported_twins_keep_the_survivors_file_origin() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    let gone = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    c.execute("UPDATE account_transactions SET raw_data = '{}' WHERE id = ?1", [kept]).unwrap();
+    c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [gone]).unwrap();
+    for row in [kept, gone] { deltabadger::tracker::import::record_origin(c, row, "deltabadger", chrono::Utc::now()).unwrap(); }
+    merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+    let raw: String = c.query_row("SELECT raw_data FROM account_transactions WHERE id = ?1", [kept], |r| r.get(0)).unwrap();
+    assert!(raw.contains("\"net_amount\":\"-10\""), "{raw}");
+    let kind: Option<String> = c.query_row("SELECT import_kind FROM import_row_origins WHERE transaction_id = ?1", [kept], |r| r.get(0)).ok();
+    assert_eq!(kind.as_deref(), Some("deltabadger"), "two imported rows stay one imported row");
+}
+
+/// Slice 9 review d: discovery filling both NULL fingerprints judges the pair's duplicate standing in the observation's
+/// own transaction: read right after the second read, with no reconsider of the test's own (`standing` runs one). The same
+/// account read on both keys makes 2 the duplicate of 1; read as different accounts, nothing stands.
+#[test]
+fn d_discovery_filling_both_fingerprints_settles_the_standing_at_once() {
+    for (second, stands) in [("111", true), ("222", false)] {
+        let (_d, o) = install();
+        let c = &o.primary;
+        let kraken = Two::kraken(c, &seed::cipher());
+        let two = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+        assert!(identity::duplicates(c, two.seeded.user_id).unwrap().is_empty());
+        observe(c, two.keys[0], &identity::Observed::Read(identity::AccountId::parse("111").unwrap()));
+        observe(c, two.keys[1], &identity::Observed::Read(identity::AccountId::parse(second).unwrap()));
+        let stored = identity::duplicates(c, two.seeded.user_id).unwrap();
+        assert_eq!(stored.contains(&(two.id(1), two.id(0))), stands, "{second}: {stored:?}");
+    }
+}
+
+/// Codex branch r5 (identity.rs:1475): account 2's secondary live key is unread when both reading keys read the same
+/// account, so the first judgment cannot make 2 the duplicate of 1. The secondary key's read of that account fills no
+/// fingerprint, yet it completes account 2's confirmation: the standing is judged again in its transaction.
+#[test]
+fn a_secondary_keys_confirming_read_settles_the_standing_at_once() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let two = Two::venue(c, &seed::cipher(), &kraken.seeded, deltabadger::venue::kucoin::KUCOIN, "KuCoin");
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 2, '2026-01-01 00:00:00', '2026-01-01 00:00:00')",
+              rusqlite::params![two.seeded.user_id, two.seeded.exchange_id, seed::cipher().encrypt("account-2-reader"), seed::cipher().encrypt("s")]).unwrap();
+    let secondary = c.last_insert_rowid();
+    two.accounts[1].add_key(c, secondary).unwrap();
+    let uid = || identity::Observed::Read(identity::AccountId::parse("111").unwrap());
+    observe(c, two.keys[0], &uid());
+    observe(c, two.keys[1], &uid());
+    assert!(!identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(two.id(1), two.id(0))), "account 2's secondary key is unread");
+    observe(c, secondary, &uid());
+    assert!(identity::duplicates(c, two.seeded.user_id).unwrap().contains(&(two.id(1), two.id(0))), "the secondary key's read confirms it");
+}
+
+/// Rules N4/P5 (Codex branch r5, run.rs:271): an import warning binds each venue id it found with the account holding it.
+/// A CSV for account 3 warns that venue id T is on account 2; account 2 is merged into 1, so T is on 1 now: the old
+/// "import anyway" is asked again, never written under a warning that named another account.
+#[test]
+fn p5_an_import_anyway_given_before_a_merge_moved_its_rows_is_asked_again() {
+    use deltabadger::tracker::import::run;
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    let third = two.third(c).id.unwrap();
+    two.trade(c, 1, 0, "T", "0.25", "2026-09-01 10:00:00");
+    let v = deltabadger::tracker::rows::name_id("Exchanges::Kraken");
+    let file = format!("{},account\n2026-09-01T10:00:00Z,deposit,BTC,0.25,,,,,{v},T,,,3\n", deltabadger::web::tracker::gap::CSV_HEADER);
+    let write = |answer: Option<&str>| {
+        let read = run::read("deltabadger", file.as_bytes(), Some("+00:00")).unwrap_or_else(|_| panic!("readable"));
+        run::write(c, &seed::cipher(), two.seeded.user_id, "deltabadger", read, "", answer, chrono::Utc::now()).unwrap()
+    };
+    let anyway = match write(None) { run::Answer::Warned(_, choices) => choices[0].value.clone(), other => panic!("warned first: {other:?}") };
+    assert!(matches!(merge_now(c, &two, two.id(1)), Ok(Some(_))), "merged");
+    let rows = |c: &Connection| c.query_row("SELECT count(*) FROM exchange_account_rows WHERE account_id = ?1", [third], |r| r.get::<_, i64>(0)).unwrap();
+    assert!(matches!(write(Some(&anyway)), run::Answer::Warned(..)), "asked again");
+    assert_eq!(rows(c), 0, "nothing written on account 3");
+}
+
+/// #710 7a rule Q7 (Codex branch r5, merge.rs:470): the result's API origin does not depend on a payload being copied. A
+/// restored survivor a sync already enriched with the very payload its independently synced twin holds copies nothing,
+/// yet the twin deleted was read from an account: the survivor's file origin goes.
+#[test]
+fn q7_an_equal_payload_from_a_synced_twin_still_drops_the_file_origin() {
+    let (_d, o) = install();
+    let c = &o.primary;
+    let kraken = Two::kraken(c, &seed::cipher());
+    let alpaca = Two::venue(c, &seed::cipher(), &kraken.seeded, "Exchanges::Alpaca", "Alpaca");
+    alpaca.fingerprint(c, 0, Some("fp"));
+    alpaca.fingerprint(c, 1, Some("fp"));
+    let kept = alpaca.row(c, 0, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    let gone = alpaca.row(c, 1, 11, "USD", "10", Some("act-1"), None, "2026-09-01 10:00:00");
+    for row in [kept, gone] { c.execute("UPDATE account_transactions SET raw_data = '{\"activity_type\":\"INT\",\"net_amount\":\"-10\"}' WHERE id = ?1", [row]).unwrap(); }
+    deltabadger::tracker::import::record_origin(c, kept, "deltabadger", chrono::Utc::now()).unwrap();
+    merge_now(c, &alpaca, alpaca.id(1)).unwrap().unwrap();
+    let origins: i64 = c.query_row("SELECT count(*) FROM import_row_origins", [], |r| r.get(0)).unwrap();
+    assert_eq!(origins, 0, "the kept twin reads synced");
 }

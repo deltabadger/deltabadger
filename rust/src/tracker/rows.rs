@@ -405,11 +405,9 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
     Ok(rows)
 }
 
-/// #710: a group is its account's. A group id of an account 2+'s row reads as `<group>@<account>`, so every reader that
-/// keys groups by venue (the walk, the tax reports) keeps two accounts' legs of one group id apart.
-pub fn account_group(group: Option<String>, member: Option<i64>) -> Option<String> {
-    group.filter(|g| !g.trim().is_empty()).map(|g| match member { Some(m) => format!("{g}@{m}"), None => g })
-}
+/// #710: a group is (account, group id): every reader keys a group by the row's account (`Stored::account`) and its id as
+/// stored, never by a composed string. A blank id is no group.
+pub fn group_id(group: Option<String>) -> Option<String> { group.filter(|g| !g.trim().is_empty()) }
 
 /// The rows `filter` (over `t`) selects, by id, each a step of the open budget scope.
 fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<Stored>, FiguresError> {
@@ -439,7 +437,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
             quote: r.get(6)?, quote_amount: Dec::from_sql(r.get_ref(7)?)?,
             fee_currency: r.get(8)?, fee_amount: Dec::from_sql(r.get_ref(9)?)?,
-            tx_id: r.get(10)?, group: account_group(r.get(11)?, r.get(22)?),
+            tx_id: r.get(10)?, group: group_id(r.get(11)?),
             at: At::from_sql(&at_text).map_err(|e| data(format!("{e:?}")))?,
             per_share: json_number(raw.get("per_share_amount"))?,
             stated: json_number(manual.get("price"))?,

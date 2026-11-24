@@ -1,5 +1,18 @@
 sv:
     tracker:
         import:
+            warn_held: "%{account} kan redan ha historiken från den här exporten. Importerar du den här kan den räknas dubbelt i dina summor."
+            warn_other: "Den här exporten kommer från ett annat konto än %{account}. Importerar du den där blandas två konton."
+            warn_existing: "Rader som redan finns på %{account}: %{count}. Importerar du dem här räknas de dubbelt i dina summor."
+            warn_unrouted: "Rader för konton som inte finns här: %{count}. De importeras inte."
+            warn_retained: "Raderna kommer från ett annat kontos synkade historik. Importerar du dem här kan de räknas dubbelt."
+            warn_changed: "Något har ändrats sedan du svarade. Kontrollera igen."
+            import_here: "Importera här ändå"
+            import_new: "Importera till ett nytt konto"
+            import_to: "Importera till %{account}"
+            import_anyway: "Importera ändå"
+            import_rest: "Importera resten"
+            cancel: "Avbryt"
+            cancelled: "Inget importerades."
             format_kucoin: "KuCoin CSV"
             generic: "Registrerade med en allmän etikett: %{count}."

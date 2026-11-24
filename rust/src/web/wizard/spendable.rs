@@ -50,7 +50,7 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     let csrf = ctx.csrf_token();
     let order = StepOrder::new(BotType::Multi, current_variant(config));
     let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Spendable, multi: true, chips: chips(c, &ids)?, exchange: exchange_name(c, exchange_id(config))? }, true)?;
-    let content = New { search: steered.search, create_url: ctx.path("/bots/dca_multi_assets/pick_spendable_asset"), csrf,
+    let content = New { search: steered.search, create_url: ctx.path(&format!("/bots/dca_multi_assets/pick_spendable_asset{}", super::bound_query(config))), csrf,
                         field_name: FIELD, items, next }.render()?;
     Ok((super::sheet(ctx, &steered.track, &content)?, false))
 }
@@ -79,8 +79,11 @@ pub async fn new(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Resu
     render(&app, &ctx, StatusCode::OK, true, vec![]).await
 }
 
+/// A stale form (another tab picked another account, or removed the picked one): the step again, nothing made.
+fn stale(ctx: &Ctx) -> Response { super::stream(StatusCode::CONFLICT, crate::web::turbo::redirect(&ctx.path("/bots/dca_multi_assets/pick_spendable_asset/new"))) }
+
 /// What saving the bot came to.
-enum Saved { Created(i64), Invalid(String) }
+enum Saved { Created(i64), Invalid(String), Stale }
 
 /// POST .../pick_spendable_asset: the quote joins the session's settings with the wizard's defaults (quote_amount 100, interval
 /// week, where none is set), and the bot is saved: created, not started. A blank quote re-renders the step (422); a bot 2.x
@@ -89,6 +92,8 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     if let Some(answer) = expired(&ctx) { return Ok(answer) }
     let Some(quote) = ctx.params.form(FIELD).or_else(|| ctx.params.query(FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
+    // #710 7a §2: a form rendered for another pick than the session's now (two tabs) makes nothing.
+    if !super::still_bound(&ctx, ctx.session.lock().bot_config.as_ref()) { return Ok(stale(&ctx)) }
     if crate::v2::blank(&quote) { return render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![]).await }
     let config = {
         let mut data = ctx.session.lock();
@@ -109,11 +114,11 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let mut config = config;
         super::create::lock_limit_orders(&tx, &mut config)?;
         let bot = super::create::build(&tx, &config, locale)?;
-        // `insert` places the bot on its exchange's number 1.
-        let account = bot.exchange_id.map(|e| crate::identity::Account::first(&tx, user.id, e)).transpose()?;
+        // The picked account (#710 7a §2), else the exchange's number 1.
+        let Ok(account) = super::bot_account(&tx, user.id, Some(&config))? else { return Ok(Saved::Stale) };
         let errors = super::create::validate(&tx, &bot, account.as_ref(), locale)?;
         if !errors.is_empty() { return Ok(Saved::Invalid(crate::web::bot::draft::sentence(&errors.iter().map(String::as_str).collect::<Vec<_>>(), locale))) }
-        let id = super::create::insert(&tx, user.id, bot, inner.now())?;
+        let id = super::create::insert_as(&tx, user.id, bot, inner.now(), crate::enums::BotStatus::Created, 0, account.filter(|a| a.id.is_some()))?;
         if let Err(refusal) = eligibility::guard(&tx, &inner.cipher, Some(id)) {
             return Ok(Saved::Invalid(i18n::text(locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))])));
         }
@@ -127,5 +132,6 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             Ok(super::stream(StatusCode::OK, crate::web::turbo::redirect(&ctx.path(&format!("/bots/{id}")))))
         }
         Saved::Invalid(message) => render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![(flash::ALERT, message)]).await,
+        Saved::Stale => Ok(stale(&ctx)),
     }
 }

@@ -20,9 +20,9 @@ pub struct Regions { pub pending: String, pub filters: String, pub notice: Strin
 pub enum Built { Regions(Regions), Refused(String) }
 
 struct Venue { id: i64, name: String, kind: String }
-fn venues(c: &Connection, sql: &str, owner: i64) -> Result<Vec<Venue>, WebError> {
+fn venues(c: &Connection, sql: &str) -> Result<Vec<Venue>, WebError> {
     let mut s = c.prepare(sql)?;
-    let rows = s.query_map([owner], |r| Ok(Venue { id: r.get(0)?, name: r.get(1)?, kind: r.get(2)? }))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = s.query_map([], |r| Ok(Venue { id: r.get(0)?, name: r.get(1)?, kind: r.get(2)? }))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 fn name_id(kind: &str) -> String { crate::tracker::rows::name_id(kind) }
@@ -385,17 +385,24 @@ fn accounts(c: &Connection, owner: i64) -> Result<Vec<Switched>, WebError> {
     let key = if numbered { crate::identity::key_account_sql("k") } else { "NULL".into() };
     let numbers = if numbered { "LEFT JOIN exchange_accounts a ON a.id = n.account" } else { "LEFT JOIN (SELECT NULL AS id, NULL AS number) a ON 0" };
     let shown = crate::identity::label_number_sql(if numbered { "a.id" } else { "NULL" });
+    let kept = if numbered { " UNION SELECT x.exchange_id, x.id FROM exchange_accounts x WHERE x.user_id=?1 AND x.number>1 AND x.removed_at IS NULL" } else { "" };
     let mut s = c.prepare(&format!(
         "SELECT n.account, COALESCE(a.number, 1), e.id, e.name, e.type, {shown} FROM (SELECT k.exchange_id AS exchange, COALESCE({key}, -k.exchange_id) AS account FROM api_keys k WHERE k.user_id=?1 \
-         UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1) n JOIN exchanges e ON e.id = n.exchange \
+         UNION SELECT t.exchange_id, COALESCE({}, -t.exchange_id) FROM account_transactions t WHERE t.user_id=?1{kept}) n JOIN exchanges e ON e.id = n.exchange \
          {numbers} ORDER BY e.name, COALESCE(a.number, 1), n.account", any.row_account("t")))?;
     let rows = s.query_map([owner], |r| Ok(Switched { account: r.get(0)?, number: r.get(1)?, shown: r.get(5)?, venue: Venue { id: r.get(2)?, name: r.get(3)?, kind: r.get(4)? } }))?.collect::<Result<Vec<_>, _>>()?;
-    Ok(rows)
+    // #710 7a §4: one presence rule (`identity::named`, as the empty state reads it): an account 2+ is listed while something
+    // names it, a key or not.
+    let mut out = vec![];
+    for row in rows { if row.number == 1 || row.account < 0 || crate::identity::named(c, row.account)? { out.push(row); } }
+    Ok(out)
 }
 
 fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool, sync: String) -> Result<(String, String), WebError> {
     let accounts = accounts(c, owner)?;
-    let connectable = venues(c, "SELECT id,name,type FROM exchanges WHERE available=1 AND type!='Exchanges::Bitmart' AND id NOT IN (SELECT exchange_id FROM api_keys WHERE user_id=?1 UNION SELECT exchange_id FROM account_transactions WHERE user_id=?1) ORDER BY name", owner)?;
+    // D-TRACKER-MENU-LISTS-CONNECTED (#710 7a §2): every connectable venue, the user's own too, whose link is a venue tile
+    // (`untargeted`: it always asks for a key, and the key goes where it routes, a new account included).
+    let connectable = venues(c, "SELECT id,name,type FROM exchanges WHERE available=1 AND type!='Exchanges::Bitmart' ORDER BY name")?;
     let (brokers, rest): (Vec<Venue>, Vec<Venue>) = connectable.into_iter().partition(|v| stock_venue(&v.kind));
     // The accounts with a correct reading key ("broken": none, as an exchange without a valid key was).
     let valid: Vec<i64> = {
@@ -417,12 +424,16 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
             let (key, value, id) = if a.number == 1 { ("exchange_id", v.id.to_string(), v.id.to_string()) } else { ("account_id", format!("a{}", a.account), a.account.to_string()) };
             chips.push(Chip {
                 value, label: crate::identity::Label { name: v.name.clone(), number: a.shown }.html(), active: ok && scope.account().is_some_and(|s| s.id == a.account),
-                href: escape(&if ok { with_query(ctx, "/tracker", &[(key, Some(&id)), window[0], window[1]]) } else { with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))]) }),
+                href: escape(&if ok { with_query(ctx, "/tracker", &[(key, Some(&id)), window[0], window[1]]) } else {
+                    // #710 7a §2: a broken chip's Reconnect names its account while the exchange has 2+ live accounts.
+                    let account = a.account.to_string();
+                    with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string())), ("account_id", a.shown.map(|_| account.as_str()))]) }),
                 broken: !ok,
             });
         }
     }
-    let menu = brokers.iter().chain(rest.iter()).map(|v| MenuItem { label: escape(&v.name), icon: crate::web::bot::exchange_svg(&name_id(&v.kind)), href: escape(&with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string()))])) }).collect();
+    let menu = brokers.iter().chain(rest.iter()).map(|v| MenuItem { label: escape(&v.name), icon: crate::web::bot::exchange_svg(&name_id(&v.kind)), href: escape(&with_query(ctx, "/tracker/add_api_key/new", &[("exchange_id", Some(&v.id.to_string())),
+        ("untargeted", accounts.iter().any(|a| a.venue.id == v.id).then_some("1"))])) }).collect();
     let pairs = super::scope::passed(ctx);
     let query = crate::web::locale::switch_query(&pairs);
     let export_path = escape(&ctx.path(&format!("/tracker/export{}", if query.is_empty() { String::new() } else { format!("?{query}") })));

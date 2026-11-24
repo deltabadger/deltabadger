@@ -1,5 +1,18 @@
 es:
     tracker:
         import:
+            warn_held: "Puede que %{account} ya tenga el historial de esta exportación. Si la importas aquí, puede contarse dos veces en tus totales."
+            warn_other: "Esta exportación es de otra cuenta distinta de %{account}. Si la importas ahí, mezclas dos cuentas."
+            warn_existing: "Filas que ya están en %{account}: %{count}. Si las importas aquí, se cuentan dos veces en tus totales."
+            warn_unrouted: "Filas de cuentas que no están aquí: %{count}. No se importarán."
+            warn_retained: "Estas filas salen del historial sincronizado de otra cuenta. Si las importas aquí, pueden contarse dos veces."
+            warn_changed: "Algo ha cambiado desde tu respuesta. Vuelve a comprobarlo."
+            import_here: "Importar aquí igualmente"
+            import_new: "Importar en una cuenta nueva"
+            import_to: "Importar en %{account}"
+            import_anyway: "Importar igualmente"
+            import_rest: "Importar el resto"
+            cancel: "Cancelar"
+            cancelled: "No se ha importado nada."
             format_kucoin: "KuCoin CSV"
             generic: "Registradas con una etiqueta genérica: %{count}."
