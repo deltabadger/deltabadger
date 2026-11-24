@@ -637,8 +637,8 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
             numbered.push((writer(c, &[], account)?, number));
         }
     }
-    // #710 8a rule R15: an unrouted row is named as an account is, by its exchange's name; the CSV's own spelling when
-    // this install has no such exchange.
+    // #710 8a rule R15: an unrouted row naming account 2+ is named as an account is, by its exchange's name; the CSV's
+    // own spelling when this install has no such exchange.
     let names: Vec<(String, String)> = c.prepare("SELECT type, name FROM exchanges ORDER BY id")?
         .query_map([], |r| Ok((r.get::<_, Option<String>>(0)?.unwrap_or_default(), r.get::<_, Option<String>>(1)?.unwrap_or_default())))?.collect::<Result<_, _>>()?;
     let by_name = |name: &str, number: u32| numbered.iter().rev().find(|(k, n)| crate::tracker::rows::name_id(&k.exchange_type) == name && *n == i64::from(number)).map(|(k, _)| k);
@@ -650,8 +650,10 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
             None => {
                 left_out += 1;
                 if let Some((venue, number)) = venue {
-                    let venue = names.iter().find(|(t, _)| crate::tracker::rows::name_id(t) == venue).map_or(venue, |(_, name)| name.clone());
-                    let venue = if number == 1 { venue } else { format!("{venue} {number}") };
+                    // A number-1 row keeps the CSV's spelling, as 2.x (and every recorded import) names it.
+                    let venue = if number == 1 { venue } else {
+                        format!("{} {number}", names.iter().find(|(t, _)| crate::tracker::rows::name_id(t) == venue).map_or(venue, |(_, name)| name.clone()))
+                    };
                     if !unrouted.contains(&venue) { unrouted.push(venue); }
                 }
             }

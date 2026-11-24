@@ -2699,17 +2699,19 @@ fn a_single_account_upload_writes_on_the_first_response() {
     assert!(matches!(answer, deltabadger::tracker::import::run::Answer::Written { imported, .. } if imported > 0), "{answer:?}");
 }
 
-/// R15: an unrouted CSV row is named as an account is ("Alpaca 2"), or by the CSV's own spelling for an exchange this
-/// install has no row for.
+/// R15: an unrouted CSV row naming account 2+ is named as an account is ("Alpaca 2"); a number-1 row keeps the CSV's
+/// spelling, as does a row for an exchange this install has no row for.
 #[tokio::test(flavor = "current_thread")]
 async fn unrouted_csv_rows_name_the_exchange_or_keep_the_csv_spelling() {
     let (_d, o, s, _server, app) = alpaca().await;
     let c = &o.primary;
     let mut b = browser(&app, c, s.user_id);
     let v = deltabadger::tracker::rows::name_id("Exchanges::Alpaca");
-    let done = import_confirmed(&app, &mut b, "deltabadger", &ledger_csv(&[(&v, "T1", "BTC", 5, 1), (&v, "T2", "BTC", 6, 2), ("zzz", "T3", "BTC", 7, 1)])).await;
+    // A Kraken with no account: its number-1 row keeps the CSV's spelling, as 2.x and the recorded imports name it.
+    venue(c, "Exchanges::Kraken", "Kraken");
+    let done = import_confirmed(&app, &mut b, "deltabadger", &ledger_csv(&[(&v, "T1", "BTC", 5, 1), (&v, "T2", "BTC", 6, 2), ("zzz", "T3", "BTC", 7, 1), ("kraken", "T4", "BTC", 8, 1)])).await;
     assert!(imported(&done), "{}: {}", done.status, done.body);
-    assert!(done.body.contains("No account connected for: Alpaca 2, zzz."), "{}", done.body);
+    assert!(done.body.contains("No account connected for: Alpaca 2, kraken, zzz."), "{}", done.body);
 }
 
 // ---- #710 8a review r1 ----
