@@ -1621,11 +1621,12 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
             IbkrVerdict::Failure(why) => return Ok(Err(Failure { error: transport.redact_diagnostic(&why), raised: false })),
         };
         let (at, produced) = (clock.now(), crate::engine::model::Produced::new(status, Some(version.clone())));
+        let verdict_credentials = credentials.clone();
         let stored = super::commit_bots_for_ciphered(db, version, move |c, cipher| {
             if !crate::venue::ibkr_account::verdict_current(c, &read_verdict)? { return Ok((0, false)); }
             let named = account.as_deref().and_then(crate::identity::AccountId::ibkr);
-            crate::venue::ibkr_account::commit_verdict(c, cipher, &read_verdict, named.as_ref())?;
             let status = crate::web::settings::keys::bound_status(c, cipher, key_id, produced, account.as_deref(), at)?;
+            crate::venue::ibkr_account::commit_verdict(c, cipher, &read_verdict, named.as_ref(), &verdict_credentials)?;
             crate::web::settings::keys::store_status(c, &status, key_id, at)?;
             Ok((status.value, true))
         }).await?;

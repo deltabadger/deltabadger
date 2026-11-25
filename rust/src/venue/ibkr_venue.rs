@@ -84,7 +84,7 @@ pub struct IbkrVenue<T: Transport> {
     base: String,
     dh_random: Option<String>,
     /// #710 7b rule 12: every session's post-lock gate (and its accounts reads' numbering).
-    gate: Option<(super::ibkr_account::Reads, crate::engine::model::CredentialVersion)>,
+    gate: Option<Box<(super::ibkr_account::Reads, crate::engine::model::CredentialVersion)>>,
 }
 
 impl<T: Transport> IbkrVenue<T> {
@@ -99,13 +99,13 @@ impl<T: Transport> IbkrVenue<T> {
     /// #710 7b rule 12: every call behind the post-lock gate of key `version` (`Session::with_gate`); its account check is an
     /// in-lock read that commits (r6: a poll or an order that is the first to see another account fences the key).
     pub fn with_gate(mut self, reads: Option<super::ibkr_account::Reads>, version: crate::engine::model::CredentialVersion) -> Self {
-        self.gate = reads.map(|r| (r, version));
+        self.gate = reads.map(|r| Box::new((r, version)));
         self
     }
 
     fn session(&self) -> Session<'_, T, Clk> {
         let s = Session::new(&self.transport, self.login.clone(), &*self.clock).with_base(&self.base);
-        let s = match &self.gate { Some((reads, version)) => s.with_gate(Some(reads.clone()), version), None => s };
+        let s = match self.gate.as_deref() { Some((reads, version)) => s.with_gate(Some(reads.clone()), version), None => s };
         match self.dh_random.clone() { Some(r) => s.with_dh_random(move || r.clone()), None => s }
     }
 

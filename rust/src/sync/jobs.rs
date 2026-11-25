@@ -638,11 +638,11 @@ impl<C:Connect> Job for Validator<C>{
             // #710 7b §2: a later read of the login decides; this verdict writes nothing.
             if !crate::venue::ibkr_account::verdict_current(c,&verdict)? {return Err(SyncError(STALE_READ.into()));}
             let named=match &identity {Some(crate::identity::Observed::Read(read))=>Some(read.clone()),_=>None};
-            crate::venue::ibkr_account::commit_verdict(c,cipher,&verdict,named.as_ref())?;
             // #710 7a rules K5/M4, as the web recheck: the check may make the key (or another) its account's reader.
             let generations=crate::identity::generations_of_key(c,id).map_err(SyncError)?;
             let kept=crate::web::settings::keys::transient_kept(c,id,&venue,status.value,identity.as_ref())?;
             let status=crate::web::settings::keys::bound_status(c,cipher,id,status.clone().map(|_|kept),account.as_deref(),at)?;
+            crate::venue::ibkr_account::commit_verdict(c,cipher,&verdict,named.as_ref(),&credentials)?;
             crate::web::settings::keys::store_status(c,&status,id,at)?;
             if let Some(observed)=&identity{crate::identity::record(c,cipher,id,&credentials,&version_read,observed,at).map_err(SyncError)?;}
             super::settle_readers_of_key(c,id)?;
@@ -747,8 +747,8 @@ impl<C: Connect> Job for IbkrActivation<C> {
                 let stored = super::commit_record_for(&cx.db, &version, move |c, cipher| {
                     if !crate::venue::ibkr_account::verdict_current(c, &verdict)? { return Err(SyncError(STALE_READ.into())); }
                     let named = match &observed { Some(crate::identity::Observed::Read(read)) => Some(read.clone()), _ => None };
-                    crate::venue::ibkr_account::commit_verdict(c, cipher, &verdict, named.as_ref())?;
                     let status = crate::web::settings::keys::bound_status(c, cipher, id, status, account.as_deref(), at)?;
+                    crate::venue::ibkr_account::commit_verdict(c, cipher, &verdict, named.as_ref(), &credentials)?;
                     crate::web::settings::keys::store_status(c, &status, id, at)?;
                     if let Some(observed) = &observed { crate::identity::record(c, cipher, id, &credentials, &read_with, observed, at).map_err(SyncError)?; }
                     let fenced: bool = c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", crate::identity::fenced_sql(c, "k")?), [id], |r| r.get(0))?;
@@ -773,12 +773,12 @@ impl<C: Connect> Job for IbkrActivation<C> {
                 let log = |line: &str| crate::engine::log(&format!("[IBKR] registration {reg} {line}"));
                 let found = cx.db.run(move |c, cipher| {
                     let Some(r) = crate::venue::ibkr_account::registration(c, cipher, reg)? else { return Ok(None) };
-                    let before = crate::web::settings::keys::slots_of(c, r.user_id, r.exchange_id, 0).map_err(|e| format!("{e:?}"))?;
+                    let before = crate::web::settings::keys::slots_of(c, cipher, r.user_id, r.exchange_id, 0).map_err(|e| format!("{e:?}"))?;
                     let reads = crate::venue::ibkr_account::reads(c, cipher, &r.credentials);
                     Ok(Some((r, before, reads)))
                 }).await;
                 let (r, before, reads) = match found { Ok(Some(f)) => f, Ok(None) => continue, Err(e) => { log(&format!("activation check failed: {e}")); continue } };
-                let producer = crate::engine::model::prepared_credential_version(0, &r.columns);
+                let producer = r.producer.clone();
                 let values: Vec<Option<String>> = r.credentials.redaction_values.iter().cloned().map(Some).collect();
                 let handle = ValidationHandle::stored(r.credentials, producer).with_reads(reads);
                 let stored = cx.db.run(|c, cipher| crate::app_config::get(c, cipher, "proxy_ibkr").map_err(|_| "the ibkr proxy setting is unreadable".to_string())).await;

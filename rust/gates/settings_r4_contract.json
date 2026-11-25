@@ -94,6 +94,11 @@
       "file": "web/settings/keys.rs",
       "function": "validate",
       "builds": "immutable submitted validation material before HTTP"
+    },
+    {
+      "file": "venue/ibkr_account.rs",
+      "function": "registration",
+      "builds": "a pending IBKR connection's validation material and its prepared CredentialVersion (id 0), from one read of its row (#710 7b rule 5)"
     }
   ],
   "comparison": {

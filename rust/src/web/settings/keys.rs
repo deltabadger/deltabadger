@@ -600,7 +600,7 @@ pub(crate) async fn submit_answered(app: &App, venue: &str, venue_name: &str, ki
    if pending {
     tx.execute("UPDATE ibkr_registrations SET key=?1,secret=?2,access_token=?3,ibkr_realm=?4,status=3,revision=revision+1,updated_at=?5 WHERE id=?6",
                rusqlite::params![validated.columns[0],validated.columns[1],validated.columns[3],validated.key.realm,format_time(inner.now()),reg])?;
-    crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,None)?;
+    crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,None,validated.handle.credentials())?;
     tx.commit()?;
     return Ok(Some(REGISTRATION_WAITS.into()));
    }
@@ -665,7 +665,9 @@ pub(crate) async fn submit_answered(app: &App, venue: &str, venue_name: &str, ki
   if current.id.is_some() { if let Some(r)=settling(&tx,&inner.cipher,&target)? { return Ok(Some(r.into())); } }
   let id={
    let now=if changed {now} else {current.updated_at.clone().unwrap_or(now)};
-   write_slot(&tx,&inner.cipher,current.id,&target,stored,&validated.columns,candidate.realm.as_deref(),status,&now,inner.now())?
+   let key=validated.columns[0].clone();
+   let columns=[key,validated.columns[1].clone(),validated.columns[2].clone(),validated.columns[3].clone(),validated.columns[4].clone(),validated.columns[5].clone(),validated.columns[6].clone()];
+   write_slot(&tx,&inner.cipher,current.id,&target,stored,&columns,candidate.realm.as_deref(),status,&now,inner.now())?
   };
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
   // #710 7b rule 3: the registration became this key.
@@ -696,7 +698,7 @@ pub(crate) async fn submit_answered(app: &App, venue: &str, venue_name: &str, ki
   let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let named=match &validated.identity {Some(crate::identity::Observed::Read(read))=>Some(read),_=>None};
-  crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named)?;
+  crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named,validated.handle.credentials())?;
   tx.commit()?;
   if stored==0 {inner.wake_engine();}
   if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
@@ -734,7 +736,7 @@ async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate:
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
         if !crate::venue::ibkr_account::verdict_current(&tx,&verdict)? {return Ok(vec![]);}
         let named=match &read {crate::identity::Observed::Read(id)=>Some(id.clone()),_=>None};
-        crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named.as_ref())?;
+        crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named.as_ref(),&material)?;
         let current=match installed.filter(|_|crate::identity::VALIDATION_READS.contains(&venue.as_str())) {
             Some((account,kind,before))=>{let key=Key::read(&tx,&inner,account,kind)?;
                 key.id.filter(|id|before.is_some()&&key_slot(&key)==before&&crate::identity::is_material(&tx,&inner.cipher,*id,&venue,&material))},
@@ -766,7 +768,7 @@ fn readers_of(c: &Connection, user: i64, exchange: i64) -> Result<Vec<i64>, WebE
     Ok(out)
 }
 /// A slot of an account: its key's id and ciphertext version (None: absent).
-pub(crate) type Slot = Option<(i64, Option<String>)>;
+pub type Slot = Option<(i64, Option<String>)>;
 /// A slot as a snapshot compares it: its key and ciphertext version, and (#710 7b §2) an IBKR key's realm, part of its
 /// material though stored in plain text.
 fn slot_text(version: Option<&crate::engine::model::CredentialVersion>, realm: Option<&str>) -> Option<String> {
@@ -774,21 +776,22 @@ fn slot_text(version: Option<&crate::engine::model::CredentialVersion>, realm: O
 }
 fn key_slot(k: &Key) -> Slot { k.id.map(|id| (id, slot_text(k.version.as_ref(), k.realm.as_deref()))) }
 /// `account`'s slot of key type `kind`, as `key_slot` of `Key::read` makes it.
-fn slot_of(c: &Connection, account: &Account, kind: i64) -> Result<Slot, WebError> {
+fn slot_of(c: &Connection, cipher: &crate::crypto::Cipher, account: &Account, kind: i64) -> Result<Slot, WebError> {
     let Some(id) = account.key(c, kind)? else { return Ok(None) };
     let realm: Option<String> = c.query_row("SELECT ibkr_realm FROM api_keys WHERE id = ?1", [id], |r| r.get(0))?;
-    Ok(Some((id, slot_text(crate::engine::model::credential_version_by_id(c, id)?.as_ref(), realm.as_deref()))))
+    let version = crate::sync::credentials_with_version(c, cipher, id).map_err(|_| WebError::Config("unreadable exchange credential".into()))?.1;
+    Ok(Some((id, slot_text(Some(&version), realm.as_deref()))))
 }
 /// Every live account of (user, exchange) with its slot of key type `kind`.
-pub(crate) fn slots_of(c: &Connection, user: i64, exchange: i64, kind: i64) -> Result<Vec<(i64, Slot)>, WebError> {
+pub fn slots_of(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, exchange: i64, kind: i64) -> Result<Vec<(i64, Slot)>, WebError> {
     let mut out = vec![];
     for (id, _) in crate::identity::accounts_of(c, user, exchange)? {
         let Some(account) = Account::by_id(c, id)? else { continue };
-        out.push((id, slot_of(c, &account, kind)?));
+        out.push((id, slot_of(c, cipher, &account, kind)?));
     }
     Ok(out)
 }
-fn slots(c: &Connection, _app: &App, user: i64, exchange: i64, kind: i64) -> Result<Vec<(i64, Slot)>, WebError> { slots_of(c, user, exchange, kind) }
+fn slots(c: &Connection, app: &App, user: i64, exchange: i64, kind: i64) -> Result<Vec<(i64, Slot)>, WebError> { slots_of(c, &app.cipher, user, exchange, kind) }
 
 /// The save's update-or-insert of `target`'s slot of key type `kind` (`current`: its lowest-id key of that type, as read in
 /// this transaction): that row's material replaced (`identity::write_credential`) and its status set, or a new row joining
@@ -851,7 +854,7 @@ pub fn finish_registration(c: &Connection, cipher: &crate::crypto::Cipher, reg: 
     let account = Account::by_id(&tx, dest)?.ok_or_else(|| WebError::Config("routed account missing".into()))?.ensure(&tx, now)?;
     let current = account.key(&tx, 0)?;
     let was = before.iter().find(|(a, _)| *a == dest).map(|(_, s)| s.clone()).unwrap_or(None);
-    if slot_of(&tx, &account, 0)? != was && !current.is_some_and(|k| crate::identity::is_material(&tx, cipher, k, ibkr, &pending.credentials)) {
+    if slot_of(&tx, cipher, &account, 0)? != was && !current.is_some_and(|k| crate::identity::is_material(&tx, cipher, k, ibkr, &pending.credentials)) {
         return Ok(Finished::Waits("the connection was replaced meanwhile"));
     }
     if current.is_some() { if let Some(r) = settling(&tx, cipher, &account)? { return Ok(Finished::Waits(r)) } }
@@ -864,7 +867,7 @@ pub fn finish_registration(c: &Connection, cipher: &crate::crypto::Cipher, reg: 
     crate::identity::establish_read(&tx, cipher, dest, ibkr, &id_read, now).map_err(WebError::Config)?;
     crate::identity::write_digest(&tx, cipher, id, exchange, &pending.credentials).map_err(WebError::Config)?;
     crate::sync::settle_readers(&tx, user, exchange).map_err(|e| WebError::Config(e.0))?;
-    crate::venue::ibkr_account::commit_verdict(&tx, cipher, verdict, Some(&id_read))?;
+    crate::venue::ibkr_account::commit_verdict(&tx, cipher, verdict, Some(&id_read), &pending.credentials)?;
     tx.commit()?;
     Ok(Finished::Key(id))
 }
@@ -1268,7 +1271,7 @@ pub async fn legacy(
     }
     // Rule M2, as the form save: asked first; `api_key[key_answer]` answers.
     crate::identity::Route::New=>match &read {
-     Some(id)=>match key_question(&tx,&inner.cipher,user.id,exchange,kind,account.id,id,&material,answer.as_deref(),inner.now())? {
+     Some(id)=>match key_question(&tx,&inner.cipher,user.id,exchange,kind,account.id,id,&material,answer.as_deref(),&None,inner.now())? {
       KeyAsk::New=>crate::identity::new_account(&tx,user.id,exchange,inner.now())?,
       KeyAsk::To(to)=>to,
       KeyAsk::Ask(question)=>return Ok(Err(Some(question))),

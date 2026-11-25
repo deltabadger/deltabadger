@@ -303,7 +303,9 @@ pub fn names_only(data: &Value, account: &str) -> bool { listed(data) == [Value:
 /// `api_keys` order (key, secret, passphrase, access_token, rsa_signature_key, rsa_encryption_key, dh_param), encrypted,
 /// and its whole material decrypted.
 pub struct Registration { pub id: i64, pub revision: i64, pub status: i64, pub user_id: i64, pub exchange_id: i64, pub target: Option<i64>, pub updated_at: String,
-                          pub columns: [Option<String>; 7], pub realm: Option<String>, pub credentials: crate::crypto::Credentials }
+                          pub columns: [Option<String>; 7], pub realm: Option<String>, pub credentials: crate::crypto::Credentials,
+                          /// Its material's version as a save validates it (id 0: no key row yet).
+                          pub producer: crate::engine::model::CredentialVersion }
 
 /// Registration `id` (None: gone).
 pub fn registration(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<Registration>, String> {
@@ -319,7 +321,8 @@ pub fn registration(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<R
                                                    encryption_key: encryption_key.clone(), dh_param: dh_param.clone(), realm: realm.clone().unwrap_or_default() };
     let credentials = crate::crypto::Credentials { redaction_values: vec![key.clone(), secret.clone(), access_token, signature_key, encryption_key, dh_param], key, secret, passphrase: None,
                                                    ibkr: Some(Box::new(material)) };
-    Ok(Some(Registration { id, revision, status, user_id, exchange_id, target, updated_at, columns, realm, credentials }))
+    let producer = crate::engine::model::prepared_credential_version(0, &columns);
+    Ok(Some(Registration { id, revision, status, user_id, exchange_id, target, updated_at, columns, realm, credentials, producer }))
 }
 /// The registrations awaiting IBKR's activation (status 3), by id: the activation job's to finish (rule 5).
 pub fn awaiting(c: &Connection) -> rusqlite::Result<Vec<i64>> {
@@ -378,9 +381,15 @@ pub fn verdict_current(c: &Connection, taken: &Verdict) -> rusqlite::Result<bool
 }
 /// Verdict read `taken`, naming `read` (None: no account), acted on in the caller's transaction: committed (its fingerprint
 /// under the identity key). False, nothing written, when a later read of the login was taken meanwhile.
-pub fn commit_verdict(c: &Connection, cipher: &Cipher, taken: &Verdict, read: Option<&crate::identity::AccountId>) -> rusqlite::Result<bool> {
-    let Some((digest, t)) = taken else { return Ok(true) };
+/// An unnumbered read (the install had no identity key when it read: a first connection) that named an account, acted on
+/// once a bind made the key: numbered and committed now, as the login's latest read (`credentials`: its material).
+pub fn commit_verdict(c: &Connection, cipher: &Cipher, taken: &Verdict, read: Option<&crate::identity::AccountId>, credentials: &crate::crypto::Credentials) -> rusqlite::Result<bool> {
     let fingerprint = read.and_then(|id| crate::identity::existing_key(c, cipher).map(|k| k.fingerprint(super::ibkr::IBKR, id)));
+    let Some((digest, t)) = taken else {
+        let Some(reads) = fingerprint.as_ref().and_then(|_| reads(c, cipher, credentials)) else { return Ok(true) };
+        let t = take_seq(c, &reads.digest)?;
+        return commit_seq(c, &reads.digest, t.seq, fingerprint.as_deref());
+    };
     commit_seq(c, digest, t.seq, fingerprint.as_deref())
 }
 

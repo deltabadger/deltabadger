@@ -407,8 +407,10 @@ async fn balances_of_a_login_that_names_another_account_fail_with_nothing_writte
     ibkr_catalogue(&fx);
     ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, "U1234567", at(NOW)).unwrap().unwrap();
     let t = scripted(json!({ "accounts": ["U7654321"] }), &[json!([])]);
-    let failed = sync_balances(&fx, t.clone()).await.unwrap_err();
-    assert!(failed.error.contains("no longer names the account"), "{}", failed.error);
+    // r6: the read fences the key under its lock, so the run's own commits are refused as any fenced key's are (no
+    // failure text is published for a key that reads another account).
+    let failed = sync_balances_raw(&fx, t.clone()).await;
+    assert!(!matches!(failed, Ok(Ok(_))), "nothing published");
     assert_eq!(fx.c.query_row("SELECT count(*) FROM exchange_account_balances", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
     assert!(!t.requests().iter().any(|r| r.path.contains("/portfolio/")), "the other account is never read");
     assert_eq!(fx.key().0, 1, "IBKR names no invalid-key words: the key stays");

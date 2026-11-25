@@ -593,6 +593,7 @@ fn s7b_reads(fx: &Fx) -> deltabadger::venue::ibkr_account::Reads {
     let material = deltabadger::venue::signers::ibkr::Material { consumer_key: t("consumer_key"), access_token: t("access_token"), access_token_secret: t("access_token_secret"),
         signature_key: t("signature_key"), encryption_key: t("encryption_key"), dh_param: verdicts["ibkr"]["dh_param"].as_str().unwrap().into(), realm: t("realm") };
     let credentials = deltabadger::crypto::Credentials { redaction_values: vec![], key: t("consumer_key"), secret: t("access_token_secret"), passphrase: None, ibkr: Some(Box::new(material)) };
+    deltabadger::identity::key(&fx.c, &fx.app.cipher, chrono::Utc::now()).unwrap();
     deltabadger::venue::ibkr_account::reads(&fx.c, &fx.app.cipher, &credentials).expect("numbered")
 }
 /// (seq, committed_seq) of the recorded login.
@@ -815,7 +816,7 @@ async fn s7b_ibkr_concurrent_replacement_survives_finish() {
     assert_eq!(realm, "test_realm", "the replacement survives");
     assert_eq!(s7b_registrations(&fx).len(), 1, "the registration waits");
     // The job's finish keeps it alike (its slots as they were before its check).
-    let before = deltabadger::web::settings::keys::slots_of(&fx.c, fx.user, fx.exchange, 0).unwrap();
+    let before = deltabadger::web::settings::keys::slots_of(&fx.c, &fx.app.cipher, fx.user, fx.exchange, 0).unwrap();
     fx.c.execute("UPDATE api_keys SET ibkr_realm = 'other_realm' WHERE id = ?1", [one]).unwrap();
     fx.c.execute("UPDATE ibkr_registrations SET status = 3", []).unwrap();
     let revision: i64 = fx.c.query_row("SELECT revision FROM ibkr_registrations", [], |r| r.get(0)).unwrap();
@@ -834,7 +835,9 @@ async fn s7b_ibkr_new_account_waits_for_an_unbound_key() {
     let (_, _) = s7b_connected_one(&mut fx).await;
     fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, 2, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange)).unwrap();
     let second = fx.c.last_insert_rowid();
-    s7b_key(&fx, Some(second), 3);
+    let other = s7b_key(&fx, Some(second), 3);
+    // Another login's pending key (its own consumer key).
+    fx.c.execute("UPDATE api_keys SET key = ?1 WHERE id = ?2", rusqlite::params![fx.app.cipher.encrypt("another-consumer-key"), other]).unwrap();
     let (reg, revision) = s7b_registration(&mut fx).await;
     s7b_server(&server, "U7654321").await;
     let page = format!("/settings/ibkr_connect?registration={reg}");
@@ -900,7 +903,7 @@ async fn s7b_ibkr_delayed_finish_after_copy_read_writes_nothing() {
     let reads = s7b_reads(&fx);
     let old = deltabadger::venue::ibkr_account::take_seq(&fx.c, &reads.digest).unwrap();
     deltabadger::venue::ibkr_account::take_seq(&fx.c, &reads.digest).unwrap();
-    let before = deltabadger::web::settings::keys::slots_of(&fx.c, fx.user, fx.exchange, 0).unwrap();
+    let before = deltabadger::web::settings::keys::slots_of(&fx.c, &fx.app.cipher, fx.user, fx.exchange, 0).unwrap();
     let finished = deltabadger::web::settings::keys::finish_registration(&fx.c, &fx.app.cipher, reg, revision, "U1234567", &Some((reads.digest.clone(), old)), &before, chrono::Utc::now()).unwrap();
     assert!(matches!(finished, deltabadger::web::settings::keys::Finished::Waits(_)), "{finished:?}");
     assert!(s7b_keys(&fx).is_empty() && s7b_registrations(&fx).len() == 1, "nothing written");
@@ -921,7 +924,7 @@ async fn s7b_ibkr_stale_learn_refused_writes_nothing() {
     let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
     fx.page().await;
     let (browser, app, c) = (&mut fx.browser, &fx.app, &fx.c);
-    let (posted, ()) = tokio::join!(browser.send(app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]),
+    let (posted, ()) = tokio::join!(browser.send(app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Header, &[]),
         async { tokio::time::sleep(std::time::Duration::from_millis(100)).await; deltabadger::venue::ibkr_account::take_seq(c, &reads.digest).unwrap(); });
     assert_eq!(posted.status, 302, "retried, not asked: {}", posted.body);
     assert!(!s7b_fenced(&fx, one), "the stale read fenced nothing");

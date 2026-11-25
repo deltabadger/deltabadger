@@ -149,6 +149,8 @@ pub async fn read<T: Transport, C: Clock + ?Sized>(session: &Session<'_, T, C>, 
         Ok(v) => Ok(HttpResponse { status: 200, body: v.to_string() }),
         Err(Error::Http { status, body }) => Ok(HttpResponse { status, body }),
         Err(Error::Transport(e)) => Err(e),
+        // #710 7b rule 12: held back by the gate, nothing sent ("check first").
+        Err(Error::Gated) => Err(TransportError::NotSent(GATED.into())),
         Err(e) => Err(TransportError::Permanent(session.transport.redact_diagnostic(&e.message()))),
     }
 }
