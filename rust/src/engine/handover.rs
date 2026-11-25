@@ -712,6 +712,9 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // #710 7a rules N2/N7: Rust's own identity and reader bookkeeping; 2.x never reads either.
         (Table, "account_fingerprint_proofs", Ignored), (Table, "ledger_reader_generations", Ignored),
         (Table, "import_row_origins", Ignored), (Table, "parked_answers", Ignored),
+        // #710 (PLAN-710-confirm): an import question's upload and its handles; its bytes live in Rust's own directory, which
+        // 2.x never opens, so a hand-back drops the question (the user uploads again).
+        (Table, "import_parked_uploads", Ignored), (Table, "import_parked_choices", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's

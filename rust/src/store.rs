@@ -258,6 +258,12 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261125000002", TableContract { name: "import_row_origins", columns: &[("transaction_id", "INTEGER", false), ("import_kind", "TEXT", true),
         ("created_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261125000002", TableContract { name: "parked_answers", columns: &[("digest", "TEXT", false), ("created_at", "TEXT", true)], unique_indexes: &[] }),
+    // #710 (PLAN-710-confirm): an import question's upload and the handles its page rendered.
+    ("20261126000001", TableContract { name: "import_parked_uploads", columns: &[("token", "TEXT", false), ("user_id", "INTEGER", true), ("sha256", "TEXT", true),
+        ("bytes_len", "INTEGER", true), ("format", "TEXT", true), ("filename", "TEXT", false), ("zone", "TEXT", false), ("gen", "INTEGER", true), ("state", "TEXT", true),
+        ("expires_at", "TEXT", true), ("picks", "TEXT", true), ("created_at", "TEXT", true)], unique_indexes: &[] }),
+    ("20261126000001", TableContract { name: "import_parked_choices", columns: &[("handle", "TEXT", false), ("token", "TEXT", true), ("gen", "INTEGER", true),
+        ("kind", "TEXT", true), ("dest_json", "TEXT", true)], unique_indexes: &[] }),
     // Delisted coins PR0: coin prices by identity.
     ("20261123000002", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),
