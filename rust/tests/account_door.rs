@@ -3673,3 +3673,143 @@ async fn s9r1_the_bybit_json_save_reads_an_unread_installed_key_first() {
     assert!(!identity::unread(c, installed).unwrap());
     assert_eq!(asked.status, 409, "{}", asked.body);
 }
+
+// ---- #710 slice 9: MEXC names its UID (`uid` of GET /api/v3/uid, after the permission check) ----
+
+/// A MEXC exchange of the Alpaca fixture's user. `mx-a`, `mx-a2`, `mx-a3` read UID A (text, as MEXC's docs type it); `mx-b`
+/// B (a number); `mx-nouid`'s answer names no UID; any other key's UID read fails (a 503). Every key's check passes.
+async fn mexc() -> (tempfile::TempDir, store::Opened, i64, i64, MockServer, deltabadger::web::App) {
+    let server = MockServer::start().await;
+    for (key, uid) in [("mx-a", serde_json::json!(UID_A)), ("mx-a2", serde_json::json!(UID_A)), ("mx-a3", serde_json::json!(UID_A)), ("mx-b", serde_json::json!(UID_B.parse::<u64>().unwrap()))] {
+        Mock::given(method("GET")).and(path("/api/v3/uid")).and(header("X-MEXC-APIKEY", key)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"uid": uid}))).mount(&server).await;
+    }
+    Mock::given(method("GET")).and(path("/api/v3/uid")).and(header("X-MEXC-APIKEY", "mx-nouid")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v3/uid")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    Mock::given(method("GET")).and(path(deltabadger::venue::mexc::ACCOUNT_PATH)).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"canTrade": true, "balances": []}))).mount(&server).await;
+    Mock::given(method("GET")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let (dir, o) = install();
+    let c = &o.primary;
+    let s = seed::seed_alpaca(c, &seed::cipher());
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES (?1, 'MEXC', '0.1', '0.1', 'now', 'now')", [deltabadger::venue::mexc::MEXC]).unwrap();
+    let exchange = c.last_insert_rowid();
+    let app = web_app(dir.path(), c).with_venue_key_url(deltabadger::venue::mexc::MEXC, &server.uri()).unwrap();
+    (dir, o, s.user_id, exchange, server, app)
+}
+fn mexc_fields(key: &'static str) -> [(&'static str, &'static str); 2] { [("api_key[key]", key), ("api_key[secret]", "mx-secret")] }
+/// The requests `server` received signed by `key` to `to`.
+async fn mexc_sent(server: &MockServer, key: &str, to: &str) -> usize {
+    server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == to && r.headers.get("X-MEXC-APIKEY").is_some_and(|v| v == key)).count()
+}
+/// A read-only MEXC key `key` placed on `account` as 2.x would leave it: correct, never read.
+fn mexc_unread(c: &Connection, user: i64, exchange: i64, account: i64, key: &str) -> i64 {
+    let cipher = seed::cipher();
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, 'now', 'now')",
+              rusqlite::params![user, exchange, cipher.encrypt(key), cipher.encrypt("mx-secret")]).unwrap();
+    let id = c.last_insert_rowid();
+    identity::Account::by_id(c, account).unwrap().unwrap().add_key(c, id).unwrap();
+    id
+}
+
+/// Two keys of one UID make one account; a key of another UID its own (tiles); a Reconnect of account 2 with a key of UID A
+/// lands on account 1; a key whose answer names no UID is refused on a tile (Q5).
+#[tokio::test(flavor = "current_thread")]
+async fn s9_mexc_one_uid_is_one_account_and_another_uid_another() {
+    let (_d, o, user, exchange, server, app) = mexc().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    for key in ["mx-a", "mx-b", "mx-a2"] {
+        let answer = save(&app, &mut b, exchange, None, &mexc_fields(key)).await;
+        assert!(answer.status < 400, "{key}: {}: {}", answer.status, answer.body);
+    }
+    assert_eq!(keys(c, &cipher, exchange), [(1, "mx-a2".into()), (2, "mx-b".into())], "A's second key replaced A's on account 1");
+    let reconnect = save(&app, &mut b, exchange, Some(accounts(c, user, exchange)[1]), &mexc_fields("mx-a3")).await;
+    assert!(reconnect.status < 400, "{}: {}", reconnect.status, reconnect.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "mx-a3".into()), (2, "mx-b".into())], "routed to A's account, account 2 untouched");
+    let refused = save(&app, &mut b, exchange, None, &mexc_fields("mx-nouid")).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("We could not confirm which account this key belongs to"), "{}", refused.body);
+    assert_eq!((numbers(c, exchange), keys(c, &cipher, exchange)), (vec![1, 2], vec![(1, "mx-a3".into()), (2, "mx-b".into())]));
+    assert_eq!(mexc_sent(&server, "mx-a", "/api/v3/uid").await, 1, "one UID read per check");
+}
+
+/// The bot wizard's key save sees MEXC's UID: a trading key of another UID than account 1's makes account 2.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_wizard_save_routes_a_mexc_key_by_its_uid() {
+    let (_d, o, user, exchange, _server, app) = mexc().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let mut b = browser(&app, c, user);
+    assert!(save(&app, &mut b, exchange, None, &mexc_fields("mx-a")).await.status < 400);
+    let e = exchange.to_string();
+    b.get(&app, "/bots/new").await;
+    b.get(&app, "/bots/dca_single_assets/pick_exchange/new").await;
+    assert_eq!(b.send(&app, "POST", "/bots/dca_single_assets/pick_exchange", Some(&[("bots_dca_single_asset[exchange_id]", e.as_str()), ("untargeted", "1")]), common::web::Csrf::Header, &[]).await.status, 302);
+    let form = b.get(&app, "/bots/dca_single_assets/add_api_key/new").await;
+    assert_eq!(form.status, 200, "{}", location(&form));
+    let answer = b.send(&app, "POST", &format!("/bots/dca_single_assets/add_api_key?exchange_id={e}&untargeted=1"), Some(&mexc_fields("mx-b")), common::web::Csrf::Header, &[]).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "mx-a".into()), (2, "mx-b".into())]);
+    let trading = identity::key_of(c, accounts(c, user, exchange)[1], 0).unwrap().unwrap();
+    assert_eq!(identity::credential_standing(c, trading).unwrap(), identity::CredentialStanding::Bound);
+}
+
+/// G4 r6 at `revalidate`: MEXC's account probe comes before its UID read. A key correct while its recheck is in flight whose
+/// probe answers 503 (or a bare 403, or a 429) keeps its status and its account's standing, with no UID read sent; one
+/// whose probe answers a refusal (10072, 700002) is no longer correct and its standing ends. The probe was received each time.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_a_transient_mexc_probe_keeps_a_correct_keys_status_and_standing_at_revalidate() {
+    let refusal = |code: i64, msg: &str| serde_json::json!({"code": code, "msg": msg});
+    for (status, answer, kept) in [(503, serde_json::json!({}), true), (403, serde_json::json!({}), true), (429, refusal(10072, "Api key info invalid"), true),
+                                   (400, refusal(10072, "Api key info invalid"), false), (400, refusal(700002, "Signature for this request is not valid."), false),
+                                   // Review r1 #1, the recorded signature failure: 602 is no refusal, whatever its words.
+                                   (400, refusal(602, "Signature verification failed"), true),
+                                   // Review r1 #2: a code spelled as a float is that code.
+                                   (403, serde_json::json!({"code": 700007.0, "msg": "No permission to access the endpoint."}), false)] {
+        let (_d, o, user, exchange, server, app) = mexc().await;
+        let c = &o.primary;
+        let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        let key = mexc_unread(c, user, exchange, first, "mx-a");
+        let second = identity::new_account(c, user, exchange, chrono::Utc::now()).unwrap();
+        stand(c, user, exchange, second, first);
+        c.execute("UPDATE api_keys SET status = 2 WHERE id = ?1", [key]).unwrap();
+        let db = c.path().unwrap().to_string();
+        let reply = answer.clone();
+        Mock::given(method("GET")).and(path(deltabadger::venue::mexc::ACCOUNT_PATH)).and(header("X-MEXC-APIKEY", "mx-a")).respond_with(move |_: &wiremock::Request| {
+            // Correct while the recheck is in flight.
+            Connection::open(&db).unwrap().execute("UPDATE api_keys SET status = 1 WHERE id = ?1", [key]).unwrap();
+            ResponseTemplate::new(status).set_body_json(reply.clone())
+        }).with_priority(1).mount(&server).await;
+        let mut b = browser(&app, c, user);
+        b.get(&app, &format!("/tracker/add_api_key/new?exchange_id={exchange}&key_type=read_only&account_id={first}")).await;
+        assert_eq!(mexc_sent(&server, "mx-a", deltabadger::venue::mexc::ACCOUNT_PATH).await, 1, "{status} {answer}: the recheck sent its probe");
+        assert_eq!(mexc_sent(&server, "mx-a", "/api/v3/uid").await, 0, "{status} {answer}: no UID read");
+        let now = one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}"));
+        assert_eq!((now == 1, standings(c)), (kept, kept as i64), "{status} {answer}: status {now}");
+    }
+}
+
+/// The JSON save naming an account whose installed MEXC key nothing has read reads that key first (rule Q1), then asks
+/// about the new key of another UID; a key of the same UID is saved there.
+#[tokio::test(flavor = "current_thread")]
+async fn s9_the_mexc_json_save_reads_an_unread_installed_key_first() {
+    let (_d, o, user, exchange, server, app) = mexc().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    let installed = mexc_unread(c, user, exchange, first, "mx-a");
+    let mut b = browser(&app, c, user);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let (exchange_s, first_s) = (exchange.to_string(), first.to_string());
+    let post = |key: &'static str| [("api_key[exchange_id]", exchange_s.clone()), ("api_key[account_id]", first_s.clone()), ("api_key[key_type]", "read_only".into()),
+                                     ("api_key[key]", key.into()), ("api_key[secret]", "mx-secret".into())];
+    let form = post("mx-b");
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let asked = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!(mexc_sent(&server, "mx-a", "/api/v3/uid").await, 1, "the installed key was read first: {} {}", asked.status, asked.body);
+    assert!(!identity::unread(c, installed).unwrap());
+    assert_eq!(asked.status, 409, "{}", asked.body);
+    assert_eq!(mexc_sent(&server, "mx-b", "/api/v3/uid").await, 1, "the new key's UID was read before the answer");
+    let form = post("mx-a2");
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
+    assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
+    assert_eq!(keys(c, &cipher, exchange), [(1, "mx-a2".into())]);
+}
