@@ -403,6 +403,9 @@ nl:
                 set_transaction_price:
                     label: 'Koers opgeven'
                     description: 'De koers in USD instellen voor een transactie die de exchange niet heeft gewaardeerd'
+                import_transactions_csv:
+                    label: 'Transacties uit CSV importeren'
+                    description: 'Een CSV-bestand met transacties in de Tracker importeren en de vragen van de import beantwoorden zoals op het web'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'

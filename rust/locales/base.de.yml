@@ -403,6 +403,9 @@ de:
                 set_transaction_price:
                     label: 'Kurs angeben'
                     description: 'Den USD-Kurs einer Transaktion setzen, die die Börse nicht bewertet hat'
+                import_transactions_csv:
+                    label: 'Transaktionen per CSV importieren'
+                    description: 'Eine CSV-Datei mit Transaktionen in den Tracker importieren und die Rückfragen dabei wie beim Import im Web beantworten'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

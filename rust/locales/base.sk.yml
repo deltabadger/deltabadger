@@ -385,6 +385,9 @@ sk:
                 set_transaction_price:
                     label: 'Zadať cenu'
                     description: 'Nastaviť cenu v USD pri transakcii, ktorú burza neocenila'
+                import_transactions_csv:
+                    label: 'Import transakcií CSV'
+                    description: 'Importovať súbor CSV s transakciami do Trackera a odpovedať na otázky importu rovnako ako na webe'
             dry_run_title: 'Papierové obchodovanie'
             dry_run_description: 'Simulujte obchody s reálnymi trhovými cenami. Žiadne skutočné príkazy sa nezadávajú.'
             dry_run_label: 'Zapnúť papierové obchodovanie pre obchodné nástroje'
