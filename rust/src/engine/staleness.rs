@@ -325,13 +325,11 @@ fn id_stale(c: &Connection, id: &str, now: DateTime<Utc>) -> Result<Option<Stale
 /// ranking carries its own caps. Its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
     let index = bot.has_groups();
-    // Per followed id: a retired one keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap; a live one
-    // on a CoinGecko key carries its ranking's own caps. Only a live id on data-api caps sizes from the crypto catalogue.
-    let coingecko = index && super::provider::coingecko_key(c)?.is_some();
-    let (mut live, mut frozen) = (vec![], vec![]);
-    for id in bot.index_external_ids() { if super::index::retired(c, &id)? { frozen.push(id) } else { live.push(id) } }
-    let group_caps = !coingecko && !live.is_empty();
+    let ids = bot.index_external_ids();
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
+    // A retired index's bot keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap either. Slice 2a: one
+    // group, read in the base order (a CoinGecko key short-circuits the retirement query).
+    let own_caps = index && (super::provider::coingecko_key(c)?.is_some() || all_retired(c, &ids)?);
     let market_cap = bot.bot_type == "Bots::DcaMultiAsset" && bot.weighting() == "market_cap";
     let crypto_member = || -> Result<bool, EngineError> {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
@@ -340,25 +338,20 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     let venue = model::exchange_type(c, bot)?;
     if venue == "Exchanges::Ibkr" { return Ok(vec![&IBKR_TICKERS]); }
     if venue != "Exchanges::Alpaca" {
-        return Ok(if group_caps || (!index && market_cap && crypto_member()?) { vec![&CRYPTO_ASSETS] } else { vec![] });
+        return Ok(if own_caps { vec![] } else if index || (market_cap && crypto_member()?) { vec![&CRYPTO_ASSETS] } else { vec![] });
     }
     let mut sources = vec![];
-    let either = |a: (bool, bool), b: (bool, bool)| (a.0 || b.0, a.1 || b.1);
-    let (stocks, crypto): (bool, bool) = if index {
-        let mut flags = (false, false);
+    // Retirement is read again here, after the venue: one retired since the read above is judged by its held members.
+    let (stocks, crypto): (bool, bool) = if index && all_retired(c, &ids)? {
         // D-INDEX-RETIRED-KEPT: no ranking any more; the bot trades the members it holds, so their catalogues stay judged.
-        if !frozen.is_empty() {
-            flags = either(flags, c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
-                         FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?);
-        }
-        if !live.is_empty() {
-            let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
-            flags = either(flags, c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
-                         FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 \
-                         AND t.ticker IN (SELECT value FROM json_each(?3)) AND t.available=1 AND t.trading_enabled=1",
-                rusqlite::params![bot.exchange_id, bot.quote_asset_id(), pairs], |r| Ok((r.get(0)?, r.get(1)?)))?);
-        }
-        flags
+        c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
+                     FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?
+    } else if index {
+        let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
+        c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
+                     FROM tickers t JOIN assets a ON a.id=t.base_asset_id WHERE t.exchange_id=?1 AND t.quote_asset_id=?2 \
+                     AND t.ticker IN (SELECT value FROM json_each(?3)) AND t.available=1 AND t.trading_enabled=1",
+            rusqlite::params![bot.exchange_id, bot.quote_asset_id(), pairs], |r| Ok((r.get(0)?, r.get(1)?)))?
     } else {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
         c.query_row("SELECT coalesce(max(category != 'Cryptocurrency'),0), coalesce(max(category = 'Cryptocurrency'),0) \
@@ -366,8 +359,14 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     };
     if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
-    if crypto && (group_caps || (!index && market_cap)) { sources.push(&CRYPTO_ASSETS); }
+    if (index || market_cap) && crypto && !own_caps { sources.push(&CRYPTO_ASSETS); }
     Ok(sources)
+}
+
+/// Every followed id is retired (none followed: false). Slice 2b judges the union per group instead.
+fn all_retired(c: &Connection, ids: &[String]) -> Result<bool, EngineError> {
+    for id in ids { if !super::index::retired(c, id)? { return Ok(false); } }
+    Ok(!ids.is_empty())
 }
 
 /// The source name of the account-ledger refusal: run.rs releases a retrying bot's stale wait on it once the ledger is fresh.

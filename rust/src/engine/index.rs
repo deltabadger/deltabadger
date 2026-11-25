@@ -366,10 +366,12 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         if run_owned { model::require_run(tx, bot)?; }
         else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
         let current = model::load_bot(tx, bot.id)?;
+        // Every group's row is read before anything is compared, so an unreadable one raises whatever else moved.
+        let sources_now = derived.iter().map(|d| ranked_row(tx, &d.external_id)).collect::<Result<Vec<_>, _>>()?;
         // A ranking that aged past its bound during the probes composes nothing: the next pass's gate holds the bot.
         let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before;
-        for d in &derived {
-            changed = changed || ranked_row(tx, &d.external_id)?.as_ref() != Some(&d.source) || !usable(&d.source, clock.now()) || retired(tx, &d.external_id)?;
+        for (d, now) in derived.iter().zip(&sources_now) {
+            changed = changed || now.as_ref() != Some(&d.source) || !usable(&d.source, clock.now()) || retired(tx, &d.external_id)?;
         }
         changed = changed || super::provider::fingerprint(tx)? != provider_before || super::provider::stale(tx, &current)?.is_some();
         for ticker in derived.iter().flat_map(|d| &d.priced) { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
