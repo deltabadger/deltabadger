@@ -93,9 +93,10 @@ fn blank(bytes: &[u8]) -> bool {
 enum Input { Fresh, Confirm(String, String), Cancel(String), NoFile }
 
 fn classify(params: &crate::web::Params) -> Input {
-    let all = || params.query.iter().chain(params.form.iter());
+    // Rule N2 (branch review r1): a file-valued part's contents count as its value, as a field's would.
+    let all = || params.query.iter().chain(params.form.iter()).chain(params.file_parts.iter());
     let values = |name: &'static str| all().filter(move |(k, _)| k == name).map(|(_, v)| v.as_str());
-    let file_part = |name: &str| params.file_parts.iter().any(|p| p == name);
+    let file_part = |name: &str| params.file_parts.iter().any(|(p, _)| p == name);
     let tokens: std::collections::BTreeSet<&str> = values("token").collect();
     // An `api_key_id` shaped as a handle is one; a bare one on a fresh upload is ignored (the recorded `999`).
     let handles: std::collections::BTreeSet<&str> = values("handle").chain(values("api_key_id").filter(|v| service::handle_shaped(v))).collect();
@@ -231,17 +232,19 @@ mod tests {
         use super::Input;
         let (t, u) = ("0123456789abcdef", "fedcba9876543210");
         let h = |t: &str| format!("{t}.1.0.{}", "a".repeat(32));
-        let params = |query: &[(&str, &str)], form: &[(&str, &str)], files: &[&str]| crate::web::Params {
+        let params = |query: &[(&str, &str)], form: &[(&str, &str)], files: &[(&str, &str)]| crate::web::Params {
             full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, json: None, upload: None,
             query: query.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), form: form.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
-            file_parts: files.iter().map(|f| f.to_string()).collect() };
-        let c = |q: &[(&str, &str)], f: &[(&str, &str)], files: &[&str]| super::classify(&params(q, f, files));
+            file_parts: files.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect() };
+        let c = |q: &[(&str, &str)], f: &[(&str, &str)], files: &[(&str, &str)]| super::classify(&params(q, f, files));
         assert_eq!(c(&[], &[("format", "binance"), ("api_key_id", "999")], &[]), Input::Fresh);
         assert_eq!(c(&[], &[("token", t), ("api_key_id", &h(t))], &[]), Input::Confirm(t.into(), h(t)));
         assert_eq!(c(&[], &[("token", t), ("api_key_id", &h(t)), ("cancel", "Cancel")], &[]), Input::Cancel(t.into()));
         assert_eq!(c(&[("cancel", "1"), ("token", t)], &[], &[]), Input::Cancel(t.into()));
         assert_eq!(c(&[("token", t)], &[("format", "binance")], &[]), Input::NoFile, "a query token with a fresh file");
-        assert_eq!(c(&[], &[("format", "binance")], &["token"]), Input::NoFile, "a file-valued token part");
+        assert_eq!(c(&[], &[("format", "binance")], &[("token", t)]), Input::NoFile, "a file-valued token part");
+        assert_eq!(c(&[], &[("format", "binance")], &[("api_key_id", &h(t))]), Input::NoFile, "a file-valued handle");
+        assert_eq!(c(&[], &[("format", "binance")], &[("api_key_id", "999")]), Input::Fresh, "a file-valued bare id is no handle");
         assert_eq!(c(&[], &[("api_key_id", &h(t))], &[]), Input::NoFile, "a handle with no token");
         assert_eq!(c(&[("token", t), ("api_key_id", &h(t))], &[("token", u), ("api_key_id", &h(u))], &[]), Input::NoFile, "two uploads' pairs");
         assert_eq!(c(&[("handle", &h(t))], &[("token", t), ("api_key_id", &h(u))], &[]), Input::NoFile, "two choices");

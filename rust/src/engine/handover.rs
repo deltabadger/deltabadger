@@ -919,11 +919,15 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
     restore_dropped_columns(&tx)?;
+    // Branch review r1 #7: the parked import uploads are Rust's alone; 2.x is never handed them (their bytes go once this
+    // commits).
+    crate::tracker::import::service::forget_rows(&tx)?;
     lease::hand_back(lock, &tx, cipher, now)?;
     // When this engine left, plain, so `check` reads it without keys: 2.x's stamps after it are 2.x's own (staleness).
     crate::app_config::set_plain(&tx, lease::HANDED_BACK_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)
         .map_err(EngineError::Data)?;
     tx.commit()?;
+    crate::tracker::import::service::forget_files(&o.primary);
     Ok(scheduled)
 }
 

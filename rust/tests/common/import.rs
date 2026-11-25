@@ -31,6 +31,20 @@ pub async fn decoded(app: &deltabadger::web::App, body: String) -> String {
     app.db(move |c| Ok(decode(c, &body))).await.unwrap()
 }
 
+/// `answer` read as `decode` reads it, each handle it rendered kept beside it (an `x-handle: <handle> <value>` header), so
+/// an old page posts exactly the handle it showed (`rendered`).
+pub async fn decode_answer(app: &deltabadger::web::App, answer: &mut super::web::Answer) {
+    let raw = answer.body.clone();
+    let pairs: Vec<(String, String)> = app.db(move |c| Ok(handles(&raw).into_iter().map(|h| (h.clone(), decode(c, &h))).collect())).await.unwrap();
+    answer.headers.extend(pairs.into_iter().filter(|(h, v)| h != v).map(|(h, v)| ("x-handle".to_string(), format!("{h} {v}"))));
+    answer.body = decoded(app, std::mem::take(&mut answer.body)).await;
+}
+
+/// The handle `page` rendered for `value` (None: it offered none).
+pub fn rendered(page: &super::web::Answer, value: &str) -> Option<String> {
+    page.headers.iter().filter(|(n, _)| n == "x-handle").find_map(|(_, v)| v.split_once(' ').filter(|(_, val)| *val == value).map(|(h, _)| h.to_string()))
+}
+
 /// `handle_for` over the app's own connection.
 pub async fn handle_of(app: &deltabadger::web::App, token: String, value: String) -> Option<String> {
     app.db(move |c| Ok(handle_for(c, &token, &value))).await.unwrap()

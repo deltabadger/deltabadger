@@ -22,8 +22,9 @@ pub enum Outcome {
     /// The one write: its counts, the venues no account takes, and (exchange, account, rows) per account written.
     Written { imported: usize, duplicates: usize, skipped: usize, unrecognised: Vec<String>, unrouted: Vec<String>, generic: usize, destinations: Vec<(i64, i64, usize)> },
     /// A question: the upload's token and format, run's question with each choice's value its handle, and each choice's
-    /// kind (a venue selector's options `Select`/`Authorize`; the page's Cancel is offered on every other question).
-    Question { token: String, format: &'static str, answer: Answer, kinds: Vec<Kind> },
+    /// kind (a venue selector's options `Select`/`Authorize`; the page's Cancel is offered on every other question). Rule
+    /// M7: where its rows would go, and every account its warnings name, by id.
+    Question { token: String, format: &'static str, answer: Answer, kinds: Vec<Kind>, destinations: Vec<run::Destination>, warning_accounts: Vec<WarningAccount> },
     /// Cancel on an open question: nothing written, the upload gone.
     Cancelled,
     /// A named Binance identity refusal; the upload is closed with it.
@@ -34,6 +35,34 @@ pub enum Outcome {
     NoFile,
     /// The request's sign-in ended before anything was read or written.
     SignedOut,
+}
+
+/// Rule M7: an account a question's warnings name: its id, exchange, label and (where the warning counts them) rows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WarningAccount { pub account_id: i64, pub exchange_id: i64, pub label: crate::identity::Label, pub rows: Option<usize> }
+
+/// The live accounts of `user` each warning of `answer` names, in the order named (a prospective account has no id yet).
+fn warning_accounts(c: &Connection, user: i64, answer: &Answer) -> Result<Vec<WarningAccount>, WebError> {
+    let Answer::Warned(warnings, _) = answer else { return Ok(vec![]) };
+    let mut named: Vec<(&crate::identity::Label, Option<usize>)> = vec![];
+    for w in warnings {
+        match w {
+            run::Warning::HeldElsewhere(l) | run::Warning::OtherAccount(l) => named.push((l, None)),
+            run::Warning::Existing(per) | run::Warning::Destination(per) => named.extend(per.iter().map(|(l, n)| (l, Some(*n)))),
+            run::Warning::Undone(_, ls) => named.extend(ls.iter().map(|l| (l, None))),
+            _ => {}
+        }
+    }
+    let live: Vec<(i64, i64)> = c.prepare("SELECT id, exchange_id FROM exchange_accounts WHERE user_id = ?1 AND removed_at IS NULL ORDER BY id").map_err(db)?
+        .query_map([user], |r| Ok((r.get(0)?, r.get(1)?))).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+    let mut labels = vec![];
+    for (id, exchange) in live { labels.push((id, exchange, crate::identity::label(c, id).map_err(db)?)); }
+    let mut out: Vec<WarningAccount> = vec![];
+    for (label, rows) in named {
+        let Some((id, exchange, _)) = labels.iter().find(|(_, _, l)| l == label) else { continue };
+        if !out.iter().any(|a| a.account_id == *id && a.rows == rows) { out.push(WarningAccount { account_id: *id, exchange_id: *exchange, label: label.clone(), rows }); }
+    }
+    Ok(out)
 }
 
 /// Whether the request's sign-in still holds, asked inside the operation's transaction.
@@ -126,7 +155,7 @@ pub async fn upload(app: &App, user: i64, format: &'static str, bytes: Vec<u8>, 
                 tx.execute("INSERT INTO import_parked_uploads (token, user_id, sha256, bytes_len, format, filename, zone, gen, state, expires_at, picks, created_at) \
                             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'open', ?8, '[]', ?9)",
                            params![token, user, sha256(&bytes), bytes.len() as i64, format, filename, zone, time(now + TTL), time(now)]).map_err(db)?;
-                issue(&tx, &token, 1, format, ran.answer, &ran.issued)?
+                issue(&tx, user, &token, 1, format, ran)?
             }
             answer => early(answer),
         };
@@ -149,8 +178,10 @@ fn early(answer: Answer) -> Outcome {
 
 /// Rule K3: one handle per option of generation `gen`, standing for its sealed answer and what it was issued for; the
 /// question with each value its handle.
-fn issue(c: &Connection, token: &str, gen: i64, format: &'static str, mut answer: Answer, issued: &[run::Issued]) -> Result<Outcome, WebError> {
+fn issue(c: &Connection, user: i64, token: &str, gen: i64, format: &'static str, ran: run::Ran) -> Result<Outcome, WebError> {
+    let run::Ran { mut answer, issued, destinations } = ran;
     if !matches!(answer, Answer::Ambiguous(_) | Answer::Warned(..)) { return Ok(early(answer)); }
+    let warning_accounts = warning_accounts(c, user, &answer)?;
     let (Answer::Ambiguous(choices) | Answer::Warned(_, choices)) = &mut answer else { unreachable!() };
     let mut kinds = vec![];
     for (n, choice) in choices.iter_mut().enumerate() {
@@ -162,7 +193,7 @@ fn issue(c: &Connection, token: &str, gen: i64, format: &'static str, mut answer
         choice.value = handle;
         kinds.push(i.kind);
     }
-    Ok(Outcome::Question { token: token.to_string(), format, answer, kinds })
+    Ok(Outcome::Question { token: token.to_string(), format, answer, kinds, destinations, warning_accounts })
 }
 
 /// The open upload `token` of `user` (rule K1: open and unexpired, read under the token's lock and the write lock).
@@ -244,7 +275,7 @@ fn confirm_locked(app: &App, c: &Connection, user: i64, token: &str, handle: &st
                                        params![token, p.gen, gen, picks.to_string()]).map_err(db)?;
                 if moved != 1 { return Ok(Outcome::NoFile); }
                 tx.execute("DELETE FROM import_parked_choices WHERE token = ?1", [token]).map_err(db)?;
-                let outcome = issue(&tx, token, gen, p.format, ran.answer, &ran.issued)?;
+                let outcome = issue(&tx, user, token, gen, p.format, ran)?;
                 if crash(token, "before_commit") { return Err(db("crashed before the commit")); }
                 tx.commit().map_err(db)?;
                 Ok(outcome)
@@ -307,6 +338,20 @@ fn cleanup(c: &Connection, dir: &std::path::Path, token: &str) {
 pub async fn sweep(app: &App) {
     let inner = app.clone();
     let _ = app.db(move |c| { sweep_now(&inner, c); Ok(()) }).await;
+}
+
+/// Branch review r1 #7: a handback forgets every parked upload: its rows go in the handback's own transaction (2.x never
+/// reads either table, and a 2.x portable export would copy them), its bytes right after it commits (`forget_files`).
+pub fn forget_rows(c: &Connection) -> rusqlite::Result<()> {
+    let present: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'import_parked_uploads')", [], |r| r.get(0))?;
+    if present { c.execute_batch("DELETE FROM import_parked_choices; DELETE FROM import_parked_uploads;")?; }
+    Ok(())
+}
+/// The parking directory beside `c`'s database, removed whole.
+pub fn forget_files(c: &Connection) {
+    if let Some(dir) = c.path().filter(|p| !p.is_empty()).and_then(|p| std::path::Path::new(p).parent().map(|d| d.join("import-parked"))) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }
 
 /// `sweep` on the caller's connection.

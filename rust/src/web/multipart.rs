@@ -11,9 +11,9 @@ pub struct Parsed {
     /// The `file` part's bytes and filename. A part whose filename is empty (a file input left
     /// empty) is no file, as Rack drops it.
     pub file: Option<(Vec<u8>, String)>,
-    /// The names of every other file-valued part (PLAN-710-confirm rule N2: a request is classified before any part is
-    /// dropped).
-    pub file_parts: Vec<String>,
+    /// Every other file-valued part, by name, with its contents read as text (PLAN-710-confirm rule N2: a request is
+    /// classified from every part it carries, before any is dropped).
+    pub file_parts: Vec<(String, String)>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -63,7 +63,7 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Parsed, Error> {
         let content = &body[content_start..end];
         match filename(get("filename*"), get("filename")) {
             Some(filename) if name == "file" => if !filename.is_empty() { parsed.file = Some((content.to_vec(), filename)) },
-            Some(_) => parsed.file_parts.push(name),
+            Some(_) => parsed.file_parts.push((name, String::from_utf8_lossy(content).into_owned())),
             None => parsed.fields.push((name, String::from_utf8_lossy(content).into_owned())),
         }
         at = end + between.len();

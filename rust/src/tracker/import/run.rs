@@ -90,7 +90,12 @@ pub struct Confirm<'a> { pub chosen: Option<&'a str>, pub stale: bool, pub selec
 
 /// `write_in`'s result: the answer and, for a question, what it issued per choice.
 #[derive(Debug, Clone)]
-pub struct Ran { pub answer: Answer, pub issued: Vec<Issued> }
+pub struct Ran { pub answer: Answer, pub issued: Vec<Issued>, pub destinations: Vec<Destination> }
+
+/// PLAN-710-confirm rule M7: where a question's rows would go: the exchange, the account (None: one the write makes) and
+/// the rows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Destination { pub exchange_id: i64, pub account_id: Option<i64>, pub rows: usize }
 
 /// What an "import anyway" option does (its label is the page's).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -550,14 +555,39 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
     let plan = if venues.is_empty() { csv_plan(tx, user_id, &keys, entries, body, tag)? } else {
         match native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, body, tag, confirm.picked, now)? {
             Ok(plan) => plan,
-            Err(answer) => { let issued = issue(&answer)?; return Ok((Ran { answer, issued }, false)) }
+            Err(answer) => { let issued = issue(&answer)?; return Ok((Ran { answer, issued, destinations: vec![] }, false)) }
         }
     };
     let Plan { targets, unrouted, warnings, evidence, mut changed, confirm: mut asks, offer, destinations } = plan;
     changed |= confirm.stale;
     asks |= confirm.select;
     // Rule M3: the route a click was issued for is checked before any writer runs: a stale one is asked again, never refused.
-    if let Some(sealed) = confirm.route { if sealed != route(tx, user_id, &targets, kucoin_rows.len(), &unrouted, records, &file_digest)? { changed = true; } }
+    let routed = route(tx, user_id, &targets, kucoin_rows.len(), &unrouted, records, &file_digest)?;
+    if confirm.route.is_some_and(|sealed| sealed != routed) { changed = true; }
+    // Rule M7: the destinations a question shows, by id (an account this run made is one the write makes).
+    let floor = FLOOR.with(std::cell::Cell::get);
+    let mut shown_destinations = vec![];
+    for (target, rows) in &targets {
+        shown_destinations.push(match target {
+            Target::Key(key) => {
+                let account = match key.scope.account { Some(a) => Some(a), None => crate::identity::Account::first(tx, user_id, key.exchange_id)?.id };
+                Destination { exchange_id: key.exchange_id, account_id: account.filter(|a| *a <= floor), rows: rows.len() + kucoin_rows.len() }
+            }
+            Target::New(exchange) => Destination { exchange_id: *exchange, account_id: None, rows: rows.len() + kucoin_rows.len() },
+        });
+    }
+    // Branch review r1 #2: an "import anyway" is bound to the route its click writes (each destination's account, the key
+    // its rows are written with, the rows), as a venue option is (rule M1): checked above, before any writer runs. The
+    // destination's own answer writes `routed`; an account holding the export's is planned as its click would be.
+    let click_route = |value: &str| -> Result<Option<String>, SyncError> {
+        if venues.is_empty() { return Ok(Some(routed.clone())); }
+        let (body, tag) = split_answer(value);
+        tx.execute_batch("SAVEPOINT import_click")?;
+        let click = native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, Some(body), tag, confirm.picked, now)
+            .and_then(|plan| match plan { Ok(p) => Ok(Some(route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?)), Err(_) => Ok(None) });
+        tx.execute_batch("ROLLBACK TO import_click; RELEASE import_click")?;
+        click
+    };
     let bound_entries: Vec<Entry> = targets.iter().flat_map(|(_, rows)| rows.iter().cloned()).collect();
     // A question: what it shows (rule L2: a Deltabadger CSV's destinations; rule M4: the links it undoes elsewhere), its
     // choices, and what each was issued for (the destination's, last, binds the links shown).
@@ -565,7 +595,7 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
         // Review r1: a stale answer on a file whose venue is now in question asks the venue again (rule L3: unless the user
         // picked that venue).
         if let (true, Offer::Native { venues: Some(venues), dest, .. }) = (changed, &offer) {
-            if confirm.picked.is_none_or(|v| exchange_of(c, *dest).ok() != Some(v)) { let answer = Answer::Ambiguous(venues.clone()); return Ok(Ran { issued: issue(&answer)?, answer }); }
+            if confirm.picked.is_none_or(|v| exchange_of(c, *dest).ok() != Some(v)) { let answer = Answer::Ambiguous(venues.clone()); return Ok(Ran { issued: issue(&answer)?, answer, destinations: vec![] }); }
         }
         if changed { shown.insert(0, Warning::Changed); }
         if matches!(offer, Offer::Csv { .. }) && !shown.iter().any(|w| matches!(w, Warning::Destination(_))) {
@@ -575,8 +605,12 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
         let bound = Bound { entries: &bound_entries, kucoin: &kucoin_rows };
         let choices = choices(c, cipher, user_id, subject, &offer, account_id.as_ref(), &bound, &shown, evidence, now)?;
         let last = choices.len().saturating_sub(1);
-        let issued = (0..choices.len()).map(|i| Issued { kind: Kind::Accept, route: None, outside: (i == last).then(|| undone.map(|u| u.digest.clone())).flatten() }).collect();
-        Ok(Ran { answer: Answer::Warned(shown, choices), issued })
+        let mut issued = vec![];
+        for (i, choice) in choices.iter().enumerate() {
+            let route = if i == last { Some(routed.clone()) } else { click_route(&choice.value)? };
+            issued.push(Issued { kind: Kind::Accept, route, outside: (i == last).then(|| undone.map(|u| u.digest.clone())).flatten() });
+        }
+        Ok(Ran { answer: Answer::Warned(shown, choices), issued, destinations: shown_destinations.clone() })
     };
     // What writing would undo on other accounts, written and rolled back (a question shows and binds it).
     let probe = || -> Result<Option<Undone>, SyncError> {
@@ -633,15 +667,18 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
     if let Some(u) = &undone {
         if (confirm.outside.is_some() || !u.rows.is_empty()) && confirm.outside != Some(u.digest.as_str()) {
             undo(tx)?;
-            return Ok((ask(tx, warnings, &evidence, confirm.outside.is_some(), Some(u))?, false));
+            // Branch review r1 #4: the page shows everything its seal binds, the units this write stripped included.
+            let mut shown = warnings;
+            shown.extend(unit_warnings(&stripped));
+            return Ok((ask(tx, shown, &evidence, confirm.outside.is_some(), Some(u))?, false));
         }
     }
     // Rule N4: a parked upload is written once, whichever of its answers comes first; a later one writes nothing.
     if !subject.is_empty() && !consume(tx, &sha(&format!("u|{subject}")), now)? {
-        return Ok((Ran { answer: Answer::Written { imported: 0, duplicates: 0, skipped: 0, unrecognised: vec![], unrouted: vec![], generic: 0, destinations: vec![] }, issued: vec![] }, false));
+        return Ok((Ran { answer: Answer::Written { imported: 0, duplicates: 0, skipped: 0, unrecognised: vec![], unrouted: vec![], generic: 0, destinations: vec![] }, issued: vec![], destinations: vec![] }, false));
     }
     tx.execute_batch("RELEASE import_write")?;
-    Ok((Ran { answer, issued: vec![] }, true))
+    Ok((Ran { answer, issued: vec![], destinations: vec![] }, true))
 }
 
 /// What a write undid on other accounts (rules M4/Q1/P2): each removed transfer link (a row this write deleted and its
@@ -655,9 +692,11 @@ struct Undone { rows: Vec<i64>, accounts: Vec<Label>, digest: String }
 /// link cleared, as they were. False on an install without the membership tables (nothing to resolve accounts by).
 fn watch(c: &Connection) -> Result<bool, SyncError> {
     if !crate::identity::ready(c)? || !crate::venue_ids::ready(c)? { return Ok(false); }
+    // Branch review r1 #3: every column of the row as the write sees it, and its membership (account, venue id).
+    let columns: Vec<String> = c.prepare("SELECT name FROM pragma_table_info('account_transactions') ORDER BY cid")?.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let row = |r: &str| format!("'{r}', {r}.id, {r}.user_id, {r}.exchange_id, (SELECT m.account_id FROM exchange_account_rows m WHERE m.account_transaction_id = {r}.id), \
-        json_array({r}.entry_type, {r}.base_currency, {r}.base_amount, {r}.quote_currency, {r}.quote_amount, {r}.fee_currency, {r}.fee_amount, {r}.transacted_at, {r}.tx_id, \
-        {r}.linked_transaction_id, {r}.group_id, {r}.raw_data, {r}.manual_values, {r}.description), {r}.linked_transaction_id");
+        json_array({}, (SELECT json_array(m.account_id, m.venue_tx_id) FROM exchange_account_rows m WHERE m.account_transaction_id = {r}.id)), {r}.linked_transaction_id",
+        columns.iter().map(|col| format!("{r}.\"{col}\"")).collect::<Vec<_>>().join(", "));
     c.execute_batch(&format!("CREATE TEMP TABLE IF NOT EXISTS import_touched (kind TEXT, id INTEGER, user_id INTEGER, exchange_id INTEGER, member INTEGER, contents TEXT, linked INTEGER);
         DELETE FROM temp.import_touched;
         CREATE TEMP TRIGGER IF NOT EXISTS import_touched_delete BEFORE DELETE ON main.account_transactions BEGIN
@@ -799,7 +838,8 @@ fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, ven
     let bound = Bound { entries: &entries, kucoin: kucoin_rows };
     // An "import anyway" names its destination itself; it holds while its digest does (`write_transaction`).
     // An "import anyway" for an account its question's own run made names that account's key (rule K6): routed again.
-    let keyed = body.is_some_and(|b| !b.is_empty() && b.bytes().all(|x| x.is_ascii_digit()));
+    // Branch review r1 #6: as posted, with the venue its question offered it for (`<key>~v<exchange>`).
+    let keyed = body.is_some_and(|b| { let head = b.split_once("~v").map_or(b, |(k, _)| k); !head.is_empty() && head.bytes().all(|x| x.is_ascii_digit()) });
     let accepted = match (tag, body) { (Some(('w', _)), Some(body)) if !keyed => accepted_dest(c, user_id, venues, body)?, _ => None };
     let mut changed = tag.is_some_and(|(t, _)| t == 'w') && accepted.is_none() && !keyed;
     let routing = if tag.is_some_and(|(t, _)| t == 'w') && !keyed { None } else { body };

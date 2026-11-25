@@ -465,7 +465,7 @@ impl App {
         let cipher = Cipher::new(&encryption);
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
         crate::sync::balance_store::fallback(&primary)?;
-        Ok(Self(Arc::new(Inner {
+        let app = Self(Arc::new(Inner {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
@@ -476,7 +476,11 @@ impl App {
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
             db: Mutex::new(primary), queue_path: None,
             engine: std::sync::OnceLock::new(), live: std::sync::OnceLock::new(),
-        })))
+        }));
+        // Branch review r1 #10: a restart sweeps the parked uploads, so what a process killed after its outcome committed
+        // left (its bytes and handles) goes without waiting for the next upload.
+        { let c = app.0.db.lock().unwrap_or_else(PoisonError::into_inner); crate::tracker::import::service::sweep_now(&app, &c); }
+        Ok(app)
     }
 
     /// For tests: the same app with other /cable intervals. Only before the app is shared.
@@ -916,8 +920,8 @@ pub struct Params {
     pub json: Option<serde_json::Value>,
     /// POST /tracker/import's `file` part: its raw bytes and its filename (web::multipart).
     pub upload: Option<(Vec<u8>, String)>,
-    /// The names of the multipart body's other file-valued parts (web::multipart::Parsed::file_parts).
-    pub file_parts: Vec<String>,
+    /// The multipart body's other file-valued parts, by name, with their contents (web::multipart::Parsed::file_parts).
+    pub file_parts: Vec<(String, String)>,
 }
 
 impl Params {
