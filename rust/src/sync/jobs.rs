@@ -658,9 +658,12 @@ impl<C:Connect> Job for Validator<C>{
 
 /// The correct IBKR keys with no binding (keys 2.x left): each is validated at start (API_KEY_VALIDATOR, the key check
 /// that binds), so its account is known before anything reads it.
+/// #710 7b rule 7: and the fenced ones (a read named another account), so a login that opens their account again lifts the
+/// fence at start, with no user action.
 pub fn unbound_ibkr_keys(c: &Connection) -> rusqlite::Result<Vec<i64>> {
-    let mut s = c.prepare("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 1 AND k.key_type = 0 AND e.type = ?1
-                           AND NOT EXISTS (SELECT 1 FROM ibkr_bindings b WHERE b.api_key_id = k.id) ORDER BY k.id")?;
+    let fenced = crate::identity::fenced_sql(c, "k").map_err(|e| rusqlite::Error::InvalidParameterName(format!("{e:?}")))?;
+    let mut s = c.prepare(&format!("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 1 AND k.key_type = 0 AND e.type = ?1
+                           AND (NOT EXISTS (SELECT 1 FROM ibkr_bindings b WHERE b.api_key_id = k.id) OR {fenced}) ORDER BY k.id"))?;
     let ids = s.query_map([crate::venue::ibkr::IBKR], |r| r.get(0))?.collect();
     ids
 }
@@ -682,17 +685,21 @@ impl<C: Connect> Job for IbkrActivation<C> {
         Box::pin(async move {
             use crate::web::settings::validator::{ValidationHandle, Validity};
             let ibkr = crate::venue::ibkr::IBKR;
+            // #710 7b rule 7: with the keys awaiting activation, every IBKR key a read fenced (or a 7a check refused) and every
+            // one that has not named its account: each is checked again, so the fence lifts once the login opens its account.
             let pending = cx.db.run(move |c, _| {
-                let mut s = c.prepare("SELECT k.id, k.updated_at FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.status = 3 AND e.type = ?1 ORDER BY k.id").map_err(|e| e.to_string())?;
-                let rows = s.query_map([ibkr], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))).map_err(|e| e.to_string())?;
+                let fenced = crate::identity::fenced_sql(c, "k").map_err(|e| e.to_string())?;
+                let mut s = c.prepare(&format!("SELECT k.id, k.updated_at, k.status FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE e.type = ?1 AND k.key_type = 0
+                                                AND (k.status IN (2, 3) OR (k.status = 1 AND ({fenced} OR NOT EXISTS (SELECT 1 FROM ibkr_bindings b WHERE b.api_key_id = k.id)))) ORDER BY k.id")).map_err(|e| e.to_string())?;
+                let rows = s.query_map([ibkr], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))).map_err(|e| e.to_string())?;
                 rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
             }).await;
             let pending = match pending { Ok(p) => p, Err(e) => return Outcome::Failed(e) };
             if pending.is_empty() { return Outcome::NothingNew; }
             let mut activated = false;
-            for (id, updated_at) in pending {
+            for (id, updated_at, was) in pending {
                 let log = |line: &str| crate::engine::log(&format!("[IBKR] api_key={id} {line}"));
-                if crate::codec::parse_time(&updated_at).is_ok_and(|at| at <= cx.clock.now() - chrono::Duration::days(14)) {
+                if was == 3 && crate::codec::parse_time(&updated_at).is_ok_and(|at| at <= cx.clock.now() - chrono::Duration::days(14)) {
                     log("has waited for IBKR's activation past 14 days; a registration this old will not activate: connect again");
                 }
                 let material = cx.db.run(move |c, cipher| super::validation_material(c, cipher, id).map_err(|e| e.0)).await;
@@ -700,7 +707,7 @@ impl<C: Connect> Job for IbkrActivation<C> {
                 let handle = ValidationHandle::stored(credentials, version.clone());
                 let stored = cx.db.run(|c, cipher| crate::app_config::get(c, cipher, "proxy_ibkr").map_err(|_| "the ibkr proxy setting is unreadable".to_string())).await;
                 let egress = stored.and_then(|stored| self.venues.key_check_egress(ibkr, stored));
-                let (result, _) = match egress {
+                let (result, observed) = match egress {
                     Ok((base, client)) => handle.check_via(ibkr, &base, Ok(client), 0).await,
                     Err(why) => handle.check_via(ibkr, "", Err(why), 0).await,
                 };
@@ -711,21 +718,29 @@ impl<C: Connect> Job for IbkrActivation<C> {
                     Validity::Pending(e) => { log(&format!("activation check failed: {}", crate::web::settings::keys::scrub(&e.log_text(), &values))); continue }
                 };
                 let account = match &result.value { Validity::Account(a) => Some(a.clone()), _ => None };
+                // A key whose state the check would not change is left as it is (a waiting or refused key stays unlogged).
+                if status == was && account.is_none() { continue; }
                 let status = result.map(|_| status);
                 let at = cx.clock.now();
-                let stored = super::commit_bots_for_ciphered(&cx.db, &version, move |c, cipher| {
+                let (credentials, read_with) = (handle.credentials().clone(), handle.producer().clone());
+                // #710 7b rule 7: committed as a key's own check is (`commit_record_for` admits a fenced producer), the read
+                // recorded with it: a read naming the bound account lifts the fence, another sets it.
+                let stored = super::commit_record_for(&cx.db, &version, move |c, cipher| {
                     let status = crate::web::settings::keys::bound_status(c, cipher, id, status, account.as_deref(), at)?;
                     crate::web::settings::keys::store_status(c, &status, id, at)?;
-                    Ok((status.value, true))
+                    if let Some(observed) = &observed { crate::identity::record(c, cipher, id, &credentials, &read_with, observed, at).map_err(SyncError)?; }
+                    let fenced: bool = c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", crate::identity::fenced_sql(c, "k")?), [id], |r| r.get(0))?;
+                    Ok(((status.value, fenced), true))
                 }).await;
                 match stored {
-                    Ok(1) => {
-                        log("activated; parked bots will resume");
+                    Ok((1, false)) => {
+                        log(if was == 1 { "opens its account again" } else { "activated; parked bots will resume" });
                         activated = true;
                         // Its balance sync is registered now (the scope factory), not at the next start.
                         cx.wakers.wake(BALANCE_SYNC, Some(&id.to_string()), None);
                     }
-                    Ok(_) => { log("is incorrect: IBKR names no single account this connection can use"); activated = true; }
+                    Ok((1, true)) => { if was != 1 { log("activated, but the login opens another account than this connection's"); } activated = true; }
+                    Ok(_) => { if was != 2 { log("is incorrect: IBKR names no single account this connection can use"); } activated = true; }
                     Err(SyncError(e)) if e == crate::engine::model::CREDENTIALS_CHANGED => {}
                     Err(SyncError(e)) => return Outcome::Failed(e),
                 }

@@ -320,6 +320,9 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("exchange_account_imports", "account_id_enc"), Policy::Keep("the account an imported history belongs to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("ibkr_bindings", "account_id_enc"), Policy::Keep("the account an IBKR connection is bound to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("ibkr_bot_accounts", "account_id_enc"), Policy::Keep("the account an IBKR bot belongs to: a restored bot refuses another (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
+    (("ibkr_registrations", "rsa_signature_key"), Policy::DeleteRows), (("ibkr_registrations", "rsa_encryption_key"), Policy::DeleteRows),
+    (("ibkr_registrations", "dh_param"), Policy::DeleteRows), (("ibkr_registrations", "key"), Policy::DeleteRows),
+    (("ibkr_registrations", "access_token"), Policy::DeleteRows), (("ibkr_registrations", "secret"), Policy::DeleteRows),
     (("rust_withdrawal_intents", "params_enc"), Policy::Keep("owed withdrawals (dispatched or unresolved), settled by hand after a restore; prepared ones are credential-bound")),
 ];
 
@@ -437,6 +440,8 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     // Rust's: the old key's observations, IBKR reservations and never-sent withdrawals go; the account anchors stay.
     tx.execute_batch("DELETE FROM exchange_account_credentials; DELETE FROM ibkr_reservations; \
                       DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'").map_err(&f)?;
+    // #710 7b: a pending IBKR connection is credentials only (D-IBKR-REGISTRATION); its login reads with it.
+    for t in ["ibkr_registrations", "ibkr_login_reads"] { if crate::engine::rules::table_exists(tx, t).map_err(&f)? { tx.execute_batch(&format!("DELETE FROM {t}")).map_err(&f)?; } }
     // #710: the duplicate standings rest on keys the export no longer carries; the next reconsideration decides again.
     if crate::engine::rules::table_exists(tx, "exchange_account_standings").map_err(&f)? { tx.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(&f)?; }
     crate::rotation::rebalancing_off(tx).map_err(&f)?;

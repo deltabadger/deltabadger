@@ -11,14 +11,17 @@
   <p class="{% if alert %}sform__error{% else %}set-api__note{% endif %}" role="{% if alert %}alert{% else %}status{% endif %}">{{ text }}</p>
 {%- endif %}
 {% macro reset(label, class) %}
-  <form class="button_to set-api__actions" method="post" action="{{ path }}" data-turbo-frame="modal_content"><input type="hidden" name="_method" value="delete" /><input type="hidden" name="sheet" value="tracker" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><button class="rbutton {{ class }}" type="submit">{{ v.t(label)|safe }}</button></form>
+  <form class="button_to set-api__actions" method="post" action="{{ path }}" data-turbo-frame="modal_content"><input type="hidden" name="_method" value="delete" /><input type="hidden" name="sheet" value="tracker" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />{{ hidden|safe }}<button class="rbutton {{ class }}" type="submit">{{ v.t(label)|safe }}</button></form>
 {% endmacro %}
 {% macro credentials() %}
-  <form class="set-api__form form" data-controller="form--html5-validations" data-turbo-frame="modal_content" action="{{ path }}/activate" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="sheet" value="tracker" />
+  <form class="set-api__form form" data-controller="form--html5-validations" data-turbo-frame="modal_content" action="{{ path }}/activate" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />{{ hidden|safe }}<input type="hidden" name="sheet" value="tracker" />
     <input autocomplete="off" required="required" class="rinput rinput--outline rinput--text" placeholder="{{ v.t("settings.ibkr.consumer_key") }}" aria-label="{{ v.t("settings.ibkr.consumer_key") }}" aria-describedby="api_key_key_hint" type="text" name="api_key[key]" id="api_key_key" />
     <p class="set-api__note" id="api_key_key_hint">{{ v.t("settings.ibkr.consumer_key_hint")|safe }}</p>
     <input autocomplete="off" required="required" class="rinput rinput--outline rinput--text" placeholder="{{ v.t("settings.ibkr.access_token") }}" aria-label="{{ v.t("settings.ibkr.access_token") }}" type="text" name="api_key[access_token]" id="api_key_access_token" />
     <input autocomplete="off" required="required" class="rinput rinput--outline rinput--text" placeholder="{{ v.t("settings.ibkr.access_token_secret") }}" aria-label="{{ v.t("settings.ibkr.access_token_secret") }}" type="text" name="api_key[secret]" id="api_key_secret" />
+{%- if slot %}
+    <div id="api_key_question"></div>
+{%- endif %}
     <div class="set-api__actions">
       <input type="submit" name="commit" value="{{ v.t("button.connect") }}" class="rbutton rbutton--secondary" data-turbo-submits-with="{{ v.t("bot.setup.validating") }}" data-disable-with="{{ v.t("button.connect") }}" />
     </div>
@@ -27,10 +30,14 @@
 {% match state %}
 {% when State::None %}
   <p class="set-api__note">{{ v.t("settings.ibkr.intro")|safe }}</p>
-  <form class="button_to set-api__actions" method="post" action="{{ path }}" data-turbo-frame="modal_content"><input type="hidden" name="sheet" value="tracker" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><button class="rbutton rbutton--secondary" type="submit">{{ v.t("settings.ibkr.start")|safe }}</button></form>
+  <form class="button_to set-api__actions" method="post" action="{{ path }}" data-turbo-frame="modal_content"><input type="hidden" name="sheet" value="tracker" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />{{ hidden|safe }}<button class="rbutton rbutton--secondary" type="submit">{{ v.t("settings.ibkr.start")|safe }}</button></form>
 {% when State::Connected %}
   <p class="set-api__note">{{ v.t("settings.ibkr.connected")|safe }}</p>
   <p class="sform__error">{{ v.t("settings.ibkr.single_key_warning")|safe }}</p>
+{% call reset("settings.ibkr.disconnect", "rbutton--danger") %}{% endcall %}
+{% when State::Fenced %}
+  <p class="sform__error">{{ v.t("settings.accounts.ibkr_fenced")|safe }}</p>
+{% call credentials() %}{% endcall %}
 {% call reset("settings.ibkr.disconnect", "rbutton--danger") %}{% endcall %}
 {% when State::Unusable %}
   <p class="sform__error">{{ UNUSABLE }}</p>
@@ -49,9 +56,9 @@
   <section class="set-api__instructions">
     <h3 class="set-api__eyebrow">{{ v.t("settings.ibkr.download_intro")|safe }}</h3>
     <div class="set-api__actions">
-      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=signing">{{ v.t("settings.ibkr.signing_key")|safe }}</a>
-      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=encryption">{{ v.t("settings.ibkr.encryption_key")|safe }}</a>
-      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=dhparam">{{ v.t("settings.ibkr.dh_param")|safe }}</a>
+      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=signing{{ also|safe }}">{{ v.t("settings.ibkr.signing_key")|safe }}</a>
+      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=encryption{{ also|safe }}">{{ v.t("settings.ibkr.encryption_key")|safe }}</a>
+      <a data-turbo="false" class="rbutton rbutton--secondary" href="{{ path }}/download?artifact=dhparam{{ also|safe }}">{{ v.t("settings.ibkr.dh_param")|safe }}</a>
     </div>
     <h3 class="set-api__eyebrow">{{ v.t("settings.ibkr.portal_intro")|safe }}</h3>
     <ol>

@@ -104,6 +104,12 @@ async fn read_unread(app: &App, user: i64, exchange: i64, venue: &str, name: &st
 const QUESTION: &str = "\u{0}key_question\u{1}";
 /// Cancel on that question: nothing saved, the question goes.
 const UNASKED: &str = "\u{0}key_unasked";
+/// #710 7b rule 3: a registration IBKR has not activated yet: its credentials kept with it, nothing else written.
+pub(crate) const REGISTRATION_WAITS: &str = "\u{0}ibkr_registration_waits";
+/// #710 7b §2: a pending connection's continuation whose login names another account than its own's.
+const IBKR_REPORTS_OTHER: &str = "\u{0}ibkr_reports_other";
+/// #710 7b rule 4: a new IBKR account waits while an IBKR key of the exchange has not named its account.
+const IBKR_OTHER_UNBOUND: &str = "\u{0}ibkr_other_unbound";
 /// What `key_question` came to: a new account, the account the answer named instead, or the question.
 enum KeyAsk { New, To(i64), Ask(String) }
 /// Rule M2 (and N4's discipline): in the save's write transaction, for a save routed to a new account with read `read`.
@@ -122,7 +128,8 @@ fn key_question(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, excha
     let consume = |d: &str| run::consume(c, d, now).map_err(|e| WebError::Config(e.0));
     if answer == Some(format!("n!w{new}").as_str()) && consume(&new)? { return Ok(KeyAsk::New); }
     let mut choices = vec![];
-    for h in &seen.holders {
+    // #710 7b rule 2: an account that cannot take the read without changing its proven identity is never offered.
+    for h in seen.holders.iter().filter(|h| !seen.fixed.contains(h)) {
         let d = sealed(Dest::Account(*h))?;
         if answer == Some(format!("a{h}!w{d}").as_str()) && consume(&d)? { return Ok(KeyAsk::To(*h)); }
         choices.push(serde_json::json!({"value": format!("a{h}!w{d}"), "account": crate::identity::label(c, *h)?.plain()}));
@@ -131,7 +138,7 @@ fn key_question(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, excha
     let name: String = c.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1", [exchange], |r| r.get(0))?;
     let held = seen.holders.first().map(|h| crate::identity::label(c, *h).map(|l| l.plain())).transpose()?;
     let other = target.filter(|_| seen.foreign).map(|t| crate::identity::label(c, t).map(|l| l.plain())).transpose()?;
-    Ok(KeyAsk::Ask(format!("{QUESTION}{}", serde_json::json!({"changed": answer.is_some(), "exchange": name, "held": held, "other": other, "choices": choices}))))
+    Ok(KeyAsk::Ask(format!("{QUESTION}{}", serde_json::json!({"changed": answer.is_some(), "exchange": name, "held": held, "other": other, "takeover": seen.takeover, "choices": choices}))))
 }
 /// The question's lines and answers, plain text (the JSON save's), or None for any other reason.
 /// The question's lines, and its answers as (value, label).
@@ -142,7 +149,9 @@ pub(crate) fn question_of(ctx: &Ctx, reason: &str) -> Option<Asked> {
     let exchange = q["exchange"].as_str().unwrap_or_default();
     let mut lines = vec![];
     if q["changed"].as_bool() == Some(true) { lines.push(text("key_changed", &[])); }
-    if let Some(a) = q["held"].as_str() { lines.push(text("key_held", &[("account", i18n::Arg::Text(a)), ("exchange", i18n::Arg::Text(exchange))])); }
+    // #710 7b: history 2.x may have synced there of an unknown IBKR account.
+    if let (Some(a), true) = (q["held"].as_str(), q["takeover"].as_bool() == Some(true)) { lines.push(text("ibkr_takeover_held", &[("account", i18n::Arg::Text(a))])); }
+    else if let Some(a) = q["held"].as_str() { lines.push(text("key_held", &[("account", i18n::Arg::Text(a)), ("exchange", i18n::Arg::Text(exchange))])); }
     if let Some(a) = q["other"].as_str() { lines.push(text("key_other", &[("account", i18n::Arg::Text(a)), ("exchange", i18n::Arg::Text(exchange))])); }
     let choices = q["choices"].as_array()?.iter().map(|c| (c["value"].as_str().unwrap_or_default().to_string(), match c["account"].as_str() {
         Some(a) => text("connect_instead", &[("account", i18n::Arg::Text(a))]),
@@ -204,12 +213,28 @@ pub(crate) struct Key {
     /// #710 7a: a venue tile's save, which names no account: `account` is only the exchange's, and the save goes where
     /// `identity::route_key` routes it, from a blank candidate.
     pub(crate) untargeted: bool,
+    /// #710 7b: a pending IBKR connection's save (its id and revision): untargeted, its material the registration's.
+    registration: Option<(i64, i64)>,
 }
 impl Key {
     /// A venue tile's candidate (#710 7a): blank, inheriting nothing from a stored key, saved where §1 routes it.
     pub(crate) fn untargeted(account: Account) -> Key {
         Key { id: None, key: None, secret: None, passphrase: None, status: 0, last_error: None, updated_at: None, extras: [None, None, None, None],
-              realm: None, version: None, account, untargeted: true }
+              realm: None, version: None, account, untargeted: true, registration: None }
+    }
+    /// #710 7b rule 3: registration `id` at `revision` as a candidate's base: untargeted (it routes where IBKR's read puts
+    /// it), with the registration's own RSA keys and DH group.
+    pub(crate) fn of_registration(c: &Connection, app: &App, account: Account, id: i64, revision: i64, untargeted: bool) -> Result<Key, WebError> {
+        let (signing, encryption, dh, realm): (String, String, String, Option<String>) = c.query_row(
+            "SELECT rsa_signature_key, rsa_encryption_key, dh_param, ibkr_realm FROM ibkr_registrations WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+        let open = |v: &str| app.cipher.decrypt(v).map_err(|_| WebError::Config("unreadable IBKR registration".into()));
+        let mut key = Key::untargeted(account);
+        key.extras = [None, Some(open(&signing)?), Some(open(&encryption)?), Some(open(&dh)?)];
+        key.realm = realm;
+        key.registration = Some((id, revision));
+        // A reconnect's registration names its account (a removed or merged one routes untargeted, rule 3).
+        key.untargeted = untargeted;
+        Ok(key)
     }
 }
 impl Key {
@@ -240,7 +265,7 @@ impl Key {
                 updated_at: Some(updated_at),
                 extras:[decrypt(a)?,decrypt(b)?,decrypt(extra_c)?,decrypt(d)?],realm,
                 version:crate::engine::model::credential_version_by_id(c,id)?,
-                account,untargeted:false,
+                account,untargeted:false,registration:None,
             }),
             None => Ok(Self {
                 id: None,
@@ -250,7 +275,7 @@ impl Key {
                 status: 0,
                 last_error: None,
                 updated_at: None,
-                extras: [None,None,None,None],realm:None,version:None,account,untargeted:false,
+                extras: [None,None,None,None],realm:None,version:None,account,untargeted:false,registration:None,
             }),
         }
     }
@@ -479,12 +504,9 @@ pub(crate) async fn submit(app: &App, ctx: &Ctx, venue: &str, venue_name: &str, 
     }
 }
 
-/// `submit` of a candidate made by the caller over the stored key (`original`): the IBKR connect page's activation.
-pub(crate) async fn submit_candidate(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key) -> Result<Submitted, WebError> {
-    submit_answered(app, venue, venue_name, kind, original, candidate, None).await
-}
-/// `submit_candidate` with the answer to the save's question (rule M2), if one was posted.
-async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key, answer: Option<String>) -> Result<Submitted, WebError> {
+/// `submit` of a candidate made by the caller over the stored key (`original`), with the answer to the save's question
+/// (rule M2) if one was posted: the IBKR connect page's activation.
+pub(crate) async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, original: Key, candidate: Key, answer: Option<String>) -> Result<Submitted, WebError> {
     // #710 7a: every live account's slot of this type before validation (key id and ciphertext version, absent included):
     // the slot routing picks must still be as it was under the write lock.
     let (snap_user,snap_exchange)=(original.account.user_id,original.account.exchange_id);
@@ -493,7 +515,7 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
     let stored=slot(venue,kind);
     let snapshot=snapshot_then_settle(app,snap_user,snap_exchange,move|c|slots(c,&snap_app,snap_user,snap_exchange,stored)).await?;
     let validated=validate(app,&candidate,&original,kind,venue).await?;
-    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read)) if venue!=crate::venue::ibkr::IBKR=>Some((crate::identity::Observed::Read(read.clone()),validated.handle.credentials().clone())),
+    let taught=match &validated.identity {Some(crate::identity::Observed::Read(read))=>Some((crate::identity::Observed::Read(read.clone()),validated.handle.credentials().clone())),
         // Bybit review r1 #5: a definite refusal is the installed key's answer as a read is (validation-read venues only).
         Some(failed@crate::identity::Observed::Failed(code)) if crate::identity::VALIDATION_READS.contains(&venue)&&crate::identity::definite_failure(venue,code)=>Some((failed.clone(),validated.handle.credentials().clone())),
         _=>None};
@@ -548,12 +570,26 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
     let outcome=app.db(move|c|{
   let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
   if !crate::engine::model::account_is_current(&tx,validated.handle.producer())? {return Ok(Some("credential changed during validation".into()));}
+  // #710 7b rule 3: a registration is as it was validated (a Start over, a recreate or another submit moved it: asked again).
+  if let Some((reg,revision))=original.registration {
+   let current:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM ibkr_registrations WHERE id=?1 AND user_id=?2 AND revision=?3)",rusqlite::params![reg,user_id,revision],|r|r.get(0))?;
+   if !current {return Ok(Some("credential changed during validation".into()));}
+   // IBKR's activation wait: the pasted credentials stay with the registration, nothing else is written (D-IBKR-REGISTRATION).
+   if pending {
+    tx.execute("UPDATE ibkr_registrations SET key=?1,secret=?2,access_token=?3,ibkr_realm=?4,status=3,revision=revision+1,updated_at=?5 WHERE id=?6",
+               rusqlite::params![validated.columns[0],validated.columns[1],validated.columns[3],validated.key.realm,format_time(inner.now()),reg])?;
+    tx.commit()?;
+    return Ok(Some(REGISTRATION_WAITS.into()));
+   }
+  }
   // The account's row first: a key of the number 1 2.x saved resolves to it from here on (a tile names none).
   let named=if original.untargeted {None} else {Some(original.account.ensure(&tx,inner.now())?)};
-  // #710 7a (PLAN-710-7 §1.1): where the key goes. IBKR keeps its single-account binding (7b).
+  // #710 7a (PLAN-710-7 §1.1): where the key goes. #710 7b rule 1: an IBKR key IBKR named the account of routes as any
+  // identity venue's; one awaiting IBKR's activation (no account named yet) stays where the form put it (rule 1d).
   let mut moved=None;
-  let target=if venue_s==crate::venue::ibkr::IBKR {named.unwrap_or(original.account.ensure(&tx,inner.now())?)} else {
-   let reading=match (crate::identity::VENUES.contains(&venue_s.as_str()),&validated.identity) {
+  let ibkr=venue_s==crate::venue::ibkr::IBKR;
+  let target=if ibkr&&pending {named.unwrap_or(original.account.ensure(&tx,inner.now())?)} else {
+   let reading=match (crate::identity::VENUES.contains(&venue_s.as_str())||ibkr,&validated.identity) {
     (false,_)=>crate::identity::Reading::NotAnIdentityVenue,
     (true,Some(crate::identity::Observed::Read(id)))=>crate::identity::Reading::Read(id),
     (true,_)=>crate::identity::Reading::Unread,
@@ -563,6 +599,8 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
     crate::identity::Route::To(id)=>id,
     // Rules Q1/P1: never a new account while another key of the exchange has no account read (one added meanwhile).
     crate::identity::Route::New if !needs_reads(&tx,user_id,original.account.exchange_id,&venue_s)?.is_empty()=>return Ok(Some(other_key_checking(&venue_label))),
+    // #710 7b rule 4 (IBKR's Q1): never a new account while an IBKR key of the exchange has not named its account.
+    crate::identity::Route::New if ibkr&&crate::venue::ibkr_account::unbound_keys(&tx,user_id,original.account.exchange_id)?.into_iter().any(|k|Some(k)!=original.id)=>return Ok(Some(IBKR_OTHER_UNBOUND.into())),
     // Rule M2: a new account for an exchange account another one holds history of is asked first.
     crate::identity::Route::New=>match &validated.identity {
      Some(crate::identity::Observed::Read(read))=>match key_question(&tx,&inner.cipher,user_id,original.account.exchange_id,stored,named.and_then(|a|a.id),read,validated.handle.credentials(),answer.as_deref(),inner.now())? {
@@ -574,6 +612,11 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
     },
     crate::identity::Route::Unconfirmed=>return Ok(Some(UNCONFIRMED.into())),
    };
+   // #710 7b §2: a pending IBKR connection's own key (the legacy continuation, unbound) never moves to another account:
+   // refused, retryable; Start over makes a fresh connection.
+   if ibkr&&original.registration.is_none()&&original.status!=1&&original.id.is_some_and(|k|crate::venue::ibkr_account::binding(&tx,k).ok().flatten().is_none())&&named.and_then(|a|a.id).is_some_and(|n|n!=dest) {
+    return Ok(Some(IBKR_REPORTS_OTHER.into()));
+   }
    if let Some(from)=named.and_then(|a|a.id).filter(|from|*from!=dest){moved=Some((dest,from));}
    Account::by_id(&tx,dest)?.ok_or_else(||WebError::Config("routed account missing".into()))?.ensure(&tx,inner.now())?
   };
@@ -609,17 +652,19 @@ async fn submit_answered(app: &App, venue: &str, venue_name: &str, kind: i64, or
   };
   tx.execute("UPDATE api_keys SET access_token=?1,rsa_signature_key=?2,rsa_encryption_key=?3,dh_param=?4,ibkr_realm=?5 WHERE id=?6",rusqlite::params![validated.columns[3],validated.columns[4],validated.columns[5],validated.columns[6],candidate.realm,id])?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(refusal.reason()));}
+  // #710 7b rule 3: the registration became this key.
+  if let Some((reg,_))=original.registration {tx.execute("DELETE FROM ibkr_registrations WHERE id=?1",[reg])?;}
   // D-IBKR-ACCOUNT: the key binds to the account it names, or is refused (nothing saved) when bound to another.
   if let Some(account)=&account {
-   if let Err(refusal)=crate::venue::ibkr_account::bind(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {
-    return Ok(Some(if refusal==crate::venue::ibkr_account::OTHER_ACCOUNT {"\u{0}ibkr_other_account".into()} else {refusal}));
+   if let Err(refusal)=crate::venue::ibkr_account::bind_routed(&tx,&inner.cipher,id,account,inner.now()).map_err(WebError::Config)? {
+    return Ok(Some(if refusal.starts_with("this IBKR connection belongs to") {"\u{0}ibkr_other_account".into()} else {refusal}));
    }
   }
   // The read was of the material just written: recorded under its fresh ciphertext version, so the key counts as read
   // (#710 7a rule Q2) from this save on.
   let fresh=crate::sync::credentials_with_version(&tx,&inner.cipher,id).ok().map(|(_,v)|v);
   if let Some(observed)=&validated.identity{crate::identity::record(&tx,&inner.cipher,id,validated.handle.credentials(),fresh.as_ref().unwrap_or(validated.handle.producer()),observed,inner.now()).map_err(WebError::Config)?;}
-  if venue_s!=crate::venue::ibkr::IBKR {
+  {
    if let (Some(crate::identity::Observed::Read(read)),Some(account))=(&validated.identity,target.id) {
     // The routed account takes the fingerprint (every key type); every other copy of this key, on another account, was
     // recorded as reading this account by `identity::record` above, so it is fenced there at once (§9.1).
@@ -922,7 +967,6 @@ pub(crate) fn remove<T>(c: &Connection, inner: &App, user: i64, id: i64, expecte
   tx.execute("UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id=?1",[id])?;
   tx.execute("DELETE FROM api_keys WHERE id=?1 AND user_id=?2",(id,user))?;
   crate::identity::forget(&tx,id,&account,inner.now())?;
-  if crate::venue::ibkr_account::binding(&tx,id)?.is_some() { if let Some(retained)=account.ensure(&tx,inner.now())?.id {crate::venue::ibkr_account::retain(&tx,id,retained)?;} }
   crate::venue::ibkr_account::forget(&tx,id)?;
   if let Err(refusal)=eligibility::guard(&tx,&inner.cipher,None){return Ok(Some(Err(refusal.reason())));}
   // #710: the account's reading key now reads its balances again, so its duplicate standing may re-enter on them.
@@ -1010,7 +1054,7 @@ pub async fn legacy(
     let venue_type:Option<String>=app.db(move|c|Ok(c.query_row("SELECT type FROM exchanges WHERE id=?1",[exchange],|r|r.get(0)).optional()?)).await?;
     // D-ALPACA-ONE-KEY: the slot the save writes (`slot`) is the one snapshotted.
     let kind=venue_type.as_deref().map_or(kind,|t|slot(t,kind));
-    // As the form save (`submit_candidate`): the named account's slot and every live account's of this type, before the
+    // As the form save (`submit_answered`): the named account's slot and every live account's of this type, before the
     // identity read; the slot the save writes must still be as it was under the write lock.
     let snap_app=app.clone();
     let (snap_key,snap_secret,alpaca)=(key.clone(),secret.clone(),venue_type.as_deref()==Some(crate::sync::ALPACA));
@@ -1162,7 +1206,7 @@ pub async fn legacy(
   };
   if venue!=crate::venue::ibkr::IBKR {
    if let (Some(read),Some(routed))=(&read,account.id) {
-    // As `submit_candidate`: the routed account takes the fingerprint; other copies of the key are fenced (§9.1).
+    // As `submit_answered`: the routed account takes the fingerprint; other copies of the key are fenced (§9.1).
     crate::identity::establish_read(&tx,&inner.cipher,routed,&venue,read,inner.now()).map_err(WebError::Config)?;
     crate::identity::fence_copies(&tx,&inner.cipher,user.id,exchange,&venue,&material,read,Some(id),inner.now()).map_err(WebError::Config)?;
    }
@@ -1315,7 +1359,9 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
         // What the connection's last write earned, drawn in the card: a frame does not show the layout's flash.
         let notice=std::mem::take(&mut ctx.session.lock().flash).pop().map(|(kind,text)|(kind==flash::ALERT,text));
         let (inner,v,owner)=(app.clone(),ctx.clone(),user.clone());
-        let found=app.db(move|c|Ok((super::ibkr::tracker_step(c,&inner,&v,owner.id,notice)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
+        // #710 7b rule 11: the pick decides which connection the sheet shows (an account's own, or a fresh one for a tile).
+        let pick=kept_pick(ctx.session.lock().tracker_pick.as_ref(),exchange);
+        let found=app.db(move|c|Ok((super::ibkr::tracker_step(c,&inner,&v,owner.id,pick,notice)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
         let (Some((track,content)),shell)=found else {return Ok(crate::web::layout::not_ported_for(&ctx))};
         let csrf=ctx.csrf_token();
         let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
@@ -1490,11 +1536,18 @@ pub async fn bot_form(axum::extract::State(app):axum::extract::State<App>,axum::
 
 /// A correct IBKR check's status as stored: the key is bound to the account the check named, or it is incorrect when it is
 /// bound to another (D-IBKR-ACCOUNT; nothing else is written). Any other venue's status as it is.
+/// #710 7b (D-IBKR-FENCE): a key bound to another account keeps its status; the check's read, recorded by the caller,
+/// fences it until a read names its account again. A first bind the read does not route to the key's own account (rule 8)
+/// is incorrect, unbound and inert.
 pub fn bound_status(c:&Connection,cipher:&crate::crypto::Cipher,id:i64,status:crate::engine::model::Produced<i64>,account:Option<&str>,at:chrono::DateTime<chrono::Utc>)->Result<crate::engine::model::Produced<i64>,crate::sync::SyncError>{
     let Some(account)=account else {return Ok(status)};
+    let was_bound=crate::venue::ibkr_account::binding(c,id)?.is_some();
     match crate::venue::ibkr_account::bind(c,cipher,id,account,at).map_err(crate::sync::SyncError)? {
         Ok(())=>Ok(status),
-        Err(refusal)=>{crate::engine::log(&format!("[Interactive Brokers] API key validation: {refusal}"));Ok(status.map(|_|2))}
+        Err(refusal)=>{
+            crate::engine::log(&format!("[Interactive Brokers] API key validation: {refusal}"));
+            if was_bound {let now:i64=c.query_row("SELECT status FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;Ok(status.map(|_|now))} else {Ok(status.map(|_|2))}
+        }
     }
 }
 /// #710 slice 9 G4 (D-COINBASE-TRANSIENT-KEEPS-CORRECT): the status a check of key `id` writes. On a venue whose identity

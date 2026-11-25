@@ -160,6 +160,10 @@ impl<T: Transport> IbkrVenue<T> {
             match self.get(s, held, "GET", &format!("/v1/api/portfolio/{}/positions/{page}", self.account), vec![], None).await? {
                 Value::Array(rows) if rows.is_empty() => break,
                 Value::Null => break,
+                // D-IBKR-ACCOUNT-ROWS (#710 7b rule 14): a row naming another account than the bound one makes the whole read
+                // unusable (no hold, no reservation).
+                Value::Array(rows) if rows.iter().any(|r| super::ibkr_account::names_other(r, "acctId", &self.account)) =>
+                    return Err(VenueError::Rejected(vec![super::ibkr_account::FOREIGN_ROWS.into()])),
                 Value::Array(rows) => for row in rows.iter().filter(|r| r.get("conid").and_then(as_i64) == Some(conid)) {
                     found = match row.get("position").map(json_to_d) { Some(Ok(Some(q))) => q, _ => return Err(VenueError::Ambiguous(format!("an IBKR position of conid {conid} without a quantity"))) };
                 },

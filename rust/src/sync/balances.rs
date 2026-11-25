@@ -1624,6 +1624,10 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
         }).await?;
         if stored != 1 { return Ok(Err(Failure { error: why.unwrap_or_else(|| "the IBKR login names another account than this connection's".into()), raised: false })); }
     }
+    // #710 7b rule 7: the one other account the login opens now, seen by this run's own accounts read (recorded after the
+    // run's failure is).
+    let seen: std::cell::RefCell<Option<crate::identity::AccountId>> = std::cell::RefCell::new(None);
+    let seen_ref = &seen;
     let read = move |_: String| async move {
         let bound = phase(db, move |c| {
             let enc: Option<String> = c.query_row("SELECT account_id_enc FROM ibkr_bindings WHERE api_key_id = ?1", [key_id], |r| r.get(0)).optional()?;
@@ -1634,32 +1638,77 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
             Some(enc) => db.run(move |_, cipher| cipher.decrypt(&enc).map_err(|_| "the bound IBKR account cannot be read".to_string())).await,
         };
         let account = match cipher_read { Ok(a) => a, Err(why) => return Ok(Err(why)) };
-        Ok(ibkr_read(&transport, login, clock, &account, "").await)
+        // #710 7b rule 12: the balance job's hold is gated too (a queued read crossing a fence sends nothing).
+        let path = db.run(|c, _| Ok(c.path().map(str::to_string))).await.unwrap_or(None);
+        match ibkr_read_observed(&transport, login, clock, &account, "", Some((path.as_deref(), version))).await {
+            Ok(text) => Ok(Ok(text)),
+            Err((why, Some(other))) => { *seen_ref.borrow_mut() = Some(other); Ok(Err(why)) }
+            Err((why, None)) => Ok(Err(why)),
+        }
     };
     let venue = VenueBalances { kept: None, names: ibkr_names, record: None, types: &[crate::venue::ibkr::IBKR], failure_text: str::to_string, condemns: |_, _| false,
                                 held: |text, names, ids| ibkr_held(text, names, ids).map(|held| held.map_err(|why| (why, vec![]))) };
-    sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await
+    let synced = sync_venue(db, version, prices, key_id, credentials, clock, venue, read).await;
+    // #710 7b rule 7 (D-IBKR-FENCE): the login opens one other account now. That read is the key's identity read: it fences
+    // the key at once (its reader moves), and a check that finds its account again lifts it. Recorded as the key's own
+    // check is (`commit_record_for`), after the run's failure.
+    let other = seen.borrow_mut().take();
+    if let Some(other) = other {
+        let (credentials, at, read_with) = (credentials.clone(), clock.now(), version.clone());
+        let observed = crate::identity::Observed::Read(other);
+        let recorded = super::commit_record_for(db, version, move |c, cipher| {
+            crate::identity::record(c, cipher, key_id, &credentials, &read_with, &observed, at).map_err(SyncError)?;
+            Ok(((), false))
+        }).await;
+        if let Err(e) = recorded { crate::engine::log(&format!("[IBKR] api_key={key_id} the other account's read was not recorded: {}", e.0)); }
+    }
+    synced
 }
 
 /// Exchanges::Ibkr#get_balances' reads for `account`, as one text: `{"ledger": …, "positions": [every page's rows]}`. Sent to
 /// `base` (blank: IBKR's).
 pub async fn ibkr_read<T: Transport, C: Clock + ?Sized>(transport: &T, login: Arc<crate::venue::ibkr::Login>, clock: &C, account: &str, base: &str) -> Result<String, String> {
+    ibkr_read_observed(transport, login, clock, account, base, None).await.map_err(|(why, _)| why)
+}
+/// `ibkr_read` behind the post-lock gate (#710 7b rule 12): database `path`, the key's credential `version`.
+#[allow(clippy::too_many_arguments)]
+pub async fn ibkr_read_gated<T: Transport, C: Clock + ?Sized>(transport: &T, login: Arc<crate::venue::ibkr::Login>, clock: &C, account: &str, base: &str,
+                                                              path: Option<&str>, version: &crate::engine::model::CredentialVersion) -> Result<String, String> {
+    ibkr_read_observed(transport, login, clock, account, base, Some((path, version))).await.map_err(|(why, _)| why)
+}
+/// `ibkr_read`, its failure with the one other account the login opens now when that is why (#710 7b rule 7).
+async fn ibkr_read_observed<T: Transport, C: Clock + ?Sized>(transport: &T, login: Arc<crate::venue::ibkr::Login>, clock: &C, account: &str, base: &str,
+                                                             gate: Option<(Option<&str>, &crate::engine::model::CredentialVersion)>)
+                                                             -> Result<String, (String, Option<crate::identity::AccountId>)> {
     use crate::venue::ibkr::{Session, ACCOUNTS_PATH};
     let session = Session::new(transport, login, clock).with_base(base);
-    let held = session.lock().await.map_err(|e| e.message())?;
-    let get = |path: String| { let (s, h) = (&session, &held); async move { s.signed_request(h, "GET", &path, vec![], None).await.map_err(|e| transport.redact_diagnostic(&e.message())) } };
-    if !crate::venue::ibkr_account::names_only(&get(ACCOUNTS_PATH.into()).await?, account) { return Err("the IBKR login no longer names the account this connection belongs to".into()); }
+    let session = match gate { Some((path, version)) => session.with_gate(path, version), None => session };
+    let held = session.lock().await.map_err(|e| (e.message(), None))?;
+    let get = |path: String| { let (s, h) = (&session, &held); async move { s.signed_request(h, "GET", &path, vec![], None).await.map_err(|e| (transport.redact_diagnostic(&e.message()), None)) } };
+    let accounts = get(ACCOUNTS_PATH.into()).await?;
+    if !crate::venue::ibkr_account::names_only(&accounts, account) {
+        let other = match crate::venue::ibkr_account::listed(&accounts).as_slice() { [one] => one.as_str().and_then(crate::identity::AccountId::ibkr), _ => None };
+        return Err(("the IBKR login no longer names the account this connection belongs to".into(), other));
+    }
     let ledger = get(format!("/v1/api/portfolio/{account}/ledger")).await?;
     let mut positions = vec![];
     for page in 0..=IBKR_MAX_POSITION_PAGES {
-        if page == IBKR_MAX_POSITION_PAGES { return Err(format!("more than {IBKR_MAX_POSITION_PAGES} pages of IBKR positions")); }
+        if page == IBKR_MAX_POSITION_PAGES { return Err((format!("more than {IBKR_MAX_POSITION_PAGES} pages of IBKR positions"), None)); }
         match get(format!("/v1/api/portfolio/{account}/positions/{page}")).await? {
             Value::Array(rows) if rows.is_empty() => break,
             Value::Array(rows) => positions.extend(rows),
             // An empty body (nil) ends the list as an empty page does.
             Value::Null => break,
-            _ => return Err("unreadable IBKR positions".into()),
+            _ => return Err(("unreadable IBKR positions".into(), None)),
         }
+    }
+    // D-IBKR-ACCOUNT-ROWS (#710 7b rule 14): a row that names another account than the bound one rejects the whole read
+    // (nothing published, the previous set kept). The accounts list stays the only identity source: nothing is fenced here.
+    let foreign = positions.iter().any(|r| crate::venue::ibkr_account::names_other(r, "acctId", account))
+        || ledger.as_object().is_some_and(|l| l.values().any(|r| crate::venue::ibkr_account::names_other(r, "acctcode", account)));
+    if foreign {
+        crate::engine::log(&format!("[IBKR] {}: the read is not used", crate::venue::ibkr_account::FOREIGN_ROWS));
+        return Err((crate::venue::ibkr_account::FOREIGN_ROWS.into(), None));
     }
     Ok(serde_json::json!({ "ledger": ledger, "positions": positions }).to_string())
 }

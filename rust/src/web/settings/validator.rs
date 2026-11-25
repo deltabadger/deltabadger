@@ -43,7 +43,12 @@ impl ValidationHandle {
     /// The key check of `venue` (a `registry::key_check_proxy` venue) sent to `base` through `egress` (the venue's proxy client, or why there is none).
     pub(crate) async fn check_via(&self,venue:&str,base:&str,egress:Result<reqwest::Client,String>,kind:i64)->Checked {
         let (value,observed)=match egress {
-            Ok(client) if venue==crate::venue::ibkr::IBKR=>(super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer).await,None),
+            // #710 7b: IBKR's check names its account; that is its identity read (`Observed::Read`), recorded as any venue's.
+            Ok(client) if venue==crate::venue::ibkr::IBKR=>{
+                let value=super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer).await;
+                let observed=match &value {Validity::Account(id)=>crate::identity::AccountId::ibkr(id).map(crate::identity::Observed::Read),_=>None};
+                (value,observed)
+            }
             Ok(client)=>super::key_check::check_identified_captured(venue,base,client,&self.credentials,kind,Some(&self.producer)).await,
             Err(why)=>(Validity::Pending(Diagnostic{text:why,status:None,body:String::new(),refusal:false}),None),
         };

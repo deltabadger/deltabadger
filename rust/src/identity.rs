@@ -72,6 +72,8 @@ impl AccountId {
         let canonical = t.trim_start_matches('0');
         (!canonical.is_empty()).then(|| Self(canonical.to_string()))
     }
+    /// #710 7b: an IBKR account id as `/iserver/accounts` names it (`ibkr_account::parse`: U…, DU…, DF…), as it is.
+    pub fn ibkr(raw: &str) -> Option<Self> { crate::venue::ibkr_account::parse(raw.trim()).map(|id| Self(id.to_string())) }
     fn from_json(v: &Value) -> Option<Self> {
         match v { Value::Number(n) if n.is_u64() => Self::parse(&n.to_string()), Value::String(s) => Self::parse(s), _ => None }
     }
@@ -267,8 +269,12 @@ impl IdentityKey {
     /// `fingerprint` of an id a venue spells with letters (IBKR's U…, DU…), as given.
     pub fn fingerprint_text(&self, exchange_type: &str, id: &str) -> String { self.mac("deltabadger-account-fingerprint-v1", &[exchange_type, id]) }
     /// What the credential is made of: it changes when the material does, never on a re-encryption.
+    /// #710 7b: an IBKR login's full material too (`ibkr_material`, its effective realm included).
     pub fn material_digest(&self, c: &Credentials) -> String {
-        self.mac("deltabadger-credential-material-v1", &[&c.key, &c.secret, c.passphrase.as_deref().unwrap_or("")])
+        match c.ibkr.as_deref() {
+            None => self.mac("deltabadger-credential-material-v1", &[&c.key, &c.secret, c.passphrase.as_deref().unwrap_or("")]),
+            Some(_) => self.mac("deltabadger-credential-material-v1", &[&c.key, &c.secret, c.passphrase.as_deref().unwrap_or(""), &ibkr_material(c)]),
+        }
     }
 }
 
@@ -330,7 +336,11 @@ pub fn initialize(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result
     }
     // An install 2.x owns is not written before its claim (a refused start leaves it as it was); its takeover seeds them.
     if !crate::lease::read(c, cipher).ok().flatten().is_some_and(|v| v["engine"] == "rust") { return Ok(()); }
-    crate::sync::seed_readers(c).map_err(|e| e.0)
+    crate::sync::seed_readers(c).map_err(|e| e.0)?;
+    // #710 7b: the IBKR history each account holds (idempotent; the first start after the migration fills it).
+    let tx = c.unchecked_transaction().map_err(|e| e.to_string())?;
+    crate::venue::ibkr_account::backfill(&tx, cipher, now)?;
+    tx.commit().map_err(|e| e.to_string())
 }
 
 /// The account (user, exchange) is read as while it has one (#710 slices 1-6): its lowest live number.
@@ -1110,7 +1120,7 @@ pub fn write_status(c: &Connection, id: i64, status: i64, at: &str, on_change: b
 }
 /// The one write of a stored key's credential material: api_keys' key, secret and passphrase, as the ciphertext given (the
 /// version a validation was made under). Every path that replaces a stored key's material calls it (the Settings form and
-/// the wizards through `keys::submit_candidate`, the JSON save `POST /api/api_keys`).
+/// the wizards through `keys::submit_answered`, the JSON save `POST /api/api_keys`).
 ///
 /// When the key, secret or passphrase differs from the stored one (decrypted, compared in constant time), the key is another
 /// credential (#497, #710): its ledger watermark and per-key sync state reset, its identity observation (of the old
@@ -1206,7 +1216,11 @@ pub fn live_check(c: &Connection, d: &AccountRow, s: &AccountRow, now: DateTime<
     for a in [d, s] {
         // #710 7a rule Q4: the account's reader (the one selector), not every live key: a key that is not the reader
         // produced none of the account's history.
-        let keys: Vec<i64> = crate::sync::cache::reading_key(c, a).map_err(eng)?.into_iter().collect();
+        // D-MERGE-LEDGERLESS (#710 7b rule 15): a ledger completion only where the venue has a ledger (IBKR has none);
+        // balance provenance stays required for every venue.
+        let exchange_type: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [a.exchange_id], |r| r.get(0)).optional()?.flatten();
+        let ledgered = exchange_type.as_deref().and_then(crate::venue::registry::row).is_none_or(|r| r.ledger.is_some());
+        let keys: Vec<i64> = if ledgered { crate::sync::cache::reading_key(c, a).map_err(eng)?.into_iter().collect() } else { vec![] };
         for key in keys {
             let state = crate::jobs::state::read(c, crate::sync::jobs::LEDGER_SYNC, Some(&key.to_string())).map_err(rusqlite::Error::InvalidParameterName)?;
             let fresh = crate::sync::cache::ledger_current_for(c, key).map_err(eng)? && state.incomplete_since.is_none() && state.last_success_at.is_some_and(|t| t >= since);
@@ -1369,7 +1383,8 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
             let same = if wallet { stored.key.trim().eq_ignore_ascii_case(material.key.trim()) && !material.key.trim().is_empty() }
                        else { stored.key == material.key && stored.secret == material.secret && !material.secret.is_empty()
                               // #710 slice 9 (r6): Alpaca's paper and live are two accounts, so its mode is part of the material.
-                              && (exchange_type != ALPACA || compared(ALPACA, &stored).2 == compared(ALPACA, material).2) };
+                              && (exchange_type != ALPACA || compared(ALPACA, &stored).2 == compared(ALPACA, material).2)
+                              && (exchange_type != crate::venue::ibkr::IBKR || ibkr_material(&stored) == ibkr_material(material)) };
             if !same { continue; }
             let Some(account) = account_of_key(c, id).map_err(db)?.filter(|a| live.iter().any(|(l, _)| l == a)) else { continue };
             if !unknown || unset(account)? { return Ok(Route::To(account)); }
@@ -1390,10 +1405,15 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
                 let survivor = holders.iter().find_map(|h| standing_of(c, user_id, *h).ok().flatten().map(|(s, _, _)| s)).filter(|s| holders.contains(s));
                 return Ok(Route::To(survivor.unwrap_or(holders[0])));
             }
-            if let Some(t) = target { if unset(t)? { return Ok(Route::To(t)); } return installed(true); }
+            // #710 7b rule 1: an IBKR account takes a read it holds no history of another account beside (its evidence).
+            let takes = |id: i64| -> Result<bool, String> {
+                Ok(unset(id)? && (exchange_type != crate::venue::ibkr::IBKR
+                                  || crate::venue::ibkr_account::evidence(c, id).map_err(db)?.iter().all(|f| *f == fingerprint)))
+            };
+            if let Some(t) = target { if takes(t)? { return Ok(Route::To(t)); } return installed(true); }
             if let [(only, _)] = live.as_slice() {
                 let has_kind: bool = Account::by_id(c, *only).map_err(db)?.map(|a| a.key(c, kind)).transpose().map_err(db)?.flatten().is_some();
-                if unset(*only)? && !has_kind { return Ok(Route::To(*only)); }
+                if takes(*only)? && !has_kind { return Ok(Route::To(*only)); }
             }
             installed(true)
         }
@@ -1428,9 +1448,19 @@ pub fn holds_unread_other(c: &Connection, cipher: &Cipher, account: i64, exchang
 /// A venue's own credential fields, as a save compares them (`venue/registry.rs`): a passphrase only where the venue
 /// signs with it, Alpaca's empty mode as `paper`.
 fn compared(exchange_type: &str, c: &Credentials) -> (String, String, String) {
-    let passphrase = if exchange_type == crate::sync::ALPACA { alpaca_mode(c.passphrase.as_deref()) }
+    // #710 7b: an IBKR login is its whole material (the access token, both RSA keys, the DH group, the effective realm).
+    let passphrase = if exchange_type == crate::venue::ibkr::IBKR { ibkr_material(c) }
+                     else if exchange_type == crate::sync::ALPACA { alpaca_mode(c.passphrase.as_deref()) }
                      else if crate::venue::registry::row(exchange_type).is_some_and(|r| r.passphrase) { c.passphrase.clone().unwrap_or_default() } else { String::new() };
     (c.key.clone(), c.secret.clone(), passphrase)
+}
+
+/// An IBKR login's material beyond its consumer key and token secret, as one text: the access token, both RSA keys, the DH
+/// group and the realm as the signer uses it (blank: `limited_poa`). Empty for a key without that material.
+pub fn ibkr_material(c: &Credentials) -> String {
+    let Some(m) = c.ibkr.as_deref() else { return String::new() };
+    let realm = if m.realm.trim().is_empty() { crate::venue::signers::ibkr::DEFAULT_REALM } else { m.realm.as_str() };
+    [m.access_token.as_str(), &m.signature_key, &m.encryption_key, &m.dh_param, realm].join("\u{0}")
 }
 
 /// Alpaca's mode as a save compares it (`compared`): the host it selects (`alpaca::is_live`, as `Urls::pick`), so NULL,
@@ -1453,6 +1483,9 @@ fn all_material(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64,
 }
 /// Key `id`'s key, secret and passphrase, decrypted (None: unreadable). Inside any transaction.
 fn stored_material(c: &Connection, cipher: &Cipher, id: i64) -> Option<Credentials> {
+    // #710 7b: an IBKR key with its whole session material.
+    let ibkr: bool = c.query_row("SELECT e.type = ?2 FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1", params![id, crate::venue::ibkr::IBKR], |r| r.get(0)).unwrap_or(false);
+    if ibkr { return crate::sync::credentials(c, cipher, id).ok().map(|mut m| { m.redaction_values.clear(); m }); }
     let (key, secret, passphrase): (Option<String>, Option<String>, Option<String>) =
         c.query_row("SELECT key, secret, passphrase FROM api_keys WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).ok()?;
     let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).ok()).unwrap_or(Some(String::new()));
@@ -1568,7 +1601,8 @@ fn reading_key(c: &Connection, user_id: i64, api_key_id: i64) -> Result<bool, St
 fn key_row(c: &Connection, api_key_id: i64) -> rusqlite::Result<Option<(i64, i64, String)>> {
     c.query_row("SELECT k.user_id, k.exchange_id, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE k.id = ?1", [api_key_id],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, Option<String>>(2)?.unwrap_or_default()))).optional()
-        .map(|row| row.filter(|(_, _, t)| VENUES.contains(&t.as_str())))
+        // #710 7b: IBKR's key check names its account too (`Validity::Account`), so its reads are recorded as these are.
+        .map(|row| row.filter(|(_, _, t)| VENUES.contains(&t.as_str()) || t == crate::venue::ibkr::IBKR))
 }
 
 /// Records what an identity read of `api_key_id` (made with `credentials`, its current material) came to. Call inside the
@@ -1607,7 +1641,8 @@ pub fn record(c: &Connection, cipher: &Cipher, api_key_id: i64, credentials: &Cr
                        account_id_enc = excluded.account_id_enc, observed_at = excluded.observed_at, last_failure_at = NULL, last_failure_code = NULL",
                       params![api_key_id, exchange_id, digest, version, fingerprint, encrypted, at]).map_err(db)?;
             ensure_account(c, user_id, exchange_id, now).map_err(db)?;
-            if reading_key(c, user_id, api_key_id)? {
+            // #710 7b: an IBKR account's identity is established by its keys' bindings only (`ibkr_account::bind`).
+            if exchange_type != crate::venue::ibkr::IBKR && reading_key(c, user_id, api_key_id)? {
                 if let Some(account) = account_of_key(c, api_key_id).map_err(db)? { establish_by_read(c, account, &fingerprint, &encrypted, now).map_err(db)?; }
             }
             fence_copies(c, cipher, user_id, exchange_id, &exchange_type, credentials, id, Some(api_key_id), now)?;
@@ -1676,6 +1711,11 @@ pub fn forget(c: &Connection, api_key_id: i64, account: &Account, now: DateTime<
     settled(c)?;
     if named { return Ok(()); }
     c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL WHERE id = ?1 AND (fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)", [id])?;
+    // #710 7b rule 6: an emptied number 1 forgets its identity entirely: its proof, and the IBKR history evidence it no
+    // longer holds (a later connection of another IBKR account asks nothing).
+    for t in ["account_fingerprint_proofs", "ibkr_account_evidence"] {
+        if crate::engine::rules::table_exists(c, t)? { c.execute(&format!("DELETE FROM {t} WHERE account_id = ?1"), [id])?; }
+    }
     Ok(())
 }
 
@@ -1702,6 +1742,9 @@ pub fn named(c: &Connection, id: i64) -> rusqlite::Result<bool> {
     let any = tables.iter().map(|t| format!("EXISTS(SELECT 1 FROM \"{t}\" WHERE account_id = ?1)")).collect::<Vec<_>>().join(" OR ");
     c.query_row(&format!("SELECT {any}"), [id], |r| r.get(0))
 }
+/// Rule P4 (and #710 7b): the tables about an account that hold nothing of it: its proof, its reader generation, and the
+/// IBKR accounts it holds history of (that history is what names it).
+const BOOKKEEPING: [&str; 3] = ["account_fingerprint_proofs", "ledger_reader_generations", "ibkr_account_evidence"];
 /// #710 7a rule R3: the Rust-owned tables (`store::REGISTRY`) whose rows name an account: every one with an `account_id`
 /// column in this install's schema, so a table added later counts without being listed.
 pub fn naming_tables(c: &Connection) -> rusqlite::Result<Vec<String>> {
@@ -1709,7 +1752,7 @@ pub fn naming_tables(c: &Connection) -> rusqlite::Result<Vec<String>> {
     let mut s = c.prepare("SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND p.name = 'account_id' ORDER BY m.name")?;
     let names = s.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
     // Rule P4: an account's proof and reader generation are bookkeeping about it, not holdings of it.
-    Ok(names.into_iter().filter(|n| owned.contains(&n.as_str()) && !["account_fingerprint_proofs", "ledger_reader_generations"].contains(&n.as_str())).collect())
+    Ok(names.into_iter().filter(|n| owned.contains(&n.as_str()) && !BOOKKEEPING.contains(&n.as_str())).collect())
 }
 
 /// #710 7a §4, the tracker's presence rule: the user's live accounts numbered 2+ that `named` keeps, as (exchange, account).
@@ -1731,7 +1774,7 @@ pub fn tombstone(c: &Connection, id: i64, now: DateTime<Utc>) -> rusqlite::Resul
                             params![id, format_time(now)])?;
     // Rule P4: its proof and reader generation go with it.
     if removed > 0 {
-        for t in ["account_fingerprint_proofs", "ledger_reader_generations"] {
+        for t in BOOKKEEPING {
             if crate::engine::rules::table_exists(c, t)? { c.execute(&format!("DELETE FROM {t} WHERE account_id = ?1"), [id])?; }
         }
     }
@@ -1777,27 +1820,39 @@ pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, excha
 /// fingerprint, key observation or import observation is the export's (by number). `foreign`: `dest`'s fingerprint, a
 /// key observation of it, or an import observation of it names another account. The takeover's sentinel names nobody.
 /// `facts`: what was compared (each account's distinct fingerprints seen), for the answer's digest (rule N4).
-pub struct ImportEvidence { pub holders: Vec<i64>, pub foreign: bool, pub facts: String }
+/// #710 7b (IBKR, rule 2): `fixed`, the holders that cannot take the read without changing their proven identity (never
+/// offered as a destination); `takeover`, a holder is one only by the takeover's sentinel (2.x may have synced history
+/// of an unknown IBKR account there).
+pub struct ImportEvidence { pub holders: Vec<i64>, pub foreign: bool, pub facts: String, pub fixed: Vec<i64>, pub takeover: bool }
 pub fn import_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId, now: DateTime<Utc>) -> Result<ImportEvidence, String> {
     let db = |e: rusqlite::Error| format!("account identity: {e}");
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
     let file = key(c, cipher, now)?.fingerprint(&exchange_type, id);
-    let mut out = ImportEvidence { holders: vec![], foreign: false, facts: String::new() };
+    let mut out = ImportEvidence { holders: vec![], foreign: false, facts: String::new(), fixed: vec![], takeover: false };
+    let ibkr = exchange_type == crate::venue::ibkr::IBKR;
     for (account, _) in accounts_of(c, user_id, exchange_id).map_err(db)? {
         let Some(row) = Account::by_id(c, account).map_err(db)? else { continue };
         let own: Option<String> = c.query_row("SELECT fingerprint FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0)).map_err(db)?;
-        let mut seen: Vec<String> = c.prepare(&format!("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
+        // #710 7b rule 2: an IBKR account's evidence is its fingerprint and the history it holds (`ibkr_account_evidence`),
+        // never a credential observation (an unchanged login reads whatever account it opens now).
+        let sentinel = ibkr && crate::venue::ibkr_account::takeover_held(c, account).map_err(db)?;
+        let mut seen: Vec<String> = if ibkr { crate::venue::ibkr_account::evidence(c, account).map_err(db)? } else { c.prepare(&format!("SELECT o.fingerprint FROM exchange_account_credentials o JOIN api_keys k ON k.id = o.api_key_id
                                                          WHERE {} AND o.fingerprint IS NOT NULL AND o.fingerprint <> ?1
                                                          UNION SELECT fingerprint FROM exchange_account_imports WHERE account_id = ?2 ORDER BY 1", row.keys("k"))).map_err(db)?
-            .query_map(params![UNCONFIRMED_AFTER_V2, account], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+            .query_map(params![UNCONFIRMED_AFTER_V2, account], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)? };
         seen.extend(own.clone());
         seen.sort();
         seen.dedup();
         let theirs = seen.contains(&file);
         let other = seen.iter().any(|f| *f != file);
         // Rule N4: the fingerprints themselves, so one more seen meanwhile makes an open answer stale.
-        out.facts.push_str(&format!("{account}:{};", seen.join(",")));
-        if Some(account) == dest { out.foreign = other; } else if theirs { out.holders.push(account); }
+        out.facts.push_str(&format!("{account}:{}{};", seen.join(","), if sentinel { "+2.x" } else { "" }));
+        if Some(account) == dest { out.foreign = other; }
+        else if theirs || sentinel {
+            out.holders.push(account);
+            if sentinel && !theirs { out.takeover = true; }
+            if ibkr && !crate::venue::ibkr_account::offerable(c, account, &file).map_err(db)? { out.fixed.push(account); }
+        }
     }
     Ok(out)
 }

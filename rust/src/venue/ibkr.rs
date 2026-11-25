@@ -30,6 +30,8 @@ pub const LST_TTL: TimeDelta = TimeDelta::hours(23);
 pub const BROKERAGE_SESSION_TTL: TimeDelta = TimeDelta::minutes(4);
 /// What a call answers when the login no longer lists exactly the account the connection is bound to.
 pub const ACCOUNT_CHANGED: &str = "the IBKR login no longer names the account this connection belongs to";
+/// #710 7b rule 12: what a request the post-lock gate held back answers.
+pub const GATED: &str = "the IBKR key changed or reads another account now; nothing was sent";
 /// IbkrLock's wait for a busy login.
 pub const LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(15);
 
@@ -182,6 +184,8 @@ pub enum Error {
     Unreadable,
     /// An order or reply POST handed to `signed_request`, which may resend it; it goes through `Session::submit`.
     Mutation,
+    /// #710 7b rule 12 (D-IBKR-FENCE): the post-lock gate found the key changed or reading another account; nothing sent.
+    Gated,
 }
 
 impl Error {
@@ -196,6 +200,7 @@ impl Error {
             Self::Auth(m) | Self::Key(m) => m.into(),
             Self::Unreadable => "the answer is not readable JSON".into(),
             Self::Mutation => "an order or reply sent as a read".into(),
+            Self::Gated => GATED.into(),
         }
     }
 }
@@ -215,13 +220,33 @@ pub struct Session<'a, T: Transport, C: Clock + ?Sized = dyn Clock> {
     login: Arc<Login>,
     clock: &'a C,
     dh_random: Box<dyn Fn() -> String + Send + Sync + 'a>,
+    /// #710 7b rule 12: the database file and the credential version every lock hold is checked against before it sends.
+    gate: Option<(String, CredentialVersion)>,
 }
 
 impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     pub fn new(transport: &'a T, login: Arc<Login>, clock: &'a C) -> Self {
         let fixed = FIXED_DH_RANDOM.lock().unwrap_or_else(|p| p.into_inner()).clone();
         let dh_random: Box<dyn Fn() -> String + Send + Sync + 'a> = match fixed { Some(r) => Box::new(move || r.clone()), None => Box::new(oauth::dh_random) };
-        Self { transport, base: URL.into(), login, clock, dh_random }
+        Self { transport, base: URL.into(), login, clock, dh_random, gate: None }
+    }
+
+    /// #710 7b rule 12 (D-IBKR-FENCE): every lock hold of this session first reads `path` afresh (the `Fence::Live`
+    /// pattern): `version` still the key's current credential, on its account, and its latest read naming that account.
+    /// Otherwise the hold fails (`Error::Gated`) and nothing is sent. A request queued on the login across a fence sends
+    /// nothing.
+    pub fn with_gate(mut self, path: Option<&str>, version: &CredentialVersion) -> Self {
+        self.gate = path.filter(|p| !p.is_empty()).map(|p| (p.to_string(), version.clone()));
+        self
+    }
+
+    fn gated(&self) -> Result<(), Error> {
+        let Some((path, version)) = &self.gate else { return Ok(()) };
+        let current = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
+            .and_then(|c| { c.busy_timeout(std::time::Duration::from_secs(5))?; Ok(c) })
+            .map_err(crate::engine::EngineError::from)
+            .and_then(|c| crate::engine::model::key_is_current(&c, version));
+        if current.unwrap_or(false) { Ok(()) } else { Err(Error::Gated) }
     }
 
     /// Sent to `base` instead of Session::BASE_URL (a test's server).
@@ -238,12 +263,16 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
 
     /// IbkrLock.with_lock: waits up to LOCK_WAIT for the login, then fails.
     pub async fn lock(&self) -> Result<Held<'_>, Error> {
-        tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(|g| Held(Guard::Borrowed(g))).map_err(|_| Error::LockTimeout)
+        let held = tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(|g| Held(Guard::Borrowed(g))).map_err(|_| Error::LockTimeout)?;
+        self.gated()?;
+        Ok(held)
     }
 
     /// `lock`, held by the caller beyond this session (a placement's position read and its intent, `PlacementHold`).
     pub async fn lock_owned(&self) -> Result<Held<'static>, Error> {
-        tokio::time::timeout(LOCK_WAIT, self.login.op.clone().lock_owned()).await.map(|g| Held(Guard::Owned(g))).map_err(|_| Error::LockTimeout)
+        let held = tokio::time::timeout(LOCK_WAIT, self.login.op.clone().lock_owned()).await.map(|g| Held(Guard::Owned(g))).map_err(|_| Error::LockTimeout)?;
+        self.gated()?;
+        Ok(held)
     }
 
     /// Session#signed_request: the brokerage session established, the call signed, one self-heal on a 401 or AuthError.

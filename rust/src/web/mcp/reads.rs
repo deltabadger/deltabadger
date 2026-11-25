@@ -246,7 +246,9 @@ async fn fetch_inner(app:&App,fetch:Fetch)->Fetched{
             let egress=app.db(move|c|Ok(crate::venue::live::egress(c,&cipher,&|k|std::env::var(k).ok(),"ibkr",&crate::venue::http::client()))).await;
             let client=match egress {Ok(Ok((client,_)))=>client,Ok(Err(why))=>return failed_with(&why),Err(_)=>return failed_with("the ibkr proxy setting is unreadable")};
             let transport=crate::venue::http::ReqwestTransport::ibkr(client,login.clone());
-            match sync::balances::ibkr_read(&transport,login,&crate::engine::SystemClock,&account,&app.venue_key_url(crate::venue::ibkr::IBKR)).await {
+            // #710 7b rule 12: behind the post-lock gate.
+            let path=app.db(|c|Ok(c.path().map(str::to_string))).await.unwrap_or(None);
+            match sync::balances::ibkr_read_gated(&transport,login,&crate::engine::SystemClock,&account,&app.venue_key_url(crate::venue::ibkr::IBKR),path.as_deref(),&credentials.origin).await {
                 Ok(text)=>Fetched::IbkrBalances(user,exchange,name,text),
                 Err(why)=>failed_with(&why),
             }
