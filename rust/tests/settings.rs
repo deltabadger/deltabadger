@@ -3781,17 +3781,73 @@ async fn r5_snapshot_refuses_incomplete_origin_and_partial_balance_batches(){
     h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
     let b=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();let bv=LocalAlpaca(server.uri()).connect(&b);
     let gaps=std::cell::RefCell::new(vec![]);let owner=h.seed.user_id;let h_ref=&h;let db_ref=&db;let gaps_ref=&gaps;
+    // D-BALANCE-SET-ATOMIC (#710 7b rule 14): no origin-only or partial-batch gap is left to refuse: the one step is after
+    // the set's one commit, and a snapshot there publishes B's complete set.
     let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
-        let before=h_ref.snapshot();
-        let result=jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(db_ref,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await;
-        assert!(result.is_err(),"R5 incomplete balance set must refuse snapshot at origin/batch gap {gap}");
-        assert_eq!(h_ref.snapshot(),before,"R5 partial rows must not acquire a snapshot producer stamp");
+        jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(db_ref,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
+        assert_eq!(h_ref.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1 ORDER BY date DESC LIMIT 1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 the committed B balance set publishes B money");
         gaps_ref.borrow_mut().push(gap);
     })};
     balances::sync_with_steps(&db,&bv,&NoPrices,h.seed.api_key_id,&b,&FixedClock(at),&step).await.unwrap().unwrap();
-    assert_eq!(*gaps.borrow(),vec![0,1,2],"cover origin-only and both partial batch gaps");
-    jobs::ledger_run::<deltabadger::venue::http::ReqwestTransport>(&db,None,None,owner,&FixedClock(at),jobs::system_wall(),&mut jobs::Allowance::run()).await.unwrap();
-    assert_eq!(h.c.query_row("SELECT value_usd FROM portfolio_snapshots WHERE user_id=?1 ORDER BY date DESC LIMIT 1",[owner],|r|r.get::<_,f64>(0)).unwrap(),2000.0,"R5 completed B balance set publishes B money");
+    assert_eq!(*gaps.borrow(),vec![1],"one commit, so one boundary, after it");
+}
+
+/// #710 7b rule 14 (D-BALANCE-SET-ATOMIC): a write that fails in the second `BATCH` of a balance set (Alpaca's 101st
+/// position) leaves the previous complete set, its `balances_synced_at` and its completion as they were, seen from another
+/// connection. On main the first batch had committed already.
+#[tokio::test(flavor="current_thread")]
+async fn s7b_balance_set_publishes_atomically(){
+    use deltabadger::{engine::{model,FixedClock},sync::balances::{self,NoPrices}};
+    use wiremock::matchers::header;
+    use deltabadger::sync::jobs::Connect;
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"10000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","previous-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([]))).mount(&server).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
+    let a=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();
+    balances::sync(&db,&LocalAlpaca(server.uri()).connect(&a),&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap().unwrap();
+    let observer=rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap();
+    let state=||->(Vec<(i64,f64)>,Option<String>,Vec<String>){(
+        observer.prepare("SELECT asset_id,free FROM exchange_account_balances ORDER BY asset_id").unwrap().query_map([],|r|Ok((r.get(0)?,r.get(1)?))).unwrap().map(Result::unwrap).collect(),
+        observer.query_row("SELECT balances_synced_at FROM api_keys WHERE id=?1",[h.seed.api_key_id],|r|r.get(0)).unwrap(),
+        observer.prepare("SELECT key||'='||value FROM app_configs WHERE key LIKE '%balance_origin%' OR key LIKE 'rust_sync.read_at:%' ORDER BY key").unwrap().query_map([],|r|r.get(0)).unwrap().map(Result::unwrap).collect())};
+    let before=state();
+    assert!(!before.0.is_empty()&&before.1.is_some()&&!before.2.is_empty(),"a complete previous set: {before:?}");
+    let mut positions=vec![];let mut last=0;
+    for n in 0..101 {let symbol=format!("AT{n}");let (asset,_)=common::seed::add_alpaca_stock(&h.c,&h.seed,&symbol);last=asset;h.c.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1","qty_available":"1"}));}
+    Mock::given(method("GET")).and(path("/v2/account")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).and(header("APCA-API-KEY-ID","account-b-key")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
+    h.c.execute("UPDATE api_keys SET key=?1,secret=?2 WHERE id=?3",(h.app.cipher.encrypt("account-b-key"),h.app.cipher.encrypt("account-b-secret"),h.seed.api_key_id)).unwrap();
+    // The 101st position's row, in the set's second `BATCH`, cannot be written.
+    h.c.execute_batch(&format!("CREATE TRIGGER injected BEFORE INSERT ON exchange_account_balances WHEN NEW.asset_id = {last} BEGIN SELECT RAISE(ABORT,'injected'); END;")).unwrap();
+    let b=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();
+    let failed=balances::sync(&db,&LocalAlpaca(server.uri()).connect(&b),&NoPrices,h.seed.api_key_id,&b,&FixedClock(at+chrono::Duration::hours(1))).await;
+    assert!(format!("{failed:?}").contains("injected"),"the trigger fired: {failed:?}");
+    assert_eq!(state(),before,"the previous complete set, its clock and its completion survive");
+}
+
+/// #710 7b branch r1 #15 (D-BALANCE-SET-ATOMIC): a valid Alpaca account of 5,000 supported positions and positive cash is
+/// one set of 5,001 rows, published in one transaction as main published it.
+#[tokio::test(flavor="current_thread")]
+async fn s7b_balance_set_of_5000_positions_and_cash_publishes(){
+    use deltabadger::{engine::{model,FixedClock},sync::balances::{self,NoPrices}};
+    use deltabadger::sync::jobs::Connect;
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    let mut positions=vec![];
+    let tx=h.c.unchecked_transaction().unwrap();
+    for n in 0..5000 {let symbol=format!("FK{n}");let (asset,_)=common::seed::add_alpaca_stock(&tx,&h.seed,&symbol);tx.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1","qty_available":"1"}));}
+    tx.commit().unwrap();
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
+    let a=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();
+    let synced=balances::sync(&db,&LocalAlpaca(server.uri()).connect(&a),&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap();
+    assert!(synced.is_ok(),"{synced:?}");
+    assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_balances",[],|r|r.get::<_,i64>(0)).unwrap(),5001,"every position and the cash");
 }
 
 async fn r5_retry_rotation(exhaust:bool,restart:bool){
@@ -3837,7 +3893,9 @@ async fn r5_completed_snapshot_capture_is_refused_when_a_new_batch_is_incomplete
     let step=move|gap|->std::pin::Pin<Box<dyn std::future::Future<Output=()>+'_>>{Box::pin(async move{
         let before=h_ref.snapshot();
         let out=jobs::written_for(&h_ref.c,origin_ref,&||at,|c,_|deltabadger::tracker::snapshot::write(c,h_ref.seed.user_id,&[],at.date_naive()));
-        assert!(out.is_err(),"R5 write fence must recheck current balance completion after captured-complete input at gap {gap}");assert_eq!(h_ref.snapshot(),before);
+        // D-BALANCE-SET-ATOMIC (#710 7b rule 14): the one step follows the set's one commit, so the set the capture read is
+        // complete again there: the write fence accepts it (no partial batch is ever visible to refuse).
+        assert!(out.is_ok(),"R5 a complete committed set is no partial input at gap {gap}: {:?}",out.err());let _=before;
     })};
     balances::sync_with_steps(&db,&av,&NoPrices,h.seed.api_key_id,&a,&FixedClock(at),&step).await.unwrap().unwrap();
 }

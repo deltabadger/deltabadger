@@ -635,6 +635,9 @@ fn scheduler_service<'a>(env: &dyn Fn(&str) -> Option<String>, paths: &Paths, en
     scheduler.wakers().wake(jobs::reference::BOOTSTRAP, None, None);
     scheduler.wakers().wake(deltabadger::sync::binance_repair::JOB, Some(&deltabadger::sync::binance_repair::REPAIR_VERSION.to_string()), None);
     scheduler.wakers().wake(deltabadger::sync::binance_order_links::JOB, None, None);
+    // #710 7b rule 7 (r6): the IBKR keys whose login's latest read was never acted on (bound before 7b, or cut short) are
+    // checked at start, and registrations IBKR activated meanwhile are finished.
+    scheduler.wakers().wake(deltabadger::sync::jobs::IBKR_ACTIVATION, None, None);
     // Requests a stopped process left queued, and what a crash left mid-publish (tax::job::recover).
     scheduler.wakers().wake(deltabadger::tax::job::JOB, None, None);
     for key in unbound {

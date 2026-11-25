@@ -61,17 +61,21 @@ fn side(inflow: bool) -> &'static str { if inflow { "Deposit" } else { "Withdraw
 
 /// The export's rows, each with its id: a hash of the row (amounts as canonical decimals, the time as its UTC second)
 /// and its occurrence among identical rows of the file (1, 2 …). `table` is the file as `CSV.parse` reads it.
+/// The columns `read` reads (B2′: no other cell of the export is kept).
+pub fn columns(h: &str) -> bool { COLUMNS.contains(&h) || TIME_HEADER.is_match(h) }
+
 pub fn read(table: &Table) -> Result<Vec<SourceRow>, Malformed> {
     for column in COLUMNS { if !table.has_header(column) { return Err(Malformed(format!("no {column} column"))); } }
-    let (time_header, offset) = table.headers.iter().flatten().find_map(|h| {
+    let (time_header, offset) = table.headers().find_map(|h| {
         let m = TIME_HEADER.captures(h)?;
         let hours: u32 = m.get(2).map_or(Some(0), |x| x.as_str().parse().ok())?;
         let minutes: u32 = m.get(3).map_or(Some(0), |x| x.as_str().parse().ok())?;
-        Some((h.clone(), format!("{}{hours:02}:{minutes:02}", m.get(1).map_or("+", |s| s.as_str()))))
+        Some((h.to_string(), format!("{}{hours:02}:{minutes:02}", m.get(1).map_or("+", |s| s.as_str()))))
     }).ok_or_else(|| Malformed("no time column with a readable zone".into()))?;
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut rows = vec![];
-    for row in table.rows.iter().filter(|r| !r.is_empty()) {
+    for record in table.records().filter(|r| !r.blank) {
+        let row = &record;
         let cell = |name: &str| crate::v2::strip(table.get(row, name).unwrap_or("")).to_string();
         let (currency, kind) = (cell("Currency"), cell("Type"));
         if currency.is_empty() || kind.is_empty() { return Err(Malformed("a row without its currency or type".into())); }
@@ -122,7 +126,7 @@ fn derived(at: DateTime<Utc>, entry_type: i64, currency: &str, amount: BigDec, r
     let mut raw = json!({ "source": "kucoin_csv", "class": class, "source_rows": ids });
     if let Some(reason) = reason { raw["reason"] = json!(reason); }
     Derived {
-        entry: Entry { entry_type, base_currency: Some(currency.to_string()), base_amount: amount, quote_currency: None, quote_amount: None,
+        entry: Entry { entry_type, base_currency: Some(currency.into()), base_amount: amount, quote_currency: None, quote_amount: None,
                        fee_currency: None, fee_amount: None, tx_id: Some(format!("kucoin-csv-{}", hex32(&ids))), group_id: None, description: None,
                        transacted_at: Some(at), raw: Raw::from_value(raw) },
         generic: matches!(reason, Some("aggregated" | "unpaired" | "unmapped_type")),
@@ -151,12 +155,12 @@ pub fn derive(rows: &[SourceRow], catalogue: &Catalogue) -> Vec<Derived> {
             Some(Kind::Deposit) if r.inflow => {
                 // The row's Amount is the balance change; the entry's own fee is taken from its amount.
                 let mut d = derived(at, DEPOSIT, &r.currency, &r.amount + &r.fee, &[r], "deposits", None);
-                (d.entry.fee_currency, d.entry.fee_amount) = (Some(r.currency.clone()), Some(r.fee.clone()));
+                (d.entry.fee_currency, d.entry.fee_amount) = (Some(r.currency.as_str().into()), Some(r.fee.clone()));
                 out.push(d);
             }
             Some(Kind::Withdrawal) if !r.inflow => {
                 let mut d = derived(at, WITHDRAWAL, &r.currency, r.amount.clone(), &[r], "withdrawals", None);
-                (d.entry.fee_currency, d.entry.fee_amount) = (Some(r.currency.clone()), Some(r.fee.clone()));
+                (d.entry.fee_currency, d.entry.fee_amount) = (Some(r.currency.as_str().into()), Some(r.fee.clone()));
                 out.push(d);
             }
             Some(Kind::Income(name)) if r.inflow => out.push(derived(at, super::entry_type(name).expect("an entry type"), &r.currency, r.amount.clone(), &[r], "other", None)),
@@ -177,7 +181,7 @@ fn swaps(at: DateTime<Utc>, legs: &[&SourceRow]) -> Vec<Derived> {
     let group = format!("kucoin-csv-{}", hex32(&ids));
     gone.iter().map(|r| derived(at, SWAP_OUT, &r.currency, r.amount.clone(), &[r], "other", None))
         .chain(came.iter().map(|r| derived(at, SWAP_IN, &r.currency, r.amount.clone(), &[r], "other", None)))
-        .map(|mut d| { d.entry.group_id = Some(group.clone()); d }).collect()
+        .map(|mut d| { d.entry.group_id = Some(group.as_str().into()); d }).collect()
 }
 
 /// One trade as the API's fill is (sync::kucoin_ledger::fill): `size` of base, `funds` of quote, the quote leg's fee.
@@ -295,10 +299,10 @@ fn fills(at: DateTime<Utc>, legs: &[&SourceRow], catalogue: &Catalogue) -> Vec<D
     }
     let mut out: Vec<Derived> = made.iter().map(|f| {
         let mut d = derived(at, if f.buy { BUY } else { SELL }, &f.base, f.size.clone(), &f.rows, "fills", f.aggregated.then_some("aggregated"));
-        (d.entry.quote_currency, d.entry.quote_amount) = (Some(f.quote.clone()), Some(f.funds.clone()));
+        (d.entry.quote_currency, d.entry.quote_amount) = (Some(f.quote.as_str().into()), Some(f.funds.clone()));
         match attached {
-            Some(fee) => (d.entry.fee_currency, d.entry.fee_amount) = (Some(fee.currency.clone()), Some(fee.amount.clone())),
-            None => (d.entry.fee_currency, d.entry.fee_amount) = (Some(f.quote.clone()), Some(f.fee.clone())),
+            Some(fee) => (d.entry.fee_currency, d.entry.fee_amount) = (Some(fee.currency.as_str().into()), Some(fee.amount.clone())),
+            None => (d.entry.fee_currency, d.entry.fee_amount) = (Some(f.quote.as_str().into()), Some(f.fee.clone())),
         }
         d
     }).collect();
@@ -380,7 +384,7 @@ pub(crate) fn rewrite_second(c: &crate::engine::model::FencedTransaction<'_>, ke
     type Held = (i64, Option<String>, i64, Option<String>);
     let old: Vec<Held> = s.query_map(params![key.user_id, key.exchange_id, sql_time(at)], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
     // Same source rows, type and swap group: derived as before, so kept (a lone Convert half that became a swap is not).
-    let same = |o: &Held, d: &Derived| o.1 == d.entry.tx_id && o.2 == d.entry.entry_type && o.3 == d.entry.group_id;
+    let same = |o: &Held, d: &Derived| o.1 == d.entry.tx_id && o.2 == d.entry.entry_type && o.3.as_deref() == d.entry.group_id.as_deref();
     for o in old.iter().filter(|o| !derived.iter().any(|d| same(o, d))) {
         // PLAN-710-confirm rule P3: only the owner's rows are unlinked; another user's row is never changed.
         c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1 AND user_id = ?2", params![o.0, key.user_id])?;
@@ -488,7 +492,7 @@ mod tests {
     fn seconds() -> std::collections::BTreeMap<DateTime<Utc>, Vec<SourceRow>> {
         let text = csv::as_text(include_bytes!("../../../tests/fixtures/kucoin/trading_account.csv"));
         let mut by: std::collections::BTreeMap<DateTime<Utc>, Vec<SourceRow>> = Default::default();
-        for r in read(&Table::parse(&text).unwrap()).unwrap() { by.entry(r.at).or_default().push(r); }
+        for r in read(&Table::parse(&text, columns).unwrap()).unwrap() { by.entry(r.at).or_default().push(r); }
         by
     }
     fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }

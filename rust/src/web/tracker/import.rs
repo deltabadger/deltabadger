@@ -110,24 +110,39 @@ fn render(ctx: &Ctx, status: StatusCode, body: Body) -> Result<Response, WebErro
     Ok(html(status, Create { ctx, form: matches!(body, Body::Ambiguous { .. } | Body::Choose { .. } | Body::Warned { .. }), body }.render()?))
 }
 
-pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+pub async fn create(Extension(ctx): Extension<Ctx>, slot: Option<Extension<service::Slot>>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
+    let permit = || service::Slot::take(slot.as_ref().map(|s| &s.0), &ctx.app);
     let view = ctx.clone();
     let signed_in: service::SignedIn = std::sync::Arc::new(move |c: &rusqlite::Connection| auth::still_signed_in(c, &view).map_err(|e| crate::sync::SyncError(format!("{e:?}"))));
     let outcome = match classify(&ctx.params) {
         Input::NoFile => Outcome::NoFile,
         Input::Fresh => match &ctx.params.upload {
-            // D-IMPORT-DETECT: the file's header names its format; a confirmation reads the one parked with it.
+            // D-IMPORT-DETECT: the file's header names its format (before any slot is taken); a confirmation reads the one
+            // parked with it.
             Some((bytes, name)) if !blank(bytes) => match run::detect(bytes) {
-                Some(format) => service::upload(&ctx.app, user, format, bytes.clone(), Some(name.clone()), signed_in).await?,
+                Some(format) => service::upload(&ctx.app, user, format, bytes.clone(), Some(name.clone()), signed_in, permit().await).await?,
                 None => return render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_unknown_format".into())),
             },
             _ => Outcome::NoFile,
         },
-        Input::Confirm(token, handle) => service::confirm(&ctx.app, user, token, handle, signed_in).await?,
-        Input::Cancel(token) => service::cancel(&ctx.app, user, token, signed_in).await?,
+        Input::Confirm(token, handle) => service::confirm(&ctx.app, user, token, handle, signed_in, permit().await).await?,
+        Input::Cancel(token) => service::cancel(&ctx.app, user, token, signed_in, permit().await).await?,
     };
     respond(&ctx, outcome)
+}
+
+/// D-IMPORT-BUSY (PLAN-710-importmem E1/C3), for the tracker's Turbo form: the busy line at the top of every import form
+/// on the page (one, however often it is answered), and the drop zone as it was before a file was chosen: not busy, no
+/// file, and a fresh file input, so choosing the same file again submits it. Nothing else of the page changes.
+pub fn busy_stream(locale: &str) -> String {
+    let line = format!("<p class=\"import-note\" id=\"import_busy\">{}</p>", i18n::escape(&i18n::text(locale, "tracker.import.import_busy", &[])));
+    let input = "<input accept=\".csv,text/csv\" class=\"dropzone__input\" data-file-picker-target=\"input\" data-action=\"change-&gt;file-picker#submit\" type=\"file\" name=\"file\" id=\"file\" />";
+    let mut out = turbo::remove("import_busy");
+    out.push_str(&format!("<turbo-stream action=\"prepend\" targets=\"form[action$=&quot;/tracker/import&quot;]\"><template>{line}</template></turbo-stream>"));
+    for class in ["is-busy", "has-file"] { out.push_str(&format!("<turbo-stream class-name=\"{class}\" action=\"remove_class\" targets=\".dropzone\"><template></template></turbo-stream>")); }
+    out.push_str(&turbo::stream("replace", "file", input));
+    out
 }
 
 /// An `Outcome`, as create.html.erb (and 8a's questions) render it.

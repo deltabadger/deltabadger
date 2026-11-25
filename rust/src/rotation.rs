@@ -231,6 +231,9 @@ pub const COVERAGE: &[(&str, &str)] = &[
     ("exchange_accounts", "account_id_enc"), ("exchange_account_credentials", "account_id_enc"),
     ("exchange_account_imports", "account_id_enc"), ("ibkr_bindings", "account_id_enc"),
     ("ibkr_bot_accounts", "account_id_enc"), ("rust_withdrawal_intents", "params_enc"),
+    // #710 7b: a pending IBKR connection's keys and credentials.
+    ("ibkr_registrations", "rsa_signature_key"), ("ibkr_registrations", "rsa_encryption_key"), ("ibkr_registrations", "dh_param"),
+    ("ibkr_registrations", "key"), ("ibkr_registrations", "access_token"), ("ibkr_registrations", "secret"),
 ];
 
 fn table(c: &Connection, name: &str) -> rusqlite::Result<bool> {
@@ -463,7 +466,11 @@ pub struct Summary {
 
 const IBKR_KEYS: &str = "SELECT EXISTS (SELECT 1 FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id WHERE e.type = 'Exchanges::Ibkr')";
 
-pub fn holds_ibkr(c: &Connection) -> rusqlite::Result<bool> { c.query_row(IBKR_KEYS, [], |r| r.get(0)) }
+/// Whether a reset destroys IBKR credentials: an IBKR key, or (#710 7b) a pending IBKR connection's.
+pub fn holds_ibkr(c: &Connection) -> rusqlite::Result<bool> {
+    Ok(c.query_row(IBKR_KEYS, [], |r| r.get(0))?
+       || (table(c, "ibkr_registrations")? && c.query_row("SELECT EXISTS (SELECT 1 FROM ibkr_registrations)", [], |r| r.get(0))?))
+}
 
 /// EncryptedCredentials::Reset#call, inside the caller's transaction. Takes no Cipher: nothing is decrypted, every write
 /// is to a raw column. Rust's own rows go with it (D-RESET-RUST-ROWS, D-RESET-IBKR-BOT-ACCOUNT): the account identities
@@ -514,6 +521,8 @@ pub fn clear(tx: &Connection, now: DateTime<Utc>) -> rusqlite::Result<Summary> {
     // Every account's key event at once: no stored duplicate standing survives its keys (identity::key_event).
     if table(tx, "exchange_account_standings")? { tx.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings")?; }
     if table(tx, "ibkr_bindings")? { tx.execute("DELETE FROM ibkr_bindings", [])?; tx.execute("DELETE FROM ibkr_bot_accounts", [])?; }
+    // #710 7b: pending IBKR connections, the IBKR history evidence (fingerprints under the key that goes) and login reads.
+    for t in ["ibkr_registrations", "ibkr_account_evidence", "ibkr_login_reads"] { if table(tx, t)? { tx.execute(&format!("DELETE FROM {t}"), [])?; } }
     // Never sent (dispatched is written before the request): the engine drops these itself. The rest are owed.
     if table(tx, "rust_withdrawal_intents")? { tx.execute("DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'", [])?; }
     Ok(Summary { bots_stopped: bots.len(), rules_stopped, withdrawal_addresses_cleared, api_keys_deleted, fee_api_keys_deleted, app_configs_deleted,

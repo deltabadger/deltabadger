@@ -78,15 +78,16 @@ async fn an_export_imports_into_another_bot_and_exports_again_cell_for_cell() {
     let first = export(&app, &mut browser, i.a).await;
     assert_eq!(import(&app, &mut browser, i.b, first.as_bytes()).await, "Successfully imported 4 order(s).");
     let second = export(&app, &mut browser, i.b).await;
-    let table = |text: &str| deltabadger::tracker::import::csv::Table::parse(text).unwrap();
-    let (a, b) = (table(&first), table(&second));
-    assert_eq!((a.headers.clone(), a.rows.len()), (b.headers.clone(), 4));
-    for (x, y) in a.rows.iter().zip(&b.rows) {
-        for (k, (p, q)) in x.iter().zip(y).enumerate() {
+    use deltabadger::tracker::import::csv::Table;
+    let (a, b) = (Table::parse(&first, |_| true).unwrap(), Table::parse(&second, |_| true).unwrap());
+    let headers: Vec<String> = a.headers().map(str::to_string).collect();
+    assert_eq!((headers.clone(), a.records().count()), (b.headers().map(str::to_string).collect::<Vec<_>>(), 4));
+    for (x, y) in a.records().zip(b.records()) {
+        for (k, (p, q)) in headers.iter().map(|h| (a.get(&x, h), b.get(&y, h))).enumerate() {
             if k == 1 {
                 // The Order ID is the destination's import of the source's id, escaped as any text cell.
-                let source = p.as_deref().unwrap().strip_prefix('\'').filter(|r| r.starts_with('=')).unwrap_or(p.as_deref().unwrap());
-                assert_eq!(q.as_deref(), Some(format!("imported_{}_{source}", i.b).as_str()));
+                let source = p.unwrap().strip_prefix('\'').filter(|r| r.starts_with('=')).unwrap_or(p.unwrap());
+                assert_eq!(q, Some(format!("imported_{}_{source}", i.b).as_str()));
             } else { assert_eq!(p, q, "column {k}"); }
         }
     }
@@ -298,4 +299,25 @@ async fn an_import_dedups_against_the_bots_current_exchange_only() {
     let (app, mut browser) = signed_in(&i).await;
     let file = csv(&["2026-08-01 10:00:00 UTC,X,Market,Buy,0.001,60,60000,BTC,USD,Closed"]);
     assert_eq!(import(&app, &mut browser, i.a, &file).await, "Successfully imported 1 order(s).", "the other exchange's X is another order");
+}
+
+/// PLAN-710-importmem A7/B2′: the streamed reader answers as the whole-table one did. A syntax error anywhere is malformed,
+/// before the header is judged (an extra column then a broken quote); an extra or reordered header is the invalid format;
+/// the first of two same-named headers is the column; a blank record after valid headers counts as skipped.
+#[tokio::test(flavor = "current_thread")]
+async fn the_streamed_reader_answers_as_the_whole_table_did() {
+    let i = install();
+    let (app, mut browser) = signed_in(&i).await;
+    let row = "2026-08-01 10:00:00 UTC,x,Market,Buy,0.001,60,60000,BTC,USD,Closed";
+    let extra = format!("{HEADER},Note\n{row},n\n{row},\"broken\n").into_bytes();
+    assert_eq!(import(&app, &mut browser, i.a, &extra).await, "The CSV file is malformed and cannot be parsed.");
+    let discarded = format!("{HEADER}\n{row}\n{row},x\"y\n").into_bytes();
+    assert_eq!(import(&app, &mut browser, i.a, &discarded).await, "The CSV file is malformed and cannot be parsed.", "a broken quote in a column no reader keeps");
+    assert_eq!(import(&app, &mut browser, i.a, format!("{HEADER},Note\n{row},n\n").as_bytes()).await, "Invalid CSV format. Please use a file exported from this application.");
+    let reordered = HEADER.replace("Type,Side", "Side,Type");
+    assert_eq!(import(&app, &mut browser, i.a, format!("{reordered}\n{row}\n").as_bytes()).await, "Invalid CSV format. Please use a file exported from this application.");
+    assert_eq!(count(&i), 0);
+    let blank = import(&app, &mut browser, i.a, format!("{HEADER}\n{row}\n\n").as_bytes()).await;
+    assert!(blank.starts_with("Successfully imported 1 order(s). Skipped 1 row(s)"), "{blank}");
+    assert_eq!(count(&i), 1);
 }

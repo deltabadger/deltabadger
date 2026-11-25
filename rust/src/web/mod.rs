@@ -382,6 +382,8 @@ pub struct Inner {
     pub settings_mailer:Arc<dyn settings::mail::Mailer>,
     /// settings::mail::ACCOUNT_MAILS_AT_ONCE deliveries in flight.
     pub account_mail_slots: Arc<Semaphore>,
+    /// PLAN-710-importmem B1′: IMPORT_SLOTS imports at once (a body read, its parse and its write), one permit each.
+    pub import_slots: Arc<Semaphore>,
     /// Devise's reset_password_token digests (crypto::ResetTokens), derived at startup.
     pub reset_tokens: crate::crypto::ResetTokens,
     pub config: Config,
@@ -470,7 +472,7 @@ impl App {
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
             settings_key_hosts:crate::venue::alpaca::Hosts::alpaca(),venue_key_urls:Vec::new(),settings_key_logger:settings::keys::logger(),settings_validation_observer:Mutex::new(None),
-            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),desktop:desktop::Desktop::from_env(crate::jobs::app_update::platform(env),env),log_requests:log_requests(env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
+            settings_market_provider_name:env("MARKET_DATA_PROVIDER_NAME").or_else(||env("MARKET_DATA_URL")).unwrap_or_default(),settings_jobs:std::sync::OnceLock::new(),settings_smtp:crate::mail::smtp::Env::read(env),settings_smtp_provider_name:env("SMTP_PROVIDER_NAME").or_else(||env("SMTP_ADDRESS")).unwrap_or_default(),update_platform:crate::jobs::app_update::platform(env),desktop:desktop::Desktop::from_env(crate::jobs::app_update::platform(env),env),log_requests:log_requests(env),settings_mailer:settings::mail::live(),account_mail_slots:Arc::new(Semaphore::new(settings::mail::ACCOUNT_MAILS_AT_ONCE)),import_slots:Arc::new(Semaphore::new(IMPORT_SLOTS)),reset_tokens:crate::crypto::ResetTokens::new(&config.secret_key_base),
             config, keys, cipher, clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
             cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
@@ -1022,6 +1024,10 @@ pub fn is_bot_import(route_path: &str) -> bool {
 }
 pub const IMPORT_LIMIT: usize = 32 * 1024 * 1024;
 pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
+/// PLAN-710-importmem B1′/E5 (D-IMPORT-BUSY): an admitted import waits this long for one of IMPORT_SLOTS before any body
+/// poll; then it is answered busy. Only this wait times out: a held slot is kept until the import's worker finishes.
+pub const IMPORT_SLOTS: usize = 2;
+pub const IMPORT_SLOT_WAIT: Duration = Duration::from_secs(5);
 
 /// D-IMPORT-AUTH-FIRST: the import routes read their body only for a signed-in user. For a POST, PATCH, PUT or DELETE to
 /// `/tracker/import` or `/bots/:id/import`, `entry` decides from the headers alone, before any body poll, whether the
@@ -1035,7 +1041,8 @@ enum Admission {
     /// The selected cookie (its value, its expiry) and its session. The pipeline checks the account again after the read,
     /// and last of all, with a fresh clock, that this cookie is still the one selected; the handler's write checks again
     /// inside its transaction (`auth::still_signed_in`), and `finish` before it seals the session.
-    Admitted { token: String, expires_at: i64, data: Box<session::SessionData> },
+    /// `locale`: the user's saved locale (a busy answer's language).
+    Admitted { token: String, expires_at: i64, data: Box<session::SessionData>, locale: Option<String> },
     /// The selected session as it arrived, as the account check left it (no user, CSRF secret kept), and who that makes
     /// the request: `SignedOut` or `Inactive`. A cookie that expired meanwhile (or another one now selected) opens no
     /// session at all, as on main: both are the default.
@@ -1058,12 +1065,31 @@ async fn admit(app: &App, headers: &HeaderMap) -> Result<Admission, WebError> {
     if !still_selected(app, headers, &token) {
         return Ok(Admission::Denied { before: Box::default(), cleared: Box::default(), current: auth::Current::SignedOut });
     }
-    if matches!(current, auth::Current::SignedIn(_)) {
-        return Ok(Admission::Admitted { token, expires_at: opened.expires_at, data: Box::new(opened.data) });
+    if let auth::Current::SignedIn(user) = &current {
+        return Ok(Admission::Admitted { token, expires_at: opened.expires_at, data: Box::new(opened.data), locale: user.locale.clone() });
     }
     session.lock().user = None;
     let current = if let auth::Current::Inactive(reason) = current { auth::Current::Inactive(reason) } else { auth::Current::SignedOut };
     Ok(Admission::Denied { before: Box::new(opened.data), cleared: Box::new(session.snapshot()), current })
+}
+
+/// D-IMPORT-BUSY (PLAN-710-importmem E1): every import slot stayed taken through IMPORT_SLOT_WAIT. A 503 with
+/// `Retry-After`, written below the session: no cookie, no flash, no redirect, so it never restores or extends a sign-in.
+/// The tracker's Turbo form gets its line in the open form and its drop zone back (a fresh, empty file input, so choosing
+/// the same file again fires `change`); any other request a small page in the user's language, back to where it came from.
+fn busy(app: &App, headers: &HeaderMap, locale: &'static str, route_path: &str) -> Response {
+    let tracker = route_path == IMPORT_PATH;
+    let (content_type, body) = if tracker && turbo::accepts_stream(headers) {
+        (turbo::CONTENT_TYPE, tracker::import::busy_stream(locale))
+    } else {
+        let back = locale::path(locale, if tracker { "/tracker" } else { route_path.strip_suffix("/import").unwrap_or("/") });
+        let text = i18n::escape(&i18n::text(locale, if tracker { "tracker.import.import_busy" } else { "bot.details.stats.import_busy" }, &[]));
+        ("text/html; charset=utf-8", format!("<!DOCTYPE html>\n<html lang=\"{locale}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+            <title>{text}</title></head><body><p>{text}</p><p><a href=\"{}\">{}</a></p></body></html>\n", i18n::escape(&back), i18n::escape(&i18n::text(locale, "button.back", &[]))))
+    };
+    let mut response = (StatusCode::SERVICE_UNAVAILABLE, [(header::CONTENT_TYPE, content_type), (header::RETRY_AFTER, "5"), (header::CACHE_CONTROL, "no-store")], body).into_response();
+    headers::policy(response.headers_mut(), &headers::new_nonce(), app.config.force_ssl);
+    response
 }
 
 /// The setup gate's lookup (ApplicationController#redirect_to_setup_if_needed): whether this request goes to setup.
@@ -1161,6 +1187,37 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     } else {
         None
     };
+    // PLAN-710-importmem B1′/C2/E1: an admitted import takes one of the import slots before its body is polled. Only the
+    // wait for it times out; then the same cookie and account are checked again with a fresh clock: still signed in, the
+    // answer is busy (no body read, no cookie written); not, the request goes on as a signed-out one. A slot that had to
+    // be waited for is followed by the same check, so a session that ended while queued never starts a read.
+    let mut slot = None;
+    let mut admission = admission;
+    if let Some(Admission::Admitted { token, .. }) = &admission {
+        let slots = entry.app.import_slots.clone();
+        let (permit, waited) = match slots.clone().try_acquire_owned() {
+            Ok(permit) => (Some(permit), false),
+            Err(_) => (tokio::time::timeout(IMPORT_SLOT_WAIT, slots.acquire_owned()).await.ok().and_then(Result::ok), true),
+        };
+        if waited {
+            let fresh = match admit(&entry.app, &parts.headers).await {
+                Ok(Admission::Admitted { token: again, locale, .. }) if again == *token => Ok(locale),
+                Ok(Admission::Admitted { .. }) => Err(Admission::Denied { before: Box::default(), cleared: Box::default(), current: auth::Current::SignedOut }),
+                Ok(denied) => Err(denied),
+                Err(error) => return error.into_response(),
+            };
+            match (fresh, &permit) {
+                (Ok(locale), None) => {
+                    // As `Params::locale` reads it (the body unread): the path's prefix, else the last `?locale`.
+                    let param = path_locale.or_else(|| query.iter().rfind(|(k, _)| k == "locale").map(|(_, v)| v.as_str()).filter(|v| !v.trim().is_empty()));
+                    return busy(&entry.app, &parts.headers, locale::switch(param, locale.as_deref()), &route_path);
+                }
+                (Ok(_), Some(_)) => {}
+                (Err(denied), _) => admission = Some(denied),
+            }
+        }
+        if matches!(admission, Some(Admission::Admitted { .. })) { slot = permit; }
+    }
     let denied = matches!(admission, Some(Admission::Denied { .. }));
     let multipart_boundary = (!denied && original_method == Method::POST && import_path).then(|| multipart::boundary(content_type)).flatten();
     let (form, body) = if denied {
@@ -1250,6 +1307,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     if let Some(answer) = desktop::guard(&entry.app, &parts.method, &params, &parts.headers) { return answer; }
     parts.extensions.insert(Arc::new(params));
     if let Some(admission) = admission { parts.extensions.insert(admission); }
+    if let Some(permit) = slot { parts.extensions.insert(crate::tracker::import::service::Slot::held(permit)); }
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
         Err(never) => match never {},

@@ -194,8 +194,8 @@ fn fee(currency: Option<String>, amount: Option<BigDec>) -> Option<(Option<Strin
 
 impl FillKey {
     fn of(e: &Entry) -> Self {
-        Self { kind: e.entry_type, base: e.base_currency.clone(), base_amount: e.base_amount.clone(), quote: e.quote_currency.clone(), quote_amount: e.quote_amount.clone(),
-               fee: fee(e.fee_currency.clone(), e.fee_amount.clone()) }
+        Self { kind: e.entry_type, base: e.base_currency.as_deref().map(str::to_string), base_amount: e.base_amount.clone(), quote: e.quote_currency.as_deref().map(str::to_string), quote_amount: e.quote_amount.clone(),
+               fee: fee(e.fee_currency.as_deref().map(str::to_string), e.fee_amount.clone()) }
     }
     /// An API fill's raw (`kucoin_ledger::fill`'s reading of it).
     fn api(raw: &Value) -> Result<Self, SyncError> {
@@ -331,6 +331,10 @@ fn widen(seconds: &BTreeSet<DateTime<Utc>>, by: i64) -> BTreeSet<DateTime<Utc>> 
     seconds.iter().flat_map(|t| (-by..=by).map(move |d| second(*t) + Duration::seconds(d))).collect()
 }
 
+/// Test hook (tests/import_memory.rs): the most judged seconds `rederive` has held at once.
+#[doc(hidden)]
+pub static WINDOW: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// The rule over `seconds` (r1.1: every second within one of them is judged, from rules 1–2 within two), in the caller's
 /// transaction: what each judged second materializes of the export's entries, and its `ambiguous` row.
 fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Utc>>, now: DateTime<Utc>) -> Result<Stored, SyncError> {
@@ -340,11 +344,21 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
     for t in &ruled_at { withhold(c, key, *t, now)?; }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
     let cutoffs = file::cutoffs(c, key)?;
-    let mut ruled: HashMap<DateTime<Utc>, Judged> = HashMap::new();
-    for t in &ruled_at { ruled.insert(*t, judge(c, key, *t, &catalogue)?); }
-    let unpaired_api = |t: DateTime<Utc>| ruled.get(&t).is_some_and(|j| j.reps.iter().zip(&j.used).any(|(r, u)| r.api && !u));
+    // PLAN-710-importmem A6 (r1 #3): a window at a time. A second is judged once the seconds up to one past it are read,
+    // and what lies more than one before it is dropped: what one second's judgement reads is that second's own rows,
+    // which no write at another second changes, so judging as it goes reads what judging all first read.
+    let mut ruled: BTreeMap<DateTime<Utc>, Judged> = BTreeMap::new();
+    let mut ahead = ruled_at.iter().peekable();
     let mut writer = super::ledger::FileWriter::new(c, key, "kucoin")?;
     for t in &judged_at {
+        while let Some(&&r) = ahead.peek() {
+            if r > *t + Duration::seconds(1) { break }
+            ruled.insert(r, judge(c, key, r, &catalogue)?);
+            ahead.next();
+        }
+        while ruled.first_key_value().is_some_and(|(first, _)| *first < *t - Duration::seconds(1)) { ruled.pop_first(); }
+        WINDOW.fetch_max(ruled.len(), std::sync::atomic::Ordering::Relaxed);
+        let unpaired_api = |t: DateTime<Utc>| ruled.get(&t).is_some_and(|j| j.reps.iter().zip(&j.used).any(|(r, u)| r.api && !u));
         let j = &ruled[t];
         let leftover: Vec<usize> = (0..j.csv.len()).filter(|i| !j.represented[*i]).collect();
         let mut ambiguous = j.reps.iter().any(|r| r.inexact);
@@ -368,7 +382,7 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
                 // UTA r1.6: an unknown export type in a currency an API fill of this second trades may be that fill (a
                 // UTA export's types are unknown): it is withheld, the API wins, and the second is flagged.
                 let traded: HashSet<&Option<String>> = j.reps.iter().filter(|r| r.api).filter_map(|r| r.key.as_ref()).chain(&j.withheld).flat_map(|k| [&k.base, &k.quote]).collect();
-                let unknown = |d: &Derived| d.entry.raw.value["reason"] == "unmapped_type" && traded.contains(&d.entry.base_currency);
+                let unknown = |d: &Derived| d.entry.raw.value["reason"] == "unmapped_type" && traded.contains(&d.entry.base_currency.as_deref().map(str::to_string));
                 ambiguous |= j.other.iter().any(unknown);
                 derived.extend(j.other.iter().filter(|d| !unknown(d)).filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| t < cut)).cloned());
             }
@@ -466,8 +480,8 @@ pub(crate) struct Allocation(pub(crate) HashMap<usize, bool>);
 type Legacy = (i64, Option<String>, f64, Option<String>, Option<f64>, Option<(Option<String>, f64)>);
 fn legacy_of(e: &Entry) -> Legacy {
     let f = |d: &BigDec| d.to_f();
-    (e.entry_type, e.base_currency.clone(), f(&e.base_amount), e.quote_currency.clone(), e.quote_amount.as_ref().map(f),
-     fee(e.fee_currency.clone(), e.fee_amount.clone()).map(|(c, a)| (c, f(&a))))
+    (e.entry_type, e.base_currency.as_deref().map(str::to_string), f(&e.base_amount), e.quote_currency.as_deref().map(str::to_string), e.quote_amount.as_ref().map(f),
+     fee(e.fee_currency.as_deref().map(str::to_string), e.fee_amount.clone()).map(|(c, a)| (c, f(&a))))
 }
 fn legacy_stored(r: &Restored) -> Legacy {
     (r.2, r.3.clone(), r.4, r.5.clone(), r.6, r.8.filter(|a| *a != 0.0).map(|a| (r.7.clone(), a)))

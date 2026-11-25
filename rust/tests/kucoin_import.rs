@@ -82,10 +82,10 @@ fn lines(text: &str) -> Vec<&str> { text.lines().collect() }
 /// An export of the header and `rows` lines of `text`.
 fn part(text: &str, rows: std::ops::Range<usize>) -> String { let l = lines(text); std::iter::once(l[0]).chain(l[1..][rows].iter().copied()).collect::<Vec<_>>().join("\n") }
 
-fn rows(text: &str) -> Vec<SourceRow> { deltabadger::tracker::import::kucoin::read(&csv::Table::parse(text).unwrap()).unwrap() }
+fn rows(text: &str) -> Vec<SourceRow> { deltabadger::tracker::import::kucoin::read(&csv::Table::parse(text, deltabadger::tracker::import::kucoin::columns).unwrap()).unwrap() }
 fn derived(text: &str, catalogue: &Catalogue) -> Vec<DerivedRow> {
-    derive(&rows(text), catalogue).into_iter().map(|d| (d.entry.entry_type, d.entry.base_currency.unwrap(), d.entry.base_amount.to_s_f(),
-        d.entry.quote_amount.map(|q| q.to_s_f()), d.entry.fee_currency, d.entry.raw.value["reason"].as_str().map(str::to_string))).collect()
+    derive(&rows(text), catalogue).into_iter().map(|d| (d.entry.entry_type, d.entry.base_currency.unwrap().to_string(), d.entry.base_amount.to_s_f(),
+        d.entry.quote_amount.map(|q| q.to_s_f()), d.entry.fee_currency.map(|f| f.to_string()), d.entry.raw.value["reason"].as_str().map(str::to_string))).collect()
 }
 fn catalogue() -> Catalogue { Catalogue::of(&[("ETH", "BTC", 6), ("BTC", "USDT", 1), ("KCS", "USDT", 3)]) }
 

@@ -4514,14 +4514,14 @@ async fn k4_a_dropped_confirmation_still_completes() {
     let before = ledger(c);
     let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
     // Polled once (the worker spawned), then dropped before it ran.
-    let dropped = tokio::time::timeout(std::time::Duration::ZERO, service::confirm(&app, s.user_id, token.clone(), handle.clone(), signed_in.clone())).await;
+    let dropped = tokio::time::timeout(std::time::Duration::ZERO, service::confirm(&app, s.user_id, token.clone(), handle.clone(), signed_in.clone(), service::permit(&app).await)).await;
     assert!(dropped.is_err(), "dropped before its outcome");
     for _ in 0..200 {
         if state_of(c, &token).is_none() { break }
         tokio::time::sleep(std::time::Duration::from_millis(25)).await;
     }
     assert_eq!((ledger(c), state_of(c, &token)), (before + 1, None), "the worker wrote once and closed the upload");
-    assert_eq!(service::confirm(&app, s.user_id, token, handle, signed_in).await.unwrap(), service::Outcome::NoFile);
+    assert_eq!(service::confirm(&app, s.user_id, token, handle, signed_in, service::permit(&app).await).await.unwrap(), service::Outcome::NoFile);
 }
 
 /// P4: an import's derived bookkeeping (the owner's cached figures and portfolio snapshots, rebuilt from the ledger) is no
@@ -4701,7 +4701,7 @@ async fn a_questions_outcome_carries_its_destination_and_warning_account_ids() {
     let c = &o.primary;
     let (kraken, ids) = krakens(c, s.user_id, 1);
     let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
-    let outcome = service::upload(&app, s.user_id, "deltabadger", rest_csv().into_bytes(), Some("ledger.csv".into()), signed_in).await.unwrap();
+    let outcome = service::upload(&app, s.user_id, "deltabadger", rest_csv().into_bytes(), Some("ledger.csv".into()), signed_in, service::permit(&app).await).await.unwrap();
     let service::Outcome::Question { destinations, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
     assert_eq!(destinations, [Destination { exchange_id: kraken, account_id: Some(ids[0]), rows: 1 }]);
     assert_eq!(warning_accounts.iter().map(|a| (a.account_id, a.exchange_id, a.rows)).collect::<Vec<_>>(), [(ids[0], kraken, Some(1))]);
@@ -4747,7 +4747,7 @@ async fn a_question_offering_a_new_account_carries_the_numbered_accounts_id() {
     c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
     fingerprint(c, first, "Exchanges::Kucoin", "555");
     let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
-    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("444").into_bytes(), Some("trading.csv".into()), signed_in).await.unwrap();
+    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("444").into_bytes(), Some("trading.csv".into()), signed_in, service::permit(&app).await).await.unwrap();
     let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
     let run::Answer::Warned(_, choices) = &answer else { panic!("{answer:?}") };
     assert!(choices.iter().any(|c| c.accept == Some(run::Accept::New)), "{answer:?}");
@@ -4789,8 +4789,87 @@ async fn an_account_questions_notes_carry_their_accounts_ids() {
     assert!(imported(&answer(&app, &mut b, &asked, &format!("a{first}")).await));
     // The same rows under a UID no account is known by: which account, each option noting the rows account 1 holds.
     let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
-    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("777").into_bytes(), Some("trading.csv".into()), signed_in).await.unwrap();
+    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("777").into_bytes(), Some("trading.csv".into()), signed_in, service::permit(&app).await).await.unwrap();
     let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
     assert!(matches!(answer, run::Answer::Ambiguous(_)), "{answer:?}");
     assert!(warning_accounts.iter().any(|a| a.account_id == first && a.exchange_id == kucoin && a.rows.is_some()), "{warning_accounts:?} {answer:?}");
+}
+
+/// PLAN-710-importmem A8/C6: a click queued for an import slot is checked once it holds one, inside its transaction, as
+/// any click is. What won meanwhile decides: a Cancel, an expiry swept, a sibling's committed refusal leave no file (the
+/// ledger as it was, no generation issued); a sibling's committed re-ask (generation 2) makes the queued generation-1
+/// click stale, so it is asked again: generation 3, and the sibling's generation-2 handles resolve no more.
+#[tokio::test(flavor = "current_thread")]
+async fn a_click_queued_for_a_slot_finds_what_won_meanwhile() {
+    use deltabadger::tracker::import::service;
+    for case in ["cancel", "expiry", "refusal", "re-ask"] {
+        let (_d, o, s, _server, app) = alpaca().await;
+        let c = &o.primary;
+        let (kraken, _) = krakens(c, s.user_id, 1);
+        let mut b = browser(&app, c, s.user_id);
+        let asked = upload(&app, &mut b, &rest_csv()).await;
+        let token = token_of(&asked);
+        let handle = common::import::handle_of(&app, token.clone(), hidden(&asked.body)).await.unwrap();
+        let before = ledger(c);
+        let (mine, other) = (service::permit(&app).await, service::permit(&app).await);
+        let mut queued = b.clone();
+        let fields = [("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handle.as_str())];
+        let click = queued.send(&app, "POST", "/tracker/import", Some(&fields), common::web::Csrf::Header, &[]);
+        let sibling = async {
+            // The click is admitted and waiting for a slot by now.
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+            match case {
+                "cancel" => assert_eq!(service::cancel(&app, s.user_id, token.clone(), signed_in, mine).await.unwrap(), service::Outcome::Cancelled),
+                "expiry" => { c.execute("UPDATE import_parked_uploads SET expires_at = '2000-01-01 00:00:00'", []).unwrap(); service::sweep(&app).await; drop(mine) }
+                "refusal" => { c.execute("UPDATE import_parked_uploads SET state = 'refused' WHERE token = ?1", [&token]).unwrap(); drop(mine) }
+                _ => {
+                    identity::new_account(c, s.user_id, kraken, chrono::Utc::now()).unwrap();
+                    let outcome = service::confirm(&app, s.user_id, token.clone(), handle.clone(), signed_in, mine).await.unwrap();
+                    assert!(matches!(outcome, service::Outcome::Question { .. }), "{outcome:?}");
+                }
+            }
+        };
+        let (answer, ()) = tokio::join!(click, sibling);
+        drop(other);
+        let gens: Vec<i64> = c.prepare("SELECT DISTINCT gen FROM import_parked_choices WHERE token = ?1").unwrap().query_map([&token], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+        assert_eq!(ledger(c), before, "{case}: nothing written");
+        if case == "re-ask" {
+            assert!(answer.body.contains("Something changed since you answered."), "{case}: {}", answer.body);
+            assert_eq!((state_of(c, &token).as_deref(), gens), (Some("open"), vec![3]), "{case}: only generation 3 resolves");
+        } else {
+            assert_eq!(answer.status, 422, "{case}: {}", answer.body);
+            assert!(gens.iter().all(|g| *g == 1), "{case}: no generation issued: {gens:?}");
+        }
+    }
+}
+
+/// PLAN-710-importmem B1″: a click answered busy changes nothing: its upload stays open, its handle valid, no worker
+/// writes later, and the same click writes once a slot is free. One whose upload was cancelled meanwhile is no file.
+#[tokio::test(flavor = "current_thread")]
+async fn a_busy_click_keeps_its_upload_and_its_handle() {
+    use deltabadger::tracker::import::service;
+    for cancelled in [false, true] {
+        let (_d, o, s, _server, app) = alpaca().await;
+        let c = &o.primary;
+        krakens(c, s.user_id, 1);
+        let mut b = browser(&app, c, s.user_id);
+        let asked = upload(&app, &mut b, &rest_csv()).await;
+        let token = token_of(&asked);
+        let handle = common::import::handle_of(&app, token.clone(), hidden(&asked.body)).await.unwrap();
+        let before = ledger(c);
+        let fields = [("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handle.as_str())];
+        let held = (service::permit(&app).await, service::permit(&app).await);
+        let busy = b.send(&app, "POST", "/tracker/import", Some(&fields), common::web::Csrf::Header, &[]).await;
+        assert_eq!(busy.status, 503, "{}", busy.body);
+        drop(held);
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert_eq!((ledger(c), state_of(c, &token).as_deref()), (before, Some("open")), "nothing ran behind the busy answer");
+        if cancelled {
+            let gone = post(&app, &mut b, "/tracker/import", &[("token", &token), ("format", "deltabadger"), ("cancel", "Cancel")]).await;
+            assert_eq!(gone.status, 200, "{}", gone.body);
+        }
+        let again = b.send(&app, "POST", "/tracker/import", Some(&fields), common::web::Csrf::Header, &[]).await;
+        if cancelled { assert_eq!((again.status, ledger(c)), (422, before), "{}", again.body) } else { assert!(imported(&again), "{}", again.body) }
+    }
 }

@@ -87,7 +87,7 @@ fn transfer(kind: i64, raw: Raw, positive_fee_only: bool) -> Result<Entry, Fail>
     let at = v2_time_at_ms(to_i(&raw.value["timestamp"])).ok_or_else(|| ("unreadable transfer timestamp".to_string(), true))?;
     let fee = raw.number("fee").map_err(|why| (format!("transfer: {why}"), true))?.unwrap_or_else(BigDec::zero);
     let mut e = entry(kind, &symbol, amount(&raw, "amount", "transfer")?, &raw, at);
-    if !positive_fee_only || fee.is_positive() { e.fee_currency = Some(symbol); e.fee_amount = Some(fee); }
+    if !positive_fee_only || fee.is_positive() { e.fee_currency = Some(symbol.into()); e.fee_amount = Some(fee); }
     Ok(e)
 }
 
@@ -99,9 +99,9 @@ fn trade(market: &str, raw: Raw) -> Result<Entry, Fail> {
     let size = amount(&raw, "amount", "trade")?;
     let price = amount(&raw, "price", "trade")?;
     let mut e = entry(if raw.value["side"] == "buy" { BUY } else { SELL }, &base, size.clone(), &raw, at);
-    e.quote_currency = quote;
+    e.quote_currency = quote.map(Into::into);
     e.quote_amount = Some(&size * &price);
-    e.fee_currency = raw.value["feeCurrency"].as_str().map(str::to_string);
+    e.fee_currency = raw.value["feeCurrency"].as_str().map(Into::into);
     e.fee_amount = Some(raw.number("fee").map_err(|why| (format!("trade: {why}"), true))?.unwrap_or_else(BigDec::zero));
     e.tx_id = text(raw.value.get("id"));
     Ok(e)
@@ -186,7 +186,7 @@ impl<'a, T: Transport> Walk<'a, T> {
             for _ in had..count {
                 let kept = if self.source == Source::Deposits { deposit(raw.clone())? } else { withdrawal(raw.clone())? };
                 if let Some(e) = kept {
-                    if let Some(c) = &e.base_currency { self.discovered.insert(c.clone()); }
+                    if let Some(c) = &e.base_currency { self.discovered.insert(c.to_string()); }
                     rows.push(e);
                 }
             }

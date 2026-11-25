@@ -5,7 +5,7 @@ fn db()->Connection {
     let c=Connection::open_in_memory().unwrap();
     c.execute_batch("CREATE TABLE assets(id INTEGER,symbol TEXT,name TEXT,category TEXT,color TEXT,image_url TEXT);
     CREATE TABLE exchange_account_balances(user_id INTEGER,exchange_id INTEGER,asset_id INTEGER,id INTEGER,free NUMERIC,locked NUMERIC,usd_value NUMERIC,priced_at TEXT,synced_at TEXT,account_id INTEGER);
-    CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_sync_error TEXT,balances_synced_at TEXT,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
+    CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,status INTEGER,key_type INTEGER,last_sync_error TEXT,balances_synced_at TEXT,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT);
     CREATE TABLE exchanges(id INTEGER,type TEXT);CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT);
     CREATE TABLE account_transactions(user_id INTEGER,exchange_id INTEGER);CREATE TABLE portfolio_snapshots(user_id INTEGER);CREATE TABLE exchange_account_snapshots(user_id INTEGER);
     INSERT INTO exchanges VALUES(1,'Exchanges::Alpaca');").unwrap();

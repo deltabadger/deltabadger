@@ -184,6 +184,7 @@ it:
                 download_csv: 'Scarica'
                 generating_csv: 'Generazione file...'
                 import_csv: 'Importa'
+                import_busy: 'C’è già un’altra importazione in corso. Riprova tra poco.'
                 exchange_unavailable_html: "Non è stato possibile leggere i prezzi dall'exchange.<br>I valori si basano sugli ultimi dati disponibili."
                 order: Ordine
                 profit_loss: Profitto/Perdita

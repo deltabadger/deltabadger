@@ -212,7 +212,7 @@ pub(super) fn text(v: Option<&Value>) -> Option<String> {
 }
 
 pub(super) fn entry(entry_type: i64, base: &str, base_amount: BigDec, raw: &Raw, at: DateTime<Utc>) -> Entry {
-    Entry { entry_type, base_currency: Some(base.to_string()), base_amount, quote_currency: None, quote_amount: None, fee_currency: None, fee_amount: None,
+    Entry { entry_type, base_currency: Some(base.into()), base_amount, quote_currency: None, quote_amount: None, fee_currency: None, fee_amount: None,
             tx_id: None, group_id: None, description: None, transacted_at: Some(at), raw: raw.clone() }
 }
 
@@ -248,7 +248,7 @@ fn withdrawal(raw: &Raw, out: &mut Transfers) -> Result<(), Fail> {
             let mut e = entry(WITHDRAWAL, coin, amount(raw, "amount", "withdrawal")?, raw, at);
             // `wd['transactionFee']&.to_d`: absent is no fee.
             e.fee_amount = raw.number("transactionFee").map_err(|why| (format!("withdrawal: {why}"), true))?;
-            e.fee_currency = Some(coin.to_string());
+            e.fee_currency = Some(coin.into());
             e.tx_id = text(raw.value.get("txId")).or_else(|| text(raw.value.get("id")));
             out.coins.insert(coin.to_string());
             out.entries.push(e);
@@ -271,14 +271,14 @@ pub fn normalize_trade(raw: &Raw, symbol: &str, base: &str, quote: &str) -> Resu
     let commission_asset = raw.value.get("commissionAsset").and_then(Value::as_str).map(str::to_string);
     if fiat_like(quote) {
         let mut e = entry(if buyer { BUY } else { SELL }, base, qty, raw, at);
-        e.quote_currency = Some(quote.to_string());
+        e.quote_currency = Some(quote.into());
         e.quote_amount = Some(quote_qty);
-        e.fee_currency = commission_asset;
+        e.fee_currency = commission_asset.clone().map(Into::into);
         e.fee_amount = Some(commission);
         e.tx_id = Some(trade_id);
         return Ok(vec![e]);
     }
-    let group = Some(format!("swap_{trade_id}"));
+    let group: Option<crate::sync::activities::Text> = Some(format!("swap_{trade_id}").into());
     let mut base_leg = entry(if buyer { SWAP_IN } else { SWAP_OUT }, base, qty, raw, at);
     base_leg.tx_id = Some(format!("{trade_id}-in"));
     base_leg.group_id = group.clone();
@@ -286,7 +286,7 @@ pub fn normalize_trade(raw: &Raw, symbol: &str, base: &str, quote: &str) -> Resu
     quote_leg.tx_id = Some(format!("{trade_id}-out"));
     quote_leg.group_id = group;
     let fee_leg = if buyer { &mut base_leg } else { &mut quote_leg };
-    fee_leg.fee_currency = commission_asset;
+    fee_leg.fee_currency = commission_asset.map(Into::into);
     fee_leg.fee_amount = Some(commission);
     Ok(vec![base_leg, quote_leg])
 }
@@ -497,7 +497,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
         for conv in &list {
             let quote = text(conv.value.get("quoteId")).ok_or_else(|| ("unreadable convert quoteId".to_string(), true))?;
             let at = millis_at(conv, &["createTime"], "convert")?;
-            let group = Some(format!("convert_{quote}"));
+            let group: Option<crate::sync::activities::Text> = Some(format!("convert_{quote}").into());
             let mut out = entry(SWAP_OUT, &coin(conv, "fromAsset", "convert")?, amount(conv, "fromAmount", "convert")?, conv, at);
             (out.tx_id, out.group_id, out.description) = (Some(format!("{quote}-out")), group.clone(), Some("Convert".into()));
             let mut inn = entry(SWAP_IN, &coin(conv, "toAsset", "convert")?, amount(conv, "toAmount", "convert")?, conv, at);
@@ -520,7 +520,7 @@ async fn others<T: Transport>(venue: &BinanceVenue<T>, clock: &dyn Clock, pacing
                     let mut e = entry(entry_type, &crypto, amount(pay, base_amount, "fiat payment")?, pay, millis_at(pay, &["createTime"], "fiat payment")?);
                     e.quote_amount = Some(amount(pay, quote_amount, "fiat payment")?);
                     e.fee_amount = Some(amount(pay, "totalFee", "fiat payment")?);
-                    (e.quote_currency, e.fee_currency) = (Some(fiat.clone()), Some(fiat));
+                    (e.quote_currency, e.fee_currency) = (Some(fiat.as_str().into()), Some(fiat.into()));
                     (e.tx_id, e.description) = (Some(format!("{prefix}-{order}")), Some(description.into()));
                     entries.push(e);
                 }
@@ -586,7 +586,7 @@ pub(super) fn repair_map(path:&str, kind:Option<&str>, raw:&Raw)->Result<Vec<Inp
         let at = millis_at(dribblet, &["operateTime"], "dust conversion")?;
         for detail in &listed(dribblet, "userAssetDribbletDetails", "dust conversion detail")? {
             let id = text(detail.value.get("transId")).ok_or_else(|| ("unreadable dust conversion transId".to_string(), true))?;
-            let group = Some(format!("dust_{id}"));
+            let group: Option<crate::sync::activities::Text> = Some(format!("dust_{id}").into());
             let mut out = entry(SWAP_OUT, &coin(detail, "fromAsset", "dust conversion")?, amount(detail, "amount", "dust conversion")?, detail, at);
             (out.tx_id, out.group_id, out.description) = (Some(format!("dust-{id}-out")), group.clone(), Some("Dust conversion".into()));
             let mut inn = entry(SWAP_IN, "BNB", amount(detail, "transferedAmount", "dust conversion")?, detail, at);

@@ -56,6 +56,8 @@ impl EncryptionKeys {
 #[derive(Clone)]
 pub struct Cipher {
     aead: Aes256Gcm,
+    /// `digest`'s key: derived from the encryption key, never the key itself.
+    mac: [u8; 32],
 }
 
 impl Cipher {
@@ -76,7 +78,24 @@ impl Cipher {
                 key
             }
         };
-        Self { aead: Aes256Gcm::new(&key.into()) }
+        let mac = {
+            use hmac::Mac;
+            let mut m = <hmac::Hmac<Sha256> as Mac>::new_from_slice(&key).expect("HMAC takes any key");
+            m.update(b"deltabadger-cipher-digest-v1");
+            m.finalize().into_bytes().into()
+        };
+        Self { aead: Aes256Gcm::new(&key.into()), mac }
+    }
+
+    /// A keyed digest of `parts` (domain-separated) under a key derived from this install's encryption key: the same for the
+    /// same parts while the key is, and nothing can be read back from it (#710 7b: a login's read sequence, which needs no
+    /// identity key).
+    pub fn digest(&self, domain: &str, parts: &[&str]) -> String {
+        use hmac::Mac;
+        let mut m = <hmac::Hmac<Sha256> as Mac>::new_from_slice(&self.mac).expect("HMAC takes any key");
+        m.update(domain.as_bytes());
+        for part in parts { m.update(&[0]); m.update(part.as_bytes()); }
+        hex::encode(m.finalize().into_bytes())[..32].to_string()
     }
 
     pub fn encrypt(&self, plain: &str) -> String {

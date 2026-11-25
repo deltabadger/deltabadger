@@ -108,5 +108,12 @@ pub fn handback_refusals(c: &Connection, now: DateTime<Utc>) -> rusqlite::Result
         each("SELECT id FROM ibkr_reservations WHERE released_at IS NULL AND ?1 IS NOT NULL ORDER BY id",
              &|id| format!("IBKR reservation {id}: shares held for an order that has not settled"))?;
     }
+    // #710 7b rule 16 (D-IBKR-HANDBACK): a pending connection lives outside api_keys until IBKR names its account.
+    if crate::engine::rules::table_exists(c, "ibkr_registrations")? {
+        each("SELECT id FROM ibkr_registrations WHERE ?1 IS NOT NULL ORDER BY id", &|id| format!("IBKR registration {id}: {REGISTRATION_HANDBACK}"))?;
+    }
     Ok(out)
 }
+
+/// #710 7b rule 16: why a pending IBKR connection refuses the handback.
+pub const REGISTRATION_HANDBACK: &str = "a pending IBKR connection 2.x has no place for; finish it or start over before handing back";

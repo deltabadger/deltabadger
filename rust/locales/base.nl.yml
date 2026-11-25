@@ -669,6 +669,7 @@ nl:
             error_unreadable: "Dit bestand bevat geen transacties om te importeren."
             error_malformed: 'Dit bestand kon niet worden gelezen.'
             error_no_file: 'Kies eerst een bestand.'
+            import_busy: 'Er loopt al een andere import. Probeer het zo meteen opnieuw.'
             error_no_account: 'Kies een account om naar te importeren.'
             no_account: 'Verbind eerst een exchange — een import hoort bij een account.'
         positions: 'Posities'

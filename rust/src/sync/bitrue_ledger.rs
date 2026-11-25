@@ -82,7 +82,7 @@ fn trade(symbol: &str, base: &str, quote: &str, r: Raw) -> Result<Entry, Fail> {
     let mut e = entry(if buy { BUY } else { SELL }, base, qty, &r, at);
     e.quote_currency = Some(quote.into()); e.quote_amount = Some(quote_amount);
     let fee = r.value.get("commissionAsset").filter(|v| !matches!(v, Value::Null | Value::Bool(false))).or_else(|| r.value.get("commissionAssert"));
-    e.fee_currency = text(fee).filter(|s| !s.trim().is_empty()).map(|s| s.to_uppercase());
+    e.fee_currency = text(fee).filter(|s| !s.trim().is_empty()).map(|s| s.to_uppercase().into());
     let commission = amount(&r, "commission", "trade")?;
     e.fee_amount = Some(if commission < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &commission } else { commission });
     e.tx_id = Some(format!("{symbol}-{}-{}", field(&r.value, "orderId"), field(&r.value, "id")));
@@ -95,7 +95,7 @@ fn transfer(r: Raw, deposit: bool) -> Result<Entry, Fail> {
     let id = field(&r.value, "id");
     if deposit { e.tx_id = if !id.trim().is_empty() { Some(format!("deposit-{id}")) } else { text(r.value.get("txid")).filter(|s| !s.trim().is_empty()) }; }
     else {
-        e.tx_id = Some(format!("withdrawal-{id}")); e.fee_currency = Some(coin);
+        e.tx_id = Some(format!("withdrawal-{id}")); e.fee_currency = Some(coin.into());
         e.fee_amount = r.number("fee").map_err(|e| (e, true))?;
     }
     Ok(e)
