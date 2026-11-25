@@ -12,6 +12,8 @@ bg:
             import_new_html: "Импортирай в нов акаунт, %{account} (редове във файла: %{count})"
             destination_html: "Редове за %{account}: %{count}."
             twice_html: "Редове, които този файл изпраща към повече от един акаунт: %{count}."
+            rows_left_out_named_html: "Акаунти, посочени в пропуснатите редове: %{exchanges}."
+            links_undone_html: "Връзки на преводи в други акаунти, които този импорт ще премахне: %{count} (%{accounts})."
             import_anyway: "Импортирай въпреки това"
             import_rest: "Импортирай останалото"
             cancel: "Отказ"

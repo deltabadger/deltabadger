@@ -12,6 +12,8 @@ en:
             import_new_html: "Import to a new account, %{account} (rows in file: %{count})"
             destination_html: "Rows going to %{account}: %{count}."
             twice_html: "Rows this file sends to more than one account: %{count}."
+            rows_left_out_named_html: "Accounts named by the rows left out: %{exchanges}."
+            links_undone_html: "Transfer links on other accounts that this import undoes: %{count} (%{accounts})."
             import_anyway: "Import anyway"
             import_rest: "Import the rest"
             cancel: "Cancel"

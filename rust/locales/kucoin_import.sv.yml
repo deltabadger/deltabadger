@@ -12,6 +12,8 @@ sv:
             import_new_html: "Importera till ett nytt konto, %{account} (rader i filen: %{count})"
             destination_html: "Rader till %{account}: %{count}."
             twice_html: "Rader som filen skickar till mer än ett konto: %{count}."
+            rows_left_out_named_html: "Konton som de utelämnade raderna anger: %{exchanges}."
+            links_undone_html: "Överföringskopplingar på andra konton som importen tar bort: %{count} (%{accounts})."
             import_anyway: "Importera ändå"
             import_rest: "Importera resten"
             cancel: "Avbryt"
