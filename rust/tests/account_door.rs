@@ -4693,3 +4693,91 @@ async fn a_questions_outcome_carries_its_destination_and_warning_account_ids() {
     assert_eq!(destinations, [Destination { exchange_id: kraken, account_id: Some(ids[0]), rows: 1 }]);
     assert_eq!(warning_accounts.iter().map(|a| (a.account_id, a.exchange_id, a.rows)).collect::<Vec<_>>(), [(ids[0], kraken, Some(1))]);
 }
+
+/// Memory review: an account pick is bound to the route its click writes: KuCoin's reading key switching to account 1's
+/// read-only key after the question (the trading key lost a permission) is a change, asked again, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_pick_whose_reading_key_switched_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    let trading = key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, '2026-01-02', '2026-01-02')",
+              rusqlite::params![s.user_id, kucoin, e("read-only"), e("s")]).unwrap();
+    let read_only = c.last_insert_rowid();
+    identity::Account::by_id(c, first).unwrap().unwrap().add_key(c, read_only).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(options(&asked.body).iter().any(|v| v.starts_with(&format!("a{first}~"))), "{}", asked.body);
+    c.execute("UPDATE api_keys SET last_sync_error = 'Access Denied' WHERE id = ?1", [trading]).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    assert!(!imported(&again) && again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(ledger(c), before);
+}
+
+/// Memory review (rule M7): a question offering a new account names the sole existing one as it shows it, numbered
+/// ("KuCoin¹"), and its outcome carries that account's id.
+#[tokio::test(flavor = "current_thread")]
+async fn a_question_offering_a_new_account_carries_the_numbered_accounts_id() {
+    use deltabadger::tracker::import::{run, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    assert!(imported(&upload(&app, &mut b, "kucoin", &kucoin_file("444")).await));
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "555");
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("444").into_bytes(), Some("trading.csv".into()), signed_in).await.unwrap();
+    let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
+    let run::Answer::Warned(_, choices) = &answer else { panic!("{answer:?}") };
+    assert!(choices.iter().any(|c| c.accept == Some(run::Accept::New)), "{answer:?}");
+    assert!(warning_accounts.iter().any(|a| a.account_id == first && a.exchange_id == kucoin && a.label.number == Some(1)), "{warning_accounts:?} {answer:?}");
+}
+
+/// Memory review r3: a handle-shaped `api_key_id` with a long generation is still a handle: beside a file and no token,
+/// the request is no file, and the file is never written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_long_generation_handle_beside_a_file_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let handle = format!("0123456789abcdef.{}.0.{}", "9".repeat(64), "a".repeat(32));
+    let clean = ledger_csv(&[("kraken", "C1", "ETH", 9, 1)]);
+    let (content_type, body) = common::web::multipart(&[("format", "deltabadger"), ("api_key_id", handle.as_str())], &[("file", "ledger.csv", clean.as_bytes())]);
+    let before = ledger(c);
+    let answer = b.send_bytes(&app, "POST", "/tracker/import", Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await;
+    assert_eq!((answer.status, ledger(c)), (422, before), "{}", answer.body);
+    assert!(answer.body.contains("Choose a file first."), "{}", answer.body);
+}
+
+/// Memory review r3 (rule M7): an account question's options carry notes naming other accounts (here the rows account 1
+/// already holds); its outcome carries those accounts' ids.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_questions_notes_carry_their_accounts_ids() {
+    use deltabadger::tracker::import::{run, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(imported(&answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await));
+    // The same rows under a UID no account is known by: which account, each option noting the rows account 1 holds.
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("777").into_bytes(), Some("trading.csv".into()), signed_in).await.unwrap();
+    let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
+    assert!(matches!(answer, run::Answer::Ambiguous(_)), "{answer:?}");
+    assert!(warning_accounts.iter().any(|a| a.account_id == first && a.exchange_id == kucoin && a.rows.is_some()), "{warning_accounts:?} {answer:?}");
+}

@@ -46,13 +46,13 @@ pub enum Answer {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Warning {
     /// Rule M1(b): another live account (`0`) already holds this export's account: key read, key or file observation.
-    HeldElsewhere(Label),
+    HeldElsewhere(Shown),
     /// Rules M1(a)/(c), N5: the destination (`0`) is, reads or holds another account than this export's.
-    OtherAccount(Label),
+    OtherAccount(Shown),
     /// Rules P5/Q6, #710 8a rule R12: per other live account of the exchange, the rows of the file it already holds.
-    Existing(Vec<(Label, usize)>),
+    Existing(Vec<(Shown, usize)>),
     /// #710 8a rule R2: where a Deltabadger CSV's rows go, per account (asked when an exchange of it has 2+ accounts).
-    Destination(Vec<(Label, usize)>),
+    Destination(Vec<(Shown, usize)>),
     /// #710 8a rule R13: the venue ids this file sends to two or more accounts.
     Twice(usize),
     /// Rule N6: `0` rows of a Deltabadger CSV name accounts this install lacks; they are left out.
@@ -68,7 +68,21 @@ pub enum Warning {
     LeftOut(Vec<String>),
     /// PLAN-710-confirm rules M4/Q1: the transfer links on other accounts the write undoes (a link cleared, or a row deleted
     /// whose partner sits elsewhere), and those accounts.
-    Undone(usize, Vec<Label>),
+    Undone(usize, Vec<Shown>),
+}
+
+/// PLAN-710-confirm rule M7 (memory review): an account as a question names it: the label it shows, and the ids routing
+/// built it from (`account_id` None: an account the write would make, or a legacy key's not made yet).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Shown { pub label: Label, pub account_id: Option<i64>, pub exchange_id: i64 }
+
+impl std::ops::Deref for Shown { type Target = Label; fn deref(&self) -> &Label { &self.label } }
+
+/// Account `account` as shown: numbered whatever its exchange's live count (`numbered`, #710 8a rule R6), or as `label`.
+fn named(c: &Connection, account: i64, numbered: bool) -> rusqlite::Result<Shown> {
+    let label = if numbered { crate::identity::label_numbered(c, account)? } else { crate::identity::label(c, account)? };
+    let exchange_id = c.query_row("SELECT exchange_id FROM exchange_accounts WHERE id = ?1", [account], |r| r.get(0))?;
+    Ok(Shown { label, account_id: Some(account), exchange_id })
 }
 
 /// PLAN-710-confirm rules M1/N1: what a question's option is. `Select` picks a venue that still has several possible
@@ -122,10 +136,11 @@ pub enum Accept {
 /// `accept`: an "import anyway" answer of a warning (#710 7a). #710 8a rule R3: `shown` the account (or venue) it names,
 /// `count` the file's rows (rule R7) and `notes` the warnings its digest binds, which its click accepts.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Choice { pub value: String, pub shown: Label, pub key: Option<i64>, pub new: bool, pub venue: Option<i64>, pub accept: Option<Accept>, pub count: usize, pub notes: Vec<Warning> }
+/// `account`: the live account it writes to (rule M7; None: a key's, a venue's or a new account).
+pub struct Choice { pub value: String, pub shown: Label, pub key: Option<i64>, pub new: bool, pub venue: Option<i64>, pub accept: Option<Accept>, pub count: usize, pub notes: Vec<Warning>, pub account: Option<i64> }
 
 impl Choice {
-    fn new(value: String, shown: Label, venue: Option<i64>) -> Self { Self { value, shown, key: None, new: false, venue, accept: None, count: 0, notes: vec![] } }
+    fn new(value: String, shown: Label, venue: Option<i64>) -> Self { Self { value, shown, key: None, new: false, venue, accept: None, count: 0, notes: vec![], account: None } }
 }
 
 /// Tracker::ImportsController#resolve_offset for a fresh upload: `None` for a format that needs no zone, else the
@@ -424,10 +439,10 @@ fn seen(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, dest: Dest
         Dest::New(exchange) => (exchange, None),
     };
     let (mut warnings, mut holders, mut facts, mut shown) = (vec![], vec![], String::new(), vec![]);
-    let mut name = |account: i64| -> rusqlite::Result<Label> {
-        let label = if named { crate::identity::label_numbered(c, account)? } else { crate::identity::label(c, account)? };
-        shown.push((account, label.number));
-        Ok(label)
+    let mut name = |account: i64| -> rusqlite::Result<Shown> {
+        let n = self::named(c, account, named)?;
+        shown.push((account, n.label.number));
+        Ok(n)
     };
     if let Some(id) = file.filter(|_| crate::identity::ready(c).unwrap_or(false)) {
         let e = crate::identity::file_evidence(c, cipher, user_id, exchange, own, id, now).map_err(SyncError)?;
@@ -517,7 +532,7 @@ enum Offer { Native { dest: Dest, holders: Vec<i64>, offer: String, named: bool,
 /// The routing of a file, before anything is written. `confirm`: asked before writing even with nothing to warn about
 /// (#710 8a rules R1/R2: the destination is one of an exchange's several accounts, or a new one beside a live one).
 /// `destinations`: a Deltabadger CSV's accounts and their rows (PLAN-710-confirm rule L2), shown whenever it asks.
-struct Plan { targets: Vec<(Target, Vec<Entry>)>, unrouted: Vec<String>, warnings: Vec<Warning>, evidence: String, changed: bool, confirm: bool, offer: Offer, destinations: Vec<(Label, usize)> }
+struct Plan { targets: Vec<(Target, Vec<Entry>)>, unrouted: Vec<String>, warnings: Vec<Warning>, evidence: String, changed: bool, confirm: bool, offer: Offer, destinations: Vec<(Shown, usize)> }
 
 /// The origin each importer's rows are recorded under (rule N8).
 fn origin(format: &str) -> &'static str { match format { "binance" => "binance", "kucoin" => "kucoin", _ => "deltabadger" } }
@@ -540,7 +555,17 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
         let Answer::Ambiguous(options) = answer else { return Ok(vec![]) };
         let mut out = vec![];
         for o in options {
-            if o.new || o.value.contains("!p") { out.push(Issued { kind: Kind::Accept, route: None, outside: None }); continue }
+            // Memory review: an account pick (or a new account) is bound to the route its click writes (the writing key,
+            // the accounts, the rows), as an "import anyway" is.
+            if o.new || o.value.contains("!p") {
+                tx.execute_batch("SAVEPOINT import_click")?;
+                let (body, tag) = split_answer(&o.value);
+                let click = native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, Some(body), tag, confirm.picked, now)
+                    .and_then(|plan| match plan { Ok(p) => Ok(Some(route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?)), Err(_) => Ok(None) });
+                tx.execute_batch("ROLLBACK TO import_click; RELEASE import_click")?;
+                out.push(Issued { kind: Kind::Accept, route: click?, outside: None });
+                continue
+            }
             tx.execute_batch("SAVEPOINT import_click")?;
             let click = native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, Some(&posted(o)), None, confirm.picked, now)
                 .and_then(|plan| match plan {
@@ -686,7 +711,7 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
 /// than the end that went; those accounts; and the digest a question binds (both ends' ids, contents, owners, exchanges
 /// and accounts, resolved through membership).
 #[derive(Debug, Clone)]
-struct Undone { rows: Vec<i64>, accounts: Vec<Label>, digest: String }
+struct Undone { rows: Vec<i64>, accounts: Vec<Shown>, digest: String }
 
 /// Arms the watch on ledger rows for the rest of the caller's savepoint: each row deleted (with its link partner) and each
 /// link cleared, as they were. False on an install without the membership tables (nothing to resolve accounts by).
@@ -747,7 +772,7 @@ fn undone(c: &Connection, owner: i64, _destinations: &[(i64, i64, usize)]) -> Re
         sealed.push(format!("{}:{}:{}:{}:{wa:?}|{}:{}:{}:{}:{sa:?}", w.0, w.4, w.1, w.2, s.0, s.4, s.1, s.2));
     }
     accounts.sort();
-    let accounts = accounts.into_iter().map(|a| crate::identity::label(c, a)).collect::<rusqlite::Result<Vec<_>>>()?;
+    let accounts = accounts.into_iter().map(|a| named(c, a, false)).collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(Undone { rows, accounts, digest: sha(&format!("undone|{}", sealed.join(";"))) })
 }
 
@@ -765,7 +790,7 @@ fn unit_warnings(units: &[String]) -> Vec<Warning> {
 #[allow(clippy::too_many_arguments)]
 fn choices(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, subject: &str, offer: &Offer, file: Option<&crate::identity::AccountId>, bound: &Bound,
            warnings: &[Warning], evidence: &str, now: DateTime<Utc>) -> Result<Vec<Choice>, SyncError> {
-    let choice = |value: String, shown: Label, venue: Option<i64>, accept: Accept, count: usize, notes: Vec<Warning>| Choice { value, shown, key: None, new: false, venue, accept: Some(accept), count, notes };
+    let choice = |value: String, shown: Label, venue: Option<i64>, accept: Accept, count: usize, notes: Vec<Warning>| Choice { value, shown, key: None, new: false, venue, accept: Some(accept), count, notes, account: None };
     // PLAN-710-confirm rule K6: an account this run made (a legacy key's number 1) is gone once the question rolls back, so
     // its answer names the key that routed there; the click routes again and its digest binds the account that makes.
     let body = |id: i64| -> Result<String, SyncError> {
@@ -784,13 +809,13 @@ fn choices(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, subject
                 let at = Dest::Account(*holder);
                 let (notes, _, facts) = seen(c, cipher, user_id, at, file, bound, *named, now)?;
                 let venue = crate::identity::Account::by_id(c, *holder)?.map(|a| a.exchange_id);
-                out.push(choice(format!("{}!w{}", body(*holder)?, digest(c, user_id, 'w', subject, at, &format!("{facts}|offer:{offer}"))?), shown(c, user_id, at, *named)?, venue, Accept::To, *count, notes));
+                out.push(Choice { account: (*holder <= FLOOR.with(std::cell::Cell::get)).then_some(*holder), ..choice(format!("{}!w{}", body(*holder)?, digest(c, user_id, 'w', subject, at, &format!("{facts}|offer:{offer}"))?), shown(c, user_id, at, *named)?, venue, Accept::To, *count, notes) });
             }
             let d = digest(c, user_id, 'w', subject, *dest, evidence)?;
             let notes: Vec<Warning> = warnings.iter().filter(|w| !matches!(w, Warning::Changed | Warning::Retained | Warning::Dust | Warning::Undone(..))).cloned().collect();
             let label = shown(c, user_id, *dest, *named)?;
             out.push(match dest {
-                Dest::Account(id) => choice(format!("{}!w{d}", body(*id)?), label, crate::identity::Account::by_id(c, *id)?.map(|a| a.exchange_id), Accept::Here, *count, notes),
+                Dest::Account(id) => Choice { account: (*id <= FLOOR.with(std::cell::Cell::get)).then_some(*id), ..choice(format!("{}!w{d}", body(*id)?), label, crate::identity::Account::by_id(c, *id)?.map(|a| a.exchange_id), Accept::Here, *count, notes) },
                 Dest::New(exchange) => choice(format!("n{exchange}!w{d}"), label, Some(*exchange), Accept::New, *count, notes),
             });
             out
@@ -866,6 +891,7 @@ fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, ven
                     let (notes, _, facts) = seen(c, cipher, user_id, dest, file, &bound, true, now)?;
                     o.value = format!("{}!p{}", o.value, digest(c, user_id, 'p', subject, dest, &format!("{facts}|offer:{offer}"))?);
                     (o.shown, o.count, o.notes) = (shown(c, user_id, dest, true)?, records, notes);
+                    if let Dest::Account(a) = dest { o.account = Some(a); }
                 }
                 return Ok(Err(Answer::Ambiguous(options)));
             }
@@ -959,7 +985,7 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
         }
         confirm |= crate::identity::accounts_of(c, user_id, key.exchange_id)?.len() >= 2;
         // Review r1: a legacy key's account has no row yet: it is its exchange's only one, named by the exchange.
-        let label = match own { Some(a) => crate::identity::label(c, a)?, None => Label::bare(c.query_row("SELECT name FROM exchanges WHERE id = ?1", [key.exchange_id], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default()) };
+        let label = match own { Some(a) => named(c, a, false)?, None => Shown { label: Label::bare(c.query_row("SELECT name FROM exchanges WHERE id = ?1", [key.exchange_id], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default()), account_id: None, exchange_id: key.exchange_id } };
         shown.push((own, label.number));
         destinations.push((label, rows.len()));
     }
@@ -974,7 +1000,7 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
     held.sort();
     if !held.is_empty() {
         let mut lines = vec![];
-        for (on, n) in held { let label = crate::identity::label(c, on)?; shown.push((Some(on), label.number)); lines.push((label, n)); }
+        for (on, n) in held { let label = named(c, on, false)?; shown.push((Some(on), label.number)); lines.push((label, n)); }
         warnings.push(Warning::Existing(lines));
     }
     evidence.push_str(&format!("named:0|shown:{shown:?}"));

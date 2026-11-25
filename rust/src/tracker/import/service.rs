@@ -41,28 +41,31 @@ pub enum Outcome {
 #[derive(Debug, Clone, PartialEq)]
 pub struct WarningAccount { pub account_id: i64, pub exchange_id: i64, pub label: crate::identity::Label, pub rows: Option<usize> }
 
-/// The live accounts of `user` each warning of `answer` names, in the order named (a prospective account has no id yet).
-fn warning_accounts(c: &Connection, user: i64, answer: &Answer) -> Result<Vec<WarningAccount>, WebError> {
-    let Answer::Warned(warnings, _) = answer else { return Ok(vec![]) };
-    let mut named: Vec<(&crate::identity::Label, Option<usize>)> = vec![];
-    for w in warnings {
-        match w {
-            run::Warning::HeldElsewhere(l) | run::Warning::OtherAccount(l) => named.push((l, None)),
-            run::Warning::Existing(per) | run::Warning::Destination(per) => named.extend(per.iter().map(|(l, n)| (l, Some(*n)))),
-            run::Warning::Undone(_, ls) => named.extend(ls.iter().map(|l| (l, None))),
-            _ => {}
+/// The accounts each warning of `answer` names (a warning question's, or an account question's), its choices' own notes included, with the ids routing built them from
+/// (an account the write would make has none yet, and is left out).
+fn warning_accounts(answer: &Answer) -> Vec<WarningAccount> {
+    // An account question's options carry their own notes (the web renders them) as a warning question's do.
+    let (warnings, choices): (&[run::Warning], &[run::Choice]) = match answer {
+        Answer::Warned(warnings, choices) => (warnings, choices),
+        Answer::Ambiguous(choices) => (&[], choices),
+        _ => return vec![],
+    };
+    let mut out: Vec<WarningAccount> = vec![];
+    for w in warnings.iter().chain(choices.iter().flat_map(|c| c.notes.iter())) {
+        let named: Vec<(&run::Shown, Option<usize>)> = match w {
+            run::Warning::HeldElsewhere(a) | run::Warning::OtherAccount(a) => vec![(a, None)],
+            run::Warning::Existing(per) | run::Warning::Destination(per) => per.iter().map(|(a, n)| (a, Some(*n))).collect(),
+            run::Warning::Undone(_, accounts) => accounts.iter().map(|a| (a, None)).collect(),
+            _ => vec![],
+        };
+        for (a, rows) in named {
+            let Some(account_id) = a.account_id else { continue };
+            if !out.iter().any(|o| o.account_id == account_id && o.rows == rows && o.label == a.label) {
+                out.push(WarningAccount { account_id, exchange_id: a.exchange_id, label: a.label.clone(), rows });
+            }
         }
     }
-    let live: Vec<(i64, i64)> = c.prepare("SELECT id, exchange_id FROM exchange_accounts WHERE user_id = ?1 AND removed_at IS NULL ORDER BY id").map_err(db)?
-        .query_map([user], |r| Ok((r.get(0)?, r.get(1)?))).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
-    let mut labels = vec![];
-    for (id, exchange) in live { labels.push((id, exchange, crate::identity::label(c, id).map_err(db)?)); }
-    let mut out: Vec<WarningAccount> = vec![];
-    for (label, rows) in named {
-        let Some((id, exchange, _)) = labels.iter().find(|(_, _, l)| l == label) else { continue };
-        if !out.iter().any(|a| a.account_id == *id && a.rows == rows) { out.push(WarningAccount { account_id: *id, exchange_id: *exchange, label: label.clone(), rows }); }
-    }
-    Ok(out)
+    out
 }
 
 /// Whether the request's sign-in still holds, asked inside the operation's transaction.
@@ -103,10 +106,13 @@ async fn worker(app: &App, token: &str, work: impl FnOnce(&App, &Connection) -> 
 /// The upload record's `TOKEN = /\A[a-f0-9]{16}\z/`.
 pub fn token_shaped(t: &str) -> bool { t.len() == 16 && t.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) }
 /// A handle: `<token>.<gen>.<n>.<128-bit random, hex>`.
+/// Memory review: checked in place, one component at a time (no component list); any length of generation or number is
+/// still a handle's shape, so a request carrying one is never fresh.
 pub fn handle_shaped(h: &str) -> bool {
-    let parts: Vec<&str> = h.split('.').collect();
-    matches!(parts.as_slice(), [t, g, n, r] if token_shaped(t) && !g.is_empty() && g.bytes().all(|b| b.is_ascii_digit()) && !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit())
-        && r.len() == 32 && r.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
+    let digits = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit());
+    let mut parts = h.splitn(5, '.');
+    let (Some(t), Some(g), Some(n), Some(r), None) = (parts.next(), parts.next(), parts.next(), parts.next(), parts.next()) else { return false };
+    token_shaped(t) && digits(g) && digits(n) && r.len() == 32 && r.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// Rule L6: Rust's own parking directory, beside the install's database (2.x never opens it).
@@ -181,7 +187,8 @@ fn early(answer: Answer) -> Outcome {
 fn issue(c: &Connection, user: i64, token: &str, gen: i64, format: &'static str, ran: run::Ran) -> Result<Outcome, WebError> {
     let run::Ran { mut answer, issued, destinations } = ran;
     if !matches!(answer, Answer::Ambiguous(_) | Answer::Warned(..)) { return Ok(early(answer)); }
-    let warning_accounts = warning_accounts(c, user, &answer)?;
+    let _ = user;
+    let warning_accounts = warning_accounts(&answer);
     let (Answer::Ambiguous(choices) | Answer::Warned(_, choices)) = &mut answer else { unreachable!() };
     let mut kinds = vec![];
     for (n, choice) in choices.iter_mut().enumerate() {

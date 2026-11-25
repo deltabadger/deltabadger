@@ -51,7 +51,7 @@ fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
         Warning::Changed => vec![i18n::t(locale, "tracker.import.warn_changed", &[])],
         Warning::LeftOut(names) => vec![i18n::t(locale, "tracker.import.rows_left_out_named_html", &[("exchanges", i18n::Arg::Text(&names.join(", ")))])],
         Warning::Undone(n, accounts) => {
-            let named = accounts.iter().map(crate::identity::Label::html).collect::<Vec<_>>().join(", ");
+            let named = accounts.iter().map(|a| a.html()).collect::<Vec<_>>().join(", ");
             vec![i18n::t(locale, "tracker.import.links_undone_html", &[("count", i18n::Arg::Count(*n as i64)), ("accounts", i18n::Arg::Html(&named))])]
         }
     }
