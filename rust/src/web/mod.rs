@@ -1026,11 +1026,13 @@ pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 /// with an empty form. The pipeline keeps the decision; it never selects another cookie.
 #[derive(Clone)]
 enum Admission {
-    /// The selected cookie (its value) and its session. The pipeline checks the account again after the read, and last
-    /// of all, with a fresh clock, that this cookie is still the one selected.
-    Admitted { token: String, data: Box<session::SessionData> },
-    /// The selected session as it arrived (none: the default), as the account check left it (no user, CSRF secret
-    /// kept), and who that makes the request: `SignedOut` or `Inactive`.
+    /// The selected cookie (its value, its expiry) and its session. The pipeline checks the account again after the read,
+    /// and last of all, with a fresh clock, that this cookie is still the one selected; the handler's write checks again
+    /// inside its transaction (`auth::still_signed_in`), and `finish` before it seals the session.
+    Admitted { token: String, expires_at: i64, data: Box<session::SessionData> },
+    /// The selected session as it arrived, as the account check left it (no user, CSRF secret kept), and who that makes
+    /// the request: `SignedOut` or `Inactive`. A cookie that expired meanwhile (or another one now selected) opens no
+    /// session at all, as on main: both are the default.
     Denied { before: Box<session::SessionData>, cleared: Box<session::SessionData>, current: auth::Current },
 }
 
@@ -1047,8 +1049,11 @@ async fn admit(app: &App, headers: &HeaderMap) -> Result<Admission, WebError> {
     let token = token.to_string();
     let session = session::Session::new(opened.data.clone());
     let current = auth::current_user(app, &session, now).await?;
-    if matches!(current, auth::Current::SignedIn(_)) && still_selected(app, headers, &token) {
-        return Ok(Admission::Admitted { token, data: Box::new(opened.data) });
+    if !still_selected(app, headers, &token) {
+        return Ok(Admission::Denied { before: Box::default(), cleared: Box::default(), current: auth::Current::SignedOut });
+    }
+    if matches!(current, auth::Current::SignedIn(_)) {
+        return Ok(Admission::Admitted { token, expires_at: opened.expires_at, data: Box::new(opened.data) });
     }
     session.lock().user = None;
     let current = if let auth::Current::Inactive(reason) = current { auth::Current::Inactive(reason) } else { auth::Current::SignedOut };
@@ -1365,7 +1370,7 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     };
     // An import request keeps what `entry` decided (Admission): the session it selected, and no other.
     let admission = request.extensions().get::<Admission>().cloned();
-    let (before, session) = match &admission {
+    let (mut before, session) = match &admission {
         Some(Admission::Admitted { data, .. }) => ((**data).clone(), session::Session::new((**data).clone())),
         Some(Admission::Denied { before, cleared, .. }) => ((**before).clone(), session::Session::new((**cleared).clone())),
         None => {
@@ -1414,15 +1419,18 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         },
     };
     // The admitted cookie, after the last lookup and with a fresh clock: still the one selected, still unexpired. If not,
-    // the request is signed out, and its session loses the user before it is sealed: an ended sign-in is never renewed.
+    // it opens no session, as on main for that state: the request is signed out, and nothing of it is sealed again.
     let current = match &admission {
         Some(Admission::Admitted { token, .. }) if !still_selected(&app, request.headers(), token) => {
-            session.lock().user = None;
+            before = Default::default();
+            *session.lock() = Default::default();
             auth::Current::SignedOut
         }
         _ => current,
     };
     let signed_in = matches!(current, auth::Current::SignedIn(_));
+    let admitted_until = match &admission { Some(Admission::Admitted { expires_at, .. }) if signed_in => Some(*expires_at), _ => None };
+    if let Some(until) = admitted_until { session.bind_expiry(until); }
     let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
 
     // ApplicationController#redirect_to_setup_if_needed: after Devise's prepended filters and the CSRF check.
@@ -1448,6 +1456,8 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         request.extensions_mut().insert(context);
         next.run(request).await
     };
+    // The admitted cookie may have expired while the handler ran: its sign-in is not sealed again (with a new expiry).
+    if admitted_until.is_some_and(|until| until <= app.now().timestamp()) { session.lock().user = None; }
     finish(&app, &session, &before, &nonce, now, signed_in, response)
 }
 

@@ -151,7 +151,14 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
     // Read on a blocking thread of its own; the shared connection is taken only for the write.
     let file = tokio::task::spawn_blocking(move || run::read(format, &bytes, written_offset.as_deref())).await.map_err(|e| WebError::Config(format!("reading an import: {e}")))?;
     let answer = match file {
-        Ok(file) => { let cipher = ctx.app.cipher.clone(); ctx.app.db(move |c| run::write(c, &cipher, user, format, file, &written_subject, chosen.as_deref(), at).map_err(|e| WebError::Config(e.0))).await? }
+        Ok(file) => {
+            let (cipher, view) = (ctx.app.cipher.clone(), ctx.clone());
+            let signed_in = move |c: &rusqlite::Connection| auth::still_signed_in(c, &view).map_err(|e| crate::sync::SyncError(format!("{e:?}")));
+            let written = ctx.app.db(move |c| run::write_signed_in(c, &cipher, user, format, file, &written_subject, chosen.as_deref(), at, &signed_in).map_err(|e| WebError::Config(e.0))).await?;
+            // The sign-in ended while the file was read: nothing written, the request is signed out.
+            let Some(answer) = written else { return Ok(auth::signed_out(&ctx)) };
+            answer
+        }
         Err(answer) => answer,
     };
     if matches!(answer, Answer::Ambiguous(_) | Answer::Warned(..)) {

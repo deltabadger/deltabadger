@@ -188,14 +188,19 @@ pub fn set_cookie(value: &str, now: DateTime<Utc>, secure: bool) -> HeaderValue 
         .unwrap_or(HeaderValue::from_static(""))
 }
 
-/// The session of one request, shared between the pipeline and the handler.
+/// The session of one request, shared between the pipeline and the handler; for an admitted import request, also its
+/// cookie's expiry (web::Admission), which the handler's write checks again (web::auth::still_signed_in).
 #[derive(Clone, Default)]
-pub struct Session(Arc<Mutex<SessionData>>);
+pub struct Session(Arc<Mutex<SessionData>>, Arc<std::sync::OnceLock<i64>>);
 
 impl Session {
     pub fn new(data: SessionData) -> Self {
-        Self(Arc::new(Mutex::new(data)))
+        Self(Arc::new(Mutex::new(data)), Arc::default())
     }
+
+    /// The admitted cookie's expiry (epoch seconds); set once.
+    pub fn bind_expiry(&self, expires_at: i64) { let _ = self.1.set(expires_at); }
+    pub fn expires_at(&self) -> Option<i64> { self.1.get().copied() }
 
     /// A poisoned lock still holds the data (release builds abort on panic anyway).
     pub fn lock(&self) -> MutexGuard<'_, SessionData> {

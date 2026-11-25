@@ -11,6 +11,7 @@ use common::seed::{self, BotSpec};
 use common::web::{self, TestClock};
 use deltabadger::web::{csrf, i18n, session, App};
 use futures_util::StreamExt;
+use rusqlite::hooks::{AuthAction, TransactionOperation};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -53,14 +54,17 @@ impl Install {
     /// Runs `action` at the `nth` (1-based) read of `users.admin` once `armed` (None: from now on). Both the setup lookup
     /// and the account lookup read that column, once each: the first read after the body is the one that comes first.
     async fn at_admin_read(&self, armed: Option<Arc<AtomicBool>>, nth: usize, action: impl FnMut() + Send + 'static) {
+        self.at(armed, nth, |action| matches!(action, AuthAction::Read { table_name: "users", column_name: "admin" }), action).await
+    }
+
+    /// Runs `action` at the `nth` statement the app's connection prepares that `is` picks, once `armed`.
+    async fn at(&self, armed: Option<Arc<AtomicBool>>, nth: usize, is: fn(&AuthAction<'_>) -> bool, action: impl FnMut() + Send + 'static) {
         let action = Mutex::new(Some(action));
         let seen = AtomicUsize::new(0);
         self.app.db(move |c| {
             c.authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
-                if let rusqlite::hooks::AuthAction::Read { table_name: "users", column_name: "admin" } = context.action {
-                    if armed.as_ref().is_none_or(|armed| armed.load(Ordering::SeqCst)) && seen.fetch_add(1, Ordering::SeqCst) + 1 == nth {
-                        if let Some(mut action) = action.lock().unwrap().take() { action(); }
-                    }
+                if is(&context.action) && armed.as_ref().is_none_or(|armed| armed.load(Ordering::SeqCst)) && seen.fetch_add(1, Ordering::SeqCst) + 1 == nth {
+                    if let Some(mut action) = action.lock().unwrap().take() { action(); }
                 }
                 rusqlite::hooks::Authorization::Allow
             }));
@@ -125,8 +129,6 @@ impl Reader {
     fn content_type(self) -> String {
         match self { Reader::Multipart => web::multipart(&[], &[]).0, Reader::Form => "application/x-www-form-urlencoded".to_string() }
     }
-    /// The form with no fields: a valid zero-part multipart form, or an empty urlencoded one.
-    fn empty(self) -> Vec<u8> { match self { Reader::Multipart => web::multipart(&[], &[]).1, Reader::Form => Vec::new() } }
     fn with(self, fields: &[(&str, &str)]) -> Vec<u8> {
         match self {
             Reader::Multipart => web::multipart(fields, &[]).1,
@@ -136,7 +138,7 @@ impl Reader {
 }
 
 /// A2/C1/D1/F3: every signed-out request to an import path, by every method, through both readers and under a locale prefix
-/// or a repeated slash: an 8 MiB body is never polled, and the answer is the one the same request with an empty form gets.
+/// or a repeated slash: an 8 MiB body is never polled, and the answer is main's to the same request with an empty form.
 #[tokio::test(flavor = "current_thread")]
 async fn a_signed_out_request_to_an_import_path_reads_no_body_and_is_answered_as_an_empty_form() {
     let i = install();
@@ -167,24 +169,24 @@ async fn a_signed_out_request_to_an_import_path_reads_no_body_and_is_answered_as
             for method in ["POST", "PATCH", "PUT", "DELETE"] {
                 for reader in [Reader::Multipart, Reader::Form] {
                     let content_type = reader.content_type();
-                    let mut headers = vec![("content-type", content_type.as_str())];
+                    let length = (8 * MIB).to_string();
+                    let mut headers = vec![("content-type", content_type.as_str()), ("content-length", length.as_str())];
                     if with_token { headers.push(("x-csrf-token", header_token.as_str())); }
                     let cookies: Vec<&str> = cookie.into_iter().collect();
                     let polls = Arc::new(AtomicUsize::new(0));
-                    let mut big = headers.clone();
-                    let length = (8 * MIB).to_string();
-                    big.push(("content-length", &length));
-                    let answer = send(&i.app, method, path, &cookies, &big, filler(8 * MIB, polls.clone())).await;
+                    let answer = send(&i.app, method, path, &cookies, &headers, filler(8 * MIB, polls.clone())).await;
                     let what = format!("{case}: {method} {path} {reader:?}");
                     assert_eq!(polls.load(Ordering::SeqCst), 0, "{what}: the body is never polled");
-                    let empty = send(&i.app, method, path, &cookies, &headers, Body::from(reader.empty())).await;
-                    assert_eq!(answer.seen(), empty.seen(), "{what}: answered as the empty form");
-                    if method == "POST" {
+                    // Main's answer for that request: another method than POST that passes the token check and is not an inactive
+                    // user's is the 501 (`only(post(...))`); the rest are redirects.
+                    if method != "POST" && flash == "devise.failure.unauthenticated" {
+                        assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (501, None, vec![]), "{what}");
+                    } else {
                         let prefixed = path.starts_with("/de/") && location == "/login";
                         let (want, language) = if prefixed { ("/de/login".to_string(), "de") } else { (location.to_string(), "en") };
                         assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some(want.as_str()), alert(language, flash)), "{what}");
-                        assert_eq!(answer.session.as_ref().and_then(|s| s.user.clone()), None, "{what}: nobody is signed in by the answer");
                     }
+                    assert_eq!(answer.session.as_ref().and_then(|s| s.user.clone()), None, "{what}: nobody is signed in by the answer");
                 }
             }
         }
@@ -308,8 +310,9 @@ async fn a_cookie_that_expires_during_the_admission_lookup_reads_no_body() {
     let (content_type, body) = web::multipart(&[], &[("file", "orders.csv", &csv())]);
     let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type), ("x-csrf-token", &masked)], counted(body, polls.clone(), || ())).await;
     assert_eq!(polls.load(Ordering::SeqCst), 0);
-    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
-    assert_eq!(answer.session.unwrap().user, None);
+    // An expired cookie opens no session, as on main: its old header token verifies against nothing.
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")));
+    assert_eq!(answer.session.unwrap(), session::SessionData { flash: alert("en", "errors.unverified_request"), ..Default::default() });
     assert_eq!(i.rows(), 0);
 }
 
@@ -331,9 +334,8 @@ async fn a_denied_request_does_not_turn_to_another_cookie() {
     let answer = send(&i.app, "POST", "/tracker/import", &[&first, &second], &headers, counted(body.clone(), polls.clone(), || ())).await;
     assert_eq!(polls.load(Ordering::SeqCst), 0);
     let signed_out = send(&i.app, "POST", "/tracker/import", &[], &headers, Body::from(body)).await;
-    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (signed_out.status, signed_out.location.as_deref(), signed_out.flash()));
-    assert_eq!((answer.status, answer.location.as_deref()), (302, Some("/")));
-    assert_eq!(answer.session.unwrap().user, None);
+    assert_eq!(answer.seen(), signed_out.seen());
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")));
 }
 
 /// C2: admission binds the session it chose. Cookie A admits the upload and expires during the read; cookie B (the same
@@ -351,7 +353,8 @@ async fn a_cookie_that_expires_during_the_read_does_not_hand_the_import_to_anoth
     let headers = [("content-type", content_type.as_str()), ("x-csrf-token", &csrf::masked(&b))];
     let answer = send(&i.app, "POST", &i.bot_path(), &[&first, &second], &headers, counted(body, polls.clone(), move || clock.set(later))).await;
     assert!(polls.load(Ordering::SeqCst) > 0, "admitted");
-    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
+    // A's cookie expired: no session, so neither token verifies.
+    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")));
     assert_eq!(answer.session.unwrap().user, None);
     assert_eq!(i.rows(), 0);
 }
@@ -390,7 +393,7 @@ async fn a_cookie_that_expires_during_the_read_gets_the_reader_s_error_or_the_si
         let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls.clone(), move || clock.set(later))).await;
         assert!(polls.load(Ordering::SeqCst) > 0, "{case}");
         assert_eq!(answer.status, status, "{case}: {}", answer.body);
-        if status == 302 { assert_eq!(answer.location.as_deref(), Some("/login"), "{case}"); }
+        if status == 302 { assert_eq!((answer.location.as_deref(), answer.flash()), (Some("/"), alert("en", "errors.unverified_request")), "{case}"); }
         assert_eq!(i.rows(), 0, "{case}");
     }
 }
@@ -412,40 +415,91 @@ async fn a_stalled_upload_whose_cookie_expires_is_the_reader_s_timeout() {
     assert_eq!(i.rows(), 0);
 }
 
-/// E1: the cookie expires during the post-read lookup, the token is valid and the import would write: the signed-out
-/// answer, nothing written.
+/// E1: the cookie expires during a post-read lookup (the setup lookup, then the account lookup: the first and the second
+/// read of `users.admin` after the body), the token is valid and the import would write: an expired cookie opens no
+/// session, as on main, so the answer is the unverified request's; nothing written. A check placed between the two
+/// lookups misses the second case (the handler's own check would then answer it as signed out instead).
 #[tokio::test(flavor = "current_thread")]
-async fn a_cookie_that_expires_during_the_post_read_lookup_imports_nothing() {
-    let i = install();
-    let secret = csrf::new_token();
-    let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
-    let armed = Arc::new(AtomicBool::new(false));
-    let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
-    i.at_admin_read(Some(armed.clone()), 1, move || clock.set(later)).await;
-    let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
-    let polls = Arc::new(AtomicUsize::new(0));
-    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
-    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
-    assert_eq!(answer.session.unwrap().user, None);
-    assert_eq!(i.rows(), 0);
+async fn a_cookie_that_expires_during_either_post_read_lookup_imports_nothing() {
+    for (lookup, nth) in [("setup", 1), ("account", 2)] {
+        let i = install();
+        let secret = csrf::new_token();
+        let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+        let armed = Arc::new(AtomicBool::new(false));
+        let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
+        i.at_admin_read(Some(armed.clone()), nth, move || clock.set(later)).await;
+        let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+        let polls = Arc::new(AtomicUsize::new(0));
+        let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
+        assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")), "{lookup}");
+        assert_eq!(answer.session.unwrap(), session::SessionData { flash: alert("en", "errors.unverified_request"), ..Default::default() }, "{lookup}");
+        assert_eq!(i.rows(), 0, "{lookup}");
+    }
 }
 
-/// F1: the final check comes before any answer is chosen. The cookie expires during the post-read setup lookup and the
+/// F1: the final check comes before any answer is chosen. The cookie expires during either post-read lookup and the
 /// token is invalid: the unverified-request answer, nothing written, and the cookie it returns does not sign anyone in.
 #[tokio::test(flavor = "current_thread")]
 async fn an_expired_sign_in_is_never_sealed_again() {
+    for (lookup, nth) in [("setup", 1), ("account", 2)] {
+        let i = install();
+        let secret = csrf::new_token();
+        let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
+        let armed = Arc::new(AtomicBool::new(false));
+        let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
+        i.at_admin_read(Some(armed.clone()), nth, move || clock.set(later)).await;
+        let (content_type, body) = web::multipart(&[("authenticity_token", "invalid")], &[("file", "orders.csv", &csv())]);
+        let polls = Arc::new(AtomicUsize::new(0));
+        let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
+        assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")), "{lookup}");
+        assert_eq!(answer.session.as_ref().unwrap().user, None, "{lookup}: the resealed session has nobody in it");
+        assert_eq!(i.rows(), 0, "{lookup}");
+        let next = send(&i.app, "GET", "/settings/account", &[answer.cookie.as_deref().unwrap()], &[], Body::empty()).await;
+        assert_eq!((next.status, next.location.as_deref()), (302, Some("/login")), "{lookup}: the returned cookie does not authenticate");
+    }
+}
+
+/// The handler's write checks the sign-in again inside its own transaction: a password reset committed after the
+/// pipeline's checks, while the file is read (here: as the write's transaction begins), writes nothing on either route,
+/// and the request is answered as signed out.
+#[tokio::test(flavor = "current_thread")]
+async fn a_password_reset_while_the_file_is_read_writes_nothing() {
+    let tracker = String::from("date,type,base_currency,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,exchange,tx_id,group_id,description\n\
+                           2026-08-03T10:00:00Z,deposit,BTC,5,,,,,kraken,t1,,\n");
+    for (route, file) in [("bot", csv()), ("tracker", tracker.into_bytes())] {
+        let i = install();
+        let secret = csrf::new_token();
+        let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+        let before = i.snapshot();
+        let armed = Arc::new(AtomicBool::new(false));
+        let db = i.d.path().join("production.sqlite3");
+        let reset = move || { rusqlite::Connection::open(&db).unwrap().execute("UPDATE users SET encrypted_password='$2a$11$resetresetresetresetre.x'", []).unwrap(); };
+        i.at(Some(armed.clone()), 1, |action| matches!(action, AuthAction::Transaction { operation: TransactionOperation::Begin }), reset).await;
+        let path = if route == "bot" { i.bot_path() } else { "/tracker/import".to_string() };
+        let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret)), ("format", "deltabadger")], &[("file", "orders.csv", &file)]);
+        let answer = send(&i.app, "POST", &path, &[&cookie], &[("content-type", &content_type)], counted(body, Arc::default(), move || armed.store(true, Ordering::SeqCst))).await;
+        assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")), "{route}: {}", answer.body);
+        assert_eq!(answer.session.unwrap().user, None, "{route}");
+        assert_eq!(i.snapshot(), before, "{route}: nothing written");
+    }
+}
+
+/// `finish` checks the admitted cookie again before it seals the session: one that expires while the bot's CSV is written
+/// (here: as its transaction commits) is not sealed again; the returned cookie does not authenticate.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cookie_that_expires_while_the_handler_runs_is_not_sealed_again() {
     let i = install();
     let secret = csrf::new_token();
     let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 5));
     let armed = Arc::new(AtomicBool::new(false));
     let (clock, later) = (i.clock.clone(), i.now() + Duration::seconds(10));
-    i.at_admin_read(Some(armed.clone()), 1, move || clock.set(later)).await;
-    let (content_type, body) = web::multipart(&[("authenticity_token", "invalid")], &[("file", "orders.csv", &csv())]);
-    let polls = Arc::new(AtomicUsize::new(0));
-    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
-    assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/"), alert("en", "errors.unverified_request")));
-    assert_eq!(answer.session.as_ref().unwrap().user, None, "the resealed session has nobody in it");
-    assert_eq!(i.rows(), 0);
+    // rusqlite names BEGIN, RELEASE and ROLLBACK; a COMMIT is its `Unknown`.
+    i.at(Some(armed.clone()), 1, |action| matches!(action, AuthAction::Transaction { operation: TransactionOperation::Unknown }), move || clock.set(later)).await;
+    let (content_type, body) = web::multipart(&[("authenticity_token", &csrf::masked(&secret))], &[("file", "orders.csv", &csv())]);
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, Arc::default(), move || armed.store(true, Ordering::SeqCst))).await;
+    assert_eq!((answer.status, answer.location.unwrap()), (302, format!("/bots/{}", i.bot)), "the write committed while signed in");
+    assert_eq!(i.rows(), 1);
+    assert_eq!(answer.session.as_ref().unwrap().user, None, "the expired sign-in is not sealed again");
     let next = send(&i.app, "GET", "/settings/account", &[answer.cookie.as_deref().unwrap()], &[], Body::empty()).await;
     assert_eq!((next.status, next.location.as_deref()), (302, Some("/login")), "the returned cookie does not authenticate");
 }
