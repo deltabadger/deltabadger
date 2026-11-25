@@ -44,7 +44,7 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
             else if matches!(r.kind, Kind::Sell | Kind::SwapOut) && symbol.is_stable() { if let Some(f) = &own_fee { *delta = (&*delta - f)?; } }
         }
         for (symbol, delta) in moves {
-            if fiat(symbol.as_str()) || delta.is_zero() { continue; }
+            if symbol.is_fiat() || delta.is_zero() { continue; }
             let asset = identity(&symbol, r);
             match out.iter_mut().find(|h| h.asset == asset) {
                 Some(h) => h.units = (&h.units + &delta)?,

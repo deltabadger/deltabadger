@@ -524,8 +524,11 @@ impl<'a> PriceService<'a> {
 
     /// `price_at(..., recorded:)`: with the asset the row recorded.
     pub fn price_at_recorded(&mut self, asset: &str, currency: &str, at: At, exchange: Option<&str>, recorded: Option<&Asset>) -> Result<Dec, FiguresError> {
-        if asset == currency { return Ok(Dec::one()); }
-        if stable(asset) { return self.stablecoin_rate(currency, at); }
+        // Codex: the cash shortcuts are for cash only: a coin, a security or a unit no evidence identifies that prints like a
+        // currency (a share booked as USD, PLEARN as PLN) is priced (or not) as what it is.
+        let cash = matches!(self.r.resolve(asset), Resolved::Symbol);
+        if cash && asset == currency { return Ok(Dec::one()); }
+        if cash && stable(asset) { return self.stablecoin_rate(currency, at); }
         // D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: a coin through the euro, at the statutory rate (the GFŘ's third currency).
         if self.statutory.is_some() && currency != "EUR" {
             let eur = self.price_at_recorded(asset, "EUR", at, exchange, recorded)?;

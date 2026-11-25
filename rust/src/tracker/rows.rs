@@ -490,7 +490,7 @@ pub fn ordered_legs(rows: Vec<Stored>, stable_cash: bool) -> Result<Vec<Stored>,
 /// the rows `split_coin_quoted_trades` reads as two legs. The base may be anything, cash included.
 pub fn coin_quoted(r: &Stored, stable_cash: bool) -> bool {
     matches!(r.kind, Kind::Buy | Kind::Sell) && r.group.is_none() && r.quote_amount.is_some()
-        && r.quote.as_ref().map(Label::as_str).is_some_and(|q| !(q.trim().is_empty() || fiat(q) || stable_cash && stable(q)))
+        && r.quote.as_ref().is_some_and(|q| !(q.as_str().trim().is_empty() || q.is_fiat() || stable_cash && q.is_stable()))
 }
 
 /// D-TRACKER-COIN-QUOTE (and the tax report's D-TAX-COIN-QUOTE): a trade of a coin for a coin booked as one buy or sell row

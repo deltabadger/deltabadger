@@ -32,7 +32,7 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// never restates a coin's lots under the symbol they share (#1061). 6: a timed Alpaca CFEE stands after its fill and an
 /// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL). 7: coins are priced by identity from asset_prices, an
 /// unidentified leg is unpriced (D-TRACKER-COIN-PRICE-KEYS).
-pub const CALCULATION: &str = "7";
+pub const CALCULATION: &str = "8";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
 pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
@@ -271,8 +271,10 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         let date = r.date().max(first);
         let venues = std::iter::once(r.venue.clone()).chain(r.to_venue.clone());
         let venues: Vec<String> = venues.collect();
-        for symbol in [Some(r.base.as_str()), r.quote.as_ref().map(Label::as_str), r.fee_currency.as_ref().map(Label::as_str)].into_iter().flatten() {
-            if fiat(symbol) || stable(symbol) { continue; }
+        for label in [Some(&r.base), r.quote.as_ref(), r.fee_currency.as_ref()].into_iter().flatten() {
+            // Codex: skipped as cash by its label's class (a security booked as USD has closes to plan).
+            if label.is_cash() { continue; }
+            let symbol = label.as_str();
             for v in &venues {
                 if seen.insert((v.clone(), symbol.to_string())) { touched.push(((v.clone(), symbol.to_string()), date, v.clone())); }
             }
@@ -481,14 +483,17 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
             let balances = held.get(venue).unwrap_or(&empty);
             crate::figures::budget::charge(balances.len() as u64, 0)?;
             let lends = super::walk::LENDS_CASH.contains(&name(venue).as_str());
-            let owed = |symbol: &str, q: &Dec| q.is_negative() && super::cash(symbol) && lends;
+            // Codex: cash by the plan: a symbol the plan holds an instrument for (a non-cash label printed like a currency) is
+            // valued as that instrument, not at par or an exchange rate.
+            let is_cash = |symbol: &str| super::cash(symbol) && !plan.keys.contains_key(&(name(venue), symbol.to_string()));
+            let owed = |symbol: &str, q: &Dec| q.is_negative() && is_cash(symbol) && lends;
             let mut unpriced = balances.iter().any(|(s, q)| *q < dust.neg() && !owed(s, q));
             if unpriced { if let Ok(id) = venue.parse::<i64>() { out.unnamed.insert(id); } }
             let (mut total, mut value_held) = (Dec::zero(), Dec::zero());
             for (symbol, quantity) in balances {
                 if !(quantity.is_positive() || owed(symbol, quantity)) { continue; }
-                let value = if stable(symbol) { Some(quantity.clone()) }
-                    else if fiat(symbol) { match fx.rate(symbol, "USD", day)? { Some(rate) => Some((quantity * &rate)?), None => None } }
+                let value = if is_cash(symbol) && stable(symbol) { Some(quantity.clone()) }
+                    else if is_cash(symbol) && fiat(symbol) { match fx.rate(symbol, "USD", day)? { Some(rate) => Some((quantity * &rate)?), None => None } }
                     else {
                         let key = match plan.keys.get(&(name(venue), symbol.clone())) { Some(k) => k.clone(), None => Some(symbol.clone()) };
                         match key.and_then(|k| prices.get(&k).and_then(|d| d.get(&day)).cloned()) { Some(p) => Some((quantity * &p)?), None => None }
@@ -497,7 +502,7 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
                 if let (None, Ok(id)) = (&value, venue.parse::<i64>()) { out.unpriced.entry(id).or_default().insert(symbol.clone()); }
                 let value = value.unwrap_or_else(Dec::zero);
                 total = (&total + &value)?;
-                if !super::cash(symbol) { value_held = (&value_held + &value)?; }
+                if !is_cash(symbol) { value_held = (&value_held + &value)?; }
             }
             let inv = invested.get(venue).cloned().unwrap_or_else(Dec::zero);
             let held_cost = (&inv - &(&total - &value_held)?)?;

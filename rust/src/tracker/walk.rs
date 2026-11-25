@@ -325,10 +325,15 @@ fn expense_share(e: &super::rows::Expense, ps: &mut PriceService, currency: &str
 /// `resolve_fee_fiat_value`.
 fn fee_fiat_value(t: &Stored, ps: &mut PriceService, report: &str) -> Result<Dec, FiguresError> {
     let Some(fee) = t.fee_amount.as_ref().filter(|f| !f.is_zero()) else { return Ok(Dec::zero()) };
-    let currency = t.fee_currency.as_ref().map(Label::as_str).unwrap_or("");
-    if currency == report { return Ok(fee.clone()); }
-    if fiat(currency) { return ps.convert_fiat(fee, currency, report, t.at); }
-    if stable(currency) { return ps.convert_fiat(fee, "USD", report, t.at); }
+    let label = t.fee_currency.as_ref();
+    let currency = label.map(Label::as_str).unwrap_or("");
+    // A fee is converted as cash only when its label is cash (Codex: a fee no evidence identifies, printed like a
+    // currency, is unpriced, not at that currency's rate).
+    if label.is_some_and(Label::is_cash) {
+        if currency == report { return Ok(fee.clone()); }
+        if fiat(currency) { return ps.convert_fiat(fee, currency, report, t.at); }
+        if stable(currency) { return ps.convert_fiat(fee, "USD", report, t.at); }
+    }
     let price = ps.price_at(currency, report, t.at, Some(&t.venue))?;
     Ok((&price * fee)?)
 }
@@ -463,7 +468,7 @@ pub fn quantity_moves(kind: Kind, base: &Label, amount: &Dec, fee_currency: Opti
     } else if kind == Kind::Withdrawal {
         moves.push((base.clone(), (if linked { transfer_fee.cloned().unwrap_or_else(Dec::zero) } else { amount.clone() }).neg()));
     } else if kind.base_out() {
-        let on_top = if matches!(kind, Kind::Sell | Kind::SwapOut) && !cash(base.as_str()) { fee_in_base.clone() } else { Dec::zero() };
+        let on_top = if matches!(kind, Kind::Sell | Kind::SwapOut) && !base.is_cash() { fee_in_base.clone() } else { Dec::zero() };
         moves.push((base.clone(), (amount + &on_top)?.neg()));
     }
     if let Some(fc) = fee_currency.filter(|c| !c.as_str().trim().is_empty()) {
@@ -519,7 +524,7 @@ pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError>
     let mut lowest: HashMap<Key, Dec> = HashMap::new();
     let walk = |i: usize, running: &mut HashMap<Key, Dec>, lowest: &mut HashMap<Key, Dec>| -> Result<(), FiguresError> {
         for (venue, symbol, amount) in located_moves(&netted[i])? {
-            if cash(symbol.as_str()) { continue; }
+            if symbol.is_cash() { continue; }
             crate::figures::budget::charge(1, 0)?;
             let key = (venue.unwrap_or_default(), symbol);
             let now = (running.get(&key).unwrap_or(&Dec::zero()) + &amount)?;
@@ -556,7 +561,7 @@ pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError>
         let mut brings: HashMap<usize, Vec<Key>> = HashMap::new();
         for &k in &span {
             for (venue, symbol, amount) in located_moves(&netted[k])? {
-                if amount.is_positive() && !cash(symbol.as_str()) {
+                if amount.is_positive() && !symbol.is_cash() {
                     let key = (venue.unwrap_or_default(), symbol);
                     *bringing.entry(key.clone()).or_insert(0) += 1;
                     brings.entry(k).or_default().push(key);
@@ -610,7 +615,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
             moves.push((None, to.clone(), moved));
         }
         for (venue, symbol, amount) in moves {
-            if cash(symbol.as_str()) { continue; }
+            if symbol.is_cash() { continue; }
             let key = (venue, symbol);
             first.entry(key.clone()).or_insert(i);
             let now = (running.get(&key).unwrap_or(&Dec::zero()) + &amount)?;
@@ -819,7 +824,7 @@ impl Engine {
         let before = self.pool_basis(asset)?;
         self.dequeue(asset, amount)?;
         // A stablecoin fee is cash: the cash book pays it, at face, and it gains nothing.
-        if cash(asset.as_str()) { return Ok(()); }
+        if asset.is_cash() { return Ok(()); }
         let released = (&before - &self.pool_basis(asset)?)?;
         let counted = if self.fee_is_cost { Dec::zero() } else { self.fee_value.clone() };
         Engine::add(&mut self.fee_realised, self.venue.clone(), &(&counted - &released)?)
@@ -879,7 +884,7 @@ impl Engine {
     /// The tracker's `record_disposal`: cash leaves silently; anything else is a disposal, and one that takes more than
     /// was held leaves the walk uncovered.
     fn record_disposal(&mut self, r: &Row, asset: &Label, amount: &Dec, value: &Dec) -> Result<(), FiguresError> {
-        if cash(asset.as_str()) { self.dequeue(asset, amount)?; return self.disposal_fee(r); }
+        if asset.is_cash() { self.dequeue(asset, amount)?; return self.disposal_fee(r); }
         let held = self.held(asset)?;
         let has_lots = !self.lots(asset).is_empty();
         let (tranches, _) = self.dequeue(asset, amount)?;
@@ -906,7 +911,7 @@ impl Engine {
     fn consume_in_kind(&mut self, asset: &Label, amount: &Dec) -> Result<(), FiguresError> {
         let record = !self.paying_trade_fee;
         let before = self.pool_basis(asset)?;
-        if !fiat(asset.as_str()) && amount.is_positive() && !self.lots(asset).is_empty() { self.dequeue(asset, amount)?; }
+        if !asset.is_fiat() && amount.is_positive() && !self.lots(asset).is_empty() { self.dequeue(asset, amount)?; }
         if record {
             let released = (&before - &self.pool_basis(asset)?)?;
             let v = if self.located { self.venue.clone() } else { None };
@@ -1092,7 +1097,7 @@ impl Engine {
         let Some(row) = self.original.get(&uid).cloned() else { return Ok(()) };
         let amount = row.fee();
         let Some(asset) = row.fee_currency.clone().filter(|c| !c.as_str().trim().is_empty()) else { return Ok(()) };
-        if !amount.is_positive() || cash(asset.as_str()) { return Ok(()); }
+        if !amount.is_positive() || asset.is_cash() { return Ok(()); }
         if row.quote.as_ref().map(Label::as_str) == Some(asset.as_str()) { return Ok(()); }
         if asset == row.base && !matches!(row.kind, Kind::Sell | Kind::SwapOut) { return Ok(()); }
         self.fee_value = Dec::zero();
@@ -1156,9 +1161,9 @@ impl Engine {
                 Kind::Buy | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => self.acquire(r, r.price_missing)?,
                 Kind::Deposit if r.linked => {}
                 Kind::Deposit => self.acquire(r, true)?,
-                Kind::SwapIn => if !stable(asset.as_str()) { self.swap_in(r, &amount, &r.fiat_value)? },
+                Kind::SwapIn => if !asset.is_stable() { self.swap_in(r, &amount, &r.fiat_value)? },
                 Kind::SwapOut => {
-                    if stable(asset.as_str()) {} else if !fiat_disposal(r) { self.swap_out(r, &amount)? } else { self.record_disposal(r, &asset, &amount, &r.fiat_value)? }
+                    if asset.is_stable() {} else if !fiat_disposal(r) { self.swap_out(r, &amount)? } else { self.record_disposal(r, &asset, &amount, &r.fiat_value)? }
                 }
                 Kind::Sell => self.record_disposal(r, &asset, &amount, &r.fiat_value)?,
                 Kind::Adjustment => self.split(r)?,
@@ -1184,7 +1189,7 @@ impl Engine {
     fn positions(&self, venue: Option<&str>) -> Result<Vec<Position>, FiguresError> {
         let mut out = vec![];
         for ((at, symbol), lots) in &self.lots {
-            if at.as_deref() != venue || cash(symbol.as_str()) { continue; }
+            if at.as_deref() != venue || symbol.is_cash() { continue; }
             let quantity = sum(lots.iter().map(|l| Ok(l.amount.clone())))?;
             if !quantity.is_positive() { continue; }
             let cost = sum(lots.iter().map(|l| &l.amount * &l.cost_per_unit))?;
@@ -1295,7 +1300,7 @@ pub fn cash_moves(kind: Kind, base: &Label, amount: &Dec, quote: Option<&Label>,
         }
         moves.push((Some(base.clone()), if kind.base_in() { a } else { a.neg() }));
     }
-    Ok(moves.into_iter().filter_map(|(c, a)| c.filter(|c| cash(c.as_str())).filter(|_| !a.is_zero()).map(|c| (c, a))).collect())
+    Ok(moves.into_iter().filter_map(|(c, a)| c.filter(|c| c.is_cash()).filter(|_| !a.is_zero()).map(|c| (c, a))).collect())
 }
 
 fn row_cash_moves(r: &Row) -> Result<Vec<(Label, Dec)>, FiguresError> {
