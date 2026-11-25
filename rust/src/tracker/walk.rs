@@ -103,8 +103,8 @@ pub struct Row {
 impl Row {
     fn value_missing(&self) -> bool { self.value_missing.unwrap_or(self.price_missing) }
     fn fee(&self) -> Dec { self.fee_amount.clone().unwrap_or_else(Dec::zero) }
-    fn fee_is(&self, currency: &str) -> bool { self.fee_currency.as_deref() == Some(currency) }
-    fn fee_present(&self) -> bool { self.fee_currency.as_deref().is_some_and(|c| !c.trim().is_empty()) }
+    fn fee_is(&self, currency: &str) -> bool { self.fee_currency.as_ref().map(Label::as_str) == Some(currency) }
+    fn fee_present(&self) -> bool { self.fee_currency.as_ref().map(Label::as_str).is_some_and(|c| !c.trim().is_empty()) }
 }
 
 /// One term of money in, as the chart reads it day by day (Tracker::Ledger::Term).
@@ -218,8 +218,8 @@ fn cash_faces(legs: &[&Stored], ps: &mut PriceService, currency: &str) -> Result
     let kept = ps.warnings.len();
     let (mut f, mut s) = (Dec::zero(), Dec::zero());
     for t in legs {
-        if stable(&t.base) { s = (&s + &ps.convert_fiat(&t.amount, "USD", currency, t.at)?)?; }
-        else { f = (&f + &ps.convert_fiat(&t.amount, &t.base, currency, t.at)?)?; }
+        if t.base.is_stable() { s = (&s + &ps.convert_fiat(&t.amount, "USD", currency, t.at)?)?; }
+        else { f = (&f + &ps.convert_fiat(&t.amount, t.base.as_str(), currency, t.at)?)?; }
     }
     if ps.warnings.len() == kept { return Ok(Some((f, s, false))); }
     if ps.statutory.is_some() { return Ok(Some((f, s, true))); }
@@ -228,7 +228,7 @@ fn cash_faces(legs: &[&Stored], ps: &mut PriceService, currency: &str) -> Result
 }
 
 /// `quote_of`: a fiat currency if any leg carries one, else the first leg's.
-fn quote_of(legs: &[&Stored]) -> Option<Label> { legs.iter().find(|t| fiat(&t.base)).or(legs.first()).map(|t| t.base.clone()) }
+fn quote_of(legs: &[&Stored]) -> Option<Label> { legs.iter().find(|t| t.base.is_fiat()).or(legs.first()).map(|t| t.base.clone()) }
 
 /// `cash_leg_context`: per grouped leg, what the cash beside it says it was worth, and whether a coin-for-coin pair is a
 /// swap however the venue booked it.
@@ -247,7 +247,7 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService, currency: &str) -> R
         crate::figures::budget::check()?;
         let legs = &groups[&key];
         if legs.len() < 2 { continue; }
-        let (cash_legs, coins): (Vec<&Stored>, Vec<&Stored>) = legs.iter().partition(|t| cash(&t.base));
+        let (cash_legs, coins): (Vec<&Stored>, Vec<&Stored>) = legs.iter().partition(|t| t.base.is_cash());
         let outs: Vec<&Stored> = coins.iter().copied().filter(|t| t.kind.out_leg() && t.quote_amount.is_none()).collect();
         let ins: Vec<&Stored> = coins.iter().copied().filter(|t| t.kind.in_leg() && t.quote_amount.is_none()).collect();
         let cash_out: Vec<&Stored> = cash_legs.iter().copied().filter(|t| t.kind.out_leg()).collect();
@@ -285,8 +285,8 @@ fn cash_leg_context(rows: &[Stored], ps: &mut PriceService, currency: &str) -> R
 
 /// `resolve_fiat_value`.
 fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &str) -> Result<Dec, FiguresError> {
-    if fiat(&t.base) { return Ok(Dec::zero()); }
-    if let (Some(q), Some(qa)) = (t.quote.as_deref(), &t.quote_amount) {
+    if t.base.is_fiat() { return Ok(Dec::zero()); }
+    if let (Some(q), Some(qa)) = (t.quote.as_ref().map(Label::as_str), &t.quote_amount) {
         if q == currency { return Ok(qa.clone()); }
         if stable(q) { return ps.convert_fiat(qa, "USD", currency, t.at); }
         if fiat(q) { return ps.convert_fiat(qa, q, currency, t.at); }
@@ -299,14 +299,14 @@ fn fiat_value(t: &Stored, leg: Option<&Leg>, ps: &mut PriceService, currency: &s
     if foreign_cfee(t) { ps.warnings.push(format!("{}/{currency} {}", t.base, t.date())); return Ok(Dec::zero()); }
     // D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE at what its fills were traded at.
     if let Some((price, unit)) = &t.cfee.fill_price { return ps.convert_fiat(&(price * &t.amount)?, unit, currency, t.at); }
-    let price = ps.price_at_recorded(&t.base, currency, t.at, Some(&t.venue), t.base_asset.as_ref())?;
+    let price = ps.price_at_recorded(t.base.as_str(), currency, t.at, Some(&t.venue), t.base_asset.as_ref())?;
     Ok((&price * &t.amount)?)
 }
 
 /// D-TAX-CFEE-MATCHED-FILL: a timed CFEE with no stated or raw price, charged as another coin than its booking day's.
 fn foreign_cfee(t: &Stored) -> bool {
     t.stated.is_none() && t.cfee.raw_price.is_none()
-        && t.cfee.charged.is_some_and(|c| super::rows::charged_as_another_coin(&t.base, &t.venue, t.exchange_id, c, t.date()))
+        && t.cfee.charged.is_some_and(|c| super::rows::charged_as_another_coin(t.base.as_str(), &t.venue, t.exchange_id, c, t.date()))
 }
 
 /// D-TAX-CFEE-PREVIOUS-DAY (SE, GB): a fill's share of a CFEE it carries as its expense: the fee valued as its own row is
@@ -325,7 +325,7 @@ fn expense_share(e: &super::rows::Expense, ps: &mut PriceService, currency: &str
 /// `resolve_fee_fiat_value`.
 fn fee_fiat_value(t: &Stored, ps: &mut PriceService, report: &str) -> Result<Dec, FiguresError> {
     let Some(fee) = t.fee_amount.as_ref().filter(|f| !f.is_zero()) else { return Ok(Dec::zero()) };
-    let currency = t.fee_currency.as_deref().unwrap_or("");
+    let currency = t.fee_currency.as_ref().map(Label::as_str).unwrap_or("");
     if currency == report { return Ok(fee.clone()); }
     if fiat(currency) { return ps.convert_fiat(fee, currency, report, t.at); }
     if stable(currency) { return ps.convert_fiat(fee, "USD", report, t.at); }
@@ -416,8 +416,8 @@ fn attribute_quote_row_fees(rows: &mut [Row]) {
     for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.account, g.clone())).or_default().push(i); } }
     for members in groups.values() {
         if members.len() < 2 { continue; }
-        let donors: Vec<usize> = members.iter().copied().filter(|&i| fiat(&rows[i].base) && rows[i].fee_amount.is_some()).collect();
-        let targets: Vec<usize> = members.iter().copied().filter(|&i| matches!(rows[i].kind, Kind::Buy | Kind::SwapIn | Kind::Sell | Kind::SwapOut) && !fiat(&rows[i].base)).collect();
+        let donors: Vec<usize> = members.iter().copied().filter(|&i| rows[i].base.is_fiat() && rows[i].fee_amount.is_some()).collect();
+        let targets: Vec<usize> = members.iter().copied().filter(|&i| matches!(rows[i].kind, Kind::Buy | Kind::SwapIn | Kind::Sell | Kind::SwapOut) && !rows[i].base.is_fiat()).collect();
         let ([donor], [target]) = (donors.as_slice(), targets.as_slice()) else { continue };
         if rows[*target].fee_present() { continue; }
         let (fc, fa, ff, pm) = (rows[*donor].fee_currency.clone(), rows[*donor].fee_amount.clone(), rows[*donor].fee_fiat_value.clone(), rows[*donor].price_missing);
@@ -463,10 +463,10 @@ pub fn quantity_moves(kind: Kind, base: &Label, amount: &Dec, fee_currency: Opti
     } else if kind == Kind::Withdrawal {
         moves.push((base.clone(), (if linked { transfer_fee.cloned().unwrap_or_else(Dec::zero) } else { amount.clone() }).neg()));
     } else if kind.base_out() {
-        let on_top = if matches!(kind, Kind::Sell | Kind::SwapOut) && !cash(base) { fee_in_base.clone() } else { Dec::zero() };
+        let on_top = if matches!(kind, Kind::Sell | Kind::SwapOut) && !cash(base.as_str()) { fee_in_base.clone() } else { Dec::zero() };
         moves.push((base.clone(), (amount + &on_top)?.neg()));
     }
-    if let Some(fc) = fee_currency.filter(|c| !c.trim().is_empty()) {
+    if let Some(fc) = fee_currency.filter(|c| !c.as_str().trim().is_empty()) {
         if fc != base && fee.is_positive() { moves.push((fc.clone(), fee.neg())); }
     }
     Ok(moves)
@@ -496,9 +496,9 @@ pub(crate) fn located_moves(r: &Row) -> Result<Vec<(Option<String>, Label, Dec)>
 fn transfer_barrier(e: &Row, t: &Row) -> bool {
     let coin = t.base.as_str();
     if e.exchange != t.exchange { return false; }
-    if !(e.base == coin || e.quote.as_deref() == Some(coin) || e.fee_currency.as_deref() == Some(coin)) { return false; }
+    if !(e.base.as_str() == coin || e.quote.as_ref().map(Label::as_str) == Some(coin) || e.fee_currency.as_ref().map(Label::as_str) == Some(coin)) { return false; }
     if e.kind == Kind::Deposit && e.linked {
-        return e.fee().is_positive() && e.fee_is(coin) && (e.base != coin || cash(coin));
+        return e.fee().is_positive() && e.fee_is(coin) && (e.base.as_str() != coin || cash(coin));
     }
     true
 }
@@ -519,7 +519,7 @@ pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError>
     let mut lowest: HashMap<Key, Dec> = HashMap::new();
     let walk = |i: usize, running: &mut HashMap<Key, Dec>, lowest: &mut HashMap<Key, Dec>| -> Result<(), FiguresError> {
         for (venue, symbol, amount) in located_moves(&netted[i])? {
-            if cash(&symbol) { continue; }
+            if cash(symbol.as_str()) { continue; }
             crate::figures::budget::charge(1, 0)?;
             let key = (venue.unwrap_or_default(), symbol);
             let now = (running.get(&key).unwrap_or(&Dec::zero()) + &amount)?;
@@ -556,7 +556,7 @@ pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError>
         let mut brings: HashMap<usize, Vec<Key>> = HashMap::new();
         for &k in &span {
             for (venue, symbol, amount) in located_moves(&netted[k])? {
-                if amount.is_positive() && !cash(&symbol) {
+                if amount.is_positive() && !cash(symbol.as_str()) {
                     let key = (venue.unwrap_or_default(), symbol);
                     *bringing.entry(key.clone()).or_insert(0) += 1;
                     brings.entry(k).or_default().push(key);
@@ -573,7 +573,7 @@ pub fn transfers_first(rows: &[Row], from: At) -> Result<Vec<Row>, FiguresError>
                 let r = &rows[t];
                 let key = (r.exchange.clone(), r.base.clone());
                 let others = bringing.get(&key).copied().unwrap_or(0).saturating_sub(brings.get(&t).map_or(0, |b| b.iter().filter(|k| **k == key).count()));
-                if cash(&r.base) || available(&key, &running, &lowest)? >= r.amount || others == 0 { pick = Some(t); break; }
+                if r.base.is_cash() || available(&key, &running, &lowest)? >= r.amount || others == 0 { pick = Some(t); break; }
             }
             let pick = pick.or_else(|| left.iter().copied().find(|&k| !between_venues(&rows[k])))
                 .or_else(|| left.iter().rev().copied().find(|&t| walkable(t)))
@@ -610,7 +610,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
             moves.push((None, to.clone(), moved));
         }
         for (venue, symbol, amount) in moves {
-            if cash(&symbol) { continue; }
+            if cash(symbol.as_str()) { continue; }
             let key = (venue, symbol);
             first.entry(key.clone()).or_insert(i);
             let now = (running.get(&key).unwrap_or(&Dec::zero()) + &amount)?;
@@ -630,7 +630,7 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
         let at = row.at.plus_seconds(-1).ok_or_else(|| FiguresError::Data("an instant out of range".into()))?;
         let quantity = low.neg();
         let kept = ps.warnings.len();
-        let price = ps.price_at(&symbol, "USD", at, Some(name(names, &venue)))?;
+        let price = ps.price_at(symbol.as_str(), "USD", at, Some(name(names, &venue)))?;
         ps.warnings.truncate(kept);
         let uid = *next_uid;
         *next_uid += 1;
@@ -681,7 +681,7 @@ fn net_daily_splits(mut rows: Vec<Row>) -> Result<Vec<Row>, FiguresError> {
 
 /// `taxable`: a fiat row reaches the engine only to pay a fee in a coin.
 fn taxable(rows: &[Row]) -> Vec<Row> {
-    rows.iter().filter(|r| !fiat(&r.base) || (r.fee().is_positive() && r.fee_present() && !r.fee_currency.as_deref().is_some_and(cash))).cloned().collect()
+    rows.iter().filter(|r| !r.base.is_fiat() || (r.fee().is_positive() && r.fee_present() && !r.fee_currency.as_ref().is_some_and(Label::is_cash))).cloned().collect()
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -734,9 +734,9 @@ pub struct Engine {
 
 fn group_key(r: &Row) -> Option<GroupKey> { r.group.clone().map(|g| (r.exchange.clone(), g)) }
 /// `fiat_disposal?` with stablecoins as cash.
-fn fiat_disposal(r: &Row) -> bool { r.quote.as_deref().is_some_and(|q| !q.trim().is_empty() && (fiat(q) || stable(q))) }
+fn fiat_disposal(r: &Row) -> bool { r.quote.as_ref().map(Label::as_str).is_some_and(|q| !q.trim().is_empty() && (fiat(q) || stable(q))) }
 /// `crypto_fee_asset?`.
-fn crypto_fee_asset(r: &Row) -> bool { r.fee_present() && r.fee_currency != r.quote && !r.fee_currency.as_deref().is_some_and(fiat) }
+fn crypto_fee_asset(r: &Row) -> bool { r.fee_present() && r.fee_currency != r.quote && !r.fee_currency.as_ref().is_some_and(Label::is_fiat) }
 fn unit(cost: &Dec, amount: &Dec) -> Result<Dec, FiguresError> { Ok(if amount.is_positive() { cost.div(amount)? } else { Dec::zero() }) }
 
 /// `allocate_shares`: the last share is what is left.
@@ -819,7 +819,7 @@ impl Engine {
         let before = self.pool_basis(asset)?;
         self.dequeue(asset, amount)?;
         // A stablecoin fee is cash: the cash book pays it, at face, and it gains nothing.
-        if cash(asset) { return Ok(()); }
+        if cash(asset.as_str()) { return Ok(()); }
         let released = (&before - &self.pool_basis(asset)?)?;
         let counted = if self.fee_is_cost { Dec::zero() } else { self.fee_value.clone() };
         Engine::add(&mut self.fee_realised, self.venue.clone(), &(&counted - &released)?)
@@ -829,7 +829,7 @@ impl Engine {
     fn acquisition_fee(&mut self, r: &Row, amount: &Dec, value: &Dec) -> Result<(Dec, Dec), FiguresError> {
         self.fee_value = r.fee_fiat_value.clone();
         // Cash bought is the cash book's: a coin paid as its fee has no lot to go into, and leaves at its basis.
-        self.fee_is_cost = cash(&r.base);
+        self.fee_is_cost = r.base.is_cash();
         let (quantity, cost) = self.acquisition_fee_applied(r, amount, value)?;
         // A same-coin fee that took everything that arrived opens a lot of nothing, and its cost goes with it: spent.
         if !self.fee_is_cost && r.kind != Kind::SwapIn && quantity.is_zero() && cost.is_positive() {
@@ -840,7 +840,7 @@ impl Engine {
 
     /// AcquisitionFee#apply_acquisition_fee.
     fn acquisition_fee_applied(&mut self, r: &Row, amount: &Dec, value: &Dec) -> Result<(Dec, Dec), FiguresError> {
-        if r.fee_present() && r.fee_is(&r.base) {
+        if r.fee_present() && r.fee_is(r.base.as_str()) {
             let Some(fee) = &r.fee_amount else { return Ok((amount.clone(), value.clone())) };
             let net = (amount - fee)?;
             return Ok((if net.is_negative() { Dec::zero() } else { net }, value.clone()));
@@ -857,11 +857,11 @@ impl Engine {
         self.paying_trade_fee = true;
         self.fee_value = r.fee_fiat_value.clone();
         // Off a coin's gain it was counted at its value; off cash sold, nothing counts it — a cost.
-        self.fee_is_cost = cash(&r.base);
+        self.fee_is_cost = r.base.is_cash();
         let fee = r.fee();
-        let out = if r.fee_is(&r.base) && !cash(&r.base) {
+        let out = if r.fee_is(r.base.as_str()) && !r.base.is_cash() {
             if fee.is_positive() { self.consume_fee_asset(&r.base.clone(), &fee) } else { Ok(()) }
-        } else if !fee.is_positive() || r.fee_is(&r.base) || !crypto_fee_asset(r) { Ok(()) }
+        } else if !fee.is_positive() || r.fee_is(r.base.as_str()) || !crypto_fee_asset(r) { Ok(()) }
         else { let fc = r.fee_currency.clone().unwrap_or_default(); self.consume_fee_asset(&fc, &fee) };
         self.paying_trade_fee = false;
         out
@@ -879,7 +879,7 @@ impl Engine {
     /// The tracker's `record_disposal`: cash leaves silently; anything else is a disposal, and one that takes more than
     /// was held leaves the walk uncovered.
     fn record_disposal(&mut self, r: &Row, asset: &Label, amount: &Dec, value: &Dec) -> Result<(), FiguresError> {
-        if cash(asset) { self.dequeue(asset, amount)?; return self.disposal_fee(r); }
+        if cash(asset.as_str()) { self.dequeue(asset, amount)?; return self.disposal_fee(r); }
         let held = self.held(asset)?;
         let has_lots = !self.lots(asset).is_empty();
         let (tranches, _) = self.dequeue(asset, amount)?;
@@ -906,7 +906,7 @@ impl Engine {
     fn consume_in_kind(&mut self, asset: &Label, amount: &Dec) -> Result<(), FiguresError> {
         let record = !self.paying_trade_fee;
         let before = self.pool_basis(asset)?;
-        if !fiat(asset) && amount.is_positive() && !self.lots(asset).is_empty() { self.dequeue(asset, amount)?; }
+        if !fiat(asset.as_str()) && amount.is_positive() && !self.lots(asset).is_empty() { self.dequeue(asset, amount)?; }
         if record {
             let released = (&before - &self.pool_basis(asset)?)?;
             let v = if self.located { self.venue.clone() } else { None };
@@ -920,7 +920,7 @@ impl Engine {
     fn transfer(&mut self, r: &Row) -> Result<(), FiguresError> {
         let before = self.pool_basis(&r.base)?;
         if let Some(fee) = r.transfer_fee.as_ref().filter(|f| f.is_positive()) { self.dequeue(&r.base, fee)?; }
-        if cash(&r.base) { return Ok(()); }
+        if r.base.is_cash() { return Ok(()); }
         let after = self.pool_basis(&r.base)?;
         self.fee_basis.insert(r.uid, (&before - &after)?);
         let Some(destination) = r.to_exchange.clone().filter(|d| !d.is_empty()) else { return Ok(()) };
@@ -1091,9 +1091,9 @@ impl Engine {
         if self.fee_consumed { return Ok(()); }
         let Some(row) = self.original.get(&uid).cloned() else { return Ok(()) };
         let amount = row.fee();
-        let Some(asset) = row.fee_currency.clone().filter(|c| !c.trim().is_empty()) else { return Ok(()) };
-        if !amount.is_positive() || cash(&asset) { return Ok(()); }
-        if row.quote.as_deref() == Some(asset.as_str()) { return Ok(()); }
+        let Some(asset) = row.fee_currency.clone().filter(|c| !c.as_str().trim().is_empty()) else { return Ok(()) };
+        if !amount.is_positive() || cash(asset.as_str()) { return Ok(()); }
+        if row.quote.as_ref().map(Label::as_str) == Some(asset.as_str()) { return Ok(()); }
         if asset == row.base && !matches!(row.kind, Kind::Sell | Kind::SwapOut) { return Ok(()); }
         self.fee_value = Dec::zero();
         self.fee_is_cost = true;
@@ -1104,7 +1104,7 @@ impl Engine {
     /// an orphan swap-out left the tracked universe.
     fn remap(r: &Row) -> Row {
         let mut m = r.clone();
-        if fiat(&r.base) { m.kind = Kind::Unsupported; return m; }
+        if r.base.is_fiat() { m.kind = Kind::Unsupported; return m; }
         match r.kind {
             Kind::Lost => { m.kind = Kind::Sell; m.fiat_value = Dec::zero(); m.quote = None; m.fee_currency = None; m.fee_amount = None; m.fee_fiat_value = Dec::zero(); }
             Kind::Withdrawal if !r.linked => m.kind = Kind::Fee,
@@ -1119,7 +1119,7 @@ impl Engine {
         let mut ins: Vec<(GroupKey, Vec<&Row>)> = vec![];
         let mut outs: Vec<(GroupKey, Vec<&Row>)> = vec![];
         for r in rows {
-            if stable(&r.base) { continue; }
+            if r.base.is_stable() { continue; }
             let Some(key) = group_key(r) else { continue };
             let list = match r.kind { Kind::SwapIn => &mut ins, Kind::SwapOut if !fiat_disposal(r) => &mut outs, _ => continue };
             match list.iter_mut().find(|(k, _)| *k == key) { Some((_, legs)) => legs.push(r), None => list.push((key, vec![r])) }
@@ -1156,9 +1156,9 @@ impl Engine {
                 Kind::Buy | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => self.acquire(r, r.price_missing)?,
                 Kind::Deposit if r.linked => {}
                 Kind::Deposit => self.acquire(r, true)?,
-                Kind::SwapIn => if !stable(&asset) { self.swap_in(r, &amount, &r.fiat_value)? },
+                Kind::SwapIn => if !stable(asset.as_str()) { self.swap_in(r, &amount, &r.fiat_value)? },
                 Kind::SwapOut => {
-                    if stable(&asset) {} else if !fiat_disposal(r) { self.swap_out(r, &amount)? } else { self.record_disposal(r, &asset, &amount, &r.fiat_value)? }
+                    if stable(asset.as_str()) {} else if !fiat_disposal(r) { self.swap_out(r, &amount)? } else { self.record_disposal(r, &asset, &amount, &r.fiat_value)? }
                 }
                 Kind::Sell => self.record_disposal(r, &asset, &amount, &r.fiat_value)?,
                 Kind::Adjustment => self.split(r)?,
@@ -1184,7 +1184,7 @@ impl Engine {
     fn positions(&self, venue: Option<&str>) -> Result<Vec<Position>, FiguresError> {
         let mut out = vec![];
         for ((at, symbol), lots) in &self.lots {
-            if at.as_deref() != venue || cash(symbol) { continue; }
+            if at.as_deref() != venue || cash(symbol.as_str()) { continue; }
             let quantity = sum(lots.iter().map(|l| Ok(l.amount.clone())))?;
             if !quantity.is_positive() { continue; }
             let cost = sum(lots.iter().map(|l| &l.amount * &l.cost_per_unit))?;
@@ -1295,7 +1295,7 @@ pub fn cash_moves(kind: Kind, base: &Label, amount: &Dec, quote: Option<&Label>,
         }
         moves.push((Some(base.clone()), if kind.base_in() { a } else { a.neg() }));
     }
-    Ok(moves.into_iter().filter_map(|(c, a)| c.filter(|c| cash(c)).filter(|_| !a.is_zero()).map(|c| (c, a))).collect())
+    Ok(moves.into_iter().filter_map(|(c, a)| c.filter(|c| cash(c.as_str())).filter(|_| !a.is_zero()).map(|c| (c, a))).collect())
 }
 
 fn row_cash_moves(r: &Row) -> Result<Vec<(Label, Dec)>, FiguresError> {
@@ -1303,18 +1303,18 @@ fn row_cash_moves(r: &Row) -> Result<Vec<(Label, Dec)>, FiguresError> {
 }
 
 fn in_kind(r: &Row) -> bool { r.kind.in_kind() || (r.kind == Kind::SwapIn && r.orphan) }
-fn valued_by_price(r: &Row) -> bool { in_kind(r) || (r.kind == Kind::Deposit && !r.linked && !cash(&r.base)) }
-fn cash_for_cash(r: &Row) -> bool { r.quote_amount.is_some() && cash(&r.base) && r.quote.as_deref().is_some_and(cash) }
+fn valued_by_price(r: &Row) -> bool { in_kind(r) || (r.kind == Kind::Deposit && !r.linked && !r.base.is_cash()) }
+fn cash_for_cash(r: &Row) -> bool { r.quote_amount.is_some() && r.base.is_cash() && r.quote.as_ref().is_some_and(Label::is_cash) }
 
 /// `fee_already_counted?`.
 fn fee_already_counted(r: &Row) -> bool {
-    if r.fee_is(&r.base) {
+    if r.fee_is(r.base.as_str()) {
         if r.kind.cost() || r.kind == Kind::Withdrawal { return true; }
         if matches!(r.kind, Kind::Sell | Kind::SwapOut) { return r.quote_amount.is_some(); }
     }
-    if cash(&r.base) { return r.kind == Kind::Buy && cash_for_cash(r); }
+    if r.base.is_cash() { return r.kind == Kind::Buy && cash_for_cash(r); }
     r.kind.acquisition() || (r.kind == Kind::Deposit && !r.linked) || r.kind == Kind::Sell
-        || (r.kind == Kind::SwapOut && !r.orphan && r.quote.as_deref().is_some_and(cash))
+        || (r.kind == Kind::SwapOut && !r.orphan && r.quote.as_ref().is_some_and(Label::is_cash))
 }
 
 /// `cash_costs`: units of cash, per currency, that left this row with nothing in return.
@@ -1324,23 +1324,23 @@ fn cash_costs(r: &Row) -> Result<Vec<(String, Dec)>, FiguresError> {
         match costs.iter_mut().find(|(k, _)| k == c) { Some((_, v)) => *v = (&*v + a)?, None => costs.push((c.to_string(), (&Dec::zero() + a)?)) }
         Ok(())
     };
-    if r.kind.cost() && cash(&r.base) { add(&r.base, &abs(&r.amount))?; }
+    if r.kind.cost() && r.base.is_cash() { add(r.base.as_str(), &abs(&r.amount))?; }
     let fee = r.fee();
-    if !(fee.is_positive() && r.fee_currency.as_deref().is_some_and(cash)) || fee_already_counted(r) { return Ok(costs); }
+    if !(fee.is_positive() && r.fee_currency.as_ref().is_some_and(Label::is_cash)) || fee_already_counted(r) { return Ok(costs); }
     let fc = r.fee_currency.clone().unwrap_or_default();
-    if fc == r.base && r.kind.base_in() { add(&r.base, &min(&fee, &r.amount))?; }
-    else if fc == r.base { add(&r.base, &fee)?; }
-    else { add(&fc, &fee)?; }
+    if fc == r.base && r.kind.base_in() { add(r.base.as_str(), &min(&fee, &r.amount))?; }
+    else if fc == r.base { add(r.base.as_str(), &fee)?; }
+    else { add(fc.as_str(), &fee)?; }
     Ok(costs)
 }
 
 /// `cash_counterpart_worth`: cash bought with cash is worth what the quote came to (and a buy's other-cash fee).
 fn counterpart_worth(r: &Row, ps: &mut PriceService) -> Result<Option<(String, Dec)>, FiguresError> {
     if !cash_for_cash(r) { return Ok(None); }
-    let (Some(q), Some(qa)) = (r.quote.as_deref(), &r.quote_amount) else { return Ok(None) };
+    let (Some(q), Some(qa)) = (r.quote.as_ref().map(Label::as_str), &r.quote_amount) else { return Ok(None) };
     let mut worth = Book::value(q, qa, r.at, ps)?;
-    if r.kind == Kind::Buy && r.fee().is_positive() && !r.fee_is(&r.base) && r.fee_currency.as_deref().is_some_and(cash) {
-        worth = (&worth + &Book::value(r.fee_currency.as_deref().unwrap_or(""), &r.fee(), r.at, ps)?)?;
+    if r.kind == Kind::Buy && r.fee().is_positive() && !r.fee_is(r.base.as_str()) && r.fee_currency.as_ref().is_some_and(Label::is_cash) {
+        worth = (&worth + &Book::value(r.fee_currency.as_ref().map(Label::as_str).unwrap_or(""), &r.fee(), r.at, ps)?)?;
     }
     Ok(Some((r.base.to_string(), worth)))
 }
@@ -1359,14 +1359,14 @@ fn cash_conversions(rows: &[Row], ps: &mut PriceService) -> Result<HashMap<usize
     let mut worths = HashMap::new();
     for key in order {
         let legs = &groups[&key];
-        if legs.iter().any(|l| !cash(&l.base) || l.quote_amount.is_some()) { continue; }
+        if legs.iter().any(|l| !l.base.is_cash() || l.quote_amount.is_some()) { continue; }
         let outs: Vec<&&Row> = legs.iter().filter(|l| matches!(l.kind, Kind::Sell | Kind::SwapOut)).collect();
         let ins: Vec<&&Row> = legs.iter().filter(|l| matches!(l.kind, Kind::Buy | Kind::SwapIn)).collect();
         if outs.is_empty() || ins.is_empty() { continue; }
         let mut came = Dec::zero();
-        for l in &ins { came = (&came + &Book::value(&l.base, &l.amount, l.at, ps)?)?; }
+        for l in &ins { came = (&came + &Book::value(l.base.as_str(), &l.amount, l.at, ps)?)?; }
         let mut went = vec![];
-        for l in &outs { went.push(Book::value(&l.base, &l.amount, l.at, ps)?); }
+        for l in &outs { went.push(Book::value(l.base.as_str(), &l.amount, l.at, ps)?); }
         let total = sum(went.iter().map(|v| Ok(v.clone())))?;
         for (l, v) in outs.iter().zip(went) { worths.insert(l.uid, if total.is_positive() { (&came * &v)?.div(&total)? } else { v }); }
     }
@@ -1401,19 +1401,19 @@ fn book_cash(book: &mut Book, r: &Row, carried: &mut HashMap<usize, Dec>, conver
     let (at, venue) = (r.at, r.exchange.as_str());
     let mut costs = cash_costs(r)?;
     let mut moves = row_cash_moves(r)?;
-    if r.linked && cash(&r.base) {
+    if r.linked && r.base.is_cash() {
         if r.kind == Kind::Withdrawal {
             let fee = max(&r.transfer_fee.clone().unwrap_or_else(Dec::zero), &Dec::zero());
             let to = r.to_exchange.clone().unwrap_or_else(|| venue.to_string());
-            let c = book.carry(venue, &r.base, &r.amount, &to, at, &fee, ps)?;
+            let c = book.carry(venue, r.base.as_str(), &r.amount, &to, at, &fee, ps)?;
             carried.insert(r.uid, c);
         } else {
             let arrived = sum(moves.iter().map(|(c, a)| Ok(if *c == r.base { a.clone() } else { Dec::zero() })))?;
             let netted = (&r.amount - &arrived)?;
-            if netted.is_positive() { book.shift(venue, &r.base, &netted.neg(), at, &netted, &Dec::zero(), None, ps)?; }
+            if netted.is_positive() { book.shift(venue, r.base.as_str(), &netted.neg(), at, &netted, &Dec::zero(), None, ps)?; }
         }
         moves.retain(|(c, _)| *c != r.base);
-        costs.retain(|(c, _)| *c != r.base);
+        costs.retain(|(c, _)| *c != r.base.as_str());
     }
     let withdrawing = (r.kind == Kind::Withdrawal && !r.linked) || (r.kind == Kind::SwapOut && r.orphan);
     let mut worth = counterpart_worth(r, ps)?;
@@ -1422,21 +1422,21 @@ fn book_cash(book: &mut Book, r: &Row, carried: &mut HashMap<usize, Dec>, conver
     let mut withdrawn = Dec::zero();
     for (currency, amount) in &moves {
         let out = if amount.is_negative() { amount.neg() } else { Dec::zero() };
-        let have = costs.iter().find(|(k, _)| k == currency).map_or_else(Dec::zero, |(_, v)| v.clone());
+        let have = costs.iter().find(|(k, _)| *k == currency.as_str()).map_or_else(Dec::zero, |(_, v)| v.clone());
         let cost = min(&have, &out);
-        match costs.iter_mut().find(|(k, _)| k == currency) { Some((_, v)) => *v = (&*v - &cost)?, None => costs.push((currency.to_string(), cost.neg())) }
+        match costs.iter_mut().find(|(k, _)| *k == currency.as_str()) { Some((_, v)) => *v = (&*v - &cost)?, None => costs.push((currency.to_string(), cost.neg())) }
         let taken = if withdrawing && *currency == r.base { (&out - &cost)? } else { Dec::zero() };
-        withdrawn = (&withdrawn + &book.shift(venue, currency, amount, at, &cost, &taken, worth_of(currency).as_ref(), ps)?)?;
+        withdrawn = (&withdrawn + &book.shift(venue, currency.as_str(), amount, at, &cost, &taken, worth_of(currency.as_str()).as_ref(), ps)?)?;
     }
     let nothing_arrived = !moves.iter().any(|(c, a)| *c == r.base && a.is_positive());
-    if let (Some(w), true) = (worth_of(&r.base), r.kind == Kind::Buy && nothing_arrived) { book.realise(venue, w.neg())?; }
+    if let (Some(w), true) = (worth_of(r.base.as_str()), r.kind == Kind::Buy && nothing_arrived) { book.realise(venue, w.neg())?; }
     for (currency, units) in &costs { if units.is_positive() { book.expense(venue, currency, units, at, ps)?; } }
     Ok(withdrawn)
 }
 
 /// `coin_cost`: the basis coins took with them when they left for nothing.
 fn coin_cost(r: &Row, engine: &mut Engine) -> Dec {
-    if cash(&r.base) { return Dec::zero(); }
+    if r.base.is_cash() { return Dec::zero(); }
     match r.kind {
         Kind::Fee => engine.basis_released(&r.base, &r.amount, &r.exchange).unwrap_or_else(Dec::zero),
         Kind::Withdrawal if r.linked => engine.fee_basis.get(&r.uid).cloned().unwrap_or_else(Dec::zero),
@@ -1453,9 +1453,9 @@ fn contribution(r: &Row, engine: &mut Engine, withdrawn: &Dec, ps: &mut PriceSer
         _ => return if in_kind(r) { arrival(r, ps) } else { Ok(Dec::zero()) },
     };
     if r.linked { return Ok(Dec::zero()); }
-    let value = if cash(&r.base) && direction < 0 { withdrawn.clone() }
-        else if fiat(&r.base) { ps.convert_fiat(&r.amount, &r.base, "USD", r.at)? }
-        else if stable(&r.base) { r.amount.clone() }
+    let value = if r.base.is_cash() && direction < 0 { withdrawn.clone() }
+        else if r.base.is_fiat() { ps.convert_fiat(&r.amount, r.base.as_str(), "USD", r.at)? }
+        else if r.base.is_stable() { r.amount.clone() }
         else if direction > 0 { r.fiat_value.clone() }
         else { engine.basis_released(&r.base, &r.amount, &r.exchange).unwrap_or_else(Dec::zero) };
     Ok((&value * &Dec::from_i64(direction))?)
@@ -1463,8 +1463,8 @@ fn contribution(r: &Row, engine: &mut Engine, withdrawn: &Dec, ps: &mut PriceSer
 
 /// `arrival`: what a coin arriving free was worth that day.
 fn arrival(r: &Row, ps: &mut PriceService) -> Result<Dec, FiguresError> {
-    if !fiat(&r.base) { return Ok(r.fiat_value.clone()); }
-    ps.convert_fiat(&r.amount, &r.base, "USD", r.at)
+    if !r.base.is_fiat() { return Ok(r.fiat_value.clone()); }
+    ps.convert_fiat(&r.amount, r.base.as_str(), "USD", r.at)
 }
 
 /// `unfunded_contribution`: cash the venue spent without ever seeing it arrive is money from outside.
@@ -1506,7 +1506,7 @@ fn money_in(rows: &[Row], engine: &mut Engine, ps: &mut PriceService, names: &Na
         let complete = ps.warnings.len() == kept && !(r.price_missing && valued_by_price(r));
         terms.push(Term { at: r.at, amount, complete, opens: r.opening.then(|| (r.base.to_string(), r.amount.clone())), exchange: r.exchange.clone(), received: in_kind(r) });
         if between_venues(r) {
-            let moved = if cash(&r.base) { carried.get(&r.uid).cloned().unwrap_or_else(Dec::zero) } else { engine.moved.get(&r.uid).map_or_else(Dec::zero, |(m, _)| m.clone()) };
+            let moved = if r.base.is_cash() { carried.get(&r.uid).cloned().unwrap_or_else(Dec::zero) } else { engine.moved.get(&r.uid).map_or_else(Dec::zero, |(m, _)| m.clone()) };
             let complete = !engine.moved.get(&r.uid).is_some_and(|(_, u)| *u);
             let to = r.to_exchange.clone().unwrap_or_default();
             terms.push(Term { at: r.at, amount: moved.neg(), complete, opens: None, exchange: r.exchange.clone(), received: false });
@@ -1583,11 +1583,11 @@ fn bot_sales(w: &Walk, stored: &[Stored]) -> Result<Vec<BotSale>, FiguresError> 
         // An opening (uid past the stored rows) is never a bot's fill.
         let Some(t) = stored.get(d.source) else { continue };
         let Some(order) = t.bot_order else { continue };
-        let quote = t.quote.as_deref().unwrap_or_default().to_string();
+        let quote = t.quote.as_ref().map(Label::as_str).unwrap_or_default().to_string();
         let s = out.entry(order).or_insert_with(|| BotSale { order, at: d.at, amount: Dec::zero(), quote: quote.clone(), cost: Dec::zero(), known: true });
         let paid = rows.get(&d.source).filter(|r| {
             !d.data_incomplete && r.kind == Kind::Sell && fiat_disposal(r) && r.quote == t.quote && quote == s.quote && d.proceeds.is_positive()
-                && !(r.fee_is(&r.base) && r.fee().is_positive())
+                && !(r.fee_is(r.base.as_str()) && r.fee().is_positive())
         }).and_then(|r| r.quote_amount.clone()).filter(Dec::is_positive);
         s.amount = (&s.amount + &d.amount)?;
         s.at = d.at;
@@ -1645,7 +1645,7 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
     let mut fees = Dec::zero();
     for r in &rows {
         fees = (&fees + &r.fee_fiat_value)?;
-        if r.kind == Kind::Fee { fees = (&fees + &if fiat(&r.base) { ps.convert_fiat(&r.amount, &r.base, "USD", r.at)? } else { r.fiat_value.clone() })?; }
+        if r.kind == Kind::Fee { fees = (&fees + &if r.base.is_fiat() { ps.convert_fiat(&r.amount, r.base.as_str(), "USD", r.at)? } else { r.fiat_value.clone() })?; }
     }
     let incomplete = positions.iter().any(|p| p.unpriced.is_positive()) || w.engine.uncovered_venues.contains(&Some(venue.to_string()))
         || disposals.iter().any(|d| d.unpriced_quantity.is_positive())
@@ -1656,7 +1656,7 @@ fn summarise(w: &Walk, venue: &str, ps: &mut PriceService, now: At) -> Result<Su
     let mut openings: Vec<(String, Dec)> = vec![];
     let mut opening_values: Vec<(String, Dec)> = vec![];
     for r in rows.iter().filter(|r| r.opening) {
-        match openings.iter().position(|(k, _)| *k == r.base) {
+        match openings.iter().position(|(k, _)| *k == r.base.as_str()) {
             Some(i) => { openings[i].1 = r.amount.clone(); opening_values[i].1 = r.fiat_value.clone(); }
             None => { openings.push((r.base.to_string(), r.amount.clone())); opening_values.push((r.base.to_string(), r.fiat_value.clone())); }
         }

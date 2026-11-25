@@ -1,6 +1,7 @@
 //! PortfolioSnapshot::BackfillJob: one forward sweep from the first
 //! transaction to yesterday, valuing what was held at the end of each day at that day's close, with money in read
 //! term by term off the ledger walk. Rewrites every earlier day of both tables and stamps the history's version.
+use crate::tracker::spellings::Label;
 use super::prices::{self, coin_ids_over, Fetch, Venue};
 use super::rows::{Kind, Stored};
 use super::snapshot::{upsert_whole, Day};
@@ -270,7 +271,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         let date = r.date().max(first);
         let venues = std::iter::once(r.venue.clone()).chain(r.to_venue.clone());
         let venues: Vec<String> = venues.collect();
-        for symbol in [Some(r.base.as_str()), r.quote.as_deref(), r.fee_currency.as_deref()].into_iter().flatten() {
+        for symbol in [Some(r.base.as_str()), r.quote.as_ref().map(Label::as_str), r.fee_currency.as_ref().map(Label::as_str)].into_iter().flatten() {
             if fiat(symbol) || stable(symbol) { continue; }
             for v in &venues {
                 if seen.insert((v.clone(), symbol.to_string())) { touched.push(((v.clone(), symbol.to_string()), date, v.clone())); }
@@ -530,33 +531,33 @@ fn apply(held: &mut Held, t: &Stored, linked: &dyn Fn(&Stored) -> bool, by_id: &
         }
     };
     match t.kind {
-        Kind::Buy | Kind::SwapIn | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => add(held, venue, &t.base, &acquired()?)?,
-        Kind::Deposit => if !linked(t) { add(held, venue, &t.base, &acquired()?)? },
-        Kind::Sell | Kind::SwapOut | Kind::Fee | Kind::Lost | Kind::WithholdingTax => add(held, venue, &t.base, &t.amount.neg())?,
+        Kind::Buy | Kind::SwapIn | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => add(held, venue, t.base.as_str(), &acquired()?)?,
+        Kind::Deposit => if !linked(t) { add(held, venue, t.base.as_str(), &acquired()?)? },
+        Kind::Sell | Kind::SwapOut | Kind::Fee | Kind::Lost | Kind::WithholdingTax => add(held, venue, t.base.as_str(), &t.amount.neg())?,
         Kind::Withdrawal => {
-            if !linked(t) { add(held, venue, &t.base, &t.amount.neg())?; }
+            if !linked(t) { add(held, venue, t.base.as_str(), &t.amount.neg())?; }
             else {
                 // `withdraw`: the network fee leaves, and the rest lands where it was sent, at the withdrawal.
                 let deposit = t.linked_to.and_then(|d| by_id.get(&d)).ok_or_else(|| FiguresError::Raised("NoMethodError: undefined method 'base_amount' for nil".into()))?;
                 let fee = (&t.amount - &deposit.amount)?;
                 let fee = if fee.is_positive() { fee } else { Dec::zero() };
                 let destination = t.to_account.map(super::walk::location).unwrap_or_default();
-                if destination == here { add(held, venue, &t.base, &fee.neg())?; }
-                else { add(held, venue, &t.base, &t.amount.neg())?; add(held, &destination, t.to_base.as_ref().unwrap_or(&t.base), &(&t.amount - &fee)?)?; }
+                if destination == here { add(held, venue, t.base.as_str(), &fee.neg())?; }
+                else { add(held, venue, t.base.as_str(), &t.amount.neg())?; add(held, &destination, (t.to_base.as_ref().unwrap_or(&t.base)).as_str(), &(&t.amount - &fee)?)?; }
             }
         }
-        Kind::Adjustment => add(held, venue, &t.base, &t.amount)?,
+        Kind::Adjustment => add(held, venue, t.base.as_str(), &t.amount)?,
         Kind::ReturnOfCapital | Kind::Unsupported => {}
     }
     // `consume_fee`: a fee not in the base leaves its own currency; in the base only on a settlement leg of cash.
     // D-TRACKER-HISTORY-SELL-FEE: and a coin's own fee on its sale, on top, as the ledger takes it (`quantity_moves`).
-    if let (Some(fc), Some(fee)) = (t.fee_currency.as_deref().filter(|c| !c.trim().is_empty()), &t.fee_amount) {
+    if let (Some(fc), Some(fee)) = (t.fee_currency.as_ref().map(Label::as_str).filter(|c| !c.trim().is_empty()), &t.fee_amount) {
         let out_leg = matches!(t.kind, Kind::Sell | Kind::SwapOut);
-        let cash_leg = out_leg && t.quote.as_deref().is_none_or(|q| q.trim().is_empty()) && super::cash(&t.base);
-        if fee.is_positive() && (fc != t.base || cash_leg || (out_leg && !super::cash(&t.base))) { add(held, venue, fc, &fee.neg())?; }
+        let cash_leg = out_leg && t.quote.as_ref().map(Label::as_str).is_none_or(|q| q.trim().is_empty()) && t.base.is_cash();
+        if fee.is_positive() && (fc != t.base.as_str() || cash_leg || (out_leg && !t.base.is_cash())) { add(held, venue, fc, &fee.neg())?; }
     }
     // `apply_quote`.
-    if let (Some(quote), Some(qa)) = (t.quote.as_deref().filter(|q| !q.trim().is_empty()), &t.quote_amount) {
+    if let (Some(quote), Some(qa)) = (t.quote.as_ref().map(Label::as_str).filter(|q| !q.trim().is_empty()), &t.quote_amount) {
         match t.kind { Kind::Buy => add(held, venue, quote, &qa.neg())?, Kind::Sell | Kind::ReturnOfCapital => add(held, venue, quote, qa)?, _ => {} }
     }
     Ok(())

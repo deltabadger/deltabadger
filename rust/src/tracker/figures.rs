@@ -2,6 +2,7 @@
 //! read it. The venue's balance is the truth about what is held; where the history disagrees, the extra left at cost
 //! or arrived at the balance's price, and money in moves with it. The notes 2.x writes beside each assumption are
 //! the page's (Plan D5); the figures they shape are here.
+use crate::tracker::spellings::Label;
 use super::fx::FxTable;
 use super::rows::{borrowed, Kind};
 use super::walk::{cash_moves, quantity_moves, Summary};
@@ -121,8 +122,8 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope, labels: &supe
         let kind = Kind::from_stored(r.get(1)?).ok_or_else(|| FiguresError::Data("an entry type 2.x does not have".into()))?;
         let amount = Dec::from_sql(r.get_ref(3)?)?.ok_or_else(|| FiguresError::Data("a row with no base amount".into()))?;
         rows.push(super::rows::Stored {
-            id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: r.get(2)?, amount, quote: r.get(4)?, quote_amount: Dec::from_sql(r.get_ref(5)?)?,
-            fee_currency: r.get(9)?, fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::group_id(r.get(11)?),
+            id: r.get(8)?, exchange_id: exchange, venue: String::new(), kind, base: Label::spelled(r.get::<_, String>(2)?), amount, quote: r.get::<_, Option<String>>(4)?.map(Label::spelled), quote_amount: Dec::from_sql(r.get_ref(5)?)?,
+            fee_currency: r.get::<_, Option<String>>(9)?.map(Label::spelled), fee_amount: Dec::from_sql(r.get_ref(10)?)?, tx_id, group: super::rows::group_id(r.get(11)?),
             at,
             per_share: None, stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None,
             account, to_account: None, to_base: None,
@@ -138,7 +139,7 @@ pub fn pending(c: &Connection, user_id: i64, scope: &super::Scope, labels: &supe
         let partner = links.get(&r.id).or_else(|| inverse.get(&r.id)).copied().filter(|p| !labels.void(r.id, *p));
         let linked = partner.is_some_and(|p| ids.contains(&p) && bases.get(&p).is_some_and(|b| b.as_str() == r.base.as_str()));
         let fee = match (linked, r.kind, partner.and_then(|p| amounts.get(&p))) { (true, Kind::Withdrawal, Some(p)) => Some((&r.amount - p)?), _ => None };
-        for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(&symbol) { add(symbol.to_string(), a)?; } }
+        for (symbol, a) in quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, fee.as_ref())? { if !cash(symbol.as_str()) { add(symbol.to_string(), a)?; } }
         for (currency, a) in cash_moves(r.kind, &r.base, &r.amount, r.quote.as_ref(), r.quote_amount.as_ref(), r.fee_currency.as_ref(), r.fee_amount.as_ref())? { add(currency.to_string(), a)?; }
     }
     Ok(moved)
