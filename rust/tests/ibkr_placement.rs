@@ -594,3 +594,22 @@ async fn s7b_ibkr_submit_first_observer_fences_before_figures() {
     assert!(!t.requests().iter().any(|r| r.method == "POST" && r.path.ends_with("/orders")), "no order sent");
     assert!(fx.snapshot(&t).await.is_err());
 }
+
+/// Branch r1 #11: the engine factory builds IBKR's venue behind its post-lock gate (a poll queued before a fence sends
+/// nothing once it holds the lock). Through `LiveFactory`'s own construction; G3 keeps IBKR bots off, so the row's
+/// trading check before it is not crossed here.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_engine_factory_builds_a_gated_venue() {
+    use deltabadger::identity::{AccountId, Observed};
+    let fx = Fx::new();
+    let credentials = deltabadger::sync::credentials(&fx.c, &fx.cipher, fx.s.api_key_id).unwrap();
+    let version = credential_version_by_id(&fx.c, fx.s.api_key_id).unwrap().unwrap();
+    deltabadger::identity::record(&fx.c, &fx.cipher, fx.s.api_key_id, &credentials, &version, &Observed::Read(AccountId::ibkr(ACCOUNT_B).unwrap()), at(NOW)).unwrap();
+    assert!(fx.fenced());
+    let t = script(10, &[]);
+    let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+    let venue = deltabadger::venue::alpaca::LiveFactory::for_install(&fx.c, &fx.cipher).ibkr_with(t.clone(), login, &credentials, version, ACCOUNT_A.into(), fx.account_ref());
+    let polled = venue.orders(&[ORDER_ID.to_string()]).await;
+    assert!(polled.is_err(), "{polled:?}");
+    assert!(t.requests().is_empty(), "nothing sent: {:?}", t.requests().iter().map(|r| r.path.clone()).collect::<Vec<_>>());
+}

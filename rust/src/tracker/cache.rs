@@ -258,7 +258,7 @@ mod tests {
     }
     fn db()->Connection {
         let c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE exchange_account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c.execute_batch(crate::identity::TEST_ACCOUNT_TABLES).unwrap(); c
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT); CREATE TABLE app_configs(key TEXT UNIQUE,value TEXT,created_at TEXT,updated_at TEXT); CREATE TABLE account_transactions(id INTEGER,user_id INTEGER,updated_at TEXT); CREATE TABLE historical_prices(id INTEGER); CREATE TABLE exchange_account_balances(id INTEGER,usd_value NUMERIC);").unwrap(); c.execute_batch(crate::identity::TEST_ACCOUNT_TABLES).unwrap(); c
     }
     fn now()->DateTime<Utc> {"2026-10-08T12:00:00Z".parse().unwrap()}
     fn walked()->Walked {

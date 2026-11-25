@@ -268,7 +268,7 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Info,WebError> 
         _=>None,
     };
     // The IBKR key's login reads IBKR's market data (`ibkr_wire`): adding, replacing or removing it changes both.
-    let ibkr_id:Option<i64>=c.query_row(crate::figures::page_market::IBKR_KEY,[user],|r|r.get(0)).optional()?;
+    let ibkr_id:Option<i64>=c.query_row(&crate::figures::page_market::ibkr_key_sql(c)?,[user],|r|r.get(0)).optional()?;
     let ibkr=crate::figures::page_market::KeyRow::new(user,match ibkr_id { Some(id)=>crate::engine::model::credential_version_by_id(c,id)?, None=>None });
     let (identity,producer,credentials)=match (credentials,version) {
         (Some(credentials),Some(version))=>(serde_json::json!([user,version.cache_stamp(),ibkr.stamp()]),Producer::alpaca_key(version),Some(credentials)),
@@ -306,7 +306,7 @@ pub(crate) fn venue_egresses(c:&rusqlite::Connection,cipher:&crate::crypto::Ciph
 pub(crate) struct IbkrWire { user:i64,base:String,live:Result<(ReqwestTransport,std::sync::Arc<crate::venue::ibkr::Login>,crate::engine::model::CredentialVersion),String>,reads:Option<crate::venue::ibkr_account::Reads> }
 /// User `user`'s IBKR trading key, as a login through the install's egress for IBKR; None without a key.
 pub(crate) fn ibkr_wire(c:&rusqlite::Connection,cipher:&crate::crypto::Cipher,user:i64,base:String)->Option<IbkrWire> {
-    let id:i64=c.query_row(crate::figures::page_market::IBKR_KEY,[user],|r|r.get(0)).optional().ok().flatten()?;
+    let id:i64=c.query_row(&crate::figures::page_market::ibkr_key_sql(c).ok()?,[user],|r|r.get(0)).optional().ok().flatten()?;
     let mut reads=None;
     let live=(||->Result<_,String>{
         let (credentials,version)=crate::sync::credentials_with_version(c,cipher,id).map_err(|_|"the IBKR key is unreadable")?;

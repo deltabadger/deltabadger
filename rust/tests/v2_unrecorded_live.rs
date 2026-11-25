@@ -2917,7 +2917,7 @@ async fn a_kucoin_classic_order_is_listed_whatever_the_accounts_mode_and_a_faili
     use deltabadger::venue::HistoryError;
     // r1.1: an account that reads ClassicHf today; 2.x placed on the classic route, so the classic list is read, no mode asked.
     let c = Connection::open_in_memory().unwrap();
-    c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY, key TEXT, secret TEXT, passphrase TEXT, access_token TEXT, rsa_signature_key TEXT, rsa_encryption_key TEXT, dh_param TEXT);
+    c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY, key TEXT, secret TEXT, passphrase TEXT, access_token TEXT, rsa_signature_key TEXT, rsa_encryption_key TEXT, dh_param TEXT,ibkr_realm TEXT);
                      INSERT INTO api_keys(id,key,secret,passphrase) VALUES(1,'key','secret','passphrase');").unwrap();
     let version = deltabadger::engine::model::credential_version_by_id(&c, 1).unwrap().unwrap();
     let (from, to) = window();

@@ -63,7 +63,7 @@ const NOW: &str = "2026-10-24T12:00:00Z";
 /// A login under a credential version of its own (a one-row api_keys table).
 fn login() -> std::sync::Arc<ibkr::Login> {
     let c = Connection::open_in_memory().unwrap();
-    c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
+    c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT);
                      INSERT INTO api_keys(id,key) VALUES(1,'replay');").unwrap();
     std::sync::Arc::new(ibkr::Login::new(material(), credential_version_by_id(&c, 1).unwrap().unwrap()).unwrap())
 }
@@ -1039,4 +1039,160 @@ fn s7b_ibkr_export_deletes_registrations() {
     tx.commit().unwrap();
     let count = |t: &str| fx.c.query_row(&format!("SELECT count(*) FROM {t}"), [], |r| r.get::<_, i64>(0)).unwrap();
     assert_eq!((count("ibkr_registrations"), count("ibkr_login_reads")), (0, 0));
+}
+
+// ---- #710 7b branch review r1 ------------------------------------------------------------------------------------------
+
+/// A session of the recorded login sent to `server`, its accounts reads numbered in `reads`.
+fn s7b_checked_by<'a>(t: &'a deltabadger::venue::http::ReqwestTransport, login: std::sync::Arc<ibkr::Login>, clock: &'a FixedClock, server: &str,
+                      reads: ibkr_account::Reads) -> ibkr::Session<'a, deltabadger::venue::http::ReqwestTransport, FixedClock> {
+    ibkr::Session::new(t, login, clock).with_base(server).with_reads(Some(reads))
+}
+fn s7b_wire(login: &std::sync::Arc<ibkr::Login>) -> deltabadger::venue::http::ReqwestTransport {
+    deltabadger::venue::http::ReqwestTransport::ibkr(reqwest::Client::builder().no_proxy().build().unwrap(), login.clone())
+}
+
+/// Branch r1 #3: a read whose answer is a final 401 (IBKR's activation wait) keeps the number it took, so a newer check
+/// that committed the login's U1234567 meanwhile is never written over by it.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_final_401_keeps_its_number() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    fx.bound();
+    let reads = fx.reads();
+    let server = MockServer::start().await;
+    let (mint, init) = mint_and_init();
+    let answer = |a: &Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path(LST)).respond_with(answer(&mint)).mount(&server).await;
+    Mock::given(method("POST")).and(path(INIT)).respond_with(answer(&init)).mount(&server).await;
+    Mock::given(method("GET")).and(path(ACCOUNTS)).respond_with(ResponseTemplate::new(401)).mount(&server).await;
+    let (l, clock) = (login(), FixedClock(at(NOW)));
+    let t = s7b_wire(&l);
+    let (verdict, taken) = key_check::ibkr_check_taken(&s7b_checked_by(&t, l, &clock, &server.uri(), reads.clone())).await;
+    assert_eq!(verdict, IbkrVerdict::PendingActivation);
+    let taken = taken.expect("the 401's read keeps its number");
+    // A newer check reads U1234567 and is acted on first.
+    let ok = ibkr_server(json!({ "accounts": ["U1234567"] })).await;
+    validate(&fx, &ok).await;
+    assert_eq!(fx.key().0, 1);
+    assert!(!ibkr_account::verdict_current(&fx.c, &Some((reads.digest.clone(), taken))).unwrap(), "the older 401 writes nothing");
+}
+
+/// Branch r1 #4: a first connection's reads are numbered when they are made, before the install has an identity key, so
+/// an older read's verdict arriving after a newer one's is stale, never numbered anew at its commit.
+#[test]
+fn s7b_ibkr_first_connection_reads_are_numbered_at_read_time() {
+    let fx = Fx::new(0);
+    fx.c.execute("DELETE FROM app_configs WHERE key = ?1", [deltabadger::identity::KEY_CONFIG]).unwrap();
+    assert!(deltabadger::identity::existing_key(&fx.c, &fx.cipher).is_none());
+    let reads = ibkr_account::reads(&fx.c, &fx.cipher, &fx.credentials()).expect("numbered before any identity key");
+    let older = ibkr_account::take_seq(&fx.c, &reads.digest).unwrap();
+    let newer = ibkr_account::take_seq(&fx.c, &reads.digest).unwrap();
+    assert!(ibkr_account::verdict_current(&fx.c, &Some((reads.digest.clone(), newer))).unwrap());
+    assert!(!ibkr_account::verdict_current(&fx.c, &Some((reads.digest, older))).unwrap(), "the older read is stale");
+}
+
+/// Branch r1 #5: the gate fails closed. With the identity key unreadable, a fenced key's market-data hold signs nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_gate_fails_closed_without_its_state() {
+    use deltabadger::identity::{AccountId, Observed};
+    use deltabadger::venue::http::HttpRequest;
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    fx.bound();
+    sync_balances(&fx, scripted(json!({ "accounts": ["U1234567"] }), &[json!([])])).await.unwrap();
+    let (credentials, version) = (fx.credentials(), fx.version());
+    deltabadger::identity::record(&fx.c, &fx.cipher, fx.s.api_key_id, &credentials, &version, &Observed::Read(AccountId::ibkr("U7654321").unwrap()), at(NOW)).unwrap();
+    assert!(fx.fenced(fx.s.api_key_id));
+    fx.c.execute("UPDATE app_configs SET value = 'unreadable' WHERE key = ?1", [deltabadger::identity::KEY_CONFIG]).unwrap();
+    let reads = ibkr_account::reads(&fx.c, &fx.cipher, &credentials);
+    let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+    let (t, clock) = (market(), FixedClock(at(NOW)));
+    let session = ibkr::Session::new(&t, login, &clock).with_gate(reads, &version);
+    let r = HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::SNAPSHOT_PATH.into(), query: vec![("conids", "265598".into())], body: None, not_after: None };
+    assert!(matches!(ibkr::read(&session, &r).await, Err(deltabadger::venue::http::TransportError::NotSent(_))));
+    assert_eq!(snapshots(&t), 0, "nothing signed");
+}
+
+/// Branch r1 #6: the realm is part of the key's producer stamp: a session made before a realm-only change sends nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_realm_is_part_of_the_stamp() {
+    use deltabadger::venue::http::HttpRequest;
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    fx.bound();
+    sync_balances(&fx, scripted(json!({ "accounts": ["U1234567"] }), &[json!([])])).await.unwrap();
+    let (credentials, version, reads) = (fx.credentials(), fx.version(), fx.reads());
+    fx.c.execute("UPDATE api_keys SET ibkr_realm = 'test_realm' WHERE id = ?1", [fx.s.api_key_id]).unwrap();
+    assert!(!deltabadger::engine::model::credential_is_current(&fx.c, &version).unwrap(), "a realm change is a credential change");
+    let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+    let (t, clock) = (market(), FixedClock(at(NOW)));
+    let session = ibkr::Session::new(&t, login, &clock).with_gate(Some(reads), &version);
+    let r = HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::SNAPSHOT_PATH.into(), query: vec![("conids", "265598".into())], body: None, not_after: None };
+    assert!(ibkr::read(&session, &r).await.is_err());
+    assert_eq!(snapshots(&t), 0, "the old realm's session signs nothing");
+}
+
+/// Branch r1 #7: an account proven as U7654321 whose key is still bound to U1234567 (a 7a upgrade that retained U2): a
+/// balance read naming the binding is recorded and judged against the account, so no U1234567 balance is published there.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_balance_read_is_judged_against_the_account() {
+    use deltabadger::identity::AccountId;
+    freeze_dh();
+    let fx = Fx::new(1);
+    let (aapl, ..) = ibkr_catalogue(&fx);
+    let now = at(NOW);
+    let first = deltabadger::identity::ensure_account(&fx.c, fx.s.user_id, fx.s.exchange_id, now).unwrap();
+    let fingerprint = deltabadger::identity::key(&fx.c, &fx.cipher, now).unwrap().fingerprint_text(ibkr::IBKR, "U1234567");
+    fx.c.execute("INSERT INTO ibkr_bindings (api_key_id, account_ref, account_fingerprint, account_id_enc, bound_at) VALUES (?1, ?2, ?3, ?4, '2026-10-01 00:00:00')",
+                 rusqlite::params![fx.s.api_key_id, &fingerprint[..16], fingerprint, fx.cipher.encrypt("U1234567")]).unwrap();
+    deltabadger::identity::establish_read(&fx.c, &fx.cipher, first, ibkr::IBKR, &AccountId::ibkr("U7654321").unwrap(), now).unwrap();
+    assert!(!fx.fenced(fx.s.api_key_id), "no credential observation yet");
+    let synced = sync_balances_raw(&fx, scripted(json!({ "accounts": ["U1234567"] }), &[json!([{ "conid": 265598, "position": 4 }]), json!([])])).await;
+    assert!(!matches!(synced, Ok(Ok(_))), "{synced:?}");
+    let held: i64 = fx.c.query_row("SELECT count(*) FROM exchange_account_balances WHERE asset_id = ?1", [aapl], |r| r.get(0)).unwrap();
+    assert_eq!(held, 0, "no U1234567 balance on the account proven as U7654321");
+    assert!(fx.fenced(fx.s.api_key_id), "the read is recorded: the key is fenced");
+}
+
+/// Branch r1 #8: a resubmit of an installed key whose read names a third account, on an account holding history of two
+/// others (unproven, ambiguous), is routed through M2 (New), never straight back there.
+#[test]
+fn s7b_ibkr_installed_material_on_mixed_evidence_asks() {
+    use deltabadger::identity::{AccountId, Reading, Route};
+    let fx = Fx::new(1);
+    let now = at(NOW);
+    let first = deltabadger::identity::ensure_account(&fx.c, fx.s.user_id, fx.s.exchange_id, now).unwrap();
+    let key = deltabadger::identity::key(&fx.c, &fx.cipher, now).unwrap();
+    for id in ["U1234567", "U7654321"] {
+        fx.c.execute("INSERT INTO ibkr_account_evidence (account_id, fingerprint, source) VALUES (?1, ?2, 'backfill')", rusqlite::params![first, key.fingerprint_text(ibkr::IBKR, id)]).unwrap();
+    }
+    let u3 = AccountId::ibkr("U7777777").unwrap();
+    for target in [None, Some(first)] {
+        let route = deltabadger::identity::route_key(&fx.c, &fx.cipher, fx.s.user_id, fx.s.exchange_id, ibkr::IBKR, 0, target, &Reading::Read(&u3), &fx.credentials(), None, now).unwrap();
+        assert_eq!(route, Route::New, "target {target:?}: asked first");
+    }
+}
+
+/// Branch r1 #14: the figures read market data with a key that passes the gate: account 1's fenced key is passed over for
+/// account 2's healthy one.
+#[test]
+fn s7b_ibkr_figures_pick_a_key_that_passes_the_gate() {
+    use deltabadger::identity::{AccountId, Observed};
+    let fx = Fx::new(1);
+    fx.bound();
+    let second = deltabadger::identity::new_account(&fx.c, fx.s.user_id, fx.s.exchange_id, at(NOW)).unwrap();
+    fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, created_at, updated_at) VALUES(?1, ?2, 0, 1, '2026-10-01', '2026-10-01')", [fx.s.user_id, fx.s.exchange_id]).unwrap();
+    let two = fx.c.last_insert_rowid();
+    fx.set_key(two, 1);
+    fx.c.execute("UPDATE api_keys SET key = ?1 WHERE id = ?2", rusqlite::params![fx.cipher.encrypt("another-consumer-key"), two]).unwrap();
+    fx.c.execute("INSERT INTO exchange_account_keys(api_key_id, account_id) VALUES(?1, ?2)", [two, second]).unwrap();
+    ibkr_account::bind(&fx.c, &fx.cipher, two, "U7654321", at(NOW)).unwrap().unwrap();
+    deltabadger::identity::record(&fx.c, &fx.cipher, fx.s.api_key_id, &fx.credentials(), &fx.version(), &Observed::Read(AccountId::ibkr("U7654321").unwrap()), at(NOW)).unwrap();
+    assert!(fx.fenced(fx.s.api_key_id) && !fx.fenced(two));
+    let sql = deltabadger::figures::page_market::ibkr_key_sql(&fx.c).unwrap();
+    let picked: i64 = fx.c.query_row(&sql, [fx.s.user_id], |r| r.get(0)).unwrap();
+    assert_eq!(picked, two, "the key that passes the gate");
 }

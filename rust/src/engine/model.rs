@@ -672,6 +672,20 @@ impl CredentialVersion {
     pub fn test_stamp(&self) -> Value { self.cache_stamp() }
     /// This version as captured on account `account` (None: a number 1 with no row yet, which no Merge touches).
     pub fn with_account(mut self, account: Option<i64>) -> Self { self.account = account; self }
+    /// #710 7b (branch r1 #6): an IBKR key's `ibkr_realm` is part of its material though stored in plain text: a stamp of a
+    /// row with one covers it (a realm-only change is another credential). None (every other venue's row) leaves the stamp
+    /// as it was.
+    pub fn with_realm(mut self, realm: Option<&str>) -> Self {
+        use sha2::{Digest, Sha256};
+        let Some(realm) = realm else { return self };
+        let mut hash = Sha256::new();
+        hash.update(b"deltabadger.credentials.realm.v1");
+        hash.update(self.digest);
+        hash.update((realm.len() as u64).to_be_bytes());
+        hash.update(realm.as_bytes());
+        self.digest = hash.finalize().into();
+        self
+    }
     pub fn account(&self) -> Option<i64> { self.account }
 
 }
@@ -757,8 +771,8 @@ fn stored_columns(r: &rusqlite::Row<'_>) -> rusqlite::Result<[Option<String>; 7]
 pub const CREDENTIALS_CHANGED: &str = "credentials changed; venue result discarded";
 
 pub fn credential_version_by_id(c: &Connection, id: i64) -> Result<Option<CredentialVersion>, EngineError> {
-    Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,{account} FROM api_keys k WHERE id=?1"),
-        [id], |r| Ok(ciphertext_version(id, &stored_columns(r)?).with_account(r.get(7)?))).optional())?)
+    Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,{account},k.ibkr_realm FROM api_keys k WHERE id=?1"),
+        [id], |r| Ok(ciphertext_version(id, &stored_columns(r)?).with_account(r.get(7)?).with_realm(r.get::<_, Option<String>>(8)?.as_deref()))).optional())?)
 }
 
 /// #710 (PLAN-710-6 §6.4): whether `version`'s key is still on the account it was captured on, and that account live. A
@@ -884,8 +898,8 @@ pub fn key_fenced(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
 }
 pub fn credential_version(c: &Connection, bot: &Bot) -> Result<Option<CredentialVersion>, EngineError> {
     let keys = bot_keys(c, bot)?;
-    Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id,{account} FROM api_keys k WHERE {keys} AND key_type=0 ORDER BY id LIMIT 1"),
-        [], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?).with_account(r.get(8)?))).optional())?)
+    Ok(crate::identity::with_key_account("k", |account| c.query_row(&format!("SELECT key,secret,passphrase,access_token,rsa_signature_key,rsa_encryption_key,dh_param,id,{account},k.ibkr_realm FROM api_keys k WHERE {keys} AND key_type=0 ORDER BY id LIMIT 1"),
+        [], |r| Ok(ciphertext_version(r.get(7)?, &stored_columns(r)?).with_account(r.get(8)?).with_realm(r.get::<_, Option<String>>(9)?.as_deref()))).optional())?)
 }
 pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
     Ok(credentials_with_version(c,cipher,bot)?.0)
@@ -899,14 +913,14 @@ pub fn credentials_with_version(c: &Connection, cipher: &Cipher, bot: &Bot) -> R
 /// Diagnostic material comes from the same row snapshot as the credential digest.
 pub type CredentialsWithRedaction=(Option<Credentials>,Option<CredentialVersion>,Vec<String>);
 pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result<CredentialsWithRedaction,EngineError>{
-    type KeyRow = ([Option<String>;7], Option<String>, i64, Option<i64>);
+    type KeyRow = ([Option<String>;7], Option<String>, i64, Option<i64>, Option<String>);
     let keys = bot_keys(c,bot)?;
     // The ciphertext and its owner in one statement (#710 §6.4).
     let row: Option<KeyRow> = crate::identity::with_key_account("k", |account| c.query_row(
-        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id,{account} FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {keys} AND k.key_type=0 ORDER BY k.id LIMIT 1"),
-        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?,r.get(9)?))).optional())?;
-    let Some((columns,exchange_type,id,owner)) = row else { return Ok((None,None,Vec::new())) };
-    let version = ciphertext_version(id,&columns).with_account(owner);
+        &format!("SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,e.type,k.id,{account},k.ibkr_realm FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE {keys} AND k.key_type=0 ORDER BY k.id LIMIT 1"),
+        [], |r| Ok((stored_columns(r)?,r.get(7)?,r.get(8)?,r.get(9)?,r.get(10)?))).optional())?;
+    let Some((columns,exchange_type,id,owner,stored_realm)) = row else { return Ok((None,None,Vec::new())) };
+    let version = ciphertext_version(id,&columns).with_account(owner).with_realm(stored_realm.as_deref());
     let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| EngineError::Data(format!("api key unreadable for bot {}", bot.id)))).transpose();
     // ApiKey#passphrase where the venue's client takes it: KuCoin signs with it, Alpaca reads its mode from it. Others never
     // read the field, so an unreadable leftover there does not stop their key.
@@ -916,7 +930,7 @@ pub fn credentials_with_redaction(c:&Connection,cipher:&Cipher,bot:&Bot)->Result
     let credentials = match credentials {
         Some(mut cr) if exchange_type.as_deref()==Some(crate::venue::ibkr::IBKR) => {
             if let [Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)] = [open(&columns[3])?,open(&columns[4])?,open(&columns[5])?,open(&columns[6])?] {
-                let realm:Option<String>=c.query_row("SELECT ibkr_realm FROM api_keys WHERE id=?1",[id],|r|r.get(0))?;
+                let realm=stored_realm.clone();
                 cr.ibkr=Some(Box::new(crate::venue::signers::ibkr::Material{consumer_key:cr.key.clone(),access_token,access_token_secret:cr.secret.clone(),
                     signature_key,encryption_key,dh_param,realm:realm.unwrap_or_default()}));
             }
@@ -947,14 +961,14 @@ pub fn withdrawal_key_id(c:&Connection,account:&crate::identity::Account)->rusql
 pub fn withdrawal_credentials(c:&Connection,cipher:&Cipher,account:&crate::identity::Account)->Result<Option<(Credentials,CredentialVersion)>,EngineError>{
     if c.is_autocommit(){let tx=c.unchecked_transaction()?;let result=withdrawal_credentials(&tx,cipher,account)?;tx.commit()?;return Ok(result);}
     let Some(id)=withdrawal_key_id(c,account)? else{return Ok(None)};
-    let row:Option<([Option<String>;7],i64)>=c.query_row(
-        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id FROM api_keys k WHERE k.id=?1",
-        [id],|r|Ok((stored_columns(r)?,r.get(7)?))).optional()?;
-    let Some((columns,id))=row else{return Ok(None)};
+    let row:Option<([Option<String>;7],i64,Option<String>)>=c.query_row(
+        "SELECT k.key,k.secret,k.passphrase,k.access_token,k.rsa_signature_key,k.rsa_encryption_key,k.dh_param,k.id,k.ibkr_realm FROM api_keys k WHERE k.id=?1",
+        [id],|r|Ok((stored_columns(r)?,r.get(7)?,r.get::<_,Option<String>>(8)?))).optional()?;
+    let Some((columns,id,realm))=row else{return Ok(None)};
     let open=|v:&Option<String>|v.as_ref().and_then(|v|cipher.decrypt(v).ok());
     let (Some(key),Some(secret))=(open(&columns[0]),open(&columns[1])) else{return Ok(None)};
     if key.is_empty()||secret.is_empty(){return Ok(None);}
-    let version=ciphertext_version(id,&columns).with_account(account.id);
+    let version=ciphertext_version(id,&columns).with_account(account.id).with_realm(realm.as_deref());
     // #710 7a rule R1: every withdrawal read and send takes its key here; a key found to open another account is none.
     if !key_reads_its_account(c,&version)? {return Ok(None);}
     Ok(Some((Credentials{redaction_values:columns.iter().filter_map(open).collect(),key,secret,passphrase:open(&columns[2]),ibkr:None},version)))

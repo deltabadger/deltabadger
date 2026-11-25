@@ -1391,9 +1391,10 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
     // Rule M3: an account whose fingerprint no key read proved takes a key as one with none.
     let unset = |id: i64| -> Result<bool, String> { Ok(fingerprint_of(id)?.is_none() || !proven(c, id).map_err(db)?) };
     // Rule N3: before a new account, the installed evidence: the exact key and secret already stored on a live account
-    // (`unknown`: only one whose fingerprint no read proved), or a Hyperliquid wallet already connected (its address is the
-    // account; each agent secret is a key of it).
-    let installed = |unknown: bool| -> Result<Route, String> {
+    // (`fits`: an account that may take it: for a read, one that would take a fresh save of it, #710 7b branch r1 #8: IBKR's
+    // evidence included), or a Hyperliquid wallet already connected (its address is the account; each agent secret is a
+    // key of it).
+    let installed = |fits: &dyn Fn(i64) -> Result<bool, String>| -> Result<Route, String> {
         let wallet = exchange_type == crate::venue::hyperliquid::HYPERLIQUID;
         let mut s = c.prepare("SELECT id FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 ORDER BY id").map_err(db)?;
         let ids: Vec<i64> = s.query_map([user_id, exchange_id], |r| r.get(0)).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
@@ -1406,7 +1407,7 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
                               && (exchange_type != crate::venue::ibkr::IBKR || ibkr_material(&stored) == ibkr_material(material)) };
             if !same { continue; }
             let Some(account) = account_of_key(c, id).map_err(db)?.filter(|a| live.iter().any(|(l, _)| l == a)) else { continue };
-            if !unknown || unset(account)? { return Ok(Route::To(account)); }
+            if fits(account)? { return Ok(Route::To(account)); }
         }
         Ok(Route::New)
     };
@@ -1434,12 +1435,12 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
                 Ok(unset(id)? && (exchange_type != crate::venue::ibkr::IBKR
                                   || crate::venue::ibkr_account::evidence(c, id).map_err(db)?.iter().all(|f| *f == fingerprint)))
             };
-            if let Some(t) = target { if takes(t)? { return Ok(Route::To(t)); } return installed(true); }
+            if let Some(t) = target { if takes(t)? { return Ok(Route::To(t)); } return installed(&takes); }
             if let [(only, _)] = live.as_slice() {
                 let has_kind: bool = Account::by_id(c, *only).map_err(db)?.map(|a| a.key(c, kind)).transpose().map_err(db)?.flatten().is_some();
                 if takes(*only)? && !has_kind { return Ok(Route::To(*only)); }
             }
-            installed(true)
+            installed(&takes)
         }
         // Bybit review r1 #2 (every identity venue): a key nobody could read never takes an account another unread key of it
         // would decide: that key is read first (`replaces_unread`), or the save is refused to try again. An exact repost
@@ -1454,7 +1455,7 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
             }
             if let Some(t) = target { return Ok(Route::To(t)); }
             if let [(only, _)] = live.as_slice() { if keys_of(*only)? == 0 { return Ok(Route::To(*only)); } }
-            installed(false)
+            installed(&|_| Ok(true))
         }
     }
 }

@@ -333,7 +333,8 @@ async fn validate(app:&App,key:&Key,original:&Key,kind:i64,venue:&str)->Result<V
     values.extend([original.key.as_ref(),original.secret.as_ref(),original.passphrase.as_ref()].into_iter().flatten().chain(original.extras.iter().flatten()).cloned());
     let columns=[key.key.as_ref(),key.secret.as_ref(),key.passphrase.as_ref(),key.extras[0].as_ref(),key.extras[1].as_ref(),key.extras[2].as_ref(),key.extras[3].as_ref()].map(|value|value.map(|value|app.cipher.encrypt(value)));
     // #710 (PLAN-710-6 §6.4): the form's account, so a save validated while Merge moved or removed it is refused at its commit.
-    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns).with_account(original.account.id);
+    // #710 7b: an IBKR key's realm is part of its stamp (`CredentialVersion::with_realm`), as the save writes it.
+    let producer=crate::engine::model::prepared_credential_version(key.id.unwrap_or(0),&columns).with_account(original.account.id).with_realm(key.realm.as_deref());
     // Session#initialize's reads, from the submitted fields over the stored ones.
     let ibkr=match (venue==crate::venue::ibkr::IBKR,&key.extras) {
         (true,[Some(access_token),Some(signature_key),Some(encryption_key),Some(dh_param)])=>Some(Box::new(crate::venue::signers::ibkr::Material{
@@ -598,9 +599,11 @@ pub(crate) async fn submit_answered(app: &App, venue: &str, venue_name: &str, ki
    if !current {return Ok(Some("credential changed during validation".into()));}
    // IBKR's activation wait: the pasted credentials stay with the registration, nothing else is written (D-IBKR-REGISTRATION).
    if pending {
-    tx.execute("UPDATE ibkr_registrations SET key=?1,secret=?2,access_token=?3,ibkr_realm=?4,status=3,revision=revision+1,updated_at=?5 WHERE id=?6",
-               rusqlite::params![validated.columns[0],validated.columns[1],validated.columns[3],validated.key.realm,format_time(inner.now()),reg])?;
-    crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,None,validated.handle.credentials())?;
+    // Branch r1 #10: with the slots as this submit found them, the baseline its later finish is held to.
+    let baseline=serde_json::to_string(&snapshot).map_err(|e|WebError::Config(e.to_string()))?;
+    tx.execute("UPDATE ibkr_registrations SET key=?1,secret=?2,access_token=?3,ibkr_realm=?4,status=3,revision=revision+1,updated_at=?5,baseline=?7 WHERE id=?6",
+               rusqlite::params![validated.columns[0],validated.columns[1],validated.columns[3],validated.key.realm,format_time(inner.now()),reg,baseline])?;
+    crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,None)?;
     tx.commit()?;
     return Ok(Some(REGISTRATION_WAITS.into()));
    }
@@ -698,7 +701,7 @@ pub(crate) async fn submit_answered(app: &App, venue: &str, venue_name: &str, ki
   let ledger=crate::sync::ledger_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let balances=crate::sync::balance_reading_keys(&tx).map_err(|e|WebError::Config(e.0))?.contains(&id);
   let named=match &validated.identity {Some(crate::identity::Observed::Read(read))=>Some(read),_=>None};
-  crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named,validated.handle.credentials())?;
+  crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named)?;
   tx.commit()?;
   if stored==0 {inner.wake_engine();}
   if ledger {jobs.wake(crate::sync::jobs::LEDGER_SYNC,Some(&id.to_string()),None);}
@@ -736,7 +739,7 @@ async fn learn_refused(app:&App,user:i64,exchange:i64,venue:&str,material:crate:
         let tx=Transaction::new_unchecked(c,TransactionBehavior::Immediate)?;
         if !crate::venue::ibkr_account::verdict_current(&tx,&verdict)? {return Ok(vec![]);}
         let named=match &read {crate::identity::Observed::Read(id)=>Some(id.clone()),_=>None};
-        crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named.as_ref(),&material)?;
+        crate::venue::ibkr_account::commit_verdict(&tx,&inner.cipher,&verdict,named.as_ref())?;
         let current=match installed.filter(|_|crate::identity::VALIDATION_READS.contains(&venue.as_str())) {
             Some((account,kind,before))=>{let key=Key::read(&tx,&inner,account,kind)?;
                 key.id.filter(|id|before.is_some()&&key_slot(&key)==before&&crate::identity::is_material(&tx,&inner.cipher,*id,&venue,&material))},
@@ -818,19 +821,20 @@ fn write_slot(tx: &Connection, cipher: &crate::crypto::Cipher, current: Option<i
     Ok(id)
 }
 
-/// What the activation job's finish of a registration came to (#710 7b rule 5): the key it became, or why it waits.
+/// What the activation job's finish of a registration came to (#710 7b rule 5): the key it became, why it waits, or why it
+/// was closed (deleted: a save replaced its slot since the user submitted it, branch r1 #10).
 #[derive(Debug, PartialEq, Eq)]
-pub enum Finished { Key(i64), Waits(&'static str) }
+pub enum Finished { Key(i64), Waits(&'static str), Closed(&'static str) }
 
 /// #710 7b rules 3 and 5: registration `reg` (read at `revision`), whose check (`verdict`) named IBKR account `read`,
 /// finished as a save finishes it, in one transaction: routed (`identity::route_key`; untargeted when its account is gone),
 /// the routed account's lowest-id trading row updated or a row inserted (`write_slot`, the save's branch), bound, its read
 /// recorded and established, and the registration deleted. Nothing is asked of anyone here: a route that would ask (rule
-/// M2), rule 4's wait, an unconfirmed route, a stale read, or a slot a concurrent save replaced with other material since
-/// `before` (the slots as they were before the check) leaves the registration waiting for the user.
-#[allow(clippy::too_many_arguments)]
+/// M2), rule 4's wait, an unconfirmed route or a stale read leaves the registration waiting for the user. A routed slot a
+/// save replaced with other material since the registration's baseline (the slots its waiting submit found, by revision)
+/// closes it: the user's later save stands, and nothing is left at status 3 to overwrite it at a later run (branch r1 #10).
 pub fn finish_registration(c: &Connection, cipher: &crate::crypto::Cipher, reg: i64, revision: i64, read: &str, verdict: &crate::venue::ibkr_account::Verdict,
-                           before: &[(i64, Slot)], now: chrono::DateTime<chrono::Utc>) -> Result<Finished, WebError> {
+                           now: chrono::DateTime<chrono::Utc>) -> Result<Finished, WebError> {
     use crate::identity::{Observed, Route};
     let ibkr = crate::venue::ibkr::IBKR;
     let tx = Transaction::new_unchecked(c, TransactionBehavior::Immediate)?;
@@ -853,9 +857,13 @@ pub fn finish_registration(c: &Connection, cipher: &crate::crypto::Cipher, reg: 
     };
     let account = Account::by_id(&tx, dest)?.ok_or_else(|| WebError::Config("routed account missing".into()))?.ensure(&tx, now)?;
     let current = account.key(&tx, 0)?;
+    let baseline: Option<String> = tx.query_row("SELECT baseline FROM ibkr_registrations WHERE id = ?1", [reg], |r| r.get(0))?;
+    let before: Vec<(i64, Slot)> = baseline.and_then(|b| serde_json::from_str(&b).ok()).unwrap_or_default();
     let was = before.iter().find(|(a, _)| *a == dest).map(|(_, s)| s.clone()).unwrap_or(None);
     if slot_of(&tx, cipher, &account, 0)? != was && !current.is_some_and(|k| crate::identity::is_material(&tx, cipher, k, ibkr, &pending.credentials)) {
-        return Ok(Finished::Waits("the connection was replaced meanwhile"));
+        tx.execute("DELETE FROM ibkr_registrations WHERE id = ?1 AND revision = ?2", rusqlite::params![reg, revision])?;
+        tx.commit()?;
+        return Ok(Finished::Closed("the connection was replaced since it was submitted"));
     }
     if current.is_some() { if let Some(r) = settling(&tx, cipher, &account)? { return Ok(Finished::Waits(r)) } }
     let id = write_slot(&tx, cipher, current, &account, 0, &pending.columns, pending.realm.as_deref(), 1, &format_time(now), now)?;
@@ -867,7 +875,7 @@ pub fn finish_registration(c: &Connection, cipher: &crate::crypto::Cipher, reg: 
     crate::identity::establish_read(&tx, cipher, dest, ibkr, &id_read, now).map_err(WebError::Config)?;
     crate::identity::write_digest(&tx, cipher, id, exchange, &pending.credentials).map_err(WebError::Config)?;
     crate::sync::settle_readers(&tx, user, exchange).map_err(|e| WebError::Config(e.0))?;
-    crate::venue::ibkr_account::commit_verdict(&tx, cipher, verdict, Some(&id_read), &pending.credentials)?;
+    crate::venue::ibkr_account::commit_verdict(&tx, cipher, verdict, Some(&id_read))?;
     tx.commit()?;
     Ok(Finished::Key(id))
 }
@@ -1477,9 +1485,18 @@ pub async fn form(axum::extract::State(app):axum::extract::State<App>, axum::ext
         // What the connection's last write earned, drawn in the card: a frame does not show the layout's flash.
         let notice=std::mem::take(&mut ctx.session.lock().flash).pop().map(|(kind,text)|(kind==flash::ALERT,text));
         let (inner,v,owner)=(app.clone(),ctx.clone(),user.clone());
-        // #710 7b rule 11: the pick decides which connection the sheet shows (an account's own, or a fresh one for a tile).
-        let pick=kept_pick(ctx.session.lock().tracker_pick.as_ref(),exchange);
-        let found=app.db(move|c|Ok((super::ibkr::tracker_step(c,&inner,&v,owner.id,pick,notice)?,crate::web::shell::Shell::load(c,&inner,&owner)?))).await?;
+        // #710 7b rule 11: the pick decides which connection the sheet shows (an account's own, or a fresh one for a tile):
+        // the URL's `account_id` or `untargeted` first, as every venue's (branch r1 #1), else the venue step's kept pick.
+        let kept=ctx.session.lock().tracker_pick.clone();
+        let found=app.db(move|c|{
+            let pick=if v.params.query("account_id").is_some(){crate::web::wizard::picked(c,&v,owner.id,exchange)?}
+                else if v.params.query("untargeted").is_some(){Some(Picked::Untargeted)}
+                else{Some(kept_pick(kept.as_ref(),exchange))};
+            let Some(pick)=pick else{return Ok(None)};
+            Ok(Some((super::ibkr::tracker_step(c,&inner,&v,owner.id,pick,notice)?,crate::web::shell::Shell::load(c,&inner,&owner)?)))
+        }).await?;
+        // A forged, merged or removed account is a 404.
+        let Some(found)=found else {return Ok(crate::web::layout::missing())};
         let (Some((track,content)),shell)=found else {return Ok(crate::web::layout::not_ported_for(&ctx))};
         let csrf=ctx.csrf_token();
         let body=crate::web::wizard::sheet_to(&ctx,"/tracker",&track,&content)?;
@@ -1865,7 +1882,7 @@ mod validation_producer_tests {
     fn r4_validation_status_consumer_requires_bound_matching_reply(){
         use crate::engine::model::{self,Produced};
         let mut c=Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,status INTEGER,updated_at TEXT); INSERT INTO api_keys VALUES(1,'key-a','secret-a','paper',NULL,NULL,NULL,NULL,0,'2026-10-01');").unwrap();
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT,status INTEGER,updated_at TEXT); INSERT INTO api_keys VALUES(1,'key-a','secret-a','paper',NULL,NULL,NULL,NULL,NULL,0,'2026-10-01');").unwrap();
         let current=model::credential_version_by_id(&c,1).unwrap().unwrap();
         let tx=c.transaction_with_behavior(TransactionBehavior::Immediate).unwrap();
         {

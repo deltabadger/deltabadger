@@ -43,8 +43,9 @@ pub const MAX_ACCOUNT_NODES: usize = 2_000;
 pub const MAX_LIST_NODES: usize = 300_000;
 /// Balance rows per write transaction.
 pub const BATCH: usize = 100;
-/// #710 7b rule 14: the most rows one balance set writes (in its one transaction).
-pub const MAX_SET: usize = 5_000;
+/// #710 7b rule 14: the most rows one balance set writes (in its one transaction): any list the parsers admit
+/// (`MAX_LIST_NODES`), so a valid account is never refused here (branch r1 #15: 5,000 positions and cash are 5,001 rows).
+pub const MAX_SET: usize = MAX_LIST_NODES;
 /// Fiat::CATEGORIES: the two asset categories that mean cash.
 const CASH_CATEGORIES: [&str; 2] = ["Fiat", "Currency"];
 
@@ -1223,7 +1224,7 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
     // D-BALANCE-SET-ATOMIC (#710 7b rule 14): the whole set in one write, under one reading-key and generation check: the
     // origin, every row, what is gone, the key's clock and the completion. A reader sees the last complete set or this one,
     // never a mix (2.x and main wrote `BATCH` rows a unit). `BATCH` stays the unit `upsert` takes; a set past `MAX_SET`
-    // rows fails the sync with nothing written.
+    // rows (never a list the parsers admit) fails the sync with nothing written.
     let now = clock.now();
     if held.len() > MAX_SET { return Ok(Err(format!("more than {MAX_SET} balances in one read"))); }
     let (held, fresh) = (Arc::new(held), Arc::new(fresh));
@@ -1609,7 +1610,7 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
     if unbound {
         use crate::web::settings::key_check::{ibkr_check_taken, IbkrVerdict};
         // #710 7b §2: the check's read numbered in its login's order; its verdict is acted on only while it is the latest.
-        let reads = { let credentials = credentials.clone(); db.run(move |c, cipher| Ok(crate::venue::ibkr_account::reads(c, cipher, &credentials))).await.unwrap_or(None) };
+        let reads = { let credentials = credentials.clone(); db.run(move |c, cipher| Ok(crate::venue::ibkr_account::reads(c, cipher, &credentials))).await.unwrap_or_else(|_| Some(crate::venue::ibkr_account::Reads::closed())) };
         let digest = reads.as_ref().map(|r| r.digest.clone());
         let (verdict, taken) = ibkr_check_taken(&crate::venue::ibkr::Session::new(&transport, login.clone(), clock).with_reads(reads)).await;
         let read_verdict: crate::venue::ibkr_account::Verdict = digest.zip(taken);
@@ -1621,12 +1622,11 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
             IbkrVerdict::Failure(why) => return Ok(Err(Failure { error: transport.redact_diagnostic(&why), raised: false })),
         };
         let (at, produced) = (clock.now(), crate::engine::model::Produced::new(status, Some(version.clone())));
-        let verdict_credentials = credentials.clone();
         let stored = super::commit_bots_for_ciphered(db, version, move |c, cipher| {
             if !crate::venue::ibkr_account::verdict_current(c, &read_verdict)? { return Ok((0, false)); }
             let named = account.as_deref().and_then(crate::identity::AccountId::ibkr);
             let status = crate::web::settings::keys::bound_status(c, cipher, key_id, produced, account.as_deref(), at)?;
-            crate::venue::ibkr_account::commit_verdict(c, cipher, &read_verdict, named.as_ref(), &verdict_credentials)?;
+            crate::venue::ibkr_account::commit_verdict(c, cipher, &read_verdict, named.as_ref())?;
             crate::web::settings::keys::store_status(c, &status, key_id, at)?;
             Ok((status.value, true))
         }).await?;
@@ -1650,7 +1650,7 @@ pub(crate) async fn sync_ibkr_captured<T: Transport>(db: &Db, transport: T, logi
         let account = match cipher_read { Ok(a) => a, Err(why) => return Ok(Err(why)) };
         // #710 7b rule 12: the balance job's hold is gated too (a queued read crossing a fence sends nothing); its accounts
         // read is an in-lock read that commits (r6), recording another account it sees there.
-        let reads = { let credentials = credentials.clone(); db.run(move |c, cipher| Ok(crate::venue::ibkr_account::reads(c, cipher, &credentials))).await.unwrap_or(None) };
+        let reads = { let credentials = credentials.clone(); db.run(move |c, cipher| Ok(crate::venue::ibkr_account::reads(c, cipher, &credentials))).await.unwrap_or_else(|_| Some(crate::venue::ibkr_account::Reads::closed())) };
         if reads.is_some() { *in_lock_ref.borrow_mut() = true; }
         match ibkr_read_observed(&transport, login, clock, &account, "", Some((reads, version))).await {
             Ok(text) => Ok(Ok(text)),
@@ -1699,7 +1699,7 @@ async fn ibkr_read_observed<T: Transport, C: Clock + ?Sized>(transport: &T, logi
     let session = match gate { Some((reads, version)) => session.with_gate(reads, version), None => session };
     let held = session.lock().await.map_err(|e| (e.message(), None))?;
     let get = |path: String| { let (s, h) = (&session, &held); async move { s.signed_request(h, "GET", &path, vec![], None).await.map_err(|e| (transport.redact_diagnostic(&e.message()), None)) } };
-    let accounts = session.accounts(&held, Some(account)).await.map_err(|e| (transport.redact_diagnostic(&e.message()), None))?.0;
+    let accounts = session.accounts(&held, Some(account)).await.0.map_err(|e| (transport.redact_diagnostic(&e.message()), None))?;
     if !crate::venue::ibkr_account::names_only(&accounts, account) {
         let other = match crate::venue::ibkr_account::listed(&accounts).as_slice() { [one] => one.as_str().and_then(crate::identity::AccountId::ibkr), _ => None };
         return Err(("the IBKR login no longer names the account this connection belongs to".into(), other));

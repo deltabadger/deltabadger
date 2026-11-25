@@ -740,7 +740,7 @@ pub async fn ibkr_check<T: Transport, C: crate::engine::Clock + ?Sized>(session:
 /// `ibkr_check`, with the read's place in its login's order (#710 7b §2: the verdict is acted on only while it is the latest).
 pub async fn ibkr_check_taken<T: Transport, C: crate::engine::Clock + ?Sized>(session: &crate::venue::ibkr::Session<'_, T, C>) -> (IbkrVerdict, Option<crate::venue::ibkr_account::Taken>) {
     let (answer, taken) = match session.lock().await {
-        Ok(held) => match session.accounts(&held, None).await { Ok((v, taken)) => (Ok(v), taken), Err(e) => (Err(e), None) },
+        Ok(held) => session.accounts(&held, None).await,
         Err(e) => (Err(e), None),
     };
     (ibkr_verdict(&answer), taken)

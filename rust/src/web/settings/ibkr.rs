@@ -151,20 +151,25 @@ struct Wizard<'a> { v: &'a Ctx, csrf: &'a str, state: &'a State, path: String, c
 
 /// #710 7b rule 11: what a qualified connection's forms and links carry on (`hidden` inputs, the downloads' `also` query),
 /// and whether its credentials form has the question slot. All empty for the unqualified page (its bytes are 2.x's).
-fn carried(key: Option<&Stored>, state: &State) -> (String, String, bool) {
-    let named = match key { Some(Stored { registration: Some((id, revision)), .. }) => Some(vec![("registration", id.to_string()), ("revision", revision.to_string())]),
-                            Some(Stored { account: Some(a), .. }) => Some(vec![("account_id", a.to_string())]), _ => None };
+/// `target`: what the request named; an account with no key yet (after a reset) carries it too (branch r1 #2).
+fn carried(key: Option<&Stored>, target: Target, state: &State) -> (String, String, bool) {
+    let named = match (key, target) {
+        (Some(Stored { registration: Some((id, revision)), .. }), _) => Some(vec![("registration", id.to_string()), ("revision", revision.to_string())]),
+        (Some(Stored { account: Some(a), .. }), _) => Some(vec![("account_id", a.to_string())]),
+        (None, Target::Account(a)) => Some(vec![("account_id", a.to_string())]),
+        _ => None,
+    };
     let Some(named) = named else { return (String::new(), String::new(), matches!(state, State::Fenced)) };
     (named.iter().map(|(k, v)| format!("<input type=\"hidden\" name=\"{k}\" value=\"{v}\" />")).collect(),
      named.iter().filter(|(k, _)| *k != "revision").map(|(k, v)| format!("&amp;{k}={v}")).collect(), true)
 }
 
 /// The connection component: `#ibkr-connect-wizard` in `state`, its forms posting to the connect page's routes.
-pub fn wizard(ctx: &Ctx, csrf: &str, state: &State) -> Result<String, WebError> { wizard_of(ctx, csrf, None, state) }
-fn wizard_of(ctx: &Ctx, csrf: &str, key: Option<&Stored>, state: &State) -> Result<String, WebError> {
+pub fn wizard(ctx: &Ctx, csrf: &str, state: &State) -> Result<String, WebError> { wizard_of(ctx, csrf, None, Target::Legacy, state) }
+fn wizard_of(ctx: &Ctx, csrf: &str, key: Option<&Stored>, target: Target, state: &State) -> Result<String, WebError> {
     let check_address = i18n::t(ctx.locale, "settings.ibkr.portal_step_check_address", &[("recommended", i18n::Arg::Text(PORTALS[0])), ("alternative", i18n::Arg::Text(PORTALS[1]))]);
     let url = |host: &str| format!("https://{host}{PORTAL_PATH}");
-    let (hidden, also, slot) = carried(key, state);
+    let (hidden, also, slot) = carried(key, target, state);
     Ok(Wizard { v: ctx, csrf, state, path: ctx.path(PATH), check_address, recommended_url: url(PORTALS[0]), alternative_url: url(PORTALS[1]), hidden, also, slot }.render()?)
 }
 
@@ -187,7 +192,7 @@ pub fn tracker_step(c: &Connection, app: &App, ctx: &Ctx, user: i64, pick: crate
     let key = match stored_for(c, app, user, target)? { Ok(key) => key, Err(()) => return Ok(None) };
     if gated(app, key.as_ref()) && target == Target::Legacy { return Ok(None) }
     let state = state(ctx, key.as_ref());
-    let (hidden, also, slot) = carried(key.as_ref(), &state);
+    let (hidden, also, slot) = carried(key.as_ref(), target, &state);
     let hidden = if target == Target::Fresh && key.is_none() { "<input type=\"hidden\" name=\"registration\" value=\"new\" />".to_string() } else { hidden };
     let csrf = ctx.csrf_token();
     let check_address = i18n::t(ctx.locale, "settings.ibkr.portal_step_check_address", &[("recommended", i18n::Arg::Text(PORTALS[0])), ("alternative", i18n::Arg::Text(PORTALS[1]))]);
@@ -243,7 +248,7 @@ pub async fn show(app: App, ctx: Ctx) -> Result<Response, WebError> {
     let csrf = ctx.csrf_token();
     let state = state(&ctx, key.as_ref());
     let body = format!("<div class=\"page-head\">\n  <div class=\"stitle\">{}</div>\n</div>\n\n{}\n\n<div class=\"columns\">\n  <div class=\"column gap-1\">\n    {}  </div>\n</div>\n",
-                       ctx.t("settings.ibkr.title"), ctx.stream_from(&format!("user_{owner}:ibkr_connection")), wizard_of(&ctx, &csrf, key.as_ref(), &state)?);
+                       ctx.t("settings.ibkr.title"), ctx.stream_from(&format!("user_{owner}:ibkr_connection")), wizard_of(&ctx, &csrf, key.as_ref(), target, &state)?);
     let user = ctx.user().ok_or_else(|| WebError::Config("missing page owner".into()))?;
     shell::application(&ctx, &csrf, user, &shell, Page { status: StatusCode::OK, body, flash_now: vec![] })
 }
@@ -339,6 +344,9 @@ pub async fn activate(app: App, ctx: Ctx) -> Result<Response, WebError> {
                 keys::Key::of_registration(c, &inner, base, id, revision, target.is_none())?
             }
             (None, Some(a)) => Key::read(c, &inner, Account::by_id(c, a)?.ok_or_else(|| WebError::Config("account missing".into()))?, 0)?,
+            // Branch r1 #9: 2.x's unqualified form once another account exists is ambiguous, whatever IBKR answers: a bound
+            // key is never replaced by it (nothing written; the pages drawn with two accounts carry `account_id`).
+            (None, None) if crate::identity::accounts_of(c, user.id, key.exchange)?.len() > 1 && crate::venue::ibkr_account::binding(c, key.id)?.is_some() => return Ok(Ok(None)),
             (None, None) => Key::read(c, &inner, Account::first(c, user.id, key.exchange)?, 0)?,
         };
         Ok(Ok(Some((key, original))))
@@ -411,6 +419,8 @@ pub async fn destroy(app: App, ctx: Ctx) -> Result<Response, WebError> {
     match read {
         Some((key, None, _)) => {
             let (id, revision) = key.registration.ok_or_else(|| WebError::Config("registration missing".into()))?;
+            // Branch r1 #12: Start over deletes only the revision its tab showed; a stale tab's writes nothing.
+            if ctx.params.form("revision") != Some(revision.to_string().as_str()) { return Ok(back_to_kept(&ctx, exchange, &kept(&ctx))); }
             app.db(move |c| Ok(c.execute("DELETE FROM ibkr_registrations WHERE id = ?1 AND user_id = ?2 AND revision = ?3", rusqlite::params![id, user.id, revision])?)).await?;
             return Ok(back_to_kept(&ctx, exchange, ""));
         }

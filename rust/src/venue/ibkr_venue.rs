@@ -124,7 +124,7 @@ impl<T: Transport> IbkrVenue<T> {
 
     /// The account check every call starts with, under `held`.
     async fn checked(&self, s: &Session<'_, T, Clk>, held: &Held<'_>) -> Result<(), VenueError> {
-        let (accounts, _) = s.accounts(held, Some(&self.account)).await.map_err(|e| self.error(e))?;
+        let accounts = s.accounts(held, Some(&self.account)).await.0.map_err(|e| self.error(e))?;
         if super::ibkr_account::names_only(&accounts, &self.account) { Ok(()) } else { Err(VenueError::Rejected(vec![ACCOUNT_CHANGED.into()])) }
     }
 

@@ -4595,3 +4595,18 @@ async fn s9_the_scheduled_validator_records_a_mexc_uid() {
     assert!(!identity::unread(c, key).unwrap(), "the UID read is recorded: {outcome:?}");
     assert_eq!(one::<i64>(c, &format!("SELECT status FROM api_keys WHERE id = {key}")), 1);
 }
+
+/// #710 7b branch r1 #13: Merge carries the duplicate's IBKR history evidence and the takeover's sentinel to the survivor
+/// (a later registration of that account still asks), before the tombstone deletes the duplicate's.
+#[test]
+fn s7b_merge_carries_ibkr_evidence_and_the_sentinel() {
+    let (_d, o, two) = duplicate();
+    let c = &o.primary;
+    for (fingerprint, source) in [("fp-u2", "backfill"), (identity::UNCONFIRMED_AFTER_V2, "takeover")] {
+        c.execute("INSERT INTO ibkr_account_evidence (account_id, fingerprint, source) VALUES (?1, ?2, ?3)", rusqlite::params![two.id(1), fingerprint, source]).unwrap();
+    }
+    merge_now(c, &two, two.id(1)).unwrap().unwrap();
+    let held: Vec<(i64, String, String)> = c.prepare("SELECT account_id, fingerprint, source FROM ibkr_account_evidence ORDER BY fingerprint").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(held, [(two.id(0), "fp-u2".to_string(), "backfill".to_string()), (two.id(0), identity::UNCONFIRMED_AFTER_V2.to_string(), "takeover".to_string())]);
+}

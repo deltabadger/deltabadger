@@ -262,7 +262,7 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     ("20261126000002", TableContract { name: "ibkr_registrations", columns: &[("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true),
         ("target_account_id", "INTEGER", false), ("revision", "INTEGER", true), ("rsa_signature_key", "TEXT", true), ("rsa_encryption_key", "TEXT", true),
         ("dh_param", "TEXT", true), ("key", "TEXT", false), ("access_token", "TEXT", false), ("secret", "TEXT", false), ("ibkr_realm", "TEXT", false),
-        ("status", "INTEGER", true), ("created_at", "TEXT", true), ("updated_at", "TEXT", true)], unique_indexes: &[] }),
+        ("status", "INTEGER", true), ("created_at", "TEXT", true), ("updated_at", "TEXT", true), ("baseline", "TEXT", false)], unique_indexes: &[] }),
     ("20261126000002", TableContract { name: "ibkr_account_evidence", columns: &[("account_id", "INTEGER", true), ("fingerprint", "TEXT", true), ("source", "TEXT", true)],
         unique_indexes: &[] }),
     ("20261126000002", TableContract { name: "ibkr_login_reads", columns: &[("login_digest", "TEXT", false), ("seq", "INTEGER", true), ("committed_seq", "INTEGER", true),

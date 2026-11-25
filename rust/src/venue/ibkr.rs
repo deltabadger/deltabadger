@@ -250,31 +250,37 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
 
     fn gated(&self) -> Result<(), Error> {
         let Some((path, version)) = &self.gate else { return Ok(()) };
+        // Branch r1 #5: a gate whose state could not be loaded (`Reads::closed`) sends nothing.
+        if path.is_empty() { return Err(Error::Gated); }
         let current = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
             .and_then(|c| { c.busy_timeout(std::time::Duration::from_secs(5))?; Ok(c) })
             .map_err(crate::engine::EngineError::from)
             .and_then(|c| crate::engine::model::key_is_current(&c, version));
         if current.unwrap_or(false) { Ok(()) } else { Err(Error::Gated) }
     }
-    /// Rule 12(b), before a gated hold's request other than the accounts list.
+    /// Rule 12(b), before a gated hold's request other than the accounts list: the gate read afresh (a fence the hold's own
+    /// accounts read just recorded holds it back, branch r1 #7), then the authority to send.
     fn authorized(&self) -> Result<(), Error> {
-        match (&self.gate, &self.reads) { (Some((_, version)), Some(reads)) if !reads.authorized(version.id) => Err(Error::Gated), _ => Ok(()) }
+        let Some((_, version)) = &self.gate else { return Ok(()) };
+        self.gated()?;
+        match &self.reads { Some(reads) if reads.authorized(version.id) => Ok(()), _ => Err(Error::Gated) }
     }
 
-    /// GET /iserver/accounts under `held`, numbered in the login's read order (`Taken`, when this session has `reads`). With
-    /// `bound` (an in-lock read of a gated session: the balance read, `submit`, `IbkrVenue::checked`), its verdict is
-    /// committed before the lock is released (`Reads::commit_in_lock`): a match authorizes the hold's next requests, one
-    /// other account fences the key.
-    pub async fn accounts(&self, held: &Held<'_>, bound: Option<&str>) -> Result<(Value, Option<super::ibkr_account::Taken>), Error> {
-        let Some(reads) = &self.reads else { return Ok((self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await?, None)) };
+    /// GET /iserver/accounts under `held`, numbered in the login's read order (`Taken`, when this session has `reads`), the
+    /// number kept whatever the answer (a final 401 included, branch r1 #3: its verdict is acted on only while it is the
+    /// latest). With `bound` (an in-lock read of a gated session: the balance read, `submit`, `IbkrVenue::checked`), its
+    /// verdict is committed before the lock is released (`Reads::commit_in_lock`): a match authorizes the hold's next
+    /// requests, one other account fences the key.
+    pub async fn accounts(&self, held: &Held<'_>, bound: Option<&str>) -> (Result<Value, Error>, Option<super::ibkr_account::Taken>) {
+        let Some(reads) = &self.reads else { return (self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await, None) };
         let order = reads.ordered().await;
-        let taken = reads.take().map_err(|e| { crate::engine::log(&format!("[IBKR] {e}")); Error::Gated })?;
+        let taken = match reads.take() { Ok(t) => t, Err(e) => { crate::engine::log(&format!("[IBKR] {e}")); return (Err(Error::Gated), None) } };
         let answer = self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await;
         drop(order);
         if let (Ok(v), Some((_, version)), Some(bound)) = (&answer, &self.gate, bound) {
             if let Err(e) = reads.commit_in_lock(version, taken, bound, v, self.clock.now()) { crate::engine::log(&format!("[IBKR] api_key={} the accounts read was not recorded: {e}", version.id)); }
         }
-        Ok((answer?, Some(taken)))
+        (answer, Some(taken))
     }
 
     /// Sent to `base` instead of Session::BASE_URL (a test's server).
@@ -328,7 +334,7 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     /// `account`: the account list must name it and no other, else nothing is sent (Rejected).
     pub async fn submit(&self, held: &Held<'_>, path: &str, body: Value, account: Option<&str>) -> Result<Value, VenueError> {
         let redact = |e: Error| self.transport.redact_diagnostic(&e.message());
-        let (accounts, _) = self.accounts(held, account).await.map_err(|e| VenueError::Transient(redact(e)))?;
+        let accounts = self.accounts(held, account).await.0.map_err(|e| VenueError::Transient(redact(e)))?;
         if account.is_some_and(|a| !super::ibkr_account::names_only(&accounts, a)) { return Err(VenueError::Rejected(vec![ACCOUNT_CHANGED.into()])) }
         self.authorized().map_err(|e| VenueError::Transient(redact(e)))?;
         self.live_session_token().await.map_err(|e| VenueError::Transient(redact(e)))?;

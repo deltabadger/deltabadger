@@ -3828,6 +3828,28 @@ async fn s7b_balance_set_publishes_atomically(){
     assert_eq!(state(),before,"the previous complete set, its clock and its completion survive");
 }
 
+/// #710 7b branch r1 #15 (D-BALANCE-SET-ATOMIC): a valid Alpaca account of 5,000 supported positions and positive cash is
+/// one set of 5,001 rows, published in one transaction as main published it.
+#[tokio::test(flavor="current_thread")]
+async fn s7b_balance_set_of_5000_positions_and_cash_publishes(){
+    use deltabadger::{engine::{model,FixedClock},sync::balances::{self,NoPrices}};
+    use deltabadger::sync::jobs::Connect;
+    let server=MockServer::start().await;let h=Harness::new(server.uri()).await;let at=h.app.now();
+    let mut positions=vec![];
+    let tx=h.c.unchecked_transaction().unwrap();
+    for n in 0..5000 {let symbol=format!("FK{n}");let (asset,_)=common::seed::add_alpaca_stock(&tx,&h.seed,&symbol);tx.execute("INSERT INTO exchange_assets(exchange_id,asset_id,created_at,updated_at) VALUES(?1,?2,'2026-09-01','2026-09-01')",[h.seed.exchange_id,asset]).unwrap();positions.push(serde_json::json!({"symbol":symbol,"asset_class":"us_equity","qty":"1","qty_available":"1"}));}
+    tx.commit().unwrap();
+    Mock::given(method("GET")).and(path("/v2/account")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"cash":"2000"}))).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/positions")).respond_with(ResponseTemplate::new(200).set_body_json(positions)).mount(&server).await;
+    Mock::given(method("GET")).and(path("/v2/stocks/snapshots")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({}))).mount(&server).await;
+    let bot=common::seed::insert_bot(&h.c,&h.seed,&common::seed::BotSpec::weekly(60.0,"2026-09-01 00:00:00"));
+    let db=deltabadger::jobs::Db::new(rusqlite::Connection::open(h._dir.path().join("production.sqlite3")).unwrap(),h.app.cipher.clone());
+    let a=model::credentials_for(&h.c,&h.app.cipher,&model::load_bot(&h.c,bot).unwrap()).unwrap().unwrap();
+    let synced=balances::sync(&db,&LocalAlpaca(server.uri()).connect(&a),&NoPrices,h.seed.api_key_id,&a,&FixedClock(at)).await.unwrap();
+    assert!(synced.is_ok(),"{synced:?}");
+    assert_eq!(h.c.query_row("SELECT count(*) FROM exchange_account_balances",[],|r|r.get::<_,i64>(0)).unwrap(),5001,"every position and the cash");
+}
+
 async fn r5_retry_rotation(exhaust:bool,restart:bool){
     use deltabadger::{engine::{run::{self,Engine},model,FixedClock},venue::alpaca::LiveFactory};
     let server=MockServer::start().await;let h=Harness::at_real_now(server.uri()).await;let at=h.app.now();let (bot,_)=q_order(&h);
