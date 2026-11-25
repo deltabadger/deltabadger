@@ -538,3 +538,59 @@ async fn s7b_ibkr_foreign_position_row_gives_no_hold() {
     assert!(held.is_err(), "no hold from a read whose row names another account");
     assert_eq!(fx.c.query_row("SELECT count(*) FROM ibkr_reservations", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
 }
+
+impl Fx {
+    fn gate(&self) -> (ibkr_account::Reads, model::CredentialVersion) {
+        let credentials = deltabadger::sync::credentials(&self.c, &self.cipher, self.s.api_key_id).unwrap();
+        (ibkr_account::reads(&self.c, &self.cipher, &credentials).unwrap(), credential_version_by_id(&self.c, self.s.api_key_id).unwrap().unwrap())
+    }
+    fn fenced(&self) -> bool {
+        self.c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", deltabadger::identity::fenced_sql(&self.c, "k").unwrap()), [self.s.api_key_id], |r| r.get(0)).unwrap()
+    }
+    /// The figures' market-data read (no accounts read of its own) through the key's gated session over `t`.
+    async fn snapshot(&self, t: &ScriptedTransport) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        let (reads, version) = self.gate();
+        let credentials = deltabadger::sync::credentials(&self.c, &self.cipher, self.s.api_key_id).unwrap();
+        let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+        let clock = FixedClock(at(NOW));
+        let session = ibkr::Session::new(t, login, &clock).with_gate(Some(reads), &version);
+        let r = deltabadger::venue::http::HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::SNAPSHOT_PATH.into(), query: vec![("conids", CONID.to_string())], body: None, not_after: None };
+        ibkr::read(&session, &r).await
+    }
+}
+
+/// r6 rules 7 and 12: a poll is the first to see the login open another account: its account check (an in-lock read)
+/// fences the key before its lock is released, so the next figures request sends nothing and the account's stored
+/// balances are no longer current. The same for an order's `submit`. Adapter level: IBKR bots stay off (G3).
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_poll_first_observer_fences_before_figures() {
+    let fx = Fx::new();
+    let (reads, version) = fx.gate();
+    let t = script_over(10, &[], json!({ ACCOUNTS: [ok(json!({ "accounts": [ACCOUNT_B] }))] }));
+    t.reply("GET /v1/api/iserver/marketdata/snapshot", 200, json!([]));
+    let polled = fx.venue(&t).with_gate(Some(reads), version.clone()).orders(&[ORDER_ID.to_string()]).await;
+    assert!(matches!(polled, Err(VenueError::Rejected(_))), "{polled:?}");
+    assert!(fx.fenced(), "fenced under the poll's lock");
+    assert!(!t.requests().iter().any(|r| r.path.contains("/account/orders")), "the poll itself sent nothing more");
+    assert!(matches!(fx.snapshot(&t).await, Err(deltabadger::venue::http::TransportError::NotSent(_))));
+    assert!(!t.requests().iter().any(|r| r.path.ends_with("/snapshot")), "nothing sent for the figures");
+    assert!(!model::key_reads_its_account(&fx.c, &version).unwrap(), "its stored balances are not current");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_submit_first_observer_fences_before_figures() {
+    let fx = Fx::new();
+    let (reads, version) = fx.gate();
+    let t = script_over(10, &[], json!({ ACCOUNTS: [ok(json!({ "accounts": [ACCOUNT_B] }))] }));
+    let credentials = deltabadger::sync::credentials(&fx.c, &fx.cipher, fx.s.api_key_id).unwrap();
+    let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+    let clock = FixedClock(at(NOW));
+    let session = ibkr::Session::new(&t, login, &clock).with_gate(Some(reads), &version);
+    let held = session.lock().await.unwrap();
+    let sent = session.submit(&held, "/v1/api/iserver/account/U1234567/orders", json!({ "orders": [] }), Some(ACCOUNT_A)).await;
+    drop(held);
+    assert!(matches!(sent, Err(VenueError::Rejected(_))), "{sent:?}");
+    assert!(fx.fenced());
+    assert!(!t.requests().iter().any(|r| r.method == "POST" && r.path.ends_with("/orders")), "no order sent");
+    assert!(fx.snapshot(&t).await.is_err());
+}

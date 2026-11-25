@@ -16,10 +16,20 @@ pub enum Validity {
 pub(crate) struct ValidationHandle {
     credentials:crate::crypto::Credentials,
     producer:crate::engine::model::CredentialVersion,
+    /// #710 7b §2: where an IBKR check's accounts read is numbered, and the number it took (its verdict is acted on only
+    /// while that read is its login's latest).
+    reads:Option<crate::venue::ibkr_account::Reads>,
+    taken:std::sync::Mutex<Option<crate::venue::ibkr_account::Taken>>,
 }
 impl ValidationHandle {
     pub(crate) fn stored(credentials:crate::crypto::Credentials,producer:crate::engine::model::CredentialVersion)->Self {
-        Self{credentials,producer}
+        Self{credentials,producer,reads:None,taken:Default::default()}
+    }
+    pub(crate) fn with_reads(mut self,reads:Option<crate::venue::ibkr_account::Reads>)->Self { self.reads=reads; self }
+    /// The login digest and read number of the last IBKR check (None: unnumbered, or no read was made).
+    pub(crate) fn taken(&self)->Option<(String,crate::venue::ibkr_account::Taken)> {
+        let taken=*self.taken.lock().unwrap_or_else(|p|p.into_inner());
+        self.reads.as_ref().zip(taken).map(|(r,t)|(r.digest.clone(),t))
     }
     pub(crate) fn credentials(&self)->&crate::crypto::Credentials { &self.credentials }
     pub(crate) fn producer(&self)->&crate::engine::model::CredentialVersion { &self.producer }
@@ -45,7 +55,8 @@ impl ValidationHandle {
         let (value,observed)=match egress {
             // #710 7b: IBKR's check names its account; that is its identity read (`Observed::Read`), recorded as any venue's.
             Ok(client) if venue==crate::venue::ibkr::IBKR=>{
-                let value=super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer).await;
+                let (value,taken)=super::key_check::ibkr_validity(base,client,&self.credentials,&self.producer,self.reads.clone()).await;
+                *self.taken.lock().unwrap_or_else(|p|p.into_inner())=taken;
                 let observed=match &value {Validity::Account(id)=>crate::identity::AccountId::ibkr(id).map(crate::identity::Observed::Read),_=>None};
                 (value,observed)
             }

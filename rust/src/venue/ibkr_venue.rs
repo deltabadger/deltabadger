@@ -31,7 +31,7 @@
 //!
 //! The answer shapes are provisional: no IBKR session has been recorded yet (gates G1, G3).
 use super::http::Transport;
-use super::ibkr::{Error, Held, Login, Session, ACCOUNTS_PATH, ACCOUNT_CHANGED, FIELD_AVAILABILITY};
+use super::ibkr::{Error, Held, Login, Session, ACCOUNT_CHANGED, FIELD_AVAILABILITY};
 pub use super::ibkr::SNAPSHOT_PATH;
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PlacementHold, PriceSide, Side, Venue, VenueError};
 use crate::engine::model::Ticker;
@@ -83,19 +83,29 @@ pub struct IbkrVenue<T: Transport> {
     account_ref: String,
     base: String,
     dh_random: Option<String>,
+    /// #710 7b rule 12: every session's post-lock gate (and its accounts reads' numbering).
+    gate: Option<(super::ibkr_account::Reads, crate::engine::model::CredentialVersion)>,
 }
 
 impl<T: Transport> IbkrVenue<T> {
     pub fn new(transport: T, login: Arc<Login>, clock: Arc<Clk>, account: String, account_ref: String) -> Self {
-        Self { transport, login, clock, account, account_ref, base: String::new(), dh_random: None }
+        Self { transport, login, clock, account, account_ref, base: String::new(), dh_random: None, gate: None }
     }
     /// Sent to `base` instead of IBKR's (a test's server).
     pub fn with_base(mut self, base: &str) -> Self { self.base = base.into(); self }
     /// Every session mints with this DH random (a scripted IBKR's recorded answer).
     pub fn with_dh_random(mut self, dh_random: String) -> Self { self.dh_random = Some(dh_random); self }
 
+    /// #710 7b rule 12: every call behind the post-lock gate of key `version` (`Session::with_gate`); its account check is an
+    /// in-lock read that commits (r6: a poll or an order that is the first to see another account fences the key).
+    pub fn with_gate(mut self, reads: Option<super::ibkr_account::Reads>, version: crate::engine::model::CredentialVersion) -> Self {
+        self.gate = reads.map(|r| (r, version));
+        self
+    }
+
     fn session(&self) -> Session<'_, T, Clk> {
         let s = Session::new(&self.transport, self.login.clone(), &*self.clock).with_base(&self.base);
+        let s = match &self.gate { Some((reads, version)) => s.with_gate(Some(reads.clone()), version), None => s };
         match self.dh_random.clone() { Some(r) => s.with_dh_random(move || r.clone()), None => s }
     }
 
@@ -114,7 +124,7 @@ impl<T: Transport> IbkrVenue<T> {
 
     /// The account check every call starts with, under `held`.
     async fn checked(&self, s: &Session<'_, T, Clk>, held: &Held<'_>) -> Result<(), VenueError> {
-        let accounts = self.get(s, held, "GET", ACCOUNTS_PATH, vec![], None).await?;
+        let (accounts, _) = s.accounts(held, Some(&self.account)).await.map_err(|e| self.error(e))?;
         if super::ibkr_account::names_only(&accounts, &self.account) { Ok(()) } else { Err(VenueError::Rejected(vec![ACCOUNT_CHANGED.into()])) }
     }
 

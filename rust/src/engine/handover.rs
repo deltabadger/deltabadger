@@ -721,7 +721,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // tables have no place for it.
         (Table, "exchange_account_balances", Refuses(SECOND_ACCOUNT_BALANCES)), (Table, "exchange_account_snapshots", Refuses(SECOND_ACCOUNT_BALANCES)),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
-        (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored), (Table, "ibkr_registrations", Ignored), (Table, "ibkr_account_evidence", Ignored), (Table, "ibkr_login_reads", Ignored),
+        (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored), (Table, "ibkr_registrations", Refuses(crate::venue::ibkr_reservations::REGISTRATION_HANDBACK)), (Table, "ibkr_account_evidence", Ignored), (Table, "ibkr_login_reads", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
         (Table, "kucoin_coverage", Refuses("KuCoin HF and Unified account history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),

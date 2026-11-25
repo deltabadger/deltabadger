@@ -757,22 +757,21 @@ async fn s7b_ibkr_post_lock_gate_on_every_path() {
     let observe = |id: &str| deltabadger::identity::record(&fx.c, &fx.cipher, fx.s.api_key_id, &credentials, &version, &Observed::Read(AccountId::ibkr(id).unwrap()), now).unwrap();
     observe("U7654321");
     assert!(fx.fenced(fx.s.api_key_id));
-    let path = fx.path.to_str().unwrap().to_string();
     let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
     // Market data (the figures' hold).
     let t = scripted(json!({ "accounts": ["U1234567"] }), &[json!([])]);
     let clock = FixedClock(now);
-    let session = ibkr::Session::new(&t, login.clone(), &clock).with_gate(Some(&path), &version);
+    let session = ibkr::Session::new(&t, login.clone(), &clock).with_gate(Some(fx.reads()), &version);
     let r = HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::SNAPSHOT_PATH.into(), query: vec![("conids", "265598".into())], body: None, not_after: None };
     assert!(matches!(ibkr::read(&session, &r).await, Err(deltabadger::venue::http::TransportError::NotSent(_))));
     // The balance job's and REST/MCP's read.
-    assert!(deltabadger::sync::balances::ibkr_read_gated(&t, login.clone(), &clock, "U1234567", "", Some(&path), &version).await.unwrap_err().contains("nothing was sent"));
+    assert!(deltabadger::sync::balances::ibkr_read_gated(&t, login.clone(), &clock, "U1234567", "", Some(fx.reads()), &version).await.unwrap_err().contains("nothing was sent"));
     assert!(!matches!(sync_balances_raw(&fx, t.clone()).await, Ok(Ok(_))));
     assert!(t.requests().is_empty(), "nothing sent while fenced: {:?}", t.requests().iter().map(|r| r.path.clone()).collect::<Vec<_>>());
     // The login opens U1234567 again (a check recorded it): the holds send.
     observe("U1234567");
     assert!(!fx.fenced(fx.s.api_key_id));
-    assert!(deltabadger::sync::balances::ibkr_read_gated(&t, login, &clock, "U1234567", "", Some(&path), &version).await.is_ok());
+    assert!(deltabadger::sync::balances::ibkr_read_gated(&t, login, &clock, "U1234567", "", Some(fx.reads()), &version).await.is_ok());
     assert!(!t.requests().is_empty());
 }
 
@@ -821,4 +820,221 @@ async fn s7b_ibkr_same_reader_syncs_keep_their_generation() {
     assert!(fx.fenced(fx.s.api_key_id));
     assert!(generation() > g, "the fence moved the reader");
     assert_eq!(held(), 6.0, "nothing published by the fenced run");
+}
+
+// ---- #710 7b §2: the per-login read sequence --------------------------------------------------------------------------
+
+impl Fx {
+    fn credentials(&self) -> deltabadger::crypto::Credentials { deltabadger::sync::credentials(&self.c, &self.cipher, self.s.api_key_id).unwrap() }
+    fn version(&self) -> deltabadger::engine::model::CredentialVersion { credential_version_by_id(&self.c, self.s.api_key_id).unwrap().unwrap() }
+    /// The key's login reads (its database and digest).
+    fn reads(&self) -> ibkr_account::Reads { ibkr_account::reads(&self.c, &self.cipher, &self.credentials()).expect("a file database with an identity key") }
+    /// (seq, committed_seq) of the key's login, None without a row.
+    fn login_reads(&self) -> Option<(i64, i64)> {
+        use rusqlite::OptionalExtension;
+        self.c.query_row("SELECT seq, committed_seq FROM ibkr_login_reads WHERE login_digest = ?1", [self.reads().digest], |r| Ok((r.get(0)?, r.get(1)?))).optional().unwrap()
+    }
+    /// The figures' market-data read (a hold with no accounts read of its own) through the key's gated session over `t`.
+    async fn snapshot(&self, t: &ScriptedTransport) -> Result<deltabadger::venue::http::HttpResponse, deltabadger::venue::http::TransportError> {
+        use deltabadger::venue::http::HttpRequest;
+        let (credentials, version) = (self.credentials(), self.version());
+        let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+        let clock = FixedClock(at(NOW));
+        let session = ibkr::Session::new(t, login, &clock).with_gate(Some(self.reads()), &version);
+        let r = HttpRequest { method: "GET", base: ibkr::URL.into(), path: ibkr::SNAPSHOT_PATH.into(), query: vec![("conids", "265598".into())], body: None, not_after: None };
+        ibkr::read(&session, &r).await
+    }
+    /// A bound key on account 1 (the 7a shape: no login reads yet).
+    fn bound(&self) {
+        deltabadger::identity::ensure_account(&self.c, self.s.user_id, self.s.exchange_id, at(NOW)).unwrap();
+        ibkr_account::bind(&self.c, &self.cipher, self.s.api_key_id, "U1234567", at(NOW)).unwrap().unwrap();
+    }
+}
+fn market() -> ScriptedTransport {
+    let t = scripted(json!({ "accounts": ["U1234567"] }), &[json!([])]);
+    for _ in 0..4 { t.reply("GET /v1/api/iserver/marketdata/snapshot", 200, json!([{ "conid": 265598, "31": "190.5" }])); }
+    t
+}
+fn snapshots(t: &ScriptedTransport) -> usize { t.requests().iter().filter(|r| r.path.ends_with("/snapshot")).count() }
+
+/// r6 rule 12(b) and 13: a key bound before 7b (no login reads row) sends no market data until a read of its own login
+/// names its account; the first balance job is one (its in-lock accounts read commits the match), with no user action.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_7a_upgrade_bound_key_recovers_without_user_action() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    fx.bound();
+    assert_eq!(fx.login_reads(), None, "a 7a key: no login reads yet");
+    let t = market();
+    assert!(matches!(fx.snapshot(&t).await, Err(deltabadger::venue::http::TransportError::NotSent(_))), "check first");
+    assert_eq!(snapshots(&t), 0, "nothing sent");
+    sync_balances(&fx, scripted(json!({ "accounts": ["U1234567"] }), &[json!([])])).await.unwrap();
+    assert_eq!(fx.login_reads(), Some((1, 1)), "the balance job's own read, committed in its lock");
+    assert!(fx.snapshot(&t).await.is_ok());
+    assert_eq!(snapshots(&t), 1);
+}
+
+/// r6: a read numbered and never acted on (a crash right after `take_seq`, or an inconclusive answer) sends nothing on a
+/// hold without an accounts read; the scheduled check reads the login again and recovers. A 503 leaves it due.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_crash_after_take_seq_recovers() {
+    use deltabadger::sync::jobs::IbkrActivation;
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    fx.bound();
+    sync_balances(&fx, scripted(json!({ "accounts": ["U1234567"] }), &[json!([])])).await.unwrap();
+    let clock = FixedClock(at(NOW));
+    let ok = ibkr_server(json!({ "accounts": ["U1234567"] })).await;
+    assert_eq!(IbkrActivation { venues: Local(ok.uri()) }.run(fx.cx(&clock), vec![]).await, Outcome::NothingNew, "a settled login is not checked");
+    ibkr_account::take_seq(&fx.c, &fx.reads().digest).unwrap();
+    let t = market();
+    assert!(fx.snapshot(&t).await.is_err() && snapshots(&t) == 0, "an unfinished read: check first");
+    assert_eq!(IbkrActivation { venues: Local(ok.uri()) }.run(fx.cx(&clock), vec![]).await, Outcome::Done);
+    assert_eq!(fx.login_reads(), Some((3, 3)));
+    assert!(fx.snapshot(&t).await.is_ok());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_inconclusive_read_is_rechecked() {
+    use deltabadger::sync::jobs::IbkrActivation;
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    fx.bound();
+    let clock = FixedClock(at(NOW));
+    let down = MockServer::start().await;
+    let (mint, init) = mint_and_init();
+    let answer = |a: &Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path(LST)).respond_with(answer(&mint)).mount(&down).await;
+    Mock::given(method("POST")).and(path(INIT)).respond_with(answer(&init)).mount(&down).await;
+    Mock::given(method("GET")).and(path(ACCOUNTS)).respond_with(ResponseTemplate::new(503)).mount(&down).await;
+    IbkrActivation { venues: Local(down.uri()) }.run(fx.cx(&clock), vec![]).await;
+    let after_503 = fx.login_reads().expect("the 503's read was numbered");
+    assert!(after_503.1 < after_503.0, "never acted on: {after_503:?}");
+    let t = market();
+    assert!(fx.snapshot(&t).await.is_err() && snapshots(&t) == 0);
+    let ok = ibkr_server(json!({ "accounts": ["U1234567"] })).await;
+    assert_eq!(IbkrActivation { venues: Local(ok.uri()) }.run(fx.cx(&clock), vec![]).await, Outcome::Done, "still due: checked again");
+    assert!(fx.snapshot(&t).await.is_ok());
+}
+
+/// §2: two checks of one login (each key check has a login of its own) are numbered in the order they read IBKR, the
+/// second waiting for the first; the newest verdict is the one acted on, and the older one, arriving later, writes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_reversed_lock_order_newest_read_wins() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    fx.bound();
+    let server = MockServer::start().await;
+    let (mint, init) = mint_and_init();
+    let answer = |a: &Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path(LST)).respond_with(answer(&mint)).mount(&server).await;
+    Mock::given(method("POST")).and(path(INIT)).respond_with(answer(&init)).mount(&server).await;
+    Mock::given(method("GET")).and(path(ACCOUNTS)).respond_with(ResponseTemplate::new(200).set_body_json(json!({ "accounts": ["U1234567"] })).set_delay(std::time::Duration::from_millis(300))).mount(&server).await;
+    let reads = fx.reads();
+    let session_of = |login: std::sync::Arc<ibkr::Login>| {
+        let t = deltabadger::venue::http::ReqwestTransport::ibkr(reqwest::Client::builder().no_proxy().build().unwrap(), login.clone());
+        (t, login)
+    };
+    let (ta, la) = session_of(login());
+    let (tb, lb) = session_of(login());
+    let clock = FixedClock(at(NOW));
+    let sa = ibkr::Session::new(&ta, la, &clock).with_base(&server.uri()).with_reads(Some(reads.clone()));
+    let sb = ibkr::Session::new(&tb, lb, &clock).with_base(&server.uri()).with_reads(Some(reads.clone()));
+    let (a, b) = tokio::join!(key_check::ibkr_check_taken(&sa), async { tokio::time::sleep(std::time::Duration::from_millis(50)).await; key_check::ibkr_check_taken(&sb).await });
+    assert_eq!((a.0.clone(), b.0.clone()), (IbkrVerdict::Account("U1234567".into()), IbkrVerdict::Account("U1234567".into())));
+    let (a, b) = (a.1.unwrap(), b.1.unwrap());
+    assert_eq!((a.seq, b.seq, b.prev), (1, 2, 1), "numbered in the order they read");
+    let fp = deltabadger::identity::key(&fx.c, &fx.cipher, at(NOW)).unwrap().fingerprint_text(ibkr::IBKR, "U1234567");
+    assert!(ibkr_account::commit_seq(&fx.c, &reads.digest, b.seq, Some(&fp)).unwrap(), "the newest verdict is acted on");
+    assert!(!ibkr_account::verdict_current(&fx.c, &Some((reads.digest.clone(), a))).unwrap());
+    assert!(!ibkr_account::commit_seq(&fx.c, &reads.digest, a.seq, Some(&fp)).unwrap(), "the older one writes nothing");
+    assert_eq!(fx.login_reads(), Some((2, 2)));
+}
+
+/// Rule 12, as the figures' wire builds its session: a market-data read queued on the login's lock while a check fences the
+/// key sends nothing once it holds the lock (the gate reads the database after the lock, never before).
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_figures_wire_checks_fence_after_lock() {
+    use deltabadger::identity::{AccountId, Observed};
+    freeze_dh();
+    let fx = Fx::new(1);
+    ibkr_catalogue(&fx);
+    fx.bound();
+    sync_balances(&fx, scripted(json!({ "accounts": ["U1234567"] }), &[json!([])])).await.unwrap();
+    let (credentials, version) = (fx.credentials(), fx.version());
+    let login = ibkr::login(&version, credentials.ibkr.as_deref().unwrap()).unwrap();
+    let t = market();
+    let clock = FixedClock(at(NOW));
+    let holder = ibkr::Session::new(&t, login.clone(), &clock);
+    let held = holder.lock().await.unwrap();
+    let queued = fx.snapshot(&t);
+    let fence = async {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        deltabadger::identity::record(&fx.c, &fx.cipher, fx.s.api_key_id, &credentials, &version, &Observed::Read(AccountId::ibkr("U7654321").unwrap()), at(NOW)).unwrap();
+        drop(held);
+    };
+    let (sent, ()) = tokio::join!(queued, fence);
+    assert!(matches!(sent, Err(deltabadger::venue::http::TransportError::NotSent(_))), "{sent:?}");
+    assert_eq!(snapshots(&t), 0);
+}
+
+/// Rule 10: a fenced key is no correct key of its account: the wizard's connected list leaves it out.
+#[test]
+fn s7b_ibkr_live_reads_skip_fenced_keys() {
+    use deltabadger::identity::{AccountId, Observed};
+    let fx = Fx::new(1);
+    fx.bound();
+    let connected = || deltabadger::web::wizard::exchanges::connected(&fx.c, fx.s.user_id, &[0]).unwrap().len();
+    assert_eq!(connected(), 1);
+    deltabadger::identity::record(&fx.c, &fx.cipher, fx.s.api_key_id, &fx.credentials(), &fx.version(), &Observed::Read(AccountId::ibkr("U7654321").unwrap()), at(NOW)).unwrap();
+    assert!(fx.fenced(fx.s.api_key_id));
+    assert_eq!(connected(), 0, "fenced: not connected");
+}
+
+// ---- #710 7b rule 16: handback and export ------------------------------------------------------------------------------
+
+fn registration(fx: &Fx, status: i64) -> i64 {
+    let e = |v: &str| fx.cipher.encrypt(v);
+    fx.c.execute("INSERT INTO ibkr_registrations(user_id, exchange_id, target_account_id, revision, rsa_signature_key, rsa_encryption_key, dh_param, status, created_at, updated_at)
+                  VALUES(?1, ?2, NULL, 1, ?3, ?3, ?3, ?4, '2026-10-01', '2026-10-01')", rusqlite::params![fx.s.user_id, fx.s.exchange_id, e("pem"), status]).unwrap();
+    fx.c.last_insert_rowid()
+}
+
+/// D-IBKR-HANDBACK (extended): 2.x has no place for a pending connection, so a registration refuses the handback, whether
+/// it only made its keys (downloads) or awaits IBKR's activation.
+#[test]
+fn s7b_ibkr_registration_refuses_handback_downloads_only() {
+    let fx = Fx::new(1);
+    assert!(deltabadger::venue::ibkr_reservations::handback_refusals(&fx.c, at(NOW)).unwrap().is_empty());
+    let reg = registration(&fx, 0);
+    let refused = deltabadger::venue::ibkr_reservations::handback_refusals(&fx.c, at(NOW)).unwrap();
+    assert_eq!(refused, [format!("IBKR registration {reg}: {}", deltabadger::venue::ibkr_reservations::REGISTRATION_HANDBACK)]);
+}
+
+#[test]
+fn s7b_ibkr_registration_refuses_handback_awaiting_activation() {
+    let fx = Fx::new(1);
+    let reg = registration(&fx, 3);
+    let refused = deltabadger::venue::ibkr_reservations::handback_refusals(&fx.c, at(NOW)).unwrap();
+    assert_eq!(refused, [format!("IBKR registration {reg}: {}", deltabadger::venue::ibkr_reservations::REGISTRATION_HANDBACK)]);
+    let listed = deltabadger::engine::handover::HANDBACK_STATE.iter().find(|(_, name, _)| *name == "ibkr_registrations").map(|(_, _, h)| *h);
+    assert!(matches!(listed, Some(deltabadger::engine::handover::Handback::Refuses(_))), "{listed:?}");
+}
+
+/// Rule 16: an export carries no pending connection (credentials only, D-IBKR-REGISTRATION) and no login reads.
+#[test]
+fn s7b_ibkr_export_deletes_registrations() {
+    freeze_dh();
+    let fx = Fx::new(1);
+    fx.bound();
+    registration(&fx, 3);
+    ibkr_account::take_seq(&fx.c, &fx.reads().digest).unwrap();
+    let tx = fx.c.unchecked_transaction().unwrap();
+    deltabadger::export::scrub(&tx, at(NOW)).unwrap();
+    tx.commit().unwrap();
+    let count = |t: &str| fx.c.query_row(&format!("SELECT count(*) FROM {t}"), [], |r| r.get::<_, i64>(0)).unwrap();
+    assert_eq!((count("ibkr_registrations"), count("ibkr_login_reads")), (0, 0));
 }

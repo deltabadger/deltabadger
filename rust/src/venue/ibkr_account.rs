@@ -14,6 +14,8 @@ use crate::crypto::Cipher;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 /// A login that lists more than one account (D-IBKR-ACCOUNT).
 pub const MULTI_ACCOUNT: &str = "this IBKR login holds more than one account; Deltabadger works with a login that holds one account";
@@ -296,6 +298,144 @@ pub fn names_other(row: &Value, field: &str, account: &str) -> bool {
 
 /// Whether `/iserver/accounts`' answer names `account` and no other.
 pub fn names_only(data: &Value, account: &str) -> bool { listed(data) == [Value::String(account.into())] }
+
+/// #710 7b rule 3: a pending IBKR connection (`ibkr_registrations`) as a key check and a finish read it: its columns in
+/// `api_keys` order (key, secret, passphrase, access_token, rsa_signature_key, rsa_encryption_key, dh_param), encrypted,
+/// and its whole material decrypted.
+pub struct Registration { pub id: i64, pub revision: i64, pub status: i64, pub user_id: i64, pub exchange_id: i64, pub target: Option<i64>, pub updated_at: String,
+                          pub columns: [Option<String>; 7], pub realm: Option<String>, pub credentials: crate::crypto::Credentials }
+
+/// Registration `id` (None: gone).
+pub fn registration(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<Registration>, String> {
+    let db = |e: rusqlite::Error| format!("ibkr registration: {e}");
+    let row = c.query_row("SELECT revision, status, user_id, exchange_id, target_account_id, updated_at, key, secret, access_token, rsa_signature_key, rsa_encryption_key, dh_param, ibkr_realm
+                           FROM ibkr_registrations WHERE id = ?1", [id],
+                          |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<i64>>(4)?, r.get::<_, String>(5)?,
+                                  [r.get::<_, Option<String>>(6)?, r.get(7)?, None, r.get(8)?, r.get(9)?, r.get(10)?, r.get(11)?], r.get::<_, Option<String>>(12)?))).optional().map_err(db)?;
+    let Some((revision, status, user_id, exchange_id, target, updated_at, columns, realm)) = row else { return Ok(None) };
+    let open = |v: &Option<String>| v.as_ref().map(|v| cipher.decrypt(v).map_err(|_| format!("ibkr registration {id} is unreadable"))).transpose().map(Option::unwrap_or_default);
+    let (key, secret, access_token, signature_key, encryption_key, dh_param) = (open(&columns[0])?, open(&columns[1])?, open(&columns[3])?, open(&columns[4])?, open(&columns[5])?, open(&columns[6])?);
+    let material = super::signers::ibkr::Material { consumer_key: key.clone(), access_token: access_token.clone(), access_token_secret: secret.clone(), signature_key: signature_key.clone(),
+                                                   encryption_key: encryption_key.clone(), dh_param: dh_param.clone(), realm: realm.clone().unwrap_or_default() };
+    let credentials = crate::crypto::Credentials { redaction_values: vec![key.clone(), secret.clone(), access_token, signature_key, encryption_key, dh_param], key, secret, passphrase: None,
+                                                   ibkr: Some(Box::new(material)) };
+    Ok(Some(Registration { id, revision, status, user_id, exchange_id, target, updated_at, columns, realm, credentials }))
+}
+/// The registrations awaiting IBKR's activation (status 3), by id: the activation job's to finish (rule 5).
+pub fn awaiting(c: &Connection) -> rusqlite::Result<Vec<i64>> {
+    if !crate::engine::rules::table_exists(c, "ibkr_registrations")? { return Ok(vec![]); }
+    c.prepare("SELECT id FROM ibkr_registrations WHERE status = 3 ORDER BY id")?.query_map([], |r| r.get(0))?.collect()
+}
+
+// ---- #710 7b §2: the per-login read sequence (`ibkr_login_reads`, D-IBKR-FENCE "per login, the latest read wins") ----
+
+/// Where a login's `/iserver/accounts` reads are numbered: the database file, the login's digest (its full material under
+/// the identity key, `IdentityKey::material_digest`) and the cipher an in-lock read records what it saw with.
+#[derive(Clone)]
+pub struct Reads { pub path: String, pub digest: String, cipher: Cipher }
+
+/// One accounts read's place in its login's order: `seq` the number it took, `prev` the latest before it (0: none).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Taken { pub seq: i64, pub prev: i64 }
+
+/// The reads of `credentials`' login in database `c`. None: an in-memory database, one not migrated, or no identity key
+/// yet (then no key is bound either): the reads go unnumbered.
+pub fn reads(c: &Connection, cipher: &Cipher, credentials: &crate::crypto::Credentials) -> Option<Reads> {
+    let path = c.path().filter(|p| !p.is_empty())?.to_string();
+    if !crate::engine::rules::table_exists(c, "ibkr_login_reads").ok()? { return None; }
+    let digest = crate::identity::existing_key(c, cipher)?.material_digest(credentials);
+    Some(Reads { path, digest, cipher: cipher.clone() })
+}
+
+/// The next number of `digest`'s reads (taken while the read holds its login: reads are numbered in the order they are made).
+pub fn take_seq(c: &Connection, digest: &str) -> rusqlite::Result<Taken> {
+    let prev: i64 = c.query_row("SELECT seq FROM ibkr_login_reads WHERE login_digest = ?1", [digest], |r| r.get(0)).optional()?.unwrap_or(0);
+    c.execute("INSERT INTO ibkr_login_reads (login_digest, seq, committed_seq) VALUES (?1, ?2, 0) ON CONFLICT (login_digest) DO UPDATE SET seq = excluded.seq",
+              params![digest, prev + 1])?;
+    Ok(Taken { seq: prev + 1, prev })
+}
+/// Whether read `seq` is still `digest`'s latest: a verdict is acted on only then.
+pub fn seq_current(c: &Connection, digest: &str, seq: i64) -> rusqlite::Result<bool> {
+    Ok(c.query_row("SELECT seq = ?2 FROM ibkr_login_reads WHERE login_digest = ?1", params![digest, seq], |r| r.get(0)).optional()?.unwrap_or(false))
+}
+/// Read `seq`'s verdict acted on, naming `fingerprint` (None: it named no account). False, nothing written, when a later
+/// read of the login was taken meanwhile (that one's verdict decides).
+pub fn commit_seq(c: &Connection, digest: &str, seq: i64, fingerprint: Option<&str>) -> rusqlite::Result<bool> {
+    Ok(c.execute("UPDATE ibkr_login_reads SET committed_seq = seq, committed_fingerprint = ?3 WHERE login_digest = ?1 AND seq = ?2", params![digest, seq, fingerprint])? == 1)
+}
+/// Rule 12(b): whether key `api_key_id` may send without an accounts read of its own: its login's latest read was acted
+/// on and named the account the key is bound to. No row (a key bound before 7b) or an unfinished read is "check first".
+pub fn authorized(c: &Connection, digest: &str, api_key_id: i64) -> rusqlite::Result<bool> {
+    c.query_row("SELECT EXISTS(SELECT 1 FROM ibkr_login_reads r JOIN ibkr_bindings b ON b.api_key_id = ?2
+                 WHERE r.login_digest = ?1 AND r.committed_seq = r.seq AND r.committed_fingerprint = b.account_fingerprint)", params![digest, api_key_id], |r| r.get(0))
+}
+
+/// A verdict read's number as its acting transaction holds it: the login digest and the read (None: unnumbered).
+pub type Verdict = Option<(String, Taken)>;
+/// Whether verdict read `taken` may still be acted on (no later read of its login taken). An unnumbered read may.
+pub fn verdict_current(c: &Connection, taken: &Verdict) -> rusqlite::Result<bool> {
+    match taken { Some((digest, t)) => seq_current(c, digest, t.seq), None => Ok(true) }
+}
+/// Verdict read `taken`, naming `read` (None: no account), acted on in the caller's transaction: committed (its fingerprint
+/// under the identity key). False, nothing written, when a later read of the login was taken meanwhile.
+pub fn commit_verdict(c: &Connection, cipher: &Cipher, taken: &Verdict, read: Option<&crate::identity::AccountId>) -> rusqlite::Result<bool> {
+    let Some((digest, t)) = taken else { return Ok(true) };
+    let fingerprint = read.and_then(|id| crate::identity::existing_key(c, cipher).map(|k| k.fingerprint(super::ibkr::IBKR, id)));
+    commit_seq(c, digest, t.seq, fingerprint.as_deref())
+}
+
+/// The read of `answer` an accounts list comes to: the one IBKR account it names (None: none, several, or no IBKR id).
+pub fn one_listed(answer: &Value) -> Option<String> {
+    match listed(answer).as_slice() { [one] => one.as_str().and_then(parse).map(str::to_string), _ => None }
+}
+
+/// The process-wide order of each login's reads: a key check has a login of its own, so two reads of one login are
+/// numbered and sent one at a time here. ponytail: never pruned (one small entry per login read since start).
+static ORDER: LazyLock<std::sync::Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> = LazyLock::new(Default::default);
+
+impl Reads {
+    fn write<T>(&self, work: impl FnOnce(&rusqlite::Transaction<'_>) -> Result<T, String>) -> Result<T, String> {
+        let db = |e: rusqlite::Error| format!("ibkr login reads: {e}");
+        let mut c = Connection::open_with_flags(&self.path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(db)?;
+        c.busy_timeout(std::time::Duration::from_secs(5)).map_err(db)?;
+        let tx = c.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate).map_err(db)?;
+        let out = work(&tx)?;
+        tx.commit().map_err(db)?;
+        Ok(out)
+    }
+    fn read<T>(&self, work: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> rusqlite::Result<T> {
+        let c = Connection::open_with_flags(&self.path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+        c.busy_timeout(std::time::Duration::from_secs(5))?;
+        work(&c)
+    }
+    /// This login's place in the read order, held while one read is numbered and sent.
+    pub async fn ordered(&self) -> tokio::sync::OwnedMutexGuard<()> {
+        let lock = ORDER.lock().unwrap_or_else(|p| p.into_inner()).entry(self.digest.clone()).or_default().clone();
+        lock.lock_owned().await
+    }
+    pub fn take(&self) -> Result<Taken, String> { self.write(|tx| take_seq(tx, &self.digest).map_err(|e| e.to_string())) }
+    /// Rule 12(b) for key `api_key_id` (`authorized`); a database it cannot read is no authority.
+    pub fn authorized(&self, api_key_id: i64) -> bool { self.read(|c| authorized(c, &self.digest, api_key_id)).unwrap_or(false) }
+    /// r6, an in-lock read (the balance read, `submit`, `IbkrVenue::checked`) of key `version.id`, bound to `bound`, committed
+    /// before its lock is released: a read naming `bound` only commits; one naming one other account is recorded as the
+    /// key's observation (which fences it, rule 7) and commits. Several or none is left for a key check (an unfinished
+    /// read: rule 7 checks it, rule 12 sends nothing meanwhile). A later read taken meanwhile decides instead.
+    pub fn commit_in_lock(&self, version: &crate::engine::model::CredentialVersion, taken: Taken, bound: &str, answer: &Value, now: DateTime<Utc>) -> Result<(), String> {
+        let Some(read) = one_listed(answer) else { return Ok(()) };
+        self.write(|tx| {
+            let db = |e: rusqlite::Error| format!("ibkr login reads: {e}");
+            if !seq_current(tx, &self.digest, taken.seq).map_err(db)? { return Ok(()); }
+            let Some(key) = crate::identity::existing_key(tx, &self.cipher) else { return Ok(()) };
+            if read != bound && crate::engine::model::credential_is_current(tx, version).map_err(|e| format!("{e:?}"))? {
+                let id = crate::identity::AccountId::ibkr(&read).ok_or("ibkr login reads: an account id that is no IBKR id")?;
+                let credentials = crate::sync::credentials(tx, &self.cipher, version.id).map_err(|e| e.0)?;
+                crate::identity::record(tx, &self.cipher, version.id, &credentials, version, &crate::identity::Observed::Read(id), now)?;
+            }
+            commit_seq(tx, &self.digest, taken.seq, Some(&key.fingerprint_text(super::ibkr::IBKR, &read))).map_err(db)?;
+            Ok(())
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {

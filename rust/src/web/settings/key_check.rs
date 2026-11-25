@@ -726,32 +726,37 @@ pub fn ibkr_verdict(answer: &Result<Value, crate::venue::ibkr::Error>) -> IbkrVe
 }
 
 /// The IBKR key check over `session`: its login's lock, then GET /iserver/accounts.
-pub async fn ibkr_check<T: Transport, C: crate::engine::Clock + ?Sized>(session: &crate::venue::ibkr::Session<'_, T, C>) -> IbkrVerdict {
-    let answer = match session.lock().await {
-        Ok(held) => session.signed_request(&held, "GET", crate::venue::ibkr::ACCOUNTS_PATH, vec![], None).await,
-        Err(e) => Err(e),
+pub async fn ibkr_check<T: Transport, C: crate::engine::Clock + ?Sized>(session: &crate::venue::ibkr::Session<'_, T, C>) -> IbkrVerdict { ibkr_check_taken(session).await.0 }
+/// `ibkr_check`, with the read's place in its login's order (#710 7b §2: the verdict is acted on only while it is the latest).
+pub async fn ibkr_check_taken<T: Transport, C: crate::engine::Clock + ?Sized>(session: &crate::venue::ibkr::Session<'_, T, C>) -> (IbkrVerdict, Option<crate::venue::ibkr_account::Taken>) {
+    let (answer, taken) = match session.lock().await {
+        Ok(held) => match session.accounts(&held, None).await { Ok((v, taken)) => (Ok(v), taken), Err(e) => (Err(e), None) },
+        Err(e) => (Err(e), None),
     };
-    ibkr_verdict(&answer)
+    (ibkr_verdict(&answer), taken)
 }
 
 /// The IBKR key check of `credentials` (made under `producer`) through `client` to `base`, as a Validity. The check has a
 /// login of its own: an LST minted for credentials being checked is never kept for another.
-pub(crate) async fn ibkr_validity(base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, producer: &crate::engine::model::CredentialVersion) -> Validity {
+/// #710 7b §2: with the read's place in its login's order (`reads`: where it is numbered).
+pub(crate) async fn ibkr_validity(base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, producer: &crate::engine::model::CredentialVersion,
+                                  reads: Option<crate::venue::ibkr_account::Reads>) -> (Validity, Option<crate::venue::ibkr_account::Taken>) {
     let failure = |text: String| Validity::Pending(Diagnostic { text, status: None, body: String::new(), refusal: false });
-    let Some(material) = credentials.ibkr.as_deref() else { return failure("the IBKR connection is incomplete".into()) };
+    let Some(material) = credentials.ibkr.as_deref() else { return (failure("the IBKR connection is incomplete".into()), None) };
     let login = match crate::venue::ibkr::Login::new(material.clone(), producer.clone()) {
         Ok(login) => std::sync::Arc::new(login),
         // Session#initialize raises on DH params or keys that do not parse: 2.x's StandardError, no status.
-        Err(_) => return Validity::PendingActivation,
+        Err(_) => return (Validity::PendingActivation, None),
     };
     let transport = crate::venue::http::ReqwestTransport::ibkr(client, login.clone()).with_sensitive_values(credentials.redaction_values.clone());
-    let session = crate::venue::ibkr::Session::new(&transport, login, &crate::engine::SystemClock).with_base(base);
-    match ibkr_check(&session).await {
+    let session = crate::venue::ibkr::Session::new(&transport, login, &crate::engine::SystemClock).with_base(base).with_reads(reads);
+    let (verdict, taken) = ibkr_check_taken(&session).await;
+    (match verdict {
         IbkrVerdict::Account(account) => Validity::Account(account),
         IbkrVerdict::PendingActivation => Validity::PendingActivation,
         IbkrVerdict::Incorrect(why) => { crate::engine::log(&format!("[Interactive Brokers] API key validation: {why}")); Validity::Incorrect }
         IbkrVerdict::Failure(text) => failure(credentials.venue_text(&text)),
-    }
+    }, taken)
 }
 
 /// The key check of `venue` (an exchanges.type this module ports) for a key of `kind`, sent through `client` to `base`.
