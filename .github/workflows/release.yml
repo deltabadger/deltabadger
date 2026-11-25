@@ -41,6 +41,10 @@ on:
         type: choice
         options: [none, amd64, arm64, macos-aarch64, windows-x86_64, linux-x86_64]
         default: none
+      sign_windows:
+        description: 'dry only: Authenticode-sign the Windows installer through the release environment, as a release does'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -58,6 +62,9 @@ jobs:
   meta:
     if: github.event_name != 'workflow_dispatch' || inputs.mode == 'dry'
     runs-on: ubuntu-24.04
+    # The Azure IDs are secrets of the release environment, which only a job naming it can read. A tag push or a
+    # sign_windows dispatch names it (both need write access); a pull_request run never does.
+    environment: ${{ (github.event_name == 'push' || inputs.sign_windows) && 'release' || '' }}
     outputs:
       dry: ${{ steps.m.outputs.dry }}
       tag: ${{ steps.m.outputs.tag }}
@@ -65,6 +72,8 @@ jobs:
       prerelease: ${{ steps.m.outputs.prerelease }}
       updater_ready: ${{ steps.m.outputs.updater_ready }}
       apple_ready: ${{ steps.m.outputs.apple_ready }}
+      windows_ready: ${{ steps.m.outputs.windows_ready }}
+      windows_sign: ${{ steps.m.outputs.windows_sign }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: m
@@ -77,6 +86,10 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          SIGN_WINDOWS: ${{ inputs.sign_windows == true }}
         run: |
           set -euo pipefail
           if [ "$EVENT" = push ]; then
@@ -97,8 +110,21 @@ jobs:
           [ -n "$APPLE_CERTIFICATE" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_TEAM_ID" ] && apple_ready=true
           [ "$updater_ready" = true ] || echo "::notice::updater signing not configured (tauri signer generate; pubkey in tauri.conf.json, TAURI_SIGNING_PRIVATE_KEY in secrets)"
           [ "$apple_ready" = true ] || echo "::notice::Apple signing not configured (APPLE_CERTIFICATE, APPLE_ID, APPLE_TEAM_ID secrets)"
+          # B13: Windows signing is Azure Artifact Signing over OIDC (no client secret), from the release environment.
+          windows_ready=false
+          [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ] && windows_ready=true
+          [ "$windows_ready" = true ] || echo "::notice::Windows signing not configured (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID in the release environment)"
+          # A release signs when ready; a dry run only on sign_windows, which must not quietly build unsigned.
+          windows_sign=false
+          if [ "$dry" = false ]; then
+            windows_sign=$windows_ready
+          elif [ "$SIGN_WINDOWS" = true ]; then
+            [ "$windows_ready" = true ] || { echo "::error::sign_windows: the release environment has no Azure IDs"; exit 1; }
+            windows_sign=true
+          fi
           printf '%s\n' "dry=$dry" "tag=$tag" "version=$version" "prerelease=$prerelease" \
-            "updater_ready=$updater_ready" "apple_ready=$apple_ready" | tee -a "$GITHUB_OUTPUT"
+            "updater_ready=$updater_ready" "apple_ready=$apple_ready" "windows_ready=$windows_ready" \
+            "windows_sign=$windows_sign" | tee -a "$GITHUB_OUTPUT"
 
   # The catalogue snapshot as of this release, attached to the draft and handed to every build; the seed snapshot is the
   # tagged one, attached beside it. A re-run reuses the draft's copies, so it builds the same bytes (r1.7).
@@ -279,6 +305,12 @@ jobs:
     needs: [meta, draft, testkey]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    # Only the signing Windows leg enters the release environment, whose federated credential is the one Azure trusts.
+    # The other legs can mint an OIDC token too (permissions are per job), but its subject matches nothing in Azure.
+    environment: ${{ matrix.name == 'windows-x86_64' && needs.meta.outputs.windows_sign == 'true' && 'release' || '' }}
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -291,6 +323,7 @@ jobs:
       # Not SIGN: linuxdeploy's AppImage plugin reads $SIGN as "GPG-sign the AppImage" and fails without a GPG key.
       UPDATER_SIGN: ${{ needs.meta.outputs.dry == 'true' || needs.meta.outputs.updater_ready == 'true' }}
       APPLE_READY: ${{ needs.meta.outputs.dry != 'true' && needs.meta.outputs.apple_ready == 'true' }}
+      WINDOWS_SIGN: ${{ matrix.name == 'windows-x86_64' && needs.meta.outputs.windows_sign == 'true' }}
     steps:
       - name: Dropped on purpose
         if: inputs.drop_leg == matrix.name
@@ -337,6 +370,39 @@ jobs:
         with:
           name: testkey
           path: ${{ runner.temp }}/testkey
+      # Fails fast, before the build, when the federation or the role is wrong. The signing itself logs in again
+      # (script/release/windows_sign.ps1): this login's token has expired by the time Tauri signs.
+      - if: env.WINDOWS_SIGN == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Install the Artifact Signing client
+        if: env.WINDOWS_SIGN == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Microsoft's signtool dlib, pinned by hash. 1.0.146 is the last on .NET 8, which the runner has; 1.0.147+
+          # needs a .NET 10 runtime installed first.
+          v=1.0.146 sha=7761e5d8f31e54b764da21d33cd8b0a2940e1b05526c7dfcb5e94b0431426f70
+          d=$RUNNER_TEMP/artifact-signing
+          mkdir -p "$d"
+          curl -fsSL -o "$d/client.nupkg" "https://api.nuget.org/v3-flatcontainer/microsoft.artifactsigning.client/$v/microsoft.artifactsigning.client.$v.nupkg"
+          echo "$sha  $d/client.nupkg" | sha256sum -c -
+          unzip -q "$d/client.nupkg" 'bin/x64/*' -d "$d"
+          # Azure CLI credential only: the others probe (managed identity, VS) and slow every signature down.
+          jq -n '{Endpoint: "https://neu.codesigning.azure.net/", CodeSigningAccountName: "deltabadger",
+            CertificateProfileName: "deltabadger",
+            ExcludeCredentials: ["EnvironmentCredential", "ManagedIdentityCredential", "WorkloadIdentityCredential",
+              "SharedTokenCacheCredential", "VisualStudioCredential", "VisualStudioCodeCredential",
+              "AzurePowerShellCredential", "AzureDeveloperCliCredential", "InteractiveBrowserCredential"]}' > "$d/metadata.json"
+          # shellcheck disable=SC2012 # the newest SDK's x64 signtool (the dlib is x64)
+          signtool=$(ls -d "/c/Program Files (x86)/Windows Kits/10/bin/"10.*/x64/signtool.exe | sort -V | tail -1)
+          [ -n "$signtool" ] || { echo "::error::no x64 signtool"; exit 1; }
+          { echo "SIGNTOOL=$(cygpath -w "$signtool")"
+            echo "ARTIFACT_SIGNING_DLIB=$(cygpath -w "$d/bin/x64/Azure.CodeSigning.Dlib.dll")"
+            echo "ARTIFACT_SIGNING_METADATA=$(cygpath -w "$d/metadata.json")"; } >> "$GITHUB_ENV"
       - name: Build the app
         shell: bash
         env:
@@ -348,6 +414,9 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # windows_sign.ps1's fresh login; empty outside the release environment.
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: |
           set -euo pipefail
           conf=$RUNNER_TEMP/release.conf.json
@@ -362,9 +431,30 @@ jobs:
             echo '{"bundle":{"createUpdaterArtifacts":false}}' > "$conf"
           fi
           # Tauri reads the Apple variables with var_os: an empty one is still set and fails the import, so unset them.
+          # B13: Tauri signs the app, the uninstaller and the installer with this, then makes the updater .sig over the
+          # signed installer (tauri-cli bundle.rs: bundle_project, then sign_updaters). Not in tauri.conf.json, so local
+          # and unsigned builds stay as they are. An absolute path: NSIS runs it from elsewhere for the uninstaller.
+          if [ "$WINDOWS_SIGN" = true ]; then
+            jq --arg s "$(cygpath -m "$GITHUB_WORKSPACE/script/release/windows_sign.ps1")" \
+              '.bundle.windows.signCommand = {cmd: "pwsh", args: ["-NoProfile", "-NonInteractive", "-File", $s, "%1"]}' \
+              "$conf" > "$conf.tmp" && mv "$conf.tmp" "$conf"
+          fi
           [ "$APPLE_READY" = true ] || unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID
           # --verbose: a bundler failure (linuxdeploy, NSIS, dmg) prints its tool's output, not only its name.
           bunx tauri build --verbose --bundles "${{ matrix.bundles }}" --config "$conf" -- --locked
+      - name: Verify the Authenticode signature
+        if: env.WINDOWS_SIGN == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $f = Get-Item src-tauri/target/release/bundle/nsis/*-setup.exe
+          $s = Get-AuthenticodeSignature $f
+          $s | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
+          if ($s.Status -ne 'Valid') { throw "$($f.Name): $($s.Status)" }
+          if ($s.SignerCertificate.Subject -cnotmatch 'O=Deltabadger O\u00DC') { throw "signer: $($s.SignerCertificate.Subject)" }
+          if (-not $s.TimeStamperCertificate) { throw 'no timestamp' }
+          & $env:SIGNTOOL verify /pa /v $f.FullName
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Stage the release assets
         shell: bash
         run: |
@@ -413,8 +503,9 @@ jobs:
       TAG: ${{ needs.meta.outputs.tag }}
       DRY: ${{ needs.meta.outputs.dry }}
       PRERELEASE: ${{ needs.meta.outputs.prerelease }}
-      # r1.10: a release carries desktop assets only when both signings are configured; dry runs use the throwaway key.
-      SIGNED: ${{ needs.meta.outputs.dry == 'true' || (needs.meta.outputs.updater_ready == 'true' && needs.meta.outputs.apple_ready == 'true') }}
+      # r1.10: a release carries desktop assets only when every signing is configured; dry runs use the throwaway key.
+      # B13: drop `&& windows_ready` to ship Windows unsigned (the 11-25 fallback).
+      SIGNED: ${{ needs.meta.outputs.dry == 'true' || (needs.meta.outputs.updater_ready == 'true' && needs.meta.outputs.apple_ready == 'true' && needs.meta.outputs.windows_ready == 'true') }}
       LATEST_MAJOR: ${{ vars.LATEST_MAJOR }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
