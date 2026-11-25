@@ -227,11 +227,16 @@ fn issue(c: &Connection, user: i64, token: &str, gen: i64, format: &'static str,
     let _ = user;
     question(token, format, ran, |n, choice, i| {
         let handle = format!("{token}.{gen}.{n}.{}", hex::encode(rand::random::<[u8; 16]>()));
-        let kind = match i.kind { Kind::Select => "select", Kind::Authorize => "authorize", Kind::Accept => "accept" };
-        let dest = serde_json::json!({ "chosen": run::posted(choice), "value": choice.value, "venue": choice.venue, "key": choice.key, "route": i.route, "outside": i.outside });
+        let (kind, dest) = sealed(choice, i);
         c.execute("INSERT INTO import_parked_choices (handle, token, gen, kind, dest_json) VALUES (?1, ?2, ?3, ?4, ?5)", params![handle, token, gen, kind, dest.to_string()]).map_err(db)?;
         Ok(handle)
     })
+}
+
+/// What a handle stands for: its kind, and its answer with every seal it was issued with.
+fn sealed(choice: &run::Choice, i: &run::Issued) -> (&'static str, serde_json::Value) {
+    let kind = match i.kind { Kind::Select => "select", Kind::Authorize => "authorize", Kind::Accept => "accept" };
+    (kind, serde_json::json!({ "chosen": run::posted(choice), "value": choice.value, "venue": choice.venue, "key": choice.key, "route": i.route, "outside": i.outside }))
 }
 
 /// A question's outcome, each choice's value the handle `handle` gives it.
@@ -251,13 +256,18 @@ fn question(token: &str, format: &'static str, ran: run::Ran, mut handle: impl F
 }
 
 /// PLAN-710-mcpadapter J3: the open generation's handles, when a question built again offers exactly what they were issued
-/// for (each value as sealed, in order): a stale sibling is answered with them, and they stay usable.
+/// for (branch review r1 #6: each one's kind and every seal it was stored with, its `outside` digest included, in order):
+/// a stale sibling is answered with them, and they stay usable.
 fn current(c: &Connection, token: &str, gen: i64, ran: &run::Ran) -> Result<Option<Vec<String>>, WebError> {
     let (Answer::Ambiguous(choices) | Answer::Warned(_, choices)) = &ran.answer else { return Ok(None) };
-    let mut q = c.prepare("SELECT handle, json_extract(dest_json, '$.value') FROM import_parked_choices WHERE token = ?1 AND gen = ?2 ORDER BY rowid").map_err(db)?;
-    let open: Vec<(String, Option<String>)> = q.query_map(params![token, gen], |r| Ok((r.get(0)?, r.get(1)?))).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
-    let same = open.len() == choices.len() && open.iter().zip(choices).all(|((_, value), choice)| value.as_deref() == Some(choice.value.as_str()));
-    Ok(same.then(|| open.into_iter().map(|(handle, _)| handle).collect()))
+    let mut q = c.prepare("SELECT handle, kind, dest_json FROM import_parked_choices WHERE token = ?1 AND gen = ?2 ORDER BY rowid").map_err(db)?;
+    let open: Vec<(String, String, String)> = q.query_map(params![token, gen], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+    let none = run::Issued { kind: Kind::Accept, route: None, outside: None, destinations: vec![] };
+    let same = open.len() == choices.len() && open.iter().zip(choices).enumerate().all(|(n, ((_, kind, stored), choice))| {
+        let (k, dest) = sealed(choice, ran.issued.get(n).unwrap_or(&none));
+        k == kind && serde_json::from_str::<serde_json::Value>(stored).ok().as_ref() == Some(&dest)
+    });
+    Ok(same.then(|| open.into_iter().map(|(handle, _, _)| handle).collect()))
 }
 
 /// The open upload `token` of `user` (rule K1: open and unexpired, read under the token's lock and the write lock).

@@ -1279,17 +1279,16 @@ const IMPORT_MANUAL: [(&str, &str); 6] = [
     ("`withdrawal_key_missing`, `account_inactive` |", "`withdrawal_key_missing` |"),
     ("`invalid_answer`, the tracker import's `no_file`, `malformed`, `unreadable`, `unknown_timezone`, `no_account_for_format`, `refused`, and", "`invalid_answer`, and"),
     ("\n| 503 | `busy` — every import slot is taken: retry after the seconds its Retry-After header names |", ""),
-    ("\n| POST | `/tracker/import` | `import_transactions_csv` |", ""),
+    ("\n| POST | `/tracker/import` | `import_transactions_csv` | The web's import. A fresh upload is `multipart/form-data`: one `file` part, optional `format` (`deltabadger`, the default, `binance` or `kucoin`) and `filename` (the same as the part's); a Binance export's file name states its time zone. The answer is what was written (`imported`, `duplicates`, `skipped`, `destinations_written`), or a question (`upload`, `kind`, `lines`, `choices`, each with its `choice` handle, `kind`, `label` and `destinations`). Answer it with JSON `{upload, choice}`, or `{upload, cancel: true}`. Parameters come from the body only; any other member, or one given twice, is `400 ambiguous_request` |", ""),
 ];
 
-/// IMPORT_MANUAL undone on this build's manual: each edit must be there once (the endpoint row up to its line's end).
+/// IMPORT_MANUAL undone on this build's manual: each edit must be there once, exactly (the endpoint row whole).
 fn without_import_manual(text: &str) -> Result<String, String> {
     let mut out = text.to_string();
     for (ours, theirs) in IMPORT_MANUAL {
         let at = out.find(ours).ok_or_else(|| format!("D-IMPORT-API: the manual no longer has {ours:?}"))?;
         if out[at + 1..].contains(ours) { return Err(format!("D-IMPORT-API: the manual has {ours:?} twice")); }
-        let end = if ours.starts_with("\n| POST | `/tracker/import`") { at + 1 + out[at + 1..].find('\n').unwrap_or(out.len() - at - 1) } else { at + ours.len() };
-        out.replace_range(at..end, theirs);
+        out.replace_range(at..at + ours.len(), theirs);
     }
     Ok(out)
 }
@@ -1301,6 +1300,9 @@ fn the_import_manual_edits_are_undone_exactly() {
     assert!(!v2.contains("import_transactions_csv") && !v2.contains("account_inactive") && !v2.contains("| 503 |"), "every edit undone");
     assert_eq!(v2.lines().count(), manual.lines().count() - 2, "the endpoint row and the 503 row");
     assert!(without_import_manual(&v2).is_err(), "an edit that is gone is an error");
+    // Branch review r1 #11: the endpoint row is pinned whole: one that lost its instructions is no allowance.
+    let cut = manual.replace("Answer it with JSON `{upload, choice}`, or `{upload, cancel: true}`. ", "");
+    assert!(cut != manual && without_import_manual(&cut).is_err(), "a cut endpoint row");
 }
 
 /// Named divergences D-SPLIT-API and D-V2-UNRECORDED-API in Settings: each OWN_TOOLS switch is taken out of this

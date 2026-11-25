@@ -174,10 +174,16 @@ async fn a_web_question_answered_through_rest_writes_once() {
     let token = common::import::token(&asked.body).unwrap();
     let handles = common::import::handles(&asked.body);
     assert_eq!(handles.len(), 1, "{}", asked.body);
-    let done = rest_json(&i.app, "/api/v1/tracker/import", json!({"upload": token, "choice": handles[0]})).await;
-    assert_eq!((done.status, done.json()["data"]["imported"].clone()), (200, json!(1)), "{}", done.body);
-    let again = i.b.send(&i.app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handles[0].as_str())]), Csrf::Header, &[]).await;
-    assert!(again.status == 422 && again.body.contains(&deltabadger::web::i18n::text("en", "tracker.import.error_no_file", &[])), "{} {}", again.status, again.body);
+    // Branch review r1 #12: both claims overlap: the web's and REST's confirmations start together; exactly one writes.
+    let fields = [("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handles[0].as_str())];
+    let mut web_b = i.b.clone();
+    let (done, again) = tokio::join!(rest_json(&i.app, "/api/v1/tracker/import", json!({"upload": token, "choice": handles[0]})),
+                                     web_b.send(&i.app, "POST", "/tracker/import", Some(&fields), Csrf::Header, &[]));
+    let rest_wrote = done.status == 200 && done.json()["data"]["imported"] == json!(1);
+    let web_wrote = again.status == 200 && again.body.contains("/tracker");
+    let no_file = deltabadger::web::i18n::text("en", "tracker.import.error_no_file", &[]);
+    assert!(rest_wrote != web_wrote, "exactly one wrote: {} {} / {} {}", done.status, done.body, again.status, again.body);
+    assert!(if rest_wrote { again.status == 422 && again.body.contains(&no_file) } else { done.json()["error"]["code"] == json!("no_file") }, "the other is no file");
     assert_eq!(ledger(&i.c), 1);
     // Another such file through REST asks the same one choice.
     let rest_asked = rest_upload(&i.app, &[], "ledger.csv", &ledger_csv(&[("T3", "BTC", 7, 1), ("T4", "BTC", 8, 2)])).await;
@@ -388,6 +394,9 @@ async fn an_account_question_carries_ids_and_a_prospective_new_account() {
     for account in [first, second] {
         let c = by(json!(account));
         assert_eq!((c["kind"].clone(), c["destinations"][0]["account_id"].clone()), (json!("account"), json!(account)), "{c}");
+        // Branch review r1 #9: the web's action with the account's plain label ("KuCoin 2"), never stripped markup.
+        let label = identity::label_numbered(&i.c, account).unwrap().plain();
+        assert_eq!(c["label"], json!(deltabadger::web::i18n::text("en", "tracker.import.import_to_html", &[("account", deltabadger::web::i18n::Arg::Text(&label)), ("count", deltabadger::web::i18n::Arg::Count(c["rows_in_file"].as_i64().unwrap()))])), "{c}");
         assert!(c["rows_in_file"].as_u64().is_some_and(|n| n > 0), "{c}");
     }
     let new = choices.iter().find(|c| c["kind"] == "new").unwrap_or_else(|| panic!("{asked}"));
@@ -414,4 +423,104 @@ async fn the_control_group_is_partial_with_the_import_off() {
         let own = page.body.find(&format!("data-tool=\"{}\"", import_api::TOOL)).unwrap_or_else(|| panic!("{surface}: no import switch"));
         assert!(!page.body[own..own + page.body[own..].find("</div>").unwrap()].contains("toggle--on"), "{surface}");
     }
+}
+
+/// Branch review r1 #1: every message is parsed for a member named twice, whatever its tool's name looks like in the raw
+/// text: an escaped tool name, or a `method` given twice (the last one a ping), is refused and nothing of it is kept.
+#[tokio::test(flavor = "current_thread")]
+async fn a_member_named_twice_is_refused_whatever_the_tool_name_looks_like() {
+    let i = install(true);
+    krakens(&i.c, i.user, 1);
+    let s = session(&i.app).await;
+    let content = b64(&rest_csv());
+    for raw in [format!(r#"{{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{{"name":"import_transactions\u005fcsv","arguments":{{"content":"{content}","content":"{content}"}}}}}}"#),
+                format!(r#"{{"jsonrpc":"2.0","id":4,"method":"tools/call","method":"ping","params":{{"name":"x","arguments":{{"content":"{content}"}}}}}}"#)] {
+        let sent = rpc(&i.app, &s, &raw).await.json();
+        assert_eq!((sent["error"]["code"].clone(), sent["error"]["message"].clone()), (json!(-32602), json!("ambiguous_request")), "{raw}: {sent}");
+    }
+    let kept: i64 = i.c.query_row("SELECT count(*) FROM action_mcp_session_messages WHERE instr(message_json, ?1) > 0", [&content], |r| r.get(0)).unwrap();
+    assert_eq!((kept, ledger(&i.c)), (0, 0));
+}
+
+/// Branch review r1 #2: the bearer is judged by a fresh clock after the last lookup, its owner's included: a token that
+/// expires during that lookup is refused.
+#[tokio::test(flavor = "current_thread")]
+async fn a_token_expiring_during_the_last_user_lookup_is_refused() {
+    use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+    let i = install(true);
+    let authorization = format!("Bearer {API}");
+    let reads = Arc::new(AtomicUsize::new(0));
+    let (app, counted) = (i.app.clone(), reads.clone());
+    let auth = authorization.clone();
+    let first = i.app.db(move |c| {
+        c.authorizer(Some(move |ctx: AuthContext<'_>| { if matches!(ctx.action, AuthAction::Read { table_name: "users", .. }) { counted.fetch_add(1, Ordering::SeqCst); } Authorization::Allow }));
+        let out = import_api::authorized(c, &app, import_api::Surface::Rest, Some(&auth));
+        c.authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+        out
+    }).await.unwrap();
+    assert_eq!(first, Ok(i.user));
+    let last = reads.load(Ordering::SeqCst);
+    let (app, clock, seen) = (i.app.clone(), i._clock.clone(), Arc::new(AtomicUsize::new(0)));
+    let denied = i.app.db(move |c| {
+        c.authorizer(Some(move |ctx: AuthContext<'_>| {
+            if matches!(ctx.action, AuthAction::Read { table_name: "users", .. }) && seen.fetch_add(1, Ordering::SeqCst) + 1 == last { clock.set(web::at("2026-09-21T12:00:00Z")); }
+            Authorization::Allow
+        }));
+        let out = import_api::authorized(c, &app, import_api::Surface::Rest, Some(&authorization));
+        c.authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+        out
+    }).await.unwrap();
+    assert_eq!(denied, Err(deltabadger::tracker::import::service::Denied::Bearer(deltabadger::web::bearer::Refusal::Expired)));
+}
+
+/// Branch review r1 #3: a cancellation is kept with its `requestId` as a digest and no `reason`, whether or not its call
+/// is in history yet (one arriving while the call's body still arrives finds no request row).
+#[tokio::test(flavor = "current_thread")]
+async fn a_cancellation_keeps_neither_its_request_id_nor_its_reason() {
+    let i = install(true);
+    let s = session(&i.app).await;
+    let name = "secret-ledger-2026.csv";
+    rpc(&i.app, &s, &json!({"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":name,"reason":format!("stop {name}")}}).to_string()).await;
+    let kept: Vec<String> = i.c.prepare("SELECT message_json FROM action_mcp_session_messages WHERE session_id = ?1 AND instr(message_json, 'cancelled') > 0").unwrap()
+        .query_map([&s], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(kept.len(), 1);
+    assert!(!kept[0].contains(name) && !kept[0].contains("reason"), "{kept:?}");
+}
+
+/// Branch review r1 #7: a REST confirmation's body is followed by the bearer's check before it is read: a token revoked
+/// while a malformed one arrives is `token_revoked`, never `ambiguous_request`.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rest_confirmation_is_checked_once_its_body_arrived() {
+    let i = install(true);
+    let path = i.c.path().unwrap().to_string();
+    let revoke = move || { Connection::open(&path).unwrap().execute("UPDATE oauth_access_tokens SET revoked_at = '2026-09-20 11:59:00' WHERE token = ?1", [API]).unwrap(); };
+    let (sent, _) = send(&i.app, "POST", "/api/v1/tracker/import", Some(API), Some("application/json"), None, counted(br#"{"upload": 1, "nope": true}"#.to_vec(), Arc::new(AtomicUsize::new(0)), revoke)).await;
+    assert_eq!((sent.status, sent.json()["error"]["code"].clone()), (401, json!("token_revoked")), "{}", sent.body);
+}
+
+/// Branch review r1 #8: the 1 MiB check comes before a chunk is kept: a token revoked before one large chunk keeps at most
+/// 1 MiB of it; and a stalled stream is stopped by the five-second check.
+#[tokio::test(flavor = "current_thread")]
+async fn a_read_is_checked_before_a_chunk_passes_a_mib_and_when_it_stalls() {
+    let i = install(true);
+    let (content_type, mut body) = web::multipart(&[], &[("file", "a.csv", "x".repeat(3 * 1024 * 1024).as_bytes())]);
+    let path = i.c.path().unwrap().to_string();
+    Connection::open(&path).unwrap().execute("UPDATE oauth_access_tokens SET revoked_at = '2026-09-20 11:59:00' WHERE token = ?1", [API]).unwrap();
+    // Admitted before the revocation: the request's own first check is the read's.
+    i._clock.set(web::at("2026-09-20T11:58:00Z"));
+    let clock = i._clock.clone();
+    let one = Body::from_stream(futures_util::stream::once(async move { clock.set(web::at("2026-09-20T12:00:00Z")); Ok::<_, std::convert::Infallible>(Bytes::from(std::mem::take(&mut body))) }));
+    let (sent, _) = send(&i.app, "POST", "/api/v1/tracker/import", Some(API), Some(&content_type), None, one).await;
+    assert_eq!((sent.status, sent.json()["error"]["code"].clone()), (401, json!("token_revoked")), "{}", sent.body);
+    let kept = import_api::COLLECTED_AT_DENIAL.load(Ordering::SeqCst);
+    assert!(kept > 0 && kept <= 1024 * 1024, "{kept} bytes kept");
+    i.c.execute("UPDATE oauth_access_tokens SET revoked_at = NULL", []).unwrap();
+    let path = i.c.path().unwrap().to_string();
+    let head = Bytes::from(format!("--{}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.csv\"\r\n\r\nx", web::MULTIPART_BOUNDARY));
+    let stalled = Body::from_stream(futures_util::stream::once(async move {
+        Connection::open(&path).unwrap().execute("UPDATE oauth_access_tokens SET revoked_at = '2026-09-20 11:59:00' WHERE token = ?1", [API]).unwrap();
+        Ok::<_, std::convert::Infallible>(head)
+    }).chain(futures_util::stream::pending()));
+    let sent = tokio::time::timeout(std::time::Duration::from_secs(30), send(&i.app, "POST", "/api/v1/tracker/import", Some(API), Some(&content_type), None, stalled)).await.expect("the stalled read is stopped").0;
+    assert_eq!((sent.status, sent.json()["error"]["code"].clone()), (401, json!("token_revoked")), "{}", sent.body);
 }

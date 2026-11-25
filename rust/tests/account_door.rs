@@ -4925,3 +4925,56 @@ async fn j4_a_late_warning_on_a_legacy_key_holds_after_an_unrelated_account_is_m
     let done = service::confirm(&app, s.user_id, token, choices.last().unwrap().value.clone(), ok, service::permit(&app).await).await.unwrap();
     assert!(matches!(done, service::Outcome::Written { imported: 1, .. }), "{done:?}");
 }
+
+/// Branch review r1 #5: a legacy account with an older withdrawal key is sealed and posted by its reading key, the one its
+/// destination names: its late warning, answered, writes.
+#[tokio::test(flavor = "current_thread")]
+async fn j5_a_late_warning_on_a_legacy_key_beside_an_older_withdrawal_key_completes() {
+    use deltabadger::tracker::import::{run::Answer, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let e = |v: &str| seed::cipher().encrypt(v);
+    for (kind, key) in [(1, "withdrawal"), (0, "legacy")] {
+        c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![s.user_id, binance, kind, e(key), e("s")]).unwrap();
+    }
+    let legacy = c.last_insert_rowid();
+    c.execute("DELETE FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [s.user_id, binance]).unwrap();
+    key_on(c, s.user_id, us, None);
+    let ok: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
+    let lone = "User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n777,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BTC,-1,BTC\n";
+    let asked = service::upload(&app, s.user_id, "binance", lone.as_bytes().to_vec(), Some(BINANCE_NAME.into()), ok.clone(), service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { token, answer: Answer::Ambiguous(venues), .. } = asked else { panic!("{asked:?}") };
+    let on_legacy = venues.iter().find(|v| v.key == Some(legacy)).unwrap_or_else(|| panic!("{venues:?}")).value.clone();
+    let warned = service::confirm(&app, s.user_id, token.clone(), on_legacy, ok.clone(), service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { answer: Answer::Warned(_, choices), reaches, .. } = &warned else { panic!("{warned:?}") };
+    assert_eq!(reaches.last().and_then(|r| r.first()).and_then(|d| d.prospective).and_then(|p| p.key_id), Some(legacy), "{reaches:?}");
+    let done = service::confirm(&app, s.user_id, token, choices.last().unwrap().value.clone(), ok, service::permit(&app).await).await.unwrap();
+    assert!(matches!(done, service::Outcome::Written { imported: 1, .. }), "{done:?}");
+}
+
+/// Branch review r1 #6: a stale sibling reuses the open handles only while every seal they were issued with still holds:
+/// one whose stored seal no longer matches (here its `outside` digest) is issued a new generation.
+#[tokio::test(flavor = "current_thread")]
+async fn j6_a_stale_sibling_never_reuses_a_handle_whose_seal_changed() {
+    use deltabadger::tracker::import::{run::Answer, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let ok: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
+    let asked = service::upload(&app, s.user_id, "binance", binance_file("222").into_bytes(), Some(BINANCE_NAME.into()), ok.clone(), service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { token, answer: Answer::Ambiguous(venues), .. } = asked else { panic!("{asked:?}") };
+    service::confirm(&app, s.user_id, token.clone(), venues[0].value.clone(), ok.clone(), service::permit(&app).await).await.unwrap();
+    c.execute("UPDATE import_parked_choices SET dest_json = json_set(dest_json, '$.outside', 'another') WHERE token = ?1", [&token]).unwrap();
+    let sibling = service::confirm(&app, s.user_id, token.clone(), venues[1].value.clone(), ok, service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { answer: Answer::Warned(_, again) | Answer::Ambiguous(again), .. } = &sibling else { panic!("{sibling:?}") };
+    assert!(again.iter().all(|a| a.value.contains(".3.")), "a new generation: {again:?}");
+}

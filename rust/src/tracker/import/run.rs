@@ -371,9 +371,16 @@ pub(crate) fn sealed_dest(c: &Connection, dest: Dest) -> Result<String, SyncErro
     let Dest::Account(id) = dest else { return Ok(format!("{dest:?}")) };
     if id <= FLOOR.with(std::cell::Cell::get) { return Ok(format!("{dest:?}")); }
     let Some(account) = crate::identity::Account::by_id(c, id)? else { return Ok(format!("{dest:?}")) };
-    let key: Option<i64> = c.query_row(&format!("SELECT min(k.id) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0))?;
+    let key = reading_key(c, account.user_id, id)?;
     let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0))?;
     Ok(format!("Prospective({key:?}#{number})"))
+}
+
+/// Branch review r1 #5: the key an account's rows are written with (its reading key, `writer`), as `reach` names a
+/// prospective account by it; None for a keyless one.
+fn reading_key(c: &Connection, user_id: i64, account: i64) -> Result<Option<i64>, SyncError> {
+    let key = writer(c, &reading(c, user_id)?, account)?;
+    Ok((key.id != crate::sync::NO_KEY).then_some(key.id))
 }
 
 /// Rule M7, PLAN-710-mcpadapter F4/G4/H5: where a plan's rows go, by id; an account this run made, or a new one, by its key
@@ -839,11 +846,8 @@ fn choices(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, subject
     // PLAN-710-confirm rule K6: an account this run made (a legacy key's number 1) is gone once the question rolls back, so
     // its answer names the key that routed there; the click routes again and its digest binds the account that makes.
     let body = |id: i64| -> Result<String, SyncError> {
-        if id > FLOOR.with(std::cell::Cell::get) {
-            if let Some(account) = crate::identity::Account::by_id(c, id)? {
-                let key: Option<i64> = c.query_row(&format!("SELECT min(k.id) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0))?;
-                if let Some(key) = key { return Ok(key.to_string()); }
-            }
+        if id > FLOOR.with(std::cell::Cell::get) && crate::identity::Account::by_id(c, id)?.is_some() {
+            if let Some(key) = reading_key(c, user_id, id)? { return Ok(key.to_string()); }
         }
         Ok(format!("a{id}"))
     };

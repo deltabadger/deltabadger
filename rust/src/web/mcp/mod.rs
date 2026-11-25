@@ -94,10 +94,9 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
             return response(400,Some(error(id,-32600,"Invalid Request")),false);
         }
         if !accepts(&h){return err(406,&payload["id"],-32000,"Not Acceptable: Client must accept both application/json and text/event-stream");}
-        // PLAN-710-mcpadapter I3: an import call naming any member twice, anywhere in the message, is refused before its
-        // history and its dispatch.
-        let tool=super::import_api::TOOL.as_bytes();
-        ambiguous=payload["method"]=="tools/call"&&bytes.windows(tool.len()).any(|w|w==tool)&&super::import_api::duplicate_members(&bytes);
+        // PLAN-710-mcpadapter I3 (branch review r1 #1): a message naming any member twice, anywhere, is refused before its
+        // history and its dispatch, whatever it names (its method, its tool, an argument).
+        ambiguous=super::import_api::duplicate_members(&bytes);
     }
     let app2=app.clone();
     let id=payload["id"].clone();
@@ -235,11 +234,14 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
     let redacted=import.then(||correlation(&s.id,id));
     let kept=match &redacted{
         Some(corr)=>json!({"jsonrpc":"2.0","id":corr,"method":method,"params":{"name":super::import_api::TOOL,"redacted":super::import_api::request_summary(&v["params"]["arguments"])}}),
-        None if method=="notifications/cancelled"&&v["params"].get("requestId").is_some()=>{
-            let corr=correlation(&s.id,&v["params"]["requestId"]);
-            let known:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM action_mcp_session_messages WHERE session_id=?1 AND message_type='request' AND jsonrpc_id=?2)",rusqlite::params![s.id,corr],|r|r.get(0))?;
+        // Branch review r1 #3: every cancellation, its call in history yet or not: its requestId as the digest an import
+        // call is kept under, its reason dropped.
+        None if method=="notifications/cancelled"=>{
             let mut kept=v.clone();
-            if known{kept["params"]["requestId"]=json!(corr);}
+            if let Some(params)=kept["params"].as_object_mut(){
+                params.remove("reason");
+                if let Some(request)=params.get("requestId").cloned(){params.insert("requestId".into(),json!(correlation(&s.id,&request)));}
+            }
             kept
         }
         None=>v.clone(),

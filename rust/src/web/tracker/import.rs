@@ -35,29 +35,45 @@ enum Body {
 pub(crate) struct Button { pub(crate) value: String, pub(crate) html: String, pub(crate) notes: Vec<String> }
 
 /// The lines a warning shows, as markup (an account named in each line its own).
-pub(crate) fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
+pub(crate) fn lines(locale: &str, w: &run::Warning) -> Vec<String> { lines_as(locale, w, false) }
+
+/// `lines` as plain text (PLAN-710-mcpadapter rule 2): each account by its plain label, the texts unescaped.
+pub(crate) fn plain_lines(locale: &str, w: &run::Warning) -> Vec<String> { lines_as(locale, w, true) }
+
+fn lines_as(locale: &str, w: &run::Warning, plain: bool) -> Vec<String> {
     use run::Warning;
-    let named = |key: &str, label: &crate::identity::Label| i18n::t(locale, key, &[("account", i18n::Arg::Html(&label.html()))]);
-    let counted = |key: &str, label: &crate::identity::Label, n: usize| i18n::t(locale, key, &[("account", i18n::Arg::Html(&label.html())), ("count", i18n::Arg::Count(n as i64))]);
+    let say = |key: &str, args: &[(&str, i18n::Arg)]| if plain { i18n::text(locale, key, args) } else { i18n::t(locale, key, args) };
+    let shown = |label: &crate::identity::Label| if plain { label.plain() } else { label.html() };
+    fn markup(plain: bool, text: &str) -> i18n::Arg<'_> { if plain { i18n::Arg::Text(text) } else { i18n::Arg::Html(text) } }
+    let named = |key: &str, label: &crate::identity::Label| { let s = shown(label); say(key, &[("account", markup(plain, &s))]) };
+    let counted = |key: &str, label: &crate::identity::Label, n: usize| { let s = shown(label); say(key, &[("account", markup(plain, &s)), ("count", i18n::Arg::Count(n as i64))]) };
     match w {
         Warning::HeldElsewhere(a) => vec![named("tracker.import.warn_held_html", a)],
         Warning::OtherAccount(a) => vec![named("tracker.import.warn_other_html", a)],
         Warning::Existing(per) => per.iter().map(|(a, n)| counted("tracker.import.warn_existing_html", a, *n)).collect(),
         Warning::Destination(per) => per.iter().map(|(a, n)| counted("tracker.import.destination_html", a, *n)).collect(),
-        Warning::Twice(n) => vec![i18n::t(locale, "tracker.import.twice_html", &[("count", i18n::Arg::Count(*n as i64))])],
-        Warning::Unrouted(n) => vec![i18n::t(locale, "tracker.import.warn_unrouted", &[("count", i18n::Arg::Count(*n as i64))])],
-        Warning::Retained => vec![i18n::t(locale, "tracker.import.warn_retained", &[])],
-        Warning::Dust => vec![i18n::t(locale, "tracker.import.warn_dust", &[])],
-        Warning::Changed => vec![i18n::t(locale, "tracker.import.warn_changed", &[])],
-        Warning::LeftOut(names) => vec![i18n::t(locale, "tracker.import.rows_left_out_named_html", &[("exchanges", i18n::Arg::Text(&names.join(", ")))])],
+        Warning::Twice(n) => vec![say("tracker.import.twice_html", &[("count", i18n::Arg::Count(*n as i64))])],
+        Warning::Unrouted(n) => vec![say("tracker.import.warn_unrouted", &[("count", i18n::Arg::Count(*n as i64))])],
+        Warning::Retained => vec![say("tracker.import.warn_retained", &[])],
+        Warning::Dust => vec![say("tracker.import.warn_dust", &[])],
+        Warning::Changed => vec![say("tracker.import.warn_changed", &[])],
+        Warning::LeftOut(names) => vec![say("tracker.import.rows_left_out_named_html", &[("exchanges", i18n::Arg::Text(&names.join(", ")))])],
         Warning::Undone(n, accounts) => {
-            let named = accounts.iter().map(|a| a.html()).collect::<Vec<_>>().join(", ");
-            vec![i18n::t(locale, "tracker.import.links_undone_html", &[("count", i18n::Arg::Count(*n as i64)), ("accounts", i18n::Arg::Html(&named))])]
+            let named = accounts.iter().map(|a| shown(a)).collect::<Vec<_>>().join(", ");
+            vec![say("tracker.import.links_undone_html", &[("count", i18n::Arg::Count(*n as i64)), ("accounts", markup(plain, &named))])]
         }
     }
 }
 
 /// #710 8a: one named button per destination ("Import to KuCoin² (rows in file: 12)").
+/// `buttons`' names as plain text (PLAN-710-mcpadapter rule 2): the same action, the account's plain label.
+pub(crate) fn plain_buttons(locale: &str, choices: &[run::Choice]) -> Vec<String> {
+    choices.iter().map(|k| {
+        let key = if k.new || k.accept == Some(run::Accept::New) { "tracker.import.import_new_html" } else { "tracker.import.import_to_html" };
+        i18n::text(locale, key, &[("account", i18n::Arg::Text(&k.shown.plain())), ("count", i18n::Arg::Count(k.count as i64))])
+    }).collect()
+}
+
 pub(crate) fn buttons(locale: &str, choices: &[run::Choice]) -> Vec<Button> {
     choices.iter().map(|k| {
         let key = if k.new || k.accept == Some(run::Accept::New) { "tracker.import.import_new_html" } else { "tracker.import.import_to_html" };

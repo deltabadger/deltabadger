@@ -25,6 +25,9 @@ const QUERY_MARKERS: [&str; 6] = ["upload", "choice", "cancel", "token", "handle
 const CHECK_BYTES: usize = 1024 * 1024;
 const CHECK_EVERY: Duration = Duration::from_secs(5);
 pub const RETRY_AFTER: u64 = 5;
+/// Test hook: how many bytes of the body a read had kept when a check stopped it.
+#[doc(hidden)]
+pub static COLLECTED_AT_DENIAL: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 /// H8: every (status, code) a REST import answer carries, each on its row of manual/api.md's status table.
 pub const CODES: [(u16, &str); 17] = [
     (400, "ambiguous_request"), (400, "malformed"), (401, "missing_token"), (401, "invalid_token"), (401, "token_revoked"), (401, "token_expired"),
@@ -55,7 +58,12 @@ pub fn authorized(c: &Connection, app: &App, surface: Surface, authorization: Op
     if !(enabled.iter().any(|t| t == TOOL) && granted.iter().any(|t| t == TOOL)) { return Ok(Err(Denied::Ungranted)); }
     let now = app.now();
     if !auth::User::find(c, who.user_id)?.is_some_and(|user| user.confirmed && !user.locked(now)) { return Ok(Err(Denied::Inactive)); }
-    Ok(match resolve()? { Ok(again) if again == who => Ok(who.user_id), Ok(_) => Err(Denied::Bearer(Refusal::Invalid)), Err(why) => Err(Denied::Bearer(why)) })
+    match resolve()? { Ok(again) if again == who => {}, Ok(_) => return Ok(Err(Denied::Bearer(Refusal::Invalid))), Err(why) => return Ok(Err(Denied::Bearer(why))) }
+    // Branch review r1 #2: last of all, after every lookup (the resolver's own of the owner included), the token's row
+    // judged by a fresh clock.
+    let Some(token) = bearer::bearer_token(authorization).map(|t| super::oauth::AccessToken::find(c, "token", t)).transpose()?.flatten() else { return Ok(Err(Denied::Bearer(Refusal::Invalid))) };
+    let now = app.now();
+    Ok(if token.id != who.token_id { Err(Denied::Bearer(Refusal::Invalid)) } else if token.revoked(now) { Err(Denied::Bearer(Refusal::Revoked)) } else if token.expired(now) { Err(Denied::Bearer(Refusal::Expired)) } else { Ok(who.user_id) })
 }
 
 /// The check the operation runs inside its transaction.
@@ -147,14 +155,6 @@ fn language(c: &Connection, user: i64) -> Result<&'static str, WebError> {
     Ok(locale::switch(None, auth::User::find(c, user)?.and_then(|u| u.locale).as_deref()))
 }
 
-/// The web's markup as plain text: its tags dropped, its entities read.
-fn plain(html: &str) -> String {
-    let mut out = String::with_capacity(html.len());
-    let mut tag = false;
-    for ch in html.chars() { match ch { '<' => tag = true, '>' if tag => tag = false, ch if !tag => out.push(ch), _ => {} } }
-    out.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&#33;", "!").replace("&amp;", "&")
-}
-
 fn destination(d: &run::Destination) -> Value {
     json!({"exchange_id": d.exchange_id, "account_id": d.account_id, "rows": d.rows,
            "prospective": d.prospective.map(|p| json!({"key_id": p.key_id, "number": p.number}))})
@@ -162,7 +162,7 @@ fn destination(d: &run::Destination) -> Value {
 
 /// An `Outcome` as data, or the failure it is (status, code, message), in the owner's language `l` (rule 2).
 pub fn outcome(l: &str, outcome: Outcome) -> Result<Value, (StatusCode, &'static str, String)> {
-    let lines = |w: &run::Warning| crate::web::tracker::import::lines(l, w).iter().map(|h| plain(h)).collect::<Vec<_>>();
+    let lines = |w: &run::Warning| crate::web::tracker::import::plain_lines(l, w);
     let unprocessable = StatusCode::UNPROCESSABLE_ENTITY;
     match outcome {
         Outcome::Written { imported, duplicates, skipped, unrecognised, unrouted, generic, destinations } => Ok(json!({
@@ -191,7 +191,7 @@ pub fn outcome(l: &str, outcome: Outcome) -> Result<Value, (StatusCode, &'static
                 _ if venue => ("venue", vec![i18n::text(l, "tracker.import.account", &[])]),
                 _ => ("account", vec![i18n::text(l, "tracker.import.which_of_accounts", &[])]),
             };
-            let buttons = crate::web::tracker::import::buttons(l, choices);
+            let buttons = crate::web::tracker::import::plain_buttons(l, choices);
             let listed: Vec<Value> = choices.iter().enumerate().map(|(n, k)| {
                 let at = kinds.get(n).copied().unwrap_or(Kind::Accept);
                 let what = match (at, k.accept) {
@@ -200,7 +200,7 @@ pub fn outcome(l: &str, outcome: Outcome) -> Result<Value, (StatusCode, &'static
                     (_, Some(Accept::New)) => "new", (_, None) if k.new => "new", _ => "account",
                 };
                 let label = if csv { i18n::text(l, match k.accept { Some(Accept::Rest) => "tracker.import.import_rest", Some(Accept::Anyway) => "tracker.import.import_anyway", _ => "tracker.import.confirm" }, &[]) }
-                    else if venue { k.shown.plain() } else { plain(&buttons[n].html) };
+                    else if venue { k.shown.plain() } else { buttons[n].clone() };
                 let counted = !(venue || csv);
                 json!({"choice": k.value, "kind": what, "label": label, "rows_in_file": counted.then_some(k.count), "exchange_id": k.venue, "account_id": k.account,
                        "new_account": what == "new", "notes": k.notes.iter().flat_map(&lines).collect::<Vec<_>>(),
@@ -356,13 +356,23 @@ async fn read_checked(app: &App, authorization: &Option<String>, body: Body) -> 
             Ok(Some(Err(_))) => return Err(Cut::Broken),
             Ok(Some(Ok(chunk))) => {
                 if out.len() + chunk.len() > IMPORT_LIMIT { return Err(Cut::TooLarge); }
-                out.extend_from_slice(&chunk);
-                since += chunk.len();
-                since >= CHECK_BYTES || tokio::time::Instant::now() >= last + CHECK_EVERY
+                // Branch review r1 #8: checked before a chunk takes the read past CHECK_BYTES since the last check; a chunk
+                // crossing it is kept up to it, then checked, then the rest.
+                let mut rest = &chunk[..];
+                while since + rest.len() >= CHECK_BYTES {
+                    let (now, later) = rest.split_at(CHECK_BYTES - since);
+                    out.extend_from_slice(now);
+                    rest = later;
+                    if let Err(denied) = check(app, Surface::Rest, authorization.clone()).await { COLLECTED_AT_DENIAL.store(out.len(), std::sync::atomic::Ordering::SeqCst); return Err(Cut::Denied(denied)); }
+                    (since, last) = (0, tokio::time::Instant::now());
+                }
+                out.extend_from_slice(rest);
+                since += rest.len();
+                tokio::time::Instant::now() >= last + CHECK_EVERY
             }
         };
         if due {
-            if let Err(denied) = check(app, Surface::Rest, authorization.clone()).await { return Err(Cut::Denied(denied)); }
+            if let Err(denied) = check(app, Surface::Rest, authorization.clone()).await { COLLECTED_AT_DENIAL.store(out.len(), std::sync::atomic::Ordering::SeqCst); return Err(Cut::Denied(denied)); }
             (since, last) = (0, tokio::time::Instant::now());
         }
     }
@@ -423,6 +433,8 @@ pub async fn rest(app: App, headers: HeaderMap, params: Arc<Params>, body: Body)
         Ok(Err(_)) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
         Ok(Ok(raw)) => raw,
     };
+    // Branch review r1 #7: the body arrived: checked before any of it is read.
+    if let Err(denied) = check(&app, Surface::Rest, authorization.clone()).await { return envelope(&app, denied); }
     if duplicate_members(&raw) { return ambiguous(); }
     let form = match serde_json::from_slice::<Value>(&raw) {
         Ok(Value::Object(args)) => form_of(&args, false),

@@ -56,14 +56,37 @@ fn delimiter(body: &[u8], between: &[u8], mut from: usize) -> Option<(usize, boo
     }
 }
 
-pub fn parse(body: &[u8], boundary: &str) -> Result<Parsed, Error> {
+/// Branch review r1 #4: the delimiter as the hook has always read it: the first `--boundary` after a CRLF ends the part,
+/// `--` after it closes the body whatever follows, anything else but blanks and CRLF is a malformed body.
+fn first_delimiter(body: &[u8], between: &[u8], from: usize) -> Result<(usize, bool, usize), Error> {
+    let at = find(body, between, from).ok_or(Error::Malformed)?;
+    loose_tail(body, at + between.len()).map(|(closing, next)| (at, closing, next))
+}
+fn loose_tail(body: &[u8], mut i: usize) -> Result<(bool, usize), Error> {
+    if body[i..].starts_with(b"--") { return Ok((true, i)); }
+    while matches!(body.get(i), Some(b' ' | b'\t')) { i += 1; }
+    if body[i..].starts_with(b"\r\n") { Ok((false, i + 2)) } else { Err(Error::Malformed) }
+}
+
+/// The import callers' reader: a delimiter is a whole line (D-MULTIPART-DELIMITER).
+pub fn parse(body: &[u8], boundary: &str) -> Result<Parsed, Error> { read(body, boundary, true) }
+
+/// The hook's reader (web::hook): its delimiter exactly as before; a part read two ways is still reported, never refused.
+pub fn parse_as_before(body: &[u8], boundary: &str) -> Result<Parsed, Error> { read(body, boundary, false) }
+
+fn read(body: &[u8], boundary: &str, whole_lines: bool) -> Result<Parsed, Error> {
     let delimiter_text = format!("--{boundary}");
     let between = format!("\r\n--{boundary}");
     // Anything before the first delimiter is a preamble and ignored.
-    let first = if body.starts_with(delimiter_text.as_bytes()) { tail(body, delimiter_text.len()) } else { None };
-    let (mut closing, mut at) = match first {
-        Some(found) => found,
-        None => delimiter(body, between.as_bytes(), 0).map(|(_, closing, next)| (closing, next)).ok_or(Error::Malformed)?,
+    let (mut closing, mut at) = if !whole_lines {
+        if body.starts_with(delimiter_text.as_bytes()) { loose_tail(body, delimiter_text.len())? }
+        else { first_delimiter(body, between.as_bytes(), 0).map(|(_, closing, next)| (closing, next))? }
+    } else {
+        let first = if body.starts_with(delimiter_text.as_bytes()) { tail(body, delimiter_text.len()) } else { None };
+        match first {
+            Some(found) => found,
+            None => delimiter(body, between.as_bytes(), 0).map(|(_, closing, next)| (closing, next)).ok_or(Error::Malformed)?,
+        }
     };
     let mut parsed = Parsed::default();
     let mut parts = 0;
@@ -74,7 +97,7 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Parsed, Error> {
         if body[at..].starts_with(b"\r\n") { return Err(Error::Malformed); } // a part with no headers names nothing
         let head_end = find(body, b"\r\n\r\n", at).ok_or(Error::Malformed)?;
         let content_start = head_end + 4;
-        let (end, close, next) = delimiter(body, between.as_bytes(), content_start).ok_or(Error::Malformed)?;
+        let (end, close, next) = if whole_lines { delimiter(body, between.as_bytes(), content_start).ok_or(Error::Malformed)? } else { first_delimiter(body, between.as_bytes(), content_start)? };
         let head = std::str::from_utf8(&body[at..head_end]).map_err(|_| Error::Malformed)?;
         let mut dispositions = head.split("\r\n")
             .filter_map(|line| line.split_once(':'))
