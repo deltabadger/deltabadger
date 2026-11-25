@@ -292,6 +292,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
         let tx = c.unchecked_transaction()?;
         let c: &Connection = &tx;
         let version = backfill::history_version(c, user_id)?;
+        backfill::count_attempt(c, cipher, user_id, now)?;
         let (all, labels) = super::rows::load_all_labelled(c, user_id)?;
         let first = all.iter().map(|r| r.date()).min();
         match first {

@@ -66,7 +66,10 @@ pub fn chart(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bo
         history = kept;
     }
     let gap = first.is_some_and(|f| f < today && history.first().is_none_or(|d| d.date > f));
-    let loading = history.is_empty() && (unswept || gap);
+    // Plan r10 §1.7: while a recalculation is owed and being tried, the stored days are not drawn.
+    let gated = crate::figures::budget::within(|| crate::tracker::backfill::gate(c, &ctx.app.cipher, owner)).map_err(|_| invalid())? == Some(true);
+    if gated { history.clear(); }
+    let loading = history.is_empty() && (unswept || gap || gated);
     if history.is_empty() && !loading { return Ok(String::new()); }
     let percent_class = if hidden { "widget--chart__pnl" } else { "widget--chart__percent" };
     if history.is_empty() {

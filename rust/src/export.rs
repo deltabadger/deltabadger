@@ -376,6 +376,7 @@ pub const APP_CONFIGS: &[(Key, &str)] = &[
     (Key::Prefix("snapshot_price_generation_"), "the tracker's per-user price generation"),
     (Key::Prefix("snapshot_calculation_version_"), "the tracker's per-user calculation version"),
     (Key::Prefix("rust_snapshot_identity_"), "a fingerprint of the coin identities a tracker history was computed with"),
+    (Key::Prefix("rust_snapshot_attempt_"), "the sweeps a tracker history's recalculation has tried"),
     (Key::Prefix("rust_job."), "job schedule state (last_error removed: D-EXPORT-JOB-ERRORS)"),
     (Key::Prefix("rust_sync."), "tracker sync cursors and progress"),
     (Key::Prefix("rust_sync_toast."), "the key ids an import toast waits on (D-SYNC-DONE-TOAST)"),
