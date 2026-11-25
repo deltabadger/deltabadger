@@ -584,7 +584,7 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     let bot = model::load_bot(c, id)?;
     if matches!(bot.status, Deleted | Archived) { clear()?; return Ok(false); } // `return if bot.deleted? || bot.archived?`
     // A17-4 item 2: the INDICES job is woken for a followed index with no usable ranking before any refusal below returns.
-    if let Some(external_id) = super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)? { state.ranking_owed.push(external_id); }
+    state.ranking_owed.extend(super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)?);
     let reasons = eligibility::bot_reasons(c, &bot)?;
     if !reasons.is_empty() {
         if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to 2.x ({})", reasons.join(", "))); }
@@ -976,8 +976,9 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
 // A stop/start between loop passes also invalidates a wait, as does a changed index definition.
 fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value, EngineError> {
     let stopped: Option<String> = c.query_row("SELECT stopped_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
-    let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
-        [bot.has_groups().then(|| bot.index_external_id())], |r| r.get(0))?;
+    let ids = serde_json::to_string(&bot.index_external_ids()).map_err(|e| EngineError::Data(e.to_string()))?;
+    let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM (SELECT source,top_coins,weights FROM indices \
+                                     WHERE external_id IN (SELECT value FROM json_each(?1)) ORDER BY external_id, id)", [ids], |r| r.get(0))?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
         "started":bot.started_at_us()?, "generation":bot.run_generation(), "stopped":stopped, "changed":bot.settings_changed_at_us()?}))
 }
@@ -1158,7 +1159,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
-        if let Some(external_id) = ranking_wake { e.events.send(EngineEvent::RankingMissing { external_id }); }
+        for external_id in ranking_wake { e.events.send(EngineEvent::RankingMissing { external_id }); }
         announce_condition_infos(e, id, info_before)?;
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);

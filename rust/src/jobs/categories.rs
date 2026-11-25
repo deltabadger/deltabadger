@@ -57,9 +57,12 @@ pub(crate) fn followers(c: &Connection) -> Result<BTreeMap<String, Vec<i64>>, En
         .query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     let mut out: BTreeMap<String, Vec<i64>> = BTreeMap::new();
     for id in ids {
-        let bot = model::load_bot(c, id)?;
-        // Top Coins' own row is ranked by Top Coins, whatever the bot's index type says.
-        if bot.index_type() == Some("category") && bot.index_category_id().is_some_and(|id| id != "top-coins") { out.entry(bot.index_external_id().to_string()).or_default().push(id); }
+        // Top Coins' own row is ranked by Top Coins, whatever the group's index type says. Each followed group, once per bot.
+        for group in model::load_bot(c, id)?.composition().map(|c| c.groups).unwrap_or_default() {
+            if group.index_type.as_deref() != Some("category") || group.index_category_id.as_deref().is_none_or(|g| g == "top-coins") { continue; }
+            let bots = out.entry(group.external_id).or_default();
+            if !bots.contains(&id) { bots.push(id); }
+        }
     }
     Ok(out)
 }

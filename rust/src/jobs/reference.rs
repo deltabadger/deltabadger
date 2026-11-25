@@ -380,7 +380,7 @@ async fn top_coins(api: &dyn coingecko::Api, captured: &str, cx: &Cx<'_>) -> Out
         provider::record(tx,&captured,now)?;
         let mut s=tx.prepare("SELECT id FROM bots WHERE type='Bots::DcaIndex' AND status NOT IN (3,7) AND exchange_id IS NOT NULL")?;
         let bots=s.query_map([],|r|r.get::<_,i64>(0))?.collect::<Result<Vec<_>,_>>()?;
-        for id in bots { if crate::engine::model::load_bot(tx,id)?.index_external_id()=="top-coins" { index::mark_resync(tx,id,now)?; } }
+        for id in bots { if crate::engine::model::load_bot(tx,id)?.index_external_ids().iter().any(|g| g=="top-coins") { index::mark_resync(tx,id,now)?; } }
         Ok(())
     }).map_err(|e|format!("{e:?}"))).await;
     match result { Ok(())=>{cx.wakers.wake_engine();Outcome::Done},Err(e)=>Outcome::Failed(e) }
