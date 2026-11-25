@@ -538,12 +538,17 @@ pub async fn bitrue_check<T: Transport>(transport: &T, venue: &crate::venue::bit
 /// Exchanges::Mexc::KEY_CHECK_REJECTED: 700007 no permission for the endpoint, 10072 an invalid key.
 pub const MEXC_REJECTED: [i64; 2] = [700_007, 10_072];
 pub const MEXC_DEPOSITS_PATH: &str = "/api/v3/capital/deposit/hisrec";
+/// #710 slice 9 G4: MEXC's documented credential refusals (700001 key format, 700002 signature, 700007 no permission, 10072
+/// invalid key), the codes `identity` holds definite: an incorrect key under any status but a 429 or a 5xx.
+pub const MEXC_REFUSED: [i64; 4] = [700_001, 700_002, 700_007, 10_072];
 
 /// Exchanges::Mexc#key_check_verdict on one answer: `Ok(data)` when the call succeeded without a code (or with 0), its
-/// payload (None: Faraday's nil for an empty body); else the verdict. KEY_CHECK_REJECTED, or MEXC's invalid-key words in
-/// the failure's `msg`, are an incorrect key; any other code in a success is no verdict with its `msg`; any other failure
-/// no verdict with its text.
+/// payload (None: Faraday's nil for an empty body); else the verdict. A refusal code (`MEXC_REFUSED`, D-MEXC-CODE-NOT-TEXT)
+/// is an incorrect key; any other code in a success is no verdict with its `msg`; any other failure no verdict with its text.
+/// Divergence D-MEXC-5XX-NO-VERDICT (#710 slice 9): a 5xx or a 429 is no verdict whatever code its body carries (2.x read
+/// KEY_CHECK_REJECTED under any status).
 pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method: &str, url: &str) -> Result<Option<Value>, Verdict> {
+    if let Ok(r) = answer { if r.status >= 500 || r.status == 429 { return Err(Verdict::Failure(raised(r, method, url))); } }
     let (data, failure): (Option<Value>, Option<String>) = match answer {
         Err(error) => (None, Some(transport(error))),
         Ok(response) if !(200..300).contains(&response.status) => (None, Some(raised(response, method, url))),
@@ -557,7 +562,9 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
     let body = match &failure { Some(text) => serde_json::from_str::<Value>(text).ok(), None => data.clone() };
     let field = |name: &str| body.as_ref().filter(|b| b.is_object()).and_then(|b| b.get(name)).filter(|v| !v.is_null()).cloned();
     let code = field("code");
-    if MEXC_REJECTED.iter().any(|n| number_is(code.as_ref(), *n)) { return Err(Verdict::Valid(false)); }
+    // Divergence D-MEXC-CODE-NOT-TEXT (review r1 #1): the code decides, never the message (2.x also read MEXC's invalid-key
+    // words, which made 602, a signature failure, an incorrect key).
+    if MEXC_REFUSED.iter().any(|n| number_is(code.as_ref(), *n)) { return Err(Verdict::Valid(false)); }
     let text = |v: &Value| v.as_str().map_or_else(|| v.to_string(), str::to_string);
     let Some(failure) = failure else {
         // `code.nil? || code.to_i.zero?`
@@ -566,9 +573,6 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
         return Err(Verdict::Failure(field("msg").map(|m| text(&m)).filter(|m| !crate::v2::blank(m))
             .unwrap_or_else(|| format!("MEXC answered code {}", code.as_ref().map(text).unwrap_or_default()))));
     };
-    // #parse_error_message: the failure's JSON `msg`.
-    let error = serde_json::from_str::<Value>(&failure).ok().and_then(|b| b.get("msg").and_then(Value::as_str).map(str::to_string));
-    if error.is_some_and(|e| crate::engine::venue_rules::MEXC.is_invalid_key(&[e])) { return Err(Verdict::Valid(false)); }
     Err(Verdict::Failure(failure))
 }
 
@@ -576,18 +580,24 @@ pub fn mexc_answer_verdict(answer: &Result<HttpResponse, TransportError>, method
 /// withdrawal key passes on the read); for a reading key (#get_read_api_key_validity, `reading`) the deposit history then
 /// (`limit: 1`), MEXC granting it under its own permission. The last answer (for the diagnostics) and the verdict.
 pub async fn mexc_check<T: Transport>(transport: &T, venue: &crate::venue::mexc::MexcVenue<T>, kind: i64, reading: bool) -> (Result<HttpResponse, TransportError>, Verdict) {
-    use crate::venue::mexc::{ACCOUNT_PATH, RECV_WINDOW};
-    let read = venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.into())], transport.now());
-    let answer = transport.send(&read).await;
-    let data = match mexc_answer_verdict(&answer, read.method, read.url().as_str()) { Ok(data) => data, Err(verdict) => return (answer, verdict) };
-    let Some(can_trade) = data.as_ref().filter(|d| d.is_object()).and_then(|d| d.get("canTrade")).and_then(Value::as_bool) else {
-        return (answer, Verdict::Failure("MEXC answered without an account payload".into()));
-    };
-    if !reading { return (answer, Verdict::Valid(kind == 1 || can_trade)); }
-    let deposits = venue.signed("GET", MEXC_DEPOSITS_PATH, vec![("limit", "1".into()), ("recvWindow", RECV_WINDOW.into())], transport.now());
-    let answer = transport.send(&deposits).await;
-    let verdict = mexc_answer_verdict(&answer, deposits.method, deposits.url().as_str()).err().unwrap_or(Verdict::Valid(true));
+    let (answer, verdict, _) = mexc_check_identified(transport, venue, kind, reading).await;
     (answer, verdict)
+}
+/// `mexc_check`, with what its last answer states as an identity read (`identity::mexc_answer`: its status and code), read
+/// as it arrived, before the transport scrubs a body that echoes the key.
+pub async fn mexc_check_identified<T: Transport>(transport: &T, venue: &crate::venue::mexc::MexcVenue<T>, kind: i64, reading: bool)
+                                                -> (Result<HttpResponse, TransportError>, Verdict, Option<crate::identity::Observed>) {
+    use crate::venue::mexc::{ACCOUNT_PATH, RECV_WINDOW};
+    let send = |r: HttpRequest| async move { match transport.send_observed(&r, &crate::identity::mexc_answer).await { Ok((a, p)) => (Ok(a), Some(p), r), Err(e) => (Err(e), None, r) } };
+    let (answer, probe, read) = send(venue.signed("GET", ACCOUNT_PATH, vec![("recvWindow", RECV_WINDOW.into())], transport.now())).await;
+    let data = match mexc_answer_verdict(&answer, read.method, read.url().as_str()) { Ok(data) => data, Err(verdict) => return (answer, verdict, probe) };
+    let Some(can_trade) = data.as_ref().filter(|d| d.is_object()).and_then(|d| d.get("canTrade")).and_then(Value::as_bool) else {
+        return (answer, Verdict::Failure("MEXC answered without an account payload".into()), probe);
+    };
+    if !reading { return (answer, Verdict::Valid(kind == 1 || can_trade), probe); }
+    let (answer, probe, deposits) = send(venue.signed("GET", MEXC_DEPOSITS_PATH, vec![("limit", "1".into()), ("recvWindow", RECV_WINDOW.into())], transport.now())).await;
+    let verdict = mexc_answer_verdict(&answer, deposits.method, deposits.url().as_str()).err().unwrap_or(Verdict::Valid(true));
+    (answer, verdict, probe)
 }
 
 /// What honeymaker's #post_info (#with_rescue) hands Exchanges::Hyperliquid for a key check's answer: the parsed 2xx body
@@ -765,8 +775,8 @@ pub async fn check(venue: &str, base: &str, client: reqwest::Client, credentials
 }
 
 /// `check`, and for a correct key of a venue with a confirmed account id (crate::identity::VENUES) what its identity read
-/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance, D-BYBIT-IDENTITY-READ on Bybit; Binance.US's is
-/// its check's own account read, Coinbase's its permission read).
+/// came to (D-ACCOUNT-ID-READ: one more signed read on KuCoin and Binance, D-BYBIT-IDENTITY-READ on Bybit, D-MEXC-IDENTITY-READ
+/// on MEXC; Binance.US's is its check's own account read, Coinbase's its permission read).
 /// None: no read was made.
 pub async fn check_identified(venue: &str, base: &str, client: reqwest::Client, credentials: &crate::crypto::Credentials, kind: i64)
                               -> (Validity, Option<crate::identity::Observed>) {
@@ -844,7 +854,14 @@ pub(crate) async fn check_identified_captured(venue: &str, base: &str, client: r
     } else if scheme == Some(KeyCheck::Mexc) {
         let transport = ReqwestTransport::mexc(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::mexc::MexcVenue::new(transport.clone(), base, &credentials.secret);
-        mexc_check(&transport, &venue, kind, kind == 2).await
+        let (answer, verdict, probe) = mexc_check_identified(&transport, &venue, kind, kind == 2).await;
+        // #710 slice 9 (D-MEXC-IDENTITY-READ): a key the check judges correct is read once more, for its UID. A probe MEXC
+        // refused with one of its definite refusal codes (G4) is the key's own answer; a transient one (a 503) reads nothing.
+        if verdict == Verdict::Valid(true) { observed = crate::identity::read(venue_type, &transport, base, &credentials.secret).await; }
+        else if let Some(probe @ crate::identity::Observed::Failed(code)) = &probe {
+            if crate::identity::definite_failure(venue_type, code) { observed = Some(probe.clone()); }
+        }
+        (answer, verdict)
     } else if scheme == Some(KeyCheck::BinanceUs) {
         let transport = ReqwestTransport::binance(client, credentials.key.clone(), credentials.secret.clone()).with_sensitive_values(redaction);
         let venue = crate::venue::binance::BinanceVenue::new(transport.clone(), base, &credentials.secret);

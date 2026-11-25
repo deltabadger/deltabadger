@@ -17,7 +17,7 @@ use std::path::Path;
 const LIST: &str = "tests/spelling_readers.txt";
 const SKIPPED: [&str; 3] = ["sync/", "venue/", "tracker/import/"];
 const LITERAL_DIRS: [&str; 5] = ["tax/", "tracker/", "web/tracker", "web/shell.rs", "figures/"];
-const NEW: [&str; 2] = ["tracker/resolver.rs", "tracker/spellings.rs"];
+const NEW: [&str; 3] = ["tracker/labels.rs", "tracker/resolver.rs", "tracker/spellings.rs"];
 
 /// (file, kind, normalised line) → occurrences.
 type Hits = BTreeMap<(String, &'static str, String), usize>;

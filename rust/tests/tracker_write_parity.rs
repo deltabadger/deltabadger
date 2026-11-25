@@ -270,6 +270,8 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         // Explicit IDs are part of equality. DELETE does not rewind SQLite's sequence.
         c.execute("DELETE FROM sqlite_sequence WHERE name IN ('fund_classifications','account_transactions')",[]).unwrap();
         c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
+        // Delisted coins: the recorded coin prices by their identity, as a re-fetch stores them (fixtures/coin_prices_mirror.sql).
+        c.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
         let secret = scenario["secret_key_base"].as_str().unwrap();
         let app = web::app(dir.path(),secret,TestClock::at(scenario["at"].as_str().unwrap()));
         app.attach_jobs(Default::default()).unwrap();

@@ -9,7 +9,7 @@
 //! - D-TAX-FR-305, D-TAX-FR-RATE, D-TAX-FR-2086: the 2086 summary (`summary`).
 use super::{cents, fifo::{Disposal, Point}, line, s, Cell};
 use crate::figures::{at::At, dec::Dec, FiguresError};
-use crate::tracker::prices::{coin_id, PriceService};
+use crate::tracker::prices::{tax_identity, PriceService};
 use crate::web::i18n::{text, Arg};
 use chrono::NaiveDate;
 
@@ -60,7 +60,7 @@ pub(super) fn value(ps: &mut PriceService, currency: &str, p: &Point, d: &Dispos
     for (id, symbol, venue, units) in &p.held {
         if *id == d.asset_id { sold = units.clone(); continue; }
         let same = !ambiguous(&p.held, id, symbol)
-            && coin_id(ps.r, symbol, ps.r.venue(venue), Some(day)).unwrap_or_else(|| format!("symbol:{symbol}")) == *id;
+            && tax_identity(ps.r, symbol, ps.r.venue(venue), Some(day)) == *id;
         let price = if same { ps.price_at(symbol, currency, d.at, Some(venue))? } else { ps.warnings.push(format!("{symbol}/{currency} {day}")); Dec::zero() };
         if price.is_zero() { missing = true; }
         v = (&v + &(units * &price)?)?;

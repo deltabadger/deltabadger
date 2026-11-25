@@ -201,12 +201,25 @@ pub fn import(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, form
 /// (`BEGIN IMMEDIATE`).
 #[allow(clippy::too_many_arguments)]
 pub fn write(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, subject: &str, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
-    match write_transaction(c, cipher, user_id, format, file, subject, chosen, now) {
+    // Nothing here signs out: the None arm is never taken.
+    Ok(write_signed_in(c, cipher, user_id, format, file, subject, chosen, now, &|_| Ok(true))?.unwrap_or(Answer::Error("unreadable")))
+}
+
+/// Why a write stopped before reading anything: the request's sign-in ended (`write_signed_in`).
+const SIGNED_OUT: &str = "the sign-in ended before the import was written";
+
+/// `write` for a web request: `signed_in` is asked first inside the write's transaction (web::auth::still_signed_in).
+/// None when it says no: nothing is read or written.
+#[allow(clippy::too_many_arguments)]
+pub fn write_signed_in(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, subject: &str, chosen: Option<&str>, now: DateTime<Utc>,
+                       signed_in: &dyn Fn(&Connection) -> Result<bool, SyncError>) -> Result<Option<Answer>, SyncError> {
+    match write_transaction(c, cipher, user_id, format, file, subject, chosen, now, signed_in) {
+        Err(error) if error.0 == SIGNED_OUT => Ok(None),
         Err(error) => match crate::sync::binance_writer::csv_refusal(&error) {
-            Some(reason) => Ok(Answer::Refused(reason.to_owned())),
+            Some(reason) => Ok(Some(Answer::Refused(reason.to_owned()))),
             None => Err(error),
         },
-        answer => answer,
+        Ok(answer) => Ok(Some(answer)),
     }
 }
 
@@ -408,9 +421,11 @@ fn origin(format: &str) -> &'static str { match format { "binance" => "binance",
 
 // Returning an error drops the transaction before `write` translates a named refusal.
 #[allow(clippy::too_many_arguments)]
-fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, subject: &str, chosen: Option<&str>, now: DateTime<Utc>) -> Result<Answer, SyncError> {
+fn write_transaction(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, format: &str, file: Read, subject: &str, chosen: Option<&str>, now: DateTime<Utc>,
+                     signed_in: &dyn Fn(&Connection) -> Result<bool, SyncError>) -> Result<Answer, SyncError> {
     let Read { entries, unrecognised, rows: kucoin_rows, account_id, records, digest: file_digest } = file;
     let tx = model::immediate(c)?;
+    if !signed_in(&tx)? { return Err(SyncError(SIGNED_OUT.into())); }
     let keys = reading(&tx, user_id)?;
     let (body, tag) = match chosen { Some(chosen) => { let (body, tag) = split_answer(chosen); (Some(body), tag) } None => (None, None) };
     let accepting = matches!(tag, Some(('w', _)));

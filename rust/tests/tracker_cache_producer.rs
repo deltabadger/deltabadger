@@ -117,18 +117,18 @@ async fn a_history_priced_one_day_at_a_time_is_priced_in_one_run(){
     assert_eq!(t.requests().len(),121,"the prefetch, then the 120 days");
     assert_eq!(ledger_wakes(&wakers),0,"the finished walk queues nothing");
     let c=rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
-    assert_eq!(c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).unwrap(),120);
+    assert_eq!(c.query_row("SELECT count(*) FROM asset_prices",[],|r|r.get::<_,i64>(0)).unwrap(),120);
     assert!(matches!(cache::read(&c,s.user_id,None,clock().0).unwrap(),State::Warm(_)));
 }
 /// A run whose prices another writer stored first (it stored none itself) still walks to the end and queues no wake.
 #[tokio::test(flavor="current_thread")]
 async fn a_run_whose_prices_another_writer_stored_queues_no_wake(){
     let (_dir,o,s)=common::install_alpaca();let (api,_t)=priced_one_day_at_a_time(&o.primary,s.user_id,s.exchange_id);
-    o.primary.execute_batch("CREATE TRIGGER another_writer BEFORE INSERT ON historical_prices BEGIN INSERT INTO historical_prices(asset,currency,date,price) VALUES(NEW.asset,NEW.currency,NEW.date,NEW.price); END;").unwrap();
+    o.primary.execute_batch("CREATE TRIGGER another_writer BEFORE INSERT ON asset_prices BEGIN INSERT INTO asset_prices(external_id,currency,date,price) VALUES(NEW.external_id,NEW.currency,NEW.date,NEW.price); END;").unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let wakers=jobs::Wakers::default();
     let outcome=job_with(s.user_id,api).run(Cx{db:db.clone(),clock:&clock(),wakers:wakers.clone()},vec![]).await;
     assert_eq!(outcome,Outcome::Done);
-    assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM historical_prices",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),120,"the other writer stored them");
+    assert_eq!(db.run(|c,_|c.query_row("SELECT count(*) FROM asset_prices",[],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string())).await.unwrap(),120,"the other writer stored them");
     assert_eq!(ledger_wakes(&wakers),0,"a run that stored nothing must not wake itself");
 }
 /// The run's own prefetch writes can move the price inputs under all three passes: fees on days 1 and 4 prefetch days
@@ -268,7 +268,7 @@ async fn a_pass_whose_key_was_deleted_before_its_write_states_no_failure(){
     let t=ScriptedTransport::from_script(&json!({"GET /api/v1/historical_prices":[price(&["2026-05-01","2026-05-04"]),price(&["2026-05-02"]),price(&["2026-05-03"])]}));
     let api=Rc::new(Some(deltabadger::jobs::market::Feed::DataApi(deltabadger::jobs::data_api::DataApi::new(deltabadger::jobs::data_api::Config{url:"http://data-api:3000".into(),token:"t".into()},t.clone(),t.clone()))));
     // Three passes each moved by their own price; the third pass's fetch is where the key goes.
-    o.primary.execute(&format!("CREATE TRIGGER delete_key AFTER INSERT ON historical_prices WHEN NEW.date='2026-05-03' BEGIN UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id={gone}; DELETE FROM api_keys WHERE id={gone}; END;"),[]).unwrap();
+    o.primary.execute(&format!("CREATE TRIGGER delete_key AFTER INSERT ON asset_prices WHEN NEW.date='2026-05-03' BEGIN UPDATE account_transactions SET api_key_id=NULL WHERE api_key_id={gone}; DELETE FROM api_keys WHERE id={gone}; END;"),[]).unwrap();
     let db=Db::new(o.primary,common::seed::cipher());let owner=s.user_id;let wakers=jobs::Wakers::default();
     let outcome=job_with(owner,api.clone()).run(Cx{db:db.clone(),clock:&clock(),wakers:wakers.clone()},vec![]).await;
     assert_eq!(outcome,Outcome::Failed(deltabadger::engine::model::CREDENTIALS_CHANGED.into()));
@@ -286,8 +286,11 @@ async fn an_oversized_entry_keeps_the_previous_one(){
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Done);
     let before=db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap();
     assert!(before.is_some());
-    // A coin whose symbol alone is larger than an entry may be.
-    db.run(move|c,_|{c.execute("INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,transacted_at,raw_data,manual_values,created_at,updated_at) VALUES(?1,?2,4,?3,1,'2026-09-02 00:00:00','{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00')",rusqlite::params![owner,venue,"X".repeat(9*1024*1024)]).unwrap();Ok(())}).await.unwrap();
+    // More than an entry holds: labels are bounded (64 characters), so a long symbol alone no longer overflows it; 40,000
+    // round trips (a buy, then its sale) do.
+    db.run(move|c,_|{c.execute("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<80000) \
+        INSERT INTO account_transactions(user_id,exchange_id,entry_type,base_currency,base_amount,quote_currency,quote_amount,transacted_at,raw_data,manual_values,created_at,updated_at) \
+        SELECT ?1,?2,i%2,'ZZZ',1,'USD',1+i%2,datetime('2026-09-02 00:00:00','+'||i||' seconds'),'{}','{}','2026-09-02 00:00:00','2026-09-02 00:00:00' FROM n",rusqlite::params![owner,venue]).unwrap();Ok(())}).await.unwrap();
     assert_eq!(job(owner).run(cx(&db,&clock()),vec![]).await,Outcome::Failed(cache::PAYLOAD_TOO_LARGE.into()));
     assert_eq!(db.run(move|c,_|Ok(deltabadger::app_config::get_plain(c,&cache::key(owner)).unwrap())).await.unwrap(),before,"the previous entry is kept, not replaced by a failure");
 }

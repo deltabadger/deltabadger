@@ -1990,7 +1990,7 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
         uid, kind, base:"AAPL".into(), amount, fiat_value, at, quote:Some("USD".into()), quote_amount:None,
         fee_fiat_value:Dec::zero(), fee_currency:None, fee_amount:None, group:None, price_missing:false,
         value_missing:Some(false), exchange:"alpaca".into(), linked:false, transfer_fee:None, swap_fiat_cost:None,
-        swap_stable_cost:None, per_share:None, to_exchange:None, account:1, to_account:None, orphan:false, opening:false, stated_value:false, fee_missing:false, class:None,
+        swap_stable_cost:None, per_share:None, to_exchange:None, account:1, to_account:None, to_base: None, orphan:false, opening:false, stated_value:false, fee_missing:false, class:None,
     };
     let mut rows = vec![row(0,Kind::Buy,dec("10"),dec("900"),acquired)];
     let mut held = dec("10");
@@ -2328,6 +2328,34 @@ async fn a_coins_days_come_from_the_venues_daily_candles() {
     assert!(days.prices.is_empty() && days.retry);
 }
 
+/// Delisted coins (Codex r1, plan r10 step 4): a pair code the venue rebound to another listing (a tombstone carries it)
+/// may hold the old coin's candles: no route takes it, so nothing is asked and no day is stored under the coin.
+#[tokio::test(flavor = "current_thread")]
+async fn a_rebound_pair_code_is_no_venue_history_route() {
+    use deltabadger::sync::venue_history::Segment;
+    let (_dir, db, s) = install();
+    let exchange = s.exchange_id;
+    let btc: i64 = db.run(move |c, _| {
+        // The coin the code named before: a copy of BTC's asset under another id, as the replaced listing's.
+        c.execute_batch(&format!("CREATE TEMP TABLE was AS SELECT * FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1;
+                                  UPDATE was SET id = (SELECT max(id) + 1 FROM assets), external_id = 'the-old-btc';
+                                  INSERT INTO assets SELECT * FROM was;
+                                  CREATE TEMP TABLE old AS SELECT * FROM tickers WHERE exchange_id = {exchange} AND ticker = 'BTC/USD';
+                                  UPDATE old SET id = (SELECT max(id) + 1 FROM tickers), ticker = '__stale_9_BTC/USD', base = '__stale_9_BTC', base_asset_id = (SELECT id FROM was);
+                                  INSERT INTO tickers SELECT * FROM old;")).unwrap();
+        Ok(c.query_row("SELECT id FROM assets WHERE symbol = 'BTC' ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap())
+    }).await.unwrap();
+    let day = |d: &str| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").unwrap();
+    let wire = ScriptedTransport::from_script(&json!({ "GET /v1beta3/crypto/us/bars": [ok(json!({ "bars": { "BTC/USD": [{ "t": "2026-11-12T00:00:00Z", "o": 70000.0 }] }, "next_page_token": null }))] }));
+    let quotes = deltabadger::sync::venue_quotes::Quotes::new(Box::new({ let wire = wire.clone(); move |_, _| wire.clone() }), None);
+    let q: &dyn deltabadger::sync::venue_quotes::VenueQuotes = &quotes;
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+    let segments = vec![Segment { from: day("2026-11-10"), to: day("2026-11-12"), asset: btc }];
+    let days = q.history(&db, s.exchange_id, Some(s.api_key_id), segments, Default::default(), deadline).await;
+    assert!(days.prices.is_empty(), "{:?}", days.prices);
+    assert!(wire.requests().is_empty(), "no candles asked of a rebound code");
+}
+
 /// A coin's days already stored are not asked for again: the candles start at the first day missing, and a span stored
 /// whole asks nothing.
 #[tokio::test(flavor = "current_thread")]
@@ -2508,7 +2536,7 @@ async fn a_buy_between_the_cash_and_positions_replies_counts_once() {
                transacted_at, raw_data, manual_values, transfer_link_rejected, created_at, updated_at) \
                VALUES (?1, ?2, ?3, 0, 'AAPL', '1', 'USD', '227', 'fill-1', '2026-09-20 02:03:00', '{}', '{}', 0, '2026-09-20', '2026-09-20')",
               [s.user_id, s.api_key_id, s.exchange_id]).unwrap();
-    let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All).unwrap();
+    let moved = deltabadger::tracker::figures::pending(&c, s.user_id, &deltabadger::tracker::Scope::All, &Default::default()).unwrap();
     assert!(moved.iter().all(|(symbol, _)| symbol != "AAPL" && symbol != "USD"), "{moved:?}");
 }
 

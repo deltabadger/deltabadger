@@ -16,6 +16,7 @@ use crate::venue::coinbase::COINBASE;
 use crate::venue::http::{HttpRequest, Transport};
 use crate::venue::kucoin::KUCOIN;
 use crate::sync::ALPACA;
+use crate::venue::mexc::MEXC;
 use chrono::{DateTime, Duration, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
@@ -27,15 +28,15 @@ pub const KEY_CONFIG: &str = "rust_account_identity_key_v1";
 /// 7a: and the proofs and reader generations (20261125000001_account_fingerprint_proofs.sql).
 pub const TABLES: [&str; 10] = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "exchange_account_keys", "exchange_account_bots",
                                "exchange_account_rules", "exchange_account_transactions", "exchange_account_rows", "account_fingerprint_proofs", "ledger_reader_generations"];
-/// The venues whose account id is confirmed (AF1; #710 slice 9: Coinbase's portfolio, Alpaca's account, Bybit's UID). Every
-/// other venue records nothing yet.
-pub const VENUES: [&str; 6] = [KUCOIN, BINANCE, BINANCE_US, COINBASE, ALPACA, BYBIT];
+/// The venues whose account id is confirmed (AF1; #710 slice 9: Coinbase's portfolio, Alpaca's account, Bybit's UID, MEXC's
+/// UID). Every other venue records nothing yet.
+pub const VENUES: [&str; 7] = [KUCOIN, BINANCE, BINANCE_US, COINBASE, ALPACA, BYBIT, MEXC];
 /// #710 slice 9 G4: the identity venues whose identity read is their key check's own validation read (Coinbase's permission
 /// read, Alpaca's GET /v2/account), or follows a permission probe whose transient answer is no verdict on the key (G4 r6:
-/// Bybit's 10006 before its query-api read). A check of theirs that comes to no verdict (a 5xx, a rate limit, a failed
-/// request after the read) leaves a correct key correct, so its standing stays; only a verdict changes its status
-/// (`web::settings::keys::transient_kept`).
-pub const VALIDATION_READS: [&str; 3] = [COINBASE, ALPACA, BYBIT];
+/// Bybit's 10006 before its query-api read, MEXC's 503 before its uid read). A check of theirs that comes to no verdict (a
+/// 5xx, a rate limit, a failed request after the read) leaves a correct key correct, so its standing stays; only a verdict
+/// changes its status (`web::settings::keys::transient_kept`).
+pub const VALIDATION_READS: [&str; 4] = [COINBASE, ALPACA, BYBIT, MEXC];
 /// A credential is observed again after this long, and after any change of its stored ciphertext.
 pub fn observe_every() -> Duration { Duration::weeks(1) }
 /// A failed read is retried no sooner than this.
@@ -111,6 +112,9 @@ fn definite_of(exchange_type: &str) -> Definite {
         // Alpaca's 401 on the key's own (effective paper/live) host; a 403 or a success naming no account says nothing.
         ALPACA => Definite { success: false, statuses: &[401], codes: &[] },
         BYBIT => Definite { success: false, statuses: &[], codes: &["10003", "10004", "10005", "10007", "-2015"] },
+        // MEXC (spot v3 error codes): 700001 API key format, 700002 signature, 700007 no permission, 10072 invalid key. Its
+        // bare 403 (WAF), every 429 and 5xx are transient.
+        MEXC => Definite { success: false, statuses: &[], codes: &["700001", "700002", "700007", "10072"] },
         _ => LEGACY,
     }
 }
@@ -154,7 +158,8 @@ fn failure(status: u16, body: &str) -> Observed { failure_at(status, body, "code
 /// `failure`, the venue's numeric code under `field`.
 fn failure_at(status: u16, body: &str, field: &str) -> Observed {
     let code = serde_json::from_str::<Value>(body).ok().and_then(|v| match v.get(field) {
-        Some(Value::Number(n)) => n.as_i64().map(|n| n.to_string()),
+        // MEXC review r1 #2: a code spelled as a whole float (700007.0) is that code.
+        Some(Value::Number(n)) => n.as_i64().or_else(|| n.as_f64().filter(|f| f.fract() == 0.0 && f.abs() < 1e15).map(|f| f as i64)).map(|n| n.to_string()),
         Some(Value::String(s)) if (1..=12).contains(&s.len()) && s.trim_start_matches('-').bytes().all(|b| b.is_ascii_digit()) => Some(s.clone()),
         _ => None,
     });
@@ -203,6 +208,16 @@ pub fn bybit_answer(status: u16, body: &str) -> Observed {
 }
 /// Bybit's identity read path (`bybit_answer`).
 pub const BYBIT_PATH: &str = "/v5/user/query-api";
+/// MEXC's GET /api/v3/uid (after its key check passes): `uid` (text in the docs; a number accepted). Its error envelope is
+/// a non-2xx status or a `code` (anything but 0).
+pub fn mexc_answer(status: u16, body: &str) -> Observed {
+    let Ok(v) = serde_json::from_str::<Value>(body) else { return failure(status, body) };
+    let coded = v.get("code").is_some_and(|c| !c.is_null() && c.as_i64() != Some(0) && c.as_str() != Some("0"));
+    if !(200..300).contains(&status) || coded { return failure(status, body); }
+    AccountId::from_json(&v["uid"]).map_or_else(|| Observed::Failed(format!("http {status}")), Observed::Read)
+}
+/// MEXC's identity read path (`mexc_answer`).
+pub const MEXC_PATH: &str = "/api/v3/uid";
 
 /// The identity read of `exchange_type` through `transport`, or None for a venue without a confirmed identity.
 pub fn request<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &str, secret: &str) -> Option<HttpRequest> {
@@ -214,6 +229,8 @@ pub fn request<T: Transport + Clone>(exchange_type: &str, transport: &T, base: &
         COINBASE => Some(HttpRequest { method: "GET", base: base.into(), path: crate::venue::coinbase::PERMISSIONS.into(), query: vec![], body: None, not_after: None }),
         ALPACA => Some(HttpRequest { method: "GET", base: base.into(), path: ALPACA_PATH.into(), query: vec![], body: None, not_after: None }),
         BYBIT => Some(HttpRequest { method: "GET", base: base.into(), path: BYBIT_PATH.into(), query: vec![], body: None, not_after: None }),
+        MEXC => Some(crate::venue::mexc::MexcVenue::new(transport.clone(), base, secret)
+            .signed("GET", MEXC_PATH, vec![("recvWindow", crate::venue::mexc::RECV_WINDOW.into())], transport.now())),
         _ => None,
     }
 }
@@ -226,6 +243,7 @@ pub fn extractor(exchange_type: &str) -> fn(u16, &str) -> Observed {
         COINBASE => coinbase_answer,
         ALPACA => alpaca_answer,
         BYBIT => bybit_answer,
+        MEXC => mexc_answer,
         other => unreachable!("{other} has no identity read"),
     }
 }
@@ -249,6 +267,7 @@ pub async fn read_live(exchange_type: &str, base: &str, client: reqwest::Client,
         COINBASE => ReqwestTransport::coinbase(client, key, secret),
         ALPACA => ReqwestTransport::new(client, key, secret),
         BYBIT => ReqwestTransport::bybit(client, key, secret),
+        MEXC => ReqwestTransport::mexc(client, key, secret),
         _ => return None,
     }.with_sensitive_values(redaction);
     read(exchange_type, &transport, base, &credentials.secret).await
@@ -1395,6 +1414,11 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
         let account = Account::by_id(c, id).map_err(db)?.ok_or("account identity: no account")?;
         c.query_row(&format!("SELECT count(*) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0)).map_err(db)
     };
+    // The slot of `kind` on `id` already holds exactly this material.
+    let reposts = |id: i64| -> Result<bool, String> {
+        let slot = Account::by_id(c, id).map_err(db)?.map(|a| a.key(c, kind)).transpose().map_err(db)?.flatten();
+        Ok(slot.is_some_and(|k| is_material(c, cipher, k, exchange_type, material)))
+    };
     match reading {
         Reading::Read(id) => {
             let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, id);
@@ -1417,8 +1441,11 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
             }
             installed(true)
         }
+        // Bybit review r1 #2 (every identity venue): a key nobody could read never takes an account another unread key of it
+        // would decide: that key is read first (`replaces_unread`), or the save is refused to try again. An exact repost
+        // into its own slot replaces nothing, so it stays.
         Reading::Unread => match (target, live.as_slice()) {
-            (Some(t), [(only, _)]) if *only == t && unset(t)? => Ok(Route::To(t)),
+            (Some(t), [(only, _)]) if *only == t && unset(t)? && (reposts(t)? || !holds_unread_other(c, cipher, t, exchange_type, material)?) => Ok(Route::To(t)),
             _ => Ok(Route::Unconfirmed),
         },
         Reading::NotAnIdentityVenue => {
@@ -2176,10 +2203,35 @@ mod tests {
         assert_eq!((r.method, r.path.as_str(), r.query.len()), ("GET", ALPACA_PATH, 0));
     }
 
+    /// MEXC's GET /api/v3/uid (public docs): `{"uid": "209302839"}`, text (a number accepted). Its error envelope is a
+    /// non-2xx status or a `code`.
+    #[test]
+    fn mexc_answers_yield_the_uid_or_a_failure() {
+        let read = |id: &str| Observed::Read(AccountId::parse(id).unwrap());
+        assert_eq!(mexc_answer(200, r#"{"uid":"209302839"}"#), read("209302839"));
+        assert_eq!(mexc_answer(200, r#"{"uid":209302839}"#), read("209302839"), "a number is the same id");
+        assert_eq!(mexc_answer(200, r#"{"uid":"209302839","code":0}"#), read("209302839"));
+        for body in [r#"{"uid":""}"#, r#"{"uid":null}"#, r#"{"uid":"0"}"#, r#"{"uid":"20****39"}"#, r#"{"uid":1.5}"#, r#"{}"#, "[]"] {
+            assert_eq!(mexc_answer(200, body), Observed::Failed("http 200".into()), "{body}");
+        }
+        assert_eq!(mexc_answer(200, r#"{"code":10072,"msg":"Api key info invalid 209302839"}"#), Observed::Failed("http 200; code 10072".into()));
+        assert_eq!(mexc_answer(200, r#"{"uid":"209302839","code":700007}"#), Observed::Failed("http 200; code 700007".into()), "a code is an error");
+        assert_eq!(mexc_answer(400, r#"{"code":700002,"msg":"Signature for this request is not valid."}"#), Observed::Failed("http 400; code 700002".into()));
+        assert_eq!(mexc_answer(403, "<html>209302839</html>"), Observed::Failed("http 403".into()));
+        // Review r1 #2: a code spelled as a float is that code, and definite where the code is.
+        assert_eq!(mexc_answer(403, r#"{"code":700007.0,"msg":"No permission"}"#), Observed::Failed("http 403; code 700007".into()));
+        assert!(definite_failure(MEXC, "http 403; code 700007"));
+        assert_eq!(mexc_answer(400, r#"{"code":602.5}"#), Observed::Failed("http 400".into()), "a fraction is no code");
+        assert_eq!(mexc_answer(503, r#"{"uid":"209302839"}"#), Observed::Failed("http 503".into()));
+        assert_eq!(extractor(MEXC)(200, r#"{"uid":"209302839"}"#), read("209302839"));
+        assert!(VENUES.contains(&MEXC) && VALIDATION_READS.contains(&MEXC) && OVERLAP_VENUES.contains(&MEXC), "G5: MEXC stays an overlap venue");
+    }
+
     /// G4: definite failures are per venue. KuCoin and Binance keep 2xx/401/403; Coinbase's only definite refusal is a 401.
     #[test]
     fn definite_failures_are_per_venue_and_the_sql_twin_agrees() {
-        let codes = ["http 200", "http 200; code -2015", "http 204", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005",
+        let codes = ["http 200", "http 200; code -2015", "http 204", "http 400; code 700001", "http 400; code 700002", "http 403; code 700007",
+                     "http 200; code 10072", "http 403; code 0", "http 429; code 10072", "http 503; code 700007", "http 400; code 700003", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005",
                      "http 200; code 10006", "http 200; code 10007", "http 200; code 10016", "http 403; code 10003", "http 429; code 10006",
                      "http 503; code 10003", "http 200; code 0", "http 600", "http 600; code 10003", "http 599; code 10003", "http 401", "http 401; code 16", "http 403", "http 403; code 7", "http 404",
                      "http 429", "http 500", "http 503", "http 400; code -1021", "http 2000", "transport", "no egress", "proxy unreadable"];
@@ -2190,6 +2242,8 @@ mod tests {
         for code in codes { assert_eq!(definite_failure(ALPACA, code), code == "http 401" || code == "http 401; code 16", "Alpaca {code}"); }
         let bybit = ["http 200; code -2015", "http 200; code 10003", "http 200; code 10004", "http 200; code 10005", "http 200; code 10007", "http 403; code 10003"];
         for code in codes { assert_eq!(definite_failure(BYBIT, code), bybit.contains(&code), "Bybit {code}: only its refusal codes, never a bare 403, 10006, 10016, a 429 or a 5xx"); }
+        let mexc = ["http 400; code 700001", "http 400; code 700002", "http 403; code 700007", "http 200; code 10072"];
+        for code in codes { assert_eq!(definite_failure(MEXC, code), mexc.contains(&code), "MEXC {code}: only its refusal codes, never a bare 403, a 429 or a 5xx"); }
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE exchanges (id INTEGER PRIMARY KEY, type TEXT); CREATE TABLE o (exchange_id INTEGER, code TEXT);").unwrap();
         for (n, venue) in VENUES.iter().chain(["Exchanges::Kraken"].iter()).enumerate() {

@@ -569,6 +569,8 @@ async fn run(dir: &Path) -> Value {
     }
     wiremock::Mock::given(wiremock::matchers::path_regex("/v2/positions$")).and(wiremock::matchers::header("APCA-API-KEY-ID","r9-unnamed-position")).respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{"asset_class":"us_equity","qty":"2"}]))).with_priority(1).mount(&key_server).await;
     mount_key_checks(&key_server).await;
+    let scenario_name = dir.file_name().unwrap().to_string_lossy().to_string();
+    if IDENTITY_POSTS.iter().any(|(name, _, _)| *name == scenario_name) { mount_identity_reads(&key_server).await; }
     mount_account_reads(&key_server).await;
     mount_ibkr(&key_server).await;
     mount_rule_reads(&key_server).await;
@@ -716,6 +718,7 @@ async fn run(dir: &Path) -> Value {
         if step["tax_files"] == true { response["tax_files"] = tax_files(dir); }
         let sent = key_server.received_requests().await.unwrap_or_default()[seen..].to_vec();
         let sent = without_alpaca_identity_reads(&scenario_name, index, step, alpaca_reads, installed.flatten().as_deref(), sent);
+        let sent = without_listed_identity_reads(&scenario_name, index, sent);
         let mut requests = without_identity_reads(venue_transcript(&sent));
         // D-JSON-KEY-IDENTITY (#710 7a): the JSON save of an identity venue's key reads its account, and only that, before its
         // 201; the permission check stays asynchronous, as 2.x's.
@@ -895,6 +898,47 @@ fn without_alpaca_identity_reads(scenario: &str, index: usize, step: &Value, rea
     assert!(own[first_own..].iter().all(|o| *o), "D-ALPACA-IDENTITY-READ: {scenario} step {index}: this build's reads come after every recorded request: {:?}",
             sent.iter().map(|r| format!("{} {}", r.url.path(), key(r))).collect::<Vec<_>>());
     sent.into_iter().zip(own).filter(|(_, own)| !own).map(|(r, _)| r).collect()
+}
+
+/// D-ACCOUNT-ID-READ (#710 slice 9, Bybit review r1 #2): the recorded replacements of an unread KuCoin or Binance key. A key
+/// whose own account read fails never takes an account an unread key of it would decide, so these scenarios' keys answer
+/// their account reads, all with one account per venue: the posted key is read, then the installed key it replaces (rule
+/// Q1), and the replacement stays in place as 2.x made it. Each listed step sends exactly these reads, in this order (the
+/// keys their headers name); no other step of these scenarios sends one.
+const IDENTITY_POSTS: &[(&str, usize, &[&str])] = &[
+    ("settings_venue_key_kucoin_legacy_replace", 3, &["kucoin-correct", "kucoin-key"]),
+    ("settings_venue_key_binance_legacy_replace", 3, &["binance-correct", "binance-key"]),
+    ("settings_venue_key_kucoin_replace", 4, &["kucoin-correct", "kucoin-key"]),
+    ("settings_venue_key_binance_replace", 4, &["binance-correct", "binance-key"]),
+    ("wizard_key_revalidate_on_get", 10, &["binance-correct", "binance-key"]),
+];
+/// The account reads of `IDENTITY_POSTS`' keys: one KuCoin account, one Binance account.
+async fn mount_identity_reads(server: &wiremock::MockServer) {
+    use wiremock::{matchers, Mock, ResponseTemplate};
+    for key in ["kucoin-key", "kucoin-correct"] {
+        Mock::given(matchers::method("GET")).and(matchers::path(format!("/api.kucoin.com{}", deltabadger::identity::KUCOIN_PATH))).and(matchers::header("KC-API-KEY", key))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"code": "200000", "data": {"uid": 165111215, "permission": "General,Spot"}}))).mount(server).await;
+    }
+    for key in ["binance-key", "binance-correct"] {
+        Mock::given(matchers::method("GET")).and(matchers::path(format!("/api.binance.com{}", deltabadger::identity::BINANCE_PATH))).and(matchers::header("X-MBX-APIKEY", key))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"uid": 354937868, "balances": []}))).mount(server).await;
+    }
+}
+/// `IDENTITY_POSTS`: a listed scenario's step sends exactly its listed account reads, in order, after every recorded request
+/// of the step (the permission check); they are this build's own, taken out of the transcript. Any other scenario is left as it is.
+fn without_listed_identity_reads(scenario: &str, index: usize, sent: Vec<wiremock::Request>) -> Vec<wiremock::Request> {
+    if !IDENTITY_POSTS.iter().any(|(name, _, _)| *name == scenario) { return sent; }
+    let read = |r: &wiremock::Request| r.method.as_str() == "GET"
+        && [format!("/api.kucoin.com{}", deltabadger::identity::KUCOIN_PATH), format!("/api.binance.com{}", deltabadger::identity::BINANCE_PATH)].contains(&r.url.path().to_string());
+    let key = |r: &wiremock::Request| ["KC-API-KEY", "X-MBX-APIKEY"].iter().find_map(|h| r.headers.get(*h)).and_then(|v| v.to_str().ok()).unwrap_or_default().to_string();
+    let want: Vec<String> = IDENTITY_POSTS.iter().find(|(name, n, _)| *name == scenario && *n == index).map_or(vec![], |(_, _, keys)| keys.iter().map(|k| k.to_string()).collect());
+    let got: Vec<String> = sent.iter().filter(|r| read(r)).map(key).collect();
+    assert_eq!(got, want, "D-ACCOUNT-ID-READ: {scenario} step {index}'s account reads");
+    // After the permission check: every other request the step sends comes before the first read.
+    if let (Some(first), Some(last)) = (sent.iter().position(read), sent.iter().rposition(|r| !read(r))) {
+        assert!(last < first, "D-ACCOUNT-ID-READ: {scenario} step {index} reads the accounts before {}", sent[last].url.path());
+    }
+    sent.into_iter().filter(|r| !read(r)).collect()
 }
 
 fn without_identity_reads(requests: Vec<Value>) -> Vec<Value> {

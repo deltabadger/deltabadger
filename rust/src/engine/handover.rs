@@ -786,7 +786,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_rule_import", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rule_job_cleanup", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rules_fired_at", Ignored),
-        (AppConfig, "rust_job.", Ignored), (AppConfig, "rust_sync.", Ignored), (AppConfig, "rust_sync_toast.", Ignored), (AppConfig, "rust_tracker_gaps.", Ignored), (AppConfig, "rust_snapshot_unpriced.", Ignored), (AppConfig, "rust_venue_history_cursor_", Ignored),
+        (AppConfig, "rust_job.", Ignored), (AppConfig, "rust_sync.", Ignored), (AppConfig, "rust_sync_toast.", Ignored), (AppConfig, "rust_tracker_gaps.", Ignored), (AppConfig, "rust_snapshot_unpriced.", Ignored), (AppConfig, "rust_venue_history_cursor_", Ignored), (AppConfig, "rust_snapshot_identity_", Ignored),
         (AppConfig, "rust_tracker_ledger.", Cache), (AppConfig, "rust_tracker_bot_sales.", Cache),
         // ---- bots.transient_data ----
         (Bot, "rust_placement", Waits), (Bot, "rust_reversal_cancels", Waits), (Bot, "rust_signal_calls", Waits),

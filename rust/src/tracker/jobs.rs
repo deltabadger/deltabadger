@@ -106,6 +106,8 @@ pub struct Inputs {
     /// The ledger cache's version as the pass began.
     pub cache: super::cache::Version,
     pub origin: crate::sync::cache::ReadOrigin,
+    /// The map's labels, for the summaries (`Walked::label`).
+    pub labels: super::labels::Labels,
 }
 
 /// `Inputs` for the user, in one read transaction.
@@ -115,14 +117,15 @@ pub fn load_inputs(c: &Connection, user_id: i64) -> Result<Inputs, FiguresError>
     let cache = super::cache::version(&tx, user_id)?;
     let history = backfill::history_version(&tx, user_id)?;
     let generation = backfill::generation(&tx)?;
-    let all = super::rows::load_all(&tx, user_id)?;
+    let (all, labels) = super::rows::load_all_labelled(&tx, user_id)?;
     let rows = super::rows::walk_rows(&all)?;
     let deposits = all.iter().map(|r| (r.id, r.amount.clone())).collect();
     let mut reference = Reference::load(&tx, &Venue::alpaca(&tx)?, &prices::symbols(&all))?;
     reference.record_coins(&tx, user_id)?;
+    reference.learn(&tx, &all)?;
     let fx = FxTable::load(&tx)?;
     tx.commit()?;
-    Ok(Inputs { all, rows, deposits, reference, fx, history, generation, cache, origin })
+    Ok(Inputs { all, rows, deposits, reference, fx, history, generation, cache, origin, labels })
 }
 
 type Answer = Result<Vec<(NaiveDate, Dec)>, String>;
@@ -205,7 +208,8 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&
         fx::ensure_loaded(db, ecb, today).await;
         let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
         let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
-        let (walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
+        let (mut walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
+        walked.label(&inputs.labels);
         let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
         let still = history == inputs.history && generation == inputs.generation;
         last = Some((walked, inputs, began));
@@ -246,7 +250,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb:
         let read = c.unchecked_transaction()?;
         let snapshot_origin = inputs.origin.with_balance_producers(&read).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
         let rows = super::snapshot::today_rows(&read, user_id, &w, &inputs.fx, today)?;
-        let locks = super::wash::targets(&read, user_id, &w.whole.loss_sales)?;
+        let locks = super::wash::targets(&read, user_id, &w.whole.loss_sales, &w.whole.labels)?;
         read.commit()?;
         // The write unit is fenced on the keys the walk read: a key replaced or deleted under the pass refuses it all.
         // The balances are today's snapshot's input alone, not the ledger's: balances no current key produced (a
@@ -255,6 +259,7 @@ async fn ledger_run_published<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb:
         let origin = inputs.origin.clone();
         written_for(c, &origin, &*wall, |c, now| {
             if backfill::history_version(c, user_id)? != inputs.history { return Err(FiguresError::NotComputed(MOVED.into())); }
+            backfill::note_identity(c, user_id, &inputs.labels, now)?;
             let snapshot = crate::sync::cache::balances_current(c, &snapshot_origin).map_err(|_| FiguresError::Data("snapshot balance provenance unavailable".into()))?;
             if snapshot {
                 super::snapshot::write(c, user_id, &rows, now.date_naive())?;
@@ -285,10 +290,15 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
         let tx = c.unchecked_transaction()?;
         let c: &Connection = &tx;
         let version = backfill::history_version(c, user_id)?;
-        let all = super::rows::load_all(c, user_id)?;
+        let (all, labels) = super::rows::load_all_labelled(c, user_id)?;
         let first = all.iter().map(|r| r.date()).min();
         match first {
-            Some(first) if first <= last => { let plan = backfill::plan(c, user_id, &all, first, last)?; tx.commit()?; Ok(Some(Some((version, first, plan)))) }
+            Some(first) if first <= last => {
+                let mut plan = backfill::plan(c, user_id, &all, first, last)?;
+                plan.identity = backfill::fingerprint(&labels);
+                tx.commit()?;
+                Ok(Some(Some((version, first, plan))))
+            }
             _ => {
                 // #710 (PLAN-710-6 §5.2): a standing change that leaves nothing to sweep leaves no stored history behind it, and
                 // answers that the history changed, so the job wakes the ledger walk that records today again.
@@ -300,6 +310,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
                 }
                 crate::app_config::set(c, cipher, &backfill::history_key(user_id), &version, now).map_err(FiguresError::Data)?;
                 backfill::mark_calculated(c, cipher, user_id, now)?;
+                crate::app_config::set_plain(c, &backfill::identity_key(user_id), &backfill::fingerprint(&labels), now).map_err(FiguresError::Data)?;
                 // No history to sweep: nothing in it went unpriced.
                 super::unpriced::store(c, user_id, &super::unpriced::Record::default(), now)?;
                 tx.commit()?;
@@ -330,6 +341,9 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
             // fetches, still current. A run that moved never restarts into another plan; the next run sweeps.
             let current = backfill::history_version(fenced, user_id)?;
             if current != *version || inputs.history != *version { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
+            // Codex r2: the labels the rows are swept under are the ones the price plan was made for (a listing that moved
+            // during the fetches refuses the write; the next run plans again).
+            if backfill::fingerprint(&inputs.labels) != plan.identity { return Err(FiguresError::NotComputed(SWEEP_MOVED.into())); }
             // D-TRACKER-COIN-QUOTE: the history reads the legs the walk reads (its holdings, its cash shortfall, its closers).
             let legs = super::rows::split_coin_quoted_trades(inputs.all.clone(), true)?;
             let swept = backfill::sweep(&plan, &prices, &legs, &terms, first, last, &inputs.fx)?;
@@ -345,6 +359,8 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
                 fenced.execute("DELETE FROM exchange_account_snapshots WHERE user_id = ?1 AND date > ?2", rusqlite::params![user_id, last.to_string()])?;
             }
             backfill::store(fenced, cipher, user_id, &swept, last, &version, now)?;
+            // The history is now these labels': a later ledger run under others sweeps it again (`note_identity`).
+            crate::app_config::set_plain(fenced, &backfill::identity_key(user_id), &plan.identity, now).map_err(FiguresError::Data)?;
             if limited {
                 crate::app_config::delete(fenced, &backfill::price_key(user_id)).map_err(FiguresError::Data)?;
                 crate::app_config::set_plain(fenced, &backfill::rate_limited_key(user_id), "1", now).map_err(FiguresError::Data)?;

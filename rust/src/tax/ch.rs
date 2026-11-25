@@ -40,7 +40,7 @@ impl Report {
         let mut years = vec![(y - 1, instant(local_midnight(&self.zone, y))?)];
         if today.year() > y { years.push((y, instant(local_midnight(&self.zone, y + 1))?)); }
         for (year, until) in years {
-            let mut symbols: Vec<String> = self.held_at(until)?.into_iter().map(|h| h.symbol).filter(|sym| estv.value(year, sym).is_none()).collect();
+            let mut symbols: Vec<String> = self.held_at(until)?.into_iter().map(|h| self.reference.official(&h.symbol).to_string()).filter(|sym| estv.value(year, sym).is_none()).collect();
             symbols.sort();
             symbols.dedup();
             if !symbols.is_empty() { out.push((year, symbols)); }
@@ -57,8 +57,12 @@ impl Report {
     /// A holding's value in CHF on `day`: at the ESTV value of `estv_year` where one applies, else at the market.
     fn ch_value(&self, ps: &mut PriceService, h: &Held, all: &[Held], estv_year: Option<i32>, day: NaiveDate) -> Result<(Dec, Valued), FiguresError> {
         let mut state = Valued::Market;
-        if let Some(year) = estv_year.filter(|_| self.priceable(h, all, day)) {
-            match self.estv.as_ref().and_then(|e| e.value(year, &h.symbol)) {
+        // Codex r2: the Kursliste is keyed by ticker; two coins under one official ticker (Toncoin and Tokamak as TON) take
+        // neither's value from it, and each is valued at its own market price.
+        let official = self.reference.official(&h.symbol);
+        let shared = all.iter().any(|o| o.asset != h.asset && self.reference.official(&o.symbol) == official);
+        if let Some(year) = estv_year.filter(|_| !shared && self.priceable(h, all, day)) {
+            match self.estv.as_ref().and_then(|e| e.value(year, self.reference.official(&h.symbol))) {
                 Some(Some(v)) => return Ok(((&h.units * v)?.round(2)?, Valued::Estv)),
                 Some(None) => {}
                 None => state = Valued::Unresolved,

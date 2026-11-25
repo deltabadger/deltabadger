@@ -25,6 +25,29 @@ pub struct Label { printed: String, key: String }
 impl Label {
     pub fn spelled(s: impl Into<String>) -> Label { Label { printed: s.into(), key: String::new() } }
     pub fn as_str(&self) -> &str { &self.printed }
+    /// Whether the label was allocated (it has an identity key), not spelled.
+    pub fn keyed(&self) -> bool { !self.key.is_empty() }
+    /// The identity key (`coin:<id>`, `unknown:<account>:<spelling>`, …); empty for a spelled label.
+    pub fn key(&self) -> &str { &self.key }
+    /// What the label holds, from its identity key; a spelled label (identity mode, a hand-built row) by its spelling.
+    pub fn class(&self) -> Class {
+        match self.key.split_once(':') {
+            Some(("cash", s)) => Class::Cash(if super::stable(s) { CashKind::Stable } else { CashKind::Fiat }),
+            Some(("coin", _)) => Class::Coin,
+            Some(("security", _)) => Class::Security,
+            Some(("unknown", _)) => Class::Unknown,
+            _ if super::stable(&self.printed) => Class::Cash(CashKind::Stable),
+            _ if super::fiat(&self.printed) => Class::Cash(CashKind::Fiat),
+            _ => Class::Unknown,
+        }
+    }
+    pub fn is_cash(&self) -> bool { matches!(self.class(), Class::Cash(_)) }
+    pub fn is_fiat(&self) -> bool { self.class() == Class::Cash(CashKind::Fiat) }
+    pub fn is_stable(&self) -> bool { self.class() == Class::Cash(CashKind::Stable) }
+    /// A coin label's external id.
+    pub fn coin(&self) -> Option<&str> { self.key.strip_prefix("coin:") }
+    /// A cash label's currency code (its spelling).
+    pub fn currency(&self) -> Option<&str> { self.key.strip_prefix("cash:").or_else(|| (self.key.is_empty() && super::cash(&self.printed)).then_some(self.printed.as_str())) }
 }
 impl From<&str> for Label { fn from(s: &str) -> Label { Label::spelled(s) } }
 impl From<String> for Label { fn from(s: String) -> Label { Label::spelled(s) } }
@@ -356,6 +379,10 @@ impl Spellings {
     pub fn transfer(&self, link: &Link) -> Option<(&Label, &Label)> { self.transfers.get(&link.from).map(|(a, b)| (a, b)) }
     /// The links void for identity and quantity (`transfer_conflict`).
     pub fn void_links(&self) -> &[Link] { &self.void }
+    /// Every current balance's label, by (account, asset id).
+    pub fn asset_labels(&self) -> impl Iterator<Item = (&(i64, i64), &Label)> { self.assets.iter() }
+    /// Every leg's label, by (row, side).
+    pub fn leg_labels(&self) -> impl Iterator<Item = (&(i64, Side), &Label)> { self.legs.iter().map(|(k, (l, _))| (k, l)) }
 }
 
 /// §1.4: one label per identity, deterministic, each within the alphabet and MAX_LABEL. Cash and securities print their

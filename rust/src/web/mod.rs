@@ -1017,6 +1017,54 @@ pub fn is_bot_import(route_path: &str) -> bool {
 pub const IMPORT_LIMIT: usize = 32 * 1024 * 1024;
 pub const IMPORT_READ_TIMEOUT: Duration = Duration::from_secs(120);
 
+/// D-IMPORT-AUTH-FIRST: the import routes read their body only for a signed-in user. For a POST, PATCH, PUT or DELETE to
+/// `/tracker/import` or `/bots/:id/import`, `entry` decides from the headers alone, before any body poll, whether the
+/// session cookie opens an active, signed-in user (signature, expiry, salt, the user present and active, as the pipeline
+/// resolves it, and the expiry checked again once the lookup is done). An expired or salt-stale cookie never makes the
+/// server read a body; a copied cookie that is still valid authenticates by design, as everywhere else in the app.
+/// Anyone else's request goes on with no form fields and no file, its body unpolled: main's answer to the same request
+/// with an empty form. The pipeline keeps the decision; it never selects another cookie.
+#[derive(Clone)]
+enum Admission {
+    /// The selected cookie (its value, its expiry) and its session. The pipeline checks the account again after the read,
+    /// and last of all, with a fresh clock, that this cookie is still the one selected; the handler's write checks again
+    /// inside its transaction (`auth::still_signed_in`), and `finish` before it seals the session.
+    Admitted { token: String, expires_at: i64, data: Box<session::SessionData> },
+    /// The selected session as it arrived, as the account check left it (no user, CSRF secret kept), and who that makes
+    /// the request: `SignedOut` or `Inactive`. A cookie that expired meanwhile (or another one now selected) opens no
+    /// session at all, as on main: both are the default.
+    Denied { before: Box<session::SessionData>, cleared: Box<session::SessionData>, current: auth::Current },
+}
+
+/// Whether `token` is still the cookie the request selects, by the clock as it is now.
+fn still_selected(app: &App, headers: &HeaderMap, token: &str) -> bool {
+    session::selected(&app.keys.session, headers, app.now()).is_some_and(|(value, _)| value == token)
+}
+
+async fn admit(app: &App, headers: &HeaderMap) -> Result<Admission, WebError> {
+    let now = app.now();
+    let Some((token, opened)) = session::selected(&app.keys.session, headers, now) else {
+        return Ok(Admission::Denied { before: Box::default(), cleared: Box::default(), current: auth::Current::SignedOut });
+    };
+    let token = token.to_string();
+    let session = session::Session::new(opened.data.clone());
+    let current = auth::current_user(app, &session, now).await?;
+    if !still_selected(app, headers, &token) {
+        return Ok(Admission::Denied { before: Box::default(), cleared: Box::default(), current: auth::Current::SignedOut });
+    }
+    if matches!(current, auth::Current::SignedIn(_)) {
+        return Ok(Admission::Admitted { token, expires_at: opened.expires_at, data: Box::new(opened.data) });
+    }
+    session.lock().user = None;
+    let current = if let auth::Current::Inactive(reason) = current { auth::Current::Inactive(reason) } else { auth::Current::SignedOut };
+    Ok(Admission::Denied { before: Box::new(opened.data), cleared: Box::new(session.snapshot()), current })
+}
+
+/// The setup gate's lookup (ApplicationController#redirect_to_setup_if_needed): whether this request goes to setup.
+async fn needs_setup(app: &App, params: &Params) -> Result<bool, WebError> {
+    Ok(setup::gated(params) && !app.db(setup::admin_exists).await?)
+}
+
 /// Everything that has to happen before a route is chosen:
 /// - a request for a host this deployment does not allow is refused, before anything reads it;
 /// - a static file is answered at once, as 2.x's static file server sits in front of the app;
@@ -1097,9 +1145,21 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
     let mut rack_form = true;
     let mut unparseable = hook_post && !(hook::rack_form_ok(raw_query.as_bytes()) && bot::action_params::form(&query).is_ok());
-    let multipart_boundary = (original_method == Method::POST && (route_path == IMPORT_PATH || is_bot_import(&route_path)))
-        .then(|| multipart::boundary(content_type)).flatten();
-    let (form, body) = if let Some(boundary) = multipart_boundary {
+    let import_path = route_path == IMPORT_PATH || is_bot_import(&route_path);
+    let admission = if import_path && matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE) {
+        match admit(&entry.app, &parts.headers).await {
+            Ok(admission) => Some(admission),
+            Err(error) => return error.into_response(),
+        }
+    } else {
+        None
+    };
+    let denied = matches!(admission, Some(Admission::Denied { .. }));
+    let multipart_boundary = (!denied && original_method == Method::POST && import_path).then(|| multipart::boundary(content_type)).flatten();
+    let (form, body) = if denied {
+        // Neither reader: no fields, no file, the body never polled (and its type never parsed).
+        (Vec::new(), Body::empty())
+    } else if let Some(boundary) = multipart_boundary {
         let read = match tokio::time::timeout(IMPORT_READ_TIMEOUT, axum::body::to_bytes(body, IMPORT_LIMIT)).await {
             Ok(read) => read,
             Err(_) => return (StatusCode::REQUEST_TIMEOUT, [(header::CONNECTION, "close")], "The form did not arrive in time\n").into_response(),
@@ -1182,6 +1242,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // D-DESKTOP-NO-ACCOUNT-PAGES and the launcher's /desktop routes: before the session, CSRF, the setup gate and sign-in.
     if let Some(answer) = desktop::guard(&entry.app, &parts.method, &params, &parts.headers) { return answer; }
     parts.extensions.insert(Arc::new(params));
+    if let Some(admission) = admission { parts.extensions.insert(admission); }
     match entry.routes.oneshot(Request::from_parts(parts, body)).await {
         Ok(response) => response,
         Err(never) => match never {},
@@ -1307,8 +1368,16 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     let Some(params) = request.extensions().get::<Arc<Params>>().cloned() else {
         return WebError::Config("a request reached the routes without passing web::router's entry".into()).into_response();
     };
-    let before = session::from_request(&app.keys.session, request.headers(), now).map(|opened| opened.data).unwrap_or_default();
-    let session = session::Session::new(before.clone());
+    // An import request keeps what `entry` decided (Admission): the session it selected, and no other.
+    let admission = request.extensions().get::<Admission>().cloned();
+    let (mut before, session) = match &admission {
+        Some(Admission::Admitted { data, .. }) => ((**data).clone(), session::Session::new((**data).clone())),
+        Some(Admission::Denied { before, cleared, .. }) => ((**before).clone(), session::Session::new((**cleared).clone())),
+        None => {
+            let before = session::from_request(&app.keys.session, request.headers(), now).map(|opened| opened.data).unwrap_or_default();
+            (before.clone(), session::Session::new(before))
+        }
+    };
 
     // rack-attack: after the session middleware, before everything else.
     let peer = request.extensions().get::<ConnectInfo<SocketAddr>>().map(|info| info.0.ip());
@@ -1334,17 +1403,43 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         return response;
     }
 
-    let current = match auth::current_user(&app, &session, now).await {
-        Ok(current) => current,
-        Err(error) => return error.into_response(),
+    // On an import route the setup lookup comes first, so the account check is the last read before any answer is chosen.
+    let early_setup = match &admission {
+        Some(admission) => match needs_setup(&app, &params).await {
+            Ok(to_setup) => Some(to_setup),
+            Err(error) => return finish(&app, &session, &before, &nonce, now, matches!(admission, Admission::Admitted { .. }), error.into_response()),
+        },
+        None => None,
+    };
+    let current = match &admission {
+        Some(Admission::Denied { current, .. }) => current.clone(),
+        _ => match auth::current_user(&app, &session, now).await {
+            Ok(current) => current,
+            Err(error) => return error.into_response(),
+        },
+    };
+    // The admitted cookie, after the last lookup and with a fresh clock: still the one selected, still unexpired. If not,
+    // it opens no session, as on main for that state: the request is signed out, and nothing of it is sealed again.
+    let current = match &admission {
+        Some(Admission::Admitted { token, .. }) if !still_selected(&app, request.headers(), token) => {
+            before = Default::default();
+            *session.lock() = Default::default();
+            auth::Current::SignedOut
+        }
+        _ => current,
     };
     let signed_in = matches!(current, auth::Current::SignedIn(_));
+    let admitted_until = match &admission { Some(Admission::Admitted { expires_at, .. }) if signed_in => Some(*expires_at), _ => None };
+    if let Some(until) = admitted_until { session.bind_expiry(until); }
     let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
 
     // ApplicationController#redirect_to_setup_if_needed: after Devise's prepended filters and the CSRF check.
-    let to_setup = setup::gated(&context.params) && match app.db(setup::admin_exists).await {
-        Ok(exists) => !exists,
-        Err(error) => return finish(&app, &session, &before, &nonce, now, signed_in, error.into_response()),
+    let to_setup = match early_setup {
+        Some(to_setup) => to_setup,
+        None => match needs_setup(&app, &context.params).await {
+            Ok(to_setup) => to_setup,
+            Err(error) => return finish(&app, &session, &before, &nonce, now, signed_in, error.into_response()),
+        },
     };
     let response = if let Some(early) = auth::prepended_filters(&context) {
         early
@@ -1361,6 +1456,8 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
         request.extensions_mut().insert(context);
         next.run(request).await
     };
+    // The admitted cookie may have expired while the handler ran: its sign-in is not sealed again (with a new expiry).
+    if admitted_until.is_some_and(|until| until <= app.now().timestamp()) { session.lock().user = None; }
     finish(&app, &session, &before, &nonce, now, signed_in, response)
 }
 

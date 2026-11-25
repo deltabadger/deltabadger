@@ -8,8 +8,10 @@ use serde_json::{json, Map, Value};
 use std::path::Path;
 
 fn snapshot(c: &Connection) -> Value {
+    // 2.x's tables: the Rust-owned ones (asset_prices) are not in its snapshot.
+    let owned = deltabadger::store::REGISTRY.owned_tables();
     let names: Vec<String> = c.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").unwrap()
-        .query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+        .query_map([],|r|r.get(0)).unwrap().collect::<Result<Vec<String>,_>>().unwrap().into_iter().filter(|n| !owned.contains(&n.as_str())).collect();
     let mut tables = Map::new();
     for name in names {
         let mut statement = c.prepare(&format!("SELECT * FROM {name} ORDER BY 1")).unwrap();
@@ -124,6 +126,9 @@ async fn compare(cases: &[&str]) {
         // Explicit IDs are part of equality. DELETE does not rewind SQLite's sequence.
         c.execute("DELETE FROM sqlite_sequence WHERE name='fund_classifications'",[]).unwrap();
         c.execute_batch("COMMIT; PRAGMA foreign_keys=ON").unwrap();
+        // Delisted coins: the recorded coin prices by their identity, as a re-fetch stores them (fixtures/coin_prices_mirror.sql).
+        c.execute_batch(include_str!("../migrations/20261123000002_asset_prices.sql")).unwrap();
+        c.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
         let secret = scenario["secret_key_base"].as_str().unwrap();
         let rates=match name.as_str() {
             "fx_string"=>json!({"usd":{"value":"100.0"},"eur":{"value":"80.0"}}),

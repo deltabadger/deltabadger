@@ -283,7 +283,8 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option
         let mut body = String::new();
         // The history-gap lines first: an action about today's holdings, above the newest row.
         for gap in gaps { body.push_str(&format!("              {}\n", super::row::gap_row(ctx, gap, hidden))); }
-        for row in &rows { body.push_str(&format!("              {}\n", match den { Some(den) => super::row::render(c, ctx, row, den)?, None => super::row::unavailable(row.id) })); }
+        let labels = match den { Some(_) if !rows.is_empty() => super::row::labels(c, owner)?, _ => None };
+        for row in &rows { body.push_str(&format!("              {}\n", match den { Some(den) => super::row::render(c, ctx, row, den, labels.as_ref())?, None => super::row::unavailable(row.id) })); }
         let amount = if hidden { String::new() } else { format!("<th>{}</th>", column("amount")) };
         let money = if hidden { String::new() } else { format!("                <th>{} <small>{}</small></th>\n                <th>{}</th>\n", column("quote_amount"), escape(den.map_or("$", |d| match d.currency.as_str() { "USD" => "$", "EUR" => "€", "GBP" => "£", "CHF" => "Fr.", "PLN" => "zł", other => other })), column("fee")) };
         format!("        <table class=\"table\">\n          <thead>\n            <tr>\n              <th class=\"text-left\">{}</th>\n              <th class=\"tracker-exchange-icon\"></th>\n              <th class=\"text-left\">{}</th>\n              <th class=\"text-left\">{}</th>\n              {amount}\n              <th>{}</th>\n{money}              <th>{}</th>\n            </tr>\n          </thead>\n          <tbody>\n{body}          </tbody>\n        </table>\n",

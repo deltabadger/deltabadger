@@ -1,6 +1,6 @@
 //! Page-facing cache of the tracker walk: every scope's Summary the page reads (Tracker::Ledger::Summary).
 //! One Rust-owned app_configs row per user; no request computes, writes or enqueues.
-use super::{backfill, walk::{BotSale, Position, RoundTrip, Summary, Walked}};
+use super::{backfill, labels::Labels, resolver::Side, walk::{BotSale, Position, RoundTrip, Summary, Walked}};
 use crate::figures::at::At;
 use crate::{app_config, figures::{dec::Dec, FiguresError}};
 use chrono::{DateTime, Duration, NaiveDate, Utc};
@@ -16,11 +16,13 @@ const TTL_DAYS: i64 = 30;
 /// 7: each opening's dollars, `opening_values`, which the history gap step reads, D-GAP-OPENINGS; 8: a security's corporate
 /// action never restates a coin's lots under the symbol they share, #1061; 9: each scope's summary is an account's, keyed by
 /// account id, #710 slice 5; 10: a timed Alpaca CFEE stands after its one fill at Alpaca's price, and a fill quoted at
-/// nothing prices no fee, D-TAX-CFEE-MATCHED-FILL).
-const SCHEMA: u64 = 10;
+/// nothing prices no fee, D-TAX-CFEE-MATCHED-FILL; 11: legs are owner-wide labels by coin, coins priced by identity,
+/// D-TAX-COIN-IDENTITY, D-TRACKER-COIN-PRICE-KEYS).
+const SCHEMA: u64 = 11;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
-/// The bot sales' calculation (2: a timed Alpaca CFEE takes its fill's place, so a sale's basis moves, D-TAX-CFEE-MATCHED-FILL).
-const SALES_SCHEMA: u64 = 2;
+/// The bot sales' calculation (2: a timed Alpaca CFEE takes its fill's place, so a sale's basis moves, D-TAX-CFEE-MATCHED-FILL;
+/// 3: lots are keyed by label, D-TAX-COIN-IDENTITY).
+const SALES_SCHEMA: u64 = 3;
 const MAX_SALES: usize = 1024 * 1024;
 const MAX_COMPUTED_DECIMAL: usize = 1024 * 1024;
 /// Publication refusals: the walk computed, but its entry is too large to store. The previous entry is kept.
@@ -47,7 +49,23 @@ fn encode(s:&Summary)->Value {
     json!({"positions":s.positions.iter().map(|p|json!({"symbol":p.symbol,"quantity":p.quantity.to_s_f(),"cost":p.cost.to_s_f(),"avg_cost":p.avg_cost.to_s_f(),"opened_at":at(&p.opened_at),"estimated":p.estimated,"unpriced":p.unpriced.to_s_f()})).collect::<Vec<_>>(),
         "round_trips":s.round_trips.iter().map(|t|json!({"symbol":t.symbol,"opened_at":at(&t.opened_at),"closed_at":t.closed_at.0,"quantity":t.quantity.to_s_f(),"invested":t.invested.to_s_f(),"proceeds":t.proceeds.to_s_f(),"fees":t.fees.to_s_f(),"realised":t.realised.to_s_f(),"incomplete":t.incomplete})).collect::<Vec<_>>(),
         "total_invested":s.total_invested.to_s_f(),"received":s.received.to_s_f(),"realised":s.realised.to_s_f(),"fees":s.fees.to_s_f(),"cash_usd":s.cash_usd.to_s_f(),"unpriced_proceeds":s.unpriced_proceeds.to_s_f(),
-        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"opening_values":pairs(&s.opening_values),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>()})
+        "cash":pairs(&s.cash),"cash_basis":pairs(&s.cash_basis),"openings":pairs(&s.openings),"opening_values":pairs(&s.opening_values),"incomplete":s.incomplete,"loss_sales":s.loss_sales.iter().map(|(k,v)|json!([k,v.to_string()])).collect::<Vec<_>>(),"labels":encode_labels(&s.labels)})
+}
+fn side_code(s:Side)->&'static str { match s { Side::Base=>"b", Side::Quote=>"q", Side::Fee=>"f" } }
+fn encode_labels(l:&Labels)->Value {
+    json!({"assets":l.assets.iter().map(|(a,id,t)|json!([a,id,t])).collect::<Vec<_>>(),"legs":l.legs.iter().map(|(r,s,t)|json!([r,side_code(*s),t])).collect::<Vec<_>>(),
+           "spellings":l.spellings.iter().map(|(t,r)|json!([t,r])).collect::<Vec<_>>(),"void":l.void.iter().map(|(a,b)|json!([a,b])).collect::<Vec<_>>(),"coins":l.coins.iter().map(|(t,e)|json!([t,e])).collect::<Vec<_>>()})
+}
+/// A summary cached before the labels were kept reads none (each balance and pending move keeps its symbol).
+fn decode_labels(v:&Value)->Result<Labels,FiguresError> {
+    if v.is_null() { return Ok(Labels::default()); }
+    let int=|v:&Value|v.as_i64().ok_or_else(malformed);
+    let side=|v:&Value|match text(v)? { "b"=>Ok(Side::Base), "q"=>Ok(Side::Quote), "f"=>Ok(Side::Fee), _=>Err(malformed()) };
+    Ok(Labels { assets:array(&v["assets"])?.iter().map(|p|Ok((int(&p[0])?,int(&p[1])?,text(&p[2])?.to_string()))).collect::<Result<_,FiguresError>>()?,
+                legs:array(&v["legs"])?.iter().map(|p|Ok((int(&p[0])?,side(&p[1])?,text(&p[2])?.to_string()))).collect::<Result<_,FiguresError>>()?,
+                spellings:array(&v["spellings"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()?,
+                void:array(&v["void"])?.iter().map(|p|Ok((int(&p[0])?,int(&p[1])?))).collect::<Result<_,FiguresError>>()?,
+                coins:array(&v["coins"])?.iter().map(|p|Ok((text(&p[0])?.to_string(),text(&p[1])?.to_string()))).collect::<Result<_,FiguresError>>()?, identity:String::new() })
 }
 /// Every computed decimal a summary stores: the bound a reader applies is applied before publishing too.
 fn decimals(s:&Summary)->impl Iterator<Item=&Dec> {
@@ -81,7 +99,7 @@ fn decode(v:&Value)->Result<Summary,FiguresError> {
     Ok(Summary { positions:array(&v["positions"] )?.iter().map(|p|Ok(Position { symbol:text(&p["symbol"] )?.into(),quantity:decimal(&p["quantity"] )?,cost:decimal(&p["cost"] )?,avg_cost:decimal(&p["avg_cost"] )?,opened_at:optional_instant(&p["opened_at"])?,estimated:boolean(&p["estimated"] )?,unpriced:decimal(&p["unpriced"] )? })).collect::<Result<_,FiguresError>>()?,
         round_trips:array(&v["round_trips"])?.iter().map(|t|Ok(RoundTrip { symbol:text(&t["symbol"])?.into(),opened_at:optional_instant(&t["opened_at"])?,closed_at:instant(&t["closed_at"])?,quantity:decimal(&t["quantity"])?,invested:decimal(&t["invested"])?,proceeds:decimal(&t["proceeds"])?,fees:decimal(&t["fees"])?,realised:decimal(&t["realised"])?,incomplete:boolean(&t["incomplete"])? })).collect::<Result<_,FiguresError>>()?,
         total_invested:decimal(&v["total_invested"] )?,received:decimal(&v["received"])?,realised:decimal(&v["realised"])?,fees:decimal(&v["fees"])?,cash_usd:decimal(&v["cash_usd"])?,unpriced_proceeds:decimal(&v["unpriced_proceeds"])?,
-        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,opening_values:pairs(&v["opening_values"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()? })
+        cash:pairs(&v["cash"] )?,cash_basis:pairs(&v["cash_basis"] )?,openings:pairs(&v["openings"])?,opening_values:pairs(&v["opening_values"])?,incomplete:boolean(&v["incomplete"] )?,loss_sales:array(&v["loss_sales"] )?.iter().map(|p|Ok((text(&p[0])?.into(),NaiveDate::parse_from_str(text(&p[1])?,"%Y-%m-%d").map_err(|_|malformed())?))).collect::<Result<_,FiguresError>>()?,labels:decode_labels(&v["labels"])? })
 }
 /// Called within the producer's write transaction; changed inputs cannot publish as current.
 pub fn publish(c:&crate::engine::model::FencedTransaction<'_>,owner:i64,before:&Version,walked:Option<&Walked>,now:DateTime<Utc>)->Result<bool,FiguresError> {
@@ -360,6 +378,12 @@ mod tests {
         assert!(log.contains("ledger cache publish refused: computed decimal exceeds 1048576-byte limit"),"publish refusal must state safe reason: {log}");
     }
     #[test]
+    fn labels_roundtrip() {
+        let l=Labels{assets:vec![(-2,21,"BTG (Openverse Network)".into())],legs:vec![(1,Side::Base,"BTG (Bitcoin Gold)".into()),(1,Side::Fee,"X".into())],spellings:vec![("BTG (Bitcoin Gold)".into(),"BTG".into())],void:vec![(2,3),(3,2)],coins:vec![("BTG (Bitcoin Gold)".into(),"bitcoin-gold".into())],identity:String::new()};
+        assert_eq!(decode_labels(&encode_labels(&l)).unwrap(),l);
+        assert_eq!(decode_labels(&Value::Null).unwrap(),Labels::default(),"a summary cached before the labels");
+    }
+    #[test]
     fn cache_roundtrip_is_exact_owner_scoped_and_read_only() {
         let c=db();let w=walked();let v=version(&c,1).unwrap();
         assert!(publish(&c,1,&v,Some(&w),7,now()).unwrap());
@@ -448,7 +472,7 @@ mod tests {
         // Each adjustment on its own day: same-day splits are netted into one restatement (D-ALPACA-SPLIT-GROUPING),
         // and the 287-character decimal needs three successive restatements.
         let row=|id,kind,amount:&str,value:&str,days:i64|Stored{id,exchange_id:7,venue:"alpaca".into(),kind,base:"AAPL".into(),amount:Dec::strict(amount).unwrap(),quote:Some("USD".into()),quote_amount:Some(Dec::strict(value).unwrap()),
-            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None,account:7,to_account:None};
+            fee_currency:None,fee_amount:None,tx_id:None,group:None,at:At::from_utc(now()-chrono::Duration::days(days)).unwrap(),per_share:None,stated:None,linked_to:None,to_venue:None,to_exchange_id:None,base_asset:None,cfee:Default::default(),bot_order:None,account:7,to_account:None, to_base: None};
         let mut rows=vec![row(1,Kind::Buy,"9","100",4)];
         for i in 0..3 {rows.push(row(2+i,Kind::Adjustment,"2","0",3-i));}
         let (r,fx)=(Reference::default(),FxTable::default());let mut none=NoFetch;

@@ -16,8 +16,6 @@ const VALUE_TEST: i64 = 100_000;
 const CAP: i64 = 40_000_000;
 /// § 38v: an exempt receipt above this is notified.
 const NOTICE: i64 = 5_000_000;
-/// D-TAX-CZ-EMT: the e-money tokens the report recognises (MiCA EMTs); other tokens' status is the user's to check.
-const EMT: [&str; 2] = ["USDC", "EURC"];
 pub(super) const TIME_TEST: &str = "časový test";
 const VALUE_TEST_REASON: &str = "hodnotový test";
 
@@ -37,7 +35,7 @@ fn int(v: i64) -> Dec { Dec::from_i64(v) }
 pub(super) fn year(locale: &str, year: i32, results: &[Disposal], local: &dyn Fn(&Disposal) -> NaiveDate, in_force: NaiveDate) -> Result<Year, FiguresError> {
     let mut y = Year::default();
     if results.is_empty() { return Ok(y); }
-    let counted = |d: &Disposal| local(d) >= in_force && !EMT.contains(&d.asset.as_str());
+    let counted = |d: &Disposal| local(d) >= in_force && !super::it::emt(&d.asset, super::coin_of_id(&d.asset_id));
     let mut window = Dec::zero();
     for d in results.iter().filter(|d| counted(d)) { window = (&window + &d.proceeds)?; }
     // zj: a cliff, from 15 February 2025 (KV 625 2.2.1.5); zk-exempt proceeds count too (the literal reading, as 2.x).
@@ -83,7 +81,7 @@ pub(super) fn year(locale: &str, year: i32, results: &[Disposal], local: &dyn Fn
     }
     for (_, label, amount, exempt) in receipts {
         let exempt = exempt.round(2)?;
-        let (asset, day) = label.split_once(' ').unwrap_or((&label, ""));
+        let (asset, day) = label.rsplit_once(' ').unwrap_or((&label, "")); // plan r10 C10: a label may hold spaces, the day none
         if exempt > int(NOTICE) { y.notice.push((format!("{asset} {} {day}", amount.to_s_f()), exempt)); }
     }
 
