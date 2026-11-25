@@ -584,7 +584,7 @@ pub async fn resync_bot<V: crate::venue::Attributed>(c: &Connection, id: i64, ma
     let bot = model::load_bot(c, id)?;
     if matches!(bot.status, Deleted | Archived) { clear()?; return Ok(false); } // `return if bot.deleted? || bot.archived?`
     // A17-4 item 2: the INDICES job is woken for a followed index with no usable ranking before any refusal below returns.
-    if let Some(external_id) = super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)? { state.ranking_owed.push(external_id); }
+    state.ranking_owed.extend(super::index::ranking_wake(c, &bot, clock.now(), &mut state.ranking_sent)?);
     let reasons = eligibility::bot_reasons(c, &bot)?;
     if !reasons.is_empty() {
         if state.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync is left to 2.x ({})", reasons.join(", "))); }
@@ -976,10 +976,19 @@ fn continue_start(c: &Connection, expected: &model::Bot, now: DateTime<Utc>) -> 
 // A stop/start between loop passes also invalidates a wait, as does a changed index definition.
 fn market_wait_key(c: &Connection, bot: &model::Bot) -> Result<serde_json::Value, EngineError> {
     let stopped: Option<String> = c.query_row("SELECT stopped_at FROM bots WHERE id=?1", [bot.id], |r| r.get(0))?;
-    let index: String = c.query_row("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1",
-        [bot.has_groups().then(|| bot.index_external_id())], |r| r.get(0))?;
+    let ids = if bot.has_groups() { bot.index_external_ids().into_iter().map(Some).collect() } else { vec![None] };
+    let index = wait_index(c, &ids)?;
     Ok(serde_json::json!({"composition":placement::composition_snapshot(c, bot)?, "index":index,
         "started":bot.started_at_us()?, "generation":bot.run_generation(), "stopped":stopped, "changed":bot.settings_changed_at_us()?}))
+}
+
+/// The wait key's index rows: per followed id in stored order, the rows as `external_id = ?` reads them (the index's own
+/// order, which a delete and reinsert of the same row keeps). One id (or none) is that query's text; several are a JSON
+/// array of them.
+fn wait_index(c: &Connection, ids: &[Option<String>]) -> Result<String, EngineError> {
+    let mut s = c.prepare_cached("SELECT json_group_array(json_array(source,top_coins,weights)) FROM indices WHERE external_id=?1")?;
+    let rows = ids.iter().map(|id| s.query_row([id], |r| r.get::<_, String>(0))).collect::<Result<Vec<_>, _>>()?;
+    Ok(match rows.as_slice() { [one] => one.clone(), _ => serde_json::to_string(&rows).map_err(|e| EngineError::Data(e.to_string()))? })
 }
 
 async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock, wake: &mut i64) -> Result<(), EngineError> {
@@ -1158,7 +1167,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         for tx in written_since(&e.primary, &waiting).unwrap_or_default() { e.events.send(EngineEvent::OrderWritten { bot_id: id, transaction_id: tx }); } // allow-swallow: what the page hears is display only; the tick's own outcome follows
         // After its rows are announced, so the page shows the failed order its status bar names.
         e.events.send(EngineEvent::TickEnded { bot_id: id });
-        if let Some(external_id) = ranking_wake { e.events.send(EngineEvent::RankingMissing { external_id }); }
+        for external_id in ranking_wake { e.events.send(EngineEvent::RankingMissing { external_id }); }
         announce_condition_infos(e, id, info_before)?;
         let outcome = ticked?;
         e.run_keys.insert(id, bot.run_identity()?);
@@ -1429,6 +1438,26 @@ async fn standalone_order<F: VenueFactory>(e: &mut Engine<F>, request: &super::a
     let cx = TickContext { credential_version: producer, prices: &e.prices, process_start: e.process_start.ok_or_else(|| EngineError::Data("engine start time missing".into()))?,
                            stopping: &stopping, below_minimum: &|_, _| {}, claimed: &|_| {} };
     api_orders::place_standalone(&e.primary, &venue, request, clock, &cx).await
+}
+
+#[cfg(test)]
+mod wait_key_tests {
+    /// Codex 2a r1: a source row deleted and reinserted unchanged keeps the key (the base read's own order), and two
+    /// groups read in their stored order.
+    #[test]
+    fn the_wait_key_keeps_its_rows_across_a_reinsert_and_orders_groups_as_stored() {
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        c.execute_batch(r#"CREATE TABLE "indices" ("id" integer PRIMARY KEY AUTOINCREMENT NOT NULL, "external_id" varchar, "source" varchar, "top_coins" json, "weights" json DEFAULT '{}');
+            CREATE UNIQUE INDEX "index_indices_on_external_id_and_source" ON "indices" ("external_id", "source");
+            INSERT INTO indices (external_id, source, top_coins) VALUES ('top-coins', 'a', '["x"]'), ('top-coins', 'b', '["y"]'), ('defi', 'a', '["z"]');"#).unwrap();
+        let one = [Some("top-coins".to_string())];
+        let before = super::wait_index(&c, &one).unwrap();
+        c.execute_batch("DELETE FROM indices WHERE external_id = 'top-coins' AND source = 'a'; INSERT INTO indices (external_id, source, top_coins) VALUES ('top-coins', 'a', '[\"x\"]');").unwrap();
+        assert_eq!(super::wait_index(&c, &one).unwrap(), before);
+        assert_eq!(super::wait_index(&c, &[None]).unwrap(), "[]");
+        let two = super::wait_index(&c, &[Some("defi".into()), Some("top-coins".into())]).unwrap();
+        assert_eq!(serde_json::from_str::<Vec<String>>(&two).unwrap(), vec![super::wait_index(&c, &[Some("defi".into())]).unwrap(), before]);
+    }
 }
 
 #[cfg(test)]

@@ -631,8 +631,8 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
         // D-INDEX-RETIRED-KEPT: no membership of this engine's own for a retired index (refused, or retired during the
         // probes): nothing is traded.
         // A basket stored with index groups (basket::GROUPED): its stored rows are not what it holds either.
-        Err(m) if m == super::index::RETIRED || m == super::basket::GROUPED || (bot.has_groups() && super::index::retired(c, bot.index_external_id())?
-                                                  && !{ let reread = super::model::load_bot(c, bot.id)?; super::index::composed_here(c, &reread, reread.index_external_id())? }) => {
+        Err(m) if m == super::index::RETIRED || m == super::basket::GROUPED || (bot.has_groups() && super::index::any_retired(c, bot)?
+                                                  && super::index::any_uncomposed(c, &super::model::load_bot(c, bot.id)?)?) => {
             super::log(&format!("[engine] bot {}: rebalance skipped: {m}", bot.id));
             return Ok(false);
         }

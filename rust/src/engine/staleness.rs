@@ -300,7 +300,14 @@ pub const RANKING_SOURCE: &str = "Index ranking";
 /// composition's own "Index not found" (None here).
 pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     if !bot.has_groups() { return Ok(None); }
-    let id = bot.index_external_id();
+    // Any followed id: the first stale one, in stored order, holds the bot.
+    for id in bot.index_external_ids() {
+        if let Some(stale) = id_stale(c, &id, now)? { return Ok(Some(stale)); }
+    }
+    Ok(None)
+}
+
+fn id_stale(c: &Connection, id: &str, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     // D-INDEX-RETIRED-KEPT: a retired index is never refreshed; the composition keeps or refuses (index::RETIRED).
     if super::index::retired(c, id)? { return Ok(None); }
     if !c.query_row("SELECT EXISTS (SELECT 1 FROM indices WHERE external_id = ?1)", [id], |r| r.get::<_, bool>(0))? { return Ok(None); }
@@ -318,9 +325,11 @@ pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Op
 /// ranking carries its own caps. Its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
     let index = bot.has_groups();
+    let ids = bot.index_external_ids();
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
-    // A retired index's bot keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap either.
-    let own_caps = index && (super::provider::coingecko_key(c)?.is_some() || super::index::retired(c, bot.index_external_id())?);
+    // A retired index's bot keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap either. Slice 2a: one
+    // group, read in the base order (a CoinGecko key short-circuits the retirement query).
+    let own_caps = index && (super::provider::coingecko_key(c)?.is_some() || all_retired(c, &ids)?);
     let market_cap = bot.bot_type == "Bots::DcaMultiAsset" && bot.weighting() == "market_cap";
     let crypto_member = || -> Result<bool, EngineError> {
         let ids = serde_json::to_string(&bot.asset_ids()).map_err(|_| EngineError::Data("unreadable allocations".into()))?;
@@ -332,7 +341,8 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
         return Ok(if own_caps { vec![] } else if index || (market_cap && crypto_member()?) { vec![&CRYPTO_ASSETS] } else { vec![] });
     }
     let mut sources = vec![];
-    let (stocks, crypto): (bool, bool) = if index && super::index::retired(c, bot.index_external_id())? {
+    // Retirement is read again here, after the venue: one retired since the read above is judged by its held members.
+    let (stocks, crypto): (bool, bool) = if index && all_retired(c, &ids)? {
         // D-INDEX-RETIRED-KEPT: no ranking any more; the bot trades the members it holds, so their catalogues stay judged.
         c.query_row("SELECT coalesce(max(a.category != 'Cryptocurrency'),0), coalesce(max(a.category = 'Cryptocurrency'),0) \
                      FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1", [bot.id], |r| Ok((r.get(0)?, r.get(1)?)))?
@@ -351,6 +361,12 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
     if (index || market_cap) && crypto && !own_caps { sources.push(&CRYPTO_ASSETS); }
     Ok(sources)
+}
+
+/// Every followed id is retired (none followed: false). Slice 2b judges the union per group instead.
+fn all_retired(c: &Connection, ids: &[String]) -> Result<bool, EngineError> {
+    for id in ids { if !super::index::retired(c, id)? { return Ok(false); } }
+    Ok(!ids.is_empty())
 }
 
 /// The source name of the account-ledger refusal: run.rs releases a retrying bot's stale wait on it once the ledger is fresh.

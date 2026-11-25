@@ -119,25 +119,35 @@ pub fn ranking_slot(now: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chro
         .and_then(|s| s.schedule).map_or(now, |s| s.last_fire(now))
 }
 
-/// The bot needs a refresh of the ranking it follows: an index bot whose followed id has no usable ranking (absent,
+/// The bot needs a refresh of a ranking it follows: an index bot with a followed id that has no usable ranking (absent,
 /// unattested, another configuration's, or past 49 h).
 pub fn ranking_wanted(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
-    if !bot.has_groups() || retired(c, bot.index_external_id())? { return Ok(false); }
-    Ok(!ranked_row(c, bot.index_external_id())?.is_some_and(|r| usable(&r, now)))
+    Ok(!wanted_ids(c, bot, now)?.is_empty())
+}
+
+/// The followed ids, in stored order, that `ranking_wanted` wants ranked.
+fn wanted_ids(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>) -> Result<Vec<String>, EngineError> {
+    let mut out = vec![];
+    if !bot.has_groups() { return Ok(out); }
+    for id in bot.index_external_ids() {
+        if retired(c, &id)? || ranked_row(c, &id)?.is_some_and(|r| usable(&r, now)) { continue; }
+        if !out.contains(&id) { out.push(id); }
+    }
+    Ok(out)
 }
 
 /// What `EngineEvent::RankingMissing` is deduped on, per process: (external id, fingerprint, slot).
 pub type WakeKey = (String, String, i64);
 
-/// The followed id to wake the INDICES job for, once per (external id, fingerprint, slot) in `sent`; None when the bot
-/// wants nothing or was already announced in this slot under this configuration. Older slots' keys are dropped.
-pub fn ranking_wake(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>, sent: &mut HashSet<WakeKey>) -> Result<Option<String>, EngineError> {
-    if !ranking_wanted(c, bot, now)? { return Ok(None); }
+/// The followed ids to wake the INDICES job for, each once per (external id, fingerprint, slot) in `sent`; empty when the
+/// bot wants nothing or every id was already announced in this slot under this configuration. Older slots' keys are dropped.
+pub fn ranking_wake(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>, sent: &mut HashSet<WakeKey>) -> Result<Vec<String>, EngineError> {
+    let wanted = wanted_ids(c, bot, now)?;
+    if wanted.is_empty() { return Ok(wanted); }
     let slot = ranking_slot(now).timestamp();
     sent.retain(|k| k.2 == slot);
-    let id = bot.index_external_id().to_string();
-    let key = (id.clone(), super::provider::fingerprint(c)?.unwrap_or_default(), slot);
-    Ok(sent.insert(key).then_some(id))
+    let fingerprint = super::provider::fingerprint(c)?.unwrap_or_default();
+    Ok(wanted.into_iter().filter(|id| sent.insert((id.clone(), fingerprint.clone(), slot))).collect())
 }
 
 /// A17-4 r18 (D-INDEX-RETIRED-KEPT): the composition's refusal of a retired index it has no provenance for.
@@ -164,6 +174,22 @@ pub fn composed_here(c: &Connection, bot: &Bot, external_id: &str) -> Result<boo
     if !bot.stored_groups() { return Ok(bot.transient.get(COMPOSED_KEY).and_then(Value::as_str) == Some(external_id)); }
     Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1)",
                    params![bot.id, external_id], |r| r.get(0))?)
+}
+
+/// D-INDEX-RETIRED-KEPT: some followed id is retired and the bot's membership of it is not this engine's composition.
+pub fn retired_uncomposed(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    for id in bot.index_external_ids() { if retired(c, &id)? && !composed_here(c, bot, &id)? { return Ok(true); } }
+    Ok(false)
+}
+/// Some followed id is retired.
+pub fn any_retired(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    for id in bot.index_external_ids() { if retired(c, &id)? { return Ok(true); } }
+    Ok(false)
+}
+/// Some followed id's membership is not this engine's composition.
+pub fn any_uncomposed(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    for id in bot.index_external_ids() { if !composed_here(c, bot, &id)? { return Ok(true); } }
+    Ok(false)
 }
 
 /// The tickers that keep their seat in the index `external_id` without a probe: a `Bots::DcaIndex` row's `in_index`
@@ -312,14 +338,78 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     let before = match claimed { Some(v) => v.clone(), None => super::placement::composition_snapshot(c, bot)? };
     let provider_before = super::provider::fingerprint(c)?;
     if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
-    let category = bot.index_external_id();
+    // PLAN index-as-ingredient slice 2a: per group, in stored order. Only a `Bots::DcaIndex` row reaches this (one group).
+    let groups = bot.composition().map(|c| c.groups).unwrap_or_default();
+    if groups.is_empty() { return Ok(Err(Refusal::Failure("index groups: none readable".into()))); }
     // D-INDEX-RETIRED-KEPT: a retired index keeps the membership this engine composed from it, unread and unwritten (a
     // resync's job completes); without that provenance nothing is composed or traded.
-    if retired(c, category)? {
-        if !composed_here(c, bot, category)? { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+    let mut frozen = false;
+    for group in &groups {
+        if !retired(c, &group.external_id)? { continue; }
+        if !composed_here(c, bot, &group.external_id)? { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+        frozen = true;
+    }
+    if frozen {
         if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
         return Ok(Ok(before));
     }
+    let mut derived: Vec<Derived> = vec![];
+    for group in &groups {
+        match derive_group(c, venue, bot, group, &mut open, clock, prices, version).await? {
+            Ok(d) => derived.push(d),
+            Err(r) => return Ok(Err(r)),
+        }
+    }
+    // One group (2a): its members as chosen, repeats kept (write_members' upsert collapses them, as 2.x's does).
+    let members: Vec<(i64, i64, f64)> = derived.iter().flat_map(|d| d.members.iter().copied()).collect();
+    model::credential_write(c, version, |tx| {
+        if run_owned { model::require_run(tx, bot)?; }
+        else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
+        let current = model::load_bot(tx, bot.id)?;
+        // Every group's row is read before anything is compared, so an unreadable one raises whatever else moved.
+        let sources_now = derived.iter().map(|d| ranked_row(tx, &d.external_id)).collect::<Result<Vec<_>, _>>()?;
+        // A ranking that aged past its bound during the probes composes nothing: the next pass's gate holds the bot.
+        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before;
+        for (d, now) in derived.iter().zip(&sources_now) {
+            changed = changed || now.as_ref() != Some(&d.source) || !usable(&d.source, clock.now()) || retired(tx, &d.external_id)?;
+        }
+        changed = changed || super::provider::fingerprint(tx)? != provider_before || super::provider::stale(tx, &current)?.is_some();
+        for ticker in derived.iter().flat_map(|d| &d.priced) { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
+        if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
+        let mut reasons = super::eligibility::bot_reasons_typed(tx, &current)?;
+        let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
+        super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
+        if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
+        // A taxonomy refresh during price probes cannot seat a newly classified stablecoin.
+        for (asset, _, _) in &members {
+            let (category, ext): (Option<String>, String) = tx.query_row("SELECT category, external_id FROM assets WHERE id=?1", [asset], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            if stablecoin(category.as_deref(), &ext) { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
+        }
+        basket::write_members(tx, bot.id, &members, clock.now())?;
+        for d in &derived {
+            tx.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{COMPOSED_KEY}', ?2) WHERE id = ?1"), params![bot.id, d.external_id])?;
+            if (d.members.len() as i64) < d.n {
+                let message = format!("Index composition: {} of {} requested assets are tradable on {} in {}.", d.members.len(), d.n, model::exchange_name(tx, bot)?, model::quote_symbol(tx, bot)?);
+                tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,'index_composition_shortfall',1,?2,?3,?4)",
+                    params![bot.id, message, serde_json::json!({"available":d.members.len(),"requested":d.n}).to_string(), crate::codec::format_time(clock.now())])?;
+            }
+        }
+        // A resync's marker goes with the membership it asked for, in this one commit; a trigger since it was read keeps it.
+        if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
+        // Any unexpected ineligibility rolls the transaction back (not a nested Ok(Err)).
+        super::eligibility::check_install(tx)?.refusal().map_err(|r| EngineError::Data(r.reason()))?;
+        Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
+    })
+}
+
+/// One group's derivation (IndexAllocatable#derive_composition): its ranked row, the top N of the venue's tickers at the
+/// quote, incumbents seated without a probe, newcomers probed, the group's flattening blend. `members` keeps every chosen
+/// occurrence, as 2.x assigns the blended weight to each.
+struct Derived { external_id: String, n: i64, members: Vec<(i64, i64, f64)>, source: Ranked, priced: Vec<Ticker> }
+
+#[allow(clippy::too_many_arguments)]
+async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, group: &super::composition::Group, open: &mut Option<bool>, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Derived, Refusal>, EngineError> {
+    let category = group.external_id.as_str();
     let Some(source_before) = ranked_row(c, category)? else { return Ok(Err(Refusal::Failure("Index not found".into()))) };
     let own_caps = source_before.provider == "coingecko";
     let Ranked { source, top_coins: top, weights, .. } = source_before.clone();
@@ -329,7 +419,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     // D-INDEX-TOP-N: filter the full ranked list for this venue and quote, then take N.
     // A 3 × N prefix can run out before the venue's first tradable member.
     let bounded = (source.as_deref() == Some("deltabadger") && !top.is_empty()).then_some(top.len() as i64);
-    let n = match bounded { Some(b) if bot.hold_all() => b, _ => bot.num_coins().unwrap_or(0) };
+    let n = match bounded { Some(b) if group.hold_all => b, _ => group.num_coins.unwrap_or(0) };
     if n > 1000 || top.len() > 1000 { return Ok(Err(Refusal::Failure("index exceeds 1000 members".into()))); }
     let Some(ranked) = top_coins(c, &top, &weights, own_caps)? else { return Ok(Err(Refusal::Failure("index ranking holds an invalid market cap".into()))) };
 
@@ -353,7 +443,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         let ticker = model::ticker_by_id(c, bot.exchange_id, ticker_id)?
             .ok_or_else(|| EngineError::Data(format!("bot {}: ticker {ticker_id} vanished mid-derivation", bot.id)))?;
         if !incumbents.contains(&ticker_id) {
-            let side = match probe_side(venue, bot, &ticker, &mut open).await { Ok(side) => side, Err(r) => return Ok(Err(r)) };
+            let side = match probe_side(venue, bot, &ticker, open).await { Ok(side) => side, Err(r) => return Ok(Err(r)) };
             match priced(venue, bot, &ticker, side, clock, prices, version).await {
                 Ok(true) => {}
                 Ok(false) => continue,
@@ -373,48 +463,26 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
         if let Some((_, value)) = caps.iter_mut().find(|(id, _)| id == asset) { *value = *cap; }
         else { caps.push((*asset, *cap)); }
     }
-    let weights = blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), bot.allocation_flattening().unwrap_or(0.0));
+    let weights = blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), group.flattening.unwrap_or(0.0));
     let by_asset: HashMap<i64, f64> = caps.into_iter().map(|(id, _)| id).zip(weights).collect();
     let members: Vec<(i64, i64, f64)> = chosen.iter().map(|(asset, ticker, _)| (*asset, *ticker, by_asset[asset])).collect();
-    model::credential_write(c, version, |tx| {
-        if run_owned { model::require_run(tx, bot)?; }
-        else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
-        let current = model::load_bot(tx, bot.id)?;
-        let source_now = ranked_row(tx, category)?;
-        // A ranking that aged past its bound during the probes composes nothing: the next pass's gate holds the bot.
-        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != before || source_now.as_ref() != Some(&source_before)
-            || !usable(&source_before, clock.now()) || retired(tx, category)? || super::provider::fingerprint(tx)? != provider_before
-            || super::provider::stale(tx, &current)?.is_some();
-        for ticker in &priced_tickers { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
-        if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
-        let mut reasons = super::eligibility::bot_reasons_typed(tx, &current)?;
-        let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
-        super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
-        if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
-        // A taxonomy refresh during price probes cannot seat a newly classified stablecoin.
-        for (asset, _, _) in &members {
-            let (category, ext): (Option<String>, String) = tx.query_row("SELECT category, external_id FROM assets WHERE id=?1", [asset], |r| Ok((r.get(0)?, r.get(1)?)))?;
-            if stablecoin(category.as_deref(), &ext) { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
-        }
-        basket::write_members(tx, bot.id, &members, clock.now())?;
-        tx.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{COMPOSED_KEY}', ?2) WHERE id = ?1"), params![bot.id, category])?;
-        if (members.len() as i64) < n {
-            let message = format!("Index composition: {} of {n} requested assets are tradable on {} in {}.", members.len(), model::exchange_name(tx, bot)?, model::quote_symbol(tx, bot)?);
-            tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,'index_composition_shortfall',1,?2,?3,?4)",
-                params![bot.id, message, serde_json::json!({"available":members.len(),"requested":n}).to_string(), crate::codec::format_time(clock.now())])?;
-        }
-        // A resync's marker goes with the membership it asked for, in this one commit; a trigger since it was read keeps it.
-        if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
-        // Any unexpected ineligibility rolls the transaction back (not a nested Ok(Err)).
-        super::eligibility::check_install(tx)?.refusal().map_err(|r| EngineError::Data(r.reason()))?;
-        Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
-    })
+    Ok(Ok(Derived { external_id: category.to_string(), n, members, source: source_before, priced: priced_tickers }))
 }
 
 /// The pairs an index bot's tick may price: every available, trading-enabled ticker at its quote whose asset its ranking
 /// (`ranked_row`) names (incumbents at Step 1, newcomers at their probe).
+/// Over every followed id, one list (ticker order, each pair once); each row's `top_coins` text is read by `json_each`
+/// as it is stored.
 pub fn candidate_pairs(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
-    pairs_of(c, bot, ranked_row(c, bot.index_external_id())?.and_then(|r| r.top_coins))
+    let mut tops = vec![];
+    for id in bot.index_external_ids() {
+        if let Some(t) = ranked_row(c, &id)?.and_then(|r| r.top_coins).filter(|t| t.trim_start().starts_with('[')) { tops.push(t); }
+    }
+    let tops = serde_json::to_string(&tops).map_err(|e| EngineError::Data(e.to_string()))?;
+    let mut s = c.prepare("SELECT t.ticker FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 \
+                           AND t.available = 1 AND t.trading_enabled = 1 AND a.external_id IN (SELECT j.value FROM json_each(?3) r, json_each(r.value) j) ORDER BY t.id")?;
+    let pairs = s.query_map(params![bot.exchange_id, bot.quote_asset_id(), tops], |r| r.get(0))?.collect::<Result<Vec<String>, _>>()?;
+    Ok(pairs)
 }
 
 /// The same over the row 2.x reads (`Index.find_by(external_id:)`, the lowest id), on a 2.x install that holds no
