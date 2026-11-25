@@ -41,6 +41,14 @@ impl Table {
 /// `CSV.parse_line(text)`: the first row alone; what follows it is never read.
 pub fn first_row(text: &str) -> Result<Option<Row>, Malformed> { Reader::new(text).next().transpose() }
 
+/// `first_row` of a text cut short (`whole` false): the row only when its own separator ends it inside the cut, so a row
+/// the cut runs through is never read as a shorter one.
+pub fn first_row_within(text: &str, whole: bool) -> Result<Option<Row>, Malformed> {
+    let mut reader = Reader::new(text);
+    let row = reader.next().transpose()?;
+    Ok(row.filter(|_| whole || reader.s[..reader.pos].ends_with(reader.sep)))
+}
+
 /// csv's parser over a String: the row separator is detected from the whole text (the first "\r\n", "\r" or "\n",
 /// quotes not considered; "\n" when there is none). A quoted cell holds anything, `""` being one quote, and must be
 /// followed by a comma, the separator or the end. An unquoted cell may hold no quote, and under "\r\n" no CR or LF.

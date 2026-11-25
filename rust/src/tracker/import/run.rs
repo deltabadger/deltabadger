@@ -21,8 +21,7 @@ pub const FORMATS: [&str; 3] = ["deltabadger", "binance", "kucoin"];
 /// a header row that does not end in them names nothing.
 pub fn detect(bytes: &[u8]) -> Option<&'static str> {
     let head = &bytes[..bytes.len().min(64 * 1024)];
-    if head.len() < bytes.len() && !head.contains(&b'\n') { return None; }
-    let row = csv::first_row(&csv::as_text(head)).ok().flatten()?;
+    let row = csv::first_row_within(&csv::as_text(head), head.len() == bytes.len()).ok().flatten()?;
     let headers: Vec<&str> = row.iter().flatten().map(String::as_str).collect();
     let has = |name: &str| headers.contains(&name);
     let found: Vec<&'static str> = FORMATS.into_iter().filter(|format| match *format {
@@ -1289,6 +1288,8 @@ mod tests {
         let wide = format!("{ours},{}", "x".repeat(70 * 1024));
         assert_eq!(d(&wide), None, "a header row past 64 KiB names nothing");
         assert_eq!(d(&format!("{ours}\n{}", "1,".repeat(40 * 1024))), Some("deltabadger"), "a long file, a short header");
+        assert_eq!(d(&format!("{ours}\r{}", "1,".repeat(40 * 1024))), Some("deltabadger"), "a long file of CR-ended rows");
+        assert_eq!(d(&format!("\"a\nb\",{ours},{}", "x".repeat(70 * 1024))), None, "a quoted new line is no row end");
         assert_eq!(d(""), None);
     }
 
