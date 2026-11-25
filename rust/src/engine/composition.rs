@@ -28,7 +28,7 @@ impl Group {
         let text = |key: &str| s.and_then(|s| s.get(key)?.as_str()).map(str::to_string);
         let weight = match s.and_then(|s| s.get("weight")) {
             Some(Value::Number(n)) => n.as_f64(), Some(Value::String(w)) => w.trim().parse().ok(), _ => None,
-        };
+        }.filter(|w: &f64| w.is_finite());
         Group { external_id: external_id(s).to_string(), weight: weight.unwrap_or(0.0), index_type: index_type(s).map(str::to_string),
                 index_category_id: index_category_id(s).map(str::to_string), index_name: text("index_name"), index_name_prefix: text("index_name_prefix"),
                 num_coins: num_coins(s), hold_all: hold_all(s), flattening: flattening(s) }
@@ -51,8 +51,11 @@ impl Composition {
             _ => None,
         }
     }
-    /// The one group of a bot whose whole content is one index.
-    pub fn lone_group(&self) -> Option<&Group> { if self.assets.is_empty() && self.groups.len() == 1 { self.groups.first() } else { None } }
+    /// The one group of a bot whose whole content is one index: no assets, one group at weight 1.0 (the
+    /// `allocations_balanced` tolerance).
+    pub fn lone_group(&self) -> Option<&Group> {
+        match self.groups.as_slice() { [g] if self.assets.is_empty() && (g.weight - 1.0).abs() <= 0.001 => Some(g), _ => None }
+    }
 }
 
 impl Bot {
@@ -63,7 +66,8 @@ impl Bot {
         // slice 2: grouped MultiAsset activates here. Until then only a `Bots::DcaIndex` row runs as an index.
         if self.bot_type == "Bots::DcaIndex" { self.composition() } else { None }
     }
-    pub fn has_groups(&self) -> bool { self.grouped().is_some_and(|c| !c.groups.is_empty()) }
+    /// No decode: a `Bots::DcaIndex` row is always one group (slice 2: grouped MultiAsset activates here too).
+    pub fn has_groups(&self) -> bool { self.bot_type == "Bots::DcaIndex" }
     pub fn lone_group(&self) -> Option<Group> { self.grouped()?.lone_group().cloned() }
     pub fn index_external_ids(&self) -> Vec<String> { self.grouped().map(|c| c.groups.into_iter().map(|g| g.external_id).collect()).unwrap_or_default() }
 }
@@ -354,5 +358,16 @@ mod codec_tests {
         assert_eq!(Composition::of("Bots::DcaMultiAsset", None), Some(Composition { weighting: "manual".into(), ..Default::default() }));
         assert_eq!(of("Bots::Signal", json!({"index_groups": [{}]})), None);
         assert_eq!(of("Bots::DcaSingleAsset", json!({})), None);
+    }
+
+    #[test]
+    fn a_non_finite_weight_reads_zero_and_a_zero_weight_group_is_no_lone_index() {
+        for w in [json!("NaN"), json!("inf"), json!("1e999"), json!("-inf")] {
+            let c = of("Bots::DcaMultiAsset", json!({"index_groups": [{"weight": w}]})).unwrap();
+            assert_eq!(c.groups[0].weight, 0.0, "{w}");
+            assert_eq!(c.lone_group(), None, "{w}");
+        }
+        assert_eq!(of("Bots::DcaMultiAsset", json!({"index_groups": [{"weight": 0}]})).unwrap().lone_group(), None);
+        assert!(of("Bots::DcaMultiAsset", json!({"index_groups": [{"weight": "0.9995"}]})).unwrap().lone_group().is_some());
     }
 }
