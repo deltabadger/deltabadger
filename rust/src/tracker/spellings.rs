@@ -49,23 +49,12 @@ impl Label {
     /// A cash label's currency code (its spelling).
     pub fn currency(&self) -> Option<&str> { self.key.strip_prefix("cash:").or_else(|| (self.key.is_empty() && super::cash(&self.printed)).then_some(self.printed.as_str())) }
 }
-impl From<&str> for Label { fn from(s: &str) -> Label { Label::spelled(s) } }
-impl From<String> for Label { fn from(s: String) -> Label { Label::spelled(s) } }
-impl From<&String> for Label { fn from(s: &String) -> Label { Label::spelled(s.as_str()) } }
-impl From<Label> for String { fn from(l: Label) -> String { l.printed } }
-impl rusqlite::types::ToSql for Label {
-    fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> { self.printed.to_sql() }
-}
-impl rusqlite::types::FromSql for Label {
-    fn column_result(v: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Label> { String::column_result(v).map(Label::spelled) }
-}
 impl Default for Label { fn default() -> Label { Label::spelled("") } }
-impl std::ops::Deref for Label { type Target = str; fn deref(&self) -> &str { &self.printed } }
-impl PartialEq<str> for Label { fn eq(&self, o: &str) -> bool { self.printed == o } }
-impl PartialEq<&str> for Label { fn eq(&self, o: &&str) -> bool { self.printed == *o } }
-impl PartialEq<String> for Label { fn eq(&self, o: &String) -> bool { &self.printed == o } }
-impl PartialEq<Label> for String { fn eq(&self, o: &Label) -> bool { *self == o.printed } }
-impl PartialEq<Label> for &str { fn eq(&self, o: &Label) -> bool { *self == o.printed } }
+// Tests build a hand-made row's spelled label from its spelling; production code names `Label::spelled` (or the map).
+#[cfg(test)]
+impl From<&str> for Label { fn from(s: &str) -> Label { Label::spelled(s) } }
+#[cfg(test)]
+impl From<String> for Label { fn from(s: String) -> Label { Label::spelled(s) } }
 
 impl std::fmt::Display for Label {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(&self.printed) }
@@ -447,22 +436,15 @@ mod tests {
     fn d(s: &str) -> Dec { Dec::strict(s).unwrap() }
     fn coin(ext: &str) -> Holding { Holding::Coin(ext.into()) }
 
-    /// PR1 step 1: a spelled label orders, prints, compares and stores as its spelling, so identity mode changes no
-    /// output.
+    /// PR1 step 1: a spelled label orders and prints as its spelling, so identity mode changes no output.
     #[test]
     fn identity_mode_label_is_its_spelling() {
         let mut v: Vec<Label> = ["eth", "BTC", "USD", "BTCB", ""].map(Label::from).to_vec();
         v.sort();
         assert_eq!(v.iter().map(|l| l.to_string()).collect::<Vec<_>>(), ["", "BTC", "BTCB", "USD", "eth"]);
-        let (l, owned) = (Label::from("BTG"), String::from("BTG"));
-        assert_eq!(l, "BTG");
-        assert_eq!("BTG", l);
-        assert_eq!(l, owned);
-        assert_eq!(l.as_str(), "BTG");
-        assert_eq!(String::from(l.clone()), owned);
-        let c = rusqlite::Connection::open_in_memory().unwrap();
-        let back: Label = c.query_row("SELECT ?1", [&l], |r| r.get(0)).unwrap();
-        assert_eq!(back, l);
+        // The string view is gone: a label is read as text only through `as_str` (or printed through Display).
+        let l = Label::spelled("BTG");
+        assert_eq!((l.as_str(), l.to_string(), l.keyed()), ("BTG", "BTG".to_string(), false));
     }
     const UNCLEAR: Holding = Holding::Unknown(Why::Unclear);
     #[allow(clippy::too_many_arguments)] // a leg's fields

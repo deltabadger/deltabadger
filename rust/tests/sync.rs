@@ -1987,7 +1987,7 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
     let dec = |s: &str| Dec::parse(s).unwrap();
     let acquired = At::from_sql("2026-09-01T12:00:00Z").unwrap();
     let row = |uid, kind, amount: Dec, fiat_value: Dec, at| Row {
-        uid, kind, base:"AAPL".into(), amount, fiat_value, at, quote:Some("USD".into()), quote_amount:None,
+        uid, kind, base:deltabadger::tracker::spellings::Label::spelled("AAPL"), amount, fiat_value, at, quote:Some(deltabadger::tracker::spellings::Label::spelled("USD")), quote_amount:None,
         fee_fiat_value:Dec::zero(), fee_currency:None, fee_amount:None, group:None, price_missing:false,
         value_missing:Some(false), exchange:"alpaca".into(), linked:false, transfer_fee:None, swap_fiat_cost:None,
         swap_stable_cost:None, per_share:None, to_exchange:None, account:1, to_account:None, to_base: None, orphan:false, opening:false, stated_value:false, fee_missing:false, class:None,
@@ -1996,7 +1996,7 @@ async fn split_grouping_case(batches: Vec<Vec<Value>>, expected: &str, expected_
     let mut held = dec("10");
     for amount in amounts {
         let amount = dec(&amount);
-        let moves = walk::quantity_moves(Kind::Adjustment,&"AAPL".into(),&amount,None,None,false,None).unwrap();
+        let moves = walk::quantity_moves(Kind::Adjustment,&deltabadger::tracker::spellings::Label::spelled("AAPL"),&amount,None,None,false,None).unwrap();
         held = (&held + &moves[0].1).unwrap();
         rows.push(row(rows.len(),Kind::Adjustment,amount,Dec::zero(),At::from_sql("2026-09-15T00:00:00Z").unwrap()));
     }
