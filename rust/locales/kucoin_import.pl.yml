@@ -16,5 +16,4 @@ pl:
             import_rest: "Importuj resztę"
             cancel: "Anuluj"
             cancelled: "Nic nie zaimportowano."
-            format_kucoin: "KuCoin CSV"
             generic: "Zapisane z ogólną etykietą: %{count}."

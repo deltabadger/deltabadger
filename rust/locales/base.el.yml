@@ -663,20 +663,20 @@ el:
             error_unknown_timezone: 'Το όνομα αυτού του αρχείου δεν δηλώνει πια σε ποια ζώνη ώρας το εξήγαγε το Binance. Ανέβασέ το με το όνομα που του έδωσε το Binance.'
             drop: 'Άφησε εδώ το CSV'
             drop_hint: 'ή κάνε κλικ για να διαλέξεις αρχείο'
+            formats: "Υποστηριζόμενες μορφές CSV: Deltabadger, KuCoin, Binance"
+            drop_title: "Εισαγωγή ιστορικού"
+            error_unknown_format: "Το Deltabadger δεν μπορεί να εισαγάγει αυτό το αρχείο CSV. Υποστηριζόμενες μορφές CSV: Deltabadger, KuCoin, Binance."
             which_account: 'Το αρχείο μπορεί να προέρχεται και από τους δύο λογαριασμούς Binance. Από ποιον;'
             which_of_accounts: 'Το αρχείο μπορεί να προέρχεται από περισσότερους από έναν λογαριασμούς εδώ. Από ποιον;'
             unrouted: 'Δεν υπάρχει συνδεδεμένος λογαριασμός για: %{exchanges}. Οι γραμμές παραλείφθηκαν.'
             error_no_account_for_format: 'Δεν υπάρχει συνδεδεμένος λογαριασμός για αυτή τη μορφή.'
-            format: 'Μορφή'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Λογαριασμός'
             file: 'Αρχείο'
             importing: 'Εισαγωγή…'
             confirm: 'Εισαγωγή'
             skipped: '%{count} γραμμές δεν αποθηκεύτηκαν.'
             unrecognised: 'Δεν εισήχθησαν, άγνωστες λειτουργίες: %{operations}'
-            error_unreadable: 'Το αρχείο δεν είναι στην επιλεγμένη μορφή.'
+            error_unreadable: "Αυτό το αρχείο δεν έχει συναλλαγές για εισαγωγή."
             error_malformed: 'Το αρχείο δεν μπόρεσε να διαβαστεί.'
             error_no_file: 'Διάλεξε πρώτα ένα αρχείο.'
             error_no_account: 'Διάλεξε λογαριασμό για εισαγωγή.'

@@ -12,9 +12,23 @@ use crate::identity::Label;
 use chrono::{DateTime, Timelike, Utc};
 use rusqlite::{Connection, OptionalExtension};
 
-/// Import::Run::FORMATS, in their order, and Import::Run::DEFAULT_FORMAT. `kucoin` is Rust's own (D-IMPORT-FORMATS).
+/// Import::Run::FORMATS, in their order. `kucoin` is Rust's own (D-IMPORT-FORMATS).
 pub const FORMATS: [&str; 3] = ["deltabadger", "binance", "kucoin"];
-pub const DEFAULT_FORMAT: &str = "deltabadger";
+
+/// D-IMPORT-DETECT: the format a file's header row names, so the user is never asked. Names compare exactly, as the
+/// readers look them up, so detection and reading agree. Each format needs only the columns its reader cannot do
+/// without; a header carrying two formats' columns names neither.
+pub fn detect(bytes: &[u8]) -> Option<&'static str> {
+    let row = csv::first_row(&csv::as_text(bytes)).ok().flatten()?;
+    let headers: Vec<&str> = row.iter().flatten().map(String::as_str).collect();
+    let has = |name: &str| headers.contains(&name);
+    let found: Vec<&'static str> = FORMATS.into_iter().filter(|format| match *format {
+        "deltabadger" => ["date", "type", "base_currency", "base_amount"].iter().all(|h| has(h)),
+        "binance" => ["Operation", "Change", "Coin"].iter().all(|h| has(h)) && (has(csv::UTC_TIME) || has("Time")),
+        _ => kucoin::is_export(&headers),
+    }).collect();
+    match found[..] { [format] => Some(format), _ => None }
+}
 
 /// A key ApiKey.reading answers: the one a venue of the user's is read with.
 #[derive(Debug, Clone, PartialEq)]
@@ -954,6 +968,34 @@ fn writer(c: &Connection, keys: &[Reading], account: i64) -> Result<Key, SyncErr
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_file_names_its_format_by_its_header() {
+        let d = |s: &str| super::detect(s.as_bytes());
+        let ours = crate::web::tracker::CSV_HEADERS.join(",");
+        assert_eq!(d(&format!("{ours}\n")), Some("deltabadger"));
+        assert_eq!(d(&format!("\u{FEFF}{ours}")), Some("deltabadger"), "a byte order mark");
+        assert_eq!(d("date,type,base_currency,base_amount,quote_currency,quote_amount"), Some("deltabadger"), "an older export, fewer columns");
+        assert_eq!(d("User_ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2026-08-01 10:00:00,Spot,Deposit,USDT,1,"), Some("binance"));
+        assert_eq!(d("User ID,Time,Account,Operation,Coin,Change,Remark"), Some("binance"));
+        assert_eq!(d("UID,Account Type,Currency,Side,Amount,Fee,Time(UTC+02:00),Remark,Type"), Some("kucoin"));
+        assert_eq!(d("UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type"), Some("kucoin"));
+        assert_eq!(d("UID,Account Type,Currency,Side,Amount,Fee,Time,Remark,Type"), None, "KuCoin's time column names its zone");
+        assert_eq!(d("User ID,Time,Account, Operation,Coin,Change,Remark"), None, "names compare exactly, as the reader reads them");
+        assert_eq!(d(&format!("{ours},Operation,Change,Coin,Time")), None, "two formats' columns name neither");
+        assert_eq!(d("a,b,c\n1,2,3"), None);
+        assert_eq!(d(""), None);
+    }
+
+    /// Detected but unreadable: a Binance or KuCoin export without its account column is still malformed.
+    #[test]
+    fn a_detected_export_without_its_account_column_is_malformed() {
+        for (format, file) in [("binance", "Time,Account,Operation,Coin,Change,Remark\n2026-08-01 10:00:00,Spot,Deposit,USDT,1,"),
+                               ("kucoin", "Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type\nmain,USDT,Deposit,1,0,2026-08-01 10:00:00,,Deposit")] {
+            assert_eq!(super::detect(file.as_bytes()), Some(format));
+            assert!(matches!(super::read(format, file.as_bytes(), Some("+00:00")), Err(super::Answer::Error("malformed"))), "{format}");
+        }
+    }
+
     /// An amount BigDec holds but the column's double does not (2.x's BigDecimal holds it too, and 2.x stores
     /// Infinity) refuses the file before any database is touched.
     #[test]

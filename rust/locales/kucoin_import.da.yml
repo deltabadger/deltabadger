@@ -16,5 +16,4 @@ da:
             import_rest: "Importér resten"
             cancel: "Annullér"
             cancelled: "Intet blev importeret."
-            format_kucoin: "KuCoin CSV"
             generic: "Registreret med en generel betegnelse: %{count}."

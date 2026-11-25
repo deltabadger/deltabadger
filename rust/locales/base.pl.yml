@@ -657,20 +657,20 @@ pl:
             error_unknown_timezone: 'Nazwa tego pliku nie zawiera już strefy czasowej, w której Binance go wyeksportował. Wgraj go pod nazwą nadaną przez Binance.'
             drop: 'Upuść tu plik CSV'
             drop_hint: 'lub kliknij, aby wybrać plik'
+            formats: "Obsługiwane formaty CSV: Deltabadger, KuCoin, Binance"
+            drop_title: "Importuj historię"
+            error_unknown_format: "Deltabadger nie może zaimportować tego pliku CSV. Obsługiwane formaty CSV: Deltabadger, KuCoin, Binance."
             which_account: 'Ten plik może pochodzić z obu kont Binance. Z którego?'
             which_of_accounts: 'Ten plik może pochodzić z więcej niż jednego konta tutaj. Z którego?'
             unrouted: 'Brak podłączonego konta dla: %{exchanges}. Te wiersze pominięto.'
             error_no_account_for_format: 'Nie masz podłączonego konta pasującego do tego formatu.'
-            format: 'Format'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Konto'
             file: 'Plik'
             importing: 'Importowanie…'
             confirm: 'Importuj'
             skipped: '%{count} wierszy nie udało się zapisać.'
             unrecognised: 'Nie zaimportowano, nieznane operacje: %{operations}'
-            error_unreadable: 'Ten plik nie jest w wybranym formacie.'
+            error_unreadable: "Ten plik nie zawiera transakcji do zaimportowania."
             error_malformed: 'Nie udało się odczytać pliku.'
             error_no_file: 'Najpierw wybierz plik.'
             error_no_account: 'Wybierz konto do importu.'

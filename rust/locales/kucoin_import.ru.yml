@@ -16,5 +16,4 @@ ru:
             import_rest: "Импортировать остальное"
             cancel: "Отмена"
             cancelled: "Ничего не импортировано."
-            format_kucoin: "KuCoin CSV"
             generic: "Записано с общей меткой: %{count}."

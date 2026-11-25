@@ -16,5 +16,4 @@ nl:
             import_rest: "De rest importeren"
             cancel: "Annuleren"
             cancelled: "Niets geïmporteerd."
-            format_kucoin: "KuCoin CSV"
             generic: "Vastgelegd met een algemeen label: %{count}."

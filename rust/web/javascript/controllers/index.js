@@ -203,5 +203,8 @@ application.register("tracker-export", TrackerExportController)
 import TurboFrameTriggerController from "./turbo_frame_trigger_controller"
 application.register("turbo-frame-trigger", TurboFrameTriggerController)
 
+import WindowDropController from "./window_drop_controller"
+application.register("window-drop", WindowDropController)
+
 import ZarazController from "./zaraz_controller"
 application.register("zaraz", ZarazController)

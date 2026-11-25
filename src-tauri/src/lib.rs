@@ -677,6 +677,9 @@ pub fn run() {
                 .center()
                 .devtools(devtools)
                 .initialization_script(initialization_script())
+                // Files dropped on the window go to the page (the tracker's CSV import). Tauri's own handler, on by
+                // default, takes every file drop for its DragDrop events, which nothing here uses, so the page never saw one.
+                .disable_drag_drop_handler()
                 .on_navigation(move |url| match navigation(url, engine.launch().map(|(port, _)| port)) {
                     Navigation::Allow => true,
                     // D-LANGUAGE-STEP: always cancelled, taken or not; nothing loads, the picker stays as drawn.

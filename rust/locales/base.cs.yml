@@ -671,20 +671,20 @@ cs:
             error_unknown_timezone: 'Název tohoto souboru už neuvádí, v jakém časovém pásmu jej Binance vyexportoval. Nahraj jej pod názvem, který mu dal Binance.'
             drop: 'Přetáhni sem soubor CSV'
             drop_hint: 'nebo klikni a vyber soubor'
+            formats: "Podporované formáty CSV: Deltabadger, KuCoin, Binance"
+            drop_title: "Importovat historii"
+            error_unknown_format: "Tento soubor CSV Deltabadger neumí importovat. Podporované formáty CSV: Deltabadger, KuCoin, Binance."
             which_account: 'Tento soubor může být z obou účtů Binance. Ze kterého?'
             which_of_accounts: 'Tento soubor může být z více účtů zde. Ze kterého?'
             unrouted: 'Pro %{exchanges} není připojen účet. Tyto řádky byly vynechány.'
             error_no_account_for_format: 'Pro tento formát není připojen odpovídající účet.'
-            format: 'Formát'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Účet'
             file: 'Soubor'
             importing: 'Importuji…'
             confirm: 'Importovat'
             skipped: '%{count} řádků se nepodařilo uložit.'
             unrecognised: 'Neimportováno, neznámé operace: %{operations}'
-            error_unreadable: 'Tento soubor není ve zvoleném formátu.'
+            error_unreadable: "V tomto souboru nejsou žádné transakce k importu."
             error_malformed: 'Soubor se nepodařilo přečíst.'
             error_no_file: 'Nejprve vyber soubor.'
             error_no_account: 'Vyber účet pro import.'

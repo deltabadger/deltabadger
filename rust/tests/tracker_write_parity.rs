@@ -186,7 +186,6 @@ fn tax_files(root: &Path) -> std::collections::BTreeMap<String, String> {
         .map(|e| (e.file_name().to_string_lossy().into_owned(), std::fs::read_to_string(e.path()).unwrap())).collect()
 }
 
-/// D-IMPORT-FORMATS: the dialog offers Rust's KuCoin format beside 2.x's two; the rest of it is 2.x's bytes.
 /// D-TAX-STABLECOIN-QUESTION: 2.x asks "treat stablecoins as fiat" for AT and SK; the report reads the flag for neither
 /// (D-TAX-AT-STABLECOIN, D-TAX-SK-SWAPS), so no country option is marked ambiguous and the checkbox is never shown.
 fn stablecoin_question(body: &str) -> String {
@@ -213,10 +212,14 @@ fn without_pl_carry(body: &str) -> String {
     block.replace(body, "$2").into_owned()
 }
 
-fn without_kucoin_format(body: &str) -> String {
-    let option = regex::Regex::new(r#"\n *<button type="button" class="segmented__option" role="radio" aria-checked="false" tabindex="-1" data-value="kucoin"[^\n]*</button>"#).unwrap();
-    assert!(option.is_match(body), "the KuCoin format is offered");
-    option.replace(body, "").into_owned()
+/// D-IMPORT-DETECT: the import reads a file's format from its header, so the dialog asks none: 2.x's format selector is
+/// one line naming the formats, no form carries a format, and a recognised file with nothing to import says so (2.x:
+/// "not in the selected format"). The rest is 2.x's bytes.
+fn as_detected(v2: &str) -> String {
+    let selector = regex::Regex::new(r#"(?s)      <div class="filters" data-controller="form--segmented-field"\n[^\n]*\n {8}\n<div class="segmented segmented--fluid" role="radiogroup" aria-label="Format" .*?\n {8}<input type="hidden" name="format" [^\n]*\n      </div>\n"#).unwrap();
+    let out = selector.replace(v2, "      <p class=\"small-info\">Supported CSV formats: Deltabadger, KuCoin, Binance</p>\n");
+    let format = regex::Regex::new(r#"\n *<input type="hidden" name="format" id="format" value="[a-z]+" />"#).unwrap();
+    format.replace_all(&out, "").replace("This file is not in the selected format.", "This file has no transactions to import.")
 }
 
 async fn compare(cases: &[&str]) {
@@ -235,8 +238,8 @@ async fn compare(cases: &[&str]) {
 }
 
 async fn compare_one(root: &str, name: &str, identity_key: bool) {
-    // D-IMPORT-WARNS-FIRST: a warned import's token, format and "import the rest" answer.
-    let warned = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})"[\s\S]*name="format" id="format" value="([a-z]+)"[\s\S]*name="api_key_id" value="(r![^"]+)""#).unwrap();
+    // D-IMPORT-WARNS-FIRST: a warned import's token and "import the rest" answer.
+    let warned = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})"[\s\S]*name="api_key_id" value="(r![^"]+)""#).unwrap();
     let (root, cases) = (root.to_string(), [name]);
     for name in cases {
         let directory = if name.starts_with("sync_") { std::env::var("D5_SYNC_GRID").unwrap_or_else(|_|root.clone()) } else { root.clone() };
@@ -323,7 +326,7 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         // D-IMPORT-WARNS-FIRST (#710 7a rule N6): Rust says before writing what 2.x writes and then reports (rows naming an
         // account this install lacks); the user's "import the rest" is 2.x's write, so its answer is what compares.
         let answer = match warned.captures(&answer.body) {
-            Some(m) if name.starts_with("import") => browser.send(&app,"POST","/tracker/import",Some(&[("token",&m[1]),("format",&m[2]),("api_key_id",&m[3])]),Csrf::Header,&headers).await,
+            Some(m) if name.starts_with("import") => browser.send(&app,"POST","/tracker/import",Some(&[("token",&m[1]),("api_key_id",&m[2])]),Csrf::Header,&headers).await,
             _ => answer,
         };
         let wakes: Vec<_> = app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default().split_off(woken);
@@ -349,10 +352,11 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             for rendered in common::html::masked_values(&answer.body).tokens {
                 assert!(csrf::valid(&token,&rendered),"invalid rendered CSRF");
             }
-            let body = if name == "import_new" { without_kucoin_format(&answer.body) } else if tax { reconcile(&answer.body) } else { answer.body.clone() };
+            let body = if tax { reconcile(&answer.body) } else { answer.body.clone() };
             let body = if body.contains("<style>.pl-carry{") { without_pl_carry(&body) } else { body };
             let v2_body = if name == TAX_RECONCILED { std::fs::read_to_string(source.join("reconciled.html")).unwrap() } else { expected["body"].as_str().unwrap().to_string() };
             let v2_body = if v2_body.contains("data-stablecoin-ambiguous=") { stablecoin_question(&v2_body) } else { v2_body };
+            let v2_body = if name.starts_with("import") { as_detected(&v2_body) } else { v2_body };
             let v2_body = common::html::flash_toasts_as_rust(&v2_body);
             assert_eq!(mask_csrf(&body),mask_csrf(&v2_body),"{name}: body bytes");
         } }

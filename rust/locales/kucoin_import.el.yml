@@ -16,5 +16,4 @@ el:
             import_rest: "Εισαγωγή των υπολοίπων"
             cancel: "Ακύρωση"
             cancelled: "Δεν εισήχθη τίποτα."
-            format_kucoin: "KuCoin CSV"
             generic: "Καταγράφηκαν με γενική ετικέτα: %{count}."

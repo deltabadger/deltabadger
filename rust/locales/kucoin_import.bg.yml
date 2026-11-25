@@ -16,5 +16,4 @@ bg:
             import_rest: "Импортирай останалото"
             cancel: "Отказ"
             cancelled: "Нищо не е импортирано."
-            format_kucoin: "KuCoin CSV"
             generic: "Записани с общ етикет: %{count}."

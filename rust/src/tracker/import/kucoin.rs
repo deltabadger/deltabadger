@@ -19,6 +19,10 @@ use std::sync::LazyLock;
 const COLUMNS: [&str; 7] = ["Account Type", "Currency", "Side", "Amount", "Fee", "Remark", "Type"];
 /// The time column names its zone: `Time(UTC+03:00)`, `Time(UTC-5)`, `Time(UTC)`.
 static TIME_HEADER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^Time\(UTC(?:([+-])([0-9]{1,2})(?::?([0-5][0-9]))?)?\)$").unwrap());
+/// D-IMPORT-DETECT: a header row naming every column `read` needs.
+pub fn is_export(headers: &[&str]) -> bool {
+    COLUMNS.iter().all(|c| headers.contains(c)) && headers.iter().any(|h| TIME_HEADER.is_match(h))
+}
 /// The exhaustive pairing search runs up to this many legs on each side; past it, legs are paired in size order.
 const EXHAUSTIVE: usize = 8;
 /// The search gives up (the legs aggregate) past this many visited nodes; 8 against 8 distinct legs is ~110k at most.

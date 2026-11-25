@@ -9,27 +9,26 @@ use askama::Template;
 use axum::{extract::Extension, http::{header, StatusCode}, response::{IntoResponse, Response}};
 use std::path::PathBuf;
 
-pub use run::{DEFAULT_FORMAT, FORMATS};
 
 /// UPLOAD_TTL: a parked upload nobody answered for is swept on the next park after an hour.
 const UPLOAD_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
 
 #[derive(Template)]
 #[template(path = "tracker/import_new.html")]
-struct New<'a> { ctx: &'a Ctx, csrf: String, formats: String, default_format: &'static str }
+struct New<'a> { ctx: &'a Ctx, csrf: String }
 
 /// What create.html.erb says when no rows landed.
 enum Body {
     Error(String),
     Refused(String),
     /// 2.x's venue question (Binance or Binance.US): its selector, as recorded.
-    Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String },
+    Ambiguous { csrf: String, token: String, accounts: String, first: String },
     /// #710 8a: a venue export's question (the account question, or what writing it warns about): the question's lines,
     /// one named button per destination with its own warnings, and Cancel.
-    Choose { csrf: String, token: String, format: &'static str, lines: Vec<String>, buttons: Vec<Button> },
+    Choose { csrf: String, token: String, lines: Vec<String>, buttons: Vec<Button> },
     /// #710 7a/8a: what a Deltabadger CSV's import says before writing, its one sealed answer (`value`, posted by the
     /// `label` button), and Cancel.
-    Warned { csrf: String, token: String, format: &'static str, lines: Vec<String>, value: String, label: String },
+    Warned { csrf: String, token: String, lines: Vec<String>, value: String, label: String },
     NothingNew { skipped: Option<String>, unrouted: Option<String>, unrecognised: Option<String> },
 }
 
@@ -73,11 +72,7 @@ fn html(status: StatusCode, body: String) -> Response {
 
 pub async fn new(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)); }
-    let options = FORMATS.iter().map(|&value| SegmentedOption {
-        value: value.into(), label: ctx.t(&format!("tracker.import.format_{value}")), active: value == DEFAULT_FORMAT, href: None,
-    }).collect();
-    let formats = Segmented { fluid: true, label: ctx.t("tracker.import.format"), key: None, options, links: false, frame: None }.render()?;
-    Ok(html(StatusCode::OK, New { ctx: &ctx, csrf: ctx.csrf_token(), formats, default_format: DEFAULT_FORMAT }.render()?))
+    Ok(html(StatusCode::OK, New { ctx: &ctx, csrf: ctx.csrf_token() }.render()?))
 }
 
 /// 2.x's `text.blank?` on the upload's binary string: empty, or ASCII whitespace only.
@@ -114,7 +109,6 @@ fn render(ctx: &Ctx, status: StatusCode, body: Body) -> Result<Response, WebErro
 
 pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
-    let format: &'static str = FORMATS.iter().copied().find(|f| Some(*f) == ctx.params.form("format")).unwrap_or(DEFAULT_FORMAT);
     let dir = uploads(&ctx, user);
     // #fetch_upload: the file the unanswered question parked a moment ago, or a fresh upload.
     let (mut parked, text, filename): (Option<String>, Option<Vec<u8>>, Option<String>) = match ctx.params.form("token").filter(|t| token(Some(t))) {
@@ -127,6 +121,8 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
         return render(&ctx, StatusCode::OK, Body::Refused(ctx.t("tracker.import.cancelled")));
     }
     let Some(text) = text.filter(|t| !blank(t)) else { return render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_no_file".into())) };
+    // D-IMPORT-DETECT: the file's header names its format (a parked upload re-detects from the same bytes).
+    let Some(format) = run::detect(&text) else { return render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_unknown_format".into())) };
     // #resolve_offset: a Binance file's zone is the one parked with it, or the one its own name states.
     let offset = match run::offset(format, filename.as_deref(), &text) {
         None => None,
@@ -209,22 +205,22 @@ pub async fn create(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError
                 // A Deltabadger CSV: every line, one sealed answer.
                 [only] if matches!(only.accept, Some(Accept::Anyway | Accept::Rest | Accept::Import)) => {
                     let label = ctx.t(match only.accept { Some(Accept::Rest) => "tracker.import.import_rest", Some(Accept::Anyway) => "tracker.import.import_anyway", _ => "tracker.import.confirm" });
-                    render(&ctx, StatusCode::OK, Body::Warned { csrf, token, format, lines: warnings.iter().flat_map(|w| lines(ctx.locale, w)).collect(), value: only.value.clone(), label })
+                    render(&ctx, StatusCode::OK, Body::Warned { csrf, token, lines: warnings.iter().flat_map(|w| lines(ctx.locale, w)).collect(), value: only.value.clone(), label })
                 }
                 // A venue export: what is not one destination's above the buttons; each destination's own under its button.
-                _ => render(&ctx, StatusCode::OK, Body::Choose { csrf, token, format, buttons: buttons(ctx.locale, &choices),
+                _ => render(&ctx, StatusCode::OK, Body::Choose { csrf, token, buttons: buttons(ctx.locale, &choices),
                                                                 lines: warnings.iter().filter(|w| matches!(w, Warning::Changed | Warning::Retained | Warning::Dust)).flat_map(|w| lines(ctx.locale, w)).collect() }),
             }
         }
         Answer::Error(error) => render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
         // The account question (#710 7a §3, 8a): its own text, one named button per account and the new one.
         Answer::Ambiguous(keys) if keys.iter().any(|k| k.new) => render(&ctx, StatusCode::OK, Body::Choose {
-            csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, lines: vec![ctx.t("tracker.import.which_of_accounts")], buttons: buttons(ctx.locale, &keys) }),
+            csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), lines: vec![ctx.t("tracker.import.which_of_accounts")], buttons: buttons(ctx.locale, &keys) }),
         // The venue question keeps 2.x's selector and text.
         Answer::Ambiguous(keys) => {
             let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.value.clone().into(), label: k.shown.plain(), active: i == 0, href: None }).collect();
             let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false, frame: None }.render()?;
-            render(&ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), format, accounts,
+            render(&ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token: parked.unwrap_or_default(), accounts,
                                                            first: keys.first().map(|k| k.value.clone()).unwrap_or_default() })
         }
     }
