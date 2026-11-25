@@ -88,6 +88,15 @@ fn forget_composed(tx: &Connection, id: i64, set: &Map<String, Value>) -> Result
     }
     Ok(())
 }
+/// PLAN index-as-ingredient slice 3: a settings write that changes what a grouped composition is derived from
+/// (`Draft::regrouped`) ends that composition's provenance (`rust_composed_of`) and asks the engine, the one writer of a
+/// grouped bot's members, to derive it again, in the same transaction.
+fn regroup(tx: &Connection, draft: &Draft, settings: &Map<String, Value>, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
+    if !draft.regrouped(settings) { return Ok(()); }
+    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::composition::COMPOSED_OF_KEY), [id])?;
+    crate::engine::index::mark_resync(tx, id, now)?;
+    Ok(())
+}
 fn one(rows: usize) -> Result<(), WebError> {
     if rows == 1 { Ok(()) } else { Err(error("settings writer lost its owned bot")) }
 }
@@ -102,7 +111,7 @@ fn path(key: &str, transient: bool) -> Result<String, WebError> {
                 .iter().any(|prefix| key == format!("{prefix}_enabled_at") || key == format!("{prefix}_condition_met_at"))
     } else {
         super::SETTINGS.iter().any(|(name, _)| *name == key)
-            || matches!(key, "quote_amount" | "quote_asset_id" | "interval" | "allocations" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "rebalance_enabled" | "base_amount_limited" | "base_amount_limit" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "sell_denomination" | "hold_all" | "index_name_prefix")
+            || matches!(key, "quote_amount" | "quote_asset_id" | "interval" | "allocations" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "rebalance_enabled" | "base_amount_limited" | "base_amount_limit" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "sell_denomination" | "hold_all" | "index_name_prefix" | "index_groups")
             || key.strip_prefix("sell_").is_some_and(|key| super::SETTINGS.iter().any(|(name, _)| *name == key))
     };
     if allowed { Ok(format!("$.{key}")) } else { Err(error("settings writer received a key outside its allowlist")) }
@@ -265,10 +274,13 @@ fn settings_inner<T>(
     let at = codec::format_time(ctx.now);
     if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }
     if changed { one(tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }
-    let metrics_changed = draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed);
+    // PLAN index-as-ingredient §5: the web writes a plain basket's members itself; a grouped bot's are the engine's.
+    let grouped = draft.candidate.grouped() || super::stored_groups(&draft.raw_settings);
+    let metrics_changed = !grouped && draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed);
     if metrics_changed {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
+    regroup(&tx, &draft, &final_settings, id, ctx.now)?;
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.
     let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
     if draft.candidate.kind == Kind::Index && (redefined || exchange_changed) { crate::engine::index::mark_resync(&tx, id, ctx.now)?; }
@@ -600,6 +612,9 @@ pub fn lifecycle_in<T>(
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         forget_composed(tx, id, &effects.settings.set)?;
+        let mut saved = draft.candidate.settings.clone();
+        saved.extend(effects.settings.set.clone());
+        regroup(tx, draft, &saved, id, ctx.now)?;
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
         if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }
@@ -622,7 +637,8 @@ pub fn lifecycle_in<T>(
             if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             // Bots::DcaIndex#start: every start, a delayed one included, resyncs the composition.
-            if class=="Bots::DcaIndex" { crate::engine::index::mark_resync(tx,id,ctx.now)?; }
+            // PLAN index-as-ingredient slice 3: and a basket stored with index groups.
+            if class=="Bots::DcaIndex" || super::stored_groups(&super::object(&raw,"bots.settings")?) { crate::engine::index::mark_resync(tx,id,ctx.now)?; }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
                 // created bot with a historical stamp cannot inherit stopped-only scheduling.

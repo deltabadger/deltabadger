@@ -70,8 +70,9 @@ impl ActionParams {
             }
         }
         if kind == Kind::Basket {
-            if let Some(value) = fields.get("allocations").filter(|v| v.is_object()) {
-                out.insert("allocations".into(), value.clone());
+            // PLAN index-as-ingredient §6.2: a group's fields, `index_groups[<external id>][weight | num_coins | …]`.
+            for key in ["allocations", "index_groups"] {
+                if let Some(value) = fields.get(key).filter(|v| v.is_object()) { out.insert(key.into(), value.clone()); }
             }
         }
         Ok(Value::Object(out))

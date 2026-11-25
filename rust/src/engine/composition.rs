@@ -33,6 +33,17 @@ impl Group {
                 index_category_id: index_category_id(s).map(str::to_string), index_name: text("index_name"), index_name_prefix: text("index_name_prefix"),
                 num_coins: num_coins(s), hold_all: hold_all(s), flattening: flattening(s) }
     }
+    /// The one encoder of an `index_groups` element: `from_settings`' keys, an absent field left out.
+    pub fn settings(&self) -> Map<String, Value> {
+        let mut m = Map::new();
+        for (key, value) in [("index_type", self.index_type.clone().map(Value::from)), ("index_category_id", self.index_category_id.clone().map(Value::from)),
+                             ("index_name", self.index_name.clone().map(Value::from)), ("index_name_prefix", self.index_name_prefix.clone().map(Value::from)),
+                             ("num_coins", self.num_coins.map(Value::from)), ("hold_all", Some(Value::from(self.hold_all))),
+                             ("allocation_flattening", self.flattening.map(Value::from)), ("weight", Some(Value::from(self.weight)))] {
+            if let Some(value) = value { m.insert(key.into(), value); }
+        }
+        m
+    }
 }
 
 impl Composition {
@@ -83,12 +94,17 @@ pub const COMPOSED_OF_KEY: &str = "rust_composed_of";
 
 /// The settings a grouped composition is derived from: ingredients in stored order with every group field, the weighting,
 /// the venue, the quote and the effective limit mode (it moves the newcomer probe from the ask to the last trade).
-pub fn digest(bot: &Bot) -> String {
+pub fn digest(bot: &Bot) -> String { digest_of(&bot.bot_type, bot.settings.as_object(), bot.exchange_id, bot.limit_distance().is_some()) }
+
+/// `digest` of settings not loaded as a bot: the web writer's one composition-change decision (PLAN index-as-ingredient
+/// slice 3: it both forgets `rust_composed_of` and marks the resync), `limit` the effective limit mode.
+pub fn digest_of(class: &str, s: Settings, exchange_id: i64, limit: bool) -> String {
     use sha2::{Digest, Sha256};
-    let c = bot.composition().unwrap_or_default();
+    let c = Composition::of(class, s).unwrap_or_default();
     let groups: Vec<Value> = c.groups.iter().map(|g| json!([g.external_id, g.weight, g.index_type, g.index_category_id, g.index_name,
         g.index_name_prefix, g.num_coins, g.hold_all, g.flattening])).collect();
-    let input = json!([c.assets, groups, c.weighting, bot.exchange_id, bot.quote_asset_id(), bot.limit_distance().is_some()]);
+    let quote = s.and_then(|s| s.get("quote_asset_id")?.as_i64());
+    let input = json!([c.assets, groups, c.weighting, exchange_id, quote, limit]);
     format!("{:x}", Sha256::digest(input.to_string()))
 }
 
@@ -116,6 +132,23 @@ pub fn forget(c: &Connection, bot_id: i64, read: Option<&str>) -> Result<(), Eng
                         AND json_type(transient_data, '$.{COMPOSED_OF_KEY}') IS NOT NULL AND json_extract(transient_data, '$.{COMPOSED_OF_KEY}.rev') IS ?2"),
               rusqlite::params![bot_id, read])?;
     Ok(())
+}
+
+/// PLAN index-as-ingredient §3.4: whether the stored members are the composition of the settings as they stand, asked by
+/// merge, split and ungroup (which run no refresh) inside their own transaction. A row not stored with `index_groups` keeps
+/// today's rules (true). A grouped row: its `rust_composed_of` digest is the settings' own, nothing holds it as stale, and
+/// every group's ranked row is the one the composition read (a later ranking, a retirement or a relisting refuses).
+pub fn current(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    if !bot.stored_groups() { return Ok(true); }
+    let Some(of) = bot.transient.get(COMPOSED_OF_KEY) else { return Ok(false) };
+    if of.get("digest").and_then(Value::as_str) != Some(digest(bot).as_str()) { return Ok(false); }
+    if super::staleness::stale(c, bot, now)?.is_some() { return Ok(false); }
+    for id in bot.index_external_ids() {
+        if super::index::retired(c, &id)? { return Ok(false); }
+        let Some(row) = super::index::ranked_row(c, &id)? else { return Ok(false) };
+        if of.get("ranked").and_then(|r| r.get(&id)) != Some(&json!([row.id, row.ranked_at])) { return Ok(false); }
+    }
+    Ok(true)
 }
 
 /// Bots::DcaIndex settings: 'top' or 'category'.

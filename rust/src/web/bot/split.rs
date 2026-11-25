@@ -132,7 +132,9 @@ impl Split {
         let members = source.bot.memberships.iter().filter(|m| m.in_index).count();
         Ok(merge::TYPES.contains(&source.class.as_str()) && source.bot.kind != Kind::Signal
             && !matches!(source.bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing)
-            && !index_switch::busy(c, &source.engine, false, now.utc())? && members >= 2 && !merge::reversal_pending(&source.engine))
+            && !index_switch::busy(c, &source.engine, false, now.utc())? && members >= 2 && !merge::reversal_pending(&source.engine)
+            // PLAN index-as-ingredient §3.4: a grouped source's members are its settings' composition (no refresh runs here).
+            && crate::engine::composition::current(c, &source.engine, now.utc())?)
     }
 
     /// Bot::Split#reason, in its order; the books are read fresh. Then D-SPLIT-LEGACY-SHADOW's routing of each legacy row.

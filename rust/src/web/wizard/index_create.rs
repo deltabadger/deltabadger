@@ -86,7 +86,7 @@ pub fn count_named(category: Option<&str>) -> Option<(&'static str, &'static str
 }
 
 /// Bots::DcaIndex::MIN_COINS and MAX_COINS.
-const MIN_COINS: i64 = 2;
+pub const MIN_COINS: i64 = 2;
 pub const MAX_COINS: i64 = 100;
 
 fn text<'a>(settings: &'a Map<String, Value>, key: &str) -> Option<&'a str> { settings.get(key).and_then(Value::as_str) }
