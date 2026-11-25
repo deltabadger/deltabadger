@@ -640,3 +640,280 @@ async fn a_member_whose_stored_pair_moved_is_reprobed() {
     refresh(&u, t.clone(), id).await.unwrap();
     assert_eq!(probes(&t), 1, "the moved pair is probed again");
 }
+
+// ---------------------------------------------------------------- 2b: the missing money-path tests
+
+fn tx_count(o: &store::Opened, id: i64) -> i64 { o.primary.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1", [id], |r| r.get(0)).unwrap() }
+fn events(o: &store::Opened, id: i64, event: &str) -> i64 {
+    o.primary.query_row("SELECT count(*) FROM bot_activity_logs WHERE bot_id = ?1 AND event = ?2", rusqlite::params![id, event], |r| r.get(0)).unwrap()
+}
+/// A filled buy of `qty` units of `asset` worth `value` at `price`.
+fn hold(u: &U, id: i64, asset: i64, qty: &str, value: &str, price: &str, n: i64) {
+    seed::insert_row(&u.o.primary, &u.s, id, asset, &json!({ "external_status": 2, "external_id": format!("OHELD-{n}"), "amount": qty, "amount_exec": qty,
+        "quote_amount": value, "quote_amount_exec": value, "price": price, "created_at": "2026-09-01 10:00:01" }));
+}
+/// The account catalogue lists the stocks (exchange_assets), so their Alpaca positions map to them.
+fn listed(u: &U) {
+    for (asset, _) in &u.m { exec(&u.o, &format!("INSERT INTO exchange_assets (asset_id, exchange_id, available, created_at, updated_at) VALUES ({asset}, {}, 1, '2026-01-01', '2026-01-01')", u.s.exchange_id)); }
+}
+/// A composition write landing while `path` is first requested: AAA's group-row weight moves (the snapshot changes).
+fn moves_aaa(u: &U, t: &ScriptedTransport, path: &str, id: i64) -> Hooked {
+    let (side, aaa) = (side_conn(u), u.m[0].0);
+    hooked(t, path, move || { side.execute("UPDATE rust_bot_group_members SET weight = 0.4 WHERE bot_id = ?1 AND asset_id = ?2", [id, aaa]).unwrap(); })
+}
+async fn tick_at<T: Transport>(u: &U, t: T, id: i64) -> TickOutcome {
+    tick::tick(&u.o.primary, &venue(t), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap()
+}
+
+/// D-INDEX-RETIRED-PAIR at placement, over every frozen member and not only the leg's: BTC named beside a frozen group
+/// [AAA, BBB]; an owed rebalance buy targets AAA. The pass's refresh keeps both members; BBB's pair is disabled after it
+/// (while the settled cash is read). AAA's buy is held: no order, no row, the owed buy stays unattempted. (A tick's legs
+/// carry every member's ticker into the fence; a rebalance leg carries only its own, so only this check sees BBB.)
+#[tokio::test(flavor = "current_thread")]
+async fn a_frozen_member_disabled_after_the_refresh_holds_the_placement() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    retire(&u, "nasdaq-100");
+    hold(&u, id, u.s.btc, "0.02", "1280", "64000", 1);
+    let sell = seed::insert_row(&u.o.primary, &u.s, id, u.s.btc, &json!({ "external_status": 2, "external_id": "OSWAP-1", "side": 1, "amount": "0.005", "amount_exec": "0.005",
+        "quote_amount": "320", "quote_amount_exec": "320", "price": "64000", "created_at": "2026-09-01 11:00:01" }));
+    let owed = rebalance::Pending { phase: rebalance::PHASE_BUYING.into(), sell_transaction_id: Some(sell), buy_transaction_id: None,
+                                    remaining_quote_amount: Some(deltabadger::v2::BigDec::parse("320").unwrap()), buy_attempted: false };
+    exec(&u.o, &format!("UPDATE transactions SET transaction_type = 'REBALANCE' WHERE id = {sell};
+        UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01),
+        transient_data = json_set(transient_data, '$.rebalance_pending', json('{}')) WHERE id = {id};", owed.to_json()));
+    let rows = tx_count(&u.o, id);
+    let prices = PriceCache::default();
+    let (side, bbb) = (side_conn(&u), u.m[1].1);
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(hooked(&t, "/v2/account", move || { side.execute("UPDATE tickers SET trading_enabled = 0 WHERE id = ?1", [bbb]).unwrap(); })),
+                             id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Skipped("changed")), "{out:?}");
+    assert!(t.posted_orders().is_empty(), "{:?}", t.posted_orders());
+    assert_eq!(tx_count(&u.o, id), rows, "no order row");
+    assert_eq!(rebalance::pending(&model::load_bot(&u.o.primary, id).unwrap().transient).unwrap(), Some(owed), "the owed buy stays, unattempted");
+    close(&members(&u.o, id), &[("BTC", 0.5), ("AAA", 0.25), ("BBB", 0.25)]);
+    // The next pass's refresh drops BBB and buys AAA, once.
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Placed(_)), "{out:?}");
+    close(&members(&u.o, id), &[("BTC", 0.5), ("AAA", 0.5)]);
+    let buys: Vec<Value> = t.posted_orders();
+    assert_eq!((buys.len(), buys[0]["symbol"].as_str()), (1, Some("AAA")), "{buys:?}");
+}
+
+/// PLAN §3.4 sizing claim, every no-intent write of a grouped sizing: the composition moves after the refresh (while the
+/// legs are priced, or the owed buy's balance is read). Each write refuses: (a) the below-minimum skip lines and rows,
+/// (b) the cap-spent stop, (c) an owed rebalance buy's dust clear.
+#[tokio::test(flavor = "current_thread")]
+async fn a_grouped_sizing_that_ends_without_an_intent_checks_the_claim() {
+    // (a) 1 USD a week over AAA and BBB: two 0.50 legs under the 1 USD minimum.
+    let u = universe();
+    let id = seed::insert_bot(&u.o.primary, &u.s, &BotSpec::weekly(1.0, "2026-09-01 14:00:00").with("allocations", json!({})).with("index_groups", json!([group("nasdaq-100", 2, 1.0)])));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    tick_at(&u, moves_aaa(&u, &t, "/v2/stocks/BBB/quotes/latest", id), id).await;
+    assert!(t.posted_orders().is_empty());
+    assert_eq!((tx_count(&u.o, id), events(&u.o, id, "order_skipped"), events(&u.o, id, "orders_below_minimum")), (0, 0, 0), "(a) no skip row or line");
+
+    // (b) 60 USD a week, a 1 USD cap: the whole remainder sizes to two 0.50 legs, none placeable.
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.quote_amount_limited', json('true'), '$.quote_amount_limit', 1), \
+                         transient_data = json_set(transient_data, '$.quote_amount_limit_enabled_at', '2026-08-01T00:00:00.000Z') WHERE id = {id}"));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    tick_at(&u, moves_aaa(&u, &t, "/v2/stocks/BBB/quotes/latest", id), id).await;
+    let after = model::load_bot(&u.o.primary, id).unwrap();
+    let key: Option<String> = u.o.primary.query_row("SELECT stop_message_key FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert!(t.posted_orders().is_empty());
+    assert_ne!(after.status, deltabadger::enums::BotStatus::Stopped, "(b) not stopped");
+    assert_eq!((key, events(&u.o, id, "stopped"), tx_count(&u.o, id)), (None, 0, 0));
+    assert!(after.transient.get(deltabadger::engine::notice::LIMIT).is_none(), "no amount-limit mail owed");
+
+    // (c) An owed rebalance buy of 0.50 USD (under every member's minimum) after a filled sell.
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    hold(&u, id, u.s.btc, "0.02", "1280", "64000", 1);
+    let sell = seed::insert_row(&u.o.primary, &u.s, id, u.s.btc, &json!({ "external_status": 2, "external_id": "OSWAP-1", "side": 1, "amount": "0.0000078125", "amount_exec": "0.0000078125",
+        "quote_amount": "0.5", "quote_amount_exec": "0.5", "price": "64000", "created_at": "2026-09-01 11:00:01" }));
+    let owed = rebalance::Pending { phase: rebalance::PHASE_BUYING.into(), sell_transaction_id: Some(sell), buy_transaction_id: None,
+                                    remaining_quote_amount: Some(deltabadger::v2::BigDec::parse("0.5").unwrap()), buy_attempted: false };
+    exec(&u.o, &format!("UPDATE transactions SET transaction_type = 'REBALANCE' WHERE id = {sell};
+        UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01),
+        transient_data = json_set(transient_data, '$.rebalance_pending', json('{}')) WHERE id = {id};", owed.to_json()));
+    let prices = PriceCache::default();
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(moves_aaa(&u, &t, "/v2/account", id)), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Skipped("changed")), "{out:?}");
+    assert!(t.posted_orders().is_empty());
+    assert_eq!(rebalance::pending(&model::load_bot(&u.o.primary, id).unwrap().transient).unwrap(), Some(owed), "(c) the owed buy stands");
+    assert_eq!(events(&u.o, id, "rebalance_dust"), 0);
+}
+
+/// Codex 2a r1: a composed retired group beside an uncomposed live one whose refresh fails. Retirement and provenance are
+/// one id's: the pass is not skipped as a retired index's, its filled sell settles and books the proceeds; the next pass
+/// whose refresh succeeds buys.
+#[tokio::test(flavor = "current_thread")]
+async fn a_composed_retired_group_beside_an_uncomposed_live_one_still_rebalances() {
+    let u = universe();
+    seed::insert_index(&u.o.primary, "tech", &["DDD.US", "EEE.US"], &json!({ "DDD.US": 1e12, "EEE.US": 5e11 }));
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.25), group("tech", 2, 0.25)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    retire(&u, "tech");
+    // nasdaq-100 has no rows of this engine's (uncomposed); tech's stand (composed, retired).
+    exec(&u.o, &format!("DELETE FROM rust_bot_group_members WHERE bot_id = {id} AND index_external_id = 'nasdaq-100'"));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    assert!(index::any_retired(&u.o.primary, &bot).unwrap() && index::any_uncomposed(&u.o.primary, &bot).unwrap() && !index::retired_uncomposed(&u.o.primary, &bot).unwrap());
+    hold(&u, id, u.s.btc, "0.02", "1280", "64000", 1);
+    let sell = seed::insert_row(&u.o.primary, &u.s, id, u.s.btc, &json!({ "external_status": 2, "external_id": "OSWAP-1", "side": 1, "amount": "0.005", "amount_exec": "0.005",
+        "quote_amount": "320", "quote_amount_exec": "320", "price": "64000", "created_at": "2026-09-01 11:00:01" }));
+    let pending = rebalance::Pending { phase: rebalance::PHASE_SELLING.into(), sell_transaction_id: Some(sell), buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
+    exec(&u.o, &format!("UPDATE transactions SET transaction_type = 'REBALANCE' WHERE id = {sell};
+        UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01),
+        transient_data = json_set(transient_data, '$.rebalance_pending', json('{}')) WHERE id = {id};", pending.to_json()));
+    let phase = || rebalance::pending(&model::load_bot(&u.o.primary, id).unwrap().transient).unwrap().unwrap();
+    let prices = PriceCache::default();
+    // nasdaq-100's newcomers all unpriced: its refresh refuses.
+    let t = script([0.0, 0.0, 0.0, 0.0, 0.0]);
+    t.reply("GET /v2/orders/OSWAP-1", 200, json!({ "id": "OSWAP-1", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "sell", "notional": null,
+        "qty": "0.005", "filled_qty": "0.005", "filled_avg_price": "64000", "limit_price": null }));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Skipped("buy_unavailable")), "{out:?}");
+    let p = phase();
+    assert_eq!((p.phase.as_str(), p.buy_attempted, p.remaining_quote_amount.map(|a| a.to_s_f())), (rebalance::PHASE_BUYING, false, Some("320.0".into())), "the sell settled");
+    assert!(t.posted_orders().is_empty());
+    // The refresh succeeds: nasdaq-100 is composed again beside the frozen tech, and the owed buy is placed once.
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Placed(_)), "{out:?}");
+    let buys: Vec<Value> = t.posted_orders().into_iter().filter(|b| b["side"] == "buy").collect();
+    assert_eq!(buys.len(), 1, "{buys:?}");
+    assert!(phase().buy_attempted);
+    close(&members(&u.o, id), &[("BTC", 0.5), ("AAA", 0.125), ("BBB", 0.125), ("DDD", 0.125), ("EEE", 0.125)]);
+}
+
+/// PLAN §3.4 + §5: BTC is named, AAA is held through the group. With BTC unpriced, the liquidation of both sells AAA (the
+/// lone-named-holding staleness rule is a one-asset basket's, not a grouped one's) and skips BTC, which has no value to sell.
+#[tokio::test(flavor = "current_thread")]
+async fn liquidation_sells_a_priced_group_holding_while_the_named_holding_is_unpriced() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    hold(&u, id, u.s.btc, "0.01", "640", "64000", 1);
+    hold(&u, id, u.m[0].0, "2", "200", "100", 2);
+    listed(&u);
+    exec(&u.o, &format!("UPDATE bots SET status = 2 WHERE id = {id}"));
+    let t = script_with([100.0, 200.0, 300.0, 400.0, 500.0], json!({
+        "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": {} })),
+        "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": {} })),
+        "GET /v2/positions": ok(json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.01", "qty_available": "0.01", "side": "long" },
+                                       { "symbol": "AAA", "asset_class": "us_equity", "qty": "2", "qty_available": "2", "side": "long" }])) }));
+    let prices = PriceCache::default();
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    deltabadger::engine::liquidation::run(&u.o.primary, &venue(t.clone()), id, &json!([["BTC", u.s.btc], ["AAA", u.m[0].0]]), &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    let logs: Vec<(String, String)> = u.o.primary.prepare("SELECT event, coalesce(details, '') FROM bot_activity_logs WHERE bot_id = ?1 ORDER BY id").unwrap()
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    let sells: Vec<Value> = t.posted_orders().into_iter().filter(|b| b["side"] == "sell").collect();
+    assert_eq!(sells.len(), 1, "{:?} {logs:?}", t.posted_orders());
+    assert_eq!((sells[0]["symbol"].as_str(), sells[0]["qty"].as_str()), (Some("AAA"), Some("2.000000000")), "{sells:?}");
+    let rows: Vec<(String, i64, String)> = u.o.primary.prepare("SELECT base, side, transaction_type FROM transactions WHERE bot_id = ?1 AND external_id NOT LIKE 'OHELD-%' ORDER BY id").unwrap()
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(rows, vec![("AAA".to_string(), 1, "LIQUIDATION".to_string())]);
+    assert!(logs.iter().any(|(e, d)| e == "liquidation_skipped" && d.contains("\"BTC\"")), "BTC (no value) skipped: {logs:?}");
+    assert!(!logs.iter().any(|(e, _)| e == "liquidation_not_started"), "{logs:?}");
+}
+
+/// PLAN §4: under top-level market cap, a fresh ranking with a stale crypto asset catalogue places nothing and writes no
+/// composition: the tick-start check holds it, and the closing write refuses on its own.
+#[tokio::test(flavor = "current_thread")]
+async fn fresh_ranking_stale_asset_caps_place_no_order() {
+    let u = universe();
+    exec(&u.o, &format!("UPDATE assets SET market_cap = 10000000000000 WHERE id = {}", u.s.btc));
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = {id}"));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    assert!(staleness::ranking_stale(&u.o.primary, &bot, at(T0)).unwrap().is_none(), "the ranking is fresh");
+    deltabadger::jobs::state::record_success(&u.o.primary, deltabadger::jobs::reference::ASSETS, None, at("2026-08-01T00:00:00Z")).unwrap();
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let out = tick_at(&u, t.clone(), id).await;
+    assert!(matches!(&out, TickOutcome::Stale { message, .. } if message.contains("Crypto assets")), "{out:?}");
+    assert!(t.posted_orders().is_empty(), "{:?}", t.posted_orders());
+    assert_eq!(tx_count(&u.o, id), 0);
+    // The closing write refuses on its own too (a background resync, no tick-start check).
+    let refused = refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await;
+    assert!(matches!(&refused, Err(index::Refusal::Failure(m)) if m.contains("Crypto assets")), "{refused:?}");
+    assert!(members(&u.o, id).is_empty() && group_rows(&u.o, id).is_empty() && composed_of(&u.o, id).is_null(), "no composition from stale caps");
+}
+
+/// PLAN §6.2: a grouped bot is never one asset. Reversed (selling for 900 USD), it sells across its current members (BTC,
+/// then the group's AAA), not only its one named asset.
+#[tokio::test(flavor = "current_thread")]
+async fn a_grouped_bot_reversed_sells_its_current_members() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    hold(&u, id, u.s.btc, "0.01", "640", "64000", 1);
+    hold(&u, id, u.m[0].0, "2", "200", "100", 2);
+    hold(&u, id, u.m[1].0, "1", "200", "200", 3);
+    listed(&u);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 900) WHERE id = {id}"));
+    let t = script_with([100.0, 200.0, 300.0, 400.0, 500.0], json!({
+        "GET /v2/positions": ok(json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.01", "qty_available": "0.01", "side": "long" },
+                                       { "symbol": "AAA", "asset_class": "us_equity", "qty": "2", "qty_available": "2", "side": "long" },
+                                       { "symbol": "BBB", "asset_class": "us_equity", "qty": "1", "qty_available": "1", "side": "long" }])) }));
+    let out = tick_at(&u, t.clone(), id).await;
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    let sells: Vec<(String, String)> = t.posted_orders().into_iter().map(|b| { assert_eq!(b["side"], "sell", "{b}"); (b["symbol"].as_str().unwrap().to_string(), b["qty"].as_str().unwrap_or("").to_string()) }).collect();
+    // BTC furthest over its share goes first, whole; then AAA whole (2 x 100), then BBB for the last 60 (0.3 x 200).
+    assert_eq!(sells, [("BTC/USD", "0.010000000"), ("AAA", "2.000000000"), ("BBB", "0.300000000")].map(|(s, q)| (s.to_string(), q.to_string())));
+    let sold: Vec<i64> = u.o.primary.prepare("SELECT side FROM transactions WHERE bot_id = ?1 AND external_id NOT LIKE 'OHELD-%'").unwrap()
+        .query_map([id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(sold.len(), sells.len());
+    assert!(sold.iter().all(|s| *s == 1), "every row a sell");
+}
+
+/// PLAN §6.2 on the web reverse path (write::reverse): a grouped bot naming one asset toggles as a wider basket does,
+/// buying → selling → buying, never "selling N base".
+#[test]
+fn two_reversals_of_a_grouped_bot_return_it_to_buying() {
+    use deltabadger::web::bot::write::{self, Reversal};
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    let reverse = |now: &str| assert!(matches!(write::reverse(&u.o.primary, &seed::cipher(), u.s.user_id, id, at(now)).unwrap(), Reversal::Reversed));
+    let side = || { let b = model::load_bot(&u.o.primary, id).unwrap(); (b.settings["direction"].as_str().map(str::to_string), b.settings["sell_denomination"].as_str().map(str::to_string)) };
+    reverse("2026-09-01T14:00:01Z");
+    let first = side();
+    assert_eq!(first.0.as_deref(), Some("selling"));
+    assert_ne!(first.1.as_deref(), Some("base"), "never sells N base");
+    reverse("2026-09-01T14:00:02Z");
+    assert_eq!(side().0.as_deref(), Some("buying"), "two reversals: buying again");
+    assert_eq!(model::load_bot(&u.o.primary, id).unwrap().settings["index_groups"], json!([group("nasdaq-100", 2, 0.5)]), "the groups stand");
+}
+
+/// PLAN §5 Smart Interval flip clamp: a start-selling trigger flips a grouped bot, and its split is clamped to the largest
+/// minimum of the grouped universe (every tradable pair at the quote): EEE's 50 USD, a pair no member trades.
+#[tokio::test(flavor = "current_thread")]
+async fn a_start_selling_trigger_flips_a_grouped_bot_with_the_universe_quote_minimum() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    exec(&u.o, &format!("UPDATE tickers SET minimum_quote_size = '50' WHERE id = {}", u.m[4].1));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.smart_intervaled', json('true'), '$.smart_interval_quote_amount', 2.0,
+        '$.sell_denomination', 'quote', '$.sell_quote_amount', 60, '$.price_limited', json('true'), '$.price_limit', 70000, '$.price_limit_value_condition', 'below',
+        '$.price_limit_action', 'start_selling', '$.price_limit_in_ticker_id', {}) WHERE id = {id}", u.s.ticker_id));
+    assert!(reasons(&u, id).is_empty(), "{:?}", reasons(&u, id));
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let out = tick_at(&u, t.clone(), id).await;
+    let b = model::load_bot(&u.o.primary, id).unwrap();
+    assert!(b.selling(), "flipped: {out:?} {}", b.transient);
+    assert_eq!(b.settings["smart_interval_quote_amount"].as_f64(), Some(50.0), "the universe's largest minimum");
+    assert!(t.posted_orders().iter().all(|o| o["side"] != "buy"), "no buy after the flip: {:?}", t.posted_orders());
+}
