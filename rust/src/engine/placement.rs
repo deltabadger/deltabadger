@@ -1103,9 +1103,11 @@ pub fn composition_snapshot(c: &Connection, bot: &Bot) -> Result<Value, EngineEr
     let mut snapshot = json!({"type":bot.bot_type,"exchange":bot.exchange_id,"settings":bot.settings,"members":members});
     // PLAN index-as-ingredient §3.3: a bot stored with `index_groups` also fences its group rows; no other bot's changes.
     if bot.stored_groups() {
-        let groups: String = c.query_row("SELECT json_group_array(json_array(index_external_id,asset_id,ticker_id,composed,weight)) FROM \
-            (SELECT index_external_id,asset_id,ticker_id,composed,weight FROM rust_bot_group_members WHERE bot_id=?1 ORDER BY index_external_id,asset_id)", [bot.id], |r| r.get(0))?;
-        snapshot["groups"] = serde_json::from_str(&groups).map_err(|_| EngineError::Data("unreadable group members".into()))?;
+        // Read as f64 and written by serde_json: SQLite's json_array would round 0.5000000000000001 to 0.5.
+        let mut s = c.prepare("SELECT index_external_id,asset_id,ticker_id,composed,weight FROM rust_bot_group_members WHERE bot_id=?1 ORDER BY index_external_id,asset_id")?;
+        let rows = s.query_map([bot.id], |r| Ok(json!([r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, f64>(4)?])))?
+            .collect::<Result<Vec<Value>, _>>()?;
+        snapshot["groups"] = Value::Array(rows);
     }
     Ok(snapshot)
 }

@@ -1189,6 +1189,14 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF and Unified account history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;
     if !hf.is_empty() { return Err(EngineError::Ineligible(hf)); }
+    // PLAN index-as-ingredient §3.2 (Q7): a basket stored with index groups is Rust-only; 2.x would trade its plain
+    // allocations alone. Any status but deleted, as the rules below.
+    let mut s = c.prepare("SELECT id FROM bots WHERE type = 'Bots::DcaMultiAsset' AND status <> ?1 AND json_valid(settings) \
+                           AND json_type(settings, '$.index_groups') IS NOT NULL ORDER BY id")?;
+    let grouped: Vec<i64> = s.query_map([BotStatus::Deleted as i64], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    if !grouped.is_empty() {
+        return Err(EngineError::Ineligible(grouped.into_iter().map(|id| format!("bot {id}: its indexes run only on this engine; 2.x cannot run this bot")).collect()));
+    }
     let found = rust_only_conditions(c)?;
     if found.is_empty() { return Ok(()); }
     Err(EngineError::Ineligible(found.into_iter().map(|(id, key)| format!("bot {id}: {key} is on, and only this engine runs it on that kind of bot; switch it off before handing back")).collect()))
