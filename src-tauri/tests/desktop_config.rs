@@ -41,18 +41,23 @@ fn the_bundle_carries_the_engine_and_the_catalogue_and_nothing_of_v2() {
     assert!(read("script/rust/desktop_engine.sh").contains("MACOSX_DEPLOYMENT_TARGET=11.3"));
 }
 
-// PLAN-B8 r1.10: an updater signature only from the real key (never the placeholder), Apple signing only with its
-// secrets, and a release carries desktop assets only when both are configured. Otherwise the apps build unsigned, as
+// PLAN-B8 r1.10 + B13: an updater signature only from the real key (never the placeholder), Apple and Windows signing
+// only with their secrets, and a release carries desktop assets only when all three are configured. Otherwise the apps build unsigned, as
 // workflow artifacts, and script/release/validate.sh refuses a stable tag (validate_test.sh proves that).
 #[test]
 fn releases_attach_desktop_apps_only_when_updater_and_apple_signing_are_configured() {
     let workflow = read(".github/workflows/release.yml");
     assert!(workflow.contains("[ \"$pubkey\" != REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY ] && updater_ready=true"));
-    for secret in ["TAURI_SIGNING_PRIVATE_KEY", "APPLE_CERTIFICATE", "APPLE_ID", "APPLE_TEAM_ID"] {
+    for secret in [
+        "TAURI_SIGNING_PRIVATE_KEY", "APPLE_CERTIFICATE", "APPLE_ID", "APPLE_TEAM_ID",
+        "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID",
+    ] {
         assert!(workflow.contains(&format!("${secret}\" ]")), "readiness does not require {secret}");
     }
     assert!(workflow.contains("echo '{\"bundle\":{\"createUpdaterArtifacts\":false}}' > \"$conf\""));
-    assert!(workflow.contains("SIGNED: ${{ needs.meta.outputs.dry == 'true' || (needs.meta.outputs.updater_ready == 'true' && needs.meta.outputs.apple_ready == 'true') }}"));
+    assert!(workflow.contains("SIGNED: ${{ needs.meta.outputs.dry == 'true' || (needs.meta.outputs.updater_ready == 'true' && needs.meta.outputs.apple_ready == 'true' && needs.meta.outputs.windows_ready == 'true') }}"));
+    // Windows signing is a build-time override only: local and unsigned builds never call the signer.
+    assert!(!read("src-tauri/tauri.conf.json").contains("signCommand"));
     assert!(workflow.contains("if: env.DRY != 'true' && env.SIGNED == 'true'\n        run: gh release upload"));
     assert!(read("script/release/validate.sh").contains("a stable release needs B13"));
 }

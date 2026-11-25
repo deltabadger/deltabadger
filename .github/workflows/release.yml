@@ -447,6 +447,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Every file Tauri handed the signer, the uninstaller included (NSIS does not stop when that one fails).
+          $ledger = Get-Content (Join-Path $env:RUNNER_TEMP signed.txt)
+          $ledger
+          # At least the app, the uninstaller (NSIS's temp file) and the installer.
+          if ($ledger -match '^FAIL ') { throw 'a signing call failed' }
+          if (@($ledger -match '^ok ').Count -lt 3) { throw 'fewer than three files signed' }
           $f = Get-Item src-tauri/target/release/bundle/nsis/*-setup.exe
           $s = Get-AuthenticodeSignature $f
           $s | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
