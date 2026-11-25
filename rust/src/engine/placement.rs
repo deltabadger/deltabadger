@@ -362,7 +362,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
             else if super::staleness::ranking_stale(&tx, &current, clock.now())?.is_some() { Some("its index ranking is no longer usable") }
             // D-INDEX-RETIRED-KEPT: a retired index trades only a membership this engine composed from it.
-            else if current.has_groups() && super::index::retired(&tx, current.index_external_id())? && !super::index::composed_here(&current) {
+            else if current.has_groups() && super::index::retired(&tx, current.index_external_id())? && !super::index::composed_here(&tx, &current, current.index_external_id())? {
                 Some("its index was retired and its members are not this engine's composition of it")
             }
             else { None };
@@ -1100,7 +1100,14 @@ pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorReso
 pub fn composition_snapshot(c: &Connection, bot: &Bot) -> Result<Value, EngineError> {
     let members: String = c.query_row("SELECT json_group_array(json_array(asset_id,ticker_id,target_allocation,in_index)) FROM (SELECT asset_id,ticker_id,target_allocation,in_index FROM bot_index_assets WHERE bot_id=?1 ORDER BY id)", [bot.id], |r| r.get(0))?;
     let members: Value = serde_json::from_str(&members).map_err(|_| EngineError::Data("unreadable composition".into()))?;
-    Ok(json!({"type":bot.bot_type,"exchange":bot.exchange_id,"settings":bot.settings,"members":members}))
+    let mut snapshot = json!({"type":bot.bot_type,"exchange":bot.exchange_id,"settings":bot.settings,"members":members});
+    // PLAN index-as-ingredient §3.3: a bot stored with `index_groups` also fences its group rows; no other bot's changes.
+    if bot.stored_groups() {
+        let groups: String = c.query_row("SELECT json_group_array(json_array(index_external_id,asset_id,ticker_id,composed,weight)) FROM \
+            (SELECT index_external_id,asset_id,ticker_id,composed,weight FROM rust_bot_group_members WHERE bot_id=?1 ORDER BY index_external_id,asset_id)", [bot.id], |r| r.get(0))?;
+        snapshot["groups"] = serde_json::from_str(&groups).map_err(|_| EngineError::Data("unreadable group members".into()))?;
+    }
+    Ok(snapshot)
 }
 
 fn defer_recovered(c: &model::FencedTransaction<'_>, intent: &Intent, now: DateTime<Utc>) -> Result<(), EngineError> {

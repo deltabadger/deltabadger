@@ -221,6 +221,7 @@ pub fn sentence(c: &Connection, bot_id: i64, reason: &Reason) -> Result<String, 
         Kind::Feature(Feature::IbkrLimit) => format!("Limit orders on Interactive Brokers aren't supported yet. Switch the bot to market orders, {again}"),
         Kind::Feature(Feature::IndexSelling) => format!("An index bot can't sell. Switch it back to buying, {again}"),
         Kind::Feature(Feature::BotType(_)) => "This kind of bot isn't supported yet. Keep it stopped.".into(),
+        Kind::Feature(Feature::IndexGroups) => "This bot's indexes need a newer Deltabadger. Keep it stopped until you update.".into(),
         Kind::Legacy(skip) => legacy_sentence(c, bot_id, skip)?,
         Kind::Flip { condition, to_selling, .. } => {
             let way = if *to_selling { "selling" } else { "buying" };

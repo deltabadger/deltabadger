@@ -191,6 +191,10 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
         // The table exists wherever Rust's migrations ran; a claim on an unmigrated copy (a parity scratch) has none.
         let ranked: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
         if ranked { primary.execute("DELETE FROM rust_index_rankings", [])?; }
+        // Index groups (rust_bot_group_members): which member came from which group is this engine's composition, as
+        // the marker below is, so a new ownership starts without it.
+        let grouped: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_bot_group_members')", [], |r| r.get(0))?;
+        if grouped { primary.execute("DELETE FROM rust_bot_group_members", [])?; }
         // A17-4 r18: 2.x may have changed any bot's membership while it owned the install, so no composition marker
         // (engine::index::COMPOSED_KEY) survives either. Retirements (rust_index_retired) do.
         primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index') \

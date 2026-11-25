@@ -65,6 +65,8 @@ pub enum Feature {
     IndexSelling,
     /// A bot class this build does not run.
     BotType(String),
+    /// A basket stored with `index_groups` (PLAN index-as-ingredient §3.2), which only a later build runs: a downgrade.
+    IndexGroups,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -225,6 +227,8 @@ fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErro
     }
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(why(Kind::Feature(Feature::BotType(bot.bot_type.clone())), format!("type {} (only DCA baskets and index bots)", bot.bot_type))); }
+    // slice 2 runs these; until then such a row (a later build's) is never traded as a plain basket.
+    if bot.stored_groups() { r.push(why(Kind::Feature(Feature::IndexGroups), "index groups (a composition of a later build)")); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
     let members = if bot.has_groups() { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };

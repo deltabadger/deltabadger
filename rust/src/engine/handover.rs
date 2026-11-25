@@ -747,6 +747,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Table, "rust_index_rankings", Ignored),
         // A17-4 r18: index ids the provider retired; 2.x never reads it, and it outlives a takeover.
         (Table, "rust_index_retired", Ignored),
+        // Index groups: which member came from which group; 2.x never reads it, and the next claim clears it.
+        (Table, "rust_bot_group_members", Ignored),
         // #878: the bot alert emails a user switched off; 2.x sends them all, and the switches hold again after a reclaim.
         (Table, "rust_email_alert_opt_outs", Ignored),
         // Delisted coins PR0: coin prices by identity; 2.x never reads them, and they are refetched on demand.

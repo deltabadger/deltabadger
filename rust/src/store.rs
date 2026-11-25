@@ -276,6 +276,9 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
     // Delisted coins PR0: coin prices by identity.
     ("20261123000002", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),
+    ("20261127000001", TableContract { name: "rust_bot_group_members", columns: &[("bot_id", "INTEGER", true), ("index_external_id", "TEXT", true),
+        ("asset_id", "INTEGER", true), ("ticker_id", "INTEGER", true), ("composed", "INTEGER", true), ("weight", "REAL", true)],
+        unique_indexes: &[&["bot_id", "index_external_id", "asset_id"]] }),
 ];
 
 /// What this build migrates.

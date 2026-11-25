@@ -157,8 +157,28 @@ pub fn retired(c: &Connection, external_id: &str) -> Result<bool, EngineError> {
     Ok(c.prepare_cached("SELECT EXISTS (SELECT 1 FROM rust_index_retired WHERE external_id = ?1 AND provider = ?2)")?.query_row(params![external_id, provider], |r| r.get(0))?)
 }
 
-/// Whether the bot's current membership is this engine's composition of the index it follows (COMPOSED_KEY).
-pub fn composed_here(bot: &Bot) -> bool { bot.transient.get(COMPOSED_KEY).and_then(Value::as_str) == Some(bot.index_external_id()) }
+/// Whether the bot's current membership of the index `external_id` is this engine's composition of it. One reader for
+/// both spellings (PLAN index-as-ingredient §3.3): a `Bots::DcaIndex` row by COMPOSED_KEY, a bot stored with
+/// `index_groups` by its `rust_bot_group_members` rows written by a composition here.
+pub fn composed_here(c: &Connection, bot: &Bot, external_id: &str) -> Result<bool, EngineError> {
+    if !bot.stored_groups() { return Ok(bot.transient.get(COMPOSED_KEY).and_then(Value::as_str) == Some(external_id)); }
+    Ok(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1)",
+                   params![bot.id, external_id], |r| r.get(0))?)
+}
+
+/// The tickers that keep their seat in the index `external_id` without a probe: a `Bots::DcaIndex` row's `in_index`
+/// members; for a bot stored with `index_groups`, that group's rows whose ticker is still the asset's `in_index` one.
+pub fn incumbents(c: &Connection, bot: &Bot, external_id: &str) -> Result<HashSet<i64>, EngineError> {
+    if !bot.stored_groups() {
+        let mut s = c.prepare("SELECT ticker_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
+        let rows = s.query_map([bot.id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        return Ok(rows);
+    }
+    let mut s = c.prepare("SELECT g.ticker_id FROM rust_bot_group_members g JOIN bot_index_assets m ON m.bot_id = g.bot_id AND m.asset_id = g.asset_id \
+                           AND m.ticker_id = g.ticker_id AND m.in_index = 1 WHERE g.bot_id = ?1 AND g.index_external_id = ?2")?;
+    let rows = s.query_map(params![bot.id, external_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    Ok(rows)
+}
 
 /// A validated catalogue of `provider` no longer lists `external_id`, in the caller's write unit: the retirement, every
 /// ranking of the id dropped (the old ranking never composes after a re-listing), and one `index_retired` line per bot
@@ -296,7 +316,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     // D-INDEX-RETIRED-KEPT: a retired index keeps the membership this engine composed from it, unread and unwritten (a
     // resync's job completes); without that provenance nothing is composed or traded.
     if retired(c, category)? {
-        if !composed_here(bot) { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+        if !composed_here(c, bot, category)? { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
         if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
         return Ok(Ok(before));
     }
@@ -324,8 +344,7 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     }
     // Incumbents keep their seat without a probe (keyed on ticker_id); everyone else must show a live price on the side the
     // order would use (#probe_side, per ticker).
-    let mut s = c.prepare("SELECT ticker_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
-    let incumbents: HashSet<i64> = s.query_map([bot.id], |r| r.get(0))?.collect::<Result<_, _>>()?;
+    let incumbents = incumbents(c, bot, category)?;
     let mut chosen: Vec<(i64, i64, f64)> = vec![];
     let mut priced_tickers = vec![];
     for (coin, cap) in ranked {
