@@ -417,7 +417,9 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         let value = match &price { Some(p) => (&held * p)?, None => cost.clone() };
         // A coin arrived since the sync is held at cost under its own note until the venue reports it (2.x's reading,
         // kept: a bot's buy between two syncs is not a missing price).
-        let priced = (price.is_some() || since_sync) && every_row_valued;
+        // Plan r10 L12: an arrival no evidence identifies has no price, not its cost (the figures say so, the day is partial).
+        let unidentified = ledger.labels.unknown.contains(&symbol);
+        let priced = (price.is_some() || (since_sync && !unidentified)) && every_row_valued;
         holdings.push(Holding { asset, symbol, quantity: held, unrealised: Some((&value - &cost)?), value, cost: Some(cost), cash: false, note, priced });
     }
     // `sort_by { -value }`.
@@ -492,14 +494,15 @@ mod tests {
                   usd_price: value.map(|v| Dec::strict(v).unwrap()), usd_value: value.map(|v| Dec::strict(v).unwrap()), priced_at: None, synced_at: None }
     }
 
-    fn priced(balances: &[Balance], pending: &[(String, Dec)]) -> Vec<(String, bool)> {
+    fn priced(balances: &[Balance], pending: &[(String, Dec)]) -> Vec<(String, bool)> { priced_with(balances, pending, &Summary::empty()) }
+    fn priced_with(balances: &[Balance], pending: &[(String, Dec)], ledger: &Summary) -> Vec<(String, bool)> {
         let c = Connection::open_in_memory().unwrap();
         c.execute_batch("CREATE TABLE assets (id INTEGER PRIMARY KEY, symbol TEXT, category TEXT);
                          CREATE TABLE account_transactions (user_id INTEGER, base_currency TEXT, base_asset_id INTEGER, exchange_id INTEGER);
                          CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, asset_id INTEGER);
                          CREATE TABLE exchanges (id INTEGER PRIMARY KEY, name TEXT);
-                         INSERT INTO assets VALUES (1, 'BTC', 'Cryptocurrency'), (2, 'SOL', 'Cryptocurrency'), (3, 'EUR', 'Fiat');").unwrap();
-        let f = crate::figures::budget::within(|| compute_on(&c, 1, &crate::tracker::Scope::All, &Summary::empty(), balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();
+                         INSERT INTO assets VALUES (1, 'BTC', 'Cryptocurrency'), (2, 'SOL', 'Cryptocurrency'), (3, 'EUR', 'Fiat'), (4, 'ZZZ', 'Cryptocurrency');").unwrap();
+        let f = crate::figures::budget::within(|| compute_on(&c, 1, &crate::tracker::Scope::All, ledger, balances, pending, &FxTable::default(), NaiveDate::from_ymd_opt(2026, 11, 16).unwrap())).unwrap();
         let mut out: Vec<(String, bool)> = f.holdings.iter().map(|h| (h.symbol.clone(), h.priced)).collect();
         out.sort();
         out
@@ -515,6 +518,11 @@ mod tests {
         assert_eq!(priced(&[balance("BTC", "Cryptocurrency", "Kraken", Some("60000")), balance("BTC", "Cryptocurrency", "Alpaca", None)], &[]),
                    [("BTC".to_string(), false)], "one venue's row with no value");
         assert_eq!(priced(&[], &[("SOL".to_string(), Dec::one())]), [("SOL".to_string(), true)], "arrived since the sync: at cost under its own note");
+        // Plan r10 L12: an arrival no evidence identifies has no price, not its cost.
+        let mut ledger = Summary::empty();
+        ledger.labels.unknown = vec!["ZZZ".into()];
+        assert_eq!(priced_with(&[], &[("SOL".to_string(), Dec::one()), ("ZZZ".to_string(), Dec::one())], &ledger),
+                   [("SOL".to_string(), true), ("ZZZ".to_string(), false)], "an unidentified arrival");
         assert_eq!(priced(&[balance("EUR", "Fiat", "Kraken", None)], &[]), [("EUR".to_string(), false)], "no ECB rate: at par");
         assert_eq!(priced(&[balance("EUR", "Fiat", "Kraken", Some("110")), balance("EUR", "Fiat", "Bitvavo", None)], &[]), [("EUR".to_string(), false)],
                    "the balances' price leaves one row out");

@@ -131,14 +131,15 @@ pub fn tables(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Value, St
 }
 
 /// The prices stored, as 2.x stores them (delisted coins, plan r10 §1.5): `historical_prices`, and each `asset_prices`
-/// row no `historical_prices` row of the coin's symbol already holds, under its catalogue Cryptocurrency's symbol, with
+/// row no `historical_prices` row of the coin's symbol already holds at the same value (Codex r2: a coin price the tracker
+/// reads that disagrees with the legacy row is a row of its own, so the grid sees it), under its catalogue Cryptocurrency's symbol, with
 /// the column's numeric affinity. By (asset, currency, date), without ids: one table's ids no longer follow the other's.
 fn prices_as_stored(c: &Connection) -> rusqlite::Result<Vec<Value>> {
     let coins: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'asset_prices')", [], |r| r.get(0))?;
     let fetched = if coins {
         " UNION ALL SELECT (SELECT a.symbol FROM assets a WHERE a.external_id = p.external_id AND a.category = 'Cryptocurrency' ORDER BY a.id LIMIT 1), p.currency, p.date, CAST(p.price AS NUMERIC) \
           FROM asset_prices p WHERE NOT EXISTS (SELECT 1 FROM historical_prices h JOIN assets a ON a.symbol = h.asset AND a.category = 'Cryptocurrency' \
-          WHERE a.external_id = p.external_id AND h.currency = p.currency AND h.date = p.date)"
+          WHERE a.external_id = p.external_id AND h.currency = p.currency AND h.date = p.date AND CAST(h.price AS NUMERIC) = CAST(p.price AS NUMERIC))"
     } else { "" };
     let mut s = c.prepare(&format!("SELECT asset, currency, date, price FROM (SELECT asset, currency, date, price FROM historical_prices{fetched}) ORDER BY asset, currency, date"))?;
     let mut q = s.query([])?;

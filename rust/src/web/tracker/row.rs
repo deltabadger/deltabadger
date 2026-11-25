@@ -102,9 +102,11 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crat
 }
 
 
-fn amount(value:&Dec,currency:&str)->Result<String,WebError> {
+fn amount(value:&Dec,currency:&str)->Result<String,WebError> { amount_as(value,crate::tracker::cash(currency)) }
+/// `amount` with the cash decision made (plan r10 L13: a leg by its label, so PLEARN's 0.001 is no złoty's 0.00).
+fn amount_as(value:&Dec,cash:bool)->Result<String,WebError> {
     let absolute=if value.is_negative(){value.neg()}else{value.clone()};
-    let cents=absolute>=Dec::one() || crate::tracker::cash(currency);
+    let cents=absolute>=Dec::one() || cash;
     let precision=if cents{2}else{8};
     let plain=number(value.round(precision))?.to_s_f();
     let (whole,fraction)=plain.split_once('.').unwrap_or((&plain,""));
@@ -199,7 +201,7 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&cra
         let info=if matches!(source,"none"|"waiting"){format!("          <span class=\"tracker-row__info\" role=\"button\" tabindex=\"0\" aria-label=\"{title}\"\n                data-controller=\"tooltip\" data-tooltip-fixed-value=\"true\"\n                data-action=\"click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip\">\n            {}\n            <div class=\"tooltip tooltip--hint\">{title}</div>\n          </span>\n",include_str!("../../../templates/svg/_24x24_info.html"))}else{String::new()};
         format!("      <form data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />\n        {}\n        <input type=\"number\" name=\"price\" id=\"price\"{value} step=\"any\" min=\"0\"{disabled} placeholder=\"{placeholder}\" title=\"{title}\" class=\"tracker-row__price__input\" data-action=\"change-&gt;form--submit#submit\" />\n        {}\n{info}</form>",path("/price"),escape(&ctx.csrf_token()),if suffix{""}else{&unit},if suffix{&unit}else{""})
     };
-    let amount_cell=if user.hide_balances{String::new()}else{format!("<td>{}</td>",amount(&row.amount,&row.base)?)};
+    let amount_cell=if user.hide_balances{String::new()}else{format!("<td>{}</td>",amount_as(&row.amount,labels.map_or(crate::tracker::cash(&row.base),|l|l.leg(row.id,crate::tracker::resolver::Side::Base,&row.base)==crate::tracker::labels::Leg::Cash))?)};
     let money=if user.hide_balances{String::new()}else{format!("    <td class=\"tracker-row__value\">{}</td>\n    <td class=\"tracker-row__fee\">{}</td>\n",value.as_ref().map(|v|amount(v,&d.currency)).transpose()?.unwrap_or(NO_VALUE.into()),row.fee.as_ref().map(|f|figure(f,row.fee_currency.as_deref().unwrap_or(""))).transpose()?.unwrap_or(NO_VALUE.into()))};
     let bot=row.bot.map(|id|format!("<a href=\"{}\">#{id}</a>",escape(&ctx.path(&format!("/bots/{id}"))))).unwrap_or(NO_VALUE.into());
     let venue=venue(&row.venue);
