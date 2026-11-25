@@ -209,7 +209,7 @@ pub fn rule_ticker(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<Option
 /// switched on), if it is one of the venue's available, trading-enabled pairs at the bot's quote: a member, a former member
 /// or none. No stored id, or one that is not such a pair, is no ticker (the gate pauses).
 fn rule_ticker_quoted(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<(Option<Ticker>, Option<i64>), EngineError> {
-    if bot.bot_type == "Bots::DcaIndex" {
+    if bot.has_groups() {
         let Some(id) = rule.ticker_id else { return Ok((None, None)) };
         let ticker = model::ticker_by_id(c, bot.exchange_id, id)?
             .filter(|t| t.available && t.trading_enabled && Some(t.quote_asset_id) == bot.quote_asset_id());

@@ -299,7 +299,7 @@ pub const RANKING_SOURCE: &str = "Index ranking";
 /// selects (unattested, another provider's or configuration's, or old) is Stale; no row with the id at all is the
 /// composition's own "Index not found" (None here).
 pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
-    if bot.bot_type != "Bots::DcaIndex" { return Ok(None); }
+    if !bot.has_groups() { return Ok(None); }
     let id = bot.index_external_id();
     // D-INDEX-RETIRED-KEPT: a retired index is never refreshed; the composition keeps or refuses (index::RETIRED).
     if super::index::retired(c, id)? { return Ok(None); }
@@ -317,7 +317,7 @@ pub fn ranking_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Op
 /// sizes from its ranking (`ranking_stale`, never a source here) and, on data-api, the crypto market caps; a CoinGecko
 /// ranking carries its own caps. Its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
-    let index = bot.bot_type == "Bots::DcaIndex";
+    let index = bot.has_groups();
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
     // A retired index's bot keeps its stored weights (D-INDEX-RETIRED-KEPT) and reads no market cap either.
     let own_caps = index && (super::provider::coingecko_key(c)?.is_some() || super::index::retired(c, bot.index_external_id())?);

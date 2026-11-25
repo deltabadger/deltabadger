@@ -82,7 +82,7 @@ pub fn record(c:&Connection, fingerprint:&str, now:DateTime<Utc>)->Result<(),Eng
     app_config::set_plain(c,KEY,fingerprint,now).map_err(EngineError::Data)
 }
 pub fn stale(c:&Connection,bot:&Bot)->Result<Option<Stale>,EngineError> {
-    if bot.bot_type!="Bots::DcaIndex" {return Ok(None);}
+    if !bot.has_groups() {return Ok(None);}
     let current=fingerprint(c)?;
     let recorded=app_config::get_plain(c,KEY).map_err(EngineError::Data)?;
     Ok((current.is_none() || current!=recorded).then(||Stale{source:"Index provider",message:MESSAGE.into()}))

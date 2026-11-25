@@ -1,8 +1,119 @@
-//! Shared composition-operation state and periodic settlement of liquidation and redeploy rows.
+//! What a composition bot holds (PLAN index-as-ingredient §3.1: one `Composition` model and its one codec), shared
+//! composition-operation state, and periodic settlement of liquidation and redeploy rows.
 use super::{model::{self, Bot, Level}, amount::TxKind, EngineError};
 use chrono::{DateTime, Utc};
 use rusqlite::Connection;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
+
+type Settings<'a> = Option<&'a Map<String, Value>>;
+
+/// A composition bot's content: single assets at their weights and index groups (assets grouped by a rule).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Composition { pub assets: Vec<(i64, f64)>, pub groups: Vec<Group>, pub weighting: String }
+
+/// One index ingredient. `external_id` ("top-coins" or the category id) is its key within the bot.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Group {
+    pub external_id: String,
+    /// The ingredient's allocation; 1.0 for a lone `Bots::DcaIndex`.
+    pub weight: f64,
+    pub index_type: Option<String>, pub index_category_id: Option<String>, pub index_name: Option<String>, pub index_name_prefix: Option<String>,
+    pub num_coins: Option<i64>, pub hold_all: bool, pub flattening: Option<f64>,
+}
+
+impl Group {
+    /// The index keys of one settings object: a `Bots::DcaIndex` row's top level or one `index_groups` element. `weight`:
+    /// a JSON number or a numeric string, else 0.0.
+    pub fn from_settings(s: Settings) -> Group {
+        let text = |key: &str| s.and_then(|s| s.get(key)?.as_str()).map(str::to_string);
+        let weight = match s.and_then(|s| s.get("weight")) {
+            Some(Value::Number(n)) => n.as_f64(), Some(Value::String(w)) => w.trim().parse().ok(), _ => None,
+        };
+        Group { external_id: external_id(s).to_string(), weight: weight.unwrap_or(0.0), index_type: index_type(s).map(str::to_string),
+                index_category_id: index_category_id(s).map(str::to_string), index_name: text("index_name"), index_name_prefix: text("index_name_prefix"),
+                num_coins: num_coins(s), hold_all: hold_all(s), flattening: flattening(s) }
+    }
+}
+
+impl Composition {
+    /// Both stored spellings: a `Bots::DcaIndex` row is one group of weight 1.0 from its top-level keys and no assets; a
+    /// `Bots::DcaMultiAsset` row is its `allocations` (none when unreadable: eligibility refuses those) and its
+    /// `index_groups` array (an element that is not an object is skipped). Any other class has no composition.
+    pub fn of(class: &str, s: Settings) -> Option<Composition> {
+        match class {
+            "Bots::DcaIndex" => Some(Composition { assets: vec![], groups: vec![Group { weight: 1.0, ..Group::from_settings(s) }], weighting: weighting(s) }),
+            "Bots::DcaMultiAsset" => Some(Composition {
+                assets: allocations(s).unwrap_or_default(),
+                groups: s.and_then(|s| s.get("index_groups")?.as_array()).into_iter().flatten()
+                    .filter_map(|g| g.as_object().map(|g| Group::from_settings(Some(g)))).collect(),
+                weighting: weighting(s),
+            }),
+            _ => None,
+        }
+    }
+    /// The one group of a bot whose whole content is one index.
+    pub fn lone_group(&self) -> Option<&Group> { if self.assets.is_empty() && self.groups.len() == 1 { self.groups.first() } else { None } }
+}
+
+impl Bot {
+    /// The bot's content, decoded from either spelling.
+    pub fn composition(&self) -> Option<Composition> { Composition::of(&self.bot_type, self.settings.as_object()) }
+    /// The composition the engine runs as groups.
+    fn grouped(&self) -> Option<Composition> {
+        // slice 2: grouped MultiAsset activates here. Until then only a `Bots::DcaIndex` row runs as an index.
+        if self.bot_type == "Bots::DcaIndex" { self.composition() } else { None }
+    }
+    pub fn has_groups(&self) -> bool { self.grouped().is_some_and(|c| !c.groups.is_empty()) }
+    pub fn lone_group(&self) -> Option<Group> { self.grouped()?.lone_group().cloned() }
+    pub fn index_external_ids(&self) -> Vec<String> { self.grouped().map(|c| c.groups.into_iter().map(|g| g.external_id).collect()).unwrap_or_default() }
+}
+
+/// Bots::DcaIndex settings: 'top' or 'category'.
+pub fn index_type(s: Settings<'_>) -> Option<&str> { s?.get("index_type")?.as_str() }
+pub fn index_category_id(s: Settings<'_>) -> Option<&str> { s?.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }
+/// The `indices` row MarketData.get_top_coins reads: a category index with a present
+/// index_category_id reads that row, anything else the Top coins row.
+pub fn external_id(s: Settings<'_>) -> &str {
+    match index_category_id(s) { Some(id) if index_type(s) == Some("category") => id, _ => "top-coins" }
+}
+/// `num_coins.to_i`: a JSON integer or a string of digits (the slider posts strings). None for anything else: refused.
+pub fn num_coins(s: Settings) -> Option<i64> {
+    match s?.get("num_coins")? { Value::Number(n) => n.as_i64(), Value::String(s) => s.trim().parse().ok(), _ => None }
+}
+/// `ActiveModel::Type::Boolean.new.cast(hold_all)` read as `hold_all?`: nil and "" are nil (false); false, 0, "0", "f", "F",
+/// "false", "FALSE", "off", "OFF" are false; anything else is true.
+pub fn hold_all(s: Settings) -> bool {
+    match s.and_then(|s| s.get("hold_all")) {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(b)) => *b,
+        Some(Value::Number(n)) => n.as_f64() != Some(0.0),
+        Some(Value::String(s)) => !(s.is_empty() || ["0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&s.as_str())),
+        Some(_) => true,
+    }
+}
+/// `allocation_flattening.to_f` (after_initialize `||= 0.0`): a JSON number or a numeric string. None: refused.
+pub fn flattening(s: Settings) -> Option<f64> {
+    match s.and_then(|s| s.get("allocation_flattening")) {
+        None | Some(Value::Null) => Some(0.0),
+        Some(Value::Number(n)) => n.as_f64(),
+        Some(Value::String(s)) => s.trim().parse().ok(),
+        Some(_) => None,
+    }
+}
+/// settings.allocations as Bots::DcaMultiAsset#derive_composition reads it: (asset id, weight) in the stored order (the
+/// JSON column keeps it). None when a key is not an id or a weight is not a JSON number (2.x's sliders store Floats).
+pub fn allocations(s: Settings) -> Option<Vec<(i64, f64)>> {
+    s?.get("allocations")?.as_object()?.iter().map(|(k, v)| Some((k.parse().ok()?, v.as_f64()?))).collect()
+}
+/// Bots::DcaMultiAsset#weighting: `super.presence || 'manual'`. A non-string is returned as its JSON, never "manual".
+pub fn weighting(s: Settings) -> String {
+    match s.and_then(|s| s.get("weighting")) {
+        None | Some(Value::Null) => "manual".into(),
+        Some(Value::String(s)) if s.trim().is_empty() => "manual".into(),
+        Some(Value::String(s)) => s.clone(),
+        Some(other) => other.to_string(),
+    }
+}
 
 pub const SELLING_TTL_SECONDS: i64 = 15 * 60;
 
@@ -195,4 +306,53 @@ pub fn selling_request(request: &Value, now: DateTime<Utc>) -> bool {
     // 2.x markers have no holdings; only their page spinner's 15-minute TTL applies.
     request.is_object() && (request.get("holdings").is_some()
         || request["at"].as_i64().or_else(|| request["at"].as_str()?.parse().ok()).unwrap_or(0) > now.timestamp() - SELLING_TTL_SECONDS)
+}
+
+#[cfg(test)]
+mod codec_tests {
+    use super::*;
+    fn of(class: &str, s: Value) -> Option<Composition> { Composition::of(class, s.as_object()) }
+
+    #[test]
+    fn a_legacy_index_row_is_one_group_of_weight_one() {
+        let c = of("Bots::DcaIndex", json!({"index_type": "category", "index_category_id": "nasdaq-100", "index_name": "Nasdaq 100",
+                                            "num_coins": "7", "hold_all": "0", "allocation_flattening": 0.5, "allocations": {"1": 1.0}})).unwrap();
+        assert!(c.assets.is_empty(), "a legacy index row's allocations are not ingredients");
+        assert_eq!(c.groups, vec![Group { external_id: "nasdaq-100".into(), weight: 1.0, index_type: Some("category".into()),
+            index_category_id: Some("nasdaq-100".into()), index_name: Some("Nasdaq 100".into()), index_name_prefix: None,
+            num_coins: Some(7), hold_all: false, flattening: Some(0.5) }]);
+        assert_eq!(c.weighting, "manual");
+        assert_eq!(c.lone_group().map(|g| g.external_id.as_str()), Some("nasdaq-100"));
+        // A top index, and settings that are no object at all, follow the Top coins row as today.
+        assert_eq!(of("Bots::DcaIndex", json!({"index_type": "top", "index_category_id": "x"})).unwrap().groups[0].external_id, "top-coins");
+        let null = Composition::of("Bots::DcaIndex", None).unwrap();
+        assert_eq!((null.groups.len(), null.groups[0].external_id.as_str(), null.groups[0].weight), (1, "top-coins", 1.0));
+    }
+
+    #[test]
+    fn a_basket_reads_its_allocations_and_index_groups() {
+        let c = of("Bots::DcaMultiAsset", json!({"allocations": {"5": 0.5}, "weighting": "market_cap", "index_groups": [
+            {"index_type": "top", "num_coins": 10, "weight": 0.3},
+            "garbage",
+            {"index_type": "category", "index_category_id": "layer-1", "hold_all": true, "weight": "0.2"},
+            {"index_type": "category", "index_category_id": "defi", "weight": "lots"}]})).unwrap();
+        assert_eq!(c.assets, vec![(5, 0.5)]);
+        assert_eq!(c.weighting, "market_cap");
+        let groups: Vec<(&str, f64, Option<i64>, bool)> = c.groups.iter().map(|g| (g.external_id.as_str(), g.weight, g.num_coins, g.hold_all)).collect();
+        assert_eq!(groups, vec![("top-coins", 0.3, Some(10), false), ("layer-1", 0.2, None, true), ("defi", 0.0, None, false)]);
+        assert_eq!(c.lone_group(), None, "assets beside groups are no lone index");
+        let lone = of("Bots::DcaMultiAsset", json!({"index_groups": [{"index_type": "top", "weight": 1}]})).unwrap();
+        assert_eq!(lone.lone_group().map(|g| g.weight), Some(1.0));
+    }
+
+    #[test]
+    fn missing_or_garbage_keys_give_no_groups() {
+        for s in [json!({"allocations": {"1": 1.0}}), json!({"index_groups": {"a": {}}}), json!({"index_groups": "top"}), json!({"index_groups": [1, null]})] {
+            assert!(of("Bots::DcaMultiAsset", s.clone()).unwrap().groups.is_empty(), "{s}");
+        }
+        assert_eq!(of("Bots::DcaMultiAsset", json!({"allocations": {"x": 1.0}})).unwrap().assets, vec![], "unreadable allocations");
+        assert_eq!(Composition::of("Bots::DcaMultiAsset", None), Some(Composition { weighting: "manual".into(), ..Default::default() }));
+        assert_eq!(of("Bots::Signal", json!({"index_groups": [{}]})), None);
+        assert_eq!(of("Bots::DcaSingleAsset", json!({})), None);
+    }
 }

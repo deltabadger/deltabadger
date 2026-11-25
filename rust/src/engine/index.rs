@@ -122,7 +122,7 @@ pub fn ranking_slot(now: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chro
 /// The bot needs a refresh of the ranking it follows: an index bot whose followed id has no usable ranking (absent,
 /// unattested, another configuration's, or past 49 h).
 pub fn ranking_wanted(c: &Connection, bot: &Bot, now: chrono::DateTime<chrono::Utc>) -> Result<bool, EngineError> {
-    if bot.bot_type != "Bots::DcaIndex" || retired(c, bot.index_external_id())? { return Ok(false); }
+    if !bot.has_groups() || retired(c, bot.index_external_id())? { return Ok(false); }
     Ok(!ranked_row(c, bot.index_external_id())?.is_some_and(|r| usable(&r, now)))
 }
 

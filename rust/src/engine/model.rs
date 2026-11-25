@@ -131,38 +131,13 @@ impl Bot {
         crate::codec::validate_bot_times(&self.settings, &self.transient).map_err(data)
     }
 
-    /// Bots::DcaIndex settings: 'top' or 'category'.
-    pub fn index_type(&self) -> Option<&str> { self.settings.get("index_type")?.as_str() }
-    pub fn index_category_id(&self) -> Option<&str> { self.settings.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }
-    /// The `indices` row MarketData.get_top_coins reads: a category index with a present
-    /// index_category_id reads that row, anything else the Top coins row.
-    pub fn index_external_id(&self) -> &str {
-        match self.index_category_id() { Some(id) if self.index_type() == Some("category") => id, _ => "top-coins" }
-    }
-    /// `num_coins.to_i`: a JSON integer or a string of digits (the slider posts strings). None for anything else: refused.
-    pub fn num_coins(&self) -> Option<i64> {
-        match self.settings.get("num_coins")? { Value::Number(n) => n.as_i64(), Value::String(s) => s.trim().parse().ok(), _ => None }
-    }
-    /// `ActiveModel::Type::Boolean.new.cast(hold_all)` read as `hold_all?`: nil and "" are nil (false); false, 0, "0", "f", "F",
-    /// "false", "FALSE", "off", "OFF" are false; anything else is true.
-    pub fn hold_all(&self) -> bool {
-        match self.settings.get("hold_all") {
-            None | Some(Value::Null) => false,
-            Some(Value::Bool(b)) => *b,
-            Some(Value::Number(n)) => n.as_f64() != Some(0.0),
-            Some(Value::String(s)) => !(s.is_empty() || ["0", "f", "F", "false", "FALSE", "off", "OFF"].contains(&s.as_str())),
-            Some(_) => true,
-        }
-    }
-    /// `allocation_flattening.to_f` (after_initialize `||= 0.0`): a JSON number or a numeric string. None: refused.
-    pub fn allocation_flattening(&self) -> Option<f64> {
-        match self.settings.get("allocation_flattening") {
-            None | Some(Value::Null) => Some(0.0),
-            Some(Value::Number(n)) => n.as_f64(),
-            Some(Value::String(s)) => s.trim().parse().ok(),
-            Some(_) => None,
-        }
-    }
+    /// Bots::DcaIndex settings, read by the one codec (composition.rs).
+    pub fn index_type(&self) -> Option<&str> { super::composition::index_type(self.settings.as_object()) }
+    pub fn index_category_id(&self) -> Option<&str> { super::composition::index_category_id(self.settings.as_object()) }
+    pub fn index_external_id(&self) -> &str { super::composition::external_id(self.settings.as_object()) }
+    pub fn num_coins(&self) -> Option<i64> { super::composition::num_coins(self.settings.as_object()) }
+    pub fn hold_all(&self) -> bool { super::composition::hold_all(self.settings.as_object()) }
+    pub fn allocation_flattening(&self) -> Option<f64> { super::composition::flattening(self.settings.as_object()) }
 
     pub fn interval(&self) -> Option<Interval> { self.settings.get("interval")?.as_str().and_then(Interval::parse) }
     // Float views below are for 2.x's explicitly floating interval-duration calculations.
@@ -209,19 +184,9 @@ impl Bot {
     /// settings.allocations as Bots::DcaMultiAsset#derive_composition reads it: (asset id, weight) in the stored order (the
     /// JSON column keeps it). None when a key is not an id or a weight is not a JSON number (2.x's sliders store Floats):
     /// eligibility refuses it.
-    pub fn allocations(&self) -> Option<Vec<(i64, f64)>> {
-        let m = self.settings.get("allocations")?.as_object()?;
-        m.iter().map(|(k, v)| Some((k.parse().ok()?, v.as_f64()?))).collect()
-    }
+    pub fn allocations(&self) -> Option<Vec<(i64, f64)>> { super::composition::allocations(self.settings.as_object()) }
     /// Bots::DcaMultiAsset#weighting: `super.presence || 'manual'`. A non-string is returned as its JSON, never "manual".
-    pub fn weighting(&self) -> String {
-        match self.settings.get("weighting") {
-            None | Some(Value::Null) => "manual".into(),
-            Some(Value::String(s)) if s.trim().is_empty() => "manual".into(),
-            Some(Value::String(s)) => s.clone(),
-            Some(other) => other.to_string(),
-        }
-    }
+    pub fn weighting(&self) -> String { super::composition::weighting(self.settings.as_object()) }
     /// Bot::Reversible#selling?: `direction` reads "buying" when absent or blank.
     pub fn selling(&self) -> bool { self.settings.get("direction").and_then(Value::as_str) == Some("selling") }
     pub fn kind(&self) -> crate::web::bot::Kind { crate::web::bot::Kind::of(&self.bot_type) }
@@ -1095,7 +1060,7 @@ pub fn quote_symbol(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
 /// Read from the assets, whatever their tickers' availability: a crypto bot whose ticker went untradable stays all crypto
 /// (Plan 2b's `untradable_clock_closed` ruling), where 2.x's empty ticker list is not.
 pub fn all_crypto(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
-    if bot.bot_type == "Bots::DcaIndex" {
+    if bot.has_groups() {
         // Some listing, and none that is not a cryptocurrency: a stock venue answers at its first listing, not after
         // reading all of them (thousands, on every pass and every guarded write).
         let listed = "FROM tickers t JOIN assets a ON a.id = t.base_asset_id WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2";
@@ -1138,6 +1103,23 @@ pub fn merged_history_cutoff(c: &Connection, bot: &Bot) -> Result<Option<i64>, E
 #[cfg(test)]
 mod r4_provenance_tests {
     use super::*;
+    #[test]
+    fn composition_predicates_answer_the_class_check_until_slice_2() {
+        use serde_json::json;
+        let bot = |bot_type: &str, settings: Value| Bot { id: 1, user_id: 1, exchange_id: 1, status: BotStatus::Stopped, bot_type: bot_type.into(), settings,
+            transient: json!({}), started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false, holder: None };
+        let index = bot("Bots::DcaIndex", json!({"index_type": "category", "index_category_id": "layer-1"}));
+        assert!(index.has_groups());
+        assert_eq!(index.index_external_ids(), vec!["layer-1".to_string()]);
+        assert_eq!(index.lone_group().map(|g| (g.external_id, g.weight)), Some(("layer-1".into(), 1.0)));
+        assert_eq!(bot("Bots::DcaIndex", Value::Null).index_external_ids(), vec!["top-coins".to_string()]);
+        // Decoded, not yet run as groups: a basket carrying index_groups keeps the basket path.
+        let grouped = bot("Bots::DcaMultiAsset", json!({"index_groups": [{"index_type": "top", "weight": 1.0}]}));
+        assert_eq!(grouped.composition().map(|c| c.groups.len()), Some(1));
+        for b in [grouped, bot("Bots::DcaMultiAsset", json!({"allocations": {"1": 1.0}})), bot("Bots::Signal", json!({"index_groups": [{}]}))] {
+            assert!(!b.has_groups() && b.lone_group().is_none() && b.index_external_ids().is_empty(), "{}", b.bot_type);
+        }
+    }
     #[test]
     fn r4_current_for_rejects_missing_and_malformed_producers_and_map_keeps_origin(){
         let a=CredentialVersion{id:1,digest:[1;32],account:None};let b=CredentialVersion{id:1,digest:[2;32],account:None};
