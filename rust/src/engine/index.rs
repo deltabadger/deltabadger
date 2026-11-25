@@ -263,12 +263,12 @@ fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>, own_c
 async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
     let key = (bot.exchange_id, t.id, side);
     // A grouped bot's second group asks the cache for a pair the first one probed: only a positive answer is priced.
-    if let Some(p) = prices.get(key, clock.now(), version) { return Ok(!bot.stored_groups() || p.is_positive()); }
+    if let Some(p) = prices.get_for(key, t, clock.now(), version) { return Ok(!bot.stored_groups() || p.is_positive()); }
     let result=venue.price_result(t,side).await;
     let origin=result.origin().clone();
     let rejected = |e: &[String]| Refusal::Failure(format!("{} rejected the API key: {}", t.exchange_name, to_sentence(e)));
     match result.value {
-        Ok(p) => { prices.put_result(key,clock.now(),model::Produced::new(p.clone(),origin)); Ok(p.is_positive()) }
+        Ok(p) => { prices.put_result(key,t,clock.now(),model::Produced::new(p.clone(),origin)); Ok(p.is_positive()) }
         Err(VenueError::Unauthorized(e)) => Err(rejected(&e)),
         Err(VenueError::Rejected(e)) if venue.rules().is_invalid_key(&e) => Err(rejected(&e)),
         Err(VenueError::Transient(m)) if venue.rules().transport_raises => Err(Refusal::Transient(m)),
@@ -521,9 +521,13 @@ async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: 
             if let Some(t) = ticker { ingredients.push(Ingredient { group: None, stored: *weight, members: vec![(*asset, t, 1.0)], selected: false }); }
         }
         let mut ranked = Map::new();
+        // The assets whose `assets.market_cap` this write reads: a live data-api group's own selection and split (Codex 2b r2),
+        // and under top-level market cap every ingredient's (below).
+        let mut cap_readers: Vec<i64> = vec![];
         for group in groups {
             if let Some((_, d)) = live.iter().find(|(g, _)| g.external_id == group.external_id) {
                 let Some(members) = replay(tx, &current, group, d)? else { return Ok(Err(Refusal::Transient(CHANGED.into()))) };
+                if !d.own_caps { cap_readers.extend(members.iter().map(|m| m.0)); }
                 ranked.insert(group.external_id.clone(), serde_json::json!([d.source.id, d.source.ranked_at]));
                 ingredients.push(Ingredient { group: Some(group.external_id.clone()), stored: group.weight, members, selected: true });
             } else {
@@ -537,13 +541,14 @@ async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: 
         // (an asset's own, a group's the sum over its members), each from this transaction, unless one is missing.
         let stored: Vec<f64> = ingredients.iter().map(|i| i.stored).collect();
         let mut shares: Option<Vec<f64>> = None;
+        let ids: Vec<i64> = ingredients.iter().flat_map(|i| i.members.iter().map(|m| m.0)).collect();
+        if composition.weighting == "market_cap" { cap_readers.extend(&ids); }
+        let crypto: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))",
+            [serde_json::to_string(&cap_readers).map_err(|e| EngineError::Data(e.to_string()))?], |r| r.get(0))?;
+        if crypto {
+            if let Some(stale) = super::staleness::caps_stale(tx, &current, now)? { return Ok(Err(Refusal::Failure(stale.message))); }
+        }
         if composition.weighting == "market_cap" {
-            let ids: Vec<i64> = ingredients.iter().flat_map(|i| i.members.iter().map(|m| m.0)).collect();
-            let crypto: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))",
-                [serde_json::to_string(&ids).map_err(|e| EngineError::Data(e.to_string()))?], |r| r.get(0))?;
-            if crypto {
-                if let Some(stale) = super::staleness::caps_stale(tx, &current, now)? { return Ok(Err(Refusal::Failure(stale.message))); }
-            }
             if let Some(caps) = basket::asset_caps(tx, &ids)? {
                 let ingredient_caps: Vec<f64> = ingredients.iter().map(|i| float_sum(&i.members.iter().map(|m| caps[&m.0]).collect::<Vec<_>>())).collect();
                 shares = Some(blend(&ingredient_caps, 0.0));

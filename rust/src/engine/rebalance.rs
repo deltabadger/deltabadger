@@ -511,15 +511,21 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
     }
     let bot = super::model::load_bot(c, bot_id)?;
     // The pass's one read of what it decides from, before its first await (the clock below).
-    let claim = Claim { composition: super::placement::composition_snapshot(c, &bot)?, bot, refused: None };
+    let mut claim = Claim { composition: super::placement::composition_snapshot(c, &bot)?, bot, refused: None };
     let bot = &claim.bot;
     // The placement barrier: nothing is sized while a reversal's cancels are not recorded (begin refuses it anyway).
     if super::reversal::barred(bot) { return Ok(Outcome::Skipped("reversal_pending")); }
-    // As a tick: nothing is decided from reference data past its bound.
+    // As a tick: nothing is decided from reference data past its bound. A grouped bot's pending swap still settles while
+    // only a ranking is expired (Codex 2b r2); the ranking holds new orders, as a refused refresh does.
     if let Some(stale) = super::staleness::stale(c, bot, clock.now())? {
-        super::log(&format!("[engine] bot {bot_id}: rebalance skipped: {}", stale.message));
-        return Ok(Outcome::Skipped("stale"));
+        let settles = bot.stored_groups() && is_pending(&bot.transient) && super::staleness::stale_but_ranking(c, bot, clock.now())?.is_none();
+        if !settles {
+            super::log(&format!("[engine] bot {bot_id}: rebalance skipped: {}", stale.message));
+            return Ok(Outcome::Skipped("stale"));
+        }
+        claim.refused = Some(stale.message);
     }
+    let bot = &claim.bot;
     // #market_open?: all crypto is open; Exchanges::Alpaca reads the clock. A clock it cannot read is skipped here (2.x
     // reads nil as open): the next evaluation asks again, and an owed buy waits at most one cadence.
     if venue.rules().market_hours && !super::model::all_crypto(c, bot)? {
@@ -642,9 +648,6 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
         // PLAN index-as-ingredient §3.4: a grouped bot's refusal is never a fallback to its stored rows; nothing new is sized.
         Err(m) if claim.bot.stored_groups() => {
             super::log(&format!("[engine] bot {}: rebalance composition refused: {m}", claim.bot.id));
-            // The refusal forgot the revision the claim names; nothing else moved: the claim follows (a named sale's fence).
-            let current = super::placement::composition_snapshot(c, &super::model::load_bot(c, claim.bot.id)?)?;
-            if super::placement::forgotten_only(&claim.composition, &current) { claim.composition = current; }
             claim.refused = Some(m);
         }
         Err(m) => super::log(&format!("[engine] rebalance composition refresh failed bot={}: {m}", bot.id)),

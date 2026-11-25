@@ -187,9 +187,16 @@ type PriceKey = (i64, i64, PriceSide);
 /// 5 s from when it was written, keyed by exchange, ticker and side; only a usable (non-zero) price is stored. It lives
 /// in the engine (and across a parity scenario's retries), never in a venue instance, so it survives venue recreation.
 type CachedPrice = (chrono::DateTime<chrono::Utc>, model::Produced<BigDec>);
+/// Each entry beside the identity of the ticker it was asked for (`ticker_identity`).
 #[derive(Default)]
-pub struct PriceCache(std::cell::RefCell<std::collections::HashMap<PriceKey, CachedPrice>>, ConditionCaches);
+pub struct PriceCache(std::cell::RefCell<std::collections::HashMap<PriceKey, (CachedPrice, String)>>, ConditionCaches);
 type ConditionCaches = std::cell::RefCell<Vec<(Option<model::CredentialVersion>, std::rc::Rc<super::technical::Cache>)>>;
+
+/// What a price request is asked under (Codex 2b r2): the venue symbol and codes, the assets and the crypto/stock route. A
+/// ticker row corrected since an entry was read never answers from the old symbol's quote.
+fn ticker_identity(t: &model::Ticker) -> String {
+    format!("{}\u{1f}{}\u{1f}{}\u{1f}{}\u{1f}{}\u{1f}{}", t.ticker, t.base_code, t.quote_code, t.base_asset_id, t.quote_asset_id, t.crypto)
+}
 
 impl PriceCache {
     pub fn technical(&self, origin: &Option<model::CredentialVersion>) -> std::rc::Rc<super::technical::Cache> {
@@ -200,18 +207,25 @@ impl PriceCache {
         cache
     }
 
-    pub fn get(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>, version: &Option<model::CredentialVersion>) -> Option<BigDec> {
+    /// The fresh price cached for `key`, asked for this `ticker` as it now reads.
+    pub fn get_for(&self, key: PriceKey, ticker: &model::Ticker, now: chrono::DateTime<chrono::Utc>, version: &Option<model::CredentialVersion>) -> Option<BigDec> {
+        let identity = ticker_identity(ticker);
         let mut entries=self.0.borrow_mut();
-        let stale=entries.get(&key).is_some_and(|(at,price)|
-            now>=*at+chrono::Duration::seconds(5) || !price.current_for(version).is_fresh());
+        let stale=entries.get(&key).is_some_and(|((at,price),asked)|
+            now>=*at+chrono::Duration::seconds(5) || !price.current_for(version).is_fresh() || *asked != identity);
         if stale { entries.remove(&key); }
-        entries.get(&key).map(|(_,price)|price.value.clone())
+        entries.get(&key).map(|((_,price),_)|price.value.clone())
+    }
+    pub fn put_result(&self, key: PriceKey, ticker: &model::Ticker, now: DateTime<Utc>, price: model::Produced<BigDec>) {
+        self.0.borrow_mut().insert(key, ((now, price), ticker_identity(ticker)));
     }
 
+    /// Whether anything fresh is cached for `key`, whatever ticker it was asked for (tests).
     #[doc(hidden)]
-    pub fn put(&self,key:PriceKey,now:DateTime<Utc>,price:BigDec,version:&Option<model::CredentialVersion>){self.put_result(key,now,model::Produced::new(price,version.clone()))}
-    pub fn put_result(&self,key:PriceKey,now:DateTime<Utc>,price:model::Produced<BigDec>){self.0.borrow_mut().insert(key,(now,price));}
-
+    pub fn get(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>, version: &Option<model::CredentialVersion>) -> Option<BigDec> {
+        let entries=self.0.borrow();
+        entries.get(&key).filter(|((at,price),_)| now<*at+chrono::Duration::seconds(5) && price.current_for(version).is_fresh()).map(|((_,price),_)|price.value.clone())
+    }
 }
 
 /// What a tick borrows from the engine that runs it.
@@ -932,10 +946,10 @@ async fn place<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bo
 /// `named`: how the failure names the asset (the buy leg its symbol, the sell leg `ticker.base`, the venue's own code).
 async fn reference<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: PriceSide, named: &str, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<BigDec, Fail> {
     let key = (bot.exchange_id, ticker.id, side);
-    let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
+    let fetched = match cx.prices.get_for(key, ticker, clock.now(), &cx.credential_version) {
         Some(hit) => Ok(hit),
         // Only a usable price is stored (the venue returns a zero book as an error).
-        None => { let result=venue.price_result(ticker,side).await; if let Ok(price)=&result.value { cx.prices.put_result(key,clock.now(),result.clone().map(|_|price.clone())); } result.value },
+        None => { let result=venue.price_result(ticker,side).await; if let Ok(price)=&result.value { cx.prices.put_result(key,ticker,clock.now(),result.clone().map(|_|price.clone())); } result.value },
     };
     match fetched {
         Ok(p) => Ok(p),
@@ -968,9 +982,9 @@ pub(crate) async fn market_price_for<V: Venue + Attributed>(venue: &V, bot: &mod
 pub(crate) async fn market_price_read<V: Venue + Attributed>(venue: &V, bot: &model::Bot, ticker: &model::Ticker, side: crate::venue::Side, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<BigDec, VenueError>, EngineError> {
     let price_side = if side == crate::venue::Side::Sell { PriceSide::Bid } else { PriceSide::Ask };
     let key = (bot.exchange_id, ticker.id, price_side);
-    let fetched = match cx.prices.get(key, clock.now(), &cx.credential_version) {
+    let fetched = match cx.prices.get_for(key, ticker, clock.now(), &cx.credential_version) {
         Some(hit) => Ok(hit),
-        None => { let result = venue.price_result(ticker, price_side).await; if let Ok(price) = &result.value { cx.prices.put_result(key, clock.now(), result.clone().map(|_| price.clone())); } result.value }
+        None => { let result = venue.price_result(ticker, price_side).await; if let Ok(price) = &result.value { cx.prices.put_result(key, ticker, clock.now(), result.clone().map(|_| price.clone())); } result.value }
     };
     ticker.scales().map_err(EngineError::Data)?;
     match fetched {

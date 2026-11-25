@@ -468,6 +468,14 @@ pub fn stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Sta
     ledger_stale(c, bot, now)
 }
 
+/// `stale` but the rankings: what a grouped bot's pending rebalance still needs fresh to settle a fill it already has
+/// (Codex 2b r2: an expired ranking holds new orders only).
+pub fn stale_but_ranking(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    if let Some(s) = super::provider::stale(c, bot)? { return Ok(Some(s)); }
+    for source in bot_sources(c, bot)? { if let Some(s) = source_stale(c, bot, source, now)? { return Ok(Some(s)); } }
+    ledger_stale(c, bot, now)
+}
+
 /// `stale` without the account ledger: the signal and API order paths (signal.rs), which never sized from the ledger and so
 /// never waited for its sync (D-UPGRADE-FRESHNESS-AT-TICK).
 pub fn reference_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {

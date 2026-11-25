@@ -127,7 +127,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
         if below { skip(c,id,key,"below_minimum",clock)?; continue; }
         let loss = super::wash::sell_at_loss(c,&claim.bot,ticker,&amount,&quote,clock.now())?;
         let hold = venue.placement_hold(ticker,Side::Sell).await.map_err(data)?;
-        let begun = placement::begin_operation(c,&claim.bot,&plan,&[ticker],&claim.composition,&reconciled,&cx.credential_version,venue.placement_identity(),
+        let begun = placement::begin_operation(c,&claim.bot,&plan,&[ticker],&placement::liquidation_fence(&claim.composition),&reconciled,&cx.credential_version,venue.placement_identity(),
             placement::Op::Liquidation { symbol: &ticker.base_code },loss,hold.as_ref(),clock);
         drop(hold);
         let intent = match begun? {
