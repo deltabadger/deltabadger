@@ -201,14 +201,14 @@ pub fn store(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, input: &[Inp
                     if let Some(group)=i.event.group_id(){
                         let existing:usize=c.query_row(&format!("SELECT count(*) FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3",mine(key)),params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
                         let own=b.bindings.iter().filter(|a|a.event.pair_key()==i.event.pair_key() && !a.suppressed).count();
-                        if existing!=own {return Err(refused("canonical group already belongs to other rows"))} e.group_id=Some(group);
+                        if existing!=own {return Err(refused("canonical group already belongs to other rows"))} e.group_id=Some(group.into());
                     }
                     let id=insert(c,key,&e,now)?;out.imported+=1;occupied.insert(e.tx_id.clone().unwrap());(id,true)
                 },_=>unreachable!(),
             };
             let after=image(c,id)?;
             b.bindings.push(Binding {event:i.event.clone(),row_id:id,raw:i.entry.raw.value.clone(),at:identity_ms(i.entry.transacted_at.ok_or_else(||refused("missing time"))?),
-                kind:e.entry_type,coin:e.base_currency.clone().ok_or_else(||refused("missing coin"))?,amount:e.base_amount.to_s_f(),
+                kind:e.entry_type,coin:e.base_currency.as_deref().map(str::to_string).ok_or_else(||refused("missing coin"))?,amount:e.base_amount.to_s_f(),
                 net:(&e.base_amount-&e.fee_amount.clone().unwrap_or_else(BigDec::zero)).to_s_f(),tx_id:after["tx_id"].as_str().ok_or_else(||refused("nil anchor"))?.into(),
                 group:after["group_id"].as_str().map(str::to_string),inserted,suppressed:false,suppression_reason:None,after});
         }
@@ -257,8 +257,8 @@ pub fn warned(error: &SyncError) -> Option<Vec<String>> {
 pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries: &[Entry], unit: &str, origin: &'static str, accept: bool, now: DateTime<Utc>) -> Result<(Outcome,Vec<String>),SyncError> {
     ownership(c,cipher,key)?;
     let bindings:Vec<_>=buckets(c,key)?.into_iter().flat_map(|b|b.bindings).collect();
-    let mut units:BTreeMap<String,(usize,Vec<&Entry>)>=BTreeMap::new();
-    for (n,e) in entries.iter().enumerate(){units.entry(e.group_id.clone().unwrap_or_else(||format!("row:{n}"))).or_insert_with(||(n,vec![])).1.push(e);}
+    let mut units:BTreeMap<crate::sync::activities::Text,(usize,Vec<&Entry>)>=BTreeMap::new();
+    for (n,e) in entries.iter().enumerate(){units.entry(e.group_id.clone().unwrap_or_else(||format!("row:{n}").into())).or_insert_with(||(n,vec![])).1.push(e);}
     let mut out=Outcome::default();let mut used=HashSet::new();let mut fallback=vec![];
     let (mut warn,mut stripped)=(vec![],vec![]);
     let mut units:Vec<_>=units.into_values().collect();units.sort_by_key(|(n,_)|*n);
@@ -275,10 +275,10 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
         };
         let exact = |a:&Binding,e:&Entry| -> bool {
             a.kind == e.entry_type && e.base_currency.as_deref() == Some(&a.coin) &&
-                a.after["base_amount"].as_f64().and_then(|v|BigDec::from_f64(v).ok()).is_some_and(|v|v==e.base_amount) && e.group_id==a.group &&
+                a.after["base_amount"].as_f64().and_then(|v|BigDec::from_f64(v).ok()).is_some_and(|v|v==e.base_amount) && e.group_id.as_deref()==a.group.as_deref() &&
                 // The app export writes whole seconds, truncating fractional ledger timestamps.
                 e.transacted_at.is_some_and(|t|a.after["transacted_at"].as_str().and_then(|s|crate::codec::parse_time(s).ok()).is_some_and(|stored|stored.timestamp()==t.timestamp())) &&
-                e.fee_currency==a.after["fee_currency"].as_str().map(str::to_string) &&
+                e.fee_currency.as_deref()==a.after["fee_currency"].as_str() &&
                 e.fee_amount.as_ref().map(BigDec::to_s_f)==a.after["fee_amount"].as_f64().map(|v|BigDec::from_f64(v).map(|d|d.to_s_f())).transpose().ok().flatten()
         };
         let unbound=|e:&&Entry|e.tx_id.as_deref().is_some_and(|id|(id.starts_with("binance-a12-v1:") || id.starts_with("dust-a12-v1-")) && !bindings.iter().any(|a|a.tx_id==id));
@@ -302,9 +302,10 @@ pub fn store_csv(c: &FencedTransaction<'_>, cipher: &Cipher, key: &Key, entries:
                 matches.iter().all(|m|m.len()==1).then(||matches.into_iter().map(|m|m[0]).collect())
             }).collect()
         }else{
-            let matches:Vec<_>=rows.iter().map(|e|bindings.iter().filter(|a|fits(a,e)).collect::<Vec<_>>()).collect();
-            if matches.iter().any(|m|m.len()>1) {vec![vec![],vec![]]}
-            else if matches.iter().all(|m|m.len()==1) {vec![matches.into_iter().map(|m|m[0]).collect()]}else{vec![]}
+            // PLAN-710-importmem E3: one leg at a time; the first leg two bindings fit is the ambiguity, the rest unread.
+            let (mut one,mut several)=(Vec::with_capacity(rows.len()),false);
+            for e in rows.iter() {let mut fit=bindings.iter().filter(|a|fits(a,e));let first=fit.next();if fit.next().is_some() {several=true;break} one.push(first);}
+            if several {vec![vec![],vec![]]} else {one.into_iter().collect::<Option<Vec<_>>>().map_or_else(Vec::new,|pair|vec![pair])}
         };
         // Rule P6: more than one retained candidate: warned, or (accepted) written plain.
         if candidates.len()>1 {
@@ -432,6 +433,6 @@ fn csv_dust_from(c:&FencedTransaction<'_>, key:&Key, rows:&[&Entry], used:&mut H
     let group=format!("dustcsv_a12_v1_{}",hash(&tuple));
     let occupied:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions WHERE user_id=?1 AND exchange_id=?2 AND {} AND group_id=?3)",mine(key)),params![key.user_id,key.exchange_id,group],|r|r.get(0))?;
     if occupied {return Err(refused("CSV group is already occupied"));}
-    for e in rows {let mut e=(*e).clone();e.group_id=Some(group.clone());used.insert(insert_from(c,key,&e,origin,now)?);}
+    for e in rows {let mut e=(*e).clone();e.group_id=Some(group.as_str().into());used.insert(insert_from(c,key,&e,origin,now)?);}
     Ok(true)
 }

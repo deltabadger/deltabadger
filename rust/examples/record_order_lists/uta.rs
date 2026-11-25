@@ -317,18 +317,21 @@ pub async fn record_uta<T: Transport>(t: &T, base: &str, phase: Phase, w: &Windo
 /// time column shifted, `Amount` and `Fee` scaled, the enum columns kept. Every cell quoted on the way out.
 pub fn scrub_csv(text: &str, sc: &mut Scrubber, factor: u32, secrets: &[&str]) -> Result<String, String> {
     use deltabadger::tracker::import::csv::Table;
-    let table = Table::parse(text).map_err(|e| format!("the export is not CSV: {}", e.0))?;
-    let headers: Vec<String> = table.headers.iter().map(|h| h.clone().unwrap_or_default()).collect();
+    let table = Table::parse(text, |_| true).map_err(|e| format!("the export is not CSV: {}", e.0))?;
+    let (header, _) = table.whole();
+    let headers: Vec<String> = header.into_iter().map(|h| h.map(|h| h.into_owned()).unwrap_or_default()).collect();
     // The header row is copied as is, so it must be the export's: the importer's columns, each a short name.
     let named = |h: &str| headers.iter().any(|x| x == h);
     if !["UID", "Account Type", "Currency", "Side", "Amount", "Fee", "Remark", "Type"].iter().all(|h| named(h)) || !headers.iter().any(|h| TIME_HEADER.is_match(h))
         || headers.iter().any(|h| !TIME_HEADER.is_match(h) && (h.len() > 32 || !h.chars().all(|c| c.is_ascii_alphabetic() || c == ' '))) {
         return Err("this is not a KuCoin Account History export (its header row); nothing written".into());
     }
-    for row in &table.rows { for c in row.iter().flatten() { sc.reserve(&Value::String(c.clone())); } }
+    for row in table.whole().1 { for c in row.iter().flatten() { sc.reserve(&Value::String(c.to_string())); } }
+    // `row[name]`: the cell under the first header of that name.
+    let get = |row: &[Option<std::borrow::Cow<'_, str>>], name: &str| headers.iter().position(|h| h == name).and_then(|i| row.get(i)?.as_deref().map(str::to_string));
     let quote = |s: &str| format!("\"{}\"", s.replace('"', "\"\""));
     let mut out = vec![headers.iter().map(|h| quote(h)).collect::<Vec<_>>().join(",")];
-    for row in table.rows.iter().filter(|r| !r.is_empty()) {
+    for row in table.whole().1.filter(|r| !r.is_empty()) {
         let mut cells = vec![];
         for (i, cell) in row.iter().enumerate() {
             let (h, c) = (headers.get(i).map_or("", String::as_str), cell.as_deref().unwrap_or(""));
@@ -340,7 +343,7 @@ pub fn scrub_csv(text: &str, sc: &mut Scrubber, factor: u32, secrets: &[&str]) -
                 scale(c, factor).ok_or_else(|| format!("export.csv: a {h} cell is no decimal"))?
             } else if ["Account Type", "Currency", "Side", "Type"].contains(&h) && kept_shape(c) {
                 c.to_string()
-            } else if h == "Remark" && [table.get(row, "Type"), table.get(row, "Side")].contains(&Some(c)) {
+            } else if h == "Remark" && [get(&row, "Type"), get(&row, "Side")].contains(&Some(c.to_string())) {
                 // A remark that only repeats the row's type or side ("Deposit"); any other may name a person or address.
                 c.to_string()
             } else if c.chars().all(|x| x.is_ascii_alphanumeric() || "-_.:".contains(x)) {

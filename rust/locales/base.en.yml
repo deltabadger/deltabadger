@@ -679,6 +679,7 @@ en:
             error_unreadable: 'This file is not in the selected format.'
             error_malformed: 'This file could not be read.'
             error_no_file: 'Choose a file first.'
+            import_busy: 'Another import is running. Try again in a moment.'
             error_no_account: 'Pick an account to import into.'
             no_account: 'Connect an exchange first — an import is attached to an account.'
         positions: 'Positions'

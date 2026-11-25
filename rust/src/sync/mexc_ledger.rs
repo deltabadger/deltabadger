@@ -131,7 +131,7 @@ fn deposit(raw: Raw) -> Result<Option<Entry>, Fail> {
     if !DEPOSIT_CREDITED.contains(&to_i(&raw.value["status"])) { return Ok(None); }
     let at = v2_time_at_ms(to_i(&raw.value["insertTime"])).ok_or_else(|| ("unreadable deposit insertTime".to_string(), true))?;
     let mut e = entry(DEPOSIT, "", amount(&raw, "amount", "deposit")?, &raw, at);
-    e.base_currency = raw.value["coin"].as_str().map(str::to_string);
+    e.base_currency = raw.value["coin"].as_str().map(Into::into);
     e.tx_id = text(raw.value.get("txId"));
     Ok(Some(e))
 }
@@ -141,7 +141,7 @@ fn withdrawal(raw: Raw) -> Result<Option<Entry>, Fail> {
     if to_i(&raw.value["status"]) != WITHDRAWAL_COMPLETED { return Ok(None); }
     let at = v2_time_at_ms(to_i(&raw.value["applyTime"])).ok_or_else(|| ("unreadable withdrawal applyTime".to_string(), true))?;
     let mut e = entry(WITHDRAWAL, "", amount(&raw, "amount", "withdrawal")?, &raw, at);
-    e.base_currency = raw.value["coin"].as_str().map(str::to_string);
+    e.base_currency = raw.value["coin"].as_str().map(Into::into);
     e.fee_currency = e.base_currency.clone();
     e.fee_amount = raw.number("transactionFee").map_err(|why| (format!("withdrawal: {why}"), true))?;
     e.tx_id = text(raw.value.get("id"));
@@ -154,9 +154,9 @@ fn trade(symbol: &str, base: &str, quote: &str, raw: Raw) -> Result<Entry, Fail>
     let buy = !matches!(raw.value.get("isBuyer"), None | Some(Value::Null) | Some(Value::Bool(false)));
     let at = v2_time_at_ms(to_i(&raw.value["time"])).ok_or_else(|| ("unreadable trade time".to_string(), true))?;
     let mut e = entry(if buy { BUY } else { SELL }, base, amount(&raw, "qty", "trade")?, &raw, at);
-    e.quote_currency = Some(quote.to_string());
+    e.quote_currency = Some(quote.into());
     e.quote_amount = Some(amount(&raw, "quoteQty", "trade")?);
-    e.fee_currency = raw.value["commissionAsset"].as_str().map(str::to_string);
+    e.fee_currency = raw.value["commissionAsset"].as_str().map(Into::into);
     let commission = amount(&raw, "commission", "trade")?;
     e.fee_amount = Some(if commission < crate::v2::BigDec::zero() { &crate::v2::BigDec::zero() - &commission } else { commission });
     let part = |k: &str| text(raw.value.get(k)).unwrap_or_default();
@@ -267,7 +267,7 @@ impl<'a, T: Transport> Walk<'a, T> {
         for raw in self.take_pending("MEXC transfer")? {
             self.transfers.observe(if deposits { "deposits" } else { "withdrawals" }, &raw.value)?;
             if let Some(e) = if deposits { deposit(raw)? } else { withdrawal(raw)? } {
-                if let Some(c) = &e.base_currency { self.coins.insert(c.clone()); }
+                if let Some(c) = &e.base_currency { self.coins.insert(c.to_string()); }
                 rows.push(e);
             }
         }

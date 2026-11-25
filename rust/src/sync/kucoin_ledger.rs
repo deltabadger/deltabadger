@@ -115,9 +115,9 @@ pub(crate) fn fill(raw: Raw) -> Result<Entry, Fail> {
     let (size, funds) = (amount(&raw, "size", "fill")?, amount(&raw, "funds", "fill")?);
     let fee = raw.number("fee").map_err(|why| (format!("fill: {why}"), true))?.map(|f| if f < BigDec::zero() { &BigDec::zero() - &f } else { f });
     let mut e = entry(if side { BUY } else { SELL }, &base, size, &raw, at);
-    e.quote_currency = quote;
+    e.quote_currency = quote.map(Into::into);
     e.quote_amount = Some(funds);
-    e.fee_currency = raw.value["feeCurrency"].as_str().map(str::to_string);
+    e.fee_currency = raw.value["feeCurrency"].as_str().map(Into::into);
     e.fee_amount = fee;
     e.tx_id = Some(format!("{symbol}-{}", text(raw.value.get("tradeId")).unwrap_or_default()));
     Ok(e)
@@ -128,7 +128,7 @@ fn transfer(entry_type: i64, raw: Raw) -> Result<Entry, Fail> {
     let currency = raw.value["currency"].as_str().ok_or_else(|| ("unreadable transfer currency".to_string(), true))?.to_string();
     let at = v2_time_at_ms(to_i(&raw.value["createdAt"])).ok_or_else(|| ("unreadable transfer createdAt".to_string(), true))?;
     let mut e = entry(entry_type, &currency, amount(&raw, "amount", "transfer")?, &raw, at);
-    e.fee_currency = Some(currency);
+    e.fee_currency = Some(currency.into());
     e.fee_amount = raw.number("fee").map_err(|why| (format!("transfer: {why}"), true))?;
     let present = |k: &str| text(raw.value.get(k)).filter(|s| !crate::v2::blank(s));
     e.tx_id = present("id").or_else(|| present("walletTxId"));

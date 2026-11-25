@@ -1918,12 +1918,12 @@ fn evidence_with(c: &Connection, key: &IdentityKey, user_id: i64, exchange_id: i
 /// at all is no record.
 pub fn export_account_id(table: &crate::tracker::import::csv::Table, columns: &[&str]) -> Result<Option<AccountId>, crate::tracker::import::csv::Malformed> {
     use crate::tracker::import::csv::Malformed;
-    let records: Vec<_> = table.rows.iter().filter(|row| !row.is_empty()).collect();
-    if records.is_empty() { return Ok(None); }
+    let mut records = table.records().filter(|row| !row.blank).peekable();
+    if records.peek().is_none() { return Ok(None); }
     let Some(column) = columns.iter().find(|c| table.has_header(c)) else { return Err(Malformed("the export has no account id column".into())) };
     let mut found: Option<AccountId> = None;
     for row in records {
-        let id = table.get(row, column).and_then(AccountId::parse).ok_or_else(|| Malformed("a record's account id is missing or masked".into()))?;
+        let id = table.get(&row, column).and_then(AccountId::parse).ok_or_else(|| Malformed("a record's account id is missing or masked".into()))?;
         match &found { Some(first) if *first != id => return Err(Malformed("the export holds more than one account".into())), Some(_) => {}, None => found = Some(id) }
     }
     Ok(found)

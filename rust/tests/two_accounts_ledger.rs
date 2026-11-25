@@ -132,7 +132,7 @@ fn now() -> chrono::DateTime<chrono::Utc> { "2026-09-10T00:00:00Z".parse().unwra
 
 fn entry(kind: i64, coin: &str, amount: &str, id: Option<&str>, group: Option<&str>, at: &str) -> Entry {
     Entry { entry_type: kind, base_currency: Some(coin.into()), base_amount: BigDec::parse(amount).unwrap(), quote_currency: None, quote_amount: None,
-            fee_currency: None, fee_amount: None, tx_id: id.map(str::to_string), group_id: group.map(str::to_string), description: None,
+            fee_currency: None, fee_amount: None, tx_id: id.map(str::to_string), group_id: group.map(Into::into), description: None,
             transacted_at: Some(at.parse().unwrap()), raw: Raw::from_value(json!({})) }
 }
 
@@ -186,7 +186,7 @@ fn deposit(id: &str) -> writer::Input {
 }
 
 fn dust_csv(coin: &str, amount: &str, at: &str) -> Vec<Entry> {
-    let group = Some(format!("dustcsv_{coin}"));
+    let group: Option<deltabadger::sync::activities::Text> = Some(format!("dustcsv_{coin}").into());
     vec![Entry { group_id: group.clone(), ..entry(3, coin, amount, None, None, at) }, Entry { group_id: group, ..entry(2, "BNB", "0.1", None, None, at) }]
 }
 

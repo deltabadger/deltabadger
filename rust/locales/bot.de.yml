@@ -182,6 +182,7 @@ de:
                 download_csv: 'Exportieren'
                 generating_csv: 'Datei wird generiert...'
                 import_csv: 'Importieren'
+                import_busy: 'Gerade läuft schon ein anderer Import. Versuch es gleich noch mal.'
                 exchange_unavailable_html: "Die Preise konnten nicht von der Börse gelesen werden.<br>Die Zahlen beruhen auf den letzten verfügbaren Daten."
                 order: 'Order Art'
                 profit_loss: Gewinn/Verlust

@@ -670,6 +670,7 @@ de:
             error_unreadable: 'Diese Datei hat nicht das gewählte Format.'
             error_malformed: 'Diese Datei konnte nicht gelesen werden.'
             error_no_file: 'Wähle zuerst eine Datei.'
+            import_busy: 'Gerade läuft schon ein anderer Import. Versuch es gleich noch mal.'
             error_no_account: 'Wähle ein Konto für den Import.'
             no_account: 'Verbinde zuerst eine Börse — ein Import gehört zu einem Konto.'
         positions: 'Positionen'

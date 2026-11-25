@@ -679,6 +679,7 @@ sv:
             error_unreadable: 'Filen är inte i det valda formatet.'
             error_malformed: 'Filen kunde inte läsas.'
             error_no_file: 'Välj en fil först.'
+            import_busy: 'En annan import pågår redan. Försök igen om en stund.'
             error_no_account: 'Välj ett konto att importera till.'
             no_account: 'Anslut en börs först — en import hör till ett konto.'
         positions: 'Positioner'

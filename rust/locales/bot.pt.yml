@@ -182,6 +182,7 @@ pt:
                 download_csv: 'Transferir'
                 generating_csv: 'Gerando ficheiro...'
                 import_csv: 'Importar'
+                import_busy: 'Já está a decorrer outra importação. Tenta novamente daqui a pouco.'
                 exchange_unavailable_html: "Não foi possível ler os preços da corretora.<br>Os valores usam os últimos dados disponíveis."
                 order: Pedido
                 profit_loss: Lucro/perda

@@ -464,6 +464,7 @@ pub fn crypto_pairs(c: &Connection, exchange_id: i64) -> Result<CryptoPairs, Syn
 
 fn blank(s: &str) -> bool { s.chars().all(char::is_whitespace) }
 fn present(s: &Option<String>) -> Option<&str> { s.as_deref().filter(|s| !blank(s)) }
+fn present_text(s: &Option<activities::Text>) -> Option<&str> { s.as_deref().filter(|s| !blank(s)) }
 /// How ActiveRecord's SQLite adapter binds a BigDecimal: its nearest double.
 fn real(d: &BigDec) -> f64 { d.to_f() }
 
@@ -640,7 +641,8 @@ fn pairs_of(batch: &[Entry]) -> HashMap<String, Vec<usize>> {
 }
 
 /// #event_key: type, currency, amount and instant.
-pub(super) type EventKey = (i64, Option<String>, BigDec, Option<DateTime<Utc>>);
+/// PLAN-710-importmem r1 #1: the currency is the entry's own shared text, so a split coin is held once.
+pub(super) type EventKey = (i64, Option<activities::Text>, BigDec, Option<DateTime<Utc>>);
 
 /// The legs of every merged split already stored for the user on this venue.
 pub(crate) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
@@ -735,7 +737,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if let Some(stamp) = &p.kraken_repair { super::kraken_ledger::repair(c, key, e, &p.assets, stamp, now)?; }
         // D-PENDING-TRANSFERS: a legacy pending row becomes the completed venue row in place.
         if let Some(id) = super::pending_transfers::existing(c, key, e, p.pending.as_ref().expect("pending identities loaded"))? {
-            if let (Some(base), Some(at)) = (present(&e.base_currency), e.transacted_at) {
+            if let (Some(base), Some(at)) = (present_text(&e.base_currency), e.transacted_at) {
                 let no_fee = e.fee_amount.as_ref().is_none_or(BigDec::is_zero);
                 c.execute("UPDATE account_transactions SET base_currency=?1,base_amount=?2,fee_currency=?3,fee_amount=?4,transacted_at=?5,raw_data=?6,updated_at=?7,base_asset_id=COALESCE(base_asset_id,?8) WHERE id=?9",
                     params![base,amount_sql(&key.exchange_type,&e.base_amount),if no_fee { None } else { e.fee_currency.as_deref() },if no_fee { None } else { e.fee_amount.as_ref().map(|d| amount_sql(&key.exchange_type,d)) },sql_time(at),e.raw.text(),sql_time(now),p.assets.asset_id(c,Some(base),&e.raw.value,Some(at))?,id])?;
@@ -757,7 +759,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if update.is_none() && decided.is_none() && duplicate(c, key, &p, index, tx_id, repeat)? { p.out.duplicates += 1; continue; }
         // One malformed broker row never aborts the sync: it is logged, counted, and holds the watermark back. The
         // row's id is the venue's own value: the line says which entry of the unit it was, not what it held.
-        let (Some(base_currency), Some(at)) = (present(&e.base_currency), e.transacted_at) else {
+        let (Some(base_currency), Some(at)) = (present_text(&e.base_currency), e.transacted_at) else {
             let venue = crate::tracker::rows::name_id(&key.exchange_type);
             crate::engine::log(&format!("[{venue}] Account transaction sync skipped invalid entry {} of {unit} (entry_type={})", n + 1, e.entry_type));
             p.min_skipped = [p.min_skipped, e.transacted_at].into_iter().flatten().min();
@@ -885,15 +887,21 @@ fn stored_rows(c: &Connection, scope: &crate::venue_ids::Scope, tail: &str, p: &
 /// #same_events: the stored rows of `scope` (more conditions) of the entry's currency and amount and of `entry_type`,
 /// within a second of it (#within_a_second: exactly a second counts only across an id'd and an id-less row).
 fn same_events(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str) -> Result<Vec<Stored>, SyncError> {
-    let Some(at) = e.transacted_at else { return Ok(vec![]) };
+    let Some((tail, from, to)) = same_events_tail(key, e, scope)? else { return Ok(vec![]) };
+    stored_rows(c, &key.scope, &tail, params![key.user_id, key.exchange_id, entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), from, to])
+}
+
+/// The condition `same_events` selects by (`?1`…`?7`: user, exchange, type, currency, amount, from, to), and its window.
+/// None for an entry with no time.
+fn same_events_tail(key: &Key, e: &Entry, scope: &str) -> Result<Option<(String, String, String)>, SyncError> {
+    let Some(at) = e.transacted_at else { return Ok(None) };
     let second = Duration::seconds(1);
     let (Some(from), Some(to)) = (at.checked_sub_signed(second), at.checked_add_signed(second)) else { return Err(SyncError("a time at the end of the calendar".into())) };
     let at_ = "account_transactions";
     let other = if present(&e.tx_id).is_some() { key.scope.id_less(at_) } else { key.scope.has_id(at_) };
     let scope = format!("{scope} AND {} {}", key.scope.rows(at_), kucoin_source_scope(key, e));
-    stored_rows(c, &key.scope, &format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
-                             AND transacted_at >= ?6 AND transacted_at <= ?7 AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7)) ORDER BY id"),
-                params![key.user_id, key.exchange_id, entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), sql_time(from), sql_time(to)])
+    Ok(Some((format!("{BY_TIME} WHERE user_id = ?1 AND exchange_id = ?2 {scope} AND entry_type = ?3 AND base_currency IS ?4 AND base_amount = ?5 \
+                      AND transacted_at >= ?6 AND transacted_at <= ?7 AND ({other} OR (transacted_at > ?6 AND transacted_at < ?7)) ORDER BY id"), sql_time(from), sql_time(to))))
 }
 
 /// KuCoin's file and its API never meet in the duplicate rules (plan KI §5): a `kucoin_csv` entry is compared with no
@@ -911,8 +919,24 @@ fn kucoin_source_scope(key: &Key, e: &Entry) -> String {
 /// stored and those a pairing between the export and the API decides itself (`governed`). A row with no time is the
 /// same event as nothing.
 #[allow(clippy::too_many_arguments)]
+/// PLAN-710-importmem B3′/A3: the rows `same_events` selects, by its same predicates, counted one at a time as they are
+/// read; each read for its id and what `governed` asks of it (its venue id, type and raw data), never its currency or
+/// group id, and the count stops once it is past `repeat`.
 fn same_event(c: &Connection, key: &Key, e: &Entry, entry_type: i64, scope: &str, stored_now: &HashSet<i64>, repeat: usize, governed: &dyn Fn(&Stored) -> bool) -> Result<bool, SyncError> {
-    Ok(same_events(c, key, e, entry_type, scope)?.iter().filter(|r| !stored_now.contains(&r.id) && !governed(r)).count() > repeat)
+    let Some((tail, from, to)) = same_events_tail(key, e, scope)? else { return Ok(false) };
+    let mut s = c.prepare(&format!("SELECT id, {}, entry_type, raw_data FROM account_transactions {tail}", key.scope.row_id("account_transactions")))?;
+    let mut rows = s.query(params![key.user_id, key.exchange_id, entry_type, e.base_currency, amount_sql(&key.exchange_type, &e.base_amount), from, to])?;
+    let mut counted = 0;
+    while let Some(r) = rows.next()? {
+        let id: i64 = r.get(0)?;
+        if stored_now.contains(&id) { continue }
+        let raw = r.get::<_, Option<String>>(3)?.and_then(|raw| serde_json::from_str(&raw).ok()).unwrap_or(Value::Null);
+        let row = Stored { id, tx_id: r.get(1)?, entry_type: r.get(2)?, base_currency: None, group_id: None, at: None, raw };
+        if governed(&row) { continue }
+        counted += 1;
+        if counted > repeat { return Ok(true) }
+    }
+    Ok(false)
 }
 
 /// A leg of a stored merged split, or a stored row with this id.
@@ -1048,7 +1072,7 @@ fn api_dust_row(r: &Stored) -> bool {
 
 /// #pairs?: whether the export row `file` is what the stored API transfer `api` reads as in the file.
 fn pairs(api: &Stored, file: &Entry) -> bool {
-    if file.entry_type != api.entry_type || file.base_currency != api.base_currency { return false; }
+    if file.entry_type != api.entry_type || file.base_currency.as_deref() != api.base_currency.as_deref() { return false; }
     let (Some(api_at), Some(at)) = (api.at, file.transacted_at) else { return false };
     let Some((amount, from, to, open)) = file_side(api.entry_type, &api.raw, api_at) else { return false };
     file.base_amount == amount && if open { at > from && at < to } else { at >= from && at <= to }
@@ -1129,7 +1153,7 @@ fn conversion(raw: &Value) -> (Option<String>, BigDec, BigDec) {
 fn dust_leg(e: &Entry, (coin, amount, net): &(Option<String>, BigDec, BigDec)) -> Option<bool> {
     let unit = BigDec::parse("0.00000001").ok()?;
     match e.entry_type {
-        SWAP_OUT => (e.base_currency == *coin && e.base_amount == *amount).then_some(true),
+        SWAP_OUT => (e.base_currency.as_deref() == coin.as_deref() && e.base_amount == *amount).then_some(true),
         SWAP_IN => (e.base_currency.as_deref() == Some("BNB") && e.base_amount >= net - &unit && e.base_amount <= net + &unit).then_some(false),
         _ => None,
     }
@@ -1299,7 +1323,7 @@ pub(super) struct Effects {
 }
 
 fn split_effects(c: &Connection, key: &Key, e: &Entry, now: DateTime<Utc>) -> Result<Effects, SyncError> {
-    let (Some(symbol), Some(at)) = (present(&e.base_currency), e.transacted_at) else { return Ok(Effects::default()) };
+    let (Some(symbol), Some(at)) = (present_text(&e.base_currency), e.transacted_at) else { return Ok(Effects::default()) };
     let holding = if at < now - Duration::days(FEED_RETENTION_DAYS) { vec![] } else { bots_holding(c, key, symbol, at)? };
     Ok(Effects { restated: bots_naming(c, key.user_id, key.exchange_id, symbol)?, holding })
 }

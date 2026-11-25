@@ -211,13 +211,13 @@ pub fn read(format: &str, bytes: &[u8], offset: Option<&str>) -> Result<Read, An
     let (entries, unrecognised): (Vec<Named>, Vec<String>) = match format {
         // D-IMPORT-UID: Binance's own export names its account (`User ID`, or `User_ID`) on every record. It is read
         // over every record before the reader skips any; a missing, blank, masked or mixed id is a malformed export.
-        "binance" => match csv::Table::parse(&text).and_then(|table| { records = table.rows.iter().filter(|row| !row.is_empty()).count(); crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS) })
+        "binance" => match csv::Table::parse(&text, |h| crate::identity::BINANCE_EXPORT_COLUMNS.contains(&h)).and_then(|table| { records = table.records().filter(|row| !row.blank).count(); crate::identity::export_account_id(&table, &crate::identity::BINANCE_EXPORT_COLUMNS) })
             .and_then(|id| { account_id = id; binance::read(&text, offset) }) {
             Ok(read) => (read.entries.into_iter().map(|e| (None, e)).collect(), read.unrecognised),
             Err(_) => return Err(Answer::Error("malformed")),
         },
         // KuCoin's export names its account (`UID`) on every record, read as Binance's is.
-        "kucoin" => match csv::Table::parse(&text).and_then(|table| {
+        "kucoin" => match csv::Table::parse(&text, |h| crate::identity::KUCOIN_EXPORT_COLUMNS.contains(&h) || kucoin::columns(h)).and_then(|table| {
             account_id = crate::identity::export_account_id(&table, &crate::identity::KUCOIN_EXPORT_COLUMNS)?;
             kucoin::read(&table)
         }) {
@@ -399,7 +399,10 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
     if others.is_empty() { return Ok(out); }
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default();
     for other in others {
-        let (mut count, mut ids) = (0, vec![]);
+        // r1 #2: an id-less leg names its coin by its place among the coins met (each named once, below), so a long coin
+        // matched leg after leg is held once.
+        let (mut count, mut ids, mut coins) = (0, vec![], Vec::<crate::sync::activities::Text>::new());
+        let mut coin_at: std::collections::HashMap<crate::sync::activities::Text, usize> = Default::default();
         let key = writer(c, &[], other)?;
         let merged = ledger::stored_merged(c, &key)?;
         let at_ = "account_transactions";
@@ -409,13 +412,17 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
             match e.tx_id.as_deref().filter(|t| !t.trim().is_empty()) {
                 Some(id) => if crate::venue_ids::known(c, &key.scope, id)? || merged.contains(id) { hit(id.to_string()) },
                 None => {
-                    let (Some(at), Some(base)) = (e.transacted_at, e.base_currency.as_deref()) else { continue };
+                    let (Some(at), Some(coin)) = (e.transacted_at, e.base_currency.as_ref()) else { continue };
+                    let base: &str = coin;
                     let second = at.with_nanosecond(0).unwrap_or(at);
                     let same: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND entry_type = ?3 \
                                                           AND base_currency = ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at < ?7)", ledger::BY_TIME, key.scope.rows(at_)),
                                                  rusqlite::params![user_id, exchange, e.entry_type, base, ledger::amount_sql(&exchange_type, &e.base_amount),
                                                                    crate::sync::sql_time(second), crate::sync::sql_time(second + chrono::Duration::seconds(1))], |r| r.get(0))?;
-                    if same { hit(format!("{}|{base}|{}|{}", e.entry_type, e.base_amount.to_s_f(), second.timestamp())) }
+                    if same {
+                        let n = *coin_at.entry(coin.clone()).or_insert_with(|| { coins.push(coin.clone()); coins.len() - 1 });
+                        hit(format!("{}|#{n}|{}|{}", e.entry_type, e.base_amount.to_s_f(), second.timestamp()))
+                    }
                 }
             }
         }
@@ -423,7 +430,7 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
             let held: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1 AND row_id = ?2)", rusqlite::params![other, row.row_id], |r| r.get(0))?;
             if held { hit(row.row_id.clone()) }
         }
-        if count > 0 { out.push((other, count, ids.join(","))); }
+        if count > 0 { out.push((other, count, format!("{}|coins:{coins:?}", ids.join(",")))); }
     }
     Ok(out)
 }
@@ -626,7 +633,7 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
         if matches!(offer, Offer::Csv { .. }) && !shown.iter().any(|w| matches!(w, Warning::Destination(_))) {
             shown.insert(usize::from(changed), Warning::Destination(destinations.clone()));
         }
-        if let Some(u) = undone.filter(|u| !u.rows.is_empty()) { shown.push(Warning::Undone(u.rows.len(), u.accounts.clone())); }
+        if let Some(u) = undone.filter(|u| u.rows > 0) { shown.push(Warning::Undone(u.rows, u.accounts.clone())); }
         let bound = Bound { entries: &bound_entries, kucoin: &kucoin_rows };
         let choices = choices(c, cipher, user_id, subject, &offer, account_id.as_ref(), &bound, &shown, evidence, now)?;
         let last = choices.len().saturating_sub(1);
@@ -690,7 +697,7 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
     // Rules M4/Q2: a write that undoes transfer links on other accounts writes only past a question that showed exactly
     // those (sealed with the click); else it is asked, the links still in place.
     if let Some(u) = &undone {
-        if (confirm.outside.is_some() || !u.rows.is_empty()) && confirm.outside != Some(u.digest.as_str()) {
+        if (confirm.outside.is_some() || u.rows > 0) && confirm.outside != Some(u.digest.as_str()) {
             undo(tx)?;
             // Branch review r1 #4: the page shows everything its seal binds, the units this write stripped included.
             let mut shown = warnings;
@@ -711,7 +718,7 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
 /// than the end that went; those accounts; and the digest a question binds (both ends' ids, contents, owners, exchanges
 /// and accounts, resolved through membership).
 #[derive(Debug, Clone)]
-struct Undone { rows: Vec<i64>, accounts: Vec<Shown>, digest: String }
+struct Undone { rows: usize, accounts: Vec<Shown>, digest: String }
 
 /// Arms the watch on ledger rows for the rest of the caller's savepoint: each row deleted (with its link partner) and each
 /// link cleared, as they were. False on an install without the membership tables (nothing to resolve accounts by).
@@ -740,40 +747,40 @@ fn unwatch(c: &Connection) -> Result<(), SyncError> {
     Ok(())
 }
 
-/// The links the watched write undid on other accounts (`Undone`).
+/// The links the watched write undid on other accounts (`Undone`). PLAN-710-importmem C4/D2/E6: the pairs are found in
+/// SQLite (each end as it first was: a row deleted and the partner it pointed to, not deleted itself; a row unlinked and
+/// the row it pointed to), read one at a time in their order, and each streamed into the digest: what is kept is the
+/// count and the distinct accounts, never the rows.
 fn undone(c: &Connection, owner: i64, _destinations: &[(i64, i64, usize)]) -> Result<Undone, SyncError> {
-    type End = (i64, i64, i64, Option<i64>, String, Option<i64>);
-    let touched: Vec<(String, End)> = c.prepare("SELECT kind, id, user_id, exchange_id, member, contents, linked FROM temp.import_touched ORDER BY rowid")?
-        .query_map([], |r| Ok((r.get(0)?, (r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?))))?.collect::<Result<_, _>>()?;
-    let gone: std::collections::BTreeSet<i64> = touched.iter().filter(|(k, _)| k == "deleted").map(|(_, e)| e.0).collect();
-    // Each end as it first was (before this write changed it).
-    let mut first: std::collections::BTreeMap<i64, End> = Default::default();
-    for (_, e) in &touched { first.entry(e.0).or_insert_with(|| e.clone()); }
-    let account = |e: &End| -> Result<Option<i64>, SyncError> {
-        Ok(match e.3 { Some(a) => Some(a), None => crate::identity::Account::first(c, e.1, e.2)?.id })
+    use sha2::Digest;
+    let account = |user: i64, exchange: i64, member: Option<i64>| -> Result<Option<i64>, SyncError> {
+        Ok(match member { Some(a) => Some(a), None => crate::identity::Account::first(c, user, exchange)?.id })
     };
-    let mut pairs: std::collections::BTreeSet<(i64, i64)> = Default::default();
-    for (kind, e) in &touched {
-        match (kind.as_str(), e.5) {
-            // A row deleted and the partner it pointed to; a row unlinked and the row it pointed to.
-            ("deleted", Some(p)) if !gone.contains(&p) && first.contains_key(&p) => { pairs.insert((e.0, p)); }
-            ("cleared", Some(p)) if !gone.contains(&e.0) => { pairs.insert((p, e.0)); }
-            _ => {}
-        }
-    }
-    let (mut rows, mut accounts, mut sealed) = (vec![], Vec::<i64>::new(), vec![]);
-    for (went, stays) in pairs {
-        let (Some(w), Some(s)) = (first.get(&went), first.get(&stays)) else { continue };
-        let (wa, sa) = (account(w)?, account(s)?);
+    let mut found = c.prepare("WITH t AS (SELECT rowid AS seq, kind, id, user_id, exchange_id, member, contents, linked FROM temp.import_touched),
+          first AS (SELECT id, user_id, exchange_id, member, contents FROM (SELECT *, row_number() OVER (PARTITION BY id ORDER BY seq) AS n FROM t) WHERE n = 1),
+          gone AS (SELECT DISTINCT id FROM t WHERE kind = 'deleted'),
+          pairs AS (SELECT id AS went, linked AS stays FROM t WHERE kind = 'deleted' AND linked IS NOT NULL AND linked NOT IN (SELECT id FROM gone)
+                    UNION SELECT linked, id FROM t WHERE kind = 'cleared' AND linked IS NOT NULL AND id NOT IN (SELECT id FROM gone))
+        SELECT w.id, w.user_id, w.exchange_id, w.member, w.contents, s.id, s.user_id, s.exchange_id, s.member, s.contents
+          FROM pairs JOIN first w ON w.id = pairs.went JOIN first s ON s.id = pairs.stays
+         WHERE s.user_id = ?1 ORDER BY pairs.went, pairs.stays")?;
+    let mut pairs = found.query([owner])?;
+    let (mut rows, mut accounts, mut digest) = (0, Vec::<i64>::new(), sha2::Sha256::new());
+    digest.update(b"undone|");
+    while let Some(r) = pairs.next()? {
+        let (w, w_user, w_exchange, w_member, w_contents): (i64, i64, i64, Option<i64>, String) = (r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?);
+        let (s, s_user, s_exchange, s_member, s_contents): (i64, i64, i64, Option<i64>, String) = (r.get(5)?, r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?);
+        let (wa, sa) = (account(w_user, w_exchange, w_member)?, account(s_user, s_exchange, s_member)?);
         // Rule P3: only the owner's rows; one on the same account as the end that went is that account's own.
-        if s.1 != owner || sa == wa { continue }
-        rows.push(stays);
+        if sa == wa { continue }
+        if rows > 0 { digest.update(b";"); }
+        rows += 1;
         if let Some(a) = sa { if !accounts.contains(&a) { accounts.push(a); } }
-        sealed.push(format!("{}:{}:{}:{}:{wa:?}|{}:{}:{}:{}:{sa:?}", w.0, w.4, w.1, w.2, s.0, s.4, s.1, s.2));
+        digest.update(format!("{w}:{w_contents}:{w_user}:{w_exchange}:{wa:?}|{s}:{s_contents}:{s_user}:{s_exchange}:{sa:?}").as_bytes());
     }
     accounts.sort();
     let accounts = accounts.into_iter().map(|a| named(c, a, false)).collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(Undone { rows, accounts, digest: sha(&format!("undone|{}", sealed.join(";"))) })
+    Ok(Undone { rows, accounts, digest: hex::encode(&digest.finalize()[..8]) })
 }
 
 /// The warnings of the units the Binance writer warned about or stripped: retained ids, and (D-BINANCE-DUST-WARNS) dust
@@ -924,7 +931,7 @@ fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, ven
 /// A Deltabadger CSV's plan: each row to the account its venue and number name.
 fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>, body: Option<&str>, tag: Option<(char, &str)>) -> Result<Plan, SyncError> {
     let mut routed: Vec<(Key, Vec<Entry>)> = vec![];
-    let mut unrouted: Vec<String> = vec![];
+    let mut unrouted = super::Distinct::<String>::default();
     // `index_by(name_id)`: of two venues of one kind, the later key; #710: of the account the row's number names (an
     // account this install does not have is unrouted, named as plain text names it: `kraken 2`).
     // #710 7a §3: every live account takes its rows: one with no reading key (keyless, one an import made, or keyed only
@@ -960,11 +967,12 @@ fn csv_plan(c: &Connection, user_id: i64, keys: &[Reading], entries: Vec<Named>,
                     let venue = if number == 1 { venue } else {
                         format!("{} {number}", names.iter().find(|(t, _)| crate::tracker::rows::name_id(t) == venue).map_or(venue, |(_, name)| name.clone()))
                     };
-                    if !unrouted.contains(&venue) { unrouted.push(venue); }
+                    unrouted.insert(venue);
                 }
             }
         }
     }
+    let mut unrouted = unrouted.into_list();
     unrouted.sort();
     // Rule N6: rows naming accounts this install lacks are said before writing. Rules P5/Q6: rows another live account
     // holds (#710 8a rule R12: per account), and the venue ids this upload sends to two or more accounts (rule R13). #710 8a

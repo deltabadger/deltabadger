@@ -687,6 +687,7 @@ sk:
             error_unreadable: 'Tento súbor nie je vo zvolenom formáte.'
             error_malformed: 'Súbor sa nepodarilo prečítať.'
             error_no_file: 'Najprv vyber súbor.'
+            import_busy: 'Práve prebieha iný import. Skús to znova o chvíľu.'
             error_no_account: 'Vyber účet pre import.'
             no_account: 'Najprv pripoj burzu — import patrí k účtu.'
         positions: 'Pozície'

@@ -214,8 +214,9 @@ struct Candidate { order_id: String, at: DateTime<Utc>, order_type: i64, side: i
 pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &[u8]) -> Result<Imported, WebError> {
     // The upload as 2.x reads it: no byte order mark dropped (it fails the header check), invalid UTF-8 malformed.
     let Ok(text) = std::str::from_utf8(bytes) else { return Ok(Imported::Malformed) };
-    let Ok(table) = Table::parse(text) else { return Ok(Imported::Malformed) };
-    if table.headers.len() != HEADERS.len() || table.headers.iter().zip(HEADERS).any(|(h, e)| h.as_deref() != Some(e)) { return Ok(Imported::InvalidFormat) }
+    let Ok(table) = Table::parse(text, |h| HEADERS.contains(&h)) else { return Ok(Imported::Malformed) };
+    // Exactly the ten headers in order: ten cells, each the first of its name where it stands.
+    if table.width() != HEADERS.len() || HEADERS.iter().enumerate().any(|(i, h)| table.position(h) != Some(i)) { return Ok(Imported::InvalidFormat) }
     let now = ctx.app.now();
     let tx = model::immediate(c)?;
     // The sign-in may have ended while the file was on its way or read: checked again in this transaction.
@@ -252,8 +253,8 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
         .query_map([id, scope.exchange_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     let own = format!("imported_{id}_");
     let (mut skipped, mut mismatched_quote, mut seen, mut candidates) = (0usize, None::<String>, HashSet::new(), vec![]);
-    for row in &table.rows {
-        let get = |name: &str| table.get(row, name);
+    for row in table.records() {
+        let get = |name: &str| table.get(&row, name);
         let cell = |name: &str| get(name).map(|v| v2::strip(unescape(v)).to_uppercase());
         let (csv_base, csv_quote) = (cell("Base Asset"), cell("Quote Asset"));
         let named = csv_base.as_ref().and_then(|b| base_names.get(b));
@@ -335,13 +336,17 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
 }
 
 /// POST /bots/:id/import.
-pub async fn import(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>) -> Result<Response, WebError> {
+pub async fn import(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path(segment): Path<String>,
+                    slot: Option<Extension<crate::tracker::import::service::Slot>>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)) };
     let Some(id) = super::id_from_path(&segment) else { return Ok(super::page::not_found(&ctx)) };
     let back = layout::redirect(StatusCode::FOUND, &ctx.path(&format!("/bots/{id}")));
     let upload = ctx.params.upload.as_ref().map(|(bytes, _)| bytes.clone());
     let view = ctx.clone();
+    // PLAN-710-importmem B1′: the request's import slot, owned by the write until it finishes.
+    let permit = crate::tracker::import::service::Slot::take(slot.as_ref().map(|s| &s.0), &app).await;
     let result = app.db(move |c| {
+        let _permit = permit;
         if owned(c, user, id)?.is_none() { return Ok(Imported::Missing) }
         match upload { None => Ok(Imported::NoFile), Some(bytes) => import_orders_csv(c, &view, user, id, &bytes) }
     }).await;

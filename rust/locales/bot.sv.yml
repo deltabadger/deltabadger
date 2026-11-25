@@ -184,6 +184,7 @@ sv:
                 download_csv: 'Exportera'
                 generating_csv: 'Genererar fil...'
                 import_csv: 'Importera'
+                import_busy: 'En annan import pågår redan. Försök igen om en stund.'
                 import_success: '%{count} order(s) importerade.'
                 import_no_new_orders: 'Inga nya ordrar att importera (alla ordrar finns redan eller valutorna stämmer inte).'
                 import_no_file: 'Välj en CSV-fil att importera.'

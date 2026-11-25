@@ -303,8 +303,8 @@ async fn binance_a12_live_sync_divergence_against_recorded_v2_cells() {
             let parent=case["answers"]["dust_log"]["userAssetDribblets"].as_array().and_then(|ps|ps.iter().find(|p|p["userAssetDribbletDetails"].as_array().unwrap().contains(&r["raw_data"]))).and_then(|p|p["transId"].as_str());
             let at:chrono::DateTime<chrono::Utc>=r["transacted_at"].as_str().unwrap().parse().unwrap();let text=|k:&str|r[k].as_str().map(str::to_string);let dec=|k:&str|r[k].as_str().map(|s|BigDec::parse(s).unwrap());
             writer::Input{event:Event::read(source,&r["raw_data"],Context{parent,requested_type:r["raw_data"]["type"].as_str(),occurred_ms:Some(at.timestamp_millis())}).unwrap(),entry:Entry {
-                entry_type:kind(&r["entry_type"]),base_currency:text("base_currency"),base_amount:dec("base_amount").unwrap(),quote_currency:text("quote_currency"),quote_amount:dec("quote_amount"),
-                fee_currency:text("fee_currency"),fee_amount:dec("fee_amount"),tx_id:text("tx_id"),group_id:text("group_id"),description:text("description"),transacted_at:Some(at),raw:Raw::from_value(r["raw_data"].clone())}}
+                entry_type:kind(&r["entry_type"]),base_currency:text("base_currency").map(Into::into),base_amount:dec("base_amount").unwrap(),quote_currency:text("quote_currency").map(Into::into),quote_amount:dec("quote_amount"),
+                fee_currency:text("fee_currency").map(Into::into),fee_amount:dec("fee_amount"),tx_id:text("tx_id"),group_id:text("group_id").map(Into::into),description:text("description"),transacted_at:Some(at),raw:Raw::from_value(r["raw_data"].clone())}}
         }).collect();
         let mut state=json!({"earn":{}});
         for (endpoint,answer) in case["answers"].as_object().unwrap() {
@@ -334,7 +334,7 @@ async fn binance_a12_live_sync_divergence_against_recorded_v2_cells() {
             for binding in bucket["bindings"].as_array().unwrap() {represented+=1;assert_eq!(binding["suppressed"],false);
                 let input=inputs.iter().find(|i|i.event.key().unwrap().tuple()==binding["event"]["key"].as_str().unwrap()).unwrap();
                 assert_eq!(binding["raw"],input.entry.raw.value);assert_eq!(binding["amount"],input.entry.base_amount.to_s_f());
-                if binding["inserted"]==true {assert_eq!(binding["tx_id"],input.event.sibling_id().unwrap());assert_eq!(binding["group"],json!(input.event.group_id().or(input.entry.group_id.clone())));}
+                if binding["inserted"]==true {assert_eq!(binding["tx_id"],input.event.sibling_id().unwrap());assert_eq!(binding["group"],json!(input.event.group_id().or(input.entry.group_id.as_deref().map(str::to_string))));}
                 let id=binding["row_id"].as_i64().unwrap();let mut stmt=c.prepare("SELECT * FROM account_transactions WHERE id=?1").unwrap();
                 let columns=stmt.column_names().iter().map(|s|s.to_string()).collect::<Vec<_>>();
                 let mut image=stmt.query_row([id],|r|{let mut row=serde_json::Map::new();for (n,column) in columns.iter().enumerate(){

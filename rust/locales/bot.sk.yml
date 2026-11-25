@@ -184,6 +184,7 @@ sk:
                 download_csv: 'Export'
                 generating_csv: 'Generujem súbor...'
                 import_csv: 'Import'
+                import_busy: 'Práve prebieha iný import. Skúste to prosím znova o chvíľu.'
                 import_success: 'Úspešne importovaných %{count} príkaz(ov).'
                 import_no_new_orders: 'Žiadne nové príkazy na import (všetky príkazy už existujú alebo meny sa nezhodujú).'
                 import_no_file: 'Vyberte prosím CSV súbor na import.'

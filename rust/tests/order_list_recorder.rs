@@ -663,7 +663,7 @@ fn uta_export_is_scrubbed_with_the_session_state_and_still_reads() {
     let out = uta::scrub_csv(csv, &mut sc, FACTOR, &[]).unwrap();
     assert!(!out.contains("123456789"), "{out}");
     assert!(out.contains("\"Unified Account\",\"USDT\",\"Withdrawal\",\"20.10369\",\"0\",\"2023-11-27 16:00:00\",\"\",\"Spot\""), "{out}");
-    let rows = deltabadger::tracker::import::kucoin::read(&deltabadger::tracker::import::csv::Table::parse(&out).unwrap()).unwrap();
+    let rows = deltabadger::tracker::import::kucoin::read(&deltabadger::tracker::import::csv::Table::parse(&out, deltabadger::tracker::import::kucoin::columns).unwrap()).unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[1].fee.to_s_f(), "0.0000003");
     // A worded remark that repeats the side is kept, not barred as an original.
@@ -685,4 +685,16 @@ fn uta_export_is_scrubbed_with_the_session_state_and_still_reads() {
                 "UID,Account Type,Currency,Side,Amount,Fee,Time(123456789),Remark,Type\n"] {
         assert!(uta::scrub_csv(bad, &mut uta_scrubber(), FACTOR, &[]).unwrap_err().contains("not a KuCoin Account History export"));
     }
+}
+
+/// PLAN-710-importmem r1 #4: each scrubbed record keeps its own width, as the export wrote it: a short record gains no
+/// empty cells and a long one loses none.
+#[test]
+fn uta_export_rows_keep_their_own_width() {
+    let csv = "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type\n\
+               123456789,Funding Account,USDT,Deposit,10,0,2024-03-06 16:00:00\n\
+               123456789,Funding Account,USDT,Deposit,10,0,2024-03-06 16:00:00,,Deposit,extra\n";
+    let out = uta::scrub_csv(csv, &mut uta_scrubber(), FACTOR, &[]).unwrap();
+    let widths: Vec<usize> = out.lines().map(|l| l.matches("\",\"").count() + 1).collect();
+    assert_eq!(widths, vec![9, 7, 10], "{out}");
 }

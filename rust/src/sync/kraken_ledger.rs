@@ -238,9 +238,9 @@ pub(super) fn normalise(id: &str, raw: Raw, identity: &KrakenIdentity) -> Result
         }
     };
     Ok(Entry {
-        entry_type, base_currency: Some(symbol.clone()), base_amount: base, quote_currency: None, quote_amount: None,
-        fee_currency: keep_fee.then(|| symbol.clone()), fee_amount: keep_fee.then_some(fee),
-        tx_id: Some(id.to_string()), group_id: raw.value["refid"].as_str().map(str::to_string),
+        entry_type, base_currency: Some(symbol.as_str().into()), base_amount: base, quote_currency: None, quote_amount: None,
+        fee_currency: keep_fee.then(|| symbol.as_str().into()), fee_amount: keep_fee.then_some(fee),
+        tx_id: Some(id.to_string()), group_id: raw.value["refid"].as_str().map(Into::into),
         description: (!trade).then(|| if subtype.is_empty() { format!("Kraken {kind}") } else { format!("Kraken {kind}/{subtype}") }),
         transacted_at: Some(at), raw,
     })
@@ -448,8 +448,8 @@ pub(super) fn repair(c: &Connection, key: &Key, e: &Entry, assets: &AssetRule, s
     let Some(tx_id) = e.tx_id.as_deref() else { return Ok(()) };
     let Some(stored) = row(c, &key.scope, &format!("user_id = ?1 AND exchange_id = ?2 AND {}", key.scope.id_is("account_transactions", "?3")), params![key.user_id, key.exchange_id, tx_id])? else { return Ok(()) };
     let resolved = assets.asset_id(c, e.base_currency.as_deref(), &e.raw.value, e.transacted_at)?;
-    let mut t = Target { entry_type: e.entry_type, base_currency: e.base_currency.clone().unwrap_or_default(), base_amount: e.base_amount.clone(),
-                         fee_currency: e.fee_currency.clone(), fee_amount: e.fee_amount.clone(), base_asset_id: resolved, meta: meta_of(&e.raw.value) };
+    let mut t = Target { entry_type: e.entry_type, base_currency: e.base_currency.as_deref().unwrap_or_default().to_string(), base_amount: e.base_amount.clone(),
+                         fee_currency: e.fee_currency.as_deref().map(str::to_string), fee_amount: e.fee_amount.clone(), base_asset_id: resolved, meta: meta_of(&e.raw.value) };
     if let Some(id) = stored.base_asset_id.filter(|id| Some(*id) != resolved) {
         t.base_asset_id = Some(id);
         t.base_currency = stored.base_currency.clone().unwrap_or_default();
