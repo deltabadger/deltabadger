@@ -4,7 +4,8 @@
 // so that choosing the very same file again posts it again.
 //   MODAL=modal.html BUSY=busy.html FILE=orders.csv bun script/rust/import_busy_check.mjs
 // Run by rust/tests/import_busy_browser.rs. Needs Chrome ($CHROME, else the usual places) and the compiled bundle
-// (script/rust/build_assets.sh). No dependencies: the page is a fixture served from this process.
+// (script/rust/build_assets.sh). No dependencies: the page is a fixture served from this process. Exits 77 when no
+// Chrome is found.
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,6 +17,9 @@ const css = join(root, "rust/web/builds/application.css");
 const { MODAL, BUSY, FILE } = process.env;
 if (!MODAL || !BUSY || !FILE) { console.error("set MODAL, BUSY and FILE"); process.exit(2); }
 if (!existsSync(bundle) || !existsSync(css)) { console.error("no rust/web/builds/application.{js,css}: run script/rust/build_assets.sh"); process.exit(2); }
+// Windows keeps Chrome under Program Files (either one) or the user's own LOCALAPPDATA.
+const windows = [process.env.PROGRAMFILES, process.env["PROGRAMFILES(X86)"], process.env.LOCALAPPDATA].filter(Boolean)
+  .map((base) => join(base, "Google", "Chrome", "Application", "chrome.exe"));
 const chrome = [
   process.env.CHROME,
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -24,8 +28,10 @@ const chrome = [
   "/usr/bin/google-chrome-stable",
   "/usr/bin/chromium",
   "/usr/bin/chromium-browser",
+  ...windows,
 ].filter(Boolean).find((path) => existsSync(path));
-if (!chrome) { console.error("no Chrome found: set CHROME to its binary"); process.exit(2); }
+// 77: no browser here, which the Rust test reports as skipped.
+if (!chrome) { console.error("no Chrome found: set CHROME to its binary"); process.exit(77); }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // --- the fixture app ---------------------------------------------------------------------------

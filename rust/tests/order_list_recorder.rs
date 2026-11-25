@@ -686,3 +686,15 @@ fn uta_export_is_scrubbed_with_the_session_state_and_still_reads() {
         assert!(uta::scrub_csv(bad, &mut uta_scrubber(), FACTOR, &[]).unwrap_err().contains("not a KuCoin Account History export"));
     }
 }
+
+/// PLAN-710-importmem r1 #4: each scrubbed record keeps its own width, as the export wrote it: a short record gains no
+/// empty cells and a long one loses none.
+#[test]
+fn uta_export_rows_keep_their_own_width() {
+    let csv = "UID,Account Type,Currency,Side,Amount,Fee,Time(UTC),Remark,Type\n\
+               123456789,Funding Account,USDT,Deposit,10,0,2024-03-06 16:00:00\n\
+               123456789,Funding Account,USDT,Deposit,10,0,2024-03-06 16:00:00,,Deposit,extra\n";
+    let out = uta::scrub_csv(csv, &mut uta_scrubber(), FACTOR, &[]).unwrap();
+    let widths: Vec<usize> = out.lines().map(|l| l.matches("\",\"").count() + 1).collect();
+    assert_eq!(widths, vec![9, 7, 10], "{out}");
+}

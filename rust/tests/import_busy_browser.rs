@@ -1,7 +1,7 @@
 //! PLAN-710-importmem C3 (D-IMPORT-BUSY): a fresh tracker upload answered busy, then the same file chosen again, in a real
 //! browser (script/rust/import_busy_check.mjs): the import modal as the app renders it, the busy answer the app writes,
-//! and the compiled bundle's file-picker. The retry posts the file again. Needs Chrome and bun; the full suite's runner
-//! has both.
+//! and the compiled bundle's file-picker. The retry posts the file again. Needs bun; with no Chrome found it is skipped,
+//! saying so.
 mod common;
 use common::web::{self, Browser, TestClock};
 
@@ -24,5 +24,7 @@ async fn a_busy_upload_is_retried_with_the_same_file() {
     let out = std::process::Command::new("bun").arg(format!("{root}/script/rust/import_busy_check.mjs"))
         .env("MODAL", path("modal.html")).env("BUSY", path("busy.html")).env("FILE", path("orders.csv"))
         .output().expect("bun runs");
+    // No Chrome on this machine: nothing to drive (script/rust/import_busy_check.mjs exits 77).
+    if out.status.code() == Some(77) { eprintln!("skipped: no Chrome found (set CHROME to its binary): {}", String::from_utf8_lossy(&out.stderr)); return; }
     assert!(out.status.success(), "{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
 }

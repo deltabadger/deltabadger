@@ -23,6 +23,9 @@ pub fn as_text(bytes: &[u8]) -> String {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Record<'a> { pub blank: bool, cells: Vec<Option<Cow<'a, str>>> }
 
+/// Every cell of one row, as `Table::whole` reads it.
+pub type Cells<'a> = Vec<Option<Cow<'a, str>>>;
+
 /// `CSV.parse(text, headers: true)`, streamed (PLAN-710-importmem B2′): the first row is the headers, every later row a
 /// record. Only the columns a reader names are kept (the first of each name, as `row[name]` reads it); every other cell
 /// is tokenized, so its quoting is still checked, and dropped without being kept. `parse` checks the whole text before it
@@ -72,6 +75,18 @@ impl<'a> Table<'a> {
             let blank = !read.ok()?;
             Some(Record { blank, cells })
         })
+    }
+    /// For a tool that copies the file whole (the KuCoin recorder): every cell of the header row, and of each record, each
+    /// row its own width (a blank line none). The import never reads a file this way.
+    pub fn whole(&self) -> (Cells<'a>, impl Iterator<Item = Cells<'a>> + '_) {
+        let mut header = vec![];
+        Reader::new(self.text).next(|_, cell| header.push(cell.value()));
+        let mut reader = Reader { s: self.text.as_bytes(), text: self.text, pos: self.body, sep: self.sep };
+        (header, std::iter::from_fn(move || {
+            let mut cells = vec![];
+            reader.next(|_, cell| cells.push(cell.value()))?.ok()?;
+            Some(cells)
+        }))
     }
     /// `row[name]`: the cell under the FIRST header of that name; nil past a short row's end.
     pub fn get<'r>(&self, record: &'r Record<'a>, name: &str) -> Option<&'r str> {

@@ -331,6 +331,10 @@ fn widen(seconds: &BTreeSet<DateTime<Utc>>, by: i64) -> BTreeSet<DateTime<Utc>> 
     seconds.iter().flat_map(|t| (-by..=by).map(move |d| second(*t) + Duration::seconds(d))).collect()
 }
 
+/// Test hook (tests/import_memory.rs): the most judged seconds `rederive` has held at once.
+#[doc(hidden)]
+pub static WINDOW: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// The rule over `seconds` (r1.1: every second within one of them is judged, from rules 1–2 within two), in the caller's
 /// transaction: what each judged second materializes of the export's entries, and its `ambiguous` row.
 fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Utc>>, now: DateTime<Utc>) -> Result<Stored, SyncError> {
@@ -340,11 +344,21 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
     for t in &ruled_at { withhold(c, key, *t, now)?; }
     let catalogue = Catalogue::load(c, key.exchange_id)?;
     let cutoffs = file::cutoffs(c, key)?;
-    let mut ruled: HashMap<DateTime<Utc>, Judged> = HashMap::new();
-    for t in &ruled_at { ruled.insert(*t, judge(c, key, *t, &catalogue)?); }
-    let unpaired_api = |t: DateTime<Utc>| ruled.get(&t).is_some_and(|j| j.reps.iter().zip(&j.used).any(|(r, u)| r.api && !u));
+    // PLAN-710-importmem A6 (r1 #3): a window at a time. A second is judged once the seconds up to one past it are read,
+    // and what lies more than one before it is dropped: what one second's judgement reads is that second's own rows,
+    // which no write at another second changes, so judging as it goes reads what judging all first read.
+    let mut ruled: BTreeMap<DateTime<Utc>, Judged> = BTreeMap::new();
+    let mut ahead = ruled_at.iter().peekable();
     let mut writer = super::ledger::FileWriter::new(c, key, "kucoin")?;
     for t in &judged_at {
+        while let Some(&&r) = ahead.peek() {
+            if r > *t + Duration::seconds(1) { break }
+            ruled.insert(r, judge(c, key, r, &catalogue)?);
+            ahead.next();
+        }
+        while ruled.first_key_value().is_some_and(|(first, _)| *first < *t - Duration::seconds(1)) { ruled.pop_first(); }
+        WINDOW.fetch_max(ruled.len(), std::sync::atomic::Ordering::Relaxed);
+        let unpaired_api = |t: DateTime<Utc>| ruled.get(&t).is_some_and(|j| j.reps.iter().zip(&j.used).any(|(r, u)| r.api && !u));
         let j = &ruled[t];
         let leftover: Vec<usize> = (0..j.csv.len()).filter(|i| !j.represented[*i]).collect();
         let mut ambiguous = j.reps.iter().any(|r| r.inexact);

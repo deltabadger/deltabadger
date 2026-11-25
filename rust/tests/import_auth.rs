@@ -657,3 +657,38 @@ async fn a_cancel_and_a_confirmation_wait_for_a_slot_too() {
     }
     drop(held);
 }
+
+/// PLAN-710-importmem r1 #5: the busy page's language follows the request as every page's does: of two `?locale`, the
+/// last.
+#[tokio::test(flavor = "current_thread")]
+async fn a_busy_page_takes_the_last_locale_of_its_query() {
+    let i = install();
+    let secret = csrf::new_token();
+    let masked = csrf::masked(&secret);
+    let held = (deltabadger::tracker::import::service::permit(&i.app).await, deltabadger::tracker::import::service::permit(&i.app).await);
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+    let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[("file", "orders.csv", &csv())]);
+    let answer = send(&i.app, "POST", &format!("{}?locale=de&locale=fr", i.bot_path()), &[&cookie], &[("content-type", &content_type)], Body::from(body)).await;
+    assert_eq!(answer.status, 503);
+    assert!(answer.body.contains(&i18n::escape(&t("fr", "bot.details.stats.import_busy"))), "{}", answer.body);
+    assert!(answer.body.contains(&format!("href=\"/fr/bots/{}\"", i.bot)), "{}", answer.body);
+    drop(held);
+}
+
+/// PLAN-710-importmem r1 #6 (E5): the wait for a slot is five seconds exactly, on a paused clock: what admission and the
+/// fresh check read takes no time, so the busy answer comes at the deadline.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_wait_for_a_slot_is_five_seconds() {
+    let i = install();
+    let secret = csrf::new_token();
+    let masked = csrf::masked(&secret);
+    let held = (deltabadger::tracker::import::service::permit(&i.app).await, deltabadger::tracker::import::service::permit(&i.app).await);
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+    let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[("file", "orders.csv", &csv())]);
+    let polls = Arc::new(AtomicUsize::new(0));
+    let started = tokio::time::Instant::now();
+    let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls.clone(), || ())).await;
+    assert_eq!((answer.status, polls.load(Ordering::SeqCst)), (503, 0));
+    assert_eq!(started.elapsed(), std::time::Duration::from_secs(5));
+    drop(held);
+}

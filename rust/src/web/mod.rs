@@ -1208,7 +1208,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
             };
             match (fresh, &permit) {
                 (Ok(locale), None) => {
-                    let param = path_locale.or_else(|| query.iter().find(|(k, _)| k == "locale").map(|(_, v)| v.as_str()));
+                    // As `Params::locale` reads it (the body unread): the path's prefix, else the last `?locale`.
+                    let param = path_locale.or_else(|| query.iter().rfind(|(k, _)| k == "locale").map(|(_, v)| v.as_str()).filter(|v| !v.trim().is_empty()));
                     return busy(&entry.app, &parts.headers, locale::switch(param, locale.as_deref()), &route_path);
                 }
                 (Ok(_), Some(_)) => {}

@@ -399,7 +399,10 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
     if others.is_empty() { return Ok(out); }
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange], |r| r.get::<_, Option<String>>(0))?.unwrap_or_default();
     for other in others {
-        let (mut count, mut ids) = (0, vec![]);
+        // r1 #2: an id-less leg names its coin by its place among the coins met (each named once, below), so a long coin
+        // matched leg after leg is held once.
+        let (mut count, mut ids, mut coins) = (0, vec![], Vec::<crate::sync::activities::Text>::new());
+        let mut coin_at: std::collections::HashMap<crate::sync::activities::Text, usize> = Default::default();
         let key = writer(c, &[], other)?;
         let merged = ledger::stored_merged(c, &key)?;
         let at_ = "account_transactions";
@@ -409,13 +412,17 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
             match e.tx_id.as_deref().filter(|t| !t.trim().is_empty()) {
                 Some(id) => if crate::venue_ids::known(c, &key.scope, id)? || merged.contains(id) { hit(id.to_string()) },
                 None => {
-                    let (Some(at), Some(base)) = (e.transacted_at, e.base_currency.as_deref()) else { continue };
+                    let (Some(at), Some(coin)) = (e.transacted_at, e.base_currency.as_ref()) else { continue };
+                    let base: &str = coin;
                     let second = at.with_nanosecond(0).unwrap_or(at);
                     let same: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions {} WHERE user_id = ?1 AND exchange_id = ?2 AND {} AND entry_type = ?3 \
                                                           AND base_currency = ?4 AND base_amount = ?5 AND transacted_at >= ?6 AND transacted_at < ?7)", ledger::BY_TIME, key.scope.rows(at_)),
                                                  rusqlite::params![user_id, exchange, e.entry_type, base, ledger::amount_sql(&exchange_type, &e.base_amount),
                                                                    crate::sync::sql_time(second), crate::sync::sql_time(second + chrono::Duration::seconds(1))], |r| r.get(0))?;
-                    if same { hit(format!("{}|{base}|{}|{}", e.entry_type, e.base_amount.to_s_f(), second.timestamp())) }
+                    if same {
+                        let n = *coin_at.entry(coin.clone()).or_insert_with(|| { coins.push(coin.clone()); coins.len() - 1 });
+                        hit(format!("{}|#{n}|{}|{}", e.entry_type, e.base_amount.to_s_f(), second.timestamp()))
+                    }
                 }
             }
         }
@@ -423,7 +430,7 @@ fn existing(c: &Connection, user_id: i64, exchange: i64, own: Option<i64>, bound
             let held: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM import_rows WHERE account_id = ?1 AND row_id = ?2)", rusqlite::params![other, row.row_id], |r| r.get(0))?;
             if held { hit(row.row_id.clone()) }
         }
-        if count > 0 { out.push((other, count, ids.join(","))); }
+        if count > 0 { out.push((other, count, format!("{}|coins:{coins:?}", ids.join(",")))); }
     }
     Ok(out)
 }

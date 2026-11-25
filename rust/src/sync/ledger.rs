@@ -641,7 +641,8 @@ fn pairs_of(batch: &[Entry]) -> HashMap<String, Vec<usize>> {
 }
 
 /// #event_key: type, currency, amount and instant.
-pub(super) type EventKey = (i64, Option<String>, BigDec, Option<DateTime<Utc>>);
+/// PLAN-710-importmem r1 #1: the currency is the entry's own shared text, so a split coin is held once.
+pub(super) type EventKey = (i64, Option<activities::Text>, BigDec, Option<DateTime<Utc>>);
 
 /// The legs of every merged split already stored for the user on this venue.
 pub(crate) fn stored_merged(c: &Connection, key: &Key) -> Result<HashSet<String>, SyncError> {
@@ -751,7 +752,7 @@ pub(super) fn store(c: &crate::engine::model::FencedTransaction<'_>, key: &Key, 
         if decided == Some(true) { p.out.duplicates += 1; continue; }
         // A row its id already names is not one of the identical rows counted.
         let repeat = if decided.is_some() || known_id(c, key, tx_id, &p.merged)? { 0 } else {
-            let seen = p.repeats.entry((e.entry_type, e.base_currency.as_deref().map(str::to_string), e.base_amount.clone(), e.transacted_at)).or_insert(0);
+            let seen = p.repeats.entry((e.entry_type, e.base_currency.clone(), e.base_amount.clone(), e.transacted_at)).or_insert(0);
             *seen += 1;
             *seen - 1
         };
