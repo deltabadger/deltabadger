@@ -3674,6 +3674,56 @@ async fn s9r1_the_bybit_json_save_reads_an_unread_installed_key_first() {
     assert_eq!(asked.status, 409, "{}", asked.body);
 }
 
+/// Review r1 #2 (every identity venue): a Reconnect of the sole account, whose installed key nothing has read, with a key
+/// whose permission check passes but whose own identity read is transient (a 503) is refused with "try again": it is never
+/// accepted against the unfingerprinted account, and the installed key stays.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_a_transient_candidate_read_never_replaces_an_unread_key() {
+    let (_d, o, user, exchange, server, app) = bybit().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_slot_key(c, user, exchange, first, 2, ("by-a", "by-secret", None));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &bybit_fields("by-busy")).await;
+    assert_eq!(bybit_sent(&server, "by-busy", identity::BYBIT_PATH).await, 1, "the candidate's UID was asked: {}", answer.body);
+    assert_eq!(answer.status, 422, "{}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to. Try again."), "{}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "by-a".into())]);
+
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let c = &o.primary;
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_slot_key(c, user, exchange, first, 2, ("key-a", "secret", Some("phrase")));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &kucoin_fields("key-fail")).await;
+    assert_eq!(kucoin_sent(&server, "key-fail").await, 1, "KuCoin: the candidate's UID was asked: {}", answer.body);
+    assert_eq!(answer.status, 422, "KuCoin: {}", answer.body);
+    assert!(answer.body.contains("We could not confirm which account this key belongs to. Try again."), "KuCoin: {}", answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-a".into())]);
+}
+
+/// The UID reads `server` received signed by KuCoin key `key`.
+async fn kucoin_sent(server: &MockServer, key: &str) -> usize {
+    server.received_requests().await.unwrap().iter().filter(|r| r.url.path() == identity::KUCOIN_PATH && r.headers.get("KC-API-KEY").is_some_and(|v| v == key)).count()
+}
+
+/// Review r1 #2 follow-up: a Reconnect reposting the exact stored read-only key of the sole unfingerprinted KuCoin account
+/// replaces nothing, so it is never refused for the unread trading key beside it, though the reposted key's UID read is a
+/// 503 and its permission check passes.
+#[tokio::test(flavor = "current_thread")]
+async fn s9r1_an_exact_repost_beside_an_unread_key_is_not_refused() {
+    let (_d, o, user, exchange, server, app) = kucoin().await;
+    let (c, cipher) = (&o.primary, seed::cipher());
+    let first = identity::ensure_account(c, user, exchange, chrono::Utc::now()).unwrap();
+    unread_slot_key(c, user, exchange, first, 0, ("key-trading", "secret", Some("phrase")));
+    unread_slot_key(c, user, exchange, first, 2, ("key-reading", "secret", Some("phrase")));
+    let mut b = browser(&app, c, user);
+    let answer = save(&app, &mut b, exchange, Some(first), &kucoin_fields("key-reading")).await;
+    assert_eq!(kucoin_sent(&server, "key-reading").await, 1, "the reposted key's UID was asked: {}", answer.body);
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    assert_eq!(keys(c, &cipher, exchange), [(1, "key-trading".into()), (1, "key-reading".into())]);
+}
+
 // ---- #710 slice 9: MEXC names its UID (`uid` of GET /api/v3/uid, after the permission check) ----
 
 /// A MEXC exchange of the Alpaca fixture's user. `mx-a`, `mx-a2`, `mx-a3` read UID A (text, as MEXC's docs type it); `mx-b`
