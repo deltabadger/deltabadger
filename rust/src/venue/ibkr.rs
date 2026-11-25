@@ -30,6 +30,8 @@ pub const LST_TTL: TimeDelta = TimeDelta::hours(23);
 pub const BROKERAGE_SESSION_TTL: TimeDelta = TimeDelta::minutes(4);
 /// What a call answers when the login no longer lists exactly the account the connection is bound to.
 pub const ACCOUNT_CHANGED: &str = "the IBKR login no longer names the account this connection belongs to";
+/// #710 7b rule 12: what a request the post-lock gate held back answers.
+pub const GATED: &str = "the IBKR key changed or reads another account now; nothing was sent";
 /// IbkrLock's wait for a busy login.
 pub const LOCK_WAIT: std::time::Duration = std::time::Duration::from_secs(15);
 
@@ -147,6 +149,8 @@ pub async fn read<T: Transport, C: Clock + ?Sized>(session: &Session<'_, T, C>, 
         Ok(v) => Ok(HttpResponse { status: 200, body: v.to_string() }),
         Err(Error::Http { status, body }) => Ok(HttpResponse { status, body }),
         Err(Error::Transport(e)) => Err(e),
+        // #710 7b rule 12: held back by the gate, nothing sent ("check first").
+        Err(Error::Gated) => Err(TransportError::NotSent(GATED.into())),
         Err(e) => Err(TransportError::Permanent(session.transport.redact_diagnostic(&e.message()))),
     }
 }
@@ -182,6 +186,8 @@ pub enum Error {
     Unreadable,
     /// An order or reply POST handed to `signed_request`, which may resend it; it goes through `Session::submit`.
     Mutation,
+    /// #710 7b rule 12 (D-IBKR-FENCE): the post-lock gate found the key changed or reading another account; nothing sent.
+    Gated,
 }
 
 impl Error {
@@ -196,6 +202,7 @@ impl Error {
             Self::Auth(m) | Self::Key(m) => m.into(),
             Self::Unreadable => "the answer is not readable JSON".into(),
             Self::Mutation => "an order or reply sent as a read".into(),
+            Self::Gated => GATED.into(),
         }
     }
 }
@@ -215,13 +222,65 @@ pub struct Session<'a, T: Transport, C: Clock + ?Sized = dyn Clock> {
     login: Arc<Login>,
     clock: &'a C,
     dh_random: Box<dyn Fn() -> String + Send + Sync + 'a>,
+    /// #710 7b rule 12: the database file and the credential version every lock hold is checked against before it sends.
+    gate: Option<(String, CredentialVersion)>,
+    /// #710 7b §2: where this login's accounts reads are numbered (none: unnumbered).
+    reads: Option<super::ibkr_account::Reads>,
 }
 
 impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     pub fn new(transport: &'a T, login: Arc<Login>, clock: &'a C) -> Self {
         let fixed = FIXED_DH_RANDOM.lock().unwrap_or_else(|p| p.into_inner()).clone();
         let dh_random: Box<dyn Fn() -> String + Send + Sync + 'a> = match fixed { Some(r) => Box::new(move || r.clone()), None => Box::new(oauth::dh_random) };
-        Self { transport, base: URL.into(), login, clock, dh_random }
+        Self { transport, base: URL.into(), login, clock, dh_random, gate: None, reads: None }
+    }
+
+    /// #710 7b rule 12 (D-IBKR-FENCE): every lock hold of this session first reads its database afresh (the `Fence::Live`
+    /// pattern): (a) `version` still the key's current credential, on its account, and its latest read naming that account;
+    /// (b) before any request but the accounts list, authority to send: the hold's own accounts read committed a match, or
+    /// the login's latest read did (`ibkr_account::authorized`). Otherwise nothing is sent (`Error::Gated`). `reads` None
+    /// (an in-memory database): no gate.
+    pub fn with_gate(mut self, reads: Option<super::ibkr_account::Reads>, version: &CredentialVersion) -> Self {
+        self.gate = reads.as_ref().map(|r| (r.path.clone(), version.clone()));
+        self.reads = reads;
+        self
+    }
+    /// #710 7b §2: this session's accounts reads numbered in `reads` (a key check: its verdict is acted on by the caller).
+    pub fn with_reads(mut self, reads: Option<super::ibkr_account::Reads>) -> Self { self.reads = reads; self }
+
+    fn gated(&self) -> Result<(), Error> {
+        let Some((path, version)) = &self.gate else { return Ok(()) };
+        // Branch r1 #5: a gate whose state could not be loaded (`Reads::closed`) sends nothing.
+        if path.is_empty() { return Err(Error::Gated); }
+        let current = rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
+            .and_then(|c| { c.busy_timeout(std::time::Duration::from_secs(5))?; Ok(c) })
+            .map_err(crate::engine::EngineError::from)
+            .and_then(|c| crate::engine::model::key_is_current(&c, version));
+        if current.unwrap_or(false) { Ok(()) } else { Err(Error::Gated) }
+    }
+    /// Rule 12(b), before a gated hold's request other than the accounts list: the gate read afresh (a fence the hold's own
+    /// accounts read just recorded holds it back, branch r1 #7), then the authority to send.
+    fn authorized(&self) -> Result<(), Error> {
+        let Some((_, version)) = &self.gate else { return Ok(()) };
+        self.gated()?;
+        match &self.reads { Some(reads) if reads.authorized(version.id) => Ok(()), _ => Err(Error::Gated) }
+    }
+
+    /// GET /iserver/accounts under `held`, numbered in the login's read order (`Taken`, when this session has `reads`), the
+    /// number kept whatever the answer (a final 401 included, branch r1 #3: its verdict is acted on only while it is the
+    /// latest). With `bound` (an in-lock read of a gated session: the balance read, `submit`, `IbkrVenue::checked`), its
+    /// verdict is committed before the lock is released (`Reads::commit_in_lock`): a match authorizes the hold's next
+    /// requests, one other account fences the key.
+    pub async fn accounts(&self, held: &Held<'_>, bound: Option<&str>) -> (Result<Value, Error>, Option<super::ibkr_account::Taken>) {
+        let Some(reads) = &self.reads else { return (self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await, None) };
+        let order = reads.ordered().await;
+        let taken = match reads.take() { Ok(t) => t, Err(e) => { crate::engine::log(&format!("[IBKR] {e}")); return (Err(Error::Gated), None) } };
+        let answer = self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await;
+        drop(order);
+        if let (Ok(v), Some((_, version)), Some(bound)) = (&answer, &self.gate, bound) {
+            if let Err(e) = reads.commit_in_lock(version, taken, bound, v, self.clock.now()) { crate::engine::log(&format!("[IBKR] api_key={} the accounts read was not recorded: {e}", version.id)); }
+        }
+        (answer, Some(taken))
     }
 
     /// Sent to `base` instead of Session::BASE_URL (a test's server).
@@ -238,12 +297,16 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
 
     /// IbkrLock.with_lock: waits up to LOCK_WAIT for the login, then fails.
     pub async fn lock(&self) -> Result<Held<'_>, Error> {
-        tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(|g| Held(Guard::Borrowed(g))).map_err(|_| Error::LockTimeout)
+        let held = tokio::time::timeout(LOCK_WAIT, self.login.op.lock()).await.map(|g| Held(Guard::Borrowed(g))).map_err(|_| Error::LockTimeout)?;
+        self.gated()?;
+        Ok(held)
     }
 
     /// `lock`, held by the caller beyond this session (a placement's position read and its intent, `PlacementHold`).
     pub async fn lock_owned(&self) -> Result<Held<'static>, Error> {
-        tokio::time::timeout(LOCK_WAIT, self.login.op.clone().lock_owned()).await.map(|g| Held(Guard::Owned(g))).map_err(|_| Error::LockTimeout)
+        let held = tokio::time::timeout(LOCK_WAIT, self.login.op.clone().lock_owned()).await.map(|g| Held(Guard::Owned(g))).map_err(|_| Error::LockTimeout)?;
+        self.gated()?;
+        Ok(held)
     }
 
     /// Session#signed_request: the brokerage session established, the call signed, one self-heal on a 401 or AuthError.
@@ -253,6 +316,7 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     pub async fn signed_request(&self, _held: &Held<'_>, method: &'static str, path: &str, query: Vec<(&'static str, String)>, body: Option<Value>) -> Result<Value, Error> {
         debug_assert!(!is_mutation(method, path), "{method} {path} goes through Session::submit");
         if is_mutation(method, path) { return Err(Error::Mutation) }
+        if path != ACCOUNTS_PATH { self.authorized()?; }
         match self.attempt(method, path, &query, &body).await {
             Err(e) if e.heals() => {
                 self.login.invalidate();
@@ -270,8 +334,9 @@ impl<'a, T: Transport, C: Clock + ?Sized> Session<'a, T, C> {
     /// `account`: the account list must name it and no other, else nothing is sent (Rejected).
     pub async fn submit(&self, held: &Held<'_>, path: &str, body: Value, account: Option<&str>) -> Result<Value, VenueError> {
         let redact = |e: Error| self.transport.redact_diagnostic(&e.message());
-        let accounts = self.signed_request(held, "GET", ACCOUNTS_PATH, vec![], None).await.map_err(|e| VenueError::Transient(redact(e)))?;
+        let accounts = self.accounts(held, account).await.0.map_err(|e| VenueError::Transient(redact(e)))?;
         if account.is_some_and(|a| !super::ibkr_account::names_only(&accounts, a)) { return Err(VenueError::Rejected(vec![ACCOUNT_CHANGED.into()])) }
+        self.authorized().map_err(|e| VenueError::Transient(redact(e)))?;
         self.live_session_token().await.map_err(|e| VenueError::Transient(redact(e)))?;
         match self.request(self.http("POST", path, vec![], Some(body))).await {
             Ok(v) => Ok(v),

@@ -321,6 +321,9 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("ibkr_bindings", "account_id_enc"), Policy::Keep("the account an IBKR connection is bound to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("ibkr_bot_accounts", "account_id_enc"), Policy::Keep("the account an IBKR bot belongs to: a restored bot refuses another (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("rust_withdrawal_intents", "params_enc"), Policy::Keep("owed withdrawals (dispatched or unresolved), settled by hand after a restore; prepared ones are credential-bound")),
+    (("ibkr_registrations", "rsa_signature_key"), Policy::DeleteRows), (("ibkr_registrations", "rsa_encryption_key"), Policy::DeleteRows),
+    (("ibkr_registrations", "dh_param"), Policy::DeleteRows), (("ibkr_registrations", "key"), Policy::DeleteRows),
+    (("ibkr_registrations", "access_token"), Policy::DeleteRows), (("ibkr_registrations", "secret"), Policy::DeleteRows),
 ];
 
 /// 2.x's Export::Portable::SESSION_TABLES: every row goes (REST/MCP tokens, client secrets, sessions).
@@ -338,6 +341,7 @@ pub const REVIEWED_PLAIN: &[((&str, &str), &str)] = &[
     (("users", "encrypted_password"), "the bcrypt hash: sign in with the same password after a restore (2.x and launchpad's README promise it)"),
     (("users", "otp_module"), "whether two-factor is on, not its seed"),
     (("rust_withdrawal_intents", "credential_digest"), "SHA-256 of the old key's ciphertext, which is gone: it recovers nothing"),
+    (("ibkr_login_reads", "login_digest"), "an HMAC of an IBKR login's material under the identity key; the export deletes the rows (`scrub`)"),
     (("rust_withdrawal_intents", "key_identity"), "a public fingerprint of the old key"),
     (("rust_api_orders", "credential_version"), "a version stamp of the key a request was validated against"),
     (("users", "last_otp_at"), "when a two-factor code was last used, not the code"),
@@ -443,6 +447,8 @@ pub fn scrub(tx: &Connection, now: DateTime<Utc>) -> Result<(), ExportError> {
     // Rust's: the old key's observations, IBKR reservations and never-sent withdrawals go; the account anchors stay.
     tx.execute_batch("DELETE FROM exchange_account_credentials; DELETE FROM ibkr_reservations; \
                       DELETE FROM rust_withdrawal_intents WHERE state = 'prepared'").map_err(&f)?;
+    // #710 7b: a pending IBKR connection is credentials only (D-IBKR-REGISTRATION); its login reads with it.
+    for t in ["ibkr_registrations", "ibkr_login_reads"] { if crate::engine::rules::table_exists(tx, t).map_err(&f)? { tx.execute_batch(&format!("DELETE FROM {t}")).map_err(&f)?; } }
     // #710: the duplicate standings rest on keys the export no longer carries; the next reconsideration decides again.
     if crate::engine::rules::table_exists(tx, "exchange_account_standings").map_err(&f)? { tx.execute_batch("DELETE FROM portfolio_snapshots WHERE user_id IN (SELECT user_id FROM exchange_account_standings); DELETE FROM exchange_account_standings").map_err(&f)?; }
     crate::rotation::rebalancing_off(tx).map_err(&f)?;

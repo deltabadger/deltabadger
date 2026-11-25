@@ -8,7 +8,7 @@ struct Wire { calls: RefCell<Vec<HttpRequest>>, body: String }
 impl Transport for Wire {
     fn producer(&self)->Option<deltabadger::engine::model::CredentialVersion>{
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); INSERT INTO api_keys(id,key) VALUES(1,'fixed-test-ciphertext')").unwrap();
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT); INSERT INTO api_keys(id,key) VALUES(1,'fixed-test-ciphertext')").unwrap();
         deltabadger::engine::model::credential_version_by_id(&c,1).unwrap()
     }
     async fn send(&self, request: &HttpRequest) -> Result<HttpResponse, TransportError> {

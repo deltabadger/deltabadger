@@ -264,6 +264,15 @@ const RUST_TABLES: &[(&str, TableContract)] = &[
         ("expires_at", "TEXT", true), ("picks", "TEXT", true), ("created_at", "TEXT", true)], unique_indexes: &[] }),
     ("20261126000001", TableContract { name: "import_parked_choices", columns: &[("handle", "TEXT", false), ("token", "TEXT", true), ("gen", "INTEGER", true),
         ("kind", "TEXT", true), ("dest_json", "TEXT", true)], unique_indexes: &[] }),
+    // #710 slice 7b: IBKR registrations, the IBKR accounts an exchange account holds history of, and each login's reads.
+    ("20261126000002", TableContract { name: "ibkr_registrations", columns: &[("id", "INTEGER", false), ("user_id", "INTEGER", true), ("exchange_id", "INTEGER", true),
+        ("target_account_id", "INTEGER", false), ("revision", "INTEGER", true), ("rsa_signature_key", "TEXT", true), ("rsa_encryption_key", "TEXT", true),
+        ("dh_param", "TEXT", true), ("key", "TEXT", false), ("access_token", "TEXT", false), ("secret", "TEXT", false), ("ibkr_realm", "TEXT", false),
+        ("status", "INTEGER", true), ("created_at", "TEXT", true), ("updated_at", "TEXT", true), ("baseline", "TEXT", false)], unique_indexes: &[] }),
+    ("20261126000002", TableContract { name: "ibkr_account_evidence", columns: &[("account_id", "INTEGER", true), ("fingerprint", "TEXT", true), ("source", "TEXT", true)],
+        unique_indexes: &[] }),
+    ("20261126000002", TableContract { name: "ibkr_login_reads", columns: &[("login_digest", "TEXT", false), ("seq", "INTEGER", true), ("committed_seq", "INTEGER", true),
+        ("committed_fingerprint", "TEXT", false)], unique_indexes: &[] }),
     // Delisted coins PR0: coin prices by identity.
     ("20261123000002", TableContract { name: "asset_prices", columns: &[("id", "INTEGER", false), ("external_id", "TEXT", true), ("currency", "TEXT", true),
         ("date", "TEXT", true), ("price", "TEXT", true)], unique_indexes: &[&["external_id", "currency", "date"]] }),

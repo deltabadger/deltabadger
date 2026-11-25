@@ -785,15 +785,32 @@ impl VenueFactory for LiveFactory {
         if !super::registry::row(super::ibkr::IBKR).is_some_and(|r| r.trades) { return self.for_bot_with_redaction(super::ibkr::IBKR, credentials, sensitive) }
         let refused = |why: &str| LiveVenue::Alpaca(AlpacaVenue::new(ReqwestTransport::refused(why), Urls::for_passphrase(None)));
         let (account, account_ref) = match account { Ok(a) => a, Err(why) => return refused(&why) };
-        let login = match (credentials.as_ref().and_then(|c| c.ibkr.as_deref()), version) {
-            (Some(material), Some(version)) => match super::ibkr::login(&version, material) { Ok(login) => login, Err(_) => return refused("the IBKR key material is unreadable") },
+        let (login, version) = match (credentials.as_ref().and_then(|c| c.ibkr.as_deref()), version) {
+            (Some(material), Some(version)) => match super::ibkr::login(&version, material) { Ok(login) => (login, version), Err(_) => return refused("the IBKR key material is unreadable") },
             _ => return refused("the IBKR connection is incomplete"),
         };
         let transport = match self.egress_and("ibkr", |_| Ok(())) {
             Err(why) => ReqwestTransport::refused(&why),
             Ok(((client, proxy), ())) => ReqwestTransport::ibkr(client, login.clone()).with_sensitive_values(proxy.into_iter().collect()),
         };
-        LiveVenue::Ibkr(super::ibkr_venue::IbkrVenue::new(transport.with_sensitive_values(sensitive).with_clock(self.clock.clone()), login, self.clock.clone(), account, account_ref))
+        let Some(credentials) = credentials else { return refused("the IBKR connection is incomplete") };
+        LiveVenue::Ibkr(self.ibkr_with(transport.with_sensitive_values(sensitive).with_clock(self.clock.clone()), login, &credentials, version, account, account_ref))
+    }
+}
+
+impl LiveFactory {
+    /// The engine's IBKR venue for key `version` (`credentials`, its login `login`) over `transport`, as `account`, behind the
+    /// post-lock gate of this install's database (#710 7b rule 12, branch r1 #11): a poll, cancel or recovery queued before a
+    /// fence sends nothing once it holds the login. An install database it cannot open is a closed gate; a factory with no
+    /// install has no gate (its egress refuses every IBKR call).
+    #[doc(hidden)]
+    pub fn ibkr_with<T: super::http::Transport>(&self, transport: T, login: std::sync::Arc<super::ibkr::Login>, credentials: &Credentials,
+                                                 version: crate::engine::model::CredentialVersion, account: String, account_ref: String) -> super::ibkr_venue::IbkrVenue<T> {
+        let reads = self.settings.as_ref().and_then(|(path, cipher)| match Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY) {
+            Ok(c) => super::ibkr_account::reads(&c, cipher, credentials),
+            Err(_) => Some(super::ibkr_account::Reads::closed()),
+        });
+        super::ibkr_venue::IbkrVenue::new(transport, login, self.clock.clone(), account, account_ref).with_gate(reads, version)
     }
 }
 

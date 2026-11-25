@@ -482,6 +482,11 @@ pub fn run(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, duplicate_
         c.execute("INSERT INTO account_fingerprint_proofs (account_id, created_at) SELECT ?2, p.created_at FROM account_fingerprint_proofs p WHERE p.account_id = ?1
                    AND (SELECT fingerprint FROM exchange_accounts WHERE id = ?1) IS (SELECT fingerprint FROM exchange_accounts WHERE id = ?2) ON CONFLICT (account_id) DO NOTHING", [d, s])?;
     }
+    // #710 7b (branch r1 #13): the IBKR history the duplicate holds (its evidence, the takeover's sentinel included) is the
+    // survivor's, so a later registration of that account still asks; the tombstone then deletes the duplicate's rows.
+    if crate::engine::rules::table_exists(c, "ibkr_account_evidence")? {
+        c.execute("INSERT OR IGNORE INTO ibkr_account_evidence (account_id, fingerprint, source) SELECT ?2, fingerprint, source FROM ibkr_account_evidence WHERE account_id = ?1", [d, s])?;
+    }
     // The API's takeover cutoffs: the survivor keeps the earlier of each class, and the duplicate's go.
     c.execute("UPDATE import_cutoffs SET cutoff_at = (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class), updated_at = ?3 \
                WHERE account_id = ?2 AND cutoff_at > (SELECT d.cutoff_at FROM import_cutoffs d WHERE d.account_id = ?1 AND d.class = import_cutoffs.class)",

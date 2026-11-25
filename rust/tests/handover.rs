@@ -1602,12 +1602,13 @@ const REFUSING: &[&str] = &["ibkr_reservations", "kucoin_coverage", "rust_withdr
     "rust_binance_a12_v1:", "rust_kucoin_order:", "rust_rule_import", "rust_rule_job_cleanup", "rust_placement", "rust_reversal_cancels",
     "rust_signal_calls", "rust_base_cap_rotation_pending", "rust_redeploy_request", "liquidation_selling_since.holdings", "rust_split_hold",
     "exchange_account_rules", "exchange_account_transactions", "exchange_account_keys", "exchange_account_bots", "rust_api_order_standalone",
-    "exchange_account_rows", "exchange_account_balances", "exchange_account_snapshots", "exchange_accounts", "exchange_account_standings"];
+    "exchange_account_rows", "exchange_account_balances", "exchange_account_snapshots", "exchange_accounts", "exchange_account_standings", "ibkr_registrations"];
 
 /// Refusing or waiting rows the matrix run does not set up, and the test that proves each.
 const PROVEN_ELSEWHERE: &[(&str, &str)] = &[
     ("ibkr_reservations", "tests/ibkr_placement.rs the_handback_is_refused_while_ibkr_holds_anything"),
     ("rust_placement", "tests/handover.rs an_unresolved_order_blocks_handback_and_v2_keeps_refusing"),
+    ("ibkr_registrations", "tests/ibkr_keys.rs s7b_ibkr_registration_refuses_handback_awaiting_activation"),
 ];
 
 fn rs_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
