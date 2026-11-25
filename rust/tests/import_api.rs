@@ -140,6 +140,20 @@ async fn the_tool_is_off_by_default() {
     assert_eq!(called["error"]["code"], -32602, "{called}");
 }
 
+/// D-IMPORT-DETECT: a format left out is read from the file's header, over REST and MCP alike; a header naming no format is
+/// unreadable, and nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_format_left_out_is_read_from_the_header() {
+    let i = install(true);
+    let junk = "a,b,c\n1,2,3\n";
+    let sent = rest_upload(&i.app, &[], "junk.csv", junk).await;
+    assert_eq!((sent.status, sent.json()["error"]["code"].clone()), (422, json!("unreadable")));
+    assert_eq!(import_api::form_of(json!({"content": b64(junk)}).as_object().unwrap(), true), Err("unreadable"));
+    assert!(matches!(import_api::form_of(json!({"content": b64(&rest_csv())}).as_object().unwrap(), true), Ok(import_api::Form::Fresh { format: "deltabadger", .. })));
+    assert!(matches!(import_api::form_of(json!({"content": b64(junk), "format": "kucoin"}).as_object().unwrap(), true), Ok(import_api::Form::Fresh { format: "kucoin", .. })), "a named format is taken as named");
+    assert_eq!(ledger(&i.c), 0);
+}
+
 /// Rule 2, F8, H5: a Deltabadger CSV through MCP asks what the web asks ("Import the rest", its lines in the owner's
 /// language), its one choice of kind `rest` with its destination; the choice writes once, a second answer is no file.
 #[tokio::test(flavor = "current_thread")]

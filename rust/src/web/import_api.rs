@@ -102,11 +102,13 @@ pub fn form_of(args: &Map<String, Value>, fresh: bool) -> Result<Form, &'static 
     let text = |name: &str| args.get(name).and_then(Value::as_str).map(str::to_string);
     if args.contains_key("content") {
         if !fresh || !only(&["format", "content", "filename"]) { return Err("ambiguous_request"); }
-        let format = match args.get("format") { None => run::DEFAULT_FORMAT, Some(v) => run::FORMATS.iter().copied().find(|f| v.as_str() == Some(*f)).ok_or("ambiguous_request")? };
+        let named = match args.get("format") { None => None, Some(v) => Some(run::FORMATS.iter().copied().find(|f| v.as_str() == Some(*f)).ok_or("ambiguous_request")?) };
         let filename = match args.get("filename") { None => None, Some(Value::String(f)) => Some(f.clone()), Some(_) => return Err("ambiguous_request") };
         let content = text("content").ok_or("ambiguous_request")?;
         use base64::Engine;
         let bytes = base64::engine::general_purpose::STANDARD.decode(content.trim()).map_err(|_| "malformed")?;
+        // D-IMPORT-DETECT: a format left out is the one the file's header names, as the web's import reads it.
+        let format = match named { Some(format) => format, None => run::detect(&bytes).ok_or("unreadable")? };
         return Ok(Form::Fresh { format, bytes, filename });
     }
     if args.contains_key("cancel") {
@@ -388,9 +390,11 @@ fn fresh(parsed: multipart::Parsed) -> Result<Form, &'static str> {
         let slot = match name.as_str() { "format" => &mut format, "filename" => &mut named, _ => return Err("ambiguous_request") };
         if slot.replace(value).is_some() { return Err("ambiguous_request"); }
     }
-    let format = match format { None => run::DEFAULT_FORMAT, Some(f) => run::FORMATS.iter().copied().find(|x| *x == f).ok_or("ambiguous_request")? };
+    let chosen = match format { None => None, Some(f) => Some(run::FORMATS.iter().copied().find(|x| *x == f).ok_or("ambiguous_request")?) };
     let Some((bytes, filename)) = parsed.file else { return Err("no_file") };
     if named.is_some_and(|n| n != filename) { return Err("ambiguous_request"); }
+    // D-IMPORT-DETECT: a format left out is the one the file's header names, as the web's import reads it.
+    let format = match chosen { Some(format) => format, None => run::detect(&bytes).ok_or("unreadable")? };
     Ok(Form::Fresh { format, bytes, filename: Some(filename) })
 }
 
@@ -423,6 +427,8 @@ pub async fn rest(app: App, headers: HeaderMap, params: Arc<Params>, body: Body)
         return match form {
             Ok(form) => envelope(&app, perform(&app, Surface::Rest, authorization, user, form, permit).await),
             Err("no_file") => { let l = app.db(move |c| language(c, user)).await.unwrap_or("en"); envelope(&app, Done::Failed(StatusCode::UNPROCESSABLE_ENTITY, "no_file", i18n::text(l, "tracker.import.error_no_file", &[]))) }
+            // D-IMPORT-DETECT: no format named and none in the header: the web's answer to the same file.
+            Err("unreadable") => { let l = app.db(move |c| language(c, user)).await.unwrap_or("en"); envelope(&app, Done::Failed(StatusCode::UNPROCESSABLE_ENTITY, "unreadable", i18n::text(l, "tracker.import.error_unknown_format", &[]))) }
             Err(_) => ambiguous(),
         };
     }
