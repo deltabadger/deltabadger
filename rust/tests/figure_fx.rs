@@ -485,7 +485,10 @@ async fn binance_sale(fee: &str, asset: &str) -> Value {
               rusqlite::params![order.amount.to_s_f(), order.amount_exec.to_s_f(), order.quote_amount_exec.to_s_f()]).unwrap();
     ledger(&c, 1, 2, 0, "1", Some(("USDC", "100")), None, "2026-03-01 10:00:00", None, None);
     // The fee coin's price that day, as the price backfill stores it: the walk values the fee with it.
-    c.execute("INSERT INTO historical_prices(asset,currency,date,price) VALUES (?1,'USD','2026-03-09','600')", [asset]).unwrap();
+    // A coin's price is stored by the coin (the Rust-only table this fixture predates).
+    c.execute_batch(include_str!("../migrations/20261123000002_asset_prices.sql")).unwrap();
+    c.execute_batch("INSERT INTO assets(id,category,external_id,symbol,name,created_at,updated_at) VALUES (7,'Cryptocurrency','binancecoin','BNB','BNB','2026-01-01','2026-01-01')").unwrap();
+    c.execute("INSERT INTO asset_prices(external_id,currency,date,price) SELECT external_id,'USD','2026-03-09','600' FROM assets WHERE symbol=?1 AND category='Cryptocurrency'", [asset]).unwrap();
     let legs = deltabadger::sync::binance_ledger::normalize_trade(&deltabadger::sync::activities::Raw::from_value(trade), "BTCUSDC", "BTC", "USDC").unwrap();
     for (i, leg) in legs.iter().enumerate() {
         c.execute("INSERT INTO account_transactions(id,user_id,exchange_id,entry_type,base_currency,base_asset_id,base_amount,quote_currency,quote_amount,fee_currency,fee_amount,tx_id,group_id,raw_data,transacted_at,transaction_id,created_at,updated_at) \

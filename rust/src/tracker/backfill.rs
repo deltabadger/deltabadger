@@ -29,14 +29,38 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// (`tracker::unpriced`, PLAN-venue-prices S1), so every stored history is swept once more to get that record. 4: a coin's
 /// days the provider left unstored are asked of its venues (D-VENUE-HISTORY-FALLBACK). 5: a security's corporate action
 /// never restates a coin's lots under the symbol they share (#1061). 6: a timed Alpaca CFEE stands after its fill and an
-/// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL).
-pub const CALCULATION: &str = "6";
+/// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL). 7: coins are priced by identity from asset_prices, an
+/// unidentified leg is unpriced (D-TRACKER-COIN-PRICE-KEYS).
+pub const CALCULATION: &str = "7";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
 pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
 /// Records that the user's history is this calculation's.
 pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
     crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
+}
+
+/// A fingerprint of the labels a walk resolved (`note_identity`, the sweep's fence).
+pub fn fingerprint(labels: &super::labels::Labels) -> String {
+    use sha2::Digest;
+    if !labels.identity.is_empty() { return labels.identity.clone(); }
+    hex::encode(sha2::Sha256::digest(format!("{labels:?}").as_bytes()))
+}
+
+/// The fingerprint of the coin identities the user's history was computed with (Rust only, plan r10 §1.7).
+pub fn identity_key(user_id: i64) -> String { format!("rust_snapshot_identity_{user_id}") }
+/// Delisted coins (plan r10 §1.7): the labels a walk resolved (from the rows, the listings, the catalogue and the held
+/// balances) are fingerprinted with each ledger run. When they changed (a listing rebound, a coin added to the catalogue,
+/// a balance of a new asset), the calculation stamp is cleared, so the stored history is swept again under them.
+/// Returns whether they changed. The first fingerprint clears nothing: CALCULATION's bump sweeps an upgraded install.
+pub fn note_identity(c: &Connection, user_id: i64, labels: &super::labels::Labels, now: chrono::DateTime<chrono::Utc>) -> Result<bool, FiguresError> {
+    let fingerprint = fingerprint(labels);
+    let stored = crate::app_config::get_plain(c, &identity_key(user_id)).map_err(FiguresError::Data)?;
+    if stored.as_deref() == Some(fingerprint.as_str()) { return Ok(false); }
+    let changed = stored.is_some();
+    if changed { crate::app_config::delete(c, &calculation_key(user_id)).map_err(FiguresError::Data)?; }
+    crate::app_config::set_plain(c, &identity_key(user_id), &fingerprint, now).map_err(FiguresError::Data)?;
+    Ok(changed)
 }
 
 /// `PortfolioSnapshot.history_version`: what a stored history was swept from (every row, today's included).
@@ -72,9 +96,13 @@ pub fn standing_changed(c: &Connection, cipher: &Cipher, user_id: i64, version: 
     Ok(match stored { Some(stored) => standing_of(&stored) != standing_of(version), None => !standing_of(version).is_empty() })
 }
 
-/// `HistoricalPrice.generation`.
+/// `HistoricalPrice.generation`, over both price tables (delisted coins, plan r10 §1.7: a coin's prices are
+/// `asset_prices`'). Both are insert-only, so the sum of their newest ids moves with every write to either.
 pub fn generation(c: &Connection) -> Result<i64, FiguresError> {
-    Ok(c.query_row("SELECT coalesce(max(id), 0) FROM historical_prices", [], |r| r.get(0))?)
+    let legacy: i64 = c.query_row("SELECT coalesce(max(id), 0) FROM historical_prices", [], |r| r.get(0))?;
+    let coins: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'asset_prices')", [], |r| r.get(0))?;
+    let coins: i64 = if coins { c.query_row("SELECT coalesce(max(id), 0) FROM asset_prices", [], |r| r.get(0))? } else { 0 };
+    Ok(legacy + coins)
 }
 
 /// Whether a sweep is wanted, as the tracker page asks for one (`load_history`), for either setting of its cash
@@ -170,6 +198,8 @@ fn identity_of(c: &Connection, user_id: i64, venue: &Venue, symbol: &str) -> Res
 /// symbol, else Tax::AssetIdentity's.
 fn coins_of(reference: &prices::Reference, i: &Instrument, last: NaiveDate) -> Vec<(NaiveDate, NaiveDate, String)> {
     match &i.coin {
+        // A coin by its identity is that coin on every day.
+        Some(Some(named)) if i.key.starts_with("coin:") => vec![(i.from, last, named.clone())],
         Some(named) if !prices::dated_alias(&i.symbol, Some(&i.venue)) => named.iter().map(|coin| (i.from, last, coin.clone())).collect(),
         _ => coin_ids_over(reference, &i.symbol, &i.venue, i.from, last),
     }
@@ -192,7 +222,9 @@ pub enum Close { Range(Fetch), Bars(Bars), Venue(VenueHistory) }
 /// What `load_prices` fetches before it reads, instrument by instrument, and the key each venue's symbol is priced
 /// under (`@price_keys`: none for a name that is both a stock and a coin, whose days are unpriced).
 #[derive(Clone, Debug, Default)]
-pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>>, pub user_id: i64 }
+pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub keys: HashMap<(String, String), Option<String>>, pub user_id: i64,
+                  /// The fingerprint of the labels the plan was made under (`fingerprint`): the sweep's write refuses others.
+                  pub identity: String }
 
 /// `touched`, `identity_of` and the instruments over every row: per venue and symbol (cash left out) the first day it
 /// was touched there, a linked transfer touching its destination too; on a crypto venue a symbol is a coin, on a stock
@@ -200,7 +232,8 @@ pub struct Plan { pub instruments: Vec<Instrument>, pub fetches: Vec<Close>, pub
 /// venue that touched it first.
 pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, last: NaiveDate) -> Result<Plan, FiguresError> {
     // The catalogue and the stored closes, read once; each venue's key, once.
-    let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(rows))?;
+    let mut reference = prices::Reference::load(c, &Venue::alpaca(c)?, &prices::symbols(rows))?;
+    reference.learn(c, rows)?;
     let mut keys_of: HashMap<i64, Option<i64>> = HashMap::new();
     let mut touched: Vec<((String, String), NaiveDate, String)> = vec![];
     let mut seen: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
@@ -221,9 +254,17 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
     for ((venue_name, symbol), from, _) in touched {
         crate::figures::budget::charge(1, 0)?;
         let Some(venue) = reference.venue(&venue_name).cloned() else { plan.keys.insert((venue_name, symbol), None); continue };
-        let identity = if venue.stock { identity_of(c, user_id, &venue, &symbol)? } else { Some((false, None)) };
+        // Delisted coins (plan r10 §1.5): a coin label is its coin's instrument, under the coin's key; a label no evidence
+        // identifies has none.
+        let (identity, coin_key) = match reference.resolve(&symbol) {
+            prices::Resolved::Coin(ext) => (Some((false, Some(Some(ext.clone())))), Some(prices::coin_key(&ext))),
+            prices::Resolved::Unidentified => (None, None),
+            // Codex r1: a security the map resolved (the BTC ETF beside bitcoin at Alpaca) is not classified again by symbol.
+            prices::Resolved::Security => (Some((true, None)), None),
+            prices::Resolved::Symbol => (if venue.stock { identity_of(c, user_id, &venue, &symbol)? } else { Some((false, None)) }, None),
+        };
         let Some((stock, coin)) = identity else { plan.keys.insert((venue_name, symbol), None); continue };
-        let key = if stock { format!("stock:{symbol}") } else { symbol.clone() };
+        let key = coin_key.unwrap_or_else(|| if stock { format!("stock:{symbol}") } else { symbol.clone() });
         plan.keys.insert((venue_name, symbol.clone()), Some(key.clone()));
         match index.get(&key) {
             Some(&i) => {
@@ -240,7 +281,7 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         if !i.stock {
             let spans = coins_of(&reference, i, last);
             for (from, to, coin) in &spans {
-                plan.fetches.push(Close::Range(Fetch::usd(coin.clone(), i.symbol.clone(), *from, *to)));
+                plan.fetches.push(Close::Range(Fetch::usd(coin.clone(), i.key.clone(), *from, *to)));
             }
             // The venues' own days after the provider's (D-VENUE-HISTORY-FALLBACK): each span's coin as its one asset (a
             // coin id two assets carry is not guessed at).
@@ -293,7 +334,7 @@ pub type Prices = HashMap<String, BTreeMap<NaiveDate, Dec>>;
 
 pub fn prices_by_day(c: &Connection, plan: &Plan, last: NaiveDate) -> Result<Prices, FiguresError> {
     // The catalogue and every stored close of the instruments, read once.
-    let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &plan.instruments.iter().map(|i| i.symbol.clone()).collect())?;
+    let reference = prices::Reference::load(c, &Venue::alpaca(c)?, &plan.instruments.iter().flat_map(|i| [i.symbol.clone(), i.key.clone()]).collect())?;
     let mut out = HashMap::new();
     for i in &plan.instruments {
         // ponytail: `coins` holds one stretch per dated alias of the symbol (ALIASES has eight), so this find is bounded.
@@ -473,7 +514,7 @@ fn apply(held: &mut Held, t: &Stored, linked: &dyn Fn(&Stored) -> bool, by_id: &
                 let fee = if fee.is_positive() { fee } else { Dec::zero() };
                 let destination = t.to_account.map(super::walk::location).unwrap_or_default();
                 if destination == here { add(held, venue, &t.base, &fee.neg())?; }
-                else { add(held, venue, &t.base, &t.amount.neg())?; add(held, &destination, &t.base, &(&t.amount - &fee)?)?; }
+                else { add(held, venue, &t.base, &t.amount.neg())?; add(held, &destination, t.to_base.as_ref().unwrap_or(&t.base), &(&t.amount - &fee)?)?; }
             }
         }
         Kind::Adjustment => add(held, venue, &t.base, &t.amount)?,
@@ -555,7 +596,7 @@ mod tests {
     fn bought(symbol: &str) -> Stored {
         Stored { id: 1, exchange_id: 1, venue: "alpaca".into(), kind: Kind::Buy, base: symbol.into(), amount: Dec::one(), quote: Some("USD".into()), quote_amount: Some(Dec::one()),
                  fee_currency: None, fee_amount: None, tx_id: None, group: None, at: At::from_sql("2026-09-02 14:30:00").unwrap(), per_share: None, stated: None, linked_to: None,
-                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None }
+                 to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None, to_base: None }
     }
 
     /// A coin a broker's rows named still takes the dated cut where its symbol changed coin (Terra's LUNA).
@@ -719,6 +760,17 @@ mod tests {
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "the calculation before D-TAX-CFEE-MATCHED-FILL");
         mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
+        // Delisted coins (plan r10 §1.7): labels that resolve otherwise than the history's (a listing rebound) sweep it again.
+        let at: chrono::DateTime<chrono::Utc> = "2026-09-24T03:00:00Z".parse().unwrap();
+        let labels = crate::tracker::labels::Labels { coins: vec![("BTG".into(), "bitcoin-gold".into())], ..Default::default() };
+        assert!(!note_identity(&c, 1, &labels, at).unwrap(), "the first fingerprint");
+        assert!(!wanted(&c, &cipher, 1, today).unwrap(), "the first fingerprint clears nothing");
+        assert!(!note_identity(&c, 1, &labels, at).unwrap(), "unchanged");
+        let rebound = crate::tracker::labels::Labels { coins: vec![("BTG".into(), "openverse-network".into())], ..Default::default() };
+        assert!(note_identity(&c, 1, &rebound, at).unwrap());
+        assert!(wanted(&c, &cipher, 1, today).unwrap(), "the identities changed");
+        mark_calculated(&c, &cipher, 1, at).unwrap();
+        assert!(!wanted(&c, &cipher, 1, today).unwrap());
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),
                               ("a venue's row missing", "DELETE FROM exchange_account_snapshots WHERE date = '2026-09-15'"),
                               ("a venue's history starting late", "DELETE FROM exchange_account_snapshots WHERE date BETWEEN '2026-09-01' AND '2026-09-03'"),

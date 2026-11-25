@@ -24,6 +24,8 @@ fn install(tables: &Value) -> Connection {
     c.execute_batch(include_str!("../migrations/20261105000001_cnb_rates.sql")).unwrap();
     // The ESTV Kursliste values (D-TAX-CH-ESTV).
     c.execute_batch(include_str!("../migrations/20261106000001_estv_crypto_values.sql")).unwrap();
+    // A coin's prices by its identity (delisted coins, plan r10 §1.5).
+    c.execute_batch(include_str!("../migrations/20261123000002_asset_prices.sql")).unwrap();
     for (table, rows) in tables.as_object().unwrap() {
         for row in rows.as_array().unwrap() {
             let row = row.as_object().unwrap();
@@ -40,6 +42,7 @@ fn install(tables: &Value) -> Connection {
             c.execute(&format!("INSERT INTO {table} ({}) VALUES ({marks})", columns.join(", ")), rusqlite::params_from_iter(values)).unwrap();
         }
     }
+    c.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
     c
 }
 
@@ -241,6 +244,7 @@ async fn coingecko_replay(s: &Value) -> (Outcome, Vec<(String, String, String, f
     use deltabadger::jobs::{coingecko::{CoinGecko, Plan, Throttle}, market::Feed, Db};
     let mut tables = s["tables"].clone();
     tables["historical_prices"] = serde_json::json!([]); // the scenarios store none before the run: what is there is 2.x's writes
+    // (Rust stores a coin's by its identity, in asset_prices: read back under the coin's symbol, delisted coins §1.5.)
     let c = install(&tables);
     nbp(&c, s);
     let today = chrono::NaiveDate::parse_from_str(&s["now"].as_str().unwrap()[..10], "%Y-%m-%d").unwrap();
@@ -255,7 +259,9 @@ async fn coingecko_replay(s: &Value) -> (Outcome, Vec<(String, String, String, f
     let got = deltabadger::tracker::jobs::fetching(&db, Some(&feed), now, &mut deltabadger::tracker::jobs::Allowance::run(),
                                                    move |fetcher| report.compute(fetcher, today, &mut |_| {})).await.unwrap().unwrap();
     let prices = db.run(|c, _| {
-        let mut q = c.prepare("SELECT asset, currency, date, CAST(price AS REAL) FROM historical_prices ORDER BY id").map_err(|e| e.to_string())?;
+        let mut q = c.prepare("SELECT asset, currency, date, price FROM (SELECT 0 AS t, id, asset, currency, date, CAST(price AS REAL) AS price FROM historical_prices \
+             UNION ALL SELECT 1, p.id, (SELECT a.symbol FROM assets a WHERE a.external_id = p.external_id AND a.category = 'Cryptocurrency' ORDER BY a.id LIMIT 1), \
+             p.currency, p.date, CAST(p.price AS REAL) FROM asset_prices p) ORDER BY t, id").map_err(|e| e.to_string())?;
         let rows = q.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>();
         rows.map_err(|e| e.to_string())
     }).await.unwrap();

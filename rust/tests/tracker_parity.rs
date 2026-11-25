@@ -11,6 +11,19 @@ use std::path::{Path, PathBuf};
 mod common;
 use std::sync::Arc;
 
+/// Delisted coins (plan r10 §1.5): a coin's prices are `asset_prices`' by its identity, so the price tables' ids no longer
+/// follow 2.x's one sequence. The prices stored are compared by (asset, currency, date) without ids (`parity::tables`
+/// reads both tables so), and the price generation by whether it is stamped (2.x's is the newest id of one table,
+/// Rust's moves with both).
+fn normalise(out: &mut Value) {
+    let Some(tables) = out.get_mut("tables").and_then(Value::as_object_mut) else { return };
+    if let Some(Value::Array(rows)) = tables.get_mut("historical_prices") {
+        for r in rows.iter_mut() { if let Some(o) = r.as_object_mut() { o.remove("id"); } }
+        rows.sort_by_key(|r| (r["asset"].to_string(), r["currency"].to_string(), r["date"].to_string()));
+    }
+    for (k, v) in tables.iter_mut() { if k.starts_with("snapshot_price_generation_") && !v.is_null() { *v = Value::Bool(true); } }
+}
+
 fn cipher() -> Arc<deltabadger::crypto::Cipher> {
     Arc::new(deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "tracker-parity").unwrap()))
 }
@@ -209,10 +222,16 @@ async fn v2_and_rust_state_identical_figures_snapshots_and_locks_across_the_trac
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let scenario=read(&rust_root.path().join(&name).join("scenario.json"));
         let initial=rusqlite::Connection::open(rust_root.path().join(&name).join("production.sqlite3")).unwrap();
+        // Delisted coins: the recorded coin prices by their identity (tests/fixtures/coin_prices_mirror.sql), on the
+        // migrated store `run` reads.
+        deltabadger::store::test_support::migrate(&initial).unwrap();
+        initial.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
         let before_locks=deltabadger::tracker::parity::tables(&initial,&cipher,scenario["user_id"].as_i64().unwrap()).unwrap()["wash_sale_locks"].clone();
         drop(initial);
         let mut rust_out = deltabadger::tracker::parity::run(&rust_root.path().join(&name), cipher.clone()).await.unwrap_or_else(|e| panic!("{name}: {e}"));
         let mut v2_out = read(&d.join("expected.json"));
+        normalise(&mut v2_out);
+        normalise(&mut rust_out);
         // A transport failure ends both runs with it: 2.x raises Client::TransientNetworkError wrapping Faraday's error, Rust
         // states the transport's message. The text is each side's own; that both ended on it is compared.
         if scenario["transport_failure"] == true {

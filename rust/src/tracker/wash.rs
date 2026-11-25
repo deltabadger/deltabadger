@@ -20,9 +20,27 @@ pub fn days(c: &Connection, user_id: i64) -> Result<u64, FiguresError> {
 /// What `arm_wash_sale_locks(user, summary)` locks: per loss sale, every asset a ticker of that symbol names
 /// (over-locking is the safe direction), with the window's days. Read before the write unit: the tickers in one query
 /// (2.x's `Ticker.where(base: symbols).pluck`), each row read a step, indexed by symbol.
-pub fn targets(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)]) -> Result<(u64, Vec<(i64, NaiveDate)>), FiguresError> {
+pub fn targets(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)], labels: &super::labels::Labels) -> Result<(u64, Vec<(i64, NaiveDate)>), FiguresError> {
     let days = days(c, user_id)?;
     if days == 0 || loss_sales.is_empty() { return Ok((days, vec![])); }
+    // Plan r10 step 5: a coin label locks every asset of its coin, and (over-locking, as main did) every asset a ticker
+    // of its symbol names: a decorated label ("BTC (Bitcoin)") by the symbol it decorates.
+    let mut of_coin: HashMap<String, Vec<i64>> = HashMap::new();
+    let coins: Vec<&str> = loss_sales.iter().filter_map(|(l, _)| labels.coin(l)).collect();
+    for chunk in coins.chunks(500) {
+        let marks = vec!["?"; chunk.len()].join(", ");
+        let mut s = c.prepare(&format!("SELECT external_id, id FROM assets WHERE external_id IN ({marks}) ORDER BY id"))?;
+        let mut q = s.query(rusqlite::params_from_iter(chunk))?;
+        while let Some(r) = q.next()? {
+            crate::figures::budget::charge(1, 0)?;
+            let (ext, id): (String, i64) = (r.get(0)?, r.get(1)?);
+            of_coin.entry(ext).or_default().push(id);
+        }
+    }
+    let by_identity: Vec<(i64, NaiveDate)> = loss_sales.iter()
+        .flat_map(|(l, on)| labels.coin(l).and_then(|e| of_coin.get(e)).map_or(&[][..], Vec::as_slice).iter().map(move |a| (*a, *on))).collect();
+    let symbol = |s: &str| s.split_once(" (").map_or(s, |(sym, _)| sym).to_string();
+    let loss_sales: Vec<(String, NaiveDate)> = loss_sales.iter().map(|(s, on)| (symbol(s), *on)).collect();
     let wanted: HashSet<&str> = loss_sales.iter().map(|(s, _)| s.as_str()).collect();
     let mut by_symbol: HashMap<String, Vec<i64>> = HashMap::new();
     let mut s = c.prepare("SELECT base, base_asset_id FROM tickers ORDER BY id")?;
@@ -36,10 +54,11 @@ pub fn targets(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)])
         if !assets.contains(&asset) { assets.push(asset); } // one symbol's tickers: a handful
     }
     let mut out = vec![];
-    for (symbol, on) in loss_sales {
+    for (symbol, on) in &loss_sales {
         crate::figures::budget::charge(1, 0)?;
         for asset in by_symbol.get(symbol).map_or(&[][..], Vec::as_slice) { out.push((*asset, *on)); }
     }
+    for t in by_identity { if !out.contains(&t) { out.push(t); } }
     Ok((days, out))
 }
 
@@ -64,7 +83,7 @@ pub fn confirm_all(c: &Connection, user_id: i64, (days, targets): &(u64, Vec<(i6
 
 /// `arm_wash_sale_locks(user, summary)`: `targets`, confirmed.
 pub fn arm(c: &Connection, user_id: i64, loss_sales: &[(String, NaiveDate)], now: DateTime<Utc>) -> Result<(), FiguresError> {
-    confirm_all(c, user_id, &targets(c, user_id, loss_sales)?, now)
+    confirm_all(c, user_id, &targets(c, user_id, loss_sales, &Default::default())?, now)
 }
 
 /// `WashSaleLock.confirm!(user:, asset_id:, from:, source:)`: the deadline is the start of the day `days + 1` after the
@@ -126,5 +145,27 @@ mod tests {
         let off = db(false);
         arm(&off, 1, &sale, now).unwrap();
         assert_eq!(locks(&off).len(), 1, "protection off: the bot's lock alone");
+    }
+
+    /// A coin printed with its name beside a security of its symbol ("AAPL (Apple Token)") still locks its symbol's assets.
+    #[test]
+    fn a_decorated_label_locks_its_symbols_assets() {
+        let now: DateTime<Utc> = "2026-10-01T03:00:00Z".parse().unwrap();
+        let c = db(true);
+        arm(&c, 1, &[("AAPL (Apple Token)".to_string(), NaiveDate::from_ymd_opt(2026, 9, 20).unwrap())], now).unwrap();
+        assert_eq!(locks(&c).iter().map(|l| l.0).collect::<Vec<_>>(), [10, 11]);
+    }
+
+    /// A coin label locks every asset of its coin, though no ticker spells it so (a merged label: LUNC for rows the
+    /// venue lists as LUNA).
+    #[test]
+    fn a_coin_label_locks_its_coins_assets() {
+        let now: DateTime<Utc> = "2026-10-01T03:00:00Z".parse().unwrap();
+        let c = db(true);
+        c.execute_batch("CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT); INSERT INTO assets VALUES (20, 'terra-luna'), (21, 'terra-luna-2');").unwrap();
+        let labels = crate::tracker::labels::Labels { coins: vec![("LUNC".into(), "terra-luna".into())], ..Default::default() };
+        let sale = [("LUNC".to_string(), NaiveDate::from_ymd_opt(2026, 9, 20).unwrap())];
+        confirm_all(&c, 1, &targets(&c, 1, &sale, &labels).unwrap(), now).unwrap();
+        assert_eq!(locks(&c).iter().map(|l| l.0).collect::<Vec<_>>(), [11, 20], "the bot's lock, and terra-luna's");
     }
 }

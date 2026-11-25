@@ -71,6 +71,9 @@ pub struct Stored {
     /// lots, cash and transfer ends by it; `venue` stays the exchange's identity (pricing, the cash rule).
     pub account: i64,
     pub to_account: Option<i64>,
+    /// A valid link's arrival label when it is not the withdrawal's (`Spellings::transfer`): the lots it moves are booked
+    /// under it at the destination.
+    pub to_base: Option<super::spellings::Label>,
     /// `base_asset`: the asset the row recorded, as (id, external id, category).
     pub base_asset: Option<super::prices::Asset>,
     /// D-TAX-CFEE-PREVIOUS-DAY: an Alpaca CFEE, and what the fold made of a fill it was charged on.
@@ -390,7 +393,15 @@ fn json_column(text: Option<String>) -> Result<Value, FiguresError> {
 /// Every row of the user, borrowed wallets' included, by instant then id (`by_date_asc`). Each row a step of the open
 /// budget scope, and the sort n log n. A duplicate account's rows repeat its survivor's and are left out (#710,
 /// PLAN-710-6 §5.2); a duplicate is numbered 2+, so only a membership row names one.
-pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> {
+pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresError> { Ok(load_all_mapped(c, user_id)?.0) }
+
+/// `load_all`, and the owner's map its labels come from (built once: a relabelled row no longer carries its spelling).
+pub fn load_all_mapped(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::spellings::Spellings), FiguresError> { load_inner(c, user_id).map(|(r, m, _)| (r, m)) }
+
+/// `load_all`, and the labels reconciliation reads (`labels::Labels`).
+pub fn load_all_labelled(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::labels::Labels), FiguresError> { load_inner(c, user_id).map(|(r, _, l)| (r, l)) }
+
+fn load_inner(c: &Connection, user_id: i64) -> Result<(Vec<Stored>, super::spellings::Spellings, super::labels::Labels), FiguresError> {
     let counted = crate::identity::counted(c, user_id, &crate::venue_ids::Scope::install(c)?.member_sql("t"))?;
     let mut rows = read(c, &format!("t.user_id = ?1 AND {counted}"), rusqlite::params![user_id])?;
     // A row linked to a duplicate's row (left out above) reads unlinked: its partner is not in the walk.
@@ -398,11 +409,15 @@ pub fn load_all(c: &Connection, user_id: i64) -> Result<Vec<Stored>, FiguresErro
         let ids: std::collections::HashSet<i64> = rows.iter().map(|r| r.id).collect();
         for r in rows.iter_mut().filter(|r| r.linked_to.is_some_and(|l| !ids.contains(&l))) { r.linked_to = None; r.to_venue = None; r.to_exchange_id = None; r.to_account = None; }
     }
+    let map = super::labels::load(c, user_id, &rows)?;
     crate::figures::budget::charge(sort_steps(rows.len()), 0)?;
     rows.sort_by_key(|r| (r.at.0, r.id));
+    // The CFEE matcher parses the venue's pair against the row's own spelling: label the legs after it.
     place_cfees(&mut rows)?;
     price_cfees(&mut rows)?;
-    Ok(rows)
+    let labels = super::labels::Labels::of(&map, &rows);
+    super::labels::relabel(&mut rows, &map);
+    Ok((rows, map, labels))
 }
 
 /// #710: a group is (account, group id): every reader keys a group by the row's account (`Stored::account`) and its id as
@@ -451,7 +466,7 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
                 ..Cfee::default()
             },
             bot_order: r.get(21)?,
-            account: r.get(23)?, to_account: r.get(24)?,
+            account: r.get(23)?, to_account: r.get(24)?, to_base: None,
         });
     }
     Ok(rows)
@@ -555,8 +570,11 @@ pub fn alpaca_sweep_domain(c: &Connection, user_id: i64, all: &[Stored]) -> Resu
         if [Some(r.base.as_str()), r.quote.as_deref()].into_iter().flatten().any(|c| fiat(c) && c != "USD") { return Err("cash other than US dollars".into()); }
         if matches!(r.kind, Kind::Buy | Kind::Sell) && !r.quoted() { return Err("a trade leg with no cash quote of its own".into()); }
     }
-    let linked_to: std::collections::HashSet<i64> = all.iter().filter_map(|r| r.linked_to).collect();
-    if all.iter().any(|r| (r.linked_to.is_some() || linked_to.contains(&r.id)) && r.base != "USD") { return Err("a linked transfer of anything but US dollars".into()); }
+    // The links as stored: a link the map voids (it moves no quantity) still puts its rows outside the domain.
+    let linked: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM account_transactions t JOIN account_transactions l ON l.id = t.linked_transaction_id \
+                                    WHERE t.user_id = ?1 AND (t.base_currency IS NOT 'USD' OR l.base_currency IS NOT 'USD'))", [user_id], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    if linked { return Err("a linked transfer of anything but US dollars".into()); }
     Ok(())
 }
 
@@ -567,7 +585,7 @@ mod tests {
     fn stored(id: i64, kind: Kind, group: Option<&str>, at: &str) -> Stored {
         Stored { id, exchange_id: 1, venue: "alpaca".into(), kind, base: "AAPL".into(), amount: Dec::one(), quote: None, quote_amount: None,
                  fee_currency: None, fee_amount: None, tx_id: None, group: group.map(String::from), at: At::from_sql(at).unwrap(), per_share: None,
-                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None }
+                 stated: None, linked_to: None, to_venue: None, to_exchange_id: None, base_asset: None, cfee: Default::default(), bot_order: None, account: 1, to_account: None, to_base: None }
     }
 
     /// Tax::PriceService.ordered: by instant; a group where its first-stored leg was, its out-legs first; else by id.

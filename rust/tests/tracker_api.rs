@@ -244,6 +244,9 @@ async fn patch(app: &App, b: &mut Browser, id: i64, value: &str) -> web::Answer 
 async fn a_row_waits_for_its_days_price_until_the_utc_day_is_over() {
     let (_dir, c, owner, app, mut b, clock) = install_clocked();
     c.execute("UPDATE users SET display_currency='USD', time_zone='Europe/Warsaw'", []).unwrap();
+    // Delisted coins: a coin's price is stored by the coin (fixtures/coin_prices_mirror.sql copies these by identity).
+    c.execute("INSERT INTO assets(category,external_id,symbol,name,created_at,updated_at) VALUES ('Cryptocurrency','ethereum','ETH','Ethereum','2026-01-01','2026-01-01')", []).unwrap();
+    c.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
     let venue: String = c.query_row("SELECT type FROM exchanges WHERE id=?1", [exchange(&c)], |r| r.get(0)).unwrap();
     let key = |c: &Connection, base: &str| deltabadger::tracker::prices::row_price_key(c, owner, exchange(c), &venue, base, None, chrono::NaiveDate::from_ymd_opt(2026, 9, 10).unwrap()).unwrap().unwrap();
     let price = |c: &Connection, asset: &str, currency: &str, date: &str, value: &str| { c.execute("INSERT INTO historical_prices(asset,currency,date,price) VALUES (?1,?2,?3,?4)", (asset, currency, date, value)).unwrap(); };
@@ -294,7 +297,7 @@ async fn a_row_waits_for_its_days_price_until_the_utc_day_is_over() {
     price(&c, &eth, "USD", "2026-09-10", "2600");
     let answer = patch(&app, &mut b, priced, "").await;
     assert!(answer.body.contains("tracker-row__price--ours") && answer.body.contains("placeholder=\"2600"), "{}", answer.body);
-    c.execute("DELETE FROM historical_prices WHERE date='2026-09-10'", []).unwrap();
+    c.execute_batch("DELETE FROM historical_prices WHERE date='2026-09-10'; DELETE FROM asset_prices WHERE date='2026-09-10'").unwrap();
 
     // The UTC midnight decides, not the owner's zone (Warsaw is already on the 11th at 22:00Z).
     let edge = row(&c, owner, 10, "ETH", "0.01", "2026-09-10 23:00:00");

@@ -279,6 +279,10 @@ fn evidence(f: &Facts, leg: &Leg, catalogue: bool) -> Option<Holding> {
                     Holding::Security(_) if r.crypto() => Holding::Unknown(Why::Conflict),
                     h => h,
                 });
+            } else if r.crypto() {
+                // No listing of the broker's says otherwise: it recorded the fill from its own activity, so the coin it
+                // recorded stands (the catalogue's BTC coin and BTC ETF are no evidence against it).
+                return Some(coin(leg, r));
             },
             None => match broker_unrecorded(f, leg, catalogue) {
                 // Alpaca's row from a file under a name its curated map trades as a coin: sync leaves it unrecorded
@@ -697,6 +701,12 @@ mod tests {
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", Some(&coin_asset(1, "bitcoin", "BTC")))), Holding::Unknown(Why::Conflict));
         // Codex PR1a r4: unrecorded (a file's row), under a name Alpaca's curated map trades as a coin: either.
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", None)), Holding::Unknown(Why::Unclear));
+        // Recorded as the coin, with no listing of the broker's under BTC: the coin, though the catalogue has the ETF too.
+        let bare = venue(9, "alpaca", true);
+        let mut g = Facts::default();
+        catalogue(&mut g, &asset(60, "BTC.ARCX", "BTC", Some("ETF")));
+        catalogue(&mut g, &coin_asset(1, "bitcoin", "BTC"));
+        assert_eq!(holding(&g, &leg(&bare, Side::Base, "BTC", "2025-01-01", Some(&coin_asset(1, "bitcoin", "BTC")))), coin_of("bitcoin"));
         let etf = asset(60, "BTC.ARCX", "BTC", Some("ETF"));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", Some(&etf))), Holding::Security("BTC.ARCX".into()), "recorded as the ETF");
     }

@@ -16,7 +16,8 @@ fn stream(c:&Connection,ctx:&Ctx,owner:i64,ids:&[i64],d:Option<&crate::figures::
     let mut out=String::new();
     // 2.x reloads WHERE id IN (...) in primary-key order, rather than withdrawal order.
     let mut ids=ids.to_vec();ids.sort_unstable();ids.dedup();
-    for id in ids{let row=Row::load(c,owner,id)?.ok_or_else(invalid)?;out.push_str(&turbo::stream("replace",&format!("account_transaction_{id}"),&match d {Some(d)=>row::render(c,ctx,&row,d)?,None=>row::unavailable(id)}));}
+    let labels=match d {Some(_)=>row::labels(c,owner)?,None=>None};
+    for id in ids{let row=Row::load(c,owner,id)?.ok_or_else(invalid)?;out.push_str(&turbo::stream("replace",&format!("account_transaction_{id}"),&match d {Some(d)=>row::render(c,ctx,&row,d,labels.as_ref())?,None=>row::unavailable(id)}));}
     Ok(out)
 }
 // AccountTransaction save! validations, including required associations, scoped tx_id
@@ -79,7 +80,7 @@ fn price(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,params:&Value,fx:&supe
         let Some(usd)=plain(&usd.to_s_f())else{return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))};
         if row.counterpart(c)?.is_some(){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
         // D-PRICE-WAITING: our own price for the row's day can still come; a stated one waits until the day is over.
-        if matches!(row::source(c,&row,ctx.app.now().date_naive())?,row::Source::Waiting){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
+        if matches!(row::source(c,&row,ctx.app.now().date_naive(),row::labels(c,owner)?.as_ref())?,row::Source::Waiting){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
         Some(usd)
     };
     store_price(c,owner,now,&row,usd.map(|usd|usd.to_s_f()))?;

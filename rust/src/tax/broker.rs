@@ -170,7 +170,9 @@ fn vorabpauschale(year: i32, acquired: NaiveDate, start: &Dec, end: &Dec, distri
 #[derive(Clone, Debug)]
 struct Rec { id: i64, kind: i64, /** The row's account (#710; 0 on an install without the account tables). */ account: i64, base: String, amount: Dec, quote: Option<String>, quote_amount: Option<Dec>, fee: Option<Dec>, at: DateTime<Utc>, local: NaiveDate, raw: Value,
              /// The class its stored asset records (`prices::recorded_class`): Some(true) a security, Some(false) a coin.
-             class: Option<bool> }
+             class: Option<bool>,
+             /// Codex r2: the coin map could not tell what the traded leg is (`Class::Unknown`): never classified by symbol.
+             unidentified: bool }
 
 impl Rec {
     /// D-TAX-BROKER-LOCAL-DATE: a fill's day is the taxpayer's (Alpaca trades until 20:00 ET, past midnight in Berlin); a
@@ -234,7 +236,7 @@ fn records(c: &Connection, user: i64, exchange: i64, year: i32) -> R<Vec<Rec>> {
         let local = crate::web::timezone::local(at, &zone).date_naive();
         let asset: Option<i64> = r.get(10)?;
         let class = crate::tracker::prices::recorded_class(asset.map(|id| Ok::<_, rusqlite::Error>((id, r.get(11)?, r.get(12)?))).transpose()?.as_ref());
-        out.push(Rec { class, id: r.get(0)?, kind: r.get(1)?, account: r.get(9)?, base: r.get(2)?, amount: number(3)?.unwrap_or_else(Dec::zero), quote: r.get(4)?,
+        out.push(Rec { class, unidentified: false, id: r.get(0)?, kind: r.get(1)?, account: r.get(9)?, base: r.get(2)?, amount: number(3)?.unwrap_or_else(Dec::zero), quote: r.get(4)?,
                        quote_amount: number(5)?, fee: number(6)?, at, local,
                        raw: raw.and_then(|t| serde_json::from_str(&t).ok()).filter(Value::is_object).unwrap_or_else(|| serde_json::json!({})) });
     }
@@ -358,15 +360,22 @@ impl<'a> Walk<'a> {
     /// One account's walk (one depot) over its rows `recs`.
     fn new(c: &'a Connection, user: i64, year: i32, closes: &'a Closes<'a>, recs: Vec<Rec>) -> R<Walk<'a>> {
         let scope = CryptoScope::new(c, user)?;
+        // ponytail: the owner's whole map per depot walk; pass it down from the report if several depots make it slow.
+        let labels = crate::tracker::rows::load_all_mapped(c, user)?.1;
+        let labelled = |r: &Rec| labels.label(r.id, crate::tracker::resolver::Side::Base).filter(|l| !scope.fund(l)).and_then(super::label_scope);
         let mut w = Walk { c, user, year, fx: FxTable::load(c)?, closes, recs: vec![], rates: BTreeMap::new(), gross_usd: BTreeMap::new(),
                            scale: BTreeMap::new(), gross_by_day: BTreeMap::new(), credited: BTreeMap::new(), withheld: BTreeMap::new(), paid_by_day: BTreeMap::new(), states: BTreeMap::new(), refusals: BTreeMap::new(),
                            warnings: vec![], warned: HashSet::new(), disposals: vec![], income: vec![], fee_total: Dec::zero(), cash: Kap::new() };
         // `universe.reject { cryptocurrency?(instrument_symbol(record)) }`, the ambiguous categories warned on the way.
-        for r in recs {
+        for mut r in recs {
+            r.unidentified = !matches!(r.kind, OTHER_INCOME | WITHHOLDING) && labels.label(r.id, crate::tracker::resolver::Side::Base)
+                .is_some_and(|l| l.keyed() && l.class() == crate::tracker::spellings::Class::Unknown && !scope.fund(l));
             let crypto = match r.symbol() {
                 None => false,
                 // #1061: the asset a row stored decides its class (a coin is the crypto report's), whatever else shares the
                 // symbol; a distribution's instrument is its quote, which the stored asset does not name.
+                // Plan r10 §1.6: the label the map gave the traded leg decides first, as in the crypto report.
+                Some(_) if !matches!(r.kind, OTHER_INCOME | WITHHOLDING) && labelled(&r).is_some() => labelled(&r) == Some(true),
                 Some(_) if !matches!(r.kind, OTHER_INCOME | WITHHOLDING) && r.class.is_some() => r.class == Some(false),
                 Some(symbol) => {
                     if let Some(categories) = scope.ambiguous(c, &symbol)? { w.warn("ambiguous_symbol", Some(symbol.clone()), Detail::List(categories)); }
@@ -395,8 +404,11 @@ impl<'a> Walk<'a> {
     fn build_states(&mut self) -> R<()> {
         let symbols: BTreeSet<String> = self.recs.iter().filter_map(Rec::symbol).collect();
         for symbol in symbols {
-            let (kind, category, persisted) = resolve(self.c, self.user, &symbol)?;
-            let recs = self.recs.iter().enumerate().filter(|(_, r)| r.symbol().as_deref() == Some(symbol.as_str())).map(|(i, _)| i).collect();
+            let (mut kind, mut category, persisted) = resolve(self.c, self.user, &symbol)?;
+            let recs: Vec<usize> = self.recs.iter().enumerate().filter(|(_, r)| r.symbol().as_deref() == Some(symbol.as_str())).map(|(i, _)| i).collect();
+            // Codex r2: an instrument the coin map could not identify (Alpaca's unrecorded BTC beside its BTC ETF) stays
+            // unclassified, so the summary stays withheld, unless the user saved a classification for it.
+            if !persisted && recs.iter().any(|&i| self.recs[i].unidentified) { (kind, category) = (None, None); }
             self.states.insert(symbol.clone(), State { symbol, kind, category, persisted, recs, ledger: Ledger::default(), distributions: vec![],
                                                        kap: Kap::new(), inv: Inv::new() });
         }
