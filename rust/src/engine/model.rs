@@ -1104,6 +1104,19 @@ pub fn merged_history_cutoff(c: &Connection, bot: &Bot) -> Result<Option<i64>, E
 mod r4_provenance_tests {
     use super::*;
     #[test]
+    fn stored_groups_reads_the_stored_array_not_the_decode() {
+        use serde_json::json;
+        let bot = |bot_type: &str, settings: Value| Bot { id: 1, user_id: 1, exchange_id: 1, status: BotStatus::Stopped, bot_type: bot_type.into(), settings,
+            transient: json!({}), started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false, holder: None };
+        for groups in [json!([]), json!([null]), json!([{"index_type": "top"}])] {
+            assert!(bot("Bots::DcaMultiAsset", json!({"index_groups": groups})).stored_groups(), "{groups}");
+        }
+        for (class, settings) in [("Bots::DcaMultiAsset", json!({"index_groups": {}})), ("Bots::DcaMultiAsset", json!({"allocations": {"1": 1.0}})),
+                                  ("Bots::DcaMultiAsset", Value::Null), ("Bots::DcaIndex", json!({"index_groups": []})), ("Bots::Signal", json!({"index_groups": [{}]}))] {
+            assert!(!bot(class, settings.clone()).stored_groups(), "{class} {settings}");
+        }
+    }
+    #[test]
     fn composition_predicates_answer_the_class_check_until_slice_2() {
         use serde_json::json;
         let bot = |bot_type: &str, settings: Value| Bot { id: 1, user_id: 1, exchange_id: 1, status: BotStatus::Stopped, bot_type: bot_type.into(), settings,

@@ -2074,3 +2074,22 @@ async fn handback_forgets_the_parked_import_uploads() {
     assert_eq!((count(&o.primary, "SELECT count(*) FROM import_parked_uploads"), count(&o.primary, "SELECT count(*) FROM import_parked_choices")), (0, 0));
     assert!(!parked.exists(), "the parked bytes are gone");
 }
+
+/// PLAN index-as-ingredient §3.2 (Q7): a basket stored with index groups is Rust-only, whatever its status: 2.x would trade
+/// its plain allocations alone, so the handback refuses before any work and the lease stays Rust's. A deleted one does not.
+#[tokio::test(flavor = "current_thread")]
+async fn a_basket_with_index_groups_refuses_the_handback() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    o.primary.execute("UPDATE bots SET settings = json_set(settings, '$.index_groups', json('[]')) WHERE id = ?1", [b]).unwrap();
+    let r = handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await;
+    assert!(matches!(r, Err(EngineError::Ineligible(ref p)) if p == &vec![format!("bot {b}: its indexes run only on this engine; 2.x cannot run this bot")]), "{r:?}");
+    assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "the lease never moved");
+    o.primary.execute("UPDATE bots SET status = ?1 WHERE id = ?2", (deltabadger::enums::BotStatus::Deleted as i64, b)).unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+}

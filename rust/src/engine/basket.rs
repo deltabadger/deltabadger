@@ -116,12 +116,18 @@ pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Res
     Ok(Ok(()))
 }
 
+/// The refusal of a basket stored with `index_groups`: nothing is derived, written or traded.
+pub const GROUPED: &str = "Index groups need a newer build";
+
 /// A derived member: (asset, ticker, weight).
 pub type Derived = (i64, i64, f64);
 
 /// Bots::DcaMultiAsset#derive_composition: each member in settings order, the weights renormalised to sum to one, or 2.x's
 /// Failure message.
 pub fn derive_composition(c: &Connection, bot: &Bot) -> Result<Result<Vec<Derived>, String>, EngineError> {
+    // Stored with `index_groups` (a later build's row): its `allocations` are only part of what it holds, so no member is
+    // derived from them alone (slice 2 derives the groups). Every basket refresh comes through here.
+    if bot.stored_groups() { return Ok(Err(GROUPED.into())); }
     let allocations = bot.allocations().ok_or_else(|| EngineError::Data(format!("bot {}: allocations this build does not read", bot.id)))?;
     // In settings order, a member counts only with an available, trading-enabled ticker at the quote.
     let mut matched: Vec<Derived> = vec![];

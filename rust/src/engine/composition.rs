@@ -66,6 +66,9 @@ impl Bot {
         // slice 2: grouped MultiAsset activates here. Until then only a `Bots::DcaIndex` row runs as an index.
         if self.bot_type == "Bots::DcaIndex" { self.composition() } else { None }
     }
+    /// Stored with `index_groups` (PLAN index-as-ingredient §3.3): the class and the array as stored, `[]` included, no
+    /// decode. What the group table's readers key on; `has_groups` is the activation.
+    pub fn stored_groups(&self) -> bool { self.bot_type == "Bots::DcaMultiAsset" && self.settings.get("index_groups").is_some_and(Value::is_array) }
     /// No decode: a `Bots::DcaIndex` row is always one group (slice 2: grouped MultiAsset activates here too).
     pub fn has_groups(&self) -> bool { self.bot_type == "Bots::DcaIndex" }
     pub fn lone_group(&self) -> Option<Group> { self.grouped()?.lone_group().cloned() }
