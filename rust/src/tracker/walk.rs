@@ -165,10 +165,11 @@ impl Summary {
 pub struct Walked { pub venues: Vec<(i64, Summary)>, pub whole: Summary, pub terms: Vec<Term>, pub bot_sales: Vec<BotSale> }
 
 impl Walked {
-    /// Every scope's summary keeps the map's labels.
-    pub fn label(&mut self, labels: &super::labels::Labels) {
+    /// The whole summary keeps the map's labels; each account's, its own part (`rows`: each account's row ids).
+    pub fn label(&mut self, labels: &super::labels::Labels, rows: &HashMap<i64, HashSet<i64>>) {
         self.whole.labels = labels.clone();
-        for (_, v) in &mut self.venues { v.labels = labels.clone(); }
+        let none = HashSet::new();
+        for (account, v) in &mut self.venues { v.labels = labels.for_account(*account, rows.get(account).unwrap_or(&none)); }
     }
 }
 
@@ -600,7 +601,14 @@ pub fn open_with_held(rows: Vec<Row>, ps: &mut PriceService, located: bool, next
     let mut first: HashMap<Key, usize> = HashMap::new();
     for (i, row) in rows.iter().enumerate() {
         crate::figures::budget::check()?;
-        let moves = if located { located_moves(row)? } else { row_moves(row)?.into_iter().map(|(s, a)| (None, s, a)).collect() };
+        let mut moves: Vec<(Option<String>, Label, Dec)> = if located { located_moves(row)? } else { row_moves(row)?.into_iter().map(|(s, a)| (None, s, a)).collect() };
+        // Codex r2: pooled, a valid link into another label moves its units from the source label to the arrival one, as
+        // `Engine::transfer` re-keys them (else the arrival label's sales open a lot before the real one arrives).
+        if let (false, true, Kind::Withdrawal, Some(to)) = (located, row.linked, row.kind, row.to_base.as_ref().filter(|b| **b != row.base)) {
+            let moved = (&row.amount - &row.transfer_fee.clone().unwrap_or_else(Dec::zero))?;
+            moves.push((None, row.base.clone(), moved.neg()));
+            moves.push((None, to.clone(), moved));
+        }
         for (venue, symbol, amount) in moves {
             if cash(&symbol) { continue; }
             let key = (venue, symbol);
@@ -1996,6 +2004,21 @@ mod tests {
         let held = |s: &Summary| s.positions.iter().filter(|p| p.quantity.is_positive()).map(|p| (p.symbol.clone(), p.quantity.to_s_f(), p.cost.to_s_f())).collect::<Vec<_>>();
         assert_eq!(held(&w.whole), [("ZZZ (a)".to_string(), "1.0".to_string(), "100.0".to_string())], "pooled");
         assert_eq!(held(w.venue(1).unwrap()), [("ZZZ (a)".to_string(), "1.0".to_string(), "100.0".to_string())], "located");
+        // Codex r2: sold there, the pooled walk opens nothing under the arrival label: the moved lot covers the sale.
+        let sent = Stored { linked_to: Some(3), to_venue: Some("a".into()), to_exchange_id: Some(1), to_account: Some(1), to_base: Some(Label::spelled("ZZZ (a)")),
+                            ..zzz(st(2, "b", Kind::Withdrawal, "BTC", "1", D2)) };
+        let rows = vec![zzz(trade(1, "b", Kind::Buy, "1", "USD", "100", D1)), sent, Stored { base: Label::spelled("ZZZ (a)"), ..st(3, "a", Kind::Deposit, "BTC", "1", D2) },
+                        Stored { base: Label::spelled("ZZZ (a)"), ..trade(4, "a", Kind::Sell, "1", "USD", "150", D3) }];
+        // Codex r3: the pooled engine itself (`whole` sums the located venues): its sale is the moved lot's, at 100.
+        let stored = crate::tracker::rows::walk_rows(&rows).unwrap();
+        let r = crate::tracker::prices::Reference::default();
+        let mut none = crate::tracker::prices::Unfetched;
+        let fx = crate::tracker::fx::FxTable::default();
+        let mut ps = PriceService::new(&r, &fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut none);
+        let deposits: HashMap<i64, Dec> = HashMap::from([(3, d("1"))]);
+        let w = walk_rows(&stored, &deposits, &mut ps).unwrap();
+        let sold: Vec<(String, String)> = w.global.disposals.iter().map(|d| (d.asset.clone(), d.cost_basis.to_s_f())).collect();
+        assert_eq!(sold, [("ZZZ (a)".to_string(), "100.0".to_string())], "pooled");
     }
 
     #[test]
