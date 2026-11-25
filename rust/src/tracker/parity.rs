@@ -90,7 +90,7 @@ fn report(c: &Connection, user_id: i64, walked: &Walked, today: chrono::NaiveDat
         let balances = figures::balances(c, user_id, &scope)?;
         let rows: bool = c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM account_transactions a WHERE a.user_id = ?1 AND {})", scope.rows("a")), [user_id], |r| r.get(0))?;
         if balances.is_empty() && !rows { continue; }
-        let f = figures::compute_on(c, user_id, &scope, ledger, &balances, &figures::pending(c, user_id, &scope)?, &fx, today)?;
+        let f = figures::compute_on(c, user_id, &scope, ledger, &balances, &figures::pending(c, user_id, &scope, &ledger.labels)?, &fx, today)?;
         figs.insert(scope.exchange().map_or("whole".into(), |id| id.to_string()), figures_json(&f)?);
     }
     Ok(json!({ "whole": summary_json(&walked.whole), "venues": venues, "figures": figs }))
@@ -110,7 +110,7 @@ pub fn raw(v: ValueRef<'_>) -> Value {
 /// decrypted.
 pub fn tables(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Value, String> {
     let mut out = Map::new();
-    for (table, order) in [("portfolio_snapshots", "date"), (crate::sync::balance_store::V2_SNAPSHOTS, "exchange_id, date"), ("wash_sale_locks", "id"), ("historical_prices", "id")] {
+    for (table, order) in [("portfolio_snapshots", "date"), (crate::sync::balance_store::V2_SNAPSHOTS, "exchange_id, date"), ("wash_sale_locks", "id")] {
         let (names,snapshot) = crate::figures::fill::parity_rows(c,table,order).map_err(|e| e.to_string())?;
         let mut rows = vec![];
         for r in snapshot {
@@ -123,10 +123,30 @@ pub fn tables(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Value, St
         }
         out.insert(table.into(), Value::Array(rows));
     }
+    out.insert("historical_prices".into(), Value::Array(prices_as_stored(c).map_err(|e| e.to_string())?));
     for key in [super::backfill::history_key(user_id), super::backfill::price_key(user_id)] {
         out.insert(key.clone(), json!(crate::app_config::get(c, cipher, &key)?));
     }
     Ok(Value::Object(out))
+}
+
+/// The prices stored, as 2.x stores them (delisted coins, plan r10 §1.5): `historical_prices`, and each `asset_prices`
+/// row no `historical_prices` row of the coin's symbol already holds, under its catalogue Cryptocurrency's symbol, with
+/// the column's numeric affinity. By (asset, currency, date), without ids: one table's ids no longer follow the other's.
+fn prices_as_stored(c: &Connection) -> rusqlite::Result<Vec<Value>> {
+    let coins: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'asset_prices')", [], |r| r.get(0))?;
+    let fetched = if coins {
+        " UNION ALL SELECT (SELECT a.symbol FROM assets a WHERE a.external_id = p.external_id AND a.category = 'Cryptocurrency' ORDER BY a.id LIMIT 1), p.currency, p.date, CAST(p.price AS NUMERIC) \
+          FROM asset_prices p WHERE NOT EXISTS (SELECT 1 FROM historical_prices h JOIN assets a ON a.symbol = h.asset AND a.category = 'Cryptocurrency' \
+          WHERE a.external_id = p.external_id AND h.currency = p.currency AND h.date = p.date)"
+    } else { "" };
+    let mut s = c.prepare(&format!("SELECT asset, currency, date, price FROM (SELECT asset, currency, date, price FROM historical_prices{fetched}) ORDER BY asset, currency, date"))?;
+    let mut q = s.query([])?;
+    let mut rows = vec![];
+    while let Some(r) = q.next()? {
+        rows.push(json!({ "asset": raw(r.get_ref(0)?), "currency": raw(r.get_ref(1)?), "date": raw(r.get_ref(2)?), "price": raw(r.get_ref(3)?) }));
+    }
+    Ok(rows)
 }
 
 pub fn logged(t: &ScriptedTransport) -> Vec<Value> {

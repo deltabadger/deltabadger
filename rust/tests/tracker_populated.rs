@@ -184,6 +184,7 @@ async fn populated_regions_match_v2() {
         grid::restore(&c, expected);
         // The scenario writes (its ledger pass writes today's snapshots), as `run` does on a migrated install (#710 slice 5).
         deltabadger::store::test_support::migrate(&c).unwrap();
+        c.execute_batch(include_str!("fixtures/coin_prices_mirror.sql")).unwrap();
         let at: chrono::DateTime<chrono::Utc> = scenario["at"].as_str().unwrap().parse().unwrap();
         stamp(&c, at);
         let owner: i64 = c.query_row("SELECT id FROM users ORDER BY id LIMIT 1", [], |r| r.get(0)).unwrap();
@@ -274,7 +275,7 @@ fn history_gap_absent(c: &Connection, name: &str, owner: i64, at: chrono::DateTi
         let notes = gaps::resolve(summary, &balances, &venue_name).unwrap();
         let arrived = notes.iter().filter(|n| n.kind == "arrived").fold(deltabadger::figures::dec::Dec::zero(), |sum, n| (&sum + &n.amount).unwrap());
         assert!(arrived < deltabadger::figures::dec::Dec::from_i64(10), "{name}: venue {venue} would show a line ({arrived:?}): stop and report, never edit a fixture");
-        if !figures::pending(c, owner, &scope).unwrap().is_empty() { continue; }
+        if !figures::pending(c, owner, &scope, &Default::default()).unwrap().is_empty() { continue; }
         let Ok(computed) = figures::compute_on(c, owner, &scope, summary, &balances, &[], &fx, at.date_naive()) else { continue };
         let key = |n: &figures::Note| (n.kind, n.symbol.clone(), n.history.clone(), n.held.clone(), n.amount.clone());
         let theirs: Vec<_> = computed.notes.iter().filter(|n| matches!(n.kind, "arrived" | "left")).collect();
@@ -489,6 +490,7 @@ async fn an_unpriced_holding_is_listed_and_named_in_the_banner() {
     let r = regions_of(&app, owner, unprice).await;
     let venue: String = Connection::open(_dir.path().join("production.sqlite3")).unwrap().query_row("SELECT e.name FROM exchanges e JOIN api_keys k ON k.exchange_id=e.id WHERE k.user_id=?1", [owner], |q| q.get(0)).unwrap();
     assert!(r.notice.contains(&format!("No market price for BTC on {venue}.")), "{}", r.notice);
+    assert!(r.notice.contains("It clears once those holdings can be valued."), "why a named asset has no price: {}", r.notice);
     assert!(r.notice.contains("/tracker/connect_market_data"), "no provider: CoinGecko offered: {}", r.notice);
     assert!(r.holdings.contains("<b>BTC</b>") && r.holdings.contains("<span class=\"tracker-holdings__value\"><span class=\"no-value\">—</span></span>"), "{}", r.holdings);
     assert!(!r.holdings.contains("tracker-holdings__empty"), "the card is shown, not withheld");
@@ -529,4 +531,23 @@ async fn an_unvalued_opening_is_named_in_the_banner() {
         unpriced::store(c, owner, &record, AT.parse().unwrap()).unwrap();
     }).await;
     assert!(r.notice.contains(&format!("The opening value of BTC on {venue} is unknown.")) && r.notice.contains("Some days on the chart are incomplete."), "{}", r.notice);
+}
+
+/// Delisted coins (plan r10 §1.8): a stored link the coin map voided (two different coins under one spelling) is named in
+/// the prices notice with its asset and day; each side is counted where it was booked.
+#[tokio::test(flavor = "current_thread")]
+async fn a_voided_transfer_is_named_in_the_notice() {
+    let (_dir, app, owner, _) = warm_install(true).await;
+    let r = regions_of(&app, owner, move |c| {
+        let ids: Vec<i64> = c.prepare("SELECT id FROM account_transactions WHERE user_id = ?1 ORDER BY id").unwrap()
+            .query_map([owner], |r| r.get(0)).unwrap().collect::<Result<_, _>>().unwrap();
+        let (deposit, buy) = (ids[0], ids[1]);
+        // The link as stored (updated_at kept: the ledger cache stays warm), and the map's verdict in the cached labels.
+        c.execute("UPDATE account_transactions SET linked_transaction_id = ?1 WHERE id = ?2", [deposit, buy]).unwrap();
+        let key = format!("rust_tracker_ledger.{owner}");
+        let mut v: serde_json::Value = serde_json::from_str(&deltabadger::app_config::get_plain(c, &key).unwrap().expect("a warm ledger")).unwrap();
+        v["whole"]["labels"]["void"] = serde_json::json!([[deposit, buy], [buy, deposit]]);
+        deltabadger::app_config::set_plain(c, &key, &v.to_string(), AT.parse().unwrap()).unwrap();
+    }).await;
+    assert!(r.notice.contains("The transfer of BTC on 2026-09-02 could not be matched with its other side"), "{}", r.notice);
 }

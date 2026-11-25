@@ -103,7 +103,7 @@ fn hold(c: &Connection, a: &AccountRow, asset: i64, units: &str, price: &str, at
                VALUES (?1, ?2, ?3, ?4, 0, ?5, ?4 * ?5, ?6, ?6, ?6, ?6, ?7)", params![a.user_id, a.exchange_id, asset, units, price, at, a.id]).unwrap();
 }
 fn moved(c: &Connection, user: i64, scope: Scope) -> Vec<(String, String)> {
-    figures::pending(c, user, &scope).unwrap().into_iter().map(|(s, d)| (s, d.to_s_f())).collect()
+    figures::pending(c, user, &scope, &Default::default()).unwrap().into_iter().map(|(s, d)| (s, d.to_s_f())).collect()
 }
 
 /// §6 tests 2 and 3: each account's movements are brought forward against its own balance sync. A synced at 12:00 and B at

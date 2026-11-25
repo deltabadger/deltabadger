@@ -34,7 +34,7 @@ async fn run(fx: &Fx, feed: Feed<ScriptedTransport>) -> Outcome {
     job(fx.owner(), Rc::new(Some(feed))).run(Cx { db: fx.db(), clock: &FixedClock(at()), wakers: Wakers::default() }, vec![]).await
 }
 
-fn stored(fx: &Fx) -> i64 { fx.c().query_row("SELECT count(*) FROM historical_prices", [], |r| r.get(0)).unwrap() }
+fn stored(fx: &Fx) -> i64 { fx.c().query_row("SELECT (SELECT count(*) FROM historical_prices) + (SELECT count(*) FROM asset_prices)", [], |r| r.get(0)).unwrap() }
 
 /// One ping (the plan unknown) and one range for the walk's one lookup; the run is Done.
 #[tokio::test(flavor = "current_thread")]
@@ -88,7 +88,7 @@ async fn a_provider_switch_takes_effect_at_the_next_run() {
     set("market_data_provider", "coingecko");
     set("coingecko_api_key", "CG-test-key");
     // A day the first run left unpriced, so the second has a lookup to make.
-    fx.exec("DELETE FROM historical_prices");
+    fx.exec("DELETE FROM historical_prices; DELETE FROM asset_prices;");
     assert_eq!(wrapped.run(cx(), vec![]).await, Outcome::Done);
     assert_eq!((data_api.requests().len(), cg.requests().len()), (1, 1));
     assert_eq!(cg.requests()[0].path, "/api/v3/coins/bitcoin/market_chart/range");
@@ -166,7 +166,7 @@ fn days_answer() -> Value { days(60000.0) }
 #[tokio::test(flavor = "current_thread")]
 async fn a_429_gap_a_carried_price_hides_is_still_fetched_at_the_next_run() {
     let fx = alpaca();
-    fx.exec(&(2..=29).map(|d| format!("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('BTC', 'USD', '2026-09-{d:02}', '60000');")).collect::<String>());
+    fx.exec(&(2..=29).map(|d| format!("INSERT INTO asset_prices (external_id, currency, date, price) VALUES ('bitcoin', 'USD', '2026-09-{d:02}', '60000');")).collect::<String>());
     let backfill = |t: &ScriptedTransport| deltabadger::tracker::jobs::resolve::<Venues, ScriptedTransport>(deltabadger::tracker::jobs::PORTFOLIO_BACKFILL, fx.owner(), &Venues,
         Rc::new(Some(coingecko(t, Some(Plan::Demo)))), Arc::new(at)).unwrap();
     let clock = FixedClock(at());
@@ -180,7 +180,7 @@ async fn a_429_gap_a_carried_price_hides_is_still_fetched_at_the_next_run() {
     let priced = ScriptedTransport::from_script(&json!({ RANGE: [days_answer()] }));
     assert_eq!(backfill(&priced).run(cx(), vec![]).await, Outcome::Done, "the gap is still wanted");
     assert_eq!(priced.requests().len(), 1);
-    let sept30: i64 = fx.c().query_row("SELECT count(*) FROM historical_prices WHERE asset = 'BTC' AND date = '2026-09-30'", [], |r| r.get(0)).unwrap();
+    let sept30: i64 = fx.c().query_row("SELECT count(*) FROM asset_prices WHERE external_id = 'bitcoin' AND date = '2026-09-30'", [], |r| r.get(0)).unwrap();
     assert_eq!(sept30, 1);
     let idle = ScriptedTransport::from_script(&json!({}));
     assert_eq!(backfill(&idle).run(cx(), vec![]).await, Outcome::NothingNew);

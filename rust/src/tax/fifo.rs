@@ -49,6 +49,8 @@ const CENTS: i64 = 2;
 /// A row as the engine reads it: the enriched row, whether it leaves for fiat (`fiat_exit?`), and the identity of its
 /// base and fee coins (D-TAX-ASSET-IDENTITY).
 pub struct Tx { pub row: Row, pub tx_id: Option<String>, pub fiat_exit: bool, pub asset: String, pub fee_asset: Option<String>,
+                /// A linked withdrawal's arrival identity when its quantity arrives under another label (`Stored::to_base`).
+                pub to_asset: Option<String>,
                 /// Whether the row's group has a fiat leg (fiat rows reach no engine).
                 pub cash_group: bool }
 
@@ -748,12 +750,17 @@ impl<'a> Fifo<'a> {
                 }
             }
             let to = r.to_account.filter(|t| *t != r.account).map(|t| t.to_string());
-            if let (true, Some(to)) = (self.per_venue, to) {
+            // Delisted coins (Codex r2): a valid link into another label (unidentified units at two accounts) moves its lots
+            // under the arrival identity, per wallet or pooled, keeping their dates and basis.
+            let arrive = tx.to_asset.clone().filter(|a| *a != tx.asset);
+            let to = to.filter(|_| self.per_venue);
+            if to.is_some() || arrive.is_some() {
                 let moved = match &fee { Some(f) => (&r.amount - f)?, None => r.amount.clone() };
                 let k = self.key(&wallet(r), &tx.asset);
                 let order = self.order();
                 let (taken, _) = take(self.lots.entry(k).or_default(), &moved, order)?;
-                let dest = (Some(to), tx.asset.clone());
+                let asset = arrive.unwrap_or_else(|| tx.asset.clone());
+                let dest = match to { Some(to) => (Some(to), asset), None => self.key(&wallet(r), &asset) };
                 for l in taken { self.receive(dest.clone(), l)?; }
                 self.lots.entry(dest).or_default().make_contiguous().sort_by_key(|l| l.date.0);
             }
@@ -1706,9 +1713,9 @@ mod tests {
         Tx { row: Row { uid, kind, base: base.into(), amount: d(amount), quote: Some("USD".into()), quote_amount: None, fiat_value: d(value),
                         fee_fiat_value: Dec::zero(), fee_currency: None, fee_amount: None, at: at(day), group: None, price_missing: false,
                         value_missing: Some(false), exchange: venue.into(), linked: false, transfer_fee: None, swap_fiat_cost: None,
-                        swap_stable_cost: None, per_share: None, to_exchange: None, account: venue.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None,
+                        swap_stable_cost: None, per_share: None, to_exchange: None, account: venue.bytes().fold(0, |a, b| a * 31 + i64::from(b)), to_account: None, to_base: None,
                         orphan: false, opening: false, stated_value: false, fee_missing: false, class: None },
-             tx_id: None, fiat_exit: true, asset: base.into(), fee_asset: None, cash_group: false }
+             tx_id: None, fiat_exit: true, asset: base.into(), fee_asset: None, to_asset: None, cash_group: false }
     }
 
     fn remaining(f: &Fifo) -> Dec {
@@ -2297,6 +2304,29 @@ mod tests {
         assert!(f.pvct.points[0].uncertain);
     }
 
+
+    /// Delisted coins (Codex r2): a valid link from unidentified units on one account into another account's label moves
+    /// their lots under the arrival identity, pooled and per wallet: the sale there is covered at the bought cost.
+    #[test]
+    fn a_link_into_another_label_carries_its_basis() {
+        for per_venue_from in [None, Some(at(0))] {
+            let mut buy = row(0, Kind::Buy, "ZZZ", "1", "100", 0, "a");
+            buy.asset = "unknown:-1:ZZZ".into();
+            let mut out = row(1, Kind::Withdrawal, "ZZZ", "1", "0", 1, "a");
+            out.asset = "unknown:-1:ZZZ".into();
+            (out.row.linked, out.row.to_exchange, out.row.to_account) = (true, Some("b".into()), Some("b".bytes().fold(0, |a, b| a * 31 + i64::from(b))));
+            out.to_asset = Some("unknown:-2:ZZZ".into());
+            let mut inn = row(2, Kind::Deposit, "ZZZ (unidentified on b)", "1", "0", 1, "b");
+            inn.asset = "unknown:-2:ZZZ".into();
+            inn.row.linked = true;
+            let mut sold = row(3, Kind::Sell, "ZZZ (unidentified on b)", "1", "200", 2, "b");
+            sold.asset = "unknown:-2:ZZZ".into();
+            let mut f = Fifo::new(Options { per_venue_from, ..not_taxable() });
+            f.calculate(&[buy, out, inn, sold]).unwrap();
+            let d = &f.disposals[0];
+            assert_eq!((d.cost_basis.to_s_f(), d.uncovered.to_s_f()), ("100.0".to_string(), "0.0".to_string()), "per venue from {per_venue_from:?}");
+        }
+    }
 
     /// r4 item 2, r5 item 3: under `pvct_from` a linked deposit's attached fee (own coin, third coin) leaves the units the next
     /// cession sees, beside the transfer's inferred network fee; nothing is spent. A swap leg of a fiat group with no cash
