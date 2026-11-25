@@ -23,7 +23,7 @@ pub enum Error { Malformed, TooManyParts }
 pub fn boundary(content_type: &str) -> Option<String> {
     let (media, rest) = content_type.split_once(';')?;
     if !media.trim().eq_ignore_ascii_case("multipart/form-data") { return None; }
-    params(rest).into_iter().find(|(k, _)| k.eq_ignore_ascii_case("boundary")).map(|(_, v)| v)
+    params(rest).find(|(k, _)| k.eq_ignore_ascii_case("boundary")).map(|(_, v)| v.text())
         .filter(|b| !b.is_empty() && b.len() <= 70)
 }
 
@@ -57,11 +57,17 @@ pub fn parse(body: &[u8], boundary: &str) -> Result<Parsed, Error> {
             .map(|(_, value)| value).ok_or(Error::Malformed)?;
         let (kind, rest) = disposition.split_once(';').unwrap_or((disposition, ""));
         if !kind.trim().eq_ignore_ascii_case("form-data") { return Err(Error::Malformed); }
-        let params = params(rest);
-        let get = |key: &str| params.iter().rfind(|(k, _)| k.eq_ignore_ascii_case(key)).map(|(_, v)| v.as_str());
-        let name = get("name").ok_or(Error::Malformed)?.to_string();
+        // PLAN-710-importmem C1: one pass over the parameters, the last `name`, `filename` and `filename*` each kept (as
+        // ever), every other one read past without being kept.
+        let (mut name, mut plain, mut extended) = (None, None, None);
+        for (key, value) in params(rest) {
+            if key.eq_ignore_ascii_case("name") { name = Some(value) }
+            else if key.eq_ignore_ascii_case("filename") { plain = Some(value) }
+            else if key.eq_ignore_ascii_case("filename*") { extended = Some(value) }
+        }
+        let name = name.ok_or(Error::Malformed)?.text();
         let content = &body[content_start..end];
-        match filename(get("filename*"), get("filename")) {
+        match filename(extended.map(Value::text).as_deref(), plain.map(Value::text).as_deref()) {
             Some(filename) if name == "file" => if !filename.is_empty() { parsed.file = Some((content.to_vec(), filename)) },
             Some(_) => parsed.file_parts.push((name, String::from_utf8_lossy(content).into_owned())),
             None => parsed.fields.push((name, String::from_utf8_lossy(content).into_owned())),
@@ -99,27 +105,54 @@ fn percent_decode(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// `; key=value; key="quoted; value"` parameters, a quoted value's `\x` read as `x`.
-fn params(text: &str) -> Vec<(String, String)> {
-    let mut out = Vec::new();
-    let mut chars = text.chars().peekable();
-    loop {
-        while chars.next_if(|c| *c == ';' || c.is_whitespace()).is_some() {}
-        let key: String = std::iter::from_fn(|| chars.next_if(|c| *c != '=' && *c != ';')).collect();
-        if key.is_empty() && chars.peek().is_none() { return out; }
-        let mut value = String::new();
-        if chars.next_if_eq(&'=').is_some() {
-            if chars.next_if_eq(&'"').is_some() {
-                while let Some(c) = chars.next() {
-                    match c { '"' => break, '\\' => value.extend(chars.next()), c => value.push(c) }
-                }
-                while chars.next_if(|c| *c != ';').is_some() {}
-            } else {
-                value = std::iter::from_fn(|| chars.next_if(|c| *c != ';')).collect::<String>().trim().to_string();
+/// A parameter's value as found: unquoted (trimmed when read), or a quoted string's inside (its `\\x` read as `x`).
+#[derive(Clone, Copy)]
+enum Value<'a> { Plain(&'a str), Quoted(&'a str) }
+
+impl Value<'_> {
+    fn text(self) -> String {
+        match self {
+            Value::Plain(v) => v.trim().to_string(),
+            Value::Quoted(v) => {
+                let mut out = String::with_capacity(v.len());
+                let mut chars = v.chars();
+                while let Some(c) = chars.next() { if c == '\\' { out.extend(chars.next()) } else { out.push(c) } }
+                out
             }
         }
-        out.push((key.trim().to_string(), value));
     }
+}
+
+/// `; key=value; key="quoted; value"` parameters, one at a time, each key trimmed and each value as found: nothing is
+/// copied until a caller reads a value it keeps.
+fn params(text: &str) -> impl Iterator<Item = (&str, Value<'_>)> {
+    let mut chars = text.char_indices().peekable();
+    let end = text.len();
+    std::iter::from_fn(move || {
+        while chars.next_if(|(_, c)| *c == ';' || c.is_whitespace()).is_some() {}
+        let at = |chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>| chars.peek().map_or(end, |(i, _)| *i);
+        let start = at(&mut chars);
+        while chars.next_if(|(_, c)| *c != '=' && *c != ';').is_some() {}
+        let key = &text[start..at(&mut chars)];
+        if key.is_empty() && chars.peek().is_none() { return None; }
+        let mut value = Value::Plain("");
+        if chars.next_if(|(_, c)| *c == '=').is_some() {
+            if chars.next_if(|(_, c)| *c == '"').is_some() {
+                let from = at(&mut chars);
+                let mut to = end;
+                while let Some((i, c)) = chars.next() {
+                    match c { '"' => { to = i; break } '\\' => { chars.next(); } _ => {} }
+                }
+                value = Value::Quoted(&text[from..to]);
+                while chars.next_if(|(_, c)| *c != ';').is_some() {}
+            } else {
+                let from = at(&mut chars);
+                while chars.next_if(|(_, c)| *c != ';').is_some() {}
+                value = Value::Plain(&text[from..at(&mut chars)]);
+            }
+        }
+        Some((key.trim(), value))
+    })
 }
 
 #[cfg(test)]
@@ -198,6 +231,21 @@ mod tests {
         assert_eq!(parse(&whole, "other"), Err(Error::Malformed));
         assert_eq!(parse(&body(&["Content-Type: text/plain\r\n\r\nx"]), B), Err(Error::Malformed), "no disposition");
         assert_eq!(parse(&body(&["Content-Disposition: form-data\r\n\r\nx"]), B), Err(Error::Malformed), "no name");
+    }
+
+    /// PLAN-710-importmem C1: the last `name`, `filename` and `filename*` each, as before; a valid `filename*` over any
+    /// `filename`; only the outer `boundary` is the first.
+    #[test]
+    fn the_last_of_each_parameter_is_read() {
+        let part = |disposition: &str| parse(&body(&[&format!("Content-Disposition: form-data; {disposition}\r\n\r\nx")]), B).unwrap();
+        let named_token = part("name=\"file\"; name=\"token\"; filename=\"a.csv\"");
+        assert_eq!((named_token.file, named_token.file_parts), (None, vec![("token".to_string(), "x".to_string())]), "the last name: no file");
+        let zone = part("name=\"file\"; filename*=UTF-8''Binance%20(UTC%2B3).csv; filename=\"plain.csv\"").file.unwrap().1;
+        assert_eq!(zone, "Binance (UTC+3).csv", "filename* over filename, whatever their order");
+        assert_eq!(part("name=\"file\"; filename=\"a.csv\"; filename=\"b.csv\"").file.unwrap().1, "b.csv");
+        assert_eq!(part("name=\"file\"; filename*=UTF-8''a.csv; filename*=UTF-8''b.csv").file.unwrap().1, "b.csv");
+        assert_eq!(part("NAME=\"format\"; x=\"a\\\"; name=y\"").fields, vec![("format".to_string(), "x".to_string())], "an escaped quote stays inside");
+        assert_eq!(boundary("multipart/form-data; boundary=a; boundary=b").as_deref(), Some("a"));
     }
 
     #[test]
