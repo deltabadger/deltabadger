@@ -288,7 +288,8 @@ fn withhold(c: &Connection, key: &Key, t: DateTime<Utc>, now: DateTime<Utc>) -> 
         let at: String = c.query_row("SELECT transacted_at FROM account_transactions WHERE id = ?1", [id], |r| r.get(0))?;
         c.execute("INSERT INTO kucoin_withheld_fills (account_id, tx_id, transacted_at, entry, created_at) VALUES (?1, ?2, ?3, ?4, ?5) \
                    ON CONFLICT (account_id, tx_id) DO NOTHING", params![account, tx_id, at, raw.to_string(), sql_time(now)])?;
-        c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [id])?;
+        // PLAN-710-confirm rule P3: only the owner's rows are unlinked.
+        c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1 AND user_id = ?2", params![id, key.user_id])?;
         c.execute("DELETE FROM account_transactions WHERE id = ?1", [id])?;
     }
     Ok(())
