@@ -382,7 +382,9 @@ async fn a_bot_of_another_account_is_refused_at_placement_and_its_order_is_not_l
     assert!(matches!(place(&fx, &fx.venue(&script(10, &[json!({ "network": "post_send", "message": "Net::ReadTimeout" })])), a, Side::Sell, 10, at(NOW)).await, Placed::Sent(Sent::Ambiguous(_))));
     // The connection is deleted and connected again to account B (same key row here: the binding goes with the delete).
     ibkr_account::forget(&fx.c, fx.s.api_key_id).unwrap();
-    ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, ACCOUNT_B, at(NOW)).unwrap().unwrap();
+    // #710 7b rule 8: a scheduled first bind to B is refused on the account holding A's bot; a save routes it.
+    assert!(ibkr_account::bind(&fx.c, &fx.cipher, fx.s.api_key_id, ACCOUNT_B, at(NOW)).unwrap().is_err());
+    ibkr_account::bind_routed(&fx.c, &fx.cipher, fx.s.api_key_id, ACCOUNT_B, at(NOW)).unwrap().unwrap();
     let b_ref = fx.account_ref();
     assert!(ibkr_account::bot_binding(&fx.c, &fx.cipher, a).unwrap().is_err(), "the engine builds it a venue that refuses every call");
     // Recovery: the intent went to A; B's venue is never asked.
@@ -396,7 +398,10 @@ async fn a_bot_of_another_account_is_refused_at_placement_and_its_order_is_not_l
                  [other, a]).unwrap();
     let t = ScriptedTransport::default();
     t.reply(ACCOUNTS, 200, json!({ "accounts": [ACCOUNT_B], "source": "provisional" }));
-    t.reply("GET /v1/api/portfolio/U7654321/positions/0", 200, answer("positions_page", &[("conid", json!(CONID)), ("position", json!(10))]))
+    // B's own page (its rows name B: D-IBKR-ACCOUNT-ROWS refuses a row naming another account).
+    let mut b_page = answer("positions_page", &[("conid", json!(CONID)), ("position", json!(10))]);
+    b_page[0]["acctId"] = json!(ACCOUNT_B);
+    t.reply("GET /v1/api/portfolio/U7654321/positions/0", 200, b_page)
      .reply("GET /v1/api/portfolio/U7654321/positions/1", 200, json!([]));
     let (mint, init) = mint_and_init();
     push(&t, "POST /v1/api/oauth/live_session_token", mint);
@@ -512,4 +517,24 @@ async fn an_order_recovered_from_trades_alone_records_its_fills_and_keeps_pollin
     // The reservation holds only the 6 unfilled: with 7 held, one share is free.
     refused(&place(&fx, &fx.venue(&script(7, &[])), b, Side::Sell, 2, at(NOW)).await, "exceed the 1 held");
     assert!(accepted(&place(&fx, &fx.venue(&script(7, &[ack(ORDER_ID)])), b, Side::Sell, 1, at(NOW)).await));
+}
+
+/// #710 7b rule 14 (D-IBKR-ACCOUNT-ROWS): a sell's position read whose page carries a row naming another account than the
+/// bound one gives no hold, so no intent and no reservation follow.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_foreign_position_row_gives_no_hold() {
+    let fx = Fx::new();
+    let _ = fx.bot();
+    let t = ScriptedTransport::default();
+    let (mint, init) = mint_and_init();
+    push(&t, "POST /v1/api/oauth/live_session_token", mint);
+    push(&t, "POST /v1/api/iserver/auth/ssodh/init", init);
+    t.reply(ACCOUNTS, 200, json!({ "accounts": ["U1234567"] }));
+    let mut page = answer("positions_page", &[("conid", json!(CONID)), ("position", json!(10))]);
+    page[0]["acctId"] = json!(ACCOUNT_B);
+    t.reply("GET /v1/api/portfolio/U1234567/positions/0", 200, page).reply("GET /v1/api/portfolio/U1234567/positions/1", 200, json!([]));
+    let plan = fx.plan(Side::Sell, 1);
+    let held = fx.venue_as(&t, "U1234567", &fx.account_ref(), at(NOW)).placement_hold(&plan.ticker, Side::Sell).await;
+    assert!(held.is_err(), "no hold from a read whose row names another account");
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM ibkr_reservations", [], |r| r.get::<_, i64>(0)).unwrap(), 0);
 }
