@@ -386,7 +386,7 @@ pub fn verdict_current(c: &Connection, taken: &Verdict) -> rusqlite::Result<bool
 pub fn commit_verdict(c: &Connection, cipher: &Cipher, taken: &Verdict, read: Option<&crate::identity::AccountId>, credentials: &crate::crypto::Credentials) -> rusqlite::Result<bool> {
     let fingerprint = read.and_then(|id| crate::identity::existing_key(c, cipher).map(|k| k.fingerprint(super::ibkr::IBKR, id)));
     let Some((digest, t)) = taken else {
-        let Some(reads) = fingerprint.as_ref().and_then(|_| reads(c, cipher, credentials)) else { return Ok(true) };
+        let Some(reads) = fingerprint.as_ref().filter(|_| credentials.ibkr.is_some()).and_then(|_| reads(c, cipher, credentials)) else { return Ok(true) };
         let t = take_seq(c, &reads.digest)?;
         return commit_seq(c, &reads.digest, t.seq, fingerprint.as_deref());
     };

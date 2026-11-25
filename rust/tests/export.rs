@@ -859,6 +859,8 @@ fn a_restored_bot_keeps_its_account_and_refuses_another() {
     c.execute("UPDATE exchanges SET type = 'Exchanges::Ibkr', name = 'Interactive Brokers' WHERE id = ?1", [s.exchange_id]).unwrap();
     let bot = seed::insert_bot(&c, &s, &BotSpec::weekly(60.0, "2026-01-01 00:00:00"));
     deltabadger::venue::ibkr_account::assign_bot_account(&c, bot, now()).unwrap();
+    // #710 7b §2: as every start backfills it, the account holds history of the IBKR account it knows.
+    deltabadger::venue::ibkr_account::backfill(&c, &cipher, now()).unwrap();
     drop(c);
     b.exported();
     let (to, env) = restore(&b, &keys);
@@ -874,7 +876,8 @@ fn a_restored_bot_keeps_its_account_and_refuses_another() {
     // #710 7a §9.5: the account keeps its known IBKR account, so the connection itself refuses another one.
     assert!(deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().is_err());
     // Past that (the account's identity cleared), the bot still refuses it.
-    r.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    // (#710 7b rule 6: as an emptied number 1 forgets it, its IBKR history evidence with it.)
+    r.execute_batch("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL; DELETE FROM ibkr_account_evidence").unwrap();
     deltabadger::venue::ibkr_account::bind(&r, &restored, s.api_key_id, "U7654321", now()).unwrap().unwrap();
     let refused = deltabadger::venue::ibkr_account::check_bot_account(&r, &restored, bot).unwrap().unwrap_err();
     assert!(refused.starts_with("This bot belongs to IBKR account PLANTED-ibkr-account"), "{refused}");

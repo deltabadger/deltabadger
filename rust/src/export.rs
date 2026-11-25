@@ -320,10 +320,10 @@ pub const POLICY: &[((&str, &str), Policy)] = &[
     (("exchange_account_imports", "account_id_enc"), Policy::Keep("the account an imported history belongs to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("ibkr_bindings", "account_id_enc"), Policy::Keep("the account an IBKR connection is bound to (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
     (("ibkr_bot_accounts", "account_id_enc"), Policy::Keep("the account an IBKR bot belongs to: a restored bot refuses another (D-EXPORT-ACCOUNT-ANCHORS-KEPT)")),
+    (("rust_withdrawal_intents", "params_enc"), Policy::Keep("owed withdrawals (dispatched or unresolved), settled by hand after a restore; prepared ones are credential-bound")),
     (("ibkr_registrations", "rsa_signature_key"), Policy::DeleteRows), (("ibkr_registrations", "rsa_encryption_key"), Policy::DeleteRows),
     (("ibkr_registrations", "dh_param"), Policy::DeleteRows), (("ibkr_registrations", "key"), Policy::DeleteRows),
     (("ibkr_registrations", "access_token"), Policy::DeleteRows), (("ibkr_registrations", "secret"), Policy::DeleteRows),
-    (("rust_withdrawal_intents", "params_enc"), Policy::Keep("owed withdrawals (dispatched or unresolved), settled by hand after a restore; prepared ones are credential-bound")),
 ];
 
 /// 2.x's Export::Portable::SESSION_TABLES: every row goes (REST/MCP tokens, client secrets, sessions).
@@ -338,6 +338,7 @@ pub const REVIEWED_PLAIN: &[((&str, &str), &str)] = &[
     (("users", "encrypted_password"), "the bcrypt hash: sign in with the same password after a restore (2.x and launchpad's README promise it)"),
     (("users", "otp_module"), "whether two-factor is on, not its seed"),
     (("rust_withdrawal_intents", "credential_digest"), "SHA-256 of the old key's ciphertext, which is gone: it recovers nothing"),
+    (("ibkr_login_reads", "login_digest"), "an HMAC of an IBKR login's material under the identity key; the export deletes the rows (`scrub`)"),
     (("rust_withdrawal_intents", "key_identity"), "a public fingerprint of the old key"),
     (("rust_api_orders", "credential_version"), "a version stamp of the key a request was validated against"),
     (("users", "last_otp_at"), "when a two-factor code was last used, not the code"),

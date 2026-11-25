@@ -1641,7 +1641,7 @@ fn p3_the_migration_proves_what_a_key_read_or_no_file_named() {
         INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint) VALUES (1, 1, 'b'), (2, 2, 'b2'), (3, 3, 'c'), (4, 4, '{sentinel}');
         INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES
           (1, 1, 'a', x'02', {t}, 1), (1, 3, 'c', x'02', {t}, 3), (1, 4, 'd', x'02', {t}, 4);")).unwrap();
-    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V, "20261125000002", "20261126000001"]);
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V, "20261125000002", "20261126000002"]);
     assert_eq!(proven(&c), [2, 3]);
 }
 
