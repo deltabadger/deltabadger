@@ -1232,3 +1232,18 @@ async fn a_new_revision_during_a_named_sale_does_not_hold_it() {
         assert_eq!(sells(&t), vec!["BTC/USD".to_string()], "rev {rev}: {logs:?}");
     }
 }
+
+/// Codex 2b r3: a one-seat group ranked [bitcoin, AAA] whose coin has no cap (stale) and no published weight. The selection
+/// skips the coin for want of a cap, so the cap catalogue decided it: the closing write needs it fresh although only the
+/// stock is seated.
+#[tokio::test(flavor = "current_thread")]
+async fn a_coin_skipped_for_a_stale_missing_cap_still_needs_fresh_caps() {
+    let u = universe();
+    seed::insert_index(&u.o.primary, "mixed", &["bitcoin", "AAA.US"], &json!({ "AAA.US": 5e11 }));
+    exec(&u.o, &format!("UPDATE assets SET market_cap = NULL WHERE id = {}", u.s.btc));
+    let id = grouped_bot(&u, json!({}), json!([group("mixed", 1, 1.0)]));
+    deltabadger::jobs::state::record_success(&u.o.primary, deltabadger::jobs::reference::ASSETS, None, at("2026-08-01T00:00:00Z")).unwrap();
+    let refused = refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await;
+    assert!(matches!(&refused, Err(index::Refusal::Failure(m)) if m.contains("Crypto assets")), "{refused:?}");
+    assert!(members(&u.o, id).is_empty() && composed_of(&u.o, id).is_null());
+}

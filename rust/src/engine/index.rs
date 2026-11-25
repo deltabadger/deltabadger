@@ -521,13 +521,18 @@ async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: 
             if let Some(t) = ticker { ingredients.push(Ingredient { group: None, stored: *weight, members: vec![(*asset, t, 1.0)], selected: false }); }
         }
         let mut ranked = Map::new();
-        // The assets whose `assets.market_cap` this write reads: a live data-api group's own selection and split (Codex 2b r2),
+        // The assets whose `assets.market_cap` this write reads: a live data-api group's ranked candidates (Codex 2b r2, r3),
         // and under top-level market cap every ingredient's (below).
         let mut cap_readers: Vec<i64> = vec![];
         for group in groups {
             if let Some((_, d)) = live.iter().find(|(g, _)| g.external_id == group.external_id) {
                 let Some(members) = replay(tx, &current, group, d)? else { return Ok(Err(Refusal::Transient(CHANGED.into()))) };
-                if !d.own_caps { cap_readers.extend(members.iter().map(|m| m.0)); }
+                // Every asset the ranking names was examined by its cap (a missing one skipped it), seated or not (Codex 2b r3).
+                if !d.own_caps {
+                    let mut named = tx.prepare("SELECT id FROM assets WHERE external_id IN (SELECT value FROM json_each(?1))")?;
+                    let top = serde_json::to_string(&d.top).map_err(|e| EngineError::Data(e.to_string()))?;
+                    for a in named.query_map([top], |r| r.get::<_, i64>(0))? { cap_readers.push(a?); }
+                }
                 ranked.insert(group.external_id.clone(), serde_json::json!([d.source.id, d.source.ranked_at]));
                 ingredients.push(Ingredient { group: Some(group.external_id.clone()), stored: group.weight, members, selected: true });
             } else {
