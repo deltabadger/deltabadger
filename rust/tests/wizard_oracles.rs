@@ -239,6 +239,7 @@ fn key_verdicts_replay_every_recorded_case() {
     assert_eq!(mx["rejected_codes"], json!(key_check::MEXC_REJECTED));
     let invalid: Vec<String> = deltabadger::engine::venue_rules::MEXC.kinds.iter().find(|(k, _)| *k == "invalid_key").unwrap().1.iter().map(|s| s.to_string()).collect();
     assert_eq!(serde_json::from_value::<Vec<String>>(mx["invalid_key_errors"].clone()).unwrap(), invalid);
+    let mut by_code = 0;
     let mut mexc = 0;
     for case in mx["cases"].as_array().unwrap() {
         let (name, kind) = (case["case"].as_str().unwrap(), kind(case["key_type"].as_str().unwrap()));
@@ -259,7 +260,12 @@ fn key_verdicts_replay_every_recorded_case() {
         // Listed divergence D-MEXC-KEY-TEXT (as Bitvavo's): a deposit history answered 2xx with a body that is no JSON passes
         // 2.x's reading check when its content type is not JSON (Faraday leaves it a String, with no code); Rust's transport
         // does not carry the content type and MEXC answers JSON, so Rust gives no verdict on it.
-        if name.ends_with("deposits plain_text_200") {
+        // Divergence D-MEXC-CODE-NOT-TEXT (#710 slice 9, review r1 #1): the verdict comes from the status and the code, never
+        // the message: 602 (a signature failure 2.x read as an invalid key by its words) is no verdict.
+        if name.contains("signature 602") {
+            assert!(theirs == Verdict::Valid(false) && matches!(&ours, Verdict::Failure(_)), "D-MEXC-CODE-NOT-TEXT {name}: {ours:?}, 2.x {theirs:?}");
+            by_code += 1;
+        } else if name.ends_with("deposits plain_text_200") {
             assert!(theirs == Verdict::Valid(true) && matches!(&ours, Verdict::Failure(t) if t == "OK"), "D-MEXC-KEY-TEXT {name}: {ours:?}, 2.x {theirs:?}");
             text_passes += 1;
         } else {
@@ -274,7 +280,7 @@ fn key_verdicts_replay_every_recorded_case() {
         assert!(sent.iter().all(|r| r["key_header"] == "test-key" && r["form"] == json!({})), "{name}");
         mexc += 1;
     }
-    assert_eq!((mexc, text_passes - 7), (240, 4), "a recorded MEXC case was added or dropped");
+    assert_eq!((mexc, text_passes - 7, by_code), (240, 4, 8), "a recorded MEXC case was added or dropped");
     replayed += mexc;
     // Hyperliquid (plan VB slice B1): one /info read per key type (userRole for the address a trading or withdrawal key's secret
     // signs as, none for a secret that is no key; the reading key's spotClearinghouseState), replayed through the check over
@@ -515,14 +521,46 @@ async fn a_mexc_key_is_checked_by_its_account_and_a_reading_key_by_its_deposits_
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "canTrade": false, "balances": [] }))).mount(&server).await;
     Mock::given(method("GET")).and(path("/api/v3/capital/deposit/hisrec")).and(query_param("limit", "1")).and(header("X-MEXC-APIKEY", "mx-key"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([]))).mount(&server).await;
+    // D-MEXC-IDENTITY-READ (#710 slice 9): a key the check judges correct is read once more, signed, for its UID.
+    Mock::given(method("GET")).and(path("/api/v3/uid")).and(header("X-MEXC-APIKEY", "mx-key")).and(query_param("recvWindow", "5000"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "uid": "209302839" }))).mount(&server).await;
     let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "mx-key".into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
     let base = server.uri();
-    let check = |kind| key_check::check("Exchanges::Mexc", &base, deltabadger::venue::http::client(), &credentials, kind);
-    assert!(matches!(check(0).await, Validity::Incorrect), "a trading key whose account cannot trade");
-    assert!(matches!(check(1).await, Validity::Correct), "a withdrawal key that reads");
-    assert!(matches!(check(2).await, Validity::Correct), "a reading key that reads the account and the deposits");
+    let check = |kind| key_check::check_identified("Exchanges::Mexc", &base, deltabadger::venue::http::client(), &credentials, kind);
+    let uid = Some(deltabadger::identity::Observed::Read(deltabadger::identity::AccountId::parse("209302839").unwrap()));
+    let (validity, observed) = check(0).await;
+    assert!(matches!(validity, Validity::Incorrect) && observed.is_none(), "a trading key whose account cannot trade: no UID read");
+    let (validity, observed) = check(1).await;
+    assert!(matches!(validity, Validity::Correct) && observed == uid, "a withdrawal key that reads: {observed:?}");
+    let (validity, observed) = check(2).await;
+    assert!(matches!(validity, Validity::Correct) && observed == uid, "a reading key that reads the account and the deposits: {observed:?}");
     let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
-    assert_eq!(sent, ["/api/v3/account", "/api/v3/account", "/api/v3/account", "/api/v3/capital/deposit/hisrec"]);
+    assert_eq!(sent, ["/api/v3/account", "/api/v3/account", "/api/v3/uid", "/api/v3/account", "/api/v3/capital/deposit/hisrec", "/api/v3/uid"], "each correct check, then its one UID read");
+}
+
+/// D-MEXC-IDENTITY-READ: a check that comes to no verdict (a 503 account probe) or refuses the key (10072) sends no UID
+/// read; only a refusal code is the key's answer.
+#[tokio::test(flavor = "current_thread")]
+async fn a_mexc_check_without_a_correct_verdict_sends_no_identity_read() {
+    use wiremock::{matchers::{header, method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v3/account")).and(header("X-MEXC-APIKEY", "mx-busy")).respond_with(ResponseTemplate::new(503)).mount(&server).await;
+    Mock::given(method("GET")).and(path("/api/v3/account")).and(header("X-MEXC-APIKEY", "mx-bad"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "code": 10072, "msg": "Api key info invalid" }))).mount(&server).await;
+    let base = server.uri();
+    let check = |key: &str| {
+        let credentials = deltabadger::crypto::Credentials { ibkr: None, key: key.into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
+        let base = base.clone();
+        async move { key_check::check_identified("Exchanges::Mexc", &base, deltabadger::venue::http::client(), &credentials, 2).await }
+    };
+    let (validity, observed) = check("mx-busy").await;
+    assert!(matches!(validity, Validity::Pending(_)) && observed.is_none(), "no verdict, nothing observed: {observed:?}");
+    let (validity, observed) = check("mx-bad").await;
+    assert!(matches!(validity, Validity::Incorrect), "an invalid key");
+    assert_eq!(observed, Some(deltabadger::identity::Observed::Failed("http 400; code 10072".into())), "the refusal is the key's answer");
+    let sent: Vec<String> = server.received_requests().await.unwrap().iter().map(|r| r.url.path().to_string()).collect();
+    assert_eq!(sent, ["/api/v3/account", "/api/v3/account"], "no UID read");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -594,6 +632,30 @@ async fn a_bitrue_key_uses_one_account_read_for_each_key_type() {
     assert!(matches!(check(1).await, Validity::Correct));
     assert!(matches!(check(2).await, Validity::Correct));
     assert_eq!(server.received_requests().await.unwrap().len(), 3);
+}
+
+/// D-MEXC-5XX-NO-VERDICT: a 5xx or a 429 is no verdict whatever code its body carries (a refusal code 10072 or 700007), and
+/// no UID read follows; a signature refusal echoing the key keeps its code (read before the scrub).
+#[tokio::test(flavor = "current_thread")]
+async fn a_mexc_5xx_or_429_is_no_verdict_whatever_its_code() {
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    use deltabadger::web::settings::validator::Validity;
+    for (status, code, kind) in [(503, 10072, 0), (500, 700007, 2), (429, 10072, 1), (503, 0, 1)] {
+        let server = MockServer::start().await;
+        Mock::given(method("GET")).and(path("/api/v3/account"))
+            .respond_with(ResponseTemplate::new(status).set_body_json(json!({ "code": code, "msg": "Api key info invalid", "canTrade": true }))).mount(&server).await;
+        Mock::given(method("GET")).and(path("/api/v3/uid")).respond_with(ResponseTemplate::new(200).set_body_json(json!({ "uid": "1" }))).mount(&server).await;
+        let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "mx-key".into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
+        let (validity, observed) = key_check::check_identified("Exchanges::Mexc", &server.uri(), deltabadger::venue::http::client(), &credentials, kind).await;
+        assert!(matches!(validity, Validity::Pending(_)) && observed.is_none(), "{status} {code} kind {kind}: {observed:?}");
+        assert!(server.received_requests().await.unwrap().iter().all(|r| r.url.path() != "/api/v3/uid"), "{status} {code}: no UID read");
+    }
+    let server = MockServer::start().await;
+    Mock::given(method("GET")).and(path("/api/v3/account"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({ "code": 700002, "msg": "Signature for this request is not valid. mx-echo-key-123" }))).mount(&server).await;
+    let credentials = deltabadger::crypto::Credentials { ibkr: None, key: "mx-echo-key-123".into(), secret: "mx-secret".into(), passphrase: None, redaction_values: vec![] };
+    let (_, observed) = key_check::check_identified("Exchanges::Mexc", &server.uri(), deltabadger::venue::http::client(), &credentials, 2).await;
+    assert_eq!(observed, Some(deltabadger::identity::Observed::Failed("http 400; code 700002".into())));
 }
 
 /// Bybit review r1 #3 (D-BYBIT-5XX-NO-VERDICT): a 5xx or a 429 is no verdict whatever retCode its body carries: neither a
