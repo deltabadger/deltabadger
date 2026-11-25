@@ -454,6 +454,7 @@ jobs:
           # The uninstaller is NSIS's temp file (...\Temp\nsXXXX.tmp), signed while makensis builds the installer.
           if (-not ($ledger -match '^ok .*\\ns[^\\]*\.tmp$')) { throw 'the uninstaller was not signed' }
           if (-not ($ledger -match '^ok .*-setup\.exe$')) { throw 'the installer was not signed' }
+          if (-not ($ledger -match '^ok .*\\Deltabadger\.exe$')) { throw 'the app was not signed' }
           $f = Get-Item src-tauri/target/release/bundle/nsis/*-setup.exe
           $s = Get-AuthenticodeSignature $f
           $s | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
