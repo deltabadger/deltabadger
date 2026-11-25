@@ -1117,7 +1117,7 @@ mod r4_provenance_tests {
         }
     }
     #[test]
-    fn composition_predicates_answer_the_class_check_until_slice_2() {
+    fn composition_predicates_run_a_dca_index_and_a_basket_stored_with_groups_as_groups() {
         use serde_json::json;
         let bot = |bot_type: &str, settings: Value| Bot { id: 1, user_id: 1, exchange_id: 1, status: BotStatus::Stopped, bot_type: bot_type.into(), settings,
             transient: json!({}), started_at: None, settings_changed_at: None, restatement_generation: 0, limit_locked: false, holder: None };
@@ -1126,10 +1126,14 @@ mod r4_provenance_tests {
         assert_eq!(index.index_external_ids(), vec!["layer-1".to_string()]);
         assert_eq!(index.lone_group().map(|g| (g.external_id, g.weight)), Some(("layer-1".into(), 1.0)));
         assert_eq!(bot("Bots::DcaIndex", Value::Null).index_external_ids(), vec!["top-coins".to_string()]);
-        // Decoded, not yet run as groups: a basket carrying index_groups keeps the basket path.
+        // Slice 2b: a basket stored with index_groups runs as groups; a lone group at weight 1.0 is its lone group.
         let grouped = bot("Bots::DcaMultiAsset", json!({"index_groups": [{"index_type": "top", "weight": 1.0}]}));
-        assert_eq!(grouped.composition().map(|c| c.groups.len()), Some(1));
-        for b in [grouped, bot("Bots::DcaMultiAsset", json!({"allocations": {"1": 1.0}})), bot("Bots::Signal", json!({"index_groups": [{}]}))] {
+        assert!(grouped.has_groups());
+        assert_eq!(grouped.index_external_ids(), vec!["top-coins".to_string()]);
+        assert_eq!(grouped.lone_group().map(|g| (g.external_id, g.weight)), Some(("top-coins".into(), 1.0)));
+        let mixed = bot("Bots::DcaMultiAsset", json!({"allocations": {"1": 0.5}, "index_groups": [{"index_type": "top", "weight": 0.5}]}));
+        assert!(mixed.has_groups() && mixed.lone_group().is_none());
+        for b in [bot("Bots::DcaMultiAsset", json!({"allocations": {"1": 1.0}})), bot("Bots::Signal", json!({"index_groups": [{}]}))] {
             assert!(!b.has_groups() && b.lone_group().is_none() && b.index_external_ids().is_empty(), "{}", b.bot_type);
         }
     }

@@ -26,13 +26,16 @@ pub const CHANGED: &str = "index changed during price probes";
 /// millisecond still differ, and a run clears it only when it is still the value that run read.
 pub const RESYNC_KEY: &str = "rust_index_resync";
 
+/// PLAN index-as-ingredient §4: the bots that follow an index, of either stored spelling (an SQL condition on `bots`).
+pub const FOLLOWS_INDEX_SQL: &str = "(type = 'Bots::DcaIndex' OR (type = 'Bots::DcaMultiAsset' AND json_valid(settings) AND json_type(settings, '$.index_groups') = 'array'))";
+
 /// Marks every index bot `filter` selects (an SQL condition on `bots`; `?1` is `id`) for a resync, in the caller's
 /// transaction. Returns how many were marked.
 fn mark(c: &Connection, filter: &str, id: Option<i64>, now: chrono::DateTime<chrono::Utc>) -> Result<usize, EngineError> {
     let at = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
     Ok(c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{RESYNC_KEY}', \
                            json_object('n', coalesce(json_extract(transient_data, '$.{RESYNC_KEY}.n'), 0) + 1, 'at', ?2)) \
-                           WHERE type = 'Bots::DcaIndex' AND json_type(transient_data) = 'object' AND {filter}"), params![id, at])?)
+                           WHERE {FOLLOWS_INDEX_SQL} AND json_type(transient_data) = 'object' AND {filter}"), params![id, at])?)
 }
 
 /// Bots::DcaIndex#start and #resync_index_composition (an index-definition or exchange change): this bot.
@@ -47,7 +50,7 @@ pub fn mark_resync_all(c: &Connection, now: chrono::DateTime<chrono::Utc>) -> Re
 
 /// Every index bot with a pending resync, whatever its status: (id, the marker's JSON text).
 pub fn resync_marked(c: &Connection) -> Result<Vec<(i64, String)>, EngineError> {
-    let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{RESYNC_KEY}') FROM bots WHERE type = 'Bots::DcaIndex' \
+    let mut s = c.prepare(&format!("SELECT id, json_extract(transient_data, '$.{RESYNC_KEY}') FROM bots WHERE {FOLLOWS_INDEX_SQL} \
                                     AND json_type(transient_data, '$.{RESYNC_KEY}') IS NOT NULL ORDER BY id"))?;
     let rows = s.query_map([], |r| Ok((r.get(0)?, r.get::<_, String>(1)?)))?.collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
@@ -259,7 +262,8 @@ fn top_coins(c: &Connection, ids: &[String], weights: &Map<String, Value>, own_c
 /// it (Clients::Alpaca, `transport_raises`: retry_on), and honeymaker's Failure reads as unpriced; anything else is unpriced.
 async fn priced<V: Venue + Attributed>(venue: &V, bot: &Bot, t: &Ticker, side: PriceSide, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<bool, Refusal> {
     let key = (bot.exchange_id, t.id, side);
-    if prices.get(key, clock.now(), version).is_some() { return Ok(true); }
+    // A grouped bot's second group asks the cache for a pair the first one probed: only a positive answer is priced.
+    if let Some(p) = prices.get(key, clock.now(), version) { return Ok(!bot.stored_groups() || p.is_positive()); }
     let result=venue.price_result(t,side).await;
     let origin=result.origin().clone();
     let rejected = |e: &[String]| Refusal::Failure(format!("{} rejected the API key: {}", t.exchange_name, to_sentence(e)));
@@ -304,10 +308,11 @@ pub async fn refresh_composition<V: Venue>(c: &Connection, venue: &V, bot: &Bot,
     let handle=crate::venue::Handle::for_bot(venue,c,bot)?;
     let version=handle.producer();
     let venue=&handle;
-    refresh_composition_captured(c, venue, bot, clock, prices, &version).await
+    Ok(refresh_composition_captured(c, venue, bot, clock, prices, &version).await?.map(|_| ()))
 }
-pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<(), Refusal>, EngineError> {
-    Ok(refresh_owned(c, venue, bot, clock, prices, version, None, Some(true)).await?.map(|_| ()))
+/// The same, returning the composition as written (a grouped tick sizes from it, PLAN index-as-ingredient §3.4).
+pub(crate) async fn refresh_composition_captured<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Value, Refusal>, EngineError> {
+    refresh_owned(c, venue, bot, clock, prices, version, None, Some(true)).await
 }
 
 /// Bot::Composition::Rebalancer#before_rebalance for an index bot: the same refresh for a bot in any status but deleted or
@@ -343,15 +348,34 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     if groups.is_empty() { return Ok(Err(Refusal::Failure("index groups: none readable".into()))); }
     // D-INDEX-RETIRED-KEPT: a retired index keeps the membership this engine composed from it, unread and unwritten (a
     // resync's job completes); without that provenance nothing is composed or traded.
-    let mut frozen = false;
+    if bot.stored_groups() {
+        let read = super::composition::composed_rev(bot);
+        let refreshed = refresh_grouped(c, venue, bot, clock, prices, version, run_owned, &before, &provider_before, &groups, open, marker).await?;
+        if refreshed.is_err() { model::locked(c, |tx| super::composition::forget(tx, bot.id, read.as_deref()))?; }
+        return Ok(refreshed);
+    }
+    let mut frozen = None;
     for group in &groups {
         if !retired(c, &group.external_id)? { continue; }
         if !composed_here(c, bot, &group.external_id)? { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
-        frozen = true;
+        frozen = Some(group.external_id.clone());
     }
-    if frozen {
-        if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
-        return Ok(Ok(before));
+    if let Some(id) = frozen {
+        // D-INDEX-RETIRED-PAIR: a frozen member whose pair is gone from the bot's venue and quote drops, the rest
+        // renormalise; with every pair valid nothing is rewritten, with none the index is retired without provenance.
+        let (rows, dropped) = frozen_members(c, bot, &id)?;
+        if rows.is_empty() { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+        if !dropped {
+            if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
+            return Ok(Ok(before));
+        }
+        return model::locked(c, |tx| {
+            let current = model::load_bot(tx, bot.id)?;
+            if super::placement::composition_snapshot(tx, &current)? != before || frozen_members(tx, bot, &id)?.0 != rows { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
+            basket::write_members(tx, bot.id, &rows, clock.now())?;
+            if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
+            Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
+        });
     }
     let mut derived: Vec<Derived> = vec![];
     for group in &groups {
@@ -402,10 +426,225 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     })
 }
 
+/// D-INDEX-RETIRED-PAIR: a frozen group's members (a `Bots::DcaIndex` row's `in_index` rows, a grouped bot's composed table
+/// rows), each kept only while its ticker is still on the bot's exchange with that asset as base, the bot's quote, available
+/// and trading-enabled; the survivors renormalised (all zero: equal, `blend`'s fallback). `true`: some member dropped.
+pub(crate) fn frozen_members(c: &Connection, bot: &Bot, external_id: &str) -> Result<(Vec<basket::Derived>, bool), EngineError> {
+    let rows: Vec<(i64, i64, f64)> = if bot.stored_groups() {
+        let mut s = c.prepare("SELECT asset_id, ticker_id, weight FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1 ORDER BY asset_id")?;
+        let rows = s.query_map(params![bot.id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<Vec<_>, _>>()?;
+        rows
+    } else {
+        let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY id")?;
+        let rows = s.query_map([bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
+        rows.into_iter().map(|(a, t, w)| Ok((a, t, w?.map_or(0.0, |w| w.to_f())))).collect::<Result<Vec<_>, EngineError>>()?
+    };
+    let mut kept = vec![];
+    for (asset, ticker, weight) in &rows {
+        let valid: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM tickers WHERE id = ?1 AND exchange_id = ?2 AND base_asset_id = ?3 AND quote_asset_id = ?4 \
+                                       AND available = 1 AND trading_enabled = 1)", params![ticker, bot.exchange_id, asset, bot.quote_asset_id()], |r| r.get(0))?;
+        if valid { kept.push((*asset, *ticker, *weight)); }
+    }
+    let dropped = kept.len() != rows.len();
+    if !dropped { return Ok((kept, false)); }
+    let total = float_sum(&kept.iter().map(|m| m.2).collect::<Vec<_>>());
+    let equal = blend(&vec![0.0; kept.len()], 0.0);
+    Ok((kept.into_iter().enumerate().map(|(i, (a, t, w))| (a, t, if total > 0.0 { w / total } else { equal[i] })).collect(), true))
+}
+
+/// Some frozen group of the bot lost a member's pair since it was composed (placement's fence: the next refresh drops it).
+pub fn frozen_pair_lost(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    for id in bot.index_external_ids() {
+        if retired(c, &id)? && composed_here(c, bot, &id)? && frozen_members(c, bot, &id)?.1 { return Ok(true); }
+    }
+    Ok(false)
+}
+
+/// A live group's selection replayed on the closing transaction's data in published order: an incumbent or a pair this pass
+/// probed priced is seated, one it probed unpriced is skipped. None (`CHANGED`): a candidate whose probe this pass did not
+/// make (it became tradable during the probes), a pair gone, or a seat sequence other than the one derived.
+fn replay(c: &Connection, bot: &Bot, group: &super::composition::Group, d: &Derived) -> Result<Option<Vec<basket::Derived>>, EngineError> {
+    let Some(ranked) = top_coins(c, &d.top, &d.weights, d.own_caps)? else { return Ok(None) };
+    let mut s = c.prepare("SELECT t.id, a.external_id FROM tickers t JOIN assets a ON a.id = t.base_asset_id \
+                           WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 AND t.available = 1 AND t.trading_enabled = 1 ORDER BY t.id")?;
+    let mut by_external: HashMap<String, i64> = HashMap::new();
+    for r in s.query_map(params![bot.exchange_id, bot.quote_asset_id()], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))? {
+        let (id, ext) = r?;
+        if let Some(ext) = ext.filter(|e| !e.is_empty()) { by_external.insert(ext, id); }
+    }
+    let incumbents = incumbents(c, bot, &d.external_id)?;
+    let mut chosen = vec![];
+    for (coin, cap) in ranked {
+        if seats(&chosen, true) as i64 >= d.n { break; }
+        let Some(&ticker_id) = by_external.get(&coin) else { continue };
+        let Some(ticker) = model::ticker_by_id(c, bot.exchange_id, ticker_id)? else { return Ok(None) };
+        if !incumbents.contains(&ticker_id) {
+            match d.probed.get(&ticker_id) { Some(true) => {} Some(false) => continue, None => return Ok(None) }
+        }
+        chosen.push((ticker.base_asset_id, ticker_id, cap));
+    }
+    let members = blend_chosen(&chosen, group.flattening.unwrap_or(0.0), true);
+    let same = members.iter().map(|m| (m.0, m.1)).eq(d.members.iter().map(|m| (m.0, m.1)));
+    Ok(same.then_some(members))
+}
+
+/// One ingredient of a grouped composition, as the closing write combines them.
+struct Ingredient { group: Option<String>, stored: f64, members: Vec<(i64, i64, f64)>, selected: bool }
+
+/// The grouped composition (PLAN index-as-ingredient §4): every live group derived with probes, then one closing write that
+/// replays them, reads the frozen groups, the named assets and the caps under its lock, and writes the flat members, the
+/// group rows and `rust_composed_of` together. Any group's refusal is the bot's; nothing is written then.
+#[allow(clippy::too_many_arguments)]
+async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>,
+                                                run_owned: bool, before: &Value, provider_before: &Option<String>, groups: &[super::composition::Group],
+                                                mut open: Option<bool>, marker: Option<&str>) -> Result<Result<Value, Refusal>, EngineError> {
+    use super::composition::Group;
+    let composition = bot.composition().unwrap_or_default();
+    let mut live: Vec<(&Group, Derived)> = vec![];
+    let mut frozen: Vec<&Group> = vec![];
+    for group in groups {
+        if retired(c, &group.external_id)? {
+            if !composed_here(c, bot, &group.external_id)? { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+            frozen.push(group);
+            continue;
+        }
+        match derive_group(c, venue, bot, group, &mut open, clock, prices, version).await? {
+            Ok(d) => live.push((group, d)),
+            Err(r) => return Ok(Err(r)),
+        }
+    }
+    let now = clock.now();
+    model::credential_write(c, version, |tx| {
+        if run_owned { model::require_run(tx, bot)?; }
+        else if matches!(model::load_bot(tx, bot.id)?.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) { return Err(EngineError::RunFenced); }
+        let current = model::load_bot(tx, bot.id)?;
+        let sources_now = live.iter().map(|(_, d)| ranked_row(tx, &d.external_id)).collect::<Result<Vec<_>, _>>()?;
+        let mut changed = current.status != bot.status || super::placement::composition_snapshot(tx, &current)? != *before;
+        for ((_, d), source) in live.iter().zip(&sources_now) {
+            changed = changed || source.as_ref() != Some(&d.source) || !usable(&d.source, now) || retired(tx, &d.external_id)?;
+        }
+        for g in &frozen { changed = changed || !retired(tx, &g.external_id)?; }
+        changed = changed || super::provider::fingerprint(tx)? != *provider_before || super::provider::stale(tx, &current)?.is_some();
+        for ticker in live.iter().flat_map(|(_, d)| &d.priced) { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
+        if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
+        // Every ingredient from the data under this lock: named assets in settings order, then the groups in stored order.
+        let mut ingredients = vec![];
+        for (asset, weight) in &composition.assets {
+            let ticker: Option<i64> = tx.query_row("SELECT id FROM tickers WHERE exchange_id = ?1 AND base_asset_id = ?2 AND quote_asset_id = ?3 AND available = 1 AND trading_enabled = 1",
+                params![bot.exchange_id, asset, bot.quote_asset_id()], |r| r.get(0)).optional()?;
+            if let Some(t) = ticker { ingredients.push(Ingredient { group: None, stored: *weight, members: vec![(*asset, t, 1.0)], selected: false }); }
+        }
+        let mut ranked = Map::new();
+        for group in groups {
+            if let Some((_, d)) = live.iter().find(|(g, _)| g.external_id == group.external_id) {
+                let Some(members) = replay(tx, &current, group, d)? else { return Ok(Err(Refusal::Transient(CHANGED.into()))) };
+                ranked.insert(group.external_id.clone(), serde_json::json!([d.source.id, d.source.ranked_at]));
+                ingredients.push(Ingredient { group: Some(group.external_id.clone()), stored: group.weight, members, selected: true });
+            } else {
+                let (members, _) = frozen_members(tx, &current, &group.external_id)?;
+                if members.is_empty() { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
+                ranked.insert(group.external_id.clone(), Value::Null);
+                ingredients.push(Ingredient { group: Some(group.external_id.clone()), stored: group.weight, members, selected: false });
+            }
+        }
+        // Shares: the stored ingredient weights, renormalised over what is present; under top-level market cap the caps
+        // (an asset's own, a group's the sum over its members), each from this transaction, unless one is missing.
+        let stored: Vec<f64> = ingredients.iter().map(|i| i.stored).collect();
+        let mut shares: Option<Vec<f64>> = None;
+        if composition.weighting == "market_cap" {
+            let ids: Vec<i64> = ingredients.iter().flat_map(|i| i.members.iter().map(|m| m.0)).collect();
+            let crypto: bool = tx.query_row("SELECT EXISTS (SELECT 1 FROM assets WHERE category = 'Cryptocurrency' AND id IN (SELECT value FROM json_each(?1)))",
+                [serde_json::to_string(&ids).map_err(|e| EngineError::Data(e.to_string()))?], |r| r.get(0))?;
+            if crypto {
+                if let Some(stale) = super::staleness::caps_stale(tx, &current, now)? { return Ok(Err(Refusal::Failure(stale.message))); }
+            }
+            if let Some(caps) = basket::asset_caps(tx, &ids)? {
+                let ingredient_caps: Vec<f64> = ingredients.iter().map(|i| float_sum(&i.members.iter().map(|m| caps[&m.0]).collect::<Vec<_>>())).collect();
+                shares = Some(blend(&ingredient_caps, 0.0));
+            }
+        }
+        let shares = match shares {
+            Some(s) => s,
+            None => {
+                let total = float_sum(&stored);
+                if total <= 0.0 { return Ok(Err(Refusal::Failure(format!("None of the portfolio's weighted assets trade on {}", model::exchange_name(tx, bot)?)))); }
+                stored.iter().map(|w| w / total).collect()
+            }
+        };
+        // Members: each ingredient's share × its within-group weight, an asset reached twice holding the sum.
+        let mut members: Vec<(i64, i64, f64)> = vec![];
+        for (ingredient, share) in ingredients.iter().zip(&shares) {
+            for (asset, ticker, weight) in &ingredient.members {
+                match members.iter_mut().find(|m| m.0 == *asset) { Some(m) => m.2 += share * weight, None => members.push((*asset, *ticker, share * weight)) }
+            }
+        }
+        let mut reasons = super::eligibility::bot_reasons_typed(tx, &current)?;
+        let alpaca = model::exchange_type(tx, &current)? == "Exchanges::Alpaca";
+        super::eligibility::member_reasons(tx, &current, alpaca, &members.iter().map(|m| m.0).collect::<Vec<_>>(), &mut reasons)?;
+        if !reasons.is_empty() { return Ok(Err(Refusal::Failure(reasons.join("; ")))); }
+        // A taxonomy refresh during price probes cannot seat a newly classified stablecoin; a named asset is the user's own.
+        let named: Vec<i64> = composition.assets.iter().map(|a| a.0).collect();
+        for asset in ingredients.iter().filter(|i| i.selected).flat_map(|i| i.members.iter().map(|m| m.0)).filter(|a| !named.contains(a)) {
+            let (category, ext): (Option<String>, String) = tx.query_row("SELECT category, external_id FROM assets WHERE id=?1", [asset], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            if stablecoin(category.as_deref(), &ext) { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
+        }
+        basket::write_members(tx, bot.id, &members, now)?;
+        tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1", [bot.id])?;
+        let mut share_of = serde_json::json!({"assets": {}, "groups": {}});
+        for (ingredient, share) in ingredients.iter().zip(&shares) {
+            match &ingredient.group {
+                None => { share_of["assets"][ingredient.members[0].0.to_string()] = serde_json::json!(share); }
+                Some(id) => {
+                    share_of["groups"][id.as_str()] = serde_json::json!(share);
+                    for (asset, ticker, weight) in &ingredient.members {
+                        tx.execute("INSERT INTO rust_bot_group_members (bot_id, index_external_id, asset_id, ticker_id, composed, weight) VALUES (?1, ?2, ?3, ?4, 1, ?5)",
+                                   params![bot.id, id, asset, ticker, weight])?;
+                    }
+                }
+            }
+        }
+        super::composition::record(tx, &current, Value::Object(ranked), share_of)?;
+        for ((group, d), ingredient) in live.iter().zip(ingredients.iter().filter(|i| i.selected)) {
+            let available = ingredient.members.len();
+            if (available as i64) < d.n {
+                let message = format!("Index composition: {available} of {} requested assets are tradable on {} in {}.", d.n, model::exchange_name(tx, bot)?, model::quote_symbol(tx, bot)?);
+                tx.execute("INSERT INTO bot_activity_logs (bot_id,event,level,message,details,created_at) VALUES (?1,'index_composition_shortfall',1,?2,?3,?4)",
+                    params![bot.id, message, serde_json::json!({"available":available,"requested":d.n,"index":group.external_id}).to_string(), crate::codec::format_time(now)])?;
+            }
+        }
+        if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
+        super::eligibility::check_install(tx)?.refusal().map_err(|r| EngineError::Data(r.reason()))?;
+        Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
+    })
+}
+
 /// One group's derivation (IndexAllocatable#derive_composition): its ranked row, the top N of the venue's tickers at the
 /// quote, incumbents seated without a probe, newcomers probed, the group's flattening blend. `members` keeps every chosen
 /// occurrence, as 2.x assigns the blended weight to each.
-struct Derived { external_id: String, n: i64, members: Vec<(i64, i64, f64)>, source: Ranked, priced: Vec<Ticker> }
+struct Derived { external_id: String, n: i64, members: Vec<(i64, i64, f64)>, source: Ranked, priced: Vec<Ticker>,
+                 /// Grouped path: each probed ticker's answer, for the closing replay.
+                 probed: HashMap<i64, bool>, top: Vec<String>, weights: Map<String, Value>, own_caps: bool }
+
+/// Seats taken: chosen occurrences, or on the grouped path distinct assets (a ranking naming A twice seats A once).
+fn seats(chosen: &[(i64, i64, f64)], distinct: bool) -> usize {
+    if !distinct { return chosen.len(); }
+    let mut seen = HashSet::new();
+    chosen.iter().filter(|(a, _, _)| seen.insert(*a)).count()
+}
+
+/// The group's blend over what it chose: 2.x's insertion-ordered asset map (a repeat keeps its first position and takes the
+/// later cap), every occurrence weighted; on the grouped path each asset once.
+fn blend_chosen(chosen: &[(i64, i64, f64)], flattening: f64, distinct: bool) -> Vec<(i64, i64, f64)> {
+    let mut caps: Vec<(i64, f64)> = vec![];
+    for (asset, _, cap) in chosen {
+        if let Some((_, value)) = caps.iter_mut().find(|(id, _)| id == asset) { *value = *cap; }
+        else { caps.push((*asset, *cap)); }
+    }
+    let weights = blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), flattening);
+    let by_asset: HashMap<i64, f64> = caps.into_iter().map(|(id, _)| id).zip(weights).collect();
+    let mut seen = HashSet::new();
+    chosen.iter().filter(|(a, _, _)| !distinct || seen.insert(*a)).map(|(asset, ticker, _)| (*asset, *ticker, by_asset[asset])).collect()
+}
 
 #[allow(clippy::too_many_arguments)]
 async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, group: &super::composition::Group, open: &mut Option<bool>, clock: &dyn Clock, prices: &PriceCache, version: &Option<model::CredentialVersion>) -> Result<Result<Derived, Refusal>, EngineError> {
@@ -435,18 +674,20 @@ async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bo
     // Incumbents keep their seat without a probe (keyed on ticker_id); everyone else must show a live price on the side the
     // order would use (#probe_side, per ticker).
     let incumbents = incumbents(c, bot, category)?;
+    let distinct = bot.stored_groups();
     let mut chosen: Vec<(i64, i64, f64)> = vec![];
     let mut priced_tickers = vec![];
+    let mut probed = HashMap::new();
     for (coin, cap) in ranked {
-        if chosen.len() as i64 >= n { break; }
+        if seats(&chosen, distinct) as i64 >= n { break; }
         let Some(&ticker_id) = by_external.get(&coin) else { continue };
         let ticker = model::ticker_by_id(c, bot.exchange_id, ticker_id)?
             .ok_or_else(|| EngineError::Data(format!("bot {}: ticker {ticker_id} vanished mid-derivation", bot.id)))?;
         if !incumbents.contains(&ticker_id) {
             let side = match probe_side(venue, bot, &ticker, open).await { Ok(side) => side, Err(r) => return Ok(Err(r)) };
             match priced(venue, bot, &ticker, side, clock, prices, version).await {
-                Ok(true) => {}
-                Ok(false) => continue,
+                Ok(true) => { probed.insert(ticker_id, true); }
+                Ok(false) => { probed.insert(ticker_id, false); continue }
                 Err(r) => return Ok(Err(r)),
             }
         }
@@ -458,15 +699,8 @@ async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bo
     }
     // 2.x builds an insertion-ordered asset hash BEFORE blending; a repeated key replaces its
     // value without moving its first position. It then assigns that weight to every chosen occurrence.
-    let mut caps: Vec<(i64, f64)> = vec![];
-    for (asset, _, cap) in &chosen {
-        if let Some((_, value)) = caps.iter_mut().find(|(id, _)| id == asset) { *value = *cap; }
-        else { caps.push((*asset, *cap)); }
-    }
-    let weights = blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), group.flattening.unwrap_or(0.0));
-    let by_asset: HashMap<i64, f64> = caps.into_iter().map(|(id, _)| id).zip(weights).collect();
-    let members: Vec<(i64, i64, f64)> = chosen.iter().map(|(asset, ticker, _)| (*asset, *ticker, by_asset[asset])).collect();
-    Ok(Ok(Derived { external_id: category.to_string(), n, members, source: source_before, priced: priced_tickers }))
+    let members = blend_chosen(&chosen, group.flattening.unwrap_or(0.0), distinct);
+    Ok(Ok(Derived { external_id: category.to_string(), n, members, source: source_before, priced: priced_tickers, probed, top, weights, own_caps }))
 }
 
 /// The pairs an index bot's tick may price: every available, trading-enabled ticker at its quote whose asset its ranking

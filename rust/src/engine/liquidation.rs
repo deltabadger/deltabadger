@@ -44,7 +44,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
     if matches!(bot.status,BotStatus::Deleted | BotStatus::Archived) { return refuse(c,id,json!("archived"),clock); }
     if model::key_pending(c,&bot)? || model::key_fenced(c,&bot)? { return refuse(c,id,json!("api_key_pending"),clock); }
     let names = named(holdings)?;
-    let mut claim = rebalance::Claim { composition: placement::composition_snapshot(c,&bot)?, bot };
+    let mut claim = rebalance::Claim { composition: placement::composition_snapshot(c,&bot)?, bot, refused: None };
     // Market first, using only the named assets. The ledger resolves legacy names without a price read.
     if venue.rules().market_hours {
         let subject = crate::figures::db::Subject::load(c,id).map_err(data)?;
@@ -80,8 +80,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
         else if super::reversal::barred(&current) { Some("reversal_pending") }
         else { None };
     if let Some(reason) = reason { return refuse(c,id,json!([reason]),clock); }
-    if let Some(stale) = super::staleness::stale(c,&claim.bot,clock.now())? {
-        return refuse(c,id,json!([stale.message]),clock);
+    // PLAN index-as-ingredient §3.4: a grouped bot's named sale is judged on its leg's pair (below), not on any group.
+    if !claim.bot.stored_groups() {
+        if let Some(stale) = super::staleness::stale(c,&claim.bot,clock.now())? { return refuse(c,id,json!([stale.message]),clock); }
     }
     if !rebalance::before_rebalance(c,venue,&mut claim,clock,cx).await? { return refuse(c,id,json!(["changed"]),clock); }
     let Some(reconciled) = rebalance::split_gate(c,venue,&claim,clock).await? else { return refuse(c,id,json!(["split_hold"]),clock) };
@@ -108,6 +109,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
             json!({"bases":selected[index..].iter().map(|(key,_)|key.as_str()).collect::<Vec<_>>().join(", ")}),clock.now());
         if (cx.stopping)() { interrupted()?; break; }
         if !ticker.available || !ticker.trading_enabled { skip(c,id,key,"unavailable",clock)?; continue; }
+        if claim.bot.stored_groups() {
+            if let Some(stale) = super::staleness::leg_stale(c,&claim.bot,ticker,clock.now())? { return refuse(c,id,json!([stale.message]),clock); }
+        }
         if rebalance::account_waiting_buys(c,&claim.bot,ticker)? { skip(c,id,key,"open_order",clock)?; continue; }
         let Some(price) = tick::market_price_for(venue,&claim.bot,ticker,Side::Sell,clock,cx).await? else { skip(c,id,key,"unpriced",clock)?; continue };
         let held = walked.asset_breakdown.iter().find(|(k,_)|k==key).map(|(_,v)|&v.amount).ok_or_else(||data("holding disappeared"))?;

@@ -24,7 +24,7 @@ const TABLES: [&str; 5] = ["bots", "transactions", "bot_activity_logs", "bot_ind
 const JSON_COLUMNS: [&str; 4] = ["settings", "transient_data", "details", "error_messages"];
 const MAX_ATTEMPTS: usize = 6;
 /// transient_data keys only this engine writes, besides the mail markers (notice::KEYS): 2.x has none of them.
-pub const RUST_KEYS: [&str; 17] = [crate::engine::index::COMPOSED_KEY, "run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
+pub const RUST_KEYS: [&str; 18] = [crate::engine::index::COMPOSED_KEY, crate::engine::composition::COMPOSED_OF_KEY, "run_generation", crate::engine::model::HISTORY_GENERATION, "tick_generation", "rust_placement", crate::engine::model::SIGNAL_CALLS_KEY, "rust_defer_until", "rust_amount_limit_stops_pending", "rust_failure_origin",
                                crate::engine::amount_limit::STOP_MAILED,
                                "rust_rebalance_halted", crate::engine::conditions::DEAD, crate::engine::index::RESYNC_KEY,
                                crate::engine::conditions::INFO_KEY, crate::engine::conditions::INFO_WANTED_KEY, crate::engine::polling::REFRESH_KEY,

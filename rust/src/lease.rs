@@ -197,8 +197,10 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
         if grouped { primary.execute("DELETE FROM rust_bot_group_members", [])?; }
         // A17-4 r18: 2.x may have changed any bot's membership while it owned the install, so no composition marker
         // (engine::index::COMPOSED_KEY) survives either. Retirements (rust_index_retired) do.
-        primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index') \
-                         WHERE json_valid(transient_data) AND json_type(transient_data, '$.rust_composed_index') IS NOT NULL", [])?;
+        // Nor the grouped composition's (engine::composition::COMPOSED_OF_KEY): its rows went with the table above.
+        primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index', '$.rust_composed_of') \
+                         WHERE json_valid(transient_data) AND (json_type(transient_data, '$.rust_composed_index') IS NOT NULL \
+                         OR json_type(transient_data, '$.rust_composed_of') IS NOT NULL)", [])?;
     }
     Ok(from)
 }

@@ -598,8 +598,10 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
         // tradable weighted member the tick fails with no order row.
         // The composition this tick buys: an index bot derives it from data-api's ranking with price probes (index.rs), a basket
         // from its settings (basket.rs). A Failure fails the tick with no order row; a probe's transport failure retries.
+        let mut committed = None;
         let refreshed = if bot.has_groups() {
             index::refresh_composition_captured(c, venue, bot, clock, cx.prices, &cx.credential_version).await?
+                .map(|written| { if bot.stored_groups() { committed = Some(written); } })
         } else {
             let now = clock.now();
             model::run_write(c, bot, |tx| basket::refresh_composition(tx, bot, now))?.map_err(index::Refusal::Failure)
@@ -623,7 +625,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
         let mut capped = false;
         if sale.is_none() { if let Some(available) = amount::quote_amount_available(c, bot)? { if available <= x { x = available; capped = true; } } }
         if !x.is_zero() {
-            let mut legs = Legs::default();
+            let mut legs = Legs { claim: committed, ..Legs::default() };
             let bought = match sale {
                 Some((base, quote)) => sell(c, venue, bot, base, &quote, clock, cx, &mut legs, &reconciled).await,
                 None => buy(c, venue, bot, &x, capped, clock, cx, &mut legs, &reconciled).await,
@@ -638,13 +640,16 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
                 return Ok(Ok(Ran { placed: legs.placed, fenced: false, ledger_stale: legs.ledger_stale, paused: false, flipped: false }));
             }
             if !legs.skipped.is_empty() {
-                model::run_credential_write(c, bot, &cx.credential_version, |tx| record_skipped(tx, bot, &legs.skipped, legs.placed, clock.now()))?;
+                model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+                    if !claim_holds(tx, bot, &legs.claim)? { return Ok(()); }
+                    record_skipped(tx, bot, &legs.skipped, legs.placed, clock.now())
+                })?;
             }
             (placed, fenced) = (legs.placed, legs.fenced);
             if let Err(f) = bought? { return Ok(Err(f)); }
             // A fill this tick's sweep applied already owes 2.x's own stop (polling::apply_committed), run at the tick's end.
             let owed = model::load_bot(c, bot_id)?.pending_amount_limit_stops()?.is_some_and(|(n, current)| current && n > 0);
-            if legs.cap_spent && !fenced && !owed { cap_spent(c, bot, &x, clock, cx)?; }
+            if legs.cap_spent && !fenced && !owed { cap_spent(c, bot, &x, clock, cx, &legs.claim)?; }
         }
         // A stop that landed while AddOrder awaited its reply stays; the orders already sent stand and are still polled.
         // Fenced, the run is no longer this tick's: no :waiting over a restarted run's claim, no below-minimum notice.
@@ -734,7 +739,15 @@ struct Ran { placed: bool, fenced: bool, ledger_stale: Option<Box<staleness::Sta
 /// What a basket buy did before it returned, for the skipped-leg report that runs on every way out. `cap_spent`: the cap bound
 /// and no leg of its whole remainder could be placed (D-CAP-REMAINDER-STOP).
 #[derive(Default)]
-struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledger_stale: Option<Box<staleness::Stale>>, cap_spent: bool }
+struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledger_stale: Option<Box<staleness::Stale>>, cap_spent: bool,
+              /// A grouped bot's sizing claim: the composition its refresh committed (PLAN index-as-ingredient §3.4).
+              claim: Option<serde_json::Value> }
+
+/// The grouped claim still holds in this write (none: not a grouped bot).
+fn claim_holds(tx: &Connection, bot: &model::Bot, claim: &Option<serde_json::Value>) -> Result<bool, EngineError> {
+    let Some(claim) = claim else { return Ok(true) };
+    Ok(placement::composition_snapshot(tx, &model::load_bot(tx, bot.id)?)? == *claim)
+}
 
 /// D-CAP-REMAINDER-STOP (basket and index): a spending cap whose whole remainder, split and sized as this tick sizes it, has
 /// no leg the venue takes is reached. 2.x would skip the legs at every checkpoint forever (its reached test is the pair's
@@ -744,9 +757,10 @@ struct Legs { placed: bool, fenced: bool, skipped: Vec<amount::OrderPlan>, ledge
 /// its start moved) does not move the run, so the stop's transaction re-reads the cap and the counted spend and stops only
 /// while the cap still binds at that same remainder: then the legs sized at the prices already read are still the legs.
 /// Otherwise it writes nothing and the tick goes on as one that placed nothing; the next one decides.
-fn cap_spent(c: &Connection, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<(), EngineError> {
+fn cap_spent(c: &Connection, bot: &model::Bot, x: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, claim: &Option<serde_json::Value>) -> Result<(), EngineError> {
     let now = clock.now();
     let stopped = model::run_credential_write(c, bot, &cx.credential_version, |tx| {
+        if !claim_holds(tx, bot, claim)? { return Ok(false); }
         let fresh = model::load_bot(tx, bot.id)?;
         let Some(available) = amount::quote_amount_available(tx, &fresh)? else { return Ok(false) };
         if available != *x || amount::pending_quote_amount(tx, &fresh, now.timestamp_micros())? < available { return Ok(false); }
@@ -787,7 +801,7 @@ fn unclaim(c: &Connection, bot: &mut model::Bot, claimed: Claimed, stale: stalen
 /// pending_quote_amount. A price failure can only come before the first leg.
 #[allow(clippy::too_many_arguments)]
 async fn buy<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, capped: bool, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
-    let composition = placement::composition_snapshot(c, bot)?;
+    let composition = match &legs.claim { Some(claim) => claim.clone(), None => placement::composition_snapshot(c, bot)? };
     let locked = super::wash::locked(c, bot.user_id, clock)?;
     let members = basket::members(c, bot, &locked)?;
     if members.is_empty() {
@@ -1025,7 +1039,7 @@ fn balance_failure<V: Venue>(venue: &V, bot: &model::Bot, e: VenueError) -> Fail
 /// base, never 0 for an unreadable answer. Nothing free is a skip with a log line only (`sell_skipped no_holdings`).
 #[allow(clippy::too_many_arguments)]
 async fn sell<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &model::Bot, base: Option<BigDec>, quote: &BigDec, clock: &dyn Clock, cx: &TickContext<'_>, legs: &mut Legs, reconciled: &splits::Snapshot) -> Result<Result<(), Fail>, EngineError> {
-    let composition = placement::composition_snapshot(c, bot)?;
+    let composition = match &legs.claim { Some(claim) => claim.clone(), None => placement::composition_snapshot(c, bot)? };
     // Bots::DcaMultiAsset#one_asset?: the configured members, not the tradeable ones.
     if !bot.settings.as_object().is_some_and(super::schedule::one_asset) {
         // Bots::DcaMultiAsset#sell_denomination is 'quote' for a wider basket (sell_amounts reads it so): base is None here.

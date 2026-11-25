@@ -106,7 +106,7 @@ fn marked_live(c: &Connection, s: &Subject, metrics: &Metrics, market: &dyn Mark
 
     // The pair bot's rule, for the one-asset basket that replaces it: a lone holding it cannot price makes the
     // figures stale. Not for a wider basket, where one unpriced member is simply left out of the value.
-    if s.bot.kind == super::db::Kind::Basket && s.bot.base_asset_ids.len() == 1 {
+    if s.bot.kind == super::db::Kind::Basket && s.bot.base_asset_ids.len() == 1 && !s.bot.grouped {
         let key = data.key_for(s.bot.base_asset_ids[0]).map(str::to_string);
         // Bots::DcaMultiAsset#base_assets holds only assets that exist.
         let exists = !super::db::existing_assets(c, &s.bot.base_asset_ids)?.is_empty();

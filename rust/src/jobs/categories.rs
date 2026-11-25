@@ -52,8 +52,8 @@ fn followed(c: &Connection) -> Result<BTreeSet<String>, EngineError> { Ok(follow
 /// The followed categories, each with its bots (in id order).
 pub(crate) fn followers(c: &Connection) -> Result<BTreeMap<String, Vec<i64>>, EngineError> {
     use crate::enums::BotStatus::{Archived, Deleted};
-    let ids = c.prepare(&format!("SELECT id FROM bots WHERE type = 'Bots::DcaIndex' AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL ORDER BY id",
-                                 Deleted as i64, Archived as i64))?
+    let ids = c.prepare(&format!("SELECT id FROM bots WHERE {} AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL ORDER BY id",
+                                 crate::engine::index::FOLLOWS_INDEX_SQL, Deleted as i64, Archived as i64))?
         .query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     let mut out: BTreeMap<String, Vec<i64>> = BTreeMap::new();
     for id in ids {

@@ -324,6 +324,7 @@ fn id_stale(c: &Connection, id: &str, now: DateTime<Utc>) -> Result<Option<Stale
 /// sizes from its ranking (`ranking_stale`, never a source here) and, on data-api, the crypto market caps; a CoinGecko
 /// ranking carries its own caps. Its venue tickers are not refused on (VENUE_TICKERS).
 fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
+    if bot.stored_groups() { return grouped_sources(c, bot); }
     let index = bot.has_groups();
     let ids = bot.index_external_ids();
     // A market-cap basket sizes from its crypto members' caps as an index bot does (Bots::DcaMultiAsset#apply_market_cap_weights).
@@ -360,6 +361,55 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
     if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
     if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
     if (index || market_cap) && crypto && !own_caps { sources.push(&CRYPTO_ASSETS); }
+    Ok(sources)
+}
+
+/// PLAN index-as-ingredient §4: a grouped bot under top-level market cap sizes its ingredient shares from the crypto asset
+/// catalogue's caps, in its closing write (the background resync included).
+pub(crate) fn caps_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> { source_stale(c, bot, &CRYPTO_ASSETS, now) }
+
+/// The sources one liquidation leg sells through on a grouped bot: its pair's venue catalogue and the account ledger,
+/// never a group's ranking, provider or other catalogue (PLAN index-as-ingredient §3.4).
+pub fn leg_stale(c: &Connection, bot: &Bot, ticker: &model::Ticker, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+    let source: Option<&'static Source> = match model::exchange_type(c, bot)?.as_str() {
+        "Exchanges::Ibkr" => Some(&IBKR_TICKERS),
+        "Exchanges::Alpaca" => Some(if ticker.crypto { &ALPACA_CRYPTO_TICKERS } else { &ALPACA_STOCK_TICKERS }),
+        _ => None,
+    };
+    if let Some(s) = source { if let Some(stale) = source_stale(c, bot, s, now)? { return Ok(Some(stale)); } }
+    ledger_stale(c, bot, now)
+}
+
+/// `bot_sources` of a basket stored with index groups: the catalogues over the union of its named assets, each live group's
+/// candidates and each frozen group's own rows; the crypto caps for a live data-api group or top-level market cap.
+fn grouped_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, EngineError> {
+    let venue = model::exchange_type(c, bot)?;
+    if venue == "Exchanges::Ibkr" { return Ok(vec![&IBKR_TICKERS]); }
+    let coingecko = super::provider::coingecko_key(c)?.is_some();
+    let mut ids: Vec<i64> = bot.asset_ids();
+    let mut live = false;
+    for id in bot.index_external_ids() {
+        if super::index::retired(c, &id)? {
+            let mut s = c.prepare("SELECT asset_id FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1")?;
+            for a in s.query_map(rusqlite::params![bot.id, id], |r| r.get::<_, i64>(0))? { ids.push(a?); }
+        } else { live = true; }
+    }
+    if live {
+        let pairs = serde_json::to_string(&super::index::candidate_pairs(c, bot)?).map_err(|e| EngineError::Data(e.to_string()))?;
+        let mut s = c.prepare("SELECT t.base_asset_id FROM tickers t WHERE t.exchange_id = ?1 AND t.quote_asset_id = ?2 AND t.ticker IN (SELECT value FROM json_each(?3)) \
+                               AND t.available = 1 AND t.trading_enabled = 1")?;
+        for a in s.query_map(rusqlite::params![bot.exchange_id, bot.quote_asset_id(), pairs], |r| r.get::<_, i64>(0))? { ids.push(a?); }
+    }
+    let ids = serde_json::to_string(&ids).map_err(|_| EngineError::Data("unreadable member ids".into()))?;
+    let (stocks, crypto): (bool, bool) = c.query_row("SELECT coalesce(max(category != 'Cryptocurrency'),0), coalesce(max(category = 'Cryptocurrency'),0) \
+                                                      FROM assets WHERE id IN (SELECT value FROM json_each(?1))", [ids], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    let caps = crypto && ((live && !coingecko) || bot.weighting() == "market_cap");
+    let mut sources = vec![];
+    if venue == "Exchanges::Alpaca" {
+        if stocks { sources.push(&ALPACA_STOCK_TICKERS); }
+        if crypto { sources.push(&ALPACA_CRYPTO_TICKERS); }
+    }
+    if caps { sources.push(&CRYPTO_ASSETS); }
     Ok(sources)
 }
 

@@ -511,7 +511,7 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
     }
     let bot = super::model::load_bot(c, bot_id)?;
     // The pass's one read of what it decides from, before its first await (the clock below).
-    let claim = Claim { composition: super::placement::composition_snapshot(c, &bot)?, bot };
+    let claim = Claim { composition: super::placement::composition_snapshot(c, &bot)?, bot, refused: None };
     let bot = &claim.bot;
     // The placement barrier: nothing is sized while a reversal's cancels are not recorded (begin refuses it anyway).
     if super::reversal::barred(bot) { return Ok(Outcome::Skipped("reversal_pending")); }
@@ -539,7 +539,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
 /// against, so an edit landing while the venue is asked (the clock, positions, prices) refuses the pass; the next
 /// evaluation runs it again from the edit, as 2.x would. The pass's own composition refresh moves the claim forward
 /// with what it wrote, read under that write's lock.
-pub(crate) struct Claim { pub(crate) bot: Bot, pub(crate) composition: Value }
+pub(crate) struct Claim { pub(crate) bot: Bot, pub(crate) composition: Value,
+                         /// A grouped bot's refresh refused this pass (PLAN index-as-ingredient §3.4): nothing new is sized from it.
+                         pub(crate) refused: Option<String> }
 
 /// Bot::Rebalancer#rebalance!.
 async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: Claim, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Outcome, EngineError> {
@@ -569,6 +571,7 @@ async fn rebalance<V: Venue + Attributed>(c: &Connection, venue: &V, mut claim: 
     };
     let blocked = super::composition::liquidation_in_flight(c, bot, clock.now())? || super::composition::redeploy_in_flight(c, bot)?;
     if !due(&bot.settings, &bot.transient, blocked, drift(entries.as_deref()).as_ref())? { return Ok(Outcome::Skipped("not_due")); }
+    if claim.refused.is_some() { return Ok(Outcome::Skipped("composition_refused")); }
     start(c, venue, claim, entries.unwrap_or_default(), &reconciled, clock, cx).await
 }
 
@@ -630,11 +633,16 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
         Ok(written) => claim.composition = written,
         // D-INDEX-RETIRED-KEPT: no membership of this engine's own for a retired index (refused, or retired during the
         // probes): nothing is traded.
-        // A basket stored with index groups (basket::GROUPED): its stored rows are not what it holds either.
-        Err(m) if m == super::index::RETIRED || m == super::basket::GROUPED || (bot.has_groups() && super::index::any_retired(c, bot)?
-                                                  && super::index::any_uncomposed(c, &super::model::load_bot(c, bot.id)?)?) => {
+        // A `Bots::DcaIndex` row only (one id); a grouped bot never skips the pass, its pending orders still settle.
+        Err(m) if bot.bot_type == "Bots::DcaIndex" && (m == super::index::RETIRED || (super::index::any_retired(c, bot)?
+                                                  && super::index::any_uncomposed(c, &super::model::load_bot(c, bot.id)?)?)) => {
             super::log(&format!("[engine] bot {}: rebalance skipped: {m}", bot.id));
             return Ok(false);
+        }
+        // PLAN index-as-ingredient §3.4: a grouped bot's refusal is never a fallback to its stored rows; nothing new is sized.
+        Err(m) if claim.bot.stored_groups() => {
+            super::log(&format!("[engine] bot {}: rebalance composition refused: {m}", claim.bot.id));
+            claim.refused = Some(m);
         }
         Err(m) => super::log(&format!("[engine] rebalance composition refresh failed bot={}: {m}", bot.id)),
     }
@@ -738,10 +746,19 @@ async fn refresh<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bot, id
 
 /// D-A6-STALE: a poll that began before a halt was resolved cannot change the replacement swap.
 fn transition(c: &Connection, bot: &Bot, expected: &Pending, write: impl FnOnce(&Connection) -> Result<(),EngineError>) -> Result<bool,EngineError> {
+    transition_claimed(c, bot, expected, None, write)
+}
+
+/// A grouped bot's sizing claim (PLAN index-as-ingredient §3.4): the composition its refresh committed.
+pub(crate) fn grouped_claim(claim: &Claim) -> Option<&Value> { claim.bot.stored_groups().then_some(&claim.composition) }
+
+/// `transition`, also refused when the stored composition is no longer `claimed` (a grouped bot's no-intent write).
+fn transition_claimed(c: &Connection, bot: &Bot, expected: &Pending, claimed: Option<&Value>, write: impl FnOnce(&Connection) -> Result<(),EngineError>) -> Result<bool,EngineError> {
     super::model::locked(c,|tx| {
         let current=super::model::load_bot(tx,bot.id)?;
         if pending(&current.transient)?.as_ref()!=Some(expected)
             || current.transient["rust_rebalance_resolution"]!=bot.transient["rust_rebalance_resolution"] {return Ok(false)}
+        if let Some(claimed) = claimed { if super::placement::composition_snapshot(tx, &current)? != *claimed { return Ok(false); } }
         write(tx)?;
         Ok(true)
     })
@@ -796,6 +813,9 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     let current=super::model::load_bot(c,bot_id)?;
     let Some(p)=pending(&current.transient)? else {return Ok(Outcome::Skipped("changed"))};
     if p.phase != PHASE_BUYING || current.transient["rust_rebalance_resolution"] != bot.transient["rust_rebalance_resolution"] {return Ok(Outcome::Skipped("changed"))}
+    // PLAN index-as-ingredient §3.4: a grouped bot whose refresh refused waits, its owed buy unattempted, as a basket's
+    // with no tradable target does.
+    if claim.refused.is_some() { return Ok(Outcome::Skipped("buy_unavailable")); }
     let owed = p.remaining_quote_amount.clone().unwrap_or_else(BigDec::zero);
     if !owed.is_positive() {
         if !transition(c,bot,&p,|tx|clear_pending(tx,bot_id))? {return Ok(Outcome::Skipped("changed"));}
@@ -819,7 +839,7 @@ async fn place_pending_buy<V: Venue + Attributed>(c: &Connection, venue: &V, cla
     if below {
         // #abandon_below_minimum!(buying): the user's own cash left unconvertible, said once.
         let now = clock.now();
-        if !transition(c,bot,&p,|tx| { super::model::log_activity(tx, bot_id, "rebalance_dust", Level::Info, plan.log_details(), now)?; clear_pending(tx, bot_id) })? {return Ok(Outcome::Skipped("changed"));}
+        if !transition_claimed(c,bot,&p,grouped_claim(claim),|tx| { super::model::log_activity(tx, bot_id, "rebalance_dust", Level::Info, plan.log_details(), now)?; clear_pending(tx, bot_id) })? {return Ok(Outcome::Skipped("changed"));}
         return Ok(Outcome::Skipped("below_minimum"));
     }
     // #mark_buy_attempted!, written with the intent.

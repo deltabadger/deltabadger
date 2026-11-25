@@ -1,39 +1,95 @@
-//! PLAN index-as-ingredient slice 1: the group table's storage. A bot stored with `index_groups` reads
-//! `rust_bot_group_members`; a `Bots::DcaIndex` row reads exactly what it read before; a grouped row never trades as a
-//! plain basket (slice 2 runs it).
+//! PLAN index-as-ingredient slices 1 and 2b: a basket stored with `index_groups` reads `rust_bot_group_members`, runs as
+//! groups (one derivation per group, one closing write), and a `Bots::DcaIndex` row reads exactly what it read before.
 mod common;
 use common::seed::{self, BotSpec};
 use chrono::{DateTime, Utc};
-use common::scripted::{accepted, ok};
 use deltabadger::engine::rebalance::{self, Outcome};
 use deltabadger::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
-use deltabadger::engine::{basket, index, model, placement, redeploy, FixedClock};
+use deltabadger::engine::{composition, eligibility, index, model, placement, redeploy, staleness, FixedClock};
 use deltabadger::venue::alpaca::{AlpacaVenue, Urls};
-use deltabadger::venue::http::ScriptedTransport;
+use deltabadger::venue::http::{HttpRequest, HttpResponse, ScriptedTransport, Transport, TransportError};
 use deltabadger::store;
-use serde_json::json;
+use serde_json::{json, Value};
+use std::cell::RefCell;
 use std::collections::HashSet;
+use std::rc::Rc;
 
-const T0: &str = "2026-09-01T12:30:00Z";
+const T0: &str = "2026-09-01T14:00:00.5Z";
+const SYMBOLS: [&str; 5] = ["AAA", "BBB", "CCC", "DDD", "EEE"];
 fn at(s: &str) -> DateTime<Utc> { s.parse().unwrap() }
-fn script() -> ScriptedTransport {
-    ScriptedTransport::from_script(&json!({
-        "GET /v1beta3/crypto/us/latest/quotes": [ok(json!({ "quotes": { "BTC/USD": { "ap": 64000, "bp": 64000 }, "ETH/USD": { "ap": 2500, "bp": 2500 }, "SOL/USD": { "ap": 100, "bp": 100 } } }))],
-        "GET /v1beta3/crypto/us/latest/trades": [ok(json!({ "trades": { "BTC/USD": { "p": 64000 }, "ETH/USD": { "p": 2500 }, "SOL/USD": { "p": 100 } } }))],
-        "POST /v2/orders": [accepted("OTX-1"), accepted("OTX-2"), accepted("OTX-3")],
-        "GET /v2/account": [ok(json!({ "cash": "100000", "non_marginable_buying_power": "100000" }))],
-        "GET /v2/positions": [ok(json!([]))],
-    }))
-}
-fn venue(t: &ScriptedTransport) -> AlpacaVenue<ScriptedTransport> { AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper"))) }
+fn ok(body: Value) -> Value { json!([{ "status": 200, "body": body }]) }
 fn exec(o: &store::Opened, sql: &str) { o.primary.execute_batch(sql).unwrap(); }
-fn members(o: &store::Opened, id: i64) -> Vec<(i64, i64, String, Option<bool>)> {
-    o.primary.prepare("SELECT asset_id, ticker_id, CAST(target_allocation AS TEXT), in_index FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id").unwrap()
-        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).unwrap().map(Result::unwrap).collect()
+
+/// Five Alpaca stocks AAA..EEE in data-api's ND100 row (caps 5, 3, 2, 1, 0.5 T), BTC/USD beside them, a configured
+/// provider (its index bot deleted, out of the way) and fresh catalogues.
+struct U { _d: tempfile::TempDir, o: store::Opened, s: seed::Seeded, m: Vec<(i64, i64)> }
+fn universe() -> U {
+    let (d, o, s) = common::install_alpaca();
+    let m: Vec<(i64, i64)> = SYMBOLS.iter().map(|sym| seed::add_alpaca_stock(&o.primary, &s, sym)).collect();
+    seed::insert_index(&o.primary, "nasdaq-100", &["AAA.US", "BBB.US", "CCC.US", "DDD.US", "EEE.US"],
+                       &json!({ "AAA.US": 5e12, "BBB.US": 3e12, "CCC.US": 2e12, "DDD.US": 1e12, "EEE.US": 5e11 }));
+    let legacy = seed::index_bot(&o.primary, &s, "nasdaq-100", 3, 0.0, false);
+    exec(&o, &format!("UPDATE bots SET status = 3 WHERE id = {legacy}"));
+    seed::fresh_stock_jobs(&o.primary, at(T0));
+    U { _d: d, o, s, m }
 }
-fn group_settings(o: &store::Opened, id: i64) {
-    exec(o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups', json('[{{\"index_type\":\"top\",\"num_coins\":3,\"weight\":0.5}}]')) WHERE id = {id}"));
+/// A group over `id`: top `n`, flattening 1.0 (equal weights) unless given, at ingredient weight `w`.
+fn group(id: &str, n: i64, w: f64) -> Value { json!({ "index_type": "category", "index_category_id": id, "num_coins": n, "allocation_flattening": 1.0, "weight": w }) }
+fn grouped_bot(u: &U, allocations: Value, groups: Value) -> i64 {
+    seed::insert_bot(&u.o.primary, &u.s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("allocations", allocations).with("index_groups", groups))
 }
+/// Every stock quoted at `asks[i]` (0 = unpriced), BTC at 64000, an open clock, accepted orders, a funded account.
+fn script(asks: [f64; 5]) -> ScriptedTransport { script_with(asks, json!({})) }
+fn script_with(asks: [f64; 5], over: Value) -> ScriptedTransport {
+    let mut m = json!({
+        "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })),
+        "POST /v2/orders": (1..=8).map(|n| json!({ "status": 200, "body": { "id": format!("OTX-{n}"), "status": "accepted" } })).collect::<Vec<_>>(),
+        "GET /v2/account": ok(json!({ "cash": "100000", "buying_power": "200000", "non_marginable_buying_power": "100000" })),
+        "GET /v2/positions": ok(json!([])),
+        "GET /v1beta3/crypto/us/latest/quotes": ok(json!({ "quotes": { "BTC/USD": { "ap": 64000, "bp": 64000 } } })),
+        "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": { "BTC/USD": { "p": 64000 } } })),
+        "GET /v2/stocks/snapshots": ok(json!({ "AAA": { "latestTrade": { "p": 100.0 } }, "BBB": { "latestTrade": { "p": 200.0 } } })),
+    });
+    for (sym, ask) in SYMBOLS.iter().zip(asks) { m[format!("GET /v2/stocks/{sym}/quotes/latest")] = Value::Array(vec![json!({ "status": 200, "body": { "quote": { "ap": ask, "bp": ask } } }); 4]); }
+    for (k, v) in over.as_object().unwrap() { m[k] = v.clone(); }
+    ScriptedTransport::from_script(&m)
+}
+fn venue<T: Transport>(t: T) -> AlpacaVenue<T> { AlpacaVenue::new(t, Urls::for_passphrase(Some("paper"))) }
+async fn refresh<T: Transport>(u: &U, t: T, id: i64) -> Result<(), index::Refusal> {
+    index::refresh_composition(&u.o.primary, &venue(t), &model::load_bot(&u.o.primary, id).unwrap(), &FixedClock(at(T0)), &PriceCache::default()).await.unwrap()
+}
+/// in_index members: (symbol, target_allocation), in row order.
+fn members(o: &store::Opened, id: i64) -> Vec<(String, f64)> {
+    o.primary.prepare("SELECT a.symbol, m.target_allocation FROM bot_index_assets m JOIN assets a ON a.id = m.asset_id WHERE m.bot_id = ?1 AND m.in_index = 1 ORDER BY m.id").unwrap()
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+fn group_rows(o: &store::Opened, id: i64) -> Vec<(String, String, f64)> {
+    o.primary.prepare("SELECT g.index_external_id, a.symbol, g.weight FROM rust_bot_group_members g JOIN assets a ON a.id = g.asset_id WHERE g.bot_id = ?1 ORDER BY g.index_external_id, g.asset_id").unwrap()
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+}
+fn composed_of(o: &store::Opened, id: i64) -> Value { model::load_bot(&o.primary, id).unwrap().transient.get(composition::COMPOSED_OF_KEY).cloned().unwrap_or(Value::Null) }
+fn close(got: &[(String, f64)], want: &[(&str, f64)]) {
+    assert_eq!(got.len(), want.len(), "{got:?} vs {want:?}");
+    for ((s, g), (ws, w)) in got.iter().zip(want) { assert!(s == ws && (g - w).abs() < 2e-6, "{got:?} vs {want:?}"); }
+}
+
+/// A transport that runs `hook` once, just before the first request to `path` is answered (a write landing mid-probe).
+type Hook = Rc<RefCell<Option<Box<dyn FnOnce()>>>>;
+#[derive(Clone)]
+struct Hooked { inner: ScriptedTransport, path: String, hook: Hook }
+impl Transport for Hooked {
+    async fn send(&self, r: &HttpRequest) -> Result<HttpResponse, TransportError> {
+        if r.path == self.path { if let Some(h) = self.hook.borrow_mut().take() { h(); } }
+        self.inner.send(r).await
+    }
+}
+fn hooked(t: &ScriptedTransport, path: &str, hook: impl FnOnce() + 'static) -> Hooked {
+    Hooked { inner: t.clone(), path: path.into(), hook: Rc::new(RefCell::new(Some(Box::new(hook)))) }
+}
+fn side_conn(u: &U) -> rusqlite::Connection { rusqlite::Connection::open(u._d.path().join("production.sqlite3")).unwrap() }
+
+// ---------------------------------------------------------------- slice 1: storage
+
 #[test]
 fn a_legacy_index_reads_its_key_and_in_index_rows_and_ignores_the_table() {
     let (_d, o, s) = common::install_alpaca();
@@ -55,26 +111,23 @@ fn a_grouped_bot_reads_the_table_by_group() {
     let (eth, _) = seed::add_eth_sol(&o.primary, &s);
     let eth_ticker: i64 = o.primary.query_row("SELECT id FROM tickers WHERE base_asset_id = ?1", [eth], |r| r.get(0)).unwrap();
     let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("rust_composed_index", json!("top-coins")));
-    group_settings(&o, id);
+    exec(&o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups', json('[{{\"index_type\":\"top\",\"num_coins\":3,\"weight\":0.5}}]')) WHERE id = {id}"));
     exec(&o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, in_index, target_allocation, created_at, updated_at) VALUES
           ({id}, {btc}, {bt}, 1, 0.5, '2026-01-01', '2026-01-01'), ({id}, {eth}, {et}, 1, 0.5, '2026-01-01', '2026-01-01');
         INSERT INTO rust_bot_group_members VALUES ({id}, 'top-coins', {btc}, {bt}, 1, 0.6), ({id}, 'top-coins', {eth}, 777, 1, 0.4),
                                                   ({id}, 'layer-1', {eth}, {et}, 0, 1.0);", btc = s.btc, bt = s.ticker_id, et = eth_ticker));
     let bot = model::load_bot(&o.primary, id).unwrap();
-    assert!(bot.stored_groups() && !bot.has_groups());
+    assert!(bot.stored_groups() && bot.has_groups());
     assert!(index::composed_here(&o.primary, &bot, "top-coins").unwrap());
     assert!(!index::composed_here(&o.primary, &bot, "layer-1").unwrap(), "composed = 0");
     assert!(!index::composed_here(&o.primary, &bot, "defi").unwrap(), "no rows");
     assert_eq!(index::incumbents(&o.primary, &bot, "top-coins").unwrap(), HashSet::from([s.ticker_id]), "ETH's stored ticker is no longer its in_index one");
     assert_eq!(index::incumbents(&o.primary, &bot, "layer-1").unwrap(), HashSet::from([eth_ticker]), "each group its own rows");
-    // The snapshot fences the group rows too, ordered by group then asset.
     let snapshot = placement::composition_snapshot(&o.primary, &bot).unwrap();
     assert_eq!(snapshot["groups"], json!([["layer-1", eth, eth_ticker, 0, 1.0], ["top-coins", s.btc, s.ticker_id, 1, 0.6], ["top-coins", eth, 777, 1, 0.4]]));
     exec(&o, &format!("UPDATE rust_bot_group_members SET weight = 0.5 WHERE bot_id = {id} AND asset_id = {}", s.btc));
-    assert_ne!(placement::composition_snapshot(&o.primary, &bot).unwrap(), snapshot, "a group row's change moves the snapshot");
-    // Read as f64: a weight one ulp off is a change (SQLite's json_array would print both as 0.5).
-    exec(&o, &format!("UPDATE rust_bot_group_members SET weight = 0.5 WHERE bot_id = {id} AND asset_id = {}", s.btc));
     let half = placement::composition_snapshot(&o.primary, &bot).unwrap();
+    assert_ne!(half, snapshot, "a group row's change moves the snapshot");
     exec(&o, &format!("UPDATE rust_bot_group_members SET weight = 0.5000000000000001 WHERE bot_id = {id} AND asset_id = {}", s.btc));
     assert_ne!(placement::composition_snapshot(&o.primary, &bot).unwrap(), half, "0.5 and 0.5000000000000001 differ");
 }
@@ -97,68 +150,493 @@ fn a_legacy_snapshot_keeps_its_bytes_without_the_table() {
     assert_eq!(bytes(2), r#"{"type":"Bots::DcaMultiAsset","exchange":7,"settings":{"allocations":{"5":1.0}},"members":[[5,6,1,0]]}"#);
 }
 
-/// A row stored with `index_groups` (a later build's) never trades as a plain basket, on any path that bypasses the install
-/// check: a stopped one's redeploy (Codex: it passes the check with rebalancing off), a rebalance pass and a tick each
-/// refuse in the shared refresh (basket::GROUPED) before anything is written. Its membership, a group-only SOL included,
-/// stays as it was, and nothing is sent.
+// ---------------------------------------------------------------- 2b: composition
+
 #[tokio::test(flavor = "current_thread")]
-async fn a_grouped_row_neither_redeploys_rebalances_nor_ticks_as_a_plain_basket() {
-    let (d, o, s) = common::install_alpaca();
-    let (eth, sol) = seed::add_eth_sol(&o.primary, &s);
-    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }
-        .with("rebalance_enabled", json!(false)).weights(&[(s.btc, 0.5), (eth, 0.5)]));
-    basket::refresh_composition(&o.primary, &model::load_bot(&o.primary, id).unwrap(), at("2026-09-01T09:00:00Z")).unwrap().unwrap();
-    let sol_ticker: i64 = o.primary.query_row("SELECT id FROM tickers WHERE base_asset_id = ?1", [sol], |r| r.get(0)).unwrap();
-    exec(&o, &format!("UPDATE bot_index_assets SET target_allocation = 0.25 WHERE bot_id = {id};
-        INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, in_index, target_allocation, created_at, updated_at) VALUES ({id}, {sol}, {sol_ticker}, 1, 0.5, '2026-01-01', '2026-01-01');"));
-    // Held: 640 USD of BTC, 100 of ETH, and 100 USD banked from a sold SOL holding (the redeploy's offer).
-    for (asset, qty, value, price, n) in [(s.btc, "0.01", "640", "64000", 1), (eth, "0.04", "100", "2500", 2), (sol, "1", "100", "100", 3)] {
-        seed::insert_row(&o.primary, &s, id, asset, &json!({ "external_status": 2, "external_id": format!("OHELD-{n}"), "amount": qty, "amount_exec": qty,
-            "quote_amount": value, "quote_amount_exec": value, "price": price, "created_at": "2026-09-01 10:00:01" }));
-    }
-    let sold = seed::insert_row(&o.primary, &s, id, sol, &json!({ "external_status": 2, "external_id": "OSOLD", "side": 1, "amount": "1", "amount_exec": "1",
-        "quote_amount": "100", "quote_amount_exec": "100", "price": "100", "created_at": "2026-09-01 10:00:02" }));
-    exec(&o, &format!("UPDATE transactions SET transaction_type = 'LIQUIDATION' WHERE id = {sold}"));
-    group_settings(&o, id);
-    let before = members(&o, id);
-    assert_eq!(before.len(), 3);
-    let orders = || o.primary.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap();
-    let rows = orders();
-    let t = script();
-    let prices = PriceCache::default();
-    let cx = |bot: &model::Bot| TickContext { credential_version: model::credential_version(&o.primary, bot).unwrap(), prices: &prices,
-                                              process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} };
-    // A queued redeploy of the stopped bot.
-    model::merge_transient_compact(&o.primary, id, &[(redeploy::REQUEST_KEY, json!({"id": "yes-1", "at": at(T0).timestamp()}))]).unwrap();
-    let bot = model::load_bot(&o.primary, id).unwrap();
-    let _ = redeploy::run(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &cx(&bot)).await;
-    assert_eq!((t.posted_orders().len(), members(&o, id), orders()), (0, before.clone(), rows), "redeploy");
-    // A rebalance pass, the rule on.
-    exec(&o, &format!("UPDATE bots SET settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01),
-        transient_data = json_remove(transient_data, '$.{}') WHERE id = {id}", redeploy::REQUEST_KEY));
-    let bot = model::load_bot(&o.primary, id).unwrap();
-    let rebalanced = rebalance::run(&o.primary, &venue(&t), id, &FixedClock(at(T0)), &cx(&bot)).await.unwrap();
-    assert!(!matches!(rebalanced, Outcome::Placed(_)), "{rebalanced:?}");
-    assert_eq!((t.posted_orders().len(), members(&o, id), orders()), (0, before.clone(), rows), "rebalance");
-    // A due tick of the bot, scheduled.
-    exec(&o, &format!("UPDATE bots SET status = 1 WHERE id = {id}"));
-    let ticked = tick::tick(&o.primary, &venue(&t), id, &FixedClock(at("2026-09-08T10:00:01Z")), &mut Attempts::default()).await.unwrap();
-    assert!(!matches!(ticked, TickOutcome::Done { placed: true }), "{ticked:?}");
-    assert_eq!((t.posted_orders().len(), members(&o, id), orders()), (0, before, rows), "tick");
-    drop(d);
+async fn btc_half_and_a_five_member_equal_index_split_fifty_and_ten_each() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 5, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("BTC", 0.5), ("AAA", 0.1), ("BBB", 0.1), ("CCC", 0.1), ("DDD", 0.1), ("EEE", 0.1)]);
+    assert_eq!(group_rows(&u.o, id).len(), 5, "the group's own rows, weights within the group");
+    assert!(group_rows(&u.o, id).iter().all(|(g, _, w)| g == "nasdaq-100" && (w - 0.2).abs() < 1e-12));
+    let of = composed_of(&u.o, id);
+    assert_eq!(of["digest"], json!(composition::digest(&model::load_bot(&u.o.primary, id).unwrap())));
+    assert_eq!(of["shares"], json!({ "assets": { u.s.btc.to_string(): 0.5 }, "groups": { "nasdaq-100": 0.5 } }));
+    // A tick buys BTC and the five stocks from those rows.
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let out = tick::tick(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!(t.posted_orders().len(), 6);
 }
 
-/// The install check `run::step` reads before any tick or rebalance names a grouped row, so the loop never picks it up.
+#[tokio::test(flavor = "current_thread")]
+async fn an_asset_named_and_in_the_index_holds_the_sum() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.m[0].0.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 0.75), ("BBB", 0.25)]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_ranking_naming_an_asset_twice_counts_it_once_and_seats_n_distinct() {
+    let u = universe();
+    exec(&u.o, "UPDATE indices SET top_coins = '[\"AAA.US\",\"AAA.US\",\"BBB.US\",\"CCC.US\"]' WHERE external_id = 'nasdaq-100'");
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 0.5), ("BBB", 0.5)]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_disabled_named_asset_drops_and_the_rest_renormalise() {
+    let u = universe();
+    exec(&u.o, &format!("UPDATE tickers SET trading_enabled = 0 WHERE id = {}", u.s.ticker_id));
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 0.5), ("BBB", 0.5)]);
+    assert_eq!(composed_of(&u.o, id)["shares"]["groups"]["nasdaq-100"], json!(1.0));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn one_groups_refusal_writes_nothing_and_forgets_the_digest() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    let (before, rows) = (members(&u.o, id), group_rows(&u.o, id));
+    assert!(composed_of(&u.o, id).is_object());
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups', json('[{}, {}]')) WHERE id = {id}", group("nasdaq-100", 2, 0.5), group("gone", 2, 0.5)));
+    let refused = refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await;
+    assert_eq!(refused, Err(index::Refusal::Failure("Index not found".into())));
+    assert_eq!((members(&u.o, id), group_rows(&u.o, id)), (before, rows), "nothing written");
+    assert_eq!(composed_of(&u.o, id), Value::Null, "the refused refresh forgot the composition");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cached_unpriced_newcomer_is_not_seated_by_a_second_group() {
+    let u = universe();
+    seed::insert_index(&u.o.primary, "tech", &["DDD.US", "EEE.US"], &json!({ "DDD.US": 1e12, "EEE.US": 5e11 }));
+    // The first group probes DDD (unpriced) before seating EEE; the second asks the cache for DDD.
+    exec(&u.o, "UPDATE indices SET top_coins = '[\"DDD.US\",\"EEE.US\"]' WHERE external_id = 'nasdaq-100'");
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 1, 0.5), group("tech", 1, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 0.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("EEE", 1.0)]);
+}
+
+// ---------------------------------------------------------------- 2b: the closing write
+
+/// Codex r3 #3: ranking [A, B], one seat, A untradable; A becomes tradable while B is probed. The closing replay reaches A
+/// with no probe of it this pass: CHANGED, nothing written; the retry probes A and seats it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_newly_tradable_leader_during_a_probe_retries() {
+    let u = universe();
+    exec(&u.o, &format!("UPDATE indices SET top_coins = '[\"AAA.US\",\"BBB.US\"]' WHERE external_id = 'nasdaq-100'; UPDATE tickers SET trading_enabled = 0 WHERE id = {}", u.m[0].1));
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 1, 1.0)]));
+    let side = side_conn(&u);
+    let aaa = u.m[0].1;
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let first = refresh(&u, hooked(&t, "/v2/stocks/BBB/quotes/latest", move || { side.execute("UPDATE tickers SET trading_enabled = 1 WHERE id = ?1", [aaa]).unwrap(); }), id).await;
+    assert_eq!(first, Err(index::Refusal::Transient(index::CHANGED.into())));
+    assert!(members(&u.o, id).is_empty() && group_rows(&u.o, id).is_empty(), "nothing written");
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 1.0)]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_cap_change_during_a_probe_is_blended_from_the_closing_caps() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([{ "index_type": "category", "index_category_id": "nasdaq-100", "num_coins": 2, "allocation_flattening": 0.0, "weight": 1.0 }]));
+    let side = side_conn(&u);
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    // AAA's own catalogue cap moves from none (the ranking's 5 T) to 1 T while BBB is probed.
+    refresh(&u, hooked(&t, "/v2/stocks/BBB/quotes/latest", move || { side.execute("UPDATE assets SET market_cap = 1000000000000 WHERE external_id = 'AAA.US'", []).unwrap(); }), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 0.25), ("BBB", 0.75)]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_group_row_insert_failure_rolls_back_members_and_digest() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    exec(&u.o, "CREATE TRIGGER fail_group BEFORE INSERT ON rust_bot_group_members BEGIN SELECT RAISE(ABORT, 'forced'); END;");
+    let r = index::refresh_composition(&u.o.primary, &venue(script([100.0, 200.0, 300.0, 400.0, 500.0])), &model::load_bot(&u.o.primary, id).unwrap(),
+                                       &FixedClock(at(T0)), &PriceCache::default()).await;
+    assert!(r.is_err(), "{r:?}");
+    assert!(members(&u.o, id).is_empty(), "the flat members rolled back with the group rows");
+    assert_eq!(composed_of(&u.o, id), Value::Null);
+}
+
+// ---------------------------------------------------------------- 2b: frozen groups (D-INDEX-RETIRED-PAIR)
+
+fn retire(u: &U, id: &str) { exec(&u.o, &format!("INSERT INTO rust_index_retired VALUES ('{id}', 'data-api', '2026-09-01T00:00:00Z')")); }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_retired_group_with_provenance_keeps_its_rows_beside_a_live_one() {
+    let u = universe();
+    seed::insert_index(&u.o.primary, "tech", &["DDD.US", "EEE.US"], &json!({ "DDD.US": 1e12, "EEE.US": 5e11 }));
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 0.5), group("tech", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    retire(&u, "tech");
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    refresh(&u, t.clone(), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 0.25), ("BBB", 0.25), ("DDD", 0.25), ("EEE", 0.25)]);
+    assert_eq!(composed_of(&u.o, id)["ranked"]["tech"], Value::Null, "a frozen group has no ranked row");
+    assert!(t.requests().iter().all(|r| !r.path.contains("/DDD/") && !r.path.contains("/EEE/")), "its members are not probed");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_frozen_member_whose_pair_left_the_quote_drops_and_the_rest_renormalise() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    retire(&u, "nasdaq-100");
+    exec(&u.o, &format!("UPDATE tickers SET available = 0 WHERE id = {}", u.m[1].1));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("AAA", 0.5), ("CCC", 0.5)]);
+    // Every pair gone: the group has no valid member and is retired without provenance.
+    exec(&u.o, &format!("UPDATE tickers SET available = 0 WHERE id IN ({}, {})", u.m[0].1, u.m[2].1));
+    assert_eq!(refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await, Err(index::Refusal::Failure(index::RETIRED.into())));
+}
+
+/// Codex r3 #5: surviving frozen weights summing to 0 split equally, on both stored spellings.
+#[tokio::test(flavor = "current_thread")]
+async fn zero_sum_surviving_frozen_weights_split_equally() {
+    let u = universe();
+    let grouped = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    exec(&u.o, &format!("INSERT INTO rust_bot_group_members VALUES ({grouped}, 'nasdaq-100', {a}, {at}, 1, 1.0), ({grouped}, 'nasdaq-100', {b}, {bt}, 1, 0.0), ({grouped}, 'nasdaq-100', {c}, {ct}, 1, 0.0)",
+        a = u.m[0].0, at = u.m[0].1, b = u.m[1].0, bt = u.m[1].1, c = u.m[2].0, ct = u.m[2].1));
+    let legacy = seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false);
+    exec(&u.o, &format!("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = {legacy}"));
+    for (i, w) in [1.0, 0.0, 0.0].into_iter().enumerate() { seed::insert_member(&u.o.primary, legacy, u.m[i].0, u.m[i].1, w, true, "2026-08-01 00:00:00", None); }
+    retire(&u, "nasdaq-100");
+    exec(&u.o, &format!("UPDATE tickers SET available = 0 WHERE id = {}", u.m[0].1));
+    for id in [grouped, legacy] {
+        refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+        close(&members(&u.o, id), &[("BBB", 0.5), ("CCC", 0.5)]);
+    }
+}
+
+/// D-INDEX-RETIRED-PAIR on a lone `Bots::DcaIndex`: with every pair valid nothing is rewritten (today); a gone pair drops.
+#[tokio::test(flavor = "current_thread")]
+async fn a_lone_retired_index_drops_a_gone_pair_and_keeps_the_rest() {
+    let u = universe();
+    let id = seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false);
+    exec(&u.o, &format!("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'nasdaq-100') WHERE id = {id}"));
+    for (i, w) in [0.5, 0.3, 0.2].into_iter().enumerate() { seed::insert_member(&u.o.primary, id, u.m[i].0, u.m[i].1, w, true, "2026-08-01 00:00:00", None); }
+    retire(&u, "nasdaq-100");
+    let updated = || u.o.primary.query_row("SELECT group_concat(updated_at) FROM bot_index_assets WHERE bot_id = ?1", [id], |r| r.get::<_, String>(0)).unwrap();
+    let stamps = updated();
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    assert_eq!(updated(), stamps, "every pair valid: nothing rewritten");
+    exec(&u.o, &format!("UPDATE tickers SET trading_enabled = 0 WHERE id = {}", u.m[0].1));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("BBB", 0.6), ("CCC", 0.4)]);
+    assert_eq!(composed_of(&u.o, id), Value::Null, "a legacy row never gets the grouped key");
+}
+
+// ---------------------------------------------------------------- 2b: money gates
+
+fn cx<'a>(o: &store::Opened, bot: &model::Bot, prices: &'a PriceCache) -> TickContext<'a> {
+    TickContext { credential_version: model::credential_version(&o.primary, bot).unwrap(), prices, process_start: DateTime::<Utc>::MIN_UTC,
+                  stopping: &|| false, below_minimum: &|_, _| {}, claimed: &|_| {} }
+}
+
+/// A funded stopped bot whose group's refresh fails places nothing on a rebalance or a redeploy; its rows stay.
+#[tokio::test(flavor = "current_thread")]
+async fn a_funded_stopped_bot_whose_group_fails_places_nothing_on_rebalance_or_redeploy() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    for (asset, sym, qty, value, price, n) in [(u.s.btc, "BTC", "0.01", "640", "64000", 1), (u.m[0].0, "AAA", "1", "100", "100", 2)] {
+        seed::insert_row(&u.o.primary, &u.s, id, asset, &json!({ "external_status": 2, "external_id": format!("OHELD-{n}"), "amount": qty, "amount_exec": qty, "base": sym,
+            "quote_amount": value, "quote_amount_exec": value, "price": price, "created_at": "2026-09-01 10:00:01" }));
+    }
+    exec(&u.o, &format!("UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01) WHERE id = {id}"));
+    let before = members(&u.o, id);
+    let rows = || u.o.primary.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap();
+    let n = rows();
+    let prices = PriceCache::default();
+    // Every newcomer unpriced: the refresh of the group refuses ("No matching coins").
+    exec(&u.o, &format!("DELETE FROM rust_bot_group_members WHERE bot_id = {id}"));
+    let t = script([0.0, 0.0, 0.0, 0.0, 0.0]);
+    t.reply("GET /v2/orders/OSWAP-1", 200, json!({ "id": "OSWAP-1", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "sell", "notional": null,
+        "qty": "0.005", "filled_qty": "0.005", "filled_avg_price": "64000", "limit_price": null }));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(!matches!(out, Outcome::Placed(_)), "{out:?}");
+    model::merge_transient_compact(&u.o.primary, id, &[(redeploy::REQUEST_KEY, json!({"id": "yes-1", "at": at(T0).timestamp()}))]).unwrap();
+    let _ = redeploy::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await;
+    assert_eq!((t.posted_orders().len(), members(&u.o, id), rows()), (0, before, n));
+}
+
+// ---------------------------------------------------------------- 2b: freshness
+
 #[test]
-fn a_grouped_row_is_refused_by_the_install_check() {
-    let (_d, o, s) = common::install_alpaca();
-    let (eth, _) = seed::add_eth_sol(&o.primary, &s);
-    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("rebalance_enabled", json!(true))
-        .with("rebalance_threshold", json!(0.01)).weights(&[(s.btc, 0.5), (eth, 0.5)]));
-    let plain = deltabadger::engine::eligibility::check_install(&o.primary).unwrap();
-    assert!(plain.eligible.contains(&id) && plain.problems.is_empty(), "the same basket without groups runs: {:?}", plain.problems);
-    group_settings(&o, id);
-    let report = deltabadger::engine::eligibility::check_install(&o.primary).unwrap();
-    assert!(!report.eligible.contains(&id), "never ticked");
-    assert!(report.problems.iter().any(|p| p.starts_with(&format!("bot {id} ")) && p.contains("index groups")), "{:?}", report.problems);
+fn two_groups_one_ranking_expired_holds_the_bot() {
+    let u = universe();
+    let tech = seed::insert_index(&u.o.primary, "tech", &["DDD.US"], &json!({ "DDD.US": 1e12 }));
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 0.5), group("tech", 1, 0.5)]));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    assert!(staleness::ranking_stale(&u.o.primary, &bot, at(T0)).unwrap().is_none());
+    exec(&u.o, &format!("UPDATE rust_index_rankings SET ranked_at = '2026-08-29T00:00:00.000000Z' WHERE index_id = {tech}"));
+    let stale = staleness::ranking_stale(&u.o.primary, &bot, at(T0)).unwrap().expect("one group past 49 h holds the bot");
+    assert!(stale.message.contains("the index tech"), "{}", stale.message);
+}
+
+#[test]
+fn each_unranked_group_wakes_its_own_ranking() {
+    let u = universe();
+    for id in ["tech", "defi"] { exec(&u.o, &format!("INSERT INTO indices (external_id, source, created_at, updated_at) VALUES ('{id}', 'deltabadger', '2026-01-01', '2026-01-01')")); }
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 0.4), group("tech", 1, 0.3), group("defi", 1, 0.3)]));
+    let mut sent = HashSet::new();
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    assert_eq!(index::ranking_wake(&u.o.primary, &bot, at(T0), &mut sent).unwrap(), vec!["tech".to_string(), "defi".to_string()]);
+    assert!(index::ranking_wake(&u.o.primary, &bot, at(T0), &mut sent).unwrap().is_empty(), "once per slot");
+}
+
+/// BTC named beside a stock index on Alpaca: both catalogues judge the bot, the crypto one through the named asset.
+#[test]
+fn btc_beside_a_stock_index_on_alpaca_waits_for_both_catalogues() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    let bot = || model::load_bot(&u.o.primary, id).unwrap();
+    assert!(staleness::stale(&u.o.primary, &bot(), at(T0)).unwrap().is_none());
+    // The crypto listing sync last ran long ago.
+    deltabadger::jobs::state::record_success(&u.o.primary, deltabadger::jobs::reference::ALPACA_CRYPTO, None, at("2026-08-01T00:00:00Z")).unwrap();
+    let stale = staleness::stale(&u.o.primary, &bot(), at(T0)).unwrap();
+    let plain = seed::insert_bot(&u.o.primary, &u.s, &BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("allocations", json!({ u.m[0].0.to_string(): 1.0 })));
+    let stock_only = staleness::stale(&u.o.primary, &model::load_bot(&u.o.primary, plain).unwrap(), at(T0)).unwrap();
+    assert!(stale.is_some_and(|s| s.source == "Alpaca crypto tickers"), "the grouped bot waits for the crypto catalogue");
+    assert!(stock_only.is_none(), "a stock-only basket does not");
+}
+
+// ---------------------------------------------------------------- 2b: the digest
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_digest_names_each_groups_ranked_row_and_time() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    // A second selectable row of the same id with the same ranked_at: the lowest id is selected, and named.
+    let second = u.o.primary.query_row("SELECT id FROM indices WHERE external_id = 'nasdaq-100'", [], |r| r.get::<_, i64>(0)).unwrap();
+    exec(&u.o, "INSERT INTO indices (external_id, source, name, top_coins, weights, weight, created_at, updated_at) SELECT external_id, 'other', name, top_coins, weights, 0, created_at, updated_at FROM indices WHERE external_id = 'nasdaq-100'");
+    seed::rank_indices(&u.o.primary, at("2099-01-01T00:00:00Z"));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    let ranked = index::ranked_row(&u.o.primary, "nasdaq-100").unwrap().unwrap();
+    assert_eq!(ranked.id, second);
+    assert_eq!(composed_of(&u.o, id)["ranked"]["nasdaq-100"], json!([ranked.id, ranked.ranked_at]));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_late_refusal_keeps_a_newer_composition() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    let first = composed_of(&u.o, id);
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    let second = composed_of(&u.o, id);
+    assert_eq!((first["digest"].clone(), first["shares"].clone()), (second["digest"].clone(), second["shares"].clone()), "identical payloads");
+    assert_ne!(first["rev"], second["rev"], "two revisions");
+    // A refusal that read the first revision removes nothing; one that read the current one removes it.
+    composition::forget(&u.o.primary, id, first["rev"].as_str()).unwrap();
+    assert_eq!(composed_of(&u.o, id), second);
+    composition::forget(&u.o.primary, id, second["rev"].as_str()).unwrap();
+    assert_eq!(composed_of(&u.o, id), Value::Null);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_legacy_index_tick_writes_no_composed_of() {
+    let u = universe();
+    let id = seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false);
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    tick::tick(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(members(&u.o, id).len(), 3);
+    assert_eq!(composed_of(&u.o, id), Value::Null);
+    assert!(group_rows(&u.o, id).is_empty());
+}
+
+// ---------------------------------------------------------------- 2b: market cap between ingredients
+
+#[tokio::test(flavor = "current_thread")]
+async fn market_cap_weighs_an_index_by_its_members_caps_sum() {
+    let u = universe();
+    for (sym, cap) in [("AAA.US", 4e12), ("BBB.US", 3e12), ("CCC.US", 2e12), ("DDD.US", 1e12)] { exec(&u.o, &format!("UPDATE assets SET market_cap = {cap} WHERE external_id = '{sym}'")); }
+    exec(&u.o, &format!("UPDATE assets SET market_cap = 10000000000000 WHERE id = {}", u.s.btc));
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.9 }), json!([group("nasdaq-100", 4, 0.1)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = {id}"));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    // BTC 10 T against the four members' 10 T: half each; the index splits its half equally (flattening 1.0).
+    close(&members(&u.o, id), &[("BTC", 0.5), ("AAA", 0.125), ("BBB", 0.125), ("CCC", 0.125), ("DDD", 0.125)]);
+    assert_eq!(composed_of(&u.o, id)["shares"]["groups"]["nasdaq-100"], json!(0.5));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_missing_cap_falls_back_to_the_stored_ingredient_weights() {
+    let u = universe();
+    for sym in ["AAA.US", "BBB.US", "CCC.US"] { exec(&u.o, &format!("UPDATE assets SET market_cap = 1000000000000 WHERE external_id = '{sym}'")); }
+    exec(&u.o, &format!("UPDATE assets SET market_cap = 10000000000000 WHERE id = {}", u.s.btc));
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.9 }), json!([group("nasdaq-100", 4, 0.1)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = {id}"));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("BTC", 0.9), ("AAA", 0.025), ("BBB", 0.025), ("CCC", 0.025), ("DDD", 0.025)]);
+}
+
+// ---------------------------------------------------------------- 2b: rules, one-asset, eligibility, resync
+
+#[test]
+fn a_grouped_basket_gets_a_baskets_rule_support_and_an_index_row_keeps_its_own() {
+    use deltabadger::engine::conditions::{Rule, Support};
+    let u = universe();
+    let grouped = model::load_bot(&u.o.primary, grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]))).unwrap();
+    let legacy = model::load_bot(&u.o.primary, seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false)).unwrap();
+    assert_eq!(grouped.support(Rule::Price, true), Support::Implemented, "a basket sells");
+    assert_eq!(legacy.support(Rule::Price, true), Support::Inapplicable, "a Bots::DcaIndex row never sells");
+    // "Sell N base" stays one asset and no group.
+    let one = json!({ "allocations": { "1": 1.0 } });
+    assert!(deltabadger::engine::schedule::one_asset(one.as_object().unwrap()));
+    let mixed = json!({ "allocations": { "1": 0.5 }, "index_groups": [group("nasdaq-100", 2, 0.5)] });
+    assert!(!deltabadger::engine::schedule::one_asset(mixed.as_object().unwrap()));
+}
+
+fn reasons(u: &U, id: i64) -> Vec<String> { eligibility::bot_reasons(&u.o.primary, &model::load_bot(&u.o.primary, id).unwrap()).unwrap() }
+
+#[test]
+fn a_grouped_row_is_eligible_and_malformed_groups_are_refused() {
+    let u = universe();
+    let lone = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    assert_eq!(reasons(&u, lone), Vec::<String>::new(), "a lone group with allocations {{}}");
+    let mixed = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    assert_eq!(reasons(&u, mixed), Vec::<String>::new());
+    let mut g = group("nasdaq-100", 2, 1.0);
+    for (case, groups) in [("empty", json!([])), ("null", json!([null])), ("duplicate", json!([group("nasdaq-100", 2, 0.5), group("nasdaq-100", 2, 0.5)])),
+                           ("absent weight", { g.as_object_mut().unwrap().remove("weight"); json!([g.clone()]) }),
+                           ("garbage weight", { g["weight"] = json!("x"); json!([g.clone()]) }),
+                           ("over one", { g["weight"] = json!(1.5); json!([g.clone()]) })] {
+        let id = grouped_bot(&u, json!({}), groups);
+        assert!(!reasons(&u, id).is_empty(), "{case}: refused");
+    }
+    // A named asset with no ticker on this venue is refused (a basket's rule), not dropped.
+    exec(&u.o, "INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('nowhere', 'NOW', 'Nowhere', 'Cryptocurrency', '2026-01-01', '2026-01-01')");
+    let nowhere: i64 = u.o.primary.last_insert_rowid();
+    let id = grouped_bot(&u, json!({ nowhere.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    assert!(reasons(&u, id).iter().any(|r| r.contains(&format!("no ticker for the asset {nowhere}"))), "{:?}", reasons(&u, id));
+}
+
+#[test]
+fn a_lone_manual_group_at_point_four_is_refused() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 0.4)]));
+    assert!(reasons(&u, id).iter().any(|r| r.starts_with(eligibility::UNBALANCED)), "{:?}", reasons(&u, id));
+}
+
+#[test]
+fn a_valid_group_beside_an_unreadable_named_weight_is_refused() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): "half" }), json!([group("nasdaq-100", 2, 0.5)]));
+    assert!(reasons(&u, id).iter().any(|r| r.contains("allocations: an asset id or a weight")), "{:?}", reasons(&u, id));
+}
+
+#[test]
+fn a_ranking_write_marks_a_grouped_follower_for_resync() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    let marked = index::mark_resync_all(&u.o.primary, at(T0)).unwrap();
+    assert!(marked >= 1);
+    assert!(index::resync_marked(&u.o.primary).unwrap().iter().any(|(m, _)| *m == id), "a grouped follower is marked and selected");
+}
+
+/// PLAN index-as-ingredient §3.4: a named sale of a held asset whose pair is valid sells, whatever any group's refresh says
+/// (here every newcomer unpriced: the group refuses).
+#[tokio::test(flavor = "current_thread")]
+async fn a_sell_action_sells_while_an_unrelated_group_fails_its_probe() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    seed::insert_row(&u.o.primary, &u.s, id, u.s.btc, &json!({ "external_status": 2, "external_id": "OHELD-1", "amount": "0.01", "amount_exec": "0.01",
+        "quote_amount": "640", "quote_amount_exec": "640", "price": "64000", "created_at": "2026-09-01 10:00:01" }));
+    exec(&u.o, &format!("UPDATE bots SET status = 2 WHERE id = {id}; DELETE FROM rust_bot_group_members WHERE bot_id = {id}"));
+    let t = script_with([0.0, 0.0, 0.0, 0.0, 0.0], json!({ "GET /v2/positions": ok(json!([{ "symbol": "BTCUSD", "asset_class": "crypto", "qty": "0.01", "qty_available": "0.01", "side": "long" }])) }));
+    let prices = PriceCache::default();
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    deltabadger::engine::liquidation::run(&u.o.primary, &venue(t.clone()), id, &json!([["BTC", u.s.btc]]), &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    let sells: Vec<Value> = t.posted_orders().into_iter().filter(|b| b["side"] == "sell").collect();
+    let logs: Vec<(String, String)> = u.o.primary.prepare("SELECT event, coalesce(details, '') FROM bot_activity_logs WHERE bot_id = ?1 ORDER BY id").unwrap()
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(sells.len(), 1, "{:?} {logs:?} {}", t.posted_orders(), model::load_bot(&u.o.primary, id).unwrap().transient);
+    assert_eq!(sells[0]["symbol"], "BTC/USD");
+}
+
+/// Codex r1 #1: a filled rebalance sell settles and books its proceeds while the group's refresh refuses; the owed buy
+/// waits unattempted (`buy_unavailable`) and is placed once, by the first pass whose refresh succeeds.
+#[tokio::test(flavor = "current_thread")]
+async fn a_filled_sell_with_a_failed_probe_settles_and_its_proceeds_are_spent_once() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    seed::insert_row(&u.o.primary, &u.s, id, u.s.btc, &json!({ "external_status": 2, "external_id": "OHELD-1", "amount": "0.02", "amount_exec": "0.02",
+        "quote_amount": "1280", "quote_amount_exec": "1280", "price": "64000", "created_at": "2026-09-01 10:00:01" }));
+    let sell = seed::insert_row(&u.o.primary, &u.s, id, u.s.btc, &json!({ "external_status": 2, "external_id": "OSWAP-1", "side": 1, "amount": "0.005", "amount_exec": "0.005",
+        "quote_amount": "320", "quote_amount_exec": "320", "price": "64000", "created_at": "2026-09-01 11:00:01" }));
+    let pending = rebalance::Pending { phase: rebalance::PHASE_SELLING.into(), sell_transaction_id: Some(sell), buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
+    exec(&u.o, &format!("UPDATE transactions SET transaction_type = 'REBALANCE' WHERE id = {sell};
+        UPDATE bots SET status = 2, settings = json_set(settings, '$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01),
+        transient_data = json_set(transient_data, '$.rebalance_pending', json('{}')) WHERE id = {id};", pending.to_json()));
+    let phase = || rebalance::pending(&model::load_bot(&u.o.primary, id).unwrap().transient).unwrap();
+    let prices = PriceCache::default();
+    // The refresh refuses (its rows gone, every newcomer unpriced): the sell settles, nothing is bought.
+    exec(&u.o, &format!("DELETE FROM rust_bot_group_members WHERE bot_id = {id}"));
+    let t = script([0.0, 0.0, 0.0, 0.0, 0.0]);
+    t.reply("GET /v2/orders/OSWAP-1", 200, json!({ "id": "OSWAP-1", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "sell", "notional": null,
+        "qty": "0.005", "filled_qty": "0.005", "filled_avg_price": "64000", "limit_price": null }));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Skipped("buy_unavailable")), "{out:?}");
+    let p = phase().unwrap();
+    assert_eq!((p.phase.as_str(), p.buy_attempted, p.remaining_quote_amount.map(|a| a.to_s_f())), (rebalance::PHASE_BUYING, false, Some("320.0".into())), "proceeds booked once, owed");
+    assert!(t.posted_orders().is_empty());
+    // A second refused pass changes nothing.
+    rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(t.posted_orders().is_empty() && phase().unwrap().remaining_quote_amount.map(|a| a.to_s_f()) == Some("320.0".into()));
+    // The refresh succeeds: one buy.
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let out = rebalance::run(&u.o.primary, &venue(t.clone()), id, &FixedClock(at(T0)), &cx(&u.o, &bot, &prices)).await.unwrap();
+    assert!(matches!(out, Outcome::Placed(_)), "{out:?}");
+    assert_eq!(t.posted_orders().iter().filter(|b| b["side"] == "buy").count(), 1);
+    assert!(phase().unwrap().buy_attempted, "attempted once, with its intent");
+}
+
+/// PLAN index-as-ingredient §4 (Codex r8 6): under top-level market cap a stale crypto asset catalogue refuses the closing
+/// write itself, so the background resync stores no shares from stale caps either.
+#[tokio::test(flavor = "current_thread")]
+async fn stale_caps_resync_writes_nothing() {
+    let u = universe();
+    exec(&u.o, &format!("UPDATE assets SET market_cap = 10000000000000 WHERE id = {}", u.s.btc));
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.5 }), json!([group("nasdaq-100", 2, 0.5)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = {id}"));
+    deltabadger::jobs::state::record_success(&u.o.primary, deltabadger::jobs::reference::ASSETS, None, at("2026-08-01T00:00:00Z")).unwrap();
+    let refused = refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await;
+    assert!(matches!(&refused, Err(index::Refusal::Failure(m)) if m.contains("Crypto assets")), "{refused:?}");
+    assert!(members(&u.o, id).is_empty() && composed_of(&u.o, id).is_null());
+    // The same bot with manual ingredient weights needs no caps.
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'manual') WHERE id = {id}"));
+    refresh(&u, script([100.0, 200.0, 300.0, 400.0, 500.0]), id).await.unwrap();
+    close(&members(&u.o, id), &[("BTC", 0.5), ("AAA", 0.25), ("BBB", 0.25)]);
+}
+
+/// Incumbency is a ticker's (§3.3): a member whose stored pair is not its current one is probed again.
+#[tokio::test(flavor = "current_thread")]
+async fn a_member_whose_stored_pair_moved_is_reprobed() {
+    let u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 2, 1.0)]));
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    refresh(&u, t.clone(), id).await.unwrap();
+    let probes = |t: &ScriptedTransport| t.requests().iter().filter(|r| r.path.starts_with("/v2/stocks/") && r.path.ends_with("/quotes/latest")).count();
+    assert_eq!(probes(&t), 2);
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    refresh(&u, t.clone(), id).await.unwrap();
+    assert_eq!(probes(&t), 0, "incumbents keep their seat without a probe");
+    // A relisting gives AAA a new ticker id: its stored group row no longer names its in_index ticker.
+    // AAA's stored row names another pair (as after a venue or quote move): it is no incumbent of that pair any more.
+    exec(&u.o, &format!("UPDATE rust_bot_group_members SET ticker_id = {} WHERE bot_id = {id} AND asset_id = {}", u.s.ticker_id, u.m[0].0));
+    let t = script([100.0, 200.0, 300.0, 400.0, 500.0]);
+    refresh(&u, t.clone(), id).await.unwrap();
+    assert_eq!(probes(&t), 1, "the moved pair is probed again");
 }

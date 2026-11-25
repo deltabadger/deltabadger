@@ -662,6 +662,8 @@ pub fn smart_interval_minimum(bot: &WebBot) -> start::Minimum {
     let largest = |tickers: Vec<&web_bot::Ticker>| tickers.iter().map(|ticker| ticker.minimum_quote_size.clone()).max().map_or(0.0, |size| size.to_f());
     let exchange = match bot.kind {
         Kind::Basket if bot.one_asset() => 0.0,
+        // PLAN index-as-ingredient §5: a grouped basket's universe, as an index bot's.
+        Kind::Basket if bot.grouped() => largest(bot.tickers.iter().collect()),
         Kind::Basket => largest(bot.composition_tickers()),
         Kind::Index => largest(bot.tickers.iter().collect()),
         // Bots::Signal has no Smart Intervals.

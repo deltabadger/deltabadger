@@ -269,6 +269,9 @@ impl Kind {
     }
 }
 
+/// `settings.index_groups` is a JSON array (engine `Bot::stored_groups`, by the stored spelling, no decode).
+pub fn stored_groups(settings: &Map<String, Value>) -> bool { settings.get("index_groups").is_some_and(Value::is_array) }
+
 /// The `indices` row an index bot follows (Bots::DcaIndex#current_index), as far as the page reads it.
 #[derive(Clone, Debug, Default)]
 pub struct IndexRow {
@@ -613,7 +616,10 @@ impl Bot {
         // further narrowed to every asset that is or ever was in its composition. Each by the venue's index: the quote's
         // holds every venue's listings in it (`+`), and a basket's assets, as literals, take the (venue, base, quote) one.
         let tradable = "t.available = 1 AND t.trading_enabled = 1 AND t.exchange_id = ?1";
+        // PLAN index-as-ingredient §5: a basket stored with index groups reads the universe, as an index bot does.
+        let grouped = kind == Kind::Basket && stored_groups(&settings);
         let tickers = match kind {
+            _ if grouped => Ticker::all(c, &format!("{tradable} AND +t.quote_asset_id IS ?2"), &[&exchange.id, &quote_asset_id])?,
             Kind::Index => Ticker::all(c, &format!("{tradable} AND +t.quote_asset_id IS ?2"), &[&exchange.id, &quote_asset_id])?,
             // Bot::AssetConfigurable#set_tickers: the venue's listings of the pair, whatever their state.
             Kind::Signal => Ticker::all(c, "t.exchange_id = ?1 AND t.base_asset_id IS ?2 AND t.quote_asset_id IS ?3",
@@ -990,8 +996,12 @@ impl Bot {
 
     /// Bots::DcaMultiAsset#one_asset?: `composition_size == 1`, counted over base_asset_ids (the weights' keys, else the wizard's list).
     pub fn one_asset(&self) -> bool {
-        self.kind == Kind::Basket && allocation_ids(&self.settings).len() == 1
+        // PLAN index-as-ingredient §6.2: one asset and no index group.
+        self.kind == Kind::Basket && allocation_ids(&self.settings).len() == 1 && !self.grouped()
     }
+
+    /// A basket stored with index groups (PLAN index-as-ingredient §3.2), as the engine's `stored_groups` reads it.
+    pub fn grouped(&self) -> bool { self.kind == Kind::Basket && stored_groups(&self.settings) }
 
     /// The current members' tickers (Bot::Composition::Allocatable#composition_tickers), in membership order.
     pub fn composition_tickers(&self) -> Vec<&Ticker> {

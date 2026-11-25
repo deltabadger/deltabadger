@@ -116,8 +116,8 @@ pub fn refresh_composition(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Res
     Ok(Ok(()))
 }
 
-/// The refusal of a basket stored with `index_groups`: nothing is derived, written or traded.
-pub const GROUPED: &str = "Index groups need a newer build";
+/// The refusal of a basket stored with `index_groups` by the plain-basket derivation: nothing is derived or written.
+pub const GROUPED: &str = "Index groups are derived as groups";
 
 /// A derived member: (asset, ticker, weight).
 pub type Derived = (i64, i64, f64);
@@ -125,8 +125,8 @@ pub type Derived = (i64, i64, f64);
 /// Bots::DcaMultiAsset#derive_composition: each member in settings order, the weights renormalised to sum to one, or 2.x's
 /// Failure message.
 pub fn derive_composition(c: &Connection, bot: &Bot) -> Result<Result<Vec<Derived>, String>, EngineError> {
-    // Stored with `index_groups` (a later build's row): its `allocations` are only part of what it holds, so no member is
-    // derived from them alone (slice 2 derives the groups). Every basket refresh comes through here.
+    // Stored with `index_groups`: its `allocations` are only part of what it holds, so no member is derived from them alone.
+    // The engine derives such a bot as groups (index::refresh_grouped); this guards any other caller (the wizard's create).
     if bot.stored_groups() { return Ok(Err(GROUPED.into())); }
     let allocations = bot.allocations().ok_or_else(|| EngineError::Data(format!("bot {}: allocations this build does not read", bot.id)))?;
     // In settings order, a member counts only with an available, trading-enabled ticker at the quote.
@@ -154,6 +154,22 @@ pub fn derive_composition(c: &Connection, bot: &Bot) -> Result<Result<Vec<Derive
 /// `Weightable.blend(flattening: 0)` weight, in `matched` order. The engine's derivation and the settings writer both call
 /// this, so they cannot derive different splits.
 pub fn market_cap_weights(c: &Connection, matched: &[i64]) -> Result<Option<Vec<f64>>, EngineError> {
+    let (caps, cap_of) = read_caps(c, matched)?;
+    if !matched.iter().all(|asset| cap_of(asset) > 0.0) { return Ok(None); }
+    let derived = super::index::blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), 0.0);
+    Ok(Some(matched.iter().map(|asset| derived[caps.iter().position(|(id, _)| id == asset).expect("every member has a cap")]).collect()))
+}
+
+/// Each asset's cap as `market_cap_weights` reads it, or None when any has no positive cap (PLAN index-as-ingredient §4:
+/// the grouped composition's top-level market cap, one rule with the basket's).
+pub fn asset_caps(c: &Connection, ids: &[i64]) -> Result<Option<HashMap<i64, f64>>, EngineError> {
+    let (caps, cap_of) = read_caps(c, ids)?;
+    if !ids.iter().all(|asset| cap_of(asset) > 0.0) { return Ok(None); }
+    Ok(Some(caps.into_iter().collect()))
+}
+
+#[allow(clippy::type_complexity)]
+fn read_caps(c: &Connection, matched: &[i64]) -> Result<(Vec<(i64, f64)>, impl Fn(&i64) -> f64), EngineError> {
     let ids = serde_json::to_string(matched).map_err(data)?;
     let mut s = c.prepare("SELECT id, market_cap FROM assets WHERE id IN (SELECT value FROM json_each(?1)) ORDER BY id")?;
     let caps = s.query_map([ids], |r| {
@@ -168,10 +184,8 @@ pub fn market_cap_weights(c: &Connection, matched: &[i64]) -> Result<Option<Vec<
     })?.collect::<Result<Vec<_>, _>>()?;
     let caps: Vec<(i64, f64)> = caps.into_iter().map(|(id, cap)| cap.map(|cap| (id, cap)).ok_or_else(|| data(format!("asset {id}: a market_cap blob"))))
         .collect::<Result<_, _>>()?;
-    let cap_of = |asset: &i64| caps.iter().find(|(id, _)| id == asset).map_or(0.0, |(_, cap)| *cap);
-    if !matched.iter().all(|asset| cap_of(asset) > 0.0) { return Ok(None); }
-    let derived = super::index::blend(&caps.iter().map(|(_, cap)| *cap).collect::<Vec<_>>(), 0.0);
-    Ok(Some(matched.iter().map(|asset| derived[caps.iter().position(|(id, _)| id == asset).expect("every member has a cap")]).collect()))
+    let lookup = caps.clone();
+    Ok((caps, move |asset: &i64| lookup.iter().find(|(id, _)| id == asset).map_or(0.0, |(_, cap)| *cap)))
 }
 
 /// A member's row: id, ticker_id, target_allocation (as read back), in_index, entered_at, exited_at.

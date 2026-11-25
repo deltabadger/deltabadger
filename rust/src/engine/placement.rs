@@ -359,12 +359,16 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
             else if !(match plan.kind { TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => super::eligibility::rebalance_reasons(&tx, &current)?, TxKind::Regular => super::eligibility::bot_reasons(&tx, &current)? }).is_empty() {
                 Some("its members or provider are no longer eligible")
             }
+            // PLAN index-as-ingredient §3.4: a grouped bot's named sale is judged on its own pair, not on any group.
+            else if plan.kind == TxKind::Liquidation && current.stored_groups() { None }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
             else if super::staleness::ranking_stale(&tx, &current, clock.now())?.is_some() { Some("its index ranking is no longer usable") }
             // D-INDEX-RETIRED-KEPT: a retired index trades only a membership this engine composed from it.
             else if super::index::retired_uncomposed(&tx, &current)? {
                 Some("its index was retired and its members are not this engine's composition of it")
             }
+            // D-INDEX-RETIRED-PAIR: a frozen member's pair left the venue or quote since the refresh (the next one drops it).
+            else if super::index::frozen_pair_lost(&tx, &current)? { Some("a retired index member's pair is no longer tradable") }
             else { None };
         if let Some(reason) = reason {
             super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));
