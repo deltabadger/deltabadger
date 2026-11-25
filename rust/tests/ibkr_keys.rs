@@ -1027,6 +1027,7 @@ fn s7b_ibkr_registration_refuses_handback_awaiting_activation() {
 }
 
 /// Rule 16: an export carries no pending connection (credentials only, D-IBKR-REGISTRATION) and no login reads.
+#[cfg(unix)] // the portable export is Unix-only
 #[test]
 fn s7b_ibkr_export_deletes_registrations() {
     freeze_dh();
