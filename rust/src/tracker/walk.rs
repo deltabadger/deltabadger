@@ -2009,9 +2009,16 @@ mod tests {
                             ..zzz(st(2, "b", Kind::Withdrawal, "BTC", "1", D2)) };
         let rows = vec![zzz(trade(1, "b", Kind::Buy, "1", "USD", "100", D1)), sent, Stored { base: Label::spelled("ZZZ (a)"), ..st(3, "a", Kind::Deposit, "BTC", "1", D2) },
                         Stored { base: Label::spelled("ZZZ (a)"), ..trade(4, "a", Kind::Sell, "1", "USD", "150", D3) }];
-        let w = walked_with(rows, &[(3, "1")], &Default::default());
-        assert!(w.whole.openings.is_empty(), "{:?}", w.whole.openings);
-        assert_eq!(w.whole.realised.to_s_f(), "50.0");
+        // Codex r3: the pooled engine itself (`whole` sums the located venues): its sale is the moved lot's, at 100.
+        let stored = crate::tracker::rows::walk_rows(&rows).unwrap();
+        let r = crate::tracker::prices::Reference::default();
+        let mut none = crate::tracker::prices::Unfetched;
+        let fx = crate::tracker::fx::FxTable::default();
+        let mut ps = PriceService::new(&r, &fx, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), &mut none);
+        let deposits: HashMap<i64, Dec> = HashMap::from([(3, d("1"))]);
+        let w = walk_rows(&stored, &deposits, &mut ps).unwrap();
+        let sold: Vec<(String, String)> = w.global.disposals.iter().map(|d| (d.asset.clone(), d.cost_basis.to_s_f())).collect();
+        assert_eq!(sold, [("ZZZ (a)".to_string(), "100.0".to_string())], "pooled");
     }
 
     #[test]

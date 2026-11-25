@@ -356,7 +356,8 @@ pub fn compute_on(c: &Connection, user_id: i64, scope: &super::Scope, ledger: &S
         for r in rows { units = (&units + &(&r.free + &r.locked)?)?; }
         held = (&units + &held)?;
         if !held.is_positive() { continue; }
-        if rows.is_empty() && !known.contains(&spelling(&symbol)) { continue; }
+        // Codex r3: an unidentified arrival stays (unpriced) though the catalogue has no asset of its spelling.
+        if rows.is_empty() && !known.contains(&spelling(&symbol)) && !ledger.labels.unknown.contains(&symbol) { continue; }
         let asset = match rows.first() { Some(r) => Some(r.asset), None => match ledger.labels.asset_of(&symbol) {
             Some(a) => Some(a),
             // Codex r2: a coin label's own asset first, never another balance's under its spelling.

@@ -18,7 +18,7 @@ const TTL_DAYS: i64 = 30;
 /// account id, #710 slice 5; 10: a timed Alpaca CFEE stands after its one fill at Alpaca's price, and a fill quoted at
 /// nothing prices no fee, D-TAX-CFEE-MATCHED-FILL; 11: legs are owner-wide labels by coin, coins priced by identity,
 /// D-TAX-COIN-IDENTITY, D-TRACKER-COIN-PRICE-KEYS).
-const SCHEMA: u64 = 11;
+const SCHEMA: u64 = 12;
 const MAX_PAYLOAD: usize = 8 * 1024 * 1024;
 /// The bot sales' calculation (2: a timed Alpaca CFEE takes its fill's place, so a sale's basis moves, D-TAX-CFEE-MATCHED-FILL;
 /// 3: lots are keyed by label, D-TAX-COIN-IDENTITY).
