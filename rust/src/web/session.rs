@@ -171,7 +171,12 @@ pub fn cookie_values(headers: &HeaderMap) -> impl Iterator<Item = &str> {
 /// any page on a sibling subdomain may set one for the whole site, and with a longer Path the browser
 /// sends it first. A value that does not open is passed over, so it cannot hide the real one.
 pub fn from_request(key: &[u8; 32], headers: &HeaderMap, now: DateTime<Utc>) -> Option<Opened> {
-    cookie_values(headers).find_map(|value| read(key, value, now))
+    selected(key, headers, now).map(|(_, opened)| opened)
+}
+
+/// `from_request`, with the cookie value it chose: what an import request is bound to (web::Admission).
+pub fn selected<'a>(key: &[u8; 32], headers: &'a HeaderMap, now: DateTime<Utc>) -> Option<(&'a str, Opened)> {
+    cookie_values(headers).find_map(|value| read(key, value, now).map(|opened| (value, opened)))
 }
 
 /// `Set-Cookie` as 2.x writes its session cookie, under our name.
@@ -183,14 +188,19 @@ pub fn set_cookie(value: &str, now: DateTime<Utc>, secure: bool) -> HeaderValue 
         .unwrap_or(HeaderValue::from_static(""))
 }
 
-/// The session of one request, shared between the pipeline and the handler.
+/// The session of one request, shared between the pipeline and the handler; for an admitted import request, also its
+/// cookie's expiry (web::Admission), which the handler's write checks again (web::auth::still_signed_in).
 #[derive(Clone, Default)]
-pub struct Session(Arc<Mutex<SessionData>>);
+pub struct Session(Arc<Mutex<SessionData>>, Arc<std::sync::OnceLock<i64>>);
 
 impl Session {
     pub fn new(data: SessionData) -> Self {
-        Self(Arc::new(Mutex::new(data)))
+        Self(Arc::new(Mutex::new(data)), Arc::default())
     }
+
+    /// The admitted cookie's expiry (epoch seconds); set once.
+    pub fn bind_expiry(&self, expires_at: i64) { let _ = self.1.set(expires_at); }
+    pub fn expires_at(&self) -> Option<i64> { self.1.get().copied() }
 
     /// A poisoned lock still holds the data (release builds abort on panic anyway).
     pub fn lock(&self) -> MutexGuard<'_, SessionData> {
