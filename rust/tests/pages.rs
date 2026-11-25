@@ -1268,9 +1268,42 @@ fn no_template_or_source_draws_the_old_wizard_dialog() {
     }
 }
 
-/// This build's own tools: D-SPLIT-API's split_bots (under Control) and D-V2-UNRECORDED-API's answer_unrecorded_order
-/// (under Trade).
-const OWN_TOOLS: [&str; 2] = ["split_bots", "answer_unrecorded_order"];
+/// This build's own tools: D-SPLIT-API's split_bots (under Control), D-V2-UNRECORDED-API's answer_unrecorded_order
+/// (under Trade) and D-IMPORT-API's import_transactions_csv (under Control).
+const OWN_TOOLS: [&str; 3] = ["split_bots", "answer_unrecorded_order", "import_transactions_csv"];
+
+/// D-IMPORT-API: the manual's edits for the tracker import, each exactly as this build has it and as 2.x's reads.
+const IMPORT_MANUAL: [(&str, &str); 6] = [
+    ("; the tracker import also takes `multipart/form-data` for a fresh upload)", ")"),
+    ("`idempotency_key_required`, `ambiguous_request`, `malformed` (an upload that cannot be read) |", "`idempotency_key_required` |"),
+    ("`withdrawal_key_missing`, `account_inactive` |", "`withdrawal_key_missing` |"),
+    ("`invalid_answer`, the tracker import's `no_file`, `malformed`, `unreadable`, `unknown_timezone`, `no_account_for_format`, `refused`, and", "`invalid_answer`, and"),
+    ("\n| 503 | `busy` — every import slot is taken: retry after the seconds its Retry-After header names |", ""),
+    ("\n| POST | `/tracker/import` | `import_transactions_csv` | The web's import. A fresh upload is `multipart/form-data`: one `file` part, optional `format` (`deltabadger`, the default, `binance` or `kucoin`) and `filename` (the same as the part's); a Binance export's file name states its time zone. The answer is what was written (`imported`, `duplicates`, `skipped`, `destinations_written`), or a question (`upload`, `kind`, `lines`, `choices`, each with its `choice` handle, `kind`, `label` and `destinations`). Answer it with JSON `{upload, choice}`, or `{upload, cancel: true}`. Parameters come from the body only; any other member, or one given twice, is `400 ambiguous_request` |", ""),
+];
+
+/// IMPORT_MANUAL undone on this build's manual: each edit must be there once, exactly (the endpoint row whole).
+fn without_import_manual(text: &str) -> Result<String, String> {
+    let mut out = text.to_string();
+    for (ours, theirs) in IMPORT_MANUAL {
+        let at = out.find(ours).ok_or_else(|| format!("D-IMPORT-API: the manual no longer has {ours:?}"))?;
+        if out[at + 1..].contains(ours) { return Err(format!("D-IMPORT-API: the manual has {ours:?} twice")); }
+        out.replace_range(at..at + ours.len(), theirs);
+    }
+    Ok(out)
+}
+
+#[test]
+fn the_import_manual_edits_are_undone_exactly() {
+    let manual = deltabadger::web::settings::api::MANUAL;
+    let v2 = without_import_manual(manual).unwrap();
+    assert!(!v2.contains("import_transactions_csv") && !v2.contains("account_inactive") && !v2.contains("| 503 |"), "every edit undone");
+    assert_eq!(v2.lines().count(), manual.lines().count() - 2, "the endpoint row and the 503 row");
+    assert!(without_import_manual(&v2).is_err(), "an edit that is gone is an error");
+    // Branch review r1 #11: the endpoint row is pinned whole: one that lost its instructions is no allowance.
+    let cut = manual.replace("Answer it with JSON `{upload, choice}`, or `{upload, cancel: true}`. ", "");
+    assert!(cut != manual && without_import_manual(&cut).is_err(), "a cut endpoint row");
+}
 
 /// Named divergences D-SPLIT-API and D-V2-UNRECORDED-API in Settings: each OWN_TOOLS switch is taken out of this
 /// crate's page with the whitespace before it, and its entry out of the rows a write stored (the owner's switches, a
@@ -3347,6 +3380,8 @@ fn a20_divergences(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), S
             let end = mine_text.find("### Not served yet").ok_or("D-API-ACCOUNT-ID: no section after it")?;
             let reverted = format!("{}{}", &mine_text[..start], &mine_text[end..]).replace("`bot_not_found`, `account_not_found`, ", "`bot_not_found`, ")
                 .replace("`missing_required_parameter`, `account_required`, ", "`missing_required_parameter`, ");
+            // D-IMPORT-API: its manual edits, exactly.
+            let reverted = without_import_manual(&reverted)?;
             if text(&step["body"]) != reverted { return Err("D-API-ACCOUNT-ID: 2.x's manual is not this build's without the account section".into()); }
             step["body"] = mine["body"].clone();
         }

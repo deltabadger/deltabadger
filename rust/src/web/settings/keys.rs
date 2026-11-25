@@ -132,7 +132,7 @@ fn key_question(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, excha
         }
         None => (subject.clone(), subject),
     };
-    let sealed_for = |subject: &str, dest: Dest| -> Result<String, WebError> { Ok(run::seal('w', subject, dest, &run::slot(c, user, dest).map_err(|e| WebError::Config(e.0))?, &seen.facts)) };
+    let sealed_for = |subject: &str, dest: Dest| -> Result<String, WebError> { Ok(run::seal('w', subject, &run::sealed_dest(c, dest).map_err(|e| WebError::Config(e.0))?, &run::slot(c, user, dest).map_err(|e| WebError::Config(e.0))?, &seen.facts)) };
     let sealed = |dest: Dest| sealed_for(&asked, dest);
     let answered = |dest: Dest| sealed_for(&answering, dest);
     let new = sealed(Dest::New(exchange))?;

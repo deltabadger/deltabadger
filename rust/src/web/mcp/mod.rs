@@ -12,6 +12,7 @@ use base64::{Engine,engine::general_purpose::{URL_SAFE,URL_SAFE_NO_PAD}};
 use rand::RngCore;
 use protocol::{error,result,metadata};
 const VERSION:&str="2025-11-25";
+const TOOL_CALL:&str="tools/call";
 /// `Exchange.tradeable.pluck(:name)`: available and not retired.
 pub fn tradeable(c:&Connection)->Result<Vec<String>,WebError>{
     let mut q=c.prepare("SELECT name FROM exchanges WHERE available=1 AND type NOT IN ('Exchanges::Bitmart')")?;
@@ -77,6 +78,7 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
     if path!="/mcp"{return StatusCode::NOT_FOUND.into_response();}
     if header(&h,"origin").is_some_and(|o|!supported_origin(o)) {return response(403,Some(error(&Value::Null,-32600,"Forbidden: invalid Origin header")),false);}
     let mut payload=Value::Null;
+    let mut ambiguous=false;
     if parts.method==Method::POST{
         if !header(&h,"content-type").unwrap_or("").split(';').next().unwrap_or("").trim().eq_ignore_ascii_case("application/json"){
             return response(415,Some(error(&Value::Null,-32000,"Unsupported Media Type: Content-Type must be application/json")),false);
@@ -92,6 +94,9 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
             return response(400,Some(error(id,-32600,"Invalid Request")),false);
         }
         if !accepts(&h){return err(406,&payload["id"],-32000,"Not Acceptable: Client must accept both application/json and text/event-stream");}
+        // PLAN-710-mcpadapter I3 (branch review r1 #1): a message naming any member twice, anywhere, is refused before its
+        // history and its dispatch, whatever it names (its method, its tool, an argument).
+        ambiguous=super::import_api::duplicate_members(&bytes);
     }
     let app2=app.clone();
     let id=payload["id"].clone();
@@ -105,7 +110,7 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
         let initializing=payload["method"]=="initialize";
         if initializing{c.execute_batch("SAVEPOINT mcp_initialize")?;}
         let mut pending=None;
-        let answer=dispatch(c,&app2,who,&parts.method,&h,&payload,&mut pending);
+        let answer=dispatch(c,&app2,who,&parts.method,&h,&payload,ambiguous,&mut pending);
         if initializing{
             if answer.is_err(){c.execute_batch("ROLLBACK TO mcp_initialize")?;}
             c.execute_batch("RELEASE mcp_initialize")?;
@@ -119,9 +124,17 @@ async fn serve_call(app:App,request:Request,deadline:std::time::Duration)->Respo
     }
 }
 /// A tools/call whose tool reads a venue or the market: the request is in the session's history; the answer is not yet.
-pub struct Pending{session:String,id:Value,work:Work}
-enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value) }
-enum Finished { Read(Box<reads::Fetched>), Rules(Value) }
+/// `redacted`: D-IMPORT-API rule 4, the id history keeps for this call instead of the client's (`correlation`).
+pub struct Pending{session:String,id:Value,work:Work,redacted:Option<String>}
+enum Work { Read(reads::Fetch), Rules(crate::web::rules::api::Request), Order(Box<tools::QueuedOrder>), Cancel(crate::web::bot_api::orders::CancelJob,Value), Import(Box<super::import_api::Job>) }
+enum Finished { Read(Box<reads::Fetched>), Rules(Value), Import(Value,Value) }
+/// D-IMPORT-API rule 4 (F7/J5): the id an import call is kept under in history, for the client's id (which may be
+/// anything, its file's name included): the session's and the id's digest.
+fn correlation(session:&str,id:&Value)->String{use sha2::Digest;format!("import-{}",&hex::encode(sha2::Sha256::digest(format!("{session}\n{id}").as_bytes()))[..24])}
+/// An answer to an import call as history keeps it: its correlation id, an error's code and message, a result's summary.
+fn redacted_answer(answer:&Value,corr:&str,summary:Value)->Value{
+    match answer.get("error"){Some(error)=>json!({"jsonrpc":"2.0","id":corr,"error":error}),None=>json!({"jsonrpc":"2.0","id":corr,"result":{"redacted":summary}})}
+}
 /// The network part with no database lock held, then the answer, its history row and the response, as dispatch writes them.
 async fn finish(app:App,p:Pending)->Result<Response,WebError>{
     let fetched = match p.work {
@@ -135,16 +148,19 @@ async fn finish(app:App,p:Pending)->Result<Response,WebError>{
             Ok(res) => tools::order_text("cancel_order",&args,false,&res),
             Err(_) => { crate::engine::log("MCP order tool failed"); protocol::tool_text("An unexpected error occurred.",true) }
         }),
+        Work::Import(job) => { let (value,summary)=super::import_api::mcp_run(&app,*job).await; Finished::Import(value,summary) }
     };
     let app2=app.clone();
     app.db(move|c|{
-        let value=match fetched {
-            Finished::Read(fetched) => reads::finish(c,*fetched).unwrap_or_else(|_|protocol::tool_text("An unexpected error occurred.",true)),
-            Finished::Rules(value) => value,
+        let (value,summary)=match fetched {
+            Finished::Read(fetched) => (reads::finish(c,*fetched).unwrap_or_else(|_|protocol::tool_text("An unexpected error occurred.",true)),Value::Null),
+            Finished::Rules(value) => (value,Value::Null),
+            Finished::Import(value,summary) => (value,summary),
         };
         let answer=result(&p.id,value);
         let s=Session{id:p.session,status:"initialized".into(),initialized:true,version:Some(VERSION.into())};
-        history(c,&s,&answer,true,&crate::codec::format_time(app2.now()))?;
+        let kept=match &p.redacted{Some(corr)=>redacted_answer(&answer,corr,summary),None=>answer.clone()};
+        history(c,&s,&kept,true,&crate::codec::format_time(app2.now()))?;
         let mut r=response(200,Some(answer),false);
         add(&mut r,"mcp-protocol-version",VERSION);
         Ok(r)
@@ -169,7 +185,8 @@ fn history(c:&Connection,s:&Session,payload:&Value,outgoing:bool,now:&str)->Resu
     }
     Ok(())
 }
-fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,v:&Value,pending:&mut Option<Pending>)->Result<Response,WebError>{
+#[allow(clippy::too_many_arguments)]
+fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,v:&Value,ambiguous:bool,pending:&mut Option<Pending>)->Result<Response,WebError>{
     let method=v["method"].as_str().unwrap_or("");let id=&v["id"];
     if let Some((code,message))=protocol::params_error(v){return Ok(err(if v.get("id").is_some(){200}else{400},id,code,&message));}
     let sid=header(h,"mcp-session-id").filter(|s|!s.trim().is_empty());
@@ -210,7 +227,26 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
     }else if !(initialize || s.initialized || s.status=="initializing"&&method=="ping"&&v.get("id").is_some()){
         return Ok(err(400,id,-32600,"Session initialization is incomplete."));
     }
-    history(c,&s,v,false,&now)?;
+    if ambiguous{return Ok(err(200,id,-32602,"ambiguous_request"));}
+    // D-IMPORT-API rule 4 (F7/J5): an import call is kept as its form, size and digest under its correlation id; a
+    // cancellation of one names that id.
+    let import=TOOL_CALL==method&&v["params"]["name"]==super::import_api::TOOL;
+    let redacted=import.then(||correlation(&s.id,id));
+    let kept=match &redacted{
+        Some(corr)=>json!({"jsonrpc":"2.0","id":corr,"method":method,"params":{"name":super::import_api::TOOL,"redacted":super::import_api::request_summary(&v["params"]["arguments"])}}),
+        // Branch review r1 #3: every cancellation, its call in history yet or not: its requestId as the digest an import
+        // call is kept under, its reason dropped.
+        None if method=="notifications/cancelled"=>{
+            let mut kept=v.clone();
+            if let Some(params)=kept["params"].as_object_mut(){
+                params.remove("reason");
+                if let Some(request)=params.get("requestId").cloned(){params.insert("requestId".into(),json!(correlation(&s.id,&request)));}
+            }
+            kept
+        }
+        None=>v.clone(),
+    };
+    history(c,&s,&kept,false,&now)?;
     if method=="logging/setLevel" {
         c.execute("UPDATE action_mcp_sessions SET session_data=?2,tool_registry=?3,updated_at=?4 WHERE id=?1",rusqlite::params![s.id,json!({"user_id":who.user_id,"action_mcp_logging_level":v["params"]["level"]}).to_string(),json!(names).to_string(),now])?;
     }
@@ -252,12 +288,16 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
         "tools/call"=>{
             let name=p["name"].as_str().unwrap_or("");
             if !names.iter().any(|n|n==name){error(id,-32602,&format!("Tool '{name}' not found or not registered for this session"))}
+            else if name==super::import_api::TOOL{match super::import_api::mcp_call(c,app,header(h,"authorization"),p.get("arguments").unwrap_or(&json!({})))?{
+                Ok(job)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Import(Box::new(job)),redacted:redacted.clone()});return Ok(response(202,None,false));}
+                Err(value)=>result(id,value),
+            }}
             else{match tools::call(c,app,who,name,p.get("arguments").unwrap_or(&json!({})))?{
                 tools::Called::Done(value)=>result(id,value),
-                tools::Called::Rules(request)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Rules(request)});return Ok(response(202,None,false));}
-                tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Read(fetch)});return Ok(response(202,None,false));}
-                tools::Called::Order(order)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Order(order)});return Ok(response(202,None,false));}
-                tools::Called::Cancel(job,args)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Cancel(job,args)});return Ok(response(202,None,false));}
+                tools::Called::Rules(request)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Rules(request),redacted:None});return Ok(response(202,None,false));}
+                tools::Called::Fetch(fetch)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Read(fetch),redacted:None});return Ok(response(202,None,false));}
+                tools::Called::Order(order)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Order(order),redacted:None});return Ok(response(202,None,false));}
+                tools::Called::Cancel(job,args)=>{*pending=Some(Pending{session:s.id.clone(),id:id.clone(),work:Work::Cancel(job,args),redacted:None});return Ok(response(202,None,false));}
             }}
         },
         m if m.starts_with("tools/")=>error(id,-32601,&format!("Unknown tools method: {m}")),
@@ -265,7 +305,8 @@ fn dispatch(c:&Connection,app:&App,who:bearer::Bearer,http:&Method,h:&HeaderMap,
         m if m.starts_with("tasks/")=>error(id,-32601,"Tasks are not available for this session"),
         _=>error(id,-32601,&format!("Method not found: {method}"))
     };
-    history(c,&s,&answer,true,&now)?;
+    let kept=match &redacted{Some(corr)=>redacted_answer(&answer,corr,json!({"tool":super::import_api::TOOL,"outcome":"answered"})),None=>answer.clone()};
+    history(c,&s,&kept,true,&now)?;
     let mut r=response(200,Some(answer),false);
     if initialize{add(&mut r,"mcp-session-id",&s.id);}
     if s.initialized{add(&mut r,"mcp-protocol-version",VERSION);}

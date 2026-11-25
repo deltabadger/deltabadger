@@ -384,6 +384,9 @@ en:
                 set_transaction_price:
                     label: 'State a price'
                     description: 'Set the USD price of a transaction the venue did not value'
+                import_transactions_csv:
+                    label: 'Import transactions CSV'
+                    description: 'Import a CSV file of transactions into the tracker, answering its questions as the web import does'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

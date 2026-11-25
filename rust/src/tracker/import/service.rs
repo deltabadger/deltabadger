@@ -6,7 +6,6 @@
 //! every transition is conditional on the upload's state and generation, and each token's work runs in a worker that holds
 //! the token's lock until its outcome commits. The web renders an `Outcome`; the MCP adapter serializes it.
 use super::run::{self, Answer, Confirm, Kind};
-use crate::sync::SyncError;
 use crate::web::{App, WebError};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashMap;
@@ -24,7 +23,9 @@ pub enum Outcome {
     /// A question: the upload's token and format, run's question with each choice's value its handle, and each choice's
     /// kind (a venue selector's options `Select`/`Authorize`; the page's Cancel is offered on every other question). Rule
     /// M7: where its rows would go, and every account its warnings name, by id.
-    Question { token: String, format: &'static str, answer: Answer, kinds: Vec<Kind>, destinations: Vec<run::Destination>, warning_accounts: Vec<WarningAccount> },
+    /// PLAN-710-mcpadapter F4: `reaches`, parallel to the choices: where each one's click writes, from the plan that seals
+    /// it (none for a venue selector's `Select`).
+    Question { token: String, format: &'static str, answer: Answer, kinds: Vec<Kind>, reaches: Vec<Vec<run::Destination>>, destinations: Vec<run::Destination>, warning_accounts: Vec<WarningAccount> },
     /// Cancel on an open question: nothing written, the upload gone.
     Cancelled,
     /// A named Binance identity refusal; the upload is closed with it.
@@ -33,8 +34,19 @@ pub enum Outcome {
     Error(&'static str),
     /// No usable upload: none sent, or a token that is not an open upload of this user, or its bytes changed (rule K2).
     NoFile,
-    /// The request's sign-in ended before anything was read or written.
-    SignedOut,
+    /// The request may no longer import (its sign-in ended, its token was revoked, ...): nothing read or written.
+    Denied(Denied),
+}
+
+/// PLAN-710-mcpadapter G6/H6/I5: why a request may no longer import, as its caller checks it inside the operation's
+/// transaction: the web's sign-in ended (`SignedOut`), or a bearer's resolver refusal, its grant gone, its owner inactive.
+/// `Db`: the check itself failed (the operation's error).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Denied { SignedOut, Bearer(crate::web::bearer::Refusal), Ungranted, Inactive, Db(String) }
+
+/// A denial as the operation answers it: a failed check is its error.
+fn denied(why: Denied) -> Result<Outcome, WebError> {
+    match why { Denied::Db(error) => Err(db(error)), why => Ok(Outcome::Denied(why)) }
 }
 
 /// Rule M7: an account a question's warnings name: its id, exchange, label and (where the warning counts them) rows.
@@ -87,8 +99,8 @@ impl Slot {
 /// A slot, waited for as long as it takes (tests, and a caller that has no request to answer busy).
 pub async fn permit(app: &App) -> Permit { app.import_slots.clone().acquire_owned().await.expect("the import slots are never closed") }
 
-/// Whether the request's sign-in still holds, asked inside the operation's transaction.
-pub type SignedIn = Arc<dyn Fn(&Connection) -> Result<bool, SyncError> + Send + Sync>;
+/// Whether the request may still import, asked inside the operation's transaction.
+pub type SignedIn = Arc<dyn Fn(&Connection) -> Result<(), Denied> + Send + Sync>;
 
 /// Test hooks: a token whose operation stops at a point, as a process killed there would (`before_commit`: the joint
 /// transaction is dropped; `before_cleanup`: the outcome committed, its bytes and handles left).
@@ -173,7 +185,7 @@ async fn upload_now(app: &App, user: i64, format: &'static str, bytes: Vec<u8>, 
     let outcome = app.db(move |c| -> Result<Outcome, WebError> {
         let app = inner;
         let tx = crate::engine::model::immediate(c)?;
-        if !signed_in(&tx).map_err(|e| db(e.0))? { return Ok(Outcome::SignedOut); }
+        if let Err(why) = signed_in(&tx) { return denied(why); }
         // Rule M5: the clock is read inside the write lock.
         let now = app.now();
         let ran = match run::write_in(&tx, &app.cipher, user, format, file, &token, &Confirm::default(), now) {
@@ -212,22 +224,50 @@ fn early(answer: Answer) -> Outcome {
 /// Rule K3: one handle per option of generation `gen`, standing for its sealed answer and what it was issued for; the
 /// question with each value its handle.
 fn issue(c: &Connection, user: i64, token: &str, gen: i64, format: &'static str, ran: run::Ran) -> Result<Outcome, WebError> {
+    let _ = user;
+    question(token, format, ran, |n, choice, i| {
+        let handle = format!("{token}.{gen}.{n}.{}", hex::encode(rand::random::<[u8; 16]>()));
+        let (kind, dest) = sealed(choice, i);
+        c.execute("INSERT INTO import_parked_choices (handle, token, gen, kind, dest_json) VALUES (?1, ?2, ?3, ?4, ?5)", params![handle, token, gen, kind, dest.to_string()]).map_err(db)?;
+        Ok(handle)
+    })
+}
+
+/// What a handle stands for: its kind, and its answer with every seal it was issued with.
+fn sealed(choice: &run::Choice, i: &run::Issued) -> (&'static str, serde_json::Value) {
+    let kind = match i.kind { Kind::Select => "select", Kind::Authorize => "authorize", Kind::Accept => "accept" };
+    (kind, serde_json::json!({ "chosen": run::posted(choice), "value": choice.value, "venue": choice.venue, "key": choice.key, "route": i.route, "outside": i.outside }))
+}
+
+/// A question's outcome, each choice's value the handle `handle` gives it.
+fn question(token: &str, format: &'static str, ran: run::Ran, mut handle: impl FnMut(usize, &run::Choice, &run::Issued) -> Result<String, WebError>) -> Result<Outcome, WebError> {
     let run::Ran { mut answer, issued, destinations } = ran;
     if !matches!(answer, Answer::Ambiguous(_) | Answer::Warned(..)) { return Ok(early(answer)); }
-    let _ = user;
     let warning_accounts = warning_accounts(&answer);
     let (Answer::Ambiguous(choices) | Answer::Warned(_, choices)) = &mut answer else { unreachable!() };
-    let mut kinds = vec![];
+    let (mut kinds, mut reaches) = (vec![], vec![]);
     for (n, choice) in choices.iter_mut().enumerate() {
-        let i = issued.get(n).cloned().unwrap_or(run::Issued { kind: Kind::Accept, route: None, outside: None });
-        let handle = format!("{token}.{gen}.{n}.{}", hex::encode(rand::random::<[u8; 16]>()));
-        let kind = match i.kind { Kind::Select => "select", Kind::Authorize => "authorize", Kind::Accept => "accept" };
-        let dest = serde_json::json!({ "chosen": run::posted(choice), "value": choice.value, "venue": choice.venue, "key": choice.key, "route": i.route, "outside": i.outside });
-        c.execute("INSERT INTO import_parked_choices (handle, token, gen, kind, dest_json) VALUES (?1, ?2, ?3, ?4, ?5)", params![handle, token, gen, kind, dest.to_string()]).map_err(db)?;
-        choice.value = handle;
+        let i = issued.get(n).cloned().unwrap_or(run::Issued { kind: Kind::Accept, route: None, outside: None, destinations: vec![] });
+        choice.value = handle(n, choice, &i)?;
         kinds.push(i.kind);
+        reaches.push(i.destinations);
     }
-    Ok(Outcome::Question { token: token.to_string(), format, answer, kinds, destinations, warning_accounts })
+    Ok(Outcome::Question { token: token.to_string(), format, answer, kinds, reaches, destinations, warning_accounts })
+}
+
+/// PLAN-710-mcpadapter J3: the open generation's handles, when a question built again offers exactly what they were issued
+/// for (branch review r1 #6: each one's kind and every seal it was stored with, its `outside` digest included, in order):
+/// a stale sibling is answered with them, and they stay usable.
+fn current(c: &Connection, token: &str, gen: i64, ran: &run::Ran) -> Result<Option<Vec<String>>, WebError> {
+    let (Answer::Ambiguous(choices) | Answer::Warned(_, choices)) = &ran.answer else { return Ok(None) };
+    let mut q = c.prepare("SELECT handle, kind, dest_json FROM import_parked_choices WHERE token = ?1 AND gen = ?2 ORDER BY rowid").map_err(db)?;
+    let open: Vec<(String, String, String)> = q.query_map(params![token, gen], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).map_err(db)?.collect::<Result<_, _>>().map_err(db)?;
+    let none = run::Issued { kind: Kind::Accept, route: None, outside: None, destinations: vec![] };
+    let same = open.len() == choices.len() && open.iter().zip(choices).enumerate().all(|(n, ((_, kind, stored), choice))| {
+        let (k, dest) = sealed(choice, ran.issued.get(n).unwrap_or(&none));
+        k == kind && serde_json::from_str::<serde_json::Value>(stored).ok().as_ref() == Some(&dest)
+    });
+    Ok(same.then(|| open.into_iter().map(|(handle, _, _)| handle).collect()))
 }
 
 /// The open upload `token` of `user` (rule K1: open and unexpired, read under the token's lock and the write lock).
@@ -266,7 +306,7 @@ pub async fn confirm(app: &App, user: i64, token: String, handle: String, signed
 
 fn confirm_locked(app: &App, c: &Connection, user: i64, token: &str, handle: &str, signed_in: &SignedIn) -> Result<Outcome, WebError> {
     let tx = crate::engine::model::immediate(c)?;
-    if !signed_in(&tx).map_err(|e| db(e.0))? { return Ok(Outcome::SignedOut); }
+    if let Err(why) = signed_in(&tx) { return denied(why); }
     let now = app.now();
     let Some(p) = parked(&tx, token, user, now)? else { return Ok(Outcome::NoFile) };
     let dir = park_dir(app, &tx);
@@ -303,6 +343,15 @@ fn confirm_locked(app: &App, c: &Connection, user: i64, token: &str, handle: &st
     match run::write_in(&tx, &app.cipher, user, p.format, file, token, &confirm, now) {
         Ok(ran) => match ran.answer {
             Answer::Ambiguous(_) | Answer::Warned(..) => {
+                // PLAN-710-mcpadapter J3: a handle of an earlier generation, its question asked again with nothing changed
+                // since the open one was issued, is answered with the open one's handles: the claim rolls back unwritten.
+                let earlier = handle.split('.').nth(1).and_then(|g| g.parse::<i64>().ok()).is_some_and(|g| g < p.gen);
+                if earlier && choice.is_none() {
+                    if let Some(open) = current(&tx, token, p.gen, &ran)? {
+                        let mut handles = open.into_iter();
+                        return question(token, p.format, ran, |_, _, _| Ok(handles.next().unwrap_or_default()));
+                    }
+                }
                 // Rule P5: a new question replaces the old generation in the same commit; only its handles resolve.
                 let gen = p.gen + 1;
                 let moved = tx.execute("UPDATE import_parked_uploads SET state = 'open', gen = ?3, picks = ?4 WHERE token = ?1 AND state = 'claimed' AND gen = ?2",
@@ -344,7 +393,7 @@ pub async fn cancel(app: &App, user: i64, token: String, signed_in: SignedIn, pe
     let key = token.clone();
     worker(app, &key, permit, move |app, c| {
         let tx = crate::engine::model::immediate(c)?;
-        if !signed_in(&tx).map_err(|e| db(e.0))? { return Ok(Outcome::SignedOut); }
+        if let Err(why) = signed_in(&tx) { return denied(why); }
         let now = app.now();
         let Some(p) = parked(&tx, &token, user, now)? else { return Ok(Outcome::NoFile) };
         if !transition(&tx, &token, "open", "cancelled", p.gen)? { return Ok(Outcome::NoFile); }

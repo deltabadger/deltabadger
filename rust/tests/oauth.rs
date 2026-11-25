@@ -588,10 +588,12 @@ async fn v2_and_rust_answer_the_same_oauth_requests_and_write_the_same_rows() {
 
     // The catalogue the consent screen and the grants are built from is 2.x's own.
     let catalogue = read(&root.join("catalogue.json"));
-    // D-SPLIT-API: split_bots (off, among the controls) and D-V2-UNRECORDED-API: answer_unrecorded_order (off, among the
-    // trade tools) are this build's own; the rest of the catalogue is 2.x's.
-    let ours = |name: &&str| !["split_bots", "answer_unrecorded_order"].contains(name);
-    assert_eq!(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| !ours(name)).collect::<Vec<_>>(), [&("split_bots", false), &("answer_unrecorded_order", false)]);
+    // D-SPLIT-API: split_bots (off, among the controls), D-V2-UNRECORDED-API: answer_unrecorded_order (off, among the
+    // trade tools) and D-IMPORT-API: import_transactions_csv (off, among the controls) are this build's own; the rest of
+    // the catalogue is 2.x's.
+    let ours = |name: &&str| !["split_bots", "answer_unrecorded_order", "import_transactions_csv"].contains(name);
+    assert_eq!(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| !ours(name)).collect::<Vec<_>>(), [&("split_bots", false), &("answer_unrecorded_order", false), &("import_transactions_csv", false)]);
+    assert!(oauth::TOOL_GROUPS.iter().any(|(group, tools)| *group == "control" && tools.contains(&"import_transactions_csv")));
     assert!(oauth::TOOL_GROUPS.iter().any(|(group, tools)| *group == "control" && tools.contains(&"split_bots")));
     assert!(oauth::TOOL_GROUPS.iter().any(|(group, tools)| *group == "trade" && tools.contains(&"answer_unrecorded_order")));
     assert_eq!(catalogue["defaults"], Value::Object(oauth::TOOL_DEFAULTS.iter().filter(|(name, _)| ours(name)).map(|(name, on)| (name.to_string(), json!(on))).collect()), "AppConfig::MCP_TOOL_DEFAULTS");

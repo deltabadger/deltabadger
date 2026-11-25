@@ -467,8 +467,8 @@ pub fn token_error(error: &str, description: &str) -> Response {
 /// the catalogue's order. The names are permanent identifiers: they are what a grant stores.
 /// AppConfig::REST_TOOL_DEFAULTS is the same names, all off. tests/oauth.rs and tests/web.rs compare both with 2.x.
 /// D-SPLIT-API: `split_bots` (off) is this build's own; 2.x's catalogue has no such tool. So is `answer_unrecorded_order`
-/// (off, D-V2-UNRECORDED-API).
-pub const TOOL_DEFAULTS: [(&str, bool); 41] = [
+/// (off, D-V2-UNRECORDED-API), and `import_transactions_csv` (off, D-IMPORT-API).
+pub const TOOL_DEFAULTS: [(&str, bool); 42] = [
     ("list_bots", true), ("get_bot_details", true), ("list_exchanges", true), ("get_exchange_balances", true), ("get_portfolio_summary", true),
     ("list_transactions", true), ("create_bot", false), ("start_bot", false), ("stop_bot", false), ("update_bot_settings", false),
     ("start_rule", false), ("stop_rule", false), ("update_rule_settings", false), ("list_open_orders", true), ("market_buy", false),
@@ -477,17 +477,17 @@ pub const TOOL_DEFAULTS: [(&str, bool); 41] = [
     ("list_account_transactions", true), ("list_rules", true), ("create_rule", false), ("delete_rule", false), ("list_indices", true),
     ("create_index_bot", false), ("create_signal_bot", false), ("delete_bot", false), ("archive_bot", false), ("unarchive_bot", false),
     ("liquidate_exited_asset", false), ("answer_redeploy_offer", false), ("sync_tracker", false), ("set_transfer_link", false),
-    ("set_transaction_price", false), ("split_bots", false), ("answer_unrecorded_order", false),
+    ("set_transaction_price", false), ("split_bots", false), ("answer_unrecorded_order", false), ("import_transactions_csv", false),
 ];
 
 /// AppConfig::TOOL_GROUPS: the catalogue as Settings groups it, `split_bots` among the controls (D-SPLIT-API),
-/// `answer_unrecorded_order` among the trade tools (D-V2-UNRECORDED-API).
+/// `answer_unrecorded_order` among the trade tools (D-V2-UNRECORDED-API), `import_transactions_csv` among the controls (D-IMPORT-API).
 pub const TOOL_GROUPS: [(&str, &[&str]); 4] = [
     ("read", &["list_bots", "get_bot_details", "list_exchanges", "get_exchange_balances", "get_portfolio_summary", "list_transactions",
                "list_open_orders", "list_rules", "list_indices"]),
     ("control", &["create_bot", "start_bot", "stop_bot", "update_bot_settings", "start_rule", "stop_rule", "update_rule_settings", "create_rule",
                   "delete_rule", "create_index_bot", "create_signal_bot", "delete_bot", "archive_bot", "unarchive_bot", "split_bots",
-                  "sync_tracker", "set_transfer_link", "set_transaction_price"]),
+                  "sync_tracker", "set_transfer_link", "set_transaction_price", "import_transactions_csv"]),
     ("trade", &["market_buy", "market_sell", "limit_buy", "limit_sell", "cancel_order", "liquidate_exited_asset", "answer_redeploy_offer", "answer_unrecorded_order"]),
     ("tax", &["list_tax_jurisdictions", "generate_tax_report", "get_tax_report_status", "download_tax_report", "export_transactions_csv",
               "list_account_transactions"]),

@@ -406,6 +406,9 @@ ru:
                 set_transaction_price:
                     label: 'Указать цену'
                     description: 'Задать цену в USD для транзакции, которую биржа не оценила'
+                import_transactions_csv:
+                    label: 'Импорт транзакций CSV'
+                    description: 'Импортировать CSV-файл с транзакциями в Трекер, отвечая на вопросы импорта так же, как в веб-версии'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'

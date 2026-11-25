@@ -404,6 +404,9 @@ fr:
                 set_transaction_price:
                     label: 'Indiquer un cours'
                     description: 'Définir le cours en USD d''une transaction que l''exchange n''a pas valorisée'
+                import_transactions_csv:
+                    label: 'Importer des transactions en CSV'
+                    description: 'Importer un fichier CSV de transactions dans le Tracker, en répondant aux questions de l''import comme sur le web'
             dry_run_title: 'Paper Trading'
             dry_run_description: "Simule des transactions avec les prix réels du marché. Aucun ordre réel n'est passé."
             dry_run_label: 'Activer le paper trading pour les outils de trading'

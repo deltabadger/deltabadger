@@ -31,7 +31,7 @@ enum Gate { Tool(&'static str), BotType, OrderType }
 
 /// The routes this build serves; every other one is `Unported`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Unrecorded, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Tax(crate::tax::api::Route), Unported }
+enum Action { Bots, Create, Exchanges, Transactions, TaxJurisdictions, Indices, Write(bot_api::Write), Read(Reading), Split, Unrecorded, Rules(rules::Action), Order(Order), Tracker(tracker::Route), Tax(crate::tax::api::Route), Import, Unported }
 
 /// OrdersController#create and #destroy (PLAN-A9).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,6 +108,7 @@ fn route(method: &Method, path: &str) -> Option<Route> {
         ["transactions", "account", id, "transfer_link"] if post => { path.push(("id", id.to_string())); (tool("set_transfer_link"), Action::Tracker(tracker::Route::Link)) }
         ["transactions", "account", id, "price"] if method == Method::PATCH => { path.push(("id", id.to_string())); (tool("set_transaction_price"), Action::Tracker(tracker::Route::Price)) }
         ["tracker", "sync"] if post => (tool("sync_tracker"), Action::Tracker(tracker::Route::Sync)),
+        ["tracker", "import"] if post => (tool(super::import_api::TOOL), Action::Import),
         ["exchanges"] if get => (tool("list_exchanges"), Action::Exchanges),
         ["exchanges", id, "balances"] if get => { path.push(("id", id.to_string())); (tool("get_exchange_balances"), Action::Read(Reading::Balances)) }
         ["orders"] if get => (tool("list_open_orders"), Action::Read(Reading::Orders)),
@@ -473,6 +474,7 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
                 }
             }
         }
+        Action::Import => return Err(WebError::Config("the import is answered before dispatch".into())),
         Action::Unported => failure(StatusCode::NOT_IMPLEMENTED, "not_ported", &format!("{method} {path} is not served by this build yet.")),
     })
 }
@@ -491,6 +493,11 @@ pub async fn handle(State(app): State<App>, request: Request) -> Response {
     if found.as_ref().is_some_and(|r| r.bad) { return router_bad_request(head); }
     let answer = match found {
         None => Answer::Below(Box::new(layout::missing())),
+        // D-IMPORT-API: the import reads its own body, after its own checks (web::import_api).
+        Some(route) if route.action == Action::Import => {
+            let (parts, body) = request.into_parts();
+            return super::import_api::rest(app, parts.headers, params, body).await;
+        }
         Some(route) => {
             let (parts, body) = request.into_parts();
             let idempotency = super::header_text(&parts.headers, "idempotency-key").map(str::to_string);
@@ -881,7 +888,21 @@ mod tests {
         // A split reason the refusal renames; and the one failure that is 2.x's 500 below the controllers, never an envelope.
         let renamed = regex::Regex::new(&format!(r"Reason::Bot\(\s*{code},\s*_\)\s*=>")).unwrap();
         for gone in renamed.captures_iter(include_str!("bot/split.rs")).map(|c| c[1].to_string()).chain(["internal_error".to_string()]) { codes.remove(&gone); }
+        // D-IMPORT-API: the import's own (web::import_api::CODES, each pinned to its row above).
+        codes.extend(crate::web::import_api::CODES.iter().map(|(_, code)| code.to_string()));
         codes
+    }
+
+    /// PLAN-710-mcpadapter H8: each (status, code) the import answers sits on its own status's row.
+    #[test]
+    fn the_import_codes_sit_on_their_status_rows() {
+        let manual = crate::web::settings::api::MANUAL;
+        for (status, code) in crate::web::import_api::CODES {
+            let row = manual.lines().find(|l| l.starts_with(&format!("| {status} |"))).unwrap_or_else(|| panic!("no {status} row"));
+            assert!(row.contains(&format!("`{code}`")), "{code} is not on the {status} row");
+        }
+        let busy: Vec<&str> = manual.lines().filter(|l| l.as_bytes().get(2).is_some_and(u8::is_ascii_digit) && l.contains("`busy`")).map(|l| &l[..5]).collect();
+        assert_eq!(busy, ["| 422", "| 503"], "the split's busy and the import's");
     }
 
     /// manual/api.md's status table names exactly the codes the envelope can carry.

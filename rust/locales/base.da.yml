@@ -384,6 +384,9 @@ da:
                 set_transaction_price:
                     label: 'Angiv en pris'
                     description: 'Sæt prisen i USD på en transaktion, som børsen ikke har prissat'
+                import_transactions_csv:
+                    label: 'Importér transaktioner fra CSV'
+                    description: 'Importér en CSV-fil med transaktioner til Tracker, og besvar importens spørgsmål som i webversionen'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

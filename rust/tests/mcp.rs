@@ -77,6 +77,29 @@ fn comparable(mut transcript: Value) -> Value {
     transcript.as_object_mut().unwrap().shift_remove("session");
     transcript
 }
+/// D-IMPORT-API (rule 4, branch review r1 #3): a cancellation is kept with its `requestId` as a digest and no `reason`, the
+/// call it cancels in history yet or not. Each such row of ours is 2.x's once exactly that is undone: the same row but for a
+/// requestId of the digest's shape (`import-` and 24 hex digits) and no reason. Anything else in it still differs.
+fn as_v2_cancellations(got:&mut Value,want:&Value)->Result<usize,String>{
+    let mut undone=0;
+    let theirs=want["rows"]["action_mcp_session_messages"].as_array().cloned().unwrap_or_default();
+    for (i,row) in got["rows"]["action_mcp_session_messages"].as_array_mut().into_iter().flatten().enumerate(){
+        let Some(text)=row["message_json"].as_str().map(str::to_string) else {continue};
+        let ours:Value=serde_json::from_str(&text).unwrap_or(Value::Null);
+        if ours["method"]!="notifications/cancelled" {continue;}
+        let Some(theirs_row)=theirs.get(i) else {return Err(format!("row {i}: a cancellation 2.x has no row for"))};
+        let v2:Value=serde_json::from_str(theirs_row["message_json"].as_str().unwrap_or("null")).unwrap_or(Value::Null);
+        let digest=ours["params"]["requestId"].as_str().is_some_and(|id|id.strip_prefix("import-").is_some_and(|h|h.len()==24&&h.bytes().all(|b|b.is_ascii_hexdigit()&&!b.is_ascii_uppercase())));
+        if !digest||ours["params"].get("reason").is_some(){return Err(format!("row {i}: the cancellation is not kept as a digest without its reason: {text}"));}
+        let mut reverted=ours.clone();
+        reverted["params"]["requestId"]=v2["params"]["requestId"].clone();
+        if let Some(reason)=v2["params"].get("reason"){reverted["params"]["reason"]=reason.clone();}
+        if reverted!=v2{return Err(format!("row {i}: the cancellation differs from 2.x's beyond its requestId and reason: {text}"));}
+        row["message_json"]=theirs_row["message_json"].clone();
+        undone+=1;
+    }
+    Ok(undone)
+}
 /// The recorded MCP grid, frozen (common::frozen), copied into `root`.
 fn frozen_grid(root:&Path)->PathBuf{
     let grid=common::frozen("mcp-grid",common::has_subdirs);
@@ -105,7 +128,8 @@ async fn v2_and_rust_mcp_transcripts() {
             assert_eq!(got["responses"][2]["status"], 413);
             assert_eq!(want["responses"][2]["status"], 200); // 2.x has no body bound.
         } else {
-            let (got,want)=(comparable(got),comparable(want));
+            let (mut got,want)=(comparable(got),comparable(want));
+            if let Err(message)=as_v2_cancellations(&mut got,&want){failures.push(format!("{}: {message}",dir.file_name().unwrap().to_string_lossy()));}
             if got!=want {failures.push(dir.file_name().unwrap().to_string_lossy().to_string());
                 for (i,(g,w)) in got["responses"].as_array().unwrap().iter().zip(want["responses"].as_array().unwrap()).enumerate(){
                     if g!=w{eprintln!("{} step {i}\ngot {g}\nwant {w}",dir.file_name().unwrap().to_string_lossy());break;}

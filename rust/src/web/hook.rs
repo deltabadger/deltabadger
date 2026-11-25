@@ -170,7 +170,7 @@ pub fn body(bytes: &[u8], content_type: &str) -> (Vec<(String, String)>, bool) {
             (pairs, ok)
         }
         "multipart/form-data" => match super::multipart::boundary(content_type) {
-            Some(boundary) => match super::multipart::parse(bytes, &boundary) {
+            Some(boundary) => match super::multipart::parse_as_before(bytes, &boundary) {
                 Ok(parsed) => { let ok = super::bot::action_params::form(&parsed.fields).is_ok(); (parsed.fields, ok) }
                 Err(_) => (vec![], false),
             },
@@ -209,6 +209,22 @@ mod tests {
         assert!(!body(format!("a{}=1", "[b]".repeat(40)).as_bytes(), "").1);
         assert_eq!(body(b"_method=delete", "text/plain"), (vec![], true));
         assert_eq!(body(b"_method=delete", "").0, vec![("_method".to_string(), "delete".to_string())]);
+    }
+
+    /// PLAN-710-mcpadapter J7: a part the shared reader reports as read two ways is the hook's as before: its last name,
+    /// parsed, never refused (only the import callers refuse it).
+    #[test]
+    fn a_part_named_twice_is_read_by_its_last_name() {
+        let multipart = "--b\r\nContent-Disposition: form-data; name=\"x\"; name=\"_method\"\r\n\r\ndelete\r\n--b--\r\n";
+        assert_eq!(body(multipart.as_bytes(), "multipart/form-data; boundary=b"), (vec![("_method".to_string(), "delete".to_string())], true));
+    }
+
+    /// Branch review r1 #4: the hook keeps its delimiter as before: a field holding a line that starts with the boundary
+    /// and goes on is unparseable (400), whatever follows.
+    #[test]
+    fn a_line_starting_with_the_boundary_is_unparseable_as_before() {
+        let multipart = "--b\r\nContent-Disposition: form-data; name=\"_method\"\r\n\r\nx\r\n--b and more\r\ndelete\r\n--b--\r\n";
+        assert_eq!(body(multipart.as_bytes(), "multipart/form-data; boundary=b"), (vec![], false));
     }
 
     #[test]

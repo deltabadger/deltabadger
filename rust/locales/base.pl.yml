@@ -405,6 +405,9 @@ pl:
                 set_transaction_price:
                     label: 'Podaj cenę'
                     description: 'Ustaw cenę w USD dla transakcji, której giełda nie wyceniła'
+                import_transactions_csv:
+                    label: 'Importuj transakcje CSV'
+                    description: 'Importuj plik CSV z transakcjami do Trackera, odpowiadając na pytania importu tak jak w wersji webowej'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Symuluj transakcje z rzeczywistymi cenami rynkowymi. Żadne prawdziwe zlecenia nie są składane.'
             dry_run_label: 'Włącz paper trading dla narzędzi handlowych'
