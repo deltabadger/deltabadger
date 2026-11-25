@@ -653,20 +653,20 @@ nl:
             error_unknown_timezone: 'Deze bestandsnaam vermeldt niet meer in welke tijdzone Binance het exporteerde. Upload het onder de naam die Binance gaf.'
             drop: 'Sleep je CSV hierheen'
             drop_hint: 'of klik om een bestand te kiezen'
+            formats: "Ondersteunde CSV-formaten: Deltabadger, KuCoin, Binance"
+            drop_title: "Historie importeren"
+            error_unknown_format: "Deltabadger kan dit CSV-bestand niet importeren. Ondersteunde CSV-formaten: Deltabadger, KuCoin, Binance."
             which_account: 'Dit bestand kan van beide Binance-accounts komen. Welk?'
             which_of_accounts: 'Dit bestand kan van meer dan één account hier komen. Welk?'
             unrouted: 'Geen account verbonden voor: %{exchanges}. Die regels zijn overgeslagen.'
             error_no_account_for_format: 'Er is geen passend account verbonden voor dit formaat.'
-            format: 'Formaat'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Account'
             file: 'Bestand'
             importing: 'Importeren…'
             confirm: 'Importeren'
             skipped: '%{count} regels konden niet worden opgeslagen.'
             unrecognised: 'Niet geïmporteerd, onbekende operaties: %{operations}'
-            error_unreadable: 'Dit bestand heeft niet het gekozen formaat.'
+            error_unreadable: "Dit bestand bevat geen transacties om te importeren."
             error_malformed: 'Dit bestand kon niet worden gelezen.'
             error_no_file: 'Kies eerst een bestand.'
             import_busy: 'Er loopt al een andere import. Probeer het zo meteen opnieuw.'

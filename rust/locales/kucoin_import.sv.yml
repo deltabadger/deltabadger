@@ -18,5 +18,4 @@ sv:
             import_rest: "Importera resten"
             cancel: "Avbryt"
             cancelled: "Inget importerades."
-            format_kucoin: "KuCoin CSV"
             generic: "Registrerade med en allmän etikett: %{count}."

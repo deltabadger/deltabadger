@@ -104,9 +104,10 @@ fn walk(node: ego_tree::NodeRef<'_, Node>, depth: usize, lines: &mut Vec<String>
         // pixel scenes on the bots, tracker and rules pages): this build's own elements, 2.x has neither. Each is written with no whitespace around it,
         // so the rest of the page still compares line for line.
         Node::Element(element) if element.attr("data-scheme-switch").is_some() || element.attr("data-mode-switch").is_some() || element.attr("data-pixel-scene").is_some() => {}
-        // D-TRACKER-EMPTY-IMPORT: the empty tracker's Import beside Connect (asserted present by tracker_index's grid and
-        // tests/account_door.rs); 2.x offered Connect only. Written with no whitespace of its own.
-        Node::Element(element) if element.name() == "a" && element.attr("data-empty-import").is_some() && element.attr("href").is_some_and(|h| h.ends_with("/tracker/import/new")) => {}
+        // D-TRACKER-EMPTY-IMPORT: the empty tracker's import beside Connect (D-IMPORT-DETECT: a file dropped on the window;
+        // asserted present by tracker_index's grid and tests/account_door.rs); 2.x offered Connect only. Written with no
+        // whitespace of its own.
+        Node::Element(element) if element.name() == "form" && element.attr("data-empty-import").is_some() && element.attr("action").is_some_and(|h| h.ends_with("/tracker/import")) => {}
         // D-NO-MENU-LOGO: the sidebar has no logo above its tiles; 2.x drew one.
         Node::Element(element) if element.has_class("menu__section--logo", scraper::CaseSensitivity::CaseSensitive) => {}
         // D-VERSION-LINK: the Settings sheet's version links to the source repository; 2.x shows the bare text, so the link

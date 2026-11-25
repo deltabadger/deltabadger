@@ -663,20 +663,20 @@ sv:
             error_unknown_timezone: 'Filnamnet anger inte längre vilken tidszon Binance exporterade i. Ladda upp filen med namnet Binance gav den.'
             drop: 'Släpp din CSV här'
             drop_hint: 'eller klicka för att välja en fil'
+            formats: "CSV-format som stöds: Deltabadger, KuCoin, Binance"
+            drop_title: "Importera historik"
+            error_unknown_format: "Deltabadger kan inte importera den här CSV-filen. CSV-format som stöds: Deltabadger, KuCoin, Binance."
             which_account: 'Filen kan komma från något av de två Binance-kontona. Vilket?'
             which_of_accounts: 'Filen kan komma från mer än ett konto här. Vilket?'
             unrouted: 'Inget konto anslutet för: %{exchanges}. De raderna utelämnades.'
             error_no_account_for_format: 'Inget anslutet konto matchar det här formatet.'
-            format: 'Format'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Konto'
             file: 'Fil'
             importing: 'Importerar…'
             confirm: 'Importera'
             skipped: '%{count} rader kunde inte sparas.'
             unrecognised: 'Inte importerat, okända operationer: %{operations}'
-            error_unreadable: 'Filen är inte i det valda formatet.'
+            error_unreadable: "Filen innehåller inga transaktioner att importera."
             error_malformed: 'Filen kunde inte läsas.'
             error_no_file: 'Välj en fil först.'
             import_busy: 'En annan import pågår redan. Försök igen om en stund.'

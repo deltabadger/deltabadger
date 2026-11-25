@@ -10,24 +10,22 @@ use crate::web::{flash, i18n, turbo};
 use askama::Template;
 use axum::{extract::Extension, http::{header, StatusCode}, response::{IntoResponse, Response}};
 
-pub use run::{DEFAULT_FORMAT, FORMATS};
-
 #[derive(Template)]
 #[template(path = "tracker/import_new.html")]
-struct New<'a> { ctx: &'a Ctx, csrf: String, formats: String, default_format: &'static str }
+struct New<'a> { ctx: &'a Ctx, csrf: String }
 
 /// What create.html.erb says when no rows landed.
 enum Body {
     Error(String),
     Refused(String),
     /// 2.x's venue question (Binance or Binance.US): its selector, as recorded.
-    Ambiguous { csrf: String, token: String, format: &'static str, accounts: String, first: String },
+    Ambiguous { csrf: String, token: String, accounts: String, first: String },
     /// #710 8a: a venue export's question (the account question, or what writing it warns about): the question's lines,
     /// one named button per destination with its own warnings, and Cancel.
-    Choose { csrf: String, token: String, format: &'static str, lines: Vec<String>, buttons: Vec<Button> },
+    Choose { csrf: String, token: String, lines: Vec<String>, buttons: Vec<Button> },
     /// #710 7a/8a: what a Deltabadger CSV's import says before writing, its one sealed answer (`value`, posted by the
     /// `label` button), and Cancel.
-    Warned { csrf: String, token: String, format: &'static str, lines: Vec<String>, value: String, label: String },
+    Warned { csrf: String, token: String, lines: Vec<String>, value: String, label: String },
     NothingNew { skipped: Option<String>, unrouted: Option<String>, unrecognised: Option<String> },
 }
 
@@ -76,11 +74,7 @@ fn html(status: StatusCode, body: String) -> Response {
 
 pub async fn new(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     if ctx.user().is_none() { return Ok(auth::unauthenticated(&ctx)); }
-    let options = FORMATS.iter().map(|&value| SegmentedOption {
-        value: value.into(), label: ctx.t(&format!("tracker.import.format_{value}")), active: value == DEFAULT_FORMAT, href: None,
-    }).collect();
-    let formats = Segmented { fluid: true, label: ctx.t("tracker.import.format"), key: None, options, links: false, frame: None }.render()?;
-    Ok(html(StatusCode::OK, New { ctx: &ctx, csrf: ctx.csrf_token(), formats, default_format: DEFAULT_FORMAT }.render()?))
+    Ok(html(StatusCode::OK, New { ctx: &ctx, csrf: ctx.csrf_token() }.render()?))
 }
 
 /// 2.x's `text.blank?` on the upload's binary string: empty, or ASCII whitespace only.
@@ -119,13 +113,17 @@ fn render(ctx: &Ctx, status: StatusCode, body: Body) -> Result<Response, WebErro
 pub async fn create(Extension(ctx): Extension<Ctx>, slot: Option<Extension<service::Slot>>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().map(|u| u.id) else { return Ok(auth::unauthenticated(&ctx)); };
     let permit = || service::Slot::take(slot.as_ref().map(|s| &s.0), &ctx.app);
-    let format: &'static str = FORMATS.iter().copied().find(|f| Some(*f) == ctx.params.form("format")).unwrap_or(DEFAULT_FORMAT);
     let view = ctx.clone();
     let signed_in: service::SignedIn = std::sync::Arc::new(move |c: &rusqlite::Connection| auth::still_signed_in(c, &view).map_err(|e| crate::sync::SyncError(format!("{e:?}"))));
     let outcome = match classify(&ctx.params) {
         Input::NoFile => Outcome::NoFile,
         Input::Fresh => match &ctx.params.upload {
-            Some((bytes, name)) if !blank(bytes) => service::upload(&ctx.app, user, format, bytes.clone(), Some(name.clone()), signed_in, permit().await).await?,
+            // D-IMPORT-DETECT: the file's header names its format (before any slot is taken); a confirmation reads the one
+            // parked with it.
+            Some((bytes, name)) if !blank(bytes) => match run::detect(bytes) {
+                Some(format) => service::upload(&ctx.app, user, format, bytes.clone(), Some(name.clone()), signed_in, permit().await).await?,
+                None => return render(&ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_unknown_format".into())),
+            },
             _ => Outcome::NoFile,
         },
         Input::Confirm(token, handle) => service::confirm(&ctx.app, user, token, handle, signed_in, permit().await).await?,
@@ -177,12 +175,12 @@ fn respond(ctx: &Ctx, outcome: Outcome) -> Result<Response, WebError> {
             render(ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Refused(i18n::text(ctx.locale, refused_key(&reason), &[])))
         }
         Outcome::Error(error) => render(ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error(format!("tracker.import.error_{error}"))),
-        Outcome::Question { token, format, answer, .. } => question(ctx, token, format, answer),
+        Outcome::Question { token, answer, .. } => question(ctx, token, answer),
     }
 }
 
 /// A question's page: the selector, the named buttons, or a Deltabadger CSV's one sealed answer; each value a handle.
-fn question(ctx: &Ctx, token: String, format: &'static str, answer: Answer) -> Result<Response, WebError> {
+fn question(ctx: &Ctx, token: String, answer: Answer) -> Result<Response, WebError> {
     match answer {
         Answer::Warned(warnings, choices) => {
             use run::{Accept, Warning};
@@ -191,21 +189,21 @@ fn question(ctx: &Ctx, token: String, format: &'static str, answer: Answer) -> R
                 // A Deltabadger CSV: every line, one sealed answer.
                 [only] if matches!(only.accept, Some(Accept::Anyway | Accept::Rest | Accept::Import)) => {
                     let label = ctx.t(match only.accept { Some(Accept::Rest) => "tracker.import.import_rest", Some(Accept::Anyway) => "tracker.import.import_anyway", _ => "tracker.import.confirm" });
-                    render(ctx, StatusCode::OK, Body::Warned { csrf, token, format, lines: warnings.iter().flat_map(|w| lines(ctx.locale, w)).collect(), value: only.value.clone(), label })
+                    render(ctx, StatusCode::OK, Body::Warned { csrf, token, lines: warnings.iter().flat_map(|w| lines(ctx.locale, w)).collect(), value: only.value.clone(), label })
                 }
                 // A venue export: what is not one destination's above the buttons; each destination's own under its button.
-                _ => render(ctx, StatusCode::OK, Body::Choose { csrf, token, format, buttons: buttons(ctx.locale, &choices),
+                _ => render(ctx, StatusCode::OK, Body::Choose { csrf, token, buttons: buttons(ctx.locale, &choices),
                                                                lines: warnings.iter().filter(|w| matches!(w, Warning::Changed | Warning::Retained | Warning::Dust | Warning::Undone(..))).flat_map(|w| lines(ctx.locale, w)).collect() }),
             }
         }
         // The account question (#710 7a §3, 8a): its own text, one named button per account and the new one.
         Answer::Ambiguous(keys) if keys.iter().any(|k| k.new) => render(ctx, StatusCode::OK, Body::Choose {
-            csrf: ctx.csrf_token(), token, format, lines: vec![ctx.t("tracker.import.which_of_accounts")], buttons: buttons(ctx.locale, &keys) }),
+            csrf: ctx.csrf_token(), token, lines: vec![ctx.t("tracker.import.which_of_accounts")], buttons: buttons(ctx.locale, &keys) }),
         // The venue question keeps 2.x's selector and text.
         Answer::Ambiguous(keys) => {
             let options = keys.iter().enumerate().map(|(i, k)| SegmentedOption { value: k.value.clone().into(), label: k.shown.plain(), active: i == 0, href: None }).collect();
             let accounts = Segmented { fluid: true, label: ctx.t("tracker.import.account"), key: None, options, links: false, frame: None }.render()?;
-            render(ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token, format, accounts, first: keys.first().map(|k| k.value.clone()).unwrap_or_default() })
+            render(ctx, StatusCode::OK, Body::Ambiguous { csrf: ctx.csrf_token(), token, accounts, first: keys.first().map(|k| k.value.clone()).unwrap_or_default() })
         }
         _ => render(ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_no_file".into())),
     }

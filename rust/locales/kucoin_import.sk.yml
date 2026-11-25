@@ -18,5 +18,4 @@ sk:
             import_rest: "Importovať zvyšok"
             cancel: "Zrušiť"
             cancelled: "Nič sa neimportovalo."
-            format_kucoin: "KuCoin CSV"
             generic: "Zaznamenané so všeobecným označením: %{count}."

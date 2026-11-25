@@ -12,12 +12,7 @@
       <h1 class="modal__title">{{ ctx.t("tracker.import.title")|safe }}</h1>
     </div>
     <form class="form" data-turbo-frame="modal_content" enctype="multipart/form-data" action="{{ ctx.path("/tracker/import") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
-      <div class="filters" data-controller="form--segmented-field"
-           data-action="segmented:change->form--segmented-field#set">
-        
-{{ formats|safe }}
-        <input type="hidden" name="format" id="format" value="{{ default_format }}" data-form--segmented-field-target="field" />
-      </div>
+      <p class="small-info">{{ ctx.t("tracker.import.formats")|safe }}</p>
       <label class="dropzone" data-controller="file-picker"
              data-action="dragover->file-picker#hover dragleave->file-picker#unhover drop->file-picker#drop">
         <span class="dropzone__idle">

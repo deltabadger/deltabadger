@@ -652,20 +652,20 @@ pt:
             error_unknown_timezone: 'O nome deste ficheiro já não indica em que fuso horário a Binance o exportou. Carrega-o com o nome que a Binance lhe deu.'
             drop: 'Larga aqui o teu CSV'
             drop_hint: 'ou clica para escolher um ficheiro'
+            formats: "Formatos CSV suportados: Deltabadger, KuCoin, Binance"
+            drop_title: "Importar histórico"
+            error_unknown_format: "O Deltabadger não consegue importar este ficheiro CSV. Formatos CSV suportados: Deltabadger, KuCoin, Binance."
             which_account: 'Este ficheiro pode ser de qualquer uma das contas Binance. Qual delas?'
             which_of_accounts: 'Este ficheiro pode ser de mais de uma conta aqui. Qual delas?'
             unrouted: 'Sem conta ligada para: %{exchanges}. Essas linhas ficaram de fora.'
             error_no_account_for_format: 'Não há nenhuma conta ligada que corresponda a este formato.'
-            format: 'Formato'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Conta'
             file: 'Ficheiro'
             importing: 'A importar…'
             confirm: 'Importar'
             skipped: '%{count} linhas não puderam ser guardadas.'
             unrecognised: 'Não importado, operações desconhecidas: %{operations}'
-            error_unreadable: 'Este ficheiro não está no formato selecionado.'
+            error_unreadable: "Este ficheiro não tem transações para importar."
             error_malformed: 'Não foi possível ler este ficheiro.'
             error_no_file: 'Escolhe primeiro um ficheiro.'
             import_busy: 'Já está a decorrer outra importação. Tenta novamente daqui a pouco.'

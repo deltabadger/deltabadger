@@ -1,0 +1,50 @@
+// D-IMPORT-DETECT: the empty tracker takes a CSV dropped anywhere on the window (window_drop_controller.js).
+// The overlay covers everything while a file is over the window or being sent, and never takes the
+// pointer, so the drag keeps landing on the page underneath.
+// The form takes no room in the welcome screen's column (and none of its gap).
+.window-drop
+    display: contents
+
+.window-drop__overlay
+    display: none
+    position: fixed
+    inset: 0
+    z-index: 1000
+    pointer-events: none
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    gap: 1rem
+    // The two lines sit as one block on the window's optical centre, a little above the geometric one.
+    padding: 2rem 2rem 8vh
+    text-align: center
+    background: color-mix(in srgb, var(--paper) 60%, transparent)
+    -webkit-backdrop-filter: blur(1rem)
+    backdrop-filter: blur(1rem)
+
+.window-drop.is-over .window-drop__overlay,
+.window-drop.is-busy .window-drop__overlay
+    display: flex
+
+.window-drop__title
+    font-size: 2.75rem
+    line-height: 1.2
+    font-weight: bold
+    color: var(--ink)
+
+.window-drop__hint
+    font-size: 1.75rem
+    color: var(--stone)
+
+.window-drop__busy
+    display: none
+    align-items: center
+    gap: 1rem
+    font-size: 1.75rem
+    color: var(--stone)
+
+.window-drop.is-busy
+    .window-drop__hint
+        display: none
+    .window-drop__busy
+        display: flex

@@ -18,5 +18,4 @@ es:
             import_rest: "Importar el resto"
             cancel: "Cancelar"
             cancelled: "No se ha importado nada."
-            format_kucoin: "KuCoin CSV"
             generic: "Registradas con una etiqueta genérica: %{count}."

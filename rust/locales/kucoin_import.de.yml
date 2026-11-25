@@ -18,5 +18,4 @@ de:
             import_rest: "Den Rest importieren"
             cancel: "Abbrechen"
             cancelled: "Nichts importiert."
-            format_kucoin: "KuCoin CSV"
             generic: "Mit allgemeiner Bezeichnung erfasst: %{count}."

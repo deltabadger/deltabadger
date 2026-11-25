@@ -110,6 +110,16 @@ impl<'a> Cell<'a> {
     }
 }
 
+/// `first_row` of a text cut short (`whole` false): the row only when its own separator ends it inside the cut, so a row
+/// the cut runs through is never read as a shorter one.
+pub fn first_row_within(text: &str, whole: bool) -> Result<Option<Vec<String>>, Malformed> {
+    let mut reader = Reader::new(text);
+    let mut cells = vec![];
+    let Some(row) = reader.next(|_, cell| cells.push(cell.value().map(Cow::into_owned).unwrap_or_default())) else { return Ok(None) };
+    row?;
+    Ok((whole || reader.s[..reader.pos].ends_with(reader.sep)).then_some(cells))
+}
+
 /// csv's parser over a String: the row separator is detected from the whole text (the first "\r\n", "\r" or "\n",
 /// quotes not considered; "\n" when there is none). A quoted cell holds anything, `""` being one quote, and must be
 /// followed by a comma, the separator or the end. An unquoted cell may hold no quote, and under "\r\n" no CR or LF.

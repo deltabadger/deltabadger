@@ -657,20 +657,20 @@ ru:
             error_unknown_timezone: 'Имя этого файла больше не указывает, в каком часовом поясе Binance его выгрузил. Загрузи файл с тем именем, которое дал Binance.'
             drop: 'Перетащи сюда CSV'
             drop_hint: 'или нажми, чтобы выбрать файл'
+            formats: "Поддерживаемые форматы CSV: Deltabadger, KuCoin, Binance"
+            drop_title: "Импорт истории"
+            error_unknown_format: "Deltabadger не может импортировать этот CSV-файл. Поддерживаемые форматы CSV: Deltabadger, KuCoin, Binance."
             which_account: 'Файл может быть с любого из двух счетов Binance. С какого?'
             which_of_accounts: 'Файл может быть с нескольких счетов здесь. С какого?'
             unrouted: 'Нет подключённого счёта для: %{exchanges}. Эти строки пропущены.'
             error_no_account_for_format: 'Нет подключённого счёта, подходящего к этому формату.'
-            format: 'Формат'
-            format_binance: 'Binance CSV'
-            format_deltabadger: 'Deltabadger CSV'
             account: 'Счёт'
             file: 'Файл'
             importing: 'Импорт…'
             confirm: 'Импортировать'
             skipped: '%{count} строк не удалось сохранить.'
             unrecognised: 'Не импортировано, неизвестные операции: %{operations}'
-            error_unreadable: 'Этот файл не в выбранном формате.'
+            error_unreadable: "В этом файле нет транзакций для импорта."
             error_malformed: 'Не удалось прочитать файл.'
             error_no_file: 'Сначала выбери файл.'
             import_busy: 'Сейчас уже идёт другой импорт. Попробуй ещё раз чуть позже.'
