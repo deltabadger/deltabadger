@@ -111,13 +111,20 @@ impl Producer {
             Alpaca::Key(version) => crate::engine::model::credential_is_current(c, version)?,
             Alpaca::NoKey(row) => row.is_current(c, ALPACA_KEY)?,
         };
-        Ok(alpaca && self.ibkr.as_ref().map_or(Ok(true), |row| row.is_current(c, IBKR_KEY))?)
+        Ok(alpaca && self.ibkr.as_ref().map_or(Ok(true), |row| row.is_current(c, &ibkr_key_sql(c)?))?)
     }
 }
 /// The account's Alpaca trading key, as the figures pick it (`loading::read_info`).
 pub const ALPACA_KEY: &str = "SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Alpaca' ORDER BY k.id LIMIT 1";
 /// The account's IBKR trading key, whose login reads IBKR's market data (`loading::ibkr_wire`).
-pub const IBKR_KEY: &str = "SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr' ORDER BY k.id LIMIT 1";
+/// The account's IBKR trading key, whose login reads IBKR's market data (`loading::ibkr_wire`): #710 7b (branch r1 #14) one
+/// that passes the gate first (correct, bound, unfenced), then the lowest id, so a fenced account 1 never shadows a healthy
+/// account 2. One query for the figures' key, its identity and its currency check.
+pub fn ibkr_key_sql(c: &rusqlite::Connection) -> rusqlite::Result<String> {
+    let bound = if crate::engine::rules::table_exists(c, "ibkr_bindings")? { "EXISTS (SELECT 1 FROM ibkr_bindings b WHERE b.api_key_id = k.id)" } else { "1" };
+    Ok(format!("SELECT k.id FROM api_keys k JOIN exchanges e ON e.id=k.exchange_id WHERE k.user_id=?1 AND k.key_type=0 AND e.type='Exchanges::Ibkr' \
+                ORDER BY (k.status = 1 AND NOT {} AND {bound}) DESC, k.id LIMIT 1", crate::identity::fenced_sql(c, "k")?))
+}
 
 const ALPACA: &str = "https://data.alpaca.markets";
 /// A request's cache key: its path and query, behind its host for any venue but Alpaca's market data (whose keys predate
@@ -1447,7 +1454,7 @@ mod r4_cache_tests {
     }
     fn db()->rusqlite::Connection {
         let c=rusqlite::Connection::open_in_memory().unwrap();
-        c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT); INSERT INTO api_keys(id,key,secret)VALUES(1,'ciphertext-A','ciphertext-secret');").unwrap();c
+        c.execute_batch("CREATE TABLE api_keys(id INTEGER PRIMARY KEY,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT); INSERT INTO api_keys(id,key,secret)VALUES(1,'ciphertext-A','ciphertext-secret');").unwrap();c
     }
     #[tokio::test]
     async fn r4_page_entries_and_heads_drop_after_rotation_on_every_read(){

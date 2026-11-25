@@ -93,7 +93,7 @@ impl Report {
         for r in &self.scoped {
             let Some(g) = r.group.as_deref().filter(|_| r.kind.in_leg() || r.kind.out_leg()) else { continue };
             let legs = groups.entry((r.account, g)).or_default();
-            if fiat(&r.base) { legs.0.push(r) } else { legs.1.push(r) }
+            if r.base.is_fiat() { legs.0.push(r) } else { legs.1.push(r) }
         }
         let mut out = vec![];
         for r in &self.scoped {
@@ -103,15 +103,15 @@ impl Report {
             let side = |cost: bool| if cost { COST } else { REVENUE };
             // The coin the trade is of, and whether it was for cash.
             let (coin, cash) = match group {
-                Some((_, coins)) if fiat(&r.base) => {
+                Some((_, coins)) if r.base.is_fiat() => {
                     let coin = coins.iter().find(|c| c.kind.in_leg() == r.kind.out_leg()).unwrap_or(&coins[0]);
                     out.push(Component { row: r, day, asset: coin.base.to_string(), amount: Some(coin.amount.clone()), sides: side(r.kind.out_leg()),
                                          money: Money::Cash(r.amount.clone(), r.base.to_string()) });
                     (coin.base.to_string(), true)
                 }
                 Some(_) => (r.base.to_string(), true),
-                None if fiat(&r.base) => continue,
-                None => match r.quote.as_deref().filter(|q| fiat(q)).zip(r.quote_amount.as_ref()) {
+                None if r.base.is_fiat() => continue,
+                None => match r.quote.as_ref().map(Label::as_str).filter(|q| fiat(q)).zip(r.quote_amount.as_ref()) {
                     Some((q, paid)) => {
                         out.push(Component { row: r, day, asset: r.base.to_string(), amount: Some(r.amount.clone()), sides: side(r.kind.in_leg()),
                                              money: Money::Cash(paid.clone(), q.to_string()) });
@@ -120,7 +120,7 @@ impl Report {
                     None => (r.base.to_string(), false),
                 },
             };
-            let Some((fee_currency, fee)) = r.fee_currency.as_deref().filter(|f| !f.trim().is_empty()).zip(r.fee_amount.as_ref()).filter(|(_, a)| a.is_positive()) else { continue };
+            let Some((fee_currency, fee)) = r.fee_currency.as_ref().map(Label::as_str).filter(|f| !f.trim().is_empty()).zip(r.fee_amount.as_ref()).filter(|(_, a)| a.is_positive()) else { continue };
             if fiat(fee_currency) {
                 // A swap's fee in cash is no cost (art. 23 ust. 1 pkt 38d).
                 if cash { out.push(Component { row: r, day, asset: coin, amount: None, sides: COST, money: Money::Cash(fee.clone(), fee_currency.to_string()) }); }
@@ -270,10 +270,10 @@ impl Report {
         let until = |r: &Stored| self.local(r.at).year() <= self.year;
         let linked: HashSet<i64> = self.scoped.iter().filter_map(|r| r.linked_to).collect();
         self.block(&mut out, "WARNING", "unlinked_deposits", "deposit_costs_missing_hint",
-                   self.scoped.iter().filter(|r| r.kind == Kind::Deposit && !linked.contains(&r.id) && !fiat(&r.base) && until(r)).map(listed))?;
+                   self.scoped.iter().filter(|r| r.kind == Kind::Deposit && !linked.contains(&r.id) && !r.base.is_fiat() && until(r)).map(listed))?;
         self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint_pl",
-                   self.scoped.iter().filter(|r| r.kind == Kind::Withdrawal && r.linked_to.is_none() && !fiat(&r.base) && until(r)).map(listed))?;
-        let in_year = |r: &Stored| self.local(r.at).year() == self.year && !fiat(&r.base) && r.amount.is_positive();
+                   self.scoped.iter().filter(|r| r.kind == Kind::Withdrawal && r.linked_to.is_none() && !r.base.is_fiat() && until(r)).map(listed))?;
+        let in_year = |r: &Stored| self.local(r.at).year() == self.year && !r.base.is_fiat() && r.amount.is_positive();
         self.block(&mut out, "NOTE", "rewards_not_revenue", "rewards_not_revenue_hint",
                    self.scoped.iter().filter(|r| r.kind.in_kind() && in_year(r)).map(listed))?;
         // A coin fee of a row of its own names no trade: neither its revenue nor whether it is a cost can be told.

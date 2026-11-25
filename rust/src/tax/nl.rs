@@ -8,6 +8,7 @@
 //! - D-TAX-NL-ACTUAL: once 1 January `year`+1 has come, crypto's contribution to the actual return (tegenbewijs): the
 //!   value then, less the value at the peildatum, less the fiat paid for coins, plus the fiat received for them and income
 //!   paid in fiat (gross of fees), plus the value of the coins paid as fees (each once, at the day's price).
+use crate::tracker::spellings::Label;
 use super::wealth::{fixed, summary, Held, Wealth};
 use super::{cents, line, local_midnight, Report, INCOME};
 use crate::figures::{dec::Dec, FiguresError};
@@ -64,8 +65,8 @@ impl Report {
         if today >= next {
             let (_, v1) = self.nl_value(ps, y + 1)?;
             let (paid, mut received) = self.fiat_trades(ps, "EUR")?;
-            for r in self.scoped.iter().filter(|r| self.in_year(r.at) && fiat(&r.base) && INCOME.iter().any(|(k, _)| *k == r.kind)) {
-                received = (&received + &ps.convert_fiat(&r.amount, &r.base, "EUR", r.at)?)?;
+            for r in self.scoped.iter().filter(|r| self.in_year(r.at) && r.base.is_fiat() && INCOME.iter().any(|(k, _)| *k == r.kind)) {
+                received = (&received + &ps.convert_fiat(&r.amount, r.base.as_str(), "EUR", r.at)?)?;
             }
             let fees = self.coin_fees(ps)?;
             let contribution = (&(&(&(&v1 - &v0)? - &paid)? + &received)? + &fees)?;
@@ -90,15 +91,15 @@ impl Report {
         for r in self.scoped.iter().filter(|r| self.in_year(r.at)) {
             let mut paid: Vec<(&str, Dec)> = vec![];
             let linked_out = r.kind == Kind::Withdrawal && r.linked_to.is_some();
-            if let (Some(coin), Some(fee)) = (r.fee_currency.as_deref().filter(|c| !c.trim().is_empty() && !fiat(c)), &r.fee_amount) {
+            if let (Some(coin), Some(fee)) = (r.fee_currency.as_ref().map(Label::as_str).filter(|c| !c.trim().is_empty() && !fiat(c)), &r.fee_amount) {
                 // A linked withdrawal's own-coin fee is in its network fee (its amount less the deposit's).
-                if fee.is_positive() && !(linked_out && coin == r.base) { paid.push((coin, fee.clone())); }
+                if fee.is_positive() && !(linked_out && coin == r.base.as_str()) { paid.push((coin, fee.clone())); }
             }
-            if !fiat(&r.base) {
-                if r.kind == Kind::Fee && r.amount.is_positive() { paid.push((&r.base, r.amount.clone())); }
+            if !r.base.is_fiat() {
+                if r.kind == Kind::Fee && r.amount.is_positive() { paid.push((r.base.as_str(), r.amount.clone())); }
                 if let Some(deposit) = r.linked_to.filter(|_| linked_out).and_then(|d| self.deposits.get(&d)) {
                     let network = (&r.amount - deposit)?;
-                    if network.is_positive() { paid.push((&r.base, network)); }
+                    if network.is_positive() { paid.push((r.base.as_str(), network)); }
                 }
             }
             for (coin, units) in paid {

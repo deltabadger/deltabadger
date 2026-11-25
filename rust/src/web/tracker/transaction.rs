@@ -78,7 +78,7 @@ fn price(c:&Connection,ctx:&Ctx,owner:i64,now:&str,id:i64,params:&Value,fx:&supe
         let usd=number(value.div(&d.rate))?;
         // The service validates the converted plain decimal too (not only the input).
         let Some(usd)=plain(&usd.to_s_f())else{return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))};
-        if row.counterpart(c)?.is_some(){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
+        if row.counterpart(c,super::row::labels(c,owner)?.as_ref())?.is_some(){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
         // D-PRICE-WAITING: our own price for the row's day can still come; a stated one waits until the day is over.
         if matches!(row::source(c,&row,ctx.app.now().date_naive(),row::labels(c,owner)?.as_ref())?,row::Source::Waiting){return Ok(prepared(StatusCode::UNPROCESSABLE_ENTITY))}
         Some(usd)

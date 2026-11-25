@@ -565,6 +565,7 @@ fr:
             chart_incomplete: "Certains jours du graphique sont incomplets."
             chart_missing_causes: "Cela arrive quand on ne sait pas quel actif était détenu, ou qu'aucun prix utilisable n'existe, par exemple après un retrait de la cote, un changement de nom ou un taux de change manquant. Ce message disparaît dès que ces actifs peuvent être valorisés."
             transfer_conflict: "Le transfert de %{assets} du %{date} n'a pas pu être rapproché de son autre côté : chaque côté est compté là où il a été enregistré."
+            chart_stale: "Le graphique peut encore afficher des valeurs antérieures à un changement récent dans l'identification des actifs. Il se met à jour dès que son historique a été recalculé."
             connect_market_data: "Connectez un fournisseur de données de marché pour obtenir les prix du marché."
             providers_intro: "Le suivi du portefeuille et les rapports fiscaux ont besoin des prix historiques et des taux de change. Connectez l'API de données Deltabadger (actions et crypto) ou un compte CoinGecko gratuit (crypto uniquement). Un compte CoinGecko gratuit ne couvre que les prix de l'année écoulée."
             ask_admin: "Les données de marché sont configurées par l'administrateur de votre instance. Demandez-lui de connecter un fournisseur dans Paramètres → Connecter."

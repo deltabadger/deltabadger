@@ -268,7 +268,7 @@ pub(crate) fn read_info(c:&Connection,app:&App,user:i64)->Result<Info,WebError> 
         _=>None,
     };
     // The IBKR key's login reads IBKR's market data (`ibkr_wire`): adding, replacing or removing it changes both.
-    let ibkr_id:Option<i64>=c.query_row(crate::figures::page_market::IBKR_KEY,[user],|r|r.get(0)).optional()?;
+    let ibkr_id:Option<i64>=c.query_row(&crate::figures::page_market::ibkr_key_sql(c)?,[user],|r|r.get(0)).optional()?;
     let ibkr=crate::figures::page_market::KeyRow::new(user,match ibkr_id { Some(id)=>crate::engine::model::credential_version_by_id(c,id)?, None=>None });
     let (identity,producer,credentials)=match (credentials,version) {
         (Some(credentials),Some(version))=>(serde_json::json!([user,version.cache_stamp(),ibkr.stamp()]),Producer::alpaca_key(version),Some(credentials)),
@@ -303,18 +303,21 @@ pub(crate) fn venue_egresses(c:&rusqlite::Connection,cipher:&crate::crypto::Ciph
 }
 /// The account's IBKR login for IBKR's market data (Ibkr plan F1): its user, the host its session is sent to, and its
 /// transport and login, or why it has none.
-pub(crate) struct IbkrWire { user:i64,base:String,live:Result<(ReqwestTransport,std::sync::Arc<crate::venue::ibkr::Login>),String> }
+pub(crate) struct IbkrWire { user:i64,base:String,live:Result<(ReqwestTransport,std::sync::Arc<crate::venue::ibkr::Login>,crate::engine::model::CredentialVersion),String>,reads:Option<crate::venue::ibkr_account::Reads> }
 /// User `user`'s IBKR trading key, as a login through the install's egress for IBKR; None without a key.
 pub(crate) fn ibkr_wire(c:&rusqlite::Connection,cipher:&crate::crypto::Cipher,user:i64,base:String)->Option<IbkrWire> {
-    let id:i64=c.query_row(crate::figures::page_market::IBKR_KEY,[user],|r|r.get(0)).optional().ok().flatten()?;
+    let id:i64=c.query_row(&crate::figures::page_market::ibkr_key_sql(c).ok()?,[user],|r|r.get(0)).optional().ok().flatten()?;
+    let mut reads=None;
     let live=(||->Result<_,String>{
         let (credentials,version)=crate::sync::credentials_with_version(c,cipher,id).map_err(|_|"the IBKR key is unreadable")?;
+        // #710 7b rule 12: the gate's database and login (a market-data hold has no accounts read: 12b).
+        reads=crate::venue::ibkr_account::reads(c,cipher,&credentials);
         let material=credentials.ibkr.ok_or("the IBKR connection is incomplete")?;
         let login=crate::venue::ibkr::login(&version,&material).map_err(|_|"the IBKR connection is incomplete")?;
         let (client,_)=crate::venue::live::egress(c,cipher,&|k|std::env::var(k).ok(),"ibkr",&http::client())?;
-        Ok((ReqwestTransport::ibkr(client,login.clone()),login))
+        Ok((ReqwestTransport::ibkr(client,login.clone()),login,version))
     })();
-    Some(IbkrWire{user,base,live})
+    Some(IbkrWire{user,base,live,reads})
 }
 /// `venues`: each venue's public market data by its host (`with_venues`).
 pub(crate) struct Wire { real:ReqwestTransport,alpaca:bool,venues:Vec<(&'static str,Result<ReqwestTransport,String>)>,ibkr:Option<IbkrWire>,source:Source,origin:Option<crate::engine::model::CredentialVersion>,compute:Option<std::sync::Arc<tokio::sync::Semaphore>> }
@@ -333,8 +336,9 @@ impl Wire {
     async fn ibkr_live(&self,r:&HttpRequest)->Result<HttpResponse,TransportError> {
         let unavailable=||TransportError::Permanent("Market data unavailable".into());
         let ibkr=self.ibkr.as_ref().ok_or_else(unavailable)?;
-        let (transport,login)=ibkr.live.as_ref().map_err(|_|unavailable())?;
-        let session=crate::venue::ibkr::Session::new(transport,login.clone(),&crate::engine::SystemClock).with_base(&ibkr.base);
+        let (transport,login,version)=ibkr.live.as_ref().map_err(|_|unavailable())?;
+        // #710 7b rule 12: nothing is signed for a key that changed or reads another account now.
+        let session=crate::venue::ibkr::Session::new(transport,login.clone(),&crate::engine::SystemClock).with_base(&ibkr.base).with_gate(ibkr.reads.clone(),version);
         crate::venue::ibkr::read(&session,r).await
     }
     /// The transport for a request's host: the venue's for a venue the figures read, Alpaca's (with its key) for Alpaca's
@@ -1179,7 +1183,7 @@ mod tests {
         // market data is settled, never sent elsewhere.
         let snapshot=HttpRequest{method:"GET",base:crate::venue::ibkr::URL.into(),path:crate::venue::ibkr::SNAPSHOT_PATH.into(),query:vec![("conids","265598".into())],body:None,not_after:None};
         assert!(matches!(bare.send_limited(&snapshot,1024).await,Err(TransportError::Permanent(_))));
-        let broken=super::Wire::of(None,super::Source::Live).with_ibkr(Some(super::IbkrWire{user:1,base:String::new(),live:Err("the IBKR connection is incomplete".into())}));
+        let broken=super::Wire::of(None,super::Source::Live).with_ibkr(Some(super::IbkrWire{user:1,base:String::new(),live:Err("the IBKR connection is incomplete".into()),reads:None}));
         assert!(matches!(broken.send_limited(&snapshot,1024).await,Err(TransportError::Permanent(_))));
         // No IBKR key: no login.
         assert!(super::ibkr_wire(&c,&cipher,1,String::new()).is_none());

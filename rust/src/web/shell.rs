@@ -43,14 +43,18 @@ impl Shell {
         let tracker_settings: Option<String> = c.query_row("SELECT tracker_settings FROM users WHERE id = ?1", [user.id], |r| r.get(0))?;
         let show_cash = bots::show_cash(tracker_settings.as_deref());
         // #710: a duplicate account's balances are its survivor's, counted once.
-        let mut priced = c.prepare(&format!("SELECT assets.symbol, assets.color, SUM(exchange_account_balances.usd_value) FROM exchange_account_balances JOIN assets ON assets.id = exchange_account_balances.asset_id \
+        // Plan r10 L11: a balance is cash by its asset's class too: a coin whose symbol is a currency's (PLEARN as PLN) stays.
+        let mut priced = c.prepare(&format!("SELECT assets.symbol, assets.color, SUM(exchange_account_balances.usd_value), \
+                                    MAX(assets.category = 'Cryptocurrency') FROM exchange_account_balances JOIN assets ON assets.id = exchange_account_balances.asset_id \
                                     WHERE exchange_account_balances.user_id = ?1 AND exchange_account_balances.usd_value IS NOT NULL AND exchange_account_balances.usd_value > 0 AND {} \
-                                    GROUP BY assets.symbol, assets.color", crate::identity::counted(c, user.id, "exchange_account_balances.account_id")?))?;
+                                    GROUP BY assets.symbol, assets.color, assets.category = 'Cryptocurrency'", crate::identity::counted(c, user.id, "exchange_account_balances.account_id")?))?;
         let mut values = vec![];
         let mut rows = priced.query([user.id])?;
         while let Some(row) = rows.next()? {
             let (symbol, color): (Option<String>, Option<String>) = (row.get(0)?, row.get(1)?);
-            if !show_cash && symbol.as_deref().is_some_and(|symbol| bots::CASH.contains(&symbol)) { continue; }
+            let coin: Option<bool> = row.get(3)?;
+            let cash = symbol.as_deref().is_some_and(|symbol| bots::CASH.contains(&symbol) && (coin != Some(true) || crate::tracker::stable(symbol)));
+            if !show_cash && cash { continue; }
             // The column is decimal(20, 8): ActiveRecord casts the sum and rounds it to the column's scale.
             // A sum that is no number (an infinity: SQLite adds the column's REALs) fails as `format::Unreadable`; 2.x raises drawing it.
             let value = row.get::<_, super::format::Stored>(2)?.0;

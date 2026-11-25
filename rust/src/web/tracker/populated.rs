@@ -407,7 +407,8 @@ fn filters(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bool
     // The accounts with a correct reading key ("broken": none, as an exchange without a valid key was).
     let valid: Vec<i64> = {
         let key = if crate::identity::numbered(c)? { crate::identity::key_account_sql("k") } else { "NULL".into() };
-        let mut s = c.prepare(&format!("SELECT DISTINCT COALESCE({key}, -k.exchange_id) FROM api_keys k WHERE k.user_id=?1 AND k.status=1 AND k.key_type!=1"))?;
+        // #710 7b rule 10: a fenced key reads nothing, so its account is broken.
+        let mut s = c.prepare(&format!("SELECT DISTINCT COALESCE({key}, -k.exchange_id) FROM api_keys k WHERE k.user_id=?1 AND k.status=1 AND NOT {} AND k.key_type!=1", crate::identity::fenced_sql(c, "k")?))?;
         let ids = s.query_map([owner], |r| r.get(0))?.collect::<Result<Vec<_>, _>>()?; ids
     };
     let retired = |v: &Venue| crate::web::bot::retired_type(&v.kind);

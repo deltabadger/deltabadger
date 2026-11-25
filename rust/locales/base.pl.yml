@@ -567,6 +567,7 @@ pl:
             chart_incomplete: "Niektóre dni na wykresie są niekompletne."
             chart_missing_causes: "Dzieje się tak, gdy nie wiadomo, które aktywo było w posiadaniu, lub brakuje użytecznej ceny, na przykład po wycofaniu z obrotu, zmianie nazwy lub braku kursu wymiany. Komunikat zniknie, gdy te aktywa będzie można wycenić."
             transfer_conflict: "Transferu %{assets} z %{date} nie udało się dopasować do drugiej strony, więc każda strona jest liczona tam, gdzie została zaksięgowana."
+            chart_stale: "Wykres może nadal pokazywać wartości sprzed niedawnej zmiany w sposobie rozpoznawania aktywów. Zaktualizuje się, gdy historia zostanie przeliczona."
             connect_market_data: "Połącz dostawcę danych rynkowych, aby otrzymywać ceny rynkowe."
             providers_intro: "Śledzenie portfela i raporty podatkowe wymagają historycznych cen i kursów wymiany. Połącz API danych Deltabadger (akcje i krypto) lub darmowe konto CoinGecko (tylko krypto). Darmowe konto CoinGecko obejmuje ceny tylko z ostatniego roku."
             ask_admin: "Dane rynkowe konfiguruje administrator instancji. Poproś go o połączenie dostawcy w Ustawienia → Połącz."

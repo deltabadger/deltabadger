@@ -8,11 +8,12 @@
 //!   realisation (L. 199/2025 c. 28): out of the rows, listed (NOTE `it_eurc_conversion`).
 //! - D-TAX-IT-RT: the quadro RT figures of the year (`year`).
 //! - D-TAX-IT-INCOME: staking in the summary at the row's gross value; other receipts listed apart (NOTE `it_income`).
+use crate::tracker::spellings::Label;
 use super::{cents, coin_of_id, date, fifo::{Disposal, Tx}, line, named, Cell, Entry, Report};
 use crate::figures::{dec::Dec, FiguresError};
 use crate::tracker::rows::{Kind, Stored};
 use crate::tracker::prices::PriceService;
-use crate::tracker::{fiat, stable, walk};
+use crate::tracker::{stable, walk};
 use crate::web::i18n::text;
 use chrono::{Datelike, NaiveDate};
 use std::collections::HashMap;
@@ -33,7 +34,7 @@ const EURO_EMT: &str = "EURC";
 pub(super) fn emt(symbol: &str, coin: Option<&str>) -> bool { named(symbol, coin, "USDC", "usd-coin") || named(symbol, coin, EURO_EMT, "euro-coin") }
 
 /// `value_groups`' side: the coins received, for a group with an e-money token leg; any other group is no disposal.
-pub(super) fn emt_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> { ins.iter().chain(outs).any(|r| emt(&r.base, r.base.coin())).then_some(true) }
+pub(super) fn emt_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> { ins.iter().chain(outs).any(|r| emt(r.base.as_str(), r.base.coin())).then_some(true) }
 
 /// The exchanges with an e-money token leg: groups of coin legs only (no fiat), legs both ways, as (ins, outs).
 fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
@@ -42,7 +43,7 @@ fn emt_groups(rows: &[Entry]) -> Vec<(Vec<usize>, Vec<usize>)> {
     // The trade's legs only: a fee row booked in the group (a USDC fee) makes no exchange with an e-money token.
     let legs = |all: Vec<usize>| -> Vec<usize> { all.into_iter().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect() };
     let mut out: Vec<(Vec<usize>, Vec<usize>)> = groups.into_values().map(legs)
-        .filter(|legs| !legs.iter().any(|&i| fiat(&rows[i].row.base)) && legs.iter().any(|&i| emt(&rows[i].row.base, rows[i].row.base.coin())))
+        .filter(|legs| !legs.iter().any(|&i| rows[i].row.base.is_fiat()) && legs.iter().any(|&i| emt(rows[i].row.base.as_str(), rows[i].row.base.coin())))
         .map(|legs| (legs.iter().copied().filter(|&i| rows[i].row.kind.in_leg()).collect(), legs.iter().copied().filter(|&i| rows[i].row.kind.out_leg()).collect()))
         .filter(|(ins, outs): &(Vec<usize>, Vec<usize>)| !ins.is_empty() && !outs.is_empty()).collect();
     out.sort();
@@ -57,7 +58,7 @@ pub(super) fn value_received(rows: &mut [Entry], stored: &[Stored], ps: &mut Pri
         for i in ins {
             let (r, t) = (&mut rows[i].row, &stored[i]);
             // At the units bought (`t.amount`): a CFEE folded into the buy leaves fewer units (`r.amount`), not less cost.
-            r.fiat_value = (&ps.price_at_recorded(&r.base, currency, r.at, Some(&t.venue), t.base_asset.as_ref())? * &t.amount)?;
+            r.fiat_value = (&ps.price_at_recorded(r.base.as_str(), currency, r.at, Some(&t.venue), t.base_asset.as_ref())? * &t.amount)?;
             let missing = r.fiat_value.is_zero();
             (r.price_missing, r.value_missing) = (missing, Some(missing));
         }
@@ -97,8 +98,8 @@ impl Report {
                           held: Option<&Vec<(String, Dec)>>) -> Result<(String, Notes), FiguresError> {
         let (l, year) = (self.j.locale, self.year);
         let mut notes = Notes::default();
-        let in_group = |t: &Tx, base: &str| t.row.group.as_ref().is_some_and(|g| enriched.iter().any(|e| e.row.base == base && e.row.account == t.row.account && e.row.group.as_ref() == Some(g)));
-        let for_euros = |d: &Disposal| txs.iter().find(|t| t.row.uid == d.source).is_some_and(|t| t.row.quote.as_deref() == Some("EUR") || in_group(t, "EUR"));
+        let in_group = |t: &Tx, base: &str| t.row.group.as_ref().is_some_and(|g| enriched.iter().any(|e| e.row.base.as_str() == base && e.row.account == t.row.account && e.row.group.as_ref() == Some(g)));
+        let for_euros = |d: &Disposal| txs.iter().find(|t| t.row.uid == d.source).is_some_and(|t| t.row.quote.as_ref().map(Label::as_str) == Some("EUR") || in_group(t, "EUR"));
         let mut kept = vec![];
         for mut d in results.drain(..) {
             (d.proceeds, d.cost_basis, d.fee) = (d.proceeds.round(2)?, d.cost_basis.round(2)?, d.fee.round(2)?);
@@ -126,10 +127,10 @@ impl Report {
             staked = true;
             let v = value.round(2)?;
             staking = (&staking + &v)?;
-            if euro_emt(self.local(r.at), &r.base, r.base.coin()) { emt_bucket = (&emt_bucket + &v)?; }
+            if euro_emt(self.local(r.at), r.base.as_str(), r.base.coin()) { emt_bucket = (&emt_bucket + &v)?; }
         }
         let mut coins: Vec<String> = held.into_iter().flatten().filter(|(sym, units)| (stable(sym) || emt(sym, None)) && units.is_positive()).map(|(sym, _)| sym.clone())
-            .chain(enriched.iter().map(|e| &e.row).filter(|r| (stable(&r.base) || emt(&r.base, r.base.coin())) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
+            .chain(enriched.iter().map(|e| &e.row).filter(|r| (r.base.is_stable() || emt(r.base.as_str(), r.base.coin())) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
         coins.sort();
         coins.dedup();
         notes.stablecoins = coins;

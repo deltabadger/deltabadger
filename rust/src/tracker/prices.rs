@@ -7,6 +7,7 @@
 //! A pass reads the database once (`Reference`, `FxTable`); a fetch is made inline, at the lookup 2.x makes it at,
 //! through a `Fetcher` (the job hands the request to its runtime thread and blocks for the answer), and what it brings
 //! serves the rest of the pass, as 2.x's `@price_cache` does.
+use crate::tracker::spellings::Label;
 use super::fx::FxTable;
 use super::rows::Stored;
 use super::{fiat, stable};
@@ -306,7 +307,7 @@ pub enum Resolved { Coin(String), Unidentified, Security, Symbol }
 
 /// Every symbol the rows name: base, quote and fee, and BTC (the cross rate a missing ECB rate falls back to).
 pub fn symbols(rows: &[Stored]) -> HashSet<String> {
-    let mut s: HashSet<String> = rows.iter().flat_map(|r| std::iter::once(r.base.to_string()).chain(r.quote.as_deref().map(str::to_owned)).chain(r.fee_currency.as_deref().map(str::to_owned))).collect();
+    let mut s: HashSet<String> = rows.iter().flat_map(|r| std::iter::once(r.base.to_string()).chain(r.quote.as_ref().map(Label::as_str).map(str::to_owned)).chain(r.fee_currency.as_ref().map(Label::as_str).map(str::to_owned))).collect();
     s.insert("BTC".into());
     s
 }
@@ -523,8 +524,11 @@ impl<'a> PriceService<'a> {
 
     /// `price_at(..., recorded:)`: with the asset the row recorded.
     pub fn price_at_recorded(&mut self, asset: &str, currency: &str, at: At, exchange: Option<&str>, recorded: Option<&Asset>) -> Result<Dec, FiguresError> {
-        if asset == currency { return Ok(Dec::one()); }
-        if stable(asset) { return self.stablecoin_rate(currency, at); }
+        // Codex: the cash shortcuts are for cash only: a coin, a security or a unit no evidence identifies that prints like a
+        // currency (a share booked as USD, PLEARN as PLN) is priced (or not) as what it is.
+        let cash = matches!(self.r.resolve(asset), Resolved::Symbol);
+        if cash && asset == currency { return Ok(Dec::one()); }
+        if cash && stable(asset) { return self.stablecoin_rate(currency, at); }
         // D-TAX-BG-CURRENCY, D-TAX-CZ-CNB: a coin through the euro, at the statutory rate (the GFŘ's third currency).
         if self.statutory.is_some() && currency != "EUR" {
             let eur = self.price_at_recorded(asset, "EUR", at, exchange, recorded)?;
@@ -664,12 +668,12 @@ impl<'a> PriceService<'a> {
             crate::figures::budget::charge(1, 0)?;
             if skip(r) { continue; }
             if r.stated.is_some() && !r.quoted() { continue; }
-            if r.quote.as_deref() == Some(currency) && r.quote_amount.is_some() { continue; }
-            if r.quote.as_deref().is_some_and(|q| stable(q) || fiat(q)) && r.quote_amount.is_some() { continue; }
+            if r.quote.as_ref().map(Label::as_str) == Some(currency) && r.quote_amount.is_some() { continue; }
+            if r.quote.as_ref().map(Label::as_str).is_some_and(|q| stable(q) || fiat(q)) && r.quote_amount.is_some() { continue; }
             let date = r.date();
-            add(self, &mut coins, &mut index, Some(&r.base), date, date, Some(&r.venue), r.base_asset.as_ref());
-            if r.fee_amount.as_ref().is_some_and(Dec::is_positive) && !r.fee_currency.as_deref().is_some_and(stable) {
-                add(self, &mut coins, &mut index, r.fee_currency.as_deref(), date, date, Some(&r.venue), None);
+            add(self, &mut coins, &mut index, Some(r.base.as_str()), date, date, Some(&r.venue), r.base_asset.as_ref());
+            if r.fee_amount.as_ref().is_some_and(Dec::is_positive) && !r.fee_currency.as_ref().is_some_and(Label::is_stable) {
+                add(self, &mut coins, &mut index, r.fee_currency.as_ref().map(Label::as_str), date, date, Some(&r.venue), None);
             }
         }
         // `add_coin_dates(coins_needed, 'BTC', all_dates)`: every day any coin needs, with no venue. Each day is its own

@@ -565,6 +565,7 @@ de:
             chart_incomplete: "Einige Tage im Diagramm sind unvollständig."
             chart_missing_causes: "Das passiert, wenn unklar ist, welches Asset gehalten wurde, oder kein verwendbarer Preis vorliegt, etwa nach einem Delisting, einer Umbenennung oder einem fehlenden Wechselkurs. Der Hinweis verschwindet, sobald diese Bestände bewertet werden können."
             transfer_conflict: "Der Transfer von %{assets} am %{date} ließ sich nicht seiner Gegenseite zuordnen, daher zählt jede Seite dort, wo sie gebucht wurde."
+            chart_stale: "Das Diagramm zeigt möglicherweise noch Werte von vor einer kürzlichen Änderung bei der Zuordnung der Bestände. Es wird aktualisiert, sobald der Verlauf neu berechnet wurde."
             connect_market_data: "Verbinde einen Marktdatenanbieter, um Marktpreise zu erhalten."
             providers_intro: "Portfolio-Tracking und Steuerberichte brauchen historische Preise und Wechselkurse. Verbinde die Deltabadger-Daten-API (Aktien und Krypto) oder ein kostenloses CoinGecko-Konto (nur Krypto). Ein kostenloses CoinGecko-Konto deckt nur die Preise des letzten Jahres ab."
             ask_admin: "Marktdaten richtet der Admin deiner Instanz ein. Bitte ihn, unter Einstellungen → Verbinden einen Anbieter zu verbinden."

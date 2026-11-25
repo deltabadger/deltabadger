@@ -209,7 +209,10 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         crate::identity::fill(&tx, now)?;
         // #710 7a rule N7: the readers before the takeover's fences, so a fence's handoff counts.
         crate::sync::seed_readers(&tx).map_err(|e| rusqlite::Error::InvalidParameterName(e.0))?;
+        // #710 7b: the IBKR history each account holds, before the takeover weighs it; then 2.x's window is unconfirmed.
+        crate::venue::ibkr_account::backfill(&tx, cipher, now).map_err(rusqlite::Error::InvalidParameterName)?;
         crate::identity::after_v2(&tx, cipher)?;
+        crate::venue::ibkr_account::after_v2(&tx)?;
         // #710 7a rules P9/Q5: rows 2.x's importer wrote while it owned the install, by its import shapes only.
         if let Some(back) = handed_back { crate::tracker::import::v2_origins(&tx, back, now)?; }
         super::rules::refill(&tx)?;
@@ -721,7 +724,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // tables have no place for it.
         (Table, "exchange_account_balances", Refuses(SECOND_ACCOUNT_BALANCES)), (Table, "exchange_account_snapshots", Refuses(SECOND_ACCOUNT_BALANCES)),
         // IBKR: an IBKR bot, an open IBKR order and an unresolved IBKR intent refuse on 2.x's own rows (D-IBKR-HANDBACK).
-        (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored),
+        (Table, "ibkr_conids", Ignored), (Table, "ibkr_bindings", Ignored), (Table, "ibkr_bot_accounts", Ignored), (Table, "ibkr_registrations", Refuses(crate::venue::ibkr_reservations::REGISTRATION_HANDBACK)), (Table, "ibkr_account_evidence", Ignored), (Table, "ibkr_login_reads", Ignored),
         (Table, "ibkr_reservations", Refuses("shares held for an order that has not settled")),
         // KuCoin HF (D-KUCOIN-HF-LEDGER): an hf_enabled coverage row refuses; its fills go with it.
         (Table, "kucoin_coverage", Refuses("KuCoin HF and Unified account history is Rust-only")), (Table, "kucoin_withheld_fills", Ignored),
@@ -786,7 +789,7 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (AppConfig, "rust_rule_import", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rule_job_cleanup", Refuses("withdrawal job cleanup is pending")),
         (AppConfig, "rust_rules_fired_at", Ignored),
-        (AppConfig, "rust_job.", Ignored), (AppConfig, "rust_sync.", Ignored), (AppConfig, "rust_sync_toast.", Ignored), (AppConfig, "rust_tracker_gaps.", Ignored), (AppConfig, "rust_snapshot_unpriced.", Ignored), (AppConfig, "rust_venue_history_cursor_", Ignored), (AppConfig, "rust_snapshot_identity_", Ignored),
+        (AppConfig, "rust_job.", Ignored), (AppConfig, "rust_sync.", Ignored), (AppConfig, "rust_sync_toast.", Ignored), (AppConfig, "rust_tracker_gaps.", Ignored), (AppConfig, "rust_snapshot_unpriced.", Ignored), (AppConfig, "rust_venue_history_cursor_", Ignored), (AppConfig, "rust_snapshot_identity_", Ignored), (AppConfig, "rust_snapshot_attempt_", Ignored),
         (AppConfig, "rust_tracker_ledger.", Cache), (AppConfig, "rust_tracker_bot_sales.", Cache),
         // ---- bots.transient_data ----
         (Bot, "rust_placement", Waits), (Bot, "rust_reversal_cancels", Waits), (Bot, "rust_signal_calls", Waits),

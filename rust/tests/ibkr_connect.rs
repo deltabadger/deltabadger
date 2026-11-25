@@ -383,3 +383,727 @@ async fn s7a_s4_a_disconnect_never_removes_a_key_activated_after_it_read_it() {
     let status: Option<i64> = { use rusqlite::OptionalExtension; fx.c.query_row("SELECT status FROM api_keys", [], |r| r.get(0)).optional().unwrap() };
     assert_eq!(status, Some(1), "the activated key is kept");
 }
+
+// ---- #710 slice 7b: a second IBKR account ----------------------------------------------------------------------------
+
+/// IBKR at a local server for the 7b cases: 2.x's recorded mint and brokerage session, then a login that opens `account`
+/// (the recorded `one_account` session with only its unsigned `/iserver/accounts` answer varied, PLAN-710-7b §5.0).
+async fn s7b_server(server: &wiremock::MockServer, account: &str) {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    deltabadger::venue::ibkr::fix_dh_random(Some(verdicts["ibkr"]["dh_random"].as_str().unwrap().into()));
+    let one = verdicts["ibkr"]["cases"].as_array().unwrap().iter().find(|c| c["case"] == "one_account").unwrap().clone();
+    let answer = |a: &serde_json::Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    server.reset().await;
+    Mock::given(method("POST")).and(path("/v1/api/oauth/live_session_token")).respond_with(answer(&one["responses"][0])).mount(server).await;
+    Mock::given(method("POST")).and(path("/v1/api/iserver/auth/ssodh/init")).respond_with(answer(&one["responses"][1])).mount(server).await;
+    Mock::given(method("GET")).and(path("/v1/api/iserver/accounts")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "accounts": [account], "selectedAccount": account }))).mount(server).await;
+}
+fn test_keys() -> impl Fn(&str) -> String { let k = fixture("ibkr_test_keys.json"); move |n: &str| k[n].as_str().unwrap().to_string() }
+/// A key on account `account` (None: number 1 by its absent membership) with the recorded session's whole material.
+fn s7b_key(fx: &Fx, account: Option<i64>, status: i64) -> i64 {
+    let (e, t) = (|v: &str| fx.app.cipher.encrypt(v), test_keys());
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    fx.c.execute("INSERT INTO api_keys(user_id, exchange_id, key_type, status, key, secret, access_token, rsa_signature_key, rsa_encryption_key, dh_param, ibkr_realm, created_at, updated_at)
+                  VALUES(?1, ?2, 0, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, '2026-09-01 00:00:00', '2026-09-01 00:00:00')",
+                 rusqlite::params![fx.user, fx.exchange, status, e(&t("consumer_key")), e(&t("access_token_secret")), e(&t("access_token")), e(&t("signature_key")), e(&t("encryption_key")),
+                                   e(verdicts["ibkr"]["dh_param"].as_str().unwrap()), t("realm")]).unwrap();
+    let id = fx.c.last_insert_rowid();
+    if let Some(a) = account { fx.c.execute("INSERT INTO exchange_account_keys(api_key_id, account_id) VALUES(?1, ?2)", [id, a]).unwrap(); }
+    id
+}
+fn s7b_fenced(fx: &Fx, key: i64) -> bool {
+    fx.c.query_row(&format!("SELECT {} FROM api_keys k WHERE k.id = ?1", deltabadger::identity::fenced_sql(&fx.c, "k").unwrap()), [key], |r| r.get(0)).unwrap()
+}
+fn s7b_bound(fx: &Fx, key: i64) -> Option<String> { deltabadger::venue::ibkr_account::binding(&fx.c, key).unwrap().and_then(|b| b.account_id(&fx.app.cipher)) }
+fn s7b_keys(fx: &Fx) -> Vec<(i64, Option<i64>)> {
+    fx.c.prepare("SELECT k.id, m.account_id FROM api_keys k LEFT JOIN exchange_account_keys m ON m.api_key_id = k.id ORDER BY k.id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+#[derive(Clone)]
+struct S7bVenues(String);
+impl deltabadger::sync::jobs::Connect for S7bVenues {
+    type T = deltabadger::venue::http::ReqwestTransport;
+    fn connect(&self, c: &deltabadger::crypto::Credentials) -> deltabadger::venue::alpaca::AlpacaVenue<Self::T> {
+        deltabadger::venue::alpaca::AlpacaVenue::new(deltabadger::venue::http::ReqwestTransport::new(deltabadger::venue::http::client(), c.key.clone(), c.secret.clone()),
+                                                     deltabadger::venue::alpaca::Urls { trading: self.0.clone(), data: self.0.clone() })
+    }
+    fn key_check_egress(&self, _: &str, _: Option<String>) -> Result<(String, reqwest::Client), String> { Ok((self.0.clone(), reqwest::Client::builder().no_proxy().build().unwrap())) }
+}
+async fn s7b_activation_job(fx: &Fx, uri: &str) -> deltabadger::jobs::Outcome {
+    use deltabadger::jobs::Job;
+    let clock = deltabadger::engine::FixedClock(NOW.parse().unwrap());
+    let cx = deltabadger::jobs::Cx { db: deltabadger::jobs::Db::new(rusqlite::Connection::open(fx._dir.path().join("production.sqlite3")).unwrap(), fx.app.cipher.clone()), clock: &clock, wakers: Default::default() };
+    deltabadger::sync::jobs::IbkrActivation { venues: S7bVenues(uri.into()) }.run(cx, vec![]).await
+}
+
+/// #710 7b §6 acceptance, at the web and job level (IBKR bots stay off: G3): account 1's login, unchanged, starts opening
+/// U7654321. Its key is fenced at the first read that sees it (the resubmit's), never refused; the resubmit asks
+/// `key_other`; "Add anyway" makes account 2 bound to U7654321 (key_elsewhere). When the login opens U1234567 again, the
+/// activation job lifts account 1's fence and fences account 2's copy, with no user action.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_unchanged_credentials_another_account_reported() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let t = test_keys();
+    let one = s7b_key(&fx, None, 0);
+    // The first connection activates and binds U1234567 (account 1's proven identity).
+    let posted = [("api_key[key]", t("consumer_key")), ("api_key[access_token]", t("access_token")), ("api_key[secret]", t("access_token_secret"))];
+    let form: Vec<(&str, &str)> = posted.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    assert_eq!(fx.post("/settings/ibkr_connect/activate", &form).await, 302);
+    assert_eq!(s7b_bound(&fx, one).as_deref(), Some("U1234567"));
+    // The login opens another account now. The scheduled check is the first to see it: account 1's key is fenced (never
+    // condemned), and its page offers the resubmit on its own keys.
+    s7b_server(&server, "U7654321").await;
+    {
+        use deltabadger::jobs::Job;
+        let clock = deltabadger::engine::FixedClock(NOW.parse().unwrap());
+        let cx = deltabadger::jobs::Cx { db: deltabadger::jobs::Db::new(rusqlite::Connection::open(fx._dir.path().join("production.sqlite3")).unwrap(), fx.app.cipher.clone()), clock: &clock, wakers: Default::default() };
+        deltabadger::sync::jobs::Validator { venues: S7bVenues(server.uri()), key_id: one }.run(cx, vec![]).await;
+    }
+    assert!(s7b_fenced(&fx, one), "fenced by the check's read");
+    let page = fx.page().await;
+    assert!(page.contains("opens a different account than this one") && page.contains("api_key_question"), "the broken line and the resubmit: {page}");
+    // The resubmit asks first, writing nothing.
+    let asked = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await;
+    assert_eq!(asked.status, 422, "{}", asked.body);
+    assert!(asked.body.contains("opens another Interactive Brokers account than") && asked.body.contains("Add anyway"), "key_other: {}", asked.body);
+    assert_eq!(s7b_keys(&fx).len(), 1, "nothing saved");
+    assert!(s7b_fenced(&fx, one), "account 1's key stays fenced");
+    let status: i64 = fx.c.query_row("SELECT status FROM api_keys WHERE id = ?1", [one], |r| r.get(0)).unwrap();
+    assert_eq!(status, 1, "never condemned: fenced");
+    // Add anyway: account 2, bound to U7654321.
+    let value = asked.body.split("value=\"").find_map(|rest| rest.split('"').next().filter(|v| v.starts_with("n!w"))).expect("the Add anyway answer").to_string();
+    let mut answered = form.clone();
+    answered.push(("key_answer", &value));
+    assert!(fx.page().await.contains("api_key_question"), "the fenced page asks in its slot");
+    let added = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&answered), Csrf::Form, &[]).await;
+    assert_eq!(added.status, 302, "{}", added.body);
+    let keys = s7b_keys(&fx);
+    assert_eq!(keys.len(), 2, "{keys:?}");
+    let (two, second) = (keys[1].0, keys[1].1.expect("on its own account"));
+    assert_eq!(fx.c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [second], |r| r.get::<_, i64>(0)).unwrap(), 2);
+    assert_eq!(s7b_bound(&fx, two).as_deref(), Some("U7654321"));
+    assert_eq!(s7b_bound(&fx, one).as_deref(), Some("U1234567"), "account 1's binding never moves");
+    assert!(s7b_fenced(&fx, one) && !s7b_fenced(&fx, two));
+    let page = fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?account_id={second}"), None, Csrf::None, &[]).await;
+    assert!(page.body.contains("Interactive Brokers²") || page.body.contains("belongs to"), "{}", page.body);
+    // The login opens U1234567 again: the scheduled check lifts account 1's fence and fences account 2's copy.
+    s7b_server(&server, "U1234567").await;
+    assert_eq!(s7b_activation_job(&fx, &server.uri()).await, deltabadger::jobs::Outcome::Done);
+    assert!(!s7b_fenced(&fx, one), "account 1 is back, no restart, no user action");
+    assert!(s7b_fenced(&fx, two), "account 2's copy now reads another account");
+}
+
+/// #710 7b r6: with two live accounts an unqualified Disconnect (2.x's form) writes nothing; the account's page carries it.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_unqualified_disconnect_with_two_accounts_writes_nothing() {
+    let mut fx = hosted().await;
+    let account = |number: i64| {
+        fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, ?3, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange, number)).unwrap();
+        fx.c.last_insert_rowid()
+    };
+    let (_, second) = (account(1), account(2));
+    let (one, two) = (s7b_key(&fx, None, 1), s7b_key(&fx, Some(second), 1));
+    assert_eq!(fx.post("/settings/ibkr_connect", &[("_method", "delete")]).await, 302);
+    assert_eq!(s7b_keys(&fx).iter().map(|k| k.0).collect::<Vec<_>>(), [one, two], "nothing removed");
+    let page = fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?account_id={second}"), None, Csrf::None, &[]).await;
+    assert!(page.body.contains(&format!("name=\"account_id\" value=\"{second}\"")), "the account's page carries it: {}", page.body);
+    let deleted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("_method", "delete"), ("account_id", &second.to_string())]), Csrf::Form, &[]).await;
+    assert_eq!(deleted.status, 302, "{}", deleted.body);
+    assert_eq!(s7b_keys(&fx).iter().map(|k| k.0).collect::<Vec<_>>(), [one], "the named account's key only");
+    // A forged account is a 404.
+    let forged = fx.browser.send(&fx.app, "GET", "/settings/ibkr_connect?account_id=999999", None, Csrf::None, &[]).await;
+    assert_eq!(forged.status, 404);
+}
+
+/// A second IBKR login, distinct from the recorded one (PLAN-710-7b §5.0): registration `reg`'s own generated keys, the
+/// consumer key `consumer`, and an access-token secret made for the registration's encryption key. IBKR answers requests
+/// signed with `consumer` alone: a synthetic mint (the recorded DH response, its signature over the LST that prepend makes)
+/// and a login that opens `account`. The pasted (consumer key, access token, secret).
+async fn s7b_second_login(fx: &Fx, server: &wiremock::MockServer, reg: i64, consumer: &str, account: &str) -> Vec<(&'static str, String)> {
+    use base64::Engine;
+    use hmac::Mac;
+    use wiremock::{matchers::{header_regex, method, path}, Mock, ResponseTemplate};
+    let encryption: String = fx.c.query_row("SELECT rsa_encryption_key FROM ibkr_registrations WHERE id = ?1", [reg], |r| r.get(0)).unwrap();
+    let public = signer::public_pem(&fx.app.cipher.decrypt(&encryption).unwrap()).unwrap();
+    let key = aws_lc_rs::rsa::PublicEncryptingKey::from_der(&signer::read_pem(&public).unwrap().1).unwrap();
+    let key = aws_lc_rs::rsa::Pkcs1PublicEncryptingKey::new(key).unwrap();
+    let prepend = [0x5au8; 32];
+    let mut sealed = vec![0u8; key.ciphertext_size()];
+    let secret = base64::engine::general_purpose::STANDARD.encode(key.encrypt(&prepend, &mut sealed).unwrap());
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    let one = verdicts["ibkr"]["cases"].as_array().unwrap().iter().find(|c| c["case"] == "one_account").unwrap().clone();
+    let recorded: serde_json::Value = serde_json::from_str(one["responses"][0]["body"].as_str().unwrap()).unwrap();
+    let dh_response = recorded["diffie_hellman_response"].as_str().unwrap();
+    let lst = signer::live_session_token(signer::FFDHE2048_P, verdicts["ibkr"]["dh_random"].as_str().unwrap(), dh_response, &hex::encode(prepend)).unwrap();
+    let mut mac = <hmac::Hmac<sha1::Sha1> as Mac>::new_from_slice(&base64::engine::general_purpose::STANDARD.decode(&lst).unwrap()).unwrap();
+    mac.update(consumer.as_bytes());
+    let signature = hex::encode(mac.finalize().into_bytes());
+    let signed_by = || header_regex("authorization", &format!("oauth_consumer_key=\"{consumer}\""));
+    Mock::given(method("POST")).and(path("/v1/api/oauth/live_session_token")).and(signed_by())
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "diffie_hellman_response": dh_response, "live_session_token_signature": signature }))).with_priority(1).mount(server).await;
+    Mock::given(method("GET")).and(path("/v1/api/iserver/accounts")).and(signed_by())
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "accounts": [account], "selectedAccount": account }))).with_priority(1).mount(server).await;
+    vec![("api_key[key]", consumer.to_string()), ("api_key[access_token]", "second-access-token".to_string()), ("api_key[secret]", secret)]
+}
+
+/// #710 7b rules 3 and 11 (D-IBKR-REGISTRATION): the tracker's IBKR tile beside a connected IBKR account opens a fresh
+/// connection: a registration, no account and no `api_keys` row, until IBKR names its account; then it is the key of a new
+/// account 2, and the registration is gone. Account 1 is untouched. The second login is its own (its generated keys, its
+/// consumer key), and IBKR answers per credential: account 1's login still opens U1234567 (branch r1 #16).
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_registration_activates_as_new_account() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let one = s7b_key(&fx, None, 1);
+    let first = deltabadger::identity::ensure_account(&fx.c, fx.user, fx.exchange, chrono::Utc::now()).unwrap();
+    deltabadger::venue::ibkr_account::bind(&fx.c, &fx.app.cipher, one, "U1234567", chrono::Utc::now()).unwrap().unwrap();
+    let accounts = |c: &rusqlite::Connection| c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get::<_, i64>(0)).unwrap();
+    let before = accounts(&fx.c);
+    // Start a fresh connection (a tile's `registration=new`).
+    fx.page().await;
+    let started = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("registration", "new")]), Csrf::Header, &[]).await;
+    assert_eq!(started.status, 302);
+    let (reg, revision): (i64, i64) = fx.c.query_row("SELECT id, revision FROM ibkr_registrations", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((s7b_keys(&fx).len(), accounts(&fx.c)), (1, before), "no key row and no account yet");
+    let page = fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    assert!(page.body.contains(&format!("artifact=signing&amp;registration={reg}")) && page.body.contains("name=\"revision\""), "{}", page.body);
+    // The second login (its own keys and consumer key) opens U7654321.
+    let form = s7b_second_login(&fx, &server, reg, "SECONDCONSUMER", "U7654321").await;
+    let (reg_s, rev_s) = (reg.to_string(), revision.to_string());
+    let mut posted: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    posted.extend([("registration", reg_s.as_str()), ("revision", rev_s.as_str())]);
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    let activated = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&posted), Csrf::Form, &[]).await;
+    assert_eq!(activated.status, 302, "nothing to ask: {}", activated.body);
+    let keys = s7b_keys(&fx);
+    assert_eq!(keys.len(), 2, "{keys:?}");
+    let second = keys[1].1.expect("its own account");
+    assert_ne!(second, first);
+    assert_eq!(s7b_bound(&fx, keys[1].0).as_deref(), Some("U7654321"));
+    let consumer: String = fx.c.query_row("SELECT key FROM api_keys WHERE id = ?1", [keys[1].0], |r| r.get(0)).unwrap();
+    assert_eq!(fx.app.cipher.decrypt(&consumer).unwrap(), "SECONDCONSUMER", "the second login's own credentials");
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM ibkr_registrations", [], |r| r.get::<_, i64>(0)).unwrap(), 0, "the registration became the key");
+    assert_eq!(s7b_bound(&fx, one).as_deref(), Some("U1234567"), "account 1 untouched");
+    assert!(!s7b_fenced(&fx, one) && !s7b_fenced(&fx, keys[1].0));
+}
+
+// ---- #710 7b: answers, registrations and the per-login read sequence ----------------------------------------------------
+
+/// As `s7b_server`, its accounts answer `delay` late (a check in flight while something else happens).
+async fn s7b_slow_server(server: &wiremock::MockServer, account: &str, delay: std::time::Duration) {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    s7b_server(server, account).await;
+    server.reset().await;
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    let one = verdicts["ibkr"]["cases"].as_array().unwrap().iter().find(|c| c["case"] == "one_account").unwrap().clone();
+    let answer = |a: &serde_json::Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path("/v1/api/oauth/live_session_token")).respond_with(answer(&one["responses"][0])).mount(server).await;
+    Mock::given(method("POST")).and(path("/v1/api/iserver/auth/ssodh/init")).respond_with(answer(&one["responses"][1])).mount(server).await;
+    Mock::given(method("GET")).and(path("/v1/api/iserver/accounts"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "accounts": [account], "selectedAccount": account })).set_delay(delay)).mount(server).await;
+}
+/// The recorded login's reads (every connection here signs with the recorded material).
+fn s7b_reads(fx: &Fx) -> deltabadger::venue::ibkr_account::Reads {
+    let (t, verdicts) = (test_keys(), fixture("ibkr_key_verdicts.json"));
+    let material = deltabadger::venue::signers::ibkr::Material { consumer_key: t("consumer_key"), access_token: t("access_token"), access_token_secret: t("access_token_secret"),
+        signature_key: t("signature_key"), encryption_key: t("encryption_key"), dh_param: verdicts["ibkr"]["dh_param"].as_str().unwrap().into(), realm: t("realm") };
+    let credentials = deltabadger::crypto::Credentials { redaction_values: vec![], key: t("consumer_key"), secret: t("access_token_secret"), passphrase: None, ibkr: Some(Box::new(material)) };
+    deltabadger::identity::key(&fx.c, &fx.app.cipher, chrono::Utc::now()).unwrap();
+    deltabadger::venue::ibkr_account::reads(&fx.c, &fx.app.cipher, &credentials).expect("numbered")
+}
+/// (seq, committed_seq) of the recorded login.
+fn s7b_seq(fx: &Fx) -> (i64, i64) {
+    fx.c.query_row("SELECT seq, committed_seq FROM ibkr_login_reads WHERE login_digest = ?1", [s7b_reads(fx).digest], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+fn s7b_form() -> Vec<(&'static str, String)> {
+    let t = test_keys();
+    vec![("api_key[key]", t("consumer_key")), ("api_key[access_token]", t("access_token")), ("api_key[secret]", t("access_token_secret"))]
+}
+fn s7b_add_anyway(body: &str) -> String { body.split("value=\"").find_map(|rest| rest.split('"').next().filter(|v| v.starts_with("n!w"))).expect("the Add anyway answer").to_string() }
+/// Account 1's key, bound to U1234567 by its first activation, then fenced: a scheduled check reads U7654321.
+async fn s7b_fenced_one(fx: &mut Fx, server: &wiremock::MockServer) -> i64 {
+    let one = s7b_key(fx, None, 0);
+    let form = s7b_form();
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    assert_eq!(fx.post("/settings/ibkr_connect/activate", &form).await, 302);
+    s7b_server(server, "U7654321").await;
+    s7b_validator(fx, server, one).await;
+    assert!(s7b_fenced(fx, one));
+    one
+}
+async fn s7b_validator(fx: &Fx, server: &wiremock::MockServer, key: i64) {
+    use deltabadger::jobs::Job;
+    let clock = deltabadger::engine::FixedClock(NOW.parse().unwrap());
+    let cx = deltabadger::jobs::Cx { db: deltabadger::jobs::Db::new(rusqlite::Connection::open(fx._dir.path().join("production.sqlite3")).unwrap(), fx.app.cipher.clone()), clock: &clock, wakers: Default::default() };
+    deltabadger::sync::jobs::Validator { venues: S7bVenues(server.uri()), key_id: key }.run(cx, vec![]).await;
+}
+async fn s7b_resubmit(fx: &mut Fx, answer: Option<&str>) -> common::web::Answer { s7b_resubmit_on(fx, answer, None).await }
+/// `s7b_resubmit` from `account`'s page (its form carries `account_id`).
+async fn s7b_resubmit_on(fx: &mut Fx, answer: Option<&str>, account: Option<i64>) -> common::web::Answer {
+    let form = s7b_form();
+    let mut form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    if let Some(a) = answer { form.push(("key_answer", a)); }
+    let named = account.map(|a| a.to_string());
+    if let Some(a) = &named { form.push(("account_id", a)); }
+    fx.page().await;
+    fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await
+}
+
+/// r6 rule 2: the answer's POST reads the login again, (n+1, n): no other read since the question, the same account, so
+/// it is accepted.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_answer_survives_its_own_fresh_read() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    s7b_fenced_one(&mut fx, &server).await;
+    let asked = s7b_resubmit(&mut fx, None).await;
+    assert_eq!(asked.status, 422, "{}", asked.body);
+    let (n, _) = s7b_seq(&fx);
+    let added = s7b_resubmit(&mut fx, Some(&s7b_add_anyway(&asked.body))).await;
+    assert_eq!(added.status, 302, "{}", added.body);
+    assert_eq!(s7b_seq(&fx), (n + 1, n + 1), "its own fresh read, acted on");
+    assert_eq!(s7b_keys(&fx).len(), 2);
+}
+
+/// r6 rule 2: a read of the login between the question and the answer (here a scheduled check of U7777777) makes the
+/// answer stale: the POST's read is (n+2, n+1), and it asks again, saving nothing; the new question's answer is accepted.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_answer_with_intervening_u3_read_reasks() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let one = s7b_fenced_one(&mut fx, &server).await;
+    let asked = s7b_resubmit(&mut fx, None).await;
+    assert_eq!(asked.status, 422);
+    let (n, _) = s7b_seq(&fx);
+    s7b_server(&server, "U7777777").await;
+    s7b_validator(&fx, &server, one).await;
+    assert_eq!(s7b_seq(&fx).0, n + 1, "another reader took n+1");
+    s7b_server(&server, "U7654321").await;
+    let again = s7b_resubmit(&mut fx, Some(&s7b_add_anyway(&asked.body))).await;
+    assert_eq!(again.status, 422, "asked again: {}", again.body);
+    assert_eq!(s7b_seq(&fx).0, n + 2);
+    assert_eq!(s7b_keys(&fx).len(), 1, "nothing saved");
+    let added = s7b_resubmit(&mut fx, Some(&s7b_add_anyway(&again.body))).await;
+    assert_eq!(added.status, 302, "{}", added.body);
+    assert_eq!(s7b_keys(&fx).len(), 2);
+}
+
+/// Rule 2 (round 2): an answer whose read another live account holds by now routes there, as a fresh save would.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_answer_routes_to_new_holder_as_a_fresh_save() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let one = s7b_fenced_one(&mut fx, &server).await;
+    let asked = s7b_resubmit(&mut fx, None).await;
+    assert_eq!(asked.status, 422);
+    // Meanwhile account 2 comes to hold U7654321.
+    fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, 2, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange)).unwrap();
+    let second = fx.c.last_insert_rowid();
+    deltabadger::identity::establish_read(&fx.c, &fx.app.cipher, second, deltabadger::venue::ibkr::IBKR, &deltabadger::identity::AccountId::ibkr("U7654321").unwrap(), chrono::Utc::now()).unwrap();
+    // Branch r1 #9: with two accounts, 2.x's unqualified form is refused and writes nothing; the page carries `account_id`.
+    let unchanged = (s7b_keys(&fx), fx.c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get::<_, i64>(0)).unwrap());
+    let refused = s7b_resubmit(&mut fx, Some(&s7b_add_anyway(&asked.body))).await;
+    assert_eq!(refused.status, 302, "{}", refused.body);
+    assert_eq!((s7b_keys(&fx), fx.c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get::<_, i64>(0)).unwrap()), unchanged, "nothing written");
+    let first = deltabadger::identity::ensure_account(&fx.c, fx.user, fx.exchange, chrono::Utc::now()).unwrap();
+    let answered = s7b_resubmit_on(&mut fx, Some(&s7b_add_anyway(&asked.body)), Some(first)).await;
+    assert_eq!(answered.status, 302, "{}", answered.body);
+    let keys = s7b_keys(&fx);
+    assert_eq!(keys.len(), 2, "{keys:?}");
+    assert_eq!(keys[1].1, Some(second), "saved on the account that holds the read");
+    assert_eq!(s7b_bound(&fx, keys[1].0).as_deref(), Some("U7654321"));
+    assert_eq!(s7b_bound(&fx, one).as_deref(), Some("U1234567"));
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get::<_, i64>(0)).unwrap(), 2, "no account 3");
+}
+
+/// A fresh connection (`registration=new`) with the recorded keys in place of its own, as (id, revision).
+async fn s7b_registration(fx: &mut Fx) -> (i64, i64) {
+    fx.page().await;
+    let started = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("registration", "new")]), Csrf::Header, &[]).await;
+    assert_eq!(started.status, 302);
+    let (e, t) = (|v: &str| fx.app.cipher.encrypt(v), test_keys());
+    fx.c.execute("UPDATE ibkr_registrations SET rsa_signature_key = ?1, rsa_encryption_key = ?2, dh_param = ?3, ibkr_realm = ?4",
+                 rusqlite::params![e(&t("signature_key")), e(&t("encryption_key")), e(fixture("ibkr_key_verdicts.json")["ibkr"]["dh_param"].as_str().unwrap()), t("realm")]).unwrap();
+    fx.c.query_row("SELECT id, revision FROM ibkr_registrations ORDER BY id DESC LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap()
+}
+fn s7b_registration_form(reg: i64, revision: i64) -> Vec<(&'static str, String)> {
+    let mut form = s7b_form();
+    form.extend([("registration", reg.to_string()), ("revision", revision.to_string())]);
+    form
+}
+fn s7b_registrations(fx: &Fx) -> Vec<(i64, i64, i64)> {
+    fx.c.prepare("SELECT id, revision, status FROM ibkr_registrations ORDER BY id").unwrap().query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect()
+}
+
+/// Rule 3: a registration's submit validated while another write moved it (a resubmit's commit) is asked again: nothing
+/// saved, the registration kept.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_registration_resubmit_during_check() {
+    let server = wiremock::MockServer::start().await;
+    s7b_slow_server(&server, "U1234567", std::time::Duration::from_millis(400)).await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (reg, revision) = s7b_registration(&mut fx).await;
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    let form = s7b_registration_form(reg, revision);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let (browser, app, c) = (&mut fx.browser, &fx.app, &fx.c);
+    let (posted, ()) = tokio::join!(browser.send(app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]),
+        async { tokio::time::sleep(std::time::Duration::from_millis(100)).await; c.execute("UPDATE ibkr_registrations SET revision = revision + 1", []).unwrap(); });
+    assert_eq!(posted.status, 302, "{}", posted.body);
+    assert!(s7b_keys(&fx).is_empty(), "nothing saved");
+    assert_eq!(s7b_registrations(&fx), [(reg, revision + 1, 0)], "kept as the other write left it");
+}
+
+/// Rule 3: a form of a registration that Start over removed is a 404; a recreated one's stale revision saves nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_registration_stale_form_after_recreate() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (old, revision) = s7b_registration(&mut fx).await;
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={old}"), None, Csrf::None, &[]).await;
+    let (old_s, rev_s) = (old.to_string(), revision.to_string());
+    let started_over = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("_method", "delete"), ("registration", &old_s), ("revision", &rev_s)]), Csrf::Form, &[]).await;
+    assert_eq!(started_over.status, 302);
+    assert!(s7b_registrations(&fx).is_empty());
+    let (new, _) = s7b_registration(&mut fx).await;
+    assert_ne!(new, old);
+    let form = s7b_registration_form(old, revision);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={new}"), None, Csrf::None, &[]).await;
+    let stale = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await;
+    assert_eq!(stale.status, 404, "the removed registration");
+    let form = s7b_registration_form(new, 99);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let stale = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await;
+    assert_eq!(stale.status, 302);
+    assert!(s7b_keys(&fx).is_empty(), "a stale revision saves nothing");
+}
+
+/// Account 1 with its key bound to U1234567 (correct, its read acted on).
+async fn s7b_connected_one(fx: &mut Fx) -> (i64, i64) {
+    let one = s7b_key(fx, None, 0);
+    let form = s7b_form();
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    assert_eq!(fx.post("/settings/ibkr_connect/activate", &form).await, 302);
+    assert_eq!(s7b_bound(fx, one).as_deref(), Some("U1234567"));
+    (one, deltabadger::identity::ensure_account(&fx.c, fx.user, fx.exchange, chrono::Utc::now()).unwrap())
+}
+
+/// Rule 3: a registration whose login opens the account a connected account holds goes there, updating that account's
+/// lowest-id trading row (the save's update branch): no second row, no second account.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_finish_into_occupied_slot() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (one, first) = s7b_connected_one(&mut fx).await;
+    let (reg, revision) = s7b_registration(&mut fx).await;
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    let form = s7b_registration_form(reg, revision);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let posted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await;
+    assert_eq!(posted.status, 302, "{}", posted.body);
+    assert_eq!(s7b_keys(&fx), [(one, None)], "account 1's row, updated");
+    assert!(s7b_registrations(&fx).is_empty());
+    assert_eq!(fx.c.query_row("SELECT count(*) FROM exchange_accounts", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+    assert_eq!(deltabadger::identity::accounts_of(&fx.c, fx.user, fx.exchange).unwrap()[0].0, first);
+}
+
+/// Rule 3: a save that replaced the routed slot while a registration's check was in flight (here only its realm) is
+/// kept: the finish is refused and the registration waits.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_concurrent_replacement_survives_finish() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (one, _) = s7b_connected_one(&mut fx).await;
+    let (reg, revision) = s7b_registration(&mut fx).await;
+    s7b_slow_server(&server, "U1234567", std::time::Duration::from_millis(400)).await;
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    let form = s7b_registration_form(reg, revision);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let (browser, app, c) = (&mut fx.browser, &fx.app, &fx.c);
+    let (posted, ()) = tokio::join!(browser.send(app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]),
+        async { tokio::time::sleep(std::time::Duration::from_millis(100)).await; c.execute("UPDATE api_keys SET ibkr_realm = 'test_realm' WHERE id = ?1", [one]).unwrap(); });
+    assert_eq!(posted.status, 302, "{}", posted.body);
+    let realm: String = fx.c.query_row("SELECT ibkr_realm FROM api_keys WHERE id = ?1", [one], |r| r.get(0)).unwrap();
+    assert_eq!(realm, "test_realm", "the replacement survives");
+    assert_eq!(s7b_registrations(&fx).len(), 1, "the registration waits");
+    // The job's finish keeps the replacement too: held to the registration's baseline (none here: no slot was there to
+    // take), it closes the registration (branch r1 #10).
+    fx.c.execute("UPDATE api_keys SET ibkr_realm = 'other_realm' WHERE id = ?1", [one]).unwrap();
+    fx.c.execute("UPDATE ibkr_registrations SET status = 3", []).unwrap();
+    let revision: i64 = fx.c.query_row("SELECT revision FROM ibkr_registrations", [], |r| r.get(0)).unwrap();
+    let finished = deltabadger::web::settings::keys::finish_registration(&fx.c, &fx.app.cipher, reg, revision, "U1234567", &None, chrono::Utc::now()).unwrap();
+    assert!(matches!(finished, deltabadger::web::settings::keys::Finished::Closed(_)), "{finished:?}");
+    assert!(s7b_registrations(&fx).is_empty());
+    let realm: String = fx.c.query_row("SELECT ibkr_realm FROM api_keys WHERE id = ?1", [one], |r| r.get(0)).unwrap();
+    assert_eq!(realm, "other_realm");
+}
+
+/// Rule 4: a new IBKR account waits while an IBKR key of the exchange has not named its account.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_new_account_waits_for_an_unbound_key() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (_, _) = s7b_connected_one(&mut fx).await;
+    fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, 2, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange)).unwrap();
+    let second = fx.c.last_insert_rowid();
+    let other = s7b_key(&fx, Some(second), 3);
+    // Another login's pending key (its own consumer key).
+    fx.c.execute("UPDATE api_keys SET key = ?1 WHERE id = ?2", rusqlite::params![fx.app.cipher.encrypt("another-consumer-key"), other]).unwrap();
+    let (reg, revision) = s7b_registration(&mut fx).await;
+    s7b_server(&server, "U7654321").await;
+    let page = format!("/settings/ibkr_connect?registration={reg}");
+    fx.browser.send(&fx.app, "GET", &page, None, Csrf::None, &[]).await;
+    let form = s7b_registration_form(reg, revision);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let posted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await;
+    assert_eq!(posted.status, 302, "{}", posted.body);
+    assert_eq!(s7b_keys(&fx).len(), 2, "no new key");
+    assert_eq!(s7b_registrations(&fx).len(), 1, "the registration waits");
+    let shown = fx.browser.send(&fx.app, "GET", &page, None, Csrf::None, &[]).await;
+    assert!(shown.body.contains("still waiting for your other IBKR connection"), "{}", shown.body);
+}
+
+/// A registration IBKR has not activated yet, with the recorded credentials pasted (status 3).
+async fn s7b_awaiting(fx: &mut Fx) -> (i64, i64) {
+    let (reg, _) = s7b_registration(fx).await;
+    let (e, t) = (|v: &str| fx.app.cipher.encrypt(v), test_keys());
+    fx.c.execute("UPDATE ibkr_registrations SET key = ?1, secret = ?2, access_token = ?3, status = 3, revision = revision + 1 WHERE id = ?4",
+                 rusqlite::params![e(&t("consumer_key")), e(&t("access_token_secret")), e(&t("access_token")), reg]).unwrap();
+    (reg, fx.c.query_row("SELECT revision FROM ibkr_registrations WHERE id = ?1", [reg], |r| r.get(0)).unwrap())
+}
+
+/// Rule 5: the activation job finishes a registration IBKR has activated, as its save would, when nothing needs asking.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_job_finishes_registration_that_asks_nothing() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    s7b_awaiting(&mut fx).await;
+    assert_eq!(s7b_activation_job(&fx, &server.uri()).await, deltabadger::jobs::Outcome::Done);
+    assert!(s7b_registrations(&fx).is_empty(), "the registration became the key");
+    let keys = s7b_keys(&fx);
+    assert_eq!(keys.len(), 1, "{keys:?}");
+    assert_eq!(s7b_bound(&fx, keys[0].0).as_deref(), Some("U1234567"));
+    assert_eq!(fx.c.query_row("SELECT status FROM api_keys WHERE id = ?1", [keys[0].0], |r| r.get::<_, i64>(0)).unwrap(), 1);
+    assert_eq!(s7b_seq(&fx).0, s7b_seq(&fx).1, "its read acted on");
+}
+
+/// Rule 5: one whose finish would ask the user (history 2.x may have synced of an unknown account) waits for the user.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_job_leaves_one_that_would_ask() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    s7b_connected_one(&mut fx).await;
+    deltabadger::venue::ibkr_account::after_v2(&fx.c).unwrap();
+    let (reg, revision) = s7b_awaiting(&mut fx).await;
+    s7b_server(&server, "U7654321").await;
+    s7b_activation_job(&fx, &server.uri()).await;
+    assert_eq!(s7b_registrations(&fx), [(reg, revision, 3)], "kept for the user");
+    assert_eq!(s7b_keys(&fx).len(), 1, "nothing saved");
+}
+
+/// §2: a job finish whose read is no longer its login's latest (a copy's read came after it) writes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_delayed_finish_after_copy_read_writes_nothing() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    let (reg, revision) = s7b_awaiting(&mut fx).await;
+    let reads = s7b_reads(&fx);
+    let old = deltabadger::venue::ibkr_account::take_seq(&fx.c, &reads.digest).unwrap();
+    deltabadger::venue::ibkr_account::take_seq(&fx.c, &reads.digest).unwrap();
+    let finished = deltabadger::web::settings::keys::finish_registration(&fx.c, &fx.app.cipher, reg, revision, "U1234567", &Some((reads.digest.clone(), old)), chrono::Utc::now()).unwrap();
+    assert!(matches!(finished, deltabadger::web::settings::keys::Finished::Waits(_)), "{finished:?}");
+    assert!(s7b_keys(&fx).is_empty() && s7b_registrations(&fx).len() == 1, "nothing written");
+}
+
+/// §2: a resubmit whose read is overtaken by another read of the login (taken while it was in flight) is retried and
+/// teaches nothing: the copy it would fence stays as it is.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_stale_learn_refused_writes_nothing() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (one, _) = s7b_connected_one(&mut fx).await;
+    s7b_slow_server(&server, "U7654321", std::time::Duration::from_millis(400)).await;
+    let reads = s7b_reads(&fx);
+    let form = s7b_form();
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    fx.page().await;
+    let (browser, app, c) = (&mut fx.browser, &fx.app, &fx.c);
+    let (posted, ()) = tokio::join!(browser.send(app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Header, &[]),
+        async { tokio::time::sleep(std::time::Duration::from_millis(100)).await; deltabadger::venue::ibkr_account::take_seq(c, &reads.digest).unwrap(); });
+    assert_eq!(posted.status, 302, "retried, not asked: {}", posted.body);
+    assert!(!s7b_fenced(&fx, one), "the stale read fenced nothing");
+    assert_eq!(s7b_keys(&fx).len(), 1);
+}
+
+/// Rule 11: an account's connection keeps its account on every link and redirect, the sheet's included.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_tracker_links_keep_the_account() {
+    let mut fx = hosted().await;
+    fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, 1, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange)).unwrap();
+    fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, 2, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange)).unwrap();
+    let second = fx.c.last_insert_rowid();
+    s7b_key(&fx, None, 1);
+    s7b_key(&fx, Some(second), 0);
+    let page = fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?account_id={second}"), None, Csrf::None, &[]).await;
+    assert!(page.body.contains(&format!("artifact=signing&amp;account_id={second}")), "{}", page.body);
+    let second_s = second.to_string();
+    let blank = [("api_key[key]", ""), ("api_key[access_token]", ""), ("api_key[secret]", ""), ("account_id", second_s.as_str())];
+    let posted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&blank), Csrf::Form, &[]).await;
+    assert_eq!(posted.status, 302);
+    assert!(posted.header("location").is_some_and(|l| l.contains(&format!("account_id={second}"))), "{:?}", posted.headers);
+    let mut sheet = blank.to_vec();
+    sheet.push(("sheet", "tracker"));
+    let posted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&sheet), Csrf::Form, &[]).await;
+    assert!(posted.header("location").is_some_and(|l| l.contains("/tracker/add_api_key/new") && l.contains(&format!("account_id={second}"))), "{:?}", posted.headers);
+    // Branch r1 #1: and the sheet it lands on is account 2's.
+    let location = posted.header("location").unwrap().to_string();
+    let followed = fx.browser.send(&fx.app, "GET", &location, None, Csrf::None, &[]).await;
+    assert!(followed.body.contains(&format!("artifact=signing&amp;account_id={second}")), "account 2's connection: {}", followed.body);
+}
+
+// ---- #710 7b branch review r1 ------------------------------------------------------------------------------------------
+
+/// Two live accounts (number 1 and 2), as (first, second).
+fn s7b_two_accounts(fx: &Fx) -> (i64, i64) {
+    let account = |number: i64| {
+        fx.c.execute("INSERT INTO exchange_accounts(user_id, exchange_id, number, created_at, updated_at) VALUES(?1, ?2, ?3, '2026-01-01', '2026-01-01')", (fx.user, fx.exchange, number)).unwrap();
+        fx.c.last_insert_rowid()
+    };
+    (account(1), account(2))
+}
+/// IBKR answers every login's accounts read with none listed: the activation wait.
+async fn s7b_pending_server(server: &wiremock::MockServer) {
+    use wiremock::{matchers::{method, path}, Mock, ResponseTemplate};
+    s7b_server(server, "U1234567").await;
+    server.reset().await;
+    let verdicts = fixture("ibkr_key_verdicts.json");
+    let one = verdicts["ibkr"]["cases"].as_array().unwrap().iter().find(|c| c["case"] == "one_account").unwrap().clone();
+    let answer = |a: &serde_json::Value| ResponseTemplate::new(a["status"].as_u64().unwrap() as u16).set_body_raw(a["body"].as_str().unwrap().as_bytes().to_vec(), "application/json");
+    Mock::given(method("POST")).and(path("/v1/api/oauth/live_session_token")).respond_with(answer(&one["responses"][0])).mount(server).await;
+    Mock::given(method("POST")).and(path("/v1/api/iserver/auth/ssodh/init")).respond_with(answer(&one["responses"][1])).mount(server).await;
+    Mock::given(method("GET")).and(path("/v1/api/iserver/accounts")).respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "accounts": [] }))).mount(server).await;
+}
+
+/// Branch r1 #1: the tracker sheet follows its URL in a fresh session (no venue-step pick kept): the Brokers tile's
+/// `untargeted=1` opens a fresh connection beside a connected account 1, and `account_id` that account's own.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_tracker_sheet_follows_its_url() {
+    let mut fx = hosted().await;
+    let (_, second) = s7b_two_accounts(&fx);
+    let one = s7b_key(&fx, None, 1);
+    deltabadger::venue::ibkr_account::bind(&fx.c, &fx.app.cipher, one, "U1234567", chrono::Utc::now()).unwrap().unwrap();
+    s7b_key(&fx, Some(second), 0);
+    let tile = fx.browser.send(&fx.app, "GET", &format!("/tracker/add_api_key/new?exchange_id={}&untargeted=1", fx.exchange), None, Csrf::None, &[]).await;
+    assert_eq!(tile.status, 200, "{}", tile.body);
+    assert!(tile.body.contains("name=\"registration\" value=\"new\""), "a fresh connection, not account 1's: {}", tile.body);
+    let named = fx.browser.send(&fx.app, "GET", &format!("/tracker/add_api_key/new?exchange_id={}&account_id={second}", fx.exchange), None, Csrf::None, &[]).await;
+    assert!(named.body.contains(&format!("artifact=signing&amp;account_id={second}")), "account 2's own connection: {}", named.body);
+}
+
+/// Branch r1 #2: a keyless account's Reconnect (after a reset, account 2 has no key) carries its `account_id`, so Start
+/// makes a registration targeted at it, never an untargeted one.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_keyless_account_reconnect_carries_its_account() {
+    let mut fx = hosted().await;
+    let (_, second) = s7b_two_accounts(&fx);
+    let one = s7b_key(&fx, None, 1);
+    deltabadger::venue::ibkr_account::bind(&fx.c, &fx.app.cipher, one, "U1234567", chrono::Utc::now()).unwrap().unwrap();
+    let page = fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?account_id={second}"), None, Csrf::None, &[]).await;
+    assert!(page.body.contains(&format!("name=\"account_id\" value=\"{second}\"")), "{}", page.body);
+    let second_s = second.to_string();
+    let started = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("account_id", second_s.as_str())]), Csrf::Form, &[]).await;
+    assert_eq!(started.status, 302);
+    let target: Option<i64> = fx.c.query_row("SELECT target_account_id FROM ibkr_registrations", [], |r| r.get(0)).unwrap();
+    assert_eq!(target, Some(second));
+}
+
+/// Branch r1 #9: an unqualified activation (2.x's form) once account 2 exists never replaces bound account 1's working
+/// credentials, whatever IBKR answers (here the activation wait): nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_unqualified_activate_never_replaces_bound_account_one() {
+    let server = wiremock::MockServer::start().await;
+    s7b_pending_server(&server).await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (_, second) = s7b_two_accounts(&fx);
+    let one = s7b_key(&fx, None, 1);
+    deltabadger::venue::ibkr_account::bind(&fx.c, &fx.app.cipher, one, "U1234567", chrono::Utc::now()).unwrap().unwrap();
+    s7b_key(&fx, Some(second), 1);
+    let row = |c: &rusqlite::Connection| c.query_row("SELECT key, secret, access_token, status FROM api_keys WHERE id = ?1", [one], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, i64>(3)?))).unwrap();
+    let before = row(&fx.c);
+    let form = [("api_key[key]", "another-consumer-key"), ("api_key[access_token]", "another-token"), ("api_key[secret]", "another-secret")];
+    fx.page().await;
+    let posted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Header, &[]).await;
+    assert_eq!(posted.status, 302, "{}", posted.body);
+    assert_eq!(row(&fx.c), before, "account 1's credentials and status as they were");
+    assert!(s7b_bound(&fx, one).is_some());
+}
+
+/// Branch r1 #12: Start over deletes only the revision its tab showed: a tab of revision 1 leaves revision 2 (another tab
+/// submitted its credentials and waits for IBKR's activation) as it is.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_start_over_checks_the_posted_revision() {
+    let mut fx = hosted().await;
+    let (reg, revision) = s7b_registration(&mut fx).await;
+    fx.c.execute("UPDATE ibkr_registrations SET revision = revision + 1, status = 3 WHERE id = ?1", [reg]).unwrap();
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    let (reg_s, rev_s) = (reg.to_string(), revision.to_string());
+    let stale = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect", Some(&[("_method", "delete"), ("registration", &reg_s), ("revision", &rev_s)]), Csrf::Form, &[]).await;
+    assert_eq!(stale.status, 302);
+    assert_eq!(s7b_registrations(&fx), [(reg, revision + 1, 3)], "the stale tab's Start over deletes nothing");
+}
+
+/// Branch r1 #10: a waiting registration (status 3) whose routed slot the user replaced meanwhile is closed when IBKR
+/// activates it, never left waiting to overwrite the replacement at a later run.
+#[tokio::test(flavor = "current_thread")]
+async fn s7b_ibkr_replaced_slot_closes_a_waiting_registration() {
+    let server = wiremock::MockServer::start().await;
+    s7b_server(&server, "U1234567").await;
+    let mut fx = install_with(true, Some(server.uri())).await;
+    fx.app.attach_jobs(Default::default()).unwrap();
+    let (one, _) = s7b_connected_one(&mut fx).await;
+    let (reg, revision) = s7b_registration(&mut fx).await;
+    // IBKR has not activated the registration's login yet: its submit waits.
+    s7b_pending_server(&server).await;
+    fx.browser.send(&fx.app, "GET", &format!("/settings/ibkr_connect?registration={reg}"), None, Csrf::None, &[]).await;
+    let form = s7b_registration_form(reg, revision);
+    let form: Vec<(&str, &str)> = form.iter().map(|(k, v)| (*k, v.as_str())).collect();
+    let posted = fx.browser.send(&fx.app, "POST", "/settings/ibkr_connect/activate", Some(&form), Csrf::Form, &[]).await;
+    assert_eq!(posted.status, 302, "{}", posted.body);
+    assert_eq!(s7b_registrations(&fx).iter().map(|r| r.2).collect::<Vec<_>>(), [3], "waiting for IBKR");
+    // The user replaces account 1's connection meanwhile; then IBKR activates the registration's login (account 1's).
+    fx.c.execute("UPDATE api_keys SET ibkr_realm = 'test_realm' WHERE id = ?1", [one]).unwrap();
+    s7b_server(&server, "U1234567").await;
+    for _ in 0..2 { s7b_activation_job(&fx, &server.uri()).await; }
+    let realm: String = fx.c.query_row("SELECT ibkr_realm FROM api_keys WHERE id = ?1", [one], |r| r.get(0)).unwrap();
+    assert_eq!(realm, "test_realm", "the replacement survives every run");
+    assert!(s7b_registrations(&fx).is_empty(), "the registration is closed");
+}

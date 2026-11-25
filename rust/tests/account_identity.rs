@@ -1459,9 +1459,10 @@ fn s7a_r3_every_rust_owned_table_naming_an_account_keeps_it() {
     let fx = Fx::new();
     let owned = deltabadger::store::REGISTRY.live_tables();
     let mut s = fx.c.prepare("SELECT m.name FROM sqlite_master m JOIN pragma_table_info(m.name) p WHERE m.type = 'table' AND p.name = 'account_id' ORDER BY m.name").unwrap();
-    // Rule P4: the proof and the reader generation are bookkeeping about an account, never what keeps it.
+    // Rule P4: the proof and the reader generation are bookkeeping about an account, never what keeps it; #710 7b: so is
+    // the IBKR history evidence (the history itself names the account).
     let schema: Vec<String> = s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).filter(|t: &String| owned.contains(&t.as_str()))
-        .filter(|t| !["account_fingerprint_proofs", "ledger_reader_generations"].contains(&t.as_str())).collect();
+        .filter(|t| !["account_fingerprint_proofs", "ledger_reader_generations", "ibkr_account_evidence"].contains(&t.as_str())).collect();
     drop(s);
     for t in ["kucoin_coverage", "kucoin_withheld_fills", "exchange_account_rules", "rust_api_order_standalone", "import_rows"] {
         assert!(schema.iter().any(|s| s == t), "{t} names an account: {schema:?}");
@@ -1640,7 +1641,7 @@ fn p3_the_migration_proves_what_a_key_read_or_no_file_named() {
         INSERT INTO exchange_account_credentials (api_key_id, exchange_id, fingerprint) VALUES (1, 1, 'b'), (2, 2, 'b2'), (3, 3, 'c'), (4, 4, '{sentinel}');
         INSERT INTO exchange_account_imports (user_id, exchange_id, fingerprint, account_id_enc, observed_at, account_id) VALUES
           (1, 1, 'a', x'02', {t}, 1), (1, 3, 'c', x'02', {t}, 3), (1, 4, 'd', x'02', {t}, 4);")).unwrap();
-    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V, "20261125000002", "20261126000001"]);
+    assert_eq!(deltabadger::store::migrate(&p, &lock).unwrap(), [V, "20261125000002", "20261126000001", "20261126000002"]);
     assert_eq!(proven(&c), [2, 3]);
 }
 
@@ -1912,4 +1913,23 @@ fn discovery_rotates_past_ten_keys_failing_transiently() {
     for key in &failing { fx.observe(*key, Observed::Failed("transport".into())); }
     let next = ids(first + Duration::hours(1));
     assert_eq!(next.first(), Some(&eleventh), "the eleventh is read on the next pass: {next:?}");
+}
+
+/// #710 7b rule 15 (D-MERGE-LEDGERLESS): Merge's live check asks a fresh ledger completion only of a venue with a ledger.
+/// Two IBKR accounts (no ledger) are asked for their balances alone; KuCoin's ledger stays asked (above).
+#[test]
+fn s7b_ibkr_merge_live_check_asks_no_ledger_of_a_ledgerless_venue() {
+    let fx = Fx::new();
+    let ibkr = "Exchanges::Ibkr";
+    let exchange = fx.exchange(ibkr);
+    let one = fx.key(ibkr, 0, "ibkr-a");
+    let first = identity::ensure_account(&fx.c, fx.user, exchange, now()).unwrap();
+    let second = identity::new_account(&fx.c, fx.user, exchange, now()).unwrap();
+    let two = fx.key(ibkr, 0, "ibkr-b");
+    place(&fx, two, second);
+    let row = |id: i64| identity::AccountRow::by_id(&fx.c, id).unwrap().unwrap();
+    let identity::Live::Stale(wake) = identity::live_check(&fx.c, &row(second), &row(first), now()).unwrap() else { panic!("stale") };
+    let (ledger, balances) = (deltabadger::sync::jobs::LEDGER_SYNC, deltabadger::sync::jobs::BALANCE_SYNC);
+    assert!(!wake.iter().any(|(job, _)| *job == ledger), "no ledger asked: {wake:?}");
+    assert!(wake.contains(&(balances, one)) && wake.contains(&(balances, two)), "balance provenance stays required: {wake:?}");
 }

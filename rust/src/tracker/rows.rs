@@ -168,7 +168,7 @@ pub fn cfee_fills<'a>(fee: &Stored, rows: impl IntoIterator<Item = &'a Stored>) 
 pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresError> {
     let (mut currency, mut quote, mut base) = (None::<&str>, Dec::zero(), Dec::zero());
     for r in fills {
-        let (Some(c), Some(paid)) = (r.quote.as_deref().filter(|_| r.quoted()), r.quote_amount.as_ref()) else { return Ok(None) };
+        let (Some(c), Some(paid)) = (r.quote.as_ref().map(Label::as_str).filter(|_| r.quoted()), r.quote_amount.as_ref()) else { return Ok(None) };
         if !paid.is_positive() { return Ok(None); }
         let c = if stable(c) { "USD" } else { c };
         if currency.is_some_and(|known| known != c) { return Ok(None); }
@@ -182,7 +182,7 @@ pub fn fill_price(fills: &[&Stored]) -> Result<Option<(Dec, String)>, FiguresErr
 /// fee is not one of them (D-TAX-CFEE-MATCHED-FILL: `Cfee::fill`).
 pub fn cfee_places(rows: &[Stored]) -> Vec<(usize, Vec<usize>)> {
     let mut trades: std::collections::HashMap<(i64, &str, NaiveDate), Vec<usize>> = std::collections::HashMap::new();
-    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((r.account, &r.base, r.date())).or_default().push(i); } }
+    for (i, r) in rows.iter().enumerate() { if matches!(r.kind, Kind::Buy | Kind::Sell) { trades.entry((r.account, r.base.as_str(), r.date())).or_default().push(i); } }
     let place: std::collections::HashMap<i64, usize> = trades.values().flatten().map(|&i| (rows[i].id, i)).collect();
     rows.iter().enumerate().filter(|(_, r)| r.cfee.fee && r.kind == Kind::Fee && !r.cfee.timed()).filter_map(|(i, fee)| {
         let pool = trades.get(&(fee.account, fee.base.as_str(), fee.date().pred_opt()?))?;
@@ -228,18 +228,18 @@ pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i6
     hold(0, n_fees * size_of::<(usize, At, &'static str)>())?;
     let fees: Vec<(usize, At, &'static str)> = rows.iter().enumerate().filter_map(|(i, r)| {
         let charged = r.cfee.charged.filter(|_| is_fee(r))?;
-        Some((i, charged, pair_quote(&r.base, r.cfee.symbol.as_deref()?)?))
+        Some((i, charged, pair_quote(r.base.as_str(), r.cfee.symbol.as_deref()?)?))
     }).collect();
     let crypto = |x: &Stored| match super::prices::recorded_class(x.base_asset.as_ref()) {
         Some(security) => !security,
-        None => x.cfee.symbol.as_deref().is_some_and(|s| s.contains('/') || pair_quote(&x.base, s).is_some()),
+        None => x.cfee.symbol.as_deref().is_some_and(|s| s.contains('/') || pair_quote(x.base.as_str(), s).is_some()),
     };
     let tolerance = Dec::strict("0.001")?;
     // Each candidate of fee `i`, as (place, exact price, within 0.1 %), each read a step.
     let candidates = |i: usize, charged: At, quote: &str, out: &mut dyn FnMut(usize, bool, bool)| -> Result<(), FiguresError> {
         let f = &rows[i];
         let venue = super::prices::Venue { id: f.exchange_id, name_id: f.venue.clone(), stock: true };
-        let alias = |day: NaiveDate| super::prices::alias_coin(&f.base, Some(&venue), Some(day));
+        let alias = |day: NaiveDate| super::prices::alias_coin(f.base.as_str(), Some(&venue), Some(day));
         let coin = alias(charged.utc().date_naive());
         if alias(f.date()) != coin { return Ok(()); }
         // A price of zero or less names no fill: no edge at all. No price (absent, unreadable): every candidate.
@@ -254,7 +254,7 @@ pub fn cfee_matches(rows: &[Stored]) -> Result<std::collections::HashMap<i64, i6
             if x.at.0 > charged.0 { break; }
             crate::figures::budget::charge(1, 0)?;
             if x.kind == Kind::Buy && x.amount < f.amount { continue; }
-            if !crypto(x) || x.quote.as_deref() != Some(quote) { continue; }
+            if !crypto(x) || x.quote.as_ref().map(Label::as_str) != Some(quote) { continue; }
             if let (Some(a), Some(b)) = (&x.base_asset, &f.base_asset) { if a.0 != b.0 { continue; } }
             if alias(x.date()) != coin { continue; }
             let (exact, near) = match (price, &band, x.cfee.price.as_ref()) {
@@ -338,7 +338,7 @@ pub fn cfee_price(c: &Connection, user_id: i64, id: i64) -> Result<Option<(Dec, 
     // A day's margin either side: the stored instant's text is compared, `charged_on` decides.
     let (from, to) = (day.pred_opt().unwrap_or(day), fee.date().succ_opt().unwrap_or(fee.date()));
     let rows = read(c, "t.user_id = ?1 AND t.base_currency = ?2 AND t.entry_type IN (0, 1) AND t.transacted_at >= ?3 AND t.transacted_at < ?4",
-                    rusqlite::params![user_id, fee.base, from.to_string(), to.to_string()])?;
+                    rusqlite::params![user_id, fee.base.as_str(), from.to_string(), to.to_string()])?;
     fill_price(&cfee_fills(&fee, &rows))
 }
 
@@ -346,7 +346,7 @@ impl Stored {
     /// The day of its instant, in UTC (every job runs under Time.zone = UTC).
     pub fn date(&self) -> NaiveDate { self.at.utc().date_naive() }
     /// AccountTransaction#quoted?.
-    pub fn quoted(&self) -> bool { self.quote_amount.is_some() && self.quote.as_deref().is_some_and(cash) }
+    pub fn quoted(&self) -> bool { self.quote_amount.is_some() && self.quote.as_ref().is_some_and(Label::is_cash) }
     pub fn borrowed(&self) -> bool { borrowed(self.tx_id.as_deref()) }
 }
 
@@ -448,10 +448,10 @@ fn read(c: &Connection, filter: &str, params: &[&dyn rusqlite::ToSql]) -> Result
         let to_type: Option<String> = r.get(16)?;
         let base: String = r.get(4)?;
         rows.push(Stored {
-            id: r.get(0)?, exchange_id: r.get(1)?, venue: name_id(venue_type.as_deref().unwrap_or("")), kind, base: base.clone().into(),
+            id: r.get(0)?, exchange_id: r.get(1)?, venue: name_id(venue_type.as_deref().unwrap_or("")), kind, base: Label::spelled(base.clone()),
             amount: Dec::from_sql(r.get_ref(5)?)?.ok_or_else(|| data("a row with no base amount"))?,
-            quote: r.get(6)?, quote_amount: Dec::from_sql(r.get_ref(7)?)?,
-            fee_currency: r.get(8)?, fee_amount: Dec::from_sql(r.get_ref(9)?)?,
+            quote: r.get::<_, Option<String>>(6)?.map(Label::spelled), quote_amount: Dec::from_sql(r.get_ref(7)?)?,
+            fee_currency: r.get::<_, Option<String>>(8)?.map(Label::spelled), fee_amount: Dec::from_sql(r.get_ref(9)?)?,
             tx_id: r.get(10)?, group: group_id(r.get(11)?),
             at: At::from_sql(&at_text).map_err(|e| data(format!("{e:?}")))?,
             per_share: json_number(raw.get("per_share_amount"))?,
@@ -490,7 +490,7 @@ pub fn ordered_legs(rows: Vec<Stored>, stable_cash: bool) -> Result<Vec<Stored>,
 /// the rows `split_coin_quoted_trades` reads as two legs. The base may be anything, cash included.
 pub fn coin_quoted(r: &Stored, stable_cash: bool) -> bool {
     matches!(r.kind, Kind::Buy | Kind::Sell) && r.group.is_none() && r.quote_amount.is_some()
-        && r.quote.as_deref().is_some_and(|q| !(q.trim().is_empty() || fiat(q) || stable_cash && stable(q)))
+        && r.quote.as_ref().is_some_and(|q| !(q.as_str().trim().is_empty() || q.is_fiat() || stable_cash && q.is_stable()))
 }
 
 /// D-TRACKER-COIN-QUOTE (and the tax report's D-TAX-COIN-QUOTE): a trade of a coin for a coin booked as one buy or sell row
@@ -515,7 +515,7 @@ pub fn split_coin_quoted_trades(rows: Vec<Stored>, stable_cash: bool) -> Result<
         let mut name = format!("coin-quote:{}", r.id);
         while taken.contains(&(r.exchange_id, name.clone())) { name.insert(0, '~'); }
         let group = Some(name);
-        let fee_on_quote = r.fee_currency.as_deref() == Some(quote.as_str()) || (!buying && r.fee_currency.as_deref() != Some(r.base.as_str()));
+        let fee_on_quote = r.fee_currency.as_ref().map(Label::as_str) == Some(quote.as_str()) || (!buying && r.fee_currency.as_ref().map(Label::as_str) != Some(r.base.as_str()));
         let (fee_currency, fee_amount) = (r.fee_currency.clone(), r.fee_amount.clone());
         let other = Stored {
             id: -r.id, kind: if buying { Kind::SwapOut } else { Kind::SwapIn }, base: quote, amount: paid, quote: None, quote_amount: None,
@@ -567,7 +567,7 @@ pub fn alpaca_sweep_domain(c: &Connection, user_id: i64, all: &[Stored]) -> Resu
         if r.borrowed() { return Err("futures or margin rows".into()); }
         if matches!(r.kind, Kind::SwapIn | Kind::SwapOut) { return Err("swap legs".into()); }
         if r.fee_currency.is_some() || r.fee_amount.is_some() { return Err("a fee carried on a row".into()); }
-        if [Some(r.base.as_str()), r.quote.as_deref()].into_iter().flatten().any(|c| fiat(c) && c != "USD") { return Err("cash other than US dollars".into()); }
+        if [Some(r.base.as_str()), r.quote.as_ref().map(Label::as_str)].into_iter().flatten().any(|c| fiat(c) && c != "USD") { return Err("cash other than US dollars".into()); }
         if matches!(r.kind, Kind::Buy | Kind::Sell) && !r.quoted() { return Err("a trade leg with no cash quote of its own".into()); }
     }
     // The links as stored: a link the map voids (it moves no quantity) still puts its rows outside the domain.
@@ -604,7 +604,7 @@ mod tests {
     }
     type Leg = (i64, Kind, String, String, Option<String>, Option<String>);
     fn legs(rows: &[Stored]) -> Vec<Leg> {
-        rows.iter().map(|r| (r.id, r.kind, r.base.to_string(), r.amount.to_s_f(), r.fee_currency.as_deref().map(str::to_owned), r.group.clone())).collect()
+        rows.iter().map(|r| (r.id, r.kind, r.base.to_string(), r.amount.to_s_f(), r.fee_currency.as_ref().map(Label::as_str).map(str::to_owned), r.group.clone())).collect()
     }
 
     /// D-TRACKER-COIN-QUOTE: a coin-quoted row is its two legs, out first, at its place; the fee with its own coin's leg, else
@@ -616,18 +616,18 @@ mod tests {
         // A sale of BTC for ETH, the fee in ETH (the coin coming in): BTC out, then ETH in with the fee.
         let out = split_coin_quoted_trades(vec![trade(7, Kind::Sell, "BTC", "ETH", "10", Some(("ETH", "0.01")))], true).unwrap();
         assert_eq!(legs(&out), [(7, Kind::SwapOut, s("BTC"), s("1.0"), None, g(7)), (-7, Kind::SwapIn, s("ETH"), s("10.0"), Some(s("ETH")), g(7))]);
-        assert_eq!((out[1].tx_id.as_deref(), out[1].quote.as_deref(), out[1].quote_amount.as_ref()), (Some("t7-quote"), None, None));
+        assert_eq!((out[1].tx_id.as_deref(), out[1].quote.as_ref().map(Label::as_str), out[1].quote_amount.as_ref()), (Some("t7-quote"), None, None));
         // A sale, the fee in the coin sold: with the out-leg. A third coin: with the coin coming in.
         let out = split_coin_quoted_trades(vec![trade(7, Kind::Sell, "BTC", "ETH", "10", Some(("BTC", "0.01")))], true).unwrap();
-        assert_eq!((out[0].fee_currency.as_deref(), out[1].fee_currency.as_deref()), (Some("BTC"), None));
+        assert_eq!((out[0].fee_currency.as_ref().map(Label::as_str), out[1].fee_currency.as_ref().map(Label::as_str)), (Some("BTC"), None));
         let out = split_coin_quoted_trades(vec![trade(7, Kind::Sell, "BTC", "ETH", "10", Some(("KCS", "1")))], true).unwrap();
-        assert_eq!((out[0].fee_currency.as_deref(), out[1].fee_currency.as_deref()), (None, Some("KCS")));
+        assert_eq!((out[0].fee_currency.as_ref().map(Label::as_str), out[1].fee_currency.as_ref().map(Label::as_str)), (None, Some("KCS")));
         // A buy of ETH for BTC: BTC out first; the fee in BTC with it, in ETH or a third coin with the ETH coming in.
         let out = split_coin_quoted_trades(vec![trade(8, Kind::Buy, "ETH", "BTC", "0.5", Some(("BTC", "0.001")))], true).unwrap();
         assert_eq!(legs(&out), [(-8, Kind::SwapOut, s("BTC"), s("0.5"), Some(s("BTC")), g(8)), (8, Kind::SwapIn, s("ETH"), s("1.0"), None, g(8))]);
         for fee in ["ETH", "KCS"] {
             let out = split_coin_quoted_trades(vec![trade(8, Kind::Buy, "ETH", "BTC", "0.5", Some((fee, "1")))], true).unwrap();
-            assert_eq!((out[0].fee_currency.as_deref(), out[1].fee_currency.as_deref()), (None, Some(fee)), "{fee}");
+            assert_eq!((out[0].fee_currency.as_ref().map(Label::as_str), out[1].fee_currency.as_ref().map(Label::as_str)), (None, Some(fee)), "{fee}");
         }
         // A cash base sold for a coin is split too (its cash leg reads as the cash trade it is).
         let out = split_coin_quoted_trades(vec![trade(9, Kind::Sell, "USDT", "BTC", "1", None)], true).unwrap();
@@ -691,7 +691,7 @@ mod tests {
         let all = load_all(&c, 1).unwrap();
         assert_eq!(all.iter().map(|r| r.id).collect::<Vec<_>>(), [1, 2, 3]);
         assert_eq!(walk_rows(&all).unwrap().iter().map(|r| r.id).collect::<Vec<_>>(), [1, 3]);
-        assert_eq!((all[0].venue.as_str(), all[0].fee_currency.as_deref()), ("binance", Some("BNB")));
+        assert_eq!((all[0].venue.as_str(), all[0].fee_currency.as_ref().map(Label::as_str)), ("binance", Some("BNB")));
         assert_eq!(all[0].bot_order, None);
         c.execute("UPDATE account_transactions SET transaction_id = 7 WHERE id = 1", []).unwrap();
         assert_eq!(load_all(&c, 1).unwrap()[0].bot_order, Some(7));

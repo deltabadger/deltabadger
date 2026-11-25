@@ -209,7 +209,9 @@ pub async fn compute<T: Transport>(db: &Db, api: Option<&Feed<T>>, ecb: Option<&
         let inputs = metered(db, allowance, move |c, _| load_inputs(c, user_id)).await?;
         let now = crate::figures::at::At::from_utc(began).ok_or("an instant out of range")?;
         let (mut walked, inputs) = pass(db, api, inputs, began, allowance, move |i, ps| walk::scopes(&i.rows, &i.deposits, ps, now)).await?;
-        walked.label(&inputs.labels);
+        let mut rows: HashMap<i64, HashSet<i64>> = HashMap::new();
+        for r in &inputs.all { rows.entry(r.account).or_default().insert(r.id); }
+        walked.label(&inputs.labels, &rows);
         let (history, generation) = db.run(move |c, _| Ok((backfill::history_version(c, user_id).map_err(message)?, backfill::generation(c).map_err(message)?))).await?;
         let still = history == inputs.history && generation == inputs.generation;
         last = Some((walked, inputs, began));
@@ -290,6 +292,7 @@ pub async fn backfill_run<C: Connect, T: Transport>(db: &Db, venues: &C, api: Op
         let tx = c.unchecked_transaction()?;
         let c: &Connection = &tx;
         let version = backfill::history_version(c, user_id)?;
+        backfill::count_attempt(c, cipher, user_id, now)?;
         let (all, labels) = super::rows::load_all_labelled(c, user_id)?;
         let first = all.iter().map(|r| r.date()).min();
         match first {
@@ -660,7 +663,7 @@ mod tests {
             CREATE TABLE assets (id INTEGER PRIMARY KEY, external_id TEXT, category TEXT, symbol TEXT, market_cap_rank INTEGER);
             INSERT INTO assets VALUES (1, 'AAPL.US', 'Stock', 'AAPL', NULL), (2, 'bitcoin', 'Cryptocurrency', 'BTC', 1);
             CREATE TABLE tickers (id INTEGER PRIMARY KEY, exchange_id INTEGER, base TEXT, base_asset_id INTEGER); INSERT INTO tickers VALUES (1, 1, 'AAPL', 1), (2, 1, 'BTC', 2);
-            CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT);
+            CREATE TABLE api_keys (id INTEGER PRIMARY KEY,user_id INTEGER,exchange_id INTEGER,key_type INTEGER,key TEXT,secret TEXT,passphrase TEXT,access_token TEXT,rsa_signature_key TEXT,rsa_encryption_key TEXT,dh_param TEXT,ibkr_realm TEXT);
             CREATE TABLE exchange_account_balances (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER);
             CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC, UNIQUE (currency, date));
             CREATE TABLE historical_prices (id INTEGER PRIMARY KEY, asset TEXT, currency TEXT, date TEXT, price NUMERIC, UNIQUE (asset, currency, date));

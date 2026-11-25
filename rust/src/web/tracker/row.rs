@@ -27,8 +27,12 @@ impl Row {
             at:codec::parse_time(&r.get::<_,String>(9)?).map_err(|_|invalid())?,group:r.get(10)?,manual,manual_null,linked:r.get(12)?,inverse:r.get(13)?,asset:r.get(14)?,bot:r.get(15)?,venue:r.get(16)?,raw}))
     }
     pub fn linked(&self)->bool { self.linked.is_some() || self.inverse.is_some() }
-    pub fn counterpart(&self,c:&Connection)->Result<Option<(Dec,String)>,WebError> {
-        if self.quoted.is_some() && self.quote.as_deref().is_some_and(crate::tracker::cash) {
+    /// `labels`: the owner's map (Codex r2: a leg the map resolved is cash by its label, so a venue's coin spelled `PLN` is
+    /// no złoty); None reads each leg by its spelling.
+    pub fn counterpart(&self,c:&Connection,labels:Option<&crate::tracker::spellings::Spellings>)->Result<Option<(Dec,String)>,WebError> {
+        use crate::tracker::resolver::Side;
+        let cash=|id:i64,side:Side,spelling:&str| labels.and_then(|l|l.label(id,side)).map_or(crate::tracker::cash(spelling),|l|l.is_cash());
+        if self.quoted.is_some() && self.quote.as_deref().is_some_and(|q|cash(self.id,Side::Quote,q)) {
             return Ok(self.quoted.clone().zip(self.quote.clone()));
         }
         let Some(group)=self.group.as_deref().filter(|s|!s.trim().is_empty()) else{return Ok(None)};
@@ -41,7 +45,7 @@ impl Row {
         while let Some(r)=q.next()? {
             count+=1;
             let (id,kind,currency):(i64,i64,String)=(r.get(0)?,r.get(1)?,r.get(2)?);
-            if id!=self.id && crate::tracker::cash(&currency) && ((matches!(self.kind,0|2) && matches!(kind,1|3)) || (matches!(self.kind,1|3) && matches!(kind,0|2))) {
+            if id!=self.id && cash(id,Side::Base,&currency) && ((matches!(self.kind,0|2) && matches!(kind,1|3)) || (matches!(self.kind,1|3) && matches!(kind,0|2))) {
                 opposite=number(Dec::from_sql(r.get_ref(3)?))?.map(|d|(d,currency));
             }
         }
@@ -67,7 +71,7 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crat
     // Cash by the leg's label where the map has one (a PLN recorded for PLEARN is the coin), else by its spelling.
     if labels.and_then(|l|l.label(row.id,crate::tracker::resolver::Side::Base)).map_or(crate::tracker::cash(&row.base),|l|l.is_cash()){return Ok(Source::Cash)}
     if row.amount.is_zero(){return Ok(Source::None)}
-    if let Some(counterpart)=row.counterpart(c)?{return Ok(Source::Exchange(counterpart))}
+    if let Some(counterpart)=row.counterpart(c,labels)?{return Ok(Source::Exchange(counterpart))}
     if let Some(stated)=row.manual.get("price").filter(|v|!super::blank(v)){return Ok(Source::Stated(number(Dec::to_d(stated))?))}
     if row.kind==10 && crate::tracker::rows::charged(&row.raw).is_some() {
         if let Some(usd)=crate::tracker::rows::raw_price(&row.base,&row.raw){return Ok(Source::Fills(usd))}
@@ -95,9 +99,11 @@ pub fn source(c:&Connection,row:&Row,today:chrono::NaiveDate,labels:Option<&crat
 }
 
 
-fn amount(value:&Dec,currency:&str)->Result<String,WebError> {
+fn amount(value:&Dec,currency:&str)->Result<String,WebError> { amount_as(value,crate::tracker::cash(currency)) }
+/// `amount` with the cash decision made (plan r10 L13: a leg by its label, so PLEARN's 0.001 is no złoty's 0.00).
+fn amount_as(value:&Dec,cash:bool)->Result<String,WebError> {
     let absolute=if value.is_negative(){value.neg()}else{value.clone()};
-    let cents=absolute>=Dec::one() || crate::tracker::cash(currency);
+    let cents=absolute>=Dec::one() || cash;
     let precision=if cents{2}else{8};
     let plain=number(value.round(precision))?.to_s_f();
     let (whole,fraction)=plain.split_once('.').unwrap_or((&plain,""));
@@ -160,7 +166,7 @@ pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String
 pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&crate::tracker::spellings::Spellings>)->Result<String,WebError>{
     let user=ctx.user().ok_or_else(invalid)?;
     let absolute=if row.amount.is_negative(){row.amount.neg()}else{row.amount.clone()};
-    let counterpart=row.counterpart(c)?;
+    let counterpart=row.counterpart(c,labels)?;
     let today=ctx.app.now().date_naive();
     let (price,source,exchange_price)=match source(c,row,today,labels)? {
         Source::Cash=>(in_display(c,&Dec::one(),&row.base,row.at.date_naive(),d)?,"cash",None),
@@ -192,7 +198,7 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&cra
         let info=if matches!(source,"none"|"waiting"){format!("          <span class=\"tracker-row__info\" role=\"button\" tabindex=\"0\" aria-label=\"{title}\"\n                data-controller=\"tooltip\" data-tooltip-fixed-value=\"true\"\n                data-action=\"click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip\">\n            {}\n            <div class=\"tooltip tooltip--hint\">{title}</div>\n          </span>\n",include_str!("../../../templates/svg/_24x24_info.html"))}else{String::new()};
         format!("      <form data-controller=\"form--submit\" action=\"{}\" accept-charset=\"UTF-8\" method=\"post\"><input type=\"hidden\" name=\"_method\" value=\"patch\" /><input type=\"hidden\" name=\"authenticity_token\" value=\"{}\" />\n        {}\n        <input type=\"number\" name=\"price\" id=\"price\"{value} step=\"any\" min=\"0\"{disabled} placeholder=\"{placeholder}\" title=\"{title}\" class=\"tracker-row__price__input\" data-action=\"change-&gt;form--submit#submit\" />\n        {}\n{info}</form>",path("/price"),escape(&ctx.csrf_token()),if suffix{""}else{&unit},if suffix{&unit}else{""})
     };
-    let amount_cell=if user.hide_balances{String::new()}else{format!("<td>{}</td>",amount(&row.amount,&row.base)?)};
+    let amount_cell=if user.hide_balances{String::new()}else{format!("<td>{}</td>",amount_as(&row.amount,labels.and_then(|l|l.label(row.id,crate::tracker::resolver::Side::Base)).map_or(crate::tracker::cash(&row.base),|l|l.is_cash()))?)};
     let money=if user.hide_balances{String::new()}else{format!("    <td class=\"tracker-row__value\">{}</td>\n    <td class=\"tracker-row__fee\">{}</td>\n",value.as_ref().map(|v|amount(v,&d.currency)).transpose()?.unwrap_or(NO_VALUE.into()),row.fee.as_ref().map(|f|figure(f,row.fee_currency.as_deref().unwrap_or(""))).transpose()?.unwrap_or(NO_VALUE.into()))};
     let bot=row.bot.map(|id|format!("<a href=\"{}\">#{id}</a>",escape(&ctx.path(&format!("/bots/{id}"))))).unwrap_or(NO_VALUE.into());
     let venue=venue(&row.venue);

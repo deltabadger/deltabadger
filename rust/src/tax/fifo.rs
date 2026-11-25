@@ -34,6 +34,7 @@
 //!     paid for any other service (a third-coin fee, a network fee, linked or not, a fee row) is a disposal (Rz 6178v).
 //!   - D-TAX-AT-SALE-FEE: from `regime_from`, a sale fee does not reduce the gain (§ 20 Abs. 2 Z 3 lit. a); it stays shown.
 //!   - D-TAX-AT-REWARDS: from `regime_from`, staking rewards and airdrops open at cost zero (§ 27a Abs. 4 Z 5).
+use crate::tracker::spellings::Label;
 use crate::figures::{at::At, budget, dec::Dec, FiguresError};
 use crate::tracker::rows::Kind;
 use crate::tracker::walk::Row;
@@ -436,8 +437,8 @@ impl<'a> Fifo<'a> {
     /// swap and a linked deposit spend nothing; a fee in a third coin is not spending (that coin's cost is already counted).
     fn pvct_spent(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
-        if fiat(&r.base) { return Ok(()); }
-        let fiat_fee = if r.fee_currency.as_deref().is_none_or(|f| f.trim().is_empty() || fiat(f)) { r.fee_fiat_value.clone() } else { Dec::zero() };
+        if r.base.is_fiat() { return Ok(()); }
+        let fiat_fee = if r.fee_currency.as_ref().map(Label::as_str).is_none_or(|f| f.trim().is_empty() || fiat(f)) { r.fee_fiat_value.clone() } else { Dec::zero() };
         let (spent, priced) = match r.kind {
             Kind::Buy | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => ((&r.fiat_value + &fiat_fee)?, !value_missing(r)),
             Kind::Deposit if !r.linked => (if self.o.deposit_cost_zero { Dec::zero() } else { r.fiat_value.clone() }, self.o.deposit_cost_zero),
@@ -501,8 +502,8 @@ impl<'a> Fifo<'a> {
                     // elsewhere as before (moving it would restate every other report's figures: a later slice's question).
                     if self.o.pvct_from.is_some() {
                         if let Some(fee) = r.fee_amount.clone().filter(Dec::is_positive) {
-                            let symbol = r.fee_currency.as_deref().unwrap_or_default().to_string();
-                            let asset = if symbol == r.base { tx.asset.clone() } else { tx.fee_asset.clone().unwrap_or_else(|| symbol.clone()) };
+                            let symbol = r.fee_currency.as_ref().map(Label::as_str).unwrap_or_default().to_string();
+                            let asset = if symbol == r.base.as_str() { tx.asset.clone() } else { tx.fee_asset.clone().unwrap_or_else(|| symbol.clone()) };
                             self.consume_fee_in_kind(&wallet(r), &symbol, &asset, &fee)?;
                         }
                     }
@@ -520,11 +521,11 @@ impl<'a> Fifo<'a> {
                 self.own_fee(tx)?;
             }
             Kind::SwapIn => {
-                if self.non_taxable_stablecoin_swap(&r.base) { return Ok(()); }
+                if self.non_taxable_stablecoin_swap(r.base.as_str()) { return Ok(()); }
                 self.add_swap_in_lot(tx)?;
             }
             Kind::SwapOut => {
-                if self.non_taxable_stablecoin_swap(&r.base) { return Ok(()); }
+                if self.non_taxable_stablecoin_swap(r.base.as_str()) { return Ok(()); }
                 if !self.swaps_taxable_at(r.at) && !self.fiat_disposal(r) { self.transfer_swap_out(tx)?; }
                 else { self.sell(tx)?; }
             }
@@ -543,12 +544,12 @@ impl<'a> Fifo<'a> {
                 self.deferred.push((k, Deferred::Row(index)));
             }
             // D-TAX-COIN-FEE, D-TAX-AT-FEES.
-            Kind::Fee if self.coin_fees_disposed(r.at) && !fiat(&r.base) && amount.is_positive() => {
-                let sale = Sale { asset, symbol: &r.base, amount: amount.clone(), proceeds: fiat_value.clone(), fee: r.fee_fiat_value.clone(),
+            Kind::Fee if self.coin_fees_disposed(r.at) && !r.base.is_fiat() && amount.is_positive() => {
+                let sale = Sale { asset, symbol: r.base.as_str(), amount: amount.clone(), proceeds: fiat_value.clone(), fee: r.fee_fiat_value.clone(),
                                   price_missing: r.price_missing };
                 self.dispose(tx, sale, true)?;
             }
-            Kind::Fee => self.consume_fee_in_kind(&wallet(r), &r.base, asset, amount)?,
+            Kind::Fee => self.consume_fee_in_kind(&wallet(r), r.base.as_str(), asset, amount)?,
             Kind::Withdrawal => self.withdraw(tx)?,
             // D-TAX-LOST.
             // D-TAX-LOST-POOLED: no disposal, and the pool keeps the coins.
@@ -597,10 +598,10 @@ impl<'a> Fifo<'a> {
     /// D-TAX-COIN-FEE, acquisitions: the units of an own-coin fee, received with the row, disposed of at their value.
     fn own_fee(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
-        if !self.o.own_fee_disposed || r.fee_currency.as_deref() != Some(r.base.as_str()) { return Ok(()); }
+        if !self.o.own_fee_disposed || r.fee_currency.as_ref().map(Label::as_str) != Some(r.base.as_str()) { return Ok(()); }
         let Some(fee) = r.fee_amount.clone().filter(Dec::is_positive) else { return Ok(()) };
         if let Some(k) = self.waits(r, &tx.asset) { self.deferred.push((k, Deferred::Own(self.index))); return Ok(()); }
-        let sale = Sale { asset: &tx.asset, symbol: &r.base, amount: fee, proceeds: own_fee_value(r)?, fee: Dec::zero(), price_missing: r.fee_missing };
+        let sale = Sale { asset: &tx.asset, symbol: r.base.as_str(), amount: fee, proceeds: own_fee_value(r)?, fee: Dec::zero(), price_missing: r.fee_missing };
         self.dispose(tx, sale, false)
     }
 
@@ -633,7 +634,7 @@ impl<'a> Fifo<'a> {
             let Some(k) = group_key(r) else { continue };
             let g = groups.entry(k).or_default();
             // A fiat fee row of the group (SE, GB keep them) is the swap's fee, not a cash leg.
-            if t.cash_group || (fiat(&r.base) && r.kind != Kind::Fee) { g.2 = true; }
+            if t.cash_group || (r.base.is_fiat() && r.kind != Kind::Fee) { g.2 = true; }
             if r.kind.in_leg() { g.0.push(r); } else if r.kind.out_leg() { g.1.push(r); }
             // A fee row of the group is the swap's fee (SE, GB).
             else if r.kind == Kind::Fee && self.o.defer_group_fees && r.fiat_value.is_positive() { g.3.push(r); }
@@ -642,7 +643,7 @@ impl<'a> Fifo<'a> {
             if outs.is_empty() || *cash { continue; }
             let mut moving: Vec<(usize, Dec)> = vec![];
             for r in ins {
-                let in_base = r.fee_currency.as_deref() == Some(r.base.as_str());
+                let in_base = r.fee_currency.as_ref().map(Label::as_str) == Some(r.base.as_str());
                 let value = match (&r.fee_amount, in_base) {
                     (Some(fee), true) if fee.is_positive() && self.o.own_fee_disposed => own_fee_value(r)?,
                     (Some(fee), true) if fee.is_positive() && r.amount.is_positive() => (&r.fiat_value * fee)?.div(&r.amount)?,
@@ -690,7 +691,7 @@ impl<'a> Fifo<'a> {
         if tx.row.at.0 < from.0 {
             for (venue, symbol, delta) in crate::tracker::walk::located_moves(&by_wallet(&tx.row))? {
                 let Some(venue) = venue else { continue };
-                let asset = if symbol == tx.row.base { tx.asset.clone() } else if tx.row.fee_currency.as_deref() == Some(symbol.as_str()) {
+                let asset = if symbol == tx.row.base { tx.asset.clone() } else if tx.row.fee_currency.as_ref().map(Label::as_str) == Some(symbol.as_str()) {
                     tx.fee_asset.clone().unwrap_or_else(|| symbol.to_string()) } else { symbol.to_string() };
                 let k = (venue, asset);
                 match self.held.iter_mut().find(|(h, _)| *h == k) {
@@ -742,7 +743,7 @@ impl<'a> Fifo<'a> {
                 if self.coin_fees_disposed(r.at) {
                     // The withdrawal's value is read without warnings (a transfer needs no price): an unpriced one is flagged here.
                     let proceeds = if r.amount.is_positive() { (&r.fiat_value * fee)?.div(&r.amount)? } else { Dec::zero() };
-                    let sale = Sale { asset: &tx.asset, symbol: &r.base, amount: fee.clone(), proceeds, fee: Dec::zero(), price_missing: r.fiat_value.is_zero() };
+                    let sale = Sale { asset: &tx.asset, symbol: r.base.as_str(), amount: fee.clone(), proceeds, fee: Dec::zero(), price_missing: r.fiat_value.is_zero() };
                     self.dispose(tx, sale, false)?;
                 } else {
                     let k = self.key(&wallet(r), &tx.asset);
@@ -768,7 +769,7 @@ impl<'a> Fifo<'a> {
             // D-TAX-COIN-FEE: an unlinked withdrawal's fee in its own coin is inside its amount (`walk::quantity_moves`) and
             // was spent, not moved: it leaves the lots as the fee it is, the rest as the withdrawal. 2.x kept it.
             let mut amount = r.amount.clone();
-            if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str())) {
+            if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive() && r.fee_currency.as_ref().map(Label::as_str) == Some(r.base.as_str())) {
                 self.spend_fee_coin(tx, fee)?;
                 amount = max0((&amount - fee)?);
             }
@@ -778,7 +779,7 @@ impl<'a> Fifo<'a> {
             }
         }
         // D-TAX-COIN-FEE: a fee in another coin on any withdrawal leaves that coin's lots (2.x never took it).
-        if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()).filter(|_| crypto_fee_asset(r) && r.fee_currency.as_deref() != Some(r.base.as_str())) {
+        if let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()).filter(|_| crypto_fee_asset(r) && r.fee_currency.as_ref().map(Label::as_str) != Some(r.base.as_str())) {
             self.spend_fee_coin(tx, fee)?;
         }
         Ok(())
@@ -794,7 +795,7 @@ impl<'a> Fifo<'a> {
         // D-TAX-GB-SWAP-FEE: the part of the swap's other fees this leg's cost bears.
         let added = self.added_in.get(&r.uid).cloned().unwrap_or_else(Dec::zero);
         let fiat_value = &(fiat_value + &added)?;
-        if present(r.fee_currency.as_deref()) && r.fee_currency.as_deref() == Some(r.base.as_str()) {
+        if present(r.fee_currency.as_ref().map(Label::as_str)) && r.fee_currency.as_ref().map(Label::as_str) == Some(r.base.as_str()) {
             let Some(fee) = &r.fee_amount else { return Ok((amount.clone(), fiat_value.clone())) };
             // D-TAX-COIN-FEE, acquisitions: the gross units at the value plus the fee's (less what the swap moved off);
             // `own_fee` then disposes of the fee's units.
@@ -827,9 +828,9 @@ impl<'a> Fifo<'a> {
     fn consume_disposal_fee(&mut self, tx: &Tx) -> Result<(), FiguresError> {
         let r = &tx.row;
         let Some(fee) = r.fee_amount.as_ref().filter(|f| f.is_positive()) else { return Ok(()) };
-        if r.fee_currency.as_deref() == Some(r.base.as_str()) {
+        if r.fee_currency.as_ref().map(Label::as_str) == Some(r.base.as_str()) {
             // A stablecoin that reached the engine is a coin here (a stablecoin that is cash never does).
-            if r.kind.out_leg() && !fiat(&r.base) { return self.spend_fee_coin(tx, fee); }
+            if r.kind.out_leg() && !r.base.is_fiat() { return self.spend_fee_coin(tx, fee); }
             return Ok(());
         }
         if !crypto_fee_asset(r) { return Ok(()); }
@@ -840,7 +841,7 @@ impl<'a> Fifo<'a> {
     /// value where spending a coin is one (its value missing when the row's only missing price is its fee's).
     fn spend_fee_coin(&mut self, tx: &Tx, fee: &Dec) -> Result<(), FiguresError> {
         let r = &tx.row;
-        let (symbol, asset) = (r.fee_currency.as_deref().unwrap_or_default().to_string(), tx.fee_asset.clone().unwrap_or_else(|| r.fee_currency.as_deref().unwrap_or_default().to_string()));
+        let (symbol, asset) = (r.fee_currency.as_ref().map(Label::as_str).unwrap_or_default().to_string(), tx.fee_asset.clone().unwrap_or_else(|| r.fee_currency.as_ref().map(Label::as_str).unwrap_or_default().to_string()));
         if let Some(k) = self.waits(r, &asset) { self.deferred.push((k, Deferred::Fee(self.index, fee.clone()))); return Ok(()); }
         let swap_leg = matches!(r.kind, Kind::SwapIn | Kind::SwapOut) && !self.swaps_taxable_at(r.at);
         if !swap_leg && self.coin_fees_disposed(r.at) {
@@ -869,7 +870,7 @@ impl<'a> Fifo<'a> {
         let r = &tx.row;
         if self.o.pvct_from.is_some_and(|f| r.at.0 >= f.0) { self.pvct_point(r.uid)?; }
         let fee = match self.moved_out.get(&r.uid) { Some(m) => (&r.fee_fiat_value + m)?, None => r.fee_fiat_value.clone() };
-        let sale = Sale { asset: &tx.asset, symbol: &r.base, amount: r.amount.clone(), proceeds: r.fiat_value.clone(), fee, price_missing: r.price_missing };
+        let sale = Sale { asset: &tx.asset, symbol: r.base.as_str(), amount: r.amount.clone(), proceeds: r.fiat_value.clone(), fee, price_missing: r.price_missing };
         self.dispose(tx, sale, true)
     }
 
@@ -1166,7 +1167,7 @@ impl<'a> Fifo<'a> {
 
     /// `technical_stablecoin_swap?`.
     fn technical_stablecoin_swap(&self, r: &Row, held_since: At) -> bool {
-        stable(&r.base) && self.o.holding.is_some_and(|rule| rule(held_since, r.at))
+        r.base.is_stable() && self.o.holding.is_some_and(|rule| rule(held_since, r.at))
     }
 
     /// `transfer_swap_out`: the lots an out-leg took handed to its group as tranches, weighted by the leg's worth.
@@ -1241,7 +1242,7 @@ impl<'a> Fifo<'a> {
         let mut groups: Vec<(Group, Vec<&Row>)> = vec![];
         let mut index: HashMap<Group, usize> = HashMap::new();
         for r in txs.iter().map(|t| &t.row) {
-            if r.kind != kind || self.non_taxable_stablecoin_swap(&r.base) { continue; }
+            if r.kind != kind || self.non_taxable_stablecoin_swap(r.base.as_str()) { continue; }
             if kind == Kind::SwapOut && self.fiat_disposal(r) { continue; }
             let Some(key) = group_key(r) else { continue };
             match index.get(&key) {
@@ -1275,7 +1276,7 @@ impl<'a> Fifo<'a> {
 
     /// `fiat_disposal?`.
     fn fiat_disposal(&self, r: &Row) -> bool {
-        let Some(quote) = r.quote.as_deref().filter(|q| !q.trim().is_empty()) else { return false };
+        let Some(quote) = r.quote.as_ref().map(Label::as_str).filter(|q| !q.trim().is_empty()) else { return false };
         fiat(quote) || (self.o.stablecoin_as_fiat && stable(quote))
     }
 
@@ -1314,8 +1315,8 @@ fn by_wallet(r: &Row) -> Row { Row { exchange: wallet(r), to_exchange: r.to_acco
 
 /// `crypto_fee_asset?`: a fee in neither fiat nor the row's own quote.
 fn crypto_fee_asset(r: &Row) -> bool {
-    let fc = r.fee_currency.as_deref();
-    present(fc) && fc != r.quote.as_deref() && !fc.is_some_and(fiat)
+    let fc = r.fee_currency.as_ref().map(Label::as_str);
+    present(fc) && fc != r.quote.as_ref().map(Label::as_str) && !fc.is_some_and(fiat)
 }
 
 /// `cash_lot_amount`.
