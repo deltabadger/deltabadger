@@ -360,7 +360,14 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
                 Some("its members or provider are no longer eligible")
             }
             // PLAN index-as-ingredient §3.4: a grouped bot's named sale is judged on its own pair, not on any group.
-            else if plan.kind == TxKind::Liquidation && current.stored_groups() { None }
+            // The leg's own catalogue, judged here so one that expired while the leg was priced and sized refuses it.
+            else if plan.kind == TxKind::Liquidation && current.stored_groups() {
+                if let Some(stale) = super::staleness::leg_catalogue_stale(&tx, &current, &plan.ticker, clock.now())? {
+                    super::log(&format!("[engine] bot {}: {} order not placed: {} after it was sized", bot.id, plan.ticker.ticker, stale.message));
+                    return Ok(Begun::LedgerStale(Box::new(stale)));
+                }
+                None
+            }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
             else if super::staleness::ranking_stale(&tx, &current, clock.now())?.is_some() { Some("its index ranking is no longer usable") }
             // D-INDEX-RETIRED-KEPT: a retired index trades only a membership this engine composed from it.
@@ -1112,8 +1119,20 @@ pub fn composition_snapshot(c: &Connection, bot: &Bot) -> Result<Value, EngineEr
         let rows = s.query_map([bot.id], |r| Ok(json!([r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, f64>(4)?])))?
             .collect::<Result<Vec<Value>, _>>()?;
         snapshot["groups"] = Value::Array(rows);
+        // Codex 2b r1: and the revision of the refresh that wrote them, so rows from another refresh (even equal ones) refuse.
+        let rev: Option<String> = c.query_row(&format!("SELECT json_extract(transient_data, '$.{}.rev') FROM bots WHERE id = ?1", super::composition::COMPOSED_OF_KEY),
+                                              [bot.id], |r| r.get(0))?;
+        snapshot["rev"] = json!(rev);
     }
     Ok(snapshot)
+}
+
+/// A grouped claim whose only change since it was read is this pass's own refused refresh forgetting its revision.
+pub(crate) fn forgotten_only(claim: &Value, current: &Value) -> bool {
+    if current.get("rev") != Some(&Value::Null) || claim.get("rev").is_none_or(Value::is_null) { return false; }
+    let mut claim = claim.clone();
+    claim["rev"] = Value::Null;
+    claim == *current
 }
 
 fn defer_recovered(c: &model::FencedTransaction<'_>, intent: &Intent, now: DateTime<Utc>) -> Result<(), EngineError> {

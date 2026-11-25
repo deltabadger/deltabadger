@@ -342,40 +342,31 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     let run_owned = claimed.is_none();
     let before = match claimed { Some(v) => v.clone(), None => super::placement::composition_snapshot(c, bot)? };
     let provider_before = super::provider::fingerprint(c)?;
-    if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
-    // PLAN index-as-ingredient slice 2a: per group, in stored order. Only a `Bots::DcaIndex` row reaches this (one group).
     let groups = bot.composition().map(|c| c.groups).unwrap_or_default();
-    if groups.is_empty() { return Ok(Err(Refusal::Failure("index groups: none readable".into()))); }
-    // D-INDEX-RETIRED-KEPT: a retired index keeps the membership this engine composed from it, unread and unwritten (a
-    // resync's job completes); without that provenance nothing is composed or traded.
+    // A grouped bot's every refusal, the early ones included, forgets the composition it read (revision-checked).
     if bot.stored_groups() {
         let read = super::composition::composed_rev(bot);
-        let refreshed = refresh_grouped(c, venue, bot, clock, prices, version, run_owned, &before, &provider_before, &groups, open, marker).await?;
+        let refreshed = if provider_before.is_none() { Err(Refusal::Failure("Index provider not configured".into())) }
+            else if groups.is_empty() { Err(Refusal::Failure("index groups: none readable".into())) }
+            else { refresh_grouped(c, venue, bot, clock, prices, version, run_owned, &before, &provider_before, &groups, open, marker).await? };
         if refreshed.is_err() { model::locked(c, |tx| super::composition::forget(tx, bot.id, read.as_deref()))?; }
         return Ok(refreshed);
     }
-    let mut frozen = None;
+    if provider_before.is_none() { return Ok(Err(Refusal::Failure("Index provider not configured".into()))); }
+    // PLAN index-as-ingredient slice 2a: per group, in stored order. Only a `Bots::DcaIndex` row reaches this (one group).
+    if groups.is_empty() { return Ok(Err(Refusal::Failure("index groups: none readable".into()))); }
+    // D-INDEX-RETIRED-KEPT: a retired index keeps the membership this engine composed from it, unread and unwritten (a
+    // resync's job completes); without that provenance nothing is composed or traded.
+    // D-INDEX-RETIRED-PAIR is a grouped row's (refresh_grouped); a `Bots::DcaIndex` row keeps main's frozen path unchanged.
+    let mut frozen = false;
     for group in &groups {
         if !retired(c, &group.external_id)? { continue; }
         if !composed_here(c, bot, &group.external_id)? { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
-        frozen = Some(group.external_id.clone());
+        frozen = true;
     }
-    if let Some(id) = frozen {
-        // D-INDEX-RETIRED-PAIR: a frozen member whose pair is gone from the bot's venue and quote drops, the rest
-        // renormalise; with every pair valid nothing is rewritten, with none the index is retired without provenance.
-        let (rows, dropped) = frozen_members(c, bot, &id)?;
-        if rows.is_empty() { return Ok(Err(Refusal::Failure(RETIRED.into()))); }
-        if !dropped {
-            if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
-            return Ok(Ok(before));
-        }
-        return model::locked(c, |tx| {
-            let current = model::load_bot(tx, bot.id)?;
-            if super::placement::composition_snapshot(tx, &current)? != before || frozen_members(tx, bot, &id)?.0 != rows { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
-            basket::write_members(tx, bot.id, &rows, clock.now())?;
-            if let Some(read) = marker { clear_resync(tx, bot.id, read)?; }
-            Ok(Ok(super::placement::composition_snapshot(tx, &current)?))
-        });
+    if frozen {
+        if let Some(read) = marker { model::locked(c, |tx| clear_resync(tx, bot.id, read).map(|_| ()))?; }
+        return Ok(Ok(before));
     }
     let mut derived: Vec<Derived> = vec![];
     for group in &groups {
@@ -426,19 +417,12 @@ async fn refresh_owned_marked<V: Venue + Attributed>(c: &Connection, venue: &V, 
     })
 }
 
-/// D-INDEX-RETIRED-PAIR: a frozen group's members (a `Bots::DcaIndex` row's `in_index` rows, a grouped bot's composed table
-/// rows), each kept only while its ticker is still on the bot's exchange with that asset as base, the bot's quote, available
-/// and trading-enabled; the survivors renormalised (all zero: equal, `blend`'s fallback). `true`: some member dropped.
+/// D-INDEX-RETIRED-PAIR (a grouped bot only): a frozen group's composed table rows, each kept only while its ticker is still
+/// on the bot's exchange with that asset as base, the bot's quote, available and trading-enabled; the survivors renormalised
+/// (all zero: equal, `blend`'s fallback). `true`: some member dropped.
 pub(crate) fn frozen_members(c: &Connection, bot: &Bot, external_id: &str) -> Result<(Vec<basket::Derived>, bool), EngineError> {
-    let rows: Vec<(i64, i64, f64)> = if bot.stored_groups() {
-        let mut s = c.prepare("SELECT asset_id, ticker_id, weight FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1 ORDER BY asset_id")?;
-        let rows = s.query_map(params![bot.id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<Vec<_>, _>>()?;
-        rows
-    } else {
-        let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY id")?;
-        let rows = s.query_map([bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
-        rows.into_iter().map(|(a, t, w)| Ok((a, t, w?.map_or(0.0, |w| w.to_f())))).collect::<Result<Vec<_>, EngineError>>()?
-    };
+    let mut s = c.prepare("SELECT asset_id, ticker_id, weight FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1 ORDER BY asset_id")?;
+    let rows = s.query_map(params![bot.id, external_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, f64>(2)?)))?.collect::<Result<Vec<_>, _>>()?;
     let mut kept = vec![];
     for (asset, ticker, weight) in &rows {
         let valid: bool = c.query_row("SELECT EXISTS (SELECT 1 FROM tickers WHERE id = ?1 AND exchange_id = ?2 AND base_asset_id = ?3 AND quote_asset_id = ?4 \
@@ -452,8 +436,9 @@ pub(crate) fn frozen_members(c: &Connection, bot: &Bot, external_id: &str) -> Re
     Ok((kept.into_iter().enumerate().map(|(i, (a, t, w))| (a, t, if total > 0.0 { w / total } else { equal[i] })).collect(), true))
 }
 
-/// Some frozen group of the bot lost a member's pair since it was composed (placement's fence: the next refresh drops it).
+/// Some frozen group of a grouped bot lost a member's pair since it was composed (placement's fence: the next refresh drops it).
 pub fn frozen_pair_lost(c: &Connection, bot: &Bot) -> Result<bool, EngineError> {
+    if !bot.stored_groups() { return Ok(false); }
     for id in bot.index_external_ids() {
         if retired(c, &id)? && composed_here(c, bot, &id)? && frozen_members(c, bot, &id)?.1 { return Ok(true); }
     }
@@ -525,7 +510,8 @@ async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: 
         }
         for g in &frozen { changed = changed || !retired(tx, &g.external_id)?; }
         changed = changed || super::provider::fingerprint(tx)? != *provider_before || super::provider::stale(tx, &current)?.is_some();
-        for ticker in live.iter().flat_map(|(_, d)| &d.priced) { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
+        // A probe's answer, priced or not, holds only for the ticker row it probed.
+        for ticker in live.iter().flat_map(|(_, d)| d.priced.iter().chain(&d.unpriced)) { changed |= model::ticker_by_id(tx, bot.exchange_id, ticker.id)?.as_ref() != Some(ticker); }
         if changed { return Ok(Err(Refusal::Transient(CHANGED.into()))); }
         // Every ingredient from the data under this lock: named assets in settings order, then the groups in stored order.
         let mut ingredients = vec![];
@@ -622,6 +608,8 @@ async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: 
 /// quote, incumbents seated without a probe, newcomers probed, the group's flattening blend. `members` keeps every chosen
 /// occurrence, as 2.x assigns the blended weight to each.
 struct Derived { external_id: String, n: i64, members: Vec<(i64, i64, f64)>, source: Ranked, priced: Vec<Ticker>,
+                 /// Grouped path: the tickers probed unpriced, as read for the probe (the closing write fences them too).
+                 unpriced: Vec<Ticker>,
                  /// Grouped path: each probed ticker's answer, for the closing replay.
                  probed: HashMap<i64, bool>, top: Vec<String>, weights: Map<String, Value>, own_caps: bool }
 
@@ -678,6 +666,7 @@ async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bo
     let mut chosen: Vec<(i64, i64, f64)> = vec![];
     let mut priced_tickers = vec![];
     let mut probed = HashMap::new();
+    let mut unpriced = vec![];
     for (coin, cap) in ranked {
         if seats(&chosen, distinct) as i64 >= n { break; }
         let Some(&ticker_id) = by_external.get(&coin) else { continue };
@@ -687,7 +676,7 @@ async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bo
             let side = match probe_side(venue, bot, &ticker, open).await { Ok(side) => side, Err(r) => return Ok(Err(r)) };
             match priced(venue, bot, &ticker, side, clock, prices, version).await {
                 Ok(true) => { probed.insert(ticker_id, true); }
-                Ok(false) => { probed.insert(ticker_id, false); continue }
+                Ok(false) => { probed.insert(ticker_id, false); unpriced.push(ticker); continue }
                 Err(r) => return Ok(Err(r)),
             }
         }
@@ -700,7 +689,7 @@ async fn derive_group<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &Bo
     // 2.x builds an insertion-ordered asset hash BEFORE blending; a repeated key replaces its
     // value without moving its first position. It then assigns that weight to every chosen occurrence.
     let members = blend_chosen(&chosen, group.flattening.unwrap_or(0.0), distinct);
-    Ok(Ok(Derived { external_id: category.to_string(), n, members, source: source_before, priced: priced_tickers, probed, top, weights, own_caps }))
+    Ok(Ok(Derived { external_id: category.to_string(), n, members, source: source_before, priced: priced_tickers, unpriced, probed, top, weights, own_caps }))
 }
 
 /// The pairs an index bot's tick may price: every available, trading-enabled ticker at its quote whose asset its ranking

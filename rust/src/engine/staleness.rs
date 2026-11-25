@@ -368,16 +368,16 @@ fn bot_sources(c: &Connection, bot: &Bot) -> Result<Vec<&'static Source>, Engine
 /// catalogue's caps, in its closing write (the background resync included).
 pub(crate) fn caps_stale(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> { source_stale(c, bot, &CRYPTO_ASSETS, now) }
 
-/// The sources one liquidation leg sells through on a grouped bot: its pair's venue catalogue and the account ledger,
-/// never a group's ranking, provider or other catalogue (PLAN index-as-ingredient §3.4).
-pub fn leg_stale(c: &Connection, bot: &Bot, ticker: &model::Ticker, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
+/// The catalogue one liquidation leg sells through on a grouped bot: its pair's venue listing, never a group's ranking,
+/// provider or other catalogue (PLAN index-as-ingredient §3.4). Leg-specific: a stale one skips that leg only. The account
+/// ledger is the whole batch's (`ledger_stale`).
+pub fn leg_catalogue_stale(c: &Connection, bot: &Bot, ticker: &model::Ticker, now: DateTime<Utc>) -> Result<Option<Stale>, EngineError> {
     let source: Option<&'static Source> = match model::exchange_type(c, bot)?.as_str() {
         "Exchanges::Ibkr" => Some(&IBKR_TICKERS),
         "Exchanges::Alpaca" => Some(if ticker.crypto { &ALPACA_CRYPTO_TICKERS } else { &ALPACA_STOCK_TICKERS }),
         _ => None,
     };
-    if let Some(s) = source { if let Some(stale) = source_stale(c, bot, s, now)? { return Ok(Some(stale)); } }
-    ledger_stale(c, bot, now)
+    match source { Some(s) => source_stale(c, bot, s, now), None => Ok(None) }
 }
 
 /// `bot_sources` of a basket stored with index groups: the catalogues over the union of its named assets, each live group's

@@ -98,9 +98,15 @@ pub fn composed_rev(bot: &Bot) -> Option<String> { bot.transient.get(COMPOSED_OF
 /// Records a grouped composition, in the caller's write: the digest, each group's selected ranked row (`[indices.id,
 /// ranked_at]`, null for a frozen group) and the effective ingredient shares. Returns the new revision.
 pub fn record(c: &Connection, bot: &Bot, ranked: Value, shares: Value) -> Result<String, EngineError> {
+    use rusqlite::OptionalExtension;
     let rev = uuid::Uuid::new_v4().to_string();
     let value = json!({ "rev": rev, "digest": digest(bot), "ranked": ranked, "shares": shares });
-    c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{COMPOSED_OF_KEY}', json(?2)) WHERE id = ?1"), rusqlite::params![bot.id, value.to_string()])?;
+    c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{COMPOSED_OF_KEY}', json(?2)) WHERE id = ?1 AND json_type(transient_data) = 'object'"),
+              rusqlite::params![bot.id, value.to_string()])?;
+    // json_set on a non-object leaves it as it was: the members must not commit without their provenance.
+    let landed: Option<String> = c.query_row(&format!("SELECT json_extract(transient_data, '$.{COMPOSED_OF_KEY}.rev') FROM bots WHERE id = ?1 AND json_type(transient_data) = 'object'"),
+                                             [bot.id], |r| r.get(0)).optional()?.flatten();
+    if landed.as_deref() != Some(rev.as_str()) { return Err(EngineError::Data(format!("bot {}: the composition record did not land", bot.id))); }
     Ok(rev)
 }
 

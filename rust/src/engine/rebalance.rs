@@ -642,6 +642,9 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
         // PLAN index-as-ingredient §3.4: a grouped bot's refusal is never a fallback to its stored rows; nothing new is sized.
         Err(m) if claim.bot.stored_groups() => {
             super::log(&format!("[engine] bot {}: rebalance composition refused: {m}", claim.bot.id));
+            // The refusal forgot the revision the claim names; nothing else moved: the claim follows (a named sale's fence).
+            let current = super::placement::composition_snapshot(c, &super::model::load_bot(c, claim.bot.id)?)?;
+            if super::placement::forgotten_only(&claim.composition, &current) { claim.composition = current; }
             claim.refused = Some(m);
         }
         Err(m) => super::log(&format!("[engine] rebalance composition refresh failed bot={}: {m}", bot.id)),
@@ -671,12 +674,15 @@ async fn start<V: Venue + Attributed>(c: &Connection, venue: &V, claim: &Claim, 
         // claims before it measures the minimum and restores on the abandonment: both here, in one transaction, so a lock
         // row is created where 2.x creates one and an expired claim's token is replaced, then cleared.
         let now = clock.now();
-        super::model::locked(c, |tx| {
+        let written = super::model::locked(c, |tx| {
+            // A grouped bot's sizing claim, as the owed buy's dust clear checks it.
+            if let Some(claimed) = grouped_claim(claim) { if super::placement::composition_snapshot(tx, &super::model::load_bot(tx, bot.id)?)? != *claimed { return Ok(false); } }
             flag_below_minimum(tx, bot.id, &bot.transient, now)?;
             super::wash::claim_rebalance_sell(tx, bot, ticker.base_asset_id, loss, now)?;
-            super::wash::settle_claim(tx, bot.id, super::wash::Holder::RebalanceSell, super::wash::Reason::BelowMinimum, now)
+            super::wash::settle_claim(tx, bot.id, super::wash::Holder::RebalanceSell, super::wash::Reason::BelowMinimum, now)?;
+            Ok(true)
         })?;
-        return Ok(Outcome::Skipped("below_minimum"));
+        return Ok(Outcome::Skipped(if written { "below_minimum" } else { "changed" }));
     }
     let intent_state = Pending { phase: PHASE_SELLING.into(), sell_transaction_id: None, buy_transaction_id: None, remaining_quote_amount: None, buy_attempted: false };
     place(c, venue, claim, &plan, &intent_state, loss, reconciled, clock, cx).await

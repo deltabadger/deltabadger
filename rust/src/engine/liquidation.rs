@@ -110,7 +110,9 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
         if (cx.stopping)() { interrupted()?; break; }
         if !ticker.available || !ticker.trading_enabled { skip(c,id,key,"unavailable",clock)?; continue; }
         if claim.bot.stored_groups() {
-            if let Some(stale) = super::staleness::leg_stale(c,&claim.bot,ticker,clock.now())? { return refuse(c,id,json!([stale.message]),clock); }
+            if let Some(stale) = super::staleness::ledger_stale(c,&claim.bot,clock.now())? { return refuse(c,id,json!([stale.message]),clock); }
+            // A leg-specific stale catalogue skips that leg; the batch goes on.
+            if super::staleness::leg_catalogue_stale(c,&claim.bot,ticker,clock.now())?.is_some() { skip(c,id,key,"stale",clock)?; continue; }
         }
         if rebalance::account_waiting_buys(c,&claim.bot,ticker)? { skip(c,id,key,"open_order",clock)?; continue; }
         let Some(price) = tick::market_price_for(venue,&claim.bot,ticker,Side::Sell,clock,cx).await? else { skip(c,id,key,"unpriced",clock)?; continue };
@@ -133,6 +135,8 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, holdings: &Value,
             placement::Begun::BelowMinimum(_) => { skip(c,id,key,"below_minimum",clock)?; continue; }
             placement::Begun::CredentialsChanged => return Err(EngineError::CredentialsChanged),
             placement::Begun::Refused(m) => return Err(EngineError::Data(m)),
+            // A grouped bot's leg catalogue expired while it was sized: that leg only.
+            placement::Begun::LedgerStale(stale) if stale.source != super::staleness::LEDGER_SOURCE => { skip(c,id,key,"stale",clock)?; continue; }
             placement::Begun::LedgerStale(stale) => return refuse(c,id,json!([stale.message]),clock),
             placement::Begun::Changed | placement::Begun::Fenced | placement::Begun::WashSaleLocked => { interrupted()?; break; }
         };

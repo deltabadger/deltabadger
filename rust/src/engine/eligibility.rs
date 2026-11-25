@@ -422,7 +422,8 @@ fn composition_reasons(bot: &Bot, r: &mut Vec<Reason>) -> Vec<i64> {
     let groups = if bot.stored_groups() { bot.composition().map_or(0, |c| c.groups.len()) } else { 0 };
     let a = match bot.allocations() {
         Some(a) => a,
-        None if groups > 0 && bot.settings.get("allocations").is_none_or(Value::is_null) => vec![],
+        // Absent (or `{}`, read above) beside a group; an explicit null is unreadable (Codex 2b r1).
+        None if groups > 0 && bot.settings.get("allocations").is_none() => vec![],
         None => {
             r.push(why(Kind::Allocations(Allocations::Unreadable), "allocations: an asset id or a weight this build does not read"));
             return vec![];
