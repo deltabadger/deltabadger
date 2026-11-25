@@ -1179,3 +1179,32 @@ fn a_partial_or_shared_dust_unit_warns_and_is_written_on_the_answer() {
         assert!(accepted>0,"{name}: the accepted unit is recorded as accepted");
     }
 }
+
+/// PLAN-710-confirm branch review r1 #4: a write past a retained-id question that also undoes a transfer link on another
+/// account is asked again showing both: the retained ids it stripped and the link (its seal binds both).
+#[test]
+fn a_question_raised_by_an_undone_link_shows_the_retained_ids_it_strips_too() {
+    use deltabadger::tracker::import::run::{self, Answer, Warning};
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    write(c,&key,&pair("p1","BTC")).unwrap();suppress(c,"BTC");
+    let file=dust_file(&["BTC"]).replace("BTC,-1","BTC,-2");
+    deltabadger::identity::key(c,&common::seed::cipher(),now()).unwrap();
+    // A row of this account linked both ways to a deposit of another exchange's account; the write deletes it (as a
+    // rebuild would), undoing the deposit's link.
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Other', '0.1', '0.1', '2026-01-01', '2026-01-01')",[]).unwrap();
+    let other=c.last_insert_rowid();
+    deltabadger::identity::ensure_account(c,s.user_id,other,now()).unwrap();
+    let insert=|exchange:i64| {c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, created_at, updated_at) VALUES (?1, ?2, 4, 'USDT', 5, '2026-08-01 10:00:00', '2026-08-01', '2026-08-01')",[s.user_id,exchange]).unwrap();c.last_insert_rowid()};
+    let (here,there)=(insert(key.exchange_id),insert(other));
+    c.execute("UPDATE account_transactions SET linked_transaction_id = ?1 WHERE id = ?2",[there,here]).unwrap();
+    c.execute("UPDATE account_transactions SET linked_transaction_id = ?1 WHERE id = ?2",[here,there]).unwrap();
+    c.execute_batch(&format!("CREATE TRIGGER test_rebuild AFTER INSERT ON account_transactions WHEN NEW.id NOT IN ({here}, {there}) BEGIN DELETE FROM account_transactions WHERE id = {here}; END;")).unwrap();
+    let asked=import(c,&key,"binance",&file).unwrap();
+    let Answer::Warned(warnings,choices)=asked else {panic!("{asked:?}")};
+    assert!(warnings.contains(&Warning::Retained),"{warnings:?}");
+    let again=run::import(c,&common::seed::cipher(),key.user_id,"binance",file.as_bytes(),Some("+00:00"),Some(&choices.last().unwrap().value),now()).unwrap();
+    let Answer::Warned(warnings,_)=again else {panic!("asked again: {again:?}")};
+    assert!(warnings.iter().any(|w|matches!(w,Warning::Undone(1,_))),"{warnings:?}");
+    assert!(warnings.contains(&Warning::Retained),"the stripped retained ids are shown too: {warnings:?}");
+    assert_eq!(c.query_row("SELECT linked_transaction_id FROM account_transactions WHERE id = ?1",[there],|r|r.get::<_,Option<i64>>(0)).unwrap(),Some(here),"the link is still there");
+}

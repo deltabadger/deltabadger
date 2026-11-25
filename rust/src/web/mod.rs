@@ -406,7 +406,7 @@ pub struct Inner {
     pub(crate) mail_set_up: Option<bool>,
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
-    db: Mutex<Connection>,
+    pub(crate) db: Mutex<Connection>,
     /// The Solid Queue database 2.x's jobs wait in, as startup resolved it (`with_queue_path`), read only to see a job 2.x
     /// still holds for a bot. None: not given, so a question about it is refused.
     pub queue_path: Option<std::path::PathBuf>,
@@ -465,7 +465,7 @@ impl App {
         let cipher = Cipher::new(&encryption);
         crate::engine::provider::bind(&primary,&cipher,env).map_err(|_| WebError::Config("index configuration reader unavailable".into()))?;
         crate::sync::balance_store::fallback(&primary)?;
-        Ok(Self(Arc::new(Inner {
+        let app = Self(Arc::new(Inner {
             fx_cache: tracker::fx::Cache::default(),
             figure_service: figure::service::Service::default(), figure_source: figure::loading::Source::Live,
             mcp_instructions: mcp::instructions(&primary)?,
@@ -476,7 +476,11 @@ impl App {
             password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None, mail_set_up: None,
             db: Mutex::new(primary), queue_path: None,
             engine: std::sync::OnceLock::new(), live: std::sync::OnceLock::new(),
-        })))
+        }));
+        // Branch review r1 #10: a restart sweeps the parked uploads, so what a process killed after its outcome committed
+        // left (its bytes and handles) goes without waiting for the next upload.
+        { let c = app.0.db.lock().unwrap_or_else(PoisonError::into_inner); crate::tracker::import::service::sweep_now(&app, &c); }
+        Ok(app)
     }
 
     /// For tests: the same app with other /cable intervals. Only before the app is shared.
@@ -916,6 +920,8 @@ pub struct Params {
     pub json: Option<serde_json::Value>,
     /// POST /tracker/import's `file` part: its raw bytes and its filename (web::multipart).
     pub upload: Option<(Vec<u8>, String)>,
+    /// The multipart body's other file-valued parts, by name, with their contents (web::multipart::Parsed::file_parts).
+    pub file_parts: Vec<(String, String)>,
 }
 
 impl Params {
@@ -1142,6 +1148,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     // A JSON body of whitespace alone: no parameters here, a parse error to 2.x.
     let mut blank_json = false;
     let mut upload = None;
+    let mut file_parts = vec![];
     // What Rack read as the form, for the override: None when it read none, or could not parse it.
     let mut rack_form = true;
     let mut unparseable = hook_post && !(hook::rack_form_ok(raw_query.as_bytes()) && bot::action_params::form(&query).is_ok());
@@ -1166,7 +1173,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         };
         let Ok(bytes) = read else { return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response() };
         match multipart::parse(&bytes, &boundary) {
-            Ok(parsed) => { upload = parsed.file; (parsed.fields, Body::empty()) }
+            Ok(parsed) => { upload = parsed.file; file_parts = parsed.file_parts; (parsed.fields, Body::empty()) }
             Err(multipart::Error::TooManyParts) => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Err(multipart::Error::Malformed) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
         }
@@ -1222,7 +1229,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     let fullpath = with_query(&full_path);
     let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
     parts.uri = uri;
-    let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json, upload };
+    let mut params = Params { full_path, fullpath, route_path, path_locale, query, form, json, upload, file_parts };
     if params.path_locale.is_none() && (params.route_path == "/setup"
         || params.route_path.strip_prefix("/setup.").is_some_and(|format| !format.contains('/'))) {
         // 2.x shallow-merges query keys over body keys. Normalize once before the

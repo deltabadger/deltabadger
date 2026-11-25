@@ -1296,7 +1296,7 @@ async fn a_slow_resume_does_not_block_an_authenticated_stop() {
     browser.get(&app, &format!("/bots/{other}")).await;
     let route = format!("/bots/{id}/rebalance_resolutions");
     let token = rebalance::resolution_token(&model::load_bot(&o.primary, id).unwrap());
-    let params = Params { full_path: route.clone(), fullpath: route.clone(), route_path: route, path_locale: None, query: vec![], form: vec![("halt_token".into(), token)], json: None, upload: None };
+    let params = Params { full_path: route.clone(), fullpath: route.clone(), route_path: route, path_locale: None, query: vec![], form: vec![("halt_token".into(), token)], json: None, upload: None, file_parts: vec![] };
     let ctx = Ctx::new(app.clone(), Arc::new(params), Session::new(SessionData::default()), Current::SignedIn(Arc::new(User::find(&o.primary, s.user_id).unwrap().unwrap())), "nonce".into(), at(T0), &axum::http::Request::new(axum::body::Body::empty()));
     let entered = Arc::new(tokio::sync::Notify::new());
     let release = Arc::new(tokio::sync::Notify::new());

@@ -12,6 +12,8 @@ pl:
             import_new_html: "Importuj na nowe konto, %{account} (wiersze w pliku: %{count})"
             destination_html: "Wiersze trafiające na %{account}: %{count}."
             twice_html: "Wiersze, które ten plik kieruje na więcej niż jedno konto: %{count}."
+            rows_left_out_named_html: "Konta wskazane w pominiętych wierszach: %{exchanges}."
+            links_undone_html: "Powiązania przelewów na innych kontach, które ten import usunie: %{count} (%{accounts})."
             import_anyway: "Mimo to importuj"
             import_rest: "Importuj resztę"
             cancel: "Anuluj"

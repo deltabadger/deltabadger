@@ -12,6 +12,8 @@ da:
             import_new_html: "Importér til en ny konto, %{account} (rækker i filen: %{count})"
             destination_html: "Rækker til %{account}: %{count}."
             twice_html: "Rækker, som filen sender til mere end én konto: %{count}."
+            rows_left_out_named_html: "Konti, som de udeladte rækker nævner: %{exchanges}."
+            links_undone_html: "Overførselskoblinger på andre konti, som importen fjerner: %{count} (%{accounts})."
             import_anyway: "Importér alligevel"
             import_rest: "Importér resten"
             cancel: "Annullér"

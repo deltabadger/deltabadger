@@ -255,7 +255,7 @@ fn every_secret_shaped_column_is_reviewed() {
         .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     let mut unreviewed = vec![];
     for t in &tables {
-        if export::SESSION_TABLES.contains(&t.as_str()) || DELETED_TABLES.contains(&t.as_str()) { continue; }
+        if export::SESSION_TABLES.contains(&t.as_str()) || export::TRANSIENT_TABLES.contains(&t.as_str()) || DELETED_TABLES.contains(&t.as_str()) { continue; }
         let cols: Vec<String> = c.prepare("SELECT name FROM pragma_table_info(?1)").unwrap().query_map([t], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
         for col in cols.iter().filter(|c| shape.is_match(c)) {
             let k = (t.as_str(), col.as_str());
@@ -356,6 +356,23 @@ fn no_scrubbed_secret_is_in_any_output_byte_and_the_kept_values_are() {
     assert_eq!(serde_json::from_str::<Value>(&job).unwrap(), json!({ "last_run_at": "2026-01-01T00:00:00Z" }));
     let intents: Vec<String> = out.prepare("SELECT state FROM rust_withdrawal_intents").unwrap().query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     assert_eq!(intents, ["dispatched"]);
+}
+
+/// PLAN-710-confirm rule P7: an import question open at the download ships no row of it (its token and handles are
+/// transient), so a restore has nothing to confirm.
+#[test]
+fn an_open_import_question_ships_no_row() {
+    let b = Box::new();
+    install_into(&b, common::v2_install().path());
+    let c = b.db();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    c.execute("INSERT INTO import_parked_uploads (token, user_id, sha256, bytes_len, format, gen, state, expires_at, created_at) \
+               VALUES ('00000000000000aa', ?1, 'x', 1, 'kucoin', 1, 'open', '2099-01-01', '2026-01-01')", [s.user_id]).unwrap();
+    c.execute("INSERT INTO import_parked_choices (handle, token, gen, kind, dest_json) VALUES ('00000000000000aa.1.0.ff', '00000000000000aa', 1, 'authorize', '{}')", []).unwrap();
+    drop(c);
+    b.exported();
+    let out = Connection::open(b.out("portable/production.sqlite3")).unwrap();
+    for t in export::TRANSIENT_TABLES { assert_eq!(out.query_row(&format!("SELECT count(*) FROM {t}"), [], |r| r.get::<_, i64>(0)).unwrap(), 0, "{t}"); }
 }
 
 #[test]
