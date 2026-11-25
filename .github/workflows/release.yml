@@ -450,9 +450,10 @@ jobs:
           # Every file Tauri handed the signer, the uninstaller included (NSIS does not stop when that one fails).
           $ledger = Get-Content (Join-Path $env:RUNNER_TEMP signed.txt)
           $ledger
-          # At least the app, the uninstaller (NSIS's temp file) and the installer.
-          if ($ledger -match '^FAIL ') { throw 'a signing call failed' }
-          if (@($ledger -match '^ok ').Count -lt 3) { throw 'fewer than three files signed' }
+          if (@($ledger -match '^start ').Count -ne @($ledger -match '^ok ').Count) { throw 'a signing call failed' }
+          # The uninstaller is NSIS's temp file (...\Temp\nsXXXX.tmp), signed while makensis builds the installer.
+          if (-not ($ledger -match '^ok .*\\ns[^\\]*\.tmp$')) { throw 'the uninstaller was not signed' }
+          if (-not ($ledger -match '^ok .*-setup\.exe$')) { throw 'the installer was not signed' }
           $f = Get-Item src-tauri/target/release/bundle/nsis/*-setup.exe
           $s = Get-AuthenticodeSignature $f
           $s | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
