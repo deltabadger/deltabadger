@@ -211,6 +211,14 @@ mod tests {
         assert_eq!(body(b"_method=delete", "").0, vec![("_method".to_string(), "delete".to_string())]);
     }
 
+    /// PLAN-710-mcpadapter J7: a part the shared reader reports as read two ways is the hook's as before: its last name,
+    /// parsed, never refused (only the import callers refuse it).
+    #[test]
+    fn a_part_named_twice_is_read_by_its_last_name() {
+        let multipart = "--b\r\nContent-Disposition: form-data; name=\"x\"; name=\"_method\"\r\n\r\ndelete\r\n--b--\r\n";
+        assert_eq!(body(multipart.as_bytes(), "multipart/form-data; boundary=b"), (vec![("_method".to_string(), "delete".to_string())], true));
+    }
+
     #[test]
     fn the_claim_compares_active_records_text() {
         let at: DateTime<Utc> = "2026-09-10T12:00:30.123456789Z".parse().unwrap();

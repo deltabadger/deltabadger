@@ -14,6 +14,11 @@ pub struct Parsed {
     /// Every other file-valued part, by name, with its contents read as text (PLAN-710-confirm rule N2: a request is
     /// classified from every part it carries, before any is dropped).
     pub file_parts: Vec<(String, String)>,
+    /// How many file-valued parts are named `file` (an empty one included).
+    pub files: usize,
+    /// PLAN-710-mcpadapter I3/J2/J7: some part reads two ways (two dispositions, two `name`s, two `filename`s or two
+    /// `filename*`s). Reported, not decided: the part is read as before, and the import callers refuse the request.
+    pub ambiguous: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,48 +36,72 @@ fn find(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
     haystack.get(from..)?.windows(needle.len()).position(|w| w == needle).map(|i| i + from)
 }
 
+/// D-MULTIPART-DELIMITER: what follows `--boundary` at `i`, when it makes a delimiter line: `--` (the closing one) or
+/// nothing, optional blanks, then CRLF, or the body's end after the closing one. `(closing, where the next part starts)`.
+fn tail(body: &[u8], mut i: usize) -> Option<(bool, usize)> {
+    let closing = body.get(i..).is_some_and(|rest| rest.starts_with(b"--"));
+    if closing { i += 2; }
+    while matches!(body.get(i), Some(b' ' | b'\t')) { i += 1; }
+    if body.get(i..).is_some_and(|rest| rest.starts_with(b"\r\n")) { return Some((closing, i + 2)); }
+    (closing && i == body.len()).then_some((true, i))
+}
+
+/// The first delimiter line at or after `from` (`between` is CRLF `--boundary`): where its CRLF starts, and its `tail`.
+/// A line that only begins like one is content.
+fn delimiter(body: &[u8], between: &[u8], mut from: usize) -> Option<(usize, bool, usize)> {
+    loop {
+        let at = find(body, between, from)?;
+        if let Some((closing, next)) = tail(body, at + between.len()) { return Some((at, closing, next)); }
+        from = at + 1;
+    }
+}
+
 pub fn parse(body: &[u8], boundary: &str) -> Result<Parsed, Error> {
-    let delimiter = format!("--{boundary}");
+    let delimiter_text = format!("--{boundary}");
     let between = format!("\r\n--{boundary}");
     // Anything before the first delimiter is a preamble and ignored.
-    let mut at = if body.starts_with(delimiter.as_bytes()) { delimiter.len() }
-        else { find(body, between.as_bytes(), 0).ok_or(Error::Malformed)? + between.len() };
+    let first = if body.starts_with(delimiter_text.as_bytes()) { tail(body, delimiter_text.len()) } else { None };
+    let (mut closing, mut at) = match first {
+        Some(found) => found,
+        None => delimiter(body, between.as_bytes(), 0).map(|(_, closing, next)| (closing, next)).ok_or(Error::Malformed)?,
+    };
     let mut parsed = Parsed::default();
     let mut parts = 0;
     loop {
-        if body[at..].starts_with(b"--") { return Ok(parsed); }
-        while matches!(body.get(at), Some(b' ' | b'\t')) { at += 1; }
-        if !body[at..].starts_with(b"\r\n") { return Err(Error::Malformed); }
-        at += 2;
+        if closing { return Ok(parsed); }
         parts += 1;
         if parts > PARTS { return Err(Error::TooManyParts); }
         if body[at..].starts_with(b"\r\n") { return Err(Error::Malformed); } // a part with no headers names nothing
         let head_end = find(body, b"\r\n\r\n", at).ok_or(Error::Malformed)?;
         let content_start = head_end + 4;
-        let end = find(body, between.as_bytes(), content_start).ok_or(Error::Malformed)?;
+        let (end, close, next) = delimiter(body, between.as_bytes(), content_start).ok_or(Error::Malformed)?;
         let head = std::str::from_utf8(&body[at..head_end]).map_err(|_| Error::Malformed)?;
-        let disposition = head.split("\r\n")
+        let mut dispositions = head.split("\r\n")
             .filter_map(|line| line.split_once(':'))
-            .find(|(name, _)| name.trim().eq_ignore_ascii_case("content-disposition"))
-            .map(|(_, value)| value).ok_or(Error::Malformed)?;
+            .filter(|(name, _)| name.trim().eq_ignore_ascii_case("content-disposition"))
+            .map(|(_, value)| value);
+        let disposition = dispositions.next().ok_or(Error::Malformed)?;
+        if dispositions.next().is_some() { parsed.ambiguous = true; }
         let (kind, rest) = disposition.split_once(';').unwrap_or((disposition, ""));
         if !kind.trim().eq_ignore_ascii_case("form-data") { return Err(Error::Malformed); }
         // PLAN-710-importmem C1: one pass over the parameters, the last `name`, `filename` and `filename*` each kept (as
-        // ever), every other one read past without being kept.
+        // ever), every other one read past without being kept. PLAN-710-mcpadapter J7: one given twice is reported.
         let (mut name, mut plain, mut extended) = (None, None, None);
         for (key, value) in params(rest) {
-            if key.eq_ignore_ascii_case("name") { name = Some(value) }
-            else if key.eq_ignore_ascii_case("filename") { plain = Some(value) }
-            else if key.eq_ignore_ascii_case("filename*") { extended = Some(value) }
+            let slot = if key.eq_ignore_ascii_case("name") { &mut name }
+                else if key.eq_ignore_ascii_case("filename") { &mut plain }
+                else if key.eq_ignore_ascii_case("filename*") { &mut extended }
+                else { continue };
+            if slot.replace(value).is_some() { parsed.ambiguous = true; }
         }
         let name = name.ok_or(Error::Malformed)?.text();
         let content = &body[content_start..end];
         match filename(extended.map(Value::text).as_deref(), plain.map(Value::text).as_deref()) {
-            Some(filename) if name == "file" => if !filename.is_empty() { parsed.file = Some((content.to_vec(), filename)) },
+            Some(filename) if name == "file" => { parsed.files += 1; if !filename.is_empty() { parsed.file = Some((content.to_vec(), filename)) } }
             Some(_) => parsed.file_parts.push((name, String::from_utf8_lossy(content).into_owned())),
             None => parsed.fields.push((name, String::from_utf8_lossy(content).into_owned())),
         }
-        at = end + between.len();
+        (closing, at) = (close, next);
     }
 }
 
@@ -246,6 +275,40 @@ mod tests {
         assert_eq!(part("name=\"file\"; filename*=UTF-8''a.csv; filename*=UTF-8''b.csv").file.unwrap().1, "b.csv");
         assert_eq!(part("NAME=\"format\"; x=\"a\\\"; name=y\"").fields, vec![("format".to_string(), "x".to_string())], "an escaped quote stays inside");
         assert_eq!(boundary("multipart/form-data; boundary=a; boundary=b").as_deref(), Some("a"));
+    }
+
+    /// D-MULTIPART-DELIMITER (PLAN-710-mcpadapter G3/H4): a delimiter is a whole line: `--boundary`, then `--` or nothing,
+    /// optional linear whitespace, then CRLF (or the body's end after the closing one). Anything else on the line is the
+    /// part's content, so a file is never cut short at a line that only starts like one.
+    #[test]
+    fn a_delimiter_is_a_whole_line() {
+        let csv = format!("a,b\r\n--{B}--x\r\n1,2\r\n--{B} junk\r\n3,4");
+        assert_eq!(parse(&body(&[&file("filename=\"a.csv\"", &csv)]), B).unwrap().file.unwrap().0, csv.as_bytes(), "every row kept");
+        let mut closed = format!("--{B}\r\n{}\r\n--{B}-- \t", file("filename=\"a.csv\"", "x")).into_bytes();
+        assert_eq!(parse(&closed, B).unwrap().file.unwrap().0, b"x", "the closing delimiter, blanks, then the end");
+        closed.extend_from_slice(b"\r\nepilogue");
+        assert_eq!(parse(&closed, B).unwrap().file.unwrap().0, b"x", "an epilogue after it");
+        let open = format!("--{B}\r\n{}\r\n--{B}--x", file("filename=\"a.csv\"", "x"));
+        assert_eq!(parse(open.as_bytes(), B), Err(Error::Malformed), "no closing delimiter: the file is never kept in part");
+    }
+
+    /// PLAN-710-mcpadapter I3/J2/J7: a part read two ways is reported, never decided: two dispositions, two names, two
+    /// `filename`s or two `filename*`s. The reader still reads as before (the hook relies on it); the import callers refuse.
+    #[test]
+    fn a_part_read_two_ways_is_reported() {
+        let part = |head: &str| parse(&body(&[&format!("{head}\r\n\r\nx")]), B).unwrap();
+        for head in ["Content-Disposition: form-data; name=\"format\"\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.csv\"",
+                     "Content-Disposition: form-data; name=\"file\"; name=\"token\"; filename=\"a.csv\"",
+                     "Content-Disposition: form-data; name=\"file\"; filename=\"a.csv\"; filename=\"b.csv\"",
+                     "Content-Disposition: form-data; name=\"file\"; filename*=UTF-8''a.csv; filename*=UTF-8''b.csv"] {
+            assert!(part(head).ambiguous, "{head}");
+        }
+        let both = part("Content-Disposition: form-data; name=\"file\"; filename=\"plain.csv\"; filename*=UTF-8''z.csv");
+        assert!(!both.ambiguous);
+        assert_eq!((both.file.unwrap().1, both.files), ("z.csv".to_string(), 1));
+        let twice = parse(&body(&[&file("filename=\"a.csv\"", "x"), &file("filename=\"b.csv\"", "y")]), B).unwrap();
+        assert_eq!((twice.files, twice.ambiguous), (2, false), "two file parts are counted; which import caller refuses them is its own");
+        assert_eq!(part("Content-Disposition: form-data; name=\"file\"; name=\"token\"; filename=\"a.csv\"").file_parts, vec![("token".to_string(), "x".to_string())], "still the last name");
     }
 
     #[test]
