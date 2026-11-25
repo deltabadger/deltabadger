@@ -89,7 +89,7 @@ pub fn refusal(why: &Denied) -> (StatusCode, &'static str, String) {
 
 /// One request's form (H3), each of exactly its members.
 #[derive(Debug, PartialEq)]
-pub enum Form { Fresh { format: &'static str, bytes: Vec<u8>, filename: Option<String> }, Confirm { upload: String, choice: String }, Cancel { upload: String } }
+pub enum Form { Fresh { format: Option<&'static str>, bytes: Vec<u8>, filename: Option<String> }, Confirm { upload: String, choice: String }, Cancel { upload: String } }
 
 impl Form {
     fn name(&self) -> &'static str { match self { Form::Fresh { .. } => "fresh", Form::Confirm { .. } => "confirm", Form::Cancel { .. } => "cancel" } }
@@ -107,9 +107,7 @@ pub fn form_of(args: &Map<String, Value>, fresh: bool) -> Result<Form, &'static 
         let content = text("content").ok_or("ambiguous_request")?;
         use base64::Engine;
         let bytes = base64::engine::general_purpose::STANDARD.decode(content.trim()).map_err(|_| "malformed")?;
-        // D-IMPORT-DETECT: a format left out is the one the file's header names, as the web's import reads it.
-        let format = match named { Some(format) => format, None => run::detect(&bytes).ok_or("unreadable")? };
-        return Ok(Form::Fresh { format, bytes, filename });
+        return Ok(Form::Fresh { format: named, bytes, filename });
     }
     if args.contains_key("cancel") {
         if !only(&["upload", "cancel"]) || args.get("cancel") != Some(&Value::Bool(true)) { return Err("ambiguous_request"); }
@@ -254,7 +252,15 @@ async fn perform(app: &App, surface: Surface, authorization: Option<String>, use
     let signed_in = still(app, surface, authorization);
     let answered = match form {
         Form::Fresh { bytes, .. } if crate::web::tracker::import::blank(&bytes) => Ok(Outcome::NoFile),
-        Form::Fresh { format, bytes, filename } => service::upload(app, user, format, bytes, filename, signed_in, permit).await,
+        // D-IMPORT-DETECT: a format left out is the one the file's header names, as the web's import reads it; a header naming
+        // none is the web's answer to the same file.
+        Form::Fresh { format, bytes, filename } => match format.or_else(|| run::detect(&bytes)) {
+            Some(format) => service::upload(app, user, format, bytes, filename, signed_in, permit).await,
+            None => {
+                let l = match app.db(move |c| language(c, user)).await { Ok(l) => l, Err(_) => locale::switch(None, None) };
+                return Done::Failed(StatusCode::UNPROCESSABLE_ENTITY, "unreadable", i18n::text(l, "tracker.import.error_unknown_format", &[]));
+            }
+        },
         Form::Confirm { upload, choice } if service::token_shaped(&upload) && service::handle_shaped(&choice) => service::confirm(app, user, upload, choice, signed_in, permit).await,
         Form::Cancel { upload } if service::token_shaped(&upload) => service::cancel(app, user, upload, signed_in, permit).await,
         Form::Confirm { .. } | Form::Cancel { .. } => Ok(Outcome::NoFile),
@@ -393,9 +399,7 @@ fn fresh(parsed: multipart::Parsed) -> Result<Form, &'static str> {
     let chosen = match format { None => None, Some(f) => Some(run::FORMATS.iter().copied().find(|x| *x == f).ok_or("ambiguous_request")?) };
     let Some((bytes, filename)) = parsed.file else { return Err("no_file") };
     if named.is_some_and(|n| n != filename) { return Err("ambiguous_request"); }
-    // D-IMPORT-DETECT: a format left out is the one the file's header names, as the web's import reads it.
-    let format = match chosen { Some(format) => format, None => run::detect(&bytes).ok_or("unreadable")? };
-    Ok(Form::Fresh { format, bytes, filename: Some(filename) })
+    Ok(Form::Fresh { format: chosen, bytes, filename: Some(filename) })
 }
 
 /// `POST /api/v1/tracker/import`, before any body is read (F1): the bearer, the owner, the grant and the account; the
@@ -427,8 +431,6 @@ pub async fn rest(app: App, headers: HeaderMap, params: Arc<Params>, body: Body)
         return match form {
             Ok(form) => envelope(&app, perform(&app, Surface::Rest, authorization, user, form, permit).await),
             Err("no_file") => { let l = app.db(move |c| language(c, user)).await.unwrap_or("en"); envelope(&app, Done::Failed(StatusCode::UNPROCESSABLE_ENTITY, "no_file", i18n::text(l, "tracker.import.error_no_file", &[]))) }
-            // D-IMPORT-DETECT: no format named and none in the header: the web's answer to the same file.
-            Err("unreadable") => { let l = app.db(move |c| language(c, user)).await.unwrap_or("en"); envelope(&app, Done::Failed(StatusCode::UNPROCESSABLE_ENTITY, "unreadable", i18n::text(l, "tracker.import.error_unknown_format", &[]))) }
             Err(_) => ambiguous(),
         };
     }

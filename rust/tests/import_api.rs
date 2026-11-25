@@ -148,9 +148,14 @@ async fn a_format_left_out_is_read_from_the_header() {
     let junk = "a,b,c\n1,2,3\n";
     let sent = rest_upload(&i.app, &[], "junk.csv", junk).await;
     assert_eq!((sent.status, sent.json()["error"]["code"].clone()), (422, json!("unreadable")));
-    assert_eq!(import_api::form_of(json!({"content": b64(junk)}).as_object().unwrap(), true), Err("unreadable"));
-    assert!(matches!(import_api::form_of(json!({"content": b64(&rest_csv())}).as_object().unwrap(), true), Ok(import_api::Form::Fresh { format: "deltabadger", .. })));
-    assert!(matches!(import_api::form_of(json!({"content": b64(junk), "format": "kucoin"}).as_object().unwrap(), true), Ok(import_api::Form::Fresh { format: "kucoin", .. })), "a named format is taken as named");
+    assert!(sent.json()["error"]["message"].as_str().is_some_and(|m| m.starts_with("Deltabadger can't import this CSV file.")), "{}", sent.body);
+    let (refused, failed) = mcp(&i.app, json!({"content": b64(junk)})).await;
+    assert!(failed && refused["code"] == "unreadable" && refused["message"].as_str().is_some_and(|m| m.starts_with("Deltabadger can't import")), "{refused}");
+    let blank = rest_upload(&i.app, &[], "blank.csv", " \n").await;
+    assert_eq!((blank.status, blank.json()["error"]["code"].clone()), (422, json!("no_file")), "a blank file is no file, format or not");
+    assert!(matches!(import_api::form_of(json!({"content": b64(junk), "format": "kucoin"}).as_object().unwrap(), true), Ok(import_api::Form::Fresh { format: Some("kucoin"), .. })), "a named format is taken as named");
+    let (asked, failed) = mcp(&i.app, json!({"content": b64(&rest_csv())})).await;
+    assert!(!failed, "a Deltabadger file is read as one: {asked}");
     assert_eq!(ledger(&i.c), 0);
 }
 
