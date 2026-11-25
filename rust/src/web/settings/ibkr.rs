@@ -46,7 +46,7 @@ fn target(ctx: &Ctx) -> Option<Target> {
     let field = |name: &str| ctx.params.form(name).or_else(|| ctx.params.query(name)).filter(|v| !v.is_empty());
     match (field("account_id"), field("registration")) {
         (Some(a), _) => a.parse().ok().map(Target::Account),
-        (None, Some(r)) if r == "new" => Some(Target::Fresh),
+        (None, Some("new")) => Some(Target::Fresh),
         (None, Some(r)) => r.parse().ok().map(Target::Registration),
         (None, None) => Some(Target::Legacy),
     }
