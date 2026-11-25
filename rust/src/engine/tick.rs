@@ -598,7 +598,7 @@ async fn execute<V: Venue + Attributed>(c: &Connection, venue: &V, bot: &mut mod
         // tradable weighted member the tick fails with no order row.
         // The composition this tick buys: an index bot derives it from data-api's ranking with price probes (index.rs), a basket
         // from its settings (basket.rs). A Failure fails the tick with no order row; a probe's transport failure retries.
-        let refreshed = if bot.bot_type == "Bots::DcaIndex" {
+        let refreshed = if bot.has_groups() {
             index::refresh_composition_captured(c, venue, bot, clock, cx.prices, &cx.credential_version).await?
         } else {
             let now = clock.now();

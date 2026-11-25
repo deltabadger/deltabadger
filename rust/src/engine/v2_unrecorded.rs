@@ -1296,7 +1296,7 @@ fn scope_now(c: &Connection, o: &Obligation, bot: &model::Bot) -> Result<Option<
     match &o.scope {
         Some(s) if s.get("time_error").is_some() => Ok(None),
         Some(s) => Ok(stored_scope(s)),
-        None if bot.bot_type == "Bots::DcaIndex" => Ok(None),
+        None if bot.has_groups() => Ok(None),
         None => current_scope(c, o, bot.exchange_id),
     }
 }

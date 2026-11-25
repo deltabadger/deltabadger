@@ -597,7 +597,7 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
     let prepared = super::placement::prepare(c, venue).await?;
     if let Err(e) = prepared { return Err(EngineError::Data(e.message())); }
     let bot = &claim.bot;
-    let refreshed = if bot.bot_type == "Bots::DcaIndex" {
+    let refreshed = if bot.has_groups() {
         match super::index::refresh_for_rebalance(c, venue, bot, &claim.composition, clock, cx.prices, &cx.credential_version).await {
             Ok(Ok(written)) => Ok(written),
             Ok(Err(super::index::Refusal::Failure(m) | super::index::Refusal::Transient(m))) => Err(m),
@@ -630,7 +630,7 @@ pub(crate) async fn before_rebalance<V: Venue + Attributed>(c: &Connection, venu
         Ok(written) => claim.composition = written,
         // D-INDEX-RETIRED-KEPT: no membership of this engine's own for a retired index (refused, or retired during the
         // probes): nothing is traded.
-        Err(m) if m == super::index::RETIRED || (bot.bot_type == "Bots::DcaIndex" && super::index::retired(c, bot.index_external_id())?
+        Err(m) if m == super::index::RETIRED || (bot.has_groups() && super::index::retired(c, bot.index_external_id())?
                                                   && !super::index::composed_here(&super::model::load_bot(c, bot.id)?)) => {
             super::log(&format!("[engine] bot {}: rebalance skipped: {m}", bot.id));
             return Ok(false);

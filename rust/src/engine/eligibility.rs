@@ -227,7 +227,7 @@ fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErro
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(why(Kind::Feature(Feature::BotType(bot.bot_type.clone())), format!("type {} (only DCA baskets and index bots)", bot.bot_type))); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
-    let members = if index { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
+    let members = if bot.has_groups() { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
     if let Some(text) = admission(exchange.as_deref(), index, selling) { r.push(why(admission_kind(exchange.as_deref()), text)); }
     match bot.settings.get("direction") {
@@ -510,7 +510,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
             // members from this venue's tickers alone and marks every other row out of the index (IndexAllocatable,
             // Allocatable), so a row without a ticker here, one a venue switch left, is a holding only. A basket's
             // members are its own settings and must trade here.
-            if bot.bot_type != "Bots::DcaIndex" { r.push(why(Kind::Asset(Some(asset_id)), format!("no ticker for the asset {asset_id} on this venue"))); }
+            if !bot.has_groups() { r.push(why(Kind::Asset(Some(asset_id)), format!("no ticker for the asset {asset_id} on this venue"))); }
             continue;
         };
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
@@ -526,7 +526,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         // xStock's balance, which no reader here follows, and the listing keeps every Kraken xStock untradable.
         // D-INDEX-TOP-N: an old stablecoin member remains a holding when composition removes it.
         // It must not refuse takeover/resync; index selection never seats it for a new buy.
-        let index_stablecoin = bot.bot_type == "Bots::DcaIndex"
+        let index_stablecoin = bot.has_groups()
             && super::index::stablecoin(category.as_deref(), external_id.as_deref().unwrap_or_default());
         let crypto = category.as_deref() == Some("Cryptocurrency") || index_stablecoin;
         let tokenized = category.as_deref() == Some("Tokenized Stock") || (!crypto && instrument.as_deref() == Some("tokenized"));
@@ -559,7 +559,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
     let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1")?;
     let current = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
     let foreign = current.iter().filter(|a| !members.contains(a)).count();
-    if bot.bot_type != "Bots::DcaIndex" && foreign > 0 { r.push(why(Kind::History(History::IndexAssets), format!("index assets present ({foreign})"))); }
+    if !bot.has_groups() && foreign > 0 { r.push(why(Kind::History(History::IndexAssets), format!("index assets present ({foreign})"))); }
     Ok(())
 }
 
