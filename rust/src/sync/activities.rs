@@ -34,19 +34,24 @@ pub fn cash_activity(t: &str) -> bool {
         || WITHHOLDING_TYPES.contains(&t) || CASH_FEE_TYPES.contains(&t)
 }
 
+/// Shared, immutable text (an `Entry`'s currencies and group).
+pub type Text = std::sync::Arc<str>;
+
 /// One row of what #get_ledger returns. Fees are part of the shape every venue adapter returns; Alpaca never sets them.
+/// PLAN-710-importmem B3′: the currencies and the group are shared text: the legs a file splits one row into, or one
+/// swap's legs, each hold the one copy.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
     pub entry_type: i64,
-    pub base_currency: Option<String>,
+    pub base_currency: Option<Text>,
     pub base_amount: BigDec,
-    pub quote_currency: Option<String>,
+    pub quote_currency: Option<Text>,
     pub quote_amount: Option<BigDec>,
-    pub fee_currency: Option<String>,
+    pub fee_currency: Option<Text>,
     pub fee_amount: Option<BigDec>,
     /// The venue's id as it sent it; AccountTransactionSync reads a blank one as none.
     pub tx_id: Option<String>,
-    pub group_id: Option<String>,
+    pub group_id: Option<Text>,
     pub description: Option<String>,
     pub transacted_at: Option<DateTime<Utc>>,
     pub raw: Raw,
@@ -153,8 +158,8 @@ fn abs(d: BigDec) -> BigDec { if d < BigDec::zero() { &BigDec::zero() - &d } els
 
 fn non_trade(raw: &Raw, entry_type: i64, description: Option<String>, quote_currency: Option<String>) -> Result<Entry, String> {
     let a = &raw.value;
-    Ok(Entry { entry_type, base_currency: Some("USD".into()), base_amount: abs(raw.decimal("net_amount")?), quote_currency, quote_amount: None,
-               fee_currency: None, fee_amount: None, tx_id: text(&a["id"]), group_id: text(&a["group_id"]), description,
+    Ok(Entry { entry_type, base_currency: Some("USD".into()), base_amount: abs(raw.decimal("net_amount")?), quote_currency: quote_currency.map(Into::into), quote_amount: None,
+               fee_currency: None, fee_amount: None, tx_id: text(&a["id"]), group_id: text(&a["group_id"]).map(Into::into), description,
                transacted_at: non_trade_time(a)?, raw: raw.clone() })
 }
 
@@ -172,8 +177,8 @@ pub fn normalize(raw: &Raw, pairs: &CryptoPairs) -> Result<Option<Entry>, String
             Some(s) => match pairs.0.get(s) { Some(p) => (Some(p.base.clone()), p.quote.clone()), None => (Some(s.clone()), "USD".into()) },
             None => (None, "USD".into()),
         };
-        return Ok(Some(Entry { entry_type: if a["side"] == "buy" { BUY } else { SELL }, base_currency: base, quote_amount: Some(&qty * &price), base_amount: qty,
-                               quote_currency: Some(quote), fee_currency: None, fee_amount: None, tx_id: text(&a["id"]), group_id: None, description: None,
+        return Ok(Some(Entry { entry_type: if a["side"] == "buy" { BUY } else { SELL }, base_currency: base.map(Into::into), quote_amount: Some(&qty * &price), base_amount: qty,
+                               quote_currency: Some(quote.into()), fee_currency: None, fee_amount: None, tx_id: text(&a["id"]), group_id: None, description: None,
                                transacted_at: Some(trade_time(&a["transaction_time"])?), raw: raw.clone() }));
     }
     let entry = match kind {
@@ -183,20 +188,20 @@ pub fn normalize(raw: &Raw, pairs: &CryptoPairs) -> Result<Option<Entry>, String
         k if DIVIDEND_INCOME_TYPES.contains(&k) => non_trade(raw, OTHER_INCOME, Some(format!("Dividend ({})", symbol.clone().unwrap_or_default())), symbol)?,
         k if WITHHOLDING_TYPES.contains(&k) => non_trade(raw, WITHHOLDING_TAX, Some(format!("Withholding ({})", symbol.clone().unwrap_or_else(|| "interest".into()))), symbol)?,
         "DIVROC" => Entry { entry_type: RETURN_OF_CAPITAL, base_amount: raw.decimal("qty")?, quote_currency: Some("USD".into()), quote_amount: Some(raw.decimal("net_amount")?),
-                            description: Some(format!("Return of capital ({})", symbol.clone().unwrap_or_default())), base_currency: symbol, ..non_trade(raw, 0, None, None)? },
+                            description: Some(format!("Return of capital ({})", symbol.clone().unwrap_or_default())), base_currency: symbol.map(Into::into), ..non_trade(raw, 0, None, None)? },
         k if CASH_FEE_TYPES.contains(&k) => non_trade(raw, FEE, None, None)?,
         // The fee is `qty`, charged in the coin; `symbol` is the compact pair ("ETHUSD").
-        "CFEE" => Entry { base_currency: symbol.as_ref().and_then(|s| pairs.0.get(s)).and_then(|p| p.asset_symbol.clone()).or(symbol),
+        "CFEE" => Entry { base_currency: symbol.as_ref().and_then(|s| pairs.0.get(s)).and_then(|p| p.asset_symbol.clone()).or(symbol).map(Into::into),
                           base_amount: abs(raw.decimal("qty")?), ..non_trade(raw, FEE, None, None)? },
         "INT" | "PTR" => non_trade(raw, OTHER_INCOME, None, None)?,
         k if SPLIT_TYPES.contains(&k) => {
             let mut marked = raw.clone();
             marked.set("corporate_action", json!("split")); // the marker everything that reacts to a split keys off
             Entry { entry_type: ADJUSTMENT, base_amount: raw.decimal("qty")?, description: Some(format!("Split ({})", symbol.clone().unwrap_or_default())),
-                    base_currency: symbol, raw: marked, ..non_trade(raw, 0, None, None)? }
+                    base_currency: symbol.map(Into::into), raw: marked, ..non_trade(raw, 0, None, None)? }
         }
         // Mergers, spin-offs, option events and future types: kept inert and verbatim.
-        _ => Entry { entry_type: UNSUPPORTED_ACTIVITY, base_currency: Some(symbol.unwrap_or_else(|| "USD".into())), base_amount: raw.decimal("qty")?,
+        _ => Entry { entry_type: UNSUPPORTED_ACTIVITY, base_currency: Some(symbol.unwrap_or_else(|| "USD".into()).into()), base_amount: raw.decimal("qty")?,
                      quote_amount: raw.number("net_amount")?, description: text(&a["activity_type"]), ..non_trade(raw, 0, None, None)? },
     };
     Ok(Some(entry))

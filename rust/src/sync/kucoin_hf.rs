@@ -194,8 +194,8 @@ fn fee(currency: Option<String>, amount: Option<BigDec>) -> Option<(Option<Strin
 
 impl FillKey {
     fn of(e: &Entry) -> Self {
-        Self { kind: e.entry_type, base: e.base_currency.clone(), base_amount: e.base_amount.clone(), quote: e.quote_currency.clone(), quote_amount: e.quote_amount.clone(),
-               fee: fee(e.fee_currency.clone(), e.fee_amount.clone()) }
+        Self { kind: e.entry_type, base: e.base_currency.as_deref().map(str::to_string), base_amount: e.base_amount.clone(), quote: e.quote_currency.as_deref().map(str::to_string), quote_amount: e.quote_amount.clone(),
+               fee: fee(e.fee_currency.as_deref().map(str::to_string), e.fee_amount.clone()) }
     }
     /// An API fill's raw (`kucoin_ledger::fill`'s reading of it).
     fn api(raw: &Value) -> Result<Self, SyncError> {
@@ -368,7 +368,7 @@ fn rederive(c: &FencedTransaction<'_>, key: &Key, seconds: &BTreeSet<DateTime<Ut
                 // UTA r1.6: an unknown export type in a currency an API fill of this second trades may be that fill (a
                 // UTA export's types are unknown): it is withheld, the API wins, and the second is flagged.
                 let traded: HashSet<&Option<String>> = j.reps.iter().filter(|r| r.api).filter_map(|r| r.key.as_ref()).chain(&j.withheld).flat_map(|k| [&k.base, &k.quote]).collect();
-                let unknown = |d: &Derived| d.entry.raw.value["reason"] == "unmapped_type" && traded.contains(&d.entry.base_currency);
+                let unknown = |d: &Derived| d.entry.raw.value["reason"] == "unmapped_type" && traded.contains(&d.entry.base_currency.as_deref().map(str::to_string));
                 ambiguous |= j.other.iter().any(unknown);
                 derived.extend(j.other.iter().filter(|d| !unknown(d)).filter(|d| d.entry.raw.value["class"].as_str().and_then(|class| cutoffs.get(class)).is_none_or(|cut| t < cut)).cloned());
             }
@@ -466,8 +466,8 @@ pub(crate) struct Allocation(pub(crate) HashMap<usize, bool>);
 type Legacy = (i64, Option<String>, f64, Option<String>, Option<f64>, Option<(Option<String>, f64)>);
 fn legacy_of(e: &Entry) -> Legacy {
     let f = |d: &BigDec| d.to_f();
-    (e.entry_type, e.base_currency.clone(), f(&e.base_amount), e.quote_currency.clone(), e.quote_amount.as_ref().map(f),
-     fee(e.fee_currency.clone(), e.fee_amount.clone()).map(|(c, a)| (c, f(&a))))
+    (e.entry_type, e.base_currency.as_deref().map(str::to_string), f(&e.base_amount), e.quote_currency.as_deref().map(str::to_string), e.quote_amount.as_ref().map(f),
+     fee(e.fee_currency.as_deref().map(str::to_string), e.fee_amount.clone()).map(|(c, a)| (c, f(&a))))
 }
 fn legacy_stored(r: &Restored) -> Legacy {
     (r.2, r.3.clone(), r.4, r.5.clone(), r.6, r.8.filter(|a| *a != 0.0).map(|a| (r.7.clone(), a)))

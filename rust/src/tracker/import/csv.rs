@@ -4,6 +4,7 @@
 use crate::v2::{self, BigDec};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use regex::Regex;
+use std::borrow::Cow;
 use std::sync::LazyLock;
 
 /// CSV::MalformedCSVError or ArgumentError: either way the file is refused as `:malformed`.
@@ -17,35 +18,89 @@ pub fn as_text(bytes: &[u8]) -> String {
     text.strip_prefix('\u{FEFF}').unwrap_or(&text).to_string()
 }
 
-/// One CSV row: a cell is None when it was empty and unquoted, as 2.x's CSV leaves it nil.
-pub type Row = Vec<Option<String>>;
-
-/// `CSV.parse(text, headers: true)`: the first row is the headers, every later row a record.
+/// One record's kept cells, in the order of the table's kept columns: a cell is None when it was empty and unquoted (as
+/// 2.x's CSV leaves it nil) or past a short record's end. `blank`: a line with no cells at all (it keeps nothing).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Table { pub headers: Row, pub rows: Vec<Row> }
+pub struct Record<'a> { pub blank: bool, cells: Vec<Option<Cow<'a, str>>> }
 
-impl Table {
-    pub fn parse(text: &str) -> Result<Self, Malformed> {
-        let mut reader = Reader::new(text);
-        let headers = reader.next().transpose()?.unwrap_or_default();
-        Ok(Self { headers, rows: reader.collect::<Result<_, _>>()? })
+/// `CSV.parse(text, headers: true)`, streamed (PLAN-710-importmem B2′): the first row is the headers, every later row a
+/// record. Only the columns a reader names are kept (the first of each name, as `row[name]` reads it); every other cell
+/// is tokenized, so its quoting is still checked, and dropped without being kept. `parse` checks the whole text before it
+/// answers, so a malformed record anywhere refuses the file before any header or row is judged; `records` then reads the
+/// rows one at a time, each kept cell borrowed from the text (owned only where a doubled quote is undone).
+#[derive(Debug, Clone)]
+pub struct Table<'a> { text: &'a str, sep: &'static [u8], body: usize, width: usize, columns: Vec<(String, usize)> }
+
+impl<'a> Table<'a> {
+    /// The whole text checked, the header row read for the columns `keep` names.
+    pub fn parse(text: &'a str, keep: impl Fn(&str) -> bool) -> Result<Self, Malformed> {
+        let table = Self::header(text, keep)?;
+        let mut reader = Reader { s: text.as_bytes(), text, pos: table.body, sep: table.sep };
+        while let Some(record) = reader.next(|_, _| {}) { record?; }
+        Ok(table)
     }
-    pub fn has_header(&self, name: &str) -> bool { self.headers.iter().any(|h| h.as_deref() == Some(name)) }
+    /// `CSV.parse_line(text)`'s header row alone, for the columns `keep` names: what follows it is never read.
+    pub fn header(text: &'a str, keep: impl Fn(&str) -> bool) -> Result<Self, Malformed> {
+        let mut reader = Reader::new(text);
+        let (mut width, mut columns) = (0, Vec::<(String, usize)>::new());
+        if let Some(header) = reader.next(|i, cell| {
+            width = i + 1;
+            if let Some(name) = cell.value() { if keep(&name) && !columns.iter().any(|(c, _)| *c == name) { columns.push((name.into_owned(), i)); } }
+        }) { header?; }
+        Ok(Self { text, sep: reader.sep, body: reader.pos, width, columns })
+    }
+    pub fn has_header(&self, name: &str) -> bool { self.columns.iter().any(|(c, _)| c == name) }
+    /// The header row's cell count.
+    pub fn width(&self) -> usize { self.width }
+    /// The position of the first header of that name, among the kept ones.
+    pub fn position(&self, name: &str) -> Option<usize> { self.columns.iter().find(|(c, _)| c == name).map(|(_, i)| *i) }
+    /// The kept headers, in the header row's order.
+    pub fn headers(&self) -> impl Iterator<Item = &str> { self.columns.iter().map(|(c, _)| c.as_str()) }
+    /// The records, read one at a time.
+    pub fn records(&self) -> impl Iterator<Item = Record<'a>> + '_ {
+        let mut reader = Reader { s: self.text.as_bytes(), text: self.text, pos: self.body, sep: self.sep };
+        std::iter::from_fn(move || {
+            let mut cells: Vec<Option<Cow<'a, str>>> = vec![];
+            let columns = &self.columns;
+            let read = reader.next(|i, cell| {
+                if let Some(slot) = columns.iter().position(|(_, at)| *at == i) {
+                    if cells.is_empty() { cells.resize(columns.len(), None); }
+                    cells[slot] = cell.value();
+                }
+            })?;
+            // `parse` checked every record: none fails here.
+            let blank = !read.ok()?;
+            Some(Record { blank, cells })
+        })
+    }
     /// `row[name]`: the cell under the FIRST header of that name; nil past a short row's end.
-    pub fn get<'a>(&self, row: &'a Row, name: &str) -> Option<&'a str> {
-        let i = self.headers.iter().position(|h| h.as_deref() == Some(name))?;
-        row.get(i)?.as_deref()
+    pub fn get<'r>(&self, record: &'r Record<'a>, name: &str) -> Option<&'r str> {
+        let slot = self.columns.iter().position(|(c, _)| c == name)?;
+        record.cells.get(slot)?.as_deref()
     }
 }
 
-/// `CSV.parse_line(text)`: the first row alone; what follows it is never read.
-pub fn first_row(text: &str) -> Result<Option<Row>, Malformed> { Reader::new(text).next().transpose() }
+/// One cell as the tokenizer found it: an unquoted cell's text, or a quoted cell's text with its `""` still doubled.
+#[derive(Clone, Copy)]
+enum Cell<'a> { Plain(&'a str), Quoted(&'a str) }
+
+impl<'a> Cell<'a> {
+    fn value(self) -> Option<Cow<'a, str>> {
+        match self {
+            Cell::Plain("") => None,
+            Cell::Plain(s) => Some(Cow::Borrowed(s)),
+            Cell::Quoted(s) if s.contains("\"\"") => Some(Cow::Owned(s.replace("\"\"", "\""))),
+            Cell::Quoted(s) => Some(Cow::Borrowed(s)),
+        }
+    }
+}
 
 /// csv's parser over a String: the row separator is detected from the whole text (the first "\r\n", "\r" or "\n",
 /// quotes not considered; "\n" when there is none). A quoted cell holds anything, `""` being one quote, and must be
 /// followed by a comma, the separator or the end. An unquoted cell may hold no quote, and under "\r\n" no CR or LF.
-/// An empty line is a row with no cells.
-struct Reader<'a> { s: &'a [u8], pos: usize, sep: &'static [u8] }
+/// An empty line is a row with no cells. Each cell is handed to the caller as found (cut at ASCII bytes only, so every
+/// cell is whole UTF-8); none is kept here.
+struct Reader<'a> { text: &'a str, s: &'a [u8], pos: usize, sep: &'static [u8] }
 
 impl<'a> Reader<'a> {
     fn new(text: &'a str) -> Self {
@@ -57,28 +112,27 @@ impl<'a> Reader<'a> {
             (Some(_), _) => b"\r",
             _ => b"\n",
         };
-        Self { s, pos: 0, sep }
+        Self { text, s, pos: 0, sep }
     }
     fn at_sep(&self, i: usize) -> bool { self.s[i..].starts_with(self.sep) }
     fn malformed(&self, what: &str) -> Malformed { Malformed(format!("{what} at byte {}", self.pos)) }
-    fn text(bytes: &[u8]) -> String { String::from_utf8_lossy(bytes).into_owned() } // whole UTF-8: cut at ASCII only
 
-    fn row(&mut self) -> Result<Row, Malformed> {
-        if self.at_sep(self.pos) { self.pos += self.sep.len(); return Ok(vec![]); }
-        let mut row = vec![];
+    /// One row, each cell handed to `each` with its position. Ok(false): an empty line, no cells.
+    fn row(&mut self, each: &mut impl FnMut(usize, Cell<'a>)) -> Result<bool, Malformed> {
+        if self.at_sep(self.pos) { self.pos += self.sep.len(); return Ok(false); }
+        let mut i = 0;
         loop {
             if self.s.get(self.pos) == Some(&b'"') {
                 self.pos += 1;
-                let mut cell = vec![];
+                let start = self.pos;
                 loop {
                     let Some(q) = self.s[self.pos..].iter().position(|&b| b == b'"').map(|q| q + self.pos) else {
                         return Err(self.malformed("unclosed quoted field"));
                     };
-                    cell.extend_from_slice(&self.s[self.pos..q]);
                     self.pos = q + 1;
-                    if self.s.get(self.pos) == Some(&b'"') { cell.push(b'"'); self.pos += 1; } else { break; }
+                    if self.s.get(self.pos) == Some(&b'"') { self.pos += 1; } else { break; }
                 }
-                row.push(Some(Self::text(&cell)));
+                each(i, Cell::Quoted(&self.text[start..self.pos - 1]));
                 if self.pos < self.s.len() && self.s[self.pos] != b',' && !self.at_sep(self.pos) {
                     return Err(self.malformed("a value after a quoted field"));
                 }
@@ -90,21 +144,20 @@ impl<'a> Reader<'a> {
                 if self.sep == b"\r\n" && cell.iter().any(|&b| b == b'\r' || b == b'\n') {
                     return Err(self.malformed("a new line in an unquoted field"));
                 }
-                row.push((!cell.is_empty()).then(|| Self::text(cell)));
+                each(i, Cell::Plain(&self.text[start..self.pos]));
             }
-            if self.pos >= self.s.len() { return Ok(row); }
+            i += 1;
+            if self.pos >= self.s.len() { return Ok(true); }
             if self.s[self.pos] == b',' { self.pos += 1; continue; }
             self.pos += self.sep.len(); // at the separator
-            return Ok(row);
+            return Ok(true);
         }
     }
-}
 
-impl Iterator for Reader<'_> {
-    type Item = Result<Row, Malformed>;
-    fn next(&mut self) -> Option<Self::Item> {
+    /// The next row (None past the end); after a malformed one, nothing more.
+    fn next(&mut self, mut each: impl FnMut(usize, Cell<'a>)) -> Option<Result<bool, Malformed>> {
         if self.pos >= self.s.len() { return None; }
-        let row = self.row();
+        let row = self.row(&mut each);
         if row.is_err() { self.pos = self.s.len(); }
         Some(row)
     }
@@ -118,7 +171,8 @@ pub const UTC_TIME: &str = "UTC_Time";
 /// Import::BinanceCsv.offset_from: "+00:00" for a file whose header names UTC_Time, else the filename's "(UTC±H[:MM])"
 /// as "±HH:MM" (a zero offset is "+"), else None.
 pub fn offset_from(filename: Option<&str>, bytes: Option<&[u8]>) -> Option<String> {
-    let utc = bytes.is_some_and(|b| first_row(&as_text(b)).ok().flatten().unwrap_or_default().iter().any(|h| h.as_deref() == Some(UTC_TIME)));
+    // B2′: the header row alone, and only whether it names UTC_Time.
+    let utc = bytes.is_some_and(|b| Table::header(&as_text(b), |h| h == UTC_TIME).is_ok_and(|t| t.has_header(UTC_TIME)));
     if utc { return Some("+00:00".into()); }
     let m = FILENAME_OFFSET.captures(filename.unwrap_or(""))?;
     let hours: u32 = m[2].parse().ok()?;
@@ -191,8 +245,27 @@ pub fn amount(value: Option<&str>) -> Result<BigDec, Malformed> {
 mod tests {
     use super::*;
 
-    fn table(s: &str) -> Result<(Row, Vec<Row>), Malformed> { Table::parse(s).map(|t| (t.headers, t.rows)) }
+    type Row = Vec<Option<String>>;
+    /// Every column kept, as the whole-table parse returned it: the headers, then each record's cells (none past its end).
+    fn table(s: &str) -> Result<(Row, Vec<Row>), Malformed> {
+        let t = Table::parse(s, |_| true)?;
+        let mut headers: Row = vec![None; t.width()];
+        for (name, i) in &t.columns { headers[*i] = Some(name.clone()); }
+        let mut rows = vec![];
+        let mut reader = Reader { s: s.as_bytes(), text: s, pos: t.body, sep: t.sep };
+        loop {
+            let mut row: Row = vec![];
+            let Some(read) = reader.next(|i, cell| { row.resize(i + 1, None); row[i] = cell.value().map(Cow::into_owned); }) else { break };
+            read?;
+            rows.push(row);
+        }
+        Ok((headers, rows))
+    }
     fn some(v: &[&str]) -> Row { v.iter().map(|x| Some(x.to_string())).collect() }
+    fn first_row(s: &str) -> Result<Option<Row>, Malformed> {
+        let t = Table::header(s, |_| true)?;
+        Ok((!s.is_empty()).then(|| { let mut h: Row = vec![None; t.width()]; for (n, i) in &t.columns { h[*i] = Some(n.clone()); } h }))
+    }
 
     #[test]
     fn rows_as_v2_csv_reads_them() {
@@ -214,7 +287,20 @@ mod tests {
 
     #[test]
     fn a_short_row_is_nil_and_the_first_duplicate_header_wins() {
-        let t = Table::parse("a,b,a\n1\n2,3,4\n").unwrap();
-        assert_eq!((t.get(&t.rows[0], "b"), t.get(&t.rows[1], "a")), (None, Some("2")));
+        let t = Table::parse("a,b,a\n1\n2,3,4\n", |_| true).unwrap();
+        let rows: Vec<Record> = t.records().collect();
+        assert_eq!((t.get(&rows[0], "b"), t.get(&rows[1], "a")), (None, Some("2")));
+    }
+
+    /// B2′: a column no reader names is never kept, but its quoting is still checked; a blank line keeps nothing.
+    #[test]
+    fn only_the_named_columns_are_kept_and_every_cell_is_checked() {
+        let t = Table::parse("x,a,y\n\"p\"\"q\",1,\"r\"\n\n,2\n", |h| h == "a").unwrap();
+        assert_eq!((t.width(), t.headers().collect::<Vec<_>>(), t.position("a"), t.has_header("x")), (3, vec!["a"], Some(1), false));
+        let rows: Vec<Record> = t.records().collect();
+        assert_eq!(rows.iter().map(|r| (r.blank, t.get(r, "a"))).collect::<Vec<_>>(), vec![(false, Some("1")), (true, None), (false, Some("2"))]);
+        assert_eq!(rows[1].cells.capacity(), 0, "a blank line allocates nothing");
+        assert!(Table::parse("x,a\n1,2\n\"broken,3\n", |h| h == "a").is_err(), "a broken quote in a dropped column");
+        assert!(Table::parse("x,a\n1,2\nx\"y,3\n", |h| h == "a").is_err());
     }
 }

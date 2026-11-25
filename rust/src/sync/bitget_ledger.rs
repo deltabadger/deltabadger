@@ -88,10 +88,10 @@ fn fill(raw: Raw, tickers: &Tickers) -> Result<Entry, Fail> {
     let total = match &detail { Some(d) => d.number("totalFee").map_err(|why| (format!("fill: {why}"), true))?, None => None };
     let fee = abs(match total { Some(t) => t, None => raw.decimal("fee").map_err(|why| (format!("fill: {why}"), true))? });
     let mut e = entry(if side.as_deref() == Some("buy") { BUY } else { SELL }, "", size.clone(), &raw, at);
-    e.base_currency = base;
+    e.base_currency = base.map(Into::into);
     e.quote_amount = Some(&size * &price);
-    e.fee_currency = detail.as_ref().and_then(|d| d.value.get("feeCoin")).filter(|v| !v.is_null()).map(to_s).or_else(|| quote.clone());
-    e.quote_currency = quote;
+    e.fee_currency = detail.as_ref().and_then(|d| d.value.get("feeCoin")).filter(|v| !v.is_null()).map(to_s).or_else(|| quote.clone()).map(Into::into);
+    e.quote_currency = quote.map(Into::into);
     e.fee_amount = Some(fee);
     e.tx_id = text(raw.value.get("tradeId"));
     Ok(e)
@@ -105,9 +105,9 @@ fn transfer(kind: i64, raw: Raw) -> Result<Option<Entry>, Fail> {
     let coin = raw.value.get("coin").filter(|v| !v.is_null()).map(to_s);
     let what = if kind == DEPOSIT { "deposit" } else { "withdrawal" };
     let mut e = entry(kind, "", amount(&raw, "size", what)?, &raw, at);
-    e.base_currency = coin.clone();
+    e.base_currency = coin.clone().map(Into::into);
     if kind == WITHDRAWAL {
-        e.fee_currency = coin;
+        e.fee_currency = coin.map(Into::into);
         e.fee_amount = Some(abs(raw.decimal("fee").map_err(|why| (format!("withdrawal: {why}"), true))?));
     }
     e.tx_id = Some(format!("{what}-{}", to_s(&raw.value["orderId"])));

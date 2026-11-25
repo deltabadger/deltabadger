@@ -76,10 +76,10 @@ fn fill(raw: &Raw, pairs: &Pairs) -> Result<Option<Entry>, Fail> {
     let mut e = entry(if raw.value["side"] == "B" { BUY } else { SELL }, &base, size.clone(), raw, at(raw, "fill")?);
     e.quote_amount = Some(&price * &size);
     if fee.is_positive() {
-        e.fee_currency = Some(present(&raw.value["feeToken"]).or_else(|| quote.clone()).unwrap_or_else(|| "USDC".into()));
+        e.fee_currency = Some(present(&raw.value["feeToken"]).or_else(|| quote.clone()).unwrap_or_else(|| "USDC".into()).into());
         e.fee_amount = Some(fee);
     }
-    e.quote_currency = Some(quote.unwrap_or_else(|| "USDC".into()));
+    e.quote_currency = Some(quote.unwrap_or_else(|| "USDC".into()).into());
     e.tx_id = Some(to_s(&raw.value["tid"]));
     Ok(Some(e))
 }
@@ -109,9 +109,9 @@ fn update(raw: &Raw, address: &str) -> Result<Option<Entry>, Fail> {
     let base_amount = amount(&delta_raw, amount_key, "update")?;
     let fee = if kind == WITHDRAWAL { delta_raw.decimal("fee").map_err(|why| (format!("update: {why}"), true))? } else { BigDec::zero() };
     let mut e = entry(kind, "", base_amount, raw, at(raw, "update")?);
-    e.base_currency = if token.is_null() { None } else { Some(to_s(&token)) };
+    e.base_currency = if token.is_null() { None } else { Some(to_s(&token).into()) };
     if fee.is_positive() {
-        e.fee_currency = Some(present(&delta["feeToken"]).unwrap_or_else(|| "USDC".into()));
+        e.fee_currency = Some(present(&delta["feeToken"]).unwrap_or_else(|| "USDC".into()).into());
         e.fee_amount = Some(fee);
     }
     let hash = to_s(&raw.value["hash"]);

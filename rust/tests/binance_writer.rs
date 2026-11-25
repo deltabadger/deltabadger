@@ -37,7 +37,7 @@ fn state(c: &Connection) -> Value {
         s.query_map([],|r|Ok((0..n).map(|i|format!("{:?}",r.get_ref(i).unwrap())).collect::<Vec<_>>())).unwrap().collect::<Result<Vec<_>,_>>().unwrap() }))
 }
 fn count(c: &Connection) -> i64 { c.query_row("SELECT count(*) FROM account_transactions",[],|r|r.get(0)).unwrap() }
-fn csv(rows: &[writer::Input]) -> Vec<Entry> { rows.iter().map(|r| {let mut e=r.entry.clone();e.tx_id=None;e.group_id=Some(format!("dustcsv_{}",e.raw.value["fromAsset"].as_str().unwrap()));
+fn csv(rows: &[writer::Input]) -> Vec<Entry> { rows.iter().map(|r| {let mut e=r.entry.clone();e.tx_id=None;e.group_id=Some(format!("dustcsv_{}",e.raw.value["fromAsset"].as_str().unwrap()).into());
     if e.entry_type==2 { e.base_amount=deltabadger::v2::BigDec::parse("0.09").unwrap();e.fee_amount=None;e.fee_currency=None; } e.raw=Raw::from_value(json!({"operation":"Small Assets Exchange BNB"}));e }).collect() }
 fn file(c: &Connection, key: &sync::Key, rows: &[Entry]) -> Result<sync::ledger::Outcome,sync::SyncError> {
     let tx=model::immediate(c)?;

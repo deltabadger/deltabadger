@@ -478,11 +478,11 @@ fn another_accounts_import_and_credential_are_recorded_and_survive_a_restart() {
 #[test]
 fn kucoins_uid_is_its_exports_uid_and_binances_is_its_exports_user_id() {
     let f = fixture();
-    let export = |name: &str, columns: &[&str]| identity::export_account_id(&csv::Table::parse(f[name].as_str().unwrap()).unwrap(), columns).unwrap().unwrap();
+    let export = |name: &str, columns: &[&str]| identity::export_account_id(&csv::Table::parse(f[name].as_str().unwrap(), |h| columns.contains(&h)).unwrap(), columns).unwrap().unwrap();
     assert_eq!(identity::kucoin_answer(200, &f["kucoin_api_key"].to_string()), Observed::Read(export("kucoin_export", &identity::KUCOIN_EXPORT_COLUMNS)));
     assert_eq!(identity::binance_answer(200, &f["binance_account"].to_string()), Observed::Read(export("binance_export", &identity::BINANCE_EXPORT_COLUMNS)));
     let masked = f["kucoin_export"].as_str().unwrap().replace("165111215,mainAccount,6700000000000000000a0002", "1651****15,mainAccount,6700000000000000000a0002");
-    assert!(identity::export_account_id(&csv::Table::parse(&masked).unwrap(), &identity::KUCOIN_EXPORT_COLUMNS).is_err(), "a masked UID is a malformed export");
+    assert!(identity::export_account_id(&csv::Table::parse(&masked, |h| h == "UID").unwrap(), &identity::KUCOIN_EXPORT_COLUMNS).is_err(), "a masked UID is a malformed export");
 }
 
 fn kucoin_credentials() -> Credentials { Credentials { ibkr: None, key: "kc-identity-key".into(), secret: "kc-secret".into(), passphrase: Some("kc-phrase".into()), redaction_values: vec![] } }

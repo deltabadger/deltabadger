@@ -143,7 +143,7 @@ fn transfer(r: Raw, deposit: bool) -> Result<Entry, Fail> {
     e.tx_id =
         text(r.value.get(if deposit { "txId" } else { "id" })).filter(|s| !s.trim().is_empty());
     if !deposit {
-        e.fee_currency = Some(coin);
+        e.fee_currency = Some(coin.into());
         e.fee_amount = r.number("transactionFee").map_err(|e| (e, true))?;
     }
     Ok(e)
@@ -165,7 +165,7 @@ fn trade(symbol: &str, r: Raw) -> Result<Entry, Fail> {
     );
     e.quote_currency = Some(quote.into());
     e.quote_amount = Some(amount(&r, "quoteQty", "trade")?);
-    e.fee_currency = text(r.value.get("commissionAsset"));
+    e.fee_currency = text(r.value.get("commissionAsset")).map(Into::into);
     let fee = amount(&r, "commission", "trade")?;
     e.fee_amount = Some(if fee < crate::v2::BigDec::zero() {
         &crate::v2::BigDec::zero() - &fee
@@ -355,7 +355,7 @@ impl<'a, T: Transport> Walk<'a, T> {
                 continue;
             }
             let e = transfer(r, deposit)?;
-            self.c.discovered.extend(e.base_currency.clone());
+            self.c.discovered.extend(e.base_currency.as_deref().map(str::to_string));
             entries.push(e);
         }
         if count >= TRANSFER_PAGE {

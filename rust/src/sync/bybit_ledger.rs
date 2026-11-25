@@ -52,9 +52,9 @@ fn fill(raw: Raw, tickers: &Tickers) -> Result<Entry, Fail> {
     let (base, quote) = tickers.pair(raw.value["symbol"].as_str());
     let at = v2_time_at_ms(to_i(&raw.value["execTime"])).ok_or_else(|| ("unreadable fill execTime".into(), true))?;
     let mut e = entry(if raw.value["side"] == "Buy" { BUY } else { SELL }, "", amount(&raw, "execQty", "fill")?, &raw, at);
-    e.base_currency = base; e.quote_currency = quote;
+    e.base_currency = base.map(Into::into); e.quote_currency = quote.map(Into::into);
     e.quote_amount = Some(amount(&raw, "execValue", "fill")?);
-    e.fee_currency = text(raw.value.get("feeCurrency"));
+    e.fee_currency = text(raw.value.get("feeCurrency")).map(Into::into);
     e.fee_amount = Some(abs(amount(&raw, "execFee", "fill")?));
     e.tx_id = text(raw.value.get("execId"));
     Ok(e)
@@ -69,7 +69,7 @@ fn transfer(source: Source, raw: Raw) -> Result<Option<Entry>, Fail> {
     let at = v2_time_at_ms(at).ok_or_else(|| ("unreadable transfer time".into(), true))?;
     let kind = if source == Source::Withdrawals { WITHDRAWAL } else { DEPOSIT };
     let mut e = entry(kind, "", amount(&raw, "amount", "transfer")?, &raw, at);
-    e.base_currency = text(raw.value.get("coin"));
+    e.base_currency = text(raw.value.get("coin")).map(Into::into);
     if kind == WITHDRAWAL { e.fee_currency = e.base_currency.clone(); e.fee_amount = Some(amount(&raw, "withdrawFee", "withdrawal")?); }
     if source == Source::Internal { e.description = Some("Internal transfer".into()); }
     e.tx_id = text(raw.value.get("txID"));

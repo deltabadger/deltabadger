@@ -663,7 +663,7 @@ fn uta_export_is_scrubbed_with_the_session_state_and_still_reads() {
     let out = uta::scrub_csv(csv, &mut sc, FACTOR, &[]).unwrap();
     assert!(!out.contains("123456789"), "{out}");
     assert!(out.contains("\"Unified Account\",\"USDT\",\"Withdrawal\",\"20.10369\",\"0\",\"2023-11-27 16:00:00\",\"\",\"Spot\""), "{out}");
-    let rows = deltabadger::tracker::import::kucoin::read(&deltabadger::tracker::import::csv::Table::parse(&out).unwrap()).unwrap();
+    let rows = deltabadger::tracker::import::kucoin::read(&deltabadger::tracker::import::csv::Table::parse(&out, deltabadger::tracker::import::kucoin::columns).unwrap()).unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[1].fee.to_s_f(), "0.0000003");
     // A worded remark that repeats the side is kept, not barred as an original.

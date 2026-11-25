@@ -89,8 +89,8 @@ fn trade(raw: Raw, pairs: &Pairs) -> Result<Entry, Fail> {
     let fee = raw.decimal("fee_amount").map_err(|why| (format!("trade: {why}"), true))?;
     let mut e = entry(if raw.value["type"] == "Buy" { BUY } else { SELL }, &base, size.clone(), &raw, at);
     e.quote_amount = Some(&price * &size);
-    e.fee_currency = raw.value["fee_currency"].as_str().map(str::to_uppercase).or_else(|| quote.clone());
-    e.quote_currency = quote;
+    e.fee_currency = raw.value["fee_currency"].as_str().map(str::to_uppercase).or_else(|| quote.clone()).map(Into::into);
+    e.quote_currency = quote.map(Into::into);
     e.fee_amount = Some(fee);
     e.tx_id = Some(text(raw.value.get("tid")).unwrap_or_default());
     Ok(e)
@@ -104,9 +104,9 @@ fn transfer(raw: Raw) -> Result<Option<Entry>, Fail> {
     let at = v2_time_at_ms(to_i(&raw.value["timestampms"])).ok_or_else(|| ("unreadable transfer timestampms".to_string(), true))?;
     let fee = raw.decimal("feeAmount").map_err(|why| (format!("transfer: {why}"), true))?;
     let mut e = entry(kind, "", amount(&raw, "amount", "transfer")?, &raw, at);
-    e.base_currency = currency.clone();
+    e.base_currency = currency.clone().map(Into::into);
     if fee.is_positive() {
-        e.fee_currency = raw.value["feeCurrency"].as_str().map(str::to_uppercase).or(currency);
+        e.fee_currency = raw.value["feeCurrency"].as_str().map(str::to_uppercase).or(currency).map(Into::into);
         e.fee_amount = Some(fee);
     }
     e.tx_id = Some(text(raw.value.get("eid")).unwrap_or_default());

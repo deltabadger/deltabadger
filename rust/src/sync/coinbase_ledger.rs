@@ -74,7 +74,7 @@ pub fn fill(raw: Raw) -> Result<Vec<Entry>, Fail> {
         let mut b = entry(if buy { SWAP_OUT } else { SWAP_IN }, quote, total, &raw, at);
         a.tx_id = Some(format!("{id}-in"));
         b.tx_id = Some(format!("{id}-out"));
-        a.group_id = Some(format!("swap_{id}"));
+        a.group_id = Some(format!("swap_{id}").into());
         b.group_id = a.group_id.clone();
         if fee.is_positive() {
             let e = if buy { &mut a } else { &mut b };
@@ -124,7 +124,7 @@ fn transfer(raw: Raw) -> Result<Option<Entry>, Fail> {
             .filter(|n| n.is_positive())
         {
             e.fee_amount = Some(n);
-            e.fee_currency = text(fee.value.get("currency"));
+            e.fee_currency = text(fee.value.get("currency")).map(Into::into);
         }
     }
     e.tx_id = text(raw.value.get("id"));
