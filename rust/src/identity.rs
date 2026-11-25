@@ -1399,6 +1399,11 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
         let account = Account::by_id(c, id).map_err(db)?.ok_or("account identity: no account")?;
         c.query_row(&format!("SELECT count(*) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0)).map_err(db)
     };
+    // The slot of `kind` on `id` already holds exactly this material.
+    let reposts = |id: i64| -> Result<bool, String> {
+        let slot = Account::by_id(c, id).map_err(db)?.map(|a| a.key(c, kind)).transpose().map_err(db)?.flatten();
+        Ok(slot.is_some_and(|k| is_material(c, cipher, k, exchange_type, material)))
+    };
     match reading {
         Reading::Read(id) => {
             let fingerprint = key(c, cipher, now)?.fingerprint(exchange_type, id);
@@ -1416,8 +1421,11 @@ pub fn route_key(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64
             }
             installed(true)
         }
+        // Bybit review r1 #2 (every identity venue): a key nobody could read never takes an account another unread key of it
+        // would decide: that key is read first (`replaces_unread`), or the save is refused to try again. An exact repost
+        // into its own slot replaces nothing, so it stays.
         Reading::Unread => match (target, live.as_slice()) {
-            (Some(t), [(only, _)]) if *only == t && unset(t)? => Ok(Route::To(t)),
+            (Some(t), [(only, _)]) if *only == t && unset(t)? && (reposts(t)? || !holds_unread_other(c, cipher, t, exchange_type, material)?) => Ok(Route::To(t)),
             _ => Ok(Route::Unconfirmed),
         },
         Reading::NotAnIdentityVenue => {

@@ -204,6 +204,8 @@ pub enum Imported {
     QuoteMismatch { csv: String, bot: String, skipped: usize },
     /// Rows written, and rows skipped as not closed, not this bot's or ambiguous (existing ones are 2.x's sentence).
     Done { imported: usize, skipped: usize },
+    /// The sign-in ended before the write (`auth::still_signed_in`): nothing written.
+    SignedOut,
 }
 
 struct Candidate { order_id: String, at: DateTime<Utc>, order_type: i64, side: i64, amount: BigDec, value: BigDec, price: BigDec, base: String, asset: Option<i64> }
@@ -216,6 +218,8 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     if table.headers.len() != HEADERS.len() || table.headers.iter().zip(HEADERS).any(|(h, e)| h.as_deref() != Some(e)) { return Ok(Imported::InvalidFormat) }
     let now = ctx.app.now();
     let tx = model::immediate(c)?;
+    // The sign-in may have ended while the file was on its way or read: checked again in this transaction.
+    if !auth::still_signed_in(&tx, ctx)? { return Ok(Imported::SignedOut) }
     let Some(bot) = owned(&tx, user, id)? else { return Ok(Imported::Missing) };
     let engine_bot = model::load_bot(&tx, id)?;
     if write::engine_holds(&tx, &engine_bot)? || composition::in_flight(&tx, &engine_bot, now)? {
@@ -345,6 +349,7 @@ pub async fn import(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path
     let (style, message) = match result {
         Err(e) => return layout::or_refused(&ctx, e),
         Ok(Imported::Missing) => return Ok(super::page::not_found(&ctx)),
+        Ok(Imported::SignedOut) => return Ok(auth::signed_out(&ctx)),
         Ok(Imported::NoFile) => (flash::ALERT, t("import_no_file", &[])),
         Ok(Imported::InvalidFormat) => (flash::ALERT, t("import_invalid_format", &[])),
         Ok(Imported::Malformed) => (flash::ALERT, t("import_malformed_csv", &[])),

@@ -214,6 +214,22 @@ pub fn unauthenticated(ctx: &Ctx) -> Response {
     failure(ctx, "unauthenticated")
 }
 
+/// The sign-in an import writes for, checked again inside the write's own transaction (`c`): the cookie unexpired by a
+/// fresh clock, the user present and active, and the password salt the session holds. A session can end while the
+/// handler runs (a password reset, a lock, the cookie's expiry); the write then writes nothing (`signed_out`).
+pub fn still_signed_in(c: &Connection, ctx: &Ctx) -> Result<bool, WebError> {
+    let now = ctx.app.now();
+    if ctx.session.expires_at().is_some_and(|until| until <= now.timestamp()) { return Ok(false); }
+    let Some((id, salt)) = ctx.session.lock().user.clone() else { return Ok(false) };
+    Ok(User::find(c, id)?.is_some_and(|user| user.salt() == salt && user.confirmed && !user.locked(now)))
+}
+
+/// The answer to a request whose sign-in ended under it (`still_signed_in`): signed out, the session without its user.
+pub fn signed_out(ctx: &Ctx) -> Response {
+    ctx.session.lock().user = None;
+    unauthenticated(ctx)
+}
+
 /// `unauthenticated` where the request's format may be JSON: Devise's failure app answers a non-navigational format
 /// with 401 and `{"error": message}` (no flash, no stored location). 2.x's format is the Accept's first type unless
 /// the Accept looks like a browser's (`*/*` beside another type), which reads as HTML.
