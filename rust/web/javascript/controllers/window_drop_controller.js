@@ -9,7 +9,7 @@ import { Controller } from "@hotwired/stimulus"
 // While a dialog is open (the import modal has its own drop zone) or a file is being sent, the window
 // takes no drop, but still cancels the browser's default, which would open the file in place of the page.
 export default class extends Controller {
-  static targets = ["input"]
+  static targets = ["input", "submit"]
 
   connect() {
     this.depth = 0
@@ -53,7 +53,10 @@ export default class extends Controller {
     this.inputTarget.files = transfer.files
     this.busy = true
     this.element.classList.add("is-busy")
-    this.element.requestSubmit()
+    // Safari before 16 (the desktop app's WebKit on older macOS) has no requestSubmit; clicking a submit
+    // button is the other way that fires the submit event Turbo takes, where form.submit() would bypass it.
+    if (this.element.requestSubmit) this.element.requestSubmit()
+    else this.submitTarget.click()
   }
 
   reset() {
