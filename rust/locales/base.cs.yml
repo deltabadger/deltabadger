@@ -686,6 +686,7 @@ cs:
             error_unreadable: 'Tento soubor není ve zvoleném formátu.'
             error_malformed: 'Soubor se nepodařilo přečíst.'
             error_no_file: 'Nejprve vyber soubor.'
+            import_busy: 'Právě probíhá jiný import. Zkus to znovu za chvíli.'
             error_no_account: 'Vyber účet pro import.'
             no_account: 'Nejdřív připoj burzu — import patří k účtu.'
         positions: 'Pozice'

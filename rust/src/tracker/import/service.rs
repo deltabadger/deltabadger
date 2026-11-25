@@ -68,6 +68,25 @@ fn warning_accounts(answer: &Answer) -> Vec<WarningAccount> {
     out
 }
 
+/// PLAN-710-importmem B1′: one of `App::import_slots`, which `web::entry` took for an admitted import request before its
+/// body was read. The operation's worker owns it until it finishes, a dropped request included.
+pub type Permit = tokio::sync::OwnedSemaphorePermit;
+
+/// The request's slot, as `entry` hands it on (a request extension); `take` gives the permit to the one operation.
+#[derive(Clone)]
+pub struct Slot(Arc<Mutex<Option<Permit>>>);
+impl Slot {
+    pub fn held(permit: Permit) -> Self { Self(Arc::new(Mutex::new(Some(permit)))) }
+    /// The permit this request holds; one waited for (without a deadline) where it holds none, which `entry` never
+    /// lets happen for an admitted import.
+    pub async fn take(slot: Option<&Self>, app: &App) -> Permit {
+        match slot.and_then(|s| s.0.lock().unwrap_or_else(PoisonError::into_inner).take()) { Some(permit) => permit, None => permit(app).await }
+    }
+}
+
+/// A slot, waited for as long as it takes (tests, and a caller that has no request to answer busy).
+pub async fn permit(app: &App) -> Permit { app.import_slots.clone().acquire_owned().await.expect("the import slots are never closed") }
+
 /// Whether the request's sign-in still holds, asked inside the operation's transaction.
 pub type SignedIn = Arc<dyn Fn(&Connection) -> Result<bool, SyncError> + Send + Sync>;
 
@@ -91,10 +110,11 @@ fn prune_locks() {
 
 /// `work` in a worker that owns the token's lock until it returns: a dropped request cannot release it early, and the
 /// worker still runs to its outcome.
-async fn worker(app: &App, token: &str, work: impl FnOnce(&App, &Connection) -> Result<Outcome, WebError> + Send + 'static) -> Result<Outcome, WebError> {
+async fn worker(app: &App, token: &str, permit: Permit, work: impl FnOnce(&App, &Connection) -> Result<Outcome, WebError> + Send + 'static) -> Result<Outcome, WebError> {
     let lock = lock_of(token);
     let app = app.clone();
     let done = tokio::spawn(async move {
+        let _permit = permit;
         let _guard = lock.lock_owned().await;
         let inner = app.clone();
         app.db(move |c| work(&inner, c)).await
@@ -127,8 +147,15 @@ fn sha256(bytes: &[u8]) -> String { use sha2::Digest; hex::encode(sha2::Sha256::
 fn db(e: impl std::fmt::Display) -> WebError { WebError::Config(format!("import: {e}")) }
 fn time(t: chrono::DateTime<chrono::Utc>) -> String { crate::sync::sql_time(t) }
 
-/// A fresh upload: written at once, or parked with its question (generation 1).
-pub async fn upload(app: &App, user: i64, format: &'static str, bytes: Vec<u8>, filename: Option<String>, signed_in: SignedIn) -> Result<Outcome, WebError> {
+/// A fresh upload: written at once, or parked with its question (generation 1). PLAN-710-importmem A2/E4: its parse (off
+/// the shared connection) and its write run in one worker that owns `permit` until both are done, a dropped request
+/// included.
+pub async fn upload(app: &App, user: i64, format: &'static str, bytes: Vec<u8>, filename: Option<String>, signed_in: SignedIn, permit: Permit) -> Result<Outcome, WebError> {
+    let app = app.clone();
+    tokio::spawn(async move { let _permit = permit; upload_now(&app, user, format, bytes, filename, signed_in).await }).await.map_err(|e| WebError::Task(e.to_string()))?
+}
+
+async fn upload_now(app: &App, user: i64, format: &'static str, bytes: Vec<u8>, filename: Option<String>, signed_in: SignedIn) -> Result<Outcome, WebError> {
     // #resolve_offset: a Binance file's zone is the one its own name states.
     let zone = match run::offset(format, filename.as_deref(), &bytes) {
         None => None,
@@ -232,9 +259,9 @@ fn transition(c: &Connection, token: &str, from: &str, to: &str, gen: i64) -> Re
 }
 
 /// A confirmation: the handle's sealed answer written, at most once, or the question asked again (generation + 1).
-pub async fn confirm(app: &App, user: i64, token: String, handle: String, signed_in: SignedIn) -> Result<Outcome, WebError> {
+pub async fn confirm(app: &App, user: i64, token: String, handle: String, signed_in: SignedIn, permit: Permit) -> Result<Outcome, WebError> {
     let key = token.clone();
-    worker(app, &key, move |app, c| confirm_locked(app, c, user, &token, &handle, &signed_in)).await
+    worker(app, &key, permit, move |app, c| confirm_locked(app, c, user, &token, &handle, &signed_in)).await
 }
 
 fn confirm_locked(app: &App, c: &Connection, user: i64, token: &str, handle: &str, signed_in: &SignedIn) -> Result<Outcome, WebError> {
@@ -313,9 +340,9 @@ fn confirm_locked(app: &App, c: &Connection, user: i64, token: &str, handle: &st
 
 /// Cancel on an open question of `user`: `cancelled` commits under the token's lock, so a confirmation queued behind it
 /// finds the upload closed.
-pub async fn cancel(app: &App, user: i64, token: String, signed_in: SignedIn) -> Result<Outcome, WebError> {
+pub async fn cancel(app: &App, user: i64, token: String, signed_in: SignedIn, permit: Permit) -> Result<Outcome, WebError> {
     let key = token.clone();
-    worker(app, &key, move |app, c| {
+    worker(app, &key, permit, move |app, c| {
         let tx = crate::engine::model::immediate(c)?;
         if !signed_in(&tx).map_err(|e| db(e.0))? { return Ok(Outcome::SignedOut); }
         let now = app.now();

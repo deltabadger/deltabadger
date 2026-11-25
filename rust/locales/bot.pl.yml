@@ -184,6 +184,7 @@ pl:
                 download_csv: 'Pobierz'
                 generating_csv: 'Generowanie pliku...'
                 import_csv: 'Importuj'
+                import_busy: 'Trwa już inny import. Spróbuj ponownie za chwilę.'
                 exchange_unavailable_html: "Nie udało się odczytać cen z giełdy.<br>Wartości opierają się na ostatnich dostępnych danych."
                 order: Zlecenie
                 profit_loss: Zysk/Strata

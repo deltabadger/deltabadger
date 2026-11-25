@@ -668,6 +668,7 @@ it:
             error_unreadable: 'Questo file non è nel formato selezionato.'
             error_malformed: 'Impossibile leggere questo file.'
             error_no_file: 'Scegli prima un file.'
+            import_busy: 'C’è già un’altra importazione in corso. Riprova tra poco.'
             error_no_account: 'Scegli un conto per l’importazione.'
             no_account: 'Collega prima un exchange — un’importazione è legata a un conto.'
         positions: 'Posizioni'

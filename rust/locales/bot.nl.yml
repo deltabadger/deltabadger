@@ -184,6 +184,7 @@ nl:
                 download_csv: 'Exporteren'
                 generating_csv: 'Bestand genereren...'
                 import_csv: 'Importeren'
+                import_busy: 'Er loopt al een andere import. Probeer het zo meteen opnieuw.'
                 exchange_unavailable_html: "De prijzen konden niet van de exchange worden gelezen.<br>De cijfers gebruiken de laatst beschikbare gegevens."
                 order: Order
                 profit_loss: Winst/verlies

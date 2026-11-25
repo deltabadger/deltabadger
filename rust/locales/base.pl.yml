@@ -672,6 +672,7 @@ pl:
             error_unreadable: 'Ten plik nie jest w wybranym formacie.'
             error_malformed: 'Nie udało się odczytać pliku.'
             error_no_file: 'Najpierw wybierz plik.'
+            import_busy: 'Trwa już inny import. Spróbuj ponownie za chwilę.'
             error_no_account: 'Wybierz konto do importu.'
             no_account: 'Najpierw podłącz giełdę — import jest przypisany do konta.'
         positions: 'Pozycje'

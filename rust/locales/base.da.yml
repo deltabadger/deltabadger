@@ -678,6 +678,7 @@ da:
             error_unreadable: 'Denne fil er ikke i det valgte format.'
             error_malformed: 'Denne fil kunne ikke læses.'
             error_no_file: 'Vælg en fil først.'
+            import_busy: 'En anden import er allerede i gang. Prøv igen om et øjeblik.'
             error_no_account: 'Vælg en konto at importere til.'
             no_account: 'Forbind en børs først — en import hører til en konto.'
         positions: 'Positioner'

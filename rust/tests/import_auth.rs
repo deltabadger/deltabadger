@@ -94,7 +94,7 @@ fn filler(size: usize, polls: Arc<AtomicUsize>) -> Body {
 }
 
 #[derive(Debug, PartialEq)]
-struct Sent { status: u16, location: Option<String>, session: Option<session::SessionData>, cookie: Option<String>, body: String }
+struct Sent { status: u16, location: Option<String>, session: Option<session::SessionData>, cookie: Option<String>, body: String, retry_after: Option<String>, content_type: Option<String> }
 impl Sent {
     fn flash(&self) -> Vec<(String, String)> { self.session.as_ref().map(|s| s.flash.clone()).unwrap_or_default() }
     /// What a test compares: everything but the new cookie's bytes (a fresh nonce each time).
@@ -115,8 +115,9 @@ async fn send(app: &App, method: &str, path: &str, cookies: &[&str], headers: &[
     let cookie = response.headers().get_all(header::SET_COOKIE).iter().filter_map(|v| v.to_str().unwrap().strip_prefix(&format!("{}=", session::COOKIE)))
         .map(|rest| rest.split(';').next().unwrap().to_string()).next_back();
     let session = cookie.as_ref().map(|c| session::open(&app.keys.session, c, app.now()).expect("the cookie written opens"));
+    let (retry_after, content_type) = [header::RETRY_AFTER, header::CONTENT_TYPE].map(|name| response.headers().get(name).map(|v| v.to_str().unwrap().to_string())).into();
     let body = String::from_utf8_lossy(&axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap()).into_owned();
-    Sent { status, location, session, cookie, body }
+    Sent { status, location, session, cookie, body, retry_after, content_type }
 }
 
 fn csv() -> Vec<u8> { format!("{HEADER}\n{ROW}\n").into_bytes() }
@@ -520,4 +521,139 @@ async fn a_password_changed_between_the_lookups_imports_nothing() {
     let answer = send(&i.app, "POST", &i.bot_path(), &[&cookie], &[("content-type", &content_type)], counted(body, polls, move || armed.store(true, Ordering::SeqCst))).await;
     assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), (302, Some("/login"), alert("en", "devise.failure.unauthenticated")));
     assert_eq!(i.rows(), 0);
+}
+
+/// A body that sends its first half and then nothing more: an upload holding its slot until the read deadline. Counts
+/// its polls.
+fn stalled(content: Vec<u8>, polls: Arc<AtomicUsize>) -> Body {
+    let start = Bytes::from(content[..content.len() / 2].to_vec());
+    Body::from_stream(futures_util::stream::once(async move { polls.fetch_add(1, Ordering::SeqCst); Ok::<_, std::convert::Infallible>(start) })
+        .chain(futures_util::stream::pending()))
+}
+
+/// What the tracker's Turbo form sends.
+const TURBO: &str = "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
+
+/// Waits until `polls` saw a poll (an admitted upload holding its slot), for at most two seconds.
+async fn polled(polls: &AtomicUsize) {
+    for _ in 0..200 { if polls.load(Ordering::SeqCst) > 0 { return } tokio::time::sleep(std::time::Duration::from_millis(10)).await; }
+    panic!("the upload was never read");
+}
+
+/// PLAN-710-importmem B1′/E1/E5 (D-IMPORT-BUSY): two uploads read their bodies (stalled, holding both import slots); a
+/// third, signed in, waits the slot's five seconds with its body never polled, and is answered busy: a 503 with
+/// `Retry-After`, no cookie written. The tracker's Turbo form gets its busy line and its drop zone back; the bot's form
+/// (no Turbo) a page in the user's language that leads back to the bot.
+#[tokio::test(flavor = "current_thread")]
+async fn a_third_concurrent_import_waits_unread_and_is_answered_busy() {
+    let i = install();
+    let secret = csrf::new_token();
+    let masked = csrf::masked(&secret);
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+    let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[("file", "orders.csv", &csv())]);
+    let holders: Vec<Arc<AtomicUsize>> = (0..2).map(|_| Arc::new(AtomicUsize::new(0))).collect();
+    for (n, polls) in holders.iter().enumerate() {
+        let (app, cookie, content_type, body, polls) = (i.app.clone(), cookie.clone(), content_type.clone(), body.clone(), polls.clone());
+        let path = if n == 0 { "/tracker/import".to_string() } else { i.bot_path() };
+        tokio::spawn(async move { send(&app, "POST", &path, &[&cookie], &[("content-type", &content_type)], stalled(body, polls)).await });
+    }
+    for polls in &holders { polled(polls).await; }
+    let before = i.snapshot();
+    for (path, accept, language) in [("/tracker/import".to_string(), TURBO, "en"), (i.bot_path(), "text/html", "en"), (format!("/de{}", i.bot_path()), "text/html", "de")] {
+        let polls = Arc::new(AtomicUsize::new(0));
+        let started = std::time::Instant::now();
+        let answer = send(&i.app, "POST", &path, &[&cookie], &[("content-type", &content_type), ("accept", accept)], counted(body.clone(), polls.clone(), || ())).await;
+        assert!(started.elapsed() >= deltabadger::web::IMPORT_SLOT_WAIT, "{path}: answered after the slot's wait, {:?}", started.elapsed());
+        assert_eq!(polls.load(Ordering::SeqCst), 0, "{path}: the body is never polled");
+        assert_eq!((answer.status, answer.retry_after.as_deref(), answer.cookie.as_deref(), answer.location.as_deref()), (503, Some("5"), None, None), "{path}: {}", answer.body);
+        if accept == TURBO {
+            assert_eq!(answer.content_type.as_deref(), Some("text/vnd.turbo-stream.html; charset=utf-8"));
+            assert!(answer.body.contains(&i18n::escape(&t(language, "tracker.import.import_busy"))), "{}", answer.body);
+            assert!(answer.body.contains(r#"class-name="is-busy" action="remove_class" targets=".dropzone""#), "the drop zone is not busy any more: {}", answer.body);
+            assert!(answer.body.contains(r#"<turbo-stream action="replace" target="file"><template><input"#), "a fresh file input: {}", answer.body);
+        } else {
+            assert_eq!(answer.content_type.as_deref(), Some("text/html; charset=utf-8"));
+            assert!(answer.body.contains(&i18n::escape(&t(language, "bot.details.stats.import_busy"))), "{}", answer.body);
+            let back = if language == "de" { format!("/de/bots/{}", i.bot) } else { format!("/bots/{}", i.bot) };
+            assert!(answer.body.contains(&format!("href=\"{back}\"")), "{}", answer.body);
+        }
+    }
+    assert_eq!(i.snapshot(), before, "nothing written");
+}
+
+/// E1: a busy answer seals nothing. A cookie a second from its end, a busy answer writes no cookie (so it can neither
+/// extend the sign-in nor restore one a logout in another tab ended); the next request of the logged-out tab is signed
+/// out.
+#[tokio::test(flavor = "current_thread")]
+async fn a_busy_answer_writes_no_cookie() {
+    let i = install();
+    let secret = csrf::new_token();
+    let masked = csrf::masked(&secret);
+    let held = (deltabadger::tracker::import::service::permit(&i.app).await, deltabadger::tracker::import::service::permit(&i.app).await);
+    let ending = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 1));
+    let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[("file", "orders.csv", &csv())]);
+    for path in ["/tracker/import".to_string(), i.bot_path()] {
+        let answer = send(&i.app, "POST", &path, &[&ending], &[("content-type", &content_type), ("accept", TURBO)], Body::from(body.clone())).await;
+        assert_eq!((answer.status, answer.cookie), (503, None), "{path}");
+    }
+    let next = send(&i.app, "GET", "/settings/account", &[], &[], Body::empty()).await;
+    assert_eq!((next.status, next.location.as_deref()), (302, Some("/login")), "the logged-out tab stays signed out");
+    drop(held);
+}
+
+/// C2: the sign-in ends while the request waits for a slot (its cookie expires; the password changes): no body is read,
+/// the answer is the signed-out one, and its cookie signs nobody in. A slot freed after the sign-in ended does not start
+/// the read either.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sign_in_that_ends_while_waiting_for_a_slot_reads_nothing() {
+    for (case, freed) in [("expired", false), ("password", false), ("expired", true), ("password", true)] {
+        let i = install();
+        let secret = csrf::new_token();
+        let masked = csrf::masked(&secret);
+        let mut held = vec![deltabadger::tracker::import::service::permit(&i.app).await, deltabadger::tracker::import::service::permit(&i.app).await];
+        let cookie = i.cookie_at(&i.signed_in(&secret), i.now() - Duration::seconds(session::LIFETIME_SECONDS - 3));
+        let (clock, later, db) = (i.clock.clone(), i.now() + Duration::seconds(10), i.d.path().join("production.sqlite3"));
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        let end = tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            if case == "expired" { clock.set(later) } else {
+                rusqlite::Connection::open(&db).unwrap().execute("UPDATE users SET encrypted_password='$2a$11$changedchangedchangedch.x'", []).unwrap();
+            }
+            let _ = tx.send(());
+        });
+        let (content_type, body) = web::multipart(&[("authenticity_token", &masked)], &[("file", "orders.csv", &csv())]);
+        let polls = Arc::new(AtomicUsize::new(0));
+        let (path, cookies, headers) = (i.bot_path(), [cookie.as_str()], [("content-type", content_type.as_str()), ("x-csrf-token", masked.as_str())]);
+        let request = send(&i.app, "POST", &path, &cookies, &headers, counted(body, polls.clone(), || ()));
+        let release = async { if freed { let _ = rx.await; held.clear(); } };
+        let (answer, ()) = tokio::join!(request, release);
+        end.await.unwrap();
+        let what = format!("{case}, freed: {freed}");
+        assert_eq!(polls.load(Ordering::SeqCst), 0, "{what}");
+        let want = if case == "expired" { (302, Some("/"), alert("en", "errors.unverified_request")) } else { (302, Some("/login"), alert("en", "devise.failure.unauthenticated")) };
+        assert_eq!((answer.status, answer.location.as_deref(), answer.flash()), want, "{what}: {}", answer.body);
+        assert_eq!(answer.session.as_ref().and_then(|s| s.user.clone()), None, "{what}");
+        assert_eq!(i.rows(), 0, "{what}");
+    }
+}
+
+/// B1′: a Cancel and a confirmation wait for a slot as an upload does; the busy answer reads none of their fields.
+#[tokio::test(flavor = "current_thread")]
+async fn a_cancel_and_a_confirmation_wait_for_a_slot_too() {
+    let i = install();
+    let secret = csrf::new_token();
+    let masked = csrf::masked(&secret);
+    let held = (deltabadger::tracker::import::service::permit(&i.app).await, deltabadger::tracker::import::service::permit(&i.app).await);
+    let cookie = i.cookie_at(&i.signed_in(&secret), i.now());
+    let token = "0123456789abcdef";
+    let handle = format!("{token}.1.0.{}", "a".repeat(32));
+    for fields in [vec![("token", token), ("cancel", "Cancel")], vec![("token", token), ("api_key_id", handle.as_str())]] {
+        let mut fields = fields;
+        fields.push(("authenticity_token", &masked));
+        let (content_type, body) = web::multipart(&fields, &[]);
+        let polls = Arc::new(AtomicUsize::new(0));
+        let answer = send(&i.app, "POST", "/tracker/import", &[&cookie], &[("content-type", &content_type), ("accept", TURBO)], counted(body, polls.clone(), || ())).await;
+        assert_eq!((answer.status, polls.load(Ordering::SeqCst)), (503, 0), "{fields:?}");
+    }
+    drop(held);
 }

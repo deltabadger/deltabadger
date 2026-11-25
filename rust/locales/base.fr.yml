@@ -669,6 +669,7 @@ fr:
             error_unreadable: 'Ce fichier n’est pas au format sélectionné.'
             error_malformed: 'Ce fichier n’a pas pu être lu.'
             error_no_file: 'Choisis d’abord un fichier.'
+            import_busy: 'Un autre import est déjà en cours. Réessaie dans un instant.'
             error_no_account: 'Choisis un compte pour l’import.'
             no_account: 'Connecte d’abord une plateforme — un import est rattaché à un compte.'
         positions: 'Positions'

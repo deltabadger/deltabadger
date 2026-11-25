@@ -184,6 +184,7 @@ da:
                 download_csv: 'Eksportér'
                 generating_csv: 'Genererer fil...'
                 import_csv: 'Importér'
+                import_busy: 'En anden import er allerede i gang. Prøv igen om et øjeblik.'
                 import_success: '%{count} ordre(r) importeret.'
                 import_no_new_orders: 'Ingen nye ordrer at importere (alle ordrer findes allerede, eller valutaerne passer ikke).'
                 import_no_file: 'Vælg venligst en CSV-fil at importere.'
