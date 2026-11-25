@@ -140,6 +140,25 @@ async fn the_tool_is_off_by_default() {
     assert_eq!(called["error"]["code"], -32602, "{called}");
 }
 
+/// D-IMPORT-DETECT: a format left out is read from the file's header, over REST and MCP alike; a header naming no format is
+/// unreadable, and nothing is written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_format_left_out_is_read_from_the_header() {
+    let i = install(true);
+    let junk = "a,b,c\n1,2,3\n";
+    let sent = rest_upload(&i.app, &[], "junk.csv", junk).await;
+    assert_eq!((sent.status, sent.json()["error"]["code"].clone()), (422, json!("unreadable")));
+    assert!(sent.json()["error"]["message"].as_str().is_some_and(|m| m.starts_with("Deltabadger can't import this CSV file.")), "{}", sent.body);
+    let (refused, failed) = mcp(&i.app, json!({"content": b64(junk)})).await;
+    assert!(failed && refused["code"] == "unreadable" && refused["message"].as_str().is_some_and(|m| m.starts_with("Deltabadger can't import")), "{refused}");
+    let blank = rest_upload(&i.app, &[], "blank.csv", " \n").await;
+    assert_eq!((blank.status, blank.json()["error"]["code"].clone()), (422, json!("no_file")), "a blank file is no file, format or not");
+    assert!(matches!(import_api::form_of(json!({"content": b64(junk), "format": "kucoin"}).as_object().unwrap(), true), Ok(import_api::Form::Fresh { format: Some("kucoin"), .. })), "a named format is taken as named");
+    let (asked, failed) = mcp(&i.app, json!({"content": b64(&rest_csv())})).await;
+    assert!(!failed, "a Deltabadger file is read as one: {asked}");
+    assert_eq!(ledger(&i.c), 0);
+}
+
 /// Rule 2, F8, H5: a Deltabadger CSV through MCP asks what the web asks ("Import the rest", its lines in the owner's
 /// language), its one choice of kind `rest` with its destination; the choice writes once, a second answer is no file.
 #[tokio::test(flavor = "current_thread")]

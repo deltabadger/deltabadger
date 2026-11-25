@@ -97,13 +97,13 @@ fn import_transactions(data: &mut Value) {
     let Some(tools) = data["tools"].as_array_mut() else { return };
     tools.push(json!({
         "name": crate::web::import_api::TOOL,
-        "description": "Import a CSV file of transactions into the tracker, as the web's import does. Send the file (content, base64; at most about 48 KB, larger files go through POST /api/v1/tracker/import) with its format (deltabadger, the default; binance; kucoin) and, for a Binance export, its file name, which states its time zone. The answer is what was written, or a question: answer it with the upload's token and one choice's handle, or cancel it.",
+        "description": "Import a CSV file of transactions into the tracker, as the web's import does. Send the file (content, base64; at most about 48 KB, larger files go through POST /api/v1/tracker/import) with its format (deltabadger, binance or kucoin; read from the file's header when left out) and, for a Binance export, its file name, which states its time zone. The answer is what was written, or a question: answer it with the upload's token and one choice's handle, or cancel it.",
         "inputSchema": {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "type": "object",
             "anyOf": [
                 {"type": "object", "properties": {
-                    "format": {"type": "string", "enum": crate::tracker::import::run::FORMATS, "description": "The file's format (default deltabadger)"},
+                    "format": {"type": "string", "enum": crate::tracker::import::run::FORMATS, "description": "The file's format (read from its header when left out)"},
                     "content": text("The file's bytes, base64"),
                     "filename": text("The file's name (a Binance export's states its time zone)")},
                  "required": ["content"], "additionalProperties": false},
