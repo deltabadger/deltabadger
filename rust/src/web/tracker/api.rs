@@ -118,6 +118,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
         let mut rows = statement.query(rusqlite::params_from_iter(f.binds))?;
         let (mut out, mut lines) = (vec![], vec![]);
         let numbered = crate::identity::numbered(c)?;
+        let labels = super::row::labels(c, user)?;
         while let Some(r) = rows.next()? {
             let id: i64 = r.get("id")?;
             let decimal = |name: &str| -> Result<Value, WebError> { Ok(v2::from_sql(r.get_ref(name)?).map_err(|_| super::row::invalid())?.map_or(Value::Null, |d| json!(d.to_s_f()))) };
@@ -133,7 +134,7 @@ fn list(c: &Connection, user: i64, args: &Map<String, Value>, zone: Tz) -> Resul
             } else { (None, None) };
             let manual: Option<String> = r.get("manual_values")?;
             let stated = stated_price(manual.as_deref())?;
-            let venue_valued = Row::load(c, user, id)?.ok_or_else(super::row::invalid)?.counterpart(c)?.is_some();
+            let venue_valued = Row::load(c, user, id)?.ok_or_else(super::row::invalid)?.counterpart(c, labels.as_ref())?.is_some();
             let mut row = json!({"id": id, "transacted_at": v2::iso8601_ms(at), "entry_type": kind, "base_amount": decimal("base_amount")?,
                 "base_currency": r.get::<_, Option<String>>("base_currency")?, "quote_amount": decimal("quote_amount")?, "quote_currency": r.get::<_, Option<String>>("quote_currency")?,
                 "fee_amount": decimal("fee_amount")?, "fee_currency": r.get::<_, Option<String>>("fee_currency")?, "exchange": exchange,
@@ -247,8 +248,9 @@ fn price(c: &Connection, app: &App, user: i64, id: i64, value: &Value) -> Result
     };
     Ok(written(guarded(c, app, user, |c, owner, now| {
         let Some(row) = Row::load(c, owner, id)? else { return Ok(Step::Abort(not_found())) };
-        if given.is_some() && row.counterpart(c)?.is_some() { return Ok(Step::Abort(failure(Domain::Conflict, "venue_valued", "The venue priced this row; it cannot be restated."))); }
-        if given.is_some() && matches!(super::row::source(c, &row, app.now().date_naive(), super::row::labels(c, owner)?.as_ref())?, super::row::Source::Waiting) {
+        let labels = super::row::labels(c, owner)?;
+        if given.is_some() && row.counterpart(c, labels.as_ref())?.is_some() { return Ok(Step::Abort(failure(Domain::Conflict, "venue_valued", "The venue priced this row; it cannot be restated."))); }
+        if given.is_some() && matches!(super::row::source(c, &row, app.now().date_naive(), labels.as_ref())?, super::row::Source::Waiting) {
             return Ok(Step::Abort(failure(Domain::Conflict, "price_pending", "This row is priced when its day (UTC) is over; set a price after that.")));
         }
         let stored = match &given {

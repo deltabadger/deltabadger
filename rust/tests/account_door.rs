@@ -972,7 +972,10 @@ fn rows_on(c: &Connection, account: i64) -> i64 {
 async fn upload(app: &deltabadger::web::App, b: &mut common::web::Browser, format: &str, text: &str) -> common::web::Answer {
     assert_eq!(b.get(app, "/settings/api_keys").await.status, 200);
     let (content_type, body) = common::web::multipart(&[("format", format)], &[("file", BINANCE_NAME, text.as_bytes())]);
-    b.send_bytes(app, "POST", "/tracker/import", Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await
+    let mut answer = b.send_bytes(app, "POST", "/tracker/import", Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await;
+    // PLAN-710-confirm: read as the values its handles stand for.
+    common::import::decode_answer(app, &mut answer).await;
+    answer
 }
 /// The question's options (`value`s) and the answer `value` posted back with the parked file.
 /// #710 7a rule N4: without the digest each is rendered with (`!…`, `full_options`).
@@ -1000,8 +1003,13 @@ fn hidden(body: &str) -> String {
 /// `value` posted back as the page renders it: with its digest, when the page offered it.
 async fn answer(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str, value: &str) -> common::web::Answer {
     let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap_or_else(|| panic!("parked: {}", asked.body))[1].to_string();
-    let full = full_options(&asked.body).into_iter().find(|v| v == value || v.starts_with(&format!("{value}!"))).unwrap_or_else(|| value.to_string());
-    b.send(app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", format), ("api_key_id", full.as_str())]), common::web::Csrf::Header, &[]).await
+    let full = full_options(&asked.body).into_iter().find(|v| v == value || v.starts_with(&format!("{value}!")) || v.starts_with(&format!("{value}~"))).unwrap_or_else(|| value.to_string());
+    // PLAN-710-confirm (branch review r1 #9): exactly the handle the page rendered for it, whatever was issued since (one
+    // never offered posts as it is).
+    let handle = common::import::rendered(asked, &full).unwrap_or(full);
+    let mut answer = b.send(app, "POST", "/tracker/import", Some(&[("token", token.as_str()), ("format", format), ("api_key_id", handle.as_str())]), common::web::Csrf::Header, &[]).await;
+    common::import::decode_answer(app, &mut answer).await;
+    answer
 }
 /// Cancel on the question parked by `asked`.
 async fn cancel(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str) -> common::web::Answer {
@@ -2680,14 +2688,15 @@ async fn rows_sent_to_more_than_one_account_count_distinct_ids() {
         assert!(asked.body.contains("Rows this file sends to more than one account: 1."), "{}", asked.body);
         assert!(!asked.body.contains("Rows already on"), "nothing stored: {}", asked.body);
     }
-    // The parked file's T goes to a third account by the confirm (its groups' sizes unchanged): asked again.
+    // PLAN-710-confirm rule L10 (D-IMPORT-FILE-IMMUTABLE): the parked file edited by the confirm (its T sent to a third
+    // account, its groups' sizes unchanged) is no file: nothing written, no new question.
     let asked = upload(&app, &mut b, "deltabadger", &twice).await;
     let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap()[1].to_string();
     let third = ledger_csv(&[("kraken", "T", "BTC", 5, 1), ("kraken", "U", "ETH", 6, 1), ("kraken", "T", "BTC", 7, 2), ("kraken", "T", "ETH", 8, 3)]);
-    std::fs::write(app.config.tmp_dir.join("imports").join(s.user_id.to_string()).join(format!("{token}.csv")), &third).unwrap();
+    std::fs::write(common::import::parked(c, &token), &third).unwrap();
     let ledger: i64 = one(c, "SELECT count(*) FROM account_transactions");
     let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
-    assert!(again.body.contains("Something changed since you answered.") && again.body.contains("Rows this file sends to more than one account: 1."), "{}", again.body);
+    assert!(again.status == 422 && !again.body.contains("api_key_id"), "{}", again.body);
     assert_eq!(one::<i64>(c, "SELECT count(*) FROM account_transactions"), ledger, "nothing written");
 }
 
@@ -2779,7 +2788,7 @@ async fn an_account_pick_binds_the_proposed_new_number() {
 
 /// R7 (r1 #3): a button binds the file it counted: the parked export changed after the preview asks again.
 #[tokio::test(flavor = "current_thread")]
-async fn a_parked_file_changed_after_the_preview_is_asked_again() {
+async fn a_parked_file_changed_after_the_preview_is_no_file() {
     let (_d, o, s, _server, app) = alpaca().await;
     let c = &o.primary;
     let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
@@ -2792,9 +2801,10 @@ async fn a_parked_file_changed_after_the_preview_is_asked_again() {
     let asked = upload(&app, &mut b, "kucoin", &kucoin_part("444", 2..=2)).await;
     assert!(under(&asked.body, &format!("a{second}!")).contains("(rows in file: 1)"), "{}", asked.body);
     let token = regex::Regex::new(r#"name="token" id="token" value="([0-9a-f]{16})""#).unwrap().captures(&asked.body).unwrap()[1].to_string();
-    std::fs::write(app.config.tmp_dir.join("imports").join(s.user_id.to_string()).join(format!("{token}.csv")), kucoin_part("444", 2..=3)).unwrap();
+    // PLAN-710-confirm rule L10 (D-IMPORT-FILE-IMMUTABLE): no file, no new question.
+    std::fs::write(common::import::parked(c, &token), kucoin_part("444", 2..=3)).unwrap();
     let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{second}")).await;
-    assert!(again.body.contains("Something changed since you answered.") && again.body.contains("(rows in file: 2)"), "{}", again.body);
+    assert!(again.status == 422 && !again.body.contains("api_key_id"), "{}", again.body);
     assert_eq!(rows_on(c, second), 0, "nothing written");
 }
 
@@ -3862,4 +3872,912 @@ async fn s9_the_mexc_json_save_reads_an_unread_installed_key_first() {
     let answer = b.send(&app, "POST", "/api/api_keys", Some(&form), common::web::Csrf::Header, &[]).await;
     assert_eq!((answer.status, answer.body.as_str()), (201, "{\"data\":true}"));
     assert_eq!(keys(c, &cipher, exchange), [(1, "mx-a2".into())]);
+}
+
+// ---- PLAN-710-confirm: a confirmation writes only what its page showed, once ----
+
+/// The upload a question parked (its token), and its record's state (None: no record).
+fn token_of(asked: &common::web::Answer) -> String { common::import::token(&asked.body).unwrap_or_else(|| panic!("parked: {}", asked.body)) }
+fn state_of(c: &Connection, token: &str) -> Option<String> {
+    c.query_row("SELECT state FROM import_parked_uploads WHERE token = ?1", [token], |r| r.get(0)).ok()
+}
+fn ledger(c: &Connection) -> i64 { one(c, "SELECT count(*) FROM account_transactions") }
+/// A Deltabadger CSV that asks "Import the rest": Kraken 1 here, a row of Kraken 2 left out.
+fn rest_csv() -> String { ledger_csv(&[("kraken", "T1", "BTC", 5, 1), ("kraken", "T2", "BTC", 6, 2)]) }
+/// Posts `fields` (raw: the test names its own token and handle) to the import.
+async fn post(app: &deltabadger::web::App, b: &mut common::web::Browser, path: &str, fields: &[(&str, &str)]) -> common::web::Answer {
+    let mut answer = b.send(app, "POST", path, Some(fields), common::web::Csrf::Header, &[]).await;
+    common::import::decode_answer(app, &mut answer).await;
+    answer
+}
+
+/// K2 (D-IMPORT-FILE-IMMUTABLE): a parked Deltabadger CSV edited after its question (same length, routing and counts)
+/// is no file: nothing written, no new question, the upload closed.
+#[tokio::test(flavor = "current_thread")]
+async fn k2_a_parked_csv_edited_after_its_question_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let token = token_of(&asked);
+    let path = common::import::parked(c, &token);
+    // Its first row's own id (only), so the file still reads, routes and counts alike.
+    std::fs::write(&path, std::fs::read_to_string(&path).unwrap().replace(",T1,", ",T9,")).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert_eq!(again.status, 422, "{}", again.body);
+    assert!(again.body.contains("Choose a file first."), "no file: {}", again.body);
+    assert_eq!(ledger(c), before, "nothing written");
+    assert_eq!(state_of(c, &token), None, "closed");
+}
+
+/// K2: bytes appended to a parked file are no file.
+#[tokio::test(flavor = "current_thread")]
+async fn k2_bytes_appended_to_a_parked_file_are_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let path = common::import::parked(c, &token_of(&asked));
+    let mut bytes = std::fs::read(&path).unwrap();
+    bytes.extend_from_slice(b"\n");
+    std::fs::write(&path, bytes).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert_eq!((again.status, ledger(c)), (422, before), "{}", again.body);
+}
+
+/// M8: the digest is over the raw bytes: two same-length files that read alike (lossy UTF-8) are two files.
+#[tokio::test(flavor = "current_thread")]
+async fn m8_a_parked_file_that_reads_alike_but_differs_in_bytes_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv().replace(",T1,", ",T\u{fffd},")).await;
+    let path = common::import::parked(c, &token_of(&asked));
+    let bytes = std::fs::read(&path).unwrap();
+    let at = bytes.windows(3).position(|w| w == "\u{fffd}".as_bytes()).unwrap();
+    let mut other = bytes.clone();
+    // A truncated 4-byte sequence: three bytes, one U+FFFD, as the original's own.
+    other.splice(at..at + 3, [0xf0, 0x9f, 0x98]);
+    assert_eq!(String::from_utf8_lossy(&other), String::from_utf8_lossy(&bytes), "reads alike");
+    assert_ne!(other, bytes);
+    std::fs::write(&path, &other).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert_eq!((again.status, ledger(c)), (422, before), "{}", again.body);
+}
+
+/// D-IMPORT-ONE-CONFIRM: a second confirmation of one question is no file; the file is written once.
+#[tokio::test(flavor = "current_thread")]
+async fn a_second_confirmation_is_no_file_and_the_file_is_written_once() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let token = token_of(&asked);
+    let handle = common::import::handle_of(&app, token.clone(), hidden(&asked.body)).await.unwrap();
+    let before = ledger(c);
+    let fields = [("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handle.as_str())];
+    assert!(imported(&post(&app, &mut b, "/tracker/import", &fields).await));
+    let twice = post(&app, &mut b, "/tracker/import", &fields).await;
+    assert_eq!(twice.status, 422, "{}", twice.body);
+    assert!(twice.body.contains("Choose a file first."), "no file, not the file's nothing-new answer: {}", twice.body);
+    assert_eq!(ledger(c), before + 1, "written once");
+}
+
+/// L7: Cancel with the question's own form (its hidden handle posted beside it) cancels; the handle then writes nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn l7_cancel_from_the_form_wins_over_its_hidden_handle() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let (token, handle) = (token_of(&asked), common::import::handle_of(&app, token_of(&asked), hidden(&asked.body)).await.unwrap());
+    let before = ledger(c);
+    let cancelled = post(&app, &mut b, "/tracker/import", &[("token", &token), ("format", "deltabadger"), ("api_key_id", &handle), ("cancel", "Cancel")]).await;
+    assert!(cancelled.body.contains("Nothing imported."), "{}", cancelled.body);
+    let after = post(&app, &mut b, "/tracker/import", &[("token", &token), ("format", "deltabadger"), ("api_key_id", &handle)]).await;
+    assert_eq!((after.status, ledger(c)), (422, before), "{}", after.body);
+}
+
+/// P1: a Cancel in the query alone is a Cancel.
+#[tokio::test(flavor = "current_thread")]
+async fn p1_a_query_only_cancel_cancels() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let token = token_of(&asked);
+    let cancelled = post(&app, &mut b, &format!("/tracker/import?cancel=1&token={token}"), &[("format", "deltabadger")]).await;
+    assert!(cancelled.body.contains("Nothing imported."), "{}", cancelled.body);
+    assert_eq!(state_of(c, &token), None);
+}
+
+/// N2/P1: a request carrying a token or a handle is never a fresh upload: a confirmation form with its token removed and
+/// another clean file attached, a query token beside a clean file, and a file-valued `token` part are each no file.
+#[tokio::test(flavor = "current_thread")]
+async fn n2_a_request_with_a_token_or_a_handle_never_uploads_a_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let token = token_of(&asked);
+    let handle = common::import::handle_of(&app, token.clone(), hidden(&asked.body)).await.unwrap();
+    let clean = ledger_csv(&[("kraken", "C1", "ETH", 9, 1)]);
+    let before = ledger(c);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let send = |path: String, fields: Vec<(&'static str, String)>, files: Vec<(&'static str, &'static str, Vec<u8>)>| {
+        let fields: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (*k, v.as_str())).collect();
+        let files: Vec<(&str, &str, &[u8])> = files.iter().map(|(n, f, b)| (*n, *f, b.as_slice())).collect();
+        let (content_type, body) = common::web::multipart(&fields, &files);
+        (path, content_type, body)
+    };
+    for (path, content_type, body) in [
+        send("/tracker/import".into(), vec![("format", "deltabadger".into()), ("api_key_id", handle.clone())], vec![("file", "ledger.csv", clean.clone().into_bytes())]),
+        send(format!("/tracker/import?token={token}"), vec![("format", "deltabadger".into())], vec![("file", "ledger.csv", clean.clone().into_bytes())]),
+        send("/tracker/import".into(), vec![("format", "deltabadger".into())], vec![("token", "t.csv", token.clone().into_bytes()), ("file", "ledger.csv", clean.clone().into_bytes())]),
+        // Branch review r1 #1: a file-valued `api_key_id` carrying the handle, no token anywhere.
+        send("/tracker/import".into(), vec![("format", "deltabadger".into())], vec![("api_key_id", "h.txt", handle.clone().into_bytes()), ("file", "ledger.csv", clean.clone().into_bytes())]),
+    ] {
+        let answer = b.send_bytes(&app, "POST", &path, Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await;
+        assert_eq!(answer.status, 422, "{path}: {}", answer.body);
+        assert_eq!(ledger(c), before, "{path}: nothing written");
+    }
+    assert_eq!(state_of(c, &token).as_deref(), Some("open"), "the question still open");
+}
+
+/// Q4: one token and one choice per request: upload A's pair in the query and upload B's form in the body write neither,
+/// and both questions stay answerable.
+#[tokio::test(flavor = "current_thread")]
+async fn q4_two_uploads_pairs_in_one_request_write_neither() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let first = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let second = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "U1", "ETH", 7, 1), ("kraken", "U2", "ETH", 8, 2)])).await;
+    let (ta, tb) = (token_of(&first), token_of(&second));
+    let (ha, hb) = (common::import::handle_of(&app, ta.clone(), hidden(&first.body)).await.unwrap(), common::import::handle_of(&app, tb.clone(), hidden(&second.body)).await.unwrap());
+    let before = ledger(c);
+    let both = post(&app, &mut b, &format!("/tracker/import?token={ta}&api_key_id={ha}"), &[("token", &tb), ("format", "deltabadger"), ("api_key_id", &hb)]).await;
+    assert_eq!((both.status, ledger(c)), (422, before), "{}", both.body);
+    assert!(imported(&answer(&app, &mut b, &first, "deltabadger", &hidden(&first.body)).await));
+    assert!(imported(&answer(&app, &mut b, &second, "deltabadger", &hidden(&second.body)).await));
+    assert_eq!(ledger(c), before + 2);
+}
+
+/// K3: another user presenting the owner's token and handle gets no file, for a confirmation and a Cancel; the owner's
+/// question still writes.
+#[tokio::test(flavor = "current_thread")]
+async fn k3_another_users_token_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let token = token_of(&asked);
+    let handle = common::import::handle_of(&app, token.clone(), hidden(&asked.body)).await.unwrap();
+    c.execute("INSERT INTO users (email, encrypted_password, admin, setup_completed, confirmed_at, created_at, updated_at) SELECT 'other@example.com', encrypted_password, 0, 1, '2026-01-01', '2026-01-01', '2026-01-01' FROM users WHERE id = ?1", [s.user_id]).unwrap();
+    let other = c.last_insert_rowid();
+    let mut them = browser(&app, c, other);
+    assert_eq!(them.get(&app, "/settings/api_keys").await.status, 200);
+    let before = ledger(c);
+    for fields in [vec![("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handle.as_str())], vec![("token", token.as_str()), ("format", "deltabadger"), ("cancel", "Cancel")]] {
+        let answer = post(&app, &mut them, "/tracker/import", &fields).await;
+        assert_eq!(answer.status, 422, "{}", answer.body);
+    }
+    assert_eq!((ledger(c), state_of(c, &token).as_deref()), (before, Some("open")));
+    assert!(imported(&answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await));
+}
+
+/// K3: an edited handle, and another upload's handle under this token, resolve to nothing: asked again, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn k3_an_edited_or_crossed_handle_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let first = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let second = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "U1", "ETH", 7, 1), ("kraken", "U2", "ETH", 8, 2)])).await;
+    let token = token_of(&first);
+    let handle = common::import::handle_of(&app, token.clone(), hidden(&first.body)).await.unwrap();
+    let crossed = common::import::handle_of(&app, token_of(&second), hidden(&second.body)).await.unwrap();
+    let edited = format!("{}{}", &handle[..handle.len() - 1], if handle.ends_with('0') { '1' } else { '0' });
+    let before = ledger(c);
+    let mut asked = first.clone();
+    for posted in [edited, crossed] {
+        let again = post(&app, &mut b, "/tracker/import", &[("token", &token), ("format", "deltabadger"), ("api_key_id", &posted)]).await;
+        assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+        assert_eq!(ledger(c), before, "nothing written");
+        asked = again;
+    }
+    assert!(imported(&answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await), "the new question's own handle writes");
+}
+
+/// K3/P5: a re-asked question replaces its generation: the earlier generation's handles never resolve again.
+#[tokio::test(flavor = "current_thread")]
+async fn p5_only_the_newest_generations_handles_resolve() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let (kraken, _) = krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let old = common::import::handle_of(&app, token_of(&asked), hidden(&asked.body)).await.unwrap();
+    identity::new_account(c, s.user_id, kraken, chrono::Utc::now()).unwrap();
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    let before = ledger(c);
+    let stale = post(&app, &mut b, "/tracker/import", &[("token", &token_of(&asked)), ("format", "deltabadger"), ("api_key_id", &old)]).await;
+    assert!(stale.body.contains("Something changed since you answered."), "the old generation asks again: {}", stale.body);
+    assert_eq!(ledger(c), before);
+    assert!(imported(&answer(&app, &mut b, &stale, "deltabadger", &hidden(&stale.body)).await));
+    assert_eq!(ledger(c), before + 2, "both Krakens' rows");
+}
+
+/// K4: two confirmations at once: one writes, the other is no file.
+#[tokio::test(flavor = "current_thread")]
+async fn k4_two_confirmations_at_once_write_once() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let (token, handle) = (token_of(&asked), common::import::handle_of(&app, token_of(&asked), hidden(&asked.body)).await.unwrap());
+    let before = ledger(c);
+    let mut b2 = b.clone();
+    let fields = [("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handle.as_str())];
+    let (x, y) = tokio::join!(b.send(&app, "POST", "/tracker/import", Some(&fields), common::web::Csrf::Header, &[]),
+                              b2.send(&app, "POST", "/tracker/import", Some(&fields), common::web::Csrf::Header, &[]));
+    assert_eq!([imported(&x), imported(&y)].iter().filter(|w| **w).count(), 1, "{} / {}", x.body, y.body);
+    assert!(x.status == 422 || y.status == 422);
+    assert_eq!(ledger(c), before + 1);
+}
+
+/// K4: a Cancel racing a confirmation: once the Cancel commits, the confirmation writes nothing and asks nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn k4_a_cancel_racing_a_confirmation_leaves_nothing_to_write() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let (token, handle) = (token_of(&asked), common::import::handle_of(&app, token_of(&asked), hidden(&asked.body)).await.unwrap());
+    let before = ledger(c);
+    let mut b2 = b.clone();
+    let (cancel, click) = ([("token", token.as_str()), ("format", "deltabadger"), ("cancel", "Cancel")], [("token", token.as_str()), ("format", "deltabadger"), ("api_key_id", handle.as_str())]);
+    let (x, y) = tokio::join!(b.send(&app, "POST", "/tracker/import", Some(&cancel), common::web::Csrf::Header, &[]),
+                              b2.send(&app, "POST", "/tracker/import", Some(&click), common::web::Csrf::Header, &[]));
+    if x.body.contains("Nothing imported.") {
+        assert_eq!((y.status, ledger(c)), (422, before), "{}", y.body);
+    } else {
+        assert!(imported(&y) && x.status == 422, "{} / {}", x.body, y.body);
+    }
+    assert_eq!(state_of(c, &token), None);
+}
+
+/// M5: an upload past its expiry is no file, whatever its handle.
+#[tokio::test(flavor = "current_thread")]
+async fn m5_an_expired_question_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    c.execute("UPDATE import_parked_uploads SET expires_at = '2026-09-20 11:59:59'", []).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert_eq!((again.status, ledger(c)), (422, before), "{}", again.body);
+}
+
+/// M2/K1: a process killed before the joint commit wrote nothing and left the upload open (the click then writes once);
+/// Q5: one killed after the commit, before the cleanup, wrote once, and the sweep takes its bytes and handles.
+#[tokio::test(flavor = "current_thread")]
+async fn m2_q5_a_crash_on_either_side_of_the_commit() {
+    use deltabadger::tracker::import::service;
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let token = token_of(&asked);
+    let before = ledger(c);
+    service::CRASH.lock().unwrap().push((token.clone(), "before_commit"));
+    let crashed = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert_eq!((crashed.status, ledger(c), state_of(c, &token).as_deref()), (500, before, Some("open")), "{}", crashed.body);
+    service::CRASH.lock().unwrap().retain(|(t, _)| *t != token);
+    service::CRASH.lock().unwrap().push((token.clone(), "before_cleanup"));
+    let crashed = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    service::CRASH.lock().unwrap().retain(|(t, _)| *t != token);
+    assert_eq!((crashed.status, ledger(c), state_of(c, &token).as_deref()), (500, before + 1, Some("written")));
+    assert!(common::import::parked(c, &token).exists());
+    // Branch review r1 #10: the restart sweeps what the killed process left.
+    drop(app);
+    let app = web_app(_d.path(), c);
+    let mut b = browser(&app, c, s.user_id);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    assert!(!common::import::parked(c, &token).exists(), "the bytes are gone");
+    assert_eq!(one::<i64>(c, &format!("SELECT count(*) FROM import_parked_choices WHERE token = '{token}'")), 0, "the handles are gone");
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert_eq!((again.status, ledger(c)), (422, before + 1), "written once");
+}
+
+/// K6: a question has no side effect: on an install with no identity key, a native file's question stores none, and makes
+/// no account, observation, standing or snapshot.
+#[tokio::test(flavor = "current_thread")]
+async fn k6_a_question_writes_nothing_not_even_the_identity_key() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [identity::KEY_CONFIG]).unwrap();
+    let tables = ["exchange_accounts", "exchange_account_credentials", "exchange_account_imports", "app_configs", "exchange_account_standings", "portfolio_snapshots", "account_transactions"];
+    let counts = |c: &Connection| tables.iter().map(|t| one::<i64>(c, &format!("SELECT count(*) FROM {t}"))).collect::<Vec<_>>();
+    let before = counts(c);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(asked.body.contains("api_key_id"), "asked: {}", asked.body);
+    assert_eq!(counts(c), before, "the question wrote nothing");
+    let stale = post(&app, &mut b, "/tracker/import", &[("token", &token_of(&asked)), ("format", "kucoin"), ("api_key_id", &format!("{}.1.9.{}", token_of(&asked), "0".repeat(32)))]).await;
+    assert!(stale.body.contains("api_key_id") && !imported(&stale), "asked again: {}", stale.body);
+    assert_eq!(counts(c), before, "asking again wrote nothing");
+}
+
+/// N4: with the identity key unreadable, an import neither resets it nor touches another user's observations, standings or
+/// snapshots, in its question or its write; the account is asked.
+#[tokio::test(flavor = "current_thread")]
+async fn n4_an_unreadable_identity_key_is_never_reset_by_an_import() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "444");
+    c.execute("UPDATE app_configs SET value = 'unreadable' WHERE key = ?1", [identity::KEY_CONFIG]).unwrap();
+    let state = |c: &Connection| (one::<i64>(c, "SELECT count(*) FROM exchange_account_credentials"), one::<i64>(c, "SELECT count(*) FROM exchange_accounts WHERE fingerprint IS NOT NULL"),
+                                  one::<String>(c, &format!("SELECT value FROM app_configs WHERE key = '{}'", identity::KEY_CONFIG)));
+    let before = state(c);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(asked.body.contains("api_key_id"), "the account is asked: {}", asked.body);
+    assert_eq!(state(c), before, "the question reset nothing");
+    let done = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    assert!(imported(&done), "{}", done.body);
+    assert_eq!(state(c), before, "the write reset nothing");
+}
+
+/// Q3: on first use (no key row, no identity known), the first key is stored by a plain insert: another user's failed
+/// read survives a successful native import.
+#[tokio::test(flavor = "current_thread")]
+async fn q3_the_first_identity_key_clears_no_observation() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    c.execute("DELETE FROM app_configs WHERE key = ?1", [identity::KEY_CONFIG]).unwrap();
+    c.execute("DELETE FROM exchange_account_credentials", []).unwrap();
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    c.execute("DELETE FROM exchange_account_imports", []).unwrap();
+    c.execute("INSERT INTO exchange_account_credentials (api_key_id, exchange_id, last_failure_at, last_failure_code) SELECT id, exchange_id, '2026-01-01', '401' FROM api_keys WHERE user_id = ?1 LIMIT 1", [s.user_id]).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let done = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(imported(&done), "{}", done.body);
+    assert_eq!(one::<i64>(c, "SELECT count(*) FROM exchange_account_credentials WHERE last_failure_code = '401'"), 1, "the failed read survives");
+    assert!(identity::existing_key(c, &seed::cipher()).is_some(), "the first key is stored");
+}
+
+/// The assets and tickers KuCoin's Convert legs pair by (kucoin_import's fixture).
+fn kucoin_market(c: &Connection, exchange: i64) {
+    let mut assets = vec![];
+    for symbol in ["ETH", "BTC", "USDT", "KCS"] {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, 'Cryptocurrency', '2026-01-01', '2026-01-01') ON CONFLICT DO NOTHING",
+                  [format!("seed-{symbol}"), symbol.to_string()]).unwrap();
+        assets.push(one::<i64>(c, &format!("SELECT id FROM assets WHERE external_id = 'seed-{symbol}'")));
+    }
+    for (base, quote, b, q) in [("ETH", "BTC", 0, 1), ("BTC", "USDT", 1, 2), ("KCS", "USDT", 3, 2)] {
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                   minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 8, 8, 2, '0', '0', 1, 1, '2026-01-01', '2026-01-01')",
+                  rusqlite::params![exchange, format!("{base}-{quote}"), base, quote, assets[b], assets[q]]).unwrap();
+    }
+}
+/// A KuCoin export of `rows` ("Currency,Side,Amount,Fee,local time,Type") for `uid`.
+fn kucoin_export(uid: &str, rows: &[&str]) -> String {
+    let mut out = vec!["UID,Account Type,Currency,Side,Amount,Fee,Time(UTC+03:00),Remark,Type".to_string()];
+    for r in rows { let f: Vec<&str> = r.split(',').collect(); out.push(format!("{uid},mainAccount,{},{},{},{},{},,{}", f[0], f[1], f[2], f[3], f[4], f[5])); }
+    out.join("\n")
+}
+/// A one-account KuCoin with a lone Convert half imported, and a Kraken deposit (on Kraken's account) linked to it (or, with
+/// `outgoing`, the half linked to the deposit). The half's id and the deposit's.
+async fn convert_half_linked(app: &deltabadger::web::App, b: &mut common::web::Browser, c: &Connection, user: i64, outgoing: bool) -> (i64, i64, i64) {
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, user, kucoin, None);
+    kucoin_market(c, kucoin);
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    identity::ensure_account(c, user, kraken, chrono::Utc::now()).unwrap();
+    let at = "2026-01-01 12:00:00";
+    let done = upload(app, b, "kucoin", &kucoin_export("444", &[&format!("BTC,Deposit,0.1,0,{at},Deposit"), &format!("USDT,Withdrawal,100,0,{at},Convert")])).await;
+    assert!(imported(&done), "{}", done.body);
+    let half: i64 = one(c, "SELECT id FROM account_transactions WHERE entry_type = 15");
+    c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, transacted_at, linked_transaction_id, created_at, updated_at)
+               VALUES (?1, ?2, 4, 'USDT', 100, '2026-01-02 12:00:00', ?3, '2026-01-01', '2026-01-01')", rusqlite::params![user, kraken, (!outgoing).then_some(half)]).unwrap();
+    let deposit = c.last_insert_rowid();
+    if outgoing { c.execute("UPDATE account_transactions SET linked_transaction_id = ?1 WHERE id = ?2", [deposit, half]).unwrap(); }
+    (kraken, half, deposit)
+}
+fn the_other_half() -> String { kucoin_export("444", &["ETH,Deposit,0.05,0,2026-01-01 12:00:00,Convert"]) }
+
+/// Q2/M4: a one-account KuCoin import that would undo a Kraken deposit's link asks first, naming Kraken, the link still in
+/// place; its click writes and undoes it.
+#[tokio::test(flavor = "current_thread")]
+async fn q2_a_write_that_undoes_a_link_on_another_account_asks_first() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let (_, half, deposit) = convert_half_linked(&app, &mut b, c, s.user_id, false).await;
+    let asked = upload(&app, &mut b, "kucoin", &the_other_half()).await;
+    assert!(asked.body.contains("Transfer links on other accounts that this import undoes: 1 (Kraken)."), "{}", asked.body);
+    assert_eq!(one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {deposit}")), Some(half), "the link is still there");
+    let done = import_answer(&app, &mut b, &asked, "kucoin").await;
+    assert!(imported(&done), "{}", done.body);
+    assert_eq!(one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {deposit}")), None);
+}
+/// The last option a question offers, posted.
+async fn import_answer(app: &deltabadger::web::App, b: &mut common::web::Browser, asked: &common::web::Answer, format: &str) -> common::web::Answer {
+    let value = full_options(&asked.body).last().cloned().unwrap_or_else(|| panic!("asked nothing: {}", asked.body));
+    answer(app, b, asked, format, &value).await
+}
+
+/// N3/M4: the linked row on the other account edited after the question (its count kept) is a change: asked again, the link
+/// and the ledger as they were.
+#[tokio::test(flavor = "current_thread")]
+async fn n3_an_undone_link_edited_after_the_question_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let (_, half, deposit) = convert_half_linked(&app, &mut b, c, s.user_id, false).await;
+    let asked = upload(&app, &mut b, "kucoin", &the_other_half()).await;
+    c.execute("UPDATE account_transactions SET base_amount = 99 WHERE id = ?1", [deposit]).unwrap();
+    let before = ledger(c);
+    let again = import_answer(&app, &mut b, &asked, "kucoin").await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!((ledger(c), one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {deposit}"))), (before, Some(half)));
+}
+
+/// Q1/P2: a row the rebuild deletes whose partner sits on another account is an undone link too; the partner moved to
+/// another account after the question is a change, the link kept.
+#[tokio::test(flavor = "current_thread")]
+async fn q1_a_deleted_rows_partner_moved_after_the_question_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let (kraken, half, deposit) = convert_half_linked(&app, &mut b, c, s.user_id, true).await;
+    let asked = upload(&app, &mut b, "kucoin", &the_other_half()).await;
+    assert!(asked.body.contains("Transfer links on other accounts that this import undoes: 1 (Kraken)."), "{}", asked.body);
+    let second = identity::new_account(c, s.user_id, kraken, chrono::Utc::now()).unwrap();
+    c.execute("INSERT INTO exchange_account_rows (account_transaction_id, account_id) VALUES (?1, ?2)", [deposit, second]).unwrap();
+    let again = import_answer(&app, &mut b, &asked, "kucoin").await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {half}")), Some(deposit), "the link is kept");
+}
+
+/// P3: another user's row linked to the owner's is neither shown nor changed.
+#[tokio::test(flavor = "current_thread")]
+async fn p3_another_users_linked_row_is_never_shown_or_changed() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let (_, half, deposit) = convert_half_linked(&app, &mut b, c, s.user_id, false).await;
+    c.execute("INSERT INTO users (email, encrypted_password, admin, created_at, updated_at) VALUES ('foreign@example.com', 'x', 0, '2026-01-01', '2026-01-01')", []).unwrap();
+    c.execute("UPDATE account_transactions SET user_id = ?1 WHERE id = ?2", [c.last_insert_rowid(), deposit]).unwrap();
+    let done = upload(&app, &mut b, "kucoin", &the_other_half()).await;
+    assert!(imported(&done) && !done.body.contains("Transfer links"), "{}", done.body);
+    assert_eq!(one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {deposit}")), Some(half), "never changed");
+}
+
+/// L2/N8: the "Import the rest" question lists where its rows go and the accounts its left-out rows name, in every locale.
+#[tokio::test(flavor = "current_thread")]
+async fn l2_the_import_the_rest_question_names_its_destinations_in_every_locale() {
+    use deltabadger::web::i18n;
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    for locale in deltabadger::web::locale::LOCALES {
+        c.execute("UPDATE users SET locale = ?1 WHERE id = ?2", rusqlite::params![locale, s.user_id]).unwrap();
+        let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+        let to = i18n::t(locale, "tracker.import.destination_html", &[("account", i18n::Arg::Html("Kraken")), ("count", i18n::Arg::Count(1))]);
+        let left = i18n::t(locale, "tracker.import.rows_left_out_named_html", &[("exchanges", i18n::Arg::Text("Kraken 2"))]);
+        assert!(asked.body.contains(&to) && asked.body.contains(&left), "{locale}: {}", asked.body);
+        assert_ne!(left, "tracker.import.rows_left_out_named_html", "{locale}");
+    }
+}
+
+/// M1: a venue selector option standing for its venue's sole account writes there on its click; that account replaced
+/// (another account holding the same key) between the question and the click is a change: asked again, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn m1_an_authorized_venue_whose_sole_account_was_replaced_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let (kb, _) = (key_on(c, s.user_id, binance, None), key_on(c, s.user_id, us, None));
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert!(options(&asked.body).contains(&kb.to_string()), "{}", asked.body);
+    let old = identity::Account::first(c, s.user_id, binance).unwrap().id.unwrap();
+    c.execute("UPDATE exchange_accounts SET removed_at = '2026-01-01' WHERE id = ?1", [old]).unwrap();
+    c.execute("DELETE FROM exchange_account_keys WHERE api_key_id = ?1", [kb]).unwrap();
+    let replaced = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    identity::Account::by_id(c, replaced).unwrap().unwrap().add_key(c, kb).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert!(!imported(&again), "{}", again.body);
+    assert_eq!(ledger(c), before, "nothing written");
+}
+
+/// M6/L9: a legacy key's prospective account is bound by its key: an unrelated account made between the question and the
+/// click changes nothing, and the click writes.
+#[tokio::test(flavor = "current_thread")]
+async fn m6_an_unrelated_account_made_meanwhile_keeps_a_prospective_answer() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, binance, e("legacy"), e("s")]).unwrap();
+    let legacy = c.last_insert_rowid();
+    c.execute("DELETE FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [s.user_id, binance]).unwrap();
+    key_on(c, s.user_id, us, None);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert!(options(&asked.body).contains(&legacy.to_string()), "{}", asked.body);
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    identity::ensure_account(c, s.user_id, kraken, chrono::Utc::now()).unwrap();
+    let done = answer(&app, &mut b, &asked, "binance", &legacy.to_string()).await;
+    assert!(imported(&done), "{}", done.body);
+}
+
+/// N1: a venue option standing for a venue with several possible accounts only picks the venue: its click asks which
+/// account, writing nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn n1_a_venue_with_several_accounts_is_picked_not_written() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    assert_eq!(options(&asked.body), [format!("v{binance}"), format!("v{us}")], "{}", asked.body);
+    let picked = answer(&app, &mut b, &asked, "binance", &format!("v{binance}")).await;
+    assert!(picked.body.contains("api_key_id") && !imported(&picked), "{}", picked.body);
+    assert_eq!(rows_on(c, second), 0, "nothing written");
+}
+
+/// N7: a venue option's handle stands for its venue's exchange id (`Choice::venue`), a `select` one included.
+#[tokio::test(flavor = "current_thread")]
+async fn n7_a_venue_options_handle_names_its_exchange() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("222")).await;
+    let token = token_of(&asked);
+    let mut s2 = c.prepare("SELECT kind, json_extract(dest_json, '$.value'), json_extract(dest_json, '$.venue') FROM import_parked_choices WHERE token = ?1 ORDER BY rowid").unwrap();
+    let rows: Vec<(String, String, i64)> = s2.query_map([&token], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(rows[0], ("select".to_string(), format!("v{binance}"), binance), "{rows:?}");
+    assert_eq!((rows[1].1.clone(), rows[1].2), (format!("v{us}"), us), "{rows:?}");
+}
+
+/// K4: a confirmation whose request is dropped once its worker started still runs to its outcome: written once, closed.
+#[tokio::test(flavor = "current_thread")]
+async fn k4_a_dropped_confirmation_still_completes() {
+    use deltabadger::tracker::import::service;
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
+    let (token, handle) = (token_of(&asked), common::import::handle_of(&app, token_of(&asked), hidden(&asked.body)).await.unwrap());
+    let before = ledger(c);
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    // Polled once (the worker spawned), then dropped before it ran.
+    let dropped = tokio::time::timeout(std::time::Duration::ZERO, service::confirm(&app, s.user_id, token.clone(), handle.clone(), signed_in.clone())).await;
+    assert!(dropped.is_err(), "dropped before its outcome");
+    for _ in 0..200 {
+        if state_of(c, &token).is_none() { break }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert_eq!((ledger(c), state_of(c, &token)), (before + 1, None), "the worker wrote once and closed the upload");
+    assert_eq!(service::confirm(&app, s.user_id, token, handle, signed_in).await.unwrap(), service::Outcome::NoFile);
+}
+
+/// P4: an import's derived bookkeeping (the owner's cached figures and portfolio snapshots, rebuilt from the ledger) is no
+/// effect the question shows or seals: the question keeps it and lists no link undone; the write still drops it.
+#[tokio::test(flavor = "current_thread")]
+async fn p4_snapshots_an_import_drops_are_not_shown_and_still_dropped() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let (kb, _) = (key_on(c, s.user_id, binance, None), key_on(c, s.user_id, us, None));
+    c.execute("INSERT INTO portfolio_snapshots(user_id,date,created_at,updated_at) VALUES(?1,'2026-09-19','2026-09-19','2026-09-19')", [s.user_id]).unwrap();
+    let snapshots = |c: &Connection| one::<i64>(c, &format!("SELECT count(*) FROM portfolio_snapshots WHERE user_id = {}", s.user_id));
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "binance", &binance_file("777")).await;
+    assert!(asked.body.contains("api_key_id") && !asked.body.contains("Transfer links"), "{}", asked.body);
+    assert_eq!(snapshots(c), 1, "the question kept the snapshot");
+    let done = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert!(imported(&done), "{}", done.body);
+    assert_eq!(snapshots(c), 0, "the write dropped it");
+}
+
+/// A Binance and a Binance.US account both of UID 1, Binance's holding a dust pair's leg without its pair: a dust file's
+/// venue question, whose Binance option the write refuses ("partial existing CSV dust pair") and whose Binance.US option
+/// writes.
+async fn refusing_sibling(app: &deltabadger::web::App, b: &mut common::web::Browser, c: &Connection, user: i64) -> (common::web::Answer, i64, i64, i64) {
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let (kb, ku) = (key_on(c, user, binance, None), key_on(c, user, us, None));
+    let (on_binance, on_us) = (identity::Account::first(c, user, binance).unwrap().id.unwrap(), identity::Account::first(c, user, us).unwrap().id.unwrap());
+    fingerprint(c, on_binance, "Exchanges::Binance", "1");
+    let dust = "User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n1,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BTC,-1,BTC\n1,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BNB,0.09,BTC\n";
+    let mut done = upload(app, b, "binance", dust).await;
+    if !imported(&done) { done = answer(app, b, &done, "binance", &kb.to_string()).await; }
+    assert!(imported(&done) && rows_on(c, on_binance) == 2, "{}", done.body);
+    c.execute("DELETE FROM account_transactions WHERE entry_type = 2", []).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "1");
+    let asked = upload(app, b, "binance", dust).await;
+    assert_eq!(options(&asked.body), [kb.to_string(), ku.to_string()], "{}", asked.body);
+    (asked, kb, ku, on_us)
+}
+
+/// N6: a committed refusal is final: the sibling option of the refused question is no file, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn n6_a_sibling_after_a_committed_refusal_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let mut b = browser(&app, c, s.user_id);
+    let (asked, kb, ku, on_us) = refusing_sibling(&app, &mut b, c, s.user_id).await;
+    let token = token_of(&asked);
+    let before = ledger(c);
+    let refused = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("Nothing imported. This file doesn&#39;t match your Binance history"), "{}", refused.body);
+    assert_eq!((ledger(c), state_of(c, &token)), (before, None), "nothing written, the upload closed");
+    // Branch review r1 #9: the sibling's own handle, as its page rendered it, replayed.
+    assert!(common::import::rendered(&asked, &full_options(&asked.body).into_iter().find(|v| v.starts_with(&format!("{ku}~")) || v.starts_with(&format!("{ku}!")) || *v == ku.to_string()).unwrap()).is_some(), "{}", asked.body);
+    let sibling = answer(&app, &mut b, &asked, "binance", &ku.to_string()).await;
+    assert_eq!((sibling.status, ledger(c), rows_on(c, on_us)), (422, before, 0), "{}", sibling.body);
+    assert!(!sibling.body.contains("api_key_id"), "no new question: {}", sibling.body);
+}
+
+/// N6: a refusal that never committed (the process killed before its commit) was never observed: the upload stays open,
+/// and its sibling to the healthy account writes once.
+#[tokio::test(flavor = "current_thread")]
+async fn n6_a_sibling_before_the_refusal_commits_writes_once() {
+    use deltabadger::tracker::import::service;
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let mut b = browser(&app, c, s.user_id);
+    let (asked, kb, ku, on_us) = refusing_sibling(&app, &mut b, c, s.user_id).await;
+    let token = token_of(&asked);
+    let before = ledger(c);
+    service::CRASH.lock().unwrap().push((token.clone(), "before_commit"));
+    let crashed = answer(&app, &mut b, &asked, "binance", &kb.to_string()).await;
+    service::CRASH.lock().unwrap().retain(|(t, _)| *t != token);
+    assert_eq!((crashed.status, ledger(c), state_of(c, &token).as_deref()), (500, before, Some("open")), "{}", crashed.body);
+    let sibling = answer(&app, &mut b, &asked, "binance", &ku.to_string()).await;
+    assert!(imported(&sibling), "{}", sibling.body);
+    assert_eq!((rows_on(c, on_us), ledger(c)), (2, before + 2), "written once, on Binance.US");
+    let again = answer(&app, &mut b, &asked, "binance", &ku.to_string()).await;
+    assert_eq!((again.status, ledger(c)), (422, before + 2));
+}
+
+/// Branch review r1 #2: an "import anyway" is bound to the key its rows are written with: KuCoin's reading key switching to
+/// the account's read-only key after the question (the trading key lost a permission) is a change, asked again.
+#[tokio::test(flavor = "current_thread")]
+async fn an_import_anyway_whose_reading_key_switched_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let (_, half, deposit) = convert_half_linked(&app, &mut b, c, s.user_id, false).await;
+    let kucoin: i64 = one(c, "SELECT id FROM exchanges WHERE type = 'Exchanges::Kucoin'");
+    let trading: i64 = one(c, &format!("SELECT id FROM api_keys WHERE exchange_id = {kucoin}"));
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, '2026-01-02', '2026-01-02')",
+              rusqlite::params![s.user_id, kucoin, e("read-only"), e("s")]).unwrap();
+    let read_only = c.last_insert_rowid();
+    identity::Account::first(c, s.user_id, kucoin).unwrap().add_key(c, read_only).unwrap();
+    let asked = upload(&app, &mut b, "kucoin", &the_other_half()).await;
+    assert!(asked.body.contains("Transfer links on other accounts"), "{}", asked.body);
+    c.execute("UPDATE api_keys SET last_sync_error = 'Access Denied' WHERE id = ?1", [trading]).unwrap();
+    let before = ledger(c);
+    let again = import_answer(&app, &mut b, &asked, "kucoin").await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!((ledger(c), one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {deposit}"))), (before, Some(half)));
+}
+
+/// Branch review r1 #3: the undone link's row is sealed whole: an asset resolved onto the linked deposit after the question
+/// is a change, asked again, the link kept.
+#[tokio::test(flavor = "current_thread")]
+async fn an_undone_links_row_given_an_asset_after_the_question_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let mut b = browser(&app, c, s.user_id);
+    let (_, half, deposit) = convert_half_linked(&app, &mut b, c, s.user_id, false).await;
+    let asked = upload(&app, &mut b, "kucoin", &the_other_half()).await;
+    assert!(asked.body.contains("Transfer links on other accounts"), "{}", asked.body);
+    c.execute("UPDATE account_transactions SET base_asset_id = (SELECT id FROM assets WHERE symbol = 'USDT' LIMIT 1) WHERE id = ?1", [deposit]).unwrap();
+    let again = import_answer(&app, &mut b, &asked, "kucoin").await;
+    assert!(again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(one::<Option<i64>>(c, &format!("SELECT linked_transaction_id FROM account_transactions WHERE id = {deposit}")), Some(half));
+}
+
+/// Branch review r1 #5 (rule M3): "Import the rest" is bound to its route, checked before any writer runs: a left-out
+/// Binance row that gains a destination whose identity data the Binance writer would refuse is a change, asked again,
+/// never refused, the upload still open.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_import_the_rest_is_asked_again_before_any_writer_refuses() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    krakens(c, s.user_id, 1);
+    let binance = venue(c, "Exchanges::Binance", "Binance");
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "deltabadger", &ledger_csv(&[("kraken", "T1", "BTC", 5, 1), ("binance", "B1", "BTC", 6, 1)])).await;
+    let token = token_of(&asked);
+    key_on(c, s.user_id, binance, None);
+    deltabadger::app_config::set_plain(c, &format!("rust_binance_a12_v1:bucket:{}:{binance}:x", s.user_id), "not json", chrono::Utc::now()).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "deltabadger", &hidden(&asked.body)).await;
+    assert!(again.body.contains("Something changed since you answered."), "{} {}", again.status, again.body);
+    assert_eq!((ledger(c), state_of(c, &token).as_deref()), (before, Some("open")));
+}
+
+/// Branch review r1 #6: a late warning on a legacy key's account, with both Binance venues present, completes on its
+/// answer (which names the key and its venue).
+#[tokio::test(flavor = "current_thread")]
+async fn a_late_warning_on_a_legacy_key_with_both_binance_venues_completes() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, binance, e("legacy"), e("s")]).unwrap();
+    let legacy = c.last_insert_rowid();
+    c.execute("DELETE FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [s.user_id, binance]).unwrap();
+    key_on(c, s.user_id, us, None);
+    let mut b = browser(&app, c, s.user_id);
+    let lone = "User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n777,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BTC,-1,BTC\n";
+    let asked = upload(&app, &mut b, "binance", lone).await;
+    assert!(options(&asked.body).contains(&legacy.to_string()), "{}", asked.body);
+    let warned = answer(&app, &mut b, &asked, "binance", &legacy.to_string()).await;
+    assert!(warned.body.contains("small-balance conversions"), "{}", warned.body);
+    let done = import_answer(&app, &mut b, &warned, "binance").await;
+    assert!(imported(&done), "{}", done.body);
+}
+
+/// Branch review r1 #8 (rule M7): a question's outcome names where its rows would go and the accounts its warnings name,
+/// by id.
+#[tokio::test(flavor = "current_thread")]
+async fn a_questions_outcome_carries_its_destination_and_warning_account_ids() {
+    use deltabadger::tracker::import::{run::Destination, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let (kraken, ids) = krakens(c, s.user_id, 1);
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let outcome = service::upload(&app, s.user_id, "deltabadger", rest_csv().into_bytes(), Some("ledger.csv".into()), signed_in).await.unwrap();
+    let service::Outcome::Question { destinations, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
+    assert_eq!(destinations, [Destination { exchange_id: kraken, account_id: Some(ids[0]), rows: 1 }]);
+    assert_eq!(warning_accounts.iter().map(|a| (a.account_id, a.exchange_id, a.rows)).collect::<Vec<_>>(), [(ids[0], kraken, Some(1))]);
+}
+
+/// Memory review: an account pick is bound to the route its click writes: KuCoin's reading key switching to account 1's
+/// read-only key after the question (the trading key lost a permission) is a change, asked again, nothing written.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_pick_whose_reading_key_switched_is_asked_again() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    let trading = key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 2, ?3, ?4, 1, '2026-01-02', '2026-01-02')",
+              rusqlite::params![s.user_id, kucoin, e("read-only"), e("s")]).unwrap();
+    let read_only = c.last_insert_rowid();
+    identity::Account::by_id(c, first).unwrap().unwrap().add_key(c, read_only).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(options(&asked.body).iter().any(|v| v.starts_with(&format!("a{first}~"))), "{}", asked.body);
+    c.execute("UPDATE api_keys SET last_sync_error = 'Access Denied' WHERE id = ?1", [trading]).unwrap();
+    let before = ledger(c);
+    let again = answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await;
+    assert!(!imported(&again) && again.body.contains("Something changed since you answered."), "{}", again.body);
+    assert_eq!(ledger(c), before);
+}
+
+/// Memory review (rule M7): a question offering a new account names the sole existing one as it shows it, numbered
+/// ("KuCoin¹"), and its outcome carries that account's id.
+#[tokio::test(flavor = "current_thread")]
+async fn a_question_offering_a_new_account_carries_the_numbered_accounts_id() {
+    use deltabadger::tracker::import::{run, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    assert!(imported(&upload(&app, &mut b, "kucoin", &kucoin_file("444")).await));
+    c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
+    fingerprint(c, first, "Exchanges::Kucoin", "555");
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("444").into_bytes(), Some("trading.csv".into()), signed_in).await.unwrap();
+    let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
+    let run::Answer::Warned(_, choices) = &answer else { panic!("{answer:?}") };
+    assert!(choices.iter().any(|c| c.accept == Some(run::Accept::New)), "{answer:?}");
+    assert!(warning_accounts.iter().any(|a| a.account_id == first && a.exchange_id == kucoin && a.label.number == Some(1)), "{warning_accounts:?} {answer:?}");
+}
+
+/// Memory review r3: a handle-shaped `api_key_id` with a long generation is still a handle: beside a file and no token,
+/// the request is no file, and the file is never written.
+#[tokio::test(flavor = "current_thread")]
+async fn a_long_generation_handle_beside_a_file_is_no_file() {
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    krakens(c, s.user_id, 1);
+    let mut b = browser(&app, c, s.user_id);
+    assert_eq!(b.get(&app, "/settings/api_keys").await.status, 200);
+    let handle = format!("0123456789abcdef.{}.0.{}", "9".repeat(64), "a".repeat(32));
+    let clean = ledger_csv(&[("kraken", "C1", "ETH", 9, 1)]);
+    let (content_type, body) = common::web::multipart(&[("format", "deltabadger"), ("api_key_id", handle.as_str())], &[("file", "ledger.csv", clean.as_bytes())]);
+    let before = ledger(c);
+    let answer = b.send_bytes(&app, "POST", "/tracker/import", Some(body), common::web::Csrf::Header, &[("content-type", content_type.as_str())]).await;
+    assert_eq!((answer.status, ledger(c)), (422, before), "{}", answer.body);
+    assert!(answer.body.contains("Choose a file first."), "{}", answer.body);
+}
+
+/// Memory review r3 (rule M7): an account question's options carry notes naming other accounts (here the rows account 1
+/// already holds); its outcome carries those accounts' ids.
+#[tokio::test(flavor = "current_thread")]
+async fn an_account_questions_notes_carry_their_accounts_ids() {
+    use deltabadger::tracker::import::{run, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let kucoin = venue(c, "Exchanges::Kucoin", "KuCoin");
+    key_on(c, s.user_id, kucoin, None);
+    let first = identity::Account::first(c, s.user_id, kucoin).unwrap().id.unwrap();
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    identity::new_account(c, s.user_id, kucoin, chrono::Utc::now()).unwrap();
+    let mut b = browser(&app, c, s.user_id);
+    let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
+    assert!(imported(&answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await));
+    // The same rows under a UID no account is known by: which account, each option noting the rows account 1 holds.
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("777").into_bytes(), Some("trading.csv".into()), signed_in).await.unwrap();
+    let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
+    assert!(matches!(answer, run::Answer::Ambiguous(_)), "{answer:?}");
+    assert!(warning_accounts.iter().any(|a| a.account_id == first && a.exchange_id == kucoin && a.rows.is_some()), "{warning_accounts:?} {answer:?}");
 }

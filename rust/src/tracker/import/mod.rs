@@ -5,6 +5,7 @@ pub mod csv;
 pub mod deltabadger;
 pub mod kucoin;
 pub mod run;
+pub mod service;
 
 /// AccountTransaction.entry_types: a type's stored id.
 pub fn entry_type(name: &str) -> Option<i64> {

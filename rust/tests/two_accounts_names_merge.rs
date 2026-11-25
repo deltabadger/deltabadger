@@ -3832,7 +3832,7 @@ fn s7_0_2_the_walks_asset_map_reads_a_duplicates_rows() {
     c.execute("INSERT INTO historical_prices (asset, currency, date, price) VALUES ('stock:ABC', 'USD', '2026-09-01', '12')", []).unwrap();
     let user = two.seeded.user_id;
     let all = deltabadger::tracker::rows::load_all(c, user).unwrap();
-    assert_eq!(all.iter().filter(|r| r.base == "ABC").count(), 1, "the duplicate's row is left out of the walk");
+    assert_eq!(all.iter().filter(|r| r.base.as_str() == "ABC").count(), 1, "the duplicate's row is left out of the walk");
     let table = deltabadger::tracker::prices::row_price_key(c, user, two.seeded.exchange_id, "Exchanges::Alpaca", "ABC", None, chrono::NaiveDate::from_ymd_opt(2026, 9, 1).unwrap()).unwrap();
     assert_eq!(table.as_deref(), Some("stock:ABC"), "the table's key reads the duplicate's row");
     let mut r = Reference::load(c, &Venue::alpaca(c).unwrap(), &deltabadger::tracker::prices::symbols(&all)).unwrap();

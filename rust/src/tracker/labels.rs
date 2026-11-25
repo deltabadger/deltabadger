@@ -189,6 +189,8 @@ pub struct Labels { pub assets: Vec<(i64, i64, String)>, pub legs: Vec<(i64, Sid
                     pub void: Vec<(i64, i64)>,
                     /// Each coin label's external id (the wash-sale locks take every asset of the coin).
                     pub coins: Vec<(String, String)>,
+                    /// The labels of units no evidence identifies (never priced), for the ledger page.
+                    pub unknown: Vec<String>,
                     /// Codex r2: a digest of every leg's and balance's resolved key, the walk's fingerprint (`backfill::fingerprint`);
                     /// not cached (a summary read back is never fingerprinted).
                     pub identity: String }
@@ -217,7 +219,10 @@ impl Labels {
             .chain(s.asset_labels().map(|(&(a, id), l)| format!("b{a}:{id}:{}:{}", l.as_str(), l.key()))).collect();
         keys.sort();
         let identity = { use sha2::Digest; hex::encode(sha2::Sha256::digest(keys.join("\n").as_bytes())) };
-        Labels { assets, legs, spellings, void: void_pairs(s), coins, identity }
+        let mut unknown: Vec<String> = s.leg_labels().map(|(_, l)| l).filter(|l| l.keyed() && l.class() == super::spellings::Class::Unknown).map(|l| l.as_str().to_string()).collect();
+        unknown.sort();
+        unknown.dedup();
+        Labels { assets, legs, spellings, void: void_pairs(s), coins, unknown, identity }
     }
     /// The label of an account's balance of an asset; None when the map has none (the balance keeps its symbol).
     pub fn asset(&self, account: i64, asset: i64) -> Option<&str> { self.assets.iter().find(|(a, id, _)| *a == account && *id == asset).map(|(_, _, l)| l.as_str()) }
@@ -237,6 +242,17 @@ impl Labels {
     }
     /// A coin label's external id.
     pub fn coin(&self, label: &str) -> Option<&str> { self.coins.iter().find(|(l, _)| l == label).map(|(_, e)| e.as_str()) }
+    /// The part of the table an account's summary reads: its balances, its rows' legs, and the spellings, coins and void
+    /// pairs those name (Codex r2: one full copy per venue could push a multi-account cache past its limit).
+    pub fn for_account(&self, account: i64, rows: &HashSet<i64>) -> Labels {
+        let assets: Vec<(i64, i64, String)> = self.assets.iter().filter(|(a, ..)| *a == account).cloned().collect();
+        let legs: Vec<(i64, Side, String)> = self.legs.iter().filter(|(r, ..)| rows.contains(r)).cloned().collect();
+        // Codex r3: the per-label facts (a coin's id, an unidentified label, a raw spelling) stay whole: a leg that kept its
+        // spelling is in no list of its own, and those lists are one entry per label.
+        Labels { spellings: self.spellings.clone(), coins: self.coins.clone(), unknown: self.unknown.clone(),
+                 void: self.void.iter().filter(|(a, b)| rows.contains(a) || rows.contains(b)).cloned().collect(),
+                 assets, legs, identity: String::new() }
+    }
     /// Whether the map voids the link between rows `a` and `b`.
     pub fn void(&self, a: i64, b: i64) -> bool { self.void.contains(&(a, b)) }
 }
@@ -459,6 +475,34 @@ mod tests {
         assert_eq!(rows.iter().find(|r| r.id == 3).unwrap().base.as_str(), "BTG (Openverse Network)");
         let (_, labels) = crate::tracker::rows::load_all_labelled(&c, 1).unwrap();
         assert!(labels.void(2, 3) && labels.void(3, 2) && !labels.void(1, 2));
+    }
+
+    /// An account's summary keeps only its part of the label table: its balances, its rows' legs, what those name.
+    #[test]
+    fn an_accounts_part_of_the_labels_is_its_own() {
+        let l = Labels { assets: vec![(-1, 20, "BTG (Bitcoin Gold)".into()), (-2, 21, "BTG (Openverse Network)".into())],
+                         legs: vec![(1, Side::Base, "BTG (Bitcoin Gold)".into()), (2, Side::Base, "BTG (Openverse Network)".into())],
+                         spellings: vec![("BTG (Bitcoin Gold)".into(), "BTG".into()), ("BTG (Openverse Network)".into(), "BTG".into())],
+                         void: vec![(1, 3), (3, 1)], coins: vec![("BTG (Bitcoin Gold)".into(), "bitcoin-gold".into()), ("BTG (Openverse Network)".into(), "openverse-network".into())],
+                         unknown: vec![], identity: "x".into() };
+        let mine = l.for_account(-1, &HashSet::from([1]));
+        assert_eq!((mine.assets.len(), mine.legs.len(), mine.void.len()), (1, 1, 2));
+        assert_eq!((mine.coin("BTG (Bitcoin Gold)"), mine.spellings.len()), (Some("bitcoin-gold"), 2), "per-label facts stay whole");
+    }
+
+    /// Codex r2: the ledger reads a row's quote as cash by its label: a venue's coin spelled `PLN` (PLEARN on MEXC) is no
+    /// złoty, so the row is not priced by its counterpart as if it were.
+    #[test]
+    fn a_coin_quote_spelled_like_cash_is_no_counterpart() {
+        let c = db(CATALOGUE, "INSERT INTO tickers VALUES (1, 3, 'BTC', 'PLN', 1, 30);",
+                   &["3, 0, 'BTC', 1, 'PLN', 500, NULL, NULL, NULL, NULL, '2024-01-01 00:00:00'"]);
+        let (_, s) = map(&c);
+        assert_eq!(printed(&s, 1, Side::Quote), "PLN (PLEARN)");
+        let row = crate::web::tracker::row::Row { id: 1, owner: 1, exchange: 3, kind: 0, base: "BTC".into(), amount: Dec::one(), quote: Some("PLN".into()),
+            quoted: Some(Dec::from_i64(500)), fee: None, fee_currency: None, at: chrono::Utc::now(), group: None, manual: serde_json::json!({}), manual_null: false,
+            linked: None, inverse: None, asset: None, bot: None, venue: "mexc".into(), raw: serde_json::json!({}) };
+        assert!(row.counterpart(&c, None).unwrap().is_some(), "by its spelling, PLN is the złoty");
+        assert!(row.counterpart(&c, Some(&s)).unwrap().is_none(), "by its label, PLEARN");
     }
 
     /// A stored link carries a known withdrawal's coin to an unlisted deposit, whichever row names the other.

@@ -147,7 +147,7 @@ pub fn prepare(c: &Connection, user_id: i64, country: &str, year: i32, stablecoi
     let mut rows = vec![];
     for r in all {
         let label = Some(&r.base).filter(|l| !scope.fund(l));
-        if crypto_row(stock.contains(&r.exchange_id), label, prices::recorded_class(r.base_asset.as_ref()), || scope.crypto(c, &r.base))? { rows.push(r); }
+        if crypto_row(stock.contains(&r.exchange_id), label, prices::recorded_class(r.base_asset.as_ref()), || scope.crypto(c, r.base.as_str()))? { rows.push(r); }
     }
 
     let zone: String = c.query_row("SELECT time_zone FROM users WHERE id = ?1", [user_id], |r| r.get(0))?;
@@ -361,10 +361,10 @@ impl Report {
         let mut notes = AtNotes::default();
         let se = j.code == "SE";
         // D-TAX-SE-AIRDROP: an airdrop's treatment has no guidance; its lot opens at its value, marked assumed.
-        if se { for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Airdrop && !fiat(&e.row.base)) { e.row.price_missing = true; } }
+        if se { for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Airdrop && !e.row.base.is_fiat()) { e.row.price_missing = true; } }
         if j.code == "CZ" {
             // D-TAX-CZ-MINING: mining is no income when received; the mined units cost 0 (GFŘ 2022 Ad A).
-            for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Mining && !fiat(&e.row.base)) {
+            for e in enriched.iter_mut().filter(|e| e.row.kind == Kind::Mining && !e.row.base.is_fiat()) {
                 notes.mined.push(format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at)));
                 (e.row.fiat_value, e.row.price_missing, e.row.value_missing) = (Dec::zero(), false, Some(false));
             }
@@ -385,16 +385,16 @@ impl Report {
         for (i, e) in enriched.iter().enumerate() {
             let Some((kind, name)) = INCOME.iter().find(|(k, _)| *k == e.row.kind) else { continue };
             // D-TAX-CZ-MINING.
-            if j.code == "CZ" && *kind == Kind::Mining && !fiat(&e.row.base) { continue; }
-            if let Some(a) = austria.as_ref().filter(|_| matches!(kind, Kind::StakingReward | Kind::Airdrop) && !fiat(&e.row.base)) {
+            if j.code == "CZ" && *kind == Kind::Mining && !e.row.base.is_fiat() { continue; }
+            if let Some(a) = austria.as_ref().filter(|_| matches!(kind, Kind::StakingReward | Kind::Airdrop) && !e.row.base.is_fiat()) {
                 // D-TAX-AT-REWARDS: not income; held at zero, listed (the whole history, as the deposit block).
                 if e.row.at.0 >= a.regime_from.0 { notes.zero_cost.push(format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at))); continue; }
             }
             // D-TAX-LOCAL-YEAR: income by the year the taxpayer was in, as disposals are (2.x: the UTC year).
             if !self.in_year(e.row.at) { continue; }
-            let value = if fiat(&e.row.base) { ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)? } else { e.row.fiat_value.clone() };
+            let value = if e.row.base.is_fiat() { ps.convert_fiat(&e.row.amount, e.row.base.as_str(), currency, e.row.at)? } else { e.row.fiat_value.clone() };
             // D-TAX-GB-AIRDROP: not income here (income only if given for a service, CRYPTO21250): listed with its value.
-            if gb && *kind == Kind::Airdrop && !fiat(&e.row.base) {
+            if gb && *kind == Kind::Airdrop && !e.row.base.is_fiat() {
                 let label = format!("{} {} {}", e.row.base, e.row.amount.to_s_f(), date(e.row.at));
                 if self.forks.contains(&e.id) { notes.gb_forks.push(label.clone()); }
                 notes.gb_airdrops.push((label, value));
@@ -437,7 +437,7 @@ impl Report {
         let together: Vec<Entry>;
         let walked = if gb && !ahead.is_empty() { together = enriched.iter().chain(&ahead).cloned().collect(); &together } else { &enriched };
         let (taxable, mut txs) = self.txs(walked)?;
-        let standing_fees: Vec<&walk::Row> = taxable.iter().filter(|e| e.row.kind == Kind::Fee && !fiat(&e.row.base) && e.row.amount.is_positive() && e.row.uid < next)
+        let standing_fees: Vec<&walk::Row> = taxable.iter().filter(|e| e.row.kind == Kind::Fee && !e.row.base.is_fiat() && e.row.amount.is_positive() && e.row.uid < next)
             // GB: a fee row of a swap is that swap's fee (D-TAX-GB-SWAP-FEE), not one matched to no trade.
             .filter(|e| !(gb && e.row.group.is_some()))
             .map(|e| &e.row).collect();
@@ -446,10 +446,10 @@ impl Report {
         // on the engine's copy; an airdrop keeps its value (a gratuitous acquisition, III-B al. 2). Listed with their values.
         if fr {
             let paid_nothing = |k: Kind| matches!(k, Kind::StakingReward | Kind::LendingInterest | Kind::Mining | Kind::OtherIncome);
-            for t in txs.iter_mut().filter(|t| paid_nothing(t.row.kind) && !fiat(&t.row.base)) {
+            for t in txs.iter_mut().filter(|t| paid_nothing(t.row.kind) && !t.row.base.is_fiat()) {
                 (t.row.fiat_value, t.row.price_missing, t.row.value_missing) = (Dec::zero(), false, Some(false));
             }
-            for r in enriched.iter().map(|e| &e.row).filter(|r| paid_nothing(r.kind) && !fiat(&r.base)) {
+            for r in enriched.iter().map(|e| &e.row).filter(|r| paid_nothing(r.kind) && !r.base.is_fiat()) {
                 let name = INCOME.iter().find(|(k, _)| *k == r.kind).map_or("other_income", |(_, n)| n);
                 let label = text(j.locale, &format!("tax_report.income.types.{name}"), &[]);
                 notes.fr_rewards.push((format!("{label} {} {} {}", r.base, r.amount.to_s_f(), date(r.at)), r.fiat_value.clone()));
@@ -535,7 +535,7 @@ impl Report {
             // D-TAX-FR-NETWORK-FEE (a reading): the year's coins paid as a fee, none computed as a cession.
             let own_rows: HashSet<usize> = standing_fees.iter().map(|r| r.uid).collect();
             for r in enriched.iter().map(|e| &e.row).filter(|r| self.in_year(r.at)) {
-                let coin_fee = r.fee_currency.as_deref().filter(|c| !c.trim().is_empty() && !fiat(c)).zip(r.fee_amount.as_ref().filter(|a| a.is_positive()));
+                let coin_fee = r.fee_currency.as_ref().map(Label::as_str).filter(|c| !c.trim().is_empty() && !fiat(c)).zip(r.fee_amount.as_ref().filter(|a| a.is_positive()));
                 let listed = match r.kind {
                     Kind::Fee => own_rows.contains(&r.uid).then(|| (r.base.to_string(), r.amount.clone())),
                     Kind::Withdrawal if r.linked => r.transfer_fee.clone().filter(Dec::is_positive).map(|f| (r.base.to_string(), f)),
@@ -544,7 +544,7 @@ impl Report {
                 if let Some((coin, units)) = listed { notes.fr_fees.push(format!("{coin} {} {}", units.to_s_f(), date(r.at))); }
                 // A linked withdrawal's fee in another coin is paid beside its network fee (branch review).
                 if r.kind == Kind::Withdrawal && r.linked {
-                    if let Some((c, a)) = coin_fee.filter(|(c, _)| *c != r.base) { notes.fr_fees.push(format!("{c} {} {}", a.to_s_f(), date(r.at))); }
+                    if let Some((c, a)) = coin_fee.filter(|(c, _)| *c != r.base.as_str()) { notes.fr_fees.push(format!("{c} {} {}", a.to_s_f(), date(r.at))); }
                 }
             }
         }
@@ -573,7 +573,7 @@ impl Report {
         }
         // D-TAX-ORPHAN-SWAP: where swaps are not taxable, a swap leg with nothing going the other way carries no basis.
         let unmatched: Vec<&walk::Row> = if j.swaps_taxable() { vec![] } else {
-            txs.iter().map(|t| &t.row).filter(|r| r.orphan && matches!(r.kind, Kind::SwapIn | Kind::SwapOut) && !(self.stablecoin_as_fiat && stable(&r.base))).collect()
+            txs.iter().map(|t| &t.row).filter(|r| r.orphan && matches!(r.kind, Kind::SwapIn | Kind::SwapOut) && !(self.stablecoin_as_fiat && r.base.is_stable())).collect()
         };
         // D-TAX-SWAP-FEE-EXHAUSTED: the swaps of the taxpayer's year whose fee took everything received.
         for (uid, basis) in &engine.exhausted {
@@ -583,7 +583,7 @@ impl Report {
         if dk {
             // D-TAX-DK-STABLECOIN: held at the year's start, or any row of it in the year.
             let mut held: Vec<String> = engine.snapshot.iter().flatten().filter(|(sym, units)| dk_stablecoin(sym, None) && units.is_positive()).map(|(sym, _)| sym.clone())
-                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(&r.base, r.base.coin()) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
+                .chain(enriched.iter().map(|e| &e.row).filter(|r| dk_stablecoin(r.base.as_str(), r.base.coin()) && self.local(r.at).year() == year).map(|r| r.base.to_string())).collect();
             held.sort();
             held.dedup();
             notes.stablecoins = held;
@@ -611,16 +611,16 @@ impl Report {
         let stable_cash = !self.j.swaps_taxable() && self.stablecoin_as_fiat;
         // D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a group stays, as the swap's fee (it moves no coin).
         let swap_fee = |e: &Entry| matches!(self.j.code, "SE" | "GB") && e.row.kind == Kind::Fee && e.row.group.is_some();
-        let taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(fiat(&e.row.base) || stable_cash && stable(&e.row.base))).cloned().collect();
+        let taxable: Vec<Entry> = enriched.iter().filter(|e| swap_fee(e) || !(e.row.base.is_fiat() || stable_cash && e.row.base.is_stable())).cloned().collect();
         let identity = |label: &Label, r: &walk::Row| prices::tax_identity_of(&self.reference, label, self.reference.venue(&r.exchange), Some(r.at.utc().date_naive()));
         let mut entries: Vec<(i64, fifo::Tx)> = taxable.iter()
-            .map(|e| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_deref().is_some_and(fiat),
+            .map(|e| (e.id, fifo::Tx { row: e.row.clone(), tx_id: e.tx_id.clone(), fiat_exit: e.row.quote.as_ref().is_some_and(Label::is_fiat),
                                             asset: identity(&e.row.base, &e.row),
-                                            fee_asset: e.row.fee_currency.as_ref().filter(|f| !f.trim().is_empty()).map(|f| identity(f, &e.row)),
+                                            fee_asset: e.row.fee_currency.as_ref().filter(|f| !f.as_str().trim().is_empty()).map(|f| identity(f, &e.row)),
                                             to_asset: e.row.to_base.as_ref().map(|l| identity(l, &e.row)),
                                             cash_group: false })).collect();
         // Groups with a fiat leg, read before the fiat rows leave.
-        let cash_groups: HashSet<(i64, String)> = enriched.iter().filter(|e| fiat(&e.row.base) && !swap_fee(e))
+        let cash_groups: HashSet<(i64, String)> = enriched.iter().filter(|e| e.row.base.is_fiat() && !swap_fee(e))
             .filter_map(|e| e.row.group.clone().map(|g| (e.row.account, g))).collect();
         for (_, t) in &mut entries { t.cash_group = t.row.group.as_ref().is_some_and(|g| cash_groups.contains(&(t.row.account, g.clone()))); }
         Ok((taxable, entries.into_iter().map(|(_, t)| t).collect()))
@@ -640,7 +640,7 @@ impl Report {
         for (i, e) in enriched.iter().enumerate() {
             let r = &e.row;
             let Some((_, name)) = INCOME.iter().find(|(k, _)| *k == r.kind && !matches!(k, Kind::StakingReward | Kind::Airdrop)) else { continue };
-            if r.at.0 < from.0 || fiat(&r.base) { continue; }
+            if r.at.0 < from.0 || r.base.is_fiat() { continue; }
             let day = self.local(r.at);
             groups.entry((r.exchange.clone(), r.base.to_string(), name, day.year(), day.month())).or_default().push(i);
         }
@@ -760,7 +760,7 @@ impl Report {
             let label = |name: &str| text(l, &format!("tax_report.income.types.{name}"), &[]);
             for (i, name, value) in income {
                 let r = &enriched[*i].row;
-                line(&mut out, &[s(self.local(r.at).format("%Y-%m-%d").to_string()), s(label(name)), s(r.base.clone()), n(&r.amount), cents(value)?, s(currency)]);
+                line(&mut out, &[s(self.local(r.at).format("%Y-%m-%d").to_string()), s(label(name)), s(r.base.to_string()), n(&r.amount), cents(value)?, s(currency)]);
             }
             let mut kinds: Vec<&str> = vec![];
             for (_, name, _) in income { if !kinds.contains(name) { kinds.push(name); } }
@@ -780,7 +780,7 @@ impl Report {
         let listed = |r: &walk::Row, amount: &Dec| format!("{} {} {}", r.base, amount.to_s_f(), date(r.at));
         self.block(&mut out, "WARNING", "uncovered_sales", "uncovered_sales_hint",
                    uncovered.iter().map(|d| format!("{} {} {}", d.asset, d.uncovered.to_s_f(), date(d.at))))?;
-        let deposits: Vec<String> = enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Deposit && !r.linked && !fiat(&r.base))
+        let deposits: Vec<String> = enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Deposit && !r.linked && !r.base.is_fiat())
             .map(|r| listed(r, &r.amount)).collect();
         // D-TAX-BG-DEPOSIT-ZERO, D-TAX-DK-DEPOSIT-ZERO: at cost 0, not at an assumed market value.
         let (heading, hint) = match j.code { "BG" => ("deposit_basis_zero", "deposit_basis_zero_hint_bg"),
@@ -790,11 +790,11 @@ impl Report {
             "GB" => ("deposit_basis_assumed", "deposit_basis_assumed_hint_gb"), _ => ("deposit_basis_assumed", "deposit_basis_assumed_hint") };
         self.block(&mut out, "WARNING", heading, hint, deposits.into_iter())?;
         self.block(&mut out, "WARNING", "unlinked_withdrawals", "unlinked_withdrawals_hint",
-                   enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Withdrawal && !r.linked && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
+                   enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Withdrawal && !r.linked && !r.base.is_fiat()).map(|r| listed(r, &r.amount)))?;
         // D-TAX-LOST-POOLED: no disposal; in Sweden no deduction, in the UK a negligible value claim is the user's.
         let (lost, lost_hint) = match j.code { "SE" => ("lost_se", "lost_hint_se"), "GB" => ("lost_gb", "lost_hint_gb"), _ => ("lost", "lost_hint") };
         self.block(&mut out, "WARNING", lost, lost_hint,
-                   enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Lost && !fiat(&r.base)).map(|r| listed(r, &r.amount)))?;
+                   enriched.iter().map(|e| &e.row).filter(|r| r.kind == Kind::Lost && !r.base.is_fiat()).map(|r| listed(r, &r.amount)))?;
         // § 38v ZDP.
         self.valued(&mut out, "WARNING", "cz_notice_38v", &at.notice, None)?;
         let stated: Vec<&walk::Row> = enriched.iter().map(|e| &e.row).filter(|r| r.stated_value).collect();
@@ -925,7 +925,7 @@ impl Report {
 
 /// D-TAX-GB-AIRDROP: every airdrop's lot opens at its value marked assumed (a disposal using it is incomplete).
 fn assume_airdrops(rows: &mut [Entry]) {
-    for e in rows.iter_mut().filter(|e| e.row.kind == Kind::Airdrop && !fiat(&e.row.base)) { e.row.price_missing = true; }
+    for e in rows.iter_mut().filter(|e| e.row.kind == Kind::Airdrop && !e.row.base.is_fiat()) { e.row.price_missing = true; }
 }
 
 /// D-TAX-COIN-QUOTE, grouped legs: where swaps are not taxable and a stablecoin is a coin, a group of coin legs only (no
@@ -937,17 +937,17 @@ fn swap_coin_for_stablecoin_groups(rows: &mut [Entry], italy: bool) {
     let mut groups: HashMap<(i64, String), Vec<usize>> = HashMap::new();
     for (i, e) in rows.iter().enumerate() { if let Some(g) = &e.row.group { groups.entry((e.row.account, g.clone())).or_default().push(i); } }
     for legs in groups.values() {
-        if legs.iter().any(|&i| fiat(&rows[i].row.base) || !matches!(rows[i].row.kind, Kind::Buy | Kind::Sell)) { continue; }
+        if legs.iter().any(|&i| rows[i].row.base.is_fiat() || !matches!(rows[i].row.kind, Kind::Buy | Kind::Sell)) { continue; }
         if !(legs.iter().any(|&i| rows[i].row.kind == Kind::Buy) && legs.iter().any(|&i| rows[i].row.kind == Kind::Sell)) { continue; }
-        if italy && legs.iter().any(|&i| it::emt(&rows[i].row.base, rows[i].row.base.coin())) { continue; }
+        if italy && legs.iter().any(|&i| it::emt(rows[i].row.base.as_str(), rows[i].row.base.coin())) { continue; }
         for &i in legs { rows[i].row.kind = if rows[i].row.kind == Kind::Buy { Kind::SwapIn } else { Kind::SwapOut }; }
     }
 }
 
 /// D-TAX-SE-SWAP-FEE, D-TAX-GB-SWAP-FEE: a fiat fee row of a swap's group, its value in the report's currency.
 fn value_fiat_fee_rows(rows: &mut [Entry], ps: &mut PriceService, currency: &str) -> Result<(), FiguresError> {
-    for e in rows.iter_mut().filter(|e| e.row.kind == Kind::Fee && e.row.group.is_some() && fiat(&e.row.base)) {
-        e.row.fiat_value = ps.convert_fiat(&e.row.amount, &e.row.base, currency, e.row.at)?;
+    for e in rows.iter_mut().filter(|e| e.row.kind == Kind::Fee && e.row.group.is_some() && e.row.base.is_fiat()) {
+        e.row.fiat_value = ps.convert_fiat(&e.row.amount, e.row.base.as_str(), currency, e.row.at)?;
     }
     Ok(())
 }
@@ -971,7 +971,7 @@ pub(super) fn coin_of_id(id: &str) -> Option<&str> { (!id.contains(':')).then_so
 fn dk_value_side(ins: &[&walk::Row], outs: &[&walk::Row]) -> Option<bool> {
     let tests: [fn(&str, Option<&str>) -> bool; 3] = [|b, c| dk_contract(b, c) || named(b, c, "EURC", "euro-coin"), |b, c| named(b, c, "BTC", "bitcoin"), |b, c| named(b, c, "ETH", "ethereum")];
     for t in tests {
-        let (i, o) = (ins.iter().any(|r| t(&r.base, r.base.coin())), outs.iter().any(|r| t(&r.base, r.base.coin())));
+        let (i, o) = (ins.iter().any(|r| t(r.base.as_str(), r.base.coin())), outs.iter().any(|r| t(r.base.as_str(), r.base.coin())));
         if i || o { return Some(i); }
     }
     Some(true)
@@ -996,7 +996,7 @@ fn value_groups(rows: &mut [Entry], side: fn(&[&walk::Row], &[&walk::Row]) -> Op
     for k in order {
         // The trade's legs; a fee row booked in the group is no leg (it is walked on its own).
         let legs: Vec<usize> = groups[&k].iter().copied().filter(|&i| rows[i].row.kind.in_leg() || rows[i].row.kind.out_leg()).collect();
-        if legs.iter().any(|&i| fiat(&rows[i].row.base)) { continue; }
+        if legs.iter().any(|&i| rows[i].row.base.is_fiat()) { continue; }
         let (ins, outs): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| rows[i].row.kind.in_leg());
         if ins.is_empty() || outs.is_empty() { continue; }
         // `None`: the group is not valued at all (Italy: only an exchange with an e-money token is a disposal).
@@ -1038,11 +1038,11 @@ fn quote_stablecoin_legs(rows: &mut [Stored]) -> Result<(), FiguresError> {
     for (i, r) in rows.iter().enumerate() { if let Some(g) = &r.group { groups.entry((r.account, g.clone())).or_default().push(i); } }
     let direction = |k: Kind| if k.in_leg() { Some(true) } else if k.out_leg() { Some(false) } else { None };
     for legs in groups.values() {
-        let (coins, cash): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| stable(&rows[i].base));
+        let (coins, cash): (Vec<usize>, Vec<usize>) = legs.iter().partition(|&&i| rows[i].base.is_stable());
         let (Some(&first), Some(&paid)) = (coins.first(), cash.first()) else { continue };
         let side = direction(rows[first].kind);
         if side.is_none() || !coins.iter().all(|&i| rows[i].base == rows[first].base && direction(rows[i].kind) == side && rows[i].quote_amount.is_none())
-            || !cash.iter().all(|&i| fiat(&rows[i].base) && rows[i].base == rows[paid].base && direction(rows[i].kind) == side.map(|d| !d)) { continue; }
+            || !cash.iter().all(|&i| rows[i].base.is_fiat() && rows[i].base == rows[paid].base && direction(rows[i].kind) == side.map(|d| !d)) { continue; }
         let mut total = Dec::zero();
         for &i in &cash { total = (&total + &rows[i].amount)?; }
         let mut quantity = Dec::zero();
@@ -1103,7 +1103,7 @@ fn tokenized_symbols<'a>(c: &Connection, rows: impl Iterator<Item = &'a Stored>)
     // (a decorated label's text before its detail).
     let spelling = |l: &Label| l.as_str().split_once(" (").map_or(l.as_str(), |(s, _)| s).to_string();
     let legs: Vec<(&Stored, &Label)> = rows.flat_map(|r| std::iter::once(&r.base).chain(r.quote.as_ref()).chain(r.fee_currency.as_ref()).map(move |l| (r, l)))
-        .filter(|(_, l)| !l.trim().is_empty() && !l.is_cash()).collect();
+        .filter(|(_, l)| !l.as_str().trim().is_empty() && !l.is_cash()).collect();
     let names: HashSet<String> = legs.iter().filter(|(_, l)| l.coin().is_none()).flat_map(|(_, l)| [spelling(l), canonical(&spelling(l))]).collect();
     let reference = Reference::load(c, &Venue::alpaca(c)?, &names)?;
     let mut listed = c.prepare("SELECT a.symbol, a.instrument_type FROM tickers t JOIN assets a ON a.id = t.base_asset_id \

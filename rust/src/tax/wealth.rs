@@ -6,11 +6,12 @@
 //!   assumption): counted, less the withdrawal's own fee (listed by the report).
 //! - D-TAX-WEALTH-LOST: a `lost` row leaves the holdings (2.x never removed it).
 //! - Holdings by asset identity (D-TAX-ASSET-IDENTITY), the symbol of the first row shown.
+use crate::tracker::spellings::Label;
 use super::{cents, line, n, s, Cell, Outcome, Report};
 use crate::figures::{at::At, dec::Dec, FiguresError};
 use crate::tracker::prices::{self, Fetcher, PriceService};
 use crate::tracker::rows::{Kind, Stored};
-use crate::tracker::{fiat, stable, walk};
+use crate::tracker::{fiat, walk};
 use crate::web::i18n::{text, Arg};
 use chrono::NaiveDate;
 use std::collections::{HashMap, HashSet};
@@ -31,7 +32,7 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
             (Kind::Withdrawal, Some(d)) => deposits.get(&d).map(|deposit| &r.amount - deposit).transpose()?,
             _ => None,
         };
-        let own_fee = r.fee_amount.clone().filter(|f| f.is_positive() && r.fee_currency.as_deref() == Some(r.base.as_str()));
+        let own_fee = r.fee_amount.clone().filter(|f| f.is_positive() && r.fee_currency.as_ref().map(Label::as_str) == Some(r.base.as_str()));
         let mut moves = walk::quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), linked, transfer_fee.as_ref())?;
         // r4 item 2: an own-coin fee attached to a linked deposit leaves too (`quantity_moves` takes a third coin's already; the
         // principal is not credited again, and the inferred network fee is the withdrawal's amount less the deposit's gross).
@@ -40,10 +41,10 @@ pub fn held(rows: &[Stored], deposits: &HashMap<i64, Dec>, until: At, identity: 
             // D-TAX-SNAPSHOT-KEEPS: an unlinked withdrawal takes out only its own fee.
             if r.kind == Kind::Withdrawal && !linked { *delta = own_fee.clone().map_or_else(Dec::zero, |f| f.neg()); }
             // A stablecoin is a coin here: its own fee on a sale leaves on top of the amount sold.
-            else if matches!(r.kind, Kind::Sell | Kind::SwapOut) && stable(symbol) { if let Some(f) = &own_fee { *delta = (&*delta - f)?; } }
+            else if matches!(r.kind, Kind::Sell | Kind::SwapOut) && symbol.is_stable() { if let Some(f) = &own_fee { *delta = (&*delta - f)?; } }
         }
         for (symbol, delta) in moves {
-            if fiat(&symbol) || delta.is_zero() { continue; }
+            if symbol.is_fiat() || delta.is_zero() { continue; }
             let asset = identity(&symbol, r);
             match out.iter_mut().find(|h| h.asset == asset) {
                 Some(h) => h.units = (&h.units + &delta)?,
@@ -98,13 +99,13 @@ impl Report {
     pub(super) fn fiat_trades(&self, ps: &mut PriceService, currency: &str) -> Result<(Dec, Dec), FiguresError> {
         // A trade's legs: bought and sold rows, and swap legs (a fiat-funded convert books its fiat as a swap leg).
         let leg = |k: Kind| matches!(k, Kind::Buy | Kind::Sell | Kind::SwapIn | Kind::SwapOut);
-        let traded: HashSet<(i64, &str)> = self.scoped.iter().filter(|r| !fiat(&r.base) && leg(r.kind))
+        let traded: HashSet<(i64, &str)> = self.scoped.iter().filter(|r| !r.base.is_fiat() && leg(r.kind))
             .filter_map(|r| r.group.as_deref().map(|g| (r.account, g))).collect(); // a group id is its account's (#710)
         let (mut paid, mut received) = (Dec::zero(), Dec::zero());
         for r in self.scoped.iter().filter(|r| self.in_year(r.at) && leg(r.kind)) {
-            let (cash, amount, pays) = match (&r.group, fiat(&r.base)) {
+            let (cash, amount, pays) = match (&r.group, r.base.is_fiat()) {
                 (Some(g), true) if traded.contains(&(r.account, g.as_str())) => (r.base.as_str(), &r.amount, r.kind.out_leg()),
-                (None, false) => match (r.quote.as_deref(), &r.quote_amount) { (Some(q), Some(a)) if fiat(q) => (q, a, r.kind.in_leg()), _ => continue },
+                (None, false) => match (r.quote.as_ref().map(Label::as_str), &r.quote_amount) { (Some(q), Some(a)) if fiat(q) => (q, a, r.kind.in_leg()), _ => continue },
                 _ => continue,
             };
             let value = ps.convert_fiat(amount, cash, currency, r.at)?;
@@ -141,7 +142,7 @@ impl Report {
             for x in &warnings { line(&mut out, &[s(x.clone())]); }
             line(&mut out, &[self.t("tax_report.warnings.upgrade_hint")]);
         }
-        let before = |kind: Kind| self.scoped.iter().filter(move |r| r.kind == kind && r.at.0 < w.until.0 && !fiat(&r.base));
+        let before = |kind: Kind| self.scoped.iter().filter(move |r| r.kind == kind && r.at.0 < w.until.0 && !r.base.is_fiat());
         let linked: HashSet<i64> = self.scoped.iter().filter_map(|r| r.linked_to).collect();
         let listed = |r: &Stored| format!("{} {} {}", r.base, r.amount.to_s_f(), r.at.utc().format("%Y-%m-%d"));
         // D-TAX-SNAPSHOT-KEEPS: still counted as the user's; D-TAX-WEALTH-LOST: no longer counted.

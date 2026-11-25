@@ -2052,3 +2052,25 @@ async fn p9_rows_2x_imported_while_it_owned_the_install_read_as_imported() {
     let kind = |id: i64| o.primary.query_row("SELECT import_kind FROM import_row_origins WHERE transaction_id = ?1", [id], |r| r.get::<_, String>(0)).ok();
     assert_eq!([kind(before), kind(empty), kind(operation), kind(api)], [None, Some("v2".into()), Some("v2".into()), None]);
 }
+
+/// PLAN-710-confirm branch review r1 #7: a handback forgets every parked import upload: both tables' rows go in its
+/// transaction (2.x, and its portable export, never see them) and the parking directory once it commits.
+#[tokio::test(flavor = "current_thread")]
+async fn handback_forgets_the_parked_import_uploads() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let token = "0123456789abcdef";
+    o.primary.execute("INSERT INTO import_parked_uploads (token, user_id, sha256, bytes_len, format, filename, zone, gen, state, expires_at, picks, created_at) \
+                       VALUES (?1, ?2, 'x', 1, 'kucoin', 'f.csv', NULL, 1, 'open', '2026-10-01 00:00:00', '[]', '2026-09-30 12:00:00')", rusqlite::params![token, s.user_id]).unwrap();
+    o.primary.execute("INSERT INTO import_parked_choices (handle, token, gen, kind, dest_json) VALUES (?1, ?2, 1, 'accept', '{}')", [format!("{token}.1.0.{}", "a".repeat(32)), token.to_string()]).unwrap();
+    let parked = std::path::Path::new(o.primary.path().unwrap()).parent().unwrap().join("import-parked");
+    std::fs::create_dir_all(&parked).unwrap();
+    std::fs::write(parked.join(token), "x").unwrap();
+    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    assert_eq!((count(&o.primary, "SELECT count(*) FROM import_parked_uploads"), count(&o.primary, "SELECT count(*) FROM import_parked_choices")), (0, 0));
+    assert!(!parked.exists(), "the parked bytes are gone");
+}

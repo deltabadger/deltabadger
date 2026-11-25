@@ -43,6 +43,10 @@ pub fn banner(c: &Connection, ctx: &Ctx, owner: i64, scope: &crate::tracker::Sco
                 i18n::t(ctx.locale, "tracker.prices.transfer_conflict", &[("assets", Arg::Text(&asset)), ("date", Arg::Text(&day))])));
         }
     }
+    // Plan r10 §1.7: a recalculation the sweeps keep failing: the chart draws the stored days, said to be stale.
+    if crate::figures::budget::within(|| crate::tracker::backfill::gate(c, &ctx.app.cipher, owner)).map_err(|_| super::row::invalid())? == Some(false) {
+        lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", ctx.t("tracker.prices.chart_stale")));
+    }
     if lines.is_empty() { return Ok(String::new()); }
     // Delisted coins (plan r10 §1.8): beside a named asset without a price, why that happens (an asset no evidence tells
     // apart from another under its ticker shows here under its label, as every unpriced asset does).

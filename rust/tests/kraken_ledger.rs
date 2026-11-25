@@ -210,7 +210,7 @@ fn walked(fx: &Fx, user: i64) -> (BTreeMap<String, f64>, BTreeMap<String, f64>, 
     let (mut coins, mut cash) = (BTreeMap::<String, f64>::new(), BTreeMap::<String, f64>::new());
     for r in w.rows.iter().filter(|r| !r.opening) {
         for (s, a) in walk::quantity_moves(r.kind, &r.base, &r.amount, r.fee_currency.as_ref(), r.fee_amount.as_ref(), r.linked, r.transfer_fee.as_ref()).unwrap() {
-            if s != "USD" { *coins.entry(s.to_string()).or_default() += a.to_f(); }
+            if s.as_str() != "USD" { *coins.entry(s.to_string()).or_default() += a.to_f(); }
         }
         for (s, a) in walk::cash_moves(r.kind, &r.base, &r.amount, r.quote.as_ref(), r.quote_amount.as_ref(), r.fee_currency.as_ref(), r.fee_amount.as_ref()).unwrap() {
             *cash.entry(s.to_string()).or_default() += a.to_f();

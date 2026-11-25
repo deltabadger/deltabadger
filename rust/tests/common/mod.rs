@@ -8,6 +8,7 @@ pub use freeze::frozen;
 #[cfg(unix)]
 pub mod venue_grid;
 pub mod html;
+pub mod import;
 pub mod seed;
 pub mod schema;
 pub mod scripted;

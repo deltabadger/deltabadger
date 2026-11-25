@@ -159,7 +159,7 @@ async fn the_menu_opens_the_split_modal_of_this_one_bot() {
     let (status, _, page) = i.get(&format!("/bots/split/new?ids%5B%5D={}", i.bots[0])).await;
     assert_eq!(status, 200, "{page}");
     let token = page.split("name=\"authenticity_token\" value=\"").nth(1).unwrap().split('"').next().unwrap().to_string();
-    let ctx = web::layout::Ctx { app: i.app.clone(), params: Arc::new(web::Params { upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
+    let ctx = web::layout::Ctx { app: i.app.clone(), params: Arc::new(web::Params { file_parts: vec![], upload: None, full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None, query: vec![], form: vec![], json: None }),
         session: web::session::Session::new(Default::default()), current: web::auth::Current::SignedOut, method: axum::http::Method::GET, locale: "en", nonce: String::new(),
         now: common::web::at(NOW), turbo_frame: None, stream: false, scheme: "", mode: "" };
     let Ok(Loaded::Split(mut split)) = Split::load(&i.c, &ctx, i.s.user_id, vec![i.bots[0]], vec![]) else { panic!("load") };

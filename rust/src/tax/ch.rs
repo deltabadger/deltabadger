@@ -14,7 +14,7 @@ use super::{cents, line, local_midnight, local_start, n, s, Cell, Report, INCOME
 use crate::figures::{at::At, dec::Dec, FiguresError};
 use crate::tracker::prices::PriceService;
 use crate::tracker::rows::Kind;
-use crate::tracker::{fiat, walk};
+use crate::tracker::walk;
 use crate::web::i18n::{text, Arg};
 use chrono::{Datelike, NaiveDate};
 use rusqlite::Connection;
@@ -113,9 +113,9 @@ impl Report {
             let label = |kind: Kind| INCOME.iter().find(|(k, _)| *k == kind).map(|(_, name)| *name).unwrap_or("other_income");
             let mut totals: Vec<(&str, Dec)> = vec![];
             for r in &rows {
-                let value = if fiat(&r.base) { ps.convert_fiat(&r.amount, &r.base, "CHF", r.at)? } else { r.fiat_value.clone() };
+                let value = if r.base.is_fiat() { ps.convert_fiat(&r.amount, r.base.as_str(), "CHF", r.at)? } else { r.fiat_value.clone() };
                 let name = label(r.kind);
-                line(&mut income, &[s(self.local(r.at).format("%Y-%m-%d").to_string()), s(t(&format!("tax_report.income.types.{name}"))), s(r.base.clone()), n(&r.amount), cents(&value)?, s("CHF")]);
+                line(&mut income, &[s(self.local(r.at).format("%Y-%m-%d").to_string()), s(t(&format!("tax_report.income.types.{name}"))), s(r.base.to_string()), n(&r.amount), cents(&value)?, s("CHF")]);
                 match totals.iter_mut().find(|(k, _)| *k == name) { Some((_, v)) => *v = (&*v + &value)?, None => totals.push((name, value)) }
             }
             for (name, value) in totals {
@@ -136,7 +136,7 @@ impl Report {
         }
         let (paid, got) = self.fiat_trades(ps, "CHF")?;
         let volume = (&paid + &got)?;
-        let sales: Vec<String> = self.scoped.iter().filter(|r| self.in_year(r.at) && r.kind == Kind::Sell && !fiat(&r.base))
+        let sales: Vec<String> = self.scoped.iter().filter(|r| self.in_year(r.at) && r.kind == Kind::Sell && !r.base.is_fiat())
             .map(|r| format!("{} {} {}", r.base, r.amount.to_s_f(), r.at.utc().format("%Y-%m-%d"))).collect();
         let mut notes = String::new();
         self.block(&mut notes, "NOTE", "ch_market_value", "ch_market_value_hint", market.into_iter())?;

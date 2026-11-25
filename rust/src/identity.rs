@@ -333,6 +333,19 @@ pub fn key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Identi
     Ok(IdentityKey(bytes))
 }
 
+/// PLAN-710-confirm rules N4/P6/Q3: the identity key an import reads, never a reset. A readable key is it; with no key
+/// row and no identity known (first use), the first key is stored by a plain insert, so no observation (another user's
+/// failed read included) is cleared; a key row that cannot be read, or identities known without one, is an identity
+/// unknown here (None): the reset is startup's (`initialize`).
+pub fn import_key(c: &Connection, cipher: &Cipher, now: DateTime<Utc>) -> Result<Option<IdentityKey>, String> {
+    if let Some(key) = existing_key(c, cipher) { return Ok(Some(key)); }
+    let known: i64 = c.query_row(KNOWN, [], |r| r.get(0)).map_err(|e| format!("account identity: {e}"))?;
+    if crate::app_config::exists(c, KEY_CONFIG)? || known > 0 { return Ok(None); }
+    let bytes: [u8; 32] = rand::random();
+    crate::app_config::set(c, cipher, KEY_CONFIG, &hex::encode(bytes), now)?;
+    Ok(Some(IdentityKey(bytes)))
+}
+
 /// How many accounts hold an identity, and identity observations there are: what a reset has to clear. An eager account
 /// row (#710) that never saw one is not counted.
 const KNOWN: &str = "SELECT (SELECT count(*) FROM exchange_accounts WHERE fingerprint IS NOT NULL OR account_id_enc IS NOT NULL)
@@ -1821,7 +1834,8 @@ pub fn record_import_to(c: &Connection, cipher: &Cipher, user_id: i64, exchange_
     let account = match account { Some(a) => a, None => ensure_account(c, user_id, exchange_id, now).map_err(db)? };
     let Some(id) = id else { return Ok(()) };
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
-    let key = key(c, cipher, now)?;
+    // PLAN-710-confirm rule N4: an import never resets the identity; with it unknown, nothing is observed.
+    let Some(key) = import_key(c, cipher, now)? else { return Ok(()) };
     let fingerprint = key.fingerprint(&exchange_type, id);
     let encrypted = cipher.encrypt(&id.0).into_bytes();
     // #710 7a rule M3/L3: a file is the user's word, never the account's identity: its UID is an import observation only
@@ -1837,7 +1851,9 @@ pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, excha
     let db = |e: rusqlite::Error| format!("account identity: {e}");
     if !ready(c).map_err(db)? { return Ok(None); }
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
-    let fingerprint = key(c, cipher, now)?.fingerprint(&exchange_type, id);
+    // PLAN-710-confirm rule N4: read with the import's key; an identity unknown holds no conflict.
+    let Some(key) = import_key(c, cipher, now)? else { return Ok(None) };
+    let fingerprint = key.fingerprint(&exchange_type, id);
     c.query_row("SELECT x.id FROM exchange_account_imports i JOIN exchange_accounts x ON x.id = i.account_id WHERE i.user_id = ?1 AND i.exchange_id = ?2 \
                  AND i.fingerprint = ?3 AND x.removed_at IS NULL AND x.fingerprint IS NOT NULL AND x.fingerprint <> ?3 ORDER BY x.number LIMIT 1",
                 params![user_id, exchange_id, fingerprint], |r| r.get(0)).optional().map_err(db)
@@ -1853,9 +1869,20 @@ pub fn imported_as_conflict(c: &Connection, cipher: &Cipher, user_id: i64, excha
 /// of an unknown IBKR account there).
 pub struct ImportEvidence { pub holders: Vec<i64>, pub foreign: bool, pub facts: String, pub fixed: Vec<i64>, pub takeover: bool }
 pub fn import_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId, now: DateTime<Utc>) -> Result<ImportEvidence, String> {
+    let key = key(c, cipher, now)?;
+    evidence_with(c, &key, user_id, exchange_id, dest, id)
+}
+/// `import_evidence` for an import (PLAN-710-confirm rule N4): read with `import_key`; an identity unknown holds nothing.
+pub fn file_evidence(c: &Connection, cipher: &Cipher, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId, now: DateTime<Utc>) -> Result<ImportEvidence, String> {
+    match import_key(c, cipher, now)? {
+        Some(key) => evidence_with(c, &key, user_id, exchange_id, dest, id),
+        None => Ok(ImportEvidence { holders: vec![], foreign: false, facts: "identity:unknown".into(), fixed: vec![], takeover: false }),
+    }
+}
+fn evidence_with(c: &Connection, key: &IdentityKey, user_id: i64, exchange_id: i64, dest: Option<i64>, id: &AccountId) -> Result<ImportEvidence, String> {
     let db = |e: rusqlite::Error| format!("account identity: {e}");
     let exchange_type: String = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [exchange_id], |r| r.get::<_, Option<String>>(0)).map_err(db)?.unwrap_or_default();
-    let file = key(c, cipher, now)?.fingerprint(&exchange_type, id);
+    let file = key.fingerprint(&exchange_type, id);
     let mut out = ImportEvidence { holders: vec![], foreign: false, facts: String::new(), fixed: vec![], takeover: false };
     let ibkr = exchange_type == crate::venue::ibkr::IBKR;
     for (account, _) in accounts_of(c, user_id, exchange_id).map_err(db)? {

@@ -27,3 +27,17 @@ fn a_multi_megabyte_bare_number_is_rejected_without_copying_it() {
         assert!(bytes < 16 << 10, "allocated {bytes} bytes for a {}-byte body", body.len());
     }
 }
+
+/// PLAN-710-confirm memory review: an import request's `api_key_id` (a query, a field or a file part) is classified without
+/// allocating in proportion to it.
+#[test]
+fn a_huge_dotted_api_key_id_is_classified_without_allocating() {
+    use deltabadger::tracker::import::service::handle_shaped;
+    for value in [".".repeat(4 << 20), format!("0123456789abcdef.1.0.{}", "a".repeat(4 << 20))] {
+        let mut out = None;
+        let bytes = allocated_by(|| out = Some(handle_shaped(&value)));
+        assert_eq!(out, Some(false));
+        assert!(bytes < 1 << 10, "allocated {bytes} bytes for a {}-byte value", value.len());
+    }
+    assert!(handle_shaped(&format!("0123456789abcdef.1.0.{}", "a".repeat(32))));
+}

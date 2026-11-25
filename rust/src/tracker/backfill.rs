@@ -1,6 +1,7 @@
 //! PortfolioSnapshot::BackfillJob: one forward sweep from the first
 //! transaction to yesterday, valuing what was held at the end of each day at that day's close, with money in read
 //! term by term off the ledger walk. Rewrites every earlier day of both tables and stamps the history's version.
+use crate::tracker::spellings::Label;
 use super::prices::{self, coin_ids_over, Fetch, Venue};
 use super::rows::{Kind, Stored};
 use super::snapshot::{upsert_whole, Day};
@@ -31,13 +32,37 @@ pub fn rate_limited_key(user_id: i64) -> String { format!("rust_snapshot_prices_
 /// never restates a coin's lots under the symbol they share (#1061). 6: a timed Alpaca CFEE stands after its fill and an
 /// unknown opening value is recorded (D-TAX-CFEE-MATCHED-FILL). 7: coins are priced by identity from asset_prices, an
 /// unidentified leg is unpriced (D-TRACKER-COIN-PRICE-KEYS).
-pub const CALCULATION: &str = "7";
+pub const CALCULATION: &str = "8";
 pub fn calculation_key(user_id: i64) -> String { format!("snapshot_calculation_version_{user_id}") }
 /// Where a sweep's venue history reads resume after the budget cut one off (Rust only, D-VENUE-HISTORY-FALLBACK).
 pub fn venue_cursor_key(user_id: i64) -> String { format!("rust_venue_history_cursor_{user_id}") }
-/// Records that the user's history is this calculation's.
+/// Records that the user's history is this calculation's (and ends a recalculation's loading gate).
 pub fn mark_calculated(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
+    crate::app_config::delete(c, &attempt_key(user_id)).map_err(FiguresError::Data)?;
     crate::app_config::set(c, cipher, &calculation_key(user_id), CALCULATION, now).map_err(FiguresError::Data)
+}
+
+/// The sweeps tried since the user's history became owed a recalculation (Rust only, plan r10 §1.7 loading gate).
+pub fn attempt_key(user_id: i64) -> String { format!("rust_snapshot_attempt_{user_id}") }
+/// The sweeps a recalculation is waited for before the stored history is drawn again, marked stale.
+pub const GATE_ATTEMPTS: i64 = 3;
+/// Plan r10 §1.7: whether the chart waits for a recalculation. None: the stored history is current, or no sweep is owed
+/// (a history this install never swept under a calculation). Some(true): owed (an upgrade's older calculation, or the
+/// coin identities changed) and fewer than GATE_ATTEMPTS sweeps tried: the chart waits. Some(false): the sweeps keep
+/// failing: the stored days are drawn, said to be stale.
+pub fn gate(c: &Connection, cipher: &Cipher, user_id: i64) -> Result<Option<bool>, FiguresError> {
+    let stamp = crate::app_config::get(c, cipher, &calculation_key(user_id)).map_err(FiguresError::Data)?;
+    if stamp.as_deref() == Some(CALCULATION) { return Ok(None); }
+    let attempts = crate::app_config::get_plain(c, &attempt_key(user_id)).map_err(FiguresError::Data)?;
+    if attempts.is_none() && stamp.is_none() { return Ok(None); }
+    let tried: i64 = attempts.and_then(|a| a.parse().ok()).unwrap_or(0);
+    Ok(Some(tried < GATE_ATTEMPTS))
+}
+/// A sweep begins while a recalculation is owed: one more attempt.
+pub fn count_attempt(c: &Connection, cipher: &Cipher, user_id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), FiguresError> {
+    if gate(c, cipher, user_id)?.is_none() { return Ok(()); }
+    let tried: i64 = crate::app_config::get_plain(c, &attempt_key(user_id)).map_err(FiguresError::Data)?.and_then(|a| a.parse().ok()).unwrap_or(0);
+    crate::app_config::set_plain(c, &attempt_key(user_id), &(tried + 1).to_string(), now).map_err(FiguresError::Data)
 }
 
 /// A fingerprint of the labels a walk resolved (`note_identity`, the sweep's fence).
@@ -58,7 +83,11 @@ pub fn note_identity(c: &Connection, user_id: i64, labels: &super::labels::Label
     let stored = crate::app_config::get_plain(c, &identity_key(user_id)).map_err(FiguresError::Data)?;
     if stored.as_deref() == Some(fingerprint.as_str()) { return Ok(false); }
     let changed = stored.is_some();
-    if changed { crate::app_config::delete(c, &calculation_key(user_id)).map_err(FiguresError::Data)?; }
+    if changed {
+        crate::app_config::delete(c, &calculation_key(user_id)).map_err(FiguresError::Data)?;
+        // The chart waits for the recalculation (`gate`).
+        crate::app_config::set_plain(c, &attempt_key(user_id), "0", now).map_err(FiguresError::Data)?;
+    }
     crate::app_config::set_plain(c, &identity_key(user_id), &fingerprint, now).map_err(FiguresError::Data)?;
     Ok(changed)
 }
@@ -242,8 +271,10 @@ pub fn plan(c: &Connection, user_id: i64, rows: &[Stored], first: NaiveDate, las
         let date = r.date().max(first);
         let venues = std::iter::once(r.venue.clone()).chain(r.to_venue.clone());
         let venues: Vec<String> = venues.collect();
-        for symbol in [Some(r.base.as_str()), r.quote.as_deref(), r.fee_currency.as_deref()].into_iter().flatten() {
-            if fiat(symbol) || stable(symbol) { continue; }
+        for label in [Some(&r.base), r.quote.as_ref(), r.fee_currency.as_ref()].into_iter().flatten() {
+            // Codex: skipped as cash by its label's class (a security booked as USD has closes to plan).
+            if label.is_cash() { continue; }
+            let symbol = label.as_str();
             for v in &venues {
                 if seen.insert((v.clone(), symbol.to_string())) { touched.push(((v.clone(), symbol.to_string()), date, v.clone())); }
             }
@@ -452,14 +483,17 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
             let balances = held.get(venue).unwrap_or(&empty);
             crate::figures::budget::charge(balances.len() as u64, 0)?;
             let lends = super::walk::LENDS_CASH.contains(&name(venue).as_str());
-            let owed = |symbol: &str, q: &Dec| q.is_negative() && super::cash(symbol) && lends;
+            // Codex: cash by the plan: a symbol the plan holds an instrument for (a non-cash label printed like a currency) is
+            // valued as that instrument, not at par or an exchange rate.
+            let is_cash = |symbol: &str| super::cash(symbol) && !plan.keys.contains_key(&(name(venue), symbol.to_string()));
+            let owed = |symbol: &str, q: &Dec| q.is_negative() && is_cash(symbol) && lends;
             let mut unpriced = balances.iter().any(|(s, q)| *q < dust.neg() && !owed(s, q));
             if unpriced { if let Ok(id) = venue.parse::<i64>() { out.unnamed.insert(id); } }
             let (mut total, mut value_held) = (Dec::zero(), Dec::zero());
             for (symbol, quantity) in balances {
                 if !(quantity.is_positive() || owed(symbol, quantity)) { continue; }
-                let value = if stable(symbol) { Some(quantity.clone()) }
-                    else if fiat(symbol) { match fx.rate(symbol, "USD", day)? { Some(rate) => Some((quantity * &rate)?), None => None } }
+                let value = if is_cash(symbol) && stable(symbol) { Some(quantity.clone()) }
+                    else if is_cash(symbol) && fiat(symbol) { match fx.rate(symbol, "USD", day)? { Some(rate) => Some((quantity * &rate)?), None => None } }
                     else {
                         let key = match plan.keys.get(&(name(venue), symbol.clone())) { Some(k) => k.clone(), None => Some(symbol.clone()) };
                         match key.and_then(|k| prices.get(&k).and_then(|d| d.get(&day)).cloned()) { Some(p) => Some((quantity * &p)?), None => None }
@@ -468,7 +502,7 @@ pub fn sweep(plan: &Plan, prices: &Prices, rows: &[Stored], terms: &[Term], firs
                 if let (None, Ok(id)) = (&value, venue.parse::<i64>()) { out.unpriced.entry(id).or_default().insert(symbol.clone()); }
                 let value = value.unwrap_or_else(Dec::zero);
                 total = (&total + &value)?;
-                if !super::cash(symbol) { value_held = (&value_held + &value)?; }
+                if !is_cash(symbol) { value_held = (&value_held + &value)?; }
             }
             let inv = invested.get(venue).cloned().unwrap_or_else(Dec::zero);
             let held_cost = (&inv - &(&total - &value_held)?)?;
@@ -502,33 +536,33 @@ fn apply(held: &mut Held, t: &Stored, linked: &dyn Fn(&Stored) -> bool, by_id: &
         }
     };
     match t.kind {
-        Kind::Buy | Kind::SwapIn | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => add(held, venue, &t.base, &acquired()?)?,
-        Kind::Deposit => if !linked(t) { add(held, venue, &t.base, &acquired()?)? },
-        Kind::Sell | Kind::SwapOut | Kind::Fee | Kind::Lost | Kind::WithholdingTax => add(held, venue, &t.base, &t.amount.neg())?,
+        Kind::Buy | Kind::SwapIn | Kind::StakingReward | Kind::LendingInterest | Kind::Airdrop | Kind::Mining | Kind::OtherIncome => add(held, venue, t.base.as_str(), &acquired()?)?,
+        Kind::Deposit => if !linked(t) { add(held, venue, t.base.as_str(), &acquired()?)? },
+        Kind::Sell | Kind::SwapOut | Kind::Fee | Kind::Lost | Kind::WithholdingTax => add(held, venue, t.base.as_str(), &t.amount.neg())?,
         Kind::Withdrawal => {
-            if !linked(t) { add(held, venue, &t.base, &t.amount.neg())?; }
+            if !linked(t) { add(held, venue, t.base.as_str(), &t.amount.neg())?; }
             else {
                 // `withdraw`: the network fee leaves, and the rest lands where it was sent, at the withdrawal.
                 let deposit = t.linked_to.and_then(|d| by_id.get(&d)).ok_or_else(|| FiguresError::Raised("NoMethodError: undefined method 'base_amount' for nil".into()))?;
                 let fee = (&t.amount - &deposit.amount)?;
                 let fee = if fee.is_positive() { fee } else { Dec::zero() };
                 let destination = t.to_account.map(super::walk::location).unwrap_or_default();
-                if destination == here { add(held, venue, &t.base, &fee.neg())?; }
-                else { add(held, venue, &t.base, &t.amount.neg())?; add(held, &destination, t.to_base.as_ref().unwrap_or(&t.base), &(&t.amount - &fee)?)?; }
+                if destination == here { add(held, venue, t.base.as_str(), &fee.neg())?; }
+                else { add(held, venue, t.base.as_str(), &t.amount.neg())?; add(held, &destination, (t.to_base.as_ref().unwrap_or(&t.base)).as_str(), &(&t.amount - &fee)?)?; }
             }
         }
-        Kind::Adjustment => add(held, venue, &t.base, &t.amount)?,
+        Kind::Adjustment => add(held, venue, t.base.as_str(), &t.amount)?,
         Kind::ReturnOfCapital | Kind::Unsupported => {}
     }
     // `consume_fee`: a fee not in the base leaves its own currency; in the base only on a settlement leg of cash.
     // D-TRACKER-HISTORY-SELL-FEE: and a coin's own fee on its sale, on top, as the ledger takes it (`quantity_moves`).
-    if let (Some(fc), Some(fee)) = (t.fee_currency.as_deref().filter(|c| !c.trim().is_empty()), &t.fee_amount) {
+    if let (Some(fc), Some(fee)) = (t.fee_currency.as_ref().map(Label::as_str).filter(|c| !c.trim().is_empty()), &t.fee_amount) {
         let out_leg = matches!(t.kind, Kind::Sell | Kind::SwapOut);
-        let cash_leg = out_leg && t.quote.as_deref().is_none_or(|q| q.trim().is_empty()) && super::cash(&t.base);
-        if fee.is_positive() && (fc != t.base || cash_leg || (out_leg && !super::cash(&t.base))) { add(held, venue, fc, &fee.neg())?; }
+        let cash_leg = out_leg && t.quote.as_ref().map(Label::as_str).is_none_or(|q| q.trim().is_empty()) && t.base.is_cash();
+        if fee.is_positive() && (fc != t.base.as_str() || cash_leg || (out_leg && !t.base.is_cash())) { add(held, venue, fc, &fee.neg())?; }
     }
     // `apply_quote`.
-    if let (Some(quote), Some(qa)) = (t.quote.as_deref().filter(|q| !q.trim().is_empty()), &t.quote_amount) {
+    if let (Some(quote), Some(qa)) = (t.quote.as_ref().map(Label::as_str).filter(|q| !q.trim().is_empty()), &t.quote_amount) {
         match t.kind { Kind::Buy => add(held, venue, quote, &qa.neg())?, Kind::Sell | Kind::ReturnOfCapital => add(held, venue, quote, qa)?, _ => {} }
     }
     Ok(())
@@ -760,6 +794,8 @@ mod tests {
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "the calculation before D-TAX-CFEE-MATCHED-FILL");
         mark_calculated(&c, &cipher, 1, "2026-09-23T03:00:00Z".parse().unwrap()).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap(), "this calculation's");
+        // Plan r10 §1.7 loading gate: a current history is drawn; owed none (never swept under a calculation), drawn.
+        assert_eq!(gate(&c, &cipher, 1).unwrap(), None);
         // Delisted coins (plan r10 §1.7): labels that resolve otherwise than the history's (a listing rebound) sweep it again.
         let at: chrono::DateTime<chrono::Utc> = "2026-09-24T03:00:00Z".parse().unwrap();
         let labels = crate::tracker::labels::Labels { coins: vec![("BTG".into(), "bitcoin-gold".into())], ..Default::default() };
@@ -769,8 +805,17 @@ mod tests {
         let rebound = crate::tracker::labels::Labels { coins: vec![("BTG".into(), "openverse-network".into())], ..Default::default() };
         assert!(note_identity(&c, 1, &rebound, at).unwrap());
         assert!(wanted(&c, &cipher, 1, today).unwrap(), "the identities changed");
+        // The chart waits for the recalculation; after GATE_ATTEMPTS sweeps that did not finish, it draws the stored days, stale.
+        assert_eq!(gate(&c, &cipher, 1).unwrap(), Some(true));
+        for _ in 0..GATE_ATTEMPTS { count_attempt(&c, &cipher, 1, at).unwrap(); }
+        assert_eq!(gate(&c, &cipher, 1).unwrap(), Some(false), "the sweeps keep failing");
         mark_calculated(&c, &cipher, 1, at).unwrap();
         assert!(!wanted(&c, &cipher, 1, today).unwrap());
+        assert_eq!(gate(&c, &cipher, 1).unwrap(), None, "swept: the gate ends");
+        // An upgrade's older calculation is owed a sweep too.
+        crate::app_config::set(&c, &cipher, &calculation_key(1), "6", at).unwrap();
+        assert_eq!(gate(&c, &cipher, 1).unwrap(), Some(true));
+        mark_calculated(&c, &cipher, 1, at).unwrap();
         for (why, change) in [("a week offline", "DELETE FROM portfolio_snapshots WHERE date BETWEEN '2026-09-23' AND '2026-09-30'"),
                               ("a venue's row missing", "DELETE FROM exchange_account_snapshots WHERE date = '2026-09-15'"),
                               ("a venue's history starting late", "DELETE FROM exchange_account_snapshots WHERE date BETWEEN '2026-09-01' AND '2026-09-03'"),

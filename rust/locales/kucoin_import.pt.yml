@@ -12,6 +12,8 @@ pt:
             import_new_html: "Importar para uma conta nova, %{account} (linhas no ficheiro: %{count})"
             destination_html: "Linhas que vão para %{account}: %{count}."
             twice_html: "Linhas que este ficheiro envia para mais de uma conta: %{count}."
+            rows_left_out_named_html: "Contas indicadas pelas linhas que ficam de fora: %{exchanges}."
+            links_undone_html: "Ligações de transferência noutras contas que esta importação desfaz: %{count} (%{accounts})."
             import_anyway: "Importar na mesma"
             import_rest: "Importar o resto"
             cancel: "Cancelar"

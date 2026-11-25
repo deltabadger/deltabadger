@@ -17,7 +17,7 @@ use std::sync::Arc;
 pub(super) fn owner_ctx(app: &App, owner: User) -> Ctx {
     let locale = owner.locale.as_deref().and_then(crate::web::locale::known).unwrap_or("en");
     Ctx { app: app.clone(), params: Arc::new(crate::web::Params { full_path: String::new(), fullpath: String::new(), route_path: String::new(), path_locale: None,
-            query: vec![], form: vec![], json: None, upload: None }),
+            query: vec![], form: vec![], json: None, upload: None, file_parts: vec![] }),
           session: crate::web::session::Session::new(Default::default()), current: Current::SignedIn(Arc::new(owner)),
           method: axum::http::Method::GET, locale, nonce: String::new(), now: app.now(), turbo_frame: None, stream: false, scheme: "", mode: "" }
 }
