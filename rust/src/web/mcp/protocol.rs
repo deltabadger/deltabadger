@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); account_ids(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); import_transactions(&mut data); account_ids(&mut data); data })
 }
 /// A1 listed additions. 2.x's six rule tools, extended with W2's one-matrix fields.
 /// The 2.x definitions remain source-pinned by withdrawal_vectors.json.
@@ -86,6 +86,32 @@ fn unrecorded_orders(data: &mut Value) {
             },
             "required": ["bot_id", "obligation"],
             "additionalProperties": false
+        }
+    }));
+}
+/// D-IMPORT-API: import_transactions_csv, this build's own, after answer_unrecorded_order (oauth::TOOL_DEFAULTS' order): three
+/// closed forms (the shared validator reads `anyOf`, not `oneOf`).
+fn import_transactions(data: &mut Value) {
+    let text = |description: &str| json!({"type": "string", "description": description});
+    let upload = text("The upload's token, from the question this call answers");
+    let Some(tools) = data["tools"].as_array_mut() else { return };
+    tools.push(json!({
+        "name": crate::web::import_api::TOOL,
+        "description": "Import a CSV file of transactions into the tracker, as the web's import does. Send the file (content, base64; at most about 48 KB, larger files go through POST /api/v1/tracker/import) with its format (deltabadger, the default; binance; kucoin) and, for a Binance export, its file name, which states its time zone. The answer is what was written, or a question: answer it with the upload's token and one choice's handle, or cancel it.",
+        "inputSchema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "anyOf": [
+                {"type": "object", "properties": {
+                    "format": {"type": "string", "enum": crate::tracker::import::run::FORMATS, "description": "The file's format (default deltabadger)"},
+                    "content": text("The file's bytes, base64"),
+                    "filename": text("The file's name (a Binance export's states its time zone)")},
+                 "required": ["content"], "additionalProperties": false},
+                {"type": "object", "properties": {"upload": upload.clone(), "choice": text("The handle of the choice taken, from the question")},
+                 "required": ["upload", "choice"], "additionalProperties": false},
+                {"type": "object", "properties": {"upload": upload, "cancel": {"const": true, "description": "true: cancel the question; nothing is written"}},
+                 "required": ["upload", "cancel"], "additionalProperties": false}
+            ]
         }
     }));
 }

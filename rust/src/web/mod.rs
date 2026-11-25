@@ -24,6 +24,7 @@ pub mod format;
 pub mod headers;
 pub mod hook;
 pub mod i18n;
+pub mod import_api;
 pub mod launchpad;
 pub mod layout;
 pub mod legacy;
@@ -1157,8 +1158,10 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         || (json_method == Method::PATCH && matches!(route_path.as_str(), "/tracker/save_export_settings" | "/tracker/fund_classifications"))
         || (json_method == Method::PATCH && route_path.starts_with("/tracker/transactions/"))
         || bot::signal_write::reads_json(&route_path, &json_method);
+    // PLAN-710-mcpadapter F1: the REST import route reads its own body, once its bearer, owner, grant and account passed.
     let form_post = matches!(original_method, Method::POST | Method::PATCH | Method::PUT | Method::DELETE)
-        && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"));
+        && content_type.split(';').next().is_some_and(|v| v.trim().eq_ignore_ascii_case("application/x-www-form-urlencoded"))
+        && !import_api::rest_path(&route_path);
     // What broadcast--on-connect posts (web::broadcasts), under any locale.
     let broadcast_json = json_method == Method::POST && route_path.starts_with("/broadcasts/");
     let setup_json = json_method == Method::POST && path_locale.is_none()
@@ -1230,6 +1233,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         };
         let Ok(bytes) = read else { return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response() };
         match multipart::parse(&bytes, &boundary) {
+            // PLAN-710-mcpadapter I3/J7: a part read two ways is refused here, as an unreadable upload is.
+            Ok(parsed) if parsed.ambiguous => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),
             Ok(parsed) => { upload = parsed.file; file_parts = parsed.file_parts; (parsed.fields, Body::empty()) }
             Err(multipart::Error::TooManyParts) => return (StatusCode::BAD_REQUEST, "Too many form fields\n").into_response(),
             Err(multipart::Error::Malformed) => return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response(),

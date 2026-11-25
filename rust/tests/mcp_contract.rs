@@ -31,8 +31,10 @@ fn m3_reads_remain_registered_at_every_m4_task_boundary(){
 #[test]
 fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     let (mut recorded,mut ours)=(protocol::recorded(),protocol::metadata().clone());
-    // D-SPLIT-API: split_bots and D-V2-UNRECORDED-API: answer_unrecorded_order, this build's own, are listed after the
-    // recorded tools (pinned below).
+    // D-SPLIT-API: split_bots, D-V2-UNRECORDED-API: answer_unrecorded_order and D-IMPORT-API: import_transactions_csv, this
+    // build's own, are listed after the recorded tools (pinned below).
+    let import=ours["tools"].as_array_mut().unwrap().pop().unwrap();
+    assert_eq!(import["name"],"import_transactions_csv");
     let unrecorded=ours["tools"].as_array_mut().unwrap().pop().unwrap();
     assert_eq!(unrecorded["name"],"answer_unrecorded_order");
     let split=ours["tools"].as_array_mut().unwrap().pop().unwrap();
@@ -91,9 +93,9 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
 #[test]
 fn split_bots_schema_is_pinned(){
     let tools=protocol::metadata()["tools"].as_array().unwrap();
-    let split=&tools[tools.len()-2];
+    let split=&tools[tools.len()-3];
     assert_eq!(split["name"],"split_bots");
-    assert_eq!(tools.len(),protocol::recorded()["tools"].as_array().unwrap().len()+6+2, "six A1 rule tools, split_bots and answer_unrecorded_order are listed additions");
+    assert_eq!(tools.len(),protocol::recorded()["tools"].as_array().unwrap().len()+6+3, "six A1 rule tools, split_bots, answer_unrecorded_order and import_transactions_csv are listed additions");
     assert_eq!(split["inputSchema"],serde_json::json!({
         "$schema":"https://json-schema.org/draft/2020-12/schema","type":"object",
         "properties":{
@@ -152,11 +154,30 @@ fn withdrawal_rule_schemas_and_permissions_are_pinned() {
 #[test]
 fn answer_unrecorded_order_schema_is_pinned(){
     let tools=protocol::metadata()["tools"].as_array().unwrap();
-    let tool=tools.last().unwrap();
+    let tool=&tools[tools.len()-2];
     assert_eq!(tool["name"],"answer_unrecorded_order");
     let schema=&tool["inputSchema"];
     assert_eq!(schema["required"],serde_json::json!(["bot_id","obligation"]));
     assert_eq!(schema["additionalProperties"],false);
     let kinds:Vec<(String,String)>=schema["properties"].as_object().unwrap().iter().map(|(k,v)|(k.clone(),v["type"].as_str().unwrap().to_string())).collect();
     assert_eq!(kinds,[("bot_id","integer"),("obligation","integer"),("offer","integer"),("none","boolean")].map(|(a,b)|(a.to_string(),b.to_string())));
+}
+
+/// D-IMPORT-API: import_transactions_csv, last, is three closed forms: a fresh upload, a confirmation, a cancel.
+#[test]
+fn import_transactions_csv_schema_is_pinned(){
+    let tools=protocol::metadata()["tools"].as_array().unwrap();
+    let tool=tools.last().unwrap();
+    assert_eq!(tool["name"],"import_transactions_csv");
+    let forms=tool["inputSchema"]["anyOf"].as_array().unwrap();
+    let shape:Vec<(Vec<&str>,Vec<&str>)>=forms.iter().map(|f|{
+        assert_eq!(f["additionalProperties"],false);
+        (f["properties"].as_object().unwrap().keys().map(String::as_str).collect(),f["required"].as_array().unwrap().iter().map(|r|r.as_str().unwrap()).collect())
+    }).collect();
+    assert_eq!(shape,[(vec!["format","content","filename"],vec!["content"]),(vec!["upload","choice"],vec!["upload","choice"]),(vec!["upload","cancel"],vec!["upload","cancel"])]);
+    assert_eq!(forms[0]["properties"]["format"]["enum"],serde_json::json!(["deltabadger","binance","kucoin"]));
+    assert_eq!(forms[2]["properties"]["cancel"]["const"],true);
+    let ok=|args:serde_json::Value|protocol::validate(&args,&tool["inputSchema"],"").is_empty();
+    assert!(ok(serde_json::json!({"content":"eA=="})) && ok(serde_json::json!({"upload":"u","choice":"c"})) && ok(serde_json::json!({"upload":"u","cancel":true})));
+    for mixed in [serde_json::json!({"upload":"u","choice":"c","cancel":true}),serde_json::json!({"content":"eA==","upload":"u"}),serde_json::json!({"upload":"u","cancel":false}),serde_json::json!({})] { assert!(!ok(mixed.clone()),"{mixed}"); }
 }

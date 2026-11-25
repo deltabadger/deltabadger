@@ -117,7 +117,7 @@ fn key_question(c: &Connection, cipher: &crate::crypto::Cipher, user: i64, excha
     // An answer naming an account ("connect to account N instead") whose evidence went is asked again, never a new account.
     if seen.holders.is_empty() && !seen.foreign && !answer.is_some_and(|a| a.starts_with('a')) { return Ok(KeyAsk::New); }
     let subject = format!("{kind}:{}", crate::identity::existing_key(c, cipher).map(|k| k.material_digest(material)).unwrap_or_default());
-    let sealed = |dest: Dest| -> Result<String, WebError> { Ok(run::seal('w', &subject, dest, &run::slot(c, user, dest).map_err(|e| WebError::Config(e.0))?, &seen.facts)) };
+    let sealed = |dest: Dest| -> Result<String, WebError> { Ok(run::seal('w', &subject, &run::sealed_dest(c, dest).map_err(|e| WebError::Config(e.0))?, &run::slot(c, user, dest).map_err(|e| WebError::Config(e.0))?, &seen.facts)) };
     let new = sealed(Dest::New(exchange))?;
     let consume = |d: &str| run::consume(c, d, now).map_err(|e| WebError::Config(e.0));
     if answer == Some(format!("n!w{new}").as_str()) && consume(&new)? { return Ok(KeyAsk::New); }

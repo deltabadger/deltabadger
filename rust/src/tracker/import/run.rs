@@ -94,7 +94,8 @@ pub enum Kind { Select, Authorize, Accept }
 /// What a question issued for each of its options (parallel to the answer's choices): its kind, the route its click was
 /// issued for (rule M1, an `Authorize`), and the transfer links on other accounts it showed (rule M4; None: none computed).
 #[derive(Debug, Clone, PartialEq)]
-pub struct Issued { pub kind: Kind, pub route: Option<String>, pub outside: Option<String> }
+/// `destinations`: where its click writes (PLAN-710-mcpadapter F4), from the plan that seals it; none for a `Select`.
+pub struct Issued { pub kind: Kind, pub route: Option<String>, pub outside: Option<String>, pub destinations: Vec<Destination> }
 
 /// A confirmation's sealed context (PLAN-710-confirm): the answer posted (`chosen`), and what its handle was issued for.
 /// `stale`: its handle did not resolve (asked again, `Changed`); `select`: a venue pick, which only asks; `picked`: the venue
@@ -107,9 +108,13 @@ pub struct Confirm<'a> { pub chosen: Option<&'a str>, pub stale: bool, pub selec
 pub struct Ran { pub answer: Answer, pub issued: Vec<Issued>, pub destinations: Vec<Destination> }
 
 /// PLAN-710-confirm rule M7: where a question's rows would go: the exchange, the account (None: one the write makes) and
-/// the rows.
+/// the rows. PLAN-710-mcpadapter G4/H5: an account the write makes, by the key it is routed through (None: a keyless new
+/// account) and the number it takes.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Destination { pub exchange_id: i64, pub account_id: Option<i64>, pub rows: usize }
+pub struct Destination { pub exchange_id: i64, pub account_id: Option<i64>, pub rows: usize, pub prospective: Option<Prospective> }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Prospective { pub key_id: Option<i64>, pub number: i64 }
 
 /// What an "import anyway" option does (its label is the page's).
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -357,9 +362,40 @@ fn sha(text: &str) -> String { use sha2::Digest; hex::encode(&sha2::Sha256::dige
 /// Rule N4: the digest an answer for `dest` is bound to: its purpose, the upload, the destination and its slots (each key
 /// of the account, its type and its ciphertext; a new account: the exchange's live accounts) and what was seen there.
 fn digest(c: &Connection, user_id: i64, purpose: char, subject: &str, dest: Dest, evidence: &str) -> Result<String, SyncError> {
-    Ok(seal(purpose, subject, dest, &slot(c, user_id, dest)?, evidence))
+    Ok(seal(purpose, subject, &sealed_dest(c, dest)?, &slot(c, user_id, dest)?, evidence))
 }
-pub(crate) fn seal(purpose: char, subject: &str, dest: Dest, slot: &str, evidence: &str) -> String { sha(&format!("{purpose}|{subject}|{dest:?}|{slot}|{evidence}")) }
+pub(crate) fn seal(purpose: char, subject: &str, dest: &str, slot: &str, evidence: &str) -> String { sha(&format!("{purpose}|{subject}|{dest}|{slot}|{evidence}")) }
+/// PLAN-710-mcpadapter J4: a destination as a seal names it: an account this run made (a legacy key's number 1) by its key
+/// and number, never its id (a replay makes it again under another id); any other as it is.
+pub(crate) fn sealed_dest(c: &Connection, dest: Dest) -> Result<String, SyncError> {
+    let Dest::Account(id) = dest else { return Ok(format!("{dest:?}")) };
+    if id <= FLOOR.with(std::cell::Cell::get) { return Ok(format!("{dest:?}")); }
+    let Some(account) = crate::identity::Account::by_id(c, id)? else { return Ok(format!("{dest:?}")) };
+    let key: Option<i64> = c.query_row(&format!("SELECT min(k.id) FROM api_keys k WHERE {}", account.keys("k")), [], |r| r.get(0))?;
+    let number: i64 = c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0))?;
+    Ok(format!("Prospective({key:?}#{number})"))
+}
+
+/// Rule M7, PLAN-710-mcpadapter F4/G4/H5: where a plan's rows go, by id; an account this run made, or a new one, by its key
+/// and number.
+fn reach(c: &Connection, user_id: i64, targets: &[(Target, Vec<Entry>)], kucoin: usize) -> Result<Vec<Destination>, SyncError> {
+    let floor = FLOOR.with(std::cell::Cell::get);
+    targets.iter().map(|(target, rows)| Ok(match target {
+        Target::Key(key) => {
+            let account = match key.scope.account { Some(a) => Some(a), None => crate::identity::Account::first(c, user_id, key.exchange_id)?.id };
+            let prospective = match account {
+                Some(a) if a <= floor => None,
+                Some(a) => Some(Prospective { key_id: Some(key.id), number: c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [a], |r| r.get(0))? }),
+                None => Some(Prospective { key_id: Some(key.id), number: 1 }),
+            };
+            Destination { exchange_id: key.exchange_id, account_id: account.filter(|a| *a <= floor), rows: rows.len() + kucoin, prospective }
+        }
+        Target::New(exchange) => {
+            let number = if crate::identity::ready(c)? { crate::identity::next_number(c, user_id, *exchange)? } else { 1 };
+            Destination { exchange_id: *exchange, account_id: None, rows: rows.len() + kucoin, prospective: Some(Prospective { key_id: None, number }) }
+        }
+    })).collect()
+}
 /// A destination's slots: each key of the account, its type, status and ciphertext; for a new account, the exchange's
 /// live accounts (one made meanwhile changes it) and the number it would take (#710 8a rule R9).
 pub(crate) fn slot(c: &Connection, user_id: i64, dest: Dest) -> Result<String, SyncError> {
@@ -455,7 +491,16 @@ fn seen(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, dest: Dest
         let e = crate::identity::file_evidence(c, cipher, user_id, exchange, own, id, now).map_err(SyncError)?;
         if let Some(first) = e.holders.first() { warnings.push(Warning::HeldElsewhere(name(*first)?)); }
         if e.foreign { if let Some(own) = own { warnings.push(Warning::OtherAccount(name(own)?)); } }
-        (holders, facts) = (e.holders, e.facts);
+        // PLAN-710-mcpadapter J4: an account this run made is named by its key and number, never its id.
+        let floor = FLOOR.with(std::cell::Cell::get);
+        let mut sealed = String::new();
+        for part in e.facts.split_inclusive(';') {
+            match part.split_once(':').and_then(|(id, rest)| id.parse::<i64>().ok().filter(|id| *id > floor).map(|id| (id, rest))) {
+                Some((id, rest)) => sealed.push_str(&format!("{}:{rest}", sealed_dest(c, Dest::Account(id))?)),
+                None => sealed.push_str(part),
+            }
+        }
+        (holders, facts) = (e.holders, sealed);
     }
     let mut lines = vec![];
     for (on, n, ids) in existing(c, user_id, exchange, own, bound)? {
@@ -494,8 +539,10 @@ struct Offered { text: String, named: bool, venues: Option<Vec<Choice>> }
 fn offered(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, venues: &[&str], file: Option<&crate::identity::AccountId>, keys: &[Reading], exchange: i64,
            picked: Option<i64>, now: DateTime<Utc>) -> Result<Offered, SyncError> {
     let number = |id: i64| -> rusqlite::Result<i64> { c.query_row("SELECT number FROM exchange_accounts WHERE id = ?1", [id], |r| r.get(0)) };
-    let summary = |routed: &Routed| -> rusqlite::Result<String> {
+    let summary = |routed: &Routed| -> Result<String, SyncError> {
         Ok(match routed {
+            // PLAN-710-mcpadapter J4: an account this run made, by its key and number (a replay makes it under another id).
+            Routed::To(account) if *account > FLOOR.with(std::cell::Cell::get) => format!("to:{}#{}", sealed_dest(c, Dest::Account(*account))?, number(*account)?),
             Routed::To(account) => format!("to:{account}#{}", number(*account)?),
             Routed::New(e) => format!("new:{e}"),
             Routed::Ask(options) => format!("ask:{}", options.iter().map(|o| o.value.as_str()).collect::<Vec<_>>().join(",")),
@@ -568,19 +615,20 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
                 tx.execute_batch("SAVEPOINT import_click")?;
                 let (body, tag) = split_answer(&o.value);
                 let click = native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, Some(body), tag, confirm.picked, now)
-                    .and_then(|plan| match plan { Ok(p) => Ok(Some(route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?)), Err(_) => Ok(None) });
+                    .and_then(|plan| match plan { Ok(p) => Ok(Some((route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?, reach(tx, user_id, &p.targets, kucoin_rows.len())?))), Err(_) => Ok(None) });
                 tx.execute_batch("ROLLBACK TO import_click; RELEASE import_click")?;
-                out.push(Issued { kind: Kind::Accept, route: click?, outside: None });
+                let (route, destinations) = click?.map_or((None, vec![]), |(r, d)| (Some(r), d));
+                out.push(Issued { kind: Kind::Accept, route, outside: None, destinations });
                 continue
             }
             tx.execute_batch("SAVEPOINT import_click")?;
             let click = native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, Some(&posted(o)), None, confirm.picked, now)
                 .and_then(|plan| match plan {
-                    Ok(p) if !p.changed && !p.confirm && p.warnings.is_empty() => Ok(Some(route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?)),
+                    Ok(p) if !p.changed && !p.confirm && p.warnings.is_empty() => Ok(Some((route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?, reach(tx, user_id, &p.targets, kucoin_rows.len())?))),
                     _ => Ok(None),
                 });
             tx.execute_batch("ROLLBACK TO import_click; RELEASE import_click")?;
-            out.push(match click? { Some(route) => Issued { kind: Kind::Authorize, route: Some(route), outside: None }, None => Issued { kind: Kind::Select, route: None, outside: None } });
+            out.push(match click? { Some((route, destinations)) => Issued { kind: Kind::Authorize, route: Some(route), outside: None, destinations }, None => Issued { kind: Kind::Select, route: None, outside: None, destinations: vec![] } });
         }
         Ok(out)
     };
@@ -597,26 +645,16 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
     let routed = route(tx, user_id, &targets, kucoin_rows.len(), &unrouted, records, &file_digest)?;
     if confirm.route.is_some_and(|sealed| sealed != routed) { changed = true; }
     // Rule M7: the destinations a question shows, by id (an account this run made is one the write makes).
-    let floor = FLOOR.with(std::cell::Cell::get);
-    let mut shown_destinations = vec![];
-    for (target, rows) in &targets {
-        shown_destinations.push(match target {
-            Target::Key(key) => {
-                let account = match key.scope.account { Some(a) => Some(a), None => crate::identity::Account::first(tx, user_id, key.exchange_id)?.id };
-                Destination { exchange_id: key.exchange_id, account_id: account.filter(|a| *a <= floor), rows: rows.len() + kucoin_rows.len() }
-            }
-            Target::New(exchange) => Destination { exchange_id: *exchange, account_id: None, rows: rows.len() + kucoin_rows.len() },
-        });
-    }
+    let shown_destinations = reach(tx, user_id, &targets, kucoin_rows.len())?;
     // Branch review r1 #2: an "import anyway" is bound to the route its click writes (each destination's account, the key
     // its rows are written with, the rows), as a venue option is (rule M1): checked above, before any writer runs. The
     // destination's own answer writes `routed`; an account holding the export's is planned as its click would be.
-    let click_route = |value: &str| -> Result<Option<String>, SyncError> {
-        if venues.is_empty() { return Ok(Some(routed.clone())); }
+    let click_route = |value: &str| -> Result<Option<(String, Vec<Destination>)>, SyncError> {
+        if venues.is_empty() { return Ok(Some((routed.clone(), shown_destinations.clone()))); }
         let (body, tag) = split_answer(value);
         tx.execute_batch("SAVEPOINT import_click")?;
         let click = native_plan(tx, cipher, user_id, venues, account_id.as_ref(), &keys, native.clone(), &kucoin_rows, (records, &file_digest), subject, Some(body), tag, confirm.picked, now)
-            .and_then(|plan| match plan { Ok(p) => Ok(Some(route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?)), Err(_) => Ok(None) });
+            .and_then(|plan| match plan { Ok(p) => Ok(Some((route(tx, user_id, &p.targets, kucoin_rows.len(), &p.unrouted, records, &file_digest)?, reach(tx, user_id, &p.targets, kucoin_rows.len())?))), Err(_) => Ok(None) });
         tx.execute_batch("ROLLBACK TO import_click; RELEASE import_click")?;
         click
     };
@@ -639,8 +677,8 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
         let last = choices.len().saturating_sub(1);
         let mut issued = vec![];
         for (i, choice) in choices.iter().enumerate() {
-            let route = if i == last { Some(routed.clone()) } else { click_route(&choice.value)? };
-            issued.push(Issued { kind: Kind::Accept, route, outside: (i == last).then(|| undone.map(|u| u.digest.clone())).flatten() });
+            let (route, destinations) = if i == last { (Some(routed.clone()), shown_destinations.clone()) } else { click_route(&choice.value)?.map_or((None, vec![]), |(r, d)| (Some(r), d)) };
+            issued.push(Issued { kind: Kind::Accept, route, outside: (i == last).then(|| undone.map(|u| u.digest.clone())).flatten(), destinations });
         }
         Ok(Ran { answer: Answer::Warned(shown, choices), issued, destinations: shown_destinations.clone() })
     };
@@ -658,7 +696,7 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
     let picked = matches!(tag, Some(('p', _)));
     if changed || (!accepting && !picked && (asks || !warnings.is_empty())) { let undone = probe()?; return Ok((ask(tx, warnings, &evidence, changed, undone.as_ref())?, false)); }
     // The destination's slots as the answer saw them, before this write adds to them.
-    let before = match &offer { Offer::Native { dest, .. } => Some((*dest, slot(tx, user_id, *dest)?)), Offer::Csv { .. } => Some((Dest::New(0), CSV_SLOT.to_string())), Offer::Unbound => None };
+    let before = match &offer { Offer::Native { dest, .. } => Some((sealed_dest(tx, *dest)?, slot(tx, user_id, *dest)?)), Offer::Csv { .. } => Some((format!("{:?}", Dest::New(0)), CSV_SLOT.to_string())), Offer::Unbound => None };
     // A question found while writing is asked over the state before the write (`undo`).
     tx.execute_batch("SAVEPOINT import_write")?;
     let undo = |tx: &rusqlite::Transaction<'_>| tx.execute_batch("ROLLBACK TO import_write; RELEASE import_write");
@@ -683,10 +721,10 @@ fn run_in(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher, user_i
     let evidence = if stripped.is_empty() { evidence } else { format!("{evidence}|retained:{stripped:?}") };
     if let Some((purpose, posted)) = tag {
         // An "import anyway" holds only while everything it was given for does; any answer counts once.
-        let stale = purpose == 'w' && before.as_ref().is_none_or(|(dest, slot)| posted != seal('w', subject, *dest, slot, &evidence));
+        let stale = purpose == 'w' && before.as_ref().is_none_or(|(dest, slot)| posted != seal('w', subject, dest, slot, &evidence));
         // Review r1: an answer that held for all it showed, the writer then finding retained ids, is asked about them, not
         // told something changed.
-        let first_seen = stale && !stripped.is_empty() && before.as_ref().is_some_and(|(dest, slot)| posted == seal('w', subject, *dest, slot, &unseen));
+        let first_seen = stale && !stripped.is_empty() && before.as_ref().is_some_and(|(dest, slot)| posted == seal('w', subject, dest, slot, &unseen));
         if stale || !consume(tx, posted, now)? {
             undo(tx)?;
             let mut shown = warnings;
@@ -829,7 +867,7 @@ fn choices(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, subject
         }
         Offer::Csv { rest, count } => {
             let accept = if *rest { Accept::Rest } else if warnings.iter().all(|w| matches!(w, Warning::Destination(_) | Warning::Changed | Warning::Undone(..))) { Accept::Import } else { Accept::Anyway };
-            vec![choice(format!("r!w{}", seal('w', subject, Dest::New(0), CSV_SLOT, evidence)), Label::bare(""), None, accept, *count, vec![])]
+            vec![choice(format!("r!w{}", seal('w', subject, &format!("{:?}", Dest::New(0)), CSV_SLOT, evidence)), Label::bare(""), None, accept, *count, vec![])]
         }
         Offer::Unbound => vec![],
     })
@@ -874,7 +912,10 @@ fn native_plan(c: &Connection, cipher: &crate::crypto::Cipher, user_id: i64, ven
     let keyed = body.is_some_and(|b| { let head = b.split_once("~v").map_or(b, |(k, _)| k); !head.is_empty() && head.bytes().all(|x| x.is_ascii_digit()) });
     let accepted = match (tag, body) { (Some(('w', _)), Some(body)) if !keyed => accepted_dest(c, user_id, venues, body)?, _ => None };
     let mut changed = tag.is_some_and(|(t, _)| t == 'w') && accepted.is_none() && !keyed;
-    let routing = if tag.is_some_and(|(t, _)| t == 'w') && !keyed { None } else { body };
+    // PLAN-710-mcpadapter J3: a stale answer (none posted) after a venue was picked is routed on that venue, never asked it
+    // again.
+    let picked_venue = picked.filter(|_| body.is_none()).map(|v| format!("v{v}"));
+    let routing = if tag.is_some_and(|(t, _)| t == 'w') && !keyed { None } else { body.or(picked_venue.as_deref()) };
     let dest = match accepted {
         Some(dest) => dest,
         None => match route_file(c, cipher, user_id, venues, file, routing, keys, now)? {
@@ -1033,7 +1074,8 @@ fn write_targets(tx: &rusqlite::Transaction<'_>, cipher: &crate::crypto::Cipher,
     for (target, rows) in targets {
         let before = imported;
         let (key, unit) = match target {
-            Target::Key(key) => { let unit = key.scope.account.map_or_else(|| format!("k{}", key.id), |a| format!("a{a}")); (key, unit) }
+            // PLAN-710-mcpadapter J4: an account this run made is named by its key and number (`canon`), as its seal is.
+            Target::Key(key) => { let unit = match key.scope.account { None => format!("k{}", key.id), Some(a) if a > FLOOR.with(std::cell::Cell::get) => canon(&fenced, Some(a), key.id)?, Some(a) => format!("a{a}") }; (key, unit) }
             Target::New(exchange) => {
                 let account = crate::identity::new_account(&fenced, user_id, exchange, now)?;
                 // Rule N7: a second account can disqualify a reader with no UID read; its generation moves now. A keyless

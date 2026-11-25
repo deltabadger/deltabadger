@@ -32,10 +32,10 @@ enum Body {
 }
 
 /// A destination's button: its sealed answer, its name (markup) and the warnings its click accepts (markup).
-struct Button { value: String, html: String, notes: Vec<String> }
+pub(crate) struct Button { pub(crate) value: String, pub(crate) html: String, pub(crate) notes: Vec<String> }
 
 /// The lines a warning shows, as markup (an account named in each line its own).
-fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
+pub(crate) fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
     use run::Warning;
     let named = |key: &str, label: &crate::identity::Label| i18n::t(locale, key, &[("account", i18n::Arg::Html(&label.html()))]);
     let counted = |key: &str, label: &crate::identity::Label, n: usize| i18n::t(locale, key, &[("account", i18n::Arg::Html(&label.html())), ("count", i18n::Arg::Count(n as i64))]);
@@ -58,7 +58,7 @@ fn lines(locale: &str, w: &run::Warning) -> Vec<String> {
 }
 
 /// #710 8a: one named button per destination ("Import to KuCoin² (rows in file: 12)").
-fn buttons(locale: &str, choices: &[run::Choice]) -> Vec<Button> {
+pub(crate) fn buttons(locale: &str, choices: &[run::Choice]) -> Vec<Button> {
     choices.iter().map(|k| {
         let key = if k.new || k.accept == Some(run::Accept::New) { "tracker.import.import_new_html" } else { "tracker.import.import_to_html" };
         Button { value: k.value.clone(), html: i18n::t(locale, key, &[("account", i18n::Arg::Html(&k.shown.html())), ("count", i18n::Arg::Count(k.count as i64))]),
@@ -84,7 +84,7 @@ pub async fn new(Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
 }
 
 /// 2.x's `text.blank?` on the upload's binary string: empty, or ASCII whitespace only.
-fn blank(bytes: &[u8]) -> bool {
+pub(crate) fn blank(bytes: &[u8]) -> bool {
     bytes.iter().all(|b| matches!(b, b' ' | b'\t' | b'\n' | 0x0b | 0x0c | b'\r'))
 }
 
@@ -102,6 +102,9 @@ fn classify(params: &crate::web::Params) -> Input {
     let handles: std::collections::BTreeSet<&str> = values("handle").chain(values("api_key_id").filter(|v| service::handle_shaped(v))).collect();
     let cancel = values("cancel").next().is_some() || file_part("cancel");
     if file_part("token") || file_part("handle") { return Input::NoFile; }
+    // PLAN-710-mcpadapter I2: the API's own markers (an upload token, a choice handle) make no web request fresh, and none
+    // of its confirmations: no file.
+    if crate::web::import_api::MARKERS.iter().any(|m| all().any(|(k, _)| k == m)) { return Input::NoFile; }
     if tokens.is_empty() && handles.is_empty() && !cancel { return Input::Fresh; }
     // Not fresh: one token and at most one choice, whatever else is attached.
     let tokens: Vec<&str> = tokens.into_iter().collect();
@@ -121,7 +124,11 @@ pub async fn create(Extension(ctx): Extension<Ctx>, slot: Option<Extension<servi
     let permit = || service::Slot::take(slot.as_ref().map(|s| &s.0), &ctx.app);
     let format: &'static str = FORMATS.iter().copied().find(|f| Some(*f) == ctx.params.form("format")).unwrap_or(DEFAULT_FORMAT);
     let view = ctx.clone();
-    let signed_in: service::SignedIn = std::sync::Arc::new(move |c: &rusqlite::Connection| auth::still_signed_in(c, &view).map_err(|e| crate::sync::SyncError(format!("{e:?}"))));
+    let signed_in: service::SignedIn = std::sync::Arc::new(move |c: &rusqlite::Connection| match auth::still_signed_in(c, &view) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(service::Denied::SignedOut),
+        Err(e) => Err(service::Denied::Db(format!("{e:?}"))),
+    });
     let outcome = match classify(&ctx.params) {
         Input::NoFile => Outcome::NoFile,
         Input::Fresh => match &ctx.params.upload {
@@ -151,7 +158,7 @@ pub fn busy_stream(locale: &str) -> String {
 fn respond(ctx: &Ctx, outcome: Outcome) -> Result<Response, WebError> {
     match outcome {
         // The sign-in ended while the file was read: nothing written, the request is signed out.
-        Outcome::SignedOut => Ok(auth::signed_out(ctx)),
+        Outcome::Denied(_) => Ok(auth::signed_out(ctx)),
         Outcome::NoFile => render(ctx, StatusCode::UNPROCESSABLE_ENTITY, Body::Error("tracker.import.error_no_file".into())),
         // #710 7a: Cancel on a question writes nothing and lets the parked upload go.
         Outcome::Cancelled => render(ctx, StatusCode::OK, Body::Refused(ctx.t("tracker.import.cancelled"))),
@@ -213,7 +220,7 @@ fn question(ctx: &Ctx, token: String, format: &'static str, answer: Answer) -> R
 
 /// The stored-history checks (`binance_writer::csv_refusal`): the saved history needs its repair. Every other refusal is
 /// the file's: cut short, edited or not this account's.
-fn refused_key(reason: &str) -> &'static str {
+pub(crate) fn refused_key(reason: &str) -> &'static str {
     const HISTORY: [&str; 9] = ["unreadable identity metadata", "conflicting bucket digest", "unsupported bucket", "missing retained identity",
         "duplicate or conflicting retained digest", "suppression has no retained reason", "unreadable retained identity evidence",
         "CSV alias points to deleted row", "CSV group is already occupied"];
@@ -263,5 +270,9 @@ mod tests {
         assert_eq!(c(&[("token", t), ("api_key_id", &h(t))], &[("token", u), ("api_key_id", &h(u))], &[]), Input::NoFile, "two uploads' pairs");
         assert_eq!(c(&[("handle", &h(t))], &[("token", t), ("api_key_id", &h(u))], &[]), Input::NoFile, "two choices");
         assert_eq!(c(&[], &[("token", "0123")], &[]), Input::NoFile);
+        // PLAN-710-mcpadapter I2: an API marker anywhere is no file.
+        assert_eq!(c(&[], &[("format", "binance")], &[("choice", &h(t))]), Input::NoFile, "a file-valued API choice");
+        assert_eq!(c(&[("upload", t)], &[("format", "binance")], &[]), Input::NoFile, "an API upload in the query");
+        assert_eq!(c(&[], &[("token", t), ("api_key_id", &h(t)), ("choice", &h(t))], &[]), Input::NoFile, "an API choice beside a web answer");
     }
 }

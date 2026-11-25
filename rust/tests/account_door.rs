@@ -4499,7 +4499,7 @@ async fn k4_a_dropped_confirmation_still_completes() {
     let asked = upload(&app, &mut b, "deltabadger", &rest_csv()).await;
     let (token, handle) = (token_of(&asked), common::import::handle_of(&app, token_of(&asked), hidden(&asked.body)).await.unwrap());
     let before = ledger(c);
-    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
     // Polled once (the worker spawned), then dropped before it ran.
     let dropped = tokio::time::timeout(std::time::Duration::ZERO, service::confirm(&app, s.user_id, token.clone(), handle.clone(), signed_in.clone(), service::permit(&app).await)).await;
     assert!(dropped.is_err(), "dropped before its outcome");
@@ -4687,10 +4687,10 @@ async fn a_questions_outcome_carries_its_destination_and_warning_account_ids() {
     let (_d, o, s, _server, app) = alpaca().await;
     let c = &o.primary;
     let (kraken, ids) = krakens(c, s.user_id, 1);
-    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
     let outcome = service::upload(&app, s.user_id, "deltabadger", rest_csv().into_bytes(), Some("ledger.csv".into()), signed_in, service::permit(&app).await).await.unwrap();
     let service::Outcome::Question { destinations, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
-    assert_eq!(destinations, [Destination { exchange_id: kraken, account_id: Some(ids[0]), rows: 1 }]);
+    assert_eq!(destinations, [Destination { exchange_id: kraken, account_id: Some(ids[0]), rows: 1, prospective: None }]);
     assert_eq!(warning_accounts.iter().map(|a| (a.account_id, a.exchange_id, a.rows)).collect::<Vec<_>>(), [(ids[0], kraken, Some(1))]);
 }
 
@@ -4733,7 +4733,7 @@ async fn a_question_offering_a_new_account_carries_the_numbered_accounts_id() {
     assert!(imported(&upload(&app, &mut b, "kucoin", &kucoin_file("444")).await));
     c.execute("UPDATE exchange_accounts SET fingerprint = NULL, account_id_enc = NULL", []).unwrap();
     fingerprint(c, first, "Exchanges::Kucoin", "555");
-    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
     let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("444").into_bytes(), Some("trading.csv".into()), signed_in, service::permit(&app).await).await.unwrap();
     let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
     let run::Answer::Warned(_, choices) = &answer else { panic!("{answer:?}") };
@@ -4775,7 +4775,7 @@ async fn an_account_questions_notes_carry_their_accounts_ids() {
     let asked = upload(&app, &mut b, "kucoin", &kucoin_file("444")).await;
     assert!(imported(&answer(&app, &mut b, &asked, "kucoin", &format!("a{first}")).await));
     // The same rows under a UID no account is known by: which account, each option noting the rows account 1 holds.
-    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+    let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
     let outcome = service::upload(&app, s.user_id, "kucoin", kucoin_file("777").into_bytes(), Some("trading.csv".into()), signed_in, service::permit(&app).await).await.unwrap();
     let service::Outcome::Question { answer, warning_accounts, .. } = outcome else { panic!("{outcome:?}") };
     assert!(matches!(answer, run::Answer::Ambiguous(_)), "{answer:?}");
@@ -4805,7 +4805,7 @@ async fn a_click_queued_for_a_slot_finds_what_won_meanwhile() {
         let sibling = async {
             // The click is admitted and waiting for a slot by now.
             tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-            let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(true));
+            let signed_in: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
             match case {
                 "cancel" => assert_eq!(service::cancel(&app, s.user_id, token.clone(), signed_in, mine).await.unwrap(), service::Outcome::Cancelled),
                 "expiry" => { c.execute("UPDATE import_parked_uploads SET expires_at = '2000-01-01 00:00:00'", []).unwrap(); service::sweep(&app).await; drop(mine) }
@@ -4823,7 +4823,9 @@ async fn a_click_queued_for_a_slot_finds_what_won_meanwhile() {
         assert_eq!(ledger(c), before, "{case}: nothing written");
         if case == "re-ask" {
             assert!(answer.body.contains("Something changed since you answered."), "{case}: {}", answer.body);
-            assert_eq!((state_of(c, &token).as_deref(), gens), (Some("open"), vec![3]), "{case}: only generation 3 resolves");
+            // The confirm that won issued generation 2; the queued generation-1 click finds nothing changed since, and is
+            // answered with generation 2's own handles (PLAN-710-mcpadapter J3), never a third generation.
+            assert_eq!((state_of(c, &token).as_deref(), gens), (Some("open"), vec![2]), "{case}: generation 2 still resolves");
         } else {
             assert_eq!(answer.status, 422, "{case}: {}", answer.body);
             assert!(gens.iter().all(|g| *g == 1), "{case}: no generation issued: {gens:?}");
@@ -4859,4 +4861,67 @@ async fn a_busy_click_keeps_its_upload_and_its_handle() {
         let again = b.send(&app, "POST", "/tracker/import", Some(&fields), common::web::Csrf::Header, &[]).await;
         if cancelled { assert_eq!((again.status, ledger(c)), (422, before), "{}", again.body) } else { assert!(imported(&again), "{}", again.body) }
     }
+}
+
+/// PLAN-710-mcpadapter J3: a Select committed (generation 2, Binance), a queued generation-1 sibling (Binance.US) is asked
+/// the open question again: the Binance account question with generation 2's own handles, which stay usable; never the
+/// venue question from the start.
+#[tokio::test(flavor = "current_thread")]
+async fn j3_a_stale_sibling_after_a_select_keeps_the_picked_venue() {
+    use deltabadger::tracker::import::{run::{Answer, Kind}, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    key_on(c, s.user_id, binance, None);
+    let second = identity::new_account(c, s.user_id, binance, chrono::Utc::now()).unwrap();
+    fingerprint(c, second, "Exchanges::Binance", "222");
+    let on_us = identity::new_account(c, s.user_id, us, chrono::Utc::now()).unwrap();
+    fingerprint(c, on_us, "Exchanges::BinanceUs", "222");
+    let ok: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
+    let asked = service::upload(&app, s.user_id, "binance", binance_file("222").into_bytes(), Some(BINANCE_NAME.into()), ok.clone(), service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { token, answer: Answer::Ambiguous(venues), kinds, .. } = asked else { panic!("{asked:?}") };
+    assert_eq!((kinds[0], venues[0].venue, venues[1].venue), (Kind::Select, Some(binance), Some(us)));
+    let picked = service::confirm(&app, s.user_id, token.clone(), venues[0].value.clone(), ok.clone(), service::permit(&app).await).await.unwrap();
+    // Binance's account 2 holds the file's UID: its question, which names it.
+    let service::Outcome::Question { answer: Answer::Warned(_, accounts) | Answer::Ambiguous(accounts), .. } = &picked else { panic!("{picked:?}") };
+    assert!(accounts.iter().all(|a| a.value.contains(".2.") && a.venue == Some(binance)), "generation 2, Binance: {accounts:?}");
+    let sibling = service::confirm(&app, s.user_id, token.clone(), venues[1].value.clone(), ok.clone(), service::permit(&app).await).await.unwrap();
+    // Asked again (its own answer went stale, which the question says), with generation 2's handles as issued.
+    let (lines, again) = match &sibling { service::Outcome::Question { answer: Answer::Warned(lines, again), .. } => (lines.clone(), again), service::Outcome::Question { answer: Answer::Ambiguous(again), .. } => (vec![], again), _ => panic!("{sibling:?}") };
+    assert_eq!((again, lines.iter().all(|l| matches!(l, deltabadger::tracker::import::run::Warning::Changed))), (accounts, true), "{sibling:?}");
+    let on_second = accounts.iter().find(|a| a.account == Some(second)).unwrap_or_else(|| panic!("{accounts:?}")).value.clone();
+    let done = service::confirm(&app, s.user_id, token, on_second, ok, service::permit(&app).await).await.unwrap();
+    assert!(matches!(done, service::Outcome::Written { imported: 1, .. }), "{done:?}");
+    assert_eq!(rows_on(c, second), 1);
+}
+
+/// PLAN-710-mcpadapter J4: a late warning on a legacy key's account (one this run makes) is sealed by its key and number:
+/// an unrelated account made after the warning (taking the id the question's account had) leaves the answer standing.
+#[tokio::test(flavor = "current_thread")]
+async fn j4_a_late_warning_on_a_legacy_key_holds_after_an_unrelated_account_is_made() {
+    use deltabadger::tracker::import::{run::Answer, service};
+    let (_d, o, s, _server, app) = alpaca().await;
+    let c = &o.primary;
+    let _lock = own(_d.path(), c, &app);
+    let (binance, us) = (venue(c, "Exchanges::Binance", "Binance"), venue(c, "Exchanges::BinanceUs", "Binance.US"));
+    let e = |v: &str| seed::cipher().encrypt(v);
+    c.execute("INSERT INTO api_keys (user_id, exchange_id, key_type, key, secret, status, created_at, updated_at) VALUES (?1, ?2, 0, ?3, ?4, 1, '2026-01-01', '2026-01-01')",
+              rusqlite::params![s.user_id, binance, e("legacy"), e("s")]).unwrap();
+    let legacy = c.last_insert_rowid();
+    c.execute("DELETE FROM exchange_accounts WHERE user_id = ?1 AND exchange_id = ?2", [s.user_id, binance]).unwrap();
+    key_on(c, s.user_id, us, None);
+    let ok: service::SignedIn = std::sync::Arc::new(|_| Ok(()));
+    let lone = "User ID,UTC_Time,Account,Operation,Coin,Change,Remark\n777,2026-08-17 10:00:00,Spot,Small Assets Exchange BNB,BTC,-1,BTC\n";
+    let asked = service::upload(&app, s.user_id, "binance", lone.as_bytes().to_vec(), Some(BINANCE_NAME.into()), ok.clone(), service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { token, answer: Answer::Ambiguous(venues), .. } = asked else { panic!("{asked:?}") };
+    let on_legacy = venues.iter().find(|v| v.key == Some(legacy)).unwrap_or_else(|| panic!("{venues:?}")).value.clone();
+    let warned = service::confirm(&app, s.user_id, token.clone(), on_legacy, ok.clone(), service::permit(&app).await).await.unwrap();
+    let service::Outcome::Question { answer: Answer::Warned(_, choices), reaches, .. } = &warned else { panic!("{warned:?}") };
+    let prospective = reaches.last().and_then(|r| r.first()).and_then(|d| d.prospective);
+    assert_eq!(prospective, Some(deltabadger::tracker::import::run::Prospective { key_id: Some(legacy), number: 1 }), "{reaches:?}");
+    let kraken = venue(c, "Exchanges::Kraken", "Kraken");
+    identity::ensure_account(c, s.user_id, kraken, chrono::Utc::now()).unwrap();
+    let done = service::confirm(&app, s.user_id, token, choices.last().unwrap().value.clone(), ok, service::permit(&app).await).await.unwrap();
+    assert!(matches!(done, service::Outcome::Written { imported: 1, .. }), "{done:?}");
 }
