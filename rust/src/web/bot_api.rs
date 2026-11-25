@@ -77,7 +77,7 @@ fn shown_label(c: &Connection, user: i64, id: i64, stored: &Value) -> Value {
 /// The request a service runs under: the owner signed in, English.
 pub(crate) fn service_ctx(app: &App, owner: &super::auth::User) -> Ctx {
     Ctx { app: app.clone(), params: Arc::new(super::Params { full_path: "/mcp".into(), fullpath: "/mcp".into(), route_path: "/mcp".into(), path_locale: None,
-            query: vec![], form: vec![], json: None, upload: None }),
+            query: vec![], form: vec![], json: None, upload: None, file_parts: vec![] }),
         session: super::session::Session::new(Default::default()), current: super::auth::Current::SignedIn(Arc::new(owner.clone())),
         method: axum::http::Method::POST, locale: "en", nonce: String::new(), now: app.now(), turbo_frame: None, stream: false, scheme: "", mode: "" }
 }

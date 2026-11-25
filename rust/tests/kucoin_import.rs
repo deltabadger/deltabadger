@@ -682,7 +682,7 @@ fn s7_0_11_a_conflicting_file_imported_before_is_not_replayed() {
     assert_eq!(fx.standing(), Standing::Conflicted);
     let (rows, observations) = (fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports"));
     let again = fx.import(TRADING);
-    assert!(matches!(&again, run::Answer::Warned(w, _) if w.contains(&run::Warning::HeldElsewhere(identity::Label { name: "KuCoin".into(), number: Some(1) }))), "{again:?}");
+    assert!(matches!(&again, run::Answer::Warned(w, _) if w.iter().any(|w| matches!(w, run::Warning::HeldElsewhere(a) if a.label == identity::Label { name: "KuCoin".into(), number: Some(1) }))), "{again:?}");
     assert_eq!((fx.count("SELECT count(*) FROM account_transactions"), fx.count("SELECT count(*) FROM exchange_account_imports")), (rows, observations));
     assert_eq!(fx.standing(), Standing::Conflicted, "the conflict is kept");
 }

@@ -12,6 +12,8 @@ it:
             import_new_html: "Importa in un nuovo account, %{account} (righe nel file: %{count})"
             destination_html: "Righe destinate a %{account}: %{count}."
             twice_html: "Righe che questo file invia a più di un account: %{count}."
+            rows_left_out_named_html: "Account indicati dalle righe escluse: %{exchanges}."
+            links_undone_html: "Collegamenti di trasferimento su altri account che questa importazione annulla: %{count} (%{accounts})."
             import_anyway: "Importa comunque"
             import_rest: "Importa il resto"
             cancel: "Annulla"

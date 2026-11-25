@@ -12,6 +12,8 @@ ru:
             import_new_html: "Импортировать в новый аккаунт, %{account} (строк в файле: %{count})"
             destination_html: "Строки для %{account}: %{count}."
             twice_html: "Строки, которые этот файл отправляет в несколько аккаунтов: %{count}."
+            rows_left_out_named_html: "Аккаунты, указанные в пропущенных строках: %{exchanges}."
+            links_undone_html: "Связи переводов на других аккаунтах, которые этот импорт разорвёт: %{count} (%{accounts})."
             import_anyway: "Всё равно импортировать"
             import_rest: "Импортировать остальное"
             cancel: "Отмена"

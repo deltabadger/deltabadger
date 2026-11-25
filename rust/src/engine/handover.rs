@@ -712,6 +712,9 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         // #710 7a rules N2/N7: Rust's own identity and reader bookkeeping; 2.x never reads either.
         (Table, "account_fingerprint_proofs", Ignored), (Table, "ledger_reader_generations", Ignored),
         (Table, "import_row_origins", Ignored), (Table, "parked_answers", Ignored),
+        // #710 (PLAN-710-confirm): an import question's upload and its handles; its bytes live in Rust's own directory, which
+        // 2.x never opens, so a hand-back drops the question (the user uploads again).
+        (Table, "import_parked_uploads", Ignored), (Table, "import_parked_choices", Ignored),
         (Table, "import_rows", Ignored), (Table, "import_cutoffs", Ignored),
         // #710 slice 5: balances and venue snapshots by account. 2.x reads its own tables, which its sync refills; a takeover
         // writes them back in as the number-1 rows (balance_store::refill_number_one). A row of an account 2+ refuses: 2.x's
@@ -916,11 +919,15 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     tx.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_continue_start') \
                 WHERE json_type(transient_data, '$.rust_continue_start') IS NOT NULL", [])?;
     restore_dropped_columns(&tx)?;
+    // Branch review r1 #7: the parked import uploads are Rust's alone; 2.x is never handed them (their bytes go once this
+    // commits).
+    crate::tracker::import::service::forget_rows(&tx)?;
     lease::hand_back(lock, &tx, cipher, now)?;
     // When this engine left, plain, so `check` reads it without keys: 2.x's stamps after it are 2.x's own (staleness).
     crate::app_config::set_plain(&tx, lease::HANDED_BACK_AT, &now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true), now)
         .map_err(EngineError::Data)?;
     tx.commit()?;
+    crate::tracker::import::service::forget_files(&o.primary);
     Ok(scheduled)
 }
 

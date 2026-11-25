@@ -12,6 +12,8 @@ cs:
             import_new_html: "Importovat do nového účtu, %{account} (řádků v souboru: %{count})"
             destination_html: "Řádky pro %{account}: %{count}."
             twice_html: "Řádky, které tento soubor posílá na více než jeden účet: %{count}."
+            rows_left_out_named_html: "Účty uvedené ve vynechaných řádcích: %{exchanges}."
+            links_undone_html: "Propojení převodů na jiných účtech, která tento import zruší: %{count} (%{accounts})."
             import_anyway: "Přesto importovat"
             import_rest: "Importovat zbytek"
             cancel: "Zrušit"

@@ -308,8 +308,19 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
             let mut headers: Vec<_> = earlier["headers"].as_object().unwrap().iter().map(|(k,v)|(k.as_str(),v.as_str().unwrap())).collect();
             headers.push(("content-type",content_type.as_str()));
             let last = browser.send_bytes(&app,"POST",earlier["path"].as_str().unwrap(),Some(body),Csrf::Header,&headers).await;
+            // PLAN-710-confirm rule K8: the page's handles read as the values they stand for (each resolved through
+            // import_parked_choices), which must be the recorded page's; the request posts the handle it rendered.
+            let shown = common::import::decode(&c,&last.body);
+            let responses = v2["responses"].as_array().unwrap();
+            if let Some(recorded) = responses.len().checked_sub(2).map(|i| &responses[i]).filter(|r| r["body"].as_str().is_some_and(|b| b.contains("name=\"api_key_id\" id=\"api_key_id\""))) {
+                assert_eq!(mask_csrf(&shown),mask_csrf(&as_detected(recorded["body"].as_str().unwrap())),"{name}: the question's bytes, its handles resolved");
+            }
             for (name,pattern) in from_last {
-                let value = regex::Regex::new(pattern.as_str().unwrap()).unwrap().captures(&last.body).unwrap_or_else(||panic!("{name}: no {name} in the previous answer"))[1].to_string();
+                let value = regex::Regex::new(pattern.as_str().unwrap()).unwrap().captures(&shown).unwrap_or_else(||panic!("{name}: no {name} in the previous answer"))[1].to_string();
+                let value = if name == "api_key_id" {
+                    let token = common::import::token(&last.body).expect("a parked token");
+                    common::import::handle_for(&c,&token,&value).unwrap_or_else(||panic!("{name}: no handle for {value}"))
+                } else { value };
                 fields.push((name.clone(),value));
             }
         }
@@ -325,10 +336,16 @@ async fn compare_one(root: &str, name: &str, identity_key: bool) {
         } else { browser.send(&app,step["method"].as_str().unwrap(),step["path"].as_str().unwrap(),Some(&form),Csrf::Header,&headers).await };
         // D-IMPORT-WARNS-FIRST (#710 7a rule N6): Rust says before writing what 2.x writes and then reports (rows naming an
         // account this install lacks); the user's "import the rest" is 2.x's write, so its answer is what compares.
-        let answer = match warned.captures(&answer.body) {
-            Some(m) if name.starts_with("import") => browser.send(&app,"POST","/tracker/import",Some(&[("token",&m[1]),("api_key_id",&m[2])]),Csrf::Header,&headers).await,
+        let shown = common::import::decode(&c,&answer.body);
+        let answer = match warned.captures(&shown) {
+            Some(m) if name.starts_with("import") => {
+                let handle = common::import::handle_for(&c,&m[1],&m[2]).expect("the sealed answer's handle");
+                browser.send(&app,"POST","/tracker/import",Some(&[("token",&m[1]),("api_key_id",&handle)]),Csrf::Header,&headers).await
+            }
             _ => answer,
         };
+        // Rule K8: handles are read as what they stand for only after they resolved; a page's own bytes are compared so.
+        let answer = if name.starts_with("import") { common::web::Answer { body: common::import::decode(&c,&answer.body), ..answer } } else { answer };
         let wakes: Vec<_> = app.job_wakers().map(|jobs| jobs.pending()).unwrap_or_default().split_off(woken);
         if TAX_GATED.contains(&name) {
             assert_eq!(answer.status, 501, "{name}: D-TAX-NOT-PORTED-GATE");

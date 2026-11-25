@@ -69,6 +69,7 @@ pub fn app_in(dir: &Path, secret: &str, allowed_hosts: Option<&str>, extra: &ser
     app
 }
 
+#[derive(Clone)]
 pub struct Answer {
     pub status: u16,
     /// Lower-case names; a repeated header keeps every value.

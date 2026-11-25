@@ -382,7 +382,8 @@ pub(crate) fn rewrite_second(c: &crate::engine::model::FencedTransaction<'_>, ke
     // Same source rows, type and swap group: derived as before, so kept (a lone Convert half that became a swap is not).
     let same = |o: &Held, d: &Derived| o.1 == d.entry.tx_id && o.2 == d.entry.entry_type && o.3 == d.entry.group_id;
     for o in old.iter().filter(|o| !derived.iter().any(|d| same(o, d))) {
-        c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1", [o.0])?;
+        // PLAN-710-confirm rule P3: only the owner's rows are unlinked; another user's row is never changed.
+        c.execute("UPDATE account_transactions SET linked_transaction_id = NULL WHERE linked_transaction_id = ?1 AND user_id = ?2", params![o.0, key.user_id])?;
         c.execute("DELETE FROM account_transactions WHERE id = ?1", [o.0])?;
     }
     let fresh: Vec<Derived> = derived.into_iter().filter(|d| !old.iter().any(|o| same(o, d))).collect();

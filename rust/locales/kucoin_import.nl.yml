@@ -12,6 +12,8 @@ nl:
             import_new_html: "Importeren in een nieuw account, %{account} (regels in bestand: %{count})"
             destination_html: "Regels naar %{account}: %{count}."
             twice_html: "Regels die dit bestand naar meer dan één account stuurt: %{count}."
+            rows_left_out_named_html: "Accounts die de weggelaten regels noemen: %{exchanges}."
+            links_undone_html: "Overboekingskoppelingen op andere accounts die deze import ongedaan maakt: %{count} (%{accounts})."
             import_anyway: "Toch importeren"
             import_rest: "De rest importeren"
             cancel: "Annuleren"

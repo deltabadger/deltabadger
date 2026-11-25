@@ -12,6 +12,8 @@ sk:
             import_new_html: "Importovať do nového účtu, %{account} (riadkov v súbore: %{count})"
             destination_html: "Riadky pre %{account}: %{count}."
             twice_html: "Riadky, ktoré tento súbor posiela na viac ako jeden účet: %{count}."
+            rows_left_out_named_html: "Účty uvedené vo vynechaných riadkoch: %{exchanges}."
+            links_undone_html: "Prepojenia prevodov na iných účtoch, ktoré tento import zruší: %{count} (%{accounts})."
             import_anyway: "Aj tak importovať"
             import_rest: "Importovať zvyšok"
             cancel: "Zrušiť"
