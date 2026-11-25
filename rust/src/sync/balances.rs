@@ -43,6 +43,8 @@ pub const MAX_ACCOUNT_NODES: usize = 2_000;
 pub const MAX_LIST_NODES: usize = 300_000;
 /// Balance rows per write transaction.
 pub const BATCH: usize = 100;
+/// #710 7b rule 14: the most rows one balance set writes (in its one transaction).
+pub const MAX_SET: usize = 5_000;
 /// Fiat::CATEGORIES: the two asset categories that mean cash.
 const CASH_CATEGORIES: [&str; 2] = ["Fiat", "Currency"];
 
@@ -267,15 +269,15 @@ pub(crate) fn balance_positions(text: &str) -> Result<Result<Vec<Position>, Stri
 /// A balance sync never clears `last_sync_error` (the ledger sync does).
 ///
 /// The account and numeric/structural validity are checked before a row is written. Unresolvable position identities
-/// are individually excluded; other malformed data still fails the sync. Rows are written in units of `BATCH`;
-/// `balances_synced_at` moves in the last one.
+/// are individually excluded; other malformed data still fails the sync. The set is written in one transaction with
+/// `balances_synced_at` (D-BALANCE-SET-ATOMIC).
 pub async fn sync<T: Transport>(db: &Db, venue: &AlpacaVenue<T>, prices: &dyn PriceSource, key_id: i64, credentials: &Credentials, clock: &dyn Clock)
                                 -> Result<Result<Summary, Failure>, SyncError> {
     let version = super::capture_bound_version(db, key_id, credentials).await?;
     sync_captured(db, venue, prices, key_id, credentials, clock, &version).await
 }
 
-/// Test boundary after the incomplete-origin commit (zero) and each balance batch.
+/// Test boundary after the balance set's one commit (D-BALANCE-SET-ATOMIC: there is no earlier one).
 pub type BalanceStep<'a> = dyn Fn(usize) -> std::pin::Pin<Box<dyn std::future::Future<Output=()> + 'a>> + 'a;
 #[doc(hidden)]
 #[allow(clippy::too_many_arguments)]
@@ -1132,7 +1134,7 @@ fn fiat_rate(rates: &Value, symbol: &str) -> Result<Option<BigDec>, String> {
 }
 
 /// AccountBalance::Sync#sync! from the venue's balances on: other cash at its exchange rate, the market's prices, the
-/// checks, then the rows `BATCH` at a time, what is gone, and the key's clock. `fresh` holds the venue's own quotes
+/// checks, then the set in one transaction (its rows, what is gone, the key's clock). `fresh` holds the venue's own quotes
 /// (Alpaca's stocks), `errors` why some could not be read. `Ok(Err(text))`: the sync fails with `text`, nothing written.
 /// `records`: `app_configs` rows the last commit sets to their value, or removes (None). `kept`: assets whose stored
 /// rows stay as they are, never gone.
@@ -1218,54 +1220,36 @@ async fn finish(db: &Db, version: &crate::engine::model::CredentialVersion, cata
         if price.is_some_and(|p| !within(value_of(total, &p))) { return Ok(Err(VALUE_OUT_OF_RANGE.into())); }
     }
 
-    // The rows, `BATCH` at a time; then what is gone, and the key's clock in the last unit.
+    // D-BALANCE-SET-ATOMIC (#710 7b rule 14): the whole set in one write, under one reading-key and generation check: the
+    // origin, every row, what is gone, the key's clock and the completion. A reader sees the last complete set or this one,
+    // never a mix (2.x and main wrote `BATCH` rows a unit). `BATCH` stays the unit `upsert` takes; a set past `MAX_SET`
+    // rows fails the sync with nothing written.
     let now = clock.now();
+    if held.len() > MAX_SET { return Ok(Err(format!("more than {MAX_SET} balances in one read"))); }
     let (held, fresh) = (Arc::new(held), Arc::new(fresh));
     let origin = version.clone();
-    // Every unit commits only while its key is still its account's reading key (`jobs::superseded`).
-    let reading = move |c: &Connection| -> Result<(), SyncError> {
-        if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
-        Ok(())
-    };
-    let account = super::commit_for(db, version, move |c| {
-        reading(c)?;
-        let account = crate::identity::AccountRow::ensure_of_key(c, key_id, now)?.ok_or_else(|| SyncError(format!("api key {key_id} has no account")))?;
-        super::cache::record_account(c, &account, &origin, false, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
-        Ok(account)
-    }).await?;
-    if let Some(step)=step {step(0).await;}
-    let mut summary = Summary::default();
-    for from in (0..held.len()).step_by(BATCH) {
-        let (held, assets, fresh) = (held.clone(), assets.clone(), fresh.clone());
-        summary = super::commit_for(db, version, move |c| { reading(c)?; upsert(c, &account, &held[from..(from + BATCH).min(held.len())], &assets, &fresh, summary, now, allow_old) }).await?;
-        if let Some(step)=step {step(from/BATCH+1).await;}
-    }
     let kept: HashSet<i64> = held.iter().map(|(id, _, _)| *id).chain(kept.iter().copied()).collect();
-    let mut gone = phase(db, move |c| gone(c, account.id, &kept)).await?;
-    loop {
-        let rest = gone.split_off(gone.len().min(BATCH));
-        let last = rest.is_empty();
-        // The identity read time apart from the portfolio watermark (which stays main's, the commit's time).
-        let (origin, records) = (version.clone(), records.iter().cloned().chain([(format!("rust_sync.read_at:{key_id}"), Some(sql_time(read_at)))]).collect::<Vec<_>>());
-        super::commit_for(db, version, move |c| {
-            reading(c)?;
-            for id in &gone { c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id])?; }
-            if last {
-                c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
-                super::cache::record_account(c, &account, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
-                for record in &records {
-                    match record {
-                        (key, Some(value)) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
-                                                           ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
-                        (key, None) => { c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?; }
-                    }
-                }
+    let records: Vec<(String, Option<String>)> = records.into_iter().chain([(format!("rust_sync.read_at:{key_id}"), Some(sql_time(read_at)))]).collect();
+    let rows = held.clone();
+    let mut summary = super::commit_for(db, version, move |c| {
+        // Only while its key is still its account's reading key (`jobs::superseded`).
+        if super::jobs::superseded(c, key_id)?.is_some() { return Err(SyncError(super::jobs::SUPERSEDED.into())); }
+        let account = crate::identity::AccountRow::ensure_of_key(c, key_id, now)?.ok_or_else(|| SyncError(format!("api key {key_id} has no account")))?;
+        let mut summary = Summary::default();
+        for from in (0..rows.len()).step_by(BATCH) { summary = upsert(c, &account, &rows[from..(from + BATCH).min(rows.len())], &assets, &fresh, summary, now, allow_old)?; }
+        for id in gone(c, account.id, &kept)? { c.execute("DELETE FROM exchange_account_balances WHERE id = ?1", [id])?; }
+        c.execute("UPDATE api_keys SET balances_synced_at = ?1 WHERE id = ?2", params![sql_time(now), key_id])?;
+        super::cache::record_account(c, &account, &origin, true, now).map_err(|_| SyncError("cannot record balance cache origin".into()))?;
+        for record in &records {
+            match record {
+                (key, Some(value)) => { c.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?3) \
+                                                   ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", params![key, value, sql_time(now)])?; }
+                (key, None) => { c.execute("DELETE FROM app_configs WHERE key = ?1", [key])?; }
             }
-            Ok(())
-        }).await?;
-        if last { break; }
-        gone = rest;
-    }
+        }
+        Ok(summary)
+    }).await?;
+    if let Some(step) = step { step(1).await; }
     summary.synced = held.len();
     summary.pricing_error = (!errors.is_empty()).then(|| errors.join("; "));
     Ok(Ok(summary))

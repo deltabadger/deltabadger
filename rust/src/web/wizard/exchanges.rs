@@ -116,7 +116,9 @@ pub struct Group { title: String, venues: Vec<Venue>, connected: bool }
 /// The accounts `user` holds a correct key of one of `kinds` on (`api_keys.key_type`: 0 trading, 1 withdrawal, 2 read-only),
 /// by exchange, then number. An install without the account tables names each exchange alone.
 pub fn connected(c: &Connection, user: i64, kinds: &[i64]) -> rusqlite::Result<Vec<Connected>> {
-    let mut statement = c.prepare("SELECT id, exchange_id FROM api_keys WHERE user_id = ?1 AND status = 1 AND key_type IN (SELECT value FROM json_each(?2)) ORDER BY id")?;
+    // #710 7b rule 10: a fenced key (its read names another account) is no correct key of its account.
+    let mut statement = c.prepare(&format!("SELECT k.id, k.exchange_id FROM api_keys k WHERE k.user_id = ?1 AND k.status = 1 AND NOT {} AND k.key_type IN (SELECT value FROM json_each(?2)) ORDER BY k.id",
+                                           crate::identity::fenced_sql(c, "k")?))?;
     let keys: Vec<(i64, i64)> = statement.query_map(rusqlite::params![user, json!(kinds).to_string()], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     let mut out: Vec<(Connected, i64)> = vec![];
     for (key, exchange) in keys {

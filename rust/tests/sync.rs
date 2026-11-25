@@ -1593,9 +1593,9 @@ async fn a_restart_runs_what_a_stop_left_due_and_nothing_twice() {
     assert!(success.starts_with("2026-09-20T03:0") && incomplete == "never", "{success} {incomplete}");
 }
 
-/// Codex round 1: the balances, too, are marked incomplete before their first write unit. A hand run of the balances
-/// after the night's success, stopped between two units, leaves some holdings new and some old; the next start runs the
-/// balance sync at once instead of tomorrow at 02:30.
+/// Codex round 1: the balances, too, are marked incomplete before their write. #710 7b rule 14 (D-BALANCE-SET-ATOMIC):
+/// the set is one transaction, so a hand run stopped after the mark and before its write leaves the previous set whole;
+/// the next start still runs the balance sync at once (the mark keeps its crash meaning) instead of tomorrow at 02:30.
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same_day_success() {
     let (dir, db, s) = install();
@@ -1606,9 +1606,9 @@ async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same
     let mut script = balances_script();
     script["GET /v2/account"] = json!([ok(json!({ "cash": "200" }))]);
     script["GET /v2/positions"] = json!([ok(json!([{ "symbol": "AAPL", "asset_class": "us_equity", "qty": "3", "qty_available": "3" }]))]);
-    // Observe through another connection: only committed rows can end the run. The first balance batch updates
-    // USD and AAPL; the obsolete BTC holding is removed in a later unit, after WRITE_GAP.
+    // Observe through another connection: the run is stopped once its incomplete mark is committed, before its write.
     let observer = Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let marked = || deltabadger::jobs::state::read(&observer, jobs::BALANCE_SYNC, Some(&s.api_key_id.to_string())).unwrap().incomplete_since.is_some();
     let rows = || {
         observer.prepare("SELECT assets.symbol, b.free, b.locked, b.usd_value, b.synced_at FROM exchange_account_balances b \
                           JOIN assets ON assets.id = b.asset_id ORDER BY assets.symbol").unwrap()
@@ -1618,22 +1618,22 @@ async fn a_restart_repairs_balances_a_stopped_run_left_half_written_after_a_same
     let morning = tokio_clock("2026-09-20T11:00:00Z");
     let stopped = BalanceSync::new(Scripted(ScriptedTransport::from_script(&script)), Rc::new(NoPrices), s.api_key_id);
     {
-        let committed_batch = async {
+        let before = rows();
+        let committed_mark = async {
             loop {
-                if rows().iter().any(|(symbol, free, _, _, _)| symbol == "USD" && *free == 200.0) { break; }
-                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                if marked() { break; }
+                tokio::task::yield_now().await;
             }
         };
+        // Biased: the mark is looked for at every wake, before the run goes on.
         tokio::select! {
+            biased;
+            result = tokio::time::timeout(MINUTE, committed_mark) => result.expect("the incomplete mark committed before interruption"),
             result = stopped.run(cx(&db, &morning), vec![Wake::Manual(None)]) => panic!("run ended before interruption: {result:?}"),
-            result = tokio::time::timeout(MINUTE, committed_batch) => result.expect("a balance batch committed before interruption"),
         }
+        assert_eq!(rows(), before, "the previous complete set stays whole after the stop");
     }
-    assert_eq!(rows(), vec![
-        ("AAPL".into(), 3.0, 0.0, Some(682.56), "2026-09-20 11:00:00".into()),
-        ("BTC".into(), 0.5, 0.0, None, "2026-09-20 02:30:05".into()),
-        ("USD".into(), 200.0, 0.0, Some(200.0), "2026-09-20 11:00:00".into()),
-    ], "committed new quantities and an obsolete holding remain after the stop");
+    assert!(rows().iter().any(|(symbol, free, _, _, _)| symbol == "BTC" && *free == 0.5), "the old set, the obsolete holding included");
     assert_eq!(one::<String>(&db, "SELECT balances_synced_at FROM api_keys").await, "2026-09-20 02:30:05", "the interrupted run did not advance the watermark");
     assert!(write_lock_is_free(dir.path()), "no transaction is left open");
     let clock = tokio_clock("2026-09-20T15:00:00Z");
