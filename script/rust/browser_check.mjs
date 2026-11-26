@@ -6,10 +6,11 @@
 // It checks what the page-parity harness cannot see: that the compiled JS and CSS leave the page
 // visible after sign-in, and that the real @rails/actioncable client connects once, receives the
 // server's pings, and keeps that one connection. With UNPORTED_VENUE (an exchange id), it also picks that venue in the index
-// wizard's venue step, where the refusal must show in the modal. With INDEX_WIZARD ({ venue, key, secret }) and BOT_ID, it
+// wizard's venue step, where the refusal must show in the modal. With INDEX_WIZARD ({ venue, key, secret, btc }) and BOT_ID, it
 // walks the index wizard in the sheet opened over that bot's page (D-INDEX-IN-ASSETS): the index picked with the arrow keys
 // from a filtered list, a correct key on to the quote step inside the sheet, and a quote search after the market data went
-// away showing its connect form in the sheet. With GROUP_SHEET ({ bot, group }), a grouped basket's index sheet (PLAN
+// away showing its connect form in the sheet; then (PLAN index-as-ingredient slice 6) an index beside BTC, removed and
+// picked again, saved as one grouped basket. With GROUP_SHEET ({ bot, group }), a grouped basket's index sheet (PLAN
 // index-as-ingredient slice 5): opened by Enter on the stack, the count saved 3 → 4 → 3 (each read back from the stored row),
 // a save refused after the bot was started behind the open sheet (the refusal in the sheet, nothing stored), the composition's
 // list toggled by keyboard, and the focus back on the stack once the sheet closes.
@@ -312,7 +313,7 @@ try {
     console.log("index sheet: Normalize on the stored sum, Enter opens it, count 3 → 4 → 3 stored, an arrow key keeps the range's focus, a raced refusal in the sheet, the list by keyboard, focus back on the stack");
   }
   if (INDEX_WIZARD && BOT_ID) {
-    const { venue, key, secret } = JSON.parse(INDEX_WIZARD);
+    const { venue, key, secret, btc } = JSON.parse(INDEX_WIZARD);
     const page = `/bots/${BOT_ID}`;
     const frame = "turbo-frame#modal_content";
     const shows = (selector) => call(function (sel) { return !!document.querySelector(sel); }, selector);
@@ -371,10 +372,13 @@ try {
     await sleep(300);
     await press("ArrowDown", 40);
     await press("Enter", 13);
-    await until("the index exchange step", () => shows(`${frame} #exchange-picker button[value="${venue}"]`));
-    await inSheet("the index exchange step");
+    // D-INDEX-JOINS-BASKET: the pick joins the selection and the step stays; its row is listed and Next goes on.
+    await until("the pick in the selection", () => shows(`${frame} .wizard-assets__list input[name=index_row]`));
     const picked = await evaluate(`document.querySelector("${frame} .sheet__track li").innerText`);
     if (!/Layer/.test(picked)) throw new Error(`the arrow keys picked ${JSON.stringify(picked)}, not the filtered Layer 1`);
+    await click(`${frame} form.sheet__next button`);
+    await until("the index exchange step", () => shows(`${frame} #exchange-picker button[value="${venue}"]`));
+    await inSheet("the index exchange step");
     await click(`${frame} #exchange-picker button[value="${venue}"]`);
     await until("the key step", () => shows(`${frame} form[action*="/bots/dca_indexes/add_api_key"] input[name="api_key[key]"]`));
     await call(function (f, k, s) {
@@ -397,6 +401,39 @@ try {
     await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
     await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
     console.log("index wizard: arrow keys on the filtered list, the key on to the quote in the sheet, the connect form after a search");
+    // PLAN index-as-ingredient slice 6: a fresh wizard, BTC in the Asset view, then Top beside it; the track shows the chip and
+    // one stack; Top's × removes it and a second pick brings it back; Next, the venue both offer, the key it has, the quote,
+    // and the bot page draws Top as a group row.
+    const trackStacks = () => call(function (f) { return document.querySelectorAll(`${f} .sheet__track .sheet__label--tickers .ticker-group--many`).length; }, frame);
+    const trackChip = () => call(function (f) { return !!document.querySelector(`${f} .sheet__track [data-ticker-symbol=BTC]`); }, frame);
+    await send("Page.navigate", { url: BASE_URL + page });
+    await until("the bot page again", () => call(function (p) { return location.pathname === p && !!document.querySelector("turbo-frame#modal"); }, page));
+    await evaluate(`document.querySelector("turbo-frame#modal").src = "/bots/new"`);
+    await inSheet("a new wizard");
+    await click(`${frame} .sheet__track form[action$="/bots/dca_single_assets/order"] button`);
+    await until("the Asset view", () => shows(`${frame} button[name="bots_dca_single_asset[base_asset_id]"][value="${btc}"]`));
+    await click(`${frame} button[name="bots_dca_single_asset[base_asset_id]"][value="${btc}"]`);
+    await until("BTC chosen", () => trackChip());
+    await click(`${frame} .wizard-search .segmented a[href$="kind=index"]`);
+    await until("the Index view", () => shows(`${frame} button.index-row[data-index-category-id="top-coins"]`));
+    await click(`${frame} button.index-row[data-index-category-id="top-coins"]`);
+    await until("BTC and one stack", async () => (await trackChip()) && (await trackStacks()) === 1);
+    await click(`${frame} .wizard-assets__list form:has(input[name=index_row]) button`);
+    await until("Top removed", async () => (await trackChip()) && (await trackStacks()) === 0);
+    // A removal comes back to the Asset view with the basket open, as an asset's does; the switch leads to the Index view.
+    await click(`${frame} .wizard-search .segmented a[href$="kind=index"]`);
+    await until("Top offered again", () => shows(`${frame} button.index-row[data-index-category-id="top-coins"]`));
+    await click(`${frame} button.index-row[data-index-category-id="top-coins"]`);
+    await until("Top back", async () => (await trackStacks()) === 1);
+    await click(`${frame} form.sheet__next button`);
+    await until("the venues both offer", () => shows(`${frame} #exchange-picker button[value="${venue}"]`));
+    await inSheet("the mixed exchange step");
+    if (await trackStacks() !== 1) throw new Error("the exchange step's track lost the stack");
+    await click(`${frame} #exchange-picker button[value="${venue}"]`);
+    await until("the mixed quote step", () => shows(`${frame} button[name="bots_dca_multi_asset[quote_asset_id]"]`));
+    await click(`${frame} button[name="bots_dca_multi_asset[quote_asset_id]"]`);
+    await until("the grouped bot's page", () => call(function () { return /^\/bots\/\d+$/.test(location.pathname) && !!document.querySelector("#index_group_top-coins_stack"); }));
+    console.log("mixed wizard: an index beside BTC, removed and re-added, saved as one grouped basket");
   }
   if (BOT_ID) {
     const path = `/bots/${BOT_ID}`;

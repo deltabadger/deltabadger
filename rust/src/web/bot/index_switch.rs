@@ -358,7 +358,7 @@ fn offered_here(c: &Connection, ctx: &Ctx, draft: &draft::Draft, external_id: &s
 
 /// A new group for `tile` at `weight`, as Follow index sets an index bot's keys (`follow_inner`): a bounded index held
 /// whole, any other ten members, no flattening; written by the one encoder (`Group::settings`).
-fn group_for(c: &Connection, tile: &wizard::index::IndexTile, weight: f64) -> Result<Map<String, Value>, WebError> {
+pub(crate) fn group_for(c: &Connection, tile: &wizard::index::IndexTile, weight: f64) -> Result<Map<String, Value>, WebError> {
     let top = tile.external_id == "top-coins";
     let mut group = crate::engine::composition::Group { external_id: tile.external_id.clone(), weight, index_type: Some(if top { "top" } else { "category" }.into()),
         index_category_id: (!top).then(|| tile.external_id.clone()), index_name: if top { None } else { tile.stored_name.clone() },

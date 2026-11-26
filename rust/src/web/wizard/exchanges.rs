@@ -1,7 +1,7 @@
 //! The DCA wizard's exchange step (Bots::Wizard::PickExchangesController), in the single namespace (before any asset, the
 //! first step of the default exchange-first order) and the multi one (a basket's venue). The grid is bots/pick_exchanges/_table,
 //! which the tracker's venue picker renders too.
-use super::{basket_ids, chips, current_variant, dig, prerequisite, reset_downstream, steer, step_complete, BotType, SentenceOf, Step,
+use super::{basket_ids, chips, current_variant, dig, grouped, prerequisite, reset_downstream, steer, step_complete, BotType, SentenceOf, Step,
             StepOrder, BASE_KEY, QUOTE_KEY};
 use crate::web::bot::search::{self, Basket};
 use crate::web::bot::{exchange_wordmark, Exchange};
@@ -132,8 +132,11 @@ pub fn connected(c: &Connection, user: i64, kinds: &[i64]) -> rusqlite::Result<V
 }
 
 /// `prepare_step` and the page: the venues the bot built from the session could trade on, its own venue set aside.
+/// PLAN index-as-ingredient slice 6: a mixed selection lists the venues `grouped::eligible` admits, any quote (a quote a
+/// refused save left behind narrows nothing).
 fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace) -> Result<String, WebError> {
-    let quote = setting_id(config, QUOTE_KEY);
+    let mixed = grouped::mixed(config);
+    let quote = setting_id(config, QUOTE_KEY).filter(|_| !mixed);
     let (venues, chips) = match namespace {
         // The one-asset bot holds a base only in a session an earlier release left open.
         Namespace::Single => {
@@ -145,9 +148,16 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, namespace: Namespace)
             (search::available_exchanges(c, &Basket { exchange_id: None, quote_asset_id: quote, base_asset_ids: ids.clone() }, None)?, chips(c, &ids)?)
         }
     };
+    let mut venues = venues;
+    if mixed {
+        let mut admitted = vec![];
+        for venue in venues { if grouped::session_eligible(c, &ctx.app, config, venue.id, None)? { admitted.push(venue); } }
+        venues = admitted;
+    }
+    let stacks = grouped::stacks(c, ctx, config)?;
     let csrf = ctx.csrf_token();
     let order = StepOrder::new(namespace.bot_type(), current_variant(config));
-    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, exchange: None }, true)?;
+    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Exchange, multi: namespace == Namespace::Multi, chips, stacks, exchange: None }, true)?;
     let table = Table { action: ctx.path(&format!("{}/pick_exchange", namespace.base())), csrf, param_name: namespace.param().into(), venues: vec![],
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
     let connected = connected(c, ctx.user().map_or(0, |user| user.id), &[0])?;
@@ -200,6 +210,11 @@ async fn create(app: App, ctx: Ctx, namespace: Namespace) -> Result<Response, We
     let Some(exchange) = ctx.params.form(namespace.param()).or_else(|| ctx.params.query(namespace.param())).map(str::to_string) else { return Ok(layout::bad_request()) };
     if crate::v2::blank(&exchange) { return render(&app, &ctx, namespace, StatusCode::UNPROCESSABLE_ENTITY).await }
     let (view, user, id) = (ctx.clone(), ctx.user().map_or(0, |u| u.id), super::to_i(&json!(exchange)));
+    // A mixed selection takes only a venue `grouped::eligible` admits, from either namespace's form.
+    let (inner, held) = (app.clone(), ctx.session.lock().bot_config.clone());
+    if grouped::mixed(held.as_ref()) && !app.db(move |c| grouped::session_eligible(c, &inner, held.as_ref(), id, None)).await? {
+        return render(&app, &ctx, namespace, StatusCode::UNPROCESSABLE_ENTITY).await;
+    }
     let Some(picked) = app.db(move |c| Ok(super::picked(c, &view, user, id)?)).await? else { return Ok(layout::missing()) };
     {
         let mut data = ctx.session.lock();

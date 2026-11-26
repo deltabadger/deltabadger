@@ -1,0 +1,37 @@
+{#- The Assets step's selection (PLAN index-as-ingredient slice 6), on both views: its assets, its indexes (each with its ×),
+    and Next. -#}
+{%- if !chosen.is_empty() || !held.is_empty() %}
+        <div class="wizard-assets__list " data-class-toggle-target="togglable">
+{%- for chip in chosen %}
+            <div class="wizard-assets__row">
+              <div class="modal--search__cell">
+                <div class="{{ chip.class }} ticker--small" style="background: {{ chip.pill }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.id }}">{{ chip.symbol }}</div>
+              </div>
+              <div class="modal--search__cell modal--search__cell--name">
+                {{ chip.logo|safe }}
+                <span class="modal--search__cell--name__label">{{ chip.name }}</span>
+              </div>
+              <div class="modal--search__cell wizard-assets__action">
+                <form data-turbo-frame="modal_content" data-wizard-dir="stay" class="button_to" method="post" action="{{ remove_url }}"><button class="rbutton rbutton--small" title="{{ remove_title|safe }}" type="submit">×</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="bots_dca_single_asset[base_asset_id]" value="{{ chip.id }}" /></form>
+              </div>
+            </div>
+{%- endfor %}
+{%- for index in held %}
+            <div class="wizard-assets__row">
+              <div class="modal--search__cell">
+                <span class="ticker-group ticker-group--many">{% for pill in index.pills %}<span class="ticker ticker--small" style="background-color: {{ pill.color }}" data-ticker-symbol="{{ pill.symbol }}" data-ticker-asset-id="{{ pill.id }}">{{ pill.symbol }}</span>{% endfor %}</span>
+              </div>
+              <div class="modal--search__cell modal--search__cell--name">
+                <span class="modal--search__cell--name__label">{{ index.name }}</span>
+              </div>
+              <div class="modal--search__cell wizard-assets__action">
+                <form data-turbo-frame="modal_content" data-wizard-dir="stay" class="button_to" method="post" action="{{ remove_url }}"><button class="rbutton rbutton--small" title="{{ remove_title|safe }}" type="submit">×</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><input type="hidden" name="index_row" value="{{ index.row }}" /></form>
+              </div>
+            </div>
+{%- endfor %}
+        </div>
+{%- endif %}
+
+{%- if !chosen.is_empty() || !held.is_empty() %}
+        <form class="button_to sheet__next" data-turbo-frame="modal_content" method="post" action="{{ next_url }}"><button class="rbutton rbutton--primary" type="submit">{{ next_label }}</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form>
+{%- endif %}

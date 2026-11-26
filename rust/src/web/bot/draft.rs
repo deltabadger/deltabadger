@@ -1250,7 +1250,7 @@ pub(super) fn group_bound(c: &Connection, group: &Map<String, Value>) -> Result<
 
 /// The members a composition may expand to: its named assets and each group's count (a group holding its whole bounded
 /// index: that index's size).
-fn expansion(c: &Connection, settings: &Map<String, Value>) -> Result<i64, WebError> {
+pub(crate) fn expansion(c: &Connection, settings: &Map<String, Value>) -> Result<i64, WebError> {
     let mut sum = settings.get("allocations").and_then(Value::as_object).map_or(0, |a| a.len() as i64);
     for group in settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object) {
         let bounded = group_bound(c, group)?.unwrap_or(0);

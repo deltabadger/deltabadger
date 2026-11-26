@@ -20,11 +20,17 @@ use serde_json::{json, Value};
 const REPICK: &str = "/bots/dca_single_assets/pick_buyable_asset/new";
 const FIELD: &str = "bots_dca_multi_asset[exchange_id]";
 
-/// `available_stock_brokers(build_bot)`: the stock venues listing every chosen asset, quoted in USD unless a quote is chosen.
-fn brokers(c: &Connection, config: Option<&Value>) -> Result<Vec<(i64, String)>, WebError> {
+/// `available_stock_brokers(build_bot)`: the stock venues listing every chosen asset, quoted in USD unless a quote is chosen; for
+/// a mixed selection only those `grouped::eligible` admits (PLAN index-as-ingredient slice 6), on the GET and the POST alike.
+fn brokers(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<(i64, String)>, WebError> {
     let quote = dig(config, QUOTE_KEY).filter(|value| !value.is_null() && value.as_str().is_none_or(|text| !text.trim().is_empty())).map(super::to_i);
     let basket = Basket { exchange_id: super::exchange_id(config), quote_asset_id: quote, base_asset_ids: basket_ids(config) };
-    let ids = super::assets::stock_brokers(c, &basket, super::usd_asset(c)?)?;
+    let mut ids = super::assets::stock_brokers(c, &basket, super::usd_asset(c)?)?;
+    if super::grouped::mixed(config) {
+        let mut admitted = vec![];
+        for id in ids { if super::grouped::session_eligible(c, app, config, id, quote)? { admitted.push(id); } }
+        ids = admitted;
+    }
     let mut statement = c.prepare("SELECT type FROM exchanges WHERE id = ?1")?;
     ids.into_iter().map(|id| Ok((id, statement.query_row([id], |r| r.get::<_, String>(0))?))).collect()
 }
@@ -56,7 +62,8 @@ fn page(c: &Connection, ctx: &Ctx, user: i64, config: Option<&Value>, brokers: V
                         unavailable_note: ctx.t("bot.hyperliquid_trading_unavailable") };
     // 2.x draws no sentence here: the track says where the flow stands and does nothing (D-WIZARD-TRACK r5).
     let chips = super::chips(c, &basket_ids(config))?;
-    let steered = super::steer(ctx, "", super::SentenceOf { order: &order, step: Step::Exchange, multi: true, chips, exchange: None }, false)?;
+    let stacks = super::grouped::stacks(c, ctx, config)?;
+    let steered = super::steer(ctx, "", super::SentenceOf { order: &order, step: Step::Exchange, multi: true, chips, stacks, exchange: None }, false)?;
     super::sheet(ctx, &steered.track, &New { table }.render()?)
 }
 
@@ -69,7 +76,7 @@ async fn answer(app: &App, ctx: &Ctx, chosen: Option<String>) -> Result<Answer, 
     let (inner, view) = (app.clone(), ctx.clone());
     app.db(move |c| {
         if !stock_bot(c, config.as_ref())? { return Ok(Answer::Repick) }
-        let brokers = brokers(c, config.as_ref())?;
+        let brokers = brokers(c, &inner, config.as_ref())?;
         if chosen.is_none() && brokers.is_empty() { return Ok(Answer::Repick) }
         if let Some(id) = chosen.as_deref().and_then(|wanted| brokers.iter().find(|(id, _)| id.to_string() == wanted).map(|(id, _)| *id)) {
             let Some(picked) = super::picked(c, &view, user.id, id)? else { return Ok(Answer::Missing) };

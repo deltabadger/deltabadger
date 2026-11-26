@@ -12,6 +12,7 @@
 {%- endif %}
     </div>
   </div>
+{%- include "wizard/_chosen.html" %}
 {%- if configured %}
   {#- The list's keys are the rows' (from the search box too); the switch and the connect form keep their own Enter. #}
   <form class="index-rows selectable-options" data-controller="arrow-keys-navigation" data-action="keydown@window-&gt;arrow-keys-navigation#navigate" data-turbo-frame="modal_content" action="{{ action }}" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
