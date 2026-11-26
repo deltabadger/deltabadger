@@ -49,7 +49,7 @@ pub fn unreadable(error: &WebError) -> bool {
 use chrono::{DateTime, Utc};
 use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
 use rusqlite::{Connection, OptionalExtension};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 /// Bots::DcaMultiAsset::MAX_ASSETS.
 pub const MAX_ASSETS: usize = 100;
@@ -271,6 +271,20 @@ impl Kind {
 
 /// `settings.index_groups` is a JSON array (engine `Bot::stored_groups`, by the stored spelling, no decode).
 pub fn stored_groups(settings: &Map<String, Value>) -> bool { settings.get("index_groups").is_some_and(Value::is_array) }
+
+/// PLAN index-as-ingredient slice 4a: the element of a basket stored with one index group at weight 1.0 and no assets (engine
+/// `Composition::lone_group`), the content an index bot converts into; None for anything else.
+pub fn lone_group_of(settings: &Map<String, Value>) -> Option<Map<String, Value>> {
+    if !stored_groups(settings) { return None; }
+    crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(settings))?.lone_group()?;
+    settings.get("index_groups")?.as_array()?.iter().find_map(|g| g.as_object().cloned())
+}
+
+/// The class REST and MCP answer for a bot (PLAN index-as-ingredient slice 4a): a basket stored as one index group is the
+/// index bot it was (`Bots::DcaIndex`), so the external contract does not move until slice 7 adds ingredients.
+pub fn api_type(class: String, settings: &Value) -> String {
+    if class == "Bots::DcaMultiAsset" && settings.as_object().and_then(lone_group_of).is_some() { "Bots::DcaIndex".into() } else { class }
+}
 
 /// The `indices` row an index bot follows (Bots::DcaIndex#current_index), as far as the page reads it.
 #[derive(Clone, Debug, Default)]
@@ -637,7 +651,8 @@ impl Bot {
             }
         };
         let api_key = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, id, "k")?), [], |r| r.get(0)).optional()?;
-        let index = if kind == Kind::Index { index_row(c, &settings)? } else { None };
+        let index = if kind == Kind::Index { index_row(c, &settings)? }
+                    else if let Some(group) = (kind == Kind::Basket).then(|| lone_group_of(&settings)).flatten() { index_row(c, &group)? } else { None };
         let last_order = c.query_row("SELECT status, error_messages FROM transactions WHERE bot_id = ?1 ORDER BY id DESC LIMIT 1", [id], |r| {
             Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, Option<String>>(1)?))
         }).optional()?.map(|(status, messages)| LastOrder {
@@ -666,6 +681,8 @@ impl Bot {
     /// Automation::Labelable#generate_label: `default_label`, else the translated "New bot".
     /// An index bot's clamps its count first, in memory, as Bots::DcaIndex#default_label does.
     fn default_label(&mut self, locale: &str) -> String {
+        // A lone grouped basket is named as the index it follows (PLAN index-as-ingredient slice 4a).
+        if let Some(mut view) = self.index_view() { view.kind = Kind::Index; return view.default_label(locale); }
         let label = match self.kind {
             Kind::Index => {
                 if !self.holds_whole_universe() {
@@ -1013,6 +1030,21 @@ impl Bot {
         let grouped = self.grouped();
         let held: Vec<i64> = if grouped { allocation_ids(&self.settings).into_iter().chain(self.memberships.iter().filter(|m| m.in_index).map(|m| m.asset.id)).collect() } else { vec![] };
         self.tickers.iter().filter(move |t| !grouped || held.contains(&t.base_asset_id))
+    }
+
+    /// A basket whose whole content is one index group (`lone_group_of`): the group's element.
+    pub fn lone_group(&self) -> Option<Map<String, Value>> { if self.kind == Kind::Basket { lone_group_of(&self.settings) } else { None } }
+
+    /// PLAN index-as-ingredient slice 4a: a lone grouped basket as the index view reads it, its group's keys lifted to the top
+    /// level with an index bot's defaults (`default_num_coins`, no flattening). Display only: never loaded into a draft or written.
+    pub fn index_view(&self) -> Option<Bot> {
+        let group = self.lone_group()?;
+        let mut view = self.clone();
+        for (key, value) in group { if key != "weight" { view.settings.insert(key, value); } }
+        for (key, value) in [("num_coins", json!(view.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))] {
+            if matches!(view.settings.get(key), None | Some(Value::Null)) { view.settings.insert(key.to_string(), value); }
+        }
+        Some(view)
     }
 
     /// A basket stored with index groups (PLAN index-as-ingredient §3.2), as the engine's `stored_groups` reads it.

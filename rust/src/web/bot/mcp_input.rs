@@ -99,7 +99,8 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
             continue;
         }
         let index_only = matches!(name, "num_coins" | "allocation_flattening");
-        if index_only && kind != Kind::Index { return Err(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
+        // A basket stored as one index group takes them as its index bot did (slice 4a).
+        if index_only && kind != Kind::Index && draft.original.lone_group().is_none() { return Err(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
         // A signal bot takes its name, its venue and the rules this build runs on it (D-SIG-CONDITIONS, D-SIG-CAP), never a
         // subject (it watches its own pair).
         if kind == Kind::Signal && !matches!(name, "label" | "exchange_id" | "account_id") && (super::draft::field_rule(name).is_none() || name.ends_with("_in_ticker_id")) {

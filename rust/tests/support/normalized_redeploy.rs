@@ -8,7 +8,7 @@ use super::*;
             INSERT INTO transactions VALUES(1,1,0,'2026-03-02 00:00:00',1,110,1,1,NULL,'AAA',2,1,3,'LIQUIDATION');").unwrap();
         if redeploy {c.execute_batch("UPDATE transactions SET quote_amount_exec=110 WHERE id=1;
             INSERT INTO transactions VALUES(2,1,0,'2026-03-02 00:01:00',1,100,1,0.5,NULL,'AAA',2,0,2,'REDEPLOY');").unwrap();}
-        let s=Subject{bot:db::Bot{id:1,user_id:1,exchange_id:Some(1),kind:db::Kind::Basket,exchange_type:Some("Exchanges::Alpaca".into()),quote_asset_id:Some(1),base_asset_ids:vec![2],grouped:false},orders:db::orders(&c,1).unwrap(),tickers:vec![],quote:Some("USD".into())};
+        let s=Subject{bot:db::Bot{id:1,user_id:1,exchange_id:Some(1),kind:db::Kind::Basket,exchange_type:Some("Exchanges::Alpaca".into()),quote_asset_id:Some(1),base_asset_ids:vec![2],grouped:false,lone:false},orders:db::orders(&c,1).unwrap(),tickers:vec![],quote:Some("USD".into())};
         let mut m=Metrics::empty();
         m.walked=Some(crate::figures::walk::Walked{shadowed_by:vec![],external_sales:false,restated_at:None,restated_before_external_sales:false,realised_cash:Num::Int(if redeploy{60}else{110}),asset_lots:vec![],tax_pnl_by_transaction:vec![],loss_lot_by_transaction:vec![]});
         let offer=crate::engine::redeploy::offer(&c,&s,&m).unwrap();

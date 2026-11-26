@@ -512,5 +512,5 @@ struct Menu<'a> { v: &'a Ctx, csrf: &'a str, path: String, menu_id: String, arch
 pub(super) fn menu(ctx: &Ctx, csrf: &str, bot: &Bot, configured: bool) -> Result<String, WebError> {
     Ok(Menu { v: ctx, csrf, path: ctx.path(&format!("/bots/{}",bot.id)), menu_id: bot.dom_id("menu"), id: bot.id,
         split: bot.kind != Kind::Signal && crate::web::bots::mergeable(bot).1,
-        archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index, follow_index: bot.kind == Kind::Basket && !bot.selling() && configured }.render()?)
+        archived: bot.status == BotStatus::Archived, index: bot.kind == Kind::Index || bot.lone_group().is_some(), follow_index: bot.kind == Kind::Basket && !bot.selling() && configured }.render()?)
 }

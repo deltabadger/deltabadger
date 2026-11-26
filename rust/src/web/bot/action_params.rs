@@ -69,7 +69,10 @@ impl ActionParams {
         // #710: the exchange menu's account, beyond 2.x's allowlist (it lists accounts only where an exchange has 2+).
         // PLAN index-as-ingredient §6.2: a basket's ingredient operations, beyond 2.x's allowlist.
         let ops: &[&str] = if kind == Kind::Basket { &INGREDIENT_OPS } else { &[] };
-        for key in allowed.iter().chain(rules).chain(&["account_id"]).chain(ops) {
+        // Slice 4a: a lone index group's form posts the index form's fields under the basket root (the draft refuses them
+        // on any other basket).
+        let lone: &[&str] = if kind == Kind::Basket { &LONE_GROUP_SCALARS } else { &[] };
+        for key in allowed.iter().chain(rules).chain(&["account_id"]).chain(ops).chain(lone) {
             if let Some(value) = fields.get(*key).filter(|v| !v.is_array() && !v.is_object()) {
                 out.insert((*key).into(), value.clone());
             }
@@ -342,6 +345,9 @@ pub const SIGNAL_SCALARS: &[&str] = &["label", "exchange_id", "base_asset_id", "
 pub const INDEX_RULE_SCALARS: &[&str] = &["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit_mode", "price_limit",
     "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition", "price_limit_in_ticker_id",
     "price_drop_limited", "price_drop_limit_mode", "price_drop_limit", "price_drop_limit_time_window_condition", "moving_average_limited", "moving_average_limit_mode", "moving_average_limit_value_condition", "moving_average_limit_in_ma_type", "moving_average_limit_in_timeframe", "moving_average_limit_in_period", "indicator_limited", "indicator_limit_mode", "indicator_limit", "indicator_limit_value_condition", "indicator_limit_in_indicator", "indicator_limit_in_timeframe", "price_drop_limit_in_ticker_id", "moving_average_limit_in_ticker_id", "indicator_limit_in_ticker_id"];
+
+/// PLAN index-as-ingredient slice 4a: the index form's own fields, which a basket stored as one index group takes flat.
+pub const LONE_GROUP_SCALARS: [&str; 4] = ["num_coins", "num_coins_rendered", "num_coins_ceiling", "allocation_flattening"];
 
 pub const INDEX_SCALARS: &[&str] = &[
     "quote_asset_id",

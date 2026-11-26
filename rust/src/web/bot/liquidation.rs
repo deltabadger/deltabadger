@@ -147,7 +147,7 @@ pub async fn new(State(app):State<App>,Extension(ctx):Extension<Ctx>,Path(segmen
         let question=if enabled.is_none() {crate::web::settings::view::question(&view,None,jurisdiction.as_deref())} else {String::new()};
         let body=Modal {
             question,decided:enabled.is_some(),
-            title:t(if exited {if bot.kind==super::Kind::Index {"bot.dca_index.out_of_the_index"}else{"bot.dca_multi_asset.removed_from_portfolio"}}else{"bot.liquidation.title"}),
+            title:t(if exited {if bot.kind==super::Kind::Index||bot.lone_group().is_some() {"bot.dca_index.out_of_the_index"}else{"bot.dca_multi_asset.removed_from_portfolio"}}else{"bot.liquidation.title"}),
             confirm:t(if selected.len()>1 {"bot.liquidation.sell_all_confirm"}else{"bot.liquidation.sell_confirm"}),
             partial:t("bot.liquidation.partial_note"),table,harvest,action:format!("{}?{}",view.path(&format!("/bots/{id}/liquidation")),query.finish()),
             csrf:csrf.clone(),cancel:t("button.cancel"),sell:t("bot.liquidation.sell"),selling:t("bot.liquidation.selling"),

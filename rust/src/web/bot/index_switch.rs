@@ -196,13 +196,16 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
     let (class, settings, exchange_id, venue): (Option<String>, String, i64, Option<String>) = c.query_row(
         "SELECT b.type, b.settings, e.id, e.type FROM bots b JOIN exchanges e ON e.id = b.exchange_id WHERE b.id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     let settings: Value = serde_json::from_str(&settings).map_err(|e| super::data(format!("bot {id} settings: {e}")))?;
-    // Bots::DcaIndex#current_index: the category's row (any source), else the internal Top Coins.
-    let current: Option<i64> = if class.as_deref() != Some("Bots::DcaIndex") { None } else {
+    // Bots::DcaIndex#current_index: the category's row (any source), else the internal Top Coins. A lone grouped basket's
+    // group is its current index too (PLAN index-as-ingredient slice 4a): re-picking it would rebuild the group.
+    let lone = settings.as_object().and_then(super::lone_group_of).filter(|_| class.as_deref() == Some("Bots::DcaMultiAsset"));
+    let followed = if class.as_deref() == Some("Bots::DcaIndex") { settings.as_object().cloned() } else { lone };
+    let current: Option<i64> = match &followed { None => None, Some(settings) => {
         match (settings.get("index_type").and_then(Value::as_str), settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::v2::blank(id))) {
             (Some("category"), Some(category)) => c.query_row("SELECT id FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category], |r| r.get(0)).optional()?,
             _ => c.query_row("SELECT id FROM indices WHERE external_id='top-coins' AND source='internal' ORDER BY id LIMIT 1", [], |r| r.get(0)).optional()?,
         }
-    };
+    } };
     let quote = settings.get("quote_asset_id").and_then(Value::as_i64);
     wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current }))
 }
@@ -294,7 +297,7 @@ struct Picker<'a> { v: &'a Ctx, title: String, none: String, action: String, csr
 /// or the sentence saying there are none at this venue and quote.
 pub fn picker(c: &Connection, ctx: &Ctx, bot: &Bot, csrf: &str) -> Result<String, WebError> {
     use askama::Template;
-    let title = ctx.t(if bot.kind == super::Kind::Index { "bot.index_switch.change_index" } else { "bot.index_switch.follow_index" });
+    let title = ctx.t(if bot.kind == super::Kind::Index || bot.lone_group().is_some() { "bot.index_switch.change_index" } else { "bot.index_switch.follow_index" });
     let quote = bot.quote_asset.as_ref().and_then(|asset| asset.symbol.clone()).unwrap_or_default();
     let none = i18n::text(ctx.locale, "bot.index_switch.none", &[("exchange", i18n::Arg::Text(&bot.exchange.name)), ("quote", i18n::Arg::Text(&quote))]);
     Ok(Picker { v: ctx, title, none, action: ctx.path(&format!("/bots/{}/index", bot.id)), csrf, tiles: offered(c, ctx, bot.id)? }.render()?)
@@ -373,6 +376,8 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
     match op {
         "add_index" | "follow_index" => {
             if op == "add_index" && position(&groups, &named).is_some() { return refuse("not_offered"); }
+            // The current index of a lone group is not offered (`offered`): re-following it would reset its count and flattening.
+            if op == "follow_index" && super::lone_group_of(&draft.raw_settings).is_some_and(|g| id_of(&g) == named) { return refuse("not_offered"); }
             let tile = match offered_here(c, ctx, draft, &named)? { Ok(tile) => tile, Err(refused) => return Ok(Err(refused)) };
             if op == "add_index" { groups.push(group_for(c, &tile, 0.0)?); }
             else {
