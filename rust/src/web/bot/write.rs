@@ -103,6 +103,12 @@ fn regroup(tx: &Connection, draft: &Draft, changes: &super::draft::JsonChanges, 
     crate::engine::index::mark_resync(tx, id, now)?;
     Ok(())
 }
+const UNSTORABLE: &str = "settings beyond the bounds this build stores";
+/// Whether bot `id`'s stored columns, as the transaction holds them, pass `Draft::load`'s bounds.
+fn persisted_loadable(tx: &Connection, id: i64) -> Result<bool, WebError> {
+    let (settings, transient): (String, String) = tx.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    Ok(super::draft::loadable(&settings, &transient).is_some())
+}
 fn one(rows: usize) -> Result<(), WebError> {
     if rows == 1 { Ok(()) } else { Err(error("settings writer lost its owned bot")) }
 }
@@ -261,12 +267,12 @@ fn settings_inner<T>(
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
     // #710: another account of an exchange (the switch menu's, with 2+ accounts there).
     let account_changed = match draft.account { Some(a) => crate::identity::Account::of_bot(&tx, id)? != Some(a), None => false };
-    // PLAN index-as-ingredient slice 3: the one settings key a write removes is `index_groups` (the last group gone).
-    let groups_removed = effects.settings.remove.iter().any(|key| key == "index_groups");
-    let changed = label_changed || exchange_changed || account_changed || groups_removed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
+    // PLAN index-as-ingredient slice 3: a key the draft removed is removed from the row too (`index_groups` with the last
+    // group, a grouped rule's subject with nothing left to watch; Codex slice 3 check r2).
+    let changed = label_changed || exchange_changed || account_changed || !effects.settings.set.is_empty() || !effects.settings.remove.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     forget_composed(&tx, id, &effects.settings.set)?;
-    if groups_removed { one(tx.execute("UPDATE bots SET settings = json_remove(settings, '$.index_groups') WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status <> 3", (id, owner, class))?)?; }
+    for key in &effects.settings.remove { one(tx.execute("UPDATE bots SET settings = json_remove(settings, ?1) WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (path(key, false)?, id, owner, class))?)?; }
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
@@ -328,15 +334,15 @@ fn settings_inner<T>(
             }
             tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::index::RESYNC_KEY), [id])?;
         }
-        // What the operation stored, as stored, must reopen in `Draft::load` (Codex slice 3 r1 #6): both columns, read back.
-        let (settings, transient): (String, String) = tx.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
-        if super::draft::loadable(&settings, &transient).is_none() {
-            let message = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text("settings beyond the bounds this build stores"))]);
-            draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
-            let prepared = response_builder(&tx, &ctx, &draft)?;
-            tx.rollback()?;
-            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
-        }
+    }
+    // What a write on a grouped row stored, as stored, must reopen in `Draft::load` (Codex slice 3 r1 #6, check r2): both
+    // columns read back, the resync marker included.
+    if grouped && !persisted_loadable(&tx, id)? {
+        let message = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(UNSTORABLE))]);
+        draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+        let prepared = response_builder(&tx, &ctx, &draft)?;
+        tx.rollback()?;
+        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
     }
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.
     let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
@@ -694,6 +700,12 @@ pub fn lifecycle_in<T>(
             // Bots::DcaIndex#start: every start, a delayed one included, resyncs the composition.
             // PLAN index-as-ingredient slice 3: and a basket stored with index groups.
             if class=="Bots::DcaIndex" || super::stored_groups(&super::object(&raw,"bots.settings")?) { crate::engine::index::mark_resync(tx,id,ctx.now)?; }
+            if super::stored_groups(&super::object(&raw,"bots.settings")?) && !persisted_loadable(tx,id)? {
+                view.errors.push(FieldError { field: "base".into(), message: i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(UNSTORABLE))]) });
+                if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
+                let prepared=response_builder(tx,ctx,&view)?;
+                return Ok(Step::Done(Outcome::GuardRefused(prepared.response)));
+            }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
                 // created bot with a historical stamp cannot inherit stopped-only scheduling.

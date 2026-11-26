@@ -171,7 +171,7 @@ pub fn reset_sell_side(settings: &mut Map<String, Value>, transient: &mut Map<St
             changed |= settings.get(&switch) == Some(&Value::Bool(true)) || flip;
             if settings.contains_key(&switch) { settings.insert(switch, Value::Bool(false)); }
             if flip { settings.insert(action, json!("pause")); }
-            if present(settings.get(&prefix)) { settings.insert(prefix.clone(), Value::Null); }
+            if present(settings.get(&prefix)) { changed = true; settings.insert(prefix.clone(), Value::Null); }
             transient.remove(&format!("{prefix}_condition_met_at"));
         }
     }

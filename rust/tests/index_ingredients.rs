@@ -984,3 +984,55 @@ async fn a_malformed_operation_is_a_422_and_writes_nothing() {
     assert_eq!(refused.status, 422, "{}", refused.body);
     assert_eq!(settings(&u, id), before);
 }
+
+// Codex slice 3 check r2.
+
+#[tokio::test]
+async fn a_group_only_venue_move_with_no_member_there_drops_the_subject() {
+    let mut u = universe();
+    exec(&u.o, "INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.1', '0.1', '2026-01-01', '2026-01-01')");
+    let other = u.o.primary.last_insert_rowid();
+    exec(&u.o, &format!("CREATE TEMP TABLE t AS SELECT * FROM tickers WHERE id = {}; UPDATE t SET id = NULL, exchange_id = {other}; INSERT INTO tickers SELECT * FROM t; DROP TABLE t;", u.s.ticker_id));
+    exec(&u.o, &format!("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) SELECT user_id, {other}, key, secret, status, key_type, created_at, updated_at FROM api_keys WHERE id = {}", u.s.api_key_id));
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    member(&u, id, u.m[0], 1.0, true);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit_in_ticker_id', {}) WHERE id = {id}", u.m[0].1));
+    let saved = patch(&mut u, id, &[(&key("exchange_id"), &other.to_string())]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert!(s.get("price_limit_in_ticker_id").is_none_or(Value::is_null), "the old venue's ticker is not kept: {s}");
+}
+
+#[tokio::test]
+async fn an_index_of_stablecoins_is_not_offered() {
+    let mut u = universe();
+    let coins: Vec<(i64, i64)> = ["USDX", "USDY", "USDZ"].iter().map(|s| seed::add_alpaca_stock(&u.o.primary, &u.s, s)).collect();
+    for (asset, _) in &coins { exec(&u.o, &format!("UPDATE assets SET category = 'Stablecoin' WHERE id = {asset}")); }
+    seed::insert_index(&u.o.primary, "stable", &["USDX.US", "USDY.US", "USDZ.US"], &json!({}));
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    let refused = patch(&mut u, id, &[(&key("add_index"), "stable")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+}
+
+#[tokio::test]
+async fn a_field_edit_whose_resync_marker_would_not_reopen_is_refused() {
+    let mut u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    // A transient document at Draft::load's leaf bound: the resync marker would take it past.
+    let leaves: i64 = u.o.primary.query_row(&format!("SELECT count(*) FROM bots, json_tree(bots.transient_data) WHERE bots.id = {id} AND json_tree.type NOT IN ('object', 'array')"), [], |r| r.get(0)).unwrap();
+    let pad: serde_json::Map<String, Value> = (0..(1000 - leaves - 2)).map(|i| (format!("k{i}"), json!(i))).collect();
+    exec(&u.o, &format!("UPDATE bots SET transient_data = json_set(transient_data, '$.pad', json('{}')) WHERE id = {id}", Value::Object(pad)));
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200, "loads at the bound");
+    let before = (settings(&u, id), transient(&u, id));
+    let refused = patch(&mut u, id, &[(&key("index_groups][nasdaq-100][num_coins"), "4")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert_eq!((settings(&u, id), transient(&u, id)), before, "rolled back");
+}
+
+#[test]
+fn clearing_a_lone_stored_threshold_counts_as_a_reset() {
+    let mut s = json!({ "sell_price_limited": false, "sell_price_limit": 70000 }).as_object().unwrap().clone();
+    let mut t = serde_json::Map::new();
+    assert!(composition::reset_sell_side(&mut s, &mut t));
+    assert!(s["sell_price_limit"].is_null());
+}
