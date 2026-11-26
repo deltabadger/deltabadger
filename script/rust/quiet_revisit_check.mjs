@@ -210,7 +210,7 @@ let socket;
 const errors = [];
 try {
   const portFile = join(profile, "DevToolsActivePort");
-  const port = await until("Chrome's debugging port", () => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0], 20000);
+  const port = await until("Chrome's debugging port", () => { try { return existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]; } catch { return false; } }, 20000);
   const target = await until("a page", async () => (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find((t) => t.type === "page"));
   socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = () => reject(new Error("no DevTools socket")); });
@@ -431,7 +431,8 @@ try {
   try { socket?.close(); } catch {}
   browser.kill("SIGKILL");
   app.stop(true);
-  rmSync(profile, { recursive: true, force: true });
+  // Windows keeps the killed browser's profile locked for a moment: retry, and never fail a run on a leftover temp folder.
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) { console.warn(`profile not removed: ${error.code ?? error}`); }
 }
 if (failures.length) {
   console.error(`${failures.length} failed: ${failures.join(", ")}`);

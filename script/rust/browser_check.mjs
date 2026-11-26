@@ -8,7 +8,7 @@
 // server's pings, and keeps that one connection. With UNPORTED_VENUE (an exchange id), it also picks that venue in the index
 // wizard's venue step, where the refusal must show in the modal. With INDEX_WIZARD ({ venue, key, secret }) and BOT_ID, it
 // walks the index wizard in the sheet opened over that bot's page (D-INDEX-IN-ASSETS): the index picked with the arrow keys
-// from a filtered list, a correct key on to the quote step inside the sheet, and a search after the market data went away
+// from a filtered list, a correct key on to the quote step inside the sheet, and a quote search after the market data went away
 // showing its connect form in the sheet. With GROUP_SHEET ({ bot, group }), a grouped basket's index sheet (PLAN
 // index-as-ingredient slice 5): opened by Enter on the stack, the count saved 3 → 4 → 3 (each read back from the stored row),
 // a save refused after the bot was started behind the open sheet (the refusal in the sheet, nothing stored), the composition's
@@ -83,7 +83,7 @@ const cables = new Map();
 let where = async () => "";
 try {
   const portFile = join(profile, "DevToolsActivePort");
-  const port = await until("Chrome's debugging port", () => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]);
+  const port = await until("Chrome's debugging port", () => { try { return existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]; } catch { return false; } });
   const target = await until("a page to drive", async () => {
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     return targets.find((candidate) => candidate.type === "page");
@@ -341,6 +341,20 @@ try {
     await until("the Asset view", () => shows(`${frame} .wizard-search .segmented a[href$="kind=index"]`));
     await click(`${frame} .wizard-search .segmented a[href$="kind=index"]`);
     await until("the Index view", () => shows(`${frame} button.index-row`));
+    // The Asset / Index switch folds only when it does not fit its row (the search box beside it yields first): open on the
+    // desktop-wide sheet, though it was first measured while the sheet zoomed in; open at a phone's 375 px, where it still
+    // fits; folded on a row narrower than itself; open again once the room is back.
+    const folded = () => call(function (f) { return document.querySelector(`${f} .wizard-search .segmented`)?.classList.contains("segmented--collapsed"); }, frame);
+    await sleep(800);
+    if (await folded()) throw new Error("the Asset / Index switch folded on a desktop-wide sheet");
+    const width = (px) => send("Emulation.setDeviceMetricsOverride", { width: px, height: 800, deviceScaleFactor: 1, mobile: false });
+    await width(375);
+    await sleep(800);
+    if (await folded()) throw new Error("the Asset / Index switch folded at 375 px, where it fits");
+    await width(150);
+    await until("the switch folded on a row narrower than itself", () => folded());
+    await send("Emulation.clearDeviceMetricsOverride");
+    await until("the switch open again at the desktop width", async () => (await folded()) === false);
     // Enter on the focused switch is the link's own: it never picks an index.
     await call(function (f) { document.querySelector(`${f} .wizard-search .segmented a[href$="kind=index"]`).focus(); }, frame);
     await press("Enter", 13);
@@ -362,9 +376,9 @@ try {
     const picked = await evaluate(`document.querySelector("${frame} .sheet__track li").innerText`);
     if (!/Layer/.test(picked)) throw new Error(`the arrow keys picked ${JSON.stringify(picked)}, not the filtered Layer 1`);
     await click(`${frame} #exchange-picker button[value="${venue}"]`);
-    await until("the key step", () => shows(`${frame} form[action$="/bots/dca_indexes/add_api_key"] input[name="api_key[key]"]`));
+    await until("the key step", () => shows(`${frame} form[action*="/bots/dca_indexes/add_api_key"] input[name="api_key[key]"]`));
     await call(function (f, k, s) {
-      const form = document.querySelector(`${f} form[action$="/bots/dca_indexes/add_api_key"]`);
+      const form = document.querySelector(`${f} form[action*="/bots/dca_indexes/add_api_key"]`);
       form.querySelector('input[name="api_key[key]"]').value = k;
       form.querySelector('input[name="api_key[secret]"]').value = s;
       form.requestSubmit();
@@ -379,11 +393,7 @@ try {
     if (await market("deltabadger") !== 200) throw new Error("switching market data back on");
     await click(`${frame} .sheet__track a[href$="/bots/dca_indexes/pick_exchange/new"]`);
     await until("the index exchange step again", () => shows(`${frame} #exchange-picker`));
-    if (await market("") !== 200) throw new Error("switching market data off again");
-    await type(`${frame} .sheet__search input[name=query]`, "kra");
-    await until("the connect form after an exchange search", () => shows(`${frame} a.exchange-grid__item--provider`));
-    await inSheet("the connect form after an exchange search");
-    if (await market("deltabadger") !== 200) throw new Error("switching market data back on");
+    // The exchange step has no search (D-EXCHANGE-NO-SEARCH), so the quote step's search is the one left to check.
     await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
     await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
     console.log("index wizard: arrow keys on the filtered list, the key on to the quote in the sheet, the connect form after a search");
@@ -399,6 +409,12 @@ try {
     };
     await send("Page.navigate", { url: BASE_URL + path });
     await until("bot settings", () => call(function (p, sel) { return location.pathname === p && !!document.querySelector(sel); }, path, amount));
+    // The field is parsed before the module scripts run: an input event dispatched then finds no submit-after-delay
+    // controller on its form and submits nothing. Wait for Stimulus to have connected it.
+    await until("the amount form's submit controller", () => call(function (sel) {
+      const form = document.querySelector(sel)?.closest("form");
+      return !!form && !!window.Stimulus?.getControllerForElementAndIdentifier(form, "form--submit-after-delay");
+    }, amount));
     await evaluate(`document.addEventListener("turbo:submit-end", event => { window.lastSubmission = event.detail.fetchResponse?.statusCode; })`);
     const edit = async (value, status) => {
       await call(function (sel, v) { window.lastSubmission = null; const field = document.querySelector(sel); field.value = v; field.dispatchEvent(new Event("input", { bubbles: true })); }, amount, value);
@@ -458,7 +474,8 @@ try {
   const exited = new Promise(resolve => { if (browser.exitCode !== null || browser.signalCode !== null) resolve(); else browser.once("exit", resolve); });
   browser.kill("SIGKILL");
   await exited;
-  rmSync(profile, { recursive: true, force: true });
+  // Windows keeps the killed browser's profile locked for a moment: retry, and never fail a run on a leftover temp folder.
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) { console.warn(`profile not removed: ${error.code ?? error}`); }
 }
 if (problem) {
   console.error(problem);

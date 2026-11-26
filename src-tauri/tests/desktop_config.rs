@@ -111,3 +111,20 @@ fn the_updater_config_is_the_production_one() {
     assert!(!text.contains("dangerous"), "a dangerous* flag is committed");
     assert!(!text.contains("http://"), "a plain-http endpoint is committed");
 }
+
+// B13: the committed pubkey is Tauri's base64 of a minisign .pub file, so a broken paste fails here, not at the first
+// update. The key line is "Ed", the 8-byte key id (little-endian) and the 32-byte Ed25519 key.
+#[test]
+fn the_updater_pubkey_is_a_minisign_public_key() {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let pubkey = config()["plugins"]["updater"]["pubkey"].as_str().unwrap().to_string();
+    let file = String::from_utf8(STANDARD.decode(&pubkey).expect("pubkey is not base64")).expect("pubkey is not text");
+    let mut lines = file.lines();
+    let comment = lines.next().unwrap();
+    assert!(comment.starts_with("untrusted comment: minisign public key: "), "{comment:?}");
+    let key = STANDARD.decode(lines.next().expect("no key line")).expect("key line is not base64");
+    assert_eq!(key.len(), 42, "a minisign public key is 42 bytes");
+    assert_eq!(&key[..2], b"Ed");
+    let id: String = key[2..10].iter().rev().map(|b| format!("{b:02X}")).collect();
+    assert!(comment.ends_with(&id), "the comment's key id {comment:?} is not the key's {id}");
+}
