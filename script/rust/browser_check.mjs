@@ -80,7 +80,7 @@ const cables = new Map();
 let where = async () => "";
 try {
   const portFile = join(profile, "DevToolsActivePort");
-  const port = await until("Chrome's debugging port", () => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]);
+  const port = await until("Chrome's debugging port", () => { try { return existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]; } catch { return false; } });
   const target = await until("a page to drive", async () => {
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     return targets.find((candidate) => candidate.type === "page");
@@ -382,7 +382,8 @@ try {
   const exited = new Promise(resolve => { if (browser.exitCode !== null || browser.signalCode !== null) resolve(); else browser.once("exit", resolve); });
   browser.kill("SIGKILL");
   await exited;
-  rmSync(profile, { recursive: true, force: true });
+  // Windows keeps the killed browser's profile locked for a moment: retry, and never fail a run on a leftover temp folder.
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) { console.warn(`profile not removed: ${error.code ?? error}`); }
 }
 if (problem) {
   console.error(problem);
