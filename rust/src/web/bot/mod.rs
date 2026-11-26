@@ -712,7 +712,7 @@ impl Bot {
     /// Bots::DcaIndex::IndexAllocatable). 2.x writes them with the next save; a page writes nothing,
     /// so a row from before a rule existed is rendered with these and stays as it is. `||=`: a
     /// setting that is absent, null or false takes its default. All of it is read from the database.
-    fn fill_defaults(&mut self) {
+    pub(super) fn fill_defaults(&mut self) {
         use serde_json::json;
         // The Smart Intervals amount first: it is computed from the row and the bot's tickers.
         let mut defaults: Vec<(&str, Value)> = vec![("smart_intervaled", json!(false))];
