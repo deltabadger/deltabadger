@@ -402,7 +402,7 @@ export default class extends Controller {
     // number, so a parent that shrink-wraps this control reports a hair less than it measures, and
     // a fraction of a pixel is not a reason to fold anything. Rounding the other operand instead
     // overshoots a room that is itself fractional, which is a fold with the row standing empty.
-    const collapse = this.element.getBoundingClientRect().width > this.#room() + 0.5;
+    const collapse = this.element.getBoundingClientRect().width / this.#scale() > this.#room() + 0.5;
     this.element.classList.toggle("segmented--collapsed", collapse);
 
     // Only on the way in or out: opening the menu resizes the options, which lands back here,
@@ -420,10 +420,20 @@ export default class extends Controller {
     const gap = parseFloat(getComputedStyle(parent).columnGap) || 0;
     // Boxes only: a hidden field (the asset search's `kind`) takes no width and leaves no gap, and
     // charging a gap for it folded the switch with the room to spare.
+    const scale = this.#scale();
     return [...parent.children].filter((child) => child.getClientRects().length > 0).reduce(
-      (room, child) => (child === this.element ? room : room - child.getBoundingClientRect().width - gap),
+      (room, child) => (child === this.element ? room : room - child.getBoundingClientRect().width / scale - gap),
       parent.clientWidth
     );
+  }
+
+  // Box widths are read after transforms (getBoundingClientRect) and the parent's room before them (clientWidth). A sheet
+  // zooming in is scaled past 1 for a moment, and a control measured then took itself for wider than its room and folded;
+  // a transform resizes nothing, so no observer ever measured it again. Dividing by the parent's own scale puts every
+  // width in layout pixels, whatever animation is running.
+  #scale() {
+    const parent = this.element.parentElement;
+    return parent.offsetWidth ? parent.getBoundingClientRect().width / parent.offsetWidth : 1;
   }
 
   #moveThumb() {
