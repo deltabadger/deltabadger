@@ -986,8 +986,10 @@ impl Bot {
     }
 
     /// `allocations.values.sum(&:to_f)`: 2.x's compensated Float sum, in stored order.
+    /// The weights' sum; a basket stored with index groups counts its groups' weights too (PLAN index-as-ingredient §3.2).
     pub fn allocations_total(&self) -> f64 {
-        float_sum(self.allocations().iter().map(|(_, weight)| *weight))
+        let groups = if self.grouped() { crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(&self.settings)).map(|c| c.groups.iter().map(|g| g.weight).collect()).unwrap_or_default() } else { vec![] };
+        float_sum(self.allocations().iter().map(|(_, weight)| *weight).chain(groups))
     }
 
     /// Bots::DcaMultiAsset::Allocatable#allocations_balanced?: within 0.001 of one. An index bot has no such rule.
@@ -1040,7 +1042,12 @@ impl Bot {
     pub fn index_view(&self) -> Option<Bot> {
         let group = self.lone_group()?;
         let mut view = self.clone();
+        // The count and flattening as the group codec reads them (a stored "0.5" draws as 0.5, never the reader's 0).
+        let (count, flattening) = (crate::engine::composition::num_coins(Some(&group)), crate::engine::composition::flattening(Some(&group)));
         for (key, value) in group { if key != "weight" { view.settings.insert(key, value); } }
+        for (key, value) in [("num_coins", count.map(Value::from)), ("allocation_flattening", flattening.map(Value::from))] {
+            match value { Some(value) => { view.settings.insert(key.into(), value); } None => { view.settings.shift_remove(key); } }
+        }
         for (key, value) in [("num_coins", json!(view.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))] {
             if matches!(view.settings.get(key), None | Some(Value::Null)) { view.settings.insert(key.to_string(), value); }
         }

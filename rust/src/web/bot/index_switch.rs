@@ -199,6 +199,7 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
     // Bots::DcaIndex#current_index: the category's row (any source), else the internal Top Coins. A lone grouped basket's
     // group is its current index too (PLAN index-as-ingredient slice 4a): re-picking it would rebuild the group.
     let lone = settings.as_object().and_then(super::lone_group_of).filter(|_| class.as_deref() == Some("Bots::DcaMultiAsset"));
+    let lone_external = lone.as_ref().map(id_of);
     let followed = if class.as_deref() == Some("Bots::DcaIndex") { settings.as_object().cloned() } else { lone };
     let current: Option<i64> = match &followed { None => None, Some(settings) => {
         match (settings.get("index_type").and_then(Value::as_str), settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::v2::blank(id))) {
@@ -207,7 +208,9 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
         }
     } };
     let quote = settings.get("quote_asset_id").and_then(Value::as_i64);
-    wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current }))
+    // A lone group's index is left out by its external id, whichever provider's row a tile is (an index bot keeps 2.x's row rule).
+    let current_external = lone_external.as_deref();
+    wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current, current_external }))
 }
 
 /// POST /bots/:id/index (Bots::IndicesController#create, Bot::IndexSwitch.follow!): a portfolio starts following the index it
@@ -330,7 +333,7 @@ fn offered_here(c: &Connection, ctx: &Ctx, draft: &draft::Draft, external_id: &s
     if !bots::market_data(c, &ctx.app)?.1 { return Ok(Err(t(ctx.locale, "not_offered"))); }
     if let Some(reason) = wizard::index::refusal(c, &ctx.app, &draft.candidate.exchange.class)? { return Ok(Err(write_refused(ctx.locale, reason))); }
     let quote = draft.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
-    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None };
+    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None, current_external: None };
     let Some(tile) = wizard::index::tiles(c, &ctx.app, Some(&here))?.into_iter().find(|tile| tile.external_id == external_id) else { return Ok(Err(t(ctx.locale, "not_offered"))) };
     // The row the engine composes from, when one is ranked, must be offered here itself (Codex slice 3 r1 #4).
     if let Some(ranked) = crate::engine::index::ranked_row(c, external_id)? {
@@ -430,7 +433,9 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
 #[allow(clippy::too_many_arguments)]
 fn ungroup(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Map<String, Value>, engine: &model::Bot, groups: Vec<Map<String, Value>>, named: &str,
            now: chrono::DateTime<chrono::Utc>) -> Result<Result<Vec<Map<String, Value>>, String>, WebError> {
-    const EDITS: [&str; 10] = ["allocations", "index_groups", "weighting", "normalize_allocations", "add_asset_id", "remove_asset_id", "exchange_id", "account_id", "quote_asset_id", "limit_ordered"];
+    // A lone group's flat count and flattening are its group's fields (slice 4a), so an edit too.
+    const EDITS: [&str; 12] = ["allocations", "index_groups", "weighting", "normalize_allocations", "add_asset_id", "remove_asset_id", "exchange_id", "account_id", "quote_asset_id", "limit_ordered",
+                               "num_coins", "allocation_flattening"];
     if EDITS.iter().any(|key| fields.contains_key(*key)) { return Ok(Err(t(ctx.locale, "gone"))); }
     if !crate::engine::composition::current(c, engine, now)? { return Ok(Err(t(ctx.locale, "in_flight"))); }
     let expand: Vec<String> = if named == "*" { groups.iter().map(id_of).collect() } else { vec![named.to_string()] };

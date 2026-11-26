@@ -765,6 +765,8 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
             cap
         };
         if !listed.contains(&asset.id) { continue; }
+        // A grouped bot holds a ranking's repeated member once (D-INDEX-DISTINCT-SEATS); an index bot's preview stays 2.x's.
+        if bot.grouped() && coins.iter().any(|coin: &Coin| coin.asset_id == asset.id) { continue; }
         coins.push(Coin {
             color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?,
             market_cap: format::float_to_s(cap), asset_id: asset.id, symbol: asset.symbol().to_string(), visible: (coins.len() as i64) < num_coins,
@@ -927,7 +929,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             members.sort_by(|a, b| a.0.cmp(&b.0));
             let mut pairs: Vec<(String, String)> = bot.tickers.iter().map(|ticker| (format!("{}{}", ticker.base_symbol.as_deref().unwrap_or(""), ticker.quote_symbol.as_deref().unwrap_or("")), ticker.id.to_string())).collect();
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
-            out.push_str(&if bot.grouped() { grouped_conditions(c, forms, &members, &pairs)? } else { forms.conditions(&members, &pairs) });
+            out.push_str(&if bot.grouped() { grouped_conditions(c, forms, &members)? } else { forms.conditions(&members, &pairs) });
             // While selling the cap counts base, which only a one-asset basket has a single one of.
             if !bot.selling() || bot.one_asset() { out.push_str(&format!("    {}\n", forms.amount_limit(c)?)); }
             if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
@@ -983,10 +985,15 @@ fn index_rules(c: &Connection, forms: &Forms) -> Result<String, WebError> {
 /// A grouped basket's rule forms (PLAN index-as-ingredient slice 4a): a basket's, each rule's subjects extended by the
 /// subject it has stored when that pair is no longer offered (a member that left: the engine still watches it), named as
 /// departed, so an unchanged repost keeps it (as `index_rules` does for an index bot).
-fn grouped_conditions(c: &Connection, forms: &Forms, members: &[(String, String)], pairs: &[(String, String)]) -> Result<String, WebError> {
+fn grouped_conditions(c: &Connection, forms: &Forms, members: &[(String, String)]) -> Result<String, WebError> {
     let mut subjects = std::collections::HashMap::new();
     for (_, prefix) in crate::engine::conditions::TRIGGERS {
-        let mut options = if matches!(prefix, "price_limit" | "price_drop_limit") { members.to_vec() } else { pairs.to_vec() };
+        // The trend rules' pairs are the subject pool's (what the writer takes), not the venue's whole universe.
+        let mut options = if matches!(prefix, "price_limit" | "price_drop_limit") { members.to_vec() } else {
+            let mut pool: Vec<(String, String)> = forms.bot.subject_pool().map(|t| (format!("{}{}", t.base_symbol.as_deref().unwrap_or(""), t.quote_symbol.as_deref().unwrap_or("")), t.id.to_string())).collect();
+            pool.sort_by(|a, b| a.0.cmp(&b.0));
+            pool
+        };
         let stored = forms.bot.setting(&forms.k(&format!("{prefix}_in_ticker_id"))).and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())));
         if let Some(id) = stored.filter(|id| !options.iter().any(|(_, value)| *value == id.to_string())) {
             if let Some(ticker) = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next() {

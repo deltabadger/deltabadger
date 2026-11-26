@@ -111,7 +111,7 @@ pub(crate) struct IndexTile { pub(crate) stored_name: Option<String>, pub(crate)
 
 /// Index.followable_on(exchange, quote_asset_id): the indices of which at least MINIMUM_SUPPORTED_COINS members exported for the
 /// venue's class trade there at the quote; `current` (an index bot's own index) is left out, as Bots::IndicesController does.
-pub(crate) struct Followable<'a> { pub exchange_id: i64, pub class: &'a str, pub quote: Option<i64>, pub current: Option<i64> }
+pub(crate) struct Followable<'a> { pub exchange_id: i64, pub class: &'a str, pub quote: Option<i64>, pub current: Option<i64>, pub current_external: Option<&'a str> }
 
 /// `truncate(text, length: 150)`: past 150 characters, the first 147 and "...".
 fn truncate(text: &str) -> String {
@@ -142,7 +142,7 @@ pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) 
         rows.retain(|row| {
             let index = create::IndexRow { source: None, top_coins: ids_of(row.4.clone()), available_exchanges: Map::new(),
                 by_exchange: row.7.as_deref().and_then(|text| serde_json::from_str::<Value>(text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default() };
-            Some(row.6) != f.current && index.top_coins_for_exchange(f.class).iter().filter(|coin| traded.contains(*coin)).count() as i64 >= MINIMUM_SUPPORTED_COINS
+            Some(row.6) != f.current && (f.current_external.is_none() || row.0.as_deref() != f.current_external) && index.top_coins_for_exchange(f.class).iter().filter(|coin| traded.contains(*coin)).count() as i64 >= MINIMUM_SUPPORTED_COINS
         });
     }
     // `Asset.where(external_id: ...).index_by(&:external_id)`: the last row of an id wins.

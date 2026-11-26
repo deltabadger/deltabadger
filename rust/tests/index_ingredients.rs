@@ -1232,9 +1232,111 @@ async fn rest_and_mcp_read_a_lone_group_as_its_index() {
 #[test]
 fn a_grouped_bots_figures_revision_moves_with_a_venue_listing() {
     let u = universe();
+    // Only the grouped bot follows an index here (the fixture's deleted index bot would move it under slice 3's query too).
+    exec(&u.o, "DELETE FROM bots WHERE type = 'Bots::DcaIndex'");
     lone(&u, 3, &[]);
     let revision = || deltabadger::web::figure::loading::revision(&u.o.primary, u.s.user_id, common::web::at(NOW)).unwrap().0;
     let before = revision();
     seed::add_alpaca_stock(&u.o.primary, &u.s, "FFF");
     assert_ne!(revision(), before);
+}
+
+// Codex 4a branch r1.
+
+fn seat(u: &U, id: i64, at: usize) {
+    exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES ({id}, {}, {}, 0.5, 1, '2026-09-01', '2026-09-01')", u.m[at].0, u.m[at].1));
+}
+
+/// P1: an enabled rule with no stored subject pauses the engine; an unrelated save never stores a default one.
+#[tokio::test]
+async fn an_unrelated_save_never_stores_a_default_subject() {
+    let mut u = universe();
+    let id = lone(&u, 3, &[("price_limited", json!(true)), ("price_limit", json!(50000.0))]);
+    seat(&u, id, 0);
+    seat(&u, id, 1);
+    let saved = patch(&mut u, id, &[(&key("quote_amount"), "61")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert_eq!(s["quote_amount"], json!(61.0));
+    assert!(s.get("price_limit_in_ticker_id").is_none_or(Value::is_null), "no subject chosen for the owner: {s}");
+}
+
+/// P1: string count and flattening (as the group codec reads them) are drawn as they are, and posting what was drawn with a
+/// budget edit leaves both exactly as stored.
+#[tokio::test]
+async fn string_count_and_flattening_draw_and_survive_a_budget_save() {
+    let mut u = universe();
+    let id = lone(&u, 3, &[]);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups[0].num_coins', '4', '$.index_groups[0].allocation_flattening', '0.5') WHERE id = {id}"));
+    let before = the_group(&u, id);
+    let page = u.b.get(&u.app, &format!("/bots/{id}")).await;
+    let field = |name: &str| page.body.split(&format!("name=\"{ROOT}[{name}]\"")).nth(1).and_then(|rest| rest.split("value=\"").nth(1)).and_then(|v| v.split('"').next()).map(str::to_string);
+    assert_eq!((field("num_coins").as_deref(), field("allocation_flattening").as_deref()), (Some("4"), Some("0.5")));
+    let saved = patch(&mut u, id, &[(&key("num_coins"), "4"), (&key("num_coins_rendered"), "4"), (&key("num_coins_ceiling"), "5"), (&key("allocation_flattening"), "0.5"), (&key("quote_amount"), "61")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    assert_eq!(the_group(&u, id), before);
+}
+
+/// P2: a balanced lone group's status bar shows its state, not "normalize first".
+#[tokio::test]
+async fn a_balanced_lone_groups_status_is_its_own() {
+    let mut u = universe();
+    let id = lone(&u, 3, &[]);
+    let page = u.b.get(&u.app, &format!("/bots/{id}")).await;
+    assert!(!page.body.contains("Normalize allocation"), "{}", page.body.split("status").nth(1).unwrap_or_default().chars().take(300).collect::<String>());
+    let mixed = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.4)]));
+    assert!(u.b.get(&u.app, &format!("/bots/{mixed}")).await.body.contains("Normalize allocation"), "an unbalanced set still says so");
+}
+
+/// P2: the moving-average and indicator rules offer only what the writer takes: the subject pool, and the stored subject
+/// named as departed.
+#[tokio::test]
+async fn trend_rule_subjects_are_the_pool_and_the_departed_stored_one() {
+    let mut u = universe();
+    let id = lone(&u, 3, &[("moving_average_limit_in_ticker_id", json!(u.s.ticker_id))]);
+    seat(&u, id, 0);
+    let page = u.b.get(&u.app, &format!("/bots/{id}")).await;
+    let select = page.body.split(&format!("name=\"{ROOT}[moving_average_limit_in_ticker_id]\"")).nth(1).and_then(|r| r.split("</select>").next()).unwrap_or_default().to_string();
+    assert!(select.contains("(not in the index)") && select.contains(&format!("value=\"{}\"", u.m[0].1)), "{select}");
+    assert!(!select.contains(&format!("value=\"{}\"", u.m[1].1)), "a pair the bot does not hold is not offered: {select}");
+}
+
+/// P2: a ranking naming AAA twice previews AAA once, as the grouped engine holds it (D-INDEX-DISTINCT-SEATS).
+#[tokio::test]
+async fn a_lone_group_previews_distinct_members() {
+    let mut u = universe();
+    exec(&u.o, "UPDATE indices SET top_coins = '[\"AAA.US\",\"AAA.US\",\"BBB.US\",\"CCC.US\"]' WHERE external_id = 'nasdaq-100'");
+    let id = lone(&u, 2, &[]);
+    let page = u.b.get(&u.app, &format!("/bots/{id}")).await;
+    assert_eq!(page.body.matches(&format!("data-asset-id=\"{}\" data-index=", u.m[0].0)).count(), 1, "AAA once");
+}
+
+/// P2: Custom allocation posted with a slider edit is a conflicting composition edit.
+#[tokio::test]
+async fn ungroup_with_a_slider_edit_is_refused() {
+    let mut u = universe();
+    let id = lone(&u, 3, &[]);
+    group_row(&u, id, "nasdaq-100", u.m[0], 1.0);
+    compose(&u, id);
+    for (name, value) in [("num_coins", "4"), ("allocation_flattening", "0.5")] {
+        let before = settings(&u, id);
+        let refused = patch(&mut u, id, &[(&key("ungroup_index_id"), "*"), (&key(name), value)]).await;
+        assert_eq!(refused.status, 422, "{name}: {}", refused.body);
+        assert_eq!(settings(&u, id), before);
+        assert!(refused.body.contains("changed in the meantime"), "refused as a conflicting edit: {}", refused.body);
+    }
+    let alone = patch(&mut u, id, &[(&key("ungroup_index_id"), "*")]).await;
+    assert_eq!(alone.status, 200, "{}", alone.body);
+}
+
+/// P2: the current index is left out of the picker by its external id, whichever provider's row the tile is.
+#[tokio::test]
+async fn the_picker_excludes_the_current_index_of_any_provider() {
+    let mut u = universe();
+    cat_b(&u);
+    exec(&u.o, "INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+                SELECT external_id, 'coingecko', name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at FROM indices WHERE external_id = 'nasdaq-100'");
+    let id = lone(&u, 3, &[]);
+    let picker = u.b.get(&u.app, &format!("/bots/{id}/index/new")).await;
+    assert!(picker.body.contains("cat-b") && !picker.body.contains("nasdaq-100"), "{}", picker.body);
 }

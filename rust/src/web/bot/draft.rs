@@ -258,7 +258,11 @@ impl Draft {
                 group.insert("num_coins".into(), count);
             }
         }
-        if let Some(flattening) = fields.get("allocation_flattening").filter(|v| present(v)) { group.insert("allocation_flattening".into(), numeric(flattening, false)?); }
+        // As decoded (`"0.5"` reads 0.5): a repost of the drawn value keeps the stored spelling.
+        if let Some(flattening) = fields.get("allocation_flattening").filter(|v| present(v)) {
+            let posted = numeric(flattening, false)?;
+            if posted.as_f64() != crate::engine::composition::flattening(Some(&group)) { group.insert("allocation_flattening".into(), posted); }
+        }
         let list = self.candidate.settings.get_mut("index_groups").and_then(Value::as_array_mut).ok_or_else(|| failure("index_groups"))?;
         let at = list.iter().position(Value::is_object).ok_or_else(|| failure("index_groups"))?;
         list[at] = Value::Object(group);
@@ -1080,7 +1084,6 @@ impl Draft {
     /// pool, or left missing.
     fn grouped_subjects(&mut self, c: &Connection, locale: &str) -> Result<(), WebError> {
         let pool: Vec<(i64, String)> = self.candidate.subject_pool().map(|t| (t.id, t.base.clone())).collect();
-        let first = pool.iter().min_by(|a, b| a.1.as_bytes().cmp(b.1.as_bytes())).map(|(id, _)| *id);
         for prefix in trigger_prefixes() {
             let key = format!("{prefix}_in_ticker_id");
             let Some(value) = self.candidate.settings.get(&key).filter(|v| present(v)).cloned() else { continue };
@@ -1100,7 +1103,9 @@ impl Draft {
                 let mapped = base.and_then(|base| self.candidate.subject_pool().filter(|t| t.base_asset_id == base).map(|t| t.id).min());
                 if let Some(mapped) = mapped { self.candidate.settings.insert(key, json!(mapped)); continue; }
             }
-            match first { Some(first) => { self.candidate.settings.insert(key, json!(first)); } None => { self.candidate.settings.shift_remove(&key); } }
+            // Never a default (Codex 4a r1): a subject neither posted nor stored stays absent, so an enabled rule keeps pausing
+            // the engine until the owner picks one; `fill_defaults` only draws one on the page.
+            self.candidate.settings.shift_remove(&key);
         }
         Ok(())
     }
