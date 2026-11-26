@@ -25,7 +25,7 @@ answer() { # a list filtered by --status, as gh does
 case "$1 $2" in
   "auth status") [ ! -e "$STATE/no_auth" ] ;;
   "run list") if [[ " $* " == *" rust.yml "* ]]; then answer rust_runs.json; else answer release_runs.json; fi ;;
-  "run view") answer jobs.json ;;
+  "run view") if [ -e "$STATE/jobs_$3.json" ]; then answer "jobs_$3.json"; else answer jobs.json; fi ;; # per run when given
   "release view") [ -e "$STATE/release.json" ] && answer release.json || exit 1 ;;
   "workflow run"|"pr create") ;;
   *) echo "fake gh: unexpected $*" >&2; exit 1 ;;
@@ -46,7 +46,7 @@ DIGEST=sha256:$(printf 'ab%.0s' {1..32})
 reset_state() {
   rm -f "$STATE"/*
   echo '[{"databaseId":7,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
-  echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"success"}]}' > "$STATE/jobs.json"
+  echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 (1/2)","conclusion":"success"},{"name":"windows-x86_64 (2/2)","conclusion":"success"},{"name":"macos-arm64","conclusion":"success"}]}' > "$STATE/jobs.json"
   echo '[]' > "$STATE/release_runs.json"
   cp "$root/rust/seed/seed_data.json.gz" "$STATE/seed.gz" # the served snapshot is the committed one
 }
@@ -157,11 +157,28 @@ touch "$repo/new_model.rb"; refused "an untracked file" "untracked files count" 
 refused "origin moved on (fetched first)" "main is not origin/main" patch
 git -C "$repo" pull -q
 echo '[]' > "$STATE/rust_runs.json"; refused "no CI run on the commit" "gh workflow run rust.yml --ref main" patch
-echo '[{"databaseId":7,"event":"schedule","conclusion":"success"}]' > "$STATE/rust_runs.json"; refused "only a scheduled run" "no rust.yml run" patch
-echo '[{"databaseId":7,"event":"push","conclusion":"failure"}]' > "$STATE/rust_runs.json"; refused "a red run" "no rust.yml run" patch
+echo '[{"databaseId":7,"event":"schedule","conclusion":"success"}]' > "$STATE/rust_runs.json"; refused "only a scheduled run" "no rust.yml runs" patch
+echo '[{"databaseId":7,"event":"push","conclusion":"failure"}]' > "$STATE/rust_runs.json"; refused "a red run" "no rust.yml runs" patch
 reset_state
-echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"skipped"}]}' > "$STATE/jobs.json"; refused "a skipped platform job" "no rust.yml run" patch
-echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"}]}' > "$STATE/jobs.json"; refused "a push run without macOS" "no rust.yml run" patch
+echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"skipped"}]}' > "$STATE/jobs.json"; refused "a skipped platform job" "no rust.yml runs" patch
+echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"}]}' > "$STATE/jobs.json"; refused "a push run without macOS" "no rust.yml runs" patch
+# A push run without macOS plus a macOS-only run by hand on the same commit: every job passed somewhere.
+two_runs() { # <push jobs> <dispatch jobs>
+  echo '[{"databaseId":7,"event":"push","conclusion":"success"},{"databaseId":8,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
+  echo "{\"jobs\":$1}" > "$STATE/jobs_7.json"; echo "{\"jobs\":$2}" > "$STATE/jobs_8.json"
+}
+two_runs '[{"name":"linux-x86_64","conclusion":"success"},{"name":"image-amd64","conclusion":"success"}]' \
+  '[{"name":"macos-arm64","conclusion":"failure"},{"name":"image-amd64","conclusion":"skipped"}]'
+refused "a red macOS-only run beside a push run" "no rust.yml runs" patch
+two_runs '[{"name":"linux-x86_64","conclusion":"success"}]' \
+  '[{"name":"macos-arm64","conclusion":"success"},{"name":"image-amd64","conclusion":"skipped"}]'
+refused "a job skipped in every run" "no rust.yml runs" patch
+echo '[{"databaseId":8,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
+echo '{"jobs":[{"name":"macos-arm64","conclusion":"success"}]}' > "$STATE/jobs_8.json"
+refused "a macOS-only run without a passed push run" "no rust.yml runs" patch
+two_runs '[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 (1/2)","conclusion":"success"},{"name":"windows-x86_64 (2/2)","conclusion":"success"},{"name":"image-amd64","conclusion":"success"}]' \
+  '[{"name":"macos-arm64","conclusion":"success"},{"name":"image-amd64","conclusion":"skipped"}]'
+ANSWER=n refused "a push run plus a macOS-only run by hand passes the CI check (reaches the question)" "aborted" patch
 reset_state
 for st in queued in_progress waiting pending requested; do
   echo '[{"status":"completed","event":"push"},{"status":"'$st'","event":"pull_request"},{"status":"'$st'","event":"push"}]' > "$STATE/release_runs.json"

@@ -32,18 +32,24 @@ $(git status --short --untracked-files=all)"
   gh auth status > /dev/null 2>&1 || die "gh is not logged in (gh auth login)"
 }
 
-# r1.8: a rust.yml run on this exact commit, started by a push or by hand, succeeded in every job, macOS included.
+# r1.8: on this exact commit, every rust.yml job passed in a run started by a push or by hand, macOS included. The jobs
+# may come from different runs: a push run (no macOS) plus a macOS-only run by hand (-f macos_only=true) is enough.
 ci_passed() {
   local sha; sha=$(git rev-parse HEAD)
   local runs; runs=$(gh run list --workflow rust.yml --commit "$sha" --json databaseId,event,conclusion \
     --jq '[.[] | select((.event == "push" or .event == "workflow_dispatch") and .conclusion == "success") | .databaseId] | .[]')
-  local id jobs
+  local id jobs='[]'
   for id in $runs; do
-    jobs=$(gh run view "$id" --json jobs --jq '[.jobs[] | {name, conclusion}]')
-    if jq -e 'length > 0 and all(.conclusion == "success") and any(.name == "macos-arm64")' <<< "$jobs" > /dev/null; then return 0; fi
+    jobs=$(jq -s 'add' <<< "$jobs $(gh run view "$id" --json jobs --jq '[.jobs[] | {name, conclusion}]')")
   done
-  die "no rust.yml run on ${sha:0:9} passed every job on every platform (macOS runs only when started by hand).
-Run: gh workflow run rust.yml --ref main   then wait for it to pass, and run this again."
+  # Each job passed in some run (one skipped in every run counts as not run), and every platform leg of rust.yml's
+  # matrix is among them: a macOS-only run has no Linux or Windows legs, so their absence must refuse too.
+  jq -e '. as $j | length > 0 and (group_by(.name) | all(any(.conclusion == "success")))
+    and all("linux-x86_64", "linux-arm64", "windows-x86_64 (1/2)", "windows-x86_64 (2/2)", "macos-arm64"; . as $n | $j | any(.name == $n))' \
+    <<< "$jobs" > /dev/null && return 0
+  die "no rust.yml runs on ${sha:0:9} passed every job on every platform (macOS runs only when started by hand).
+After the push run on this commit passed: gh workflow run rust.yml --ref main -f macos_only=true
+(without a passed push run: gh workflow run rust.yml --ref main). Wait for it to pass, and run this again."
 }
 
 no_release_running() { # asked per active status, so no number of older runs can hide one

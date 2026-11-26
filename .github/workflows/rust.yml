@@ -1,8 +1,14 @@
 name: Rust engine
 
 on:
-  # By hand only: the only run with the macos-arm64 leg (the platform job's matrix).
+  # By hand only: the only run with the macos-arm64 leg (the platform job's matrix). macos_only runs that leg alone, for a
+  # commit whose push run already passed: release.sh counts the jobs of both runs (r1.8).
   workflow_dispatch:
+    inputs:
+      macos_only:
+        description: Only the macos-arm64 leg (the push run on this commit covers the rest)
+        type: boolean
+        default: false
   # The image job only: base images and package repositories change under an unchanged repository.
   schedule:
     - cron: '17 3 * * *'
@@ -84,7 +90,7 @@ jobs:
       matrix:
         # macos-arm64 (Apple Silicon; Intel Macs are not supported) runs only when the workflow is started by hand
         # (`gh workflow run rust.yml --ref <branch>`): development runs on a Mac, and the leg queued up to an hour per PR.
-        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"}]') }}
+        include: ${{ fromJSON(inputs.macos_only && '[{"name":"macos-arm64","os":"macos-15"}]' || github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"}]') }}
     defaults:
       run:
         working-directory: rust
@@ -178,6 +184,7 @@ jobs:
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
+    if: ${{ !inputs.macos_only }}
     name: image-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -240,7 +247,7 @@ jobs:
   # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
   # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
   release-scripts:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && !inputs.macos_only
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -257,7 +264,7 @@ jobs:
   # since only the digest path is under test: the config digest script/rust/image_config_digest.sh reads from the
   # loaded image must equal the one a cache-hit build through the image exporter (the push path) records.
   publish-digest:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && !inputs.macos_only
     name: publish-digest ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -303,7 +310,7 @@ jobs:
   # Every test, on Linux, with nothing of 2.x on the runner: no test reaches it (PLAN-B11 B11-3). The 2.x interop
   # tests skip here (no DELTABADGER_IMAGE) and run in the image job.
   full-suite:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && !inputs.macos_only
     name: Full Rust suite (${{ matrix.partition }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
