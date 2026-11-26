@@ -497,10 +497,22 @@ fn metrics_error(e:&WebError)->String{match e{
     _=>"metrics unavailable".into()}}
 /// BotApi::Bots::Get, and GetBotDetailsTool's text for it.
 fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
-    let Some(b)=bot(c,user,id)?else{return Ok(failed(Domain::NotFound,"bot_not_found","Bot not found."))};
+    let Some(mut b)=bot(c,user,id)?else{return Ok(failed(Domain::NotFound,"bot_not_found","Bot not found."))};
+    // PLAN index-as-ingredient slice 7: a grouped bot's ingredients and members; its pair names them (every other bot: 2.x's).
+    let grouped=crate::web::bot::api_grouped(c,user,id)?;
+    if let Some(g)=grouped.as_ref().filter(|_|b.kind=="Bots::DcaMultiAsset"){b.pair=Some(format!("{}/{}",g.names.join("+"),b.quote));}
     let status=tools::STATUSES.get(usize::try_from(b.status).map_err(|_|error())?).ok_or_else(error)?;
     let mut lines=vec![format!("Bot: {} (ID {})",b.label,b.id),format!("Type: {}",tools::type_name(&b.kind)),format!("Status: {status}"),format!("Exchange: {}",b.exchange.as_deref().map_or_else(||"N/A".to_string(),|e|match b.account.1{Some(n)=>format!("{e} {n}"),None=>e.to_string()}))];
     if let Some(pair)=&b.pair{lines.push(format!("Pair: {pair}"));}
+    if let Some(g)=&grouped{
+        let shown=|i:&Value|format!("{} {:.2}% ({})",i["symbol"].as_str().or(i["name"].as_str()).unwrap_or(""),i["allocation"].as_f64().unwrap_or(0.0),
+            if i["kind"]=="index"{format!("index id {}, {} assets{}, flattening {}",tools::str_value(&i["id"]),tools::str_value(&i["num_coins"]),if i["hold_all"]==true{" (all)"}else{""},tools::str_value(&i["allocation_flattening"]))}
+            else{format!("asset id {}",i["asset_id"])});
+        lines.push(format!("Ingredients: {}",g.ingredients.as_array().into_iter().flatten().map(shown).collect::<Vec<_>>().join(", ")));
+        // What it trades now, with the ids update_bot_settings and the trading conditions take.
+        let traded=|m:&Value|format!("{} {:.2}% (asset id {}, ticker id {})",tools::str_value(&m["symbol"]),m["allocation"].as_f64().unwrap_or(0.0),m["asset_id"],if m["ticker_id"].is_null(){"none".into()}else{m["ticker_id"].to_string()});
+        if let Some(members)=g.members.as_array().filter(|m|!m.is_empty()){lines.push(format!("Current members: {}",members.iter().map(traded).collect::<Vec<_>>().join(", ")));}
+    }
     let members=members(c,&b.kind,&b.settings)?;
     // allocation_assets: a basket's members, each under the key it goes by (nil for any other type).
     let mut assets=(b.kind=="Bots::DcaMultiAsset").then(Vec::new);
@@ -622,6 +634,7 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     let mut data=data;
     crate::identity::account_fields(&mut data,b.account.0,b.account.1);
     if !unrecorded.is_null(){data["unrecorded_orders"]=unrecorded;}
+    if let Some(g)=grouped{data["ingredients"]=g.ingredients;data["members"]=g.members;}
     Ok(ok(data,lines.join("\n")))
 }
 fn ids(c:&Connection,user:i64)->Result<Vec<i64>,WebError>{Ok(c.prepare("SELECT id FROM bots WHERE user_id=?1 AND status!=3 ORDER BY id")?.query_map([user],|r|r.get(0))?.collect::<Result<Vec<_>,_>>()?)}

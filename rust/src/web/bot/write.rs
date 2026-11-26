@@ -184,10 +184,18 @@ fn settings_inner<T>(
     let mut mcp_refused = false;
     let mut refused = None;
     if submitted.mcp() {
+        let mut form = None;
         match super::mcp_input::apply(&tx, &mut draft, &fields, &zone, ctx.now)? {
-            super::mcp_input::InputOutcome::Parsed => {},
+            super::mcp_input::InputOutcome::Parsed(posted) => form = Some(posted),
             super::mcp_input::InputOutcome::Refused(failure) => refused = Some(failure),
             super::mcp_input::InputOutcome::AsciiAliasRefused => mcp_refused = true,
+        }
+        // PLAN index-as-ingredient slice 7: the form's ingredient step, on the form the API's keys became (same refusals).
+        if let Some(form) = form.filter(|_| draft.errors.is_empty()) {
+            match super::index_switch::ingredients(&tx, &ctx, &mut draft, &form, ctx.now)? {
+                Err(message) => draft.errors = vec![FieldError { field: "base".into(), message }],
+                Ok(op) => ran = op,
+            }
         }
         if draft.errors.is_empty() {
             // BotApi captures under the old settings before model validation; the save

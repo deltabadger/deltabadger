@@ -26,7 +26,7 @@ impl Kind {
     /// The parameters the service takes (BotsController's permit lists, the tools' properties).
     pub fn params(self) -> &'static [&'static str] {
         match self {
-            Self::Dca => &["exchange_name", "base_asset", "second_base_asset", "quote_asset", "quote_amount", "interval", "allocation", "label", "start_at", "assets", "weighting", "account_id"],
+            Self::Dca => &["exchange_name", "base_asset", "second_base_asset", "quote_asset", "quote_amount", "interval", "allocation", "label", "start_at", "assets", "weighting", "account_id", "indexes"],
             Self::Index => &["exchange_name", "quote_asset", "quote_amount", "interval", "index", "num_coins", "allocation_flattening", "label", "start_at", "account_id"],
             Self::Signal => &["exchange_name", "base_asset", "quote_asset", "label", "account_id"],
         }
@@ -164,6 +164,41 @@ fn basket_entries(p: &Map<String, Value>) -> Option<Vec<Entry>> {
     Some(entries)
 }
 
+/// PLAN index-as-ingredient slice 7: `indexes`, as `assets` is read (a string "id:percent,…", or a list of ids or `{id,
+/// allocation}` hashes), ids kept as written. `None` is the 422: malformed, empty, duplicated or past MAX_ASSETS.
+fn index_entries(v: &Value) -> Option<Vec<Entry>> {
+    let one = |id: &Value, allocation: Option<&Value>| -> Option<Entry> {
+        let id = mcp_input::strip(id.as_str()?).to_owned();
+        if id.is_empty() { return None; }
+        match allocation { None => Some((id, None)), Some(a) => within(a, 0, 100).map(|w| (id, Some(w))) }
+    };
+    let entries: Vec<Option<Entry>> = match v {
+        Value::String(s) => v2_split(s, ',').into_iter().map(|e| {
+            let mut parts = mcp_input::strip(e).splitn(2, ':');
+            let id = json!(parts.next().unwrap_or(""));
+            match parts.next() { None => one(&id, None), Some(a) => one(&id, Some(&json!(a))) }
+        }).collect(),
+        Value::Array(items) => items.iter().map(|e| match e {
+            Value::String(_) => one(e, None),
+            Value::Object(h) if h.keys().all(|k| k == "id" || k == "allocation") => one(h.get("id").unwrap_or(&Value::Null), h.get("allocation")),
+            _ => None,
+        }).collect(),
+        _ => vec![None],
+    };
+    let entries: Vec<Entry> = entries.into_iter().collect::<Option<_>>()?;
+    if entries.is_empty() || entries.len() > MAX_ASSETS { return None; }
+    let mut seen: Vec<&str> = vec![];
+    for (id, _) in &entries { if seen.contains(&id.as_str()) { return None; } seen.push(id); }
+    Some(entries)
+}
+
+/// The one quote asset of this symbol the venue trades against (a basket of indexes alone has no pair to take it from).
+fn venue_quote(c: &Connection, venue: &Venue, quote: &str) -> Result<Option<i64>, WebError> {
+    let ids: Vec<i64> = c.prepare("SELECT DISTINCT t.quote_asset_id FROM tickers t JOIN assets q ON q.id = t.quote_asset_id WHERE t.exchange_id = ?1 AND q.symbol = ?2 AND t.available LIMIT 2")?
+        .query_map((venue.id, quote.to_uppercase()), |r| r.get(0))?.collect::<Result<_, _>>()?;
+    Ok(match ids.as_slice() { [one] => Some(*one), _ => None })
+}
+
 /// Create#basket_weights: fractions summing to 1, equal when none was given (or market_cap derives them), else every given
 /// percentage over 100, which must all be there and add up to 100 within 0.1. Floats at the model boundary.
 fn basket_weights(entries: &[Entry], market_cap: bool) -> Option<Vec<f64>> {
@@ -279,7 +314,8 @@ fn row(tx: &Connection, id: i64) -> Result<(String, String, String, Map<String, 
 
 /// BotApi::Bots::Create.
 fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<Made, WebError> {
-    let basket = present(get(p, "assets")) || present(get(p, "second_base_asset"));
+    let indexes = get(p, "indexes");
+    let basket = present(get(p, "assets")) || present(get(p, "second_base_asset")) || present(indexes);
     let required: &[&str] = if basket { &["exchange_name", "quote_asset", "quote_amount", "interval"] } else { &["exchange_name", "quote_asset", "quote_amount", "interval", "base_asset"] };
     if let Some(res) = missing(p, required) { return Ok(refused(res)); }
     if !interval_ok(get(p, "interval")) { return Ok(refused(invalid_interval(get(p, "interval")))); }
@@ -298,16 +334,40 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     let shown = crate::identity::label_or(tx, account.id, &venue.name)?.plain();
     if !has_trading_key(tx, &account)? { return Ok(refused(api_key_missing(&shown))); }
     let amount = match positive(get(p, "quote_amount"), "quote_amount") { Ok(a) => a, Err(res) => return Ok(refused(res)) };
-    let Some(entries) = basket_entries(p) else {
+    // Slice 7: indexes beside (or instead of) the assets, the wizard's mixed basket.
+    // Given at all (anything but an explicit null) it is judged: `[]`, `{}` or `false` is no request for a plain basket.
+    let index_entries = if p.get("indexes").is_some_and(|v| !v.is_null()) {
+        match index_entries(indexes) {
+            Some(entries) => entries,
+            None => return Ok(refused(invalid("invalid_indexes", format!("indexes must list 1 to {MAX_ASSETS} index ids from list_indices, each once, e.g. 'top-coins:50' or [{{\"id\": \"top-coins\", \"allocation\": 50}}].")))),
+        }
+    } else { vec![] };
+    let only_indexes = !index_entries.is_empty() && !present(get(p, "assets")) && !present(get(p, "second_base_asset")) && !present(get(p, "base_asset"));
+    let Some(entries) = (if only_indexes { Some(vec![]) } else { basket_entries(p) }) else {
         return Ok(refused(invalid("invalid_basket", format!("assets must list 1 to {MAX_ASSETS} symbols, e.g. 'BTC:60,ETH:40' or 'BTC,ETH'."))));
     };
+    if entries.len() + index_entries.len() > MAX_ASSETS {
+        return Ok(refused(invalid("invalid_indexes", format!("A basket holds at most {MAX_ASSETS} assets and indexes together."))));
+    }
     let quote = get(p, "quote_asset");
     let mut pairs = vec![];
     for (symbol, _) in &entries {
         match find_pair(tx, &venue, symbol, &text(quote))? { Some(pair) => pairs.push(pair), None => return Ok(refused(pair_not_found(&shown, symbol, quote))) }
     }
-    let Some(weights) = basket_weights(&entries, market_cap) else {
+    let ingredients: Vec<Entry> = entries.iter().cloned().chain(index_entries.iter().cloned()).collect();
+    let Some(weights) = basket_weights(&ingredients, market_cap) else {
         return Ok(refused(invalid("allocations_unbalanced", "Either give every asset a weight summing to 100, or none.".into())));
+    };
+    // A lone index create stays an index bot, made by its own tool (its contract, its grant).
+    if entries.is_empty() && index_entries.len() == 1 {
+        return Ok(refused(invalid("use_create_index_bot", "One index alone is an index bot: use create_index_bot.".into())));
+    }
+    let quote_id = match pairs.first() {
+        Some((_, quote)) => *quote,
+        None => match venue_quote(tx, &venue, &text(quote))? {
+            Some(quote) => quote,
+            None => return Ok(refused(fail(Domain::NotFound, "quote_asset_not_found", format!("Quote asset {} not found on {shown}.", text(quote).to_uppercase())))),
+        },
     };
     let members: Vec<i64> = pairs.iter().map(|(base, _)| *base).collect();
     let allocations: Map<String, Value> = members.iter().zip(&weights).map(|(id, w)| (id.to_string(), json!(w))).collect();
@@ -320,25 +380,57 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
             return Ok(refused(invalid("market_cap_unavailable", format!("Market-cap weighting needs a market cap for every asset; not every one of {} has one. Give weights instead.", symbols.join(", ")))));
         }
     }
-    let settings = json!({"quote_asset_id": pairs[0].1, "quote_amount": amount.to_f(), "interval": get(p, "interval"), "weighting": weighting,
+    let settings = json!({"quote_asset_id": quote_id, "quote_amount": amount.to_f(), "interval": get(p, "interval"), "weighting": weighting,
                           "allocations": allocations, "base_asset_ids": members});
     let mut config = json!({"exchange_id": venue.id, "settings": settings});
     // D-API-CREATE-HYPERLIQUID-LIMIT: the wizard's lock, which 2.x's API create skips.
     wizard::create::lock_limit_orders(tx, &mut config)?;
     let mut built = wizard::create::build(tx, &config, "en")?;
     if present(get(p, "label")) { built.label = text(get(p, "label")); }
+    if !index_entries.is_empty() {
+        // The wizard's rows for these ids: in its picker's order, the first row of each id this venue and quote take with these
+        // assets (`grouped::eligible`, the wizard's check), else the first of that id, which `group` then refuses.
+        let tiles = wizard::index::tiles(tx, &ctx.app, None)?;
+        let mut rows = vec![];
+        for (external_id, _) in &index_entries {
+            let named: Vec<&wizard::index::IndexTile> = tiles.iter().filter(|t| t.external_id == *external_id).collect();
+            let mut taken = None;
+            for tile in &named { if wizard::grouped::eligible(tx, &ctx.app, venue.id, Some(quote_id), &members, &[tile.row_id])? { taken = Some(*tile); break; } }
+            let Some(tile) = taken.or_else(|| named.first().copied()) else {
+                return Ok(refused(fail(Domain::NotFound, "index_not_found", format!("Index '{external_id}' not found or not available on {shown}. Use 'list_indices' with exchange_name to see what is."))));
+            };
+            rows.push(tile.row_id);
+        }
+        if let Err(message) = wizard::create::group(tx, &ctx.app, &mut built, &rows, "en")? { return Ok(refused(invalid("index_not_offered", message))); }
+        // The weights asked (equal when none), in exact thousandths over every ingredient, as `group` stores equal ones.
+        let assets: Vec<String> = members.iter().map(i64::to_string).collect();
+        let groups: Vec<String> = built.settings.get("index_groups").and_then(Value::as_array).into_iter().flatten()
+            .map(|g| format!("index:{}", crate::engine::composition::external_id(g.as_object()))).collect();
+        let mut shares: Map<String, Value> = assets.iter().chain(&groups).zip(&weights).map(|(k, w)| (k.clone(), json!(w))).collect();
+        super::draft::normalize(&mut shares)?;
+        if let Some(Value::Object(a)) = built.settings.get_mut("allocations") { for (k, w) in a.iter_mut() { if let Some(share) = shares.get(k) { *w = share.clone(); } } }
+        for (group, key) in built.settings.get_mut("index_groups").and_then(Value::as_array_mut).into_iter().flatten().zip(&groups) { group["weight"] = shares[key].clone(); }
+    }
     schedule(tx, user, &mut built.settings, p.get("start_at"), ctx.now)?;
     let create_errors: Vec<FieldError> = wizard::create::validate(tx, &built, Some(&account), "en")?.into_iter().map(|message| FieldError { field: "allocations".into(), message }).collect();
     // On the picked account before its IBKR binding (D-IBKR-ACCOUNT reads the bot's account's key).
-    let id = wizard::create::insert_as(tx, user, built, ctx.now, crate::enums::BotStatus::Created, 0, Some(account))?;
+    let id = if index_entries.is_empty() { wizard::create::insert_as(tx, user, built, ctx.now, crate::enums::BotStatus::Created, 0, Some(account))? } else {
+        // `insert_grouped` stores the page's generated name; a name the caller gave is kept.
+        let label = present(get(p, "label")).then(|| built.label.clone());
+        let id = wizard::create::insert_grouped(tx, user, built, ctx.now, Some(account), "en")?;
+        if let Some(label) = label { tx.execute("UPDATE bots SET label = ?2 WHERE id = ?1", rusqlite::params![id, label])?; }
+        id
+    };
     let mut prepared = match start(tx, ctx, user, id, create_errors)? { Ok(p) => p, Err(res) => return Ok(refused(res)) };
     if let Some(res) = unservable(tx, ctx, id)? { return Ok(refused(res)); }
     if new_record_carry(tx, id, ctx.now)? { prepared.broadcasts.extend(scheduled_bars(tx, ctx, user, id)?); }
     let (label, kind, status, stored) = row(tx, id)?;
-    let symbols: Vec<&str> = entries.iter().map(|(s, _)| s.as_str()).collect();
-    let data = json!({"id": id, "label": label, "type": kind, "status": status, "exchange": venue.name,
+    let grouped = if index_entries.is_empty() { None } else { super::api_grouped(tx, user, id)? };
+    let symbols: Vec<String> = match &grouped { Some(g) => g.names.clone(), None => entries.iter().map(|(s, _)| s.clone()).collect() };
+    let mut data = json!({"id": id, "label": label, "type": kind, "status": status, "exchange": venue.name,
                       "pair": format!("{}/{}", symbols.join("+"), text(quote).to_uppercase()), "quote_asset": text(quote).to_uppercase(),
                       "quote_amount": stored.get("quote_amount"), "interval": stored.get("interval"), "started_at": started_at(tx, id)?});
+    if let Some(g) = grouped { data["ingredients"] = g.ingredients; }
     Ok(Made { res: Res { status: Domain::Created, ..Res::success(data) }, commit: Some(prepared) })
 }
 

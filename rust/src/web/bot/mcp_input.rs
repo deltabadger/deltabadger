@@ -46,7 +46,8 @@ fn fail(draft: &mut Draft, (code, message): (&'static str, String)) -> InputOutc
 }
 
 /// First service refusal wins, in catalogue order. Model errors stay ordered.
-pub enum InputOutcome { Parsed, Refused(Failure), AsciiAliasRefused }
+/// `Parsed` carries the form it posted (slice 7: the ingredient step reads it, as the web branch reads the page's).
+pub enum InputOutcome { Parsed(Value), Refused(Failure), AsciiAliasRefused }
 
 /// The settings catalogue in order (BotApi::Bots::SettingsFields, recorded in the tool's schema): the order
 /// refusals are checked in and the order the answer lists what changed.
@@ -65,8 +66,21 @@ fn blank(v: &Value) -> bool { v.is_null() || v.as_str().is_some_and(|s| strip(s)
 /// The automation dialect, turned into exactly what the settings page would post; the page's own parser
 /// (`Draft::parse`) then reads it. No setting is written here.
 pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now: chrono::DateTime<chrono::Utc>) -> Result<InputOutcome, WebError> {
-    let form = match posted(draft, fields) { Ok(form) => form, Err(refused) => return Ok(refused) };
-    let accepted: Map<String, Value> = form.keys().map(|k| (k.clone(), Value::Null)).collect();
+    let mut form = match posted(draft, fields) { Ok(form) => form, Err(refused) => return Ok(refused) };
+    // A posted count goes with the count and ceiling the index sheet draws (`_index_sliders`), so `hold_all` is judged as
+    // the page judges it (Codex slice 7 branch r1 #4).
+    if let Some(Value::Object(groups)) = form.get_mut("index_groups") {
+        for (id, fields) in groups.iter_mut() {
+            if fields.get("num_coins").is_none() { continue; }
+            let Some(view) = draft.original.group_view(c, id)? else { continue };
+            let drawn = super::settings::sliders(c, "en", &view)?;
+            fields["num_coins_rendered"] = json!(drawn.num_coins.to_string());
+            fields["num_coins_ceiling"] = json!(drawn.max_coins.to_string());
+        }
+    }
+    // The answer names what the caller sent, never the form field it became (slice 7).
+    let accepted: Map<String, Value> = form.keys().filter_map(|k| public_name(k)).map(|k| (k.to_owned(), Value::Null)).collect();
+    let posted = Value::Object(form.clone());
     draft.callback_zone = Some(zone.to_owned());
     match draft.parse(c, &Value::Object(form), zone, now) {
         Ok(()) | Err(super::draft::ParseError::Invalid(_)) => {},
@@ -74,7 +88,43 @@ pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now:
     }
     // The answer lists the accepted settings, in catalogue order, never a transport argument.
     draft.submitted = accepted;
-    Ok(InputOutcome::Parsed)
+    Ok(InputOutcome::Parsed(posted))
+}
+
+/// The public name of a form field `posted` wrote; None for the second half of a pair.
+fn public_name(form_key: &str) -> Option<&str> {
+    match form_key { "remove_index_id" => Some("remove_index"), "change_index_id" => Some("change_index"), "change_index_to" => None, "ungroup_index_id" => Some("ungroup_index"), k => Some(k) }
+}
+/// PLAN index-as-ingredient slice 7: the API's ingredient keys (protocol::ingredient_properties).
+pub const INGREDIENT_KEYS: [&str; 5] = ["add_index", "remove_index", "change_index", "ungroup_index", "index_groups"];
+
+/// BotApi::Number.integer: a whole number however it arrived, as its text; the Float itself is judged first.
+fn whole(value: &Value) -> Option<String> {
+    let whole = value.as_f64().is_none_or(|n| n.fract() == 0.0);
+    number(value).filter(|n| whole && n.to_s_f().ends_with(".0")).map(|n| n.to_s_f().trim_end_matches(".0").to_owned())
+}
+
+/// `index_groups` as the bot page's sheet posts it: per index, its weight (percent), its count and its flattening (`apply`
+/// adds the count and ceiling the sheet draws).
+fn groups_form(value: &Value) -> Result<Value, String> {
+    let shape = || "index_groups must be {index id: {weight, num_coins, allocation_flattening}}.".to_owned();
+    let groups = value.as_object().filter(|o| !o.is_empty()).ok_or_else(shape)?;
+    let mut form = Map::new();
+    for (id, fields) in groups {
+        let fields = fields.as_object().filter(|f| !f.is_empty()).ok_or_else(shape)?;
+        let mut posted = Map::new();
+        for (field, v) in fields {
+            let text = match field.as_str() {
+                "weight" => in_range(v, 100).map(|n| n.to_s_f()),
+                "num_coins" => whole(v),
+                "allocation_flattening" => in_range(v, 1).map(|n| n.to_s_f()),
+                _ => return Err(shape()),
+            };
+            posted.insert(field.clone(), json!(text.ok_or_else(|| format!("index_groups {field} must be a number."))?));
+        }
+        form.insert(id.clone(), Value::Object(posted));
+    }
+    Ok(Value::Object(form))
 }
 
 /// Which bots a setting no rule names applies to, as BotApi::Bots::SettingsFields' `applies` words them for a signal bot.
@@ -93,14 +143,27 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
     let mut form = Map::new();
     for (name, schema) in catalogue() {
         let Some(value) = fields.get(name) else { continue };
+        // An ingredient key given blank is refused whole, as the form refuses one (Codex slice 7 branch r1 #2).
+        if INGREDIENT_KEYS.contains(&name) && (blank(value) || value == &Value::Bool(false)) {
+            return Err(fail(draft, ("invalid_index", format!("{name} must name an index (list_indices)."))));
+        }
         if blank(value) {
             // The page posts a blank for a field it cleared; other fields ignore one.
             if schema["type"].as_array().is_some_and(|t| t.contains(&json!("null"))) { form.insert(name.into(), Value::Null); }
             continue;
         }
+        // Slice 7: a bot stored as an index bot takes no ingredient operation until a start converts it (the form's refusal).
+        if INGREDIENT_KEYS.contains(&name) && kind == Kind::Index {
+            return Err(fail(draft, ("bot_save_failed", crate::web::i18n::text("en", "errors.bots.index_switch.not_offered", &[]))));
+        }
         let index_only = matches!(name, "num_coins" | "allocation_flattening");
-        // A basket stored as one index group takes them as its index bot did (slice 4a).
-        if index_only && kind != Kind::Index && draft.original.lone_group().is_none() { return Err(fail(draft, unsupported("num_coins / allocation_flattening", "index"))); }
+        // A basket stored as one index group takes them as its index bot did (slice 4a); a wider one through `index_groups`.
+        if index_only && kind != Kind::Index && draft.original.lone_group().is_none() {
+            if super::stored_groups(&draft.raw_settings) {
+                return Err(fail(draft, ("unsupported_setting", "num_coins / allocation_flattening apply to a bot holding one index; use index_groups.".into())));
+            }
+            return Err(fail(draft, unsupported("num_coins / allocation_flattening", "index")));
+        }
         // A signal bot takes its name, its venue and the rules this build runs on it (D-SIG-CONDITIONS, D-SIG-CAP), never a
         // subject (it watches its own pair).
         if kind == Kind::Signal && !matches!(name, "label" | "exchange_id" | "account_id") && (super::draft::field_rule(name).is_none() || name.ends_with("_in_ticker_id")) {
@@ -136,6 +199,23 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
                     return Err(if alias { InputOutcome::AsciiAliasRefused } else { refused });
                 }
             },
+            // Slice 7: the form's ingredient fields (index_switch::ingredients reads them).
+            "add_index" | "remove_index" | "ungroup_index" => {
+                let Some(id) = value.as_str().map(strip) else { return Err(fail(draft, ("invalid_index", format!("{name} must be an index id (list_indices).")))) };
+                form.insert(match name { "add_index" => "add_index", "remove_index" => "remove_index_id", _ => "ungroup_index_id" }.into(), json!(id));
+                continue;
+            }
+            "change_index" => {
+                let pair = value.as_object().filter(|o| o.len() == 2).and_then(|o| Some((o.get("from")?.as_str()?, o.get("to")?.as_str()?)));
+                let Some((from, to)) = pair else { return Err(fail(draft, ("invalid_index", "change_index must be {from, to}: two index ids.".into()))) };
+                form.insert("change_index_id".into(), json!(strip(from)));
+                form.insert("change_index_to".into(), json!(strip(to)));
+                continue;
+            }
+            "index_groups" => match groups_form(value) {
+                Ok(posted) => posted,
+                Err(message) => return Err(fail(draft, ("invalid_index", message))),
+            },
             "quote_amount" => match number(value).filter(|n| n > &BigDec::zero()) {
                 Some(n) => json!(n.to_s_f()),
                 None => return Err(fail(draft, invalid(name))),
@@ -148,13 +228,9 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
                 // A page switch posts "1" or "0"; a bare false would be blank to the page's parser. Anything else (REST's
                 // text) is posted as its `to_s`.
                 Some("boolean") => json!(match value { Value::Bool(true) => "1".into(), Value::Bool(false) => "0".into(), other => v2_s(other) }),
-                Some("number") if name.ends_with("_id") || name.ends_with("_period") || name == "num_coins" => {
-                    // BotApi::Number.integer: a whole number however it arrived; the Float itself is judged first.
-                    let whole = value.as_f64().is_none_or(|n| n.fract() == 0.0);
-                    match number(value).filter(|n| whole && n.to_s_f().ends_with(".0")) {
-                        Some(n) => json!(n.to_s_f().trim_end_matches(".0")),
-                        None => return Err(fail(draft, invalid(name))),
-                    }
+                Some("number") if name.ends_with("_id") || name.ends_with("_period") || name == "num_coins" => match whole(value) {
+                    Some(n) => json!(n),
+                    None => return Err(fail(draft, invalid(name))),
                 },
                 Some("number") => match number(value) {
                     Some(n) => json!(n.to_s_f()),

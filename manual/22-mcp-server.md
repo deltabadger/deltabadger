@@ -54,7 +54,7 @@ A tool is usable only when both of these are true:
 | Tool | What it does |
 |---|---|
 | **List bots** | View all bots and their status, type, pair and exchange; filter by status |
-| **Bot details** | View detailed bot info and performance: P/L, average price, invested, current value; for an index or basket bot also its holdings that left the composition and any pending redeploy offer |
+| **Bot details** | View detailed bot info and performance: P/L, average price, invested, current value; for an index or basket bot also its holdings that left the composition and any pending redeploy offer; for a basket holding an index, its ingredients (each index with its id and settings) and the assets it trades now, with their ids |
 | **List exchanges** | View connected exchanges and their API key status |
 | **Exchange balances** | Fetch live balances from one exchange |
 | **Portfolio summary** | View global P/L and a per-bot breakdown |
@@ -67,12 +67,12 @@ A tool is usable only when both of these are true:
 
 | Tool | What it does |
 |---|---|
-| **Create bot** | Create and start a [DCA](10-dollar-cost-averaging.md) bot: one asset, or a basket of up to 100 with weights (or market-cap weighting), plus exchange, quote currency, amount, interval (hour, day, week or month), optional label and start time |
+| **Create bot** | Create and start a [DCA](10-dollar-cost-averaging.md) bot: one asset, or a basket of up to 100 with weights (or market-cap weighting), plus exchange, quote currency, amount, interval (hour, day, week or month), optional label and start time. A basket can hold indexes from **List indices** beside its assets (`indexes`), weighted with them; one index alone is made with **Create index bot** |
 | **Create index bot** | Create and start an [index bot](13-direct-indexing.md): an index from **List indices**, how many assets to hold, and how far to flatten market-cap weights towards equal |
 | **Create signal bot** | Create and start a signal bot: one pair, no schedule. Orders placed with **Market buy** / **Market sell** and its bot id are recorded on the bot's page |
 | **Start bot** | Start a stopped or newly created bot. By default it resets the schedule and can place an order at once (unless a future starting time applies); asked to continue, it keeps the schedule but can invest what was missed while stopped. A bot that can sell waits until the wash-sale question is answered |
 | **Stop bot** | Stop a running bot |
-| **Update bots** | Change anything a stopped bot's settings page changes, under the page's own field names and choices: amount, interval, label, exchange; index count and flattening; basket weights, members (`add_asset_id`, `remove_asset_id`, `normalize_allocations`) and weighting; selling amounts; Smart Intervals; limit orders; starting time; spending and selling caps; the price, price-drop, moving-average and RSI conditions; rebalancing. Only the fields you pass change; `null` clears the four the page can blank (`sell_amount`, `sell_quote_amount`, `rebalance_threshold`, `start_at`). `get_bot_details` lists each basket member's asset and ticker ids |
+| **Update bots** | Change anything a stopped bot's settings page changes, under the page's own field names and choices: amount, interval, label, exchange; index count and flattening; basket weights, members (`add_asset_id`, `remove_asset_id`, `normalize_allocations`) and weighting; selling amounts; Smart Intervals; limit orders; starting time; spending and selling caps; the price, price-drop, moving-average and RSI conditions; rebalancing. Only the fields you pass change; `null` clears the four the page can blank (`sell_amount`, `sell_quote_amount`, `rebalance_threshold`, `start_at`). `get_bot_details` lists each basket member's asset and ticker ids. A basket's indexes: `add_index`, `remove_index`, `change_index`, `ungroup_index` (Custom allocation), one per call, and `index_groups` for each index's weight, count and flattening, with the bot page's choices and refusals |
 | **Archive bot** | Stop a bot and take it off the dashboard, keeping its history (see [Managing bots](15-managing-bots.md)) |
 | **Reactivate bot** | Bring an archived bot back, stopped |
 | **Split bots** | Turn basket or index bots into one stopped bot per asset, each with its share of the amount and that asset's history; the split bots are deleted. Off by default. Money from past sales still waiting for an answer is refused with each bot's offer: answer it with **Answer redeploy offer**, or name the bot in `keep_proceeds_for` to keep the money as it is |

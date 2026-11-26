@@ -830,7 +830,7 @@ struct Sentence<'a> { quote: &'a str, quote_asset_id: Option<i64>, amount_field:
                       sell: u8, grouped: bool, reverse_confirm: Option<String> }
 
 /// The sliders and preview `_index_sliders` draws for an index view (`Bot::index_view`, `Bot::group_view`).
-pub(super) struct Sliders { frozen: bool, num_coins: i64, max_coins: i64, num_coins_progress: i64, flattening: String, flattening_progress: i64, coins: Vec<Coin>, fewer_note: String }
+pub(super) struct Sliders { frozen: bool, pub(super) num_coins: i64, pub(super) max_coins: i64, num_coins_progress: i64, flattening: String, flattening_progress: i64, coins: Vec<Coin>, fewer_note: String }
 
 pub(super) fn sliders(c: &Connection, locale: &str, view: &Bot) -> Result<Sliders, WebError> {
     // A frozen allocation (D-INDEX-RETIRED-KEPT) is drawn with both sliders disabled at the values its preview is

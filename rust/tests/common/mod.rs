@@ -256,7 +256,11 @@ pub fn recorded_rule_kinds(body: &str) -> String {
     }
     // D-API-ACCOUNT-ID (#710 slice 6): the listed `account_id` property (protocol::ACCOUNT_ID_TOOLS), absent from 2.x's.
     let field = serde_json::json!({"type": ["integer", "null"], "description": protocol::ACCOUNT_ID}).to_string();
-    body.replace(&format!(",\"account_id\":{field}"), "").replace(&format!("\"account_id\":{field},"), "")
+    let mut body = body.replace(&format!(",\"account_id\":{field}"), "").replace(&format!("\"account_id\":{field},"), "");
+    // D-API-INGREDIENTS (PLAN index-as-ingredient slice 7): update_bot_settings' and create_bot's ingredient properties,
+    // absent from 2.x's; each always follows another property.
+    for (_, name, schema) in protocol::ingredient_properties() { body = body.replace(&format!(",\"{name}\":{schema}"), ""); }
+    body
 }
 
 /// Drops a wiremock server from async code. wiremock's Drop runs `futures::executor::block_on(verify())`, and verify

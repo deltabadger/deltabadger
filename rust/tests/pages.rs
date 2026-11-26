@@ -1339,6 +1339,52 @@ const IMPORT_MANUAL: [(&str, &str); 6] = [
 ];
 
 /// IMPORT_MANUAL undone on this build's manual: each edit must be there once, exactly (the endpoint row whole).
+/// D-API-INGREDIENTS (PLAN index-as-ingredient slice 7): the manual's index-ingredient edits, each (ours, 2.x's).
+const INGREDIENTS_MANUAL: [(&str, &str); 5] = [
+    (r#"`invalid_basket`, `invalid_indexes`, `use_create_index_bot`, `index_not_offered`, `invalid_index`, "#,
+     r#"`invalid_basket`, "#),
+    (r#"members not named keep their weight, and a basket whose weights do not sum to 100 saves but cannot start. A basket's indexes: `add_index`, `remove_index`, `change_index` (`{from, to}`) or `ungroup_index` (an index id, or `*` for every one), one per call, and `index_groups` (see "Index ingredients" below) |"#,
+     r#"members not named keep their weight, and a basket whose weights do not sum to 100 saves but cannot start |"#),
+    (r#"Optional `?status=` filter; a basket holding an index also lists its `ingredients` and `members`, as `/bots/:id` does |"#,
+     r#"Optional `?status=` filter |"#),
+    (r#"`weighting: market_cap`, and optional `indexes` beside the assets or instead of them — index ids from `/indices`, as `["top-coins"]`, `[{id, allocation}]` or `"top-coins:50"`, weighted together with the assets (one index alone is 422 `use_create_index_bot`); or `base_asset` and `second_base_asset"#,
+     r#"`weighting: market_cap`; or `base_asset` and `second_base_asset"#),
+    (r#"### Index ingredients
+
+A basket bot can hold indexes beside its assets (ids from `GET /indices`). `POST /bots` takes them as `indexes`, and
+`PATCH /bots/:id` adds, removes, changes and ungroups them with the bot page's own choices and refusals. Each index has
+its own settings in `index_groups`, by index id: `weight` (percent, as `allocations`), `num_coins` (how many of its assets
+to hold) and `allocation_flattening` (0 = market cap, 1 = equal), e.g. `{"index_groups": {"top-coins": {"weight": 40}}}`.
+Only the fields you pass change. `ungroup_index` is the page's Custom allocation: the index becomes its current members as
+plain assets, at their current shares. A bot shown as an index bot that is still stored as one (it converts at its next
+start) takes none of these. Reads of a basket holding an index add `ingredients` (its assets, then its indexes, each index
+with `id`, `name`, `allocation`, `num_coins`, `hold_all`, `allocation_flattening` and the `members` it currently
+contributes) and `members` (every asset it trades now, with `asset_id`, `ticker_id` and `allocation`); shares are in
+percent.
+
+### Several accounts on one exchange
+"#,
+     r#"### Several accounts on one exchange
+"#),
+];
+fn without_ingredients_manual(text: &str) -> Result<String, String> {
+    let mut out = text.to_string();
+    for (ours, theirs) in INGREDIENTS_MANUAL {
+        let at = out.find(ours).ok_or_else(|| format!("D-API-INGREDIENTS: the manual no longer has {ours:?}"))?;
+        if out[at + 1..].contains(ours) { return Err(format!("D-API-INGREDIENTS: the manual has {ours:?} twice")); }
+        out.replace_range(at..at + ours.len(), theirs);
+    }
+    Ok(out)
+}
+
+#[test]
+fn the_ingredients_manual_edits_are_undone_exactly() {
+    let manual = deltabadger::web::settings::api::MANUAL;
+    let v2 = without_ingredients_manual(manual).unwrap();
+    assert!(!v2.contains("index_groups") && !v2.contains("use_create_index_bot") && !v2.contains("### Index ingredients"), "every edit undone");
+    assert!(without_ingredients_manual(&v2).is_err(), "an edit that is gone is an error");
+}
+
 fn without_import_manual(text: &str) -> Result<String, String> {
     let mut out = text.to_string();
     for (ours, theirs) in IMPORT_MANUAL {
@@ -3431,7 +3477,8 @@ fn a20_divergences(name: &str, v2: &mut Value, rust: &mut Value) -> Result<(), S
         for (step, mine) in v2["responses"].as_array_mut().into_iter().flatten().zip(ours) {
             if step["headers"].get("content-disposition").is_none() { continue; }
             let text = |v: &Value| match v { Value::String(s) => s.clone(), Value::Array(lines) => lines.iter().map(|l| l.as_str().unwrap_or_default()).collect::<Vec<_>>().join("\n"), _ => String::new() };
-            let mine_text = text(&mine["body"]);
+            // D-API-INGREDIENTS: its manual edits, exactly, before the account section is cut.
+            let mine_text = without_ingredients_manual(&text(&mine["body"]))?;
             let start = mine_text.find("### Several accounts on one exchange").ok_or("D-API-ACCOUNT-ID: the manual no longer has its section")?;
             let end = mine_text.find("### Not served yet").ok_or("D-API-ACCOUNT-ID: no section after it")?;
             let reverted = format!("{}{}", &mine_text[..start], &mine_text[end..]).replace("`bot_not_found`, `account_not_found`, ", "`bot_not_found`, ")

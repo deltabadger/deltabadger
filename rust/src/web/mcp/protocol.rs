@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::OnceLock;
 pub fn metadata() -> &'static Value {
     static DATA: OnceLock<Value> = OnceLock::new();
-    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); import_transactions(&mut data); account_ids(&mut data); data })
+    DATA.get_or_init(|| { let mut data = recorded(); rule_kinds(&mut data); tax_stablecoin(&mut data); withdrawal_rules(&mut data); split_bots(&mut data); unrecorded_orders(&mut data); import_transactions(&mut data); account_ids(&mut data); ingredients(&mut data); data })
 }
 /// A1 listed additions. 2.x's six rule tools, extended with W2's one-matrix fields.
 /// The 2.x definitions remain source-pinned by withdrawal_vectors.json.
@@ -125,6 +125,35 @@ pub const TAX_PL_CARRY: &str = "PL only: column d of PIT-38 you declare for this
 pub const ACCOUNT_ID_TOOLS: [&str; 14] = ["get_exchange_balances", "list_open_orders", "market_buy", "market_sell", "limit_buy", "limit_sell", "cancel_order",
     "create_bot", "create_index_bot", "create_signal_bot", "update_bot_settings", "create_rule", "list_account_transactions", "export_transactions_csv"];
 pub const ACCOUNT_ID: &str = "The account of the exchange (account_id from list_exchanges). Needed when the exchange has more than one account.";
+/// D-API-INGREDIENTS (PLAN index-as-ingredient slice 7): the web's ingredient operations on update_bot_settings, after
+/// `allocations`, and create_bot's `indexes`, after `assets`; each property listed here exactly (mcp_contract.rs pins them).
+pub fn ingredient_properties() -> Vec<(&'static str, &'static str, Value)> {
+    let text = |description: &str| json!({"type": "string", "description": description});
+    let number = json!({"type": ["number", "string"]});
+    vec![
+        ("update_bot_settings", "add_index", text("Basket bots: add an index (an id from list_indices) as an ingredient at 0%; set its weight with index_groups. One operation (add_index, remove_index, change_index, ungroup_index) per call.")),
+        ("update_bot_settings", "remove_index", text("Basket bots: remove an index ingredient by its id (get_bot_details lists them).")),
+        ("update_bot_settings", "change_index", json!({"type": "object", "description": "Basket bots: replace the index ingredient `from` by the index `to` (an id from list_indices), keeping its weight.",
+            "properties": {"from": {"type": "string"}, "to": {"type": "string"}}, "required": ["from", "to"], "additionalProperties": false})),
+        ("update_bot_settings", "ungroup_index", text("Basket bots: Custom allocation. The index ingredient (or \"*\": every one) becomes its current members as plain assets at their current shares.")),
+        ("update_bot_settings", "index_groups", json!({"type": "object", "description": "Basket bots: settings per index ingredient, by its id: weight (percent, as allocations), num_coins (how many of its assets to hold), allocation_flattening (0 = market cap, 1 = equal). Only the fields you pass change.",
+            "additionalProperties": {"type": "object", "properties": {"weight": number, "num_coins": number, "allocation_flattening": number}, "additionalProperties": false}})),
+        ("create_bot", "indexes", json!({"type": ["string", "array"], "description": "Basket: indexes (ids from list_indices) as ingredients beside assets, e.g. 'top-coins:50' or ['top-coins'], weights as in assets (all ingredients weighted summing to 100, or none for an equal split). One index alone is an index bot: use create_index_bot."})),
+    ]
+}
+fn ingredients(data: &mut Value) {
+    for (tool, after) in [("update_bot_settings", "allocations"), ("create_bot", "assets")] {
+        let added: Vec<(&str, Value)> = ingredient_properties().into_iter().filter(|(t, _, _)| *t == tool).map(|(_, n, v)| (n, v)).collect();
+        let Some(props) = data["tools"].as_array_mut().and_then(|tools| tools.iter_mut().find(|t| t["name"] == tool)).and_then(|t| t["inputSchema"]["properties"].as_object_mut()) else { continue };
+        let mut rebuilt = serde_json::Map::new();
+        for (k, v) in std::mem::take(props) {
+            let here = k == after;
+            rebuilt.insert(k, v);
+            if here { for (n, v) in &added { rebuilt.insert((*n).into(), v.clone()); } }
+        }
+        *props = rebuilt;
+    }
+}
 fn account_ids(data: &mut Value) {
     let Some(tools) = data["tools"].as_array_mut() else { return };
     for tool in tools.iter_mut().filter(|t| ACCOUNT_ID_TOOLS.iter().any(|n| t["name"] == *n)) {
