@@ -193,6 +193,18 @@ pub fn reset_sell_side(settings: &mut Map<String, Value>, transient: &mut Map<St
     changed
 }
 
+/// PLAN index-as-ingredient slice 4c: whether these settings sell or may start selling, so a plain basket may not gain its
+/// first group (`add_index` refuses it, nothing cleared): it sells, a sell-side rule or a buy-side flip is on, its base cap
+/// is on, or its sale is in base.
+pub fn sells_or_may(s: &Map<String, Value>) -> bool {
+    let on = |key: &str| crate::web::bot::cast_boolean(s.get(key));
+    let settings = Value::Object(s.clone());
+    s.get("direction").and_then(Value::as_str) == Some("selling") || on("base_amount_limited")
+        || s.get("sell_denomination").and_then(Value::as_str) == Some("base")
+        || RULE_FIELDS.iter().any(|(base, _)| on(&format!("sell_{base}ed"))
+            || (on(&format!("{base}ed")) && matches!(super::conditions::action(&settings, base).as_str(), "start_selling" | "start_buying")))
+}
+
 /// Bots::DcaIndex settings: 'top' or 'category'.
 pub fn index_type(s: Settings<'_>) -> Option<&str> { s?.get("index_type")?.as_str() }
 pub fn index_category_id(s: Settings<'_>) -> Option<&str> { s?.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }

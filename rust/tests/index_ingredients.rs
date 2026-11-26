@@ -1390,26 +1390,64 @@ async fn a_converted_start_selling_price_rule_opens_and_saves_unchanged_off() {
 
 // ---------------------------------------------------------------- slice 4c: a first group on the web form
 
-/// Rule B on a first group (`add_index`): a quote seller gains it and keeps selling; a one-asset base seller is refused
-/// until its sale is in quote, then gains it.
+/// A plain basket gains its first group only as a clean buyer, judged on the stored row and on the final candidate (a
+/// combined post can't slip past): a seller, an armed flip or sell-side rule, a base cap or a base sale is refused whole,
+/// nothing cleared; a clean buyer adds the index.
 #[tokio::test]
-async fn a_first_group_on_sellers() {
+async fn a_first_group_needs_a_clean_buyer() {
     let mut u = universe();
     let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
-    let (quote, base) = (seed::insert_bot(&u.o.primary, &u.s, &spec), seed::insert_bot(&u.o.primary, &u.s, &spec));
-    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 30) WHERE id = {quote};
-                         UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_denomination', 'base', '$.sell_amount', 0.5) WHERE id = {base}"));
-    assert_eq!(patch(&mut u, quote, &[(&key("add_index"), "nasdaq-100")]).await.status, 200);
-    let s = settings(&u, quote);
-    assert!(s["direction"] == "selling" && s["index_groups"].is_array(), "{s}");
-    let before = settings(&u, base);
-    let refused = patch(&mut u, base, &[(&key("add_index"), "nasdaq-100")]).await;
-    assert_eq!(refused.status, 422);
-    assert!(refused.body.contains(&deltabadger::web::i18n::text("en", "errors.bots.index_switch.sell_in_quote_first", &[])), "{}", refused.body);
-    assert_eq!(settings(&u, base), before);
-    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.sell_denomination', 'quote', '$.sell_quote_amount', 30) WHERE id = {base}"));
-    assert_eq!(patch(&mut u, base, &[(&key("add_index"), "nasdaq-100")]).await.status, 200);
-    assert!(settings(&u, base)["index_groups"].is_array());
+    let refused_with = |extra: &str| format!("UPDATE bots SET settings = json_set(settings, {extra}) WHERE id = ");
+    let cases = [
+        ("a quote seller", "'$.direction', 'selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 30", vec![]),
+        ("an armed start_selling buyer with a base cap", "'$.price_limited', json('true'), '$.price_limit', 50000, '$.price_limit_value_condition', 'below', \
+          '$.price_limit_action', 'start_selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 30, '$.base_amount_limited', json('true'), '$.base_amount_limit', 0.5", vec![]),
+        ("a buyer with a sell-side rule on", "'$.sell_price_limited', json('true'), '$.sell_price_limit', 90000", vec![]),
+        ("a base sale", "'$.sell_denomination', 'base', '$.sell_amount', 0.5", vec![]),
+        ("a stored base cap cleared in the same post", "'$.base_amount_limited', json('true'), '$.base_amount_limit', 0.5", vec![(key("base_amount_limited"), "0".to_string())]),
+    ];
+    let message = deltabadger::web::i18n::text("en", "errors.bots.index_switch.sell_off_first", &[]);
+    for (case, sql, extra) in cases {
+        let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+        exec(&u.o, &format!("{}{id}", refused_with(sql)));
+        let before = settings(&u, id);
+        let add = key("add_index");
+        let mut fields: Vec<(&str, &str)> = vec![(add.as_str(), "nasdaq-100")];
+        fields.extend(extra.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        let answer = patch(&mut u, id, &fields).await;
+        assert_eq!(answer.status, 422, "{case}: {}", answer.body);
+        assert!(answer.body.contains(&message), "{case}: {}", answer.body);
+        assert_eq!(settings(&u, id), before, "{case}: nothing written");
+    }
+    let clean = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    assert_eq!(patch(&mut u, clean, &[(&key("add_index"), "nasdaq-100")]).await.status, 200);
+    assert!(settings(&u, clean)["index_groups"].is_array());
+}
+
+/// A first group seats every valid member: one row with no target is skipped, the others keep their seats unprobed.
+#[tokio::test]
+async fn a_member_without_a_target_does_not_unseat_the_others() {
+    use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
+    let mut u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("allocations", json!({ u.m[0].0.to_string(): 0.6, u.m[2].0.to_string(): 0.4 }));
+    spec.status = 2;
+    let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    for (i, w) in [(0, 0.6), (1, 0.0), (2, 0.4)] { seed::insert_member(&u.o.primary, id, u.m[i].0, u.m[i].1, w, true, "2026-08-01 00:00:00", None); }
+    exec(&u.o, &format!("UPDATE bot_index_assets SET target_allocation = NULL WHERE bot_id = {id} AND asset_id = {}", u.m[1].0));
+    assert_eq!(patch(&mut u, id, &[(&key("add_index"), "nasdaq-100")]).await.status, 200);
+    let seated: Vec<i64> = u.o.primary.prepare("SELECT asset_id FROM rust_bot_group_members WHERE bot_id = ?1 ORDER BY asset_id").unwrap()
+        .query_map([id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    assert_eq!(seated, vec![u.m[0].0, u.m[2].0]);
+    let ok = |body: Value| json!([{ "status": 200, "body": body }]);
+    let mut m = json!({ "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })) });
+    for sym in SYMBOLS { m[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
+    let t = ScriptedTransport::from_script(&m);
+    exec(&u.o, &format!("UPDATE bots SET status = 1 WHERE id = {id}"));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    index::refresh_composition(&u.o.primary, &AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper"))), &bot,
+                               &deltabadger::engine::FixedClock(common::web::at(T0)), &deltabadger::engine::tick::PriceCache::default()).await.unwrap().unwrap();
+    let probed: Vec<String> = t.requests().iter().filter(|r| r.path.contains("/quotes/")).map(|r| r.path.clone()).collect();
+    assert!(probed.iter().all(|p| !p.contains("/AAA/") && !p.contains("/CCC/")), "{probed:?}");
 }
 
 /// Change the index on a stopped, selling lone group keeps it selling.

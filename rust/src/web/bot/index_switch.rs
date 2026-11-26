@@ -412,17 +412,10 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
         _ => match ungroup(c, ctx, draft, fields, &engine, groups, &named, now)? { Ok(kept) => groups = kept, Err(refused) => return Ok(Err(refused)) },
     }
     let last_gone = groups.is_empty();
-    // Rule B on the first group: a sale that relies on base (a one-asset seller selling base, or its base cap in force)
-    // is refused until it is in quote; a dormant base sale or cap is cleared in this write, so nothing wakes later.
-    if first {
-        let s = &mut draft.candidate.settings;
-        let one = crate::engine::schedule::one_asset(&draft.raw_settings);
-        let selling = draft.raw_settings.get("direction").and_then(Value::as_str) == Some("selling");
-        let base_sale = s.get("sell_denomination").and_then(Value::as_str) == Some("base");
-        let base_cap = s.get("base_amount_limited") == Some(&Value::Bool(true));
-        if selling && one && (base_sale || base_cap) { return refuse("sell_in_quote_first"); }
-        if base_sale { s.insert("sell_denomination".into(), json!("quote")); }
-        if base_cap { s.insert("base_amount_limited".into(), json!(false)); s.shift_remove("base_amount_limit"); }
+    // A first group only on a clean buyer, as stored and as posted (a combined post can't slip past): refused whole, nothing
+    // cleared (Codex 4c r1).
+    if first && (crate::engine::composition::sells_or_may(&draft.raw_settings) || crate::engine::composition::sells_or_may(&draft.candidate.settings)) {
+        return refuse("sell_off_first");
     }
     if last_gone {
         if draft.candidate.settings.get("direction").and_then(Value::as_str) == Some("selling") { return refuse("buy_first"); }

@@ -95,7 +95,7 @@ fr:
                 not_offered: "Cet indice n’est pas disponible pour ce bot."
                 buy_first: "Remettez d’abord le bot en mode achat."
                 weights_first: "Définissez d’abord les poids des actifs, ou utilisez « Allocation personnalisée »."
-                sell_in_quote_first: "Définissez d’abord la vente comme un montant dans la devise de cotation."
+                sell_off_first: "Désactivez d’abord la vente : ses règles, son plafond et la vente en devise de base."
                 selling_reset: "Les règles de vente ont été désactivées ; redéfinissez-les pour les actifs restants."
             multi_asset:
                 condition_subject: "Cette condition doit porter sur un actif détenu par le bot."

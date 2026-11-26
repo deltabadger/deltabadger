@@ -112,7 +112,7 @@ en:
                 not_offered: "This index isn't available for this bot."
                 buy_first: "Switch the bot back to buying first."
                 weights_first: "Set the asset weights first, or use Custom allocation."
-                sell_in_quote_first: "Set the sale as an amount of the quote currency first."
+                sell_off_first: "Switch selling off first: its rules, cap and base sale."
                 selling_reset: "Selling rules were switched off; set them again for the remaining assets."
             multi_asset:
                 condition_subject: "This condition must watch an asset the bot holds."
