@@ -333,6 +333,12 @@ try {
     };
     await send("Page.navigate", { url: BASE_URL + path });
     await until("bot settings", () => call(function (p, sel) { return location.pathname === p && !!document.querySelector(sel); }, path, amount));
+    // The field is parsed before the module scripts run: an input event dispatched then finds no submit-after-delay
+    // controller on its form and submits nothing. Wait for Stimulus to have connected it.
+    await until("the amount form's submit controller", () => call(function (sel) {
+      const form = document.querySelector(sel)?.closest("form");
+      return !!form && !!window.Stimulus?.getControllerForElementAndIdentifier(form, "form--submit-after-delay");
+    }, amount));
     await evaluate(`document.addEventListener("turbo:submit-end", event => { window.lastSubmission = event.detail.fetchResponse?.statusCode; })`);
     const edit = async (value, status) => {
       await call(function (sel, v) { window.lastSubmission = null; const field = document.querySelector(sel); field.value = v; field.dispatchEvent(new Event("input", { bubbles: true })); }, amount, value);
