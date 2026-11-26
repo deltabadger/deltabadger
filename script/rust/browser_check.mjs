@@ -80,7 +80,7 @@ const cables = new Map();
 let where = async () => "";
 try {
   const portFile = join(profile, "DevToolsActivePort");
-  const port = await until("Chrome's debugging port", () => existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]);
+  const port = await until("Chrome's debugging port", () => { try { return existsSync(portFile) && readFileSync(portFile, "utf8").split("\n")[0]; } catch { return false; } });
   const target = await until("a page to drive", async () => {
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     return targets.find((candidate) => candidate.type === "page");
