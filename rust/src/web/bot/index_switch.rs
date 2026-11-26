@@ -417,6 +417,8 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
         draft.candidate.settings.insert("index_groups".into(), Value::Array(groups.into_iter().map(Value::Object).collect()));
     }
     draft.refresh(c)?;
+    // A discarded buy-side flip reads as a rule that was never set: its fields take the defaults every load gives them.
+    if last_gone { draft.candidate.fill_defaults(); }
     Ok(Ok(Some(Ran { last_gone })))
 }
 

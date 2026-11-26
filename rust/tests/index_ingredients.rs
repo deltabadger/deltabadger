@@ -46,7 +46,8 @@ fn transient(u: &U, id: i64) -> Value { model::load_bot(&u.o.primary, id).unwrap
 fn status(u: &U, id: i64) -> i64 { u.o.primary.query_row("SELECT status FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap() }
 async fn patch(u: &mut U, id: i64, fields: &[(&str, &str)]) -> Answer {
     let path = format!("/bots/{id}");
-    assert_eq!(u.b.get(&u.app, &path).await.status, 200, "the page of bot {id}");
+    let page = u.b.get(&u.app, &path).await;
+    assert_eq!(page.status, 200, "the page of bot {id}: {}", page.body.chars().take(600).collect::<String>());
     u.b.send(&u.app, "PATCH", &path, Some(fields), Csrf::Header, &TURBO).await
 }
 async fn start(u: &mut U, id: i64) -> Answer {
@@ -1034,7 +1035,59 @@ fn clearing_a_lone_stored_threshold_counts_as_a_reset() {
     let mut s = json!({ "sell_price_limited": false, "sell_price_limit": 70000 }).as_object().unwrap().clone();
     let mut t = serde_json::Map::new();
     assert!(composition::reset_sell_side(&mut s, &mut t));
-    assert!(s["sell_price_limit"].is_null());
+    assert!(!s.contains_key("sell_price_limit"));
+}
+
+// reset_sell_side discards only real flips and sell rules.
+
+#[tokio::test]
+async fn a_blank_action_buy_gate_still_holds_after_the_last_group_goes() {
+    use deltabadger::engine::conditions::{read_rule, Rule};
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 1.0), json!([group("nasdaq-100", 3, 0.0)]));
+    member(&u, id, (u.s.btc, u.s.ticker_id), 1.0, true);
+    // Buy only below 50 000, no action stored (the engine reads pause; a blank string, which the page does not serve, is
+    // pinned on the function below), the gate latched.
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit', 50000, '$.price_limit_value_condition', 'below', \
+                         '$.price_limit_in_ticker_id', {}), transient_data = json_set(transient_data, '$.price_limit_condition_met_at', '2026-09-01T00:00:00Z') WHERE id = {id}", u.s.ticker_id));
+    let saved = patch(&mut u, id, &[(&key("remove_index_id"), "nasdaq-100")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let gate = read_rule(&bot, Rule::Price, false).unwrap().expect("the buy gate is still on");
+    assert_eq!(gate.common.action, "pause");
+    assert_eq!(bot.settings["price_limit"], json!(50000));
+    assert!(transient(&u, id).get("price_limit_condition_met_at").is_some_and(|v| !v.is_null()), "its latch kept");
+}
+
+#[test]
+fn reset_sell_side_keeps_every_buy_rule_but_a_real_flip() {
+    let mut s = json!({ "price_limited": true, "price_limit": 50000, "price_limit_action": " ",
+                        "price_drop_limited": true, "price_drop_limit": 0.1, "price_drop_limit_action": "stop",
+                        "indicator_limited": true, "indicator_limit": 30, "indicator_limit_action": "start_selling", "indicator_limit_in_ticker_id": 7,
+                        "indicator_limit_timing_condition": "while", "indicator_limit_value_condition": "below", "indicator_limit_in_indicator": "rsi", "indicator_limit_in_timeframe": "one_day" })
+        .as_object().unwrap().clone();
+    let mut t = json!({ "price_limit_condition_met_at": "x", "price_drop_limit_condition_met_at": "x", "indicator_limit_condition_met_at": "x" }).as_object().unwrap().clone();
+    assert!(composition::reset_sell_side(&mut s, &mut t));
+    // A blank action is pause, an unsupported one stays for eligibility to refuse: both untouched, latches included.
+    for (k, v) in [("price_limited", json!(true)), ("price_limit_action", json!(" ")), ("price_drop_limited", json!(true)), ("price_drop_limit_action", json!("stop"))] { assert_eq!(s[k], v, "{k}"); }
+    assert!(t.contains_key("price_limit_condition_met_at") && t.contains_key("price_drop_limit_condition_met_at"));
+    // The flip is discarded whole: its switch off and nothing else of its family left.
+    assert_eq!(s["indicator_limited"], json!(false));
+    assert!(s.keys().all(|k| k == "indicator_limited" || !k.starts_with("indicator_limit")), "{s:?}");
+    assert!(!t.contains_key("indicator_limit_condition_met_at"));
+}
+
+#[test]
+fn a_discarded_sell_rule_leaves_no_field_of_its_family() {
+    let mut s = json!({ "sell_price_limited": true, "sell_price_limit": 70000, "sell_price_limit_range_lower_bound": 1, "sell_price_limit_range_upper_bound": 2,
+                        "sell_price_limit_timing_condition": "while", "sell_price_limit_value_condition": "above", "sell_price_limit_action": "pause", "sell_price_limit_in_ticker_id": 9,
+                        "price_limit_in_ticker_id": 5 }).as_object().unwrap().clone();
+    let mut t = json!({ "sell_price_limit_condition_met_at": "x", "sell_price_limit_enabled_at": "x" }).as_object().unwrap().clone();
+    assert!(composition::reset_sell_side(&mut s, &mut t));
+    assert_eq!(s["sell_price_limited"], json!(false));
+    assert!(s.keys().all(|k| k == "sell_price_limited" || !k.starts_with("sell_price_limit")), "{s:?}");
+    assert_eq!(s["price_limit_in_ticker_id"], json!(5), "the buy side's own field stays");
+    assert!(t.is_empty(), "{t:?}");
 }
 
 // ---- Slice 4a: a basket stored as one index group (what an index bot converts into) reads and edits as that index bot.

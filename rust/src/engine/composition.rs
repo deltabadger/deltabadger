@@ -151,28 +151,34 @@ pub fn current(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, En
     Ok(true)
 }
 
-/// The rules a bot's rule fields name, buy side; `sell_` + each is the sell side's.
-pub const RULE_PREFIXES: [&str; 4] = ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"];
+/// Each rule's stored fields beside its switch (`<prefix>ed`), by the buy side's prefix; the sell side's are `sell_` + each.
+const RULE_FIELDS: [(&str, &[&str]); 4] = [
+    ("price_limit", &["", "_range_lower_bound", "_range_upper_bound", "_timing_condition", "_value_condition", "_in_ticker_id", "_action"]),
+    ("price_drop_limit", &["", "_time_window_condition", "_in_ticker_id", "_action"]),
+    ("moving_average_limit", &["_timing_condition", "_value_condition", "_in_ticker_id", "_in_ma_type", "_in_timeframe", "_in_period", "_action"]),
+    ("indicator_limit", &["", "_timing_condition", "_value_condition", "_in_ticker_id", "_in_indicator", "_in_timeframe", "_action"]),
+];
 
 /// PLAN index-as-ingredient §3.2 step 3: what a bot whose composition changes shape no longer carries, so nothing dormant
-/// wakes on what it now holds ("selling it is a new decision with a new sell sentence"). Every sell-side rule and every
-/// flip rule whole (switch, action, value, the latch in `transient_data`); the stored sale (`sell_amount`,
-/// `sell_quote_amount`, `smart_interval_base_amount`), the base cap and a base denomination. The one key list of the
-/// last-group removal (slice 3) and the index bot's conversion (slice 4). True when anything was on or stored.
+/// wakes on what it now holds ("selling it is a new decision with a new sell sentence"). Discarded whole (the switch off,
+/// every other field of the rule removed, its latch and switch stamp in `transient_data` removed): every sell-side rule,
+/// and a buy-side rule whose action is a real flip as the engine reads it (`conditions::action`: `start_selling` or
+/// `start_buying`). Every other buy rule is left exactly as it is: a blank action is the engine's pause and still gates; an
+/// action it does not run keeps its eligibility refusal. Then the stored sale (`sell_amount`, `sell_quote_amount`,
+/// `smart_interval_base_amount`), the base cap and a base denomination. The one contract of the last-group removal
+/// (slice 3) and the index bot's conversion (slice 4). True when it cleared anything.
 pub fn reset_sell_side(settings: &mut Map<String, Value>, transient: &mut Map<String, Value>) -> bool {
     let present = |v: Option<&Value>| v.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str().is_none_or(|t| !t.trim().is_empty()));
     let mut changed = false;
-    for base in RULE_PREFIXES {
+    for (base, fields) in RULE_FIELDS {
         for prefix in [base.to_string(), format!("sell_{base}")] {
-            let action = format!("{prefix}_action");
-            let flip = settings.get(&action).and_then(Value::as_str).is_some_and(|a| a != "pause");
+            let flip = matches!(super::conditions::action(&Value::Object(settings.clone()), &prefix).as_str(), "start_selling" | "start_buying");
             if !prefix.starts_with("sell_") && !flip { continue; }
             let switch = format!("{prefix}ed");
-            changed |= settings.get(&switch) == Some(&Value::Bool(true)) || flip;
+            changed |= settings.get(&switch) == Some(&Value::Bool(true));
             if settings.contains_key(&switch) { settings.insert(switch, Value::Bool(false)); }
-            if flip { settings.insert(action, json!("pause")); }
-            if present(settings.get(&prefix)) { changed = true; settings.insert(prefix.clone(), Value::Null); }
-            transient.remove(&format!("{prefix}_condition_met_at"));
+            for suffix in fields.iter() { changed |= settings.shift_remove(&format!("{prefix}{suffix}")).is_some_and(|v| present(Some(&v))); }
+            for stamp in ["_condition_met_at", "_enabled_at"] { changed |= transient.remove(&format!("{prefix}{stamp}")).is_some_and(|v| !v.is_null()); }
         }
     }
     for key in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount", "base_amount_limit"] {
