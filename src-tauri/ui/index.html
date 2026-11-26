@@ -11,8 +11,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Deltabadger</title>
 <style>
-  :root { color-scheme: light dark; --bg: #f5f6f8; --fg: #1d1d1f; --muted: #6e6e73; --box: #e9ebef; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #001933; --fg: #f5f5f7; --muted: #a3b1c2; --box: #0b2a4a; } }
+  /* `.dark` and --bg (the engine's --paper) come from the look script below. */
+  :root { color-scheme: light; --bg: #F8F9FA; --fg: #1d1d1f; --muted: #6e6e73; --box: #e9ebef; }
+  :root.dark { color-scheme: dark; --bg: #00152A; --fg: #f5f5f7; --muted: #a3b1c2; --box: #0b2a4a; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
   body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; }
   .drag { height: 32px; flex: none; }
@@ -39,8 +40,8 @@
   :root { --paper: #F8F9FA; --washed: #FFFFFF; --ink: #001933; --accent: #0000ff; --highlight: var(--accent); --dropdown-hover: #D9E0E766;
     --shadow-widget: 1px 1px 2px rgba(0,0,0,0.07), 2px 2px 8px rgba(0,0,0,0.05); }
   @supports (color: color(display-p3 0 0 1)) { :root { --accent: color(display-p3 0 0 1); } }
-  @media (prefers-color-scheme: dark) { :root { --paper: #00152a; --washed: #0c1e37; --ink: #def; --highlight: #FFFFFF; --dropdown-hover: #3f5569;
-    --shadow-widget: inset 0.6px 0.6px #88f2, inset -0.6px -0.6px #0006; } }
+  :root.dark { --paper: #00152a; --washed: #0c1e37; --ink: #def; --highlight: #FFFFFF; --dropdown-hover: #3f5569;
+    --shadow-widget: inset 0.6px 0.6px #88f2, inset -0.6px -0.6px #0006; }
   #language { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; width: 100%; max-width: 320px;
     margin: 0 auto; padding: 0 16px 64px; box-sizing: border-box; font-family: "Montserrat", "Google Sans", sans-serif; }
   #language[hidden], main[hidden] { display: none; }
@@ -68,6 +69,32 @@
   #go { display: grid; place-items: center; width: 100%; height: 56px; padding: 0 32px; border: 0; border-radius: 16px; corner-shape: squircle; background: var(--accent); color: #FFFFFF;
     font: 600 16px/16px "Montserrat", "Google Sans", sans-serif; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 </style>
+<script>
+  // D-SCHEME-SWITCH, D-MODE-SWITCH: the engine's look, so the window starts in the colours its pages paint. The app names
+  // it in the fragment (lib.rs `look`); the page keeps it for the next start's first paint, before the app names it again.
+  (function () {
+    // Each scheme's --paper, light and dark (rust/web/stylesheets/_variables.sass).
+    var PAPER = { "": ["#F8F9FA", "#00152A"], space: ["#F7F7F8", "#050506"], ember: ["#FCFCFC", "#0E0E0E"],
+      forest: ["#F5F7F8", "#101A1B"], warm: ["#FAFAFA", "#191919"] };
+    var media = matchMedia("(prefers-color-scheme: dark)");
+    function paint() {
+      var named = new URLSearchParams(location.hash.slice(1));
+      var look = {};
+      try { look = JSON.parse(localStorage.getItem("look")) || {}; } catch (e) { /* the default */ }
+      if (named.has("scheme")) {
+        look = { scheme: named.get("scheme"), mode: named.get("mode") };
+        try { localStorage.setItem("look", JSON.stringify(look)); } catch (e) { /* this start only */ }
+      }
+      var paper = Object.prototype.hasOwnProperty.call(PAPER, look.scheme) ? PAPER[look.scheme] : PAPER[""];
+      var dark = look.mode === "dark" || (look.mode !== "light" && media.matches);
+      document.documentElement.classList.toggle("dark", dark);
+      document.documentElement.style.setProperty("--bg", paper[dark ? 1 : 0]);
+    }
+    paint();
+    addEventListener("hashchange", paint);
+    media.addEventListener("change", paint);
+  })();
+</script>
 </head>
 <body>
 <div class="drag" data-tauri-drag-region></div>
