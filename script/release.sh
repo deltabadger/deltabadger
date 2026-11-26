@@ -41,9 +41,10 @@ ci_passed() {
     runs+=" $(gh run list --workflow rust.yml --commit "$sha" --event "$event" --limit 100 --json databaseId,event,conclusion \
       --jq "[.[] | select(.event == \"$event\" and .conclusion == \"success\") | .databaseId] | .[]")"
   done
-  local id all='[]'
-  for id in $runs; do
-    all=$(jq -c --argjson r "$(gh run view "$id" --json jobs --jq '[.jobs[] | {name, conclusion}]')" '. + [$r]' <<< "$all")
+  local id r all='[]'
+  for id in $runs; do # a run that can't be read only loses its evidence: at worst a refusal
+    r=$(gh run view "$id" --json jobs --jq '[.jobs[] | {name, conclusion}]') && [ -n "$r" ] || continue
+    all=$(jq -c --argjson r "$r" '. + [$r]' <<< "$all")
   done
   # A skipped job (an `if`) shows once under its unexpanded matrix name, so names are judged only in the full run.
   jq -e 'any(.[]; . as $r | ($r | all(.conclusion == "success"))

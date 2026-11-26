@@ -161,7 +161,9 @@ echo '[{"databaseId":7,"event":"schedule","conclusion":"success"}]' > "$STATE/ru
 echo '[{"databaseId":7,"event":"push","conclusion":"failure"}]' > "$STATE/rust_runs.json"; refused "a red run" "no rust.yml runs" patch
 reset_state
 echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"skipped"}]}' > "$STATE/jobs.json"; refused "a skipped platform job" "no rust.yml runs" patch
-echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"}]}' > "$STATE/jobs.json"; refused "a push run without macOS" "no rust.yml runs" patch
+echo '[{"databaseId":7,"event":"push","conclusion":"success"}]' > "$STATE/rust_runs.json"
+echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 (1/2)","conclusion":"success"},{"name":"windows-x86_64 (2/2)","conclusion":"success"}]}' > "$STATE/jobs.json"
+refused "a full push run alone (no macOS)" "no rust.yml runs" patch
 # A push run (no macOS) plus a macOS-only run by hand on the same commit. A job its `if` skips shows once under its
 # unexpanded matrix name, as GitHub reports it.
 two_runs() { # <push jobs> <dispatch jobs>
@@ -181,6 +183,10 @@ two_runs "[{\"name\":\"linux-x86_64\",\"conclusion\":\"success\"},{\"name\":\"im
 refused "a push run missing a platform leg beside macOS" "no rust.yml runs" patch
 echo '[{"databaseId":8,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
 refused "a macOS-only run without a passed push run" "no rust.yml runs" patch
+two_runs "$push_ok" "$(mac success)"
+echo '[{"databaseId":7,"event":"push","conclusion":"success"},{"databaseId":8,"event":"workflow_dispatch","conclusion":"success"},{"databaseId":9,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
+echo 'not json' > "$STATE/jobs_9.json"
+ANSWER=n refused "an unreadable run beside a passing pair doesn't block it" "aborted" patch
 two_runs "$push_ok" "$(mac success)"
 ANSWER=n refused "a push run plus a macOS-only run by hand passes the CI check (reaches the question)" "aborted" patch
 reset_state
