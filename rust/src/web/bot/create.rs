@@ -335,7 +335,8 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     if !has_trading_key(tx, &account)? { return Ok(refused(api_key_missing(&shown))); }
     let amount = match positive(get(p, "quote_amount"), "quote_amount") { Ok(a) => a, Err(res) => return Ok(refused(res)) };
     // Slice 7: indexes beside (or instead of) the assets, the wizard's mixed basket.
-    let index_entries = if present(indexes) {
+    // Given at all (anything but an explicit null) it is judged: `[]`, `{}` or `false` is no request for a plain basket.
+    let index_entries = if p.get("indexes").is_some_and(|v| !v.is_null()) {
         match index_entries(indexes) {
             Some(entries) => entries,
             None => return Ok(refused(invalid("invalid_indexes", format!("indexes must list 1 to {MAX_ASSETS} index ids from list_indices, each once, e.g. 'top-coins:50' or [{{\"id\": \"top-coins\", \"allocation\": 50}}].")))),
@@ -387,12 +388,15 @@ fn dca(tx: &Connection, ctx: &Ctx, user: i64, p: &Map<String, Value>) -> Result<
     let mut built = wizard::create::build(tx, &config, "en")?;
     if present(get(p, "label")) { built.label = text(get(p, "label")); }
     if !index_entries.is_empty() {
-        // The wizard's rows for these ids (its picker's order: the first row of each id the venue may take), then its groups.
+        // The wizard's rows for these ids: in its picker's order, the first row of each id this venue and quote take with these
+        // assets (`grouped::eligible`, the wizard's check), else the first of that id, which `group` then refuses.
         let tiles = wizard::index::tiles(tx, &ctx.app, None)?;
         let mut rows = vec![];
         for (external_id, _) in &index_entries {
-            let named = || tiles.iter().filter(|t| t.external_id == *external_id);
-            let Some(tile) = named().find(|t| t.venues.is_empty() || t.venues.contains(&venue.class)).or_else(|| named().next()) else {
+            let named: Vec<&wizard::index::IndexTile> = tiles.iter().filter(|t| t.external_id == *external_id).collect();
+            let mut taken = None;
+            for tile in &named { if wizard::grouped::eligible(tx, &ctx.app, venue.id, Some(quote_id), &members, &[tile.row_id])? { taken = Some(*tile); break; } }
+            let Some(tile) = taken.or_else(|| named.first().copied()) else {
                 return Ok(refused(fail(Domain::NotFound, "index_not_found", format!("Index '{external_id}' not found or not available on {shown}. Use 'list_indices' with exchange_name to see what is."))));
             };
             rows.push(tile.row_id);

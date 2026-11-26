@@ -1558,7 +1558,8 @@ async fn api_refusals_are_the_forms_and_write_nothing() {
         assert_eq!(settings(&u, id), before, "{args}: nothing written");
     }
     // REST takes no form-only key and drops no malformed public one: each refused whole, beside a valid amount.
-    for body in [json!({ "remove_index_id": "nasdaq-100" }), json!({ "add_index": ["nasdaq-100"] }), json!({ "index_groups": [1] }), json!({ "change_index": "nasdaq-100" })] {
+    for body in [json!({ "remove_index_id": "nasdaq-100" }), json!({ "add_index": ["nasdaq-100"] }), json!({ "index_groups": [1] }), json!({ "change_index": "nasdaq-100" }),
+                 json!({ "remove_index": " " }), json!({ "index_groups": null }), json!({ "add_index": false })] {
         let mut body = body; body["quote_amount"] = json!(70);
         let (status, text) = rest(&u, "PATCH", &format!("/bots/{basket}"), body.clone()).await;
         assert_eq!(status, 422, "{body}: {text}");
@@ -1617,7 +1618,7 @@ async fn reads_carry_ingredients_and_members_with_ids() {
     let row = list["data"]["bots"].as_array().unwrap().iter().find(|b| b["id"] == json!(id)).unwrap().clone();
     assert_eq!((row["pair"].clone(), row["ingredients"].clone(), row["members"].clone()), (d["pair"].clone(), d["ingredients"].clone(), d["members"].clone()));
     let text = mcp(&u, "get_bot_details", json!({ "bot_id": id })).to_string();
-    assert!(text.contains("Ingredients: BTC 50.00% (asset id") && text.contains("(index id nasdaq-100)"), "{text}");
+    assert!(text.contains("Ingredients: BTC 50.00% (asset id") && text.contains("(index id nasdaq-100, 3 assets, flattening 1.0)") && text.contains("Current members: BTC 50.00% (asset id"), "{text}");
     // A plain basket: no new key.
     let plain_id = plain(&u);
     let (_, read) = rest(&u, "GET", &format!("/bots/{plain_id}"), json!({})).await;
@@ -1687,6 +1688,10 @@ async fn create_bot_index_refusals_write_nothing() {
         (json!({ "assets": "BTC", "indexes": ["nasdaq-100", { "id": 5 }] }), "invalid_indexes"),
         (json!({ "indexes": [{ "id": "nasdaq-100", "allocation": 60 }, { "id": "cat-b", "allocation": 30 }] }), "allocations_unbalanced"),
         (json!({ "assets": "BTC", "indexes": "cat-x" }), "index_not_offered"),
+        // Given but empty is no plain-basket request (Codex branch r1 #1).
+        (json!({ "assets": "BTC", "indexes": [] }), "invalid_indexes"),
+        (json!({ "assets": "BTC", "indexes": {} }), "invalid_indexes"),
+        (json!({ "assets": "BTC", "indexes": false }), "invalid_indexes"),
     ] {
         let mut body = create_args(extra.clone()); body["type"] = json!("dca");
         let (status, answer) = rest(&u, "POST", "/bots", body).await;
@@ -1702,8 +1707,49 @@ async fn create_index_bot_answers_its_pinned_contract() {
     exec(&u.o, r#"UPDATE indices SET available_exchanges = '{"Exchanges::Alpaca": {}}' WHERE external_id = 'nasdaq-100'"#);
     let answer = mcp(&u, "create_index_bot", create_args(json!({ "index": "nasdaq-100", "num_coins": 3 }))).to_string();
     assert!(!answer.contains("\"isError\":true"), "{answer}");
+    assert!(answer.contains("created and started — nasdaq-100 top 3 on Alpaca, 100.0 USD/week."), "{answer}");
     let (id, class, _) = newest_bot(&u);
     assert_eq!(class, "Bots::DcaIndex");
     let s = settings(&u, id);
     assert!(s.get("index_groups").is_none() && s["index_category_id"] == json!("nasdaq-100") && s["num_coins"] == json!(3), "{s}");
+    rest_token(&u);
+    let mut body = create_args(json!({ "type": "index", "index": "nasdaq-100", "num_coins": 3 })); body["quote_amount"] = json!(50);
+    let (status, answer) = rest(&u, "POST", "/bots", body).await;
+    assert_eq!(status, 201, "{answer}");
+    let keys: Vec<&String> = answer["data"].as_object().unwrap().keys().collect();
+    assert_eq!(keys, ["id", "label", "type", "status", "exchange", "index", "num_coins", "allocation_flattening", "quote_asset", "quote_amount", "interval", "started_at"]);
+    assert_eq!((answer["data"]["type"].clone(), answer["data"]["num_coins"].clone()), (json!("Bots::DcaIndex"), json!(3)));
+}
+
+/// Codex slice 7 branch r1 #4: a count set to every member the venue trades holds them all on every transport, judged on
+/// the count and ceiling the index sheet draws (here five tradable of six ranked).
+#[tokio::test]
+async fn a_count_of_every_tradable_member_holds_all_on_every_transport() {
+    let mut u = universe();
+    exec(&u.o, r#"UPDATE indices SET top_coins = '["AAA.US","BBB.US","CCC.US","DDD.US","EEE.US","FFF.US"]' WHERE external_id = 'nasdaq-100'"#);
+    let (web, by_mcp) = (grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)])), grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)])));
+    let page = u.b.get(&u.app, &format!("/bots/{web}/index_groups/nasdaq-100/edit")).await;
+    let field = |name: &str| regex::Regex::new(&format!(r#"name="bots_dca_multi_asset\[index_groups\]\[nasdaq-100\]\[{name}\]"[^>]*value="(\d+)""#)).unwrap()
+        .captures(&page.body).map(|c| c[1].to_string());
+    let (Some(ceiling), Some(rendered)) = (field("num_coins_ceiling"), field("num_coins_rendered")) else { panic!("the sheet's hidden fields: {}", page.body.len()) };
+    assert_eq!((ceiling.as_str(), rendered.as_str()), ("5", "3"));
+    let saved = patch(&mut u, web, &[(&key("index_groups][nasdaq-100][num_coins"), "5"), (&key("index_groups][nasdaq-100][num_coins_ceiling"), &ceiling),
+                                     (&key("index_groups][nasdaq-100][num_coins_rendered"), &rendered)]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let answer = mcp(&u, "update_bot_settings", json!({ "bot_id": by_mcp, "index_groups": { "nasdaq-100": { "num_coins": 5 } } }));
+    assert!(answer.to_string().contains("settings updated"), "{answer}");
+    assert_eq!(settings(&u, web)["index_groups"][0]["hold_all"], json!(true));
+    assert_eq!(settings(&u, by_mcp), settings(&u, web));
+}
+
+/// Codex slice 7 branch r1 #7: removing the last index resets a dormant sale, and REST's answer says so as MCP's does.
+#[tokio::test]
+async fn the_sell_reset_notice_reaches_rest() {
+    let u = universe();
+    rest_token(&u);
+    let id = halves(&u);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.sell_quote_amount', 50) WHERE id = {id}"));
+    let (status, answer) = rest(&u, "PATCH", &format!("/bots/{id}"), json!({ "remove_index": "nasdaq-100" })).await;
+    assert_eq!(status, 200, "{answer}");
+    assert!(answer["data"]["notice"].as_str().is_some_and(|n| n.starts_with("Selling rules were switched off")), "{answer}");
 }

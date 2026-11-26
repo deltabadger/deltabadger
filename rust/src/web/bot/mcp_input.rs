@@ -66,7 +66,18 @@ fn blank(v: &Value) -> bool { v.is_null() || v.as_str().is_some_and(|s| strip(s)
 /// The automation dialect, turned into exactly what the settings page would post; the page's own parser
 /// (`Draft::parse`) then reads it. No setting is written here.
 pub fn apply(c: &Connection, draft: &mut Draft, fields: &Value, zone: &str, now: chrono::DateTime<chrono::Utc>) -> Result<InputOutcome, WebError> {
-    let form = match posted(draft, fields) { Ok(form) => form, Err(refused) => return Ok(refused) };
+    let mut form = match posted(draft, fields) { Ok(form) => form, Err(refused) => return Ok(refused) };
+    // A posted count goes with the count and ceiling the index sheet draws (`_index_sliders`), so `hold_all` is judged as
+    // the page judges it (Codex slice 7 branch r1 #4).
+    if let Some(Value::Object(groups)) = form.get_mut("index_groups") {
+        for (id, fields) in groups.iter_mut() {
+            if fields.get("num_coins").is_none() { continue; }
+            let Some(view) = draft.original.group_view(c, id)? else { continue };
+            let drawn = super::settings::sliders(c, "en", &view)?;
+            fields["num_coins_rendered"] = json!(drawn.num_coins.to_string());
+            fields["num_coins_ceiling"] = json!(drawn.max_coins.to_string());
+        }
+    }
     // The answer names what the caller sent, never the form field it became (slice 7).
     let accepted: Map<String, Value> = form.keys().filter_map(|k| public_name(k)).map(|k| (k.to_owned(), Value::Null)).collect();
     let posted = Value::Object(form.clone());
@@ -93,12 +104,11 @@ fn whole(value: &Value) -> Option<String> {
     number(value).filter(|n| whole && n.to_s_f().ends_with(".0")).map(|n| n.to_s_f().trim_end_matches(".0").to_owned())
 }
 
-/// `index_groups` as the bot page's sheet posts it: per index, its weight (percent), its count (with the stored one as the
-/// count the page drew, so a resubmitted count keeps `hold_all`) and its flattening.
-fn groups_form(draft: &Draft, value: &Value) -> Result<Value, String> {
+/// `index_groups` as the bot page's sheet posts it: per index, its weight (percent), its count and its flattening (`apply`
+/// adds the count and ceiling the sheet draws).
+fn groups_form(value: &Value) -> Result<Value, String> {
     let shape = || "index_groups must be {index id: {weight, num_coins, allocation_flattening}}.".to_owned();
     let groups = value.as_object().filter(|o| !o.is_empty()).ok_or_else(shape)?;
-    let stored = draft.raw_settings.get("index_groups").and_then(Value::as_array).cloned().unwrap_or_default();
     let mut form = Map::new();
     for (id, fields) in groups {
         let fields = fields.as_object().filter(|f| !f.is_empty()).ok_or_else(shape)?;
@@ -112,8 +122,6 @@ fn groups_form(draft: &Draft, value: &Value) -> Result<Value, String> {
             };
             posted.insert(field.clone(), json!(text.ok_or_else(|| format!("index_groups {field} must be a number."))?));
         }
-        let count = stored.iter().find(|g| crate::engine::composition::external_id(g.as_object()) == id).and_then(|g| g.get("num_coins")).and_then(Value::as_i64);
-        if let (Some(count), true) = (count, posted.contains_key("num_coins")) { posted.insert("num_coins_rendered".into(), json!(count.to_string())); }
         form.insert(id.clone(), Value::Object(posted));
     }
     Ok(Value::Object(form))
@@ -135,6 +143,10 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
     let mut form = Map::new();
     for (name, schema) in catalogue() {
         let Some(value) = fields.get(name) else { continue };
+        // An ingredient key given blank is refused whole, as the form refuses one (Codex slice 7 branch r1 #2).
+        if INGREDIENT_KEYS.contains(&name) && (blank(value) || value == &Value::Bool(false)) {
+            return Err(fail(draft, ("invalid_index", format!("{name} must name an index (list_indices)."))));
+        }
         if blank(value) {
             // The page posts a blank for a field it cleared; other fields ignore one.
             if schema["type"].as_array().is_some_and(|t| t.contains(&json!("null"))) { form.insert(name.into(), Value::Null); }
@@ -200,7 +212,7 @@ pub fn posted(draft: &mut Draft, fields: &Value) -> Result<Map<String, Value>, I
                 form.insert("change_index_to".into(), json!(strip(to)));
                 continue;
             }
-            "index_groups" => match groups_form(draft, value) {
+            "index_groups" => match groups_form(value) {
                 Ok(posted) => posted,
                 Err(message) => return Err(fail(draft, ("invalid_index", message))),
             },

@@ -506,8 +506,12 @@ fn details(c:&Connection,user:i64,id:i64,now:At)->Result<Read,WebError>{
     if let Some(pair)=&b.pair{lines.push(format!("Pair: {pair}"));}
     if let Some(g)=&grouped{
         let shown=|i:&Value|format!("{} {:.2}% ({})",i["symbol"].as_str().or(i["name"].as_str()).unwrap_or(""),i["allocation"].as_f64().unwrap_or(0.0),
-            if i["kind"]=="index"{format!("index id {}",tools::str_value(&i["id"]))}else{format!("asset id {}",i["asset_id"])});
+            if i["kind"]=="index"{format!("index id {}, {} assets{}, flattening {}",tools::str_value(&i["id"]),tools::str_value(&i["num_coins"]),if i["hold_all"]==true{" (all)"}else{""},tools::str_value(&i["allocation_flattening"]))}
+            else{format!("asset id {}",i["asset_id"])});
         lines.push(format!("Ingredients: {}",g.ingredients.as_array().into_iter().flatten().map(shown).collect::<Vec<_>>().join(", ")));
+        // What it trades now, with the ids update_bot_settings and the trading conditions take.
+        let traded=|m:&Value|format!("{} {:.2}% (asset id {}, ticker id {})",tools::str_value(&m["symbol"]),m["allocation"].as_f64().unwrap_or(0.0),m["asset_id"],if m["ticker_id"].is_null(){"none".into()}else{m["ticker_id"].to_string()});
+        if let Some(members)=g.members.as_array().filter(|m|!m.is_empty()){lines.push(format!("Current members: {}",members.iter().map(traded).collect::<Vec<_>>().join(", ")));}
     }
     let members=members(c,&b.kind,&b.settings)?;
     // allocation_assets: a basket's members, each under the key it goes by (nil for any other type).

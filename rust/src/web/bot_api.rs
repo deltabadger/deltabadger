@@ -181,7 +181,10 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
                         draft.notice.as_deref().map(|n| format!(" {n}")).unwrap_or_default())
             } else if draft.errors.first().is_some_and(|e| e.field == "base") { mcp_input::full_messages(&draft.errors) }
             else { format!("Failed to update bot: {}", mcp_input::full_messages(&draft.errors)) };
-            Ok(shown(json!({"id": id, "label": draft.candidate.label, "updated": updated}), text))
+            let mut data = json!({"id": id, "label": draft.candidate.label, "updated": updated});
+            // Slice 7: what the save reset (the sell side, with the last index) is told on every transport.
+            if let Some(notice) = &draft.notice { data["notice"] = json!(notice); }
+            Ok(shown(data, text))
         }),
         Write::Lifecycle(action) => write::lifecycle(c, &ctx, user, id, action, submitted, |c, _, view| {
             let stored: String = c.query_row("SELECT COALESCE(label,'') FROM bots WHERE id=?1", [id], |r| r.get(0))?;

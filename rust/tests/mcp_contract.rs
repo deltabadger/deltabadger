@@ -52,6 +52,11 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
     }
     // D-API-INGREDIENTS (PLAN index-as-ingredient slice 7): exactly these properties, each after `allocations` (update) or
     // `assets` (create), stripped only after they are asserted.
+    // Pinned here, not read back from the code that builds them (Codex slice 7 branch r1 #8).
+    let pinned: Vec<(&str, &str, Value)> = protocol::ingredient_properties().into_iter().map(|(t, n, s)| (t, n, s["type"].clone())).collect();
+    assert_eq!(pinned, [("update_bot_settings", "add_index", serde_json::json!("string")), ("update_bot_settings", "remove_index", serde_json::json!("string")),
+                        ("update_bot_settings", "change_index", serde_json::json!("object")), ("update_bot_settings", "ungroup_index", serde_json::json!("string")),
+                        ("update_bot_settings", "index_groups", serde_json::json!("object")), ("create_bot", "indexes", serde_json::json!(["string", "array"]))]);
     for (tool, after) in [("update_bot_settings", "allocations"), ("create_bot", "assets")] {
         let added: Vec<(&str, Value)> = protocol::ingredient_properties().into_iter().filter(|(t, _, _)| *t == tool).map(|(_, n, v)| (n, v)).collect();
         let t = ours["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["name"] == tool).unwrap();
