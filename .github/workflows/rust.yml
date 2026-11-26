@@ -53,10 +53,11 @@ jobs:
           # rust/ and the 3.0 image (Dockerfile, docker/) and its entrypoint; the compose files the image tests run
           # (tests/image.rs) and the Umbrel app tests/umbrel.rs checks; how a release is published (release.yml runs
           # script/rust/image_smoke.sh before each push, script/release/validate.sh is proved by release-scripts); and what
-          # the build reads: the app version (src-tauri/Cargo.toml), build.rs's gates, the asset build and the
+          # the build reads: the app version (src-tauri/Cargo.toml; the release tests bump it with Cargo.lock and
+          # tauri.conf.json), build.rs's gates, the asset build and the
           # package.json/bun.lock it resolves (dart-sass among them); and what the crate reads from outside rust/: the API
           # manual it serves and the launcher page its tests compare with.
-          PATHS: '^(rust/|docker/|deltabadger/|script/release/|script/rust/|src-tauri/ui/|bun\.lock)|^(\.github/workflows/(rust|release)\.yml|Dockerfile|\.dockerignore|docker-compose(\.build)?\.yml|umbrel-app-store\.yml|script/release(_test)?\.sh|src-tauri/Cargo\.toml|package\.json|manual/api\.md)$'
+          PATHS: '^(rust/|docker/|deltabadger/|script/release/|script/rust/|src-tauri/ui/|bun\.lock)|^(\.github/workflows/(rust|release)\.yml|Dockerfile|\.dockerignore|docker-compose(\.build)?\.yml|umbrel-app-store\.yml|script/release(_test)?\.sh|src-tauri/(Cargo\.(toml|lock)|tauri\.conf\.json)|package\.json|manual/api\.md)$'
         run: |
           set -euo pipefail
           # A push that creates main has no base (all zeros): it tests.
@@ -382,7 +383,16 @@ jobs:
     if: github.event_name != 'schedule' && !inputs.macos_only
     runs-on: ubuntu-24.04
     steps:
+      # The checker opens only the Markdown it checks; every other path it resolves against `git ls-files`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /README.md
+            /manual/
+            AGENTS.md
+            /script/rust/doc_links.py
       - run: python3 script/rust/doc_links.py
 
   # The one check the merge queue requires (the repository's ruleset on main): it passes when every job above passed or
