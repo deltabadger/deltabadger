@@ -48,7 +48,8 @@ ci_passed() {
   done
   # A skipped job (an `if`) shows once under its unexpanded matrix name, so names are judged only in the full run.
   jq -e 'any(.[]; . as $r | ($r | all(.conclusion == "success"))
-        and (["linux-x86_64", "linux-arm64", "windows-x86_64 (1/2)", "windows-x86_64 (2/2)"] | all(. as $n | $r | any(.name == $n))))
+        and (["linux-x86_64", "linux-arm64", "windows-x86_64 build",
+          "windows-x86_64 (1/3)", "windows-x86_64 (2/3)", "windows-x86_64 (3/3)"] | all(. as $n | $r | any(.name == $n))))
       and any(.[][]; .name == "macos-arm64" and .conclusion == "success")' <<< "$all" > /dev/null && return 0
   die "no rust.yml runs on ${sha:0:9} passed every job on every platform (macOS runs only when started by hand).
 After the push run on this commit passed: gh workflow run rust.yml --ref main -f macos_only=true

@@ -12,60 +12,14 @@ on:
   # The image job only: base images and package repositories change under an unchanged repository.
   schedule:
     - cron: '17 3 * * *'
-  # main only: a branch is checked by its pull request (pushing to it ran the same suite twice before).
+  # Every push to main, pull request and merge queue entry starts a run; the changes job below decides whether it tests.
+  # A run that tests nothing still reports the Rust gate, the check the merge queue requires.
   push:
     branches: [main]
-    paths:
-      - 'rust/**'
-      - '.github/workflows/rust.yml'
-      # The 3.0 image (Dockerfile) and its entrypoint.
-      - 'Dockerfile'
-      - 'docker/**'
-      - '.dockerignore'
-      # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
-      - 'docker-compose.yml'
-      - 'docker-compose.build.yml'
-      - 'deltabadger/**'
-      - 'umbrel-app-store.yml'
-      # How a release is published: release.yml runs script/rust/image_smoke.sh (run by the image job) before each push,
-      # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
-      - '.github/workflows/release.yml'
-      - 'script/release/**'
-      - 'script/release.sh'
-      - 'script/release_test.sh'
-      # Read by the build too: the app version the binary embeds, build.rs's gates and the asset build.
-      - 'src-tauri/Cargo.toml'
-      - 'script/rust/**'
-      # The web UI the binary embeds (rust/build.rs) is under rust/ (rust/web, rust/locales); script/rust/build_assets.sh
-      # builds it with what package.json and bun.lock resolve, dart-sass among them.
-      - 'package.json'
-      - 'bun.lock*'
   pull_request:
-    paths:
-      - 'rust/**'
-      - '.github/workflows/rust.yml'
-      # The 3.0 image (Dockerfile) and its entrypoint.
-      - 'Dockerfile'
-      - 'docker/**'
-      - '.dockerignore'
-      # The compose files the image tests run (tests/image.rs), and the Umbrel app tests/umbrel.rs checks.
-      - 'docker-compose.yml'
-      - 'docker-compose.build.yml'
-      - 'deltabadger/**'
-      - 'umbrel-app-store.yml'
-      # How a release is published: release.yml runs script/rust/image_smoke.sh (run by the image job) before each push,
-      # and script/release/validate.sh (proved by release-scripts) before anything is tagged or published.
-      - '.github/workflows/release.yml'
-      - 'script/release/**'
-      - 'script/release.sh'
-      - 'script/release_test.sh'
-      # Read by the build too: the app version the binary embeds, build.rs's gates and the asset build.
-      - 'src-tauri/Cargo.toml'
-      - 'script/rust/**'
-      # The web UI the binary embeds (rust/build.rs) is under rust/ (rust/web, rust/locales); script/rust/build_assets.sh
-      # builds it with what package.json and bun.lock resolve, dart-sass among them.
-      - 'package.json'
-      - 'bun.lock*'
+  # The merge queue: the full matrix on the pull request merged onto main (and onto the entries ahead of it).
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -73,14 +27,44 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
-# A new push to a pull request cancels its older run; main runs every commit to the end.
+# A new push to a pull request cancels its older run; main and the merge queue run every commit to the end.
 concurrency:
   group: rust-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Whether the change touches what this workflow tests. Scheduled and by-hand runs always test.
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      rust: ${{ steps.diff.outputs.rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          # rust/ and the 3.0 image (Dockerfile, docker/) and its entrypoint; the compose files the image tests run
+          # (tests/image.rs) and the Umbrel app tests/umbrel.rs checks; how a release is published (release.yml runs
+          # script/rust/image_smoke.sh before each push, script/release/validate.sh is proved by release-scripts); and what
+          # the build reads: the app version (src-tauri/Cargo.toml), build.rs's gates, the asset build and the
+          # package.json/bun.lock it resolves (dart-sass among them).
+          PATHS: '^(rust/|docker/|deltabadger/|script/release/|script/rust/|bun\.lock)|^(\.github/workflows/(rust|release)\.yml|Dockerfile|\.dockerignore|docker-compose(\.build)?\.yml|umbrel-app-store\.yml|script/release(_test)?\.sh|src-tauri/Cargo\.toml|package\.json)$'
+        run: |
+          set -euo pipefail
+          case "$EVENT" in pull_request|merge_group|push) ;; *) echo rust=true >> "$GITHUB_OUTPUT"; exit 0 ;; esac
+          git fetch --quiet --depth=1 origin "$BASE"
+          changed=$(git diff --name-only "$BASE" HEAD)
+          printf '%s\n' "$changed"
+          # grep without -q reads all its input: printf can't take SIGPIPE and fail the match under pipefail.
+          if printf '%s\n' "$changed" | grep -E "$PATHS" > /dev/null; then r=true; else r=false; fi
+          echo "rust=$r" | tee -a "$GITHUB_OUTPUT"
+
+  # Not on pull requests: the full suite below runs every test on Linux there, and the merge queue runs these platform
+  # legs on the merged result before anything reaches main.
   rust:
-    if: github.event_name != 'schedule'
+    needs: changes
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request' && needs.changes.outputs.rust == 'true'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     # macOS runs only by hand, so its cache is usually gone (unused for 7 days): a cold build and the whole suite take ~75 min.
@@ -90,7 +74,9 @@ jobs:
       matrix:
         # macos-arm64 (Apple Silicon; Intel Macs are not supported) runs only when the workflow is started by hand
         # (`gh workflow run rust.yml --ref <branch>`): development runs on a Mac, and the leg queued up to an hour per PR.
-        include: ${{ fromJSON(inputs.macos_only && '[{"name":"macos-arm64","os":"macos-15"}]' || github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 (1/2)","os":"windows-2025","part":"1/2"},{"name":"windows-x86_64 (2/2)","os":"windows-2025","part":"2/2"}]') }}
+        # Windows builds the release and runs clippy in a job of its own and its tests in three parts: one job doing it all
+        # took twice Linux's time (the release build alone ~15 min).
+        include: ${{ fromJSON(inputs.macos_only && '[{"name":"macos-arm64","os":"macos-15"}]' || github.event_name == 'workflow_dispatch' && '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 build","os":"windows-2025","build_only":true},{"name":"windows-x86_64 (1/3)","os":"windows-2025","part":"1/3"},{"name":"windows-x86_64 (2/3)","os":"windows-2025","part":"2/3"},{"name":"windows-x86_64 (3/3)","os":"windows-2025","part":"3/3"},{"name":"macos-arm64","os":"macos-15"}]' || '[{"name":"linux-x86_64","os":"ubuntu-24.04"},{"name":"linux-arm64","os":"ubuntu-24.04-arm"},{"name":"windows-x86_64 build","os":"windows-2025","build_only":true},{"name":"windows-x86_64 (1/3)","os":"windows-2025","part":"1/3"},{"name":"windows-x86_64 (2/3)","os":"windows-2025","part":"2/3"},{"name":"windows-x86_64 (3/3)","os":"windows-2025","part":"3/3"}]') }}
     defaults:
       run:
         working-directory: rust
@@ -112,10 +98,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust
-          key: ${{ matrix.part && 'windows-x86_64' || matrix.name }}
-          # Pull requests restore main's cache and save none of their own (the cache budget is 10 GB). Windows' two halves
-          # share one cache, saved by the half that also builds the release.
-          save-if: ${{ github.ref == 'refs/heads/main' && matrix.part != '2/2' }}
+          key: ${{ matrix.build_only && 'windows-x86_64-build' || matrix.part && 'windows-x86_64' || matrix.name }}
+          # Only main saves a cache (the budget is 10 GB); queue and pull request runs restore main's. Windows' test parts
+          # share one cache, saved by the first.
+          save-if: ${{ github.ref == 'refs/heads/main' && (!matrix.part || matrix.part == '1/3') }}
 
       - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2.87.21
         with:
@@ -132,23 +118,23 @@ jobs:
         run: bash script/rust/build_assets.sh
 
       # The bot chart's reading of its data (rust/web/javascript/lib/chart_series.test.js): bun is the bundler above.
-      - if: matrix.part != '2/2'
+      - if: ${{ !matrix.part }}
         name: Test the chart's JavaScript
         shell: bash
         working-directory: .
         run: bun test rust/web/javascript/lib
 
-      # Windows runs its tests in two halves (one took 50 of the 60 minutes, twice Linux's time); one half builds these.
-      - if: matrix.part != '2/2'
+      - if: ${{ !matrix.part }}
         run: cargo build --release --locked
 
-      - if: matrix.part != '2/2'
+      - if: ${{ !matrix.part }}
         run: cargo clippy --all-targets --locked -- -D warnings
 
       # Every test file except those rust/tests/platform_excluded.txt names for this OS, with the reason they can't run
       # here (Docker, Unix-only, or full suite only). Only the selected targets are built: nextest builds every target it is given
       # before it filters. macOS's bash is 3.2 (no ${v,,}, no mapfile).
       - name: Test
+        if: ${{ !matrix.build_only }}
         shell: bash
         env:
           PART: ${{ matrix.part }}
@@ -184,7 +170,8 @@ jobs:
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
-    if: ${{ !inputs.macos_only }}
+    needs: changes
+    if: ${{ !inputs.macos_only && needs.changes.outputs.rust == 'true' }}
     name: image-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -247,7 +234,8 @@ jobs:
   # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
   # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
   release-scripts:
-    if: github.event_name != 'schedule' && !inputs.macos_only
+    needs: changes
+    if: github.event_name != 'schedule' && !inputs.macos_only && needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -264,7 +252,8 @@ jobs:
   # since only the digest path is under test: the config digest script/rust/image_config_digest.sh reads from the
   # loaded image must equal the one a cache-hit build through the image exporter (the push path) records.
   publish-digest:
-    if: github.event_name != 'schedule' && !inputs.macos_only
+    needs: changes
+    if: github.event_name != 'schedule' && !inputs.macos_only && needs.changes.outputs.rust == 'true'
     name: publish-digest ${{ matrix.runner }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -310,7 +299,8 @@ jobs:
   # Every test, on Linux, with nothing of 2.x on the runner: no test reaches it (PLAN-B11 B11-3). The 2.x interop
   # tests skip here (no DELTABADGER_IMAGE) and run in the image job.
   full-suite:
-    if: github.event_name != 'schedule' && !inputs.macos_only
+    needs: changes
+    if: github.event_name != 'schedule' && !inputs.macos_only && needs.changes.outputs.rust == 'true'
     name: Full Rust suite (${{ matrix.partition }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -334,7 +324,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install Rust 1.94.0
         run: |
-          rustup toolchain install 1.94.0 --profile minimal
+          rustup toolchain install 1.94.0 --profile minimal --component clippy
           rustup default 1.94.0
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
@@ -363,8 +353,30 @@ jobs:
           hash -r
           left=$(for dir in "${dirs[@]}"; do [ -d "$dir" ] && ls "$dir"; done | grep -E "$ruby_named" || true)
           [ -z "$left" ] && ! ruby -v 2>/dev/null && echo "no Ruby anywhere on PATH" || { echo "still here: $left"; exit 1; }
+      # A pull request runs no platform legs (the merge queue does): clippy and the chart's JavaScript run here instead,
+      # on the partition that finishes first.
+      - if: github.event_name == 'pull_request' && matrix.partition == 4
+        name: Test the chart's JavaScript
+        run: bun test rust/web/javascript/lib
+      - if: github.event_name == 'pull_request' && matrix.partition == 4
+        working-directory: rust
+        run: cargo clippy --all-targets --locked -- -D warnings
       # The same tests as `cargo test` (the crate has no doctests), each in its own process, spread over four runners;
       # every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
       - name: Test the full Rust suite
         working-directory: rust
         run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/4
+
+  # The one check the merge queue requires (the repository's ruleset on main): it passes when every job above passed or
+  # was skipped (a change outside this workflow's paths, or a leg its event doesn't run).
+  gate:
+    name: Rust gate
+    if: always()
+    needs: [changes, rust, image, release-scripts, publish-digest, full-suite]
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          case " $RESULTS " in *" failure "*|*" cancelled "*) exit 1 ;; esac
