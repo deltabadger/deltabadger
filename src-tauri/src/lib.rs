@@ -303,7 +303,88 @@ fn full_screen_changed(window: &tauri::Window, event: &tauri::WindowEvent) -> Op
     (FULL.swap(full, std::sync::atomic::Ordering::Relaxed) != full).then_some(full)
 }
 
+/// A close asked in full screen leaves full screen first: a window hidden in full screen comes back without its space
+/// (no window buttons, a see-through menu bar). tao clears its own full-screen state before the exit animation starts,
+/// so these follow AppKit's notification instead. EXITING: a close's exit is under way, cleared only by AppKit's
+/// did-exit. HIDE_WANTED: the window hides when it ends (a show clears it; a close sets it again). OBSERVING: the
+/// notification is watched at all.
+#[cfg(target_os = "macos")]
+static EXITING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(target_os = "macos")]
+static HIDE_WANTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(target_os = "macos")]
+static OBSERVING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The window's close on macOS: in full screen it asks for the exit and returns true (the window hides when the exit
+/// ends); false when the caller should hide the window now.
+// ponytail: an exit AppKit refuses (it tells only tao's delegate, which ignores it) leaves EXITING set, so closes wait
+// until full screen ends some other way (the green button, Ctrl+Cmd+F), then the window hides. Never hidden in full
+// screen. A refused-exit hook in tao is the upgrade if that ever shows up.
+#[cfg(target_os = "macos")]
+fn close_in_full_screen(window: &tauri::Window) -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    if EXITING.load(SeqCst) {
+        HIDE_WANTED.store(true, SeqCst);
+        return true;
+    }
+    if !OBSERVING.load(SeqCst) || !window.is_fullscreen().unwrap_or(false) {
+        return false;
+    }
+    EXITING.store(true, SeqCst);
+    HIDE_WANTED.store(true, SeqCst);
+    if window.set_fullscreen(false).is_err() {
+        EXITING.store(false, SeqCst);
+        HIDE_WANTED.store(false, SeqCst);
+        return false;
+    }
+    true
+}
+
+/// Watches the window's "did exit full screen": the page gets the keyboard back after tao's own clean-up (which hands it
+/// to tao's view), and a close that waited for the exit hides the window.
+#[cfg(target_os = "macos")]
+fn on_full_screen_exit(window: &tauri::WebviewWindow) {
+    use objc2_foundation::{NSNotification, NSNotificationCenter, NSOperationQueue};
+    use std::sync::atomic::Ordering::SeqCst;
+    let Ok(ns_window) = window.ns_window() else { return };
+    let app = window.app_handle().clone();
+    let block = block2::RcBlock::new(move |_: std::ptr::NonNull<NSNotification>| {
+        EXITING.store(false, SeqCst);
+        if let Some(window) = app.get_window("main") {
+            if let Some(webview) = app.get_webview("main") {
+                let _ = webview.set_focus();
+            }
+            if HIDE_WANTED.swap(false, SeqCst) {
+                hide_to_tray(&window);
+            }
+        }
+    });
+    // SAFETY: ns_window is the live NSWindow tauri created for "main"; the block runs on the main queue, after the
+    // posting (tao's delegate) returns, and lives as long as the app (the window is never destroyed, only hidden).
+    let observer = unsafe {
+        NSNotificationCenter::defaultCenter().addObserverForName_object_queue_usingBlock(
+            Some(objc2_app_kit::NSWindowDidExitFullScreenNotification),
+            Some(&*(ns_window as *const objc2::runtime::AnyObject)),
+            Some(&NSOperationQueue::mainQueue()),
+            &block,
+        )
+    };
+    std::mem::forget(observer);
+    OBSERVING.store(true, SeqCst);
+}
+
+/// The window's close: hidden, the app stays in the tray (and leaves the Dock on macOS).
+fn hide_to_tray(window: &tauri::Window) {
+    let _ = window.hide();
+    #[cfg(target_os = "macos")]
+    let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
+    log::info!("Window hidden, app running in tray");
+}
+
 fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    // A show asked while a close waits for full screen to end wins: the window stays.
+    #[cfg(target_os = "macos")]
+    HIDE_WANTED.store(false, std::sync::atomic::Ordering::SeqCst);
     // Show in Dock when window is shown
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(ActivationPolicy::Regular);
@@ -312,6 +393,10 @@ fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        // The window's focus leaves the keyboard with whichever view had it (tao's own, after a full-screen exit): the page.
+        if let Some(webview) = app.get_webview("main") {
+            let _ = webview.set_focus();
+        }
         let visible = window.is_visible().unwrap_or(false);
         log_line(app, &format!("desktop: window shown (visible: {visible})"));
     }
@@ -760,7 +845,10 @@ pub fn run() {
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .hidden_title(true);
 
-            window_builder.build()?;
+            #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+            let window = window_builder.build()?;
+            #[cfg(target_os = "macos")]
+            on_full_screen_exit(&window);
 
             // Set up system tray
             let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;
@@ -895,15 +983,13 @@ pub fn run() {
                 }
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Hide the window instead of closing (app stays in tray)
-                let _ = window.hide();
                 api.prevent_close();
-
-                // Hide from Dock when window is closed
+                // In full screen: leave it first, and hide when it has (`close_in_full_screen`).
                 #[cfg(target_os = "macos")]
-                let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
-
-                log::info!("Window hidden, app running in tray");
+                if close_in_full_screen(window) {
+                    return;
+                }
+                hide_to_tray(window);
             }
         })
         .build(context)
