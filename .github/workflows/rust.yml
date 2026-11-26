@@ -27,9 +27,10 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
-# A new push to a pull request cancels its older run; main and the merge queue run every commit to the end.
+# A new push to a pull request cancels its older run; main and the merge queue run every commit to the end. Each push to
+# main has a group of its own: in a shared one, a later push (one that tests nothing, say) would replace a pending run.
 concurrency:
-  group: rust-${{ github.event_name }}-${{ github.ref }}
+  group: rust-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -58,13 +59,14 @@ jobs:
           PATHS: '^(rust/|docker/|deltabadger/|script/release/|script/rust/|src-tauri/ui/|bun\.lock)|^(\.github/workflows/(rust|release)\.yml|Dockerfile|\.dockerignore|docker-compose(\.build)?\.yml|umbrel-app-store\.yml|script/release(_test)?\.sh|src-tauri/Cargo\.toml|package\.json|manual/api\.md)$'
         run: |
           set -euo pipefail
+          # A push that creates main has no base (all zeros): it tests.
           case "$EVENT" in pull_request|merge_group|push) ;; *) echo rust=true >> "$GITHUB_OUTPUT"; exit 0 ;; esac
+          [ -n "${BASE//0/}" ] || { echo rust=true >> "$GITHUB_OUTPUT"; exit 0; }
           git fetch --quiet --depth=1 origin "$BASE"
-          # Both sides of a move count (no rename detection), and paths print unquoted.
-          changed=$(git -c core.quotePath=false diff --no-renames --name-only "$BASE" HEAD)
-          printf '%s\n' "$changed"
-          # grep without -q reads all its input: printf can't take SIGPIPE and fail the match under pipefail.
-          if printf '%s\n' "$changed" | grep -E "$PATHS" > /dev/null; then r=true; else r=false; fi
+          # Both sides of a move count (no rename detection); NUL-separated, so no name is quoted or split.
+          git diff -z --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed"
+          tr '\0' '\n' < "$RUNNER_TEMP/changed"
+          if grep -zE "$PATHS" "$RUNNER_TEMP/changed" > /dev/null; then r=true; else r=false; fi
           echo "rust=$r" | tee -a "$GITHUB_OUTPUT"
 
   # Not on pull requests: the full suite below runs every test on Linux there, and the merge queue runs these platform
