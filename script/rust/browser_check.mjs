@@ -262,11 +262,11 @@ try {
     await evaluate(`document.querySelector("turbo-frame#modal").src = "/bots/new"`);
     await inSheet("the wizard's first step");
     await click(`${frame} .sheet__track form[action$="/bots/dca_single_assets/order"] button`);
-    await until("the Asset view", () => shows(`${frame} .modal--search .segmented a[href$="kind=index"]`));
-    await click(`${frame} .modal--search .segmented a[href$="kind=index"]`);
+    await until("the Asset view", () => shows(`${frame} .wizard-search .segmented a[href$="kind=index"]`));
+    await click(`${frame} .wizard-search .segmented a[href$="kind=index"]`);
     await until("the Index view", () => shows(`${frame} button.index-row`));
     // Enter on the focused switch is the link's own: it never picks an index.
-    await call(function (f) { document.querySelector(`${f} .modal--search .segmented a[href$="kind=index"]`).focus(); }, frame);
+    await call(function (f) { document.querySelector(`${f} .wizard-search .segmented a[href$="kind=index"]`).focus(); }, frame);
     await press("Enter", 13);
     await sleep(1500);
     if (!(await shows(`${frame} button.index-row`)) || (await shows(`${frame} #exchange-picker`))) throw new Error("Enter on the switch picked an index");
