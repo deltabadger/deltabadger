@@ -25,6 +25,12 @@ pl:
             assets_stay: "Aktywa kupione na innych giełdach zostają tam, gdzie są."
         dca_multi_asset:
             add_asset: "Dodaj aktywo"
+            add_index: "Dodaj indeks"
+            index_settings: "%{index}: ustawienia"
+            composition: "Skład"
+            composition_pending: "Trwa aktualizacja: to ostatni skład."
+            composition_empty: "Brak składników: zostaną wybrane przy następnej aktualizacji."
+            toggle_view: "Wykres lub lista"
             remove_asset: "Usuń"
             max_assets_reached: "Możesz posiadać maksymalnie %{max} aktywów."
             min_assets: "Portfel musi zawierać co najmniej %{min} aktywów."

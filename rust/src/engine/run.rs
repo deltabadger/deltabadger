@@ -560,7 +560,10 @@ async fn run_resyncs<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake
         match resynced {
             Err(err @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(err),
             Err(err) => if e.resyncs.logged.insert(id) { super::log(&format!("[engine] bot {id}: its composition resync failed: {err:?}; retried at the next pass")); },
-            Ok(true) => e.events.send(EngineEvent::OrderUpdated { bot_id: id }),
+            Ok(true) => {
+                e.events.send(EngineEvent::OrderUpdated { bot_id: id });
+                if model::load_bot(&e.primary, id).is_ok_and(|bot| bot.stored_groups()) { e.events.send(EngineEvent::Recomposed { bot_id: id }); }
+            }
             Ok(false) => {}
         }
     }

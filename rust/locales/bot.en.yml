@@ -24,6 +24,12 @@ en:
             assets_stay: "Assets bought on other exchanges stay where they are."
         dca_multi_asset:
             add_asset: "Add asset"
+            add_index: "Add index"
+            index_settings: "%{index}: settings"
+            composition: "Composition"
+            composition_pending: "Being updated: this is the last composition."
+            composition_empty: "No members yet: they are chosen at the next update."
+            toggle_view: "Chart or list"
             remove_asset: "Remove"
             max_assets_reached: "You can hold up to %{max} assets."
             min_assets: "A portfolio needs at least %{min} assets."

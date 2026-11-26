@@ -445,7 +445,8 @@ fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
 /// Automation::Labelable#generate_label for a bot stored without a name, any type. Only a read's
 /// view of it: nothing is saved. An index bot is named by `Bot::find`, which names what it loads.
 pub(crate) fn generated_label(c:&Connection,user:i64,id:i64,kind:&str,s:&Value,locale:&str)->Result<String,WebError>{
-    let label=if kind=="Bots::DcaIndex"{
+    // A grouped basket (PLAN index-as-ingredient slice 5) is named by `Bot::find` too: its index, or its ingredients.
+    let label=if kind=="Bots::DcaIndex"||crate::web::bot::stored_groups(s.as_object().unwrap_or(&serde_json::Map::new())){
         crate::web::bot::Bot::find(c,user,id,crate::web::bot::For::Feed,locale)?.ok_or_else(error)?.label
     }else{
         let ids=if pair_kind(kind){s["base_asset_id"].as_i64().into_iter().collect::<Vec<_>>()}else if let Some(a)=s["allocations"].as_object().filter(|a|!a.is_empty()){a.keys().filter_map(|k|crate::web::bot::id_from_path(k)).collect()}else{s["base_asset_ids"].as_array().into_iter().flatten().map(|v|v.as_i64().unwrap_or(0)).collect()};

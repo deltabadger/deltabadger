@@ -29,6 +29,9 @@ pub enum EngineEvent {
     StatusChanged { bot_id: i64 },
     /// A condition flipped this basket: redraw its settings and metrics panels.
     Reversed { bot_id: i64 },
+    /// PLAN index-as-ingredient slice 5: a basket stored with index groups was composed by a resync: redraw its settings
+    /// (its rows, stack chips and composition).
+    Recomposed { bot_id: i64 },
     /// A tick of this bot ended, whatever it did: 2.x broadcasts its bars from the job's rescue and from
     /// Bot::BroadcastAfterScheduledActionJob once the next tick is enqueued.
     TickEnded { bot_id: i64 },
@@ -59,12 +62,12 @@ impl EngineEvent {
     /// wants, and the bot page's own.
     pub fn is_classic(&self) -> bool {
         !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. }
-                        | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::ConditionInfo { .. })
+                        | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::Recomposed { .. } | Self::ConditionInfo { .. })
     }
 
     /// What the bot page hears live (web::bot::live): its status, and each order inserted or written.
     pub fn is_live(&self) -> bool {
-        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::ConditionInfo { .. })
+        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::Recomposed { .. } | Self::ConditionInfo { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

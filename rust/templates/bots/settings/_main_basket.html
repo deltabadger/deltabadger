@@ -93,7 +93,7 @@
 {% endif %}
         </div>
       </div>
-{% endfor %}
+{% endfor %}{% for group in groups %}{% include "bots/settings/_group_row.html" %}{% endfor %}
   </div>
 
   <div class="asset-allocations__total{% if !balanced %} asset-allocations__total--off{% endif %}"
@@ -110,5 +110,5 @@
 
 {% if can_add %}
     <a class="sbutton sbutton--link asset-allocation__add" data-turbo-frame="modal" href="{{ add_path }}">+ {{ v.t("bot.dca_multi_asset.add_asset")|safe }}</a>
-{% endif %}
-</form>
+{% endif %}{% if let Some(url) = add_index_path %}    <a class="sbutton sbutton--link asset-allocation__add" data-turbo-frame="modal" href="{{ url }}">+ {{ v.t("bot.dca_multi_asset.add_index")|safe }}</a>
+{% endif %}{{ composition|safe }}</form>

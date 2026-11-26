@@ -546,3 +546,20 @@ async fn a_retry_line_names_its_error_as_a_failed_line_does() {
     let de=b.send(&app,"GET",&format!("/de/bots/{id}.turbo_stream"),None,Csrf::None,&[("Turbo-Frame","orders_pagination")]).await.body;
     assert!(de.contains("Orderversuch fehlgeschlagen: No price for BTC: HTTP 401 — der Bot versucht es erneut"),"{de}");
 }
+
+/// PLAN index-as-ingredient slice 5 (the test slice 4a lacked): a basket stored as one index group titles a held asset that
+/// left as "Out of the index"; a wider grouped basket as "Removed from portfolio".
+#[tokio::test]
+async fn an_exited_holding_is_titled_by_the_bots_content() {
+    let (_d,c,_s,id,app,mut b)=install();
+    let group=json!({"index_type":"category","index_category_id":"nasdaq-100","num_coins":3,"allocation_flattening":1.0,"weight":1.0});
+    let (eth,_):(i64,i64)=c.query_row("SELECT asset_id,ticker_id FROM bot_index_assets WHERE bot_id=?1 AND in_index=1",[id],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+    c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json('{}'),'$.index_groups',json(?2)) WHERE id=?1",(id,json!([group]).to_string())).unwrap();
+    let modal=b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await;
+    assert_eq!(modal.status,200,"{}",modal.body);
+    assert!(modal.body.contains("Out of the index"),"{}",modal.body);
+    let mut group=group; group["weight"]=json!(0.5);
+    c.execute("UPDATE bots SET settings=json_set(settings,'$.allocations',json(?2),'$.index_groups',json(?3)) WHERE id=?1",(id,json!({eth.to_string():0.5}).to_string(),json!([group]).to_string())).unwrap();
+    let modal=b.get(&app,&format!("/bots/{id}/liquidation/new?symbol=BTC")).await;
+    assert!(modal.body.contains("Removed from portfolio"),"{}",modal.body);
+}

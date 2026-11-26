@@ -1,0 +1,34 @@
+
+  <div class="index-composition" data-controller="donut-chart" data-donut-chart-data-value="{{ data }}" data-donut-chart-storage-key-value="composition-view:{{ bot_id }}" data-donut-chart-other-label-value="{{ v.t("bot.dca_index.other") }}">
+    <div class="flex-row space-between">
+      <div class="label">{{ v.t("bot.dca_multi_asset.composition") }}</div>
+{%- if !empty %}
+      <button type="button" class="sbutton sbutton--link" data-action="donut-chart#toggle">{{ v.t("bot.dca_multi_asset.toggle_view") }}</button>
+{%- endif %}
+    </div>
+{%- if let Some(caption) = caption %}
+    <p class="text-inactive">{{ caption }}</p>
+{%- endif %}
+{%- if !empty %}
+    <div class="index-pie" data-donut-chart-target="pie">
+      <svg data-donut-chart-target="svg" style="width: 100%; display: block; margin: -4rem auto -2rem;"></svg>
+    </div>
+    <div class="index-assets" data-donut-chart-target="list">
+{%- for member in members %}
+      <div class="index-asset">
+        <div class="index-asset__row">
+          <div class="{{ member.class }}" style="background-color: {{ member.color }}" data-ticker-symbol="{{ member.symbol }}" data-ticker-asset-id="{{ member.asset_id }}">{{ member.symbol }}</div>
+          <div class="slider">
+            <div class="slider__style">
+              <div class="slider__style__track" style="border-left-color: {{ member.color }}; grid-template-columns: {{ member.percent }}% auto;">
+                <div class="slider__style__progress" style="background-color: {{ member.color }};"></div>
+              </div>
+            </div>
+          </div>
+          <div class="allocation">{{ member.percent }}%</div>
+        </div>
+      </div>
+{%- endfor %}
+    </div>
+{%- endif %}
+  </div>

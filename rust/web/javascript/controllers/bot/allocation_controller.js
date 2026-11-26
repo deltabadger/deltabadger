@@ -6,9 +6,10 @@ import { Controller } from "@hotwired/stimulus";
 export default class extends Controller {
   static targets = ["row", "input", "percent", "total", "totalRow"];
 
+  // The total and Normalize stay as the server drew them from the stored weights: the drawn values are rounded to 0.1 %, so
+  // their sum can read 100.0 % where the stored sum is not (33.34 + 33.34 + 33.44). They are recomputed once the user moves one.
   connect() {
     this.rowTargets.forEach((row) => this.#paintRow(row));
-    this.#paintTotal();
   }
 
   // Slider dragged: the number field follows it.

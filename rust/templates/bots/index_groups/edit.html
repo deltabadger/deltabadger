@@ -1,0 +1,16 @@
+<div class="bot-creation-layout" data-controller="index-allocation" data-index-allocation-bot-id-value="{{ bot_id }}:{{ external_id }}" data-index-allocation-other-label-value="{{ v.t("bot.dca_index.other") }}">
+  <div class="modal__header">
+    <h1 class="modal__title">{{ name }}{% if let Some(retired) = retired %} <span class="text-danger">{{ retired }}</span>{% endif %}</h1>
+  </div>
+{%- if let Some(error) = error %}
+  <div class="form__info form__info--invalid">{{ error }}</div>
+{%- endif %}
+  <form class="widget main-rule main-rule--index" data-turbo-stream="true" data-controller="form--submit" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
+{% include "bots/settings/_index_sliders.html" %}
+  </form>
+  <div class="flex-row gap-1">
+    <a class="rbutton rbutton--secondary" data-turbo-frame="modal_content" href="{{ change_path }}">{{ v.t("bot.index_switch.change_index") }}</a>
+    <form method="post" action="{{ path }}" data-turbo-stream="true"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><button class="rbutton rbutton--secondary" type="submit" name="custom_allocation" value="1"{% if ops_locked %} disabled{% endif %}>{{ v.t("bot.index_switch.custom_allocation") }}</button></form>
+    <form method="post" action="{{ path }}" data-turbo-stream="true"><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><button class="rbutton rbutton--danger" type="submit" name="remove" value="1"{% if ops_locked %} disabled{% endif %}>{{ v.t("bot.dca_multi_asset.remove_asset") }}</button></form>
+  </div>
+</div>

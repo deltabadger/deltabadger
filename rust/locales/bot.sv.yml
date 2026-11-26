@@ -24,6 +24,12 @@ sv:
             assets_stay: "Tillgångar köpta på andra börser stannar där de är."
         dca_multi_asset:
             add_asset: "Lägg till tillgång"
+            add_index: "Lägg till index"
+            index_settings: "%{index}: inställningar"
+            composition: "Sammansättning"
+            composition_pending: "Uppdateras: det här är den senaste sammansättningen."
+            composition_empty: "Inga innehav än: de väljs vid nästa uppdatering."
+            toggle_view: "Diagram eller lista"
             remove_asset: "Ta bort"
             max_assets_reached: "Du kan ha upp till %{max} tillgångar."
             min_assets: "En portfölj måste innehålla minst %{min} tillgångar."

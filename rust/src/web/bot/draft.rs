@@ -249,20 +249,7 @@ impl Draft {
     fn parse_lone_group(&mut self, fields: &Map<String, Value>) -> Result<(), WebError> {
         if !action_params::LONE_GROUP_SCALARS.iter().any(|key| fields.get(*key).is_some_and(present)) { return Ok(()); }
         let Some(mut group) = super::lone_group_of(&self.candidate.settings) else { return Err(failure("index fields on a bot that follows no single index")) };
-        if let Some(coins) = fields.get("num_coins").filter(|v| present(v)) {
-            let count = numeric(coins, true)?;
-            let rendered = fields.get("num_coins_rendered").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?;
-            if rendered.as_ref() != Some(&count) {
-                let ceiling = fields.get("num_coins_ceiling").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?.and_then(|v| v.as_i64()).unwrap_or(self.candidate.max_coins());
-                group.insert("hold_all".into(), json!(count.as_i64().is_some_and(|n| n >= ceiling)));
-                group.insert("num_coins".into(), count);
-            }
-        }
-        // As decoded (`"0.5"` reads 0.5): a repost of the drawn value keeps the stored spelling.
-        if let Some(flattening) = fields.get("allocation_flattening").filter(|v| present(v)) {
-            let posted = numeric(flattening, false)?;
-            if posted.as_f64() != crate::engine::composition::flattening(Some(&group)) { group.insert("allocation_flattening".into(), posted); }
-        }
+        index_edits(&mut group, fields, Some(self.candidate.max_coins()))?;
         let list = self.candidate.settings.get_mut("index_groups").and_then(Value::as_array_mut).ok_or_else(|| failure("index_groups"))?;
         let at = list.iter().position(Value::is_object).ok_or_else(|| failure("index_groups"))?;
         list[at] = Value::Object(group);
@@ -276,9 +263,13 @@ impl Draft {
             let weights = value.as_object().ok_or_else(|| failure("allocations must be an object"))?;
             if weights.len() > 1000 { return Err(failure("allocation work budget exceeded")); }
             self.sliders = Some(value.clone());
-            allocations.clear();
+            let stored = std::mem::take(&mut allocations);
             for (key, value) in weights {
                 let n = numeric(&json!(text(value).replace(',', ".")), false)?.as_f64().ok_or_else(|| failure("allocation is not numeric"))?;
+                // PLAN index-as-ingredient slice 5 (Codex #2): on a grouped basket, the value the page drew for the stored weight
+                // keeps it exactly (99.96 % is drawn 100.0 and must not round on an amount edit).
+                let drawn = |w: &Value| crate::web::format::float_round(self.candidate.shown_share(key.parse().ok(), None, weight_of(w)) * 100.0, 1);
+                if let Some(kept) = stored.get(key).filter(|w| self.candidate.grouped() && drawn(w) == n) { allocations.insert(key.clone(), kept.clone()); continue; }
                 allocations.insert(key.clone(), if n < 0.0 { json!(0) } else if n > 100.0 { json!(1) } else { json!(n / 100.0) });
             }
             changed = true;
@@ -304,15 +295,15 @@ impl Draft {
                 let group = list.iter_mut().find(|g| crate::engine::composition::external_id(Some(g)) == id).ok_or_else(|| failure("index group not in this bot"))?;
                 if let Some(weight) = edits.get("weight").filter(|v| present(v)) {
                     let n = numeric(&json!(text(weight).replace(',', ".")), false)?.as_f64().ok_or_else(|| failure("index group weight is not numeric"))?;
-                    group.insert("weight".into(), if n < 0.0 { json!(0) } else if n > 100.0 { json!(1) } else { json!(n / 100.0) });
+                    // The drawn value of the stored weight keeps it exactly (Codex slice 5 #2).
+                    let stored = crate::engine::composition::Group::from_settings(Some(group)).weight;
+                    let drawn = crate::web::format::float_round(self.candidate.shown_share(None, Some(id), stored) * 100.0, 1);
+                    if drawn != n { group.insert("weight".into(), if n < 0.0 { json!(0) } else if n > 100.0 { json!(1) } else { json!(n / 100.0) }); }
                 }
-                if let Some(coins) = edits.get("num_coins").filter(|v| present(v)) {
-                    let count = numeric(coins, true)?;
-                    let bounded = group_bound(c, group)?;
-                    group.insert("hold_all".into(), json!(bounded.zip(count.as_i64()).is_some_and(|(size, n)| n >= size)));
-                    group.insert("num_coins".into(), count);
-                }
-                if let Some(flattening) = edits.get("allocation_flattening").filter(|v| present(v)) { group.insert("allocation_flattening".into(), numeric(flattening, false)?); }
+                // The index form's count rule (slice 5: the sheet posts what it drew), the ceiling read from the index's
+                // bound when none is posted.
+                let bounded = group_bound(c, group)?;
+                index_edits(group, edits, bounded)?;
             }
             groups_changed = true;
         }
@@ -1322,4 +1313,32 @@ pub(super) fn sell_default(field: &str) -> Value {
         key if key.ends_with("_timing_condition") => json!("while"),
         key if key.ends_with("_in_timeframe") => json!("one_day"), _ => Value::Null,
     }
+}
+
+/// A stored weight as the page reads it (a number, or a numeric string), else 0.
+fn weight_of(value: &Value) -> f64 { value.as_f64().or_else(|| value.as_str().and_then(|s| s.trim().parse().ok())).unwrap_or(0.0) }
+
+/// The index form's count and flattening fields onto `group` (PLAN index-as-ingredient slices 4a, 5): a count only when it
+/// differs from the one the form drew (`num_coins_rendered`), `hold_all` from the ceiling it drew (`num_coins_ceiling`, else
+/// `default_ceiling`; none: false), so an unchanged repost keeps both exactly; a flattening only when it differs, as decoded
+/// (`"0.5"` reads 0.5), from the stored one and from the stored one rounded to the slider's step.
+fn index_edits(group: &mut Map<String, Value>, fields: &Map<String, Value>, default_ceiling: Option<i64>) -> Result<(), WebError> {
+    if let Some(coins) = fields.get("num_coins").filter(|v| present(v)) {
+        let count = numeric(coins, true)?;
+        let rendered = fields.get("num_coins_rendered").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?;
+        if rendered.as_ref() != Some(&count) {
+            let ceiling = fields.get("num_coins_ceiling").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?.and_then(|v| v.as_i64()).or(default_ceiling);
+            group.insert("hold_all".into(), json!(ceiling.zip(count.as_i64()).is_some_and(|(ceiling, n)| n >= ceiling)));
+            group.insert("num_coins".into(), count);
+        }
+    }
+    if let Some(flattening) = fields.get("allocation_flattening").filter(|v| present(v)) {
+        let posted = numeric(flattening, false)?;
+        // The range steps by 0.01, so a stored 0.333 is posted back as 0.33: the value the page drew keeps the stored one
+        // (Codex slice 5 branch r1), as a drawn weight does.
+        let stored = crate::engine::composition::flattening(Some(&*group));
+        let drawn = stored.map(|f| crate::web::format::float_round(f, 2));
+        if posted.as_f64() != stored && posted.as_f64() != drawn { group.insert("allocation_flattening".into(), posted); }
+    }
+    Ok(())
 }
