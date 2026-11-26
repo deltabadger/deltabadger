@@ -102,6 +102,14 @@ pub fn ranked_row(c: &Connection, external_id: &str) -> Result<Option<Ranked>, E
 /// `ranked_at` as every writer stores it (fixed width, so the text orders as the time).
 pub fn ranked_at_text(at: chrono::DateTime<chrono::Utc>) -> String { at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true) }
 
+/// A stored `ranked_at` as a grouped composition records it (`rust_composed_of.ranked`) and `composition::current` compares
+/// it: re-serialised from the parsed time in `ranked_at_text`'s one form (27 bytes for years 0..=9999), so the record has a
+/// known maximum length whatever the row holds. None: unparsable or outside those years.
+pub fn recorded_ranked_at(text: &str) -> Option<String> {
+    use chrono::Datelike;
+    match crate::codec::parse_time(text) { Ok(at) if (0..=9999).contains(&at.year()) => Some(ranked_at_text(at)), _ => None }
+}
+
 /// Attests `index_id` as ranked by `provider` under `fingerprint` at `at`, in the caller's write unit (the same one that
 /// writes the row's `top_coins`/`weights`).
 pub fn record_ranking(c: &Connection, index_id: i64, provider: &str, fingerprint: &str, at: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
@@ -533,7 +541,8 @@ async fn refresh_grouped<V: Venue + Attributed>(c: &Connection, venue: &V, bot: 
                     let top = serde_json::to_string(&d.top).map_err(|e| EngineError::Data(e.to_string()))?;
                     for a in named.query_map([top], |r| r.get::<_, i64>(0))? { cap_readers.push(a?); }
                 }
-                ranked.insert(group.external_id.clone(), serde_json::json!([d.source.id, d.source.ranked_at]));
+                let Some(ranked_at) = recorded_ranked_at(&d.source.ranked_at) else { return Ok(Err(Refusal::Transient(CHANGED.into()))) };
+                ranked.insert(group.external_id.clone(), serde_json::json!([d.source.id, ranked_at]));
                 ingredients.push(Ingredient { group: Some(group.external_id.clone()), stored: group.weight, members, selected: true });
             } else {
                 let (members, _) = frozen_members(tx, &current, &group.external_id)?;

@@ -563,21 +563,18 @@ fn cat_b(u: &U) { seed::insert_index(&u.o.primary, "cat-b", &["AAA.US", "BBB.US"
 const ROOT: &str = "bots_dca_multi_asset";
 fn key(name: &str) -> String { format!("{ROOT}[{name}]") }
 
+/// PLAN slice 4c: a first group opens on the web form: `add_index` on a plain basket appends the group at 0 % beside its
+/// assets (the user then sets the weights).
 #[tokio::test]
-async fn a_first_group_is_refused_on_the_web_form() {
+async fn a_first_group_opens_on_the_web_form() {
     let mut u = universe();
     let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
     let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
-    let refused = patch(&mut u, id, &[(&key("add_index"), "nasdaq-100"), (&key("quote_amount"), "70")]).await;
-    assert_eq!(refused.status, 422, "{}", refused.body);
+    let added = patch(&mut u, id, &[(&key("add_index"), "nasdaq-100"), (&key("quote_amount"), "70")]).await;
+    assert_eq!(added.status, 200, "{}", added.body);
     let s = settings(&u, id);
-    assert_eq!(s["quote_amount"], json!(60.0));
-    assert!(s.get("index_groups").is_none());
-    // A one-asset base seller posting a second asset and an index together: refused whole.
-    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_denomination', 'base', '$.sell_amount', 0.5) WHERE id = {id}"));
-    let aaa = u.m[0].0.to_string();
-    assert_eq!(patch(&mut u, id, &[(&key("add_asset_id"), &aaa), (&key("add_index"), "nasdaq-100")]).await.status, 422);
-    assert_eq!(settings(&u, id)["allocations"].as_object().unwrap().len(), 1);
+    assert_eq!(s["quote_amount"], json!(70.0));
+    assert_eq!(s["index_groups"].as_array().map(|g| (g.len(), weight(&s, "nasdaq-100"))), Some((1, 0.0)), "{s}");
 }
 
 #[tokio::test]
@@ -1339,4 +1336,132 @@ async fn the_picker_excludes_the_current_index_of_any_provider() {
     let id = lone(&u, 3, &[]);
     let picker = u.b.get(&u.app, &format!("/bots/{id}/index/new")).await;
     assert!(picker.body.contains("cat-b") && !picker.body.contains("nasdaq-100"), "{}", picker.body);
+}
+
+// ---------------------------------------------------------------- slice 4b: a converted index bot on the web
+
+/// The settings form as the page renders it: every `bots_dca_multi_asset[…]` input with its value (a checkbox or radio only
+/// when checked) and each select's selected option, so a post of it is the unchanged form.
+fn rendered_form(page: &str) -> Vec<(String, String)> {
+    let attr = |tag: &str, name: &str| tag.split(&format!(" {name}=\"")).nth(1).and_then(|r| r.split('"').next()).map(|v| v.replace("&quot;", "\"").replace("&amp;", "&"));
+    let mut out = vec![];
+    for tag in page.split("<input").skip(1).map(|t| t.split('>').next().unwrap()) {
+        let Some(name) = attr(tag, "name").filter(|n| n.starts_with("bots_dca_multi_asset[")) else { continue };
+        if matches!(attr(tag, "type").as_deref(), Some("checkbox" | "radio")) && !tag.contains(" checked") { continue; }
+        out.push((name, attr(tag, "value").unwrap_or_default()));
+    }
+    for select in page.split("<select").skip(1) {
+        let (open, rest) = select.split_once('>').unwrap();
+        let Some(name) = attr(open, "name").filter(|n| n.starts_with("bots_dca_multi_asset[")) else { continue };
+        let body = rest.split("</select>").next().unwrap();
+        if let Some(option) = body.split("<option").skip(1).map(|o| o.split('>').next().unwrap()).find(|o| o.contains(" selected")) {
+            out.push((name, attr(option, "value").unwrap_or_default()));
+        }
+    }
+    out
+}
+
+/// PLAN slice 4 §4b step 2: a 2.x index row with a stored `start_selling` price rule, converted (the rule's family removed,
+/// its switch off): its page renders the basket's reverse toggle and the flip actions, and saving the form as rendered is
+/// a 200 that leaves the rule off.
+#[tokio::test]
+async fn a_converted_start_selling_price_rule_opens_and_saves_unchanged_off() {
+    let mut u = universe();
+    let id = seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false);
+    exec(&u.o, &format!("UPDATE bots SET status = 2, settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit', 50000, '$.price_limit_value_condition', 'below',
+        '$.price_limit_action', 'start_selling', '$.price_limit_in_ticker_id', {}) WHERE id = {id}", u.m[0].1));
+    exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES ({id}, {}, {}, 1, 1, '2026-09-01', '2026-09-01')", u.m[0].0, u.m[0].1));
+    let tx = model::immediate(&u.o.primary).unwrap();
+    let (converted, _) = deltabadger::engine::index_bot::convert_all(&tx, common::web::at(T0)).unwrap();
+    tx.commit().unwrap();
+    assert_eq!(converted.iter().map(|c| c.id).collect::<Vec<_>>(), vec![id]);
+    let page = u.b.get(&u.app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    assert!(page.body.contains("class=\"reverse-toggle") && page.body.contains("value=\"flip\""), "the basket's reverse and flips");
+    let form = rendered_form(&page.body);
+    assert!(form.iter().any(|(k, _)| k == "bots_dca_multi_asset[quote_amount]"), "{form:?}");
+    let fields: Vec<(&str, &str)> = form.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let saved = u.b.send(&u.app, "PATCH", &format!("/bots/{id}"), Some(&fields), Csrf::Header, &TURBO).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert_eq!(s["price_limited"], json!(false), "{s}");
+    assert_ne!(s.get("price_limit_action"), Some(&json!("start_selling")), "{s}");
+}
+
+// ---------------------------------------------------------------- slice 4c: a first group on the web form
+
+/// A plain basket gains its first group only as a clean buyer, judged on the stored row and on the final candidate (a
+/// combined post can't slip past): a seller, an armed flip or sell-side rule, a base cap or a base sale is refused whole,
+/// nothing cleared; a clean buyer adds the index.
+#[tokio::test]
+async fn a_first_group_needs_a_clean_buyer() {
+    let mut u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
+    let refused_with = |extra: &str| format!("UPDATE bots SET settings = json_set(settings, {extra}) WHERE id = ");
+    let cases = [
+        ("a quote seller", "'$.direction', 'selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 30", vec![]),
+        ("an armed start_selling buyer with a base cap", "'$.price_limited', json('true'), '$.price_limit', 50000, '$.price_limit_value_condition', 'below', \
+          '$.price_limit_action', 'start_selling', '$.sell_denomination', 'quote', '$.sell_quote_amount', 30, '$.base_amount_limited', json('true'), '$.base_amount_limit', 0.5", vec![]),
+        ("a buyer with a sell-side rule on", "'$.sell_price_limited', json('true'), '$.sell_price_limit', 90000", vec![]),
+        ("a base sale", "'$.sell_denomination', 'base', '$.sell_amount', 0.5", vec![]),
+        ("a stored base cap cleared in the same post", "'$.base_amount_limited', json('true'), '$.base_amount_limit', 0.5", vec![(key("base_amount_limited"), "0".to_string())]),
+    ];
+    let message = deltabadger::web::i18n::text("en", "errors.bots.index_switch.sell_off_first", &[]);
+    for (case, sql, extra) in cases {
+        let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+        exec(&u.o, &format!("{}{id}", refused_with(sql)));
+        let before = settings(&u, id);
+        let add = key("add_index");
+        let mut fields: Vec<(&str, &str)> = vec![(add.as_str(), "nasdaq-100")];
+        fields.extend(extra.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        let answer = patch(&mut u, id, &fields).await;
+        assert_eq!(answer.status, 422, "{case}: {}", answer.body);
+        assert!(answer.body.contains(&message), "{case}: {}", answer.body);
+        assert_eq!(settings(&u, id), before, "{case}: nothing written");
+    }
+    let clean = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    assert_eq!(patch(&mut u, clean, &[(&key("add_index"), "nasdaq-100")]).await.status, 200);
+    assert!(settings(&u, clean)["index_groups"].is_array());
+}
+
+/// Change the index on a stopped, selling lone group keeps it selling.
+#[tokio::test]
+async fn change_the_index_while_stopped_and_selling_keeps_it_selling() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = lone(&u, 3, &[("direction", json!("selling")), ("sell_denomination", json!("quote")), ("sell_quote_amount", json!(30.0))]);
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200);
+    let answer = u.b.send(&u.app, "POST", &format!("/bots/{id}/index"), Some(&[("index_category_id", "cat-b")]), Csrf::Header, &TURBO).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    let s = settings(&u, id);
+    assert_eq!((s["direction"].as_str(), composition::external_id(s["index_groups"][0].as_object())), (Some("selling"), "cat-b"), "{s}");
+}
+
+/// A basket's `in_index` rows are its named assets, not members of the index it adds: the first group starts with no
+/// `rust_bot_group_members` rows, so its first refresh probes every member as a newcomer, a named asset the ranking names
+/// included (it gets no incumbent seat).
+#[tokio::test]
+async fn a_first_group_seats_none_of_the_baskets_named_assets() {
+    use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
+    let mut u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("allocations", json!({ u.m[0].0.to_string(): 0.6, u.m[1].0.to_string(): 0.4 }));
+    spec.status = 2;
+    let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    for (i, w) in [0.6, 0.4].into_iter().enumerate() { seed::insert_member(&u.o.primary, id, u.m[i].0, u.m[i].1, w, true, "2026-08-01 00:00:00", None); }
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200);
+    let answer = patch(&mut u, id, &[(&key("add_index"), "nasdaq-100")]).await;
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    let rows: Vec<(i64, i64, f64)> = u.o.primary.prepare("SELECT asset_id, composed, weight FROM rust_bot_group_members WHERE bot_id = ?1 ORDER BY asset_id").unwrap()
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(rows, vec![], "no seat for a named asset");
+    let ok = |body: Value| json!([{ "status": 200, "body": body }]);
+    let mut m = json!({ "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })) });
+    for sym in SYMBOLS { m[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
+    let t = ScriptedTransport::from_script(&m);
+    exec(&u.o, &format!("UPDATE bots SET status = 1 WHERE id = {id}")); // a derivation as a run makes it
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let venue = AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper")));
+    index::refresh_composition(&u.o.primary, &venue, &bot, &deltabadger::engine::FixedClock(common::web::at(T0)), &deltabadger::engine::tick::PriceCache::default()).await.unwrap().unwrap();
+    let probed: Vec<String> = t.requests().iter().filter(|r| r.path.contains("/quotes/")).map(|r| r.path.clone()).collect();
+    assert!(probed.iter().any(|p| p.contains("/AAA/")) && probed.iter().any(|p| p.contains("/BBB/")), "the named assets are probed as newcomers: {probed:?}");
 }

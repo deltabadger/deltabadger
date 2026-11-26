@@ -111,6 +111,7 @@ es:
                 not_offered: "Este índice no está disponible para este bot."
                 buy_first: "Primero vuelve a poner el bot a comprar."
                 weights_first: "Primero ajusta los pesos de los activos o usa Asignación personalizada."
+                sell_off_first: "Desactiva primero la venta: sus reglas, el límite y la venta en la moneda base."
                 selling_reset: "Se desactivaron las reglas de venta; vuelve a configurarlas para los activos restantes."
             multi_asset:
                 condition_subject: "Esta condición debe referirse a un activo que el bot posee."

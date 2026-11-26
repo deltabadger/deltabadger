@@ -24,8 +24,11 @@ pub const STOP_KEY: &str = "bot.status.set_aside";
 pub struct Aside { pub id: i64, pub name: String, pub reasons: Vec<String> }
 
 /// What a start sets aside, and the report of the state it leaves (the one the engine then runs).
-/// `converted`: the legacy single-asset bots this start turned into one-asset baskets (single_asset::convert_all).
-pub struct Plan { pub bots: Vec<Aside>, pub rules: Vec<i64>, pub report: Report, pub converted: Vec<i64> }
+/// `converted`: the legacy single-asset bots this start turned into one-asset baskets (single_asset::convert_all); `indexes`
+/// and `indexes_kept`: the stored index bots it turned into baskets that follow their index, and the ones it kept, with why
+/// (index_bot::convert_all).
+pub struct Plan { pub bots: Vec<Aside>, pub rules: Vec<i64>, pub report: Report, pub converted: Vec<i64>,
+                  pub indexes: Vec<super::index_bot::Converted>, pub indexes_kept: Vec<(i64, super::index_bot::Kept)> }
 
 /// A hard stop: C6's lines for the owner, one per bot, and the check's own lines for support (the log, never the page).
 #[derive(Debug)]
@@ -38,6 +41,8 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
     -> Result<Result<Plan, Hard>, EngineError> {
     // PLAN-A23: legacy single-asset bots become one-asset baskets first; the check below then reads them as any basket.
     let converted = super::single_asset::convert_all(tx, now)?;
+    // PLAN index-as-ingredient slice 4b: stored index bots become baskets that follow their index, before the same check.
+    let (indexes, indexes_kept) = super::index_bot::convert_all(tx, now)?;
     let first = report(tx)?;
     // Candidates: each working bot the check refuses, with its reasons, and each working bot whose exchange has no Rust code
     // or that has no key. A key that does not read is no candidate (it means a wrong secret): it stays refused below.
@@ -114,7 +119,7 @@ pub fn apply(tx: &Connection, cipher: Option<&Cipher>, report: &dyn Fn(&Connecti
     for (id, said) in left { lines.push(format!("{}: {}", name(tx, id)?, said.join(" "))); }
     for id in &after.rules { lines.push(format!("Rule {id}: {}", rule_stopped(tx, *id)?)); }
     if !lines.is_empty() { return Ok(Err(Hard { lines, details })); }
-    Ok(Ok(Plan { bots, rules, report: after, converted }))
+    Ok(Ok(Plan { bots, rules, report: after, converted, indexes, indexes_kept }))
 }
 
 /// The reasons a set-aside bot carries (`KEY`), or None.

@@ -111,6 +111,7 @@ pl:
                 not_offered: "Ten indeks nie jest dostępny dla tego bota."
                 buy_first: "Najpierw przełącz bota z powrotem na kupowanie."
                 weights_first: "Najpierw ustaw wagi aktywów albo użyj „Własna alokacja“."
+                sell_off_first: "Najpierw wyłącz sprzedaż: jej reguły, limit i sprzedaż w walucie bazowej."
                 selling_reset: "Reguły sprzedaży zostały wyłączone; ustaw je ponownie dla pozostałych aktywów."
             multi_asset:
                 condition_subject: "Ten warunek musi dotyczyć aktywa, które bot posiada."

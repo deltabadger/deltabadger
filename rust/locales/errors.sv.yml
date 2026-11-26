@@ -104,6 +104,7 @@ sv:
                 not_offered: "Det här indexet är inte tillgängligt för den här boten."
                 buy_first: "Växla först tillbaka boten till att köpa."
                 weights_first: "Ange först tillgångarnas vikter, eller använd Egen fördelning."
+                sell_off_first: "Stäng av försäljningen först: dess regler, tak och försäljning i basvalutan."
                 selling_reset: "Säljreglerna stängdes av; ställ in dem igen för de återstående tillgångarna."
             multi_asset:
                 condition_subject: "Det här villkoret måste gälla en tillgång som boten innehar."

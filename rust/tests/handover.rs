@@ -504,6 +504,8 @@ fn an_index_bots_v2_jobs_are_removed_at_takeover() {
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert_eq!(t.deleted_jobs, 1, "the GlobalID names the bot's own class");
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(bot.bot_type == "Bots::DcaMultiAsset" && bot.lone_group().is_some(), "and the bot is converted: {}", bot.settings);
 }
 
 /// PLAN index-as-ingredient slice 4: 2.x's pending composition resync names the bot as the index bot it enqueued it for; once
@@ -558,11 +560,10 @@ async fn a_price_paused_bot_is_handed_over_paused_and_v2_restarts_its_check() {
 
 /// Plan CI T3b: a Bot::ResyncIndexCompositionJob 2.x has not finished (ready, scheduled or claimed; a failed one is over)
 /// becomes its bot's `rust_index_resync` marker at takeover, for a created or stopped index bot too, never for an archived
-/// one; a takeover repeated after a crash between the marker and the delete marks again. At handback the markers stay: a
-/// Rust reclaim finds them, and 2.x's adoption enqueues one job per marked bot however many handbacks came first.
-#[tokio::test(flavor = "current_thread")]
-async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_after_handbacks() {
-    if !common::v2::enabled() { return; }
+/// one; a takeover repeated after a crash between the marker and the delete marks again. PLAN index-as-ingredient slice 4b:
+/// the start converted those bots first, so the markers land on the converted rows, matched by the id 2.x's GlobalID names.
+#[test]
+fn v2_pending_resyncs_become_markers_on_the_converted_bots_at_takeover() {
     let dir = common::v2_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
@@ -585,18 +586,46 @@ async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_a
     let n = |id: i64| o.primary.query_row("SELECT json_extract(transient_data, '$.rust_index_resync.n') FROM bots WHERE id = ?1", [id], |r| r.get::<_, Option<i64>>(0)).unwrap();
     let rows = |o: &store::Opened| count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::ResyncIndexCompositionJob'");
     let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    for id in [created, stopped, archived] { assert_eq!(model::load_bot(&o.primary, id).unwrap().bot_type, "Bots::DcaMultiAsset", "bot {id} converted"); }
     assert_eq!(t.deleted_jobs, 3);
     assert_eq!((n(created), n(stopped), n(archived)), (Some(1), Some(2), None), "one mark per pending row");
     assert_eq!(rows(&o), 2, "the failed row and the archived bot's stay");
     resync(stopped); // the delete was lost to a crash: the repeated takeover marks again and deletes it
     handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     assert_eq!((n(stopped), rows(&o)), (Some(3), 2));
+}
 
-    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
-    assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "kept for 2.x");
-    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap(); // a Rust reclaim before 2.x booted
-    assert_eq!((n(created), n(stopped)), (Some(1), Some(3)), "found intact");
-    handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+/// The 2.x adoption half (Codex slice 4 r1): a stored index bot kept at the start for its unresolved order stays
+/// `Bots::DcaIndex` and gets its pending resync's marker; the handback settles the order first, then hands it back, and 2.x's
+/// adoption enqueues one job for the marked bot. No takeover ran between the settlement and the handback, so it is still
+/// the index bot 2.x knows.
+#[tokio::test(flavor = "current_thread")]
+async fn a_kept_index_bots_resync_marker_is_adopted_by_v2_once_its_order_settles() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let id = seed::index_bot(&o.primary, &s, "layer-1", 3, 0.0, false);
+    o.primary.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let ticker = model::ticker_by_id(&o.primary, s.exchange_id, s.ticker_id).unwrap().unwrap();
+    let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::v2::BigDec::from_i64(60),
+        &deltabadger::v2::BigDec::from_i64(50_000), &deltabadger::engine::venue_rules::KRAKEN).unwrap() else { panic!() };
+    let intent = placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
+    let gid = format!("gid://deltabadger/Bots::DcaIndex/{id}");
+    job(&o.queue, "Bot::ResyncIndexCompositionJob", &gid);
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let marked = |o: &store::Opened| o.primary.query_row("SELECT json_type(transient_data, '$.rust_index_resync') IS NOT NULL FROM bots WHERE id = ?1", [id], |r| r.get::<_, bool>(0)).unwrap();
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().bot_type, "Bots::DcaIndex", "kept: its order isn't settled");
+    assert!(marked(&o));
+    let closed = json!({ "error": [], "result": { "closed": { "OTX-H": { "cl_ord_id": intent.cl_ord_id, "status": "closed", "price": "50000",
+        "vol": "60", "vol_exec": "0.0012", "cost": "60", "oflags": "viqc", "descr": { "type": "buy", "ordertype": "market", "price": "0" } } } } });
+    let venue = FakeVenue::from_script(&json!({ "http": { "/0/private/ClosedOrders": [closed] } }));
+    handover::hand_back(&l, &o, &FakeFactory(venue), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    assert!(bot.bot_type == "Bots::DcaIndex" && bot.rust_placement().is_none() && marked(&o), "settled, still the index bot, still marked");
+    if !common::v2::enabled() { return; }
     drop((l, o));
     let (booted, err) = v2_boot(dir.path());
     assert!(booted, "{err}");
@@ -605,7 +634,7 @@ async fn v2_pending_resyncs_become_markers_at_takeover_and_v2_adopts_them_once_a
                            AND id NOT IN (SELECT job_id FROM solid_queue_failed_executions) ORDER BY id").unwrap();
     let enqueued: Vec<String> = s.query_map([], |r| r.get::<_, String>(0)).unwrap().map(Result::unwrap)
         .map(|a| serde_json::from_str::<serde_json::Value>(&a).unwrap()["arguments"][0]["_aj_globalid"].as_str().unwrap().to_string()).collect();
-    assert_eq!(enqueued, [gid(archived), gid(created), gid(stopped)], "the archived bot's own 2.x row, then one per marked bot");
+    assert_eq!(enqueued, [gid], "one job for the marked bot");
     let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     assert_eq!(count(&c, "SELECT count(*) FROM bots WHERE json_type(transient_data, '$.rust_index_resync') IS NOT NULL"), 0, "adopted: the key goes");
 }
@@ -841,16 +870,18 @@ async fn the_cli_handback_waits_out_a_valid_call_then_the_intent_wait_follows() 
     assert!(signal_calls_of(&o).is_empty());
 }
 
-/// An index bot (top 3) on the seeded Kraken venue, admitted at takeover, and the install taken over.
+/// The install taken over, then a stored index bot (top 3) on the seeded Kraken venue inserted by SQL: a takeover converts
+/// one (PLAN index-as-ingredient slice 4b), and a converted bot refuses the handback, so the legacy row these handback
+/// checks judge comes after it.
 fn taken_over_with_index() -> (tempfile::TempDir, deltabadger::lease::EngineLock, store::Opened, seed::Seeded, i64) {
     let dir = common::v2_install();
     let p = Paths::from_env(&|_| None, dir.path());
     let l = lease::lock(&p, now()).unwrap();
     let o = store::open(&p).unwrap();
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     let index = seed::index_bot(&o.primary, &s, "ignored", 3, 0.0, false);
     o.primary.execute("UPDATE bots SET settings = json_remove(json_set(settings, '$.index_type', 'top'), '$.index_category_id') WHERE id = ?1", [index]).unwrap();
-    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
     (dir, l, o, s, index)
 }
 fn snapshot_bots(o: &store::Opened) -> Vec<(i64, i64, String, String)> {

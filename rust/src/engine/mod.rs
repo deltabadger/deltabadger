@@ -108,5 +108,6 @@ pub mod technical;
 pub mod rules;
 pub mod set_aside;
 pub mod single_asset;
+pub mod index_bot;
 pub mod withdrawal;
 pub mod v2_unrecorded;

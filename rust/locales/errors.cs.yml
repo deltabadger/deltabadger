@@ -104,6 +104,7 @@ cs:
                 not_offered: "Tento index není pro tohoto bota dostupný."
                 buy_first: "Nejdřív přepněte bota zpět na nákup."
                 weights_first: "Nejdřív nastavte váhy aktiv, nebo použijte „Vlastní alokace“."
+                sell_off_first: "Nejdřív vypněte prodej: jeho pravidla, limit a prodej v základní měně."
                 selling_reset: "Pravidla prodeje byla vypnuta; nastavte je znovu pro zbývající aktiva."
             multi_asset:
                 condition_subject: "Tato podmínka se musí týkat aktiva, které bot drží."

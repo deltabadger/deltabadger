@@ -357,8 +357,8 @@ fn group_for(c: &Connection, tile: &wizard::index::IndexTile, weight: f64) -> Re
 }
 
 /// PLAN index-as-ingredient §6.2: the one ingredient operation a settings post carries, applied to the draft's candidate
-/// before validation, inside the writer's transaction. Ok(Err): the refusal (nothing is written). In slice 3 only a row
-/// already stored with groups takes one (a first group waits for slice 4). Every operation takes the index switch's full
+/// before validation, inside the writer's transaction. Ok(Err): the refusal (nothing is written). A plain basket takes only
+/// `add_index` (its first group, slice 4c); every other op needs a row already stored with groups. Every operation takes the index switch's full
 /// refusal, an open order and a redeploy 2.x still holds (or a queue that cannot be read). Losing the last group is refused
 /// while the bot sells; a buying bot's dormant base sale and base cap are cleared in the same write (rule B).
 pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Value, now: chrono::DateTime<chrono::Utc>) -> Result<Result<Option<Ran>, String>, WebError> {
@@ -368,7 +368,10 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
     if posted.is_empty() { return Ok(Ok(None)); }
     let refuse = |key: &str| Ok(Err(t(ctx.locale, key)));
     let op = match posted.as_slice() { [op] if *op != "change_index_to" => *op, ["change_index_id", "change_index_to"] => "change_index_id", _ => return refuse("not_offered") };
-    if !super::stored_groups(&draft.raw_settings) { return refuse("not_offered"); }
+    // PLAN slice 4c: a plain basket gains its first group by `add_index` on the web form (no 2.x recording; Follow index on
+    // a plain basket keeps 2.x's switch to an index bot, which the next start converts). Every other op needs a group.
+    let first = !super::stored_groups(&draft.raw_settings);
+    if first && op != "add_index" { return refuse("not_offered"); }
     let id = draft.original.id;
     let engine = model::load_bot(c, id)?;
     if let Some(key) = refusal(c, &engine, now)? { return refuse(key); }
@@ -409,6 +412,11 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
         _ => match ungroup(c, ctx, draft, fields, &engine, groups, &named, now)? { Ok(kept) => groups = kept, Err(refused) => return Ok(Err(refused)) },
     }
     let last_gone = groups.is_empty();
+    // A first group only on a clean buyer, as stored and as posted (a combined post can't slip past): refused whole, nothing
+    // cleared (Codex 4c r1).
+    if first && (crate::engine::composition::sells_or_may(&draft.raw_settings) || crate::engine::composition::sells_or_may(&draft.candidate.settings)) {
+        return refuse("sell_off_first");
+    }
     if last_gone {
         if draft.candidate.settings.get("direction").and_then(Value::as_str) == Some("selling") { return refuse("buy_first"); }
         // Codex slice 3 r1 #1, #2: the sell side starts anew for what remains (§3.2 step 3), and the save says so.

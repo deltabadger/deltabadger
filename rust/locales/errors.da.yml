@@ -104,6 +104,7 @@ da:
                 not_offered: "Dette indeks er ikke tilgængeligt for denne bot."
                 buy_first: "Skift først botten tilbage til at købe."
                 weights_first: "Angiv først aktivernes vægte, eller brug Egen fordeling."
+                sell_off_first: "Slå salg fra først: dets regler, loft og salg i basisvaluta."
                 selling_reset: "Salgsreglerne blev slået fra; angiv dem igen for de resterende aktiver."
             multi_asset:
                 condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."
