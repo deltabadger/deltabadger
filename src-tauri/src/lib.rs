@@ -314,6 +314,20 @@ pub fn status_page() -> tauri::Url {
     origin.parse().expect("a fixed URL")
 }
 
+/// The status page's `&scheme=…&mode=…`, from the engine's cookies: only the values the engine draws (rust/src/web/layout.rs),
+/// both always named, so the page also hears a scheme or mode put back to the default.
+pub fn look<'a>(cookies: impl Iterator<Item = (&'a str, &'a str)>) -> String {
+    let (mut scheme, mut mode) = ("", "");
+    for (name, value) in cookies {
+        match name {
+            "scheme" if ["space", "warm", "ember", "forest"].contains(&value) => scheme = value,
+            "mode" if ["light", "dark"].contains(&value) => mode = value,
+            _ => {}
+        }
+    }
+    format!("&scheme={scheme}&mode={mode}")
+}
+
 /// The main window, for the supervisor.
 struct WindowView {
     app: tauri::AppHandle,
@@ -339,8 +353,15 @@ impl View for WindowView {
                 *self.last.lock().unwrap_or_else(|e| e.into_inner()) = Some(current);
             }
         }
+        // The engine's colour scheme and mode cookies (D-SCHEME-SWITCH, D-MODE-SWITCH): the page paints in them, and keeps
+        // them for the next start's first paint. All cookies, not cookies_for_url, which drops every one on an IP host.
+        // A failed read names nothing, so the page keeps the look it has.
+        let look = match window.cookies() {
+            Ok(cookies) => look(cookies.iter().filter(|c| c.domain() == Some(supervisor::HOST)).map(|c| (c.name(), c.value()))),
+            Err(_) => String::new(),
+        };
         let mut url = self.status.clone();
-        url.set_fragment(Some(fragment));
+        url.set_fragment(Some(&format!("{fragment}{look}")));
         let _ = window.navigate(url);
     }
 
@@ -853,6 +874,21 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // In full screen the overlay title bar has nothing to slide down with the menu bar: no window buttons, no way
+            // out but the View menu. Full screen takes the plain title bar; leaving it brings the overlay back.
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::Resized(_) = event {
+                static FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+                let full = window.is_fullscreen().unwrap_or(false);
+                // Only on the change: a resize sends this many times a second.
+                if FULL.swap(full, std::sync::atomic::Ordering::Relaxed) != full {
+                    let _ = window.set_title_bar_style(if full { tauri::TitleBarStyle::Visible } else { tauri::TitleBarStyle::Overlay });
+                    // The style change hands the keyboard to tao's own view; give it back to the page, or typing stops.
+                    if let Some(webview) = window.app_handle().get_webview("main") {
+                        let _ = webview.set_focus();
+                    }
+                }
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 // Hide the window instead of closing (app stays in tray)
                 let _ = window.hide();

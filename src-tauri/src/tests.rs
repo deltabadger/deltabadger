@@ -1330,3 +1330,10 @@ fn the_status_page_draws_nothing_bare_the_icon_only_for_starting_and_the_picker_
     }
 }
 
+
+#[test]
+fn look_names_only_the_schemes_and_modes_the_engine_draws() {
+    assert_eq!(look([("scheme", "forest"), ("mode", "dark"), ("other", "x")].into_iter()), "&scheme=forest&mode=dark");
+    assert_eq!(look([("scheme", "<script>"), ("mode", "sepia")].into_iter()), "&scheme=&mode=");
+    assert_eq!(look(std::iter::empty()), "&scheme=&mode=");
+}
