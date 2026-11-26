@@ -1238,6 +1238,39 @@ fn allocation_ids(settings: &Map<String, Value>) -> Vec<i64> {
     }
 }
 
+/// PLAN index-as-ingredient slice 7: what the API reads add for a bot stored with index groups: its ingredients (its assets,
+/// then its indexes with their settings and this composition's members) and its current members (`in_index` rows), shares in
+/// percent as the bot page shows them, ids as the writes take them. None for every other bot: its answer stays 2.x's.
+pub struct ApiGrouped { pub ingredients: Value, pub members: Value, pub names: Vec<String> }
+pub fn api_grouped(c: &Connection, user: i64, id: i64) -> Result<Option<ApiGrouped>, WebError> {
+    let stored: Option<String> = c.query_row("SELECT settings FROM bots WHERE id = ?1 AND user_id = ?2", rusqlite::params![id, user], |r| r.get(0)).optional()?;
+    if !stored.and_then(|t| serde_json::from_str::<Map<String, Value>>(&t).ok()).is_some_and(|s| stored_groups(&s)) { return Ok(None) }
+    let Some(bot) = Bot::find(c, user, id, For::Feed, "en")? else { return Ok(None) };
+    let percent = |share: f64| json!(crate::web::format::float_round(share * 100.0, 4));
+    let weight = |v: Option<&Value>| match v { Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0), Some(Value::String(w)) => w.trim().parse().unwrap_or(0.0), _ => 0.0 };
+    let (mut ingredients, mut names) = (vec![], vec![]);
+    for asset in &bot.base_assets {
+        let share = bot.shown_share(Some(asset.id), None, weight(bot.settings.get("allocations").and_then(|a| a.get(asset.id.to_string()))));
+        ingredients.push(json!({"kind": "asset", "asset_id": asset.id, "symbol": asset.symbol, "allocation": percent(share)}));
+        names.push(asset.symbol().to_string());
+    }
+    for group in bot.settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object) {
+        let g = crate::engine::composition::Group::from_settings(Some(group));
+        let name = bot.group_view(c, &g.external_id)?.and_then(|view| view.display_index_name())
+            .unwrap_or_else(|| super::i18n::text("en", "bot.dca_index.setup.pick_index.top_coins", &[]));
+        let members: Vec<Value> = group_rows(c, id, &g.external_id)?.into_iter().filter(|row| row.composed)
+            .map(|row| json!({"asset_id": row.asset.id, "symbol": row.asset.symbol, "allocation": percent(row.weight)})).collect();
+        ingredients.push(json!({"kind": "index", "id": g.external_id, "name": name, "allocation": percent(bot.shown_share(None, Some(&g.external_id), g.weight)),
+                                "num_coins": g.num_coins, "hold_all": g.hold_all, "allocation_flattening": g.flattening, "members": members}));
+        names.push(name);
+    }
+    let rows: Vec<(i64, Option<i64>, Option<String>, f64)> = c.prepare("SELECT m.asset_id, m.ticker_id, a.symbol, CAST(m.target_allocation AS REAL) FROM bot_index_assets m LEFT JOIN assets a ON a.id = m.asset_id \
+                                                                       WHERE m.bot_id = ?1 AND m.in_index = 1 ORDER BY CAST(m.target_allocation AS REAL) DESC, m.id")?
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, Option<f64>>(3)?.unwrap_or(0.0))))?.collect::<Result<_, _>>()?;
+    let members = rows.into_iter().map(|(asset, ticker, symbol, target)| json!({"asset_id": asset, "ticker_id": ticker, "symbol": symbol, "allocation": percent(target)})).collect();
+    Ok(Some(ApiGrouped { ingredients: Value::Array(ingredients), members: Value::Array(members), names }))
+}
+
 /// PLAN index-as-ingredient slice 5: a group's composed members (`rust_bot_group_members`), heaviest first, each with its
 /// stored ticker and its weight within the group.
 pub fn group_rows(c: &Connection, bot_id: i64, external_id: &str) -> Result<Vec<GroupRow>, WebError> {

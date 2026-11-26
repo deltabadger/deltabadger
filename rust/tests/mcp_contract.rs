@@ -50,6 +50,18 @@ fn the_rule_kinds_overlay_is_the_only_change_to_the_recorded_schemas(){
         assert_eq!(field, serde_json::json!({"type":["integer","null"],"description":protocol::ACCOUNT_ID}), "{}", tool["name"]);
         assert!(tool["inputSchema"]["required"].as_array().is_none_or(|r| !r.contains(&"account_id".into())), "{}", tool["name"]);
     }
+    // D-API-INGREDIENTS (PLAN index-as-ingredient slice 7): exactly these properties, each after `allocations` (update) or
+    // `assets` (create), stripped only after they are asserted.
+    for (tool, after) in [("update_bot_settings", "allocations"), ("create_bot", "assets")] {
+        let added: Vec<(&str, Value)> = protocol::ingredient_properties().into_iter().filter(|(t, _, _)| *t == tool).map(|(_, n, v)| (n, v)).collect();
+        let t = ours["tools"].as_array_mut().unwrap().iter_mut().find(|t| t["name"] == tool).unwrap();
+        let props = t["inputSchema"]["properties"].as_object_mut().unwrap();
+        let at = props.keys().position(|k| k == after).unwrap() + 1;
+        let listed: Vec<(&str, Value)> = props.iter().skip(at).take(added.len()).map(|(k, v)| (k.as_str(), v.clone())).collect();
+        assert_eq!(listed, added, "{tool}: right after {after}, exactly these");
+        for (name, _) in &added { props.shift_remove(*name); }
+        assert!(t["inputSchema"]["required"].as_array().is_none_or(|r| added.iter().all(|(n, _)| !r.contains(&(*n).into()))), "{tool}: all optional");
+    }
     ours["tools"].as_array_mut().unwrap().retain(|t| !["list_rules","create_rule","update_rule_settings","start_rule","stop_rule","delete_rule"].contains(&t["name"].as_str().unwrap()));
     let settings=|v:&Value|v["tools"].as_array().unwrap().iter().position(|t|t["name"]=="update_bot_settings").unwrap();
     let at=settings(&ours);

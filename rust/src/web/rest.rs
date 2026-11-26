@@ -304,7 +304,7 @@ fn service_arguments(write: bot_api::Write, params: &Map<String, Value>) -> Map<
         // `params[:accept]` as it came; 2.x REST is live, like the liquidation above.
         bot_api::Write::Redeploy => Map::from_iter([("accept".to_string(), params.get("accept").cloned().unwrap_or(Value::Null)), ("dry_run".to_string(), json!(false))]),
         bot_api::Write::Settings => params.iter()
-            .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (matches!(name.as_str(), "allocations" | "account_id") || !(value.is_array() || value.is_object())))
+            .filter(|(name, value)| super::bot::mcp_input::setting_names().contains(&name.as_str()) && (matches!(name.as_str(), "allocations" | "account_id") || super::bot::mcp_input::INGREDIENT_KEYS.contains(&name.as_str()) || !(value.is_array() || value.is_object())))
             .map(|(name, value)| (name.clone(), value.clone())).collect(),
         bot_api::Write::Lifecycle(super::bot::write::Action::Start) => params.get("start_fresh").map(|v| Map::from_iter([("start_fresh".to_string(), v.clone())])).unwrap_or_default(),
         bot_api::Write::Lifecycle(_) => Map::new(),
@@ -327,6 +327,8 @@ fn permitted(kind: super::bot::create::Kind, params: &Map<String, Value>) -> Map
             ("assets", Value::Object(h)) if !h.is_empty() && h.keys().all(|k| k.bytes().all(|b| b.is_ascii_digit()) && !k.is_empty()) => Some((name.to_string(),
                 Value::Object(h.iter().map(|(k, v)| (k.clone(), v.as_object().map_or(Value::Null, |e| Value::Object(e.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect())))).collect()))),
             ("assets", Value::Object(h)) => Some((name.to_string(), Value::Object(h.iter().filter(|(k, v)| matches!(k.as_str(), "symbol" | "allocation") && scalar(v)).map(|(k, v)| (k.clone(), v.clone())).collect()))),
+            // Slice 7 (D-REST-INGREDIENTS): `indexes` whatever its shape; the create refuses a malformed one whole.
+            ("indexes", _) => Some((name.to_string(), value.clone())),
             // #710: an account_id is validated whatever its shape (`[]` names no account), never dropped into the default.
             ("account_id", _) => Some((name.to_string(), value.clone())),
             _ => None,
@@ -375,10 +377,11 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let Ok(p) = params() else { return Ok(bad_request()) };
             // `params[:id].to_i`: the path's id (it wins over the body's and the query's), its leading digits.
             let id = p.get("id").and_then(bot_api::to_i).unwrap_or(0);
-            // PLAN index-as-ingredient slice 3: no ingredient operation reaches REST before slice 7. Judged on the merged
-            // parameters (query and body) before `service_arguments` drops them, so the whole request is refused.
-            if matches!(write, bot_api::Write::Settings) && p.keys().any(|k| super::bot::action_params::ingredient_key(k)) {
-                return Ok(render(bot_api::Res::failure(bot_api::Domain::ValidationFailed, "unsupported_setting", "Index ingredients can't be changed through the API yet.".into())));
+            // D-REST-INGREDIENTS (PLAN index-as-ingredient slice 7): the API's ingredient keys pass to the service whole
+            // (`service_arguments`); the settings form's own op fields are refused, judged on the merged parameters (query and
+            // body) before the filter would drop them, so the whole request is refused and nothing is saved.
+            if matches!(write, bot_api::Write::Settings) && p.keys().any(|k| super::bot::action_params::ingredient_key(k) && !super::bot::mcp_input::INGREDIENT_KEYS.contains(&k.as_str())) {
+                return Ok(render(bot_api::Res::failure(bot_api::Domain::ValidationFailed, "unsupported_setting", "Use add_index, remove_index, change_index, ungroup_index or index_groups.".into())));
             }
             let submitted = super::bot::action_params::ActionParams::from_service(service_arguments(write, p));
             let work=|| {

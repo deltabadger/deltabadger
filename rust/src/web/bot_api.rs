@@ -176,7 +176,9 @@ pub fn bot_write(c: &Connection, app: &App, user: i64, id: i64, write: Write, su
         Write::Settings => write::settings(c, &ctx, user, id, submitted, |_, _, draft| {
             let updated: Vec<&String> = draft.submitted.keys().collect();
             let text = if draft.errors.is_empty() {
-                format!("Bot '{}' settings updated: {}.", draft.candidate.label, updated.iter().map(|k| k.as_str()).collect::<Vec<_>>().join(", "))
+                // A notice the save gives (the sell side reset with the last index; slice 7) follows, as the page shows it.
+                format!("Bot '{}' settings updated: {}.{}", draft.candidate.label, updated.iter().map(|k| k.as_str()).collect::<Vec<_>>().join(", "),
+                        draft.notice.as_deref().map(|n| format!(" {n}")).unwrap_or_default())
             } else if draft.errors.first().is_some_and(|e| e.field == "base") { mcp_input::full_messages(&draft.errors) }
             else { format!("Failed to update bot: {}", mcp_input::full_messages(&draft.errors)) };
             Ok(shown(json!({"id": id, "label": draft.candidate.label, "updated": updated}), text))
@@ -301,10 +303,14 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
         };
         // A bot stored without a name is listed under its generated one, as 2.x loads it.
         let label = match label.filter(|l| !l.trim().is_empty()) { Some(l) => l, None => super::mcp::reads::generated_label(c, user, id, &kind, &s, "en")? };
+        // PLAN index-as-ingredient slice 7: a grouped bot's ingredients and members, its pair naming them (every other bot: 2.x's).
+        let grouped = super::bot::api_grouped(c, user, id)?;
+        let pair = match &grouped { Some(g) if multi => Some(format!("{}/{}", g.names.join("+"), quote.clone().unwrap_or_default())), _ => pair };
         let mut bot = json!({"id": id, "label": label, "type": kind, "pair": pair, "base_asset": base, "quote_asset": quote, "exchange": exchange,
                          "status": name, "interval": s.get("interval").cloned().unwrap_or(Value::Null),
                          "quote_amount": s.get("quote_amount").cloned().unwrap_or(Value::Null)});
         crate::identity::account_fields(&mut bot, account, number);
+        if let Some(g) = grouped { bot["ingredients"] = g.ingredients; bot["members"] = g.members; }
         bots.push(bot);
     }
     Ok(Res::success(json!({"count": bots.len(), "bots": bots})))
