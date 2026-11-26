@@ -39,7 +39,12 @@ jobs:
     outputs:
       rust: ${{ steps.diff.outputs.rust }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Only the trees are compared: no file contents (rust/tests/recorded/ alone is over 2 GB).
+      - if: contains(fromJSON('["pull_request", "merge_group", "push"]'), github.event_name)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          filter: blob:none
+          sparse-checkout: .github
       - id: diff
         env:
           EVENT: ${{ github.event_name }}
@@ -48,13 +53,15 @@ jobs:
           # (tests/image.rs) and the Umbrel app tests/umbrel.rs checks; how a release is published (release.yml runs
           # script/rust/image_smoke.sh before each push, script/release/validate.sh is proved by release-scripts); and what
           # the build reads: the app version (src-tauri/Cargo.toml), build.rs's gates, the asset build and the
-          # package.json/bun.lock it resolves (dart-sass among them).
-          PATHS: '^(rust/|docker/|deltabadger/|script/release/|script/rust/|bun\.lock)|^(\.github/workflows/(rust|release)\.yml|Dockerfile|\.dockerignore|docker-compose(\.build)?\.yml|umbrel-app-store\.yml|script/release(_test)?\.sh|src-tauri/Cargo\.toml|package\.json)$'
+          # package.json/bun.lock it resolves (dart-sass among them); and what the crate reads from outside rust/: the API
+          # manual it serves and the launcher page its tests compare with.
+          PATHS: '^(rust/|docker/|deltabadger/|script/release/|script/rust/|src-tauri/ui/|bun\.lock)|^(\.github/workflows/(rust|release)\.yml|Dockerfile|\.dockerignore|docker-compose(\.build)?\.yml|umbrel-app-store\.yml|script/release(_test)?\.sh|src-tauri/Cargo\.toml|package\.json|manual/api\.md)$'
         run: |
           set -euo pipefail
           case "$EVENT" in pull_request|merge_group|push) ;; *) echo rust=true >> "$GITHUB_OUTPUT"; exit 0 ;; esac
           git fetch --quiet --depth=1 origin "$BASE"
-          changed=$(git diff --name-only "$BASE" HEAD)
+          # Both sides of a move count (no rename detection), and paths print unquoted.
+          changed=$(git -c core.quotePath=false diff --no-renames --name-only "$BASE" HEAD)
           printf '%s\n' "$changed"
           # grep without -q reads all its input: printf can't take SIGPIPE and fail the match under pipefail.
           if printf '%s\n' "$changed" | grep -E "$PATHS" > /dev/null; then r=true; else r=false; fi

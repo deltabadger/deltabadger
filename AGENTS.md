@@ -19,7 +19,7 @@ Deltabadger 3.0 is a Rust program. Deltabadger 2.x is the program before it: 3.0
 ## Tests
 
 - A fresh worktree runs `script/rust/build_assets.sh` once before building or testing (the crate embeds its output)
-- After a change, run clippy and the test files it touches (`cd rust && cargo nextest run --test <file>`); the pull request runs the full suite, the merge queue every platform
+- After a change, run clippy and the test files it touches (`cd rust && cargo nextest run --test <file>`); the pull request runs the full suite, the merge queue the Linux and Windows legs
 - Recorded answers in `rust/tests/recorded/` are fixed data: never edit or re-record them
 - An intended output change rewrites its expected file with `EXPECTED_REWRITE=1`; the page, tracker and decision grids have no rewrite
 - 2.x interop tests run on the 2.70.21 image, in rust.yml's image job (`rust/.config/nextest.toml` `[profile.image]`)

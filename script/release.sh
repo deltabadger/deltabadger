@@ -52,8 +52,8 @@ ci_passed() {
           "windows-x86_64 (1/3)", "windows-x86_64 (2/3)", "windows-x86_64 (3/3)"] | all(. as $n | $r | any(.name == $n))))
       and any(.[][]; .name == "macos-arm64" and .conclusion == "success")' <<< "$all" > /dev/null && return 0
   die "no rust.yml runs on ${sha:0:9} passed every job on every platform (macOS runs only when started by hand).
-After the push run on this commit passed: gh workflow run rust.yml --ref main -f macos_only=true
-(without a passed push run: gh workflow run rust.yml --ref main). Wait for it to pass, and run this again."
+After a push run on this commit that ran and passed every platform leg: gh workflow run rust.yml --ref main -f macos_only=true
+(otherwise, also when the push run skipped its legs: gh workflow run rust.yml --ref main). Wait for it to pass, and run this again."
 }
 
 no_release_running() { # asked per active status, so no number of older runs can hide one
