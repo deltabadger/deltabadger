@@ -2654,14 +2654,20 @@ async fn r8_a_balance_job_giving_way_wakes_the_reader() {
     scheduler.wakers().wake(deltabadger::sync::jobs::BALANCE_SYNC, Some(&s.api_key_id.to_string()), None);
     let (stop, stopped) = tokio::sync::watch::channel(false);
     let clock = deltabadger::engine::FixedClock(chrono::Utc::now());
+    let balance = |runs: &[(String, Option<String>)], key: i64| {
+        runs.iter().filter(|(n, s)| n == deltabadger::sync::jobs::BALANCE_SYNC && s.as_deref() == Some(key.to_string().as_str())).count()
+    };
+    // Stops once both have run (a fixed 400 ms stopped a slow CI runner's first job mid-run), or after 10 s.
     let (ended, ()) = tokio::join!(scheduler.run(stopped, &clock), async {
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while std::time::Instant::now() < deadline && !{ let r = runs.borrow(); balance(&r, s.api_key_id) > 0 && balance(&r, reader) > 0 } {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
         let _ = stop.send(true);
     });
     ended.unwrap();
     let runs = runs.borrow();
-    let balance = |key: i64| runs.iter().filter(|(n, s)| n == deltabadger::sync::jobs::BALANCE_SYNC && s.as_deref() == Some(key.to_string().as_str())).count();
-    assert_eq!((balance(s.api_key_id), balance(reader)), (1, 1), "{runs:?}");
+    assert_eq!((balance(&runs, s.api_key_id), balance(&runs, reader)), (1, 1), "{runs:?}");
 }
 
 /// The Alpaca pair of `kraken`'s user, a duplicate by fingerprint, its EUR bots paused (the eligibility guard refuses
