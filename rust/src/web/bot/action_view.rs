@@ -34,6 +34,11 @@ fn fragments(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<(String, String
     Ok((forms,exchange,state))
 }
 pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<Prepared<Response>, WebError> {
+    Ok(Prepared { response: response(settings_body(c, ctx, draft)?, !draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
+}
+
+/// `settings_response`'s streams.
+pub(super) fn settings_body(c: &Connection, ctx: &Ctx, draft: &Draft) -> Result<String, WebError> {
     // BotsController#update: an exchange, quote or interval that does not exist cannot be drawn, so a
     // refused update redraws the bot as stored, with the refusal only in the flash.
     let stored;
@@ -46,6 +51,12 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
         + "\n" + &bar_streams(bot,&state)
         + "\n" + &button_streams(bot,&state)
         + "\n" + &alert(&draft.errors)? + "\n";
+    // PLAN index-as-ingredient slice 5 (Codex #5): a grouped save that turns one lone index into a wider basket, or back,
+    // redraws the menu, whose index items differ between the two.
+    let original = &draft.original;
+    let body = if draft.errors.is_empty() && (original.grouped() || bot.grouped()) && original.lone_group().is_some() != bot.lone_group().is_some() {
+        body + &turbo::stream("replace", &bot.dom_id("menu"), &page::menu(ctx, &ctx.csrf_token(), bot, bots::market_data(c, &ctx.app)?.1)?) + "\n"
+    } else { body };
     let body = match draft.notice.as_ref().filter(|_| draft.errors.is_empty()) {
         Some(text) => body + &turbo::prepend_flash(flash::render(&[flash::Message { style: "primary", text: text.clone() }])?.trim_end()) + "\n",
         None => body,
@@ -55,8 +66,7 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
     // A refused save is judged on the row as stored: the guard's refusal is built before its writes roll back.
     let (kind, saved) = if draft.errors.is_empty() { (bot.kind, Value::Object(bot.settings.clone())) }
         else { (draft.original.kind, Value::Object(draft.raw_settings.clone())) };
-    let body = match super::wash::saved_prompt_stream(c,ctx,&ctx.csrf_token(),user.id,bot.id,kind,&saved)? { Some(stream) => body + &stream + "\n", None => body };
-    Ok(Prepared { response: response(body,!draft.errors.is_empty()), broadcasts: vec![], after_scheduling: None })
+    Ok(match super::wash::saved_prompt_stream(c,ctx,&ctx.csrf_token(),user.id,bot.id,kind,&saved)? { Some(stream) => body + &stream + "\n", None => body })
 }
 
 /// DcaMultiAsset#broadcast_metrics_panel, called only after the settings transaction commits; computed off the request.

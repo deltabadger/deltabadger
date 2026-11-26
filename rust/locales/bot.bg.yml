@@ -24,6 +24,12 @@ bg:
             assets_stay: "Активите, купени на други борси, остават там, където са."
         dca_multi_asset:
             add_asset: "Добавяне на актив"
+            add_index: "Добавяне на индекс"
+            index_settings: "%{index}: настройки"
+            composition: "Състав"
+            composition_pending: "Обновява се: това е последният състав."
+            composition_empty: "Все още няма състав: той ще бъде избран при следващото обновяване."
+            toggle_view: "Диаграма или списък"
             remove_asset: "Премахване"
             max_assets_reached: "Можете да държите до %{max} актива."
             min_assets: "Портфейлът трябва да съдържа поне %{min} актива."

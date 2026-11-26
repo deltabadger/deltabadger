@@ -211,7 +211,9 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
             Title::Text(view.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])))
         }
         Kind::Basket if quote_id.is_some() => {
-            let symbols: Vec<&str> = bot.base_assets.iter().map(|asset| asset.symbol()).collect();
+            // PLAN index-as-ingredient §5: a grouped basket is titled by its ingredients (assets, then indexes).
+            let names = bot.ingredient_names();
+            let symbols: Vec<&str> = if bot.grouped() { names.iter().map(String::as_str).collect() } else { bot.base_assets.iter().map(|asset| asset.symbol()).collect() };
             if symbols.len() >= 3 {
                 let more = if symbols.len() > 3 { format!(" +{}", symbols.len() - 3) } else { String::new() };
                 Title::Fit(format!("{}{more}", symbols.iter().take(3).copied().collect::<Vec<_>>().join(", ")),

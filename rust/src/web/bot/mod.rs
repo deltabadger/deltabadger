@@ -11,6 +11,7 @@ pub mod action_view;
 pub mod cancel;
 pub mod csv;
 pub mod draft;
+pub mod index_groups;
 pub mod index_switch;
 pub mod live;
 pub mod merge;
@@ -340,6 +341,9 @@ pub struct Bot {
     pub reads: Map<String, Value>,
     /// A signal bot's rules (`bot.bot_signals`), in id order; none for any other type.
     pub signals: Vec<signal::Rule>,
+    /// PLAN index-as-ingredient slice 5: each group's display name, in stored order, for a grouped basket that is not one
+    /// lone group (titles); empty for every other bot.
+    pub group_names: Vec<String>,
 }
 
 /// What a setting the pages read may be stored as. 2.x validates each on every save, so a row a
@@ -670,8 +674,14 @@ impl Bot {
             tickers, api_key, index, last_order, has_orders: exists("")?, has_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1)")?,
             reads: Map::new(), signals: if kind == Kind::Signal { signal::rules(c, id)? } else { vec![] }, has_regular_waiting_orders: exists(" AND status = 0 AND external_status IN (0, 1) AND transaction_type = 'REGULAR'")?,
             has_submitted_orders: exists(" AND status = 0")?,
-            has_pending_market_orders: exists(&format!(" AND {}", orders::PENDING_MARKET))?,
+            has_pending_market_orders: exists(&format!(" AND {}", orders::PENDING_MARKET))?, group_names: vec![],
         };
+        if bot.grouped() && bot.lone_group().is_none() {
+            for external_id in bot.group_ids() {
+                let Some(view) = bot.group_view(c, &external_id)? else { continue };
+                bot.group_names.push(view.display_index_name().unwrap_or_else(|| super::i18n::text(locale, "bot.dca_index.setup.pick_index.top_coins", &[])));
+            }
+        }
         // Signal rules receive read-only defaults; basket/index settings follow 2.x.
         bot.fill_defaults();
         if bot.label_unsaved { bot.label = bot.default_label(locale); }
@@ -709,6 +719,12 @@ impl Bot {
             }
             // Bots::Signal#default_label: its base's name.
             Kind::Signal => self.base_asset().and_then(|asset| asset.name.clone()).unwrap_or_default(),
+            // A grouped basket: its ingredients' names, as Automation::Labelable#basket_label joins a basket's symbols.
+            Kind::Basket if self.grouped() => {
+                let names = self.ingredient_names();
+                let label = names.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+                if names.len() > 3 { format!("{label} + {}", names.len() - 3) } else { label }
+            }
             Kind::Basket => {
                 let ids = allocation_ids(&self.settings);
                 let asset = |id: i64| self.base_assets.iter().find(|asset| asset.id == id);
@@ -1016,7 +1032,9 @@ impl Bot {
     }
 
     pub fn excess_members(&self) -> usize {
-        if self.kind == Kind::Basket { self.allocations().len().saturating_sub(MAX_ASSETS) } else { 0 }
+        // A grouped basket counts every ingredient, as its start does (PLAN index-as-ingredient §6.2).
+        if self.grouped() { self.ingredient_count().saturating_sub(MAX_ASSETS) }
+        else if self.kind == Kind::Basket { self.allocations().len().saturating_sub(MAX_ASSETS) } else { 0 }
     }
 
     /// Bots::DcaMultiAsset#one_asset?: `composition_size == 1`, counted over base_asset_ids (the weights' keys, else the wizard's list).
@@ -1039,8 +1057,25 @@ impl Bot {
 
     /// PLAN index-as-ingredient slice 4a: a lone grouped basket as the index view reads it, its group's keys lifted to the top
     /// level with an index bot's defaults (`default_num_coins`, no flattening). Display only: never loaded into a draft or written.
-    pub fn index_view(&self) -> Option<Bot> {
-        let group = self.lone_group()?;
+    pub fn index_view(&self) -> Option<Bot> { self.lone_group().map(|group| self.view_of(group)) }
+
+    /// PLAN index-as-ingredient slice 5: group `external_id` of a grouped basket as the index view reads it, with that index's
+    /// ranked row; for a group beside other ingredients its memberships are the group's own rows (`rust_bot_group_members`,
+    /// target = the weight within the group), so a frozen preview reads the group, not the whole bot. None: not held.
+    pub fn group_view(&self, c: &Connection, external_id: &str) -> Result<Option<Bot>, WebError> {
+        if !self.grouped() { return Ok(None); }
+        let Some(group) = self.settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object)
+            .find(|g| crate::engine::composition::external_id(Some(g)) == external_id).cloned() else { return Ok(None) };
+        let mut view = self.view_of(group.clone());
+        if self.lone_group().is_none() {
+            view.index = index_row(c, &group)?;
+            view.memberships = group_rows(c, self.id, external_id)?.into_iter().map(|(asset, ticker, weight)| Membership {
+                target_allocation: BigDec::parse(&weight.to_string()).ok(), asset, ticker, in_index: true }).collect();
+        }
+        Ok(Some(view))
+    }
+
+    fn view_of(&self, group: Map<String, Value>) -> Bot {
         let mut view = self.clone();
         // The count and flattening as the group codec reads them (a stored "0.5" draws as 0.5, never the reader's 0).
         let (count, flattening) = (crate::engine::composition::num_coins(Some(&group)), crate::engine::composition::flattening(Some(&group)));
@@ -1051,7 +1086,32 @@ impl Bot {
         for (key, value) in [("num_coins", json!(view.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))] {
             if matches!(view.settings.get(key), None | Some(Value::Null)) { view.settings.insert(key.to_string(), value); }
         }
-        Some(view)
+        view
+    }
+
+    /// The stored groups' external ids, in stored order (none on an ungrouped bot).
+    pub fn group_ids(&self) -> Vec<String> {
+        if !self.grouped() { return vec![]; }
+        self.settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object)
+            .map(|g| crate::engine::composition::external_id(Some(g)).to_string()).collect()
+    }
+
+    /// PLAN index-as-ingredient §5: a grouped basket's ingredient names, its named assets' symbols then its groups' names.
+    pub fn ingredient_names(&self) -> Vec<String> {
+        self.base_assets.iter().map(|asset| asset.symbol().to_string()).chain(self.group_names.iter().cloned()).collect()
+    }
+
+    /// Ingredients: the named assets (`allocations` order) and the groups. A plain basket counts its assets.
+    pub fn ingredient_count(&self) -> usize { allocation_ids(&self.settings).len() + self.group_ids().len() }
+
+    /// PLAN index-as-ingredient §6.2: a grouped slider's value (0..1). The stored weight; under market cap the share the last
+    /// composition stored (`rust_composed_of.shares`), 0 for an ingredient that snapshot lacks (the engine dropped it), the
+    /// stored weight while there is no snapshot. `key`: an asset id or a group's external id.
+    pub fn shown_share(&self, asset: Option<i64>, group: Option<&str>, stored: f64) -> f64 {
+        if !self.market_cap_weighted() { return stored; }
+        let Some(shares) = self.transient.get(crate::engine::composition::COMPOSED_OF_KEY).and_then(|of| of.get("shares")) else { return stored };
+        let share = match (asset, group) { (Some(id), _) => shares.get("assets").and_then(|a| a.get(id.to_string())), (_, Some(g)) => shares.get("groups").and_then(|a| a.get(g)), _ => None };
+        share.and_then(Value::as_f64).unwrap_or(0.0)
     }
 
     /// A basket stored with index groups (PLAN index-as-ingredient §3.2), as the engine's `stored_groups` reads it.
@@ -1176,6 +1236,31 @@ fn allocation_ids(settings: &Map<String, Value>) -> Vec<i64> {
         Some(Value::Object(weights)) if !weights.is_empty() => weights.keys().filter_map(|key| key.parse().ok()).collect(),
         _ => settings.get("base_asset_ids").and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_i64).collect()).unwrap_or_default(),
     }
+}
+
+/// PLAN index-as-ingredient slice 5: a group's composed members (`rust_bot_group_members`), heaviest first, each with its
+/// stored ticker and its weight within the group.
+pub fn group_rows(c: &Connection, bot_id: i64, external_id: &str) -> Result<Vec<(Asset, Option<Ticker>, f64)>, WebError> {
+    let rows: Vec<(i64, i64, f64)> = c.prepare("SELECT asset_id, ticker_id, weight FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 ORDER BY weight DESC, asset_id")?
+        .query_map(rusqlite::params![bot_id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+    let mut out = vec![];
+    for (asset, ticker, weight) in rows {
+        let Some(asset) = Asset::find(c, asset)? else { continue };
+        out.push((asset, Ticker::all(c, "t.id = ?1", &[&ticker])?.into_iter().next(), weight));
+    }
+    Ok(out)
+}
+
+/// Every current member's traded target (`in_index` rows), heaviest first, unbounded (`Bot::find` caps its memberships).
+pub fn current_targets(c: &Connection, bot_id: i64) -> Result<Vec<(Asset, f64)>, WebError> {
+    let rows: Vec<(i64, Stored)> = c.prepare("SELECT asset_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY CAST(target_allocation AS REAL) DESC, id")?
+        .query_map([bot_id], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    let mut out = vec![];
+    for (asset, target) in rows {
+        let Some(asset) = Asset::find(c, asset)? else { continue };
+        out.push((asset, target.0.as_ref().map_or(0.0, BigDec::to_f)));
+    }
+    Ok(out)
 }
 
 /// Bots::DcaIndex#current_index, as the engine's composition reads it: the row engine::index::ranked_row selects, else (no

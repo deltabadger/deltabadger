@@ -25,6 +25,12 @@ fr:
             assets_stay: "Les actifs achetés sur d'autres plateformes restent où ils sont."
         dca_multi_asset:
             add_asset: "Ajouter un actif"
+            add_index: "Ajouter un indice"
+            index_settings: "%{index} : réglages"
+            composition: "Composition"
+            composition_pending: "Mise à jour en cours : voici la dernière composition."
+            composition_empty: "Pas encore de membres : ils seront choisis à la prochaine mise à jour."
+            toggle_view: "Graphique ou liste"
             remove_asset: "Retirer"
             max_assets_reached: "Vous pouvez détenir jusqu’à %{max} actifs."
             min_assets: "Un portefeuille doit contenir au moins %{min} actifs."

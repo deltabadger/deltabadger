@@ -25,6 +25,12 @@ nl:
             assets_stay: "Assets die op andere exchanges zijn gekocht, blijven waar ze zijn."
         dca_multi_asset:
             add_asset: "Asset toevoegen"
+            add_index: "Index toevoegen"
+            index_settings: "%{index}: instellingen"
+            composition: "Samenstelling"
+            composition_pending: "Wordt bijgewerkt: dit is de laatste samenstelling."
+            composition_empty: "Nog geen onderdelen: die worden bij de volgende update gekozen."
+            toggle_view: "Grafiek of lijst"
             remove_asset: "Verwijderen"
             max_assets_reached: "Je kunt maximaal %{max} assets aanhouden."
             min_assets: "Een portefeuille heeft minstens %{min} assets nodig."

@@ -679,6 +679,10 @@ struct BasketMain<'a> {
     total: String,
     can_add: bool,
     add_path: String,
+    /// PLAN index-as-ingredient slice 5, a grouped basket only: a row per index, "+ Add index", its composition.
+    groups: Vec<GroupSlider>,
+    add_index_path: Option<String>,
+    composition: String,
 }
 
 pub(super) struct Coin {
@@ -705,8 +709,14 @@ struct IndexMain<'a> {
     interval_words: String,
     interval_select: String,
     index_name: String,
-    /// The form root: `bots_dca_index`, or a lone grouped basket's `bots_dca_multi_asset` (its stored class).
-    key: &'static str,
+    /// The posted root of the index's fields: `bots_dca_index`, or a lone grouped basket's `bots_dca_multi_asset` (its stored
+    /// class); the sheet of a group, `bots_dca_multi_asset[index_groups][<id>]` (`_index_sliders`).
+    field: String,
+    field_id: String,
+    /// A grouped basket's sliders carry their labels and the preview a keyboard toggle (PLAN index-as-ingredient slice 5).
+    labelled: bool,
+    /// A lone grouped basket: "+ Add asset", "+ Add index" and its composition, under the sliders.
+    lone_extras: String,
     /// A lone grouped basket: the basket's direction control, and its sell sentence while it sells for quote (`sell` 2).
     grouped: bool,
     sell: u8,
@@ -819,8 +829,10 @@ struct Sentence<'a> { quote: &'a str, quote_asset_id: Option<i64>, amount_field:
                       /// 0 buying, 2 selling for N quote (a lone group is never one asset).
                       sell: u8, grouped: bool, reverse_confirm: Option<String> }
 
-/// `_main_index`: an index bot's form, or a lone grouped basket's (`view`: `Bot::index_view`) under the basket's root.
-fn index_main(c: &Connection, forms: &Forms, view: &Bot, sentence: Sentence) -> Result<String, WebError> {
+/// The sliders and preview `_index_sliders` draws for an index view (`Bot::index_view`, `Bot::group_view`).
+pub(super) struct Sliders { frozen: bool, num_coins: i64, max_coins: i64, num_coins_progress: i64, flattening: String, flattening_progress: i64, coins: Vec<Coin>, fewer_note: String }
+
+pub(super) fn sliders(c: &Connection, locale: &str, view: &Bot) -> Result<Sliders, WebError> {
     // A frozen allocation (D-INDEX-RETIRED-KEPT) is drawn with both sliders disabled at the values its preview is
     // computed at: every held member shown, the flattening retired_preview chose.
     let frozen = frozen(c, view)? == Some(true);
@@ -828,20 +840,90 @@ fn index_main(c: &Connection, forms: &Forms, view: &Bot, sentence: Sentence) -> 
     let max_coins = if frozen { (coins.len() as i64).max(MIN_COINS) } else if coins.is_empty() { view.max_coins() } else { view.max_coins().min(coins.len() as i64) };
     let num_coins = if frozen { coins.len() as i64 } else { shown_coins(view).min(max_coins) };
     let flattening = match frozen_flattening { Some(f) => Num::Float(f), None => view.number("allocation_flattening").unwrap_or(Num::Int(0)) };
-    let fewer_note = i18n::text(forms.ctx.locale, "bot.dca_index.fewer_coins_available", &[
+    let fewer_note = i18n::text(locale, "bot.dca_index.fewer_coins_available", &[
         ("available", Arg::Text(&coins.len().to_string())), ("requested", Arg::Text(&num_coins.to_string())), ("exchange_name", Arg::Text(&view.exchange.name)),
     ]);
-    Ok(IndexMain {
-        v: forms.ctx, csrf: forms.csrf, path: &forms.path, bot_id: view.id, locked: view.working(), frozen, quote: sentence.quote, quote_asset_id: sentence.quote_asset_id, amount_field: sentence.amount_field, interval_words: sentence.interval_words, interval_select: sentence.interval_select,
-        key: view.param_key(), sell: sentence.sell, grouped: sentence.grouped, reverse_confirm: sentence.reverse_confirm,
-        index_name: view.display_index_name().unwrap_or_else(|| i18n::text(forms.ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
-        retired: crate::engine::index::retired(c, &crate::web::wizard::index::followed(Some(&view.settings))).map_err(|e| super::data(format!("{e:?}")))?
-            .then(|| i18n::text(forms.ctx.locale, "bot.dca_index.retired", &[])),
-        num_coins, max_coins,
+    Ok(Sliders {
+        frozen, num_coins, max_coins,
         num_coins_progress: if max_coins > MIN_COINS { ((num_coins - MIN_COINS) as f64 / (max_coins - MIN_COINS) as f64 * 100.0).round() as i64 } else { 100 },
         flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),
         coins: coins.into_iter().enumerate().map(|(position, coin)| Coin { visible: (position as i64) < num_coins, ..coin }).collect(), fewer_note,
+    })
+}
+
+/// `_main_index`: an index bot's form, or a lone grouped basket's (`view`: `Bot::index_view`) under the basket's root.
+fn index_main(c: &Connection, forms: &Forms, view: &Bot, sentence: Sentence, lone_extras: String) -> Result<String, WebError> {
+    let Sliders { frozen, num_coins, max_coins, num_coins_progress, flattening, flattening_progress, coins, fewer_note } = sliders(c, forms.ctx.locale, view)?;
+    Ok(IndexMain {
+        v: forms.ctx, csrf: forms.csrf, path: &forms.path, bot_id: view.id, locked: view.working(), frozen, quote: sentence.quote, quote_asset_id: sentence.quote_asset_id, amount_field: sentence.amount_field, interval_words: sentence.interval_words, interval_select: sentence.interval_select,
+        field: view.param_key().to_string(), field_id: view.param_key().to_string(), labelled: sentence.grouped, lone_extras,
+        sell: sentence.sell, grouped: sentence.grouped, reverse_confirm: sentence.reverse_confirm,
+        index_name: view.display_index_name().unwrap_or_else(|| i18n::text(forms.ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
+        retired: crate::engine::index::retired(c, &crate::web::wizard::index::followed(Some(&view.settings))).map_err(|e| super::data(format!("{e:?}")))?
+            .then(|| i18n::text(forms.ctx.locale, "bot.dca_index.retired", &[])),
+        num_coins, max_coins, num_coins_progress, flattening_progress, flattening, coins, fewer_note,
     }.render()?)
+}
+
+/// One chip of a group's stack: a composed member, or a preview member before the first composition.
+struct Chip { class: String, color: String, symbol: String, asset_id: i64 }
+
+/// A group's row on a grouped basket's form (PLAN index-as-ingredient §6.1): its stack (linking to its sheet), name and weight.
+struct GroupSlider { external_id: String, stack_id: String, url: String, label: String, name: String, percent: String, chips: Vec<Chip>, more: usize }
+
+/// The slider text of a share (0..1), as an asset row draws it ("60.0").
+fn percent_of(share: f64) -> String { format::float_to_s(format::float_round(share * 100.0, 1)) }
+
+fn group_sliders(c: &Connection, ctx: &Ctx, bot: &Bot) -> Result<Vec<GroupSlider>, WebError> {
+    let mut out = vec![];
+    for external_id in bot.group_ids() {
+        let Some(view) = bot.group_view(c, &external_id)? else { continue };
+        let name = view.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[]));
+        let rows = super::group_rows(c, bot.id, &external_id)?;
+        // The composed members; before the first composition, the members the preview would choose.
+        let mut chips: Vec<Chip> = if rows.is_empty() {
+            index_preview(c, &view)?.into_iter().filter(|coin| coin.visible).map(|coin| Chip { class: "ticker".into(), color: coin.color, symbol: coin.symbol, asset_id: coin.asset_id }).collect()
+        } else {
+            rows.iter().map(|(asset, _, _)| Ok(Chip { class: colors::ticker_class(asset.category.as_deref(), asset.color.as_deref()).to_string(),
+                color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?,
+                symbol: asset.symbol().to_string(), asset_id: asset.id })).collect::<Result<_, WebError>>()?
+        };
+        let more = chips.len().saturating_sub(5);
+        chips.truncate(5);
+        let stored = view.settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object)
+            .find(|g| crate::engine::composition::external_id(Some(g)) == external_id).map_or(0.0, |g| crate::engine::composition::Group::from_settings(Some(g)).weight);
+        out.push(GroupSlider {
+            stack_id: format!("index_group_{external_id}_stack"), url: ctx.path(&format!("/bots/{}/index_groups/{external_id}/edit", bot.id)),
+            label: i18n::text(ctx.locale, "bot.dca_multi_asset.index_settings", &[("index", Arg::Text(&name))]),
+            percent: percent_of(bot.shown_share(None, Some(&external_id), stored)), name, external_id, chips, more,
+        });
+    }
+    Ok(out)
+}
+
+struct Member { class: String, color: String, symbol: String, asset_id: i64, percent: String }
+
+#[derive(Template)]
+#[template(path = "bots/settings/_composition.html")]
+struct CompositionView<'a> { v: &'a Ctx, bot_id: i64, data: String, empty: bool, caption: Option<String>, members: Vec<Member> }
+
+/// PLAN index-as-ingredient §6.1: what a grouped basket trades, every current member by its target (pie or list); a caption
+/// while the composition is pending (the last one shown), or that there is none yet.
+pub(super) fn composition(c: &Connection, ctx: &Ctx, bot: &Bot) -> Result<String, WebError> {
+    let targets = super::current_targets(c, bot.id)?;
+    let total = super::float_sum(targets.iter().map(|(_, t)| *t));
+    let mut data = vec![];
+    let mut members = vec![];
+    for (asset, target) in &targets {
+        let color = colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?;
+        data.push(serde_json::json!({ "label": asset.symbol(), "name": asset.name, "value": target, "color": color, "symbol": asset.symbol(), "assetId": asset.id }));
+        members.push(Member { class: colors::ticker_class(asset.category.as_deref(), asset.color.as_deref()).to_string(), color, symbol: asset.symbol().to_string(), asset_id: asset.id,
+                              percent: percent_of(if total > 0.0 { target / total } else { 0.0 }) });
+    }
+    let caption = if targets.is_empty() { Some("bot.dca_multi_asset.composition_empty") }
+        else if bot.transient.get(crate::engine::composition::COMPOSED_OF_KEY).is_none() { Some("bot.dca_multi_asset.composition_pending") } else { None };
+    Ok(CompositionView { v: ctx, bot_id: bot.id, data: serde_json::to_string(&data).map_err(|e| WebError::Config(e.to_string()))?, empty: targets.is_empty(),
+                         caption: caption.map(|key| i18n::text(ctx.locale, key, &[])), members }.render()?)
 }
 
 /// `div#settings`: the whole column of one bot.
@@ -894,30 +976,58 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             // direction control and sell sentence (the class runs a basket's rules).
             if let Some(view) = bot.index_view() {
                 let reverse_confirm = bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[]));
-                out.push_str(&index_main(c, forms, &view, Sentence { quote, quote_asset_id, amount_field, interval_words, interval_select, sell, grouped: true, reverse_confirm })?);
+                // PLAN index-as-ingredient slice 5: "+ Add asset", "+ Add index" and what it trades, beside the preview.
+                let composition_locked = bot.working() || bot.rebalance_pending();
+                let mut extras = String::new();
+                if !composition_locked && !bot.selling() {
+                    extras.push_str(&format!("    <a class=\"sbutton sbutton--link asset-allocation__add\" data-turbo-frame=\"modal\" href=\"{}?asset_field=add_asset_id\">+ {}</a>\n",
+                        escape(&ctx.path(&format!("/bots/{}/asset_search/edit", bot.id))), i18n::text(ctx.locale, "bot.dca_multi_asset.add_asset", &[])));
+                }
+                if !composition_locked {
+                    extras.push_str(&format!("    <a class=\"sbutton sbutton--link asset-allocation__add\" data-turbo-frame=\"modal\" href=\"{}\">+ {}</a>\n",
+                        escape(&ctx.path(&format!("/bots/{}/index_groups/new", bot.id))), i18n::text(ctx.locale, "bot.dca_multi_asset.add_index", &[])));
+                }
+                extras.push_str(&composition(c, ctx, bot)?);
+                out.push_str(&index_main(c, forms, &view, Sentence { quote, quote_asset_id, amount_field, interval_words, interval_select, sell, grouped: true, reverse_confirm }, extras)?);
                 out.push('\n');
             } else {
-                let lone = if bot.base_assets.len() == 1 { bot.base_assets.first().map(pill).transpose()? } else { None };
+                // PLAN index-as-ingredient slice 5: a grouped basket draws every ingredient (assets, then a row per index),
+                // never the one-asset sentence; an ungrouped one is drawn exactly as before.
+                let grouped = bot.grouped();
+                let lone = if !grouped && bot.base_assets.len() == 1 { bot.base_assets.first().map(pill).transpose()? } else { None };
+                let stored = bot.allocations();
+                let weight_of = |asset: &Asset| if grouped { bot.shown_share(Some(asset.id), None, stored.iter().find(|(id, _)| *id == asset.id).map_or(0.0, |(_, w)| *w)) }
+                                                 else { bot.displayed_allocation_for(asset.id) };
                 let sliders = if lone.is_some() { vec![] } else {
                     bot.base_assets.iter().map(|asset| {
-                        let weight = bot.displayed_allocation_for(asset.id);
-                        Ok(Slider { pill: pill(asset)?, percent: format::float_to_s(format::float_round(weight * 100.0, 1)) })
+                        Ok(Slider { pill: pill(asset)?, percent: format::float_to_s(format::float_round(weight_of(asset) * 100.0, 1)) })
                     }).collect::<Result<Vec<_>, WebError>>()?
                 };
-                let total = format::number_with_precision(&Num::Float(bot.displayed_allocations_total() * 100.0), 1, false).unwrap_or_default();
+                let groups = if grouped { group_sliders(c, ctx, bot)? } else { vec![] };
+                let shown_total = if grouped {
+                    let groups = groups.iter().map(|g| g.percent.parse::<f64>().unwrap_or(0.0) / 100.0);
+                    super::float_sum(bot.base_assets.iter().map(weight_of).chain(groups))
+                } else { bot.displayed_allocations_total() };
+                let total = format::number_with_precision(&Num::Float(shown_total * 100.0), 1, false).unwrap_or_default();
                 let composition_locked = bot.working() || bot.rebalance_pending();
+                let ingredients = if grouped { bot.ingredient_count() } else { bot.base_assets.len() };
                 out.push_str(&BasketMain {
                     v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), composition_locked,
                     weights_locked: composition_locked || bot.market_cap_weighted(), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
                     reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])), sell,
-                    several: bot.base_assets.len() > 1, sliders, balanced: bot.allocations_balanced(), total,
+                    several: ingredients > 1, sliders, balanced: bot.allocations_balanced(), total,
                     // A member is added by buying it, which a selling basket does not do.
-                    can_add: !composition_locked && !bot.selling() && bot.base_assets.len() < super::MAX_ASSETS,
+                    can_add: !composition_locked && !bot.selling() && ingredients < super::MAX_ASSETS,
                     add_path: format!("{}?asset_field=add_asset_id", ctx.path(&format!("/bots/{}/asset_search/edit", bot.id))),
+                    add_index_path: (grouped && !composition_locked && ingredients < super::MAX_ASSETS).then(|| ctx.path(&format!("/bots/{}/index_groups/new", bot.id))),
+                    composition: if grouped { composition(c, ctx, bot)? } else { String::new() }, groups,
                 }.render()?);
                 out.push('\n');
                 // The market-cap rule is offered only where every member has a market cap to be weighted by.
-                if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || (!bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)))) {
+                // A grouped basket: two ingredients or more, every named asset capped (an index weighs by its members' caps).
+                let capped = |asset: &Asset| asset.market_cap.is_some_and(|cap| cap >= 1);
+                let offered = if grouped { ingredients >= 2 && bot.base_assets.iter().all(capped) } else { !bot.base_assets.is_empty() && bot.base_assets.iter().all(capped) };
+                if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || offered) {
                     out.push_str(&market_cap_rule(forms));
                 }
             }
@@ -935,7 +1045,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
         }
         Kind::Index => {
-            out.push_str(&index_main(c, forms, bot, Sentence { quote, quote_asset_id, amount_field, interval_words, interval_select, sell: 0, grouped: false, reverse_confirm: None })?);
+            out.push_str(&index_main(c, forms, bot, Sentence { quote, quote_asset_id, amount_field, interval_words, interval_select, sell: 0, grouped: false, reverse_confirm: None }, String::new())?);
             out.push_str(&format!("\n  {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?));
             out.push_str(&index_rules(c, forms)?);
             out.push_str(&format!("  {}\n", forms.rebalance()));
@@ -1076,4 +1186,30 @@ pub(super) fn saved_rebalance_info(c: &Connection, ctx: &Ctx, draft: &super::dra
 fn rejected_value(value: &Value) -> String {
     let text = value.as_str().map(str::to_owned).unwrap_or_else(|| value.to_string());
     text.chars().take(128).collect()
+}
+
+#[derive(Template)]
+#[template(path = "bots/index_groups/edit.html")]
+struct GroupSheet<'a> {
+    v: &'a Ctx, csrf: &'a str, bot_id: i64, external_id: String, name: String, retired: Option<String>, error: Option<String>,
+    /// PATCH (the sliders) and POST (Custom allocation, Remove, a picked index) of this group.
+    path: String, change_path: String, locked: bool, ops_locked: bool, field: String, field_id: String, labelled: bool,
+    frozen: bool, num_coins: i64, max_coins: i64, num_coins_progress: i64, flattening: String, flattening_progress: i64, coins: Vec<Coin>, fewer_note: String,
+}
+
+/// PLAN index-as-ingredient §6.1: the sheet of group `external_id` of a grouped basket: its count and flattening sliders and
+/// member preview under the group's own field root, Change the index, Custom allocation, Remove; `error`: a refusal, above
+/// the sliders. None: the bot holds no such group.
+pub fn group_sheet(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, external_id: &str, error: Option<String>) -> Result<Option<String>, WebError> {
+    let Some(view) = bot.group_view(c, external_id)? else { return Ok(None) };
+    let Sliders { frozen, num_coins, max_coins, num_coins_progress, flattening, flattening_progress, coins, fewer_note } = sliders(c, ctx.locale, &view)?;
+    let path = ctx.path(&format!("/bots/{}/index_groups/{external_id}", bot.id));
+    Ok(Some(GroupSheet {
+        v: ctx, csrf, bot_id: bot.id, external_id: external_id.to_string(), error,
+        name: view.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
+        retired: crate::engine::index::retired(c, external_id).map_err(|e| super::data(format!("{e:?}")))?.then(|| i18n::text(ctx.locale, "bot.dca_index.retired", &[])),
+        change_path: format!("{path}/index/new"), path, locked: bot.working(), ops_locked: bot.working() || bot.rebalance_pending(),
+        field: format!("bots_dca_multi_asset[index_groups][{external_id}]"), field_id: format!("bots_dca_multi_asset_index_groups_{external_id}"), labelled: true,
+        frozen, num_coins, max_coins, num_coins_progress, flattening, flattening_progress, coins, fewer_note,
+    }.render()?))
 }

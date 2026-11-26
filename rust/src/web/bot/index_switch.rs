@@ -192,7 +192,10 @@ fn switch(tx: &Connection, ctx: &Ctx, owner: i64, id: i64, draft: &draft::Draft,
 
 /// What the bot menu's index picker offers bot `id` (Bots::IndicesController#set_indices): Index.followable_on its venue and
 /// quote, an index bot's own index left out.
-pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::index::IndexTile>, WebError> {
+pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::index::IndexTile>, WebError> { offered_except(c, ctx, id, &[]) }
+
+/// `offered`, with `held` (a grouped basket's indexes, for Add index and a group's Change) left out too.
+pub(crate) fn offered_except(c: &Connection, ctx: &Ctx, id: i64, held: &[String]) -> Result<Vec<wizard::index::IndexTile>, WebError> {
     let (class, settings, exchange_id, venue): (Option<String>, String, i64, Option<String>) = c.query_row(
         "SELECT b.type, b.settings, e.id, e.type FROM bots b JOIN exchanges e ON e.id = b.exchange_id WHERE b.id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     let settings: Value = serde_json::from_str(&settings).map_err(|e| super::data(format!("bot {id} settings: {e}")))?;
@@ -209,8 +212,8 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
     } };
     let quote = settings.get("quote_asset_id").and_then(Value::as_i64);
     // A lone group's index is left out by its external id, whichever provider's row a tile is (an index bot keeps 2.x's row rule).
-    let current_external = lone_external.as_deref();
-    wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current, current_external }))
+    let exclude: Vec<String> = lone_external.into_iter().chain(held.iter().cloned()).collect();
+    wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current, exclude: &exclude }))
 }
 
 /// POST /bots/:id/index (Bots::IndicesController#create, Bot::IndexSwitch.follow!): a portfolio starts following the index it
@@ -294,7 +297,7 @@ fn one(rows: usize) -> Result<(), WebError> {
 
 #[derive(askama::Template)]
 #[template(path = "bots/indices/new.html")]
-struct Picker<'a> { v: &'a Ctx, title: String, none: String, action: String, csrf: &'a str, tiles: Vec<wizard::index::IndexTile> }
+struct Picker<'a> { v: &'a Ctx, title: String, none: String, action: String, csrf: &'a str, tiles: Vec<wizard::index::IndexTile>, error: Option<String> }
 
 /// bots/indices/new's content: "Change the index" or "Follow index" over the offered indices' tiles, which post to the switch,
 /// or the sentence saying there are none at this venue and quote.
@@ -303,7 +306,18 @@ pub fn picker(c: &Connection, ctx: &Ctx, bot: &Bot, csrf: &str) -> Result<String
     let title = ctx.t(if bot.kind == super::Kind::Index || bot.lone_group().is_some() { "bot.index_switch.change_index" } else { "bot.index_switch.follow_index" });
     let quote = bot.quote_asset.as_ref().and_then(|asset| asset.symbol.clone()).unwrap_or_default();
     let none = i18n::text(ctx.locale, "bot.index_switch.none", &[("exchange", i18n::Arg::Text(&bot.exchange.name)), ("quote", i18n::Arg::Text(&quote))]);
-    Ok(Picker { v: ctx, title, none, action: ctx.path(&format!("/bots/{}/index", bot.id)), csrf, tiles: offered(c, ctx, bot.id)? }.render()?)
+    Ok(Picker { v: ctx, title, none, action: ctx.path(&format!("/bots/{}/index", bot.id)), csrf, tiles: offered(c, ctx, bot.id)?, error: None }.render()?)
+}
+
+/// PLAN index-as-ingredient slice 5: the picker of a grouped basket's Add index (`change`: None) or of one group's Change the
+/// index, every held index left out, posting to `action`; `error`: a refusal, shown above the tiles.
+pub fn group_picker(c: &Connection, ctx: &Ctx, bot: &Bot, csrf: &str, change: Option<&str>, error: Option<String>) -> Result<String, WebError> {
+    use askama::Template;
+    let title = ctx.t(if change.is_some() { "bot.index_switch.change_index" } else { "bot.dca_multi_asset.add_index" });
+    let quote = bot.quote_asset.as_ref().and_then(|asset| asset.symbol.clone()).unwrap_or_default();
+    let none = i18n::text(ctx.locale, "bot.index_switch.none", &[("exchange", i18n::Arg::Text(&bot.exchange.name)), ("quote", i18n::Arg::Text(&quote))]);
+    let action = ctx.path(&match change { Some(id) => format!("/bots/{}/index_groups/{id}", bot.id), None => format!("/bots/{}/index_groups", bot.id) });
+    Ok(Picker { v: ctx, title, none, action, csrf, tiles: offered_except(c, ctx, bot.id, &bot.group_ids())?, error }.render()?)
 }
 
 /// Bots::Botable#set_bot and Bots::IndicesController#require_composition_bot: None for a bot that is not this user's or is
@@ -333,7 +347,7 @@ fn offered_here(c: &Connection, ctx: &Ctx, draft: &draft::Draft, external_id: &s
     if !bots::market_data(c, &ctx.app)?.1 { return Ok(Err(t(ctx.locale, "not_offered"))); }
     if let Some(reason) = wizard::index::refusal(c, &ctx.app, &draft.candidate.exchange.class)? { return Ok(Err(write_refused(ctx.locale, reason))); }
     let quote = draft.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
-    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None, current_external: None };
+    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None, exclude: &[] };
     let Some(tile) = wizard::index::tiles(c, &ctx.app, Some(&here))?.into_iter().find(|tile| tile.external_id == external_id) else { return Ok(Err(t(ctx.locale, "not_offered"))) };
     // The row the engine composes from, when one is ranked, must be offered here itself (Codex slice 3 r1 #4).
     if let Some(ranked) = crate::engine::index::ranked_row(c, external_id)? {
@@ -476,9 +490,14 @@ fn ungroup(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Map<Str
 }
 
 /// The bot menu's index routes on a basket stored with groups: the operation posted through the one settings writer.
-fn grouped_route(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: &str, value: &str) -> Result<Switched, WebError> {
-    if value.trim().is_empty() { return Ok(Switched::Refused(t(ctx.locale, "not_offered"))); }
-    let params = super::action_params::ActionParams::from_form(json!({ "bots_dca_multi_asset": { op: value } }));
+fn grouped_route(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: &str, value: &str) -> Result<Switched, WebError> { grouped_ops(c, ctx, owner, id, &[(op, value)]) }
+
+/// The ingredient operation `fields` posted through the one settings writer (the bot menu's index routes, and the index
+/// sheet's Change the index, Custom allocation and Remove).
+pub fn grouped_ops(c: &Connection, ctx: &Ctx, owner: i64, id: i64, fields: &[(&str, &str)]) -> Result<Switched, WebError> {
+    if fields.iter().any(|(_, value)| value.trim().is_empty()) { return Ok(Switched::Refused(t(ctx.locale, "not_offered"))); }
+    let root: Map<String, Value> = fields.iter().map(|(k, v)| (k.to_string(), json!(v))).collect();
+    let params = super::action_params::ActionParams::from_form(json!({ "bots_dca_multi_asset": root }));
     let built = |_: &Connection, _: &Ctx, d: &draft::Draft| Ok(write::Prepared { response: (d.errors.clone(), d.notice.clone()), broadcasts: vec![], after_scheduling: None });
     Ok(match write::settings(c, ctx, owner, id, &params, built)? {
         write::Outcome::Missing => Switched::Missing,

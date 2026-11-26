@@ -25,6 +25,12 @@ pt:
             assets_stay: "Os ativos comprados noutras exchanges ficam onde estão."
         dca_multi_asset:
             add_asset: "Adicionar ativo"
+            add_index: "Adicionar índice"
+            index_settings: "%{index}: definições"
+            composition: "Composição"
+            composition_pending: "A atualizar: esta é a última composição."
+            composition_empty: "Ainda sem componentes: serão escolhidos na próxima atualização."
+            toggle_view: "Gráfico ou lista"
             remove_asset: "Remover"
             max_assets_reached: "Pode deter até %{max} ativos."
             min_assets: "Um portefólio precisa de, pelo menos, %{min} ativos."

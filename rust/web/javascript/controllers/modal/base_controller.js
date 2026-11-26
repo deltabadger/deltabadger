@@ -5,6 +5,10 @@ export default class extends Controller {
   static values = { closeUrl: String }
 
   connect() {
+    // An opener marked data-modal-return-focus (a grouped basket's index stack) takes the focus back on close; found again by
+    // its id when a settings stream replaced it meanwhile.
+    const opener = document.activeElement?.closest?.("[data-modal-return-focus]")
+    if (opener) { this.opener = opener; this.openerId = opener.id }
     this.#open()
     // A click whose press began inside the card (a text selection dragged out) lands on the dialog
     // too; only a press that began on the backdrop closes it.
@@ -94,6 +98,8 @@ export default class extends Controller {
     frame.removeAttribute("src")
     frame.innerHTML = ""
     this.#dispatchModalOpenEvent(false)
+    const back = this.opener?.isConnected ? this.opener : (this.openerId && document.getElementById(this.openerId))
+    back?.focus({ preventScroll: true })
   }
 
   #dispatchModalOpenEvent(detail) {

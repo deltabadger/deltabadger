@@ -24,6 +24,12 @@ cs:
             assets_stay: "Aktiva nakoupená na jiných burzách zůstávají tam, kde jsou."
         dca_multi_asset:
             add_asset: "Přidat aktivum"
+            add_index: "Přidat index"
+            index_settings: "%{index}: nastavení"
+            composition: "Složení"
+            composition_pending: "Probíhá aktualizace: toto je poslední složení."
+            composition_empty: "Zatím žádné složky: vyberou se při příští aktualizaci."
+            toggle_view: "Graf nebo seznam"
             remove_asset: "Odebrat"
             max_assets_reached: "V portfoliu můžete mít nejvýše %{max} aktiv."
             min_assets: "Portfolio potřebuje alespoň %{min} aktiva."
