@@ -506,6 +506,26 @@ fn an_index_bots_v2_jobs_are_removed_at_takeover() {
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 0);
 }
 
+/// PLAN index-as-ingredient slice 4: 2.x's pending composition resync names the bot as the index bot it enqueued it for; once
+/// the start has converted that bot (a basket stored with index groups), the takeover still matches the job by the bot's id and
+/// leaves the marker; a follower of neither spelling is not matched.
+#[test]
+fn a_v2_resync_job_marks_a_grouped_follower_by_its_id() {
+    let dir = common::v2_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let spec = |groups: bool| { let b = BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") };
+                                if groups { b.with("allocations", json!({})).with("index_groups", json!([{ "index_type": "top", "num_coins": 3, "weight": 1.0 }])) } else { b } };
+    let (grouped, plain) = (seed::insert_bot(&o.primary, &s, &spec(true)), seed::insert_bot(&o.primary, &s, &spec(false)));
+    for id in [grouped, plain] { job(&o.queue, "Bot::ResyncIndexCompositionJob", &format!("gid://deltabadger/Bots::DcaIndex/{id}")); }
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let marked = |id: i64| o.primary.query_row("SELECT json_type(transient_data, '$.rust_index_resync') IS NOT NULL FROM bots WHERE id = ?1", [id], |r| r.get::<_, bool>(0)).unwrap();
+    assert_eq!((marked(grouped), marked(plain)), (true, false));
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::ResyncIndexCompositionJob'"), 1, "the plain basket's row stays: {}", t.deleted_jobs);
+}
+
 /// Slice 7a: a bot resting on its price rule is handed over as it rests. Takeover drops 2.x's check chain and leaves it
 /// `waiting` (the engine checks it); handback leaves it `waiting`, and 2.x's adoption restarts its check chain, where
 /// `scheduled` would trade it at the next checkpoint whatever the price.

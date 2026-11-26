@@ -416,13 +416,16 @@ fn pct(n:&Num)->Result<String,WebError>{Ok(format!("{}{}%",if n.is_negative(){""
 const RAISED:&str="figure raised: ";
 fn fail_fig(e:figures::FiguresError)->WebError{match e{figures::FiguresError::Data(ref why)|figures::FiguresError::NotComputed(ref why) if why=="executed fill value unavailable"||why=="quote currency unavailable"=>WebError::Config(why.clone()),
     figures::FiguresError::Raised(error)=>WebError::Config(format!("{RAISED}{error}")),_=>error()}}
-struct Bot {id:i64,label:String,kind:String,status:i64,settings:Value,transient:Value,exchange:Option<String>,account:(Option<i64>,Option<i64>),quote_asset:Option<String>,quote:String,base:Option<String>,pair:Option<String>,started:Option<String>}
+struct Bot {id:i64,label:String,kind:String,class:String,status:i64,settings:Value,transient:Value,exchange:Option<String>,account:(Option<i64>,Option<i64>),quote_asset:Option<String>,quote:String,base:Option<String>,pair:Option<String>,started:Option<String>}
 fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
     read_limits::charge_bot()?;
     let row=crate::identity::with_bot_account("b",|account|c.query_row(&format!("SELECT b.label,b.type,b.status,b.settings,e.name,b.started_at,b.transient_data,{account},{} FROM bots b LEFT JOIN exchanges e ON e.id=b.exchange_id WHERE b.id=?1 AND b.user_id=?2 AND b.status!=3",crate::identity::label_number_sql(account)),[id,user],|r|Ok(((r.get::<_,Option<String>>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?,r.get::<_,String>(6)?),(r.get(7)?,r.get(8)?)))).optional())?;
     let Some(((label,kind,status,settings,exchange,started,transient),account))=row else{return Ok(None)};
     crate::figures::fill::validate_row_times(c,id).map_err(fail_fig)?;
     let settings:Value=serde_json::from_str(&settings).map_err(|_|error())?;
+    // `kind` is what the read answers (a lone group as its index bot), `class` what is stored (the engine's rules).
+    let class=kind.clone();
+    let kind=crate::web::bot::api_type(kind,&settings);
     let transient:Value=serde_json::from_str(&transient).map_err(|_|error())?;
     crate::codec::validate_bot_times(&settings,&transient).map_err(|_|error())?;
     started.as_deref().map(crate::codec::parse_time).transpose().map_err(|_|error())?;
@@ -437,7 +440,7 @@ fn bot(c:&Connection,user:i64,id:i64)->Result<Option<Bot>,WebError>{
         Some(label)=>label,
         None=>generated_label(c,user,id,&kind,&settings,"en")?,
     };
-    Ok(Some(Bot{id,label,kind,status,settings,transient,exchange,account,quote_asset,quote,base,pair,started}))
+    Ok(Some(Bot{id,label,kind,class,status,settings,transient,exchange,account,quote_asset,quote,base,pair,started}))
 }
 /// Automation::Labelable#generate_label for a bot stored without a name, any type. Only a read's
 /// view of it: nothing is saved. An index bot is named by `Bot::find`, which names what it loads.
@@ -480,7 +483,7 @@ fn effective_started(b:&Bot)->Result<Option<chrono::DateTime<chrono::Utc>>,WebEr
     let Some(raw)=&b.started else{return Ok(None)};
     let start=crate::codec::parse_time(raw).map_err(|_|error())?;
     let (settings,transient)=(b.settings.as_object().cloned().unwrap_or_default(),b.transient.as_object().cloned().unwrap_or_default());
-    let decorated=crate::engine::accounting::condition_started_at(crate::web::bot::Kind::of(&b.kind),&settings,&transient,Some(start.timestamp_micros()),b.settings["direction"]=="selling").map_err(|_|error())?;
+    let decorated=crate::engine::accounting::condition_started_at(crate::web::bot::Kind::of(&b.class),&settings,&transient,Some(start.timestamp_micros()),b.settings["direction"]=="selling").map_err(|_|error())?;
     decorated.map(|us|chrono::DateTime::from_timestamp_micros(us).ok_or_else(error)).transpose()
 }
 /// A figure as 2.x renders it: an Integer, a Float, a BigDecimal as its text.

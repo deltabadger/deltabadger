@@ -705,6 +705,12 @@ struct IndexMain<'a> {
     interval_words: String,
     interval_select: String,
     index_name: String,
+    /// The form root: `bots_dca_index`, or a lone grouped basket's `bots_dca_multi_asset` (its stored class).
+    key: &'static str,
+    /// A lone grouped basket: the basket's direction control, and its sell sentence while it sells for quote (`sell` 2).
+    grouped: bool,
+    sell: u8,
+    reverse_confirm: Option<String>,
     /// A17-4 r18: " (Retired)" after the name, red, while the provider has retired the index (engine::index::retired).
     retired: Option<String>,
     num_coins: i64,
@@ -759,6 +765,8 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
             cap
         };
         if !listed.contains(&asset.id) { continue; }
+        // A grouped bot holds a ranking's repeated member once (D-INDEX-DISTINCT-SEATS); an index bot's preview stays 2.x's.
+        if bot.grouped() && coins.iter().any(|coin: &Coin| coin.asset_id == asset.id) { continue; }
         coins.push(Coin {
             color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?,
             market_cap: format::float_to_s(cap), asset_id: asset.id, symbol: asset.symbol().to_string(), visible: (coins.len() as i64) < num_coins,
@@ -772,6 +780,11 @@ pub(super) fn index_preview(c: &Connection, bot: &Bot) -> Result<Vec<Coin>, WebE
 fn frozen(c: &Connection, bot: &Bot) -> Result<Option<bool>, WebError> {
     let followed = crate::web::wizard::index::followed(Some(&bot.settings));
     if !crate::engine::index::retired(c, &followed).map_err(|e| super::data(format!("{e:?}")))? { return Ok(None); }
+    // A grouped basket's provenance is its group rows (engine::index::composed_here), an index bot's its marker.
+    if bot.grouped() {
+        return Ok(Some(c.query_row("SELECT EXISTS (SELECT 1 FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 AND composed = 1)",
+                                   rusqlite::params![bot.id, followed], |r| r.get(0))?));
+    }
     Ok(Some(bot.transient.get(crate::engine::index::COMPOSED_KEY).and_then(Value::as_str) == Some(followed.as_str())))
 }
 
@@ -799,6 +812,36 @@ fn retired_preview(bot: &Bot) -> Result<(Vec<Coin>, f64), WebError> {
 /// The count the index form's slider is drawn at: the stored one, held within what the index offers.
 fn shown_coins(bot: &Bot) -> i64 {
     bot.effective_num_coins().unwrap_or(10).max(MIN_COINS)
+}
+
+/// The sentence's parts `column` computed for the bot: the index form shows them as the basket form does.
+struct Sentence<'a> { quote: &'a str, quote_asset_id: Option<i64>, amount_field: String, interval_words: String, interval_select: String,
+                      /// 0 buying, 2 selling for N quote (a lone group is never one asset).
+                      sell: u8, grouped: bool, reverse_confirm: Option<String> }
+
+/// `_main_index`: an index bot's form, or a lone grouped basket's (`view`: `Bot::index_view`) under the basket's root.
+fn index_main(c: &Connection, forms: &Forms, view: &Bot, sentence: Sentence) -> Result<String, WebError> {
+    // A frozen allocation (D-INDEX-RETIRED-KEPT) is drawn with both sliders disabled at the values its preview is
+    // computed at: every held member shown, the flattening retired_preview chose.
+    let frozen = frozen(c, view)? == Some(true);
+    let (coins, frozen_flattening) = if frozen { let (coins, f) = retired_preview(view)?; (coins, Some(f)) } else { (index_preview(c, view)?, None) };
+    let max_coins = if frozen { (coins.len() as i64).max(MIN_COINS) } else if coins.is_empty() { view.max_coins() } else { view.max_coins().min(coins.len() as i64) };
+    let num_coins = if frozen { coins.len() as i64 } else { shown_coins(view).min(max_coins) };
+    let flattening = match frozen_flattening { Some(f) => Num::Float(f), None => view.number("allocation_flattening").unwrap_or(Num::Int(0)) };
+    let fewer_note = i18n::text(forms.ctx.locale, "bot.dca_index.fewer_coins_available", &[
+        ("available", Arg::Text(&coins.len().to_string())), ("requested", Arg::Text(&num_coins.to_string())), ("exchange_name", Arg::Text(&view.exchange.name)),
+    ]);
+    Ok(IndexMain {
+        v: forms.ctx, csrf: forms.csrf, path: &forms.path, bot_id: view.id, locked: view.working(), frozen, quote: sentence.quote, quote_asset_id: sentence.quote_asset_id, amount_field: sentence.amount_field, interval_words: sentence.interval_words, interval_select: sentence.interval_select,
+        key: view.param_key(), sell: sentence.sell, grouped: sentence.grouped, reverse_confirm: sentence.reverse_confirm,
+        index_name: view.display_index_name().unwrap_or_else(|| i18n::text(forms.ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
+        retired: crate::engine::index::retired(c, &crate::web::wizard::index::followed(Some(&view.settings))).map_err(|e| super::data(format!("{e:?}")))?
+            .then(|| i18n::text(forms.ctx.locale, "bot.dca_index.retired", &[])),
+        num_coins, max_coins,
+        num_coins_progress: if max_coins > MIN_COINS { ((num_coins - MIN_COINS) as f64 / (max_coins - MIN_COINS) as f64 * 100.0).round() as i64 } else { 100 },
+        flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),
+        coins: coins.into_iter().enumerate().map(|(position, coin)| Coin { visible: (position as i64) < num_coins, ..coin }).collect(), fewer_note,
+    }.render()?)
 }
 
 /// `div#settings`: the whole column of one bot.
@@ -847,28 +890,36 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     match bot.kind {
         Kind::Signal => return Err(WebError::Config("a signal bot's settings are signal::column's".into())),
         Kind::Basket => {
-            let lone = if bot.base_assets.len() == 1 { bot.base_assets.first().map(pill).transpose()? } else { None };
-            let sliders = if lone.is_some() { vec![] } else {
-                bot.base_assets.iter().map(|asset| {
-                    let weight = bot.displayed_allocation_for(asset.id);
-                    Ok(Slider { pill: pill(asset)?, percent: format::float_to_s(format::float_round(weight * 100.0, 1)) })
-                }).collect::<Result<Vec<_>, WebError>>()?
-            };
-            let total = format::number_with_precision(&Num::Float(bot.displayed_allocations_total() * 100.0), 1, false).unwrap_or_default();
-            let composition_locked = bot.working() || bot.rebalance_pending();
-            out.push_str(&BasketMain {
-                v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), composition_locked,
-                weights_locked: composition_locked || bot.market_cap_weighted(), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
-                reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])), sell,
-                several: bot.base_assets.len() > 1, sliders, balanced: bot.allocations_balanced(), total,
-                // A member is added by buying it, which a selling basket does not do.
-                can_add: !composition_locked && !bot.selling() && bot.base_assets.len() < super::MAX_ASSETS,
-                add_path: format!("{}?asset_field=add_asset_id", ctx.path(&format!("/bots/{}/asset_search/edit", bot.id))),
-            }.render()?);
-            out.push('\n');
-            // The market-cap rule is offered only where every member has a market cap to be weighted by.
-            if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || (!bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)))) {
-                out.push_str(&market_cap_rule(forms));
+            // PLAN index-as-ingredient slice 4a: a lone grouped basket is drawn as the index it follows, with the basket's
+            // direction control and sell sentence (the class runs a basket's rules).
+            if let Some(view) = bot.index_view() {
+                let reverse_confirm = bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[]));
+                out.push_str(&index_main(c, forms, &view, Sentence { quote, quote_asset_id, amount_field, interval_words, interval_select, sell, grouped: true, reverse_confirm })?);
+                out.push('\n');
+            } else {
+                let lone = if bot.base_assets.len() == 1 { bot.base_assets.first().map(pill).transpose()? } else { None };
+                let sliders = if lone.is_some() { vec![] } else {
+                    bot.base_assets.iter().map(|asset| {
+                        let weight = bot.displayed_allocation_for(asset.id);
+                        Ok(Slider { pill: pill(asset)?, percent: format::float_to_s(format::float_round(weight * 100.0, 1)) })
+                    }).collect::<Result<Vec<_>, WebError>>()?
+                };
+                let total = format::number_with_precision(&Num::Float(bot.displayed_allocations_total() * 100.0), 1, false).unwrap_or_default();
+                let composition_locked = bot.working() || bot.rebalance_pending();
+                out.push_str(&BasketMain {
+                    v: ctx, csrf: forms.csrf, path: &forms.path, locked: bot.working(), composition_locked,
+                    weights_locked: composition_locked || bot.market_cap_weighted(), quote, quote_asset_id, amount_field, interval_words, interval_select, lone,
+                    reverse_confirm: bot.has_regular_waiting_orders.then(|| i18n::text(ctx.locale, "bot.reverse_confirm", &[])), sell,
+                    several: bot.base_assets.len() > 1, sliders, balanced: bot.allocations_balanced(), total,
+                    // A member is added by buying it, which a selling basket does not do.
+                    can_add: !composition_locked && !bot.selling() && bot.base_assets.len() < super::MAX_ASSETS,
+                    add_path: format!("{}?asset_field=add_asset_id", ctx.path(&format!("/bots/{}/asset_search/edit", bot.id))),
+                }.render()?);
+                out.push('\n');
+                // The market-cap rule is offered only where every member has a market cap to be weighted by.
+                if !bot.one_asset() && (bot.text("weighting") == Some("market_cap") || (!bot.base_assets.is_empty() && bot.base_assets.iter().all(|asset| asset.market_cap.is_some_and(|cap| cap >= 1)))) {
+                    out.push_str(&market_cap_rule(forms));
+                }
             }
             // Smart Intervals splits a buy, or a sale of N base; a sale for N quote has no split.
             if !bot.sells_quote_amount() { out.push_str(&format!("    {}\n", forms.smart_intervals())); }
@@ -878,32 +929,13 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
             members.sort_by(|a, b| a.0.cmp(&b.0));
             let mut pairs: Vec<(String, String)> = bot.tickers.iter().map(|ticker| (format!("{}{}", ticker.base_symbol.as_deref().unwrap_or(""), ticker.quote_symbol.as_deref().unwrap_or("")), ticker.id.to_string())).collect();
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
-            out.push_str(&forms.conditions(&members, &pairs));
+            out.push_str(&if bot.grouped() { grouped_conditions(c, forms, &members)? } else { forms.conditions(&members, &pairs) });
             // While selling the cap counts base, which only a one-asset basket has a single one of.
             if !bot.selling() || bot.one_asset() { out.push_str(&format!("    {}\n", forms.amount_limit(c)?)); }
             if !bot.one_asset() && !bot.selling() { out.push_str(&format!("    {}\n", forms.rebalance())); }
         }
         Kind::Index => {
-            // A frozen allocation (D-INDEX-RETIRED-KEPT) is drawn with both sliders disabled at the values its preview is
-            // computed at: every held member shown, the flattening retired_preview chose.
-            let frozen = frozen(c, bot)? == Some(true);
-            let (coins, frozen_flattening) = if frozen { let (coins, f) = retired_preview(bot)?; (coins, Some(f)) } else { (index_preview(c, bot)?, None) };
-            let max_coins = if frozen { (coins.len() as i64).max(MIN_COINS) } else if coins.is_empty() { bot.max_coins() } else { bot.max_coins().min(coins.len() as i64) };
-            let num_coins = if frozen { coins.len() as i64 } else { shown_coins(bot).min(max_coins) };
-            let flattening = match frozen_flattening { Some(f) => Num::Float(f), None => bot.number("allocation_flattening").unwrap_or(Num::Int(0)) };
-            let fewer_note = i18n::text(ctx.locale, "bot.dca_index.fewer_coins_available", &[
-                ("available", Arg::Text(&coins.len().to_string())), ("requested", Arg::Text(&num_coins.to_string())), ("exchange_name", Arg::Text(&bot.exchange.name)),
-            ]);
-            out.push_str(&IndexMain {
-                v: ctx, csrf: forms.csrf, path: &forms.path, bot_id: bot.id, locked: bot.working(), frozen, quote, quote_asset_id, amount_field, interval_words, interval_select,
-                index_name: bot.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])),
-                retired: crate::engine::index::retired(c, &crate::web::wizard::index::followed(Some(&bot.settings))).map_err(|e| super::data(format!("{e:?}")))?
-                    .then(|| i18n::text(ctx.locale, "bot.dca_index.retired", &[])),
-                num_coins, max_coins,
-                num_coins_progress: if max_coins > MIN_COINS { ((num_coins - MIN_COINS) as f64 / (max_coins - MIN_COINS) as f64 * 100.0).round() as i64 } else { 100 },
-                flattening_progress: (flattening.to_f() * 100.0).round() as i64, flattening: flattening.to_s(),
-                coins: coins.into_iter().enumerate().map(|(position, coin)| Coin { visible: (position as i64) < num_coins, ..coin }).collect(), fewer_note,
-            }.render()?);
+            out.push_str(&index_main(c, forms, bot, Sentence { quote, quote_asset_id, amount_field, interval_words, interval_select, sell: 0, grouped: false, reverse_confirm: None })?);
             out.push_str(&format!("\n  {}\n  {}\n  {}\n", forms.smart_intervals(), forms.limit_orders(), forms.starting_time()?));
             out.push_str(&index_rules(c, forms)?);
             out.push_str(&format!("  {}\n", forms.rebalance()));
@@ -948,6 +980,30 @@ fn index_rules(c: &Connection, forms: &Forms) -> Result<String, WebError> {
     let forms = Forms { ctx: forms.ctx, csrf: forms.csrf, bot: &bot, path: forms.path.clone(), hide_balances: forms.hide_balances,
                         time_zone: forms.time_zone, check: forms.check, rebalance_info: forms.rebalance_info, selling: None };
     Ok(format!("{}    {}\n", forms.conditions_with_subjects(|rule| &subjects[rule]), forms.amount_limit(c)?))
+}
+
+/// A grouped basket's rule forms (PLAN index-as-ingredient slice 4a): a basket's, each rule's subjects extended by the
+/// subject it has stored when that pair is no longer offered (a member that left: the engine still watches it), named as
+/// departed, so an unchanged repost keeps it (as `index_rules` does for an index bot).
+fn grouped_conditions(c: &Connection, forms: &Forms, members: &[(String, String)]) -> Result<String, WebError> {
+    let mut subjects = std::collections::HashMap::new();
+    for (_, prefix) in crate::engine::conditions::TRIGGERS {
+        // The trend rules' pairs are the subject pool's (what the writer takes), not the venue's whole universe.
+        let mut options = if matches!(prefix, "price_limit" | "price_drop_limit") { members.to_vec() } else {
+            let mut pool: Vec<(String, String)> = forms.bot.subject_pool().map(|t| (format!("{}{}", t.base_symbol.as_deref().unwrap_or(""), t.quote_symbol.as_deref().unwrap_or("")), t.id.to_string())).collect();
+            pool.sort_by(|a, b| a.0.cmp(&b.0));
+            pool
+        };
+        let stored = forms.bot.setting(&forms.k(&format!("{prefix}_in_ticker_id"))).and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.trim().parse().ok())));
+        if let Some(id) = stored.filter(|id| !options.iter().any(|(_, value)| *value == id.to_string())) {
+            if let Some(ticker) = Ticker::all(c, "t.id = ?1", &[&id])?.into_iter().next() {
+                let symbol = ticker.base_symbol.clone().unwrap_or_default();
+                options.push((i18n::text(forms.ctx.locale, "engine.condition_subject_departed", &[("symbol", Arg::Text(&symbol))]), id.to_string()));
+            }
+        }
+        subjects.insert(prefix, options);
+    }
+    Ok(forms.conditions_with_subjects(|rule| &subjects[rule]))
 }
 
 /// D-COND-FORMS-SIGNAL: the rule forms a signal bot runs (conditions::support), after its rules: the price rule for its buy

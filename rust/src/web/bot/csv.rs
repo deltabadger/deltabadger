@@ -230,7 +230,8 @@ pub fn import_orders_csv(c: &Connection, ctx: &Ctx, user: i64, id: i64, bytes: &
     let quote_id = setting("quote_asset_id");
     let bot_quote = match quote_id { Some(q) => tx.query_row("SELECT symbol FROM assets WHERE id = ?1", [q], |r| r.get::<_, Option<String>>(0)).optional()?.flatten().map(|s| s.to_uppercase()), None => None };
     // importable_assets: one pair's base, a basket's members, nil for an index bot (any name).
-    let members: Option<Vec<i64>> = if bot.kind == "Bots::DcaIndex" { None } else if let Some(base) = setting("base_asset_id") { Some(vec![base]) } else {
+    // A basket stored with index groups reads any asset too, as an index bot does (PLAN §5, slice 4a).
+    let members: Option<Vec<i64>> = if bot.kind == "Bots::DcaIndex" || bot.settings.get("index_groups").is_some_and(Value::is_array) { None } else if let Some(base) = setting("base_asset_id") { Some(vec![base]) } else {
         let ids: Vec<i64> = match bot.settings.get("allocations").and_then(Value::as_object).filter(|a| !a.is_empty()) {
             Some(a) => a.keys().filter_map(|k| k.trim().parse().ok()).collect(),
             None => bot.settings.get("base_asset_ids").and_then(Value::as_array).into_iter().flatten().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),

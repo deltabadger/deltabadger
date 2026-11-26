@@ -48,16 +48,7 @@
         <div class="{{ lone.class }}" style="background: {{ lone.color }}" data-ticker-symbol="{{ lone.symbol }}" data-ticker-asset-id="{{ lone.asset_id }}">{{ lone.symbol }}</div>
 {% endif %}
 {% endif %}
-{% if locked %}
-          <span class="reverse-toggle reverse-toggle--disabled" aria-label="{{ v.t("bot.conversational.reverse")|safe }}" aria-disabled="true" title="{{ v.t("bot.conversational.reverse")|safe }}">
-      {% include "svg/_24x24_reverse.html" %}
-</span>
-{% else %}
-          <a class="reverse-toggle" data-turbo-method="post" data-turbo-stream="true"{% if let Some(confirm) = reverse_confirm %} data-turbo-confirm="{{ confirm }}"{% endif %} aria-label="{{ v.t("bot.conversational.reverse")|safe }}" title="{{ v.t("bot.conversational.reverse")|safe }}" href="{{ path }}/reverse">
-      {% include "svg/_24x24_reverse.html" %}
-</a>
-{% endif %}
-    </div>
+{% include "bots/settings/_reverse_toggle.html" %}    </div>
 
 {% if lone.is_none() %}
   <div class="asset-allocations">

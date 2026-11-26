@@ -196,15 +196,21 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
     let (class, settings, exchange_id, venue): (Option<String>, String, i64, Option<String>) = c.query_row(
         "SELECT b.type, b.settings, e.id, e.type FROM bots b JOIN exchanges e ON e.id = b.exchange_id WHERE b.id=?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     let settings: Value = serde_json::from_str(&settings).map_err(|e| super::data(format!("bot {id} settings: {e}")))?;
-    // Bots::DcaIndex#current_index: the category's row (any source), else the internal Top Coins.
-    let current: Option<i64> = if class.as_deref() != Some("Bots::DcaIndex") { None } else {
+    // Bots::DcaIndex#current_index: the category's row (any source), else the internal Top Coins. A lone grouped basket's
+    // group is its current index too (PLAN index-as-ingredient slice 4a): re-picking it would rebuild the group.
+    let lone = settings.as_object().and_then(super::lone_group_of).filter(|_| class.as_deref() == Some("Bots::DcaMultiAsset"));
+    let lone_external = lone.as_ref().map(id_of);
+    let followed = if class.as_deref() == Some("Bots::DcaIndex") { settings.as_object().cloned() } else { lone };
+    let current: Option<i64> = match &followed { None => None, Some(settings) => {
         match (settings.get("index_type").and_then(Value::as_str), settings.get("index_category_id").and_then(Value::as_str).filter(|id| !crate::v2::blank(id))) {
             (Some("category"), Some(category)) => c.query_row("SELECT id FROM indices WHERE external_id=?1 ORDER BY id LIMIT 1", [category], |r| r.get(0)).optional()?,
             _ => c.query_row("SELECT id FROM indices WHERE external_id='top-coins' AND source='internal' ORDER BY id LIMIT 1", [], |r| r.get(0)).optional()?,
         }
-    };
+    } };
     let quote = settings.get("quote_asset_id").and_then(Value::as_i64);
-    wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current }))
+    // A lone group's index is left out by its external id, whichever provider's row a tile is (an index bot keeps 2.x's row rule).
+    let current_external = lone_external.as_deref();
+    wizard::index::tiles(c, &ctx.app, Some(&wizard::index::Followable { exchange_id, class: venue.as_deref().unwrap_or_default(), quote, current, current_external }))
 }
 
 /// POST /bots/:id/index (Bots::IndicesController#create, Bot::IndexSwitch.follow!): a portfolio starts following the index it
@@ -294,7 +300,7 @@ struct Picker<'a> { v: &'a Ctx, title: String, none: String, action: String, csr
 /// or the sentence saying there are none at this venue and quote.
 pub fn picker(c: &Connection, ctx: &Ctx, bot: &Bot, csrf: &str) -> Result<String, WebError> {
     use askama::Template;
-    let title = ctx.t(if bot.kind == super::Kind::Index { "bot.index_switch.change_index" } else { "bot.index_switch.follow_index" });
+    let title = ctx.t(if bot.kind == super::Kind::Index || bot.lone_group().is_some() { "bot.index_switch.change_index" } else { "bot.index_switch.follow_index" });
     let quote = bot.quote_asset.as_ref().and_then(|asset| asset.symbol.clone()).unwrap_or_default();
     let none = i18n::text(ctx.locale, "bot.index_switch.none", &[("exchange", i18n::Arg::Text(&bot.exchange.name)), ("quote", i18n::Arg::Text(&quote))]);
     Ok(Picker { v: ctx, title, none, action: ctx.path(&format!("/bots/{}/index", bot.id)), csrf, tiles: offered(c, ctx, bot.id)? }.render()?)
@@ -327,7 +333,7 @@ fn offered_here(c: &Connection, ctx: &Ctx, draft: &draft::Draft, external_id: &s
     if !bots::market_data(c, &ctx.app)?.1 { return Ok(Err(t(ctx.locale, "not_offered"))); }
     if let Some(reason) = wizard::index::refusal(c, &ctx.app, &draft.candidate.exchange.class)? { return Ok(Err(write_refused(ctx.locale, reason))); }
     let quote = draft.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
-    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None };
+    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None, current_external: None };
     let Some(tile) = wizard::index::tiles(c, &ctx.app, Some(&here))?.into_iter().find(|tile| tile.external_id == external_id) else { return Ok(Err(t(ctx.locale, "not_offered"))) };
     // The row the engine composes from, when one is ranked, must be offered here itself (Codex slice 3 r1 #4).
     if let Some(ranked) = crate::engine::index::ranked_row(c, external_id)? {
@@ -373,6 +379,8 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
     match op {
         "add_index" | "follow_index" => {
             if op == "add_index" && position(&groups, &named).is_some() { return refuse("not_offered"); }
+            // The current index of a lone group is not offered (`offered`): re-following it would reset its count and flattening.
+            if op == "follow_index" && super::lone_group_of(&draft.raw_settings).is_some_and(|g| id_of(&g) == named) { return refuse("not_offered"); }
             let tile = match offered_here(c, ctx, draft, &named)? { Ok(tile) => tile, Err(refused) => return Ok(Err(refused)) };
             if op == "add_index" { groups.push(group_for(c, &tile, 0.0)?); }
             else {
@@ -425,7 +433,9 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
 #[allow(clippy::too_many_arguments)]
 fn ungroup(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Map<String, Value>, engine: &model::Bot, groups: Vec<Map<String, Value>>, named: &str,
            now: chrono::DateTime<chrono::Utc>) -> Result<Result<Vec<Map<String, Value>>, String>, WebError> {
-    const EDITS: [&str; 10] = ["allocations", "index_groups", "weighting", "normalize_allocations", "add_asset_id", "remove_asset_id", "exchange_id", "account_id", "quote_asset_id", "limit_ordered"];
+    // A lone group's flat count and flattening are its group's fields (slice 4a), so an edit too.
+    const EDITS: [&str; 12] = ["allocations", "index_groups", "weighting", "normalize_allocations", "add_asset_id", "remove_asset_id", "exchange_id", "account_id", "quote_asset_id", "limit_ordered",
+                               "num_coins", "allocation_flattening"];
     if EDITS.iter().any(|key| fields.contains_key(*key)) { return Ok(Err(t(ctx.locale, "gone"))); }
     if !crate::engine::composition::current(c, engine, now)? { return Ok(Err(t(ctx.locale, "in_flight"))); }
     let expand: Vec<String> = if named == "*" { groups.iter().map(id_of).collect() } else { vec![named.to_string()] };

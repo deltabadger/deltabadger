@@ -7,7 +7,7 @@
 <div data-controller="index-allocation" data-index-allocation-bot-id-value="{{ bot_id }}" data-index-allocation-other-label-value="{{ v.t("bot.dca_index.other")|safe }}">
   <form class="widget main-rule main-rule--index" data-turbo-stream="true" data-controller="form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations" action="{{ path }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" />
     <div class="conversational flex-justify-center">
-      {{ v.t("bot.conversational.invest")|safe }}
+      {% if sell == 2 %}{{ v.t("bot.conversational.sell")|safe }} {{ index_name }} {{ v.t("bot.for")|safe }}{% else %}{{ v.t("bot.conversational.invest")|safe }}{% endif %}
       <div class="ticker-input ticker-input--autoscale">
         {{ amount_field|safe }}
 
@@ -18,8 +18,9 @@
         {{ interval_words }}
         {{ interval_select|safe }}
       </div>
-      {{ v.t("bot.dca_index.into")|safe }}
-        {{ index_name }}{% if let Some(retired) = retired %} <span class="text-danger">{{ retired }}</span>{% endif %}
+      {% if sell != 2 %}{{ v.t("bot.dca_index.into")|safe }}{% endif %}
+        {% if sell != 2 %}{{ index_name }}{% endif %}{% if let Some(retired) = retired %} <span class="text-danger">{{ retired }}</span>{% endif %}{% if grouped %}
+{% include "bots/settings/_reverse_toggle.html" %}{% endif %}
     </div>
 
     <div class="index-settings">
@@ -29,10 +30,10 @@
           <div class="label label--select ellipsis" data-index-allocation-target="numCoinsValue">{{ num_coins }}</div>
         </div>
         <div class="slider">
-          <input type="hidden" name="bots_dca_index[num_coins_ceiling]" id="bots_dca_index_num_coins_ceiling" value="{{ max_coins }}" />
-          <input type="hidden" name="bots_dca_index[num_coins_rendered]" id="bots_dca_index_num_coins_rendered" value="{{ num_coins }}" />
+          <input type="hidden" name="{{ key }}[num_coins_ceiling]" id="{{ key }}_num_coins_ceiling" value="{{ max_coins }}" />
+          <input type="hidden" name="{{ key }}[num_coins_rendered]" id="{{ key }}_num_coins_rendered" value="{{ num_coins }}" />
           <input type="range"
-                 name="bots_dca_index[num_coins]"
+                 name="{{ key }}[num_coins]"
                  min="2"
                  max="{{ max_coins }}"
                  value="{{ num_coins }}"
@@ -57,7 +58,7 @@
         </div>
         <div class="slider">
           <input type="range"
-                 name="bots_dca_index[allocation_flattening]"
+                 name="{{ key }}[allocation_flattening]"
                  min="0"
                  max="1"
                  step="0.01"

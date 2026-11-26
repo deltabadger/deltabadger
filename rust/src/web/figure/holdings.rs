@@ -313,7 +313,7 @@ pub(super) fn render(c: &Connection, s: &Subject, m: &Metrics, missing: &[String
     out.push('\n');
     let halt = liquidation_halt(c,s.bot.id)?;
     if !exited.is_empty() || !halt.bases.is_empty() {
-        let title = if s.bot.kind == db::Kind::Index { "bot.dca_index.out_of_the_index" } else { "bot.dca_multi_asset.removed_from_portfolio" };
+        let title = if s.bot.kind == db::Kind::Index || s.bot.lone { "bot.dca_index.out_of_the_index" } else { "bot.dca_multi_asset.removed_from_portfolio" };
         out.push_str(&format!("<div id=\"exited_metrics_table\" class=\"widget widget--table\" data-controller=\"table-fit\">\n<div class=\"exited-header\">\n<span class=\"label\">{}</span>\n", t(locale,title)));
         if !halt.bases.is_empty() {
             let offset=out.len();
@@ -473,7 +473,7 @@ mod token_tests {
         ").replace("?1", &format!("'{}'", hostile.replace('\'', "''")))).unwrap();
         c.execute("UPDATE assets SET symbol=?1, image_url=?2 WHERE id=2",
                   [hostile, &format!("https://images.example/{hostile}.png")]).unwrap();
-        let s = Subject { bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Index, exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2], grouped: false },
+        let s = Subject { bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Index, exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2], grouped: false, lone: false },
                           orders: db::orders(&c, 1).unwrap(), tickers: vec![], quote: Some("USD".into()) };
         let mut m = Metrics::empty();
         let one = Num::Int(1);

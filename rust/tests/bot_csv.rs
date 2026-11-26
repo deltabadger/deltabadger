@@ -321,3 +321,17 @@ async fn the_streamed_reader_answers_as_the_whole_table_did() {
     assert!(blank.starts_with("Successfully imported 1 order(s). Skipped 1 row(s)"), "{blank}");
     assert_eq!(count(&i), 1);
 }
+
+/// PLAN index-as-ingredient slice 4a: a basket stored as one index group reads any of the venue's assets by name, as the index
+/// bot it was converted from (`members` None), not an empty allowlist: an exited holding's row imports.
+#[tokio::test(flavor = "current_thread")]
+async fn a_grouped_bot_imports_an_exited_holding_by_symbol() {
+    let i = install();
+    let c = &i.o.primary;
+    c.execute("UPDATE bots SET settings = json_set(settings, '$.allocations', json('{}'), '$.index_groups', json('[{\"index_type\":\"top\",\"num_coins\":3,\"weight\":1.0}]')) WHERE id = ?1", [i.a]).unwrap();
+    c.execute("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, exited_at, created_at, updated_at) VALUES (?1, ?2, ?3, 0, 0, '2026-08-20 00:00:00', '2026-08-01', '2026-08-20')",
+              (i.a, i.s.btc, i.s.ticker_id)).unwrap();
+    let (app, mut browser) = signed_in(&i).await;
+    let file = csv(&["2026-08-01,held,Market,Buy,0.001,60,60000,BTC,USD,Closed"]);
+    assert_eq!(import(&app, &mut browser, i.a, &file).await, "Successfully imported 1 order(s).");
+}

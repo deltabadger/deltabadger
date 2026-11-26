@@ -178,7 +178,7 @@ impl Draft {
         let (parsed, errors) = parse_fields(self.candidate.kind, fields, zone, now)?;
         self.parsed = parsed;
         self.parse_errors.extend(errors);
-        if basket { self.parse_allocations(c, fields)?; }
+        if basket { self.parse_lone_group(fields)?; self.parse_allocations(c, fields)?; }
         else if let Some(coins) = fields.get("num_coins").filter(|v| present(v)) {
             let count = numeric(coins, true)?;
             let rendered = fields.get("num_coins_rendered").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?;
@@ -240,6 +240,32 @@ impl Draft {
                 }
             }
         }
+        Ok(())
+    }
+
+    /// PLAN index-as-ingredient slice 4a: the index form's flat fields on a basket stored as one index group, read as an index
+    /// bot reads them and written onto its group: a count only when it differs from the one rendered (`hold_all` from the
+    /// ceiling the page drew), so an unchanged repost keeps both exactly. On any other basket they are refused.
+    fn parse_lone_group(&mut self, fields: &Map<String, Value>) -> Result<(), WebError> {
+        if !action_params::LONE_GROUP_SCALARS.iter().any(|key| fields.get(*key).is_some_and(present)) { return Ok(()); }
+        let Some(mut group) = super::lone_group_of(&self.candidate.settings) else { return Err(failure("index fields on a bot that follows no single index")) };
+        if let Some(coins) = fields.get("num_coins").filter(|v| present(v)) {
+            let count = numeric(coins, true)?;
+            let rendered = fields.get("num_coins_rendered").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?;
+            if rendered.as_ref() != Some(&count) {
+                let ceiling = fields.get("num_coins_ceiling").filter(|v| present(v)).map(|v| numeric(v, true)).transpose()?.and_then(|v| v.as_i64()).unwrap_or(self.candidate.max_coins());
+                group.insert("hold_all".into(), json!(count.as_i64().is_some_and(|n| n >= ceiling)));
+                group.insert("num_coins".into(), count);
+            }
+        }
+        // As decoded (`"0.5"` reads 0.5): a repost of the drawn value keeps the stored spelling.
+        if let Some(flattening) = fields.get("allocation_flattening").filter(|v| present(v)) {
+            let posted = numeric(flattening, false)?;
+            if posted.as_f64() != crate::engine::composition::flattening(Some(&group)) { group.insert("allocation_flattening".into(), posted); }
+        }
+        let list = self.candidate.settings.get_mut("index_groups").and_then(Value::as_array_mut).ok_or_else(|| failure("index_groups"))?;
+        let at = list.iter().position(Value::is_object).ok_or_else(|| failure("index_groups"))?;
+        list[at] = Value::Object(group);
         Ok(())
     }
 
@@ -1058,16 +1084,17 @@ impl Draft {
     /// pool, or left missing.
     fn grouped_subjects(&mut self, c: &Connection, locale: &str) -> Result<(), WebError> {
         let pool: Vec<(i64, String)> = self.candidate.subject_pool().map(|t| (t.id, t.base.clone())).collect();
-        let first = pool.iter().min_by(|a, b| a.1.as_bytes().cmp(b.1.as_bytes())).map(|(id, _)| *id);
         for prefix in trigger_prefixes() {
             let key = format!("{prefix}_in_ticker_id");
             let Some(value) = self.candidate.settings.get(&key).filter(|v| present(v)).cloned() else { continue };
             let id = numeric(&value, true)?.as_i64();
-            if self.parsed.contains_key(&key) {
+            let stored = self.raw_settings.get(&key).filter(|v| present(v)).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+            // A posted subject is the pool's, or the one already stored (a departed member the engine still watches: an
+            // unchanged repost keeps it; slice 4a).
+            if self.parsed.contains_key(&key) && !(stored.is_some() && stored == id && self.moved().is_none()) {
                 if !id.is_some_and(|id| pool.iter().any(|(t, _)| *t == id)) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
                 continue;
             }
-            let stored = self.raw_settings.get(&key).filter(|v| present(v)).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
             if stored.is_some() && stored == id {
                 if self.moved().is_none() { continue; }
                 // Moved to another venue or quote: the same asset's pair there, if the pool holds it (`save_effects` never
@@ -1076,7 +1103,9 @@ impl Draft {
                 let mapped = base.and_then(|base| self.candidate.subject_pool().filter(|t| t.base_asset_id == base).map(|t| t.id).min());
                 if let Some(mapped) = mapped { self.candidate.settings.insert(key, json!(mapped)); continue; }
             }
-            match first { Some(first) => { self.candidate.settings.insert(key, json!(first)); } None => { self.candidate.settings.shift_remove(&key); } }
+            // Never a default (Codex 4a r1): a subject neither posted nor stored stays absent, so an enabled rule keeps pausing
+            // the engine until the owner picks one; `fill_defaults` only draws one on the page.
+            self.candidate.settings.shift_remove(&key);
         }
         Ok(())
     }
