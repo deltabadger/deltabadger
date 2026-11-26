@@ -12,7 +12,7 @@ use super::model::{self, Bot};
 use super::{basket, composition, index, rebalance, single_asset, EngineError};
 use crate::enums::{BotStatus, BOT_WORKING};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, types::Value as Sql, Connection};
+use rusqlite::{params, types::{Value as Sql, ValueRef}, Connection};
 use serde_json::{Map, Value};
 
 /// A stored index bot's index keys: they move, raw, into its one `index_groups` element.
@@ -121,9 +121,11 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     let at = arg(Sql::Integer(id));
     let (new_settings, new_transient): (String, String) = tx.query_row(&format!("SELECT {settings_expr}, {transient_expr} FROM bots WHERE id = {at}"),
         rusqlite::params_from_iter(args), |r| Ok((r.get(0)?, r.get(1)?)))?;
-    // Headroom for the first grouped refresh's `rust_composed_of` (one group): a row editable now stays editable after it.
+    // Headroom for the first grouped refresh's `rust_composed_of` (one group): a row editable now stays editable after it. Its
+    // longest form: a v4 uuid, a sha256 hex digest, the widest ranking id, the canonical ranked_at (index::recorded_ranked_at),
+    // the widest f64 serde_json writes.
     let worst = serde_json::json!({ "rev": "00000000-0000-0000-0000-000000000000", "digest": "0".repeat(64),
-        "ranked": { external: [i64::MAX, "2099-12-31T23:59:59.999999+00:00:00"] }, "shares": { "assets": {}, "groups": { external: -1.2345678901234567e-300 } } });
+        "ranked": { external: [i64::MIN, "0000-01-01T00:00:00.000000Z"] }, "shares": { "assets": {}, "groups": { external: -1.2345678901234567e-300 } } });
     let refreshed: String = tx.query_row(&format!("SELECT json_set(?1, '$.{}', json(?2))", composition::COMPOSED_OF_KEY), params![new_transient, worst.to_string()], |r| r.get(0))?;
     if crate::web::bot::draft::loadable(&new_settings, &refreshed).is_none() { return Ok(Err(Kept::Bounds)); }
 
@@ -139,7 +141,8 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
                    params![id, external, asset, ticker, composed, weight])?;
     }
     let working = BOT_WORKING.contains(&bot.status);
-    let rebalances = bot.selling() && crate::web::bot::cast_boolean(settings.get("rebalance_enabled"));
+    // What the scheduler's rebalance fire evaluates (run::rebalance_candidate) and rebalance::run then acts on.
+    let rebalances = bot.selling() && crate::web::bot::cast_boolean(settings.get("rebalance_enabled")) && super::run::rebalance_candidate(tx, id)?;
     Ok(Ok(Converted { id, selling: working && bot.selling(), rebalances }))
 }
 
@@ -148,10 +151,12 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
 /// weight `save_member` would write back differently).
 fn members(c: &Connection, bot: &Bot) -> Result<Result<Vec<Seat>, Kept>, EngineError> {
     let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY asset_id")?;
-    let rows = s.query_map([bot.id], |r| Ok((r.get::<_, Sql>(0)?, r.get::<_, Sql>(1)?, basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
+    // The ids as borrowed: only an integer is one (a text id, invalid UTF-8 included, is never decoded).
+    let id = |v: ValueRef<'_>| match v { ValueRef::Integer(i) => Some(i), _ => None };
+    let rows = s.query_map([bot.id], |r| Ok((id(r.get_ref(0)?), id(r.get_ref(1)?), basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
     let mut out = vec![];
     for (asset, ticker, target) in rows {
-        let (Sql::Integer(asset), Sql::Integer(ticker)) = (asset, ticker) else { return Ok(Err(Kept::Unreadable)) };
+        let (Some(asset), Some(ticker)) = (asset, ticker) else { return Ok(Err(Kept::Unreadable)) };
         let Ok(Some(target)) = target else { return Ok(Err(Kept::Targets)) };
         let weight = target.to_f();
         if crate::v2::decimal_column(weight, 10, 6).ok() != Some(target) { return Ok(Err(Kept::Targets)); }

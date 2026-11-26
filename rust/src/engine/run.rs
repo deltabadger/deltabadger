@@ -667,11 +667,20 @@ fn owed_buys(c: &Connection) -> Result<Vec<(i64, i64)>, EngineError> {
     Ok(rows)
 }
 
+/// The bots the rebalance fire evaluates (?1 Deleted, ?2 Archived).
+const REBALANCE_CANDIDATE: &str = "type IN ('Bots::DcaIndex', 'Bots::DcaMultiAsset') AND status NOT IN (?1, ?2) \
+    AND (json_extract(settings, '$.rebalance_enabled') IN (1, 'true') OR json_extract(transient_data, '$.rebalance_pending') IS NOT NULL)";
+
 fn rebalance_candidates(c: &Connection) -> Result<Vec<i64>, EngineError> {
-    let mut s = c.prepare("SELECT id FROM bots WHERE type IN ('Bots::DcaIndex', 'Bots::DcaMultiAsset') AND status NOT IN (?1, ?2) \
-                           AND (json_extract(settings, '$.rebalance_enabled') IN (1, 'true') OR json_extract(transient_data, '$.rebalance_pending') IS NOT NULL) ORDER BY id")?;
+    let mut s = c.prepare(&format!("SELECT id FROM bots WHERE {REBALANCE_CANDIDATE} ORDER BY id"))?;
     let ids = s.query_map(rusqlite::params![crate::enums::BotStatus::Deleted as i64, crate::enums::BotStatus::Archived as i64], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
     Ok(ids)
+}
+
+/// Whether the rebalance fire evaluates bot `id` (`check`'s rebalance clause, engine::index_bot).
+pub(crate) fn rebalance_candidate(c: &Connection, id: i64) -> Result<bool, EngineError> {
+    Ok(c.query_row(&format!("SELECT EXISTS (SELECT 1 FROM bots WHERE id = ?3 AND {REBALANCE_CANDIDATE})"),
+                   rusqlite::params![crate::enums::BotStatus::Deleted as i64, crate::enums::BotStatus::Archived as i64, id], |r| r.get(0))?)
 }
 
 /// The rebalance leg's clock: at each fire, Bot::RebalanceJob for every candidate, one after another (the loop is serial,

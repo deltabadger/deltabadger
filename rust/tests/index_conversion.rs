@@ -597,3 +597,61 @@ async fn a_stopped_stored_seller_with_rebalancing_rebalances_once_converted_and_
     assert!(!runs[0].0.is_empty(), "the unconverted buying index bot rebalances: {:?}", runs[0]);
     assert_eq!(runs[1], runs[0]);
 }
+
+// ---------------------------------------------------------------- Codex branch review r2
+
+/// A member id that isn't an integer, invalid UTF-8 text included, keeps that bot; the pass goes on (no panic).
+#[test]
+fn a_member_id_of_invalid_text_keeps_its_bot() {
+    let u = universe();
+    let (damaged, fine) = (index_bot(&u, 3), index_bot(&u, 3));
+    member(&u, damaged, 0, 1.0);
+    exec(&u, &format!("PRAGMA foreign_keys = OFF; UPDATE bot_index_assets SET ticker_id = CAST(X'FF' AS TEXT) WHERE bot_id = {damaged}; PRAGMA foreign_keys = ON"));
+    let (converted, kept) = convert(&u);
+    assert_eq!((ids(&converted), kept), (vec![fine], vec![(damaged, Kept::Unreadable)]));
+}
+
+/// The headroom is the grouped write's own maximum: a ranking stored with 100 fractional digits is recorded in the one
+/// canonical form, so the fullest row that converts still opens after its first refresh, and `current` holds.
+#[tokio::test(flavor = "current_thread")]
+async fn the_fullest_converting_row_opens_after_a_refresh_of_a_long_ranked_at() {
+    let u = universe();
+    let id = index_bot(&u, 3);
+    exec(&u, &format!("UPDATE rust_index_rankings SET ranked_at = '2026-09-01T13:00:00.{}Z'", "1".repeat(100)));
+    let base = row(&u, id).2;
+    let pad = |n: usize| exec(&u, &format!("UPDATE bots SET transient_data = json_set('{base}', '$.note', '{}') WHERE id = {id}", "x".repeat(n)));
+    let converts = |n: usize| {
+        pad(n);
+        let tx = model::immediate(&u.o.primary).unwrap();
+        let (converted, _) = index_bot::convert_all(&tx, at(T0)).unwrap();
+        !converted.is_empty() // rolled back on drop
+    };
+    let (mut lo, mut hi) = (65_000usize, 65_536usize);
+    assert!(converts(lo) && !converts(hi));
+    while hi - lo > 1 { let mid = (lo + hi) / 2; if converts(mid) { lo = mid } else { hi = mid } }
+    pad(lo);
+    assert_eq!(ids(&convert(&u).0), vec![id]);
+    refresh(&u, script(ASKS), id).await.unwrap();
+    let transient = row(&u, id).2;
+    assert!(transient.len() <= 65_536, "{} bytes", transient.len());
+    assert!(transient.contains("\"2026-09-01T13:00:00.111111Z\""), "the canonical ranked_at");
+    let user = model::load_bot(&u.o.primary, id).unwrap().user_id;
+    assert!(matches!(deltabadger::web::bot::draft::Draft::load(&u.o.primary, user, id, "en"), Ok(Some(_))));
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    assert!(deltabadger::engine::composition::current(&u.o.primary, &bot, at(T0)).unwrap(), "the record matches the ranking it read");
+}
+
+/// `check`'s rebalance clause is the scheduler's own candidate rule: `"1"` (which the scheduler skips) and an archived seller
+/// (which it never evaluates) get none.
+#[test]
+fn the_rebalance_clause_follows_the_scheduler() {
+    let u = universe();
+    let mut bots = vec![];
+    for (status, enabled) in [(2, "json('true')"), (2, "'1'"), (7, "json('true')")] {
+        let id = index_bot(&u, 3);
+        exec(&u, &format!("UPDATE bots SET status = {status}, settings = json_set(settings, '$.direction', 'selling', '$.rebalance_enabled', {enabled}) WHERE id = {id}"));
+        bots.push(id);
+    }
+    let (converted, _) = convert(&u);
+    assert_eq!(converted.iter().map(|c| (c.id, c.rebalances)).collect::<Vec<_>>(), vec![(bots[0], true), (bots[1], false), (bots[2], false)]);
+}

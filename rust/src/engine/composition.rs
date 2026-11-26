@@ -146,7 +146,8 @@ pub fn current(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, En
     for id in bot.index_external_ids() {
         if super::index::retired(c, &id)? { return Ok(false); }
         let Some(row) = super::index::ranked_row(c, &id)? else { return Ok(false) };
-        if of.get("ranked").and_then(|r| r.get(&id)) != Some(&json!([row.id, row.ranked_at])) { return Ok(false); }
+        let Some(ranked_at) = super::index::recorded_ranked_at(&row.ranked_at) else { return Ok(false) };
+        if of.get("ranked").and_then(|r| r.get(&id)) != Some(&json!([row.id, ranked_at])) { return Ok(false); }
     }
     Ok(true)
 }
