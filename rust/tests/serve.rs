@@ -2851,14 +2851,13 @@ fn bot_action_executable_smoke() -> Result<(), Box<dyn std::error::Error>> {
         .contains("another Deltabadger engine"));
     // Merged basket support means a basket alone is no longer an engine refusal.
     c.execute("UPDATE bots SET status=1,transient_data=json_set(coalesce(transient_data,'{}'),'$.rebalance_pending',json('{\"phase\":\"ambiguous\"}')) WHERE id=?1",[stock])?;
-    // A refused write cannot wake the loop; its next bounded idle pass must end both tasks. The stored index bot was
-    // converted at serve's start (PLAN index-as-ingredient slice 4b), so its form root is the basket's.
+    // A refused write cannot wake the loop; its next bounded idle pass must end both tasks.
     assert_eq!(
         action(
             "PATCH",
             index,
             "",
-            &[("bots_dca_multi_asset[label]", "supervision")]
+            &[("bots_dca_index[label]", "supervision")]
         )?
         .0,
         422

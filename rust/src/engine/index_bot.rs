@@ -25,8 +25,13 @@ pub enum Kept {
     Intent,
     /// `rebalance_pending`.
     Rebalance,
-    /// The row doesn't load, a stored time doesn't parse, or settings or transient data aren't a JSON object.
+    /// The row doesn't load, a stored time doesn't parse, settings or transient data aren't a JSON object or name a key
+    /// twice (serde reads the last, SQLite's JSON functions the first), or a member row's ids don't decode.
     Unreadable,
+    /// A `direction` other than absent, `buying` or `selling`: refused today, so it stays refused.
+    Direction,
+    /// Assets stored in `allocations` beside the index: the legacy reader reads their tickers (the quote cap's precision).
+    Allocations,
     /// The converted row would be past `draft::loadable`'s bounds (a row editable today stays editable).
     Bounds,
     /// An `in_index` member's target can't be carried as a group weight exactly.
@@ -39,15 +44,17 @@ impl Kept {
         match self {
             Self::Intent => "its order isn't settled", Self::Rebalance => "a rebalance is in progress",
             Self::Unreadable => "its data can't be read", Self::Bounds => "its settings would be too large",
+            Self::Direction => "its direction can't be read", Self::Allocations => "it has assets stored beside its index",
             Self::Targets => "its targets can't be carried over exactly",
         }
     }
 }
 
-/// A converted bot. `selling`: it was working and stored as selling, which an index bot never did; it now buys
-/// (D-INDEX-ONE-CLASS).
+/// A converted bot. `selling`: it was working and stored as selling, which an index bot never did; it now buys.
+/// `rebalances`: stored as selling with rebalancing on, working or stopped; it now rebalances, as 2.x ran it (2.x ignores an
+/// index bot's direction; this engine's legacy reader held its rebalance). Both D-INDEX-ONE-CLASS.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Converted { pub id: i64, pub selling: bool }
+pub struct Converted { pub id: i64, pub selling: bool, pub rebalances: bool }
 
 /// What a pass converted, and what it kept with why.
 pub type Pass = (Vec<Converted>, Vec<(i64, Kept)>);
@@ -72,11 +79,20 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     if bot.validate_times().is_err() { return Ok(Err(Kept::Unreadable)); }
     let (Some(settings), Some(transient)) = (bot.settings.as_object(), bot.transient.as_object()) else { return Ok(Err(Kept::Unreadable)) };
     if set(transient.get("rust_placement")) { return Ok(Err(Kept::Intent)); }
-    if set(transient.get(rebalance::PENDING_KEY)) { return Ok(Err(Kept::Rebalance)); }
-    let Some(members) = members(tx, &bot)? else { return Ok(Err(Kept::Targets)) };
+    if rebalance::is_pending(&bot.transient) { return Ok(Err(Kept::Rebalance)); }
+    if !matches!(settings.get("direction"), None | Some(Value::Null)) && !["buying", "selling"].contains(&settings.get("direction").and_then(Value::as_str).unwrap_or("")) {
+        return Ok(Err(Kept::Direction));
+    }
+    if settings.get("allocations").is_some_and(|a| !a.is_null() && a.as_object().is_none_or(|a| !a.is_empty())) { return Ok(Err(Kept::Allocations)); }
+    // A key named twice: serde (the legacy reader) keeps the last, SQLite's `->`, json_set and json_remove the first.
+    let (keys, transient_keys): (usize, usize) = tx.query_row("SELECT (SELECT count(*) FROM json_each(settings)), (SELECT count(*) FROM json_each(transient_data)) FROM bots WHERE id = ?1",
+                                                              [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    if keys != settings.len() || transient_keys != transient.len() { return Ok(Err(Kept::Unreadable)); }
+    let members = match members(tx, &bot)? { Ok(m) => m, Err(why) => return Ok(Err(why)) };
 
     // The sell side as composition::reset_sell_side leaves it, as SQLite edits: a key it changed is set to its new value
     // (false, null or "quote", nothing numeric), a key it removed is removed.
+    let external = composition::external_id(Some(settings));
     let (mut sold, mut latched) = (settings.clone(), transient.clone());
     composition::reset_sell_side(&mut sold, &mut latched);
     let mut sets: Vec<(String, Value)> = sold.iter().filter(|(k, v)| settings.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect();
@@ -105,14 +121,17 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     let at = arg(Sql::Integer(id));
     let (new_settings, new_transient): (String, String) = tx.query_row(&format!("SELECT {settings_expr}, {transient_expr} FROM bots WHERE id = {at}"),
         rusqlite::params_from_iter(args), |r| Ok((r.get(0)?, r.get(1)?)))?;
-    if crate::web::bot::draft::loadable(&new_settings, &new_transient).is_none() { return Ok(Err(Kept::Bounds)); }
+    // Headroom for the first grouped refresh's `rust_composed_of` (one group): a row editable now stays editable after it.
+    let worst = serde_json::json!({ "rev": "00000000-0000-0000-0000-000000000000", "digest": "0".repeat(64),
+        "ranked": { external: [i64::MAX, "2099-12-31T23:59:59.999999+00:00:00"] }, "shares": { "assets": {}, "groups": { external: -1.2345678901234567e-300 } } });
+    let refreshed: String = tx.query_row(&format!("SELECT json_set(?1, '$.{}', json(?2))", composition::COMPOSED_OF_KEY), params![new_transient, worst.to_string()], |r| r.get(0))?;
+    if crate::web::bot::draft::loadable(&new_settings, &refreshed).is_none() { return Ok(Err(Kept::Bounds)); }
 
     let n = tx.execute("UPDATE bots SET type = 'Bots::DcaMultiAsset', settings = ?1, transient_data = ?2, updated_at = ?3 WHERE id = ?4 AND type = 'Bots::DcaIndex'",
                        params![new_settings, new_transient, crate::codec::format_time(now), id])?;
     if n == 0 { return Err(EngineError::Data(format!("bot {id}: no longer an index bot"))); }
     // The group's members, always: every in_index member keeps its seat at the first derivation (index::incumbents). Composed
     // (they may stand for a retired index) only when this engine composed them from this very index.
-    let external = composition::external_id(Some(settings));
     let composed = transient.get(index::COMPOSED_KEY).and_then(Value::as_str) == Some(external);
     tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1", [id])?;
     for (asset, ticker, weight) in members {
@@ -120,28 +139,32 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
                    params![id, external, asset, ticker, composed, weight])?;
     }
     let working = BOT_WORKING.contains(&bot.status);
-    Ok(Ok(Converted { id, selling: working && bot.selling() }))
+    let rebalances = bot.selling() && crate::web::bot::cast_boolean(settings.get("rebalance_enabled"));
+    Ok(Ok(Converted { id, selling: working && bot.selling(), rebalances }))
 }
 
-/// The in_index members as group rows (asset, ticker, weight), each weight the stored target as is; None when a target
-/// can't be carried exactly (unreadable, NULL, or a weight `save_member` would write back differently).
-fn members(c: &Connection, bot: &Bot) -> Result<Option<Vec<Seat>>, EngineError> {
+/// The in_index members as group rows (asset, ticker, weight), each weight the stored target as is. `Unreadable`: a row's ids
+/// don't decode (that bot is kept, the pass goes on); `Targets`: a target can't be carried exactly (unreadable, NULL, or a
+/// weight `save_member` would write back differently).
+fn members(c: &Connection, bot: &Bot) -> Result<Result<Vec<Seat>, Kept>, EngineError> {
     let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY asset_id")?;
-    let rows = s.query_map([bot.id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = s.query_map([bot.id], |r| Ok((r.get::<_, Sql>(0)?, r.get::<_, Sql>(1)?, basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
     let mut out = vec![];
     for (asset, ticker, target) in rows {
-        let Ok(Some(target)) = target else { return Ok(None) };
+        let (Sql::Integer(asset), Sql::Integer(ticker)) = (asset, ticker) else { return Ok(Err(Kept::Unreadable)) };
+        let Ok(Some(target)) = target else { return Ok(Err(Kept::Targets)) };
         let weight = target.to_f();
-        if crate::v2::decimal_column(weight, 10, 6).ok() != Some(target) { return Ok(None); }
+        if crate::v2::decimal_column(weight, 10, 6).ok() != Some(target) { return Ok(Err(Kept::Targets)); }
         out.push((asset, ticker, weight));
     }
-    Ok(Some(out))
+    Ok(Ok(out))
 }
 
 /// `check`'s line for a bot `convert_all` converts.
 pub fn would_convert(c: &Connection, bot: &Converted) -> Result<String, EngineError> {
-    let selling = if bot.selling { ", and it will buy: it is stored as selling, which an index bot never did" } else { "" };
-    Ok(format!("{} will be converted into a basket that follows its index at the next start{selling}", super::set_aside::name(c, bot.id)?))
+    let will = match (bot.selling, bot.rebalances) { (true, true) => "buy and rebalance", (true, false) => "buy", (false, true) => "rebalance", (false, false) => "" };
+    let note = if will.is_empty() { String::new() } else { format!(", and it will {will}: it is stored as selling, which an index bot never did") };
+    Ok(format!("{} will be converted into a basket that follows its index at the next start{note}", super::set_aside::name(c, bot.id)?))
 }
 
 /// `check`'s line for a bot it keeps.

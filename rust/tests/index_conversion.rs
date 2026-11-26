@@ -53,6 +53,19 @@ fn script_with(asks: [f64; 5], over: Value) -> ScriptedTransport {
 fn venue<T: Transport>(t: T) -> AlpacaVenue<T> { AlpacaVenue::new(t, Urls::for_passphrase(Some("paper"))) }
 const ASKS: [f64; 5] = [100.0, 200.0, 300.0, 400.0, 500.0];
 
+/// The scheduler over this universe, every venue the scripted Alpaca one.
+struct Factory(ScriptedTransport);
+impl deltabadger::venue::VenueFactory for Factory {
+    type V = AlpacaVenue<ScriptedTransport>;
+    fn for_bot(&self, _: &str, _: Option<deltabadger::crypto::Credentials>) -> Self::V { venue(self.0.clone()) }
+}
+fn engine(u: &U, t: &ScriptedTransport) -> deltabadger::engine::run::Engine<Factory> {
+    let paths = Paths::from_env(&|_| None, u.d.path());
+    let lock = lease::lock(&paths, at(T0)).unwrap();
+    deltabadger::engine::run::Engine::new(store::open(&paths).unwrap().primary, Factory(t.clone()), seed::cipher(), lock)
+}
+async fn step(e: &mut deltabadger::engine::run::Engine<Factory>, now: &str) { deltabadger::engine::run::step(e, &FixedClock(at(now))).await.unwrap(); }
+
 fn convert(u: &U) -> (Vec<Converted>, Vec<(i64, Kept)>) {
     let tx = model::immediate(&u.o.primary).unwrap();
     let out = index_bot::convert_all(&tx, at(T0)).unwrap();
@@ -208,9 +221,9 @@ async fn a_retired_composed_index_keeps_survivors_and_refuses_with_none() {
     assert_eq!(refresh(&u, script(ASKS), id).await, Err(index::Refusal::Failure(index::RETIRED.into())));
 }
 
-/// Two copies of one working composed index bot with missed intervals and a stored deferral: the converted one owes the
-/// same amount at the same checkpoint, reads the same deferral, and its tick buys the same members for the same amounts
-/// with the same targets.
+/// Two copies of one working composed index bot with missed intervals and a stored deferral, driven by the scheduler
+/// (run::step): the converted one owes the same amount at the same checkpoint, places nothing before the deferral expires,
+/// as the other, then buys the same members for the same amounts with the same targets.
 #[tokio::test(flavor = "current_thread")]
 async fn a_composed_index_bot_converted_buys_what_and_when_its_unconverted_copy_does() {
     let copy = || {
@@ -236,17 +249,25 @@ async fn a_composed_index_bot_converted_buys_what_and_when_its_unconverted_copy_
     let out = convert(&converted);
     assert_eq!(ids(&out.0), vec![b], "{out:?}");
     assert_eq!(due(&converted), before, "next checkpoint and owed amount");
-    let defer = |u: &U| model::load_bot(&u.o.primary, a).unwrap().rust_defer().unwrap();
-    assert_eq!(defer(&converted), defer(&plain), "the deferral reads the same (run_generation, started_at, interval kept)");
     let mut placed = vec![];
     for u in [&plain, &converted] {
         let t = script(ASKS);
-        let out = tick_at(u, t.clone(), a, T0).await;
+        let mut e = engine(u, &t);
+        step(&mut e, T0).await;
+        let held = t.posted_orders().len();
+        step(&mut e, "2026-09-01T15:00:01Z").await;
         let orders: Vec<(Value, Value)> = t.posted_orders().iter().map(|o| (o["symbol"].clone(), o["notional"].clone())).collect();
         let targets: Vec<(String, f64)> = members(u, a).into_iter().map(|m| (m.0, m.1)).collect();
-        placed.push((format!("{out:?}"), orders, targets));
+        placed.push((held, orders, targets));
     }
-    assert_eq!(placed[0].1.len(), 3, "the missed weeks are bought: {:?}", placed[0]);
+    // Without the deferral the same pass buys at once: the hold is the deferral's.
+    let (undeferred, _) = copy();
+    exec(&undeferred, &format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') WHERE id = {a}"));
+    let t = script(ASKS);
+    step(&mut engine(&undeferred, &t), T0).await;
+    assert_eq!(t.posted_orders().len(), 3, "undeferred, the first pass buys");
+    assert_eq!(placed[0].0, 0, "nothing before the deferral expires: {:?}", placed[0]);
+    assert_eq!(placed[0].1.len(), 3, "then the missed weeks are bought: {:?}", placed[0]);
     assert_eq!(placed[1], placed[0]);
 }
 
@@ -314,7 +335,7 @@ async fn a_working_stored_seller_converts_and_buys_and_a_stopped_one_stays_stopp
     exec(&u, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling') WHERE id IN ({working}, {stopped}); UPDATE bots SET status = 2 WHERE id = {stopped}"));
     assert!(reasons(&u, working).iter().any(|r| r.contains("an index bot that sells")));
     let (converted, _) = convert(&u);
-    assert_eq!(converted, vec![Converted { id: working, selling: true }, Converted { id: stopped, selling: false }]);
+    assert_eq!(converted, vec![Converted { id: working, selling: true, rebalances: false }, Converted { id: stopped, selling: false, rebalances: false }]);
     assert!(index_bot::would_convert(&u.o.primary, &converted[0]).unwrap().ends_with("at the next start, and it will buy: it is stored as selling, which an index bot never did"));
     assert!(index_bot::would_convert(&u.o.primary, &converted[1]).unwrap().ends_with("at the next start"));
     assert_eq!(model::load_bot(&u.o.primary, stopped).unwrap().status, deltabadger::enums::BotStatus::Stopped);
@@ -359,14 +380,14 @@ fn a_scalar_transient_or_an_oversized_result_keeps_the_row_named() {
 #[test]
 fn a_converted_index_bot_is_refused_exactly_when_its_unconverted_copy_is() {
     for (key, value) in [("num_coins", json!(0)), ("num_coins", json!(1001)), ("allocation_flattening", json!(2)), ("index_type", json!("bogus")),
-                         ("index_category_id", json!("gone")), ("num_coins", json!(3))] {
+                         ("index_category_id", json!("gone")), ("num_coins", json!(3)), ("direction", json!("hold")), ("direction", json!("buying"))] {
         let u = universe();
         let id = index_bot(&u, 3);
         exec(&u, &format!("UPDATE bots SET settings = json_set(settings, '$.{key}', json('{value}')) WHERE id = {id}"));
         let before = !reasons(&u, id).is_empty();
         convert(&u);
         assert_eq!(!reasons(&u, id).is_empty(), before, "{key} = {value}: {:?}", reasons(&u, id));
-        assert_eq!(before, value != json!(3) && value != json!("gone"), "{key} = {value}: the case refuses or not as meant");
+        assert_eq!(before, ![json!(3), json!("gone"), json!("buying")].contains(&value), "{key} = {value}: the case refuses or not as meant");
     }
 }
 
@@ -453,4 +474,126 @@ async fn a_converted_bot_refuses_the_handback() {
     let r = handover::hand_back(&l, &u.o, &FakeFactory::default(), &seed::cipher(), &FixedClock(at(T0))).await;
     assert!(matches!(r, Err(deltabadger::engine::EngineError::Ineligible(ref p)) if p == &vec![format!("bot {id}: its indexes run only on this engine; 2.x cannot run this bot")]), "{r:?}");
     assert_eq!(lease::read(&u.o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust");
+}
+
+// ---------------------------------------------------------------- Codex branch review r1
+
+/// A key named twice: the legacy reader (serde) reads the last, SQLite's `->` the first, so the row is kept, named.
+#[test]
+fn a_key_named_twice_keeps_the_row_unreadable() {
+    let u = universe();
+    let id = index_bot(&u, 3);
+    exec(&u, &format!("UPDATE bots SET settings = replace(settings, '\"num_coins\":3', '\"num_coins\":1,\"num_coins\":3') WHERE id = {id}"));
+    assert_eq!(model::load_bot(&u.o.primary, id).unwrap().settings["num_coins"], json!(3), "serde reads the last");
+    let before = row(&u, id);
+    assert_eq!(convert(&u), (vec![], vec![(id, Kept::Unreadable)]));
+    assert_eq!(row(&u, id), before);
+}
+
+/// An index row with assets stored in `allocations` is kept as it is; an empty or null one converts.
+#[test]
+fn stored_allocations_keep_the_row() {
+    let u = universe();
+    let (assets, empty) = (index_bot(&u, 3), index_bot(&u, 3));
+    exec(&u, &format!("UPDATE bots SET settings = json_set(settings, '$.allocations', json('{{\"{}\":1.0}}')) WHERE id = {assets};
+                       UPDATE bots SET settings = json_set(settings, '$.allocations', json('{{}}')) WHERE id = {empty}", u.m[0].0));
+    let before = row(&u, assets);
+    let (converted, kept) = convert(&u);
+    assert_eq!((ids(&converted), kept), (vec![empty], vec![(assets, Kept::Allocations)]));
+    assert_eq!(row(&u, assets), before);
+    assert_eq!(index_bot::would_keep(&u.o.primary, assets, Kept::Allocations).unwrap(), format!("Bot {assets} stays an index bot for now: it has assets stored beside its index"));
+}
+
+/// A member row whose ids don't decode (an archived index with a text ticker_id) keeps that bot and the pass goes on.
+#[test]
+fn a_damaged_member_row_keeps_its_bot_and_the_pass_goes_on() {
+    let u = universe();
+    let (damaged, fine) = (index_bot(&u, 3), index_bot(&u, 3));
+    member(&u, damaged, 0, 1.0);
+    exec(&u, &format!("UPDATE bots SET status = 7 WHERE id = {damaged}; PRAGMA foreign_keys = OFF; UPDATE bot_index_assets SET ticker_id = 'abc' WHERE bot_id = {damaged}; PRAGMA foreign_keys = ON"));
+    let (converted, kept) = convert(&u);
+    assert_eq!((ids(&converted), kept), (vec![fine], vec![(damaged, Kept::Unreadable)]));
+}
+
+/// `{}` is no rebalance in progress (rebalance::is_pending): it converts.
+#[test]
+fn an_empty_rebalance_marker_converts() {
+    let u = universe();
+    let id = index_bot(&u, 3);
+    exec(&u, &format!("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending', json('{{}}')) WHERE id = {id}"));
+    assert_eq!(ids(&convert(&u).0), vec![id]);
+}
+
+/// A direction this build can't read is refused today and kept, named: never deleted into a live buy.
+#[test]
+fn an_unreadable_direction_keeps_the_row() {
+    let u = universe();
+    let id = index_bot(&u, 3);
+    exec(&u, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'hold') WHERE id = {id}"));
+    assert_eq!(convert(&u), (vec![], vec![(id, Kept::Direction)]));
+    assert!(!reasons(&u, id).is_empty());
+}
+
+/// Bounds count the `rust_composed_of` the first grouped refresh writes: a row that would stop opening after that refresh
+/// is kept now; one with room converts, refreshes and still opens (Draft::load).
+#[tokio::test(flavor = "current_thread")]
+async fn bounds_leave_room_for_the_first_refresh() {
+    for (slack, kept) in [(40usize, true), (400, false)] {
+        let u = universe();
+        let id = index_bot(&u, 3);
+        let len = row(&u, id).2.len();
+        exec(&u, &format!("UPDATE bots SET transient_data = json_set(transient_data, '$.note', '{}') WHERE id = {id}", "x".repeat(65_536 - slack - len - 10)));
+        assert!(row(&u, id).2.len() <= 65_536 - slack + 5, "editable today");
+        let (converted, k) = convert(&u);
+        if kept { assert_eq!(k, vec![(id, Kept::Bounds)]); continue; }
+        assert_eq!(ids(&converted), vec![id]);
+        refresh(&u, script(ASKS), id).await.unwrap();
+        assert!(row(&u, id).2.contains("rust_composed_of"));
+        let user = model::load_bot(&u.o.primary, id).unwrap().user_id;
+        let draft = deltabadger::web::bot::draft::Draft::load(&u.o.primary, user, id, "en");
+        assert!(matches!(draft, Ok(Some(_))), "slack {slack}: the refreshed row still opens");
+    }
+}
+
+/// D-INDEX-ONE-CLASS, rebalancing: a stopped index bot stored as selling with rebalancing on and AAA drifted past the
+/// threshold. Converted, the scheduler's rebalance fire sells and buys exactly as it does for the same bot stored buying,
+/// unconverted (2.x ignored an index bot's direction and rebalanced it); `check` names it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stopped_stored_seller_with_rebalancing_rebalances_once_converted_and_check_names_it() {
+    let mut runs = vec![];
+    for seller in [false, true] {
+        let u = universe();
+        let id = index_bot(&u, 3);
+        let direction = if seller { "'$.direction', 'selling', " } else { "" };
+        exec(&u, &format!("UPDATE bots SET status = 2, settings = json_set(settings, {direction}'$.rebalance_enabled', json('true'), '$.rebalance_threshold', 0.01) WHERE id = {id};
+            INSERT INTO exchange_assets (exchange_id, asset_id, available, created_at, updated_at) SELECT exchange_id, base_asset_id, 1, created_at, updated_at FROM tickers WHERE quote = 'USD' AND ticker NOT LIKE '%/%'"));
+        for (i, t) in [0.5, 0.3, 0.2].into_iter().enumerate() { member(&u, id, i, t); }
+        for (i, (sym, qty)) in [("AAA", "10"), ("BBB", "3"), ("CCC", "2")].into_iter().enumerate() {
+            seed::insert_stock_tx(&u.o.primary, &u.s, id, u.m[i].0, sym, &seed::TxSpec { status: 0, external_status: Some(2), external_id: Some(format!("held-{sym}")), order_type: 0,
+                amount: Some(qty), quote_amount: Some(match sym { "AAA" => "1000", "BBB" => "300", _ => "200" }), price: Some("100"), amount_exec: Some(qty),
+                quote_amount_exec: Some(match sym { "AAA" => "1000", "BBB" => "300", _ => "200" }), created_at: "2026-08-01 14:00:00".into() });
+        }
+        if seller {
+            let (converted, _) = convert(&u);
+            assert_eq!(converted, vec![Converted { id, selling: false, rebalances: true }]);
+            assert!(index_bot::would_convert(&u.o.primary, &converted[0]).unwrap().ends_with("at the next start, and it will rebalance: it is stored as selling, which an index bot never did"));
+        }
+        let snapshots: serde_json::Map<String, Value> = SYMBOLS.iter().map(|s| (s.to_string(), json!({ "latestTrade": { "p": 100 } }))).collect();
+        let t = script_with([100.0; 5], json!({
+            "GET /v2/positions": ok(json!([{ "symbol": "AAA", "asset_class": "us_equity", "qty": "10", "qty_available": "10" },
+                                          { "symbol": "BBB", "asset_class": "us_equity", "qty": "3", "qty_available": "3" },
+                                          { "symbol": "CCC", "asset_class": "us_equity", "qty": "2", "qty_available": "2" }])),
+            "GET /v2/stocks/snapshots": ok(Value::Object(snapshots)),
+            "GET /v1beta3/crypto/us/latest/trades": ok(json!({ "trades": {} })),
+            "GET /v2/orders/OTX-1": ok(json!({ "id": "OTX-1", "status": "new", "symbol": "AAA", "asset_class": "us_equity", "type": "market", "side": "sell",
+                                              "qty": "2", "notional": null, "filled_qty": "0", "filled_avg_price": null, "limit_price": null })),
+        }));
+        let mut e = engine(&u, &t);
+        e.inject_rebalance_at(at(T0));
+        step(&mut e, "2026-09-01T16:30:00Z").await;
+        let orders: Vec<(Value, Value, Value)> = t.posted_orders().iter().map(|o| (o["symbol"].clone(), o["side"].clone(), o["qty"].clone())).collect();
+        runs.push((orders, model::load_bot(&u.o.primary, id).unwrap().transient.get("rebalance_pending").cloned()));
+    }
+    assert!(!runs[0].0.is_empty(), "the unconverted buying index bot rebalances: {:?}", runs[0]);
+    assert_eq!(runs[1], runs[0]);
 }
