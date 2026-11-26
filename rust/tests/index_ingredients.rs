@@ -1424,32 +1424,6 @@ async fn a_first_group_needs_a_clean_buyer() {
     assert!(settings(&u, clean)["index_groups"].is_array());
 }
 
-/// A first group seats every valid member: one row with no target is skipped, the others keep their seats unprobed.
-#[tokio::test]
-async fn a_member_without_a_target_does_not_unseat_the_others() {
-    use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
-    let mut u = universe();
-    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("allocations", json!({ u.m[0].0.to_string(): 0.6, u.m[2].0.to_string(): 0.4 }));
-    spec.status = 2;
-    let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
-    for (i, w) in [(0, 0.6), (1, 0.0), (2, 0.4)] { seed::insert_member(&u.o.primary, id, u.m[i].0, u.m[i].1, w, true, "2026-08-01 00:00:00", None); }
-    exec(&u.o, &format!("UPDATE bot_index_assets SET target_allocation = NULL WHERE bot_id = {id} AND asset_id = {}", u.m[1].0));
-    assert_eq!(patch(&mut u, id, &[(&key("add_index"), "nasdaq-100")]).await.status, 200);
-    let seated: Vec<i64> = u.o.primary.prepare("SELECT asset_id FROM rust_bot_group_members WHERE bot_id = ?1 ORDER BY asset_id").unwrap()
-        .query_map([id], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
-    assert_eq!(seated, vec![u.m[0].0, u.m[2].0]);
-    let ok = |body: Value| json!([{ "status": 200, "body": body }]);
-    let mut m = json!({ "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })) });
-    for sym in SYMBOLS { m[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
-    let t = ScriptedTransport::from_script(&m);
-    exec(&u.o, &format!("UPDATE bots SET status = 1 WHERE id = {id}"));
-    let bot = model::load_bot(&u.o.primary, id).unwrap();
-    index::refresh_composition(&u.o.primary, &AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper"))), &bot,
-                               &deltabadger::engine::FixedClock(common::web::at(T0)), &deltabadger::engine::tick::PriceCache::default()).await.unwrap().unwrap();
-    let probed: Vec<String> = t.requests().iter().filter(|r| r.path.contains("/quotes/")).map(|r| r.path.clone()).collect();
-    assert!(probed.iter().all(|p| !p.contains("/AAA/") && !p.contains("/CCC/")), "{probed:?}");
-}
-
 /// Change the index on a stopped, selling lone group keeps it selling.
 #[tokio::test]
 async fn change_the_index_while_stopped_and_selling_keeps_it_selling() {
@@ -1463,10 +1437,11 @@ async fn change_the_index_while_stopped_and_selling_keeps_it_selling() {
     assert_eq!((s["direction"].as_str(), composition::external_id(s["index_groups"][0].as_object())), (Some("selling"), "cat-b"), "{s}");
 }
 
-/// A plain basket's first group (`add_index`) seats its current members as incumbents (group rows, composed 0, as stored),
-/// as 4b's conversion seats an index bot's: the first derivation probes only the real newcomers.
+/// A basket's `in_index` rows are its named assets, not members of the index it adds: the first group starts with no
+/// `rust_bot_group_members` rows, so its first refresh probes every member as a newcomer, a named asset the ranking names
+/// included (it gets no incumbent seat).
 #[tokio::test]
-async fn a_first_groups_members_keep_their_seats_unprobed() {
+async fn a_first_group_seats_none_of_the_baskets_named_assets() {
     use deltabadger::venue::{alpaca::{AlpacaVenue, Urls}, http::ScriptedTransport};
     let mut u = universe();
     let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00").with("allocations", json!({ u.m[0].0.to_string(): 0.6, u.m[1].0.to_string(): 0.4 }));
@@ -1478,7 +1453,7 @@ async fn a_first_groups_members_keep_their_seats_unprobed() {
     assert_eq!(answer.status, 200, "{}", answer.body);
     let rows: Vec<(i64, i64, f64)> = u.o.primary.prepare("SELECT asset_id, composed, weight FROM rust_bot_group_members WHERE bot_id = ?1 ORDER BY asset_id").unwrap()
         .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap().map(Result::unwrap).collect();
-    assert_eq!(rows, vec![(u.m[0].0, 0, 0.6), (u.m[1].0, 0, 0.4)]);
+    assert_eq!(rows, vec![], "no seat for a named asset");
     let ok = |body: Value| json!([{ "status": 200, "body": body }]);
     let mut m = json!({ "GET /v2/clock": ok(json!({ "timestamp": "2026-09-01T10:00:00.5-04:00", "is_open": true, "next_open": "2099-01-02T09:30:00-05:00", "next_close": "2099-01-01T16:00:00-05:00" })) });
     for sym in SYMBOLS { m[format!("GET /v2/stocks/{sym}/quotes/latest")] = ok(json!({ "quote": { "ap": 100, "bp": 100 } })); }
@@ -1488,5 +1463,5 @@ async fn a_first_groups_members_keep_their_seats_unprobed() {
     let venue = AlpacaVenue::new(t.clone(), Urls::for_passphrase(Some("paper")));
     index::refresh_composition(&u.o.primary, &venue, &bot, &deltabadger::engine::FixedClock(common::web::at(T0)), &deltabadger::engine::tick::PriceCache::default()).await.unwrap().unwrap();
     let probed: Vec<String> = t.requests().iter().filter(|r| r.path.contains("/quotes/")).map(|r| r.path.clone()).collect();
-    assert!(probed.iter().all(|p| !p.contains("/AAA/") && !p.contains("/BBB/")) && !probed.is_empty(), "{probed:?}");
+    assert!(probed.iter().any(|p| p.contains("/AAA/")) && probed.iter().any(|p| p.contains("/BBB/")), "the named assets are probed as newcomers: {probed:?}");
 }
