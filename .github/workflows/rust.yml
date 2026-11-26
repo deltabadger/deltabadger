@@ -77,7 +77,8 @@ jobs:
     if: github.event_name != 'schedule'
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # macOS runs only by hand, so its cache is usually gone (unused for 7 days): a cold build and the whole suite take ~75 min.
+    timeout-minutes: ${{ matrix.os == 'macos-15' && 100 || 60 }}
     strategy:
       fail-fast: false
       matrix:
