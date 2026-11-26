@@ -303,26 +303,72 @@ fn full_screen_changed(window: &tauri::Window, event: &tauri::WindowEvent) -> Op
     (FULL.swap(full, std::sync::atomic::Ordering::Relaxed) != full).then_some(full)
 }
 
-/// A close asked in full screen: the window hides when it has left full screen.
+/// A close asked in full screen leaves full screen first: a window hidden in full screen comes back without its space
+/// (no window buttons, a see-through menu bar). tao clears its own full-screen state before the exit animation starts,
+/// so these follow AppKit's notification instead. EXITING: a close's exit is under way. HIDE_WANTED: the window hides
+/// when it ends (a later show clears it; a later close sets it again). OBSERVING: the notification is watched at all.
 #[cfg(target_os = "macos")]
-static HIDE_AFTER_FULL_SCREEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static EXITING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(target_os = "macos")]
+static HIDE_WANTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(target_os = "macos")]
+static OBSERVING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// Which exit a recovery timer belongs to.
+#[cfg(target_os = "macos")]
+static EXIT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-/// Hides the window when it has finished leaving full screen after a close (HIDE_AFTER_FULL_SCREEN). tao clears its
-/// full-screen state before the animation starts, so only AppKit's own notification says the window has left its space.
+/// The window's close on macOS: in full screen it asks for the exit and returns true (the window hides when the exit
+/// ends); false when the caller should hide the window now.
+#[cfg(target_os = "macos")]
+fn close_in_full_screen(window: &tauri::Window) -> bool {
+    use std::sync::atomic::Ordering::SeqCst;
+    if EXITING.load(SeqCst) {
+        HIDE_WANTED.store(true, SeqCst);
+        return true;
+    }
+    if !OBSERVING.load(SeqCst) || !window.is_fullscreen().unwrap_or(false) {
+        return false;
+    }
+    EXITING.store(true, SeqCst);
+    HIDE_WANTED.store(true, SeqCst);
+    let exit = EXIT.fetch_add(1, SeqCst) + 1;
+    if window.set_fullscreen(false).is_err() {
+        EXITING.store(false, SeqCst);
+        HIDE_WANTED.store(false, SeqCst);
+        return false;
+    }
+    // AppKit tells a failed exit only to the window's delegate, which is tao's and ignores it: an exit that has not
+    // ended in 3 s (the animation takes about one) is given up, the window stays, and a close can be asked again.
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        if EXIT.load(SeqCst) == exit && EXITING.swap(false, SeqCst) {
+            HIDE_WANTED.store(false, SeqCst);
+        }
+    });
+    true
+}
+
+/// Watches the window's "did exit full screen": the page gets the keyboard back after tao's own clean-up (which hands it
+/// to tao's view), and a close that waited for the exit hides the window.
 #[cfg(target_os = "macos")]
 fn on_full_screen_exit(window: &tauri::WebviewWindow) {
     use objc2_foundation::{NSNotification, NSNotificationCenter, NSOperationQueue};
+    use std::sync::atomic::Ordering::SeqCst;
     let Ok(ns_window) = window.ns_window() else { return };
     let app = window.app_handle().clone();
     let block = block2::RcBlock::new(move |_: std::ptr::NonNull<NSNotification>| {
-        if HIDE_AFTER_FULL_SCREEN.swap(false, std::sync::atomic::Ordering::Relaxed) {
-            if let Some(window) = app.get_window("main") {
+        EXITING.store(false, SeqCst);
+        if let Some(window) = app.get_window("main") {
+            if let Some(webview) = app.get_webview("main") {
+                let _ = webview.set_focus();
+            }
+            if HIDE_WANTED.swap(false, SeqCst) {
                 hide_to_tray(&window);
             }
         }
     });
-    // SAFETY: ns_window is the live NSWindow tauri created for "main"; the observer runs on the main queue and lives
-    // as long as the app (the window is never destroyed, only hidden).
+    // SAFETY: ns_window is the live NSWindow tauri created for "main"; the block runs on the main queue, after the
+    // posting (tao's delegate) returns, and lives as long as the app (the window is never destroyed, only hidden).
     let observer = unsafe {
         NSNotificationCenter::defaultCenter().addObserverForName_object_queue_usingBlock(
             Some(objc2_app_kit::NSWindowDidExitFullScreenNotification),
@@ -332,6 +378,7 @@ fn on_full_screen_exit(window: &tauri::WebviewWindow) {
         )
     };
     std::mem::forget(observer);
+    OBSERVING.store(true, SeqCst);
 }
 
 /// The window's close: hidden, the app stays in the tray (and leaves the Dock on macOS).
@@ -345,7 +392,7 @@ fn hide_to_tray(window: &tauri::Window) {
 fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     // A show asked while a close waits for full screen to end wins: the window stays.
     #[cfg(target_os = "macos")]
-    HIDE_AFTER_FULL_SCREEN.store(false, std::sync::atomic::Ordering::Relaxed);
+    HIDE_WANTED.store(false, std::sync::atomic::Ordering::SeqCst);
     // Show in Dock when window is shown
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(ActivationPolicy::Regular);
@@ -941,20 +988,10 @@ pub fn run() {
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                // A window hidden in full screen comes back without its space: no window buttons, a see-through menu bar.
-                // Closing leaves full screen first, and the window hides when macOS says it has (`on_full_screen_exit`).
-                // A second close while that is under way only waits for it.
+                // In full screen: leave it first, and hide when it has (`close_in_full_screen`).
                 #[cfg(target_os = "macos")]
-                if HIDE_AFTER_FULL_SCREEN.load(std::sync::atomic::Ordering::Relaxed) {
+                if close_in_full_screen(window) {
                     return;
-                }
-                #[cfg(target_os = "macos")]
-                if window.is_fullscreen().unwrap_or(false) {
-                    HIDE_AFTER_FULL_SCREEN.store(true, std::sync::atomic::Ordering::Relaxed);
-                    if window.set_fullscreen(false).is_ok() {
-                        return;
-                    }
-                    HIDE_AFTER_FULL_SCREEN.store(false, std::sync::atomic::Ordering::Relaxed);
                 }
                 hide_to_tray(window);
             }
