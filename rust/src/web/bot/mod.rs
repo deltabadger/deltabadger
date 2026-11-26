@@ -1264,10 +1264,14 @@ pub fn api_grouped(c: &Connection, user: i64, id: i64) -> Result<Option<ApiGroup
                                 "num_coins": g.num_coins, "hold_all": g.hold_all, "allocation_flattening": g.flattening, "members": members}));
         names.push(name);
     }
-    let rows: Vec<(i64, Option<i64>, Option<String>, f64)> = c.prepare("SELECT m.asset_id, m.ticker_id, a.symbol, CAST(m.target_allocation AS REAL) FROM bot_index_assets m LEFT JOIN assets a ON a.id = m.asset_id \
-                                                                       WHERE m.bot_id = ?1 AND m.in_index = 1 ORDER BY CAST(m.target_allocation AS REAL) DESC, m.id")?
-        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, Option<f64>>(3)?.unwrap_or(0.0))))?.collect::<Result<_, _>>()?;
-    let members = rows.into_iter().map(|(asset, ticker, symbol, target)| json!({"asset_id": asset, "ticker_id": ticker, "symbol": symbol, "allocation": percent(target)})).collect();
+    let rows: Vec<(i64, Option<i64>, f64)> = c.prepare("SELECT asset_id, ticker_id, CAST(target_allocation AS REAL) FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 \
+                                                        ORDER BY CAST(target_allocation AS REAL) DESC, id")?
+        .query_map([id], |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, Option<f64>>(2)?.unwrap_or(0.0))))?.collect::<Result<_, _>>()?;
+    let mut members = vec![];
+    for (asset, ticker, target) in rows {
+        let symbol = Asset::find(c, asset)?.and_then(|found| found.symbol);
+        members.push(json!({"asset_id": asset, "ticker_id": ticker, "symbol": symbol, "allocation": percent(target)}));
+    }
     Ok(Some(ApiGrouped { ingredients: Value::Array(ingredients), members: Value::Array(members), names }))
 }
 
