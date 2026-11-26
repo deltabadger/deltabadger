@@ -431,7 +431,8 @@ try {
   try { socket?.close(); } catch {}
   browser.kill("SIGKILL");
   app.stop(true);
-  rmSync(profile, { recursive: true, force: true });
+  // Windows keeps the killed browser's profile locked for a moment: retry, and never fail a run on a leftover temp folder.
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) { console.warn(`profile not removed: ${error.code ?? error}`); }
 }
 if (failures.length) {
   console.error(`${failures.length} failed: ${failures.join(", ")}`);

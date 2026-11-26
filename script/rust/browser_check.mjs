@@ -382,7 +382,8 @@ try {
   const exited = new Promise(resolve => { if (browser.exitCode !== null || browser.signalCode !== null) resolve(); else browser.once("exit", resolve); });
   browser.kill("SIGKILL");
   await exited;
-  rmSync(profile, { recursive: true, force: true });
+  // Windows keeps the killed browser's profile locked for a moment: retry, and never fail a run on a leftover temp folder.
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) { console.warn(`profile not removed: ${error.code ?? error}`); }
 }
 if (problem) {
   console.error(problem);
