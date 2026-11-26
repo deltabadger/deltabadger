@@ -100,10 +100,10 @@ pub async fn setup_create(State(app): State<App>, Extension(ctx): Extension<Ctx>
     Ok(redirect(&ctx, INDEX_VIEW))
 }
 
-pub(crate) struct Pill { pub(crate) id: i64, pub(crate) symbol: String, pub(crate) color: String }
+pub struct Pill { pub id: i64, pub symbol: String, pub color: String }
 
 /// One tile of the picker; `stored_name` is the `indices` row's name, for the bot menu's switch.
-pub(crate) struct IndexTile { pub(crate) stored_name: Option<String>, pub(crate) index_type: &'static str,
+pub(crate) struct IndexTile { pub(crate) row_id: i64, pub(crate) stored_name: Option<String>, pub(crate) index_type: &'static str,
     pub(crate) top: bool, pub(crate) name: String, pub(crate) external_id: String, pub(crate) description: String, pub(crate) summary: String,
     pub(crate) has_coins: bool, pub(crate) pills: Vec<Pill>, pub(crate) more: i64,
     /// The venue types its `available_exchanges` names (none: every venue).
@@ -155,7 +155,7 @@ pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) 
         let (external, id, symbol, color) = row?;
         assets.insert(external, (id, symbol.unwrap_or_default(), color));
     }
-    rows.into_iter().map(|(external_id, source, name, description, top_coins, available, _, _)| {
+    rows.into_iter().map(|(external_id, source, name, description, top_coins, available, row_id, _)| {
         let external_id = external_id.unwrap_or_default();
         let coins = ids_of(top_coins);
         let mut pills = vec![];
@@ -169,7 +169,7 @@ pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) 
         let top = source.as_deref() == Some("internal");
         let description = description.unwrap_or_default();
         Ok(IndexTile {
-            stored_name: name.clone(), index_type: if top { "top" } else { "category" }, top,
+            row_id, stored_name: name.clone(), index_type: if top { "top" } else { "category" }, top,
             name: count_named(Some(&external_id)).map_or_else(|| name.unwrap_or_default(), |(_, named)| named.to_string()),
             summary: truncate(&description), description, has_coins: !coins.is_empty(), more: most - pills.len() as i64, pills, external_id,
             venues: available.keys().cloned().collect(),
@@ -194,8 +194,10 @@ pub(crate) fn row_offered(c: &Connection, id: i64, f: &Followable) -> Result<boo
 
 /// The Index view's list: `tiles` narrowed by the venue in force on the Assets step (none on a fresh start): Top Coins and the
 /// indices naming no venue always, a category when it names the venue's type; nothing on a venue `refusal` refuses.
+/// PLAN index-as-ingredient slice 6: the indexes the selection holds are left out (D-INDEX-JOINS-BASKET: each is held once).
 fn offered(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<IndexTile>, WebError> {
-    let all = tiles(c, app, None)?;
+    let held = super::grouped::held_external_ids(c, app, config)?;
+    let all: Vec<IndexTile> = tiles(c, app, None)?.into_iter().filter(|tile| !held.contains(&tile.external_id)).collect();
     let Some(venue) = super::keys::venue(c, super::assets::venue_in_force(c, config)?)? else { return Ok(all) };
     if refusal(c, app, &venue.class)?.is_some() { return Ok(vec![]) }
     Ok(all.into_iter().filter(|tile| tile.top || tile.venues.is_empty() || tile.venues.contains(&venue.class)).collect())
@@ -204,7 +206,9 @@ fn offered(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<Inde
 #[derive(Template)]
 #[template(path = "wizard/index/assets.html")]
 struct AssetsView<'a> { v: &'a Ctx, switch: String, error: Option<String>, configured: bool, admin: bool, widget: Option<String>, providers: String,
-    action: String, csrf: &'a str, tiles: Vec<IndexTile> }
+    action: String, csrf: &'a str, tiles: Vec<IndexTile>,
+    /// The selection (wizard/_chosen.html): its assets, its indexes, the × and Next.
+    chosen: Vec<super::Chip>, held: Vec<super::grouped::Held>, remove_url: String, remove_title: String, next_url: String, next_label: String }
 
 /// D-INDEX-IN-ASSETS: the Assets step's Index view, as the sheet: the Asset / Index switch, then the index list (market data
 /// configured), Settings' market-data widget (an admin), or who to ask. The track is the DCA one until an index is chosen.
@@ -217,66 +221,69 @@ pub fn assets_view(c: &Connection, app: &App, ctx: &Ctx, config: Option<&Value>,
     let widget = match provider { Some(provider) if !configured && admin => Some(crate::web::settings::keys::market_data(c, app, ctx, &csrf, false, None, Some(provider))?), _ => None };
     let providers = crate::web::settings::sections::market_data_providers(ctx, "modal_content", |key| ctx.path(&format!("{INDEX_VIEW}&provider={key}")));
     let tiles = if configured { offered(c, app, config)? } else { vec![] };
-    let content = AssetsView { v: ctx, switch: super::kind_switch(ctx, true)?, error, configured, admin, widget, providers, action: ctx.path(PICK), csrf: &csrf, tiles }.render()?;
+    let chosen = chips(c, &chosen_ids(config))?;
+    let held = super::grouped::held(c, ctx, config)?;
+    let content = AssetsView { v: ctx, switch: super::kind_switch(ctx, true)?, error, configured, admin, widget, providers, action: ctx.path(PICK), csrf: &csrf, tiles,
+                               chosen, held, remove_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/remove"), remove_title: ctx.t("bot.dca_multi_asset.remove_asset"),
+                               next_url: ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), next_label: ctx.t("button.next") }.render()?;
     let venue = super::assets::venue_in_force(c, config)?;
     let track = if index_chosen(config) {
         index_track(ctx, &csrf, config, At::Assets, &index_name(c, config, ctx.locale)?, exchange_name(c, venue)?)?
     } else {
         let order = super::StepOrder::new(super::BotType::Single, super::current_variant(config));
         let ids = chosen_ids(config);
-        super::steer(ctx, &csrf, super::SentenceOf { order: &order, step: Step::Currencies, multi: !ids.is_empty(), chips: chips(c, &ids)?, exchange: exchange_name(c, venue)? }, true)?.track
+        let stacks = super::grouped::stacks(c, ctx, config)?;
+        super::steer(ctx, &csrf, super::SentenceOf { order: &order, step: Step::Currencies, multi: !ids.is_empty() || !stacks.is_empty(), chips: chips(c, &ids)?, stacks, exchange: exchange_name(c, venue)? }, true)?.track
     };
     super::assets_sheet(ctx, &track, &content)
 }
 
-/// POST .../pick_index: an index the Index view offers (Top Coins, or a category with its id) joins the session's settings in place
-/// of a basket (D-INDEX-OR-BASKET); one it does not offer re-renders the view (422) with the reason.
+/// POST .../pick_index: an index the Index view offers (Top Coins, or a category with its id) joins the session's selection
+/// (D-INDEX-JOINS-BASKET, PLAN index-as-ingredient slice 6): the first pick of an empty selection as the lone index's keys,
+/// exactly as before, any later one beside what is held (wizard::grouped). The step stays (Next goes on). One it does not
+/// offer (a held one among them), or a hundred-and-first ingredient, re-renders the view (422) with the reason.
 pub async fn pick_create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let param = |name: &str| ctx.params.form(name).or_else(|| ctx.params.query(name)).map(str::to_string);
     let (index_type, category, name) = (param("index_type"), param("index_category_id").filter(|id| !crate::v2::blank(id)), param("index_name"));
     let config = ctx.session.lock().bot_config.clone();
-    let (inner, held, wanted, id) = (app.clone(), config.clone(), index_type.clone(), category.clone());
-    let (configured, offered, fresh) = app.db(move |c| {
-        let fresh = fresh_start(held.as_ref(), chips(c, &chosen_ids(held.as_ref()))?.is_empty());
-        if !configured(c, &inner)? { return Ok((false, false, fresh)) }
-        let offered = offered(c, &inner, held.as_ref())?.iter().any(|tile| match (wanted.as_deref(), id.as_deref()) {
+    if !app.db({ let inner = app.clone(); move |c| configured(c, &inner) }).await? { return Ok(redirect(&ctx, INDEX_VIEW)) }
+    let (inner, view, session, wanted, id) = (app.clone(), ctx.clone(), ctx.session.clone(), index_type.clone(), category.clone());
+    let refused = app.db(move |c| {
+        let held = config.as_ref();
+        let ids = chosen_ids(held);
+        let fresh = fresh_start(held, chips(c, &ids)?.is_empty());
+        let rows = super::grouped::held_rows(c, &inner, held)?;
+        let tile = offered(c, &inner, held)?.into_iter().find(|tile| match (wanted.as_deref(), id.as_deref()) {
             (Some("top"), _) => tile.top,
             (Some("category"), Some(id)) => !tile.top && tile.external_id == id,
             _ => false,
         });
-        Ok((true, offered, fresh))
+        let Some(tile) = tile else { return Ok(Some(view.t("bot.dca_index.setup.pick_index.error"))) };
+        if ids.len() + rows.len() >= super::assets::MAX_ASSETS {
+            return Ok(Some(i18n::t(view.locale, "bot.dca_multi_asset.max_assets_reached", &[("max", i18n::Arg::Text("100"))])));
+        }
+        let mut data = session.lock();
+        let config = data.bot_config.get_or_insert_with(|| json!({}));
+        if !config.is_object() { *config = json!({}); }
+        if ids.is_empty() && rows.is_empty() {
+            for key in [BASE_IDS_KEY, BASE_KEY, QUOTE_KEY] { super::delete_path(config, key); }
+            // Asset first with nothing chosen before: a venue left behind goes, as the first asset drops it.
+            if fresh { if let Some(entries) = config.as_object_mut() { entries.remove(EXCHANGE_KEY[0]); } }
+            if !config["settings"].is_object() { config["settings"] = json!({}); }
+            let settings = config["settings"].as_object_mut().expect("an object, made one above");
+            super::grouped::lone_keys(settings, (wanted.as_deref() == Some("category")).then_some(tile.external_id.as_str()), name);
+        } else {
+            super::grouped::write_selection(c, config, &ids, &[rows.as_slice(), &[tile.row_id]].concat())?;
+        }
+        Ok(None)
     }).await?;
-    if !configured { return Ok(redirect(&ctx, INDEX_VIEW)) }
-    if !offered {
-        let (inner, view, error) = (app.clone(), ctx.clone(), ctx.t("bot.dca_index.setup.pick_index.error"));
+    if let Some(error) = refused {
+        let (inner, view, config) = (app.clone(), ctx.clone(), ctx.session.lock().bot_config.clone());
         let (body, shell) = app.db(move |c| Ok((assets_view(c, &inner, &view, config.as_ref(), Some(error))?, Shell::load(c, &inner, &user)?))).await?;
         return shell::application(&ctx, &ctx.csrf_token(), ctx.user().expect("checked above"), &shell, Page { status: StatusCode::UNPROCESSABLE_ENTITY, body, flash_now: vec![] });
     }
-    {
-        let mut data = ctx.session.lock();
-        let config = data.bot_config.get_or_insert_with(|| json!({}));
-        if !config.is_object() { *config = json!({}); }
-        for key in [BASE_IDS_KEY, BASE_KEY, QUOTE_KEY] { super::delete_path(config, key); }
-        // Asset first with nothing chosen before: a venue left behind goes, as the first asset drops it.
-        if fresh { if let Some(entries) = config.as_object_mut() { entries.remove(EXCHANGE_KEY[0]); } }
-        if !config["settings"].is_object() { config["settings"] = json!({}); }
-        let settings = config["settings"].as_object_mut().expect("an object, made one above");
-        match (index_type.as_deref(), category) {
-            (Some("category"), Some(id)) => {
-                let prefix = count_named(Some(&id)).map(|(prefix, _)| prefix);
-                settings.insert("index_type".into(), json!("category"));
-                settings.insert("index_category_id".into(), json!(id));
-                settings.insert("index_name".into(), json!(name));
-                settings.insert("index_name_prefix".into(), json!(prefix));
-            }
-            _ => {
-                for key in ["index_type", "index_category_id", "index_name", "index_name_prefix"] { settings.insert(key.into(), Value::Null); }
-                settings.insert("index_type".into(), json!("top"));
-            }
-        }
-    }
-    Ok(redirect(&ctx, KEY_NEW))
+    Ok(redirect(&ctx, INDEX_VIEW))
 }
 
 /// The before_actions of every index step: market data, then an index chosen; else the Index view, which asks for either.

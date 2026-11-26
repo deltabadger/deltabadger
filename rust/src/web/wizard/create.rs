@@ -228,6 +228,9 @@ pub fn lock_limit_orders(c: &Connection, config: &mut Value) -> Result<(), WebEr
     Ok(())
 }
 
+/// The rules whose subject (`*_in_ticker_id`) a basket's callbacks default.
+const RULES: [&str; 4] = ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"];
+
 /// The bot `bot_relation.new(config)` builds and `save` writes, after its callbacks.
 pub struct Built { pub exchange_id: Option<i64>, pub quote: Option<i64>, pub settings: Map<String, Value>, pub label: String, members: Vec<i64> }
 
@@ -300,7 +303,10 @@ pub fn validate(c: &Connection, bot: &Built, account: Option<&crate::identity::A
     let mut errors: Vec<(&str, String)> = vec![];
     let mut add = |attribute: &'static str, text: String| if !errors.iter().any(|(a, t)| *a == attribute && *t == text) { errors.push((attribute, text)); };
     let weights = bot.settings.get("allocations").and_then(Value::as_object).cloned().unwrap_or_default();
-    if weights.is_empty() { add("allocations", i18n::text(locale, "errors.bots.multi_asset.min_assets", &[])); }
+    // A grouped basket (PLAN index-as-ingredient slice 6) may hold indexes alone.
+    if weights.is_empty() && bot.settings.get("index_groups").and_then(Value::as_array).is_none_or(|groups| groups.is_empty()) {
+        add("allocations", i18n::text(locale, "errors.bots.multi_asset.min_assets", &[]));
+    }
     if !weights.values().all(|w| w.as_f64().is_some_and(|w| w.is_finite() && (0.0..=1.0).contains(&w))) { add("allocations", message(locale, "allocations", "invalid")); }
     if let Some(quote) = bot.quote { if weights.contains_key(&quote.to_string()) { add("allocations", message(locale, "allocations", "invalid")); } }
     let ids: Vec<String> = weights.keys().cloned().collect();
@@ -346,6 +352,64 @@ impl Built {
     }
 }
 
+/// PLAN index-as-ingredient slice 6: a mixed selection's indexes (`rows`, `indices` row ids) join the bot built from the
+/// session as groups, inside the save's transaction. Err: why it is refused, nothing written. Every ingredient is checked again
+/// (`grouped::eligible` at the bot's venue and quote), each group is what Add index writes (`index_switch::group_for`), every
+/// ingredient starts at an equal share in thousandths (`draft::normalize`: the asset keys are ids, the group keys `index:`
+/// and its external id, so neither can take the other's), and the members the groups may expand to stay within the settings
+/// writer's bound of 1000.
+pub fn group(c: &Connection, app: &crate::web::App, bot: &mut Built, rows: &[i64], locale: &str) -> Result<Result<(), String>, WebError> {
+    let not_offered = || i18n::text(locale, "errors.bots.index_switch.not_offered", &[]);
+    let (Some(exchange), Some(_)) = (bot.exchange_id, bot.quote) else { return Ok(Err(not_offered())) };
+    if !super::grouped::eligible(c, app, exchange, bot.quote, &bot.members, rows)? { return Ok(Err(not_offered())) }
+    let tiles = super::index::tiles(c, app, None)?;
+    let mut groups = vec![];
+    for row in rows {
+        let Some(tile) = tiles.iter().find(|tile| tile.row_id == *row) else { return Ok(Err(not_offered())) };
+        groups.push(crate::web::bot::index_switch::group_for(c, tile, 0.0)?);
+    }
+    let mut weights: Map<String, Value> = bot.members.iter().map(|id| (id.to_string(), json!(1.0))).collect();
+    for group in &groups { weights.insert(format!("index:{}", crate::engine::composition::external_id(Some(group))), json!(1.0)); }
+    crate::web::bot::draft::normalize(&mut weights)?;
+    let share = |key: String| weights.get(&key).cloned().unwrap_or(Value::Null);
+    let assets: Map<String, Value> = bot.members.iter().map(|id| (id.to_string(), share(id.to_string()))).collect();
+    for group in &mut groups {
+        let weight = share(format!("index:{}", crate::engine::composition::external_id(Some(group))));
+        group.insert("weight".into(), weight);
+    }
+    bot.settings.insert("allocations".into(), Value::Object(assets));
+    // The wizard's row ids stay in the wizard; and a grouped bot never stores a defaulted rule subject (slice 3: the owner
+    // picks one from `Bot::subject_pool`), so `build`'s go and `insert_as` writes none.
+    bot.settings.shift_remove("index_ids");
+    for rule in RULES { bot.settings.shift_remove(&format!("{rule}_in_ticker_id")); bot.settings.shift_remove(&format!("sell_{rule}_in_ticker_id")); }
+    bot.settings.insert("index_groups".into(), Value::Array(groups.into_iter().map(Value::Object).collect()));
+    if crate::web::bot::draft::expansion(c, &bot.settings)? > 1000 {
+        let keys = ["activerecord.errors.models.bots/dca_multi_asset.attributes.index_groups.less_than_or_equal_to".to_string(),
+                    "activerecord.errors.messages.less_than_or_equal_to".to_string(), "errors.messages.less_than_or_equal_to".to_string()];
+        return Ok(Err(i18n::text_chain(locale, &keys, &[("count", i18n::Arg::Text("1000"))]).unwrap_or_else(not_offered)));
+    }
+    Ok(Ok(()))
+}
+
+/// `insert_as` for a grouped basket (`group`), created: the engine is its one member writer, so its resync is marked in the
+/// same transaction; its label is the one the bot page gives a grouped basket (its ingredients' names). Before the caller
+/// commits, the stored shares must total 1000 thousandths and exactly this bot must be marked, else nothing is kept.
+pub fn insert_grouped(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, account: Option<crate::identity::Account>, locale: &str) -> Result<i64, WebError> {
+    bot.label = String::new();
+    let id = insert_as(c, user, bot, now, crate::enums::BotStatus::Created, 0, account)?;
+    let marked = crate::engine::index::mark_resync(c, id, now)?;
+    if marked != 1 { return Err(WebError::Config(format!("bot {id}: the resync marked {marked} rows"))) }
+    let stored: String = c.query_row("SELECT settings FROM bots WHERE id = ?1", [id], |r| r.get(0))?;
+    let stored: Value = serde_json::from_str(&stored).map_err(|e| WebError::Config(format!("bot {id} settings: {e}")))?;
+    let thousandths = |w: &Value| w.as_f64().map_or(i64::MIN, |w| (w * 1000.0).round() as i64);
+    let total: i64 = stored["allocations"].as_object().into_iter().flatten().map(|(_, w)| thousandths(w))
+        .chain(stored["index_groups"].as_array().into_iter().flatten().map(|g| thousandths(&g["weight"]))).sum();
+    if total != 1000 { return Err(WebError::Config(format!("bot {id}: the shares total {total} thousandths"))) }
+    let label = crate::web::bot::Bot::find(c, user, id, crate::web::bot::For::Settings, locale)?.map(|bot| bot.label).unwrap_or_default();
+    c.execute("UPDATE bots SET label = ?2 WHERE id = ?1", rusqlite::params![id, label])?;
+    Ok(id)
+}
+
 /// The before_save and before_create callbacks, the insert, and refresh_composition (after_save), on `c` inside the caller's
 /// write transaction. Returns the new bot's id.
 pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Result<i64, WebError> {
@@ -355,9 +419,10 @@ pub fn insert(c: &Connection, user: i64, bot: Built, now: DateTime<Utc>) -> Resu
 /// `insert` for a bot built with its status and position (`assign_position` keeps a positive one).
 /// `account`: the account the bot trades on (#710), None for its exchange's number 1.
 pub fn insert_as(c: &Connection, user: i64, mut bot: Built, now: DateTime<Utc>, status: crate::enums::BotStatus, position: i64, account: Option<crate::identity::Account>) -> Result<i64, WebError> {
-    // set_tickers, then each condition's set_*_in_ticker_id: buy and sell on the default member.
+    // set_tickers, then each condition's set_*_in_ticker_id: buy and sell on the default member; a grouped basket none.
     let first = first_ticker(&tickers(c, bot.exchange_id, bot.quote, &bot.members)?);
-    for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+    let grouped = bot.settings.get("index_groups").and_then(Value::as_array).is_some_and(|groups| !groups.is_empty());
+    for rule in RULES.into_iter().filter(|_| !grouped) {
         bot.settings.insert(format!("{rule}_in_ticker_id"), first.clone());
         bot.settings.insert(format!("sell_{rule}_in_ticker_id"), first.clone());
     }

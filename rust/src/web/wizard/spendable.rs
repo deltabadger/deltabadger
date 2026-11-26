@@ -2,8 +2,8 @@
 //! the bot is saved in its created state (wizard::create) and the browser leaves the modal for the bot's page. Every GET here
 //! leaves the session alone; the POST writes the quote and WizardDefaults into it, and clears it once the bot exists.
 use super::keys::{step_path, Namespace};
-use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, expired, prerequisite, steer, step_complete, BotType, SentenceOf, Step,
-            StepOrder};
+use super::{basket_ids, chips, current_variant, exchange_id, exchange_name, expired, grouped, prerequisite, steer, step_complete, BotType, SentenceOf, Step,
+            StepOrder, QUOTE_KEY};
 use crate::engine::{eligibility, model};
 use crate::web::bot::search::{self, AssetPage, Basket, Item, Side};
 use crate::web::layout::{self, Ctx, Page};
@@ -35,7 +35,14 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     let basket = Basket { exchange_id: exchange_id(config), quote_asset_id: None, base_asset_ids: ids.clone() };
     let params = &ctx.params;
     let offset = params.query("offset").map_or(0, search::to_i);
-    let all = search::filtered_rows(c, &basket, Side::Quote, params.query("query"))?;
+    let mut all = search::filtered_rows(c, &basket, Side::Quote, params.query("query"))?;
+    // PLAN index-as-ingredient slice 6: a mixed selection's quotes are those `grouped::eligible` admits on the venue.
+    let mixed = grouped::mixed(config);
+    if let (true, Some(venue)) = (mixed, exchange_id(config)) {
+        let mut admitted = vec![];
+        for row in all { if grouped::session_eligible(c, &ctx.app, config, venue, Some(row.id))? { admitted.push(row); } }
+        all = admitted;
+    }
     let next_offset = offset.saturating_add(search::PAGE_SIZE as i64);
     let next = (all.len() as i64 > next_offset).then(|| {
         let query = params.fullpath.split_once('?').map_or("", |(_, query)| query);
@@ -49,8 +56,12 @@ fn page(c: &Connection, ctx: &Ctx, config: Option<&Value>, partial_allowed: bool
     }
     let csrf = ctx.csrf_token();
     let order = StepOrder::new(BotType::Multi, current_variant(config));
-    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Spendable, multi: true, chips: chips(c, &ids)?, exchange: exchange_name(c, exchange_id(config))? }, true)?;
-    let content = New { search: steered.search, create_url: ctx.path(&format!("/bots/dca_multi_assets/pick_spendable_asset{}", super::bound_query(config))), csrf,
+    let stacks = grouped::stacks(c, ctx, config)?;
+    let steered = steer(ctx, &csrf, SentenceOf { order: &order, step: Step::Spendable, multi: true, chips: chips(c, &ids)?, stacks, exchange: exchange_name(c, exchange_id(config))? }, true)?;
+    // A mixed selection's form names the selection it was drawn for (`grouped::digest`).
+    let bound = super::bound_query(config);
+    let selection = if mixed { format!("{}selection={}", if bound.is_empty() { "?" } else { "&" }, grouped::digest(config)) } else { String::new() };
+    let content = New { search: steered.search, create_url: ctx.path(&format!("/bots/dca_multi_assets/pick_spendable_asset{bound}{selection}")), csrf,
                         field_name: FIELD, items, next }.render()?;
     Ok((super::sheet(ctx, &steered.track, &content)?, false))
 }
@@ -94,6 +105,11 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let Some(quote) = ctx.params.form(FIELD).or_else(|| ctx.params.query(FIELD)).map(str::to_string) else { return Ok(layout::bad_request()) };
     // #710 7a §2: a form rendered for another pick than the session's now (two tabs) makes nothing.
     if !super::still_bound(&ctx, ctx.session.lock().bot_config.as_ref()) { return Ok(stale(&ctx)) }
+    // PLAN index-as-ingredient slice 6: nor a form drawn for another selection (back navigation, two tabs): checked before the
+    // session takes the quote. A plain basket's form names none and is drawn for none.
+    let (mixed, current) = { let data = ctx.session.lock(); (grouped::mixed(data.bot_config.as_ref()), grouped::digest(data.bot_config.as_ref())) };
+    let posted = ctx.params.query("selection");
+    if (mixed || posted.is_some()) && posted != Some(current.as_str()) { return Ok(stale(&ctx)) }
     if crate::v2::blank(&quote) { return render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![]).await }
     let config = {
         let mut data = ctx.session.lock();
@@ -116,9 +132,16 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
         let bot = super::create::build(&tx, &config, locale)?;
         // The picked account (#710 7a §2), else the exchange's number 1.
         let Ok(account) = super::bot_account(&tx, user.id, Some(&config))? else { return Ok(Saved::Stale) };
+        let mut bot = bot;
+        // A mixed selection: its indexes as groups beside the assets, checked again in this transaction (wizard::grouped).
+        let rows = grouped::mixed_rows(Some(&config));
+        if !rows.is_empty() {
+            if let Err(refused) = super::create::group(&tx, &inner, &mut bot, &rows, locale)? { return Ok(Saved::Invalid(refused)) }
+        }
         let errors = super::create::validate(&tx, &bot, account.as_ref(), locale)?;
         if !errors.is_empty() { return Ok(Saved::Invalid(crate::web::bot::draft::sentence(&errors.iter().map(String::as_str).collect::<Vec<_>>(), locale))) }
-        let id = super::create::insert_as(&tx, user.id, bot, inner.now(), crate::enums::BotStatus::Created, 0, account.filter(|a| a.id.is_some()))?;
+        let id = if rows.is_empty() { super::create::insert_as(&tx, user.id, bot, inner.now(), crate::enums::BotStatus::Created, 0, account.filter(|a| a.id.is_some()))? }
+                 else { super::create::insert_grouped(&tx, user.id, bot, inner.now(), account.filter(|a| a.id.is_some()), locale)? };
         if let Err(refusal) = eligibility::guard(&tx, &inner.cipher, Some(id)) {
             return Ok(Saved::Invalid(i18n::text(locale, "engine.write_refused", &[("reason", i18n::Arg::Text(&refusal.reason()))])));
         }
@@ -131,7 +154,11 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
             ctx.session.lock().bot_config = None;
             Ok(super::stream(StatusCode::OK, crate::web::turbo::redirect(&ctx.path(&format!("/bots/{id}")))))
         }
-        Saved::Invalid(message) => render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![(flash::ALERT, message)]).await,
+        Saved::Invalid(message) => {
+            // A mixed selection's refused quote leaves the session: it narrows no venue a revisit lists.
+            if mixed { if let Some(config) = ctx.session.lock().bot_config.as_mut() { super::delete_path(config, QUOTE_KEY); } }
+            render(&app, &ctx, StatusCode::UNPROCESSABLE_ENTITY, false, vec![(flash::ALERT, message)]).await
+        }
         Saved::Stale => Ok(stale(&ctx)),
     }
 }

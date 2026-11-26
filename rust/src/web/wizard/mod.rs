@@ -16,6 +16,7 @@ pub mod assets;
 pub mod brokers;
 pub mod create;
 pub mod exchanges;
+pub mod grouped;
 pub mod index;
 pub mod index_create;
 pub mod keys;
@@ -45,8 +46,10 @@ pub const BASE0_KEY: Key = &["settings", "base0_asset_id"];
 pub const BASE1_KEY: Key = &["settings", "base1_asset_id"];
 pub const BASE_IDS_KEY: Key = &["settings", "base_asset_ids"];
 pub const QUOTE_KEY: Key = &["settings", "quote_asset_id"];
+/// PLAN index-as-ingredient slice 6: the `indices` row ids of a mixed selection's indexes (wizard::grouped).
+pub const INDEX_IDS_KEY: Key = &["settings", "index_ids"];
 /// BASE0/BASE1 stay as a scrub of sessions left open mid-dual-wizard.
-pub const ALL_WIZARD_KEYS: [Key; 6] = [EXCHANGE_KEY, BASE_KEY, BASE0_KEY, BASE1_KEY, BASE_IDS_KEY, QUOTE_KEY];
+pub const ALL_WIZARD_KEYS: [Key; 7] = [EXCHANGE_KEY, BASE_KEY, BASE0_KEY, BASE1_KEY, BASE_IDS_KEY, INDEX_IDS_KEY, QUOTE_KEY];
 
 /// Bots::Wizard::StepOrder: the step sequence of one (bot type, variant), and what each step owns.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,10 +74,11 @@ impl StepOrder {
         self.steps.get(index + 1).copied()
     }
 
-    /// The session keys a step writes. :api lives in the database, so it owns none.
+    /// The session keys a step writes, which its resets keep or clear together (a mixed selection's indexes beside its assets,
+    /// on either asset step). :api lives in the database, so it owns none. What makes a step complete is `step_complete`'s.
     pub fn owned_keys(step: Step) -> &'static [Key] {
         match step {
-            Step::Currencies | Step::Assets => &[BASE_IDS_KEY],
+            Step::Currencies | Step::Assets => &[BASE_IDS_KEY, INDEX_IDS_KEY],
             Step::Exchange => &[EXCHANGE_KEY],
             Step::Spendable => &[QUOTE_KEY],
             Step::Api => &[],
@@ -121,7 +125,7 @@ pub fn index_chosen(config: Option<&Value>) -> bool { present(dig(config, &["set
 /// D-INDEX-FRESH-START: asset-first with neither a basket nor an index chosen, where a venue left behind is neither shown nor
 /// searched against.
 pub fn fresh_start(config: Option<&Value>, basket_empty: bool) -> bool {
-    current_variant(config) == Variant::AssetFirst && basket_empty && !index_chosen(config)
+    current_variant(config) == Variant::AssetFirst && basket_empty && !index_chosen(config) && grouped::mixed_rows(config).is_empty()
 }
 
 /// The Assets step's Index view, where every index step's gate sends the browser.
@@ -164,7 +168,7 @@ pub fn index_track(ctx: &Ctx, csrf: &str, config: Option<&Value>, at: At, index:
             _ => (ctx.t("bot.setup.progress_steps.spendable"), None),
         };
         let action = match back { Some(url) if item != current => Action::get(url, true), _ => Action::plain() };
-        items.push(Item { state, label, chips: vec![], more: 0, stack_class: "", action });
+        items.push(Item { state, label, chips: vec![], more: 0, stack_class: "", stacks: vec![], action });
     }
     Ok(Track { items, csrf }.render()?)
 }
@@ -187,13 +191,16 @@ pub fn step_complete(c: &Connection, user_id: i64, config: Option<&Value>, step:
                                                   [], |r| r.get(0)).optional()?;
             Ok(status == Some(1))
         }
-        // `Array(...).any?`: one asset is a basket too; only an empty list leaves the step incomplete.
+        // `Array(...).any?`: one asset is a basket too; only an empty list leaves the step incomplete. PLAN index-as-ingredient
+        // slice 6: or at least one ingredient, so two indexes and no asset pass (a lone index is the index wizard's, never here).
         Step::Assets => Ok(match dig(config, BASE_IDS_KEY) {
             None | Some(Value::Null | Value::Bool(false)) => false,
             Some(Value::Array(ids)) => ids.iter().any(|id| !matches!(id, Value::Null | Value::Bool(false))),
             Some(Value::Object(entries)) => !entries.is_empty(),
             Some(_) => true,
-        }),
+        } || !grouped::mixed_rows(config).is_empty()),
+        // The one-asset bot's step: its assets alone, as before the indexes joined the step's keys.
+        Step::Currencies => Ok(present(dig(config, BASE_IDS_KEY))),
         _ => Ok(StepOrder::owned_keys(step).iter().all(|key| present(dig(config, key)))),
     }
 }
@@ -222,7 +229,7 @@ pub fn first_incomplete_after(c: &Connection, user_id: i64, config: Option<&Valu
     Ok(order.steps[order.steps.len() - 1])
 }
 
-fn delete_path(config: &mut Value, key: Key) {
+pub(super) fn delete_path(config: &mut Value, key: Key) {
     let (leaf, parents) = key.split_last().expect("a key path is never empty");
     if let Some(container) = parents.iter().try_fold(&mut *config, |value, key| value.get_mut(*key)).and_then(Value::as_object_mut) {
         container.remove(*leaf);
@@ -261,7 +268,7 @@ pub fn to_i(value: &Value) -> i64 {
 }
 
 /// `Array(value)`: a list as it is, nothing as none, anything else as one.
-fn array(value: Option<&Value>) -> Vec<Value> {
+pub(super) fn array(value: Option<&Value>) -> Vec<Value> {
     match value {
         None | Some(Value::Null) => vec![],
         Some(Value::Array(items)) => items.clone(),
@@ -445,7 +452,7 @@ pub fn track(ctx: &Ctx, current: usize, stops: Vec<Stop>) -> Result<String, WebE
         let state = if place < current { "done" } else if place == current { "current" } else { "upcoming" };
         let more = stop.chips.len().saturating_sub(5);
         let stack_class = match stop.chips.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" };
-        Item { state, label: stop.name.unwrap_or_else(|| ctx.t(&format!("bot.setup.progress_steps.{}", stop.key))), more, stack_class,
+        Item { state, label: stop.name.unwrap_or_else(|| ctx.t(&format!("bot.setup.progress_steps.{}", stop.key))), more, stack_class, stacks: vec![],
                chips: stop.chips.into_iter().take(5).collect(), action: stop.back.map_or_else(Action::plain, |url| Action::get(url, true)) }
     }).collect();
     Ok(Track { items, csrf: "" }.render()?)
@@ -464,6 +471,8 @@ pub struct SentenceOf<'a> {
     /// Whether the bot is a basket (the multi namespace, or anything chosen on the asset step).
     pub multi: bool,
     pub chips: Vec<Chip>,
+    /// A mixed selection's indexes, one stack each beside the chips (wizard::grouped::stacks); none otherwise.
+    pub stacks: Vec<grouped::Held>,
     pub exchange: Option<String>,
 }
 
@@ -478,7 +487,7 @@ impl Action {
 
 /// One item of the track (D-WIZARD-TRACK r4): Exchange, Assets or Currency, by position done, current or upcoming; its label,
 /// or the venue's name, or the chosen tickers (five at most, `more` beyond); and what it does, by the sentence's slot state.
-pub struct Item { state: &'static str, label: String, chips: Vec<Chip>, more: usize, stack_class: &'static str, action: Action }
+pub struct Item { state: &'static str, label: String, chips: Vec<Chip>, more: usize, stack_class: &'static str, stacks: Vec<grouped::Held>, action: Action }
 
 #[derive(Template)]
 #[template(path = "wizard/_track.html")]
@@ -501,17 +510,19 @@ pub fn steer(ctx: &Ctx, csrf: &str, of: SentenceOf, actions: bool) -> Result<Ste
     let at = |step: Step| of.order.steps.iter().position(|s| *s == step);
     let exchange_before_assets = at(Step::Exchange) < at(Step::Currencies).or_else(|| at(Step::Assets));
     let filled = of.exchange.is_some();
-    let invite_only = of.step == Step::Exchange && on_first_step && of.chips.is_empty();
+    // Nothing chosen: no asset chip and no index stack.
+    let none = of.chips.is_empty() && of.stacks.is_empty();
+    let invite_only = of.step == Step::Exchange && on_first_step && none;
     let exchange_url = ctx.path(if of.multi { "/bots/dca_multi_assets/pick_exchange/new" } else { "/bots/dca_single_assets/pick_exchange/new" });
     let (advance_url, order_url) = (ctx.path("/bots/dca_single_assets/pick_buyable_asset/advance"), ctx.path("/bots/dca_single_assets/order"));
     let quote_search_url = ctx.path("/bots/dca_multi_assets/pick_spendable_asset/new");
     let exchange = if of.step == Step::Exchange { "active" }
         else if filled && on_asset_step { "filled_advance" }
         else if filled { "filled" }
-        else if on_first_step && of.chips.is_empty() { "switch" }
+        else if on_first_step && none { "switch" }
         else if on_asset_step { "advance" }
         else { "inert" };
-    let quote = if of.chips.is_empty() || !filled { "absent" } else if of.step == Step::Spendable { "search" } else if on_asset_step { "advance" } else { "inert" };
+    let quote = if none || !filled { "absent" } else if of.step == Step::Spendable { "search" } else if on_asset_step { "advance" } else { "inert" };
     let exchange_action = match (invite_only, exchange) {
         (true, _) | (_, "active" | "inert") => Action::plain(),
         (_, "filled") => Action::get(exchange_url.clone(), true),
@@ -520,7 +531,7 @@ pub fn steer(ctx: &Ctx, csrf: &str, of: SentenceOf, actions: bool) -> Result<Ste
         _ => Action::post(advance_url.clone(), vec![], false),
     };
     let assets_action = if on_asset_step { Action::plain() }
-        else if !of.chips.is_empty() { Action::get(ctx.path("/bots/dca_single_assets/pick_buyable_asset/new"), true) }
+        else if !none { Action::get(ctx.path("/bots/dca_single_assets/pick_buyable_asset/new"), true) }
         else { Action::post(order_url.clone(), vec![("flow", "asset_first")], false) };
     let quote_action = if !invite_only && quote == "advance" { Action::post(advance_url.clone(), vec![], false) } else { Action::plain() };
     let search = match (invite_only, exchange, quote) {
@@ -536,16 +547,17 @@ pub fn steer(ctx: &Ctx, csrf: &str, of: SentenceOf, actions: bool) -> Result<Ste
     let more = of.chips.len().saturating_sub(5);
     let stack_class = match of.chips.len() { 0 | 1 => "", 2 => "ticker-group--2", _ => "ticker-group--many" };
     let mut chips = Some(of.chips.into_iter().take(5).collect::<Vec<_>>());
+    let mut stacks = Some(of.stacks);
     let mut actions_by_item = [Some(exchange_action), Some(assets_action), Some(quote_action)];
     let mut items = vec![];
     for (place, item) in order.iter().enumerate() {
         let state = match current { Some(current) if place < current => "done", Some(current) if place == current => "current", _ => "upcoming" };
         let action = actions_by_item[*item].take().filter(|_| actions).unwrap_or_else(Action::plain);
         let key = ["exchange", "assets", "spendable"][*item];
-        let mut entry = Item { state, label: ctx.t(&format!("bot.setup.progress_steps.{key}")), chips: vec![], more: 0, stack_class: "", action };
+        let mut entry = Item { state, label: ctx.t(&format!("bot.setup.progress_steps.{key}")), chips: vec![], more: 0, stack_class: "", stacks: vec![], action };
         match item {
             0 => if let (Some(name), false) = (&of.exchange, of.step == Step::Exchange) { entry.label = name.clone(); },
-            1 => { entry.chips = chips.take().unwrap_or_default(); entry.more = more; entry.stack_class = stack_class; }
+            1 => { entry.chips = chips.take().unwrap_or_default(); entry.more = more; entry.stack_class = stack_class; entry.stacks = stacks.take().unwrap_or_default(); }
             _ => {}
         }
         items.push(entry);
@@ -645,7 +657,7 @@ mod tests {
         // The exchange step keeps the sticky assets, even as the first step.
         assert_eq!(exchange_first.reset_keys(Exchange), vec![EXCHANGE_KEY, BASE0_KEY, BASE1_KEY, QUOTE_KEY]);
         assert_eq!(exchange_first.reset_keys(Api), vec![BASE0_KEY, BASE1_KEY, QUOTE_KEY]);
-        assert_eq!(exchange_first.reset_keys(Currencies), vec![BASE_KEY, BASE0_KEY, BASE1_KEY, BASE_IDS_KEY, QUOTE_KEY]);
+        assert_eq!(exchange_first.reset_keys(Currencies), vec![BASE_KEY, BASE0_KEY, BASE1_KEY, BASE_IDS_KEY, INDEX_IDS_KEY, QUOTE_KEY]);
         assert_eq!(exchange_first.reset_keys(Spendable), vec![BASE0_KEY, BASE1_KEY, QUOTE_KEY]);
         assert_eq!(StepOrder::new(BotType::Multi, Variant::AssetFirst).reset_keys(Assets), ALL_WIZARD_KEYS.to_vec());
     }
@@ -684,6 +696,12 @@ mod tests {
         assert!(!step_complete(&c, 8, Some(&config(json!(3))), Step::Api).unwrap(), "another user's");
         assert!(step_complete(&c, 7, Some(&config(json!(3))), Step::Assets).unwrap());
         assert!(!step_complete(&c, 7, Some(&json!({"settings": {"base_asset_ids": [null]}})), Step::Assets).unwrap());
+        // PLAN index-as-ingredient slice 6: two indexes and no asset complete the basket's step, never the one-asset bot's.
+        let indexes = json!({"settings": {"index_ids": [2, 3]}});
+        assert!(step_complete(&c, 7, Some(&indexes), Step::Assets).unwrap(), "two_indexes_and_no_asset_complete_the_assets_step");
+        assert!(!step_complete(&c, 7, Some(&indexes), Step::Currencies).unwrap(), "currencies_completion_reads_only_the_assets");
+        assert!(step_complete(&c, 7, Some(&config(json!(3))), Step::Currencies).unwrap());
+        assert!(!step_complete(&c, 7, Some(&json!({"settings": {"index_type": "top"}})), Step::Assets).unwrap(), "a lone index: the index wizard's");
         assert!(!step_complete(&c, 7, Some(&json!({"exchange_id": " "})), Step::Exchange).unwrap(), "blank");
         assert_eq!(first_incomplete(&c, 7, None, &order).unwrap(), Step::Exchange);
         assert_eq!(prerequisite(&c, 7, Some(&config(json!(4))), &order, Step::Currencies).unwrap(), Some(Step::Api));

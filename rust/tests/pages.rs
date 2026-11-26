@@ -446,9 +446,18 @@ fn action_snapshot_difference(context: &str, v2: &Value, rust: &Value) -> Option
     None
 }
 
+/// Attests `indices` row `id` as ranked now by the install's provider, under its configuration (the engine's `ranked_row`).
+fn ranked(c: &rusqlite::Connection, id: i64) {
+    let provider = deltabadger::engine::provider::ranking_provider(c).unwrap().expect("a ranking provider");
+    let fingerprint = deltabadger::engine::provider::fingerprint(c).unwrap().expect("a provider configuration");
+    deltabadger::engine::index::record_ranking(c, id, provider, &fingerprint, chrono::Utc::now()).unwrap();
+}
+
 /// Things that happen to the install between two requests, outside any browser (the recorded BEFORE).
-fn before(dir: &Path, what: &str) {
+fn before(dir: &Path, what: &str, cipher: &deltabadger::crypto::Cipher) {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    // The provider's configuration decrypts as the engine reads it (engine::provider::bind), for the hooks that rank or retire.
+    deltabadger::engine::provider::bind(&c, cipher, &|_| None).unwrap();
     match what {
         "change_password" => c.execute("UPDATE users SET encrypted_password = ?1 WHERE id = (SELECT min(id) FROM users)", [deltabadger::crypto::hash_password("Another-horse-7").unwrap()]).unwrap(),
         "unconfirm" => c.execute("UPDATE users SET confirmed_at = NULL WHERE id = (SELECT min(id) FROM users)", []).unwrap(),
@@ -463,6 +472,41 @@ fn before(dir: &Path, what: &str) {
         // D-INDEX-IN-ASSETS walks: the owner turns advanced bots on; the market data goes away mid-wizard.
         "advanced_bots" => c.execute("UPDATE users SET advanced_bots_enabled = 1", []).unwrap(),
         "no_market_data" => c.execute("DELETE FROM app_configs WHERE key LIKE 'market_data_%' OR key IN ('coingecko_api_key', 'platform_connected_at')", []).unwrap(),
+        // PLAN index-as-ingredient slice 6: the engine's ranking of Layer 1 is another row than the picker's, holding two distinct
+        // non-stablecoin members (a duplicate and a stablecoin besides); Layer 1 retired; its catalogue row gone; sixty-one
+        // indices more; two bounded 600-member indices.
+        "ranked_layer1_short" => {
+            c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, created_at, updated_at) \
+                       VALUES ('layer-1', 'deltabadger', 'Layer 1', '[\"eth\",\"tether\",\"eth\",\"solana\"]', '{}', '{}', '2026-01-01', '2026-01-01')", []).unwrap();
+            let id = c.last_insert_rowid();
+            ranked(&c, id);
+            1
+        }
+        "retire_layer1" => c.execute("INSERT INTO rust_index_retired VALUES ('layer-1', ?1, '2026-09-01T00:00:00Z')",
+                                     [deltabadger::engine::provider::ranking_provider(&c).unwrap().unwrap()]).unwrap(),
+        "layer1_kraken_only" => c.execute("UPDATE indices SET available_exchanges = '{\"Exchanges::Kraken\":6}' WHERE external_id = 'layer-1'", []).unwrap(),
+        "drop_layer1_row" => c.execute("DELETE FROM indices WHERE external_id = 'layer-1'", []).unwrap(),
+        // The data-api provider stays selected, its token gone: no ranking provider for the engine.
+        "drop_market_data_token" => c.execute("DELETE FROM app_configs WHERE key = 'market_data_token'", []).unwrap(),
+        "many_indices" => {
+            for n in 0..66 {
+                c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, created_at, updated_at) \
+                           VALUES (?1, 'coingecko', ?2, '[\"eth\",\"solana\",\"ada-coin\"]', '{}', '{}', '2026-01-01', '2026-01-01')",
+                          (format!("a-rather-long-category-identifier-number-{n:03}"), format!("Category {n}"))).unwrap();
+            }
+            66
+        }
+        "big_indices" => {
+            for external in ["big-a", "big-b"] {
+                let mut coins: Vec<String> = ["eth", "solana", "ada-coin"].iter().map(|c| c.to_string()).collect();
+                coins.extend((0..597).map(|n| format!("{external}-{n}")));
+                c.execute("INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, created_at, updated_at) \
+                           VALUES (?1, 'deltabadger', ?1, ?2, '{}', '{}', '2026-01-01', '2026-01-01')", (external, json!(coins).to_string())).unwrap();
+                let id = c.last_insert_rowid();
+                ranked(&c, id);
+            }
+            2
+        }
         // Bot 1's price status line within its 20 s, as the engine's info pass stores it (2.x: bot.price_limit_info_from_cache).
         "warm_price_info" | "warm_price_info_met" => {
             let info = json!({ "price_limit": { "buying": { "base": "BTC", "quote": "USD", "price": "64310.75", "condition_met": what == "warm_price_info_met",
@@ -599,13 +643,14 @@ async fn run(dir: &Path) -> Value {
         browsers.insert("main".into(), main);
     }
     let mut responses = vec![];
+    let mut pages_seen: Vec<String> = vec![];
     let mut etags: BTreeMap<String, String> = BTreeMap::new();
     for (index, step) in scenario["steps"].as_array().unwrap().iter().enumerate() {
         progress(format!("  step {index}: {} {}", step["method"].as_str().unwrap_or("GET"), step["path"].as_str().unwrap_or("?")), true);
         now += chrono::Duration::seconds(step["advance"].as_i64().unwrap_or(0));
         clock.set(now);
         *mail.1.lock().unwrap() = step["smtp_failure"].as_str().map(str::to_string);
-        if let Some(what) = step["before"].as_str() { before(dir, what); }
+        if let Some(what) = step["before"].as_str() { before(dir, what, &app.cipher); }
         let browser = browsers.entry(step["client"].as_str().unwrap_or("main").to_string()).or_default();
         let request_path=if step["confirmation_token_from_user"]==true{
             let c=rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
@@ -616,6 +661,16 @@ async fn run(dir: &Path) -> Value {
         // The recording harness: __MAILED_TOKEN__ is the token of the last link mailed.
         let with_mailed = |text: &str| if text.contains("__MAILED_TOKEN__") { text.replace("__MAILED_TOKEN__", mailed.as_deref().expect("no mailed token to use")) } else { text.to_string() };
         let request_path = with_mailed(&request_path);
+        // This crate's own walks: the path a form on the last page posts to (its action, query included), by CSS selector.
+        // `path_from_step`: the page that step answered (this scenario's numbering, sign-in included), else the last page.
+        let request_path = match step["path_from"].as_str() {
+            Some(selector) => {
+                let page = match step["path_from_step"].as_u64() { Some(at) => pages_seen[at as usize].clone(), None => browser.page.clone().unwrap_or_default() };
+                scraper::Html::parse_document(&page).select(&scraper::Selector::parse(selector).unwrap()).next()
+                    .and_then(|form| form.value().attr("action").map(str::to_string)).unwrap_or_else(|| panic!("no form {selector} on that page"))
+            }
+            None => request_path,
+        };
         let form_values: Option<Vec<(String, String)>> = step["form"].as_object().map(|f| f.iter().map(|(k, v)| (k.clone(), with_mailed(v.as_str().unwrap()))).collect());
         let mut form: Option<Vec<(&str, &str)>> = form_values.as_ref().map(|f| f.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect());
         let mut headers: Vec<(&str, &str)> = step["headers"].as_object().map(|h| h.iter().map(|(k, v)| (k.as_str(), v.as_str().unwrap())).collect()).unwrap_or_default();
@@ -808,6 +863,7 @@ async fn run(dir: &Path) -> Value {
             response["other_rows_after"] = without_identity_record(other_after);
         }
         responses.push(response);
+        pages_seen.push(browsers.get(step["client"].as_str().unwrap_or("main")).and_then(|b| b.page.clone()).unwrap_or_default());
     }
     drop(app);
     common::drop_mock_server(key_server).await;
@@ -4762,6 +4818,8 @@ mod index_in_wizard {
     use super::*;
 
     pub const ASSETS: &str = "/bots/dca_single_assets/pick_buyable_asset/new";
+    /// D-INDEX-JOINS-BASKET: a pick stays on the Assets step; its Next is the way on.
+    pub const ADVANCE: &str = "/bots/dca_single_assets/pick_buyable_asset/advance";
     const TURBO: &str = "text/vnd.turbo-stream.html, text/html, application/xhtml+xml";
 
     pub fn get(path: &str, frame: &str) -> Value {
@@ -4857,7 +4915,7 @@ mod index_in_wizard {
         (expected["bots"].clone(), exchange)
     }
 }
-use index_in_wizard::{get, post, walk, went, track, switch, switch_of, index_rows, rows_of, config, in_sheet, raw, select, ASSETS};
+use index_in_wizard::{get, post, walk, went, track, switch, switch_of, index_rows, rows_of, config, in_sheet, raw, select, ADVANCE, ASSETS};
 
 #[tokio::test(flavor = "current_thread")]
 async fn index_in_wizard_the_chooser_is_skipped_and_the_switch_shows_one_list_at_a_time() {
@@ -4961,13 +5019,14 @@ fn index_bot_steps(asset_first: bool, exchange: &str, index: Value, key: Option<
     };
     if asset_first {
         steps.extend([post("/bots/dca_single_assets/order", json!({"flow": "asset_first"})), get(&format!("{ASSETS}?kind=index"), "modal_content"),
-                      post("/bots/dca_indexes/pick_index", index), get("/bots/dca_indexes/add_api_key/new", "modal_content"),
+                      post("/bots/dca_indexes/pick_index", index), post(ADVANCE, json!({})), get("/bots/dca_indexes/add_api_key/new", "modal_content"),
                       get("/bots/dca_indexes/pick_exchange/new", "modal_content"), post("/bots/dca_indexes/pick_exchange", json!({"bots_dca_index[exchange_id]": exchange}))]);
         steps.extend(key_step("dca_indexes"));
     } else {
         steps.push(post("/bots/dca_single_assets/pick_exchange", json!({"bots_dca_single_asset[exchange_id]": exchange})));
         steps.extend(key_step("dca_single_assets"));
-        steps.extend([get(&format!("{ASSETS}?kind=index"), "modal_content"), post("/bots/dca_indexes/pick_index", index), get("/bots/dca_indexes/add_api_key/new", "modal_content")]);
+        steps.extend([get(&format!("{ASSETS}?kind=index"), "modal_content"), post("/bots/dca_indexes/pick_index", index), post(ADVANCE, json!({})),
+                      get("/bots/dca_indexes/add_api_key/new", "modal_content")]);
     }
     steps.extend([get("/bots/dca_indexes/pick_spendable_asset/new", "modal_content"), post("/bots/dca_indexes/pick_spendable_asset", json!({"bots_dca_index[quote_asset_id]": quote}))]);
     steps
@@ -5005,75 +5064,440 @@ async fn index_in_wizard_the_index_track_on_each_step_in_both_orders() {
     let top = json!({"index_type": "top", "index_category_id": "", "index_name": ""});
     let key = Some(json!({"api_key[key]": "kraken-correct", "api_key[secret]": "c2VjcmV0"}));
     let (assets, exchange) = (ASSETS.to_string(), "/bots/dca_indexes/pick_exchange/new");
-    // Asset first: 0 bots/new, 1 exchange step, 2 order, 3 Index view, 4 pick, 5 key (no venue), 6 exchange step, 7 venue, 8 key step,
-    // 9 key, 10 quote step, 11 create.
+    // Asset first: 0 bots/new, 1 exchange step, 2 order, 3 Index view, 4 pick, 5 Next, 6 key (no venue), 7 exchange step, 8 venue,
+    // 9 key step, 10 key, 11 quote step, 12 create.
     let (_dir, answers) = index_bot("wizard_index_kraken_key", true, "3", top.clone(), key.clone(), "18").await;
-    assert_eq!(went(&answers[4]), (302, "/bots/dca_indexes/add_api_key/new".into()));
-    assert_eq!(went(&answers[5]), (302, exchange.into()), "no venue yet: the index exchange step");
-    in_sheet(&answers[6]);
-    assert_eq!(track(&answers[6]), [format!("Top 10:done GET {assets}"), "Exchange:current plain".into(), "Currency:upcoming plain".into()]);
-    let venues = scraper::Html::parse_document(&raw(&answers[6]));
+    assert_eq!(went(&answers[4]), (302, format!("{ASSETS}?kind=index")), "D-INDEX-JOINS-BASKET: the pick stays on the step");
+    assert_eq!(went(&answers[5]), (302, "/bots/dca_indexes/add_api_key/new".into()), "a lone index: Next goes on as the pick did");
+    assert_eq!(went(&answers[6]), (302, exchange.into()), "no venue yet: the index exchange step");
+    in_sheet(&answers[7]);
+    assert_eq!(track(&answers[7]), [format!("Top 10:done GET {assets}"), "Exchange:current plain".into(), "Currency:upcoming plain".into()]);
+    let venues = scraper::Html::parse_document(&raw(&answers[7]));
     assert!(venues.select(&select(".sheet__search")).next().is_none(), "D-EXCHANGE-NO-SEARCH: no search on the exchange step");
     assert!(venues.select(&select("turbo-frame#exchange-picker section.exchange-group button.exchange-grid__item")).count() >= 2, "Brokers / Exchanges");
-    in_sheet(&answers[8]);
-    assert_eq!(track(&answers[8]), [format!("Top 10:done GET {assets}"), "Kraken:current plain".into(), "Currency:upcoming plain".into()]);
-    assert_eq!(went(&answers[9]), (200, "/bots/dca_indexes/pick_spendable_asset/new".into()), "a correct key: on to the quote, in the sheet");
-    in_sheet(&answers[10]);
-    assert_eq!(track(&answers[10]), [format!("Top 10:done GET {assets}"), format!("Kraken:done GET {exchange}"), "Currency:current plain".into()]);
-    let quote = scraper::Html::parse_document(&raw(&answers[10]));
+    in_sheet(&answers[9]);
+    assert_eq!(track(&answers[9]), [format!("Top 10:done GET {assets}"), "Kraken:current plain".into(), "Currency:upcoming plain".into()]);
+    assert_eq!(went(&answers[10]), (200, "/bots/dca_indexes/pick_spendable_asset/new".into()), "a correct key: on to the quote, in the sheet");
+    in_sheet(&answers[11]);
+    assert_eq!(track(&answers[11]), [format!("Top 10:done GET {assets}"), format!("Kraken:done GET {exchange}"), "Currency:current plain".into()]);
+    let quote = scraper::Html::parse_document(&raw(&answers[11]));
     assert!(quote.select(&select(".sheet__search form[data-turbo-frame=asset-picker][action='/bots/dca_indexes/pick_spendable_asset/new']")).next().is_some(), "the quote's search box");
     assert!(quote.select(&select("turbo-frame#asset-picker button[name='bots_dca_index[quote_asset_id]'] .ticker-group")).next().is_some(), "the rows with their members");
-    // Exchange first: 0 bots/new, 1 exchange step, 2 venue, 3 key step, 4 key, 5 Index view, 6 pick, 7 index key step (correct), 8 quote.
+    // Exchange first: 0 bots/new, 1 exchange step, 2 venue, 3 key step, 4 key, 5 Index view, 6 pick, 7 Next, 8 index key step
+    // (correct), 9 quote.
     let (_dir, answers) = index_bot("wizard_index_kraken_key", false, "3", top, key, "18").await;
     assert_eq!(went(&answers[4]).1, ASSETS, "the DCA key step goes on to the assets");
     in_sheet(&answers[5]);
     assert_eq!(track(&answers[5]), ["Kraken:done POST /bots/dca_single_assets/pick_buyable_asset/advance to=exchange".to_string(), "Assets:current plain".into(), "Currency:upcoming plain".into()],
                "no index chosen yet: the DCA track");
     assert_eq!(index_rows(&answers[5]), rows_of(&["nasdaq-100", "top-coins"]), "narrowed to Kraken: Layer 1 is Binance's");
-    assert_eq!(went(&answers[7]), (302, "/bots/dca_indexes/pick_spendable_asset/new".into()));
-    assert_eq!(track(&answers[8]), [format!("Kraken:done GET {exchange}"), format!("Top 10:done GET {assets}"), "Currency:current plain".into()]);
+    assert_eq!(went(&answers[7]), (302, "/bots/dca_indexes/add_api_key/new".into()));
+    assert_eq!(went(&answers[8]), (302, "/bots/dca_indexes/pick_spendable_asset/new".into()));
+    assert_eq!(track(&answers[9]), [format!("Kraken:done GET {exchange}"), format!("Top 10:done GET {assets}"), "Currency:current plain".into()]);
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn index_in_wizard_a_revisit_lists_the_venues_indices_and_one_index_or_one_basket() {
+async fn index_in_wizard_a_revisit_lists_the_venues_indices_and_adds_to_the_selection() {
     let top = json!({"index_type": "top", "index_category_id": "", "index_name": ""});
     let layer1 = json!({"index_type": "category", "index_category_id": "layer-1", "index_name": "Layer 1 <L1>"});
-    // Asset first to the quote step (answers[10]; its create not sent), then back to the Assets step.
+    // Asset first to the quote step (answers[11]; its create not sent), then back to the Assets step.
     let mut steps = index_bot_steps(true, "3", top.clone(), Some(json!({"api_key[key]": "kraken-correct", "api_key[secret]": "c2VjcmV0"})), "18");
     steps.pop();
     steps.extend([
-        get(ASSETS, "modal_content"),                                                // 11 the index chosen: the Index view
-        post("/bots/dca_indexes/pick_index", layer1.clone()),                        // 12 not Kraken's
-        post("/bots/dca_indexes/pick_index", json!({"index_type": "category", "index_category_id": "nope", "index_name": "x"})), // 13 forged
-        post("/bots/dca_indexes/pick_index", top.clone()),                           // 14 another pick replaces the first
-        get(&format!("{ASSETS}?kind=asset"), "modal_content"),                       // 15 the Asset view: Kraken's assets
-        post("/bots/dca_single_assets/pick_buyable_asset", json!({"bots_dca_single_asset[base_asset_id]": "16"})), // 16 the first asset: BTC, on Kraken
-        get(&format!("{ASSETS}?kind=index"), "modal_content"),                       // 17
-        post("/bots/dca_indexes/pick_index", top),                                   // 18 an index over the basket
+        get(ASSETS, "modal_content"),                                                // 12 the index chosen: the Index view
+        post("/bots/dca_indexes/pick_index", layer1.clone()),                        // 13 not Kraken's
+        post("/bots/dca_indexes/pick_index", json!({"index_type": "category", "index_category_id": "nope", "index_name": "x"})), // 14 forged
+        post("/bots/dca_indexes/pick_index", top.clone()),                           // 15 the held index again
+        get(&format!("{ASSETS}?kind=asset"), "modal_content"),                       // 16 the Asset view: Kraken's assets
+        post("/bots/dca_single_assets/pick_buyable_asset", json!({"bots_dca_single_asset[base_asset_id]": "16"})), // 17 BTC beside the index
+        get(&format!("{ASSETS}?kind=index"), "modal_content"),                       // 18
+        post("/bots/dca_indexes/pick_index", top),                                   // 19 Top is still held
     ]);
     let (_dir, answers) = walk("wizard_index_kraken_key", steps).await;
-    assert_eq!(switch(&answers[11]), switch_of("", true), "the session's index: the Index view");
-    assert_eq!(index_rows(&answers[11]), rows_of(&["nasdaq-100", "top-coins"]), "Kraken's");
-    assert_eq!(track(&answers[11]), ["Top 10:current plain".to_string(), "Kraken:upcoming GET /bots/dca_indexes/pick_exchange/new".into(), "Currency:upcoming plain".into()]);
-    for at in [12, 13] {
+    assert_eq!(switch(&answers[12]), switch_of("", true), "the session's index: the Index view");
+    assert_eq!(index_rows(&answers[12]), rows_of(&["nasdaq-100"]), "Kraken's, the held Top left out");
+    assert_eq!(track(&answers[12]), ["Top 10:current plain".to_string(), "Kraken:upcoming GET /bots/dca_indexes/pick_exchange/new".into(), "Currency:upcoming plain".into()]);
+    for at in [13, 14, 15] {
         assert_eq!(answers[at]["status"], 422, "an index the list does not offer: {at}");
         assert!(raw(&answers[at]).contains(&deltabadger::web::i18n::text("en", "bot.dca_index.setup.pick_index.error", &[])), "{at}");
-        assert_eq!(config(&answers[at]), config(&answers[11]), "nothing written: {at}");
+        assert_eq!(config(&answers[at]), config(&answers[12]), "nothing written: {at}");
     }
-    assert_eq!(went(&answers[14]), (302, "/bots/dca_indexes/add_api_key/new".into()));
-    assert_eq!(config(&answers[14])["exchange_id"], json!("3"));
-    // The Asset view after an index: narrowed to Kraken; the first asset keeps the venue and clears the index.
-    assert_eq!(switch(&answers[15]), switch_of("", false));
-    assert_eq!(went(&answers[16]).0, 302);
-    let basket = config(&answers[16]);
+    // D-INDEX-JOINS-BASKET: the first asset after an index keeps the venue and the index, as one pick beside it.
+    assert_eq!(switch(&answers[16]), switch_of("", false));
+    assert_eq!(went(&answers[17]).0, 302);
+    let basket = config(&answers[17]);
     assert_eq!(basket["exchange_id"], json!("3"), "the venue stays");
     assert_eq!(basket["settings"]["base_asset_ids"], json!([16]));
+    assert_eq!(basket["settings"]["index_ids"], json!([2]), "Top's row, beside BTC");
     for key in ["index_type", "index_category_id", "index_name", "index_name_prefix", "allocation_flattening"] { assert!(basket["settings"].get(key).is_none(), "{key}: {basket}"); }
-    // An index over a non-empty basket replaces it, without a question.
-    assert_eq!(went(&answers[18]), (302, "/bots/dca_indexes/add_api_key/new".into()));
-    let index = config(&answers[18]);
-    assert_eq!(index["settings"]["index_type"], json!("top"));
-    for key in ["base_asset_ids", "base_asset_id", "quote_asset_id"] { assert!(index["settings"].get(key).is_none(), "{key}: {index}"); }
+    assert_eq!(answers[19]["status"], 422, "Top is held: not offered again");
+    assert_eq!(config(&answers[19]), basket);
+}
+
+// PLAN index-as-ingredient slice 6 (D-INDEX-JOINS-BASKET): an index joins the selection beside assets and other indexes; a
+// mixed selection is saved as one grouped basket, through one eligibility check. Walked on the recorded installs.
+mod joins {
+    use super::*;
+    pub const REMOVE: &str = "/bots/dca_single_assets/pick_buyable_asset/remove";
+    pub fn begin() -> Vec<Value> {
+        vec![get("/bots/new", "modal"), get("/bots/dca_single_assets/pick_exchange/new", "modal"), post("/bots/dca_single_assets/order", json!({"flow": "asset_first"}))]
+    }
+    pub fn asset(id: &str) -> Value { post("/bots/dca_single_assets/pick_buyable_asset", json!({"bots_dca_single_asset[base_asset_id]": id})) }
+    pub fn top() -> Value { post("/bots/dca_indexes/pick_index", json!({"index_type": "top", "index_category_id": "", "index_name": ""})) }
+    pub fn category(id: &str) -> Value { post("/bots/dca_indexes/pick_index", json!({"index_type": "category", "index_category_id": id, "index_name": id})) }
+    pub fn next() -> Value { post(ADVANCE, json!({})) }
+    pub fn drop_index(row: &str) -> Value { post(REMOVE, json!({"index_row": row})) }
+    pub fn drop_asset(id: &str) -> Value { post(REMOVE, json!({"bots_dca_single_asset[base_asset_id]": id})) }
+    pub fn venue(id: &str) -> Value { post("/bots/dca_multi_assets/pick_exchange", json!({"bots_dca_multi_asset[exchange_id]": id})) }
+    pub fn kraken_key() -> Value { post("/bots/dca_multi_assets/add_api_key", json!({"api_key[key]": "kraken-correct", "api_key[secret]": "c2VjcmV0"})) }
+    /// The quote form of the last page (or of walk answer `from`), as rendered: its URL carries the selection it was drawn for.
+    pub fn quote(id: &str, from: Option<usize>) -> Value {
+        let mut step = post("/bots/dca_multi_assets/pick_spendable_asset", json!({"bots_dca_multi_asset[quote_asset_id]": id}));
+        step["path_from"] = json!("form[method=post][action*='/bots/dca_multi_assets/pick_spendable_asset']");
+        if let Some(at) = from { step["path_from_step"] = json!(at + 2); }
+        step
+    }
+    pub fn with(mut step: Value, before: &str) -> Value { step["before"] = json!(before); step }
+    pub fn db(dir: &Path) -> rusqlite::Connection { rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap() }
+    /// Bot 1's class, settings and transient data; None when no bot was made.
+    pub fn made(dir: &Path) -> Option<(String, Value, Value)> {
+        use rusqlite::OptionalExtension;
+        db(dir).query_row("SELECT type, settings, transient_data FROM bots WHERE id = 1", [], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))).optional().unwrap()
+            .map(|(class, settings, transient)| (class, serde_json::from_str(&settings).unwrap(), serde_json::from_str(&transient).unwrap()))
+    }
+    /// The venues an exchange step lists.
+    pub fn venues(answer: &Value) -> std::collections::BTreeSet<String> {
+        scraper::Html::parse_document(&raw(answer)).select(&select("#exchange-picker button.exchange-grid__item")).map(|b| b.value().attr("value").unwrap().to_string()).collect()
+    }
+    /// The quotes a quote step lists.
+    pub fn quotes(answer: &Value) -> Vec<String> {
+        scraper::Html::parse_document(&raw(answer)).select(&select("button[name='bots_dca_multi_asset[quote_asset_id]']")).map(|b| b.value().attr("value").unwrap().to_string()).collect()
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_two_indexes_and_no_asset_create_one_grouped_basket() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([
+        get(&format!("{ASSETS}?kind=index"), "modal_content"),                       // 3
+        top(),                                                                       // 4
+        category("layer-1"),                                                         // 5
+        next(),                                                                      // 6
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"),            // 7
+        venue("4"),                                                                  // 8 Binance
+        get("/bots/dca_multi_assets/add_api_key/new", "modal_content"),              // 9 its key is correct
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),     // 10
+        quote("19", None),                                                           // 11 USDT
+    ]);
+    let (dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(went(&answers[4]), (302, format!("{ASSETS}?kind=index")), "a pick stays on the step");
+    let held = config(&answers[5]);
+    assert_eq!(held["settings"]["index_ids"], json!([2, 3]), "{held}");
+    assert!(held["settings"].get("index_type").is_none() && held["settings"].get("base_asset_ids").is_none(), "{held}");
+    assert_eq!(went(&answers[6]), (302, "/bots/dca_multi_assets/pick_exchange/new".into()), "two indexes and no asset complete the Assets step");
+    assert_eq!(venues(&answers[7]), ["4".to_string()].into(), "Layer 1 names Binance alone; Top has two members on Alpaca");
+    assert_eq!(went(&answers[11]), (200, "/bots/1".into()), "{:?}", answers.iter().map(went).collect::<Vec<_>>());
+    let (class, settings, transient) = made(dir.path()).expect("a bot");
+    assert_eq!(class, "Bots::DcaMultiAsset");
+    assert_eq!(settings["allocations"], json!({}));
+    assert!(settings.get("index_ids").is_none(), "the wizard's row ids stay in the wizard: {settings}");
+    assert_eq!(settings["index_groups"], json!([
+        {"index_type": "top", "num_coins": 10, "hold_all": false, "allocation_flattening": 0.0, "weight": 0.5},
+        {"index_type": "category", "index_category_id": "layer-1", "index_name": "Layer 1 <L1>", "num_coins": 10, "hold_all": false, "allocation_flattening": 0.0, "weight": 0.5},
+    ]));
+    assert_eq!(transient[deltabadger::engine::index::RESYNC_KEY]["n"], json!(1), "the engine composes it: {transient}");
+    let members: i64 = joins::db(dir.path()).query_row("SELECT COUNT(*) FROM bot_index_assets WHERE bot_id = 1", [], |r| r.get(0)).unwrap();
+    assert_eq!(members, 0, "no member until the engine composes");
+    let label: String = joins::db(dir.path()).query_row("SELECT label FROM bots WHERE id = 1", [], |r| r.get(0)).unwrap();
+    assert!(label.starts_with("Top") && label.contains("Layer 1"), "the indexes' names: {label}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_btc_and_an_index_remove_one_after_going_back_from_the_currency_step() {
+    use joins::*;
+    // BTC first, then Top (the reverse of the revisit's order), to the quote step on Kraken, then back to the Assets step.
+    let to_quote = || { let mut steps = begin(); steps.extend([
+        get(ASSETS, "modal_content"),                                                // 3
+        asset("16"),                                                                 // 4 BTC
+        get(&format!("{ASSETS}?kind=index"), "modal_content"),                       // 5
+        top(),                                                                       // 6
+        next(),                                                                      // 7
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"),            // 8
+        venue("3"),                                                                  // 9 Kraken
+        get("/bots/dca_multi_assets/add_api_key/new", "modal_content"),              // 10
+        kraken_key(),                                                                // 11
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),     // 12
+        get(ASSETS, "modal_content"),                                                // 13 back by the track
+    ]); steps };
+    // Top removed: a plain BTC basket, as the asset-only walk makes it.
+    let mut steps = to_quote();
+    steps.extend([drop_index("2"), next(), get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"), quote("18", None)]);
+    let (dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    assert_eq!(config(&answers[6])["settings"]["base_asset_ids"], json!([16]), "BTC first keeps BTC");
+    assert_eq!(config(&answers[6])["settings"]["index_ids"], json!([2]), "and Top joins it");
+    for (at, step) in [(8, "the exchange step"), (10, "the key step"), (12, "the quote step"), (13, "the Asset view")] {
+        let page = scraper::Html::parse_document(&raw(&answers[at]));
+        let item = page.select(&select("ol.sheet__track .sheet__label--tickers")).next().unwrap_or_else(|| panic!("{step}: {}", raw(&answers[at])));
+        assert!(item.select(&select("[data-ticker-symbol=BTC]")).next().is_some(), "{step}: the BTC chip");
+        assert_eq!(item.select(&select(".ticker-group--many")).count(), 1, "{step}: one stack for Top");
+    }
+    assert!(config(&answers[14])["settings"].get("index_ids").is_none(), "{}", config(&answers[14]));
+    assert_eq!(went(&answers[15]), (302, "/bots/dca_multi_assets/pick_spendable_asset/new".into()));
+    assert_eq!(went(&answers[17]), (200, "/bots/1".into()), "{:?}", answers.iter().map(went).collect::<Vec<_>>());
+    let (class, settings, _) = made(dir.path()).unwrap();
+    assert_eq!(class, "Bots::DcaMultiAsset");
+    assert!(settings.get("index_groups").is_none());
+    let mut plain = begin();
+    plain.extend([get(ASSETS, "modal_content"), asset("16"), next(), get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("3"),
+                  get("/bots/dca_multi_assets/add_api_key/new", "modal_content"), kraken_key(), get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),
+                  quote("18", None)]);
+    let (plain_dir, _) = walk("wizard_index_kraken_key", plain).await;
+    assert_eq!(index_in_wizard::bot_row(dir.path()), index_in_wizard::bot_row(plain_dir.path()), "the asset-only walk's basket");
+    // BTC removed instead: the lone Top, saved by the index wizard as 2.x saved it.
+    let mut steps = to_quote();
+    steps.extend([drop_asset("16"), next(), get("/bots/dca_indexes/add_api_key/new", "modal_content"), get("/bots/dca_indexes/pick_spendable_asset/new", "modal_content"),
+                  post("/bots/dca_indexes/pick_spendable_asset", json!({"bots_dca_index[quote_asset_id]": "18"}))]);
+    let (dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    let lone = config(&answers[14]);
+    assert_eq!(lone["settings"]["index_type"], json!("top"), "{lone}");
+    assert!(lone["settings"].get("index_ids").is_none() && lone["settings"].get("base_asset_ids").is_none(), "{lone}");
+    assert_eq!(went(&answers[15]), (302, "/bots/dca_indexes/add_api_key/new".into()));
+    assert_eq!(went(&answers[18]), (200, "/bots/1".into()), "{:?}", answers.iter().map(went).collect::<Vec<_>>());
+    assert_eq!(made(dir.path()).unwrap().0, "Bots::DcaIndex");
+    assert_eq!(index_in_wizard::bot_row(dir.path()), index_in_wizard::recorded_bot("wizard_index_kraken_key", 3));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_venue_the_index_does_not_name_is_refused_everywhere() {
+    use joins::*;
+    // Layer 1 names Binance alone, though six of its members and BTC trade on Kraken in EUR (both keys correct here).
+    let mut steps = begin();
+    steps.extend([
+        get(ASSETS, "modal_content"), asset("16"),                                   // 3, 4
+        get(&format!("{ASSETS}?kind=index"), "modal_content"), category("layer-1"),  // 5, 6
+        next(),                                                                      // 7
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"),            // 8
+        venue("3"),                                                                  // 9 Kraken: refused
+        post("/bots/dca_single_assets/pick_exchange", json!({"bots_dca_single_asset[exchange_id]": "3"})), // 10 the same by the single step
+        venue("4"),                                                                  // 11 Binance
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),     // 12
+        with(quote("19", None), "layer1_kraken_only"),                               // 13 Layer 1 now names Kraken alone
+        get("/bots/dca_multi_assets/add_api_key/new", "modal_content"),              // 14
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"),            // 15
+    ]);
+    let (dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(venues(&answers[8]), ["4".to_string()].into());
+    for at in [9, 10] {
+        assert_eq!(answers[at]["status"], 422, "{at}: {}", raw(&answers[at]));
+        assert!(config(&answers[at]).get("exchange_id").is_none(), "{at}: nothing written");
+    }
+    assert_eq!(answers[13]["status"], 422, "the save checks the venue again");
+    assert!(made(dir.path()).is_none(), "no bot");
+    assert_eq!(went(&answers[14]), (302, "/bots/dca_multi_assets/pick_exchange/new".into()), "the key step sends a refused venue back");
+    assert_eq!(venues(&answers[15]), ["3".to_string()].into());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_the_save_counts_the_engines_ranking_and_refuses_a_retired_pick() {
+    use joins::*;
+    for (hook, why) in [("ranked_layer1_short", "the engine's Layer 1 ranking holds two distinct non-stablecoin members"), ("retire_layer1", "Layer 1 retired")] {
+        let mut steps = begin();
+        steps.extend([
+            get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), category("layer-1"), next(),   // 3-6
+            get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("4"),               // 7, 8
+            get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),                    // 9
+            with(quote("19", None), hook),                                                              // 10
+        ]);
+        let (dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+        assert!(quotes(&answers[9]).contains(&"19".to_string()), "{why}: offered before");
+        assert_eq!(answers[10]["status"], 422, "{why}: {}", raw(&answers[10]));
+        assert!(made(dir.path()).is_none(), "{why}: no bot");
+        assert!(!quotes(&answers[10]).contains(&"19".to_string()), "{why}: no longer offered");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_an_old_quote_form_and_a_refused_quote() {
+    use joins::*;
+    // BTC + Top on Kraken to the quote step (12), back, Top removed: the old form saves nothing.
+    let mut steps = begin();
+    steps.extend([
+        get(ASSETS, "modal_content"), asset("16"), get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), next(), // 3-7
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("3"),                                    // 8, 9
+        get("/bots/dca_multi_assets/add_api_key/new", "modal_content"), kraken_key(),                                    // 10, 11
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),                                         // 12
+        get(ASSETS, "modal_content"), drop_index("2"),                                                                   // 13, 14
+        quote("18", Some(12)),                                                                                           // 15
+    ]);
+    let (dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    assert_eq!(went(&answers[15]), (409, "/bots/dca_multi_assets/pick_spendable_asset/new".into()), "{}", raw(&answers[15]));
+    assert_eq!(config(&answers[15]), config(&answers[14]), "the session untouched");
+    assert!(made(dir.path()).is_none());
+    // On Binance, BTC + Top, a quote Binance does not list (EUR): refused, and the venues are not narrowed by it afterwards.
+    let mut steps = begin();
+    steps.extend([
+        get(ASSETS, "modal_content"), asset("16"), get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), next(), // 3-7
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("4"),                                    // 8, 9
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"), quote("18", None),                      // 10, 11
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"),                                                // 12
+    ]);
+    let (dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(answers[11]["status"], 422);
+    assert!(made(dir.path()).is_none());
+    assert!(config(&answers[11])["settings"].get("quote_asset_id").is_none(), "the refused quote is cleared: {}", config(&answers[11]));
+    assert!(venues(&answers[12]).contains("3") && venues(&answers[12]).contains("4"), "{:?}", venues(&answers[12]));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_single_namespace_venue_repost_keeps_two_indexes() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), category("layer-1"),                     // 3-5
+                  post("/bots/dca_single_assets/pick_exchange", json!({"bots_dca_single_asset[exchange_id]": "4"}))]);    // 6
+    let (_dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(went(&answers[6]).0, 302, "{}", raw(&answers[6]));
+    assert_eq!(config(&answers[6])["exchange_id"], json!("4"));
+    assert_eq!(config(&answers[6])["settings"]["index_ids"], json!([2, 3]), "the venue keeps the indexes");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_stock_and_a_stock_index_take_the_broker_shortcut() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([get(ASSETS, "modal_content"), asset("6"), get(&format!("{ASSETS}?kind=index"), "modal_content"), category("nasdaq-100"), next(), // 3-7
+                  get("/bots/dca_multi_assets/add_api_key/new", "modal_content"),                                                           // 8
+                  get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content")]);                                                // 9
+    let (_dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    assert_eq!(went(&answers[7]), (302, "/bots/dca_multi_assets/add_api_key/new".into()), "Alpaca, the one broker listing both");
+    assert_eq!(config(&answers[7])["exchange_id"], json!(1));
+    assert_eq!(went(&answers[8]), (302, "/bots/dca_multi_assets/pick_spendable_asset/new".into()), "its key is correct");
+    assert_eq!(joins::quotes(&answers[9]), ["1".to_string()], "USD alone on Alpaca");
+    let page = scraper::Html::parse_document(&raw(&answers[9]));
+    let item = page.select(&select("ol.sheet__track .sheet__label--tickers")).next().expect("the quote step's track");
+    assert_eq!(item.select(&select(".ticker-group--many")).count(), 1, "the stack beside AAPL");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_an_index_heavy_selection_fits_the_cookie() {
+    use joins::*;
+    // 33 crypto assets and 67 indices: the hundred ingredients; the 68th index refused on its own POST.
+    let crypto: Vec<String> = [16, 17].into_iter().chain(20..=50).map(|id| id.to_string()).collect();
+    let indices: Vec<String> = ["nasdaq-100".to_string(), "layer-1".into()].into_iter().chain((0..64).map(|n| format!("a-rather-long-category-identifier-number-{n:03}"))).collect();
+    let mut steps = begin();
+    steps.push(with(get(ASSETS, "modal_content"), "many_indices"));
+    steps.extend(crypto.iter().map(|id| asset(id)));
+    steps.push(top());
+    steps.extend(indices.iter().map(|id| category(id)));
+    steps.push(category("a-rather-long-category-identifier-number-064"));
+    steps.push(get(ASSETS, "modal_content"));
+    let (_dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    let picks = &answers[4..answers.len() - 2];
+    assert_eq!(picks.len(), 100);
+    for (at, answer) in picks.iter().enumerate() { assert_eq!(answer["status"], 302, "pick {at}: {}", raw(answer)); }
+    let held = config(&picks[99]);
+    assert_eq!(held["settings"]["base_asset_ids"].as_array().unwrap().len(), 33, "{held}");
+    assert_eq!(held["settings"]["index_ids"].as_array().unwrap().len(), 67, "{held}");
+    let refused = &answers[answers.len() - 2];
+    assert_eq!(refused["status"], 422, "the 101st ingredient");
+    assert_eq!(config(refused), held);
+    assert_eq!(answers.last().unwrap()["status"], 200);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_removed_catalogue_row_stays_removable() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), category("layer-1"),       // 3-5
+                  with(get(&format!("{ASSETS}?kind=index"), "modal_content"), "drop_layer1_row"),          // 6
+                  drop_index("3")]);                                                                        // 7
+    let (_dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    let page = scraper::Html::parse_document(&raw(&answers[6]));
+    assert!(page.select(&select("form[action$='/pick_buyable_asset/remove'] input[name=index_row][value='3']")).next().is_some(), "its × is still drawn: {}", raw(&answers[6]));
+    assert_eq!(went(&answers[7]).0, 302);
+    let lone = config(&answers[7]);
+    assert_eq!(lone["settings"]["index_type"], json!("top"), "Top alone again: {lone}");
+    assert!(lone["settings"].get("index_ids").is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_btc_and_top_store_no_defaulted_rule_subject() {
+    use joins::*;
+    // A grouped bot never persists a defaulted rule subject (slice 3): BTC + Top saved, no rule names BTC's pair.
+    let mut steps = begin();
+    steps.extend([
+        get(ASSETS, "modal_content"), asset("16"), get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), next(), // 3-7
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("3"),                                    // 8, 9
+        get("/bots/dca_multi_assets/add_api_key/new", "modal_content"), kraken_key(),                                    // 10, 11
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"), quote("18", None),                      // 12, 13
+    ]);
+    let (dir, answers) = walk("wizard_index_kraken_key", steps).await;
+    assert_eq!(went(&answers[13]), (200, "/bots/1".into()), "{:?}", answers.iter().map(went).collect::<Vec<_>>());
+    let (class, settings, _) = made(dir.path()).unwrap();
+    assert_eq!(class, "Bots::DcaMultiAsset");
+    for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
+        for key in [format!("{rule}_in_ticker_id"), format!("sell_{rule}_in_ticker_id")] { assert!(settings.get(&key).is_none_or(Value::is_null), "{key}: {settings}"); }
+    }
+    assert!(settings.get("index_ids").is_none(), "{settings}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_the_save_needs_the_ranking_provider() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([
+        get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), category("layer-1"), next(),   // 3-6
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("4"),               // 7, 8
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"),                    // 9
+        with(quote("19", None), "drop_market_data_token"),                                          // 10
+    ]);
+    let (dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(answers[10]["status"], 422, "no provider to compose it: {}", raw(&answers[10]));
+    assert!(made(dir.path()).is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_an_unresolved_index_stays_when_the_other_ingredient_goes() {
+    use joins::*;
+    // BTC + Layer 1, Layer 1's catalogue row gone, BTC removed: Layer 1's placeholder and its × stay.
+    let mut steps = begin();
+    steps.extend([get(ASSETS, "modal_content"), asset("16"), get(&format!("{ASSETS}?kind=index"), "modal_content"), category("layer-1"), // 3-6
+                  with(drop_asset("16"), "drop_layer1_row"), get(&format!("{ASSETS}?kind=index"), "modal_content")]);                    // 7, 8
+    let (_dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(config(&answers[6])["settings"]["index_ids"], json!([3]), "{}", config(&answers[6]));
+    assert_eq!(config(&answers[7])["settings"]["index_ids"], json!([3]), "{}", config(&answers[7]));
+    let page = scraper::Html::parse_document(&raw(&answers[8]));
+    assert!(page.select(&select("form[action$='/pick_buyable_asset/remove'] input[name=index_row][value='3']")).next().is_some(), "its × is still drawn: {}", raw(&answers[8]));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_a_single_namespace_key_post_checks_the_grouped_venue() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([
+        get(&format!("{ASSETS}?kind=index"), "modal_content"), top(), category("layer-1"), next(),   // 3-6
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("4"),               // 7, 8
+        with(post("/bots/dca_single_assets/add_api_key", json!({"api_key[key]": "k", "api_key[secret]": "s"})), "layer1_kraken_only"), // 9
+    ]);
+    let (_dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    let (status, to) = went(&answers[9]);
+    assert!(status == 302 && to.contains("pick_exchange"), "a venue the selection no longer admits: back to the venues, {status} {to}");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn index_in_wizard_two_bounded_600_member_indexes_are_refused() {
+    use joins::*;
+    let mut steps = begin();
+    steps.extend([
+        with(get(&format!("{ASSETS}?kind=index"), "modal_content"), "big_indices"), category("big-a"), category("big-b"), next(), // 3-6
+        get("/bots/dca_multi_assets/pick_exchange/new", "modal_content"), venue("4"),                                            // 7, 8
+        get("/bots/dca_multi_assets/pick_spendable_asset/new", "modal_content"), quote("19", None),                               // 9, 10
+    ]);
+    let (dir, answers) = walk("wizard_index_layer1_binance", steps).await;
+    assert_eq!(went(&answers[6]), (302, "/bots/dca_multi_assets/pick_exchange/new".into()), "{:?}", answers.iter().map(went).collect::<Vec<_>>());
+    assert_eq!(answers[10]["status"], 422, "1200 members past the bound of 1000: {}", raw(&answers[10]));
+    assert!(raw(&answers[10]).contains("1000"), "the settings writer's bound, named: {}", raw(&answers[10]));
+    assert!(made(dir.path()).is_none());
 }
 
 #[tokio::test(flavor = "current_thread")]

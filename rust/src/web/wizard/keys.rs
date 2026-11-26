@@ -112,7 +112,8 @@ fn form(c: &Connection, app: &App, ctx: &Ctx, csrf: &str, config: Option<&Value>
     let order = order(config, namespace);
     let multi = namespace == Namespace::Multi;
     let ids = if multi { basket_ids(config) } else { vec![] };
-    let steered = steer(ctx, csrf, SentenceOf { order: &order, step: Step::Api, multi, chips: chips(c, &ids)?, exchange: exchange_name(c, Some(venue.id))? }, true)?;
+    let stacks = if multi { super::grouped::stacks(c, ctx, config)? } else { vec![] };
+    let steered = steer(ctx, csrf, SentenceOf { order: &order, step: Step::Api, multi, chips: chips(c, &ids)?, stacks, exchange: exchange_name(c, Some(venue.id))? }, true)?;
     Ok((Form { search: steered.search, card }.render()?, steered.track))
 }
 
@@ -131,6 +132,11 @@ fn route(c: &Connection, app: &App, user: i64, config: Option<&Value>, namespace
     let Some(venue) = venue.filter(|venue| ported(&venue.class)) else { return Ok(Route::Refused) };
     if namespace == Namespace::Index && super::index::refusal(c, app, &venue.class)?.is_some() { return Ok(Route::Refused) }
     if namespace == Namespace::Signal && crate::engine::eligibility::signal_admission(Some(&venue.class)).is_some() { return Ok(Route::Refused) }
+    // PLAN index-as-ingredient slice 6: a mixed selection's venue must still be one `grouped::eligible` admits, on either DCA
+    // key step (an older single-namespace form posts here without its GET's redirect).
+    if matches!(namespace, Namespace::Multi | Namespace::Single) && super::grouped::mixed(config) && !super::grouped::session_eligible(c, app, config, venue.id, None)? {
+        return Ok(Route::To(missing_exchange_path(c, config, namespace)?));
+    }
     // #710 7a §2: the picked account's key; an Exchanges tile's is a blank candidate, saved where it routes.
     let Some(account) = super::account(c, user, config)? else { return Ok(Route::To(missing_exchange_path(c, config, namespace)?)) };
     let key = if super::untargeted(config) { keys::Key::untargeted(account) } else { keys::Key::read(c, app, account, 0)? };

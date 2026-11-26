@@ -1480,15 +1480,29 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, available, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.25', '0.4', 1, '2026-01-01', '2026-01-01')", [])?;
     let kraken = c.last_insert_rowid();
     c.execute("DELETE FROM indices", [])?;
+    // PLAN index-as-ingredient slice 6: three distinct members of both indices trade on Kraken in USD (BTC among them), so a
+    // mixed selection of BTC and an index passes the grouped create's check there.
+    let mut members = vec![("bitcoin".to_string(), seeded.btc)];
+    for (external, symbol) in [("ethereum", "ETH"), ("solana", "SOL")] {
+        c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES (?1, ?2, ?2, 'Cryptocurrency', '2026-01-01', '2026-01-01')", (external, symbol))?;
+        members.push((external.to_string(), c.last_insert_rowid()));
+    }
+    for (_, asset) in &members {
+        let symbol: String = c.query_row("SELECT symbol FROM assets WHERE id = ?1", [asset], |r| r.get(0))?;
+        c.execute("INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+                   minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+                   VALUES (?1, ?2, ?3, 'USD', ?4, ?5, 8, 2, 2, '0.0001', '1', 1, 1, '2026-01-01', '2026-01-01')", (kraken, format!("{symbol}USD"), &symbol, asset, seeded.quote))?;
+    }
+    let coins = json!(members.iter().map(|(external, _)| external.clone()).collect::<Vec<_>>()).to_string();
     for (external, source, name, description) in [("top-coins", "internal", "Top Coins", "The largest coins by market cap."), ("layer-1", "coingecko", "Layer 1", "Base chains.")] {
         c.execute("INSERT INTO indices (external_id, source, name, description, top_coins, top_coins_by_exchange, available_exchanges, weight, created_at, updated_at) \
-                   VALUES (?1, ?2, ?3, ?4, '[]', '{}', '{\"Exchanges::Kraken\":3}', 0, '2026-01-01', '2026-01-01')", (external, source, name, description))?;
+                   VALUES (?1, ?2, ?3, ?4, ?5, '{}', '{\"Exchanges::Kraken\":3}', 0, '2026-01-01', '2026-01-01')", (external, source, name, description, &coins))?;
     }
     let venue_server = wiremock::MockServer::start().await;
     wiremock::Mock::given(wiremock::matchers::method("POST")).and(wiremock::matchers::path("/api.kraken.com/0/private/GetApiKeyInfo"))
         .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!({"error": [], "result": {"permissions": ["query-funds", "query-open-trades", "query-closed-trades", "modify-trades", "close-trades", "query-ledger"]}})))
         .mount(&venue_server).await;
-    let index_wizard = json!({"venue": kraken, "key": "kraken-correct", "secret": "c2VjcmV0"});
+    let index_wizard = json!({"venue": kraken, "key": "kraken-correct", "secret": "c2VjcmV0", "btc": seeded.btc});
     // The real time: a browser drops a session cookie whose expiry (the clock's now plus its lifetime) has passed.
     let app = web::app(dir.path(), "engine-test-secret", TestClock::starting(chrono::Utc::now()))
         .with_venue_key_urls(&format!("{}/api.kraken.com", venue_server.uri()), &format!("{}/api.binance.com", venue_server.uri()), &format!("{}/api.kucoin.com", venue_server.uri())).unwrap();
