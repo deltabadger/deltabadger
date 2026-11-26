@@ -102,8 +102,13 @@ pub async fn run<V: Venue>(c: &Connection, venue: &V, id: i64, clock: &dyn Clock
     composition::promote_orphan(c, id, TxKind::Redeploy, clock.now())?;
     let bot = model::load_bot(c, id)?;
     if let Some(stale) = super::staleness::stale(c, &bot, clock.now())? { return refuse(c, id, json!([stale.message]), clock); }
-    let mut claim = rebalance::Claim { composition: placement::composition_snapshot(c, &bot)?, bot };
+    // Codex 2b r2: a grouped refresh writes a new revision, which would strand an unresolved order's intent; nothing is
+    // refreshed while one stands.
+    if bot.stored_groups() && bot.rust_placement().is_some() { return refuse(c, id, json!(["halted"]), clock); }
+    let mut claim = rebalance::Claim { composition: placement::composition_snapshot(c, &bot)?, bot, refused: None };
     if !rebalance::before_rebalance(c, venue, &mut claim, clock, cx).await? { return refuse(c, id, json!(["changed"]), clock); }
+    // PLAN index-as-ingredient §3.4: a grouped bot is sized only from a refresh that succeeded.
+    if let Some(m) = claim.refused.clone() { return refuse(c, id, json!([m]), clock); }
     // After the refresh, on the members being bought (a refresh can rotate a closed-market member in).
     let composed = composition_tickers(c, &claim.bot)?;
     // Exchanges::Alpaca#all_crypto?: an empty list is not all crypto, so the clock is asked.

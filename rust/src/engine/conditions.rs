@@ -236,11 +236,11 @@ fn rule_ticker_quoted(c: &Connection, bot: &Bot, rule: &PriceRule) -> Result<(Op
 async fn last_price<V: Attributed>(venue: &V, bot: &Bot, ticker: &Ticker, now: DateTime<Utc>, prices: &PriceCache, version: &Option<model::CredentialVersion>)
     -> Result<(BigDec, Option<model::CredentialVersion>), VenueError> {
     let key = (bot.exchange_id, ticker.id, PriceSide::Last);
-    if let Some(hit) = prices.get(key, now, version) { return Ok((hit, version.clone())); }
+    if let Some(hit) = prices.get_for(key, ticker, now, version) { return Ok((hit, version.clone())); }
     let result = venue.price_result(ticker, PriceSide::Last).await;
     let origin = result.origin().clone();
     let p = result.value?;
-    prices.put_result(key, now, model::Produced::new(p.clone(), origin.clone()));
+    prices.put_result(key, ticker, now, model::Produced::new(p.clone(), origin.clone()));
     Ok((p, origin))
 }
 

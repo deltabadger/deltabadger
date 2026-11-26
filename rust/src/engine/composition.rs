@@ -63,16 +63,59 @@ impl Bot {
     pub fn composition(&self) -> Option<Composition> { Composition::of(&self.bot_type, self.settings.as_object()) }
     /// The composition the engine runs as groups.
     fn grouped(&self) -> Option<Composition> {
-        // slice 2: grouped MultiAsset activates here. Until then only a `Bots::DcaIndex` row runs as an index.
-        if self.bot_type == "Bots::DcaIndex" { self.composition() } else { None }
+        // PLAN index-as-ingredient slice 2b: a `Bots::DcaIndex` row and a basket stored with `index_groups` run as groups.
+        if self.has_groups() { self.composition() } else { None }
     }
     /// Stored with `index_groups` (PLAN index-as-ingredient §3.3): the class and the array as stored, `[]` included, no
     /// decode. What the group table's readers key on; `has_groups` is the activation.
     pub fn stored_groups(&self) -> bool { self.bot_type == "Bots::DcaMultiAsset" && self.settings.get("index_groups").is_some_and(Value::is_array) }
-    /// No decode: a `Bots::DcaIndex` row is always one group (slice 2: grouped MultiAsset activates here too).
-    pub fn has_groups(&self) -> bool { self.bot_type == "Bots::DcaIndex" }
+    /// No decode: a `Bots::DcaIndex` row is always one group, a basket stored with `index_groups` its array's (eligibility
+    /// refuses an empty or unreadable one).
+    pub fn has_groups(&self) -> bool { self.bot_type == "Bots::DcaIndex" || self.stored_groups() }
     pub fn lone_group(&self) -> Option<Group> { self.grouped()?.lone_group().cloned() }
     pub fn index_external_ids(&self) -> Vec<String> { self.grouped().map(|c| c.groups.into_iter().map(|g| g.external_id).collect()).unwrap_or_default() }
+}
+
+/// PLAN index-as-ingredient §3.4: what a grouped composition was written from (`bots.transient_data`, Rust-only), set only by
+/// the grouped composition write in that write's own transaction. `rev` is fresh per write, so a refusal that read an
+/// earlier one never removes a later one (`forget`).
+pub const COMPOSED_OF_KEY: &str = "rust_composed_of";
+
+/// The settings a grouped composition is derived from: ingredients in stored order with every group field, the weighting,
+/// the venue, the quote and the effective limit mode (it moves the newcomer probe from the ask to the last trade).
+pub fn digest(bot: &Bot) -> String {
+    use sha2::{Digest, Sha256};
+    let c = bot.composition().unwrap_or_default();
+    let groups: Vec<Value> = c.groups.iter().map(|g| json!([g.external_id, g.weight, g.index_type, g.index_category_id, g.index_name,
+        g.index_name_prefix, g.num_coins, g.hold_all, g.flattening])).collect();
+    let input = json!([c.assets, groups, c.weighting, bot.exchange_id, bot.quote_asset_id(), bot.limit_distance().is_some()]);
+    format!("{:x}", Sha256::digest(input.to_string()))
+}
+
+/// The revision of the bot's stored `rust_composed_of`, if any.
+pub fn composed_rev(bot: &Bot) -> Option<String> { bot.transient.get(COMPOSED_OF_KEY)?.get("rev")?.as_str().map(str::to_string) }
+
+/// Records a grouped composition, in the caller's write: the digest, each group's selected ranked row (`[indices.id,
+/// ranked_at]`, null for a frozen group) and the effective ingredient shares. Returns the new revision.
+pub fn record(c: &Connection, bot: &Bot, ranked: Value, shares: Value) -> Result<String, EngineError> {
+    use rusqlite::OptionalExtension;
+    let rev = uuid::Uuid::new_v4().to_string();
+    let value = json!({ "rev": rev, "digest": digest(bot), "ranked": ranked, "shares": shares });
+    c.execute(&format!("UPDATE bots SET transient_data = json_set(transient_data, '$.{COMPOSED_OF_KEY}', json(?2)) WHERE id = ?1 AND json_type(transient_data) = 'object'"),
+              rusqlite::params![bot.id, value.to_string()])?;
+    // json_set on a non-object leaves it as it was: the members must not commit without their provenance.
+    let landed: Option<String> = c.query_row(&format!("SELECT json_extract(transient_data, '$.{COMPOSED_OF_KEY}.rev') FROM bots WHERE id = ?1 AND json_type(transient_data) = 'object'"),
+                                             [bot.id], |r| r.get(0)).optional()?.flatten();
+    if landed.as_deref() != Some(rev.as_str()) { return Err(EngineError::Data(format!("bot {}: the composition record did not land", bot.id))); }
+    Ok(rev)
+}
+
+/// Removes `rust_composed_of` only while it is still the revision `read` (None: none was stored when the refresh began).
+pub fn forget(c: &Connection, bot_id: i64, read: Option<&str>) -> Result<(), EngineError> {
+    c.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{COMPOSED_OF_KEY}') WHERE id = ?1 \
+                        AND json_type(transient_data, '$.{COMPOSED_OF_KEY}') IS NOT NULL AND json_extract(transient_data, '$.{COMPOSED_OF_KEY}.rev') IS ?2"),
+              rusqlite::params![bot_id, read])?;
+    Ok(())
 }
 
 /// Bots::DcaIndex settings: 'top' or 'category'.

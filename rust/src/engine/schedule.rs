@@ -57,6 +57,8 @@ pub fn to_d(v: &serde_json::Value) -> Option<crate::v2::BigDec> {
 /// Bots::DcaMultiAsset#one_asset?: one key in `allocations` (a Hash with any), else one of `Array(base_asset_ids)`.
 pub fn one_asset(s: &serde_json::Map<String, serde_json::Value>) -> bool {
     use serde_json::Value;
+    // PLAN index-as-ingredient §6.2: one asset and no index group.
+    if s.get("index_groups").and_then(Value::as_array).is_some_and(|g| !g.is_empty()) { return false; }
     match (s.get("allocations"), s.get("base_asset_ids")) {
         (Some(Value::Object(a)), _) if !a.is_empty() => a.len() == 1,
         (_, Some(Value::Array(ids))) => ids.len() == 1,

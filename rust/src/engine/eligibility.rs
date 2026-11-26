@@ -65,8 +65,6 @@ pub enum Feature {
     IndexSelling,
     /// A bot class this build does not run.
     BotType(String),
-    /// A basket stored with `index_groups` (PLAN index-as-ingredient §3.2), which only a later build runs: a downgrade.
-    IndexGroups,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,7 +98,9 @@ pub const UNBALANCED: &str = "allocations: weights sum to";
 /// slider total (Array#sum) is within the tolerance of one. Not a basket: true.
 pub fn allocations_balanced(bot: &Bot) -> bool {
     if bot.bot_type != "Bots::DcaMultiAsset" || bot.weighting() == "market_cap" { return true; }
-    let weights: Vec<f64> = bot.allocations().unwrap_or_default().into_iter().map(|(_, w)| w).collect();
+    let mut weights: Vec<f64> = bot.allocations().unwrap_or_default().into_iter().map(|(_, w)| w).collect();
+    // PLAN index-as-ingredient §3.2: Σ allocations + Σ group weights.
+    if bot.stored_groups() { weights.extend(bot.composition().into_iter().flat_map(|c| c.groups).map(|g| g.weight)); }
     (crate::v2::float_sum(&weights) - 1.0).abs() <= ALLOCATION_TOLERANCE
 }
 
@@ -227,11 +227,10 @@ fn bot_reasons_with(c: &Connection, bot: &Bot) -> Result<Vec<Reason>, EngineErro
     }
     let index = bot.bot_type == "Bots::DcaIndex";
     if !index && bot.bot_type != "Bots::DcaMultiAsset" { r.push(why(Kind::Feature(Feature::BotType(bot.bot_type.clone())), format!("type {} (only DCA baskets and index bots)", bot.bot_type))); }
-    // slice 2 runs these; until then such a row (a later build's) is never traded as a plain basket.
-    if bot.stored_groups() { r.push(why(Kind::Feature(Feature::IndexGroups), "index groups (a composition of a later build)")); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     let alpaca = exchange.as_deref() == Some("Exchanges::Alpaca");
-    let members = if bot.has_groups() { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
+    let members = if bot.stored_groups() { grouped_reasons(c, bot, alpaca, &mut r)? }
+                  else if bot.has_groups() { index_reasons(c, bot, alpaca, &mut r)? } else { composition_reasons(bot, &mut r) };
     let selling = bot.settings.get("direction").is_some_and(|v| v == "selling");
     if let Some(text) = admission(exchange.as_deref(), index, selling) { r.push(why(admission_kind(exchange.as_deref()), text)); }
     match bot.settings.get("direction") {
@@ -419,16 +418,26 @@ fn sell_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) ->
 /// settings.allocations: what 2.x would start, within what this build ports (manual or market-cap weights, 1..MAX_ASSETS members on
 /// every venue). Returns the member asset ids in settings order.
 fn composition_reasons(bot: &Bot, r: &mut Vec<Reason>) -> Vec<i64> {
-    let Some(a) = bot.allocations() else {
-        r.push(why(Kind::Allocations(Allocations::Unreadable), "allocations: an asset id or a weight this build does not read"));
-        return vec![];
+    // A basket stored with index groups may name no asset (a lone index); its groups count as ingredients.
+    let groups = if bot.stored_groups() { bot.composition().map_or(0, |c| c.groups.len()) } else { 0 };
+    let a = match bot.allocations() {
+        Some(a) => a,
+        // Absent (or `{}`, read above) beside a group; an explicit null is unreadable (Codex 2b r1).
+        None if groups > 0 && bot.settings.get("allocations").is_none() => vec![],
+        None => {
+            r.push(why(Kind::Allocations(Allocations::Unreadable), "allocations: an asset id or a weight this build does not read"));
+            return vec![];
+        }
     };
-    if a.is_empty() { r.push(why(Kind::Allocations(Allocations::Empty), "allocations: none")); }
-    if a.len() > MAX_ASSETS { r.push(why(Kind::Allocations(Allocations::TooMany(a.len())), format!("allocations: {} assets (at most {MAX_ASSETS})", a.len()))); }
+    if a.is_empty() && groups == 0 { r.push(why(Kind::Allocations(Allocations::Empty), "allocations: none")); }
+    let n = a.len() + groups;
+    if n > MAX_ASSETS { r.push(why(Kind::Allocations(Allocations::TooMany(n)), format!("allocations: {n} assets (at most {MAX_ASSETS})"))); }
     // Bots::DcaMultiAsset::Allocatable#allocations_balanced?.
     if a.iter().any(|(_, w)| *w < 0.0) { r.push(why(Kind::Allocations(Allocations::Negative), "allocations: a negative weight")); }
     if !allocations_balanced(bot) {
-        let sum = crate::v2::float_sum(&a.iter().map(|(_, w)| *w).collect::<Vec<_>>());
+        let mut w: Vec<f64> = a.iter().map(|(_, w)| *w).collect();
+        if groups > 0 { w.extend(bot.composition().into_iter().flat_map(|c| c.groups).map(|g| g.weight)); }
+        let sum = crate::v2::float_sum(&w);
         r.push(why(Kind::Allocations(Allocations::Unbalanced(sum.to_string())), format!("{UNBALANCED} {sum}, not 1")));
     }
     // Keys that name one id ("7", "07") would make the basket carry one asset as two members.
@@ -508,13 +517,15 @@ pub const TOKENIZED_PROVEN: [&str; 1] = ["Exchanges::Hyperliquid"];
 /// Every member's pair on this venue, and the composition rows 2.x's tick reads (bot_index_assets).
 pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &[i64], r: &mut Vec<Reason>) -> Result<(), EngineError> {
     let mut quote_checked = false;
+    // A grouped basket's named assets are its own settings, judged as a basket's (PLAN index-as-ingredient §5).
+    let named = if bot.stored_groups() { bot.asset_ids() } else { vec![] };
     for &asset_id in members {
         let Some(t) = model::ticker_for_asset(c, bot, asset_id)? else {
             // An index bot's stored rows are not what it trades: every derivation (the tick, the resync, the rebalance) seats
             // members from this venue's tickers alone and marks every other row out of the index (IndexAllocatable,
             // Allocatable), so a row without a ticker here, one a venue switch left, is a holding only. A basket's
             // members are its own settings and must trade here.
-            if !bot.has_groups() { r.push(why(Kind::Asset(Some(asset_id)), format!("no ticker for the asset {asset_id} on this venue"))); }
+            if !bot.has_groups() || named.contains(&asset_id) { r.push(why(Kind::Asset(Some(asset_id)), format!("no ticker for the asset {asset_id} on this venue"))); }
             continue;
         };
         // An unbounded integer column used as a rounding scale: refused here, before any leg is sized with it.
@@ -530,7 +541,7 @@ pub(crate) fn member_reasons(c: &Connection, bot: &Bot, alpaca: bool, members: &
         // xStock's balance, which no reader here follows, and the listing keeps every Kraken xStock untradable.
         // D-INDEX-TOP-N: an old stablecoin member remains a holding when composition removes it.
         // It must not refuse takeover/resync; index selection never seats it for a new buy.
-        let index_stablecoin = bot.has_groups()
+        let index_stablecoin = bot.has_groups() && !named.contains(&asset_id)
             && super::index::stablecoin(category.as_deref(), external_id.as_deref().unwrap_or_default());
         let crypto = category.as_deref() == Some("Cryptocurrency") || index_stablecoin;
         let tokenized = category.as_deref() == Some("Tokenized Stock") || (!crypto && instrument.as_deref() == Some("tokenized"));
@@ -865,6 +876,33 @@ fn reconciling(tx: &Connection) -> Result<Result<(), Refusal>, EngineError> {
 /// for its wizard, bot page and index switch. Whether the followed index is ranked yet is the tick's (staleness::ranking_stale).
 pub fn index_data(c: &Connection) -> Result<bool, EngineError> {
     Ok(super::provider::config(c)?.is_some() || super::provider::coingecko_key(c)?.is_some())
+}
+
+/// A basket stored with index groups (PLAN index-as-ingredient §5): each group as an index bot's settings, its raw weight,
+/// the named assets as a basket's, the balance and the ingredient count over both. Returns the named assets, then every
+/// bot_index_assets row's asset (group members are judged leniently, as an index bot's, by member_reasons).
+fn grouped_reasons(c: &Connection, bot: &Bot, alpaca: bool, r: &mut Vec<Reason>) -> Result<Vec<i64>, EngineError> {
+    let elements = bot.settings.get("index_groups").and_then(Value::as_array).cloned().unwrap_or_default();
+    if elements.is_empty() { r.push(why(Kind::Settings, "index_groups: none")); }
+    let mut ids: Vec<String> = vec![];
+    for element in &elements {
+        let Some(object) = element.as_object() else { r.push(why(Kind::Settings, "index_groups: an element this build does not read")); continue };
+        let group = super::composition::Group::from_settings(Some(object));
+        // The raw weight: the codec reads anything else as 0.0, which must never pass as an allocation.
+        let weight = match object.get("weight") { Some(Value::Number(n)) => n.as_f64(), Some(Value::String(w)) => w.trim().parse::<f64>().ok(), _ => None };
+        if !weight.is_some_and(|w| w.is_finite() && (0.0..=1.0).contains(&w)) { r.push(why(Kind::Settings, format!("index_groups: {} has a weight this build does not read", group.external_id))); }
+        if !matches!(group.index_type.as_deref(), Some("top" | "category")) { r.push(why(Kind::Settings, format!("index_groups: {} index_type {:?} (only Top coins or a category index)", group.external_id, group.index_type))); }
+        if !group.num_coins.is_some_and(|n| (1..=1000).contains(&n)) { r.push(why(Kind::Settings, format!("index_groups: {} num_coins is not a positive integer", group.external_id))); }
+        if !group.flattening.is_some_and(|f| (0.0..=1.0).contains(&f)) { r.push(why(Kind::Settings, format!("index_groups: {} allocation_flattening is not a number in 0..1", group.external_id))); }
+        if ids.contains(&group.external_id) { r.push(why(Kind::Settings, format!("index_groups: {} listed more than once", group.external_id))); }
+        ids.push(group.external_id);
+    }
+    if !index_data(c)? { r.push(why(Kind::IndexData, "index requires a configured deltabadger market-data provider")); }
+    if alpaca && model::quote_symbol(c, bot)? != "USD" { r.push(why(Kind::Asset(None), format!("quote {} (Alpaca: only USD)", model::quote_symbol(c, bot)?))); }
+    let mut members = composition_reasons(bot, r);
+    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id")?;
+    for id in s.query_map([bot.id], |r| r.get::<_, i64>(0))? { let id = id?; if !members.contains(&id) { members.push(id); } }
+    Ok(members)
 }
 
 /// Bots::DcaIndex within what this build ports: data-api indices, or the daily direct CoinGecko rankings

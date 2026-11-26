@@ -251,11 +251,13 @@ fn judge(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linked
 #[allow(clippy::type_complexity)]
 fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linked) -> Result<Option<(Line, Option<Basis>)>, EngineError> {
     let when = when(o);
-    let bot: Option<(i64, i64, String, Option<String>, String, i64)> = c.query_row(
-        "SELECT b.user_id, b.exchange_id, b.type, e.type, e.name, b.status FROM bots b LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", [o.bot],
+    // `follows`: an index bot of either stored spelling (index::FOLLOWS_INDEX_SQL), as `scope_now`'s `has_groups()`.
+    let bot: Option<(i64, i64, bool, Option<String>, String, i64)> = c.query_row(
+        &format!("SELECT b.user_id, b.exchange_id, EXISTS (SELECT 1 FROM bots WHERE id = b.id AND {}), e.type, e.name, b.status FROM bots b \
+                  LEFT JOIN exchanges e ON e.id = b.exchange_id WHERE b.id = ?1", super::index::FOLLOWS_INDEX_SQL), [o.bot],
         |r| Ok((r.get::<_, Option<i64>>(0)?.unwrap_or(0), r.get::<_, Option<i64>>(1)?.unwrap_or(0), r.get(2)?, r.get(3)?,
                 r.get::<_, Option<String>>(4)?.unwrap_or_default(), r.get(5)?))).optional()?;
-    let Some((user, bot_exchange, bot_type, _, _, status)) = bot else { return Ok(None) };
+    let Some((user, bot_exchange, follows, _, _, status)) = bot else { return Ok(None) };
     let prefix = |line: Line| Ok(Some((line, None)));
     // The venue a line names when the scope is unknown: the exchange of the bot's order nearest the span, never today's
     // exchange of a bot that moved (r3.2); "exchange" when it has none.
@@ -271,7 +273,7 @@ fn judged(c: &Connection, o: &Obligation, now: DateTime<Utc>, linked: &mut Linke
     // The pairs and side to look at, only where they are known (r3.2, r4.2).
     let scope = match &o.scope {
         Some(s) => stored_scope(s),
-        None if bot_type == "Bots::DcaIndex" => return prefix(unchecked(&when, &then()?, "index")),
+        None if follows => return prefix(unchecked(&when, &then()?, "index")),
         None => current_scope(c, o, bot_exchange)?,
     };
     let Some(scope) = scope else { return prefix(unchecked(&when, &then()?, "settings_changed")) };

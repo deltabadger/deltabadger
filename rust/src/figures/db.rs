@@ -29,6 +29,8 @@ pub struct Bot {
     pub quote_asset_id: Option<i64>,
     /// Bots::DcaMultiAsset#base_asset_ids: the allocations' keys in their stored order. Empty for an index.
     pub base_asset_ids: Vec<i64>,
+    /// A basket stored with index groups (PLAN index-as-ingredient §5): its universe is the venue's, as an index bot's.
+    pub grouped: bool,
 }
 
 /// 2.x's Integer/Float/String#to_i for the allocations keys and legacy base_asset_ids.
@@ -106,7 +108,8 @@ pub fn bot(c: &Connection, id: i64) -> Result<Bot, FiguresError> {
         None => None,
     };
     let quote_asset_id = settings.get("quote_asset_id").map(quote_id).transpose()?.flatten();
-    Ok(Bot { id, user_id: user_id.unwrap_or(0), exchange_id: exchange_id.filter(|_| exchange_type.is_some()), kind, exchange_type, quote_asset_id, base_asset_ids })
+    let grouped = kind == Kind::Basket && settings.get("index_groups").is_some_and(Value::is_array);
+    Ok(Bot { id, user_id: user_id.unwrap_or(0), exchange_id: exchange_id.filter(|_| exchange_type.is_some()), kind, exchange_type, quote_asset_id, base_asset_ids, grouped })
 }
 
 /// One submitted order, as the walks pluck it.
@@ -161,6 +164,7 @@ pub fn tickers(c: &Connection, bot: &Bot) -> Result<Vec<Ticker>, FiguresError> {
     let (Some(exchange_id), Some(quote)) = (bot.exchange_id, bot.quote_asset_id) else { return Ok(vec![]) };
     let live = "t.exchange_id = ?1 AND t.available = 1 AND t.trading_enabled = 1 AND t.quote_asset_id = ?2";
     let rows = match bot.kind {
+        _ if bot.grouped => c.prepare(&format!("{TICKER} WHERE {live}"))?.query_map(params![exchange_id, quote], ticker)?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?,
         Kind::Index => c.prepare(&format!("{TICKER} WHERE {live}"))?.query_map(params![exchange_id, quote], ticker)?.map(|row| { budget::charge(1, 0)?; Ok(row?) }).collect::<Result<Vec<_>, FiguresError>>()?,
         Kind::Basket => {
             let mut ids = bot.base_asset_ids.clone();

@@ -19,7 +19,7 @@ fn distinct_unfilled_symbols_share_the_walk_budget() {
         CREATE TABLE account_transactions (id INTEGER PRIMARY KEY, user_id INTEGER, exchange_id INTEGER, entry_type INTEGER, raw_data TEXT, base_currency TEXT, base_asset_id INTEGER, transacted_at TEXT);").unwrap();
     let s = db::Subject {
         bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Basket,
-            exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2] },
+            exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2], grouped: false },
         quote: Some("USD".into()), tickers: vec![],
         orders: (0..100_000).map(|i| db::Order {
             id: i, at: At(i), exchange_id: Some(1), raw: deltabadger::figures::fill::Raw::new(None,None,None,None), base: Some(format!("SYM{i:06}")), asset_id: Some(2),

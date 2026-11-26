@@ -473,7 +473,7 @@ mod token_tests {
         ").replace("?1", &format!("'{}'", hostile.replace('\'', "''")))).unwrap();
         c.execute("UPDATE assets SET symbol=?1, image_url=?2 WHERE id=2",
                   [hostile, &format!("https://images.example/{hostile}.png")]).unwrap();
-        let s = Subject { bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Index, exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2] },
+        let s = Subject { bot: db::Bot { id: 1, user_id: 1, exchange_id: Some(1), kind: db::Kind::Index, exchange_type: Some("Exchanges::Alpaca".into()), quote_asset_id: Some(1), base_asset_ids: vec![2], grouped: false },
                           orders: db::orders(&c, 1).unwrap(), tickers: vec![], quote: Some("USD".into()) };
         let mut m = Metrics::empty();
         let one = Num::Int(1);

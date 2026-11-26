@@ -133,7 +133,10 @@ pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
         let changed = moved || match v.get("allocations") {
             Some(sent) => v["exchange_id"].as_i64() != Some(bot.exchange_id) || v["quote_asset_id"].as_i64() != bot.quote_asset_id()
                 || bot.settings.get("allocations").unwrap_or(&Value::Null) != sent
-                || v.get("composition").is_some_and(|sent| composition_snapshot(c, &bot).map_or(true, |current| *sent != current)),
+                || v.get("composition").is_some_and(|sent| {
+                    let kind = v.get("transaction_type").and_then(Value::as_str).and_then(TxKind::parse).unwrap_or(TxKind::Regular);
+                    snapshot_for(c, &bot, kind).map_or(true, |current| *sent != current)
+                }),
             None => true,
         };
         if changed { out.push(id); }
@@ -345,7 +348,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
         }
         let reason = if (current.exchange_id, current.quote_asset_id(), current.settings.get("allocations"))
                 != (bot.exchange_id, bot.quote_asset_id(), bot.settings.get("allocations")) { Some("its composition changed") }
-            else if &composition_snapshot(&tx, &current)? != composition { Some("its member rows or index settings changed") }
+            else if &snapshot_for(&tx, &current, plan.kind)? != composition { Some("its member rows or index settings changed") }
             else if current.restatement_generation != reconciled.generation { Some("its split rows changed") }
             // A14b: a split of an asset the base cap counts, stored or come into effect since sizing (no generation moves for it).
             else if super::splits::cap_dependencies(&tx, &current, clock.now())? != reconciled.cap { Some("its base cap's split rows changed") }
@@ -359,12 +362,23 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
             else if !(match plan.kind { TxKind::Rebalance | TxKind::Liquidation | TxKind::Redeploy => super::eligibility::rebalance_reasons(&tx, &current)?, TxKind::Regular => super::eligibility::bot_reasons(&tx, &current)? }).is_empty() {
                 Some("its members or provider are no longer eligible")
             }
+            // PLAN index-as-ingredient §3.4: a grouped bot's named sale is judged on its own pair, not on any group.
+            // The leg's own catalogue, judged here so one that expired while the leg was priced and sized refuses it.
+            else if plan.kind == TxKind::Liquidation && current.stored_groups() {
+                if let Some(stale) = super::staleness::leg_catalogue_stale(&tx, &current, &plan.ticker, clock.now())? {
+                    super::log(&format!("[engine] bot {}: {} order not placed: {} after it was sized", bot.id, plan.ticker.ticker, stale.message));
+                    return Ok(Begun::LedgerStale(Box::new(stale)));
+                }
+                None
+            }
             else if super::provider::stale(&tx, &current)?.is_some() { Some("its index provider configuration changed") }
             else if super::staleness::ranking_stale(&tx, &current, clock.now())?.is_some() { Some("its index ranking is no longer usable") }
             // D-INDEX-RETIRED-KEPT: a retired index trades only a membership this engine composed from it.
             else if super::index::retired_uncomposed(&tx, &current)? {
                 Some("its index was retired and its members are not this engine's composition of it")
             }
+            // D-INDEX-RETIRED-PAIR: a frozen member's pair left the venue or quote since the refresh (the next one drops it).
+            else if super::index::frozen_pair_lost(&tx, &current)? { Some("a retired index member's pair is no longer tradable") }
             else { None };
         if let Some(reason) = reason {
             super::log(&format!("[engine] bot {}: {} order not placed: {reason} after it was sized", bot.id, plan.ticker.ticker));
@@ -402,7 +416,7 @@ fn begin_checked(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock,
     v["account_id"] = json!(crate::identity::account_of_bot(&tx, current.id)?);
     v["quote_asset_id"] = json!(current.quote_asset_id());
     v["allocations"] = current.settings.get("allocations").cloned().unwrap_or(Value::Null);
-    v["composition"] = composition_snapshot(&tx, &current)?;
+    v["composition"] = snapshot_for(&tx, &current, plan.kind)?;
     if let Some(Value::Object(identity)) = identity { for (k, value) in identity { v[k] = value; } }
     // The sale's wash-sale claim, after every fence (as 2.x claims after #stopped_mid_tick?), with the intent.
     let asset = plan.ticker.base_asset_id;
@@ -802,12 +816,14 @@ fn signal_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineError> 
     Ok(!matches!(bot.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) && !super::reversal::barred(&bot))
 }
 
-/// A REBALANCE intent's claim (`begin_rebalance`): the bot is not deleted or archived, no reversal bars it, and its
-/// composition is still the snapshot the intent recorded.
+/// A REBALANCE (LIQUIDATION, REDEPLOY) intent's claim: the bot is not deleted or archived, no reversal bars it, and its
+/// composition is still the snapshot the intent recorded (`snapshot_for` its kind).
 fn rebalance_claim_holds(c: &Connection, bot_id: i64) -> Result<bool, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     if matches!(bot.status, crate::enums::BotStatus::Deleted | crate::enums::BotStatus::Archived) || super::reversal::barred(&bot) { return Ok(false); }
-    Ok(bot.rust_placement().and_then(|v| v.get("composition").cloned()) == Some(composition_snapshot(c, &bot)?))
+    let Some(v) = bot.rust_placement() else { return Ok(false) };
+    let kind = v.get("transaction_type").and_then(Value::as_str).and_then(TxKind::parse).unwrap_or(TxKind::Rebalance);
+    Ok(v.get("composition") == Some(&snapshot_for(c, &bot, kind)?))
 }
 
 async fn send_to_venue<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
@@ -1108,8 +1124,27 @@ pub fn composition_snapshot(c: &Connection, bot: &Bot) -> Result<Value, EngineEr
         let rows = s.query_map([bot.id], |r| Ok(json!([r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, f64>(4)?])))?
             .collect::<Result<Vec<Value>, _>>()?;
         snapshot["groups"] = Value::Array(rows);
+        // Codex 2b r1: and the revision of the refresh that wrote them, so rows from another refresh (even equal ones) refuse.
+        let rev: Option<String> = c.query_row(&format!("SELECT json_extract(transient_data, '$.{}.rev') FROM bots WHERE id = ?1", super::composition::COMPOSED_OF_KEY),
+                                              [bot.id], |r| r.get(0))?;
+        snapshot["rev"] = json!(rev);
     }
     Ok(snapshot)
+}
+
+/// What a manual liquidation's intent fences of the composition: a sale is sized from the held quantity and the live free
+/// balance, never from member weights, so a grouped bot's group rows and refresh revision (another pass's refresh, or its
+/// refusal's `forget`) do not hold it. The rest of the snapshot (type, venue, settings, flat members) stays fenced.
+pub(crate) fn liquidation_fence(snapshot: &Value) -> Value {
+    let mut v = snapshot.clone();
+    if let Some(o) = v.as_object_mut() { o.remove("groups"); o.remove("rev"); }
+    v
+}
+
+/// The composition snapshot an intent of `kind` records and is fenced by.
+fn snapshot_for(c: &Connection, bot: &Bot, kind: TxKind) -> Result<Value, EngineError> {
+    let snapshot = composition_snapshot(c, bot)?;
+    Ok(if kind == TxKind::Liquidation { liquidation_fence(&snapshot) } else { snapshot })
 }
 
 fn defer_recovered(c: &model::FencedTransaction<'_>, intent: &Intent, now: DateTime<Utc>) -> Result<(), EngineError> {

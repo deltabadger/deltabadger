@@ -803,6 +803,8 @@ pub const HANDBACK_STATE: &[(Held, &str, Handback)] = {
         (Bot, "rust_index_resync", Adopted),
         // A17-4 r18: a composition's provenance; 2.x never reads it, and the next claim removes it.
         (Bot, "rust_composed_index", Ignored),
+        // Index groups: what a grouped composition was written from; such a bot refuses the handback, and the next claim clears it.
+        (Bot, "rust_composed_of", Ignored),
         // A14b: 2.x can change the base cap and change it back without moving a stamp; a reclaim reads the unknown basis.
         (Bot, "rust_base_cap_basis", Settled),
         // D-HANDBACK-SPLIT-HOLD: 2.x does not compare a split against the venue's positions, so it would trade the bot.
@@ -1189,7 +1191,7 @@ fn refuse_rust_only_conditions(c: &Connection) -> Result<(), EngineError> {
     if crate::sync::kucoin_hf::any_enabled(c).map_err(|e| EngineError::Data(e.0))? { return Err(EngineError::Ineligible(vec!["KuCoin HF and Unified account history is Rust-only".into()])); }
     let hf = super::reconcile::handback_refusals(c)?;
     if !hf.is_empty() { return Err(EngineError::Ineligible(hf)); }
-    // PLAN index-as-ingredient §3.2 (Q7): a basket stored with index groups is Rust-only; 2.x would trade its plain
+    // PLAN index-as-ingredient §3.2 (Q7): a basket stored with index groups runs only here; 2.x would trade its plain
     // allocations alone. Any status but deleted, as the rules below.
     let mut s = c.prepare("SELECT id FROM bots WHERE type = 'Bots::DcaMultiAsset' AND status <> ?1 AND json_valid(settings) \
                            AND json_type(settings, '$.index_groups') IS NOT NULL ORDER BY id")?;

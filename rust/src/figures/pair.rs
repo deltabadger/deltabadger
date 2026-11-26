@@ -45,7 +45,7 @@ pub fn load(c: &Connection, id: i64) -> Result<Subject, FiguresError> {
     let base = v["base_asset_id"].as_i64();
     let kind: String = c.query_row("SELECT type FROM exchanges WHERE id=?1", [exchange], |r| r.get(0))?;
     // Only the catalogue shape is shared with a basket; this module owns the pair's walk.
-    let bot = Bot { id, user_id: user, exchange_id: Some(exchange), kind: Kind::Basket, exchange_type: Some(kind), quote_asset_id: quote, base_asset_ids: base.into_iter().collect() };
+    let bot = Bot { id, user_id: user, exchange_id: Some(exchange), kind: Kind::Basket, exchange_type: Some(kind), quote_asset_id: quote, base_asset_ids: base.into_iter().collect(), grouped: false };
     let tickers = db::pair_ticker(c, &bot)?;
     Ok(Subject { orders: db::orders(c, id)?, tickers, quote: db::asset_symbol(c, quote)?, bot })
 }
