@@ -53,7 +53,7 @@ struct Source {
 
 /// Why the merge cannot go ahead: a key under errors.bots.merge, with what it names.
 /// `Unrun`: this build's own refusal (engine.write_refused), a venue it does not run the merged bot on (eligibility::admission).
-enum Reason { Plain(&'static str), Bot(&'static str, String), Open(String, String), Unrun(&'static str) }
+enum Reason { Plain(&'static str), Bot(&'static str, String), Open(String, String), Unrun(&'static str), MaxAssets }
 
 pub struct Merge {
     ids: Vec<i64>,
@@ -156,7 +156,9 @@ impl Merge {
         let members = source.bot.memberships.iter().any(|m| m.in_index);
         Ok(TYPES.contains(&source.class.as_str()) && source.bot.kind != Kind::Signal
             && !matches!(source.bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing)
-            && !index_switch::in_flight(c, &source.engine, now.utc())? && members && !reversal_pending(&source.engine))
+            && !index_switch::in_flight(c, &source.engine, now.utc())? && members && !reversal_pending(&source.engine)
+            // PLAN index-as-ingredient §3.4: a grouped source's members are its settings' composition (no refresh runs here).
+            && crate::engine::composition::current(c, &source.engine, now.utc())?)
     }
 
     /// Bot::Merge#reason, in its order. The books are read fresh here, as 2.x's `reason` reads them for verify_books!.
@@ -174,6 +176,9 @@ impl Merge {
             return Ok(Some(Reason::Plain("accounts")));
         }
         if self.weights.is_empty() { return Ok(Some(Reason::Plain("nothing_to_buy"))); }
+        // D-MERGE-MAX-ASSETS (PLAN index-as-ingredient §6.4): the merged basket could not start above MAX_ASSETS; refused before
+        // any history moves.
+        if self.weights.len() > super::MAX_ASSETS { return Ok(Some(Reason::MaxAssets)); }
         let Some((exchange, _)) = self.exchange.clone() else { return Ok(Some(Reason::Plain("no_common_exchange"))) };
         if let Some(why) = unrun(c, exchange)? { return Ok(Some(Reason::Unrun(why))); }
         // A resting order is polled through its bot's exchange; on another venue it would never be found.
@@ -198,6 +203,7 @@ impl Merge {
             Reason::Bot(k, label) => i18n::text(locale, &key(k), &[("label", i18n::Arg::Text(label))]),
             Reason::Open(label, exchange) => i18n::text(locale, &key("open_orders"), &[("label", i18n::Arg::Text(label)), ("exchange", i18n::Arg::Text(exchange))]),
             Reason::Unrun(why) => write_refused(locale, why),
+            Reason::MaxAssets => i18n::text(locale, "errors.bots.multi_asset.max_assets", &[("max", i18n::Arg::Text(&super::MAX_ASSETS.to_string()))]),
         }
     }
 

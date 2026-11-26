@@ -2750,15 +2750,15 @@ mod merge {
         Ok(())
     }
 
-    /// D-MERGE-CAP: past MAX_ASSETS the merged bot is saved as 2.x saves it (stopped, not startable), unless a waiting order
-    /// moves with it, which this engine's guard refuses.
+    /// D-MERGE-MAX-ASSETS (PLAN index-as-ingredient §6.4, replaces D-MERGE-CAP): past MAX_ASSETS the merge is refused before
+    /// any history moves, a waiting order or not (2.x saves a stopped bot that can never start).
     #[test]
-    fn over_the_cap_a_moved_waiting_order_refuses() -> Result {
+    fn over_the_cap_the_merge_refuses_before_any_history_moves() -> Result {
         let f = Fixture::new(60, 41)?;
         f.waiting_order(f.bots[0])?;
-        f.refused_unchanged("This app can't run that yet: ")?;
-        let g = Fixture::new(60, 41)?;
-        assert!(matches!(g.merge()?, Merged::Done(_)), "without outstanding work the over-cap bot is saved");
+        f.refused_unchanged("A portfolio can hold up to 100 assets.")?;
+        Fixture::new(60, 41)?.refused_unchanged("A portfolio can hold up to 100 assets.")?;
+        assert!(matches!(Fixture::new(60, 40)?.merge()?, Merged::Done(_)), "at the cap the merged bot is saved");
         Ok(())
     }
 

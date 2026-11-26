@@ -109,6 +109,9 @@ pl:
                 no_members: "Ten indeks nie ma aktywów, którymi nadal można handlować na tej giełdzie."
                 gone: "Bot zmienił się w międzyczasie. Odśwież stronę."
                 not_offered: "Ten indeks nie jest dostępny dla tego bota."
+                buy_first: "Najpierw przełącz bota z powrotem na kupowanie."
+                weights_first: "Najpierw ustaw wagi aktywów albo użyj „Własna alokacja“."
+                selling_reset: "Reguły sprzedaży zostały wyłączone; ustaw je ponownie dla pozostałych aktywów."
             multi_asset:
                 condition_subject: "Ten warunek musi dotyczyć aktywa, które bot posiada."
                 min_assets: "Portfel musi zawierać co najmniej jedno aktywo."

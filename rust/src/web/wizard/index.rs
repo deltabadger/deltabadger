@@ -175,6 +175,21 @@ pub(crate) fn tiles(c: &Connection, app: &App, followable: Option<&Followable>) 
     }).collect()
 }
 
+/// Whether the `indices` row `id` passes `tiles`' offer rule for `f` (MINIMUM_SUPPORTED_COINS of its members for the
+/// venue trade there at the quote), the bot menu's check of the row the engine selected (index::ranked_row).
+pub(crate) fn row_offered(c: &Connection, id: i64, f: &Followable) -> Result<bool, WebError> {
+    use rusqlite::OptionalExtension;
+    let Some((top, by_exchange)) = c.query_row("SELECT top_coins, top_coins_by_exchange FROM indices WHERE id = ?1", [id], |r| Ok((r.get::<_, Option<String>>(0)?, r.get::<_, Option<String>>(1)?))).optional()? else { return Ok(false) };
+    let mut s = c.prepare("SELECT external_id, category FROM assets WHERE external_id IS NOT NULL AND id IN (SELECT base_asset_id FROM tickers \
+                           WHERE exchange_id = ?1 AND available = 1 AND trading_enabled = 1 AND quote_asset_id IS ?2)")?;
+    // Only members the engine would seat: never a stablecoin (engine::index::top_coins' rule).
+    let traded: std::collections::HashSet<String> = s.query_map(rusqlite::params![f.exchange_id, f.quote], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)))?
+        .filter_map(|row| row.map(|(id, category)| (!crate::engine::index::stablecoin(category.as_deref(), &id)).then_some(id)).transpose()).collect::<Result<_, _>>()?;
+    let index = create::IndexRow { source: None, top_coins: ids_of(top), available_exchanges: Map::new(),
+        by_exchange: by_exchange.as_deref().and_then(|text| serde_json::from_str::<Value>(text).ok()).and_then(|v| v.as_object().cloned()).unwrap_or_default() };
+    Ok(index.top_coins_for_exchange(f.class).iter().filter(|coin| traded.contains(*coin)).count() as i64 >= MINIMUM_SUPPORTED_COINS)
+}
+
 /// The Index view's list: `tiles` narrowed by the venue in force on the Assets step (none on a fresh start): Top Coins and the
 /// indices naming no venue always, a category when it names the venue's type; nothing on a venue `refusal` refuses.
 fn offered(c: &Connection, app: &App, config: Option<&Value>) -> Result<Vec<IndexTile>, WebError> {

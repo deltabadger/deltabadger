@@ -75,6 +75,8 @@ pub(crate) fn busy(c: &Connection, bot: &model::Bot, redeploy: bool, now: chrono
 /// D-IDX-CUSTOM-STORED: 2.x re-derives the index in the request first (market data and venue probes); this build reads the
 /// stored members, which the engine's resync keeps, and refuses `in_flight` while a resync it was asked for is still due.
 pub fn customize(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result<Switched, WebError> {
+    // PLAN index-as-ingredient §6.2: a grouped bot's Custom allocation ungroups every group.
+    if grouped_row(c, owner, id)? { return grouped_route(c, ctx, owner, id, "ungroup_index_id", "*"); }
     match customize_inner(c, ctx, owner, id) {
         Err(e) if super::unreadable(&e) => Ok(Switched::Unported("a bot beyond the supported history, member or numeric bounds")),
         other => other,
@@ -215,6 +217,8 @@ pub(crate) fn offered(c: &Connection, ctx: &Ctx, id: i64) -> Result<Vec<wizard::
 /// nor a CoinGecko key), 2.x switches and this build refuses, writing nothing. On a CoinGecko key it switches, and the
 /// engine holds the bot until CoinGecko ranks the new index (staleness::ranking_stale).
 pub fn follow(c: &Connection, ctx: &Ctx, owner: i64, id: i64, category: Option<&str>) -> Result<Switched, WebError> {
+    // PLAN index-as-ingredient §6.2: on a grouped bot, every ingredient replaced by the picked index.
+    if grouped_row(c, owner, id)? { return grouped_route(c, ctx, owner, id, "follow_index", category.unwrap_or_default()); }
     match follow_inner(c, ctx, owner, id, category) {
         Err(e) if super::unreadable(&e) => Ok(Switched::Unported("a bot beyond the supported history, member or numeric bounds")),
         other => other,
@@ -302,4 +306,176 @@ pub fn composition_bot(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result
     let class: Option<Option<String>> = c.query_row("SELECT type FROM bots WHERE id=?1 AND user_id=?2 AND status<>3", (id, owner), |r| r.get(0)).optional()?;
     let Some(class) = class else { return Ok(None) };
     Ok(Some(matches!(class.as_deref(), Some("Bots::DcaIndex" | "Bots::DcaMultiAsset")) && bots::market_data(c, &ctx.app)?.1))
+}
+
+/// What an ingredient operation did, for the writer's tail (PLAN index-as-ingredient §6.2, slice 3).
+pub(super) struct Ran { pub last_gone: bool }
+
+fn field(fields: &Map<String, Value>, key: &str) -> Option<String> {
+    fields.get(key).filter(|v| super::mcp_input::present(v)).map(|v| match v { Value::String(s) => s.trim().to_string(), other => other.to_string() })
+}
+
+/// The groups of the candidate, as stored objects.
+fn groups_of(settings: &Map<String, Value>) -> Vec<Map<String, Value>> {
+    settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().map(|g| g.as_object().cloned().unwrap_or_default()).collect()
+}
+fn id_of(group: &Map<String, Value>) -> String { crate::engine::composition::external_id(Some(group)).to_string() }
+
+/// The tile `external_id` as the bot menu's picker offers it on the **candidate's** venue and quote, with `follow_inner`'s
+/// provider and venue checks (Codex slice 3 r1 #6); Err: the refusal.
+fn offered_here(c: &Connection, ctx: &Ctx, draft: &draft::Draft, external_id: &str) -> Result<Result<wizard::index::IndexTile, String>, WebError> {
+    if !bots::market_data(c, &ctx.app)?.1 { return Ok(Err(t(ctx.locale, "not_offered"))); }
+    if let Some(reason) = wizard::index::refusal(c, &ctx.app, &draft.candidate.exchange.class)? { return Ok(Err(write_refused(ctx.locale, reason))); }
+    let quote = draft.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
+    let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None };
+    let Some(tile) = wizard::index::tiles(c, &ctx.app, Some(&here))?.into_iter().find(|tile| tile.external_id == external_id) else { return Ok(Err(t(ctx.locale, "not_offered"))) };
+    // The row the engine composes from, when one is ranked, must be offered here itself (Codex slice 3 r1 #4).
+    if let Some(ranked) = crate::engine::index::ranked_row(c, external_id)? {
+        if !wizard::index::row_offered(c, ranked.id, &here)? { return Ok(Err(t(ctx.locale, "not_offered"))); }
+    }
+    Ok(Ok(tile))
+}
+
+/// A new group for `tile` at `weight`, as Follow index sets an index bot's keys (`follow_inner`): a bounded index held
+/// whole, any other ten members, no flattening; written by the one encoder (`Group::settings`).
+fn group_for(c: &Connection, tile: &wizard::index::IndexTile, weight: f64) -> Result<Map<String, Value>, WebError> {
+    let top = tile.external_id == "top-coins";
+    let mut group = crate::engine::composition::Group { external_id: tile.external_id.clone(), weight, index_type: Some(if top { "top" } else { "category" }.into()),
+        index_category_id: (!top).then(|| tile.external_id.clone()), index_name: if top { None } else { tile.stored_name.clone() },
+        index_name_prefix: if top { None } else { wizard::index_create::count_named(Some(&tile.external_id)).map(|(prefix, _)| prefix.to_string()) },
+        num_coins: None, hold_all: false, flattening: Some(0.0) };
+    let bounded = draft::group_bound(c, &group.settings())?;
+    group.num_coins = Some(bounded.unwrap_or(10));
+    group.hold_all = bounded.is_some();
+    Ok(group.settings())
+}
+
+/// PLAN index-as-ingredient §6.2: the one ingredient operation a settings post carries, applied to the draft's candidate
+/// before validation, inside the writer's transaction. Ok(Err): the refusal (nothing is written). In slice 3 only a row
+/// already stored with groups takes one (a first group waits for slice 4). Every operation takes the index switch's full
+/// refusal, an open order and a redeploy 2.x still holds (or a queue that cannot be read). Losing the last group is refused
+/// while the bot sells; a buying bot's dormant base sale and base cap are cleared in the same write (rule B).
+pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Value, now: chrono::DateTime<chrono::Utc>) -> Result<Result<Option<Ran>, String>, WebError> {
+    use crate::web::bot::action_params::INGREDIENT_OPS;
+    let Some(fields) = fields.as_object() else { return Ok(Ok(None)) };
+    let posted: Vec<&str> = INGREDIENT_OPS.iter().copied().filter(|key| field(fields, key).is_some()).collect();
+    if posted.is_empty() { return Ok(Ok(None)); }
+    let refuse = |key: &str| Ok(Err(t(ctx.locale, key)));
+    let op = match posted.as_slice() { [op] if *op != "change_index_to" => *op, ["change_index_id", "change_index_to"] => "change_index_id", _ => return refuse("not_offered") };
+    if !super::stored_groups(&draft.raw_settings) { return refuse("not_offered"); }
+    let id = draft.original.id;
+    let engine = model::load_bot(c, id)?;
+    if let Some(key) = refusal(c, &engine, now)? { return refuse(key); }
+    if write::orders_may_execute(c, id)? || super::split::redeploying(c, &ctx.app, &engine, "Bots::DcaMultiAsset")?.is_some() { return refuse("in_flight"); }
+    let mut groups = groups_of(&draft.candidate.settings);
+    let position = |groups: &[Map<String, Value>], external_id: &str| groups.iter().position(|g| id_of(g) == external_id);
+    let named = field(fields, op).unwrap_or_default();
+    match op {
+        "add_index" | "follow_index" => {
+            if op == "add_index" && position(&groups, &named).is_some() { return refuse("not_offered"); }
+            let tile = match offered_here(c, ctx, draft, &named)? { Ok(tile) => tile, Err(refused) => return Ok(Err(refused)) };
+            if op == "add_index" { groups.push(group_for(c, &tile, 0.0)?); }
+            else {
+                // Follow index on a grouped bot: every ingredient replaced by the one group.
+                groups = vec![group_for(c, &tile, 1.0)?];
+                draft.candidate.settings.insert("allocations".into(), json!({}));
+            }
+        }
+        "remove_index_id" => {
+            let Some(at) = position(&groups, &named) else { return refuse("not_offered") };
+            groups.remove(at);
+            // Rule A: the last group goes only from a basket already valid without it.
+            if groups.is_empty() {
+                let weights = crate::engine::composition::allocations(Some(&draft.candidate.settings)).unwrap_or_default();
+                if weights.is_empty() || (super::float_sum(weights.iter().map(|(_, w)| *w)) - 1.0).abs() > 0.001 { return refuse("weights_first"); }
+            }
+        }
+        "change_index_id" => {
+            let Some(at) = position(&groups, &named) else { return refuse("not_offered") };
+            let to = field(fields, "change_index_to").unwrap_or_default();
+            if to == named || position(&groups, &to).is_some() { return refuse("not_offered"); }
+            let tile = match offered_here(c, ctx, draft, &to)? { Ok(tile) => tile, Err(refused) => return Ok(Err(refused)) };
+            let weight = crate::engine::composition::Group::from_settings(Some(&groups[at])).weight;
+            groups[at] = group_for(c, &tile, weight)?;
+        }
+        _ => match ungroup(c, ctx, draft, fields, &engine, groups, &named, now)? { Ok(kept) => groups = kept, Err(refused) => return Ok(Err(refused)) },
+    }
+    let last_gone = groups.is_empty();
+    if last_gone {
+        if draft.candidate.settings.get("direction").and_then(Value::as_str) == Some("selling") { return refuse("buy_first"); }
+        // Codex slice 3 r1 #1, #2: the sell side starts anew for what remains (§3.2 step 3), and the save says so.
+        if crate::engine::composition::reset_sell_side(&mut draft.candidate.settings, &mut draft.candidate.transient) {
+            draft.notice = Some(i18n::text(ctx.locale, "errors.bots.index_switch.selling_reset", &[]));
+        }
+        draft.candidate.settings.shift_remove("index_groups");
+    } else {
+        draft.candidate.settings.insert("index_groups".into(), Value::Array(groups.into_iter().map(Value::Object).collect()));
+    }
+    draft.refresh(c)?;
+    // A discarded buy-side flip reads as a rule that was never set: its fields take the defaults every load gives them.
+    if last_gone { draft.candidate.fill_defaults(); }
+    Ok(Ok(Some(Ran { last_gone })))
+}
+
+/// Custom allocation as one operation (Codex slice 3 r1 #5): the stored composition must be its settings' own
+/// (`composition::current`), checked once; every requested group (`*`: all) expands from that one snapshot, each member
+/// adding `group weight × its weight` to its asset; under market cap every ingredient first takes its composed share and
+/// the bot turns manual. Fractions are kept exactly. Refused beside any other composition edit, or past MAX_ASSETS (assets
+/// plus surviving groups). Returns the surviving groups.
+#[allow(clippy::too_many_arguments)]
+fn ungroup(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Map<String, Value>, engine: &model::Bot, groups: Vec<Map<String, Value>>, named: &str,
+           now: chrono::DateTime<chrono::Utc>) -> Result<Result<Vec<Map<String, Value>>, String>, WebError> {
+    const EDITS: [&str; 10] = ["allocations", "index_groups", "weighting", "normalize_allocations", "add_asset_id", "remove_asset_id", "exchange_id", "account_id", "quote_asset_id", "limit_ordered"];
+    if EDITS.iter().any(|key| fields.contains_key(*key)) { return Ok(Err(t(ctx.locale, "gone"))); }
+    if !crate::engine::composition::current(c, engine, now)? { return Ok(Err(t(ctx.locale, "in_flight"))); }
+    let expand: Vec<String> = if named == "*" { groups.iter().map(id_of).collect() } else { vec![named.to_string()] };
+    if expand.is_empty() || expand.iter().any(|g| !groups.iter().any(|x| id_of(x) == *g)) { return Ok(Err(t(ctx.locale, "not_offered"))); }
+    let shares = engine.transient.get(crate::engine::composition::COMPOSED_OF_KEY).and_then(|of| of.get("shares")).cloned().unwrap_or(Value::Null);
+    let market_cap = crate::engine::composition::weighting(Some(&draft.candidate.settings)) == "market_cap";
+    let mut weights: Map<String, Value> = draft.candidate.settings.get("allocations").and_then(Value::as_object).cloned().unwrap_or_default();
+    let mut groups = groups;
+    if market_cap {
+        for (asset, w) in weights.iter_mut() { *w = shares["assets"].get(asset).cloned().unwrap_or(json!(0.0)); }
+        for g in groups.iter_mut() { let share = shares["groups"].get(id_of(g)).cloned().unwrap_or(json!(0.0)); g.insert("weight".into(), share); }
+        draft.candidate.settings.insert("weighting".into(), json!("manual"));
+    }
+    let mut s = c.prepare("SELECT asset_id, weight FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 ORDER BY asset_id")?;
+    for external_id in &expand {
+        let weight = groups.iter().find(|g| id_of(g) == *external_id).map_or(0.0, |g| crate::engine::composition::Group::from_settings(Some(g)).weight);
+        for row in s.query_map(rusqlite::params![engine.id, external_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, f64>(1)?)))? {
+            let (asset, member) = row?;
+            let entry = weights.entry(asset.to_string()).or_insert(json!(0.0));
+            *entry = json!(entry.as_f64().unwrap_or(0.0) + weight * member);
+        }
+    }
+    drop(s);
+    groups.retain(|g| !expand.contains(&id_of(g)));
+    if weights.len() + groups.len() > super::MAX_ASSETS {
+        return Ok(Err(i18n::text(ctx.locale, "errors.bots.multi_asset.max_assets", &[("max", i18n::Arg::Text(&super::MAX_ASSETS.to_string()))])));
+    }
+    draft.candidate.settings.insert("allocations".into(), Value::Object(weights));
+    Ok(Ok(groups))
+}
+
+/// The bot menu's index routes on a basket stored with groups: the operation posted through the one settings writer.
+fn grouped_route(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: &str, value: &str) -> Result<Switched, WebError> {
+    if value.trim().is_empty() { return Ok(Switched::Refused(t(ctx.locale, "not_offered"))); }
+    let params = super::action_params::ActionParams::from_form(json!({ "bots_dca_multi_asset": { op: value } }));
+    let built = |_: &Connection, _: &Ctx, d: &draft::Draft| Ok(write::Prepared { response: (d.errors.clone(), d.notice.clone()), broadcasts: vec![], after_scheduling: None });
+    Ok(match write::settings(c, ctx, owner, id, &params, built)? {
+        write::Outcome::Missing => Switched::Missing,
+        write::Outcome::Unported(reason) => Switched::Unported(reason),
+        write::Outcome::Invalid((errors, _), _) | write::Outcome::GuardRefused((errors, _)) => {
+            let messages: Vec<String> = errors.iter().map(|e| super::mcp_input::full_messages(std::slice::from_ref(e))).collect();
+            Switched::Refused(draft::sentence(&messages.iter().map(String::as_str).collect::<Vec<_>>(), ctx.locale))
+        }
+        write::Outcome::Committed((_, Some(notice))) => { crate::web::flash::set(&ctx.session, crate::web::flash::NOTICE, notice); Switched::Done }
+        write::Outcome::NoChange(_) | write::Outcome::Committed(_) => Switched::Done,
+    })
+}
+
+/// Whether bot `id` of `owner` is a basket stored with index groups.
+fn grouped_row(c: &Connection, owner: i64, id: i64) -> Result<bool, WebError> {
+    let settings: Option<String> = c.query_row("SELECT settings FROM bots WHERE id=?1 AND user_id=?2 AND status<>3 AND type='Bots::DcaMultiAsset'", (id, owner), |r| r.get(0)).optional()?;
+    Ok(settings.is_some_and(|s| serde_json::from_str::<Value>(&s).ok().and_then(|v| v.get("index_groups").map(Value::is_array)).unwrap_or(false)))
 }

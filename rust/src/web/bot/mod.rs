@@ -592,8 +592,14 @@ impl Bot {
         let quote_asset = match quote_asset_id { Some(asset_id) => Asset::find(c, asset_id)?, None => None };
 
         let mut memberships = vec![];
-        let mut statement = c.prepare("SELECT asset_id, ticker_id, target_allocation, in_index FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id")?;
-        let rows = statement.query_map([id], |r| {
+        // A bounded set, in id order (D-LOAD-EXITED-ROWS): the named assets' rows, the 1000 heaviest current members and the
+        // newest 1000 exited ones. Holdings come from orders, never from these rows.
+        let mut statement = c.prepare("SELECT asset_id, ticker_id, target_allocation, in_index FROM bot_index_assets WHERE bot_id = ?1 AND id IN ( \
+            SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY CAST(target_allocation AS REAL) DESC, id LIMIT 1000) \
+            UNION SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index IS NOT 1 ORDER BY exited_at DESC, id DESC LIMIT 1000) \
+            UNION SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND asset_id IN (SELECT value FROM json_each(?2))) ORDER BY id")?;
+        let named = serde_json::to_string(&allocation_ids(&settings)).map_err(|e| data(format!("bot {id}: {e}")))?;
+        let rows = statement.query_map(rusqlite::params![id, named], |r| {
             Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Stored>(2)?.0, r.get::<_, Option<bool>>(3)?.unwrap_or(false)))
         })?.collect::<Result<Vec<_>, _>>()?;
         for (asset_id, ticker_id, target_allocation, in_index) in rows {
@@ -706,7 +712,7 @@ impl Bot {
     /// Bots::DcaIndex::IndexAllocatable). 2.x writes them with the next save; a page writes nothing,
     /// so a row from before a rule existed is rendered with these and stays as it is. `||=`: a
     /// setting that is absent, null or false takes its default. All of it is read from the database.
-    fn fill_defaults(&mut self) {
+    pub(super) fn fill_defaults(&mut self) {
         use serde_json::json;
         // The Smart Intervals amount first: it is computed from the row and the bot's tickers.
         let mut defaults: Vec<(&str, Value)> = vec![("smart_intervaled", json!(false))];
@@ -715,7 +721,7 @@ impl Bot {
         match self.kind {
             Kind::Basket => {
                 // `tickers.min_by { |t| t[:base] }&.id`: the member a condition watches until one is chosen.
-                let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| ticker.id);
+                let first = self.subject_pool().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| ticker.id);
                 defaults.extend([
                     ("quote_amount_limited", json!(false)), ("quote_amount_limit", json!(1000)),
                     ("price_limited", json!(false)), ("price_limit", json!(1_000_000)), ("price_limit_range_lower_bound", json!(0)),
@@ -752,7 +758,7 @@ impl Bot {
         }
         // The sell side's reader fallbacks (`value.nil? ? default : value`, `super.presence || …`), read only while selling.
         if self.selling() || self.kind == Kind::Signal {
-            let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
+            let first = self.subject_pool().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
             let blank = |value: Option<&Value>| value.is_none_or(|v| v.is_null() || v.as_str().is_some_and(|t| t.is_empty()));
             for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
                 let mut keys = vec![format!("sell_{rule}ed"), format!("sell_{rule}"), format!("sell_{rule}_timing_condition"), format!("sell_{rule}_value_condition"),
@@ -998,6 +1004,15 @@ impl Bot {
     pub fn one_asset(&self) -> bool {
         // PLAN index-as-ingredient §6.2: one asset and no index group.
         self.kind == Kind::Basket && allocation_ids(&self.settings).len() == 1 && !self.grouped()
+    }
+
+    /// The tickers a basket's rule may default its subject to: every one it holds; a grouped bot, which reads the venue's
+    /// universe, only a named asset's or a current member's, so no rule is armed on a pair it does not hold (none: the
+    /// subject stays missing; Codex slice 3 r2 #3).
+    pub fn subject_pool(&self) -> impl Iterator<Item = &Ticker> {
+        let grouped = self.grouped();
+        let held: Vec<i64> = if grouped { allocation_ids(&self.settings).into_iter().chain(self.memberships.iter().filter(|m| m.in_index).map(|m| m.asset.id)).collect() } else { vec![] };
+        self.tickers.iter().filter(move |t| !grouped || held.contains(&t.base_asset_id))
     }
 
     /// A basket stored with index groups (PLAN index-as-ingredient §3.2), as the engine's `stored_groups` reads it.

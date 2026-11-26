@@ -88,6 +88,27 @@ fn forget_composed(tx: &Connection, id: i64, set: &Map<String, Value>) -> Result
     }
     Ok(())
 }
+/// PLAN index-as-ingredient slice 3: a settings write that changes what a grouped composition is derived from
+/// (`Draft::regrouped`) ends that composition's provenance (`rust_composed_of`) and asks the engine, the one writer of a
+/// grouped bot's members, to derive it again, in the same transaction.
+/// Judged on the settings as persisted: the stored row with this save's writes (`set`) over it, in its stored order, so a
+/// repost that only reorders a map keeps the digest (Codex slice 3a r1).
+fn regroup(tx: &Connection, draft: &Draft, changes: &super::draft::JsonChanges, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
+    let mut persisted = draft.raw_settings.clone();
+    for (key, value) in &changes.set { persisted.insert(key.clone(), value.clone()); }
+    // The one key a settings write removes: `index_groups`, with the last group.
+    if changes.remove.iter().any(|key| key == "index_groups") { persisted.shift_remove("index_groups"); }
+    if !draft.regrouped(&persisted) { return Ok(()); }
+    tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::composition::COMPOSED_OF_KEY), [id])?;
+    crate::engine::index::mark_resync(tx, id, now)?;
+    Ok(())
+}
+const UNSTORABLE: &str = "settings beyond the bounds this build stores";
+/// Whether bot `id`'s stored columns, as the transaction holds them, pass `Draft::load`'s bounds.
+fn persisted_loadable(tx: &Connection, id: i64) -> Result<bool, WebError> {
+    let (settings, transient): (String, String) = tx.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    Ok(super::draft::loadable(&settings, &transient).is_some())
+}
 fn one(rows: usize) -> Result<(), WebError> {
     if rows == 1 { Ok(()) } else { Err(error("settings writer lost its owned bot")) }
 }
@@ -102,7 +123,7 @@ fn path(key: &str, transient: bool) -> Result<String, WebError> {
                 .iter().any(|prefix| key == format!("{prefix}_enabled_at") || key == format!("{prefix}_condition_met_at"))
     } else {
         super::SETTINGS.iter().any(|(name, _)| *name == key)
-            || matches!(key, "quote_amount" | "quote_asset_id" | "interval" | "allocations" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "rebalance_enabled" | "base_amount_limited" | "base_amount_limit" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "sell_denomination" | "hold_all" | "index_name_prefix")
+            || matches!(key, "quote_amount" | "quote_asset_id" | "interval" | "allocations" | "smart_interval_quote_amount" | "smart_interval_base_amount" | "limit_order_pcnt_distance" | "start_time_enabled" | "start_time_mode" | "rebalance_enabled" | "base_amount_limited" | "base_amount_limit" | "sell_interval" | "sell_amount" | "sell_quote_amount" | "sell_denomination" | "hold_all" | "index_name_prefix" | "index_groups")
             || key.strip_prefix("sell_").is_some_and(|key| super::SETTINGS.iter().any(|(name, _)| *name == key))
     };
     if allowed { Ok(format!("$.{key}")) } else { Err(error("settings writer received a key outside its allowlist")) }
@@ -130,6 +151,19 @@ fn settings_inner<T>(
     let kind = if class == "Bots::DcaIndex" { Kind::Index } else { Kind::Basket };
     let fields = submitted.permitted(kind);
     let Some(mut draft) = Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Outcome::Missing) };
+    // PLAN index-as-ingredient §6.2: an index bot's form takes no ingredient operation; refused whole, not filtered away.
+    // Nor does a basket's take a malformed one (an array, an object, a blank; `index_groups` not an object): refused whole,
+    // before the allowlist would drop it and save its siblings (Codex slice 3 r1 #7).
+    let malformed = |k: &str, v: &Value| super::action_params::ingredient_key(k)
+        && if k == "index_groups" { !v.is_object() } else { v.is_array() || v.is_object() || !super::mcp_input::present(v) };
+    if !submitted.mcp() && (kind == Kind::Index && submitted.value().get("bots_dca_index").and_then(Value::as_object).is_some_and(|f| f.keys().any(|k| super::action_params::ingredient_key(k)))
+        || kind == Kind::Basket && submitted.value().get("bots_dca_multi_asset").and_then(Value::as_object).is_some_and(|f| f.iter().any(|(k, v)| malformed(k, v)))) {
+        let message = i18n::text(ctx.locale, "errors.bots.index_switch.not_offered", &[]);
+        draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+        let prepared = response_builder(&tx, &ctx, &draft)?;
+        tx.rollback()?;
+        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
+    }
     let fields = match fields {
         Ok(fields) => fields,
         Err(_) => {
@@ -146,6 +180,7 @@ fn settings_inner<T>(
     let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, provider, For::Settings)? };
     if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
+    let mut ran: Option<super::index_switch::Ran> = None;
     let mut mcp_refused = false;
     let mut refused = None;
     if submitted.mcp() {
@@ -169,7 +204,10 @@ fn settings_inner<T>(
     } else { match draft.parse(&tx, &fields, &zone, ctx.now) {
         Err(ParseError::Database(e)) => return Err(e),
         Err(ParseError::Invalid(_)) => {},
-        Ok(()) => draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?,
+        Ok(()) => match super::index_switch::ingredients(&tx, &ctx, &mut draft, &fields, ctx.now)? {
+            Err(refused) => draft.errors = vec![FieldError { field: "base".into(), message: refused }],
+            Ok(op) => { ran = op; draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?; }
+        },
     }
     }
     // #710 (§4.3): a posted account that is not the owner's live one, or not of the posted exchange, is a 404; another
@@ -229,9 +267,12 @@ fn settings_inner<T>(
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
     // #710: another account of an exchange (the switch menu's, with 2+ accounts there).
     let account_changed = match draft.account { Some(a) => crate::identity::Account::of_bot(&tx, id)? != Some(a), None => false };
-    let changed = label_changed || exchange_changed || account_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
+    // PLAN index-as-ingredient slice 3: a key the draft removed is removed from the row too (`index_groups` with the last
+    // group, a grouped rule's subject with nothing left to watch; Codex slice 3 check r2).
+    let changed = label_changed || exchange_changed || account_changed || !effects.settings.set.is_empty() || !effects.settings.remove.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     forget_composed(&tx, id, &effects.settings.set)?;
+    for key in &effects.settings.remove { one(tx.execute("UPDATE bots SET settings = json_remove(settings, ?1) WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (path(key, false)?, id, owner, class))?)?; }
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
@@ -265,9 +306,43 @@ fn settings_inner<T>(
     let at = codec::format_time(ctx.now);
     if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }
     if changed { one(tx.execute("UPDATE bots SET updated_at = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&at, id, owner, class))?)?; }
-    let metrics_changed = draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed);
+    // PLAN index-as-ingredient §5: the web writes a plain basket's members itself; a grouped bot's are the engine's.
+    let grouped = draft.candidate.grouped() || super::stored_groups(&draft.raw_settings);
+    let metrics_changed = !grouped && draft.candidate.kind == Kind::Basket && (effects.composition_changed || exchange_changed);
     if metrics_changed {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
+    }
+    regroup(&tx, &draft, &effects.settings, id, ctx.now)?;
+    if let Some(op) = &ran {
+        // Provenance ends for every group the operation removed or replaced (§3.3); the run generation moves, fencing an
+        // engine write in flight.
+        let kept: Vec<String> = crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(&draft.candidate.settings)).map(|c| c.groups.into_iter().map(|g| g.external_id).collect()).unwrap_or_default();
+        tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id NOT IN (SELECT value FROM json_each(?2))", (id, json!(kept).to_string()))?;
+        one(tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1) WHERE id = ?1", [id])?)?;
+        if op.last_gone {
+            // A plain basket has no grouped refresh guard: its members are written here, in this transaction (§6.2); rule A
+            // made it balanced, so a derivation that finds nothing is a refusal, never an empty write.
+            let bot = model::load_bot(&tx, id)?;
+            match crate::engine::basket::derive_composition(&tx, &bot)? {
+                Ok(members) => crate::engine::basket::write_members(&tx, id, &members, ctx.now)?,
+                Err(reason) => {
+                    draft.errors.push(FieldError { field: "base".into(), message: reason.clone() });
+                    let prepared = response_builder(&tx, &ctx, &draft)?;
+                    tx.rollback()?;
+                    return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {reason}"))));
+                }
+            }
+            tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::index::RESYNC_KEY), [id])?;
+        }
+    }
+    // What a write on a grouped row stored, as stored, must reopen in `Draft::load` (Codex slice 3 r1 #6, check r2): both
+    // columns read back, the resync marker included.
+    if grouped && !persisted_loadable(&tx, id)? {
+        let message = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text(UNSTORABLE))]);
+        draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+        let prepared = response_builder(&tx, &ctx, &draft)?;
+        tx.rollback()?;
+        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
     }
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.
     let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
@@ -600,6 +675,7 @@ pub fn lifecycle_in<T>(
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         forget_composed(tx, id, &effects.settings.set)?;
+        regroup(tx, draft, &effects.settings, id, ctx.now)?;
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
         if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }
@@ -622,7 +698,14 @@ pub fn lifecycle_in<T>(
             if fresh { tx.execute(REMOVE_TRANSIENT,(path(crate::engine::reversal::RESERVE_PENDING,true)?,id,owner,&class))?; }
             if let Some(future)=delayed { one(tx.execute("UPDATE bots SET started_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3 AND status=1",(id,owner,&class,codec::format_time(future)))?)?; }
             // Bots::DcaIndex#start: every start, a delayed one included, resyncs the composition.
-            if class=="Bots::DcaIndex" { crate::engine::index::mark_resync(tx,id,ctx.now)?; }
+            // PLAN index-as-ingredient slice 3: and a basket stored with index groups.
+            if class=="Bots::DcaIndex" || super::stored_groups(&super::object(&raw,"bots.settings")?) { crate::engine::index::mark_resync(tx,id,ctx.now)?; }
+            if super::stored_groups(&super::object(&raw,"bots.settings")?) && !persisted_loadable(tx,id)? {
+                view.errors.push(FieldError { field: "base".into(), message: i18n::text(ctx.locale,"engine.write_refused",&[("reason",i18n::Arg::Text(UNSTORABLE))]) });
+                if let Some(draft)=view.draft.as_mut() { draft.errors=view.errors.clone(); }
+                let prepared=response_builder(tx,ctx,&view)?;
+                return Ok(Step::Done(Outcome::GuardRefused(prepared.response)));
+            }
             if !fresh {
                 // PR #457 accepted requested_at; preserve the original status too, so a
                 // created bot with a historical stamp cannot inherit stopped-only scheduling.

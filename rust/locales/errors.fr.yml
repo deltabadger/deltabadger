@@ -93,6 +93,9 @@ fr:
                 no_members: "Cet indice n’a plus d’actifs négociés sur cette plateforme."
                 gone: "Le bot a changé entre-temps. Recharge la page."
                 not_offered: "Cet indice n’est pas disponible pour ce bot."
+                buy_first: "Remettez d’abord le bot en mode achat."
+                weights_first: "Définissez d’abord les poids des actifs, ou utilisez « Allocation personnalisée »."
+                selling_reset: "Les règles de vente ont été désactivées ; redéfinissez-les pour les actifs restants."
             multi_asset:
                 condition_subject: "Cette condition doit porter sur un actif détenu par le bot."
                 min_assets: "Un portefeuille doit contenir au moins un actif."
