@@ -305,20 +305,21 @@ fn full_screen_changed(window: &tauri::Window, event: &tauri::WindowEvent) -> Op
 
 /// A close asked in full screen leaves full screen first: a window hidden in full screen comes back without its space
 /// (no window buttons, a see-through menu bar). tao clears its own full-screen state before the exit animation starts,
-/// so these follow AppKit's notification instead. EXITING: a close's exit is under way. HIDE_WANTED: the window hides
-/// when it ends (a later show clears it; a later close sets it again). OBSERVING: the notification is watched at all.
+/// so these follow AppKit's notification instead. EXITING: a close's exit is under way, cleared only by AppKit's
+/// did-exit. HIDE_WANTED: the window hides when it ends (a show clears it; a close sets it again). OBSERVING: the
+/// notification is watched at all.
 #[cfg(target_os = "macos")]
 static EXITING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 #[cfg(target_os = "macos")]
 static HIDE_WANTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 #[cfg(target_os = "macos")]
 static OBSERVING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// Which exit a recovery timer belongs to.
-#[cfg(target_os = "macos")]
-static EXIT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// The window's close on macOS: in full screen it asks for the exit and returns true (the window hides when the exit
 /// ends); false when the caller should hide the window now.
+// ponytail: an exit AppKit refuses (it tells only tao's delegate, which ignores it) leaves EXITING set, so closes wait
+// until full screen ends some other way (the green button, Ctrl+Cmd+F), then the window hides. Never hidden in full
+// screen. A refused-exit hook in tao is the upgrade if that ever shows up.
 #[cfg(target_os = "macos")]
 fn close_in_full_screen(window: &tauri::Window) -> bool {
     use std::sync::atomic::Ordering::SeqCst;
@@ -331,20 +332,11 @@ fn close_in_full_screen(window: &tauri::Window) -> bool {
     }
     EXITING.store(true, SeqCst);
     HIDE_WANTED.store(true, SeqCst);
-    let exit = EXIT.fetch_add(1, SeqCst) + 1;
     if window.set_fullscreen(false).is_err() {
         EXITING.store(false, SeqCst);
         HIDE_WANTED.store(false, SeqCst);
         return false;
     }
-    // AppKit tells a failed exit only to the window's delegate, which is tao's and ignores it: an exit that has not
-    // ended in 3 s (the animation takes about one) is given up, the window stays, and a close can be asked again.
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        if EXIT.load(SeqCst) == exit && EXITING.swap(false, SeqCst) {
-            HIDE_WANTED.store(false, SeqCst);
-        }
-    });
     true
 }
 
@@ -401,6 +393,10 @@ fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        // The window's focus leaves the keyboard with whichever view had it (tao's own, after a full-screen exit): the page.
+        if let Some(webview) = app.get_webview("main") {
+            let _ = webview.set_focus();
+        }
         let visible = window.is_visible().unwrap_or(false);
         log_line(app, &format!("desktop: window shown (visible: {visible})"));
     }
