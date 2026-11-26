@@ -281,6 +281,7 @@ pub fn bots(c: &Connection, user: i64, status: Option<&Value>) -> Result<Res, We
         // `where(status:)`: an enum name, or the stored number.
         if filter.as_ref().is_some_and(|wanted| !wanted.iter().any(|f| !f.is_empty() && (f == name || f.parse::<i64>().ok() == Some(status)))) { continue; }
         let s: Value = serde_json::from_str(&settings).unwrap_or(Value::Null);
+        let kind = super::bot::api_type(kind, &s);
         let quote = asset(c, &s["quote_asset_id"])?;
         let multi = kind == "Bots::DcaMultiAsset";
         let (pair, base) = if multi {

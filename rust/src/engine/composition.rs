@@ -33,6 +33,17 @@ impl Group {
                 index_category_id: index_category_id(s).map(str::to_string), index_name: text("index_name"), index_name_prefix: text("index_name_prefix"),
                 num_coins: num_coins(s), hold_all: hold_all(s), flattening: flattening(s) }
     }
+    /// The one encoder of an `index_groups` element: `from_settings`' keys, an absent field left out.
+    pub fn settings(&self) -> Map<String, Value> {
+        let mut m = Map::new();
+        for (key, value) in [("index_type", self.index_type.clone().map(Value::from)), ("index_category_id", self.index_category_id.clone().map(Value::from)),
+                             ("index_name", self.index_name.clone().map(Value::from)), ("index_name_prefix", self.index_name_prefix.clone().map(Value::from)),
+                             ("num_coins", self.num_coins.map(Value::from)), ("hold_all", Some(Value::from(self.hold_all))),
+                             ("allocation_flattening", self.flattening.map(Value::from)), ("weight", Some(Value::from(self.weight)))] {
+            if let Some(value) = value { m.insert(key.into(), value); }
+        }
+        m
+    }
 }
 
 impl Composition {
@@ -83,12 +94,17 @@ pub const COMPOSED_OF_KEY: &str = "rust_composed_of";
 
 /// The settings a grouped composition is derived from: ingredients in stored order with every group field, the weighting,
 /// the venue, the quote and the effective limit mode (it moves the newcomer probe from the ask to the last trade).
-pub fn digest(bot: &Bot) -> String {
+pub fn digest(bot: &Bot) -> String { digest_of(&bot.bot_type, bot.settings.as_object(), bot.exchange_id, bot.limit_distance().is_some()) }
+
+/// `digest` of settings not loaded as a bot: the web writer's one composition-change decision (PLAN index-as-ingredient
+/// slice 3: it both forgets `rust_composed_of` and marks the resync), `limit` the effective limit mode.
+pub fn digest_of(class: &str, s: Settings, exchange_id: i64, limit: bool) -> String {
     use sha2::{Digest, Sha256};
-    let c = bot.composition().unwrap_or_default();
+    let c = Composition::of(class, s).unwrap_or_default();
     let groups: Vec<Value> = c.groups.iter().map(|g| json!([g.external_id, g.weight, g.index_type, g.index_category_id, g.index_name,
         g.index_name_prefix, g.num_coins, g.hold_all, g.flattening])).collect();
-    let input = json!([c.assets, groups, c.weighting, bot.exchange_id, bot.quote_asset_id(), bot.limit_distance().is_some()]);
+    let quote = s.and_then(|s| s.get("quote_asset_id")?.as_i64());
+    let input = json!([c.assets, groups, c.weighting, exchange_id, quote, limit]);
     format!("{:x}", Sha256::digest(input.to_string()))
 }
 
@@ -116,6 +132,61 @@ pub fn forget(c: &Connection, bot_id: i64, read: Option<&str>) -> Result<(), Eng
                         AND json_type(transient_data, '$.{COMPOSED_OF_KEY}') IS NOT NULL AND json_extract(transient_data, '$.{COMPOSED_OF_KEY}.rev') IS ?2"),
               rusqlite::params![bot_id, read])?;
     Ok(())
+}
+
+/// PLAN index-as-ingredient §3.4: whether the stored members are the composition of the settings as they stand, asked by
+/// merge, split and ungroup (which run no refresh) inside their own transaction. A row not stored with `index_groups` keeps
+/// today's rules (true). A grouped row: its `rust_composed_of` digest is the settings' own, nothing holds it as stale, and
+/// every group's ranked row is the one the composition read (a later ranking, a retirement or a relisting refuses).
+pub fn current(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    if !bot.stored_groups() { return Ok(true); }
+    let Some(of) = bot.transient.get(COMPOSED_OF_KEY) else { return Ok(false) };
+    if of.get("digest").and_then(Value::as_str) != Some(digest(bot).as_str()) { return Ok(false); }
+    if super::staleness::stale(c, bot, now)?.is_some() { return Ok(false); }
+    for id in bot.index_external_ids() {
+        if super::index::retired(c, &id)? { return Ok(false); }
+        let Some(row) = super::index::ranked_row(c, &id)? else { return Ok(false) };
+        if of.get("ranked").and_then(|r| r.get(&id)) != Some(&json!([row.id, row.ranked_at])) { return Ok(false); }
+    }
+    Ok(true)
+}
+
+/// Each rule's stored fields beside its switch (`<prefix>ed`), by the buy side's prefix; the sell side's are `sell_` + each.
+const RULE_FIELDS: [(&str, &[&str]); 4] = [
+    ("price_limit", &["", "_range_lower_bound", "_range_upper_bound", "_timing_condition", "_value_condition", "_in_ticker_id", "_action"]),
+    ("price_drop_limit", &["", "_time_window_condition", "_in_ticker_id", "_action"]),
+    ("moving_average_limit", &["_timing_condition", "_value_condition", "_in_ticker_id", "_in_ma_type", "_in_timeframe", "_in_period", "_action"]),
+    ("indicator_limit", &["", "_timing_condition", "_value_condition", "_in_ticker_id", "_in_indicator", "_in_timeframe", "_action"]),
+];
+
+/// PLAN index-as-ingredient §3.2 step 3: what a bot whose composition changes shape no longer carries, so nothing dormant
+/// wakes on what it now holds ("selling it is a new decision with a new sell sentence"). Discarded whole (the switch off,
+/// every other field of the rule removed, its latch and switch stamp in `transient_data` removed): every sell-side rule,
+/// and a buy-side rule whose action is a real flip as the engine reads it (`conditions::action`: `start_selling` or
+/// `start_buying`). Every other buy rule is left exactly as it is: a blank action is the engine's pause and still gates; an
+/// action it does not run keeps its eligibility refusal. Then the stored sale (`sell_amount`, `sell_quote_amount`,
+/// `smart_interval_base_amount`), the base cap and a base denomination. The one contract of the last-group removal
+/// (slice 3) and the index bot's conversion (slice 4). True when it cleared anything.
+pub fn reset_sell_side(settings: &mut Map<String, Value>, transient: &mut Map<String, Value>) -> bool {
+    let present = |v: Option<&Value>| v.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str().is_none_or(|t| !t.trim().is_empty()));
+    let mut changed = false;
+    for (base, fields) in RULE_FIELDS {
+        for prefix in [base.to_string(), format!("sell_{base}")] {
+            let flip = matches!(super::conditions::action(&Value::Object(settings.clone()), &prefix).as_str(), "start_selling" | "start_buying");
+            if !prefix.starts_with("sell_") && !flip { continue; }
+            let switch = format!("{prefix}ed");
+            changed |= settings.get(&switch) == Some(&Value::Bool(true));
+            if settings.contains_key(&switch) { settings.insert(switch, Value::Bool(false)); }
+            for suffix in fields.iter() { changed |= settings.shift_remove(&format!("{prefix}{suffix}")).is_some_and(|v| present(Some(&v))); }
+            for stamp in ["_condition_met_at", "_enabled_at"] { changed |= transient.remove(&format!("{prefix}{stamp}")).is_some_and(|v| !v.is_null()); }
+        }
+    }
+    for key in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount", "base_amount_limit"] {
+        if present(settings.get(key)) { changed = true; settings.insert(key.into(), Value::Null); }
+    }
+    if settings.get("base_amount_limited") == Some(&Value::Bool(true)) { changed = true; settings.insert("base_amount_limited".into(), Value::Bool(false)); }
+    if settings.get("sell_denomination").and_then(Value::as_str).is_some_and(|d| d != "quote") { changed = true; settings.insert("sell_denomination".into(), json!("quote")); }
+    changed
 }
 
 /// Bots::DcaIndex settings: 'top' or 'category'.

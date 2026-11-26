@@ -31,6 +31,8 @@ pub struct Bot {
     pub base_asset_ids: Vec<i64>,
     /// A basket stored with index groups (PLAN index-as-ingredient §5): its universe is the venue's, as an index bot's.
     pub grouped: bool,
+    /// Its whole content is one index group (PLAN index-as-ingredient slice 4a): titled as the index bot it was.
+    pub lone: bool,
 }
 
 /// 2.x's Integer/Float/String#to_i for the allocations keys and legacy base_asset_ids.
@@ -109,7 +111,8 @@ pub fn bot(c: &Connection, id: i64) -> Result<Bot, FiguresError> {
     };
     let quote_asset_id = settings.get("quote_asset_id").map(quote_id).transpose()?.flatten();
     let grouped = kind == Kind::Basket && settings.get("index_groups").is_some_and(Value::is_array);
-    Ok(Bot { id, user_id: user_id.unwrap_or(0), exchange_id: exchange_id.filter(|_| exchange_type.is_some()), kind, exchange_type, quote_asset_id, base_asset_ids, grouped })
+    let lone = grouped && crate::engine::composition::Composition::of("Bots::DcaMultiAsset", settings.as_object()).is_some_and(|c| c.lone_group().is_some());
+    Ok(Bot { id, user_id: user_id.unwrap_or(0), exchange_id: exchange_id.filter(|_| exchange_type.is_some()), kind, exchange_type, quote_asset_id, base_asset_ids, grouped, lone })
 }
 
 /// One submitted order, as the walks pluck it.

@@ -69,7 +69,7 @@ fn queued_redeploy(app: &App, class: &str, id: i64) -> Option<bool> {
 }
 
 /// `bot.redeploy_in_flight?` past the pending flag `refusal` already refuses, or a Yes 2.x still holds: why it is not served.
-fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<Option<&'static str>, WebError> {
+pub(super) fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<Option<&'static str>, WebError> {
     let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REDEPLOY' AND status = 0 AND external_status IN (0, 1))",
                                     [source.id], |r| r.get(0))?;
     if waiting { return Ok(Some("a redeploy in progress")); }
@@ -132,7 +132,9 @@ impl Split {
         let members = source.bot.memberships.iter().filter(|m| m.in_index).count();
         Ok(merge::TYPES.contains(&source.class.as_str()) && source.bot.kind != Kind::Signal
             && !matches!(source.bot.status, BotStatus::Archived | BotStatus::Deleted | BotStatus::Executing)
-            && !index_switch::busy(c, &source.engine, false, now.utc())? && members >= 2 && !merge::reversal_pending(&source.engine))
+            && !index_switch::busy(c, &source.engine, false, now.utc())? && members >= 2 && !merge::reversal_pending(&source.engine)
+            // PLAN index-as-ingredient §3.4: a grouped source's members are its settings' composition (no refresh runs here).
+            && crate::engine::composition::current(c, &source.engine, now.utc())?)
     }
 
     /// Bot::Split#reason, in its order; the books are read fresh. Then D-SPLIT-LEGACY-SHADOW's routing of each legacy row.

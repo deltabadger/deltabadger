@@ -49,7 +49,7 @@ pub fn unreadable(error: &WebError) -> bool {
 use chrono::{DateTime, Utc};
 use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
 use rusqlite::{Connection, OptionalExtension};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 /// Bots::DcaMultiAsset::MAX_ASSETS.
 pub const MAX_ASSETS: usize = 100;
@@ -271,6 +271,20 @@ impl Kind {
 
 /// `settings.index_groups` is a JSON array (engine `Bot::stored_groups`, by the stored spelling, no decode).
 pub fn stored_groups(settings: &Map<String, Value>) -> bool { settings.get("index_groups").is_some_and(Value::is_array) }
+
+/// PLAN index-as-ingredient slice 4a: the element of a basket stored with one index group at weight 1.0 and no assets (engine
+/// `Composition::lone_group`), the content an index bot converts into; None for anything else.
+pub fn lone_group_of(settings: &Map<String, Value>) -> Option<Map<String, Value>> {
+    if !stored_groups(settings) { return None; }
+    crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(settings))?.lone_group()?;
+    settings.get("index_groups")?.as_array()?.iter().find_map(|g| g.as_object().cloned())
+}
+
+/// The class REST and MCP answer for a bot (PLAN index-as-ingredient slice 4a): a basket stored as one index group is the
+/// index bot it was (`Bots::DcaIndex`), so the external contract does not move until slice 7 adds ingredients.
+pub fn api_type(class: String, settings: &Value) -> String {
+    if class == "Bots::DcaMultiAsset" && settings.as_object().and_then(lone_group_of).is_some() { "Bots::DcaIndex".into() } else { class }
+}
 
 /// The `indices` row an index bot follows (Bots::DcaIndex#current_index), as far as the page reads it.
 #[derive(Clone, Debug, Default)]
@@ -592,8 +606,14 @@ impl Bot {
         let quote_asset = match quote_asset_id { Some(asset_id) => Asset::find(c, asset_id)?, None => None };
 
         let mut memberships = vec![];
-        let mut statement = c.prepare("SELECT asset_id, ticker_id, target_allocation, in_index FROM bot_index_assets WHERE bot_id = ?1 ORDER BY id")?;
-        let rows = statement.query_map([id], |r| {
+        // A bounded set, in id order (D-LOAD-EXITED-ROWS): the named assets' rows, the 1000 heaviest current members and the
+        // newest 1000 exited ones. Holdings come from orders, never from these rows.
+        let mut statement = c.prepare("SELECT asset_id, ticker_id, target_allocation, in_index FROM bot_index_assets WHERE bot_id = ?1 AND id IN ( \
+            SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY CAST(target_allocation AS REAL) DESC, id LIMIT 1000) \
+            UNION SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index IS NOT 1 ORDER BY exited_at DESC, id DESC LIMIT 1000) \
+            UNION SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND asset_id IN (SELECT value FROM json_each(?2))) ORDER BY id")?;
+        let named = serde_json::to_string(&allocation_ids(&settings)).map_err(|e| data(format!("bot {id}: {e}")))?;
+        let rows = statement.query_map(rusqlite::params![id, named], |r| {
             Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?, r.get::<_, Stored>(2)?.0, r.get::<_, Option<bool>>(3)?.unwrap_or(false)))
         })?.collect::<Result<Vec<_>, _>>()?;
         for (asset_id, ticker_id, target_allocation, in_index) in rows {
@@ -631,7 +651,8 @@ impl Bot {
             }
         };
         let api_key = c.query_row(&format!("SELECT status FROM api_keys k WHERE {} AND key_type = 0 ORDER BY id LIMIT 1", crate::identity::bot_keys(c, id, "k")?), [], |r| r.get(0)).optional()?;
-        let index = if kind == Kind::Index { index_row(c, &settings)? } else { None };
+        let index = if kind == Kind::Index { index_row(c, &settings)? }
+                    else if let Some(group) = (kind == Kind::Basket).then(|| lone_group_of(&settings)).flatten() { index_row(c, &group)? } else { None };
         let last_order = c.query_row("SELECT status, error_messages FROM transactions WHERE bot_id = ?1 ORDER BY id DESC LIMIT 1", [id], |r| {
             Ok((r.get::<_, Option<i64>>(0)?, r.get::<_, Option<String>>(1)?))
         }).optional()?.map(|(status, messages)| LastOrder {
@@ -660,6 +681,8 @@ impl Bot {
     /// Automation::Labelable#generate_label: `default_label`, else the translated "New bot".
     /// An index bot's clamps its count first, in memory, as Bots::DcaIndex#default_label does.
     fn default_label(&mut self, locale: &str) -> String {
+        // A lone grouped basket is named as the index it follows (PLAN index-as-ingredient slice 4a).
+        if let Some(mut view) = self.index_view() { view.kind = Kind::Index; return view.default_label(locale); }
         let label = match self.kind {
             Kind::Index => {
                 if !self.holds_whole_universe() {
@@ -706,7 +729,7 @@ impl Bot {
     /// Bots::DcaIndex::IndexAllocatable). 2.x writes them with the next save; a page writes nothing,
     /// so a row from before a rule existed is rendered with these and stays as it is. `||=`: a
     /// setting that is absent, null or false takes its default. All of it is read from the database.
-    fn fill_defaults(&mut self) {
+    pub(super) fn fill_defaults(&mut self) {
         use serde_json::json;
         // The Smart Intervals amount first: it is computed from the row and the bot's tickers.
         let mut defaults: Vec<(&str, Value)> = vec![("smart_intervaled", json!(false))];
@@ -715,7 +738,7 @@ impl Bot {
         match self.kind {
             Kind::Basket => {
                 // `tickers.min_by { |t| t[:base] }&.id`: the member a condition watches until one is chosen.
-                let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| ticker.id);
+                let first = self.subject_pool().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| ticker.id);
                 defaults.extend([
                     ("quote_amount_limited", json!(false)), ("quote_amount_limit", json!(1000)),
                     ("price_limited", json!(false)), ("price_limit", json!(1_000_000)), ("price_limit_range_lower_bound", json!(0)),
@@ -752,7 +775,7 @@ impl Bot {
         }
         // The sell side's reader fallbacks (`value.nil? ? default : value`, `super.presence || …`), read only while selling.
         if self.selling() || self.kind == Kind::Signal {
-            let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
+            let first = self.subject_pool().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
             let blank = |value: Option<&Value>| value.is_none_or(|v| v.is_null() || v.as_str().is_some_and(|t| t.is_empty()));
             for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
                 let mut keys = vec![format!("sell_{rule}ed"), format!("sell_{rule}"), format!("sell_{rule}_timing_condition"), format!("sell_{rule}_value_condition"),
@@ -963,8 +986,10 @@ impl Bot {
     }
 
     /// `allocations.values.sum(&:to_f)`: 2.x's compensated Float sum, in stored order.
+    /// The weights' sum; a basket stored with index groups counts its groups' weights too (PLAN index-as-ingredient §3.2).
     pub fn allocations_total(&self) -> f64 {
-        float_sum(self.allocations().iter().map(|(_, weight)| *weight))
+        let groups = if self.grouped() { crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(&self.settings)).map(|c| c.groups.iter().map(|g| g.weight).collect()).unwrap_or_default() } else { vec![] };
+        float_sum(self.allocations().iter().map(|(_, weight)| *weight).chain(groups))
     }
 
     /// Bots::DcaMultiAsset::Allocatable#allocations_balanced?: within 0.001 of one. An index bot has no such rule.
@@ -998,6 +1023,35 @@ impl Bot {
     pub fn one_asset(&self) -> bool {
         // PLAN index-as-ingredient §6.2: one asset and no index group.
         self.kind == Kind::Basket && allocation_ids(&self.settings).len() == 1 && !self.grouped()
+    }
+
+    /// The tickers a basket's rule may default its subject to: every one it holds; a grouped bot, which reads the venue's
+    /// universe, only a named asset's or a current member's, so no rule is armed on a pair it does not hold (none: the
+    /// subject stays missing; Codex slice 3 r2 #3).
+    pub fn subject_pool(&self) -> impl Iterator<Item = &Ticker> {
+        let grouped = self.grouped();
+        let held: Vec<i64> = if grouped { allocation_ids(&self.settings).into_iter().chain(self.memberships.iter().filter(|m| m.in_index).map(|m| m.asset.id)).collect() } else { vec![] };
+        self.tickers.iter().filter(move |t| !grouped || held.contains(&t.base_asset_id))
+    }
+
+    /// A basket whose whole content is one index group (`lone_group_of`): the group's element.
+    pub fn lone_group(&self) -> Option<Map<String, Value>> { if self.kind == Kind::Basket { lone_group_of(&self.settings) } else { None } }
+
+    /// PLAN index-as-ingredient slice 4a: a lone grouped basket as the index view reads it, its group's keys lifted to the top
+    /// level with an index bot's defaults (`default_num_coins`, no flattening). Display only: never loaded into a draft or written.
+    pub fn index_view(&self) -> Option<Bot> {
+        let group = self.lone_group()?;
+        let mut view = self.clone();
+        // The count and flattening as the group codec reads them (a stored "0.5" draws as 0.5, never the reader's 0).
+        let (count, flattening) = (crate::engine::composition::num_coins(Some(&group)), crate::engine::composition::flattening(Some(&group)));
+        for (key, value) in group { if key != "weight" { view.settings.insert(key, value); } }
+        for (key, value) in [("num_coins", count.map(Value::from)), ("allocation_flattening", flattening.map(Value::from))] {
+            match value { Some(value) => { view.settings.insert(key.into(), value); } None => { view.settings.shift_remove(key); } }
+        }
+        for (key, value) in [("num_coins", json!(view.bounded_universe_size().map_or(10, |size| size.min(10)))), ("allocation_flattening", json!(0.0))] {
+            if matches!(view.settings.get(key), None | Some(Value::Null)) { view.settings.insert(key.to_string(), value); }
+        }
+        Some(view)
     }
 
     /// A basket stored with index groups (PLAN index-as-ingredient §3.2), as the engine's `stored_groups` reads it.

@@ -109,6 +109,9 @@ pt:
                 no_members: "Este índice não tem ativos que ainda sejam negociados nesta exchange."
                 gone: "O bot mudou entretanto. Recarrega a página."
                 not_offered: "Este índice não está disponível para este bot."
+                buy_first: "Primeiro, volte a colocar o bot a comprar."
+                weights_first: "Primeiro, defina os pesos dos ativos ou use Alocação personalizada."
+                selling_reset: "As regras de venda foram desativadas; defina-as novamente para os ativos restantes."
             multi_asset:
                 condition_subject: "Esta condição tem de incidir sobre um ativo que o bot detém."
                 min_assets: "Uma carteira tem de incluir pelo menos um ativo."

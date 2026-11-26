@@ -239,18 +239,18 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     // for every index bot neither deleted nor archived that has an exchange, whatever its status: each becomes the bot's
     // resync marker, committed before the rows go, so a crash between the two marks again on the next takeover. A claimed
     // row of a dead 2.x process is included: the resync runs at least once.
-    let mut s = o.primary.prepare(&format!("SELECT id FROM bots WHERE type = 'Bots::DcaIndex' AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL",
-                                           BotStatus::Deleted as i64, BotStatus::Archived as i64))?;
-    let index_gids: Vec<(i64, String)> = s.query_map([], |r| r.get::<_, i64>(0))?.map(|id| id.map(|id| (id, format!("gid://deltabadger/Bots::DcaIndex/{id}"))))
-        .collect::<Result<_, _>>()?;
+    // PLAN index-as-ingredient slice 4: read after the start's conversion committed, so a follower of either spelling; 2.x's
+    // GlobalID names the class it enqueued under (`Bots::DcaIndex`), matched by the bot's id.
+    let mut s = o.primary.prepare(&format!("SELECT id FROM bots WHERE {} AND status NOT IN ({}, {}) AND exchange_id IS NOT NULL",
+                                           super::index::FOLLOWS_INDEX_SQL, BotStatus::Deleted as i64, BotStatus::Archived as i64))?;
+    let followers: Vec<i64> = s.query_map([], |r| r.get::<_, i64>(0))?.collect::<Result<_, _>>()?;
     drop(s);
     let mut s = o.queue.prepare("SELECT j.id, j.arguments FROM solid_queue_jobs j WHERE j.finished_at IS NULL AND j.class_name = 'Bot::ResyncIndexCompositionJob' \
                                  AND NOT EXISTS (SELECT 1 FROM solid_queue_failed_executions f WHERE f.job_id = j.id)")?;
     let resyncs: Vec<(i64, Option<String>)> = s.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
     drop(s);
     let resyncs: Vec<(i64, i64)> = resyncs.into_iter().filter_map(|(job, args)| {
-        let gid = args.as_deref().and_then(first_gid)?;
-        index_gids.iter().find(|(_, g)| *g == gid).map(|(bot, _)| (job, *bot))
+        bot_of(args.as_deref(), Some("Bots::DcaIndex")).filter(|bot| followers.contains(bot)).map(|bot| (job, bot))
     }).collect();
     let tx = model::immediate(&o.primary)?;
     for (_, bot) in &resyncs { super::index::mark_resync(&tx, *bot, now)?; }

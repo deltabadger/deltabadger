@@ -191,13 +191,15 @@ pub fn claim(_proof: &EngineLock, primary: &Connection, cipher: &Cipher, version
         // The table exists wherever Rust's migrations ran; a claim on an unmigrated copy (a parity scratch) has none.
         let ranked: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_index_rankings')", [], |r| r.get(0))?;
         if ranked { primary.execute("DELETE FROM rust_index_rankings", [])?; }
-        // Index groups (rust_bot_group_members): which member came from which group is this engine's composition, as
-        // the marker below is, so a new ownership starts without it.
+        // Index groups (rust_bot_group_members): that a group's rows are this engine's composition (`composed`) is
+        // forgotten, as the marker below is; the rows stay as the members' seats (`index::incumbents` reads them with the
+        // flat row's ticker), as a legacy index bot keeps its `in_index` rows (PLAN index-as-ingredient slice 4a). The
+        // start's conversion seeds them before this claim.
         let grouped: bool = primary.query_row("SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rust_bot_group_members')", [], |r| r.get(0))?;
-        if grouped { primary.execute("DELETE FROM rust_bot_group_members", [])?; }
+        if grouped { primary.execute("UPDATE rust_bot_group_members SET composed = 0 WHERE composed <> 0", [])?; }
         // A17-4 r18: 2.x may have changed any bot's membership while it owned the install, so no composition marker
         // (engine::index::COMPOSED_KEY) survives either. Retirements (rust_index_retired) do.
-        // Nor the grouped composition's (engine::composition::COMPOSED_OF_KEY): its rows went with the table above.
+        // Nor the grouped composition's (engine::composition::COMPOSED_OF_KEY): its provenance went above.
         primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_composed_index', '$.rust_composed_of') \
                          WHERE json_valid(transient_data) AND (json_type(transient_data, '$.rust_composed_index') IS NOT NULL \
                          OR json_type(transient_data, '$.rust_composed_of') IS NOT NULL)", [])?;

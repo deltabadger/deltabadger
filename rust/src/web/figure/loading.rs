@@ -238,9 +238,9 @@ pub fn revision(c:&Connection,user:i64,now:chrono::DateTime<chrono::Utc>)->Resul
         // rounds its chart (chart::quote_decimals), and their tickers are what it asks the market for (`symbols`). Per
         // quote on each index's venue, one aggregate over the venue's index: their coarsest and finest precision, and
         // each one's id and ticker in id order. A held one's whole row is in the tickers above.
-        ("SELECT exchange_id,quote_asset_id,min(quote_decimals),max(quote_decimals),group_concat(id||char(30)||ticker,char(31) ORDER BY id) FROM tickers \
-          WHERE exchange_id IN (SELECT exchange_id FROM bots WHERE user_id=?1 AND type='Bots::DcaIndex') AND available=1 AND trading_enabled=1 \
-          GROUP BY exchange_id,quote_asset_id ORDER BY 1,2".to_string(),"index listings"),
+        (format!("SELECT exchange_id,quote_asset_id,min(quote_decimals),max(quote_decimals),group_concat(id||char(30)||ticker,char(31) ORDER BY id) FROM tickers \
+          WHERE exchange_id IN (SELECT exchange_id FROM bots WHERE user_id=?1 AND {follows}) AND available=1 AND trading_enabled=1 \
+          GROUP BY exchange_id,quote_asset_id ORDER BY 1,2",follows=crate::engine::index::FOLLOWS_INDEX_SQL),"index listings"),
     ];
     for (sql,name) in sets {
         let mut statement=c.prepare(&sql)?;

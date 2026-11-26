@@ -205,6 +205,11 @@ fn tile(c: &Connection, ctx: &Ctx, csrf: &str, bot: &Bot, market_data_configured
         Kind::Index if quote_id.is_some() && bot.setting("num_coins").is_some() => {
             Title::Text(bot.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])))
         }
+        // A lone grouped basket is titled as the index it follows (PLAN index-as-ingredient slice 4a).
+        Kind::Basket if quote_id.is_some() && bot.lone_group().is_some() => {
+            let view = bot.index_view().expect("a lone group has a view");
+            Title::Text(view.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[])))
+        }
         Kind::Basket if quote_id.is_some() => {
             let symbols: Vec<&str> = bot.base_assets.iter().map(|asset| asset.symbol()).collect();
             if symbols.len() >= 3 {

@@ -41,6 +41,9 @@ impl ActionParams {
 
     pub fn mcp(&self) -> bool { self.1 }
 
+    /// A page form's parameters built in this build (the bot menu's index routes post an ingredient operation this way).
+    pub(super) fn from_form(value: Param) -> Self { Self(value, false) }
+
     pub fn value(&self) -> &Param { &self.0 }
 
     /// 2.x's controller parameter merge: query keys replace body keys shallowly.
@@ -64,14 +67,20 @@ impl ActionParams {
         let mut out = Map::new();
         let rules: &[&str] = if kind == Kind::Index { INDEX_RULE_SCALARS } else { &[] };
         // #710: the exchange menu's account, beyond 2.x's allowlist (it lists accounts only where an exchange has 2+).
-        for key in allowed.iter().chain(rules).chain(&["account_id"]) {
+        // PLAN index-as-ingredient §6.2: a basket's ingredient operations, beyond 2.x's allowlist.
+        let ops: &[&str] = if kind == Kind::Basket { &INGREDIENT_OPS } else { &[] };
+        // Slice 4a: a lone index group's form posts the index form's fields under the basket root (the draft refuses them
+        // on any other basket).
+        let lone: &[&str] = if kind == Kind::Basket { &LONE_GROUP_SCALARS } else { &[] };
+        for key in allowed.iter().chain(rules).chain(&["account_id"]).chain(ops).chain(lone) {
             if let Some(value) = fields.get(*key).filter(|v| !v.is_array() && !v.is_object()) {
                 out.insert((*key).into(), value.clone());
             }
         }
         if kind == Kind::Basket {
-            if let Some(value) = fields.get("allocations").filter(|v| v.is_object()) {
-                out.insert("allocations".into(), value.clone());
+            // PLAN index-as-ingredient §6.2: a group's fields, `index_groups[<external id>][weight | num_coins | …]`.
+            for key in ["allocations", "index_groups"] {
+                if let Some(value) = fields.get(key).filter(|v| v.is_object()) { out.insert(key.into(), value.clone()); }
             }
         }
         Ok(Value::Object(out))
@@ -90,6 +99,11 @@ impl ActionParams {
         }
     }
 }
+
+/// PLAN index-as-ingredient §6.2: the settings form's ingredient operations (one per post; `change_index_to` goes with
+/// `change_index_id`). With `index_groups`, what REST, MCP and an index bot's form never take in slice 3.
+pub const INGREDIENT_OPS: [&str; 6] = ["add_index", "remove_index_id", "change_index_id", "change_index_to", "ungroup_index_id", "follow_index"];
+pub fn ingredient_key(key: &str) -> bool { key == "index_groups" || INGREDIENT_OPS.contains(&key) }
 
 // The plan explicitly requires a deep, body-winning merge. 2.x's request merger
 // is shallow and query-winning; action_transport pins that named divergence to real requests.
@@ -331,6 +345,9 @@ pub const SIGNAL_SCALARS: &[&str] = &["label", "exchange_id", "base_asset_id", "
 pub const INDEX_RULE_SCALARS: &[&str] = &["quote_amount_limited", "quote_amount_limit", "price_limited", "price_limit_mode", "price_limit",
     "price_limit_range_lower_bound", "price_limit_range_upper_bound", "price_limit_value_condition", "price_limit_in_ticker_id",
     "price_drop_limited", "price_drop_limit_mode", "price_drop_limit", "price_drop_limit_time_window_condition", "moving_average_limited", "moving_average_limit_mode", "moving_average_limit_value_condition", "moving_average_limit_in_ma_type", "moving_average_limit_in_timeframe", "moving_average_limit_in_period", "indicator_limited", "indicator_limit_mode", "indicator_limit", "indicator_limit_value_condition", "indicator_limit_in_indicator", "indicator_limit_in_timeframe", "price_drop_limit_in_ticker_id", "moving_average_limit_in_ticker_id", "indicator_limit_in_ticker_id"];
+
+/// PLAN index-as-ingredient slice 4a: the index form's own fields, which a basket stored as one index group takes flat.
+pub const LONE_GROUP_SCALARS: [&str; 4] = ["num_coins", "num_coins_rendered", "num_coins_ceiling", "allocation_flattening"];
 
 pub const INDEX_SCALARS: &[&str] = &[
     "quote_asset_id",

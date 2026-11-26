@@ -214,7 +214,7 @@ fn a_new_ownership_clears_every_index_ranking_and_a_restart_keeps_them() {
 /// A17-4 r18: a new ownership removes every composition marker (2.x may have changed membership) and keeps retirements
 /// (the provider's catalogue, not a row 2.x rewrites).
 #[test]
-fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
+fn a_new_ownership_forgets_composition_provenance_and_keeps_seats_and_retirements() {
     let dir = common::v2_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
@@ -223,6 +223,7 @@ fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
     o.primary.execute("INSERT INTO bots (type, status, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::DcaIndex', 2, 1, '{}', '{\"rust_composed_index\":\"layer-1\",\"n\":1}', '2026-01-01', '2026-01-01')", []).unwrap();
     o.primary.execute("INSERT INTO rust_index_retired VALUES ('layer-1', 'coingecko', '2026-09-01T00:00:00Z')", []).unwrap();
     let group_rows = || o.primary.query_row("SELECT count(*) FROM rust_bot_group_members", [], |r| r.get::<_, i64>(0)).unwrap();
+    let composed_rows = || o.primary.query_row("SELECT count(*) FROM rust_bot_group_members WHERE composed = 1", [], |r| r.get::<_, i64>(0)).unwrap();
     o.primary.execute("INSERT INTO rust_bot_group_members VALUES (1, 'layer-1', 2, 3, 1, 1.0)", []).unwrap();
     // A grouped bot carrying only the grouped composition's key.
     o.primary.execute("INSERT INTO bots (type, status, user_id, settings, transient_data, created_at, updated_at) VALUES ('Bots::DcaMultiAsset', 2, 1, '{\"index_groups\":[]}', '{\"rust_composed_of\":{\"rev\":\"r1\"},\"m\":2}', '2026-01-01', '2026-01-01')", []).unwrap();
@@ -231,14 +232,16 @@ fn a_new_ownership_removes_composition_markers_and_keeps_retirements() {
     let marker = || o.primary.query_row("SELECT json_extract(transient_data, '$.rust_composed_index') FROM bots ORDER BY id LIMIT 1", [], |r| r.get::<_, Option<String>>(0)).unwrap();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromV2));
     assert_eq!(marker(), None, "removed");
-    assert_eq!(group_rows(), 0, "which member came from which group is removed too");
+    // PLAN index-as-ingredient slice 4a: that the rows are this engine's composition is forgotten; the seats stay (a start's
+    // conversion seeds them before the claim).
+    assert_eq!((group_rows(), composed_rows()), (1, 0), "provenance forgotten, the member's seat kept");
     assert_eq!(composed_of(), (None, 2), "and the grouped composition's key, on a row carrying only it");
     assert_eq!(o.primary.query_row("SELECT json_extract(transient_data, '$.n') FROM bots WHERE type = 'Bots::DcaIndex'", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the rest kept");
     assert_eq!(o.primary.query_row("SELECT count(*) FROM rust_index_retired", [], |r| r.get::<_, i64>(0)).unwrap(), 1, "the retirement kept");
     o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_composed_index', 'layer-1') WHERE type = 'Bots::DcaIndex'", []).unwrap();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
     assert_eq!(marker().as_deref(), Some("layer-1"), "an ordinary restart keeps it");
-    o.primary.execute("INSERT INTO rust_bot_group_members VALUES (1, 'layer-1', 2, 3, 1, 1.0)", []).unwrap();
+    o.primary.execute("UPDATE rust_bot_group_members SET composed = 1", []).unwrap();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::AfterCrash));
-    assert_eq!(group_rows(), 1, "and its group rows");
+    assert_eq!((group_rows(), composed_rows()), (1, 1), "and its group rows, provenance included");
 }
