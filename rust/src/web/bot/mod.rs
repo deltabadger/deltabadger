@@ -596,7 +596,7 @@ impl Bot {
         // newest 1000 exited ones. Holdings come from orders, never from these rows.
         let mut statement = c.prepare("SELECT asset_id, ticker_id, target_allocation, in_index FROM bot_index_assets WHERE bot_id = ?1 AND id IN ( \
             SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY CAST(target_allocation AS REAL) DESC, id LIMIT 1000) \
-            UNION SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index IS NOT 1 ORDER BY id DESC LIMIT 1000) \
+            UNION SELECT id FROM (SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND in_index IS NOT 1 ORDER BY exited_at DESC, id DESC LIMIT 1000) \
             UNION SELECT id FROM bot_index_assets WHERE bot_id = ?1 AND asset_id IN (SELECT value FROM json_each(?2))) ORDER BY id")?;
         let named = serde_json::to_string(&allocation_ids(&settings)).map_err(|e| data(format!("bot {id}: {e}")))?;
         let rows = statement.query_map(rusqlite::params![id, named], |r| {
@@ -758,7 +758,7 @@ impl Bot {
         }
         // The sell side's reader fallbacks (`value.nil? ? default : value`, `super.presence || …`), read only while selling.
         if self.selling() || self.kind == Kind::Signal {
-            let first = self.tickers.iter().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
+            let first = self.subject_pool().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|ticker| json!(ticker.id)).unwrap_or(Value::Null);
             let blank = |value: Option<&Value>| value.is_none_or(|v| v.is_null() || v.as_str().is_some_and(|t| t.is_empty()));
             for rule in ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"] {
                 let mut keys = vec![format!("sell_{rule}ed"), format!("sell_{rule}"), format!("sell_{rule}_timing_condition"), format!("sell_{rule}_value_condition"),

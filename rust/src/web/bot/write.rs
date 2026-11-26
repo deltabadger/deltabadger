@@ -91,8 +91,12 @@ fn forget_composed(tx: &Connection, id: i64, set: &Map<String, Value>) -> Result
 /// PLAN index-as-ingredient slice 3: a settings write that changes what a grouped composition is derived from
 /// (`Draft::regrouped`) ends that composition's provenance (`rust_composed_of`) and asks the engine, the one writer of a
 /// grouped bot's members, to derive it again, in the same transaction.
-fn regroup(tx: &Connection, draft: &Draft, settings: &Map<String, Value>, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
-    if !draft.regrouped(settings) { return Ok(()); }
+/// Judged on the settings as persisted: the stored row with this save's writes (`set`) over it, in its stored order, so a
+/// repost that only reorders a map keeps the digest (Codex slice 3a r1).
+fn regroup(tx: &Connection, draft: &Draft, set: &Map<String, Value>, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
+    let mut persisted = draft.raw_settings.clone();
+    for (key, value) in set { persisted.insert(key.clone(), value.clone()); }
+    if !draft.regrouped(&persisted) { return Ok(()); }
     tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::composition::COMPOSED_OF_KEY), [id])?;
     crate::engine::index::mark_resync(tx, id, now)?;
     Ok(())
@@ -280,7 +284,7 @@ fn settings_inner<T>(
     if metrics_changed {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
-    regroup(&tx, &draft, &final_settings, id, ctx.now)?;
+    regroup(&tx, &draft, &effects.settings.set, id, ctx.now)?;
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.
     let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
     if draft.candidate.kind == Kind::Index && (redefined || exchange_changed) { crate::engine::index::mark_resync(&tx, id, ctx.now)?; }
@@ -612,9 +616,7 @@ pub fn lifecycle_in<T>(
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         forget_composed(tx, id, &effects.settings.set)?;
-        let mut saved = draft.candidate.settings.clone();
-        saved.extend(effects.settings.set.clone());
-        regroup(tx, draft, &saved, id, ctx.now)?;
+        regroup(tx, draft, &effects.settings.set, id, ctx.now)?;
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
         if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }

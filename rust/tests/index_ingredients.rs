@@ -428,3 +428,113 @@ async fn mcp_allocations_on_a_grouped_bot_keep_the_groups_and_resync() {
     let refused = mcp(&u, "update_bot_settings", json!({ "bot_id": id, "num_coins": 4 }));
     assert!(refused.to_string().contains("index bots only"), "{refused}");
 }
+
+// Codex 3a branch r1.
+
+/// The group's bound is the ranked row the engine selects (the provider's newest), never the lowest-id catalogue row.
+#[tokio::test]
+async fn a_group_is_bounded_by_the_engines_ranked_row() {
+    let mut u = universe();
+    // A later catalogue row of the same id (another source), ranked after the data-api one: the engine composes from it.
+    exec(&u.o, "INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+                VALUES ('nasdaq-100', 'coingecko', 'ND', '[\"T0\",\"T1\",\"T2\",\"T3\",\"T4\",\"T5\",\"T6\",\"T7\",\"T8\",\"T9\"]', '{}', '{}', '{}', 0, '2026-01-01', '2026-01-01')");
+    let newer = u.o.primary.last_insert_rowid();
+    index::record_ranking(&u.o.primary, newer, "data-api", &deltabadger::engine::provider::fingerprint(&u.o.primary).unwrap().unwrap(), "2099-01-02T00:00:00Z".parse().unwrap()).unwrap();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 8, 1.0)]));
+    assert_eq!(patch(&mut u, id, &[("bots_dca_multi_asset[label]", "Eight")]).await.status, 200);
+    assert_eq!(settings(&u, id)["index_groups"][0]["num_coins"], json!(8), "not clamped to the older five-member row");
+}
+
+#[tokio::test]
+async fn a_grouped_subject_comes_from_the_pool_posted_or_not() {
+    let mut u = universe();
+    // A group-only bot before its first composition holds nothing: no subject may be posted, on or off, either side.
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    let aaa = u.m[0].1.to_string();
+    for (on, key) in [("price_limited", "price_limit_in_ticker_id"), ("price_limited", "sell_price_limit_in_ticker_id")] {
+        let (on, key) = (format!("bots_dca_multi_asset[{on}]"), format!("bots_dca_multi_asset[{key}]"));
+        for enabled in ["1", "0"] {
+            let refused = patch(&mut u, id, &[(&on, enabled), (&key, &aaa)]).await;
+            assert_eq!(refused.status, 422, "{key} on={enabled}: {}", refused.body);
+        }
+    }
+    assert!(settings(&u, id).get("price_limit_in_ticker_id").is_none_or(Value::is_null));
+    // Beside a member, a posted member's ticker is taken; a non-member's is refused even with the rule off.
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, entered_at, created_at, updated_at) \
+                         VALUES ({id}, {}, {}, 0.5, 1, '2026-01-01', '2026-01-01', '2026-01-01')", u.m[1].0, u.m[1].1));
+    let bbb = u.m[1].1.to_string();
+    assert_eq!(patch(&mut u, id, &[("bots_dca_multi_asset[price_limit_in_ticker_id]", &bbb)]).await.status, 200);
+    assert_eq!(patch(&mut u, id, &[("bots_dca_multi_asset[price_limited]", "0"), ("bots_dca_multi_asset[price_limit_in_ticker_id]", &aaa)]).await.status, 422);
+}
+
+#[tokio::test]
+async fn a_default_subject_is_recomputed_from_the_final_candidate() {
+    let mut u = universe();
+    // BTC is the only thing held; the rule is on with no subject. Removing BTC leaves nothing to watch: no default.
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = {id}"));
+    let btc_id = u.s.btc.to_string();
+    let saved = patch(&mut u, id, &[("bots_dca_multi_asset[remove_asset_id]", &btc_id)]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert!(s.get("price_limit_in_ticker_id").is_none_or(Value::is_null), "{s}");
+}
+
+#[tokio::test]
+async fn a_grouped_start_judges_the_candidate_venues_pair() {
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    // A member row still on another venue's tradable BTC pair (kept until the resync); BTC here no longer trades.
+    exec(&u.o, "INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Old', '0.1', '0.1', '2026-01-01', '2026-01-01')");
+    let old = u.o.primary.last_insert_rowid();
+    exec(&u.o, &format!("CREATE TEMP TABLE t AS SELECT * FROM tickers WHERE id = {}; UPDATE t SET id = NULL, exchange_id = {old}; INSERT INTO tickers SELECT * FROM t; DROP TABLE t;", u.s.ticker_id));
+    let elsewhere = u.o.primary.last_insert_rowid();
+    exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, entered_at, created_at, updated_at) \
+                         VALUES ({id}, {}, {elsewhere}, 0.5, 1, '2026-01-01', '2026-01-01', '2026-01-01'); UPDATE tickers SET trading_enabled = 0 WHERE id = {};", u.s.btc, u.s.ticker_id));
+    let refused = start(&mut u, id).await;
+    assert_eq!(status(&u, id), 2, "{}", refused.body);
+}
+
+#[tokio::test]
+async fn a_reordered_repost_keeps_the_digest() {
+    let mut u = universe();
+    let (a, b) = (u.s.btc.to_string(), u.m[0].0.to_string());
+    let id = grouped_bot(&u, json!({ a.clone(): 0.25, b.clone(): 0.25 }), json!([group("nasdaq-100", 3, 0.5)]));
+    compose(&u, id);
+    let (ka, kb) = (format!("bots_dca_multi_asset[allocations][{a}]"), format!("bots_dca_multi_asset[allocations][{b}]"));
+    assert_eq!(patch(&mut u, id, &[(&kb, "25"), (&ka, "25")]).await.status, 200);
+    let t = transient(&u, id);
+    assert!(t.get(composition::COMPOSED_OF_KEY).is_some(), "{t}");
+}
+
+#[tokio::test]
+async fn a_huge_group_count_is_a_422() {
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("cat-x", 3, 0.5)]));
+    let refused = patch(&mut u, id, &[("bots_dca_multi_asset[index_groups][cat-x][num_coins]", "9223372036854775807")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups[0].num_coins', 9223372036854775807) WHERE id = {id}"));
+    let refused = patch(&mut u, id, &[("bots_dca_multi_asset[index_groups][cat-x][weight]", "50")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+}
+
+#[test]
+fn the_newest_exits_are_loaded_whatever_their_ids() {
+    use deltabadger::web::bot::{Bot, For};
+    let u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
+    let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    let mut first = 0;
+    for i in 0..1001 {
+        exec(&u.o, &format!("INSERT INTO assets (external_id, symbol, name, created_at, updated_at) VALUES ('r{i}', 'R{i}', 'R{i}', '2026-01-01', '2026-01-01')"));
+        let asset = u.o.primary.last_insert_rowid();
+        // The first row re-entered and left again last.
+        let exited = if i == 0 { "2026-08-01".to_string() } else { format!("2026-02-01 00:{:02}:{:02}", i / 60 % 60, i % 60) };
+        exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, entered_at, exited_at, created_at, updated_at) \
+                             VALUES ({id}, {asset}, {}, 0, 0, '2026-01-01', '{exited}', '2026-01-01', '2026-01-01')", u.s.ticker_id));
+        if i == 0 { first = asset; }
+    }
+    let bot = Bot::find(&u.o.primary, u.s.user_id, id, For::Page, "en").unwrap().unwrap();
+    assert!(bot.memberships.iter().any(|m| m.asset.id == first), "the latest exit is loaded");
+}

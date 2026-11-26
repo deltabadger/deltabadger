@@ -275,7 +275,7 @@ impl Draft {
                 }
                 if let Some(coins) = edits.get("num_coins").filter(|v| present(v)) {
                     let count = numeric(coins, true)?;
-                    let bounded = crate::web::wizard::index_create::bounded(crate::web::wizard::index_create::index_row(c, group)?.as_ref());
+                    let bounded = group_bound(c, group)?;
                     group.insert("hold_all".into(), json!(bounded.zip(count.as_i64()).is_some_and(|(size, n)| n >= size)));
                     group.insert("num_coins".into(), count);
                 }
@@ -676,27 +676,22 @@ impl Draft {
             if starting {
                 let quote = self.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
                 for (id, _) in self.candidate.allocations() {
-                    let existing = self.candidate.memberships.iter().filter(|m| m.in_index).filter_map(|m| m.ticker.as_ref()).find(|t| t.base_asset_id == id).cloned();
+                    // A grouped bot's rows wait for the engine's resync after a venue or quote change: only a pair here counts.
+                    let here = |t: &&Ticker| !self.candidate.grouped() || t.exchange_id == self.candidate.exchange.id && Some(t.quote_asset_id) == quote;
+                    let existing = self.candidate.memberships.iter().filter(|m| m.in_index).filter_map(|m| m.ticker.as_ref()).filter(here).find(|t| t.base_asset_id == id).cloned();
                     let ticker = match existing { Some(t) => Some(t), None => Ticker::all(c, "t.exchange_id = ?1 AND t.base_asset_id = ?2 AND t.quote_asset_id IS ?3", &[&self.candidate.exchange.id, &id, &quote])?.into_iter().next() };
                     if !ticker.is_some_and(|t| t.tradable()) { self.error(locale, "allocations", "invalid", None); break; }
                 }
             }
-            let grouped = self.candidate.grouped();
-            // A grouped bot's rules watch a named asset or a current member (Codex slice 3 r1 #6).
-            let ids: Vec<i64> = self.candidate.allocations().iter().map(|(id, _)| *id)
-                .chain(self.candidate.memberships.iter().filter(|m| grouped && m.in_index).map(|m| m.asset.id)).collect();
+            if self.candidate.grouped() { self.grouped_subjects(locale)?; }
+            let ids: Vec<i64> = self.candidate.allocations().iter().map(|(id, _)| *id).collect();
             let quote = self.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
             let allowed: Vec<i64> = Ticker::all(c, "t.exchange_id = ?1 AND +t.quote_asset_id IS ?2", &[&self.candidate.exchange.id, &quote])?.into_iter().filter(|t| ids.contains(&t.base_asset_id)).map(|t| t.id).collect();
-            if !allowed.is_empty() {
+            if !allowed.is_empty() && !self.candidate.grouped() {
                 for prefix in trigger_prefixes() {
                     if self.read(&format!("{prefix}ed")) != json!(true) { continue; }
-                    let key = format!("{prefix}_in_ticker_id");
-                    if let Some(watched) = self.candidate.settings.get(&key).filter(|v| present(v)) {
+                    if let Some(watched) = self.candidate.settings.get(&format!("{prefix}_in_ticker_id")).filter(|v| present(v)) {
                         let id = numeric(watched, true)?.as_i64();
-                        // The subject a grouped bot watches stays when its asset leaves the index (the engine keeps watching it):
-                        // only a subject this save posts anew, or moves, is judged.
-                        let stored = self.raw_settings.get(&key).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
-                        if grouped && (!self.parsed.contains_key(&key) || id == stored && self.moved().is_none()) { continue; }
                         if !id.is_some_and(|id| allowed.contains(&id)) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
                     }
                 }
@@ -1049,11 +1044,34 @@ impl Draft {
         Ok(())
     }
 
+    /// The one rule of a grouped bot's rule subjects (Codex slice 3a r1, 3b r3), every rule, on or off, either side, from
+    /// `Bot::subject_pool` of the final candidate (its named assets and current members at its venue and quote): a posted
+    /// subject outside it is refused (an empty pool refuses every one); a subject this save did not post is kept only as
+    /// stored before it (the engine keeps watching a member that left); one `fill_defaults` supplied is chosen again from the
+    /// pool, or left missing.
+    fn grouped_subjects(&mut self, locale: &str) -> Result<(), WebError> {
+        let pool: Vec<(i64, String)> = self.candidate.subject_pool().map(|t| (t.id, t.base.clone())).collect();
+        let first = pool.iter().min_by(|a, b| a.1.as_bytes().cmp(b.1.as_bytes())).map(|(id, _)| *id);
+        for prefix in trigger_prefixes() {
+            let key = format!("{prefix}_in_ticker_id");
+            let Some(value) = self.candidate.settings.get(&key).filter(|v| present(v)).cloned() else { continue };
+            let id = numeric(&value, true)?.as_i64();
+            if self.parsed.contains_key(&key) {
+                if !id.is_some_and(|id| pool.iter().any(|(t, _)| *t == id)) { self.add("settings", i18n::text(locale, "errors.bots.multi_asset.condition_subject", &[])); }
+                continue;
+            }
+            let stored = self.raw_settings.get(&key).filter(|v| present(v)).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
+            if stored.is_some() && stored == id { continue; }
+            match first { Some(first) => { self.candidate.settings.insert(key, json!(first)); } None => { self.candidate.settings.shift_remove(&key); } }
+        }
+        Ok(())
+    }
+
     /// A `Bots::DcaIndex`'s `num_coins` clamp (above), per group on its own index row.
     fn clamp_groups(&mut self, c: &Connection) -> Result<(), WebError> {
         let Some(list) = self.candidate.settings.get_mut("index_groups").and_then(Value::as_array_mut) else { return Ok(()) };
         for group in list.iter_mut().filter_map(Value::as_object_mut) {
-            let Some(size) = index_create::bounded(index_create::index_row(c, group)?.as_ref()) else { continue };
+            let Some(size) = group_bound(c, group)? else { continue };
             if super::cast_boolean(group.get("hold_all")) { continue; }
             if crate::engine::composition::num_coins(Some(group)).is_some_and(|n| n > size) { group.insert("num_coins".into(), json!(size)); }
         }
@@ -1069,7 +1087,7 @@ impl Draft {
         let list: Vec<Map<String, Value>> = self.candidate.settings.get("index_groups").and_then(Value::as_array).into_iter().flatten()
             .map(|g| g.as_object().cloned().unwrap_or_default()).collect();
         for group in &list {
-            let bounded = index_create::bounded(index_create::index_row(c, group)?.as_ref());
+            let bounded = group_bound(c, group)?;
             let hold_all = super::cast_boolean(group.get("hold_all")) && bounded.unwrap_or(0) > 0;
             match codec::num_coins(Some(group)) {
                 None => self.error(locale, "index_groups", "not_a_number", None),
@@ -1090,7 +1108,8 @@ impl Draft {
             self.add("exchange", i18n::text(locale, "errors.bots.exchange_asset_mismatch", &[("exchange_name", i18n::Arg::Text(&self.candidate.exchange.label().plain()))]));
         }
         if starting && !provider { self.add("base", i18n::text(locale, "errors.bots.market_data_required", &[])); }
-        if self.composition_changed() {
+        // An invalid group has its refusal already; no sum is taken over it.
+        if self.composition_changed() && !self.errors.iter().any(|e| e.field == "index_groups") {
             let (before, after) = (expansion(c, &self.raw_settings)?, expansion(c, &self.candidate.settings)?);
             if after > 1000 && after > before { self.error(locale, "index_groups", "less_than_or_equal_to", Some(1000.0)); }
         }
@@ -1184,13 +1203,21 @@ impl Draft {
     }
 }
 
+/// A group's bounded size as the engine reads its index: the current provider's newest ranked row (`index::ranked_row`),
+/// a data-api row publishing its whole membership (Codex slice 3a r1: never the lowest-id catalogue row).
+pub(super) fn group_bound(c: &Connection, group: &Map<String, Value>) -> Result<Option<i64>, WebError> {
+    let Some(row) = crate::engine::index::ranked_row(c, crate::engine::composition::external_id(Some(group)))? else { return Ok(None) };
+    let n = row.top_coins.as_deref().and_then(|t| serde_json::from_str::<Vec<Value>>(t).ok()).map_or(0, |v| v.len() as i64);
+    Ok((row.source.as_deref() == Some("deltabadger") && n > 0).then_some(n))
+}
+
 /// The members a composition may expand to: its named assets and each group's count (a group holding its whole bounded
 /// index: that index's size).
 fn expansion(c: &Connection, settings: &Map<String, Value>) -> Result<i64, WebError> {
     let mut sum = settings.get("allocations").and_then(Value::as_object).map_or(0, |a| a.len() as i64);
     for group in settings.get("index_groups").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_object) {
-        let bounded = index_create::bounded(index_create::index_row(c, group)?.as_ref()).unwrap_or(0);
-        sum += if super::cast_boolean(group.get("hold_all")) && bounded > 0 { bounded } else { crate::engine::composition::num_coins(Some(group)).unwrap_or(0).max(0) };
+        let bounded = group_bound(c, group)?.unwrap_or(0);
+        sum = sum.saturating_add(if super::cast_boolean(group.get("hold_all")) && bounded > 0 { bounded } else { crate::engine::composition::num_coins(Some(group)).unwrap_or(0).max(0) });
     }
     Ok(sum)
 }
