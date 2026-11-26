@@ -538,3 +538,323 @@ fn the_newest_exits_are_loaded_whatever_their_ids() {
     let bot = Bot::find(&u.o.primary, u.s.user_id, id, For::Page, "en").unwrap().unwrap();
     assert!(bot.memberships.iter().any(|m| m.asset.id == first), "the latest exit is loaded");
 }
+
+// Slice 3b: ingredient operations on a row already grouped.
+
+fn member(u: &U, bot: i64, (asset, ticker): (i64, i64), target: f64, in_index: bool) {
+    exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, entered_at, exited_at, created_at, updated_at) \
+                         VALUES ({bot}, {asset}, {ticker}, {target}, {}, '2026-01-01', {}, '2026-01-01', '2026-01-01')", in_index as i64, if in_index { "NULL" } else { "'2026-02-01'" }));
+}
+fn group_row(u: &U, bot: i64, external_id: &str, (asset, ticker): (i64, i64), weight: f64) {
+    exec(&u.o, &format!("INSERT INTO rust_bot_group_members VALUES ({bot}, '{external_id}', {asset}, {ticker}, 1, {weight})"));
+}
+fn group_rows(u: &U, bot: i64) -> Vec<String> {
+    u.o.primary.prepare(&format!("SELECT index_external_id || ':' || asset_id FROM rust_bot_group_members WHERE bot_id = {bot} ORDER BY 1")).unwrap()
+        .query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
+}
+fn targets(u: &U, bot: i64) -> Vec<(i64, f64)> {
+    u.o.primary.prepare(&format!("SELECT asset_id, CAST(target_allocation AS REAL) FROM bot_index_assets WHERE bot_id = {bot} AND in_index = 1 ORDER BY asset_id")).unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
+}
+fn generation(u: &U, bot: i64) -> i64 { transient(u, bot)["run_generation"].as_i64().unwrap_or(0) }
+/// A second category, cat-b over AAA, BBB, CCC (offered here: three members at the venue and quote).
+fn cat_b(u: &U) { seed::insert_index(&u.o.primary, "cat-b", &["AAA.US", "BBB.US", "CCC.US"], &json!({ "AAA.US": 3e12, "BBB.US": 2e12, "CCC.US": 1e12 })); }
+const ROOT: &str = "bots_dca_multi_asset";
+fn key(name: &str) -> String { format!("{ROOT}[{name}]") }
+
+#[tokio::test]
+async fn a_first_group_is_refused_on_the_web_form() {
+    let mut u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
+    let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    let refused = patch(&mut u, id, &[(&key("add_index"), "nasdaq-100"), (&key("quote_amount"), "70")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    let s = settings(&u, id);
+    assert_eq!(s["quote_amount"], json!(60.0));
+    assert!(s.get("index_groups").is_none());
+    // A one-asset base seller posting a second asset and an index together: refused whole.
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_denomination', 'base', '$.sell_amount', 0.5) WHERE id = {id}"));
+    let aaa = u.m[0].0.to_string();
+    assert_eq!(patch(&mut u, id, &[(&key("add_asset_id"), &aaa), (&key("add_index"), "nasdaq-100")]).await.status, 422);
+    assert_eq!(settings(&u, id)["allocations"].as_object().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_first_group_is_refused_over_rest_whole() {
+    use axum::{body::{to_bytes, Body}, http::Request};
+    use tower::ServiceExt;
+    let u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
+    let id = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    let c = &u.o.primary;
+    c.execute("INSERT INTO oauth_applications(name,uid,redirect_uri,confidential,scopes,created_at,updated_at) VALUES ('I3','i3','http://localhost/cb',0,'api','2026-09-01','2026-09-01')", []).unwrap();
+    let application = c.last_insert_rowid();
+    c.execute("INSERT INTO oauth_access_tokens(application_id,resource_owner_id,token,scopes,created_at,expires_in) VALUES (?1,?2,'i3-api','api','2026-09-01 12:00:00',864000)", (application, u.s.user_id)).unwrap();
+    let tools = json!(["update_bot_settings"]).to_string();
+    c.execute("INSERT INTO connected_clients(user_id,oauth_application_id,mcp_tools,rest_tools,created_at,updated_at) VALUES (?1,?2,?3,?3,'2026-09-01','2026-09-01')", (u.s.user_id, application, &tools)).unwrap();
+    c.execute("UPDATE users SET rest_settings = ?1", [json!({"tool_permissions":{"update_bot_settings":true}}).to_string()]).unwrap();
+    for (query, body) in [("?add_index=nasdaq-100", json!({ "quote_amount": 70 })), ("", json!({ "quote_amount": 70, "index_groups": { "nasdaq-100": { "weight": 50 } } }))] {
+        let request = Request::builder().method("PATCH").uri(format!("/api/v1/bots/{id}{query}")).header("host", "localhost:3000")
+            .header("authorization", "Bearer i3-api").header("content-type", "application/json").header("accept", "application/json")
+            .body(Body::from(body.to_string())).unwrap();
+        let response = deltabadger::web::router(u.app.clone()).oneshot(request).await.unwrap();
+        let status = response.status().as_u16();
+        let text = String::from_utf8(to_bytes(response.into_body(), 1_000_000).await.unwrap().to_vec()).unwrap();
+        assert_eq!(status, 422, "{query} {body}: {text}");
+        assert_eq!(settings(&u, id)["quote_amount"], json!(60.0), "the whole request refused: {text}");
+    }
+}
+
+/// BTC 0.5 + AAA 0.5 + the index at 0, the index's members still standing.
+fn halves(u: &U) -> i64 {
+    let id = grouped_bot(u, json!({ u.s.btc.to_string(): 0.5, u.m[0].0.to_string(): 0.5 }), json!([group("nasdaq-100", 3, 0.0)]));
+    member(u, id, (u.s.btc, u.s.ticker_id), 0.5, true);
+    member(u, id, u.m[0], 0.5, true);
+    member(u, id, u.m[1], 0.0, true);
+    group_row(u, id, "nasdaq-100", u.m[1], 1.0);
+    compose(u, id);
+    id
+}
+
+#[tokio::test]
+async fn removing_the_last_group_of_btc_and_aaa_halves_writes_their_members() {
+    let mut u = universe();
+    let id = halves(&u);
+    let before = generation(&u, id);
+    let saved = patch(&mut u, id, &[(&key("remove_index_id"), "nasdaq-100")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let (s, t) = (settings(&u, id), transient(&u, id));
+    assert!(s.get("index_groups").is_none(), "the key is removed, not left empty: {s}");
+    let mut want = vec![(u.s.btc, 0.5), (u.m[0].0, 0.5)]; want.sort_by_key(|w| w.0);
+    assert_eq!(targets(&u, id), want, "the basket's members, written in the same transaction");
+    assert!(group_rows(&u, id).is_empty());
+    assert!(t.get(composition::COMPOSED_OF_KEY).is_none() && t.get(index::RESYNC_KEY).is_none_or(Value::is_null), "{t}");
+    assert_eq!(generation(&u, id), before + 1);
+    // The same group put back (as slice 4 will allow) composes anew: the old digest cannot be current.
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups', json('[{}]')) WHERE id = {id}", group("nasdaq-100", 3, 0.0)));
+    assert!(!composition::current(&u.o.primary, &model::load_bot(&u.o.primary, id).unwrap(), common::web::at(NOW)).unwrap());
+}
+
+#[tokio::test]
+async fn the_last_group_goes_only_from_a_balanced_basket() {
+    let mut u = universe();
+    let lone = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    let refused = patch(&mut u, lone, &[(&key("remove_index_id"), "nasdaq-100")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("Set the asset weights first"), "{}", refused.body);
+    let zero = grouped_bot(&u, btc(&u, 0.0), json!([group("nasdaq-100", 3, 1.0)]));
+    assert_eq!(patch(&mut u, zero, &[(&key("remove_index_id"), "nasdaq-100")]).await.status, 422);
+    assert!(settings(&u, zero).get("index_groups").is_some());
+    // Weights posted in the same save count.
+    let k = format!("{ROOT}[allocations][{}]", u.s.btc);
+    assert_eq!(patch(&mut u, zero, &[(&k, "100"), (&key("remove_index_id"), "nasdaq-100")]).await.status, 200);
+}
+
+#[tokio::test]
+async fn a_selling_bot_keeps_its_last_group_and_a_buying_one_drops_its_dormant_base_sale() {
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 1.0), json!([group("nasdaq-100", 3, 0.0)]));
+    member(&u, id, (u.s.btc, u.s.ticker_id), 1.0, true);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'selling', '$.sell_quote_amount', 100) WHERE id = {id}"));
+    let refused = patch(&mut u, id, &[(&key("remove_index_id"), "nasdaq-100")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("back to buying first"), "{}", refused.body);
+    // Buying, with a base sale (0.5 BTC) and a base cap stored from before: both cleared as the last group goes.
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.direction', 'buying', '$.sell_denomination', 'base', '$.sell_amount', 0.5, \
+                         '$.base_amount_limited', json('true'), '$.base_amount_limit', 2) WHERE id = {id}"));
+    let saved = patch(&mut u, id, &[(&key("remove_index_id"), "nasdaq-100")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert_eq!((s["sell_denomination"].clone(), s["base_amount_limited"].clone()), (json!("quote"), json!(false)), "{s}");
+    assert_eq!(s["sell_quote_amount"], json!(100), "the sale stays the quote one");
+}
+
+#[tokio::test]
+async fn every_group_operation_takes_the_full_refusal() {
+    let mut u = universe();
+    cat_b(&u);
+    let ops: [&[(&str, &str)]; 4] = [&[("remove_index_id", "cat-b")], &[("change_index_id", "cat-b"), ("change_index_to", "top-coins")],
+                                     &[("ungroup_index_id", "cat-b")], &[("add_index", "top-coins")]];
+    let cases: [(&str, &dyn Fn(i64) -> String); 4] = [
+        ("running", &|id| format!("UPDATE bots SET status = 1 WHERE id = {id}")),
+        ("rebalance pending", &|id| format!("UPDATE bots SET transient_data = json_set(transient_data, '$.rebalance_pending', json('{{\"at\":1}}')) WHERE id = {id}")),
+        ("an open REGULAR order, no intent", &|_| String::new()),
+        ("a redeploy in progress", &|_| String::new()),
+    ];
+    for (name, case) in cases {
+        let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.25), group("cat-b", 3, 0.25)]));
+        compose(&u, id);
+        exec(&u.o, &case(id));
+        if name.contains("order") || name.contains("redeploy") {
+            let tx = seed::insert_stock_tx(&u.o.primary, &u.s, id, u.m[0].0, "AAA", &seed::TxSpec { status: 0, external_status: Some(0), external_id: Some(format!("resting-{id}")), order_type: 1,
+                amount: Some("1"), quote_amount: None, price: Some("10"), quote_amount_exec: Some("0"), amount_exec: Some("0"), created_at: "2026-09-01 11:00:00".into() });
+            if name.contains("redeploy") { exec(&u.o, &format!("UPDATE transactions SET transaction_type = 'REDEPLOY' WHERE id = {tx}")); }
+        }
+        let before = settings(&u, id);
+        for op in ops {
+            let fields: Vec<(String, &str)> = op.iter().map(|(k, v)| (key(k), *v)).collect();
+            let fields: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+            let refused = patch(&mut u, id, &fields).await;
+            assert_eq!(refused.status, 422, "{name} / {op:?}: {}", refused.body);
+            let why = if name == "running" { "Stop the bot first." } else { "Wait for the pending swap or sale to finish." };
+            assert!(refused.body.contains(why), "{name} / {op:?}: {}", refused.body);
+        }
+        assert_eq!(settings(&u, id), before, "{name}");
+    }
+}
+
+#[tokio::test]
+async fn change_index_keeps_the_weight_and_forgets_only_that_groups_rows() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = grouped_bot(&u, btc(&u, 0.4), json!([group("nasdaq-100", 3, 0.35), group("top-coins-x", 3, 0.25)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.index_groups[1]', json('{}')) WHERE id = {id}", json!({ "index_type": "top", "num_coins": 3, "allocation_flattening": 0.0, "weight": 0.25 })));
+    group_row(&u, id, "nasdaq-100", u.m[0], 1.0);
+    group_row(&u, id, "top-coins", (u.s.btc, u.s.ticker_id), 1.0);
+    let before = generation(&u, id);
+    let saved = patch(&mut u, id, &[(&key("change_index_id"), "nasdaq-100"), (&key("change_index_to"), "cat-b")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert_eq!(composition::external_id(s["index_groups"][0].as_object()), "cat-b", "{s}");
+    assert_eq!(weight(&s, "cat-b"), 0.35);
+    assert_eq!(group_rows(&u, id), vec![format!("top-coins:{}", u.s.btc)]);
+    assert_eq!(generation(&u, id), before + 1);
+    assert!(transient(&u, id).get(index::RESYNC_KEY).is_some_and(|v| !v.is_null()));
+}
+
+#[tokio::test]
+async fn lone_a_to_lone_b_through_the_index_route() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200);
+    let answer = u.b.send(&u.app, "POST", &format!("/bots/{id}/index"), Some(&[("index_category_id", "cat-b")]), Csrf::Header, &TURBO).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    let s = settings(&u, id);
+    assert_eq!(s["index_groups"].as_array().unwrap().len(), 1, "{s}");
+    assert_eq!(composition::external_id(s["index_groups"][0].as_object()), "cat-b");
+    assert_eq!(weight(&s, "cat-b"), 1.0);
+    assert_eq!(model::load_bot(&u.o.primary, id).unwrap().bot_type, "Bots::DcaMultiAsset", "no class change");
+}
+
+/// A grouped composition record with these shares (as the grouped write leaves it).
+fn compose_shares(u: &U, id: i64, shares: Value) {
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let ranked: serde_json::Map<String, Value> = bot.index_external_ids().into_iter()
+        .map(|g| { let r = index::ranked_row(&u.o.primary, &g).unwrap().unwrap(); (g, json!([r.id, r.ranked_at])) }).collect();
+    composition::record(&u.o.primary, &bot, Value::Object(ranked), shares).unwrap();
+}
+
+#[tokio::test]
+async fn ungroup_expands_only_that_groups_contribution() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = grouped_bot(&u, btc(&u, 0.2), json!([group("nasdaq-100", 3, 0.4), group("cat-b", 3, 0.4)]));
+    group_row(&u, id, "nasdaq-100", u.m[0], 0.75);
+    group_row(&u, id, "nasdaq-100", u.m[1], 0.25);
+    group_row(&u, id, "cat-b", u.m[0], 0.5);
+    group_row(&u, id, "cat-b", u.m[2], 0.5);
+    compose(&u, id);
+    let saved = patch(&mut u, id, &[(&key("ungroup_index_id"), "nasdaq-100")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    let a = |asset: i64| s["allocations"][asset.to_string()].as_f64().unwrap();
+    assert!((a(u.m[0].0) - 0.3).abs() < 1e-12 && (a(u.m[1].0) - 0.1).abs() < 1e-12 && (a(u.s.btc) - 0.2).abs() < 1e-12, "{s}");
+    assert_eq!(s["index_groups"].as_array().unwrap().len(), 1);
+    assert_eq!(weight(&s, "cat-b"), 0.4, "the overlapping group is untouched");
+    assert_eq!(group_rows(&u, id), vec![format!("cat-b:{}", u.m[0].0), format!("cat-b:{}", u.m[2].0)]);
+}
+
+#[tokio::test]
+async fn custom_allocation_of_two_overlapping_groups_under_market_cap_keeps_the_exact_shares() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = grouped_bot(&u, btc(&u, 0.2), json!([group("nasdaq-100", 3, 0.4), group("cat-b", 3, 0.4)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = {id}"));
+    group_row(&u, id, "nasdaq-100", u.m[0], 0.9996);
+    group_row(&u, id, "nasdaq-100", u.m[1], 0.0004);
+    group_row(&u, id, "cat-b", u.m[0], 0.5);
+    group_row(&u, id, "cat-b", u.m[2], 0.5);
+    compose_shares(&u, id, json!({ "assets": { u.s.btc.to_string(): 0.1 }, "groups": { "nasdaq-100": 0.6, "cat-b": 0.3 } }));
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200);
+    let answer = u.b.send(&u.app, "POST", &format!("/bots/{id}/custom_allocation"), Some(&[]), Csrf::Header, &TURBO).await;
+    assert!(answer.status < 400, "{}: {}", answer.status, answer.body);
+    let s = settings(&u, id);
+    assert_eq!(s["weighting"], json!("manual"));
+    assert!(s.get("index_groups").is_none(), "{s}");
+    let got = targets(&u, id);
+    let t = |asset: i64| got.iter().find(|(a, _)| *a == asset).map(|(_, w)| *w).unwrap();
+    assert!((t(u.m[1].0) - 0.6 * 0.0004).abs() < 1e-9, "0.04 % of the index stays: {got:?}");
+    assert!((t(u.m[0].0) - (0.6 * 0.9996 + 0.15)).abs() < 1e-9 && (t(u.m[2].0) - 0.15).abs() < 1e-9 && (t(u.s.btc) - 0.1).abs() < 1e-9, "{got:?}");
+}
+
+#[tokio::test]
+async fn ungroup_refuses_beside_an_edit_or_while_not_current_and_writes_nothing() {
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    group_row(&u, id, "nasdaq-100", u.m[0], 1.0);
+    let before = settings(&u, id);
+    assert_eq!(patch(&mut u, id, &[(&key("ungroup_index_id"), "nasdaq-100")]).await.status, 422, "not composed");
+    compose(&u, id);
+    let k = format!("{ROOT}[allocations][{}]", u.s.btc);
+    assert_eq!(patch(&mut u, id, &[(&k, "40"), (&key("ungroup_index_id"), "nasdaq-100")]).await.status, 422, "beside an edit");
+    assert_eq!(patch(&mut u, id, &[(&key("index_groups][nasdaq-100][weight"), "40"), (&key("ungroup_index_id"), "*")]).await.status, 422);
+    assert_eq!(settings(&u, id), before);
+    assert_eq!(group_rows(&u, id).len(), 1);
+}
+
+#[tokio::test]
+async fn ungroup_counts_assets_and_surviving_groups_against_max_assets() {
+    let mut u = universe();
+    cat_b(&u);
+    let stocks: Vec<(i64, i64)> = (0..97).map(|i| seed::add_alpaca_stock(&u.o.primary, &u.s, &format!("N{i:02}"))).collect();
+    let weights = |n: usize| -> Value { Value::Object(stocks[..n].iter().map(|(a, _)| (a.to_string(), json!(0.5 / n as f64))).collect()) };
+    // 97 assets + AAA and BBB from the index + cat-b surviving = 100: allowed, and the result still opens and saves.
+    let id = grouped_bot(&u, weights(97), json!([group("nasdaq-100", 3, 0.25), group("cat-b", 3, 0.25)]));
+    group_row(&u, id, "nasdaq-100", u.m[0], 0.5);
+    group_row(&u, id, "nasdaq-100", u.m[1], 0.5);
+    compose(&u, id);
+    let saved = patch(&mut u, id, &[(&key("ungroup_index_id"), "nasdaq-100")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    assert_eq!(patch(&mut u, id, &[(&key("label"), "Wide")]).await.status, 200, "a corrective save after the largest ungroup");
+    // One more named asset: 101 ingredients, refused.
+    let more = seed::add_alpaca_stock(&u.o.primary, &u.s, "NXX");
+    let mut w = weights(97); w[more.0.to_string()] = json!(0.0);
+    let id = grouped_bot(&u, w, json!([group("nasdaq-100", 3, 0.25), group("cat-b", 3, 0.25)]));
+    group_row(&u, id, "nasdaq-100", u.m[0], 0.5);
+    group_row(&u, id, "nasdaq-100", u.m[1], 0.5);
+    compose(&u, id);
+    let refused = patch(&mut u, id, &[(&key("ungroup_index_id"), "nasdaq-100")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert!(refused.body.contains("up to 100 assets"), "{}", refused.body);
+}
+
+#[tokio::test]
+async fn an_index_form_with_an_op_key_is_422_and_unchanged() {
+    let mut u = universe();
+    let id = seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false);
+    exec(&u.o, &format!("UPDATE bots SET status = 2 WHERE id = {id}"));
+    let before = settings(&u, id);
+    let refused = patch(&mut u, id, &[("bots_dca_index[label]", "Renamed"), ("bots_dca_index[add_index]", "top-coins")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert_eq!(settings(&u, id), before);
+    let label: Option<String> = u.o.primary.query_row("SELECT label FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert_ne!(label.as_deref(), Some("Renamed"));
+}
+
+#[tokio::test]
+async fn add_index_appends_an_offered_index_at_zero() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.weighting', 'market_cap') WHERE id = {id}"));
+    for unoffered in ["nasdaq-100", "no-such-index"] {
+        assert_eq!(patch(&mut u, id, &[(&key("add_index"), unoffered)]).await.status, 422, "{unoffered}");
+    }
+    let saved = patch(&mut u, id, &[(&key("add_index"), "cat-b")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert_eq!(weight(&s, "cat-b"), 0.0);
+    assert_eq!(s["index_groups"][1]["num_coins"], json!(3), "a bounded index held whole: {s}");
+    assert_eq!(s["weighting"], json!("market_cap"), "a market-cap bot gaining an index stays market cap");
+}

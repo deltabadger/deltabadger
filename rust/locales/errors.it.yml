@@ -109,6 +109,8 @@ it:
                 no_members: "Questo indice non ha asset ancora scambiati su questo exchange."
                 gone: "Il bot è cambiato nel frattempo. Ricarica la pagina."
                 not_offered: "Questo indice non è disponibile per questo bot."
+                buy_first: "Riporta prima il bot ad acquistare."
+                weights_first: "Imposta prima i pesi degli asset, oppure usa Allocazione personalizzata."
             multi_asset:
                 condition_subject: "Questa condizione deve riguardare un asset detenuto dal bot."
                 min_assets: "Un portafoglio deve contenere almeno un'attività."

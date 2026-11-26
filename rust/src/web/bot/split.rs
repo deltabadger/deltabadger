@@ -69,7 +69,7 @@ fn queued_redeploy(app: &App, class: &str, id: i64) -> Option<bool> {
 }
 
 /// `bot.redeploy_in_flight?` past the pending flag `refusal` already refuses, or a Yes 2.x still holds: why it is not served.
-fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<Option<&'static str>, WebError> {
+pub(super) fn redeploying(c: &Connection, app: &App, source: &model::Bot, class: &str) -> Result<Option<&'static str>, WebError> {
     let waiting: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE bot_id = ?1 AND transaction_type = 'REDEPLOY' AND status = 0 AND external_status IN (0, 1))",
                                     [source.id], |r| r.get(0))?;
     if waiting { return Ok(Some("a redeploy in progress")); }

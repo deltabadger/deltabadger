@@ -102,6 +102,8 @@ cs:
                 no_members: "Tento index nemá aktiva, která se na této burze stále obchodují."
                 gone: "Bot se mezitím změnil. Obnov stránku."
                 not_offered: "Tento index není pro tohoto bota dostupný."
+                buy_first: "Nejdřív přepněte bota zpět na nákup."
+                weights_first: "Nejdřív nastavte váhy aktiv, nebo použijte „Vlastní alokace“."
             multi_asset:
                 condition_subject: "Tato podmínka se musí týkat aktiva, které bot drží."
                 min_assets: "Portfolio musí obsahovat alespoň jedno aktivum."

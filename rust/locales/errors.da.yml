@@ -102,6 +102,8 @@ da:
                 no_members: "Dette indeks har ingen aktiver, der stadig handles på denne børs."
                 gone: "Botten er ændret i mellemtiden. Genindlæs siden."
                 not_offered: "Dette indeks er ikke tilgængeligt for denne bot."
+                buy_first: "Skift først botten tilbage til at købe."
+                weights_first: "Angiv først aktivernes vægte, eller brug Egen fordeling."
             multi_asset:
                 condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."
                 min_assets: "En portefølje skal indeholde mindst ét aktiv."

@@ -93,9 +93,11 @@ fn forget_composed(tx: &Connection, id: i64, set: &Map<String, Value>) -> Result
 /// grouped bot's members, to derive it again, in the same transaction.
 /// Judged on the settings as persisted: the stored row with this save's writes (`set`) over it, in its stored order, so a
 /// repost that only reorders a map keeps the digest (Codex slice 3a r1).
-fn regroup(tx: &Connection, draft: &Draft, set: &Map<String, Value>, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
+fn regroup(tx: &Connection, draft: &Draft, changes: &super::draft::JsonChanges, id: i64, now: chrono::DateTime<chrono::Utc>) -> Result<(), WebError> {
     let mut persisted = draft.raw_settings.clone();
-    for (key, value) in set { persisted.insert(key.clone(), value.clone()); }
+    for (key, value) in &changes.set { persisted.insert(key.clone(), value.clone()); }
+    // The one key a settings write removes: `index_groups`, with the last group.
+    if changes.remove.iter().any(|key| key == "index_groups") { persisted.shift_remove("index_groups"); }
     if !draft.regrouped(&persisted) { return Ok(()); }
     tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::composition::COMPOSED_OF_KEY), [id])?;
     crate::engine::index::mark_resync(tx, id, now)?;
@@ -143,6 +145,15 @@ fn settings_inner<T>(
     let kind = if class == "Bots::DcaIndex" { Kind::Index } else { Kind::Basket };
     let fields = submitted.permitted(kind);
     let Some(mut draft) = Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Outcome::Missing) };
+    // PLAN index-as-ingredient §6.2: an index bot's form takes no ingredient operation; refused whole, not filtered away.
+    if kind == Kind::Index && !submitted.mcp() && submitted.value().get("bots_dca_index").and_then(Value::as_object)
+        .is_some_and(|f| f.keys().any(|k| super::action_params::ingredient_key(k))) {
+        let message = i18n::text(ctx.locale, "errors.bots.index_switch.not_offered", &[]);
+        draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+        let prepared = response_builder(&tx, &ctx, &draft)?;
+        tx.rollback()?;
+        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
+    }
     let fields = match fields {
         Ok(fields) => fields,
         Err(_) => {
@@ -159,6 +170,7 @@ fn settings_inner<T>(
     let original_refusal = if submitted.mcp() { None } else { super::refusal(&tx, id, provider, For::Settings)? };
     if let Some(reason) = original_refusal { return Ok(Outcome::Unported(reason)); }
     let mut mcp_carry = None;
+    let mut ran: Option<super::index_switch::Ran> = None;
     let mut mcp_refused = false;
     let mut refused = None;
     if submitted.mcp() {
@@ -182,7 +194,10 @@ fn settings_inner<T>(
     } else { match draft.parse(&tx, &fields, &zone, ctx.now) {
         Err(ParseError::Database(e)) => return Err(e),
         Err(ParseError::Invalid(_)) => {},
-        Ok(()) => draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?,
+        Ok(()) => match super::index_switch::ingredients(&tx, &ctx, &mut draft, &fields, ctx.now)? {
+            Err(refused) => draft.errors = vec![FieldError { field: "base".into(), message: refused }],
+            Ok(op) => { ran = op; draft.validate(&tx, ValidationContext::Update, ctx.now, configured, ctx.locale)?; }
+        },
     }
     }
     // #710 (§4.3): a posted account that is not the owner's live one, or not of the posted exchange, is a 404; another
@@ -214,6 +229,14 @@ fn settings_inner<T>(
     let mut final_settings = draft.candidate.settings.clone();
     final_settings.extend(effects.settings.set.clone());
     effects.settings_changed = !super::draft::equal(&json!(final_settings), &json!(draft.baseline));
+    // Codex slice 3 r3 #4: what an ingredient operation stores must reopen in `Draft::load` (its byte and tree bounds).
+    if ran.is_some() && (Value::Object(final_settings.clone()).to_string().len() > 65_536 || super::action_params::validate(&Value::Object(final_settings.clone())).is_err()) {
+        let message = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text("settings beyond the bounds this build stores"))]);
+        draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+        let prepared = response_builder(&tx, &ctx, &draft)?;
+        tx.rollback()?;
+        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
+    }
     if effects.settings_changed {
         let old = match mcp_carry {
             Some(amount) => amount,
@@ -242,9 +265,12 @@ fn settings_inner<T>(
     let exchange_changed = draft.candidate.exchange.id != draft.original.exchange.id;
     // #710: another account of an exchange (the switch menu's, with 2+ accounts there).
     let account_changed = match draft.account { Some(a) => crate::identity::Account::of_bot(&tx, id)? != Some(a), None => false };
-    let changed = label_changed || exchange_changed || account_changed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
+    // PLAN index-as-ingredient slice 3: the one settings key a write removes is `index_groups` (the last group gone).
+    let groups_removed = effects.settings.remove.iter().any(|key| key == "index_groups");
+    let changed = label_changed || exchange_changed || account_changed || groups_removed || !effects.settings.set.is_empty() || !effects.transient.set.is_empty() || !effects.transient.remove.is_empty();
     for (key, value) in &effects.settings.set { one(tx.execute(SET_SETTING, (path(key, false)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     forget_composed(&tx, id, &effects.settings.set)?;
+    if groups_removed { one(tx.execute("UPDATE bots SET settings = json_remove(settings, '$.index_groups') WHERE id = ?1 AND user_id = ?2 AND type = ?3 AND status <> 3", (id, owner, class))?)?; }
     for (key, value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT, (path(key, true)?, if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()}, id, owner, class))?)?; }
     for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT, (path(key, true)?, id, owner, class))?)?; }
     if label_changed { one(tx.execute("UPDATE bots SET label = ?1 WHERE id = ?2 AND user_id = ?3 AND type = ?4 AND status <> 3", (&draft.candidate.label, id, owner, class))?)?; }
@@ -284,7 +310,29 @@ fn settings_inner<T>(
     if metrics_changed {
         composition::reconcile(&tx, &draft.candidate, ctx.now)?;
     }
-    regroup(&tx, &draft, &effects.settings.set, id, ctx.now)?;
+    regroup(&tx, &draft, &effects.settings, id, ctx.now)?;
+    if let Some(op) = &ran {
+        // Provenance ends for every group the operation removed or replaced (§3.3); the run generation moves, fencing an
+        // engine write in flight.
+        let kept: Vec<String> = crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(&draft.candidate.settings)).map(|c| c.groups.into_iter().map(|g| g.external_id).collect()).unwrap_or_default();
+        tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id NOT IN (SELECT value FROM json_each(?2))", (id, json!(kept).to_string()))?;
+        one(tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1) WHERE id = ?1", [id])?)?;
+        if op.last_gone {
+            // A plain basket has no grouped refresh guard: its members are written here, in this transaction (§6.2); rule A
+            // made it balanced, so a derivation that finds nothing is a refusal, never an empty write.
+            let bot = model::load_bot(&tx, id)?;
+            match crate::engine::basket::derive_composition(&tx, &bot)? {
+                Ok(members) => crate::engine::basket::write_members(&tx, id, &members, ctx.now)?,
+                Err(reason) => {
+                    draft.errors.push(FieldError { field: "base".into(), message: reason.clone() });
+                    let prepared = response_builder(&tx, &ctx, &draft)?;
+                    tx.rollback()?;
+                    return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {reason}"))));
+                }
+            }
+            tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::index::RESYNC_KEY), [id])?;
+        }
+    }
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.
     let redefined = INDEX_DEFINITION_KEYS.iter().any(|key| !super::draft::equal(draft.raw_settings.get(*key).unwrap_or(&Value::Null), final_settings.get(*key).unwrap_or(&Value::Null)));
     if draft.candidate.kind == Kind::Index && (redefined || exchange_changed) { crate::engine::index::mark_resync(&tx, id, ctx.now)?; }
@@ -616,7 +664,7 @@ pub fn lifecycle_in<T>(
         }
         for (key,value) in &effects.settings.set { one(tx.execute(SET_SETTING,(path(key,false)?,if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         forget_composed(tx, id, &effects.settings.set)?;
-        regroup(tx, draft, &effects.settings.set, id, ctx.now)?;
+        regroup(tx, draft, &effects.settings, id, ctx.now)?;
         for (key,value) in &effects.transient.set { one(tx.execute(SET_TRANSIENT,(if key=="last_action_job_at" {"$.last_action_job_at".into()} else {path(key,true)?},if submitted.mcp() {super::mcp_input::encode(value)} else {value.to_string()},id,owner,&class))?)?; }
         for key in &effects.transient.remove { one(tx.execute(REMOVE_TRANSIENT,(path(key,true)?,id,owner,&class))?)?; }
         if effects.settings_changed { one(tx.execute("UPDATE bots SET settings_changed_at=?4 WHERE id=?1 AND user_id=?2 AND type=?3",(id,owner,&class,&at))?)?; }

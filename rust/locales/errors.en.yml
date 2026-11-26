@@ -110,6 +110,8 @@ en:
                 no_members: "This index has no assets that still trade on this exchange."
                 gone: "This bot changed in the meantime. Reload the page."
                 not_offered: "This index isn't available for this bot."
+                buy_first: "Switch the bot back to buying first."
+                weights_first: "Set the asset weights first, or use Custom allocation."
             multi_asset:
                 condition_subject: "This condition must watch an asset the bot holds."
                 min_assets: "A portfolio needs at least one asset."

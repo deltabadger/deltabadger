@@ -41,6 +41,9 @@ impl ActionParams {
 
     pub fn mcp(&self) -> bool { self.1 }
 
+    /// A page form's parameters built in this build (the bot menu's index routes post an ingredient operation this way).
+    pub(super) fn from_form(value: Param) -> Self { Self(value, false) }
+
     pub fn value(&self) -> &Param { &self.0 }
 
     /// 2.x's controller parameter merge: query keys replace body keys shallowly.
@@ -64,7 +67,9 @@ impl ActionParams {
         let mut out = Map::new();
         let rules: &[&str] = if kind == Kind::Index { INDEX_RULE_SCALARS } else { &[] };
         // #710: the exchange menu's account, beyond 2.x's allowlist (it lists accounts only where an exchange has 2+).
-        for key in allowed.iter().chain(rules).chain(&["account_id"]) {
+        // PLAN index-as-ingredient §6.2: a basket's ingredient operations, beyond 2.x's allowlist.
+        let ops: &[&str] = if kind == Kind::Basket { &INGREDIENT_OPS } else { &[] };
+        for key in allowed.iter().chain(rules).chain(&["account_id"]).chain(ops) {
             if let Some(value) = fields.get(*key).filter(|v| !v.is_array() && !v.is_object()) {
                 out.insert((*key).into(), value.clone());
             }
@@ -91,6 +96,11 @@ impl ActionParams {
         }
     }
 }
+
+/// PLAN index-as-ingredient §6.2: the settings form's ingredient operations (one per post; `change_index_to` goes with
+/// `change_index_id`). With `index_groups`, what REST, MCP and an index bot's form never take in slice 3.
+pub const INGREDIENT_OPS: [&str; 6] = ["add_index", "remove_index_id", "change_index_id", "change_index_to", "ungroup_index_id", "follow_index"];
+pub fn ingredient_key(key: &str) -> bool { key == "index_groups" || INGREDIENT_OPS.contains(&key) }
 
 // The plan explicitly requires a deep, body-winning merge. 2.x's request merger
 // is shallow and query-winning; action_transport pins that named divergence to real requests.

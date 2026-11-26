@@ -109,6 +109,8 @@ nl:
                 no_members: "Deze index heeft geen assets meer die op deze exchange verhandeld worden."
                 gone: "De bot is intussen gewijzigd. Herlaad de pagina."
                 not_offered: "Deze index is niet beschikbaar voor deze bot."
+                buy_first: "Zet de bot eerst terug op kopen."
+                weights_first: "Stel eerst de gewichten van de assets in, of gebruik Eigen verdeling."
             multi_asset:
                 condition_subject: "Deze voorwaarde moet betrekking hebben op een asset die de bot aanhoudt."
                 min_assets: "Een portefeuille moet minstens één activum bevatten."

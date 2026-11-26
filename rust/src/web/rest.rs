@@ -375,6 +375,11 @@ fn dispatch(c: &Connection, app: &App, route: &Route, input: &Input, authorizati
             let Ok(p) = params() else { return Ok(bad_request()) };
             // `params[:id].to_i`: the path's id (it wins over the body's and the query's), its leading digits.
             let id = p.get("id").and_then(bot_api::to_i).unwrap_or(0);
+            // PLAN index-as-ingredient slice 3: no ingredient operation reaches REST before slice 7. Judged on the merged
+            // parameters (query and body) before `service_arguments` drops them, so the whole request is refused.
+            if matches!(write, bot_api::Write::Settings) && p.keys().any(|k| super::bot::action_params::ingredient_key(k)) {
+                return Ok(render(bot_api::Res::failure(bot_api::Domain::ValidationFailed, "unsupported_setting", "Index ingredients can't be changed through the API yet.".into())));
+            }
             let submitted = super::bot::action_params::ActionParams::from_service(service_arguments(write, p));
             let work=|| {
                 let res=bot_api::write_result(bot_api::bot_write(c, app, user, id, write, &submitted)?);

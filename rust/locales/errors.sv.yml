@@ -102,6 +102,8 @@ sv:
                 no_members: "Det här indexet har inga tillgångar som fortfarande handlas på den här börsen."
                 gone: "Boten har ändrats under tiden. Ladda om sidan."
                 not_offered: "Det här indexet är inte tillgängligt för den här boten."
+                buy_first: "Växla först tillbaka boten till att köpa."
+                weights_first: "Ange först tillgångarnas vikter, eller använd Egen fördelning."
             multi_asset:
                 condition_subject: "Det här villkoret måste gälla en tillgång som boten innehar."
                 min_assets: "En portfölj måste innehålla minst en tillgång."

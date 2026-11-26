@@ -109,6 +109,8 @@ es:
                 no_members: "Este índice no tiene activos que sigan cotizando en este exchange."
                 gone: "El bot ha cambiado mientras tanto. Recarga la página."
                 not_offered: "Este índice no está disponible para este bot."
+                buy_first: "Primero vuelve a poner el bot a comprar."
+                weights_first: "Primero ajusta los pesos de los activos o usa Asignación personalizada."
             multi_asset:
                 condition_subject: "Esta condición debe referirse a un activo que el bot posee."
                 min_assets: "Una cartera necesita al menos un activo."
