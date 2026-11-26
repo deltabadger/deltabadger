@@ -62,6 +62,8 @@ pub struct Draft {
     /// The switch the posted exchange and account resolved to (`identity::pick_switch`); None: neither was posted.
     pub switch: Option<crate::identity::Switch>,
     error_codes: Vec<(String, String, String)>,
+    /// A notice the save's response carries beside its result (the sell side switched off as the last group went).
+    pub notice: Option<String>,
 }
 
 /// A handler must distinguish submitted invalidity (422) from a database failure (500).
@@ -99,6 +101,16 @@ fn percentage(value: &Value) -> Result<Value, WebError> {
     Ok(json!(format::Num::Float(n / 100.0).round(4).to_f()))
 }
 
+/// Draft::load's bounds on the stored columns: each at most 65 536 bytes as stored, an object, within the parameter tree's
+/// depth and leaf bounds. The writer checks an ingredient operation's persisted row with the same (Codex slice 3 r1 #6).
+pub(super) fn loadable(settings: &str, transient: &str) -> Option<(Map<String, Value>, Map<String, Value>)> {
+    if settings.len() > 65_536 || transient.len() > 65_536 { return None; }
+    let raw_settings = super::object(settings, "bots.settings").ok()?;
+    let raw_transient = super::object(transient, "bots.transient_data").ok()?;
+    for values in [&raw_settings, &raw_transient] { action_params::validate(&Value::Object(values.clone())).ok()?; }
+    Some((raw_settings, raw_transient))
+}
+
 impl Draft {
     /// Call inside the writer's BEGIN IMMEDIATE. Ownership/type/deletion are checked in SQL
     /// before loading associations, defaults, or any guard reason.
@@ -107,12 +119,7 @@ impl Draft {
             (id, owner), |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))).optional()?;
         let Some((raw, transient)) = row else { return Ok(None) };
         // Bound stored input before loading associations or cloning a renderable model.
-        if raw.len() > 65_536 || transient.len() > 65_536 { return Err(start::history_error()); }
-        let raw_settings = super::object(&raw, "bots.settings").map_err(|_| start::history_error())?;
-        let raw_transient = super::object(&transient, "bots.transient_data").map_err(|_| start::history_error())?;
-        for values in [&raw_settings, &raw_transient] {
-            action_params::validate(&Value::Object(values.clone())).map_err(|_| start::history_error())?;
-        }
+        let (raw_settings, raw_transient) = loadable(&raw, &transient).ok_or_else(start::history_error)?;
         // D-LOAD-EXITED-ROWS: the bound counts current members only (exited rows only accumulate; `Bot::find` loads the newest
         // 1000 of them). A grouped row's members are the engine's to write and may outgrow it (two `hold_all` groups): it
         // loads a bounded set (`Bot::find`), so a save can always shrink it (PLAN index-as-ingredient §5, Codex slice 3 r1 #7).
@@ -129,7 +136,7 @@ impl Draft {
 
     pub fn from_bot(bot: Bot) -> Self {
         Self { raw_settings: bot.settings.clone(), raw_transient: bot.transient.clone(), baseline: bot.settings.clone(), candidate: bot.clone(), original: bot,
-            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, account: None, switch: None, error_codes: vec![] }
+            submitted_label: None, submitted_exchange_id: None, parsed: Map::new(), errors: vec![], sliders: None, submitted: Map::new(), callback_zone: None, added: vec![], parse_errors: vec![], exchange_missing: false, account: None, switch: None, error_codes: vec![], notice: None }
     }
 
     /// This draft's candidate as an unsaved change of `stored`: dirty tracking reads the stored row.
@@ -683,7 +690,7 @@ impl Draft {
                     if !ticker.is_some_and(|t| t.tradable()) { self.error(locale, "allocations", "invalid", None); break; }
                 }
             }
-            if self.candidate.grouped() { self.grouped_subjects(locale)?; }
+            if self.candidate.grouped() { self.grouped_subjects(c, locale)?; }
             let ids: Vec<i64> = self.candidate.allocations().iter().map(|(id, _)| *id).collect();
             let quote = self.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
             let allowed: Vec<i64> = Ticker::all(c, "t.exchange_id = ?1 AND +t.quote_asset_id IS ?2", &[&self.candidate.exchange.id, &quote])?.into_iter().filter(|t| ids.contains(&t.base_asset_id)).map(|t| t.id).collect();
@@ -1049,7 +1056,7 @@ impl Draft {
     /// subject outside it is refused (an empty pool refuses every one); a subject this save did not post is kept only as
     /// stored before it (the engine keeps watching a member that left); one `fill_defaults` supplied is chosen again from the
     /// pool, or left missing.
-    fn grouped_subjects(&mut self, locale: &str) -> Result<(), WebError> {
+    fn grouped_subjects(&mut self, c: &Connection, locale: &str) -> Result<(), WebError> {
         let pool: Vec<(i64, String)> = self.candidate.subject_pool().map(|t| (t.id, t.base.clone())).collect();
         let first = pool.iter().min_by(|a, b| a.1.as_bytes().cmp(b.1.as_bytes())).map(|(id, _)| *id);
         for prefix in trigger_prefixes() {
@@ -1061,7 +1068,14 @@ impl Draft {
                 continue;
             }
             let stored = self.raw_settings.get(&key).filter(|v| present(v)).and_then(|v| numeric(v, true).ok()).and_then(|n| n.as_i64());
-            if stored.is_some() && stored == id { continue; }
+            if stored.is_some() && stored == id {
+                if self.moved().is_none() { continue; }
+                // Moved to another venue or quote: the same asset's pair there, if the pool holds it (`save_effects` never
+                // remaps a grouped bot's subject through the destination's whole list).
+                let base = Ticker::all(c, "t.id = ?1", &[&stored])?.into_iter().next().map(|t| t.base_asset_id);
+                let mapped = base.and_then(|base| self.candidate.subject_pool().filter(|t| t.base_asset_id == base).map(|t| t.id).min());
+                if let Some(mapped) = mapped { self.candidate.settings.insert(key, json!(mapped)); continue; }
+            }
             match first { Some(first) => { self.candidate.settings.insert(key, json!(first)); } None => { self.candidate.settings.shift_remove(&key); } }
         }
         Ok(())
@@ -1094,6 +1108,8 @@ impl Draft {
                 Some(n) => {
                     let max = if hold_all { bounded.unwrap_or(0).max(n) } else { bounded.unwrap_or(index_create::MAX_COINS) };
                     if n < index_create::MIN_COINS { self.error(locale, "index_groups", "greater_than_or_equal_to", Some(index_create::MIN_COINS as f64)); }
+                    // Never past the engine's 1000-member bound, whatever `hold_all` allows (Codex slice 3 r1 #5).
+                    let max = max.min(1000);
                     if n > max { self.error(locale, "index_groups", "less_than_or_equal_to", Some(max as f64)); }
                 }
             }
@@ -1166,7 +1182,8 @@ impl Draft {
                 if self.raw_settings.get(&timing) != Some(&self.read(&timing)) && self.read(&timing) != "while" && self.read(&condition) == "between" { callback_set(&mut settings, condition, json!("above")); }
             }
         }
-        if self.candidate.kind == Kind::Basket && self.candidate.exchange.id != self.original.exchange.id {
+        // A grouped bot's subjects are already the ones `grouped_subjects` judged on the destination (Codex slice 3 r1 #3).
+        if self.candidate.kind == Kind::Basket && !self.candidate.grouped() && self.candidate.exchange.id != self.original.exchange.id {
             let first = self.candidate.subject_pool().min_by(|a, b| a.base.as_bytes().cmp(b.base.as_bytes())).map(|t| t.id);
             // Each concern's before_save, in include order. A store_accessor's `_was` reads nil while the settings column is
             // unchanged, so a concern that runs before any setting moved takes the default subject, and the ones after it map

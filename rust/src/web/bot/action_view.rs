@@ -46,6 +46,10 @@ pub(super) fn settings_response(c: &Connection, ctx: &Ctx, draft: &Draft) -> Res
         + "\n" + &bar_streams(bot,&state)
         + "\n" + &button_streams(bot,&state)
         + "\n" + &alert(&draft.errors)? + "\n";
+    let body = match draft.notice.as_ref().filter(|_| draft.errors.is_empty()) {
+        Some(text) => body + &turbo::prepend_flash(flash::render(&[flash::Message { style: "primary", text: text.clone() }])?.trim_end()) + "\n",
+        None => body,
+    };
     // bots/update.turbo_stream.erb ends with wash_sale_prompt_stream, judged on the saved row (a failed save included).
     let user = ctx.user().ok_or_else(||WebError::Config("action has no authenticated user".into()))?;
     // A refused save is judged on the row as stored: the guard's refusal is built before its writes roll back.

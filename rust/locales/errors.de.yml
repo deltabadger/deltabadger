@@ -111,6 +111,7 @@ de:
                 not_offered: "Dieser Index ist für diesen Bot nicht verfügbar."
                 buy_first: "Stelle den Bot zuerst wieder auf Kaufen um."
                 weights_first: "Lege zuerst die Gewichte der Assets fest oder nutze „Eigene Gewichtung“."
+                selling_reset: "Die Verkaufsregeln wurden ausgeschaltet; lege sie für die verbleibenden Assets neu fest."
             multi_asset:
                 condition_subject: "Diese Bedingung muss sich auf einen Vermögenswert beziehen, den der Bot hält."
                 min_assets: "Ein Portfolio benötigt mindestens ein Asset."

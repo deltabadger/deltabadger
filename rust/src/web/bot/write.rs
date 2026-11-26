@@ -146,8 +146,12 @@ fn settings_inner<T>(
     let fields = submitted.permitted(kind);
     let Some(mut draft) = Draft::load(&tx, owner, id, ctx.locale)? else { return Ok(Outcome::Missing) };
     // PLAN index-as-ingredient §6.2: an index bot's form takes no ingredient operation; refused whole, not filtered away.
-    if kind == Kind::Index && !submitted.mcp() && submitted.value().get("bots_dca_index").and_then(Value::as_object)
-        .is_some_and(|f| f.keys().any(|k| super::action_params::ingredient_key(k))) {
+    // Nor does a basket's take a malformed one (an array, an object, a blank; `index_groups` not an object): refused whole,
+    // before the allowlist would drop it and save its siblings (Codex slice 3 r1 #7).
+    let malformed = |k: &str, v: &Value| super::action_params::ingredient_key(k)
+        && if k == "index_groups" { !v.is_object() } else { v.is_array() || v.is_object() || !super::mcp_input::present(v) };
+    if !submitted.mcp() && (kind == Kind::Index && submitted.value().get("bots_dca_index").and_then(Value::as_object).is_some_and(|f| f.keys().any(|k| super::action_params::ingredient_key(k)))
+        || kind == Kind::Basket && submitted.value().get("bots_dca_multi_asset").and_then(Value::as_object).is_some_and(|f| f.iter().any(|(k, v)| malformed(k, v)))) {
         let message = i18n::text(ctx.locale, "errors.bots.index_switch.not_offered", &[]);
         draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
         let prepared = response_builder(&tx, &ctx, &draft)?;
@@ -229,14 +233,6 @@ fn settings_inner<T>(
     let mut final_settings = draft.candidate.settings.clone();
     final_settings.extend(effects.settings.set.clone());
     effects.settings_changed = !super::draft::equal(&json!(final_settings), &json!(draft.baseline));
-    // Codex slice 3 r3 #4: what an ingredient operation stores must reopen in `Draft::load` (its byte and tree bounds).
-    if ran.is_some() && (Value::Object(final_settings.clone()).to_string().len() > 65_536 || super::action_params::validate(&Value::Object(final_settings.clone())).is_err()) {
-        let message = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text("settings beyond the bounds this build stores"))]);
-        draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
-        let prepared = response_builder(&tx, &ctx, &draft)?;
-        tx.rollback()?;
-        return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
-    }
     if effects.settings_changed {
         let old = match mcp_carry {
             Some(amount) => amount,
@@ -331,6 +327,15 @@ fn settings_inner<T>(
                 }
             }
             tx.execute(&format!("UPDATE bots SET transient_data = json_remove(transient_data, '$.{}') WHERE id = ?1", crate::engine::index::RESYNC_KEY), [id])?;
+        }
+        // What the operation stored, as stored, must reopen in `Draft::load` (Codex slice 3 r1 #6): both columns, read back.
+        let (settings, transient): (String, String) = tx.query_row("SELECT settings, transient_data FROM bots WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        if super::draft::loadable(&settings, &transient).is_none() {
+            let message = i18n::text(ctx.locale, "engine.write_refused", &[("reason", i18n::Arg::Text("settings beyond the bounds this build stores"))]);
+            draft.errors.push(FieldError { field: "base".into(), message: message.clone() });
+            let prepared = response_builder(&tx, &ctx, &draft)?;
+            tx.rollback()?;
+            return Ok(Outcome::Invalid(prepared.response, Failure::invalid("bot_save_failed", format!("Failed to update bot: {message}"))));
         }
     }
     // Bots::DcaIndex#resync_index_composition: an index-definition key or the exchange changed.

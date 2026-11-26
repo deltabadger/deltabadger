@@ -151,6 +151,38 @@ pub fn current(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<bool, En
     Ok(true)
 }
 
+/// The rules a bot's rule fields name, buy side; `sell_` + each is the sell side's.
+pub const RULE_PREFIXES: [&str; 4] = ["price_limit", "price_drop_limit", "moving_average_limit", "indicator_limit"];
+
+/// PLAN index-as-ingredient §3.2 step 3: what a bot whose composition changes shape no longer carries, so nothing dormant
+/// wakes on what it now holds ("selling it is a new decision with a new sell sentence"). Every sell-side rule and every
+/// flip rule whole (switch, action, value, the latch in `transient_data`); the stored sale (`sell_amount`,
+/// `sell_quote_amount`, `smart_interval_base_amount`), the base cap and a base denomination. The one key list of the
+/// last-group removal (slice 3) and the index bot's conversion (slice 4). True when anything was on or stored.
+pub fn reset_sell_side(settings: &mut Map<String, Value>, transient: &mut Map<String, Value>) -> bool {
+    let present = |v: Option<&Value>| v.is_some_and(|v| !matches!(v, Value::Null | Value::Bool(false)) && v.as_str().is_none_or(|t| !t.trim().is_empty()));
+    let mut changed = false;
+    for base in RULE_PREFIXES {
+        for prefix in [base.to_string(), format!("sell_{base}")] {
+            let action = format!("{prefix}_action");
+            let flip = settings.get(&action).and_then(Value::as_str).is_some_and(|a| a != "pause");
+            if !prefix.starts_with("sell_") && !flip { continue; }
+            let switch = format!("{prefix}ed");
+            changed |= settings.get(&switch) == Some(&Value::Bool(true)) || flip;
+            if settings.contains_key(&switch) { settings.insert(switch, Value::Bool(false)); }
+            if flip { settings.insert(action, json!("pause")); }
+            if present(settings.get(&prefix)) { settings.insert(prefix.clone(), Value::Null); }
+            transient.remove(&format!("{prefix}_condition_met_at"));
+        }
+    }
+    for key in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount", "base_amount_limit"] {
+        if present(settings.get(key)) { changed = true; settings.insert(key.into(), Value::Null); }
+    }
+    if settings.get("base_amount_limited") == Some(&Value::Bool(true)) { changed = true; settings.insert("base_amount_limited".into(), Value::Bool(false)); }
+    if settings.get("sell_denomination").and_then(Value::as_str).is_some_and(|d| d != "quote") { changed = true; settings.insert("sell_denomination".into(), json!("quote")); }
+    changed
+}
+
 /// Bots::DcaIndex settings: 'top' or 'category'.
 pub fn index_type(s: Settings<'_>) -> Option<&str> { s?.get("index_type")?.as_str() }
 pub fn index_category_id(s: Settings<'_>) -> Option<&str> { s?.get("index_category_id")?.as_str().filter(|s| !s.trim().is_empty()) }

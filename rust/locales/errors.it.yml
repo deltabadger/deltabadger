@@ -111,6 +111,7 @@ it:
                 not_offered: "Questo indice non è disponibile per questo bot."
                 buy_first: "Riporta prima il bot ad acquistare."
                 weights_first: "Imposta prima i pesi degli asset, oppure usa Allocazione personalizzata."
+                selling_reset: "Le regole di vendita sono state disattivate; impostale di nuovo per gli asset rimanenti."
             multi_asset:
                 condition_subject: "Questa condizione deve riguardare un asset detenuto dal bot."
                 min_assets: "Un portafoglio deve contenere almeno un'attività."

@@ -651,7 +651,7 @@ async fn the_last_group_goes_only_from_a_balanced_basket() {
 }
 
 #[tokio::test]
-async fn a_selling_bot_keeps_its_last_group_and_a_buying_one_drops_its_dormant_base_sale() {
+async fn a_selling_bot_keeps_its_last_group_and_a_buying_one_drops_its_stored_sale() {
     let mut u = universe();
     let id = grouped_bot(&u, btc(&u, 1.0), json!([group("nasdaq-100", 3, 0.0)]));
     member(&u, id, (u.s.btc, u.s.ticker_id), 1.0, true);
@@ -666,7 +666,7 @@ async fn a_selling_bot_keeps_its_last_group_and_a_buying_one_drops_its_dormant_b
     assert_eq!(saved.status, 200, "{}", saved.body);
     let s = settings(&u, id);
     assert_eq!((s["sell_denomination"].clone(), s["base_amount_limited"].clone()), (json!("quote"), json!(false)), "{s}");
-    assert_eq!(s["sell_quote_amount"], json!(100), "the sale stays the quote one");
+    assert!(s.get("sell_quote_amount").is_none_or(Value::is_null) && s.get("sell_amount").is_none_or(Value::is_null), "the sale starts anew: {s}");
 }
 
 #[tokio::test]
@@ -857,4 +857,130 @@ async fn add_index_appends_an_offered_index_at_zero() {
     assert_eq!(weight(&s, "cat-b"), 0.0);
     assert_eq!(s["index_groups"][1]["num_coins"], json!(3), "a bounded index held whole: {s}");
     assert_eq!(s["weighting"], json!("market_cap"), "a market-cap bot gaining an index stays market cap");
+}
+
+// Codex slice 3 branch r1.
+
+/// What a bot's rules would act on, engine-side: (rule, selling side, action) of every rule that reads as on.
+fn armed(u: &U, id: i64) -> Vec<String> {
+    use deltabadger::engine::conditions::{read_rule, Rule};
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    let mut on = vec![];
+    for rule in [Rule::Price, Rule::PriceDrop, Rule::MovingAverage, Rule::Indicator] {
+        for selling in [false, true] {
+            if let Ok(Some(r)) = read_rule(&bot, rule, selling) { on.push(format!("{rule:?}/{selling}/{}", r.common.action)); }
+        }
+    }
+    on
+}
+
+#[tokio::test]
+async fn losing_the_last_group_switches_the_sell_side_off_and_says_so() {
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 1.0), json!([group("nasdaq-100", 3, 0.0)]));
+    member(&u, id, (u.s.btc, u.s.ticker_id), 1.0, true);
+    // A stopped buyer armed to start selling, with a sell-side rule and a stored base sale and cap.
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.price_drop_limited', json('true'), '$.price_drop_limit_action', 'start_selling', '$.price_drop_limit', 0.1, \
+                         '$.sell_price_limited', json('true'), '$.sell_price_limit', 70000, '$.sell_price_limit_action', 'pause', \
+                         '$.sell_denomination', 'base', '$.sell_amount', 0.5, '$.sell_quote_amount', 100, '$.base_amount_limited', json('true'), '$.base_amount_limit', 2), \
+                         transient_data = json_set(transient_data, '$.price_drop_limit_condition_met_at', '2026-09-01T00:00:00Z') WHERE id = {id}"));
+    assert!(!armed(&u, id).is_empty());
+    let saved = patch(&mut u, id, &[(&key("remove_index_id"), "nasdaq-100")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    assert!(saved.body.contains("Selling rules were switched off"), "the removal is named: {}", saved.body);
+    assert!(armed(&u, id).is_empty(), "no rule left to flip or sell: {:?}", armed(&u, id));
+    let (s, t) = (settings(&u, id), transient(&u, id));
+    for k in ["sell_amount", "sell_quote_amount", "smart_interval_base_amount", "base_amount_limit"] { assert!(s.get(k).is_none_or(Value::is_null), "{k}: {s}"); }
+    assert_eq!((s["base_amount_limited"].clone(), s["sell_denomination"].clone()), (json!(false), json!("quote")), "{s}");
+    assert!(t.get("price_drop_limit_condition_met_at").is_none_or(Value::is_null), "the latch goes: {t}");
+    // Reversed into selling its one asset, nothing sizes from the old base amount.
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200);
+    let reversed = u.b.send(&u.app, "POST", &format!("/bots/{id}/reverse"), Some(&[]), Csrf::Header, &TURBO).await;
+    assert!(reversed.status < 400, "{}", reversed.body);
+    let bot = model::load_bot(&u.o.primary, id).unwrap();
+    assert!(bot.selling());
+    let (base, quote) = bot.sell_amounts();
+    assert!(base.as_ref().is_none_or(|b| !b.is_positive()) && !quote.is_positive(), "{base:?} {quote:?}");
+}
+
+#[tokio::test]
+async fn a_venue_move_keeps_the_subject_the_save_validated() {
+    let mut u = universe();
+    // Another venue listing BTC and AAA at the same quote, with a key: the bot moves there.
+    exec(&u.o, "INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Kraken', 'Kraken', '0.1', '0.1', '2026-01-01', '2026-01-01')");
+    let other = u.o.primary.last_insert_rowid();
+    let copy = |ticker: i64| { exec(&u.o, &format!("CREATE TEMP TABLE t AS SELECT * FROM tickers WHERE id = {ticker}; UPDATE t SET id = NULL, exchange_id = {other}; INSERT INTO tickers SELECT * FROM t; DROP TABLE t;")); u.o.primary.last_insert_rowid() };
+    let (btc_there, aaa_there) = (copy(u.s.ticker_id), copy(u.m[0].1));
+    exec(&u.o, &format!("INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) SELECT user_id, {other}, key, secret, status, key_type, created_at, updated_at FROM api_keys WHERE id = {}", u.s.api_key_id));
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    // The rule watched AAA, a member that has left; the save posts BTC there.
+    member(&u, id, u.m[0], 0.0, false);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit_in_ticker_id', {}) WHERE id = {id}", u.m[0].1));
+    let saved = patch(&mut u, id, &[(&key("exchange_id"), &other.to_string()), (&key("price_limit_in_ticker_id"), &btc_there.to_string())]).await;
+    if saved.status == 200 {
+        assert_eq!(settings(&u, id)["price_limit_in_ticker_id"], json!(btc_there), "never remapped onto {aaa_there}");
+    } else {
+        assert_eq!(settings(&u, id)["price_limit_in_ticker_id"], json!(u.m[0].1), "refused whole: {}", saved.body);
+    }
+}
+
+#[tokio::test]
+async fn add_index_judges_the_engines_ranked_row() {
+    let mut u = universe();
+    cat_b(&u);
+    // The engine composes cat-b from a later row naming nothing that trades here.
+    exec(&u.o, "INSERT INTO indices (external_id, source, name, top_coins, top_coins_by_exchange, available_exchanges, weights, weight, created_at, updated_at) \
+                VALUES ('cat-b', 'coingecko', 'B', '[\"Z1\",\"Z2\",\"Z3\"]', '{}', '{}', '{}', 0, '2026-01-01', '2026-01-01')");
+    let newer = u.o.primary.last_insert_rowid();
+    index::record_ranking(&u.o.primary, newer, "data-api", &deltabadger::engine::provider::fingerprint(&u.o.primary).unwrap().unwrap(), "2099-01-03T00:00:00Z".parse().unwrap()).unwrap();
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    assert_eq!(patch(&mut u, id, &[(&key("add_index"), "cat-b")]).await.status, 422);
+    assert_eq!(settings(&u, id)["index_groups"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn a_group_count_above_1000_is_refused_whatever_hold_all() {
+    let mut u = universe();
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    let refused = patch(&mut u, id, &[(&key("index_groups][nasdaq-100][num_coins"), "1001")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert_eq!(settings(&u, id)["index_groups"][0]["num_coins"], json!(3));
+}
+
+#[tokio::test]
+async fn an_operation_whose_stored_row_would_not_reopen_is_refused() {
+    let mut u = universe();
+    cat_b(&u);
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group("nasdaq-100", 3, 0.5)]));
+    // Escapes kept as stored: the column is 6 bytes a character, near Draft::load's 65 536-byte bound.
+    let stored: usize = u.o.primary.query_row(&format!("SELECT length(CAST(settings AS BLOB)) FROM bots WHERE id = {id}"), [], |r| r.get(0)).unwrap();
+    let pad = "\\u00e9".repeat((65_536 - stored - 40) / 6);
+    exec(&u.o, &format!("UPDATE bots SET settings = json_set(settings, '$.note', json('\"{pad}\"')) WHERE id = {id}"));
+    let before: String = u.o.primary.query_row(&format!("SELECT settings FROM bots WHERE id = {id}"), [], |r| r.get(0)).unwrap();
+    assert!(before.len() <= 65_536 && before.contains("\\u00e9"));
+    let refused = patch(&mut u, id, &[(&key("add_index"), "cat-b")]).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    let after: String = u.o.primary.query_row(&format!("SELECT settings FROM bots WHERE id = {id}"), [], |r| r.get(0)).unwrap();
+    assert_eq!(after, before, "rolled back");
+}
+
+#[tokio::test]
+async fn a_malformed_operation_is_a_422_and_writes_nothing() {
+    let mut u = universe();
+    let mut spec = BotSpec::weekly(60.0, "2026-09-01 14:00:00"); spec.status = 2;
+    let plain = seed::insert_bot(&u.o.primary, &u.s, &spec);
+    for fields in [vec![(key("add_index][]"), "nasdaq-100"), (key("quote_amount"), "70")], vec![(key("add_index"), ""), (key("quote_amount"), "70")],
+                   vec![(key("index_groups][]"), "x"), (key("quote_amount"), "70")]] {
+        let fields: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        let refused = patch(&mut u, plain, &fields).await;
+        assert_eq!(refused.status, 422, "{fields:?}: {}", refused.body);
+        assert_eq!(settings(&u, plain)["quote_amount"], json!(60.0), "{fields:?}");
+    }
+    // The grouped Follow route without a category.
+    let id = grouped_bot(&u, json!({}), json!([group("nasdaq-100", 3, 1.0)]));
+    let before = settings(&u, id);
+    assert_eq!(u.b.get(&u.app, &format!("/bots/{id}")).await.status, 200);
+    let refused = u.b.send(&u.app, "POST", &format!("/bots/{id}/index"), Some(&[]), Csrf::Header, &TURBO).await;
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert_eq!(settings(&u, id), before);
 }

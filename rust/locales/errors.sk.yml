@@ -104,6 +104,7 @@ sk:
                 not_offered: "Tento index nie je pre tohto bota dostupný."
                 buy_first: "Najprv prepnite bota späť na nákup."
                 weights_first: "Najprv nastavte váhy aktív alebo použite „Vlastná alokácia“."
+                selling_reset: "Pravidlá predaja boli vypnuté; nastavte ich znova pre zostávajúce aktíva."
             multi_asset:
                 condition_subject: "Táto podmienka sa musí týkať aktíva, ktoré bot drží."
                 min_assets: "Portfólio musí obsahovať aspoň jedno aktívum."

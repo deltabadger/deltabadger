@@ -328,7 +328,12 @@ fn offered_here(c: &Connection, ctx: &Ctx, draft: &draft::Draft, external_id: &s
     if let Some(reason) = wizard::index::refusal(c, &ctx.app, &draft.candidate.exchange.class)? { return Ok(Err(write_refused(ctx.locale, reason))); }
     let quote = draft.candidate.settings.get("quote_asset_id").and_then(Value::as_i64);
     let here = wizard::index::Followable { exchange_id: draft.candidate.exchange.id, class: &draft.candidate.exchange.class, quote, current: None };
-    Ok(wizard::index::tiles(c, &ctx.app, Some(&here))?.into_iter().find(|tile| tile.external_id == external_id).ok_or_else(|| t(ctx.locale, "not_offered")))
+    let Some(tile) = wizard::index::tiles(c, &ctx.app, Some(&here))?.into_iter().find(|tile| tile.external_id == external_id) else { return Ok(Err(t(ctx.locale, "not_offered"))) };
+    // The row the engine composes from, when one is ranked, must be offered here itself (Codex slice 3 r1 #4).
+    if let Some(ranked) = crate::engine::index::ranked_row(c, external_id)? {
+        if !wizard::index::row_offered(c, ranked.id, &here)? { return Ok(Err(t(ctx.locale, "not_offered"))); }
+    }
+    Ok(Ok(tile))
 }
 
 /// A new group for `tile` at `weight`, as Follow index sets an index bot's keys (`follow_inner`): a bounded index held
@@ -398,8 +403,10 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
     let last_gone = groups.is_empty();
     if last_gone {
         if draft.candidate.settings.get("direction").and_then(Value::as_str) == Some("selling") { return refuse("buy_first"); }
-        if draft.candidate.settings.get("sell_denomination").and_then(Value::as_str) == Some("base") { draft.candidate.settings.insert("sell_denomination".into(), json!("quote")); }
-        if draft.candidate.settings.get("base_amount_limited") == Some(&json!(true)) { draft.candidate.settings.insert("base_amount_limited".into(), json!(false)); }
+        // Codex slice 3 r1 #1, #2: the sell side starts anew for what remains (§3.2 step 3), and the save says so.
+        if crate::engine::composition::reset_sell_side(&mut draft.candidate.settings, &mut draft.candidate.transient) {
+            draft.notice = Some(i18n::text(ctx.locale, "errors.bots.index_switch.selling_reset", &[]));
+        }
         draft.candidate.settings.shift_remove("index_groups");
     } else {
         draft.candidate.settings.insert("index_groups".into(), Value::Array(groups.into_iter().map(Value::Object).collect()));
@@ -450,15 +457,17 @@ fn ungroup(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, fields: &Map<Str
 
 /// The bot menu's index routes on a basket stored with groups: the operation posted through the one settings writer.
 fn grouped_route(c: &Connection, ctx: &Ctx, owner: i64, id: i64, op: &str, value: &str) -> Result<Switched, WebError> {
+    if value.trim().is_empty() { return Ok(Switched::Refused(t(ctx.locale, "not_offered"))); }
     let params = super::action_params::ActionParams::from_form(json!({ "bots_dca_multi_asset": { op: value } }));
-    let built = |_: &Connection, _: &Ctx, d: &draft::Draft| Ok(write::Prepared { response: d.errors.clone(), broadcasts: vec![], after_scheduling: None });
+    let built = |_: &Connection, _: &Ctx, d: &draft::Draft| Ok(write::Prepared { response: (d.errors.clone(), d.notice.clone()), broadcasts: vec![], after_scheduling: None });
     Ok(match write::settings(c, ctx, owner, id, &params, built)? {
         write::Outcome::Missing => Switched::Missing,
         write::Outcome::Unported(reason) => Switched::Unported(reason),
-        write::Outcome::Invalid(errors, _) | write::Outcome::GuardRefused(errors) => {
+        write::Outcome::Invalid((errors, _), _) | write::Outcome::GuardRefused((errors, _)) => {
             let messages: Vec<String> = errors.iter().map(|e| super::mcp_input::full_messages(std::slice::from_ref(e))).collect();
             Switched::Refused(draft::sentence(&messages.iter().map(String::as_str).collect::<Vec<_>>(), ctx.locale))
         }
+        write::Outcome::Committed((_, Some(notice))) => { crate::web::flash::set(&ctx.session, crate::web::flash::NOTICE, notice); Switched::Done }
         write::Outcome::NoChange(_) | write::Outcome::Committed(_) => Switched::Done,
     })
 }
