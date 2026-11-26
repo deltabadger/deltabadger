@@ -32,21 +32,23 @@ $(git status --short --untracked-files=all)"
   gh auth status > /dev/null 2>&1 || die "gh is not logged in (gh auth login)"
 }
 
-# r1.8: on this exact commit, every rust.yml job passed in a run started by a push or by hand, macOS included. The jobs
-# may come from different runs: a push run (no macOS) plus a macOS-only run by hand (-f macos_only=true) is enough.
+# r1.8: on this exact commit, a rust.yml run started by a push or by hand passed every job with none skipped, and macOS
+# passed. A full run by hand has both; a push run (no macOS leg) needs a run by hand beside it, macos_only is enough.
 ci_passed() {
   local sha; sha=$(git rev-parse HEAD)
-  local runs; runs=$(gh run list --workflow rust.yml --commit "$sha" --json databaseId,event,conclusion \
-    --jq '[.[] | select((.event == "push" or .event == "workflow_dispatch") and .conclusion == "success") | .databaseId] | .[]')
-  local id jobs='[]'
-  for id in $runs; do
-    jobs=$(jq -s 'add' <<< "$jobs $(gh run view "$id" --json jobs --jq '[.jobs[] | {name, conclusion}]')")
+  local event runs=
+  for event in push workflow_dispatch; do # one list each: nightly runs on an unchanged main can't crowd a push run out
+    runs+=" $(gh run list --workflow rust.yml --commit "$sha" --event "$event" --limit 100 --json databaseId,event,conclusion \
+      --jq "[.[] | select(.event == \"$event\" and .conclusion == \"success\") | .databaseId] | .[]")"
   done
-  # Each job passed in some run (one skipped in every run counts as not run), and every platform leg of rust.yml's
-  # matrix is among them: a macOS-only run has no Linux or Windows legs, so their absence must refuse too.
-  jq -e '. as $j | length > 0 and (group_by(.name) | all(any(.conclusion == "success")))
-    and all("linux-x86_64", "linux-arm64", "windows-x86_64 (1/2)", "windows-x86_64 (2/2)", "macos-arm64"; . as $n | $j | any(.name == $n))' \
-    <<< "$jobs" > /dev/null && return 0
+  local id all='[]'
+  for id in $runs; do
+    all=$(jq -c --argjson r "$(gh run view "$id" --json jobs --jq '[.jobs[] | {name, conclusion}]')" '. + [$r]' <<< "$all")
+  done
+  # A skipped job (an `if`) shows once under its unexpanded matrix name, so names are judged only in the full run.
+  jq -e 'any(.[]; . as $r | ($r | all(.conclusion == "success"))
+        and (["linux-x86_64", "linux-arm64", "windows-x86_64 (1/2)", "windows-x86_64 (2/2)"] | all(. as $n | $r | any(.name == $n))))
+      and any(.[][]; .name == "macos-arm64" and .conclusion == "success")' <<< "$all" > /dev/null && return 0
   die "no rust.yml runs on ${sha:0:9} passed every job on every platform (macOS runs only when started by hand).
 After the push run on this commit passed: gh workflow run rust.yml --ref main -f macos_only=true
 (without a passed push run: gh workflow run rust.yml --ref main). Wait for it to pass, and run this again."
