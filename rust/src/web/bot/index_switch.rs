@@ -329,7 +329,7 @@ pub fn composition_bot(c: &Connection, ctx: &Ctx, owner: i64, id: i64) -> Result
 }
 
 /// What an ingredient operation did, for the writer's tail (PLAN index-as-ingredient §6.2, slice 3).
-pub(super) struct Ran { pub last_gone: bool, /** A plain basket gained its first group (`add_index`). */ pub first: bool }
+pub(super) struct Ran { pub last_gone: bool }
 
 fn field(fields: &Map<String, Value>, key: &str) -> Option<String> {
     fields.get(key).filter(|v| super::mcp_input::present(v)).map(|v| match v { Value::String(s) => s.trim().to_string(), other => other.to_string() })
@@ -444,7 +444,7 @@ pub(super) fn ingredients(c: &Connection, ctx: &Ctx, draft: &mut draft::Draft, f
     draft.refresh(c)?;
     // A discarded buy-side flip reads as a rule that was never set: its fields take the defaults every load gives them.
     if last_gone { draft.candidate.fill_defaults(); }
-    Ok(Ok(Some(Ran { last_gone, first })))
+    Ok(Ok(Some(Ran { last_gone })))
 }
 
 /// Custom allocation as one operation (Codex slice 3 r1 #5): the stored composition must be its settings' own

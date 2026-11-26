@@ -86,7 +86,7 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     let (keys, transient_keys): (usize, usize) = tx.query_row("SELECT (SELECT count(*) FROM json_each(settings)), (SELECT count(*) FROM json_each(transient_data)) FROM bots WHERE id = ?1",
                                                               [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     if keys != settings.len() || transient_keys != transient.len() { return Ok(Err(Kept::Unreadable)); }
-    let members = match members(tx, bot.id, true)? { Ok(m) => m, Err(why) => return Ok(Err(why)) };
+    let members = match members(tx, bot.id)? { Ok(m) => m, Err(why) => return Ok(Err(why)) };
 
     // The sell side as composition::reset_sell_side leaves it, as SQLite edits: a key it changed is set to its new value
     // (false, null or "quote", nothing numeric), a key it removed is removed.
@@ -141,21 +141,20 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     Ok(Ok(Converted { id, selling: working && bot.selling(), rebalances }))
 }
 
-/// The in_index members as group rows (asset, ticker, weight), each weight the stored target as is. `strict` (the
-/// conversion): `Unreadable` when a row's ids don't decode (that bot is kept, the pass goes on), `Targets` when a target can't
-/// be carried exactly (unreadable, NULL, or a weight `save_member` would write back differently). Not strict (a first
-/// group's seats): such a row is skipped and every other one seated.
-fn members(c: &Connection, bot_id: i64, strict: bool) -> Result<Result<Vec<Seat>, Kept>, EngineError> {
+/// The in_index members as group rows (asset, ticker, weight), each weight the stored target as is. `Unreadable`: a row's ids
+/// don't decode (that bot is kept, the pass goes on); `Targets`: a target can't be carried exactly (unreadable, NULL, or a
+/// weight `save_member` would write back differently).
+fn members(c: &Connection, bot_id: i64) -> Result<Result<Vec<Seat>, Kept>, EngineError> {
     let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY asset_id")?;
     // The ids as borrowed: only an integer is one (a text id, invalid UTF-8 included, is never decoded).
     let id = |v: ValueRef<'_>| match v { ValueRef::Integer(i) => Some(i), _ => None };
     let rows = s.query_map([bot_id], |r| Ok((id(r.get_ref(0)?), id(r.get_ref(1)?), basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
     let mut out = vec![];
     for (asset, ticker, target) in rows {
-        let (Some(asset), Some(ticker)) = (asset, ticker) else { if strict { return Ok(Err(Kept::Unreadable)) } continue };
-        let Ok(Some(target)) = target else { if strict { return Ok(Err(Kept::Targets)) } continue };
+        let (Some(asset), Some(ticker)) = (asset, ticker) else { return Ok(Err(Kept::Unreadable)) };
+        let Ok(Some(target)) = target else { return Ok(Err(Kept::Targets)) };
         let weight = target.to_f();
-        if crate::v2::decimal_column(weight, 10, 6).ok() != Some(target) { if strict { return Ok(Err(Kept::Targets)) } continue }
+        if crate::v2::decimal_column(weight, 10, 6).ok() != Some(target) { return Ok(Err(Kept::Targets)); }
         out.push((asset, ticker, weight));
     }
     Ok(Ok(out))
@@ -169,14 +168,6 @@ fn seat(tx: &Connection, bot_id: i64, external: &str, composed: bool, members: &
                    params![bot_id, external, asset, ticker, composed, weight])?;
     }
     Ok(())
-}
-
-/// PLAN index-as-ingredient slice 4c: a plain basket's first group (Follow index, `add_index`) seats the basket's `in_index`
-/// members as the conversion seats an index bot's (composed 0, weights and tickers as stored), so the first derivation
-/// seats each member the index still ranks without a probe, as 4b's conversion seats an index bot's. A row with no
-/// readable target or ids is skipped; every other one is seated.
-pub(crate) fn seed_first_group(tx: &Connection, bot_id: i64, external: &str) -> Result<(), EngineError> {
-    match members(tx, bot_id, false)? { Ok(members) => seat(tx, bot_id, external, false, &members), Err(_) => Ok(()) }
 }
 
 /// `check`'s line for a bot `convert_all` converts.
