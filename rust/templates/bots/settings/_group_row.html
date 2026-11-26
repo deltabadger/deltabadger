@@ -1,0 +1,46 @@
+
+      <div class="index-asset asset-allocation"
+           data-bot--allocation-target="row">
+        <div class="index-asset__row">
+          <a id="{{ group.stack_id }}" class="ticker-group ticker-group--many" href="{{ group.url }}" data-turbo-frame="modal" data-modal-return-focus aria-label="{{ group.label }}">
+{%- for chip in group.chips %}
+            <span class="{{ chip.class }} ticker--small" style="background-color: {{ chip.color }}" data-ticker-symbol="{{ chip.symbol }}" data-ticker-asset-id="{{ chip.asset_id }}">{{ chip.symbol }}</span>
+{%- endfor %}
+{%- if group.more > 0 %}
+            <span class="ticker ticker--small ticker--more">+{{ group.more }}</span>
+{%- endif %}
+            <span class="label ellipsis">{{ group.name }}</span>
+          </a>
+          <div class="slider">
+            <input type="range"
+                   name="bots_dca_multi_asset[index_groups][{{ group.external_id }}][weight]"
+                   min="0"
+                   max="100"
+                   step="0.1"
+                   value="{{ group.percent }}"
+                   class="slider__input"
+                   data-bot--allocation-target="input"
+                   data-action="input->bot--allocation#update change->form--submit#submit"
+                   aria-label="{{ group.name }}"
+                   {% if weights_locked %}disabled{% endif %}>
+            <div class="slider__style">
+              <div class="slider__style__track"
+                   data-bot--allocation-target="track"
+                   style="grid-template-columns: {{ group.percent }}% auto;">
+                <div class="slider__style__progress">
+                  <div class="slider__style__thumb"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="allocation">
+            <input type="number" min="0" max="100" step="0.1" inputmode="decimal"
+                   value="{{ group.percent }}"
+                   class="allocation__input"
+                   data-bot--allocation-target="percent"
+                   data-action="input->bot--allocation#type change->form--submit#submit"
+                   aria-label="{{ group.name }}"
+                   {% if weights_locked %}disabled{% endif %}>%
+          </div>
+        </div>
+      </div>

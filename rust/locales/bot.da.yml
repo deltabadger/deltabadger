@@ -24,6 +24,12 @@ da:
             assets_stay: "Aktiver købt på andre børser bliver, hvor de er."
         dca_multi_asset:
             add_asset: "Tilføj aktiv"
+            add_index: "Tilføj indeks"
+            index_settings: "%{index}: indstillinger"
+            composition: "Sammensætning"
+            composition_pending: "Opdateres: dette er den seneste sammensætning."
+            composition_empty: "Ingen beholdninger endnu: de vælges ved næste opdatering."
+            toggle_view: "Diagram eller liste"
             remove_asset: "Fjern"
             max_assets_reached: "Du kan have op til %{max} aktiver."
             min_assets: "En portefølje skal have mindst %{min} aktiver."
