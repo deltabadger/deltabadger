@@ -238,6 +238,62 @@ try {
     if (await evaluate(`document.body.innerText.includes("Content missing")`)) throw new Error("the page shows Turbo's Content missing");
     console.log("unported venue: the key step's refusal shows in the wizard's modal");
   }
+  if (GROUP_SHEET) {
+    const { bot, group } = JSON.parse(GROUP_SHEET);
+    const page = `/bots/${bot}`;
+    const stack = `#index_group_${group}_stack`;
+    const shows = (selector) => call(function (sel) { return !!document.querySelector(sel); }, selector);
+    const field = (name) => `bots_dca_multi_asset[index_groups][${group}][${name}]`;
+    const press = async (key, code) => { for (const type of ["keyDown", "keyUp"]) await send("Input.dispatchKeyEvent", { type, key, code: key, windowsVirtualKeyCode: code, ...(type === "keyDown" && key === "Enter" ? { text: "\r" } : {}) }); };
+    const focus = (selector) => call(function (sel) { const element = document.querySelector(sel); if (!element) return false; element.focus(); return document.activeElement === element; }, selector);
+    // The count the stored row holds, as a fresh sheet draws it.
+    const stored = () => call(function (url, name) {
+      return fetch(url).then((r) => r.text()).then((html) => new DOMParser().parseFromString(html, "text/html").querySelector(`input[type=range][name="${name}"]`)?.value);
+    }, `${page}/index_groups/${group}/edit`, field("num_coins"));
+    const save = (count) => call(function (name, value) {
+      window.groupSubmission = null;
+      const range = document.querySelector(`dialog.sheet-dialog input[type=range][name="${name}"]`);
+      range.value = value;
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+      range.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    }, field("num_coins"), String(count));
+    await send("Page.navigate", { url: BASE_URL + page });
+    await until("the grouped bot's page", () => call(function (p, sel) { return location.pathname === p && !!document.querySelector(sel); }, page, stack));
+    await evaluate(`document.addEventListener("turbo:submit-end", event => { window.groupSubmission = event.detail.fetchResponse?.statusCode; })`);
+    // The composition's list, by keyboard.
+    const toggle = ".index-composition button[data-action='donut-chart#toggle']";
+    if (!(await focus(toggle))) throw new Error("the composition's toggle takes no focus");
+    const listHidden = () => call(function () { return document.querySelector(".index-composition [data-donut-chart-target=list]")?.classList.contains("is-hidden"); });
+    const before = await listHidden();
+    await press("Enter", 13);
+    await until("the composition toggled by Enter", async () => (await listHidden()) !== before);
+    // Enter on the stack opens the sheet.
+    if (!(await focus(stack))) throw new Error("the stack takes no focus");
+    await press("Enter", 13);
+    await until("the index sheet", () => call(function (name) { return !!document.querySelector(`dialog.sheet-dialog[open] input[type=range][name="${name}"]`); }, field("num_coins")));
+    for (const count of [4, 3]) {
+      await save(count);
+      await until(`count ${count} saved`, () => call(function () { return window.groupSubmission === 200; }));
+      await until(`the sheet redrawn at ${count}`, () => call(function (name, value) { return document.querySelector(`dialog.sheet-dialog[open] input[name="${name}"]`)?.value === value; }, field("num_coins_rendered"), String(count)));
+      if (await stored() !== String(count)) throw new Error(`count ${count} not stored: ${await stored()}`);
+    }
+    // Started behind the open sheet: its next save is refused inside the sheet, and nothing is stored.
+    const started = await call(function (url) {
+      const body = new URLSearchParams({ _method: "patch" });
+      return fetch(url, { method: "POST", body, headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content, Accept: "text/vnd.turbo-stream.html" } }).then((r) => r.status);
+    }, `${page}/start`);
+    if (started !== 200) throw new Error(`starting the grouped bot answered ${started}`);
+    await save(4);
+    await until("the refused save", () => call(function () { return window.groupSubmission === 422; }));
+    await until("the refusal in the sheet", () => shows("dialog.sheet-dialog[open] .form__info--invalid"));
+    if (await stored() !== "3") throw new Error(`a refused save stored ${await stored()}`);
+    // Closed: the focus is back on the stack.
+    await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
+    await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
+    await until("the focus back on the stack", () => call(function (sel) { return document.activeElement === document.querySelector(sel); }, stack));
+    console.log("index sheet: Enter opens it, count 3 → 4 → 3 stored, a raced refusal in the sheet, the list by keyboard, focus back on the stack");
+  }
   if (INDEX_WIZARD && BOT_ID) {
     const { venue, key, secret } = JSON.parse(INDEX_WIZARD);
     const page = `/bots/${BOT_ID}`;
@@ -314,62 +370,6 @@ try {
     await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
     await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
     console.log("index wizard: arrow keys on the filtered list, the key on to the quote in the sheet, the connect form after a search");
-  }
-  if (GROUP_SHEET) {
-    const { bot, group } = JSON.parse(GROUP_SHEET);
-    const page = `/bots/${bot}`;
-    const stack = `#index_group_${group}_stack`;
-    const shows = (selector) => call(function (sel) { return !!document.querySelector(sel); }, selector);
-    const field = (name) => `bots_dca_multi_asset[index_groups][${group}][${name}]`;
-    const press = async (key, code) => { for (const type of ["keyDown", "keyUp"]) await send("Input.dispatchKeyEvent", { type, key, code: key, windowsVirtualKeyCode: code, ...(type === "keyDown" && key === "Enter" ? { text: "\r" } : {}) }); };
-    const focus = (selector) => call(function (sel) { const element = document.querySelector(sel); if (!element) return false; element.focus(); return document.activeElement === element; }, selector);
-    // The count the stored row holds, as a fresh sheet draws it.
-    const stored = () => call(function (url, name) {
-      return fetch(url).then((r) => r.text()).then((html) => new DOMParser().parseFromString(html, "text/html").querySelector(`input[type=range][name="${name}"]`)?.value);
-    }, `${page}/index_groups/${group}/edit`, field("num_coins"));
-    const save = (count) => call(function (name, value) {
-      window.groupSubmission = null;
-      const range = document.querySelector(`dialog.sheet-dialog input[type=range][name="${name}"]`);
-      range.value = value;
-      range.dispatchEvent(new Event("input", { bubbles: true }));
-      range.dispatchEvent(new Event("change", { bubbles: true }));
-      return true;
-    }, field("num_coins"), String(count));
-    await send("Page.navigate", { url: BASE_URL + page });
-    await until("the grouped bot's page", () => call(function (p, sel) { return location.pathname === p && !!document.querySelector(sel); }, page, stack));
-    await evaluate(`document.addEventListener("turbo:submit-end", event => { window.groupSubmission = event.detail.fetchResponse?.statusCode; })`);
-    // The composition's list, by keyboard.
-    const toggle = ".index-composition button[data-action='donut-chart#toggle']";
-    if (!(await focus(toggle))) throw new Error("the composition's toggle takes no focus");
-    const listHidden = () => call(function () { return document.querySelector(".index-composition [data-donut-chart-target=list]")?.classList.contains("is-hidden"); });
-    const before = await listHidden();
-    await press("Enter", 13);
-    await until("the composition toggled by Enter", async () => (await listHidden()) !== before);
-    // Enter on the stack opens the sheet.
-    if (!(await focus(stack))) throw new Error("the stack takes no focus");
-    await press("Enter", 13);
-    await until("the index sheet", () => call(function (name) { return !!document.querySelector(`dialog.sheet-dialog[open] input[type=range][name="${name}"]`); }, field("num_coins")));
-    for (const count of [4, 3]) {
-      await save(count);
-      await until(`count ${count} saved`, () => call(function () { return window.groupSubmission === 200; }));
-      await until(`the sheet redrawn at ${count}`, () => call(function (name, value) { return document.querySelector(`dialog.sheet-dialog[open] input[name="${name}"]`)?.value === value; }, field("num_coins_rendered"), String(count)));
-      if (await stored() !== String(count)) throw new Error(`count ${count} not stored: ${await stored()}`);
-    }
-    // Started behind the open sheet: its next save is refused inside the sheet, and nothing is stored.
-    const started = await call(function (url) {
-      const body = new URLSearchParams({ _method: "patch" });
-      return fetch(url, { method: "POST", body, headers: { "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]').content, Accept: "text/vnd.turbo-stream.html" } }).then((r) => r.status);
-    }, `${page}/start`);
-    if (started !== 200) throw new Error(`starting the grouped bot answered ${started}`);
-    await save(4);
-    await until("the refused save", () => call(function () { return window.groupSubmission === 422; }));
-    await until("the refusal in the sheet", () => shows("dialog.sheet-dialog[open] .form__info--invalid"));
-    if (await stored() !== "3") throw new Error(`a refused save stored ${await stored()}`);
-    // Closed: the focus is back on the stack.
-    await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
-    await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
-    await until("the focus back on the stack", () => call(function (sel) { return document.activeElement === document.querySelector(sel); }, stack));
-    console.log("index sheet: Enter opens it, count 3 → 4 → 3 stored, a raced refusal in the sheet, the list by keyboard, focus back on the stack");
   }
   if (BOT_ID) {
     const path = `/bots/${BOT_ID}`;
