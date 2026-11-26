@@ -181,7 +181,8 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
         Err(hard) => return Err(EngineError::HardStop(super::set_aside::hard_stop(&hard))),
     };
     let report = plan.report;
-    let converted = plan.converted.iter().map(|id| super::set_aside::converted(&tx, *id)).collect::<Result<Vec<_>, _>>()?;
+    let mut converted = plan.converted.iter().map(|id| super::set_aside::converted(&tx, *id)).collect::<Result<Vec<_>, _>>()?;
+    for bot in &plan.indexes { converted.push(super::index_bot::converted(&tx, bot.id)?); }
     // D-KUCOIN-HF-RETENTION: before the claim moves the takeover stamp, the open KuCoin rows it adopts are marked.
     super::reconcile::mark_adopted(&tx, cipher, now)?;
     // A28-1: 2.x's ownership window, read before the claim restamps it (lease::claim's own rule for a new ownership).

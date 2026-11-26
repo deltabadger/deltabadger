@@ -879,6 +879,7 @@ fn check_assesses_the_install_as_serve_will_after_its_pending_migrations() {
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert_eq!(out.status.code(), Some(0), "{stdout}{}", stderr(&out));
     assert!(stdout.contains("pending Rust migration 20261025000001") && stdout.contains("ready: 1 bot(s)"), "{stdout}");
+    assert!(stdout.contains(&format!("Bot {bot} will be converted into a basket that follows its index at the next start\n")), "{stdout}");
     assert!(!stdout.contains("SECRET_KEY_BASE"), "{stdout}");
     let keyless = cli(dir.path(), &["check"]).env_remove("SECRET_KEY_BASE").output().unwrap();
     let keyless_out = String::from_utf8_lossy(&keyless.stdout);
@@ -895,6 +896,29 @@ fn check_assesses_the_install_as_serve_will_after_its_pending_migrations() {
     assert!(lines.find(|l| l.contains("running")).is_some(), "signal handlers are registered before this line");
     assert!(Command::new("kill").args(["-TERM", &child.0.id().to_string()]).status().unwrap().success());
     assert_eq!(exited(&mut child, std::time::Duration::from_secs(20)).code(), Some(0));
+}
+
+/// PLAN index-as-ingredient slice 4b: `check` names each stored index bot the next start converts (a working stored seller
+/// with the note that it will buy, a stopped one without) and each it keeps with why, and writes nothing.
+#[test]
+fn check_names_converted_kept_and_selling_bots_and_writes_nothing() {
+    let dir = common::v2_install();
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let s = seed::seed_kraken(&c, &seed::cipher());
+    let index = |status: i64, direction: &str| { let id = seed::index_bot(&c, &s, "ignored", 3, 0.0, false);
+        c.execute("UPDATE bots SET status = ?1, settings = json_set(settings, '$.direction', ?2, '$.index_type', 'top') WHERE id = ?3", rusqlite::params![status, direction, id]).unwrap(); id };
+    let (seller, stopped, kept) = (index(1, "selling"), index(2, "selling"), index(2, "buying"));
+    c.execute("UPDATE bots SET label = 'Steady', transient_data = json_set(transient_data, '$.rebalance_pending', json('{\"phase\":\"selling\"}')) WHERE id = ?1", [kept]).unwrap();
+    drop(c);
+    let before = files_of(dir.path());
+    let out = cli(dir.path(), &["check"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    for line in [format!("Bot {seller} will be converted into a basket that follows its index at the next start, and it will buy: it is stored as selling, which an index bot never did\n"),
+                 format!("Bot {stopped} will be converted into a basket that follows its index at the next start\n"),
+                 format!("Bot {kept} (“Steady”) stays an index bot for now: a rebalance is in progress\n")] {
+        assert!(stdout.contains(&line), "{line}: {stdout}{}", stderr(&out));
+    }
+    assert_eq!(files_of(dir.path()), before, "check changes no byte");
 }
 
 // --- B2-4: the backup before a takeover from 2.x (PLAN-B2 r3.4, §5, r6 Q3) ---

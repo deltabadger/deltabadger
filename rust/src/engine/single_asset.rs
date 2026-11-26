@@ -81,7 +81,7 @@ pub fn convert_all(tx: &Connection, now: DateTime<Utc>) -> Result<Vec<i64>, Engi
 
 /// A row whose stored data this build can't read is None (it stays as it is, and the start's check names it unreadable); any
 /// other database failure fails the start.
-fn readable(loaded: Result<Bot, EngineError>) -> Result<Option<Bot>, EngineError> {
+pub(super) fn readable(loaded: Result<Bot, EngineError>) -> Result<Option<Bot>, EngineError> {
     use rusqlite::Error::{FromSqlConversionFailure, InvalidColumnType};
     match loaded {
         Ok(bot) => Ok(Some(bot)),

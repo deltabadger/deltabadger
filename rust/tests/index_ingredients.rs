@@ -1340,3 +1340,53 @@ async fn the_picker_excludes_the_current_index_of_any_provider() {
     let picker = u.b.get(&u.app, &format!("/bots/{id}/index/new")).await;
     assert!(picker.body.contains("cat-b") && !picker.body.contains("nasdaq-100"), "{}", picker.body);
 }
+
+// ---------------------------------------------------------------- slice 4b: a converted index bot on the web
+
+/// The settings form as the page renders it: every `bots_dca_multi_asset[…]` input with its value (a checkbox or radio only
+/// when checked) and each select's selected option, so a post of it is the unchanged form.
+fn rendered_form(page: &str) -> Vec<(String, String)> {
+    let attr = |tag: &str, name: &str| tag.split(&format!(" {name}=\"")).nth(1).and_then(|r| r.split('"').next()).map(|v| v.replace("&quot;", "\"").replace("&amp;", "&"));
+    let mut out = vec![];
+    for tag in page.split("<input").skip(1).map(|t| t.split('>').next().unwrap()) {
+        let Some(name) = attr(tag, "name").filter(|n| n.starts_with("bots_dca_multi_asset[")) else { continue };
+        if matches!(attr(tag, "type").as_deref(), Some("checkbox" | "radio")) && !tag.contains(" checked") { continue; }
+        out.push((name, attr(tag, "value").unwrap_or_default()));
+    }
+    for select in page.split("<select").skip(1) {
+        let (open, rest) = select.split_once('>').unwrap();
+        let Some(name) = attr(open, "name").filter(|n| n.starts_with("bots_dca_multi_asset[")) else { continue };
+        let body = rest.split("</select>").next().unwrap();
+        if let Some(option) = body.split("<option").skip(1).map(|o| o.split('>').next().unwrap()).find(|o| o.contains(" selected")) {
+            out.push((name, attr(option, "value").unwrap_or_default()));
+        }
+    }
+    out
+}
+
+/// PLAN slice 4 §4b step 2: a 2.x index row with a stored `start_selling` price rule, converted (the rule's family removed,
+/// its switch off): its page renders the basket's reverse toggle and the flip actions, and saving the form as rendered is
+/// a 200 that leaves the rule off.
+#[tokio::test]
+async fn a_converted_start_selling_price_rule_opens_and_saves_unchanged_off() {
+    let mut u = universe();
+    let id = seed::index_bot(&u.o.primary, &u.s, "nasdaq-100", 3, 0.0, false);
+    exec(&u.o, &format!("UPDATE bots SET status = 2, settings = json_set(settings, '$.price_limited', json('true'), '$.price_limit', 50000, '$.price_limit_value_condition', 'below',
+        '$.price_limit_action', 'start_selling', '$.price_limit_in_ticker_id', {}) WHERE id = {id}", u.m[0].1));
+    exec(&u.o, &format!("INSERT INTO bot_index_assets (bot_id, asset_id, ticker_id, target_allocation, in_index, created_at, updated_at) VALUES ({id}, {}, {}, 1, 1, '2026-09-01', '2026-09-01')", u.m[0].0, u.m[0].1));
+    let tx = model::immediate(&u.o.primary).unwrap();
+    let (converted, _) = deltabadger::engine::index_bot::convert_all(&tx, common::web::at(T0)).unwrap();
+    tx.commit().unwrap();
+    assert_eq!(converted.iter().map(|c| c.id).collect::<Vec<_>>(), vec![id]);
+    let page = u.b.get(&u.app, &format!("/bots/{id}")).await;
+    assert_eq!(page.status, 200, "{}", page.body);
+    assert!(page.body.contains("class=\"reverse-toggle") && page.body.contains("value=\"flip\""), "the basket's reverse and flips");
+    let form = rendered_form(&page.body);
+    assert!(form.iter().any(|(k, _)| k == "bots_dca_multi_asset[quote_amount]"), "{form:?}");
+    let fields: Vec<(&str, &str)> = form.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let saved = u.b.send(&u.app, "PATCH", &format!("/bots/{id}"), Some(&fields), Csrf::Header, &TURBO).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let s = settings(&u, id);
+    assert_eq!(s["price_limited"], json!(false), "{s}");
+    assert_ne!(s.get("price_limit_action"), Some(&json!("start_selling")), "{s}");
+}

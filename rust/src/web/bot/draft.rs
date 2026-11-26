@@ -103,7 +103,7 @@ fn percentage(value: &Value) -> Result<Value, WebError> {
 
 /// Draft::load's bounds on the stored columns: each at most 65 536 bytes as stored, an object, within the parameter tree's
 /// depth and leaf bounds. The writer checks an ingredient operation's persisted row with the same (Codex slice 3 r1 #6).
-pub(super) fn loadable(settings: &str, transient: &str) -> Option<(Map<String, Value>, Map<String, Value>)> {
+pub(crate) fn loadable(settings: &str, transient: &str) -> Option<(Map<String, Value>, Map<String, Value>)> {
     if settings.len() > 65_536 || transient.len() > 65_536 { return None; }
     let raw_settings = super::object(settings, "bots.settings").ok()?;
     let raw_transient = super::object(transient, "bots.transient_data").ok()?;
