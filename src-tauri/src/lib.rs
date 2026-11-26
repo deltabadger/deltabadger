@@ -293,6 +293,16 @@ fn app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
     Ok(menu)
 }
 
+/// Whether the window just entered (Some(true)) or left (Some(false)) full screen; None for any other event, and for a
+/// resize that changed neither (a live resize sends one many times a second).
+#[cfg(target_os = "macos")]
+fn full_screen_changed(window: &tauri::Window, event: &tauri::WindowEvent) -> Option<bool> {
+    static FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    let tauri::WindowEvent::Resized(_) = event else { return None };
+    let full = window.is_fullscreen().unwrap_or(false);
+    (FULL.swap(full, std::sync::atomic::Ordering::Relaxed) != full).then_some(full)
+}
+
 fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     // Show in Dock when window is shown
     #[cfg(target_os = "macos")]
@@ -877,16 +887,11 @@ pub fn run() {
             // In full screen the overlay title bar has nothing to slide down with the menu bar: no window buttons, no way
             // out but the View menu. Full screen takes the plain title bar; leaving it brings the overlay back.
             #[cfg(target_os = "macos")]
-            if let tauri::WindowEvent::Resized(_) = event {
-                static FULL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-                let full = window.is_fullscreen().unwrap_or(false);
-                // Only on the change: a resize sends this many times a second.
-                if FULL.swap(full, std::sync::atomic::Ordering::Relaxed) != full {
-                    let _ = window.set_title_bar_style(if full { tauri::TitleBarStyle::Visible } else { tauri::TitleBarStyle::Overlay });
-                    // The style change hands the keyboard to tao's own view; give it back to the page, or typing stops.
-                    if let Some(webview) = window.app_handle().get_webview("main") {
-                        let _ = webview.set_focus();
-                    }
+            if let Some(full) = full_screen_changed(window, event) {
+                let _ = window.set_title_bar_style(if full { tauri::TitleBarStyle::Visible } else { tauri::TitleBarStyle::Overlay });
+                // The style change hands the keyboard to tao's own view; give it back to the page, or typing stops.
+                if let Some(webview) = window.app_handle().get_webview("main") {
+                    let _ = webview.set_focus();
                 }
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
