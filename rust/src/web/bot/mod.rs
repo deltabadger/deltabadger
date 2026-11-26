@@ -1069,8 +1069,8 @@ impl Bot {
         let mut view = self.view_of(group.clone());
         if self.lone_group().is_none() {
             view.index = index_row(c, &group)?;
-            view.memberships = group_rows(c, self.id, external_id)?.into_iter().map(|(asset, ticker, weight)| Membership {
-                target_allocation: BigDec::parse(&weight.to_string()).ok(), asset, ticker, in_index: true }).collect();
+            view.memberships = group_rows(c, self.id, external_id)?.into_iter().map(|row| Membership {
+                target_allocation: BigDec::parse(&row.weight.to_string()).ok(), asset: row.asset, ticker: row.ticker, in_index: true }).collect();
         }
         Ok(Some(view))
     }
@@ -1240,16 +1240,19 @@ fn allocation_ids(settings: &Map<String, Value>) -> Vec<i64> {
 
 /// PLAN index-as-ingredient slice 5: a group's composed members (`rust_bot_group_members`), heaviest first, each with its
 /// stored ticker and its weight within the group.
-pub fn group_rows(c: &Connection, bot_id: i64, external_id: &str) -> Result<Vec<(Asset, Option<Ticker>, f64)>, WebError> {
-    let rows: Vec<(i64, i64, f64)> = c.prepare("SELECT asset_id, ticker_id, weight FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 ORDER BY weight DESC, asset_id")?
-        .query_map(rusqlite::params![bot_id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<Result<_, _>>()?;
+pub fn group_rows(c: &Connection, bot_id: i64, external_id: &str) -> Result<Vec<GroupRow>, WebError> {
+    let rows: Vec<(i64, i64, f64, bool)> = c.prepare("SELECT asset_id, ticker_id, weight, composed = 1 FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id = ?2 ORDER BY weight DESC, asset_id")?
+        .query_map(rusqlite::params![bot_id, external_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?.collect::<Result<_, _>>()?;
     let mut out = vec![];
-    for (asset, ticker, weight) in rows {
+    for (asset, ticker, weight, composed) in rows {
         let Some(asset) = Asset::find(c, asset)? else { continue };
-        out.push((asset, Ticker::all(c, "t.id = ?1", &[&ticker])?.into_iter().next(), weight));
+        out.push(GroupRow { asset, ticker: Ticker::all(c, "t.id = ?1", &[&ticker])?.into_iter().next(), weight, composed });
     }
     Ok(out)
 }
+
+/// One `rust_bot_group_members` row: `composed` false for a seat a conversion carried over, not yet derived here.
+pub struct GroupRow { pub asset: Asset, pub ticker: Option<Ticker>, pub weight: f64, pub composed: bool }
 
 /// Every current member's traded target (`in_index` rows), heaviest first, unbounded (`Bot::find` caps its memberships).
 pub fn current_targets(c: &Connection, bot_id: i64) -> Result<Vec<(Asset, f64)>, WebError> {

@@ -1321,7 +1321,7 @@ fn weight_of(value: &Value) -> f64 { value.as_f64().or_else(|| value.as_str().an
 /// The index form's count and flattening fields onto `group` (PLAN index-as-ingredient slices 4a, 5): a count only when it
 /// differs from the one the form drew (`num_coins_rendered`), `hold_all` from the ceiling it drew (`num_coins_ceiling`, else
 /// `default_ceiling`; none: false), so an unchanged repost keeps both exactly; a flattening only when it differs, as decoded
-/// (`"0.5"` reads 0.5), from the stored one.
+/// (`"0.5"` reads 0.5), from the stored one and from the stored one rounded to the slider's step.
 fn index_edits(group: &mut Map<String, Value>, fields: &Map<String, Value>, default_ceiling: Option<i64>) -> Result<(), WebError> {
     if let Some(coins) = fields.get("num_coins").filter(|v| present(v)) {
         let count = numeric(coins, true)?;
@@ -1334,7 +1334,11 @@ fn index_edits(group: &mut Map<String, Value>, fields: &Map<String, Value>, defa
     }
     if let Some(flattening) = fields.get("allocation_flattening").filter(|v| present(v)) {
         let posted = numeric(flattening, false)?;
-        if posted.as_f64() != crate::engine::composition::flattening(Some(&*group)) { group.insert("allocation_flattening".into(), posted); }
+        // The range steps by 0.01, so a stored 0.333 is posted back as 0.33: the value the page drew keeps the stored one
+        // (Codex slice 5 branch r1), as a drawn weight does.
+        let stored = crate::engine::composition::flattening(Some(&*group));
+        let drawn = stored.map(|f| crate::web::format::float_round(f, 2));
+        if posted.as_f64() != stored && posted.as_f64() != drawn { group.insert("allocation_flattening".into(), posted); }
     }
     Ok(())
 }

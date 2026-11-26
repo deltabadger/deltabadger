@@ -4,11 +4,15 @@
 use super::{action_params::ActionParams, action_view, index_switch::{self, Switched}, page, settings, write::{self, Outcome}, Bot, For};
 use crate::web::{auth, layout::{self, Ctx, Page}, shell::{self, Shell}, turbo, wizard, App, WebError};
 use axum::{extract::{Extension, Path, State}, http::StatusCode, response::{IntoResponse, Response}};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
-/// The grouped basket `id` of `owner`, or None (not theirs, deleted, or not stored with groups).
+/// The grouped basket `id` of `owner`, or None: not theirs, deleted (as the bot page refuses it), archived (whose page offers
+/// no index item), a bot these pages do not render, or not stored with groups.
 fn grouped(c: &Connection, owner: i64, id: i64, locale: &str) -> Result<Option<Bot>, WebError> {
-    Ok(Bot::find(c, owner, id, For::Settings, locale)?.filter(Bot::grouped))
+    use crate::enums::BotStatus;
+    let status: Option<i64> = c.query_row("SELECT status FROM bots WHERE id = ?1 AND user_id = ?2", [id, owner], |r| r.get(0)).optional()?;
+    if status.is_none_or(|s| s == BotStatus::Deleted as i64 || s == BotStatus::Archived as i64) { return Ok(None); }
+    Ok(Bot::find(c, owner, id, For::Settings, locale)?.filter(|bot| bot.grouped() && bot.unrendered().is_none()))
 }
 
 /// The sheet's frame content (the stored row), with `error` above the sliders.
@@ -128,9 +132,17 @@ pub async fn update(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path
     let Some(user) = ctx.user().cloned() else { return Ok(auth::unauthenticated(&ctx)) };
     let Some(id) = super::id_from_path(&segment) else { return Ok(page::not_found(&ctx)) };
     let params = match ActionParams::parse(&ctx.params) { Ok(p) => p, Err(e) => return Ok(e.status().into_response()) };
+    let scoped = only_this_group(params.value(), &external_id);
     let view = ctx.clone();
     let result = app.db(move |c| {
         if !grouped(c, user.id, id, view.locale)?.is_some_and(|bot| bot.group_ids().contains(&external_id)) { return Ok(Outcome::Missing); }
+        // The sheet edits its own group's count and flattening, nothing else (Codex slice 5 branch r1): any other field, or
+        // another group's, is refused whole, in the sheet.
+        if !scoped {
+            let message = crate::web::i18n::text(view.locale, "errors.bots.index_switch.not_offered", &[]);
+            let frame = sheet_frame(c, &view, user.id, id, &external_id, Some(message))?.unwrap_or_default();
+            return Ok(Outcome::Invalid(action_view::response(in_sheet(&frame), true), write::Failure::invalid("not_offered", String::new())));
+        }
         write::settings(c, &view, user.id, id, &params, |c, ctx, draft| {
             let body = if draft.errors.is_empty() {
                 let sheet = settings::group_sheet(c, ctx, &ctx.csrf_token(), &draft.candidate, &external_id, None)?.map(|content| wizard::sheet_frame("", &content)).transpose()?;
@@ -149,4 +161,14 @@ pub async fn update(State(app): State<App>, Extension(ctx): Extension<Ctx>, Path
         Ok(Outcome::Committed(response) | Outcome::NoChange(response) | Outcome::Invalid(response, _) | Outcome::GuardRefused(response)) => Ok(response),
         Err(e) => layout::or_refused(&ctx, e),
     }
+}
+
+/// The sheet's PATCH names only `bots_dca_multi_asset[index_groups][<external_id>]`'s count and flattening fields.
+fn only_this_group(params: &serde_json::Value, external_id: &str) -> bool {
+    const FIELDS: [&str; 4] = ["num_coins", "num_coins_rendered", "num_coins_ceiling", "allocation_flattening"];
+    let Some(top) = params.as_object() else { return false };
+    if top.keys().any(|k| !matches!(k.as_str(), "bots_dca_multi_asset" | "authenticity_token" | "_method")) { return false; }
+    let Some(root) = top.get("bots_dca_multi_asset").and_then(serde_json::Value::as_object) else { return false };
+    let Some(groups) = root.get("index_groups").and_then(serde_json::Value::as_object) else { return false };
+    root.len() == 1 && groups.len() == 1 && groups.get(external_id).and_then(serde_json::Value::as_object).is_some_and(|f| !f.is_empty() && f.keys().all(|k| FIELDS.contains(&k.as_str())))
 }

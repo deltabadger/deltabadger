@@ -62,12 +62,12 @@ impl EngineEvent {
     /// wants, and the bot page's own.
     pub fn is_classic(&self) -> bool {
         !matches!(self, Self::OrderUpdated { .. } | Self::BelowMinimum { .. } | Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. }
-                        | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::ConditionInfo { .. })
+                        | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::Recomposed { .. } | Self::ConditionInfo { .. })
     }
 
     /// What the bot page hears live (web::bot::live): its status, and each order inserted or written.
     pub fn is_live(&self) -> bool {
-        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::ConditionInfo { .. })
+        matches!(self, Self::StatusChanged { .. } | Self::TickEnded { .. } | Self::OrderWritten { .. } | Self::OrderRecorded { .. } | Self::SignalMarkerChanged { .. } | Self::Reversed { .. } | Self::Recomposed { .. } | Self::ConditionInfo { .. })
     }
 
     /// An order inserted or written: what the figures service hears.

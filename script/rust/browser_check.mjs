@@ -239,7 +239,12 @@ try {
     console.log("unported venue: the key step's refusal shows in the wizard's modal");
   }
   if (GROUP_SHEET) {
-    const { bot, group } = JSON.parse(GROUP_SHEET);
+    const { bot, group, unbalanced } = JSON.parse(GROUP_SHEET);
+    // Weights whose drawn values sum to 100.0 % (33.3 + 33.3 + 33.4) but whose stored sum is 100.12 %: Normalize stays offered.
+    await send("Page.navigate", { url: `${BASE_URL}/bots/${unbalanced}` });
+    await until("the unbalanced bot's page", () => call(function (p) { return location.pathname === p && !!document.querySelector(".asset-allocations__normalize"); }, `/bots/${unbalanced}`));
+    await sleep(500);
+    if (await call(function () { return document.querySelector(".asset-allocations__normalize").hidden; })) throw new Error("Normalize hidden for a stored sum of 100.12 %");
     const page = `/bots/${bot}`;
     const stack = `#index_group_${group}_stack`;
     const shows = (selector) => call(function (sel) { return !!document.querySelector(sel); }, selector);
@@ -278,6 +283,18 @@ try {
       await until(`the sheet redrawn at ${count}`, () => call(function (name, value) { return document.querySelector(`dialog.sheet-dialog[open] input[name="${name}"]`)?.value === value; }, field("num_coins_rendered"), String(count)));
       if (await stored() !== String(count)) throw new Error(`count ${count} not stored: ${await stored()}`);
     }
+    // An arrow key on the real range saves, redraws the sheet, and the range keeps the focus (its stable id).
+    const rangeId = `bots_dca_multi_asset_index_groups_${group}_num_coins`;
+    if (!(await focus(`#${rangeId}`))) throw new Error("the count range takes no focus");
+    await evaluate(`window.groupSubmission = null`);
+    await press("ArrowRight", 39);
+    await until("the arrow key's save", () => call(function () { return window.groupSubmission === 200; }));
+    await until("the sheet redrawn at 4", () => call(function (name) { return document.querySelector(`dialog.sheet-dialog[open] input[name="${name}"]`)?.value === "4"; }, field("num_coins_rendered")));
+    await until("the focus kept on the range", () => call(function (id) { return document.activeElement?.id === id; }, rangeId));
+    if (await stored() !== "4") throw new Error(`the arrow key stored ${await stored()}`);
+    await save(3);
+    await until("count 3 saved again", () => call(function () { return window.groupSubmission === 200; }));
+    if (await stored() !== "3") throw new Error(`count 3 not stored again: ${await stored()}`);
     // Started behind the open sheet: its next save is refused inside the sheet, and nothing is stored.
     const started = await call(function (url) {
       const body = new URLSearchParams({ _method: "patch" });
@@ -292,7 +309,7 @@ try {
     await evaluate(`document.querySelector("dialog.sheet-dialog .sheet__close").click()`);
     await until("the sheet closed", () => call(function () { return !document.querySelector("dialog.sheet-dialog[open]"); }));
     await until("the focus back on the stack", () => call(function (sel) { return document.activeElement === document.querySelector(sel); }, stack));
-    console.log("index sheet: Enter opens it, count 3 → 4 → 3 stored, a raced refusal in the sheet, the list by keyboard, focus back on the stack");
+    console.log("index sheet: Normalize on the stored sum, Enter opens it, count 3 → 4 → 3 stored, an arrow key keeps the range's focus, a raced refusal in the sheet, the list by keyboard, focus back on the stack");
   }
   if (INDEX_WIZARD && BOT_ID) {
     const { venue, key, secret } = JSON.parse(INDEX_WIZARD);

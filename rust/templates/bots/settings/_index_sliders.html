@@ -8,7 +8,7 @@
           <input type="hidden" name="{{ field }}[num_coins_ceiling]" id="{{ field_id }}_num_coins_ceiling" value="{{ max_coins }}" />
           <input type="hidden" name="{{ field }}[num_coins_rendered]" id="{{ field_id }}_num_coins_rendered" value="{{ num_coins }}" />
           <input type="range"
-                 name="{{ field }}[num_coins]"
+                 name="{{ field }}[num_coins]"{% if labelled %} id="{{ field_id }}_num_coins"{% endif %}
                  min="2"
                  max="{{ max_coins }}"
                  value="{{ num_coins }}"
@@ -33,7 +33,7 @@
         </div>
         <div class="slider">
           <input type="range"
-                 name="{{ field }}[allocation_flattening]"
+                 name="{{ field }}[allocation_flattening]"{% if labelled %} id="{{ field_id }}_allocation_flattening"{% endif %}
                  min="0"
                  max="1"
                  step="0.01"

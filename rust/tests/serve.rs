@@ -1455,6 +1455,11 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     mixed.status = 2;
     let grouped = seed::insert_bot(c, &seeded, &mixed);
     seed::insert_member(c, grouped, seeded.btc, seeded.ticker_id, 1.0, true, "2026-09-01 10:00:00", None);
+    let mut unbalanced = seed::BotSpec::weekly(5.0, "2026-09-01 10:00:00").with("allocations", json!({ seeded.btc.to_string(): 0.3334 }))
+        .with("index_groups", json!([{ "index_type": "top", "num_coins": 3, "allocation_flattening": 0.0, "weight": 0.3334 },
+                                     { "index_type": "category", "index_category_id": "layer-1", "num_coins": 3, "allocation_flattening": 0.0, "weight": 0.3344 }]));
+    unbalanced.status = 2;
+    let unbalanced = seed::insert_bot(c, &seeded, &unbalanced);
     // Appended key by key ("0" is invalid, the separator waits for its digits), and a saved amount edited: a separator put
     // between its digits ("15" into "1.5") is a finished amount and saves, one added at its end ("12" into "12.5") waits.
     let (sell, quote) = ("bots_dca_multi_asset_sell_amount", "bots_dca_multi_asset_quote_amount");
@@ -1497,7 +1502,7 @@ async fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() -> Result<
     let log = tempfile::tempfile()?;
     let mut check = Child(Command::new("bun").arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../script/rust/browser_check.mjs"))
         .env("BASE_URL",format!("http://{address}")).env("EMAIL","o@example.com").env("PASSWORD","Correct-horse-9")
-        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",unported.to_string()).env("TYPING",typing.to_string()).env("INDEX_WIZARD",index_wizard.to_string()).env("GROUP_SHEET",json!({ "bot": grouped, "group": "top-coins" }).to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
+        .env("BOT_ID",bot.to_string()).env("UNPORTED_VENUE",unported.to_string()).env("TYPING",typing.to_string()).env("INDEX_WIZARD",index_wizard.to_string()).env("GROUP_SHEET",json!({ "bot": grouped, "group": "top-coins", "unbalanced": unbalanced }).to_string()).stdout(log.try_clone()?).stderr(log.try_clone()?).spawn()?);
     let deadline = Instant::now() + Duration::from_secs(150);
     let status = loop {
         if let Some(status) = check.0.try_wait()? { break status; }

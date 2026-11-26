@@ -869,7 +869,9 @@ fn index_main(c: &Connection, forms: &Forms, view: &Bot, sentence: Sentence, lon
 struct Chip { class: String, color: String, symbol: String, asset_id: i64 }
 
 /// A group's row on a grouped basket's form (PLAN index-as-ingredient §6.1): its stack (linking to its sheet), name and weight.
-struct GroupSlider { external_id: String, stack_id: String, url: String, label: String, name: String, percent: String, chips: Vec<Chip>, more: usize }
+struct GroupSlider { external_id: String, stack_id: String, url: String, label: String, name: String, percent: String, chips: Vec<Chip>, more: usize,
+                     /// The shown share unrounded, for the total (Normalize is offered on the stored sum, not the drawn one).
+                     share: f64 }
 
 /// The slider text of a share (0..1), as an asset row draws it ("60.0").
 fn percent_of(share: f64) -> String { format::float_to_s(format::float_round(share * 100.0, 1)) }
@@ -879,14 +881,17 @@ fn group_sliders(c: &Connection, ctx: &Ctx, bot: &Bot) -> Result<Vec<GroupSlider
     for external_id in bot.group_ids() {
         let Some(view) = bot.group_view(c, &external_id)? else { continue };
         let name = view.display_index_name().unwrap_or_else(|| i18n::text(ctx.locale, "bot.dca_index.setup.pick_index.top_coins", &[]));
-        let rows = super::group_rows(c, bot.id, &external_id)?;
-        // The composed members; before the first composition, the members the preview would choose.
+        // The composed members, and a carried-over seat (composed 0) only where the preview selects it too, so the stack never
+        // shows a holding the index does not select; with none, the members the preview would choose.
+        let preview: Vec<Coin> = index_preview(c, &view)?.into_iter().filter(|coin| coin.visible).collect();
+        let rows: Vec<super::GroupRow> = super::group_rows(c, bot.id, &external_id)?.into_iter()
+            .filter(|row| row.composed || preview.iter().any(|coin| coin.asset_id == row.asset.id)).collect();
         let mut chips: Vec<Chip> = if rows.is_empty() {
-            index_preview(c, &view)?.into_iter().filter(|coin| coin.visible).map(|coin| Chip { class: "ticker".into(), color: coin.color, symbol: coin.symbol, asset_id: coin.asset_id }).collect()
+            preview.into_iter().map(|coin| Chip { class: "ticker".into(), color: coin.color, symbol: coin.symbol, asset_id: coin.asset_id }).collect()
         } else {
-            rows.iter().map(|(asset, _, _)| Ok(Chip { class: colors::ticker_class(asset.category.as_deref(), asset.color.as_deref()).to_string(),
-                color: colors::pill_color(asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", asset.id)))?,
-                symbol: asset.symbol().to_string(), asset_id: asset.id })).collect::<Result<_, WebError>>()?
+            rows.iter().map(|row| Ok(Chip { class: colors::ticker_class(row.asset.category.as_deref(), row.asset.color.as_deref()).to_string(),
+                color: colors::pill_color(row.asset.color.as_deref()).ok_or_else(|| WebError::Config(format!("asset {}: its colour is not a colour", row.asset.id)))?,
+                symbol: row.asset.symbol().to_string(), asset_id: row.asset.id })).collect::<Result<_, WebError>>()?
         };
         let more = chips.len().saturating_sub(5);
         chips.truncate(5);
@@ -895,7 +900,7 @@ fn group_sliders(c: &Connection, ctx: &Ctx, bot: &Bot) -> Result<Vec<GroupSlider
         out.push(GroupSlider {
             stack_id: format!("index_group_{external_id}_stack"), url: ctx.path(&format!("/bots/{}/index_groups/{external_id}/edit", bot.id)),
             label: i18n::text(ctx.locale, "bot.dca_multi_asset.index_settings", &[("index", Arg::Text(&name))]),
-            percent: percent_of(bot.shown_share(None, Some(&external_id), stored)), name, external_id, chips, more,
+            share: bot.shown_share(None, Some(&external_id), stored), percent: percent_of(bot.shown_share(None, Some(&external_id), stored)), name, external_id, chips, more,
         });
     }
     Ok(out)
@@ -921,7 +926,9 @@ pub(super) fn composition(c: &Connection, ctx: &Ctx, bot: &Bot) -> Result<String
                               percent: percent_of(if total > 0.0 { target / total } else { 0.0 }) });
     }
     let caption = if targets.is_empty() { Some("bot.dca_multi_asset.composition_empty") }
-        else if bot.transient.get(crate::engine::composition::COMPOSED_OF_KEY).is_none() { Some("bot.dca_multi_asset.composition_pending") } else { None };
+        // Pending: no composition of these settings yet, or a resync owed (a new ranking keeps the digest until it runs).
+        else if bot.transient.get(crate::engine::composition::COMPOSED_OF_KEY).is_none()
+            || bot.transient.get(crate::engine::index::RESYNC_KEY).is_some_and(|v| !v.is_null()) { Some("bot.dca_multi_asset.composition_pending") } else { None };
     Ok(CompositionView { v: ctx, bot_id: bot.id, data: serde_json::to_string(&data).map_err(|e| WebError::Config(e.to_string()))?, empty: targets.is_empty(),
                          caption: caption.map(|key| i18n::text(ctx.locale, key, &[])), members }.render()?)
 }
@@ -1005,7 +1012,7 @@ pub fn column(c: &Connection, forms: &Forms) -> Result<String, WebError> {
                 };
                 let groups = if grouped { group_sliders(c, ctx, bot)? } else { vec![] };
                 let shown_total = if grouped {
-                    let groups = groups.iter().map(|g| g.percent.parse::<f64>().unwrap_or(0.0) / 100.0);
+                    let groups = groups.iter().map(|g| g.share);
                     super::float_sum(bot.base_assets.iter().map(weight_of).chain(groups))
                 } else { bot.displayed_allocations_total() };
                 let total = format::number_with_precision(&Num::Float(shown_total * 100.0), 1, false).unwrap_or_default();

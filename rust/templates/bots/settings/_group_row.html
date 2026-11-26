@@ -9,8 +9,8 @@
 {%- if group.more > 0 %}
             <span class="ticker ticker--small ticker--more">+{{ group.more }}</span>
 {%- endif %}
+            <span class="label ellipsis">{{ group.name }}</span>
           </a>
-          <span class="label ellipsis">{{ group.name }}</span>
           <div class="slider">
             <input type="range"
                    name="bots_dca_multi_asset[index_groups][{{ group.external_id }}][weight]"

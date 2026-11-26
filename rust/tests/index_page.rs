@@ -396,10 +396,117 @@ async fn a_retired_group_sheet_is_frozen_on_its_rows() {
 
 #[tokio::test]
 async fn a_resynced_grouped_bot_redraws_its_settings() {
+    use deltabadger::engine::events::{EngineEvent, EngineEvents};
     let u = universe();
     let id = mixed(&u);
-    let streams = deltabadger::web::bot::live::render(&u.o.primary, &u.app, &deltabadger::engine::events::EngineEvent::Recomposed { bot_id: id }).unwrap();
+    // The bot page's own subscription (`serve` subscribes `live::follow` to `is_live`), then what it renders.
+    let mut events = EngineEvents::default();
+    let mut live = events.subscribe_to(EngineEvent::is_live);
+    events.send(EngineEvent::Recomposed { bot_id: id });
+    let heard = live.try_recv().expect("the live service hears a recomposition");
+    let streams = deltabadger::web::bot::live::render(&u.o.primary, &u.app, &heard).unwrap();
     assert!(streams.iter().any(|(_, s)| s.contains("action=\"replace\" target=\"settings\"") && s.contains("index_group_nasdaq-100_stack")), "{streams:?}");
+}
+
+#[tokio::test]
+async fn an_off_step_flattening_survives_a_count_edit_from_the_sheet() {
+    let mut u = universe();
+    let mut g = group(ND, 3, 0.5); g["allocation_flattening"] = json!(0.333);
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([g]));
+    // The range (step 0.01) posts 0.33 for the drawn 0.333.
+    let saved = send(&mut u, id, "PATCH", &format!("/bots/{id}/index_groups/nasdaq-100"),
+                     &[(&format!("{ROW}[num_coins]"), "4"), (&format!("{ROW}[num_coins_rendered]"), "3"), (&format!("{ROW}[allocation_flattening]"), "0.33")]).await;
+    assert_eq!(saved.status, 200, "{}", saved.body);
+    let g = the_group(&u, id);
+    assert_eq!((g["num_coins"].clone(), g["allocation_flattening"].clone()), (json!(4), json!(0.333)), "{g}");
+}
+
+#[tokio::test]
+async fn normalize_shows_for_weights_whose_rounded_sum_reads_100() {
+    let mut u = universe();
+    let id = grouped_bot(&u, json!({ u.s.btc.to_string(): 0.3334, u.m[0].0.to_string(): 0.3334 }), json!([group(ND, 3, 0.3344)]));
+    let body = page(&mut u, id).await;
+    let total = segment(&body, "data-bot--allocation-target=\"total\">", "</span>");
+    assert!(!total.contains("100.0%"), "the stored 100.12 %: {total}");
+    let button = segment(&body, "asset-allocations__normalize\"", ">");
+    assert!(!button.contains("hidden"), "Normalize is offered: {button}");
+}
+
+#[tokio::test]
+async fn a_deleted_or_archived_bot_has_no_index_sheet() {
+    let mut u = universe();
+    for status in [3, 7] {
+        let id = mixed(&u);
+        page(&mut u, id).await;
+        exec(&u.o, &format!("UPDATE bots SET status = {status} WHERE id = {id}"));
+        let before = settings(&u, id);
+        for path in [format!("/bots/{id}/index_groups/nasdaq-100/edit"), format!("/bots/{id}/index_groups/new"), format!("/bots/{id}/index_groups/nasdaq-100/index/new")] {
+            assert_eq!(u.b.get(&u.app, &path).await.status, 302, "{status}: {path}");
+        }
+        let patched = u.b.send(&u.app, "PATCH", &format!("/bots/{id}/index_groups/nasdaq-100"), Some(&[(&format!("{ROW}[num_coins]"), "4")]), Csrf::Header, &TURBO).await;
+        let removed = u.b.send(&u.app, "POST", &format!("/bots/{id}/index_groups/nasdaq-100"), Some(&[("remove", "1")]), Csrf::Header, &TURBO).await;
+        let added = u.b.send(&u.app, "POST", &format!("/bots/{id}/index_groups"), Some(&[("index_category_id", "cat-b")]), Csrf::Header, &TURBO).await;
+        for answer in [patched, removed, added] { assert_eq!(answer.status, 302, "{status}: {}", answer.body); }
+        assert_eq!(settings(&u, id), before);
+    }
+}
+
+#[tokio::test]
+async fn a_sheet_patch_takes_only_its_own_groups_fields() {
+    let mut u = universe();
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([group(ND, 3, 0.25), group("cat-b", 3, 0.25)]));
+    let path = format!("/bots/{id}/index_groups/nasdaq-100");
+    let before = settings(&u, id);
+    for fields in [vec![(format!("{ROW}[num_coins]"), "4"), ("bots_dca_multi_asset[quote_amount]".to_string(), "70")],
+                   vec![("bots_dca_multi_asset[index_groups][cat-b][num_coins]".to_string(), "2")],
+                   vec![(format!("{ROW}[weight]"), "40")]] {
+        let posted: Vec<(&str, &str)> = fields.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        let refused = send(&mut u, id, "PATCH", &path, &posted).await;
+        assert_eq!(refused.status, 422, "{fields:?}: {}", refused.body);
+        assert!(refused.body.contains("action=\"update\" target=\"modal_content\""), "{}", refused.body);
+        assert_eq!(settings(&u, id), before, "{fields:?}");
+    }
+}
+
+#[tokio::test]
+async fn an_uncomposed_seat_shows_only_where_the_preview_selects_it() {
+    let mut u = universe();
+    let id = mixed(&u);
+    // A seat a conversion carried over (composed 0) that the index no longer selects: EEE is outside the top three.
+    exec(&u.o, &format!("INSERT INTO rust_bot_group_members VALUES ({id}, 'nasdaq-100', {}, {}, 0, 1.0)", u.m[4].0, u.m[4].1));
+    let body = page(&mut u, id).await;
+    let stack = segment(&body, "id=\"index_group_nasdaq-100_stack\"", "</a>").to_string();
+    assert!(!stack.contains(">EEE<") && stack.contains(">AAA<"), "the preview, never a holding it does not select: {stack}");
+    exec(&u.o, &format!("UPDATE rust_bot_group_members SET asset_id = {}, ticker_id = {} WHERE bot_id = {id}", u.m[1].0, u.m[1].1));
+    let body = page(&mut u, id).await;
+    let stack = segment(&body, "id=\"index_group_nasdaq-100_stack\"", "</a>");
+    assert!(stack.contains(">BBB<") && !stack.contains(">AAA<"), "a carried-over seat the preview selects: {stack}");
+}
+
+#[tokio::test]
+async fn a_pending_resync_captions_even_a_composed_bot() {
+    let mut u = universe();
+    let id = mixed(&u);
+    seat(&u, id, ND, &[(0, 1.0, 0.5)]);
+    compose(&u, id, json!({ "assets": {}, "groups": {} }));
+    exec(&u.o, &format!("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_index_resync', 'x') WHERE id = {id}"));
+    let body = page(&mut u, id).await;
+    assert!(body.contains("Being updated: this is the last composition."), "a ranking update is pending");
+}
+
+#[tokio::test]
+async fn the_sheet_link_holds_the_name_and_the_ranges_keep_ids() {
+    let mut u = universe();
+    // No member trades here: no rows and no preview.
+    let id = grouped_bot(&u, btc(&u, 0.5), json!([{ "index_type": "category", "index_category_id": "unknown-index", "num_coins": 3, "weight": 0.5 }]));
+    let body = page(&mut u, id).await;
+    let link = segment(&body, "id=\"index_group_unknown-index_stack\"", "</a>");
+    assert!(link.contains("unknown-index") || link.contains("Index"), "the name inside the link: {link}");
+    let id = mixed(&u);
+    let sheet = u.b.get(&u.app, &format!("/bots/{id}/index_groups/nasdaq-100/edit")).await;
+    for want in ["id=\"bots_dca_multi_asset_index_groups_nasdaq-100_num_coins\"", "id=\"bots_dca_multi_asset_index_groups_nasdaq-100_allocation_flattening\""] {
+        assert!(sheet.body.contains(want), "{want}");
+    }
 }
 
 #[tokio::test]
