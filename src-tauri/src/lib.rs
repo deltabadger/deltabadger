@@ -303,6 +303,18 @@ fn full_screen_changed(window: &tauri::Window, event: &tauri::WindowEvent) -> Op
     (FULL.swap(full, std::sync::atomic::Ordering::Relaxed) != full).then_some(full)
 }
 
+/// A close asked in full screen: the window hides when it has left full screen.
+#[cfg(target_os = "macos")]
+static HIDE_AFTER_FULL_SCREEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The window's close: hidden, the app stays in the tray (and leaves the Dock on macOS).
+fn hide_to_tray(window: &tauri::Window) {
+    let _ = window.hide();
+    #[cfg(target_os = "macos")]
+    let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
+    log::info!("Window hidden, app running in tray");
+}
+
 fn show_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     // Show in Dock when window is shown
     #[cfg(target_os = "macos")]
@@ -893,17 +905,20 @@ pub fn run() {
                 if let Some(webview) = window.app_handle().get_webview("main") {
                     let _ = webview.set_focus();
                 }
+                if !full && HIDE_AFTER_FULL_SCREEN.swap(false, std::sync::atomic::Ordering::Relaxed) {
+                    hide_to_tray(window);
+                }
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Hide the window instead of closing (app stays in tray)
-                let _ = window.hide();
                 api.prevent_close();
-
-                // Hide from Dock when window is closed
+                // A window hidden in full screen comes back without its space: no window buttons, a see-through menu bar.
+                // Closing leaves full screen first, and the window hides once it has (above).
                 #[cfg(target_os = "macos")]
-                let _ = window.app_handle().set_activation_policy(ActivationPolicy::Accessory);
-
-                log::info!("Window hidden, app running in tray");
+                if window.is_fullscreen().unwrap_or(false) && window.set_fullscreen(false).is_ok() {
+                    HIDE_AFTER_FULL_SCREEN.store(true, std::sync::atomic::Ordering::Relaxed);
+                    return;
+                }
+                hide_to_tray(window);
             }
         })
         .build(context)
