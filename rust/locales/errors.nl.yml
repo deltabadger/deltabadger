@@ -111,6 +111,7 @@ nl:
                 not_offered: "Deze index is niet beschikbaar voor deze bot."
                 buy_first: "Zet de bot eerst terug op kopen."
                 weights_first: "Stel eerst de gewichten van de assets in, of gebruik Eigen verdeling."
+                sell_in_quote_first: "Stel de verkoop eerst in als een bedrag in de quotevaluta."
                 selling_reset: "De verkoopregels zijn uitgeschakeld; stel ze opnieuw in voor de resterende assets."
             multi_asset:
                 condition_subject: "Deze voorwaarde moet betrekking hebben op een asset die de bot aanhoudt."

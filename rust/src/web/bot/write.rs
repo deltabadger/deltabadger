@@ -319,6 +319,8 @@ fn settings_inner<T>(
         let kept: Vec<String> = crate::engine::composition::Composition::of("Bots::DcaMultiAsset", Some(&draft.candidate.settings)).map(|c| c.groups.into_iter().map(|g| g.external_id).collect()).unwrap_or_default();
         tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1 AND index_external_id NOT IN (SELECT value FROM json_each(?2))", (id, json!(kept).to_string()))?;
         one(tx.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.run_generation', coalesce(json_extract(transient_data, '$.run_generation'), 0) + 1) WHERE id = ?1", [id])?)?;
+        // Slice 4c: a first group seats the basket's current members as incumbents (the class flip it replaces kept them).
+        if op.first { if let [group] = kept.as_slice() { crate::engine::index_bot::seed_first_group(&tx, id, group)?; } }
         if op.last_gone {
             // A plain basket has no grouped refresh guard: its members are written here, in this transaction (§6.2); rule A
             // made it balanced, so a derivation that finds nothing is a refusal, never an empty write.

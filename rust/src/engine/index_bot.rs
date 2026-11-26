@@ -8,15 +8,13 @@
 //! Named divergences: D-INDEX-ONE-CLASS (a working stored seller, set aside today, converts and buys, as 2.70.21 ran it),
 //! D-INDEX-RETIRED-PAIR (a converted retired composed index renormalises its surviving pairs), D-INDEX-DISTINCT-SEATS (a
 //! ranking naming an asset twice seats distinct assets).
-use super::model::{self, Bot};
+use super::model;
 use super::{basket, composition, index, rebalance, single_asset, EngineError};
 use crate::enums::{BotStatus, BOT_WORKING};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, types::{Value as Sql, ValueRef}, Connection};
 use serde_json::{Map, Value};
 
-/// A stored index bot's index keys: they move, raw, into its one `index_groups` element.
-const KEYS: [&str; 7] = ["index_type", "index_category_id", "index_name", "index_name_prefix", "num_coins", "hold_all", "allocation_flattening"];
 
 /// Why a stored index bot is not converted at this start. It runs as today and converts at a start after the cause goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,7 +86,7 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     let (keys, transient_keys): (usize, usize) = tx.query_row("SELECT (SELECT count(*) FROM json_each(settings)), (SELECT count(*) FROM json_each(transient_data)) FROM bots WHERE id = ?1",
                                                               [id], |r| Ok((r.get(0)?, r.get(1)?)))?;
     if keys != settings.len() || transient_keys != transient.len() { return Ok(Err(Kept::Unreadable)); }
-    let members = match members(tx, &bot)? { Ok(m) => m, Err(why) => return Ok(Err(why)) };
+    let members = match members(tx, bot.id)? { Ok(m) => m, Err(why) => return Ok(Err(why)) };
 
     // The sell side as composition::reset_sell_side leaves it, as SQLite edits: a key it changed is set to its new value
     // (false, null or "quote", nothing numeric), a key it removed is removed.
@@ -98,7 +96,8 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     let mut sets: Vec<(String, Value)> = sold.iter().filter(|(k, v)| settings.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect();
     sets.extend([("allocations".to_string(), Value::Object(Map::new())), ("weighting".into(), Value::from("manual"))]);
     let mut removed: Vec<String> = settings.keys().filter(|k| !sold.contains_key(*k)).cloned().collect();
-    let moved: Vec<&str> = KEYS.into_iter().filter(|k| settings.contains_key(*k)).collect();
+    // The index keys move, raw, into the one `index_groups` element.
+    let moved: Vec<&str> = composition::INDEX_KEYS.into_iter().filter(|k| settings.contains_key(*k)).collect();
     removed.extend(moved.iter().map(|k| k.to_string()));
     removed.extend(["base_asset_ids", "direction", "sell_interval"].map(String::from));
     let mut unlatched: Vec<String> = transient.keys().filter(|k| !latched.contains_key(*k)).cloned().collect();
@@ -135,11 +134,7 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
     // The group's members, always: every in_index member keeps its seat at the first derivation (index::incumbents). Composed
     // (they may stand for a retired index) only when this engine composed them from this very index.
     let composed = transient.get(index::COMPOSED_KEY).and_then(Value::as_str) == Some(external);
-    tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1", [id])?;
-    for (asset, ticker, weight) in members {
-        tx.execute("INSERT INTO rust_bot_group_members (bot_id, index_external_id, asset_id, ticker_id, composed, weight) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                   params![id, external, asset, ticker, composed, weight])?;
-    }
+    seat(tx, id, external, composed, &members)?;
     let working = BOT_WORKING.contains(&bot.status);
     // What the scheduler's rebalance fire evaluates (run::rebalance_candidate) and rebalance::run then acts on.
     let rebalances = bot.selling() && crate::web::bot::cast_boolean(settings.get("rebalance_enabled")) && super::run::rebalance_candidate(tx, id)?;
@@ -149,11 +144,11 @@ fn convert(tx: &Connection, id: i64, now: DateTime<Utc>) -> Result<Result<Conver
 /// The in_index members as group rows (asset, ticker, weight), each weight the stored target as is. `Unreadable`: a row's ids
 /// don't decode (that bot is kept, the pass goes on); `Targets`: a target can't be carried exactly (unreadable, NULL, or a
 /// weight `save_member` would write back differently).
-fn members(c: &Connection, bot: &Bot) -> Result<Result<Vec<Seat>, Kept>, EngineError> {
+fn members(c: &Connection, bot_id: i64) -> Result<Result<Vec<Seat>, Kept>, EngineError> {
     let mut s = c.prepare("SELECT asset_id, ticker_id, target_allocation FROM bot_index_assets WHERE bot_id = ?1 AND in_index = 1 ORDER BY asset_id")?;
     // The ids as borrowed: only an integer is one (a text id, invalid UTF-8 included, is never decoded).
     let id = |v: ValueRef<'_>| match v { ValueRef::Integer(i) => Some(i), _ => None };
-    let rows = s.query_map([bot.id], |r| Ok((id(r.get_ref(0)?), id(r.get_ref(1)?), basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
+    let rows = s.query_map([bot_id], |r| Ok((id(r.get_ref(0)?), id(r.get_ref(1)?), basket::target_from_sql(r.get_ref(2)?))))?.collect::<Result<Vec<_>, _>>()?;
     let mut out = vec![];
     for (asset, ticker, target) in rows {
         let (Some(asset), Some(ticker)) = (asset, ticker) else { return Ok(Err(Kept::Unreadable)) };
@@ -163,6 +158,24 @@ fn members(c: &Connection, bot: &Bot) -> Result<Result<Vec<Seat>, Kept>, EngineE
         out.push((asset, ticker, weight));
     }
     Ok(Ok(out))
+}
+
+/// The bot's group rows replaced by `members` (index::incumbents reads them with the flat rows' tickers).
+fn seat(tx: &Connection, bot_id: i64, external: &str, composed: bool, members: &[Seat]) -> Result<(), EngineError> {
+    tx.execute("DELETE FROM rust_bot_group_members WHERE bot_id = ?1", [bot_id])?;
+    for (asset, ticker, weight) in members {
+        tx.execute("INSERT INTO rust_bot_group_members (bot_id, index_external_id, asset_id, ticker_id, composed, weight) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                   params![bot_id, external, asset, ticker, composed, weight])?;
+    }
+    Ok(())
+}
+
+/// PLAN index-as-ingredient slice 4c: a plain basket's first group (Follow index, `add_index`) seats the basket's `in_index`
+/// members as the conversion seats an index bot's (composed 0, weights and tickers as stored), so the first derivation
+/// seats each member the index still ranks without a probe, as the class flip it replaces kept them. Members whose rows
+/// can't be carried seat nothing (their newcomers are probed).
+pub(crate) fn seed_first_group(tx: &Connection, bot_id: i64, external: &str) -> Result<(), EngineError> {
+    match members(tx, bot_id)? { Ok(members) => seat(tx, bot_id, external, false, &members), Err(_) => Ok(()) }
 }
 
 /// `check`'s line for a bot `convert_all` converts.

@@ -46,6 +46,9 @@ impl Group {
     }
 }
 
+/// An index bot's keys (`Group::from_settings`), at a `Bots::DcaIndex` row's top level.
+pub const INDEX_KEYS: [&str; 7] = ["index_type", "index_category_id", "index_name", "index_name_prefix", "num_coins", "hold_all", "allocation_flattening"];
+
 impl Composition {
     /// Both stored spellings: a `Bots::DcaIndex` row is one group of weight 1.0 from its top-level keys and no assets; a
     /// `Bots::DcaMultiAsset` row is its `allocations` (none when unreadable: eligibility refuses those) and its
