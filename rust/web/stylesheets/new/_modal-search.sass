@@ -64,14 +64,14 @@ html:has(#modal dialog[open])
         animation: modal-zoom-out 0.125s ease-in-out both !important
 
 // Opening, the card travels in from the control that opened it (--from-x/--from-y, set by modal--base: that control's
-// offset from the card's centre) straight into its place and size, slowing as it arrives. Closing, it lifts in place past
+// offset from the card's centre) straight into its place and size, at an even pace. Closing, it lifts in place past
 // its size, then travels back towards the control as it goes. Without a control: in place. Each keyframe's timing
 // function eases the stretch that starts at it: the lift slows into its peak (ease-out), the departure speeds up (ease-in).
 @keyframes modal-zoom-in
     0%
         opacity: 0
         transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.96)
-        animation-timing-function: ease-out
+        animation-timing-function: linear
     100%
         opacity: 1
         transform: translate(0, 0) scale(1)
