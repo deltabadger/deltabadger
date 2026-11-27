@@ -15,7 +15,7 @@
     top: 0
     left: 0
     backdrop-filter: blur(0)
-    // The backdrop eases out over the card's whole zoom (0.2s in, 0.125s out), not ahead of it.
+    // The backdrop eases out over at least the card's whole zoom, never ahead of it.
     transition: background 0.2s ease-out, backdrop-filter 0.2s ease-out
     &--open
         background: var(--modal-backdrop)
@@ -55,23 +55,23 @@ html:has(#modal dialog[open])
         opacity: 0
     &[complete]
         .dialog__vertical-center
-            animation: modal-zoom-in 0.2s ease-in-out both
+            animation: modal-zoom-in 0.1s ease-in-out both
     // The settings card zooms in when it is inserted, not on [complete]: visited as a page its frame
     // never completes, and switching sections replaces only the pane inside it, so it zooms once.
     .sheet
-        animation: modal-zoom-in 0.2s ease-in-out both
+        animation: modal-zoom-in 0.1s ease-in-out both
     .modal--closing
         animation: modal-zoom-out 0.125s ease-in-out both !important
 
 // Opening, the card travels in from the control that opened it (--from-x/--from-y, set by modal--base: that control's
-// offset from the card's centre) straight into its place and size, at an even pace. Closing, it lifts in place past
+// offset from the card's centre) straight into its place and size, slowing as it arrives. Closing, it lifts in place past
 // its size, then travels back towards the control as it goes. Without a control: in place. Each keyframe's timing
 // function eases the stretch that starts at it: the lift slows into its peak (ease-out), the departure speeds up (ease-in).
 @keyframes modal-zoom-in
     0%
         opacity: 0
         transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.96)
-        animation-timing-function: linear
+        animation-timing-function: ease-out
     100%
         opacity: 1
         transform: translate(0, 0) scale(1)
