@@ -166,7 +166,10 @@ fn tally(t:&mut Tally,input:&[Input],old:&BTreeMap<i64,String>,after:Option<&str
         let event=serde_json::to_value(&i.event).expect("event");
         if !t.seen.insert(event["key"].to_string()) {continue}
         let binding=metadata["bindings"].as_array().and_then(|b|b.iter().find(|b|b["event"]["key"]==event["key"]));
+        // D-BINANCE-DUST-CSV-TWIN: an event a stored file pair already is, is present.
+        let file_twin=metadata["file_twins"].as_array().is_some_and(|t|t.iter().any(|t|t["event"]["key"]==event["key"]));
         let category=match binding {
+            None if file_twin=>{t.present+=1;"present"},
             None=>{t.unresolved+=1;"unresolved"},Some(b) if b["suppressed"]==true=>{t.suppressed+=1;"suppressed"},
             Some(b) if b["row_id"].as_i64().is_some_and(|id|old.contains_key(&id))=>{t.present+=1;"present"},Some(_)=>{t.missing+=1;"missing"},
         };t.fetched+=1;
@@ -380,7 +383,8 @@ pub async fn fetch<T:crate::venue::http::Transport>(venue:&crate::venue::binance
 
 /// Increment for a new repair algorithm. Completion is install-wide and scoped by this version;
 /// it does not certify that Binance supplied every historical window.
-pub const REPAIR_VERSION:i64=1;
+/// 2: D-BINANCE-DUST-CSV-TWIN settles exact file dust twins, so a finished version 1 reads its history again.
+pub const REPAIR_VERSION:i64=2;
 pub const JOB:&str="binance_history_repair";
 const ACCOUNT_JOB:&str="binance_history_repair_account";
 const VENUES:[&str;2]=[crate::venue::binance::BINANCE,crate::venue::binance::BINANCE_US];
