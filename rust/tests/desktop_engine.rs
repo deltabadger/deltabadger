@@ -644,10 +644,10 @@ fn a_panic_reaches_stderr_with_the_log_file_set() {
     assert!(lock_is_free(&data.db()));
 }
 
-/// r4.1: on the desktop, /service-worker.js is the retiring worker, never cached; elsewhere today's worker, byte for byte.
+/// r4.1: /service-worker.js is the retiring worker on every platform, never cached. The old one cached `/`, a 302, and
+/// browsers showed ERR_FAILED for the cached redirect until a hard refresh.
 #[test]
-fn the_desktop_serves_the_retiring_worker_and_every_other_platform_todays() {
-    let today = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("web/public/service-worker.js")).unwrap();
+fn every_platform_serves_the_retiring_worker() {
     for platform in [Some("desktop"), None, Some("umbrel"), Some("docker")] {
         let data = Data::new();
         let port = free_port();
@@ -658,17 +658,12 @@ fn the_desktop_serves_the_retiring_worker_and_every_other_platform_todays() {
         let answer = get(port, "/service-worker.js").unwrap();
         let head = answer.split_once("\r\n\r\n").unwrap().0.to_ascii_lowercase();
         assert!(head.starts_with("http/1.1 200"), "{platform:?}: {head}");
-        if platform == Some("desktop") {
-            assert_eq!(body(&answer), deltabadger::web::assets::RETIRING_WORKER);
-            assert!(head.contains("\r\ncache-control: no-store\r\n"), "{head}");
-            for part in ["skipWaiting()", "caches.delete(key)", "self.registration.unregister()", "self.clients.matchAll()", "client.navigate(client.url)"] {
-                assert!(body(&answer).contains(part), "{part}");
-            }
-            assert!(!body(&answer).contains("'fetch'"), "no fetch handler");
-        } else {
-            assert_eq!(body(&answer).as_bytes(), &today[..], "{platform:?}");
-            assert!(head.contains("\r\ncache-control: public, max-age=31536000\r\n"), "{platform:?}: {head}");
+        assert_eq!(body(&answer), deltabadger::web::assets::RETIRING_WORKER, "{platform:?}");
+        assert!(head.contains("\r\ncache-control: no-store\r\n"), "{platform:?}: {head}");
+        for part in ["skipWaiting()", "caches.delete(key)", "self.registration.unregister()", "self.clients.matchAll()", "client.navigate(client.url)"] {
+            assert!(body(&answer).contains(part), "{part}");
         }
+        assert!(!body(&answer).contains("'fetch'"), "no fetch handler");
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
     }
@@ -761,10 +756,10 @@ fn a_log_file_that_cannot_be_opened_drops_lines_and_writes_nothing_else() {
     assert!(!data.path().join("no-such-folder").exists());
 }
 
-/// Codex r1 (r4.1): the refusal page answers /service-worker.js with the retiring worker on the desktop, so a reopen into
-/// a refusal removes the old worker; elsewhere it stays the refusal page.
+/// Codex r1 (r4.1): the refusal page answers /service-worker.js with the retiring worker on every platform, so a reopen
+/// into a refusal removes the old worker.
 #[test]
-fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
+fn the_refusal_page_serves_the_retiring_worker() {
     for desktop_platform in [true, false] {
         let data = Data::new();
         data.sql("CREATE TABLE notes (x)");
@@ -775,13 +770,8 @@ fn the_refusal_page_serves_the_retiring_worker_on_the_desktop_only() {
         assert_eq!(e.ready(), format!("ready {TOKEN} refused"));
         let answer = get(port, "/service-worker.js").unwrap();
         let head = answer.split_once("\r\n\r\n").unwrap().0.to_ascii_lowercase();
-        if desktop_platform {
-            assert!(head.starts_with("http/1.1 200") && head.contains("\r\ncache-control: no-store\r\n"), "{head}");
-            assert_eq!(body(&answer), deltabadger::web::assets::RETIRING_WORKER);
-        } else {
-            assert!(head.starts_with("http/1.1 503"), "{head}");
-            assert_eq!(body(&answer), body(&get(port, "/").unwrap()), "the refusal page, as before");
-        }
+        assert!(head.starts_with("http/1.1 200") && head.contains("\r\ncache-control: no-store\r\n"), "{head}");
+        assert_eq!(body(&answer), deltabadger::web::assets::RETIRING_WORKER);
         e.close_stdin();
         assert_eq!(e.exit_code(Duration::from_secs(30)), Some(0));
     }

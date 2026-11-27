@@ -41,4 +41,3 @@
 /icon.png
 /logo_email_app.png
 /robots.txt
-/service-worker.js

@@ -52,7 +52,7 @@ mod embedded_assets {
         let builds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("web/builds");
         let missing: Vec<&str> = sources.iter().filter_map(|s| s.as_str()).filter(|s| !builds.join(s).is_file()).collect();
         assert!(missing.is_empty(), "the map names sources this checkout lacks: {missing:?}");
-        assert!(sources.iter().any(|s| s == "../javascript/application.js"), "the map resolves to rust/web/javascript");
+        assert!(sources.iter().any(|s| s == "../javascript/controllers/application.js"), "the map resolves to rust/web/javascript");
     }
 
     /// Every URL the binary serves its embedded files at (PLAN-B11 r1.5, r5.4). Moving the sources (B11-6) changes
@@ -72,7 +72,7 @@ mod embedded_assets {
     #[test]
     fn public_files_keep_their_own_paths_and_types() {
         built();
-        for (path, content_type) in [("/fonts/Dosis-digits.woff2", "font/woff2"), ("/service-worker.js", "text/javascript; charset=utf-8"),
+        for (path, content_type) in [("/fonts/Dosis-digits.woff2", "font/woff2"),
                                      ("/500.html", "text/html; charset=utf-8"), ("/robots.txt", "text/plain; charset=utf-8"), ("/icon.png", "image/png")] {
             assert_eq!(assets::find(path).unwrap_or_else(|| panic!("{path} is not embedded")).content_type, content_type);
         }
