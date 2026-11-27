@@ -1208,3 +1208,119 @@ fn a_question_raised_by_an_undone_link_shows_the_retained_ids_it_strips_too() {
     assert!(warnings.contains(&Warning::Retained),"the stripped retained ids are shown too: {warnings:?}");
     assert_eq!(c.query_row("SELECT linked_transaction_id FROM account_transactions WHERE id = ?1",[there],|r|r.get::<_,Option<i64>>(0)).unwrap(),Some(here),"the link is still there");
 }
+
+/// One dribblet detail of parent `parent` (2.x tx_ids `dust-<trans>-*`; every detail of `P` shares `detail`).
+fn detail_of(parent: &str, trans: &str, coin: &str, amount: &str, bnb: &str, fee: &str) -> Vec<writer::Input> {
+    let raw=json!({"fromAsset":coin,"amount":amount,"transferedAmount":bnb,"serviceChargeAmount":fee,"operateTime":1786960800000_i64,"transId":trans,"targetAsset":"BNB"});
+    [Source::DustOut,Source::DustIn].into_iter().map(|source| {
+        let inn=source==Source::DustIn;let dec=|s:&str|deltabadger::v2::BigDec::parse(s).unwrap();
+        writer::Input { event:Event::read(source,&raw,Context{parent:Some(parent),occurred_ms:Some(1786960800000),..Context::default()}).unwrap(), entry:Entry {
+            entry_type:if inn {2}else{3},base_currency:Some(if inn {"BNB"}else{coin}.into()),base_amount:dec(if inn {bnb}else{amount}),quote_currency:None,quote_amount:None,
+            fee_currency:inn.then(||"BNB".into()),fee_amount:inn.then(||dec(fee)),tx_id:Some(format!("dust-{trans}-{}",if inn {"in"}else{"out"})),group_id:Some(format!("dust_{trans}").into()),
+            description:None,transacted_at:Some("2026-08-17T10:00:00Z".parse().unwrap()),raw:Raw::from_value(raw.clone()) } }
+    }).collect()
+}
+fn detail(coin: &str, amount: &str, bnb: &str, fee: &str) -> Vec<writer::Input> { detail_of("P","detail",coin,amount,bnb,fee) }
+/// An id-less file dust pair as 2.x's Binance file import stored it (group `dustcsv_<coin> to BNB_<at>`).
+fn csv_pair(c: &Connection, s: &common::seed::Seeded, coin: &str, amount: &str, bnb: &str, at: &str) {
+    for (kind,asset,qty) in [(3,coin,amount),(2,"BNB",bnb)] {
+        c.execute("INSERT INTO account_transactions (user_id, exchange_id, entry_type, base_currency, base_amount, group_id, transacted_at, raw_data, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '{}', '2026-08-18', '2026-08-18')",
+            params![s.user_id,s.exchange_id,kind,asset,qty.parse::<f64>().unwrap(),format!("dustcsv_{coin} to BNB_{at}"),at]).unwrap();
+    }
+}
+/// A dribblet whose details share one transId: 2.x kept one detail (DOGE) and a Binance file stored the others id-less, a
+/// second before the venue's operateTime. The live read returns every detail.
+fn dropped_details(c: &Connection, s: &common::seed::Seeded, key: &sync::Key) -> Vec<writer::Input> {
+    let kept=detail("DOGE","0.5","0.00000003","0");
+    write(c,key,&kept).unwrap();c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
+    for (coin,amount,bnb) in [("ETH","0.002","0.007"),("USDC","80.5","0.125"),("BTC","0.000005","0.0008")] {csv_pair(c,s,coin,amount,bnb,"2026-08-17 09:59:59");}
+    let mut all=kept;
+    all.extend(detail("ETH","0.002","0.007","0"));all.extend(detail("USDC","80.5","0.125","0"));all.extend(detail("BTC","0.000005","0.0008","0"));
+    all
+}
+fn rows_now(c: &Connection) -> Value { json!(state(c)[0]) }
+const TWIN: &str = "Binance A12 unresolved: possible nil-ID/CSV twin";
+
+/// D-BINANCE-DUST-CSV-TWIN: file dust pairs that equal a live detail on both legs (out amount; BNB = received less fee),
+/// a second apart at most, one-to-one, are that detail: no row is added, none is changed, and every rerun agrees.
+#[test]
+fn exact_file_dust_twins_of_dropped_details_are_present_and_reruns_are_noops() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let live=dropped_details(c,&s,&key);let before=rows_now(c);
+    let out=write(c,&key,&live).unwrap();
+    assert_eq!(out.imported,0,"{out:?}");assert_eq!(rows_now(c),before,"no row added or changed");
+    let settled=state(c);write(c,&key,&live).unwrap();assert_eq!(state(c),settled,"a rerun writes nothing");
+}
+
+/// Anything short of an exact, one-to-one twin is still the refusal, with nothing written.
+#[test]
+fn inexact_or_ambiguous_file_dust_twins_are_still_refused() {
+    type Change<'a>=&'a dyn Fn(&Connection,&common::seed::Seeded);
+    let cases:[(&str,Change);8]=[
+        ("BNB a unit off",&|c,_|{c.execute("UPDATE account_transactions SET base_amount=0.00700001 WHERE base_amount=0.007",[]).unwrap();}),
+        ("out amount off",&|c,_|{c.execute("UPDATE account_transactions SET base_amount=0.00200001 WHERE base_amount=0.002",[]).unwrap();}),
+        ("two seconds apart",&|c,_|{c.execute("UPDATE account_transactions SET transacted_at='2026-08-17 09:59:58' WHERE group_id LIKE 'dustcsv_ETH%'",[]).unwrap();}),
+        ("two file pairs for one detail",&|c,s|csv_pair(c,s,"ETH","0.002","0.007","2026-08-17 10:00:00")),
+        ("a file twin of the kept detail",&|c,s|csv_pair(c,s,"DOGE","0.5","0.00000003","2026-08-17 10:00:00")),
+        ("a lone file leg",&|c,_|{c.execute("DELETE FROM account_transactions WHERE group_id LIKE 'dustcsv_BTC%' AND entry_type=3",[]).unwrap();}),
+        ("an unrelated file pair nearby",&|c,s|csv_pair(c,s,"ADA","5","0.001","2026-08-17 10:05:00")),
+        ("a fee on the file's BNB",&|c,_|{c.execute("UPDATE account_transactions SET fee_amount=0.0001, fee_currency='BNB' WHERE base_amount=0.007",[]).unwrap();}),
+    ];
+    for (name,change) in cases {
+        let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+        let live=dropped_details(c,&s,&key);change(c,&s);let before=state(c);
+        assert_eq!(write(c,&key,&live).unwrap_err().0,TWIN,"{name}");assert_eq!(state(c),before,"{name}: nothing written");
+    }
+}
+
+/// A detail whose fee the file nets out of its BNB: the file states received less fee.
+#[test]
+fn a_file_twin_matches_the_received_bnb_less_the_fee() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let kept=detail("DOGE","0.5","0.00000003","0");write(c,&key,&kept).unwrap();c.execute("DELETE FROM app_configs WHERE key LIKE 'rust_binance_a12_v1:%'",[]).unwrap();
+    csv_pair(c,&s,"ETH","0.002","0.0069","2026-08-17 09:59:59");
+    let mut live=kept;live.extend(detail("ETH","0.002","0.007","0.0001"));let before=rows_now(c);
+    assert_eq!(write(c,&key,&live).unwrap().imported,0);assert_eq!(rows_now(c),before);
+}
+
+/// One file pair is one event: two equal conversions of different dribblets (two buckets, two writes) cannot both be it.
+#[test]
+fn one_file_pair_never_settles_two_buckets() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    csv_pair(c,&s,"ETH","0.002","0.007","2026-08-17 09:59:59");
+    write(c,&key,&detail_of("P1","t1","ETH","0.002","0.007","0")).unwrap();let before=state(c);
+    assert_eq!(write(c,&key,&detail_of("P2","t2","ETH","0.002","0.007","0")).unwrap_err().0,TWIN);assert_eq!(state(c),before);
+}
+
+/// A detail the venue answered twice is never collapsed into one for the match.
+#[test]
+fn a_detail_read_twice_is_refused() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let mut live=dropped_details(c,&s,&key);let again=detail("ETH","0.002","0.007","0");live.extend(again);let before=state(c);
+    assert_eq!(write(c,&key,&live).unwrap_err().0,TWIN);assert_eq!(state(c),before);
+}
+
+/// The repair preview counts the settled details as present, as the writer judged them.
+#[test]
+fn the_repair_preview_counts_file_twins_present() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let live=dropped_details(c,&s,&key);let m=plan(c,&key,&evidence(live));
+    assert!(m.unresolved.is_empty(),"{:?}",m.unresolved);assert_eq!((m.tally.fetched,m.tally.present,m.tally.unresolved),(8,8,0),"{:?}",m.tally);
+}
+
+/// A later read of the same transId under another parent is another conversion: the file group stays its first pair's.
+#[test]
+fn a_claimed_file_group_is_never_a_second_pairs() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    csv_pair(c,&s,"ETH","0.002","0.007","2026-08-17 09:59:59");
+    write(c,&key,&detail_of("P1","t1","ETH","0.002","0.007","0")).unwrap();let before=state(c);
+    assert_eq!(write(c,&key,&detail_of("P2","t1","ETH","0.002","0.007","0")).unwrap_err().0,TWIN);assert_eq!(state(c),before);
+}
+
+/// An unreadable stored fee is no proof of a fee-free file leg.
+#[test]
+fn an_unreadable_file_fee_is_refused() {
+    let (dir,o,s)=common::install();let c=&o.primary;let key=key(c,&s);let _lock=claim(c,dir.path());
+    let live=dropped_details(c,&s,&key);c.execute("UPDATE account_transactions SET fee_amount='unknown' WHERE base_amount=0.007",[]).unwrap();let before=state(c);
+    assert_eq!(write(c,&key,&live).unwrap_err().0,TWIN);assert_eq!(state(c),before);
+}
