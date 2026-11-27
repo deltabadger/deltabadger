@@ -4161,10 +4161,11 @@ fn d5b_connect(h:&Harness)->Option<i64>{
     let cookie=h.browser.cookie.as_deref().unwrap();
     deltabadger::web::session::open(&h.app.keys.session,cookie,h.app.now()).unwrap().tracker_connect
 }
-// D-WIZARD-CONNECTED-GROUP (#710): the venues the user holds a correct trading or read-only key on come first under
-// "Connected" (stable venues first, as below), and stay in their own group below. The seeded user holds Alpaca's (id 1).
+// The tracker's venue step has no "Connected" group (the bot wizards' D-WIZARD-CONNECTED-GROUP): connecting asks for a new
+// key, so a venue the user holds a correct trading or read-only key on is drawn in its own group only. The seeded user
+// holds Alpaca's (id 1).
 #[tokio::test(flavor="current_thread")]
-async fn d5b_pick_exchange_draws_the_connected_venues_first(){
+async fn d5b_pick_exchange_draws_no_connected_group(){
     let server=MockServer::start().await;let mut h=Harness::new(server.uri()).await;d5b_venues(&h.c);
     let (kraken,bitmart,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Binance"));
     let other:i64={h.c.execute("INSERT INTO users(email,encrypted_password,created_at,updated_at)VALUES('other@example.com','x','2026-01-01','2026-01-01')",[]).unwrap();h.c.last_insert_rowid()};
@@ -4178,8 +4179,9 @@ async fn d5b_pick_exchange_draws_the_connected_venues_first(){
     let groups:Vec<(String,Vec<String>)>={let page=scraper::Html::parse_document(&page.body);page.select(&select("section.exchange-group")).map(|g|(
         g.select(&select("h3.label")).next().unwrap().text().collect::<String>().trim().to_string(),
         g.select(&select("button[name=\"exchange_id\"]")).map(|b|b.value().attr("value").unwrap().to_string()).collect())).collect()};
-    assert_eq!(groups,[("Connected".to_string(),vec![kraken.clone(),"1".to_string()]),("Brokers".to_string(),vec!["1".to_string()]),("Exchanges".to_string(),vec![binance,kraken,bitmart])],"{groups:?}");
-    assert_eq!(page.body.matches("exchange-group--connected").count(),1);
+    assert_eq!(groups,[("Brokers".to_string(),vec!["1".to_string()]),("Exchanges".to_string(),vec![binance,kraken,bitmart])],"{groups:?}");
+    assert!(!page.body.contains("exchange-group--connected"));
+    assert!(!page.body.contains("account_id="),"no tile picks an account");
 }
 #[tokio::test(flavor="current_thread")]
 async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_id(){
@@ -4191,7 +4193,7 @@ async fn d5b_pick_exchange_lists_available_venues_and_stores_only_the_exchange_i
     assert!(page.body.contains("action=\"/tracker/pick_exchange\""));
     let buttons:Vec<&str>=page.body.split("name=\"exchange_id\" type=\"submit\" value=\"").skip(1).map(|s|s.split('"').next().unwrap()).collect();
     let (kraken,bitmart,gemini,binance)=(d5b_exchange(&h.c,"Kraken"),d5b_exchange(&h.c,"Bitmart"),d5b_exchange(&h.c,"Gemini"),d5b_exchange(&h.c,"Binance"));
-    assert_eq!(buttons,["1","1",binance.as_str(),kraken.as_str(),bitmart.as_str()],"the seeded Alpaca key's venue under Connected (D-WIZARD-CONNECTED-GROUP), the broker under Brokers (D-TRACKER-SHEET, D-WIZARD-VENUE-GROUPS), then stable venues first, then by name; available only, retired included");
+    assert_eq!(buttons,["1",binance.as_str(),kraken.as_str(),bitmart.as_str()],"the broker under Brokers, its seeded key drawing no Connected tile (D-TRACKER-SHEET, D-WIZARD-VENUE-GROUPS), then stable venues first, then by name; available only, retired included");
     assert!(!buttons.contains(&gemini.as_str()));
     assert!(!page.body.contains("disabled"),"the tracker's picker disables nothing");
     let localized=h.browser.send(&h.app,"GET","/de/tracker/pick_exchange/new",None,Csrf::None,&[("turbo-frame","modal")]).await;
