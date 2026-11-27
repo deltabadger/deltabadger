@@ -15,14 +15,15 @@
     top: 0
     left: 0
     backdrop-filter: blur(0)
-    transition: background 0.3s ease, backdrop-filter 0.3s ease
+    // The backdrop eases out over the card's whole zoom (0.2s in, 0.125s out), not ahead of it.
+    transition: background 0.2s ease-out, backdrop-filter 0.2s ease-out
     &--open
         background: var(--modal-backdrop)
         backdrop-filter: blur(1rem)
     &--closing
         background: transparent
         backdrop-filter: blur(0)
-        transition: background 0.15s ease, backdrop-filter 0.15s ease
+        transition: background 0.125s ease-out, backdrop-filter 0.125s ease-out
     &::backdrop
         display: none
     &__vertical-center
@@ -48,34 +49,51 @@
 // so the lock has to sit on `html`.
 html:has(#modal dialog[open])
     overflow: hidden
+// The card's scroller zooms, not the card: a card grown past its size would be clipped by the scroller's sides.
 #modal
-    .modal
+    .dialog__vertical-center
         opacity: 0
     &[complete]
-        .modal
-            animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
+        .dialog__vertical-center
+            animation: modal-zoom-in 0.2s ease-in-out both
     // The settings card zooms in when it is inserted, not on [complete]: visited as a page its frame
     // never completes, and switching sections replaces only the pane inside it, so it zooms once.
     .sheet
-        animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
+        animation: modal-zoom-in 0.2s ease-in-out both
     .modal--closing
-        animation: modal-zoom-out 0.15s ease-in both !important
+        animation: modal-zoom-out 0.125s ease-in-out both !important
 
+// Lifted, then set down. Opening, the card travels in from the control that opened it (--from-x/--from-y, set by
+// modal--base: that control's offset from the card's centre) while it rises past its size, then sits straight down in
+// place. Closing, it rises in place, then travels back towards the control as it goes. Without a control: in place.
+// Each keyframe's timing function eases the stretch that starts at it: the travel slows into place (ease-out), the
+// set-down speeds into it (ease-in); closing mirrors that.
 @keyframes modal-zoom-in
-    from
+    0%
         opacity: 0
-        transform: scale(0.7)
-    to
+        transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.96)
+        animation-timing-function: ease-out
+    55%
         opacity: 1
-        transform: scale(1)
+        transform: translate(0, 0) scale(1.04)
+        animation-timing-function: ease-in
+    100%
+        opacity: 1
+        transform: translate(0, 0) scale(1)
 
 @keyframes modal-zoom-out
-    from
+    0%
         opacity: 1
-        transform: scale(1)
-    to
+        transform: translate(0, 0) scale(1)
+        animation-timing-function: ease-out
+    40%
+        opacity: 1
+        transform: translate(0, 0) scale(1.04)
+        animation-timing-function: ease-in
+    100%
         opacity: 0
-        transform: scale(0.7)
+        transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.9)
+
 .modal
     // The side and bottom inset, named once: the footer bleeds back out by exactly this much so
     // its divider runs edge to edge.
@@ -158,33 +176,6 @@ html:has(#modal dialog[open])
                 border-width: 0.5rem
         p
             margin: 0
-    // The settings dialog's ×: a 4rem disc in the corner, level with the title's line.
-    &__close
-        cursor: pointer
-        position: absolute
-        top: 1.5rem
-        right: 1.5rem
-        display: flex
-        align-items: center
-        justify-content: center
-        width: 4rem
-        height: 4rem
-        padding: 0
-        border-radius: 50%
-        z-index: 1
-        background: none // <button>
-        border: none     // <button>
-        svg
-            width: 2.5rem
-            height: 2.5rem
-        path
-            fill: var(--stone)
-        &:focus-visible
-            outline: none !important
-        &:hover
-            background: var(--close-hover)
-            path
-                fill: var(--ink)
     // One line as tall as the ×, so the two sit level; the title stops short of it.
     &__header
         margin-bottom: 1.5rem

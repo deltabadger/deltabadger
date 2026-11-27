@@ -15,11 +15,25 @@
         z-index: 1000
         pointer-events: none
         transition: 1s ease all
-    &--on
+    // --handoff: the menu is gone but its tint stays until the modal it opened arrives, then fades under that
+    // modal's backdrop, so the page never brightens between the two (dropdown_controller).
+    &--on, &--handoff
         &::before
             background: rgba(0, 0, 0, 0.03)
+    &--on
         .dropdown
             display: flex
+    // Shown, the menu comes straight out of its button into place (--from-x/--from-y: the button's offset, set by
+    // dropdown_controller). Not the full-screen menu, which covers the window.
+    &--on:not(&--fullscreen)
+        .dropdown
+            animation: dropdown-in 0.1s ease-out both
+    // Closing, it stays shown while it goes back into the button (the controller drops the class after).
+    &--closing
+        .dropdown
+            display: flex
+            pointer-events: none
+            animation: dropdown-out 0.067s ease-in both
     &--right
         .dropdown
             left: auto
@@ -190,3 +204,19 @@
         width: 100%
     .toggle__style
         background-color: var(--silver)
+
+@keyframes dropdown-in
+    from
+        opacity: 0
+        transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.96)
+    to
+        opacity: 1
+        transform: none
+
+@keyframes dropdown-out
+    from
+        opacity: 1
+        transform: none
+    to
+        opacity: 0
+        transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.96)
