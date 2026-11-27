@@ -62,7 +62,11 @@ impl Engine {
                 let b = body(&a);
                 if b.starts_with(&format!("ready {TOKEN} ")) { return b.to_string() }
             }
-            assert!(Instant::now() < deadline, "/ui-ready never answered 200");
+            if Instant::now() >= deadline {
+                // What the engine wrote so far: why it never got ready (CI showed only the timeout).
+                let said: Vec<String> = self.lines.try_iter().collect();
+                panic!("/ui-ready never answered 200; the engine wrote: {said:#?}");
+            }
             std::thread::sleep(Duration::from_millis(50));
         }
     }
