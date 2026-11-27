@@ -27,8 +27,8 @@
 //! listen address, default 0.0.0.0), DELTABADGER_READY_TOKEN (`/ui-ready` answers `ready <token> app|refused|starting`)
 //! and DELTABADGER_STOP_ON_STDIN_EOF=1 (stdin's end stops serve as SIGTERM does, deltabadger::stop). With
 //! DELTABADGER_LOG_FILE, run and serve write their lines to that file instead of stdout and stderr (deltabadger::logger).
-//! Under DELTABADGER_PLATFORM=desktop, serve's refusal page says why in the desktop user's words (`Desktop`) and
-//! /service-worker.js answers a worker that removes itself.
+//! Under DELTABADGER_PLATFORM=desktop, serve's refusal page says why in the desktop user's words (`Desktop`).
+//! On every platform /service-worker.js answers a worker that removes itself.
 //!
 //! Files: on an empty STORAGE_DIR, `run` and `serve` create the install under the engine lock (store::bootstrap: the
 //! primary, seeded and owned by Rust from its first commit, and an empty queue; never cache or cable). Every other
@@ -721,7 +721,6 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 fn serve(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     deltabadger::logger::init(env);
     if let Some(d) = Desktop::from_env(env) { let _ = DESKTOP.set(d); }
-    if env("DELTABADGER_PLATFORM").is_some_and(|p| p.trim().eq_ignore_ascii_case("desktop")) { deltabadger::web::refused::retire_worker(); }
     let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
         Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
         None => 3000,

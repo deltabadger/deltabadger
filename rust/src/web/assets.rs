@@ -95,10 +95,11 @@ pub fn respond(file: &'static Embedded, head: bool) -> Response<Body> {
     response
 }
 
-/// The desktop's /service-worker.js (PLAN-B6 r4.1, D-DESKTOP-SW-CACHE): rust/web/public/service-worker.js caches `/` and answers
-/// from that cache first, so a WebView could show an old app page while this start is refused. This worker replaces it
-/// at the next update check, deletes every cache, unregisters itself, and reloads each page it took over, uncontrolled.
-/// It has no fetch handler: every request goes to the network. Browsers on Docker, Umbrel and hosted keep rust/web/public/'s.
+/// /service-worker.js on every platform (PLAN-B6 r4.1, D-DESKTOP-SW-CACHE). The old worker cached `/` at install and
+/// answered from that cache first: a WebView could show an old app page while a start was refused, and since `/` is a
+/// 302, a browser got the cached redirect for the page load and showed ERR_FAILED until a hard refresh. This worker
+/// replaces it at the next update check, deletes every cache, unregisters itself, and reloads each page it took over,
+/// uncontrolled. It has no fetch handler: every request goes to the network. Nothing registers a worker any more.
 pub const RETIRING_WORKER: &str = "\
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (event) {

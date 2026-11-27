@@ -1137,7 +1137,7 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     }
     let full_path = normalize_path(parts.uri.path());
     if matches!(parts.method, Method::GET | Method::HEAD) {
-        if full_path == "/service-worker.js" && entry.app.update_platform == crate::jobs::app_update::Platform::Desktop {
+        if full_path == "/service-worker.js" {
             return assets::retiring_worker(parts.method == Method::HEAD);
         }
         if let Some(response) = assets::dev(&full_path, parts.method == Method::HEAD) {
