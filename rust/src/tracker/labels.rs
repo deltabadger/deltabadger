@@ -114,6 +114,7 @@ pub fn load(c: &Connection, user_id: i64, rows: &[Stored]) -> Result<Spellings, 
     for (a, _) in assets_where(c, catalogue, "symbol", &spellings)? {
         if let Some(symbol) = a.symbol.clone() { f.catalogue.entry(symbol).or_default().push(a); }
     }
+    f.dedup();
     let recorded_ids: BTreeSet<String> = rows.iter().filter_map(|r| r.base_asset.as_ref().map(|a| a.0.to_string())).collect();
     let recorded: HashMap<i64, AssetRef> = assets_where(c, catalogue, "id", &recorded_ids)?.into_iter().map(|(a, _)| (a.id, a)).collect();
     // Each leg's holding.
