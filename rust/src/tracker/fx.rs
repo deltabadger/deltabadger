@@ -27,10 +27,21 @@ pub struct FxTable { rates: HashMap<String, BTreeMap<NaiveDate, Dec>> }
 
 impl FxTable {
     /// The whole table, each row a step of the open budget scope.
-    pub fn load(c: &Connection) -> Result<FxTable, FiguresError> {
+    pub fn load(c: &Connection) -> Result<FxTable, FiguresError> { Self::read(c, "", []) }
+
+    /// The week up to `day`: all `rate(_, _, day)` reads (its lookback), so it answers that day as `load` does. A page
+    /// asks for today only, and the whole table is every ECB day since 1999.
+    // ponytail: SQLite still scans the table (its index leads with currency): ~2.5 ms over 78k rows, decoding a week.
+    // A date-leading index is a data-model migration; add one if the history grows by orders of magnitude.
+    pub fn load_around(c: &Connection, day: NaiveDate) -> Result<FxTable, FiguresError> {
+        let from = day.checked_sub_days(Days::new(LOOKBACK_DAYS)).unwrap_or(day);
+        Self::read(c, " WHERE date BETWEEN ?1 AND ?2", [from.to_string(), day.to_string()])
+    }
+
+    fn read<P: rusqlite::Params>(c: &Connection, filter: &str, params: P) -> Result<FxTable, FiguresError> {
         let mut t = FxTable::default();
-        let mut s = c.prepare("SELECT currency, date, rate FROM fx_rates")?;
-        let mut q = s.query([])?;
+        let mut s = c.prepare(&format!("SELECT currency, date, rate FROM fx_rates{filter}"))?;
+        let mut q = s.query(params)?;
         while let Some(r) = q.next()? {
             crate::figures::budget::charge(1, 0)?;
             let (currency, date): (String, String) = (r.get(0)?, r.get(1)?);
@@ -220,6 +231,21 @@ mod tests {
         assert_eq!(t.rate("GBP", "USD", day("2026-09-26")).unwrap().unwrap().to_s_f(), "1.3");
         assert!(t.rate("GBP", "USD", day("2026-10-03")).unwrap().is_none(), "eight days after the last GBP rate");
         assert_eq!(t.rate("USD", "USD", day("1990-01-01")).unwrap().unwrap().to_s_f(), "1.0");
+    }
+
+    /// A page reads one day's rates: the week up to it answers that day exactly as the whole table does, and holds no other.
+    #[test]
+    fn the_week_up_to_a_day_answers_that_day_as_the_whole_table() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch("CREATE TABLE fx_rates (currency TEXT, date TEXT, rate NUMERIC, UNIQUE (currency, date));
+                         INSERT INTO fx_rates VALUES ('USD', '2026-09-22', '1.1'), ('USD', '2026-09-23', '1.17'), ('GBP', '2026-09-25', '0.9'),
+                                                     ('USD', '2026-09-30', '1.2'), ('USD', '2026-10-01', '1.3'), ('PLN', '2026-09-24 00:00:00', '4.3');").unwrap();
+        let (whole, today) = (FxTable::load(&c).unwrap(), day("2026-09-30"));
+        let week = FxTable::load_around(&c, today).unwrap();
+        for (from, to) in [("EUR", "USD"), ("GBP", "USD"), ("USD", "GBP"), ("PLN", "USD"), ("CHF", "USD"), ("USD", "USD")] {
+            assert_eq!(week.rate(from, to, today).unwrap().map(|d| d.to_s_f()), whole.rate(from, to, today).unwrap().map(|d| d.to_s_f()), "{from}->{to}");
+        }
+        assert_eq!(week.rates.values().map(BTreeMap::len).sum::<usize>(), 3, "2026-09-23..=2026-09-30 only");
     }
 
     #[test]

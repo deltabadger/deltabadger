@@ -104,7 +104,7 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bo
     let from = match &entry { crate::tracker::cache::Published::Warm { from, .. } => Some(from.clone()), _ => None };
     let warm = match entry.scoped(scope) {
         crate::tracker::cache::State::Warm(summary) => {
-            let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load(c)).map_err(figures_error)?;
+            let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load_around(c, now.date_naive())).map_err(figures_error)?;
             match crate::figures::budget::within(|| page::warm(c, owner, scope, show_cash, &summary, &fx, now.date_naive())) {
                 Ok(warm) => { ledger = Some(summary); published = from; Some(warm) }
                 Err(crate::figures::FiguresError::NotComputed(message)) if message.contains("ambiguous asset class") => return Ok(Err(message)),
