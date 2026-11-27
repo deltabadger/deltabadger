@@ -1,5 +1,8 @@
 ru:
     tracker:
+        import_stopped_html: "%{exchange}: история не импортируется с %{date}. Итоги и позиции на паузе, пока она не импортируется."
+        import_stopped_tile: "На паузе: история биржи не импортирована."
+        positions_paused: "На паузе, пока не импортируется история каждой биржи."
         duplicate_account_html: "%{duplicate} — тот же аккаунт на бирже, что и %{survivor}, поэтому он не входит в итоги."
         merge_in_settings: "Объединить в настройках"
     settings:

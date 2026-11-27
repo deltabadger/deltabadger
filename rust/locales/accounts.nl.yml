@@ -1,5 +1,8 @@
 nl:
     tracker:
+        import_stopped_html: "%{exchange}: de geschiedenis is sinds %{date} niet geïmporteerd. Totalen en posities zijn gepauzeerd tot dat lukt."
+        import_stopped_tile: "Gepauzeerd: de geschiedenis van een exchange is niet geïmporteerd."
+        positions_paused: "Gepauzeerd tot de geschiedenis van elke exchange is geïmporteerd."
         duplicate_account_html: "%{duplicate} is hetzelfde exchange-account als %{survivor} en telt daarom niet mee in je totalen."
         merge_in_settings: "Voeg het samen in Instellingen"
     settings:

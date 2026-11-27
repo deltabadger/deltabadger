@@ -1,5 +1,8 @@
 da:
     tracker:
+        import_stopped_html: "%{exchange}: historikken er ikke blevet importeret siden %{date}. Totaler og positioner er sat på pause, til den er importeret."
+        import_stopped_tile: "På pause: en børs' historik er ikke importeret."
+        positions_paused: "På pause, indtil hver børs' historik er importeret."
         duplicate_account_html: "%{duplicate} er den samme børskonto som %{survivor} og tælles derfor ikke med i dine totaler."
         merge_in_settings: "Flet den i Indstillinger"
     settings:

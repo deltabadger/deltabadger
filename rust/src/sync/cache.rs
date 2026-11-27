@@ -93,6 +93,21 @@ pub fn stale(c: &Connection, user: i64, scope: &Scope) -> Result<bool, EngineErr
     Ok(false)
 }
 
+/// An account whose history import stopped: its reader's last ledger run failed and left the import incomplete
+/// (`since`: when it went incomplete). Its ledger is not current, so the tracker publishes nothing; the page names it.
+pub struct Stopped { pub account: AccountRow, pub since: DateTime<Utc> }
+/// The user's accounts whose history import stopped: the latest run failed (after the last success and the last run
+/// that made progress) since the import went incomplete. A run in progress, or a retry that is importing, is not one.
+pub fn stopped(c: &Connection, user: i64) -> Result<Vec<Stopped>, EngineError> {
+    let mut out = vec![];
+    for account in accounts(c, user, &Scope::All, false, true)? {
+        let Some(id) = reading_key(c, &account)? else { continue };
+        let s = state::read(c, "ledger_sync", Some(&id.to_string())).map_err(EngineError::Data)?;
+        if let Some(since) = s.incomplete_since.filter(|since| s.failing() && s.last_error_at.is_some_and(|e| e >= *since && s.last_run_at.is_none_or(|run| e >= run))) { out.push(Stopped { account, since }); }
+    }
+    Ok(out)
+}
+
 /// A read's credential set, captured alongside the cached values in one SQLite snapshot.
 /// The reader that owns that snapshot checks again after releasing it, so an intervening
 /// replacement cannot make an old value current through a newly completed cache stamp.

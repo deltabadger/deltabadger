@@ -1,5 +1,8 @@
 sv:
     tracker:
+        import_stopped_html: "%{exchange}: historiken har inte importerats sedan %{date}. Summor och positioner är pausade tills den har importerats."
+        import_stopped_tile: "Pausat: en börs historik har inte importerats."
+        positions_paused: "Pausat tills varje börs historik har importerats."
         duplicate_account_html: "%{duplicate} är samma börskonto som %{survivor} och räknas därför inte med i dina summor."
         merge_in_settings: "Slå ihop det i Inställningar"
     settings:

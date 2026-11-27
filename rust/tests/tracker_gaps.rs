@@ -1005,3 +1005,32 @@ async fn an_openings_only_gap_says_what_the_history_needs() {
     let hidden = get(&fx, &app, &path).await.body;
     assert!(hidden.contains("at that day&#39;s price (•••).") && !hidden.contains("$600.00"), "{hidden}");
 }
+
+/// A venue whose history import stopped (its latest ledger run failed and left the import incomplete) blocks the
+/// ledger, as before; the page now says so, naming the venue and the day, and withholds what the history decides
+/// instead of spinning. A run in progress (no failure since), or a retry importing again, still waits as it did.
+#[tokio::test(flavor = "current_thread")]
+async fn a_stopped_import_is_named_instead_of_a_spinner() {
+    let fx = alpaca_synced("0.02").await;
+    assert_eq!(run(&fx).await, Outcome::Done);
+    let name: String = fx.c().query_row("SELECT name FROM exchanges WHERE id=?1", [fx.s.exchange_id], |r| r.get(0)).unwrap();
+    let state = |error: bool| serde_json::json!({"last_run_at": "2026-09-01T10:00:00Z", "last_success_at": "2026-09-01T10:00:00Z",
+        "last_error_at": if error { serde_json::json!("2026-09-02T09:00:00Z") } else { serde_json::Value::Null }, "last_error": if error { "venue refused" } else { "" },
+        "incomplete_since": "2026-09-02T08:00:00Z"}).to_string();
+    let set = |text: String| deltabadger::app_config::set_plain(&fx.c(), &format!("rust_job.ledger_sync:{}", fx.s.api_key_id), &text, at()).unwrap();
+    let app = app(&fx);
+    set(state(true));
+    let body = get(&fx, &app, "/tracker").await.body;
+    assert!(body.contains(&format!("{name}: its history hasn't imported since 2026/09/02.")), "{body}");
+    assert!(!body.contains("class=\"loader--small"), "no tile or positions spinner: {body}");
+    assert_eq!(body.matches("<span class=\"no-value\" title=\"Paused: an exchange&#39;s history hasn&#39;t imported.\">—</span>").count(), 5, "the history's tiles withheld: {body}");
+    let pl = get(&fx, &app, "/pl/tracker").await.body;
+    assert!(pl.contains(&format!("{name}: historia nie importuje się od 2026/09/02.")) && pl.contains("title=\"Wstrzymane: historia giełdy się nie zaimportowała.\""), "localized: {pl}");
+    set(state(false));
+    let body = get(&fx, &app, "/tracker").await.body;
+    assert!(!body.contains("hasn't imported since") && body.contains("loader--small"), "a run in progress waits as before: {body}");
+    // A retry that imported pages after the failure (a later run) is importing, not stopped.
+    let mut retry: serde_json::Value = serde_json::from_str(&state(true)).unwrap();retry["last_run_at"] = serde_json::json!("2026-09-02T10:00:00Z");
+    set(retry.to_string());
+    assert!(!get(&fx, &app, "/tracker").await.body.contains("hasn't imported since"), "a retry making progress waits");
+}
