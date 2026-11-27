@@ -23,9 +23,12 @@ on:
 
 permissions:
   contents: read
+  actions: write   # the merge queue's fail-early step cancels its own run
 
 env:
   CARGO_TERM_COLOR: always
+  # rust/.config/nextest.toml [profile.ci]: one retry for the tests that start Chrome. `--profile image` overrides it.
+  NEXTEST_PROFILE: ci
 
 # A new push to a pull request cancels its older run; main and the merge queue run every commit to the end. Each push to
 # main has a group of its own: in a shared one, a later push (one that tests nothing, say) would replace a pending run.
@@ -179,6 +182,13 @@ jobs:
           kill "$sampler" || true
           echo "least free KB during build and run: $(awk '{print $3}' "$dflog" | sort -n | head -1)"
           exit "$status"
+      # In the merge queue, one failed job fails the gate: cancel the rest of the run so the queue drops the PR now,
+      # not after the slowest Windows part.
+      - name: Fail the merge queue early
+        if: failure() && github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # The 3.0 image, built from source on each platform it ships for (PLAN-B3): the image tests run against it.
   image:
@@ -242,6 +252,13 @@ jobs:
           CARGO_PROFILE_DEV_STRIP: debuginfo
         # Only the profile's binaries are built (nextest builds every target it is given before it filters).
         run: cargo nextest run --locked --no-fail-fast --profile image --test image --test entrypoint --test account_identity --test handover --test mcp --test mcp_control_races --test web_actions --test mcp_reads --test oauth --test rebalance --test sync_parity --test venue_signing
+      # In the merge queue, one failed job fails the gate: cancel the rest of the run so the queue drops the PR now,
+      # not after the slowest Windows part.
+      - name: Fail the merge queue early
+        if: failure() && github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # PLAN-B8 r1.6: release.yml's rules (desktop assets and signatures, latest.json, the image tags per tag and
   # LATEST_MAJOR, never moving a shared tag backward, version files) as script/release/validate_test.sh's cases.
@@ -376,6 +393,13 @@ jobs:
       - name: Test the full Rust suite
         working-directory: rust
         run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/4
+      # In the merge queue, one failed job fails the gate: cancel the rest of the run so the queue drops the PR now,
+      # not after the slowest Windows part.
+      - name: Fail the merge queue early
+        if: failure() && github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # Every relative link and backticked repo path in README.md, manual/ and the AGENTS.md files resolves (PLAN-B11 B11-7).
   # Whatever the change touches: a README-only change can break a link.
