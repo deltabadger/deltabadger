@@ -104,7 +104,7 @@ fn portfolio(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, show_cash: bo
     let from = match &entry { crate::tracker::cache::Published::Warm { from, .. } => Some(from.clone()), _ => None };
     let warm = match entry.scoped(scope) {
         crate::tracker::cache::State::Warm(summary) => {
-            let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load(c)).map_err(figures_error)?;
+            let fx = crate::figures::budget::within(|| crate::tracker::fx::FxTable::load_around(c, now.date_naive())).map_err(figures_error)?;
             match crate::figures::budget::within(|| page::warm(c, owner, scope, show_cash, &summary, &fx, now.date_naive())) {
                 Ok(warm) => { ledger = Some(summary); published = from; Some(warm) }
                 Err(crate::figures::FiguresError::NotComputed(message)) if message.contains("ambiguous asset class") => return Ok(Err(message)),
@@ -153,7 +153,8 @@ fn render_tiles(tiles: &[Tile]) -> String {
 /// The six tiles. `withheld` is why no money is stated (SPEC's never-a-number rule): balances that are stale, unpriced
 /// or not produced by a current key withhold what they decide (money in, value, unrealised, total); with no display rate
 /// every amount is withheld, since none can be written in it.
-fn tiles(ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<&str>) -> Result<String, WebError> {
+/// `stopped`: a venue's history import stopped, so what the history decides is withheld, never waited for.
+fn tiles(ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<&str>, stopped: bool) -> Result<String, WebError> {
     if ctx.user().ok_or_else(invalid)?.hide_balances { return Ok(String::new()); }
     let label = |key: &str| i18n::text(ctx.locale, key, &[]);
     let (value_label, invested_label) = (label("bot.details.stats.portfolio_value"), label("bot.details.stats.total_invested"));
@@ -180,11 +181,13 @@ fn tiles(ctx: &Ctx, p: &Portfolio, den: Option<&Denomination>, withheld: Option<
             ]
         }
         _ => {
-            // The value is known from the balances alone; everything the history decides waits for it.
+            // The value is known from the balances alone; everything the history decides waits for it (or, with an
+            // import stopped, is withheld).
             let value = match (reason, &p.cold.value, den) { (Some(r), _, _) => no_value(r), (None, Some(v), Some(den)) => money(v, den)?, _ => no_value("Currency conversion unavailable") };
+            let wait = stopped.then(|| no_value(&label("tracker.import_stopped_tile")));
             vec![
-                tile(invested_label, None, None, ""), tile(value_label, None, Some(value), ""), tile(label("tracker.fees_paid"), None, None, "data-grid__item__value--quiet"),
-                tile(label("bot.dca_index.realised_pnl"), None, None, ""), tile(label("tracker.tiles.unrealised_pnl"), None, None, ""), tile(label("tracker.tiles.total_pnl"), Some(total_hint), None, ""),
+                tile(invested_label, None, wait.clone(), ""), tile(value_label, None, Some(value), ""), tile(label("tracker.fees_paid"), None, wait.clone(), "data-grid__item__value--quiet"),
+                tile(label("bot.dca_index.realised_pnl"), None, wait.clone(), ""), tile(label("tracker.tiles.unrealised_pnl"), None, wait.clone(), ""), tile(label("tracker.tiles.total_pnl"), Some(total_hint), wait, ""),
             ]
         }
     };
@@ -465,6 +468,21 @@ fn duplicate_notice(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope) -> Res
     Ok((format!("<div class=\"widget notice\" role=\"status\">\n{lines}</div>\n"), scope.account().is_some()))
 }
 
+/// A venue whose history import stopped holds the whole ledger back (no figure would be right): with no ledger to show,
+/// the page names each such venue and the day instead of waiting on a publication that cannot come.
+fn stopped_notice(c: &Connection, ctx: &Ctx, owner: i64) -> Result<String, WebError> {
+    let zone = ctx.user().map_or("UTC".to_string(), |u| u.time_zone.clone());
+    let mut lines = String::new();
+    for s in crate::sync::cache::stopped(c, owner).map_err(|_| invalid())? {
+        let exchange = if s.account.id > 0 { crate::identity::label(c, s.account.id)?.html() } else {
+            escape(&c.query_row("SELECT coalesce(name,'') FROM exchanges WHERE id=?1", [s.account.exchange_id], |r| r.get::<_, String>(0))?)
+        };
+        let date = crate::web::format::table_date(s.since, &zone);
+        lines.push_str(&format!("    <p class=\"notice__line\">{}</p>\n", i18n::t(ctx.locale, "tracker.import_stopped_html", &[("exchange", Arg::Html(&exchange)), ("date", Arg::Text(&date))])));
+    }
+    Ok(if lines.is_empty() { String::new() } else { format!("<div class=\"widget notice\" role=\"status\">\n{lines}</div>\n") })
+}
+
 pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<Built, WebError> {
     // One snapshot for every input: the balances `cold` approves, the cached ledger and the balances `warm` computes
     // from are the same rows, whatever a sync commits meanwhile.
@@ -495,6 +513,7 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     let balance_symbols: std::collections::HashSet<&str> = p.cold.holdings.iter().map(|h| h.symbol.as_str()).collect();
     let arrived: Vec<String> = p.warm.iter().flat_map(|w| w.figures.holdings.iter()).filter(|h| !h.priced && !balance_symbols.contains(h.symbol.as_str()) && !p.cold.unpriced.contains(&h.symbol)).map(|h| h.symbol.clone()).collect();
     let (duplicate, replaced) = duplicate_notice(c, ctx, owner, scope)?;
+    let stopped = if p.warm.is_none() { stopped_notice(c, ctx, owner)? } else { String::new() };
     if replaced {
         // A duplicate's own scope: its figures would only repeat its survivor's.
         return Ok(Built::Regions(Regions { pending: pending_report(c, ctx, owner, &settings)?, notice: duplicate, filters, bar_end, tiles: String::new(),
@@ -502,12 +521,12 @@ pub fn regions(c: &Connection, ctx: &Ctx, owner: i64, fx: &Prepared) -> Result<B
     }
     Ok(Built::Regions(Regions {
         pending: pending_report(c, ctx, owner, &settings)?,
-        notice: duplicate + &super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
+        notice: duplicate + &stopped + &super::prices_notice::banner(c, ctx, owner, scope, &arrived)?,
         filters, bar_end,
-        tiles: tiles(ctx, &p, den.as_ref(), withheld)?,
+        tiles: tiles(ctx, &p, den.as_ref(), withheld, !stopped.is_empty())?,
         holdings: holdings_pane.clone(),
         chart: super::record::chart(c, ctx, owner, scope, show_cash, shown)?,
-        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown, &gaps, &holdings_pane)?,
+        record: super::record::record(c, ctx, owner, scope, p.warm.as_ref().zip(p.ledger.as_deref()), den.as_ref(), shown, &gaps, &holdings_pane, !stopped.is_empty())?,
         warnings: crate::web::settings::keys::warnings(c, ctx, owner)?,
     }))
 }

@@ -1,5 +1,8 @@
 de:
     tracker:
+        import_stopped_html: "%{exchange}: Der Verlauf wird seit dem %{date} nicht importiert. Summen und Positionen pausieren, bis er importiert ist."
+        import_stopped_tile: "Pausiert: Der Verlauf einer Börse ist nicht importiert."
+        positions_paused: "Pausiert, bis der Verlauf jeder Börse importiert ist."
         duplicate_account_html: "%{duplicate} ist dasselbe Exchange-Konto wie %{survivor} und wird deshalb nicht in deine Summen eingerechnet."
         merge_in_settings: "In den Einstellungen zusammenführen"
     settings:

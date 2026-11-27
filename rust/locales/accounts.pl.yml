@@ -1,5 +1,8 @@
 pl:
     tracker:
+        import_stopped_html: "%{exchange}: historia nie importuje się od %{date}. Sumy i pozycje czekają, aż się zaimportuje."
+        import_stopped_tile: "Wstrzymane: historia giełdy się nie zaimportowała."
+        positions_paused: "Wstrzymane, dopóki historia każdej giełdy się nie zaimportuje."
         duplicate_account_html: "%{duplicate} to to samo konto na giełdzie co %{survivor}, więc nie wliczamy go do sum."
         merge_in_settings: "Połącz je w Ustawieniach"
     settings:

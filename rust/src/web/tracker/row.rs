@@ -163,7 +163,28 @@ pub(crate) fn asset_logo(image:Option<String>,color:Option<String>,symbol:String
     Ok(match flag.or(image).filter(|s|!s.trim().is_empty()) {Some(src)=>format!("  <img class=\"asset-logo\" src=\"{}\" alt=\"\" loading=\"lazy\">\n",escape(&src)),None=>format!("  <span class=\"asset-logo\" style=\"background: {}\"></span>\n",escape(&crate::web::colors::pill_color(color.as_deref()).ok_or_else(invalid)?))})
 }
 
-pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&crate::tracker::spellings::Spellings>)->Result<String,WebError>{
+/// How a row draws its venue's mark: whole (a row sent on its own, as a stream) or as a use of its table's `sprite`
+/// (a table repeats one mark per row: ~2 KB each, most of the tracker page).
+#[derive(Clone, Copy)]
+pub enum Icon { Inline, Sprite }
+pub fn icon(name_id:&str,how:Icon)->String {
+    let svg=crate::web::bot::exchange_svg(name_id);
+    match how { Icon::Sprite if !svg.is_empty()=>format!("<svg><use href=\"#exchange-{name_id}\"></use></svg>"), _=>svg.to_string() }
+}
+/// One hidden symbol per venue the table names: the mark's own paths and viewBox, without its `fill="none"`, so the
+/// cell's fill reaches them.
+pub fn sprite<'a>(venues:impl IntoIterator<Item=&'a str>)->String {
+    let mut seen=std::collections::BTreeSet::new();
+    let symbols:String=venues.into_iter().filter(|v|seen.insert(*v)).filter_map(|v| {
+        let svg=crate::web::bot::exchange_svg(v);
+        let open=svg.find('>')?;
+        let view=svg[..open].split("viewBox=\"").nth(1)?.split('"').next()?;
+        Some(format!("<symbol id=\"exchange-{v}\" viewBox=\"{view}\">{}</symbol>",&svg[open+1..svg.rfind("</svg>")?]))
+    }).collect();
+    if symbols.is_empty(){String::new()}else{format!("<svg class=\"tracker-icons\" aria-hidden=\"true\">{symbols}</svg>")}
+}
+
+pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&crate::tracker::spellings::Spellings>,how:Icon)->Result<String,WebError>{
     let user=ctx.user().ok_or_else(invalid)?;
     let absolute=if row.amount.is_negative(){row.amount.neg()}else{row.amount.clone()};
     let counterpart=row.counterpart(c,labels)?;
@@ -202,10 +223,10 @@ pub fn render(c:&Connection,ctx:&Ctx,row:&Row,d:&Denomination,labels:Option<&cra
     let money=if user.hide_balances{String::new()}else{format!("    <td class=\"tracker-row__value\">{}</td>\n    <td class=\"tracker-row__fee\">{}</td>\n",value.as_ref().map(|v|amount(v,&d.currency)).transpose()?.unwrap_or(NO_VALUE.into()),row.fee.as_ref().map(|f|figure(f,row.fee_currency.as_deref().unwrap_or(""))).transpose()?.unwrap_or(NO_VALUE.into()))};
     let bot=row.bot.map(|id|format!("<a href=\"{}\">#{id}</a>",escape(&ctx.path(&format!("/bots/{id}"))))).unwrap_or(NO_VALUE.into());
     let venue=venue(&row.venue);
-    Ok(format!("<tr id=\"account_transaction_{}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all {kind}{}\">\n  <td class=\"text-left tracker-row__when table__when\">\n    {} <small>{}</small>\n  </td>\n  <td class=\"tracker-exchange-icon\">{}</td>\n  <td class=\"text-left\">\n      <span class=\"pill pill--{tone}\">{}</span>\n{action}  </td>\n  <td class=\"text-left\"><span class=\"tracker-row__asset\">{}{}</span></td>\n  {amount_cell}\n  <td class=\"tracker-row__price tracker-row__price--{source}\">\n{price_cell}  </td>\n{money}  <td>\n      {bot}\n  </td>\n</tr>\n",row.id,if linked{" transfer"}else{""},format::table_date(row.at,&user.time_zone),format::table_clock(row.at,&user.time_zone,ctx.locale),crate::web::bot::exchange_svg(&venue),i18n::t(ctx.locale,&format!("tracker.{label}"),&[]),logo(c,row)?,escape(&row.base)))
+    Ok(format!("<tr id=\"account_transaction_{}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all {kind}{}\">\n  <td class=\"text-left tracker-row__when table__when\">\n    {} <small>{}</small>\n  </td>\n  <td class=\"tracker-exchange-icon\">{}</td>\n  <td class=\"text-left\">\n      <span class=\"pill pill--{tone}\">{}</span>\n{action}  </td>\n  <td class=\"text-left\"><span class=\"tracker-row__asset\">{}{}</span></td>\n  {amount_cell}\n  <td class=\"tracker-row__price tracker-row__price--{source}\">\n{price_cell}  </td>\n{money}  <td>\n      {bot}\n  </td>\n</tr>\n",row.id,if linked{" transfer"}else{""},format::table_date(row.at,&user.time_zone),format::table_clock(row.at,&user.time_zone,ctx.locale),icon(&venue,how),i18n::t(ctx.locale,&format!("tracker.{label}"),&[]),logo(c,row)?,escape(&row.base)))
 }
 
-fn venue(class: &str) -> String {
+pub(super) fn venue(class: &str) -> String {
     // ActiveSupport underscore, including acronym boundaries (BinanceUs -> binance_us).
     let word = class.rsplit("::").next().unwrap_or(class);
     let letters: Vec<char> = word.chars().collect();
@@ -219,10 +240,10 @@ fn venue(class: &str) -> String {
 
 /// The history-gap line (Rust only): the venue's button to the import steps, then what was found
 /// (D-GAP-STATES-EVIDENCE) across the header's other columns (`gap::gap_summary`; no money).
-pub fn gap_row(ctx:&Ctx,gap:&crate::tracker::gaps::StoredGap,hidden:bool)->String {
+pub fn gap_row(ctx:&Ctx,gap:&crate::tracker::gaps::StoredGap,hidden:bool,how:Icon)->String {
     let (id,query)=gap_anchor(gap);
     format!("<tr id=\"history_gap_{id}\" class=\"tracker-row\" data-order-filter-target=\"row\" data-order-type=\"all\">\n  <td class=\"text-left tracker-row__when table__when\">\n    <a class=\"rbutton rbutton--small\" data-turbo-frame=\"modal\" href=\"{}\">{}</a>\n  </td>\n  <td class=\"tracker-exchange-icon\">{}</td>\n  <td class=\"text-left\" colspan=\"{}\">{}</td>\n</tr>\n",
-        escape(&ctx.path(&format!("/tracker/history_gap?{query}"))),ctx.t("tracker.history_gap.button"),crate::web::bot::exchange_svg(&crate::tracker::rows::name_id(&gap.kind)),if hidden{4}else{7},super::gap::gap_summary(ctx,gap))
+        escape(&ctx.path(&format!("/tracker/history_gap?{query}"))),ctx.t("tracker.history_gap.button"),icon(&crate::tracker::rows::name_id(&gap.kind),how),if hidden{4}else{7},super::gap::gap_summary(ctx,gap))
 }
 
 /// #710 slice 5: a line's row id suffix and the modal's scope. A number 1's keep its exchange's (the markup as it always
@@ -248,5 +269,21 @@ mod rounding_tests {
             assert_eq!(formatted(&Dec::parse(value).unwrap(), &usd).unwrap(), written, "{value}");
         }
         assert_eq!(plain(&Dec::parse("-0.004").unwrap(), &usd).unwrap(), "$0.00");
+    }
+
+    /// The table draws each venue's mark once: its symbol holds the mark's own paths and viewBox, and a row's cell uses it.
+    #[test]
+    fn a_venue_mark_is_one_symbol_the_rows_use() {
+        for venue in ["alpaca", "binance", "kraken", "kucoin", "mexc", "ibkr"] {
+            let inline = crate::web::bot::exchange_svg(venue);
+            let (root, inner) = (&inline[..inline.find('>').unwrap() + 1], &inline[inline.find('>').unwrap() + 1..inline.rfind("</svg>").unwrap()]);
+            assert!(root.contains("viewBox=\"0 0 24 24\""), "{venue}");
+            assert_eq!(icon(venue, Icon::Inline), inline);
+            assert_eq!(icon(venue, Icon::Sprite), format!("<svg><use href=\"#exchange-{venue}\"></use></svg>"));
+            assert_eq!(sprite(["kraken", venue, venue]).matches(&format!("<symbol id=\"exchange-{venue}\" viewBox=\"0 0 24 24\">{inner}</symbol>")).count(), 1, "{venue}");
+        }
+        assert_eq!(sprite(["kraken", "kraken", "alpaca"]).matches("<symbol ").count(), 2);
+        assert_eq!((icon("", Icon::Sprite), sprite([""; 0])), (String::new(), String::new()));
+        assert!(!sprite(["kraken"]).contains("fill=\"none\""), "a cell's fill reaches the paths");
     }
 }

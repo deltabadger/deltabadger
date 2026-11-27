@@ -84,6 +84,16 @@ pub struct Facts {
     /// symbol → every catalogue asset with it.
     pub catalogue: HashMap<String, Vec<AssetRef>>,
 }
+impl Facts {
+    /// Each list's first listing of each asset, in order: every reader takes the assets `distinct`, so the answers stay
+    /// as they were, and a leg no longer walks a broker's whole quote pool (Alpaca lists every symbol in USD).
+    pub fn dedup(&mut self) {
+        for list in self.live.values_mut().chain(self.stale.values_mut()).chain(self.catalogue.values_mut()) {
+            let mut seen = std::collections::HashSet::new();
+            list.retain(|a| seen.insert(a.id));
+        }
+    }
+}
 
 /// (symbol, coin, venue, last day it holds): main's `prices::ALIASES`, plus Binance's BTG (Bitcoin Gold, not the rank
 /// guess).
@@ -709,5 +719,28 @@ mod tests {
         assert_eq!(holding(&g, &leg(&bare, Side::Base, "BTC", "2025-01-01", Some(&coin_asset(1, "bitcoin", "BTC")))), coin_of("bitcoin"));
         let etf = asset(60, "BTC.ARCX", "BTC", Some("ETF"));
         assert_eq!(holding(&f, &leg(&alpaca, Side::Base, "BTC", "2025-01-01", Some(&etf))), Holding::Security("BTC.ARCX".into()), "recorded as the ETF");
+    }
+
+    /// A broker lists thousands of tickers under one quote (Alpaca: every symbol in USD, one asset), and every leg read
+    /// that pool whole: `dedup` keeps each list's first listing of each asset, in order, and every answer as it was.
+    #[test]
+    fn dedup_keeps_each_assets_first_listing_and_every_answer() {
+        let alpaca = venue(3, "alpaca", true);
+        let (usd, spy, voo) = (asset(1, "usd", "USD", Some("Fiat")), asset(50, "SPY", "SPY", Some("ETF")), asset(51, "VOO", "VOO", Some("ETF")));
+        let mut f = Facts::default();
+        for _ in 0..5_000 { list(&mut f, &alpaca, Side::Quote, "USD", &usd); }
+        for a in [&spy, &voo, &spy, &voo] { list(&mut f, &alpaca, Side::Base, "SPY", a); }
+        f.stale.entry((alpaca.id, "SPY".into())).or_default().extend([voo.clone(), voo.clone()]);
+        for a in [&spy, &spy] { catalogue(&mut f, a); }
+        let legs = [leg(&alpaca, Side::Quote, "USD", "2025-01-01", None), leg(&alpaca, Side::Base, "SPY", "2025-01-01", None),
+                    leg(&alpaca, Side::Fee, "USD", "2025-01-01", None), leg(&alpaca, Side::Base, "SPY", "2025-01-01", Some(&spy))];
+        let before: Vec<Holding> = legs.iter().map(|l| holding(&f, l)).collect();
+        f.dedup();
+        let ids = |v: &Vec<AssetRef>| v.iter().map(|a| a.id).collect::<Vec<_>>();
+        assert_eq!(ids(&f.live[&(alpaca.id, Side::Quote, "USD".to_string())]), [1]);
+        assert_eq!(ids(&f.live[&(alpaca.id, Side::Base, "SPY".to_string())]), [50, 51]);
+        assert_eq!(ids(&f.stale[&(alpaca.id, "SPY".to_string())]), [51]);
+        assert_eq!(ids(&f.catalogue["SPY"]), [50]);
+        assert_eq!(legs.iter().map(|l| holding(&f, l)).collect::<Vec<_>>(), before);
     }
 }

@@ -1,5 +1,8 @@
 bg:
     tracker:
+        import_stopped_html: "%{exchange}: историята не се импортира от %{date}. Сумите и позициите са на пауза, докато не се импортира."
+        import_stopped_tile: "На пауза: историята на борса не е импортирана."
+        positions_paused: "На пауза, докато историята на всяка борса не се импортира."
         duplicate_account_html: "%{duplicate} е същият акаунт в борсата като %{survivor}, затова не влиза в сумите ти."
         merge_in_settings: "Обедини го в Настройки"
     settings:

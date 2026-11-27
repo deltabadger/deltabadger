@@ -1,5 +1,8 @@
 en:
     tracker:
+        import_stopped_html: "%{exchange}: its history hasn't imported since %{date}. Totals and positions are paused until it does."
+        import_stopped_tile: "Paused: an exchange's history hasn't imported."
+        positions_paused: "Paused until every exchange's history imports."
         duplicate_account_html: "%{duplicate} is the same exchange account as %{survivor}, so it is left out of your totals."
         merge_in_settings: "Merge it in Settings"
     settings:

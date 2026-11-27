@@ -1,5 +1,8 @@
 sk:
     tracker:
+        import_stopped_html: "%{exchange}: história sa neimportuje od %{date}. Súčty a pozície sú pozastavené, kým sa neimportuje."
+        import_stopped_tile: "Pozastavené: história burzy sa neimportovala."
+        positions_paused: "Pozastavené, kým sa neimportuje história každej burzy."
         duplicate_account_html: "%{duplicate} je ten istý účet na burze ako %{survivor}, preto sa nezapočítava do tvojich súčtov."
         merge_in_settings: "Zlúčiť v Nastaveniach"
     settings:
