@@ -46,7 +46,7 @@ DIGEST=sha256:$(printf 'ab%.0s' {1..32})
 reset_state() {
   rm -f "$STATE"/*
   echo '[{"databaseId":7,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
-  echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 (1/2)","conclusion":"success"},{"name":"windows-x86_64 (2/2)","conclusion":"success"},{"name":"macos-arm64","conclusion":"success"}]}' > "$STATE/jobs.json"
+  echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 build","conclusion":"success"},{"name":"windows-x86_64 (1/3)","conclusion":"success"},{"name":"windows-x86_64 (2/3)","conclusion":"success"},{"name":"windows-x86_64 (3/3)","conclusion":"success"},{"name":"macos-arm64","conclusion":"success"}]}' > "$STATE/jobs.json"
   echo '[]' > "$STATE/release_runs.json"
   cp "$root/rust/seed/seed_data.json.gz" "$STATE/seed.gz" # the served snapshot is the committed one
 }
@@ -162,7 +162,7 @@ echo '[{"databaseId":7,"event":"push","conclusion":"failure"}]' > "$STATE/rust_r
 reset_state
 echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"macos-arm64","conclusion":"skipped"}]}' > "$STATE/jobs.json"; refused "a skipped platform job" "no rust.yml runs" patch
 echo '[{"databaseId":7,"event":"push","conclusion":"success"}]' > "$STATE/rust_runs.json"
-echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 (1/2)","conclusion":"success"},{"name":"windows-x86_64 (2/2)","conclusion":"success"}]}' > "$STATE/jobs.json"
+echo '{"jobs":[{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 build","conclusion":"success"},{"name":"windows-x86_64 (1/3)","conclusion":"success"},{"name":"windows-x86_64 (2/3)","conclusion":"success"},{"name":"windows-x86_64 (3/3)","conclusion":"success"}]}' > "$STATE/jobs.json"
 refused "a full push run alone (no macOS)" "no rust.yml runs" patch
 # A push run (no macOS) plus a macOS-only run by hand on the same commit. A job its `if` skips shows once under its
 # unexpanded matrix name, as GitHub reports it.
@@ -170,7 +170,7 @@ two_runs() { # <push jobs> <dispatch jobs>
   echo '[{"databaseId":7,"event":"push","conclusion":"success"},{"databaseId":8,"event":"workflow_dispatch","conclusion":"success"}]' > "$STATE/rust_runs.json"
   echo "{\"jobs\":$1}" > "$STATE/jobs_7.json"; echo "{\"jobs\":$2}" > "$STATE/jobs_8.json"
 }
-legs='{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 (1/2)","conclusion":"success"},{"name":"windows-x86_64 (2/2)","conclusion":"success"}'
+legs='{"name":"linux-x86_64","conclusion":"success"},{"name":"linux-arm64","conclusion":"success"},{"name":"windows-x86_64 build","conclusion":"success"},{"name":"windows-x86_64 (1/3)","conclusion":"success"},{"name":"windows-x86_64 (2/3)","conclusion":"success"},{"name":"windows-x86_64 (3/3)","conclusion":"success"}'
 push_ok="[$legs,{\"name\":\"image-amd64\",\"conclusion\":\"success\"}]"
 mac() { echo "[{\"name\":\"macos-arm64\",\"conclusion\":\"$1\"},{\"name\":\"image-\${{ matrix.arch }}\",\"conclusion\":\"skipped\"}]"; }
 two_runs "$push_ok" "$(mac success)"
