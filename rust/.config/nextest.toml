@@ -51,3 +51,14 @@ default-filter = '''binary(image) | binary(entrypoint)
   | binary(rebalance) & (test(=an_unfound_crypto_swap_order_halts_and_its_resolution_never_submits_it_twice) | test(=resolution_with_unbalanced_stopped_allocations_matches_v2_and_completes_the_buy))
   | binary(sync_parity) & test(=v2_and_rust_write_identical_rows_across_the_sync_grid_interop)
   | binary(venue_signing) & test(=ibkr_generated_keys_round_trip_through_v2_openssl)'''
+
+# CI (rust.yml sets NEXTEST_PROFILE=ci): the CI tests that start a real Chrome get one retry (the other Chrome tests are
+# #[ignore]d: serve's, and quiet_revisit_browser in the timing nightly). On a loaded runner Chrome
+# sometimes misses its 20 s start window ("timed out waiting for Chrome's debugging port"), and one such miss dropped a
+# PR from the merge queue for a 35-minute rerun. A retried pass is reported FLAKY in the log; a real failure fails twice.
+# Everything else, and every local run, is as in the default profile.
+[profile.ci]
+
+[[profile.ci.overrides]]
+filter = 'binary(import_busy_browser) | binary(selling_browser)'
+retries = 1
