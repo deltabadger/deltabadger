@@ -1,5 +1,8 @@
 it:
     tracker:
+        import_stopped_html: "%{exchange}: lo storico non si importa dal %{date}. Totali e posizioni sono in pausa finché non viene importato."
+        import_stopped_tile: "In pausa: lo storico di un exchange non è importato."
+        positions_paused: "In pausa finché lo storico di ogni exchange non è importato."
         duplicate_account_html: "%{duplicate} è lo stesso account dell’exchange di %{survivor}, quindi non rientra nei tuoi totali."
         merge_in_settings: "Uniscilo nelle Impostazioni"
     settings:

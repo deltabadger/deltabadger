@@ -253,7 +253,7 @@ pub(super) fn switch(ctx: &Ctx) -> Result<String, WebError> {
 /// tracker/_record. `warm` is the scoped ledger and its figures (none while it warms: the positions pane spins);
 /// `holdings` is the Holdings pane the record opens on (3.0, Rust only).
 #[allow(clippy::too_many_arguments)] // tracker/_record's locals, the history-gap lines above its newest row, and the holdings pane
-pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap], holdings: &str) -> Result<String, WebError> {
+pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option<(&page::Warm, &Summary)>, den: Option<&Denomination>, shown: &Denomination, gaps: &[crate::tracker::gaps::StoredGap], holdings: &str, stopped: bool) -> Result<String, WebError> {
     let hidden = ctx.user().ok_or_else(invalid)?.hide_balances;
     let all = super::window::present(ctx, "all").is_some();
     // `filtered_transactions.by_date`: the window narrows this table (and its Type filter) only, before the limit.
@@ -293,7 +293,8 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option
         format!("        <table class=\"table\">\n          <thead>\n            <tr>\n              <th class=\"text-left\">{}</th>\n              <th class=\"tracker-exchange-icon\"></th>\n              <th class=\"text-left\">{}</th>\n              <th class=\"text-left\">{}</th>\n              {amount}\n              <th>{}</th>\n{money}              <th>{}</th>\n            </tr>\n          </thead>\n          <tbody>\n{body}          </tbody>\n        </table>\n",
             column("date"), column("type"), column("base"), column("price"), column("bot"))
     };
-    let positions_table = if warm.is_none() { "        <div class=\"loader--small\" style=\"position: unset; margin: 2rem auto;\"></div>\n".to_string() } else {
+    let positions_table = if warm.is_none() && stopped { format!("        <p class=\"tracker-empty\">{}</p>\n", ctx.t("tracker.positions_paused")) }
+    else if warm.is_none() { "        <div class=\"loader--small\" style=\"position: unset; margin: 2rem auto;\"></div>\n".to_string() } else {
         let mut body = String::new();
         for r in &position_rows { body.push_str(&position_row(c, ctx, r, shown, hidden)?); }
         let money = if hidden { String::new() } else { format!("                <th>{}</th>\n                <th>{}</th>\n                <th>{}</th>\n                <th></th>\n", column("invested"), column("avg_buy"), column("price")) };
