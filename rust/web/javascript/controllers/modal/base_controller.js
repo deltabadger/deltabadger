@@ -1,5 +1,15 @@
 import { Controller } from "@hotwired/stimulus";
 
+// Where the control that last asked for a modal sat: the card travels in from it and back towards it. Measured on the
+// click, as a dropdown item is hidden (no box) by the time the modal arrives.
+let asked = null
+document.addEventListener("click", (e) => {
+  const el = e.target.closest?.('[data-turbo-frame="modal"]')
+  if (!el) return
+  const r = (e.target.closest("a, button") || el).getBoundingClientRect()
+  asked = r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2, at: Date.now() } : null
+}, true)
+
 // Connects to data-controller="modal--base"
 export default class extends Controller {
   static values = { closeUrl: String }
@@ -10,6 +20,7 @@ export default class extends Controller {
     const opener = document.activeElement?.closest?.("[data-modal-return-focus]")
     if (opener) { this.opener = opener; this.openerId = opener.id }
     this.#open()
+    this.#offsetFromOpener() // after show(): a closed dialog has no box to measure
     // A click whose press began inside the card (a text selection dragged out) lands on the dialog
     // too; only a press that began on the backdrop closes it.
     this.pressBound = (e) => { this.pressedOn = e.target }
@@ -41,8 +52,8 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     if (!frame) return
 
-    // The small modal (.modal) and the sheet card (.sheet, which zooms like it).
-    const card = frame.querySelector('.modal, .sheet')
+    // The small modal's scroller (it zooms with its card) and the sheet card (.sheet, which zooms like it).
+    const card = frame.querySelector('.dialog__vertical-center, .sheet')
     if (card) {
       card.classList.add('modal--closing')
       this.element.classList.remove('dialog--open')
@@ -57,7 +68,7 @@ export default class extends Controller {
       }
 
       card.addEventListener('animationend', close, { once: true })
-      setTimeout(close, 200)
+      setTimeout(close, 300)
     } else {
       this.#closeAndCleanUp()
     }
@@ -67,6 +78,18 @@ export default class extends Controller {
     if (event.target === this.element && this.pressedOn === this.element) {
       this.animateOutCloseAndCleanUp()
     }
+  }
+
+  // The opening control's offset from the card's centre, for the zoom to travel along. The card is only scaled about its
+  // centre right now (its offset is still unset), which leaves that centre where it is.
+  #offsetFromOpener() {
+    const from = asked && Date.now() - asked.at < 5000 ? asked : null
+    asked = null
+    const card = document.getElementById("modal")?.querySelector(".dialog__vertical-center, .sheet")
+    if (!from || !card) return
+    const c = card.getBoundingClientRect()
+    card.style.setProperty("--from-x", `${from.x - (c.left + c.width / 2)}px`)
+    card.style.setProperty("--from-y", `${from.y - (c.top + c.height / 2)}px`)
   }
 
   #open() {

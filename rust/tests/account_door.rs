@@ -563,8 +563,9 @@ async fn the_tracker_venue_step_binds_its_key_form_to_the_picked_account() {
     assert!(trading_tile(&app, &mut b, s.exchange_id, "second-key").await.status < 400);
     let second = identity::accounts_of(c, s.user_id, s.exchange_id).unwrap()[1].0;
     let before = keys(c, &cipher, s.exchange_id);
+    // The venue step draws no Connected tile (#1148); a post that names the account is still bound to it.
     let step = b.get(&app, "/tracker/pick_exchange/new").await;
-    assert!(step.body.contains(&format!("account_id={second}\"")), "a tile for account 2: {}", step.body);
+    assert!(!step.body.contains("account_id="), "no tile picks an account: {}", step.body);
     let exchange = s.exchange_id.to_string();
     let picked = b.send(&app, "POST", &format!("/tracker/pick_exchange?account_id={second}"), Some(&[("exchange_id", exchange.as_str()), ("untargeted", "1")]),
                         common::web::Csrf::Header, &[]).await;

@@ -14,15 +14,27 @@
     border: none
     top: 0
     left: 0
-    backdrop-filter: blur(0)
-    transition: background 0.3s ease, backdrop-filter 0.3s ease
-    &--open
+    // The backdrop: a layer behind the card with a fixed tint and blur, faded in and out by its opacity alone. Opacity runs
+    // on the compositor, as the card's zoom does; a changing blur radius re-blurs the page on every frame on the main
+    // thread, and a busy frame (the sheet arriving) stalled it into a blink. It eases out over at least the card's zoom.
+    &::before
+        content: ""
+        position: fixed
+        inset: 0
+        z-index: -1
+        pointer-events: none
         background: var(--modal-backdrop)
         backdrop-filter: blur(1rem)
-    &--closing
-        background: transparent
-        backdrop-filter: blur(0)
-        transition: background 0.15s ease, backdrop-filter 0.15s ease
+        opacity: 0
+        transition: opacity 0.2s ease-out
+        // Its own layer for as long as the dialog is up, and the card's too (below): a layer that comes and goes beside
+        // a full-screen blur (the card's, when its zoom ends) can drop a frame of the blur on a freshly visited page.
+        will-change: opacity
+    &--open::before
+        opacity: 1
+    &--closing::before
+        opacity: 0
+        transition: opacity 0.125s ease-out
     &::backdrop
         display: none
     &__vertical-center
@@ -48,34 +60,60 @@
 // so the lock has to sit on `html`.
 html:has(#modal dialog[open])
     overflow: hidden
+// The card's scroller zooms, not the card: a card grown past its size would be clipped by the scroller's sides.
 #modal
-    .modal
+    .dialog__vertical-center, .sheet
+        will-change: transform, opacity
+    .dialog__vertical-center
         opacity: 0
     &[complete]
-        .modal
-            animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
+        .dialog__vertical-center
+            animation: modal-travel-in 0.15s linear both, modal-arc-in 0.15s both
     // The settings card zooms in when it is inserted, not on [complete]: visited as a page its frame
     // never completes, and switching sections replaces only the pane inside it, so it zooms once.
     .sheet
-        animation: modal-zoom-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.075) both
+        animation: modal-travel-in 0.15s linear both, modal-arc-in 0.15s both
     .modal--closing
-        animation: modal-zoom-out 0.15s ease-in both !important
+        animation: modal-zoom-out 0.125s ease-in-out both !important
 
-@keyframes modal-zoom-in
+// Opening, the card flies in on an arc: it travels from the control that opened it (--from-x/--from-y, set by
+// modal--base: that control's offset from the card's centre) to its place at a steady pace (modal-travel-in), while its
+// size rises like height (modal-arc-in): to its peak (102%) at 80% of the way, slowing into it, then falling faster into the
+// landing. Two animations on `translate` and `scale`, so each keeps its own pace. Closing, it lifts in place past its
+// size, then travels back towards the control as it goes (ease-out into the lift, ease-in away). Without a control: in
+// place.
+@keyframes modal-travel-in
     from
-        opacity: 0
-        transform: scale(0.7)
+        translate: calc(var(--from-x, 0px) * 0.1) calc(var(--from-y, 0px) * 0.1)
     to
+        translate: 0 0
+
+@keyframes modal-arc-in
+    0%
+        opacity: 0
+        scale: 0.96
+        animation-timing-function: ease-out
+    80%
         opacity: 1
-        transform: scale(1)
+        scale: 1.02
+        animation-timing-function: ease-in
+    100%
+        opacity: 1
+        scale: 1
 
 @keyframes modal-zoom-out
-    from
+    0%
         opacity: 1
-        transform: scale(1)
-    to
+        transform: translate(0, 0) scale(1)
+        animation-timing-function: ease-out
+    40%
+        opacity: 1
+        transform: translate(0, 0) scale(1.04)
+        animation-timing-function: ease-in
+    100%
         opacity: 0
-        transform: scale(0.7)
+        transform: translate(calc(var(--from-x, 0px) * 0.1), calc(var(--from-y, 0px) * 0.1)) scale(0.9)
+
 .modal
     // The side and bottom inset, named once: the footer bleeds back out by exactly this much so
     // its divider runs edge to edge.
@@ -158,33 +196,6 @@ html:has(#modal dialog[open])
                 border-width: 0.5rem
         p
             margin: 0
-    // The settings dialog's ×: a 4rem disc in the corner, level with the title's line.
-    &__close
-        cursor: pointer
-        position: absolute
-        top: 1.5rem
-        right: 1.5rem
-        display: flex
-        align-items: center
-        justify-content: center
-        width: 4rem
-        height: 4rem
-        padding: 0
-        border-radius: 50%
-        z-index: 1
-        background: none // <button>
-        border: none     // <button>
-        svg
-            width: 2.5rem
-            height: 2.5rem
-        path
-            fill: var(--stone)
-        &:focus-visible
-            outline: none !important
-        &:hover
-            background: var(--close-hover)
-            path
-                fill: var(--ink)
     // One line as tall as the ×, so the two sit level; the title stops short of it.
     &__header
         margin-bottom: 1.5rem

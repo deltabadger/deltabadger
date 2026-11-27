@@ -5,6 +5,9 @@
 #   bin/rust-dev
 # PORT (default 3001), STORAGE_DIR (default tmp/rust-dev: the install survives restarts; delete it for a fresh one),
 # CARGO (default cargo) and CARGO_TARGET_DIR (default rust/target) as cargo itself reads them.
+# Every install, on every port and in every worktree, signs in as admin@test.com with the one password in
+# DEV_PASSWORD_FILE (default ~/.config/deltabadger/dev-password): set on each start, so a password manager's one entry
+# for 127.0.0.1 keeps working whichever agent started which port. Never change it from an agent.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$PWD
@@ -43,6 +46,13 @@ serve() {
   server=$!
 }
 echo "rust-dev: http://127.0.0.1:$port (install in $storage)"
+dev_password=${DEV_PASSWORD_FILE:-$HOME/.config/deltabadger/dev-password}
+if [ -s "$dev_password" ] && [ -s "$storage/production.sqlite3" ]; then
+  # A fresh install has no account yet: sign up as admin@test.com with that password, and the next start keeps it.
+  STORAGE_DIR="$storage" DATABASE_PATH="$storage/production.sqlite3" QUEUE_DATABASE_PATH="$storage/production_queue.sqlite3" \
+    SECRET_KEY_BASE="$(cat "$storage/.dev-secret")" "$storage/deltabadger" reset-password admin@test.com --stdin < "$dev_password" \
+    || echo "rust-dev: admin@test.com keeps its password (above: why)"
+fi
 serve
 # ponytail: a 1 s poll (no watcher installed here); watchexec if this ever feels slow.
 stamp=$(mktemp)
