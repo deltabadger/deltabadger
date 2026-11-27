@@ -17,7 +17,7 @@ fn stream(c:&Connection,ctx:&Ctx,owner:i64,ids:&[i64],d:Option<&crate::figures::
     // 2.x reloads WHERE id IN (...) in primary-key order, rather than withdrawal order.
     let mut ids=ids.to_vec();ids.sort_unstable();ids.dedup();
     let labels=match d {Some(_)=>row::labels(c,owner)?,None=>None};
-    for id in ids{let row=Row::load(c,owner,id)?.ok_or_else(invalid)?;out.push_str(&turbo::stream("replace",&format!("account_transaction_{id}"),&match d {Some(d)=>row::render(c,ctx,&row,d,labels.as_ref())?,None=>row::unavailable(id)}));}
+    for id in ids{let row=Row::load(c,owner,id)?.ok_or_else(invalid)?;out.push_str(&turbo::stream("replace",&format!("account_transaction_{id}"),&match d {Some(d)=>row::render(c,ctx,&row,d,labels.as_ref(),row::Icon::Inline)?,None=>row::unavailable(id)}));}
     Ok(out)
 }
 // AccountTransaction save! validations, including required associations, scoped tx_id
