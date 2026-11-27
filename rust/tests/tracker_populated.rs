@@ -171,6 +171,8 @@ async fn populated_regions_match_v2() {
     names.sort();
     assert_eq!(names.len(), 104, "the populated grid");
     let mut failures = vec![];
+    // Pages whose transactions table drew its marks from the sprite (the listed 3.0 marks: tabs_3_0).
+    let mut sprites = 0;
     for name in names {
         if !selected.is_empty() && !selected.split(',').any(|s| s == name) { continue; }
         let source = Path::new(&root).join(&name);
@@ -246,7 +248,8 @@ async fn populated_regions_match_v2() {
             let end = start + v2_body[start..].find("</tr>\n\n").unwrap() + 7;
             v2_body.replace_range(start..end, "");
         }
-        let ours = grid::masked(&menu_lists_connected(&name, &answer.body), Some(&app), Some(&token));
+        sprites += usize::from(answer.body.contains("<svg class=\"tracker-icons\"") && answer.body.contains("<use href=\"#exchange-"));
+        let ours = grid::masked(&menu_lists_connected(&name, &tabs::ours_with_inline_marks(&answer.body).unwrap_or_else(|e| panic!("{name}: {e}"))), Some(&app), Some(&token));
         let theirs = grid::masked(&tabs::tracker_page(&withheld_page(&name, &v2_body)).unwrap_or_else(|e| panic!("{name}: {e}")), None, None);
         let (ours, theirs) = if name == "populated_unpriced" { unpriced_card(&name, &ours, &theirs) } else { (ours, theirs) };
         if ours != theirs {
@@ -255,6 +258,8 @@ async fn populated_regions_match_v2() {
             failures.push(name.clone());
         }
     }
+    // A run of selected cases may hold no transactions table; the whole grid must.
+    assert!(sprites > 0 || !selected.is_empty(), "no recorded page drew its marks from the sprite: the 3.0 marks transform went untested");
     assert!(failures.is_empty(), "{} pages differ (rust/expected pairs written beside the grid):\n{}", failures.len(), failures.join("\n"));
 }
 

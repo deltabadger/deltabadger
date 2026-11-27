@@ -285,12 +285,16 @@ pub fn record(c: &Connection, ctx: &Ctx, owner: i64, scope: &Scope, warm: Option
     let tx_table = if rows.is_empty() && gaps.is_empty() { format!("        <p class=\"tracker-empty\">{}</p>\n", ctx.t("tracker.no_results")) } else {
         let mut body = String::new();
         // The history-gap lines first: an action about today's holdings, above the newest row.
-        for gap in gaps { body.push_str(&format!("              {}\n", super::row::gap_row(ctx, gap, hidden))); }
+        for gap in gaps { body.push_str(&format!("              {}\n", super::row::gap_row(ctx, gap, hidden, super::row::Icon::Sprite))); }
         let labels = match den { Some(_) if !rows.is_empty() => super::row::labels(c, owner)?, _ => None };
-        for row in &rows { body.push_str(&format!("              {}\n", match den { Some(den) => super::row::render(c, ctx, row, den, labels.as_ref())?, None => super::row::unavailable(row.id) })); }
+        for row in &rows { body.push_str(&format!("              {}\n", match den { Some(den) => super::row::render(c, ctx, row, den, labels.as_ref(), super::row::Icon::Sprite)?, None => super::row::unavailable(row.id) })); }
         let amount = if hidden { String::new() } else { format!("<th>{}</th>", column("amount")) };
         let money = if hidden { String::new() } else { format!("                <th>{} <small>{}</small></th>\n                <th>{}</th>\n", column("quote_amount"), escape(den.map_or("$", |d| match d.currency.as_str() { "USD" => "$", "EUR" => "€", "GBP" => "£", "CHF" => "Fr.", "PLN" => "zł", other => other })), column("fee")) };
-        format!("        <table class=\"table\">\n          <thead>\n            <tr>\n              <th class=\"text-left\">{}</th>\n              <th class=\"tracker-exchange-icon\"></th>\n              <th class=\"text-left\">{}</th>\n              <th class=\"text-left\">{}</th>\n              {amount}\n              <th>{}</th>\n{money}              <th>{}</th>\n            </tr>\n          </thead>\n          <tbody>\n{body}          </tbody>\n        </table>\n",
+        // Each venue's mark once, above the table its rows use it in.
+        // A row with no display rate is drawn without its mark (`unavailable`): only the gap lines' venues then.
+        let venues: Vec<String> = gaps.iter().map(|g| crate::tracker::rows::name_id(&g.kind)).chain(rows.iter().filter(|_| den.is_some()).map(|r| super::row::venue(&r.venue))).collect();
+        let icons = super::row::sprite(venues.iter().map(String::as_str));
+        format!("{icons}        <table class=\"table\">\n          <thead>\n            <tr>\n              <th class=\"text-left\">{}</th>\n              <th class=\"tracker-exchange-icon\"></th>\n              <th class=\"text-left\">{}</th>\n              <th class=\"text-left\">{}</th>\n              {amount}\n              <th>{}</th>\n{money}              <th>{}</th>\n            </tr>\n          </thead>\n          <tbody>\n{body}          </tbody>\n        </table>\n",
             column("date"), column("type"), column("base"), column("price"), column("bot"))
     };
     let positions_table = if warm.is_none() { "        <div class=\"loader--small\" style=\"position: unset; margin: 2rem auto;\"></div>\n".to_string() } else {

@@ -4,6 +4,8 @@
 //!   (no "Show more"), each row carrying its class for the pane's All / Crypto / Stocks / Cash filter;
 //! - the venue switch loads into the `tracker_scope` frame, which wraps the chart, the tiles and the record;
 //! - the bot list's status filter loads into the `bots_scope` frame around the tiles, and the merge bar is always there.
+//! - the transactions table draws each venue's mark once, as a hidden sprite above it, and each row `<use>`s it
+//!   (`ours_with_inline_marks` puts each mark back from the sprite this crate served, so a broken symbol is a diff).
 //!
 //! Every step finds its anchor or fails, so a change to 2.x's markup is a failure here, never a silent pass.
 use deltabadger::web::{i18n, tracker::record};
@@ -174,5 +176,38 @@ pub fn bots_page(page: &str) -> Result<String, String> {
     };
     out.insert_str(tiles_end, &format!("\n</turbo-frame>{bar}"));
     out.insert_str(tiles, "<turbo-frame id=\"bots_scope\" class=\"scope-frame\" target=\"_top\" data-turbo-action=\"advance\">\n  ");
+    Ok(out)
+}
+
+/// This crate's tracker page with its transactions sprite undone: each row's `<svg><use href="#exchange-x"></use></svg>`
+/// becomes the venue's whole mark again, its paths taken from the sprite the page served (its wrapper from the mark
+/// itself), and the sprite goes. A use with no symbol, or a symbol whose viewBox is not its mark's, fails.
+pub fn ours_with_inline_marks(page: &str) -> Result<String, String> {
+    let open = "<svg class=\"tracker-icons\" aria-hidden=\"true\">";
+    let Some(start) = page.find(open) else {
+        return if page.contains("<use href=\"#exchange-") { Err("3.0 marks: a use with no sprite".into()) } else { Ok(page.to_string()) };
+    };
+    let end = find(page, "</svg>", start)? + 6;
+    if page[end..].contains(open) { return Err("3.0 marks: two sprites".into()); }
+    let mut symbols = std::collections::HashMap::new();
+    let mut rest = &page[start + open.len()..end - 6];
+    while let Some(at) = rest.find("<symbol id=\"exchange-") {
+        let head_end = find(rest, ">", at)?;
+        let head = &rest[at..head_end];
+        let venue = head["<symbol id=\"exchange-".len()..].split('"').next().ok_or("3.0 marks: symbol id")?;
+        let view = head.split("viewBox=\"").nth(1).and_then(|v| v.split('"').next()).ok_or("3.0 marks: symbol viewBox")?;
+        let close = find(rest, "</symbol>", head_end)?;
+        symbols.insert(venue.to_string(), (view.to_string(), rest[head_end + 1..close].to_string()));
+        rest = &rest[close + 9..];
+    }
+    let mut out = format!("{}{}", &page[..start], &page[end..]);
+    for (venue, (view, inner)) in &symbols {
+        let mark = deltabadger::web::bot::exchange_svg(venue);
+        let root = &mark[..mark.find('>').ok_or("3.0 marks: mark root")? + 1];
+        if !root.contains(&format!("viewBox=\"{view}\"")) { return Err(format!("3.0 marks: {venue}'s symbol viewBox {view}")); }
+        let tail = &mark[mark.rfind("</svg>").ok_or("3.0 marks: mark end")?..];
+        out = out.replace(&format!("<svg><use href=\"#exchange-{venue}\"></use></svg>"), &format!("{root}{inner}{tail}"));
+    }
+    if out.contains("<use href=\"#exchange-") { return Err("3.0 marks: a use with no symbol".into()); }
     Ok(out)
 }

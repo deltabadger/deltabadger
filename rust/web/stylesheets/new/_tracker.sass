@@ -363,6 +363,9 @@
     padding: 4rem
     color: var(--concrete)
 
+.tracker-icons
+    display: none
+
 .tracker-exchange-icon
     width: 5rem
     max-width: 5rem
@@ -372,6 +375,8 @@
         height: 2rem
         min-width: 2rem
         min-height: 2rem
+        // A row's mark is a <use> of the table's sprite: its paths inherit this, out of reach of `*`.
+        fill: var(--concrete)
         *
             fill: var(--concrete)
         display: block
