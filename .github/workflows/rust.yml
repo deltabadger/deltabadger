@@ -178,12 +178,12 @@ jobs:
           sampler=$!
           status=0
           [ -z "$PART" ] || args+=(--partition "count:$PART")
-          cargo nextest run --locked --no-fail-fast --lib --bins "${args[@]}" || status=$?
+          cargo nextest run --locked ${{ github.event_name == 'merge_group' && '--fail-fast' || '--no-fail-fast' }} --lib --bins "${args[@]}" || status=$?
           kill "$sampler" || true
           echo "least free KB during build and run: $(awk '{print $3}' "$dflog" | sort -n | head -1)"
           exit "$status"
-      # In the merge queue, one failed job fails the gate: cancel the rest of the run so the queue drops the PR now,
-      # not after the slowest Windows part.
+      # In the merge queue, one failed job fails the gate: the job stops at its first failure (--fail-fast above, after
+      # any retry) and cancels the rest of the run, so the queue drops the PR now, not after the slowest Windows part.
       - name: Fail the merge queue early
         if: failure() && github.event_name == 'merge_group'
         env:
@@ -251,9 +251,9 @@ jobs:
           CARGO_PROFILE_DEV_DEBUG: 'false'
           CARGO_PROFILE_DEV_STRIP: debuginfo
         # Only the profile's binaries are built (nextest builds every target it is given before it filters).
-        run: cargo nextest run --locked --no-fail-fast --profile image --test image --test entrypoint --test account_identity --test handover --test mcp --test mcp_control_races --test web_actions --test mcp_reads --test oauth --test rebalance --test sync_parity --test venue_signing
-      # In the merge queue, one failed job fails the gate: cancel the rest of the run so the queue drops the PR now,
-      # not after the slowest Windows part.
+        run: cargo nextest run --locked ${{ github.event_name == 'merge_group' && '--fail-fast' || '--no-fail-fast' }} --profile image --test image --test entrypoint --test account_identity --test handover --test mcp --test mcp_control_races --test web_actions --test mcp_reads --test oauth --test rebalance --test sync_parity --test venue_signing
+      # In the merge queue, one failed job fails the gate: the job stops at its first failure (--fail-fast above, after
+      # any retry) and cancels the rest of the run, so the queue drops the PR now, not after the slowest Windows part.
       - name: Fail the merge queue early
         if: failure() && github.event_name == 'merge_group'
         env:
@@ -392,9 +392,9 @@ jobs:
       # every test lands in exactly one partition, and rust/.config/nextest.toml applies as it does locally.
       - name: Test the full Rust suite
         working-directory: rust
-        run: cargo nextest run --locked --no-fail-fast --partition count:${{ matrix.partition }}/4
-      # In the merge queue, one failed job fails the gate: cancel the rest of the run so the queue drops the PR now,
-      # not after the slowest Windows part.
+        run: cargo nextest run --locked ${{ github.event_name == 'merge_group' && '--fail-fast' || '--no-fail-fast' }} --partition count:${{ matrix.partition }}/4
+      # In the merge queue, one failed job fails the gate: the job stops at its first failure (--fail-fast above, after
+      # any retry) and cancels the rest of the run, so the queue drops the PR now, not after the slowest Windows part.
       - name: Fail the merge queue early
         if: failure() && github.event_name == 'merge_group'
         env:
